@@ -263,9 +263,6 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	
 	// Get incoming edges
 	incomingEdges := e.getIncomingEdges(node)
-	if len(incomingEdges) == 0 {
-		return fmt.Errorf("join node %s has no incoming edges", node.Name)
-	}
 	
 	// Count tokens at this join node
 	tokensAtJoin := 0
@@ -275,9 +272,11 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 		}
 	}
 	
-	// Not ready yet: need tokens from all incoming edges
+	// Wait until all incoming edges have tokens
 	if tokensAtJoin < len(incomingEdges) {
-		return nil // Skip, wait for more tokens
+		// Not ready yet - barrier synchronization requires ALL incoming tokens.
+		// Returns nil (no-op) until all tokens arrive. Deadlock detection handled separately (Task 11).
+		return nil
 	}
 	
 	// Ready: collect all join tokens and remaining tokens

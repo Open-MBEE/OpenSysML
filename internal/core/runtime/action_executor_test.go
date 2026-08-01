@@ -518,3 +518,109 @@ func TestActionExecutor_JoinNode(t *testing.T) {
 		t.Errorf("expected result=3, got %v", result)
 	}
 }
+
+func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	task1 := &ast.ActionExecutionNode{
+		Name:       "task1",
+		Expression: &ast.LiteralInteger{Value: "1"},
+	}
+	task2 := &ast.ActionExecutionNode{
+		Name:       "task2",
+		Expression: &ast.LiteralInteger{Value: "2"},
+	}
+	task3 := &ast.ActionExecutionNode{
+		Name:       "task3",
+		Expression: &ast.LiteralInteger{Value: "3"},
+	}
+	join := &ast.JoinNode{Name: "merge"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Build: fork → [task1, task2, task3] → join → final
+	actionSym := &symbols.Symbol{
+		Name: "JoinAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "JoinAction"},
+			Members: []ast.Node{
+				initial, fork, task1, task2, task3, join, final,
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task3"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task3"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}}},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // start → fork
+	exec.stepToken(0) // fork → [task1, task2, task3]
+	
+	// Step only 2 of 3 tokens to join
+	exec.stepToken(0) // task1 → join
+	exec.stepToken(1) // task2 → join
+	
+	// Now 2 tokens at join, 1 still at task3
+	tokensAtJoin := 0
+	for _, tok := range exec.tokens {
+		if _, ok := tok.Location.(*ast.JoinNode); ok {
+			tokensAtJoin++
+		}
+	}
+	if tokensAtJoin != 2 {
+		t.Fatalf("expected 2 tokens at join before last arrives, got %d", tokensAtJoin)
+	}
+	
+	// Step join (should wait - return nil, no-op)
+	err = exec.stepToken(0) // Steps first token at join
+	if err != nil {
+		t.Fatalf("join should wait silently, got error: %v", err)
+	}
+	
+	// Verify join did NOT fire (still 3 tokens)
+	if len(exec.tokens) != 3 {
+		t.Errorf("expected 3 tokens (join waiting), got %d", len(exec.tokens))
+	}
+	
+	// Step 3rd token to join
+	exec.stepToken(2) // task3 → join
+	
+	// Now all 3 tokens at join
+	tokensAtJoin = 0
+	for _, tok := range exec.tokens {
+		if _, ok := tok.Location.(*ast.JoinNode); ok {
+			tokensAtJoin++
+		}
+	}
+	if tokensAtJoin != 3 {
+		t.Fatalf("expected 3 tokens at join after all arrive, got %d", tokensAtJoin)
+	}
+	
+	// Step join again (should fire: 3 → 1)
+	err = exec.stepToken(0)
+	if err != nil {
+		t.Fatalf("join should fire, got error: %v", err)
+	}
+	
+	if len(exec.tokens) != 1 {
+		t.Errorf("expected 1 token after all arrived, got %d", len(exec.tokens))
+	}
+	
+	// Token should be at final node
+	if exec.tokens[0].Location != final {
+		t.Error("expected token at final node after join fires")
+	}
+}
