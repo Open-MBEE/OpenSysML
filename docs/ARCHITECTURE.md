@@ -199,9 +199,43 @@ Parse + model + **execute** all behavioral bodies:
 - **Dispatcher:** Lookahead detects specialized vs generic bodies (e.g., `return` → calc, generic → fallback)
 - **Status:** All Phase C parsers complete. Calc/constraint/requirement **executable via runtime**. Action/state **execution in Tier 5**.
 
-### Tier 5 — Behavioral Interpreter ⏳ (Future)
+### Tier 5 — Behavioral Interpreter ✅ COMPLETE
 
-Token-flow execution for actions (Petri-net-like), event-driven state machine stepping, deterministic scheduling.
+**Package:** `internal/core/runtime`  
+**Status:** Action executor + state executor fully implemented with REPL debugging commands
+
+**Architecture:**
+
+1. **ActionExecutor** — Petri-net token-flow execution
+   - Token-based control flow (InitialNode → ActionExecutionNode → FinalNode)
+   - Fork/Join for parallelism, Decision/Merge for branching
+   - ObjectFlow for pin-to-pin data routing
+   - Deadlock detection via progress tracking
+   - APIs: `Step()`, `RunToCompletion()`, `Tokens()`, `SetBreakpoint()`
+
+2. **StateExecutor** — Event-driven state machine execution
+   - TimeEvent scheduling with priority queue
+   - ChangeEvent condition polling
+   - Guard evaluation for transitions
+   - Hierarchical states with LCA-based entry/exit propagation
+   - APIs: `ProcessNextEvent()`, `CurrentState()`, `EventQueue()`, `StateData()`
+
+3. **Context Integration** — Public runtime APIs
+   - `ExecuteAction(symbol)` — Run action to completion, return results
+   - `ExecuteState(symbol)` — Run state machine until final/suspended
+   - `CreateActionExecutor(symbol)` — Create executor for debugging
+   - `CreateStateExecutor(symbol)` — Create executor for debugging
+
+**Implementation:**
+- `executor_common.go` — Token, Event, EventQueue, ExecutionState
+- `action_executor.go` (699 lines) — Token-flow engine with 7 node types
+- `state_executor.go` (545 lines) — Event-driven state machine
+- `context.go` — Public Execute/Create APIs
+
+**Testing:**
+- 116 total tests (35 action, 13 state, 5 context integration)
+- Integration tests: traffic light state machine, parallel processing, combined action+state
+- All tests passing
 
 ### Tier 6 — Analysis & Verification Drivers ⏳ (Future)
 
@@ -235,12 +269,31 @@ Token-flow execution for actions (Petri-net-like), event-driven state machine st
 - `%constraint <name>` — Evaluate constraint, check assert/assume satisfaction
 - `%requirement <name>` — Evaluate requirement, validate subject/require/actor conditions
 
+**Action debugging:**
+- `%action <name>` — Start debugging action execution
+- `%step` — Advance all tokens one step
+- `%continue` — Run action to completion
+- `%tokens` — Show active tokens with location + data
+- `%break <nodeName>` — Set breakpoint on node
+
+**State machine debugging:**
+- `%state <name>` — Start debugging state machine
+- `%events` — Show event queue length
+- `%current` — Show current state, stack, stateData, time
+- `%advance` — Process next event
+- `%stop` — Stop debugging session
+
 ### Implementation
 
-- **Session:** Manages document + runtime context + instances
+- **Session:** Manages document + runtime context + instances + debugging sessions
 - **getOrCreateRuntime():** Lazy init, builds index from current document
-- **Runtime commands wire to:** `runtime.Context.Instantiate()`, `runtime.Context.Eval()`, `runtime.Context.InvokeCalc()`, `runtime.Context.EvaluateConstraint()`, `runtime.Context.EvaluateRequirement()`
+- **Runtime commands wire to:** 
+  - `runtime.Context.Instantiate()`, `runtime.Context.Eval()`, `runtime.Context.InvokeCalc()`
+  - `runtime.Context.EvaluateConstraint()`, `runtime.Context.EvaluateRequirement()`
+  - `runtime.Context.ExecuteAction()`, `runtime.Context.ExecuteState()`
+  - `runtime.Context.CreateActionExecutor()`, `runtime.Context.CreateStateExecutor()`
 - **Argument parsing:** `%calc` parses literal args via wrapper parsing (`part { attribute arg = <expr>; }`) + Membership unwrapping
+- **Debugging sessions:** Session tracks active ActionExecutor/StateExecutor for step-by-step control
 
 ---
 
@@ -285,11 +338,12 @@ Token-flow execution for actions (Petri-net-like), event-driven state machine st
 | Workspace/reindex/file watching | ✅ Complete |
 | Behavioral parser (Phase C1-5: all behavioral bodies) | ✅ Complete |
 | **Calc invocation & constraint evaluation** | ✅ **Complete** |
+| **Action execution engine (Tier 5)** | ✅ **Complete** |
+| **State machine runtime (Tier 5)** | ✅ **Complete** |
+| **REPL debugging commands** | ✅ **Complete** |
 | REPL implementation | ✅ Complete |
 | Standard library bundling | 🚧 In progress |
 | LSP server implementation | ⏳ Planned |
-| Action execution engine (Tier 5) | 🔮 Future |
-| State machine runtime (Tier 5) | 🔮 Future |
 
 ---
 

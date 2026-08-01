@@ -55,6 +55,34 @@ sysml> %constraint ValidSpeed
 ✓ Constraint ValidSpeed passed
 ```
 
+**Action & state debugging:**
+```bash
+sysml> %action MyWorkflow
+Action: MyWorkflow
+Tokens: 1
+State: Ready
+
+sysml> %step
+Tokens: 3  (fork created parallel paths)
+
+sysml> %tokens
+Token 1: processA { input: 100 }
+Token 2: processB { input: 100 }
+Token 3: processC { input: 100 }
+
+sysml> %continue
+✓ Completed
+Result: 360
+
+sysml> %state TrafficLight
+State machine: TrafficLight
+Current: red
+Time: 0.0s
+
+sysml> %advance
+Current: green (Time: 30.0s)
+```
+
 **See [examples/repl-behavioral-demo.sysml](examples/repl-behavioral-demo.sysml) for comprehensive demos.**
 
 ---
@@ -88,13 +116,14 @@ sysml> %constraint ValidSpeed
 | Workspace/reindex/file watching | ✅ Complete |
 | Behavioral parser (Phase C1-5: all behavioral bodies) | ✅ Complete |
 | **Calc invocation, constraint & requirement evaluation** | ✅ **Complete** |
-| **REPL commands (%calc, %constraint, %requirement)** | ✅ **Complete** |
+| **Action execution engine (Tier 5)** | ✅ **Complete** |
+| **State machine runtime (Tier 5)** | ✅ **Complete** |
+| **REPL debugging commands** | ✅ **Complete** |
 | Standard library bundling & caching | 🚧 In progress |
 | LSP server implementation | 🚧 In progress |
-| Action execution engine (Tier 5) | 🔮 Future |
-| State machine runtime (Tier 5) | 🔮 Future |
 
 **Current commit:** All tests pass (`go test ./...`), builds clean (`go build ./...`).
+**Test coverage:** 116 tests covering parsers, semantics, runtime (actions, states, instances).
 
 ## Architecture
 

@@ -308,7 +308,7 @@ diagnostics := passes.Analyze(ctx, reg, "example.sysml", root)
 
 ### `internal/core/runtime`
 
-Execution runtime (Tiers 1-3).
+Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 
 **Key Types:**
 
@@ -316,13 +316,11 @@ Execution runtime (Tiers 1-3).
 
 - **`Value`** — Runtime value
   - `Kind ValueKind` — Type tag
-  - `Int int64`, `Real float64`, `Bool bool`, `Str string`
-  - `Inst *Instance` — Instance reference
-  - `Seq []Value` — Sequence
-  - `Set map[Value]bool` — Set
+  - `Const semantics.Value` — Integer/real/bool (for ValConst)
+  - `Str string`, `Instance int64`, `Sequence *Sequence`, `Set *Set`
 
 - **`ValueKind`** — Enum
-  - `ValConst` — Integer/real/bool (discriminator in Value)
+  - `ValConst` — Integer/real/bool (stored in Const field)
   - `ValNull`, `ValString`, `ValInstance`, `ValSequence`, `ValSet`
 
 **Instance Model:**
@@ -342,6 +340,49 @@ Execution runtime (Tiers 1-3).
   - `InvokeCalc(sym *symbols.Symbol, args []Value, scope *symbols.Scope) (Value, error)` — Invoke calculation
   - `EvaluateConstraint(sym *symbols.Symbol, scope *symbols.Scope) (bool, error)` — Evaluate constraint
   - `EvaluateRequirement(sym *symbols.Symbol, scope *symbols.Scope) (bool, error)` — Evaluate requirement
+  - **`ExecuteAction(sym *symbols.Symbol) (map[string]Value, error)`** — Execute action to completion
+  - **`ExecuteState(sym *symbols.Symbol) (map[string]Value, error)`** — Execute state machine until final/suspended
+  - **`CreateActionExecutor(sym *symbols.Symbol) (*ActionExecutor, error)`** — Create action executor for debugging
+  - **`CreateStateExecutor(sym *symbols.Symbol) (*StateExecutor, error)`** — Create state executor for debugging
+
+**Behavioral Execution (Tier 5):**
+
+- **`Token`** — Control/data token for action execution
+  - `ID int64` — Unique token ID
+  - `Location ast.Node` — Current node (InitialNode, ActionExecutionNode, etc.)
+  - `Data map[string]Value` — Token data (pin values)
+
+- **`ActionExecutor`** — Petri-net token-flow execution engine
+  - `Step() error` — Advance all tokens one step
+  - `RunToCompletion() error` — Execute until StateCompleted (max 10k steps)
+  - `Tokens() []Token` — Get active tokens (copy)
+  - `State() ExecutionState` — Current execution state (Ready/Running/Completed/Suspended)
+  - `Results() map[string]Value` — Get results after completion
+  - `SetBreakpoint(nodeName string)` — Set breakpoint on node
+  - `ClearBreakpoints()` — Clear all breakpoints
+  - `ActionSymbol() *symbols.Symbol` — Get action symbol
+
+- **`StateExecutor`** — Event-driven state machine execution
+  - `ProcessNextEvent() error` — Process next event from queue
+  - `CurrentState() ast.Node` — Get current StateNode
+  - `StateStack() []*ast.StateNode` — Get active configuration (hierarchical states)
+  - `StateData() map[string]Value` — Get state machine variables
+  - `EventQueue() *EventQueue` — Get event queue
+  - `CurrentTime() float64` — Get simulation time
+  - `State() ExecutionState` — Get execution state
+  - `StateMachineSymbol() *symbols.Symbol` — Get state machine symbol
+
+- **`ExecutionState`** — Enum
+  - `StateReady` — Initialized, not started
+  - `StateRunning` — Executing
+  - `StateCompleted` — Finished (final node/state reached)
+  - `StateSuspended` — Paused (waiting for events)
+
+- **`Event`** — State machine event
+  - `ID int64` — Unique event ID
+  - `Type EventType` — Time/Change/Accept/Call
+  - `Timestamp float64` — Event timestamp (for TimeEvent)
+  - `Payload map[string]Value` — Event data
 
 **Built-in Functions:**
 
@@ -353,10 +394,45 @@ Registered KerML builtins:
 - String: `+` (concat), `size`, `substring`
 
 **Usage:**
+
+Tier 1-3 (Instances & Expressions):
 ```go
-ctx := runtime.New(model)
+ctx := runtime.NewContext(model, resolver, 100000)
 inst, _ := ctx.Instantiate(wheelSym)
 val, _ := ctx.GetSlot(inst, diameterSym)
+result, _ := ctx.InvokeCalc(addSym, []Value{v1, v2}, scope)
+```
+
+Tier 5 (Actions):
+```go
+// Execute action to completion
+results, err := ctx.ExecuteAction(myActionSym)
+if err != nil { /* handle error */ }
+result := results["result"]
+
+// Or debug step-by-step
+exec, _ := ctx.CreateActionExecutor(myActionSym)
+exec.Initialize()
+for exec.State() != StateCompleted {
+    exec.Step()
+    tokens := exec.Tokens()
+    // inspect tokens
+}
+```
+
+Tier 5 (State Machines):
+```go
+// Execute state machine
+stateData, err := ctx.ExecuteState(stateMachineSym)
+if err != nil { /* handle error */ }
+
+// Or debug with events
+exec, _ := ctx.CreateStateExecutor(stateMachineSym)
+exec.Initialize()
+for exec.State() != StateCompleted {
+    exec.ProcessNextEvent()
+    fmt.Printf("State: %s, Time: %f\n", exec.CurrentState(), exec.CurrentTime())
+}
 ```
 
 ---
