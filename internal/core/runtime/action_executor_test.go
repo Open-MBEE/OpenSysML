@@ -904,3 +904,206 @@ func TestActionExecutor_MergeNode_SingleParent(t *testing.T) {
 		t.Error("token should pass through merge to final")
 	}
 }
+
+func TestActionExecutor_DecisionNode(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → decision → [pathA (if x>10), pathB (if x<=10)] → final
+	initial := &ast.InitialNode{Name: "start"}
+	decision := &ast.DecisionNode{Name: "check"}
+	pathA := &ast.ActionExecutionNode{
+		Name:       "pathA",
+		Expression: &ast.LiteralString{Value: "A"},
+	}
+	pathB := &ast.ActionExecutionNode{
+		Name:       "pathB",
+		Expression: &ast.LiteralString{Value: "B"},
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Guards: x > 10 and x <= 10
+	guardA := &ast.OperatorExpr{
+		Operator: ast.OpGt,
+		Operands: []ast.Node{
+			&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "x"}}}},
+			&ast.LiteralInteger{Value: "10"},
+		},
+	}
+	guardB := &ast.OperatorExpr{
+		Operator: ast.OpLe,
+		Operands: []ast.Node{
+			&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "x"}}}},
+			&ast.LiteralInteger{Value: "10"},
+		},
+	}
+	
+	action := &symbols.Symbol{
+		Name: "DecisionAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "DecisionAction"},
+			Members: []ast.Node{
+				initial, decision, pathA, pathB, final,
+				// initial → decision
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+				},
+				// decision → pathA (guarded)
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathA"}}},
+					Guard:  guardA,
+				},
+				// decision → pathB (guarded)
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathB"}}},
+					Guard:  guardB,
+				},
+				// paths → final
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathA"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathB"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	// Test 1: x=15 → should take pathA
+	t.Run("x=15_takes_pathA", func(t *testing.T) {
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		
+		// Set x=15 in token data
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 15},
+		}
+		
+		// Step: initial → decision
+		exec.stepToken(0)
+		if exec.tokens[0].Location != decision {
+			t.Fatal("token should be at decision node")
+		}
+		
+		// Step: decision → pathA (x>10 is true)
+		err = exec.stepToken(0)
+		if err != nil {
+			t.Fatalf("step decision: %v", err)
+		}
+		
+		if exec.tokens[0].Location != pathA {
+			t.Errorf("expected token at pathA, got %T", exec.tokens[0].Location)
+		}
+	})
+	
+	// Test 2: x=5 → should take pathB
+	t.Run("x=5_takes_pathB", func(t *testing.T) {
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		
+		// Set x=5 in token data
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 5},
+		}
+		
+		// Step: initial → decision
+		exec.stepToken(0)
+		if exec.tokens[0].Location != decision {
+			t.Fatal("token should be at decision node")
+		}
+		
+		// Step: decision → pathB (x<=10 is true)
+		err = exec.stepToken(0)
+		if err != nil {
+			t.Fatalf("step decision: %v", err)
+		}
+		
+		if exec.tokens[0].Location != pathB {
+			t.Errorf("expected token at pathB, got %T", exec.tokens[0].Location)
+		}
+	})
+	
+	// Test 3: No guard matches → error
+	t.Run("no_guard_matches", func(t *testing.T) {
+		// Build decision with x>100 and x<0 guards (impossible for x=50)
+		guardHigh := &ast.OperatorExpr{
+			Operator: ast.OpGt,
+			Operands: []ast.Node{
+				&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "x"}}}},
+				&ast.LiteralInteger{Value: "100"},
+			},
+		}
+		guardLow := &ast.OperatorExpr{
+			Operator: ast.OpLt,
+			Operands: []ast.Node{
+				&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "x"}}}},
+				&ast.LiteralInteger{Value: "0"},
+			},
+		}
+		
+		strictAction := &symbols.Symbol{
+			Name: "StrictDecision",
+			Kind: symbols.SymbolActionUsage,
+			Decl: &ast.Usage{
+				Kind:    ast.UsageAction,
+				Ident:   ast.Identification{Name: "StrictDecision"},
+				Members: []ast.Node{
+					initial, decision, pathA, pathB,
+					&ast.SuccessionEdge{
+						Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+						Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+					},
+					&ast.ControlFlowEdge{
+						Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+						Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathA"}}},
+						Guard:  guardHigh,
+					},
+					&ast.ControlFlowEdge{
+						Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+						Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathB"}}},
+						Guard:  guardLow,
+					},
+				},
+			},
+		}
+		
+		exec, err := newActionExecutor(ctx, strictAction)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 50},
+		}
+		
+		exec.stepToken(0) // initial → decision
+		
+		// Step decision (no guard matches)
+		err = exec.stepToken(0)
+		if err == nil {
+			t.Fatal("expected error when no guard matches")
+		}
+		
+		if err.Error() != "decision node check: no true guard" {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}

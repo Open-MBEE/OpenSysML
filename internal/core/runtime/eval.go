@@ -248,7 +248,60 @@ func (ec *EvalContext) evalEquality(n *ast.OperatorExpr) (Value, error) {
 
 // evalComparison evaluates comparison operators (<, <=, >, >=).
 func (ec *EvalContext) evalComparison(n *ast.OperatorExpr) (Value, error) {
-	return Value{}, fmt.Errorf("comparison not yet implemented")
+	if len(n.Operands) != 2 {
+		return Value{}, fmt.Errorf("comparison requires 2 operands, got %d", len(n.Operands))
+	}
+	
+	left, err := ec.Eval(n.Operands[0])
+	if err != nil {
+		return Value{}, err
+	}
+	
+	right, err := ec.Eval(n.Operands[1])
+	if err != nil {
+		return Value{}, err
+	}
+	
+	// Both must be ValConst
+	if left.Kind != ValConst || right.Kind != ValConst {
+		return Value{}, fmt.Errorf("comparison operands must be constants")
+	}
+	
+	// Compare integers
+	if left.Const.Kind == semantics.ValInt && right.Const.Kind == semantics.ValInt {
+		var result bool
+		switch n.Operator {
+		case ast.OpLt:
+			result = left.Const.Int < right.Const.Int
+		case ast.OpLe:
+			result = left.Const.Int <= right.Const.Int
+		case ast.OpGt:
+			result = left.Const.Int > right.Const.Int
+		case ast.OpGe:
+			result = left.Const.Int >= right.Const.Int
+		default:
+			return Value{}, fmt.Errorf("unknown comparison operator: %v", n.Operator)
+		}
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: result}}, nil
+	}
+	
+	// Compare reals (coerce int to real)
+	leftReal := toReal(left.Const)
+	rightReal := toReal(right.Const)
+	var result bool
+	switch n.Operator {
+	case ast.OpLt:
+		result = leftReal < rightReal
+	case ast.OpLe:
+		result = leftReal <= rightReal
+	case ast.OpGt:
+		result = leftReal > rightReal
+	case ast.OpGe:
+		result = leftReal >= rightReal
+	default:
+		return Value{}, fmt.Errorf("unknown comparison operator: %v", n.Operator)
+	}
+	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: result}}, nil
 }
 
 // evalLogical evaluates logical operators (&&, ||).

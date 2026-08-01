@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/Systemica/internal/core/ast"
+	"github.com/Open-MBEE/Systemica/internal/core/semantics"
 	"github.com/Open-MBEE/Systemica/internal/core/symbols"
 )
 
@@ -19,6 +20,7 @@ type ActionExecutor struct {
 	// Graph structure
 	nodes       []ast.Node
 	edges       map[ast.Node][]ast.Node          // Successor edges
+	guards      map[ast.Node]map[ast.Node]ast.Node // Guards: source → target → guard expression
 	dataFlows   map[ast.Node][]objectFlow        // Object flow edges
 	mergeVisited map[ast.Node]bool               // Track merge node visits
 }
@@ -43,6 +45,7 @@ func newActionExecutor(ctx *Context, action *symbols.Symbol) (*ActionExecutor, e
 		nextTokenID:  1,
 		breakpoints:  make(map[string]bool),
 		edges:        make(map[ast.Node][]ast.Node),
+		guards:       make(map[ast.Node]map[ast.Node]ast.Node),
 		dataFlows:    make(map[ast.Node][]objectFlow),
 		mergeVisited: make(map[ast.Node]bool),
 	}
@@ -101,6 +104,14 @@ func (e *ActionExecutor) extractGraph() error {
 				return fmt.Errorf("control flow edge references undefined target node")
 			}
 			e.edges[sourceNode] = append(e.edges[sourceNode], targetNode)
+			
+			// Store guard expression
+			if n.Guard != nil {
+				if e.guards[sourceNode] == nil {
+					e.guards[sourceNode] = make(map[ast.Node]ast.Node)
+				}
+				e.guards[sourceNode][targetNode] = n.Guard
+			}
 		case *ast.ObjectFlowEdge:
 			// Data flow edges (deferred to Task 9)
 		}
@@ -194,6 +205,8 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		return e.stepJoinNode(tokenIdx)
 	case *ast.MergeNode:
 		return e.stepMergeNode(tokenIdx)
+	case *ast.DecisionNode:
+		return e.stepDecisionNode(tokenIdx)
 	case *ast.ActionExecutionNode:
 		return e.stepActionExecutionNode(tokenIdx)
 	default:
@@ -366,6 +379,53 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	
 	token.Location = successors[0]
 	return nil
+}
+
+// stepDecisionNode evaluates guards and routes token to matching branch.
+func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	decisionNode, ok := token.Location.(*ast.DecisionNode)
+	if !ok {
+		return fmt.Errorf("expected DecisionNode, got %T", token.Location)
+	}
+	
+	// Get successors (outgoing edges from decision)
+	successors := e.edges[decisionNode]
+	if len(successors) == 0 {
+		return fmt.Errorf("decision node %s has no successors", decisionNode.Name)
+	}
+	
+	// Evaluate guards for each successor
+	ec := NewEvalContext(e.ctx, nil)
+	ec.Push(token.Data) // Make token data available to guard expressions
+	
+	for _, succ := range successors {
+		// Get guard for this edge (if any)
+		var guard ast.Node
+		if guards, ok := e.guards[decisionNode]; ok {
+			guard = guards[succ]
+		}
+		
+		// No guard = always true (default/else branch)
+		if guard == nil {
+			token.Location = succ
+			return nil
+		}
+		
+		// Evaluate guard
+		result, err := ec.Eval(guard)
+		if err != nil {
+			return fmt.Errorf("eval guard: %w", err)
+		}
+		
+		// Check if guard is true
+		if result.Kind == ValConst && result.Const.Kind == semantics.ValBool && result.Const.Bool {
+			token.Location = succ
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("decision node %s: no true guard", decisionNode.Name)
 }
 
 // copyTokenData creates a shallow copy of token data map.
