@@ -2060,3 +2060,180 @@ func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
 		}
 	})
 }
+
+// Task 48: Parallel processing workflow - fork/join + data merge
+func TestActionExecutor_Integration_ParallelProcessing(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Workflow: initial → fork → [processA, processB, processC] → join → aggregate → final
+	// Each processor adds to input value, join merges all data, aggregate sums
+	
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "parallel"}
+	
+	// Each processor outputs to unique pin
+	processA := &ast.ActionExecutionNode{
+		Name: "processA",
+		Expression: &ast.OperatorExpr{
+			Operator: ast.OpAdd,
+			Operands: []ast.Node{
+				&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "input"}}}},
+				&ast.LiteralInteger{Value: "10"},
+			},
+		},
+	}
+	processB := &ast.ActionExecutionNode{
+		Name: "processB",
+		Expression: &ast.OperatorExpr{
+			Operator: ast.OpAdd,
+			Operands: []ast.Node{
+				&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "input"}}}},
+				&ast.LiteralInteger{Value: "20"},
+			},
+		},
+	}
+	processC := &ast.ActionExecutionNode{
+		Name: "processC",
+		Expression: &ast.OperatorExpr{
+			Operator: ast.OpAdd,
+			Operands: []ast.Node{
+				&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "input"}}}},
+				&ast.LiteralInteger{Value: "30"},
+			},
+		},
+	}
+	
+	join := &ast.JoinNode{Name: "sync"}
+	
+	// Aggregate sums all processor results
+	aggregate := &ast.ActionExecutionNode{
+		Name: "aggregate",
+		Expression: &ast.OperatorExpr{
+			Operator: ast.OpAdd,
+			Operands: []ast.Node{
+				&ast.OperatorExpr{
+					Operator: ast.OpAdd,
+					Operands: []ast.Node{
+						&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processA"}}}},
+						&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processB"}}}},
+					},
+				},
+				&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processC"}}}},
+			},
+		},
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Control flow edges
+	edge1 := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel"}}},
+	}
+	edge2a := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processA"}}},
+	}
+	edge2b := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processB"}}},
+	}
+	edge2c := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processC"}}},
+	}
+	edge3a := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processA"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+	}
+	edge3b := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processB"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+	}
+	edge3c := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processC"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+	}
+	edge4 := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "aggregate"}}},
+	}
+	edge5 := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "aggregate"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+	}
+	
+	// Object flows - each processor writes to named output
+	flowA := &ast.ObjectFlowEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processA"}, {Text: "processA"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "aggregate"}, {Text: "processA"}}},
+	}
+	flowB := &ast.ObjectFlowEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processB"}, {Text: "processB"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "aggregate"}, {Text: "processB"}}},
+	}
+	flowC := &ast.ObjectFlowEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "processC"}, {Text: "processC"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "aggregate"}, {Text: "processC"}}},
+	}
+	
+	action := &symbols.Symbol{
+		Name: "ParallelProcessing",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:  ast.UsageAction,
+			Ident: ast.Identification{Name: "ParallelProcessing"},
+			Members: []ast.Node{
+				initial, fork, processA, processB, processC, join, aggregate, final,
+				edge1, edge2a, edge2b, edge2c, edge3a, edge3b, edge3c, edge4, edge5,
+				flowA, flowB, flowC,
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	// Set input value
+	err = exec.initialize()
+	if err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	
+	exec.tokens[0].Data["input"] = Value{
+		Kind:  ValConst,
+		Const: semantics.Value{Kind: semantics.ValInt, Int: 100},
+	}
+	
+	// Run to completion
+	err = exec.RunToCompletion()
+	if err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	
+	// Verify final state
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+	
+	// Check results - aggregate uses default "result" key since no ObjectFlow specified
+	results := exec.Results()
+	if len(results) == 0 {
+		t.Fatal("expected non-empty results")
+	}
+	
+	aggregateVal, ok := results["result"]
+	if !ok {
+		t.Fatal("expected result from aggregate")
+	}
+	
+	if aggregateVal.Kind != ValConst || aggregateVal.Const.Kind != semantics.ValInt {
+		t.Fatalf("expected int result, got %v", aggregateVal)
+	}
+	
+	expected := int64(360) // (100+10) + (100+20) + (100+30)
+	if aggregateVal.Const.Int != expected {
+		t.Errorf("expected aggregate=%d, got %d", expected, aggregateVal.Const.Int)
+	}
+}

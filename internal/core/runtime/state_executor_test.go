@@ -1065,3 +1065,152 @@ func TestStateExecutor_Integration_HierarchicalWorkflow(t *testing.T) {
 		t.Errorf("expected stateStack length 1, got %d", len(exec.stateStack))
 	}
 }
+
+// Task 47: Traffic light state machine - realistic TimeEvent demo
+func TestStateExecutor_Integration_TrafficLight(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// States: red (initial, 30s) → green (25s) → yellow (5s) → off (final)
+	// Total cycle: 30 + 25 + 5 = 60 seconds
+	
+	red := &ast.StateNode{Name: "red", IsInitial: true}
+	green := &ast.StateNode{Name: "green"}
+	yellow := &ast.StateNode{Name: "yellow"}
+	off := &ast.StateNode{Name: "off", IsFinal: true}
+	
+	// Entry actions for tracking
+	red.Entry = []ast.Node{
+		&ast.ActionExecutionNode{
+			Name: "logRed",
+			Expression: &ast.LiteralString{Value: "Red light ON"},
+		},
+	}
+	green.Entry = []ast.Node{
+		&ast.ActionExecutionNode{
+			Name: "logGreen",
+			Expression: &ast.LiteralString{Value: "Green light ON"},
+		},
+	}
+	yellow.Entry = []ast.Node{
+		&ast.ActionExecutionNode{
+			Name: "logYellow",
+			Expression: &ast.LiteralString{Value: "Yellow light ON"},
+		},
+	}
+	off.Entry = []ast.Node{
+		&ast.ActionExecutionNode{
+			Name: "logOff",
+			Expression: &ast.LiteralString{Value: "Traffic light OFF"},
+		},
+	}
+	
+	// Transitions with realistic timing (no guards for simplicity)
+	trans1 := &ast.TransitionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "red"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "green"}}},
+		Trigger: &ast.TimeEvent{
+			Duration: &ast.LiteralInteger{Value: "30"}, // 30 seconds
+		},
+	}
+	trans2 := &ast.TransitionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "green"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "yellow"}}},
+		Trigger: &ast.TimeEvent{
+			Duration: &ast.LiteralInteger{Value: "25"}, // 25 seconds
+		},
+	}
+	trans3 := &ast.TransitionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "yellow"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "off"}}},
+		Trigger: &ast.TimeEvent{
+			Duration: &ast.LiteralInteger{Value: "5"}, // 5 seconds
+		},
+	}
+	
+	// State machine
+	stateMachine := &symbols.Symbol{
+		Name: "TrafficLight",
+		Kind: symbols.SymbolStateUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageState,
+			Ident:   ast.Identification{Name: "TrafficLight"},
+			Members: []ast.Node{red, green, yellow, off, trans1, trans2, trans3},
+		},
+	}
+	
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	err = exec.initialize()
+	if err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	
+	// Should start in red
+	if exec.currentState != red {
+		t.Errorf("expected red state, got %s", exec.currentState.Name)
+	}
+	
+	if exec.currentTime != 0.0 {
+		t.Errorf("expected time=0, got %f", exec.currentTime)
+	}
+	
+	// Verify red entry
+	if _, ok := exec.stateData["logRed"]; !ok {
+		t.Error("expected logRed to execute")
+	}
+	
+	// Event 1: red → green (30s)
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("event 1: %v", err)
+	}
+	
+	if exec.currentState != green {
+		t.Errorf("expected green, got %s", exec.currentState.Name)
+	}
+	
+	if exec.currentTime != 30.0 {
+		t.Errorf("expected time=30, got %f", exec.currentTime)
+	}
+	
+	// Event 2: green → yellow (25s)
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("event 2: %v", err)
+	}
+	
+	if exec.currentState != yellow {
+		t.Errorf("expected yellow, got %s", exec.currentState.Name)
+	}
+	
+	if exec.currentTime != 55.0 {
+		t.Errorf("expected time=55, got %f", exec.currentTime)
+	}
+	
+	// Event 3: yellow → off (5s)
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("event 3: %v", err)
+	}
+	
+	if exec.currentState != off {
+		t.Errorf("expected off, got %s", exec.currentState.Name)
+	}
+	
+	if exec.currentTime != 60.0 {
+		t.Errorf("expected time=60, got %f", exec.currentTime)
+	}
+	
+	// Verify final state
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+	
+	// Verify all entry actions executed
+	if _, ok := exec.stateData["logOff"]; !ok {
+		t.Error("expected logOff to execute")
+	}
+}
