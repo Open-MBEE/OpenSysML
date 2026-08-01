@@ -368,7 +368,6 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	return nil
 }
 
-
 // copyTokenData creates a shallow copy of token data map.
 // This is sufficient as Value structs are copied by value, and pointer
 // fields (Sequence, Set) are intended to be shared across forked tokens.

@@ -723,3 +723,184 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 		t.Error("expected token at final node")
 	}
 }
+
+func TestActionExecutor_MergeNode_DataDiscard(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// fork → [path1 sets x=1, path2 sets x=2] → merge → final
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	action1 := &ast.ActionExecutionNode{
+		Name:       "task1",
+		Expression: &ast.LiteralInteger{Value: "1"},
+	}
+	action2 := &ast.ActionExecutionNode{
+		Name:       "task2",
+		Expression: &ast.LiteralInteger{Value: "2"},
+	}
+	merge := &ast.MergeNode{Name: "join"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "DataDiscardAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "DataDiscardAction"},
+			Members: []ast.Node{
+				initial, fork, action1, action2, merge, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // initial → fork
+	exec.stepToken(0) // fork → [task1, task2]
+	
+	// After fork, 2 tokens at action nodes
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens after fork, got %d", len(exec.tokens))
+	}
+	
+	// Step both action nodes (by index, being careful about ordering)
+	// After fork, tokens are at [task_a, task_b] in some order
+	exec.stepToken(0) // step first task → moves to merge
+	exec.stepToken(1) // step second task → moves to merge
+	
+	// Now 2 tokens at merge with different data
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens at merge, got %d", len(exec.tokens))
+	}
+	
+	// Verify both at merge
+	for i, tok := range exec.tokens {
+		if _, ok := tok.Location.(*ast.MergeNode); !ok {
+			t.Fatalf("token %d not at merge: %T", i, tok.Location)
+		}
+	}
+	
+	// Record both tokens' data
+	firstData := exec.tokens[0].Data["result"].Const.Int
+	secondData := exec.tokens[1].Data["result"].Const.Int
+	
+	// Verify they're different
+	if firstData == secondData {
+		t.Fatal("expected tokens to have different data")
+	}
+	
+	// Step first token through merge (wins, moves to final)
+	err = exec.stepToken(0)
+	if err != nil {
+		t.Fatalf("step first merge token: %v", err)
+	}
+	
+	// Should have 2 tokens: 1 at final (winner), 1 at merge (loser)
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens (1 at final, 1 at merge), got %d", len(exec.tokens))
+	}
+	
+	// Find which token is at final (winner)
+	var winnerIdx int
+	var winnerData int64
+	for i, tok := range exec.tokens {
+		if _, ok := tok.Location.(*ast.FinalNode); ok {
+			winnerIdx = i
+			winnerData = tok.Data["result"].Const.Int
+			break
+		}
+	}
+	
+	// Winner data should match first token's data
+	if winnerData != firstData {
+		t.Errorf("expected winner to have first token's data (%d), got %d", firstData, winnerData)
+	}
+	
+	// Step second token through merge (discarded)
+	loserIdx := 1 - winnerIdx
+	exec.stepToken(loserIdx)
+	
+	// Should have 1 token at final with winner's data
+	if len(exec.tokens) != 1 {
+		t.Fatalf("expected 1 token after discard, got %d", len(exec.tokens))
+	}
+	
+	finalData := exec.tokens[0].Data["result"].Const.Int
+	if finalData != winnerData {
+		t.Errorf("expected final token to have winner's data (%d), got %d", winnerData, finalData)
+	}
+}
+
+func TestActionExecutor_MergeNode_SingleParent(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// initial → merge → final (degenerate case, merge pass-through)
+	initial := &ast.InitialNode{Name: "start"}
+	merge := &ast.MergeNode{Name: "join"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "SingleParentMerge",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "SingleParentMerge"},
+			Members: []ast.Node{
+				initial, merge, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // initial → merge
+	exec.stepToken(0) // merge → final
+	
+	if len(exec.tokens) != 1 {
+		t.Fatalf("expected 1 token, got %d", len(exec.tokens))
+	}
+	
+	if exec.tokens[0].Location != final {
+		t.Error("token should pass through merge to final")
+	}
+}
