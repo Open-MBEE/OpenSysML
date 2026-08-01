@@ -342,7 +342,7 @@ Parse + model + **execute** all behavioral bodies:
 | **State machine runtime (Tier 5)** | ✅ **Complete** |
 | **REPL debugging commands** | ✅ **Complete** |
 | REPL implementation | ✅ Complete |
-| Standard library bundling | 🚧 In progress |
+| **Standard library bundling** | ✅ **Complete** |
 | LSP server implementation | ⏳ Planned |
 
 ---

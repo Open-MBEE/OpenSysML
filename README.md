@@ -119,7 +119,7 @@ Current: green (Time: 30.0s)
 | **Action execution engine (Tier 5)** | ✅ **Complete** |
 | **State machine runtime (Tier 5)** | ✅ **Complete** |
 | **REPL debugging commands** | ✅ **Complete** |
-| Standard library bundling & caching | 🚧 In progress |
+| **Standard library bundling** | ✅ **Complete** |
 | LSP server implementation | 🚧 In progress |
 
 **Current commit:** All tests pass (`go test ./...`), builds clean (`go build ./...`).
