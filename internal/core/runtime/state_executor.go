@@ -25,7 +25,8 @@ type StateExecutor struct {
 	transitions map[*ast.StateNode][]*ast.TransitionEdge
 	
 	// Hierarchical state support
-	stateStack []*ast.StateNode // Active state configuration (for nested states)
+	stateStack  []*ast.StateNode            // Active state configuration (for nested states)
+	parentState map[*ast.StateNode]*ast.StateNode // Child -> parent mapping
 }
 
 // newStateExecutor creates a state executor.
@@ -43,6 +44,7 @@ func newStateExecutor(ctx *Context, stateMachine *symbols.Symbol) (*StateExecuto
 		stateData:    make(map[string]Value),
 		transitions:  make(map[*ast.StateNode][]*ast.TransitionEdge),
 		stateStack:   make([]*ast.StateNode, 0),
+		parentState:  make(map[*ast.StateNode]*ast.StateNode),
 	}
 	
 	// Extract graph structure from AST
@@ -65,7 +67,7 @@ func (e *StateExecutor) extractGraph() error {
 		stateUsage = &ast.Usage{Members: stateDef.Members}
 	}
 	
-	// Extract states and transitions
+	// Extract states and transitions (recursively for hierarchical states)
 	for _, member := range stateUsage.Members {
 		// Unwrap Membership if present
 		actualMember := member
@@ -75,18 +77,88 @@ func (e *StateExecutor) extractGraph() error {
 		
 		switch n := actualMember.(type) {
 		case *ast.StateNode:
-			e.states = append(e.states, n)
+			e.collectStates(n, nil) // Recursively collect substates
 		case *ast.TransitionEdge:
-			// Map transition to source state
-			sourceState := e.findStateByName(n.Source)
-			if sourceState == nil {
-				return fmt.Errorf("transition references undefined source state")
+			// Collect transitions (will be mapped after all states collected)
+			if err := e.collectTransition(n); err != nil {
+				return err
 			}
-			e.transitions[sourceState] = append(e.transitions[sourceState], n)
 		}
 	}
 	
 	return nil
+}
+
+// collectStates recursively collects states and builds parent relationships.
+func (e *StateExecutor) collectStates(state *ast.StateNode, parent *ast.StateNode) {
+	e.states = append(e.states, state)
+	if parent != nil {
+		e.parentState[state] = parent
+	}
+	
+	// Recursively collect substates
+	for _, substate := range state.Substates {
+		if childState, ok := substate.(*ast.StateNode); ok {
+			e.collectStates(childState, state)
+		}
+	}
+	
+	// Collect states in orthogonal regions
+	for _, region := range state.Regions {
+		for _, regionState := range region.States {
+			if childState, ok := regionState.(*ast.StateNode); ok {
+				e.collectStates(childState, state)
+			}
+		}
+	}
+}
+
+// collectTransition maps a transition to its source state.
+func (e *StateExecutor) collectTransition(trans *ast.TransitionEdge) error {
+	sourceState := e.findStateByName(trans.Source)
+	if sourceState == nil {
+		return fmt.Errorf("transition references undefined source state")
+	}
+	e.transitions[sourceState] = append(e.transitions[sourceState], trans)
+	return nil
+}
+
+// getParentChain returns all ancestor states from child to root (inclusive).
+// Result is ordered: [child, parent, grandparent, ...]
+func (e *StateExecutor) getParentChain(state *ast.StateNode) []*ast.StateNode {
+	chain := []*ast.StateNode{state}
+	current := state
+	for {
+		parent, hasParent := e.parentState[current]
+		if !hasParent {
+			break
+		}
+		chain = append(chain, parent)
+		current = parent
+	}
+	return chain
+}
+
+// getLCA finds the lowest common ancestor of two states.
+// Returns nil if states are in different hierarchies.
+func (e *StateExecutor) getLCA(state1, state2 *ast.StateNode) *ast.StateNode {
+	chain1 := e.getParentChain(state1)
+	chain2 := e.getParentChain(state2)
+	
+	// Build set from chain1
+	chain1Set := make(map[*ast.StateNode]bool)
+	for _, s := range chain1 {
+		chain1Set[s] = true
+	}
+	
+	// Find first common ancestor in chain2
+	for _, s := range chain2 {
+		if chain1Set[s] {
+			return s
+		}
+	}
+	
+	return nil // No common ancestor
 }
 
 // findStateByName looks up a state by qualified name.
@@ -203,9 +275,20 @@ func (e *StateExecutor) fireTransition(trans *ast.TransitionEdge) error {
 		}
 	}
 	
-	// Exit current state
-	if err := e.exitState(e.currentState); err != nil {
-		return fmt.Errorf("exit state: %w", err)
+	// Exit current state hierarchy up to LCA
+	lca := e.getLCA(e.currentState, targetState)
+	statesToExit := make([]*ast.StateNode, 0)
+	current := e.currentState
+	for current != nil && current != lca {
+		statesToExit = append(statesToExit, current)
+		current = e.parentState[current]
+	}
+	
+	// Exit states (deepest to shallowest)
+	for _, state := range statesToExit {
+		if err := e.exitState(state); err != nil {
+			return fmt.Errorf("exit state: %w", err)
+		}
 	}
 	
 	// Execute transition effect
@@ -215,13 +298,27 @@ func (e *StateExecutor) fireTransition(trans *ast.TransitionEdge) error {
 		}
 	}
 	
-	// Update current state
-	e.currentState = targetState
-	e.stateStack[len(e.stateStack)-1] = targetState
+	// Enter target state hierarchy from LCA
+	statesToEnter := make([]*ast.StateNode, 0)
+	current = targetState
+	for current != nil && current != lca {
+		statesToEnter = append(statesToEnter, current)
+		current = e.parentState[current]
+	}
 	
-	// Enter target state
-	if err := e.enterState(targetState); err != nil {
-		return fmt.Errorf("enter state: %w", err)
+	// Reverse statesToEnter (shallowest to deepest)
+	for i := len(statesToEnter) - 1; i >= 0; i-- {
+		if err := e.enterState(statesToEnter[i]); err != nil {
+			return fmt.Errorf("enter state: %w", err)
+		}
+	}
+	
+	// Update current state and rebuild stateStack with full active configuration
+	e.currentState = targetState
+	e.stateStack = e.getParentChain(targetState)
+	// Reverse to root→leaf order for stateStack
+	for i, j := 0, len(e.stateStack)-1; i < j; i, j = i+1, j-1 {
+		e.stateStack[i], e.stateStack[j] = e.stateStack[j], e.stateStack[i]
 	}
 	
 	// Schedule new events
@@ -238,27 +335,30 @@ func (e *StateExecutor) fireTransition(trans *ast.TransitionEdge) error {
 }
 // initialize sets current state to initial state and enters it.
 func (e *StateExecutor) initialize() error {
-	// Find initial state
-	var initialState *ast.StateNode
-	for _, state := range e.states {
-		if state.IsInitial {
-			initialState = state
-			break
-		}
-	}
+	// Find initial state (deepest in hierarchy)
+	initialState := e.findDeepestInitialState()
 	
 	if initialState == nil {
 		return fmt.Errorf("no initial state found in state machine %s", e.stateMachine.Name)
 	}
 	
-	// Enter initial state
+	// Enter initial state hierarchy (parent to child)
 	e.currentState = initialState
-	e.stateStack = append(e.stateStack, initialState)
 	e.state = StateRunning
 	
-	// Execute entry behavior
-	if err := e.enterState(initialState); err != nil {
-		return fmt.Errorf("enter initial state: %w", err)
+	// Build stateStack with full active configuration (root → leaf)
+	chain := e.getParentChain(initialState)
+	// Reverse to root→leaf order
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
+	}
+	e.stateStack = chain
+	
+	// Enter states from root to initial state
+	for _, state := range e.stateStack {
+		if err := e.enterState(state); err != nil {
+			return fmt.Errorf("enter state %s: %w", state.Name, err)
+		}
 	}
 	
 	// Schedule events for outgoing transitions
@@ -267,6 +367,44 @@ func (e *StateExecutor) initialize() error {
 	}
 	
 	return nil
+}
+
+// findDeepestInitialState finds initial state, following nested initial states.
+func (e *StateExecutor) findDeepestInitialState() *ast.StateNode {
+	// Find top-level initial state (no parent or parent not initial)
+	var current *ast.StateNode
+	for _, state := range e.states {
+		if !state.IsInitial {
+			continue
+		}
+		// Check if parent exists and is initial - skip if so (we want root initial)
+		parent := e.parentState[state]
+		if parent == nil || !parent.IsInitial {
+			current = state
+			break
+		}
+	}
+	
+	if current == nil {
+		return nil
+	}
+	
+	// Follow nested initial states down to deepest level
+	for {
+		foundNested := false
+		for _, state := range e.states {
+			if state.IsInitial && e.parentState[state] == current {
+				current = state
+				foundNested = true
+				break
+			}
+		}
+		if !foundNested {
+			break
+		}
+	}
+	
+	return current
 }
 
 // enterState executes entry behaviors when entering a state.

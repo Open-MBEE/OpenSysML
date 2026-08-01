@@ -576,3 +576,492 @@ func TestStateExecutor_Integration_TransitionEffects(t *testing.T) {
 		t.Errorf("expected stateB, got %v", exec.currentState)
 	}
 }
+
+func TestStateExecutor_HierarchicalStates(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build hierarchical state machine:
+	//   composite (parent)
+	//     ├─ childA (initial)
+	//     └─ childB
+	//   standalone
+	
+	childA := &ast.StateNode{
+		Name:      "childA",
+		IsInitial: true,
+	}
+	
+	childB := &ast.StateNode{
+		Name: "childB",
+	}
+	
+	composite := &ast.StateNode{
+		Name:      "composite",
+		Substates: []ast.Node{childA, childB},
+	}
+	
+	standalone := &ast.StateNode{
+		Name: "standalone",
+	}
+	
+	stateMachine := &symbols.Symbol{
+		Name: "HierarchicalSM",
+		Kind: symbols.SymbolStateUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageState,
+			Ident:   ast.Identification{Name: "HierarchicalSM"},
+			Members: []ast.Node{composite, standalone},
+		},
+	}
+	
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	// Verify all states collected
+	if len(exec.states) != 4 {
+		t.Errorf("expected 4 states (composite, childA, childB, standalone), got %d", len(exec.states))
+	}
+	
+	// Verify parent relationships
+	if parent := exec.parentState[childA]; parent != composite {
+		t.Errorf("expected childA parent = composite, got %v", parent)
+	}
+	
+	if parent := exec.parentState[childB]; parent != composite {
+		t.Errorf("expected childB parent = composite, got %v", parent)
+	}
+	
+	if _, hasParent := exec.parentState[composite]; hasParent {
+		t.Error("expected composite to have no parent")
+	}
+	
+	if _, hasParent := exec.parentState[standalone]; hasParent {
+		t.Error("expected standalone to have no parent")
+	}
+	
+	// Verify parent chain
+	chain := exec.getParentChain(childA)
+	if len(chain) != 2 || chain[0] != childA || chain[1] != composite {
+		t.Errorf("expected chain [childA, composite], got %v", chain)
+	}
+	
+	// Verify LCA
+	lca := exec.getLCA(childA, childB)
+	if lca != composite {
+		t.Errorf("expected LCA(childA, childB) = composite, got %v", lca)
+	}
+	
+	lcaStandaloneChild := exec.getLCA(standalone, childA)
+	if lcaStandaloneChild != nil {
+		t.Errorf("expected LCA(standalone, childA) = nil, got %v", lcaStandaloneChild)
+	}
+}
+
+func TestStateExecutor_HierarchicalEntryExit(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build state machine:
+	//   parentState (entry: val=1, exit: val=10)
+	//     └─ childState (entry: val=2, exit: val=100, initial)
+	//   siblingState (entry: val=1000)
+	//
+	// Transition: childState →[after 1]→ siblingState
+	// Verify entry/exit actions execute in order
+	
+	childState := &ast.StateNode{
+		Name:      "childState",
+		IsInitial: true,
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "enterChild",
+				Expression: &ast.LiteralInteger{Value: "2"},
+			},
+		},
+		Exit: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "exitChild",
+				Expression: &ast.LiteralInteger{Value: "100"},
+			},
+		},
+	}
+	
+	parentState := &ast.StateNode{
+		Name: "parentState",
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "enterParent",
+				Expression: &ast.LiteralInteger{Value: "1"},
+			},
+		},
+		Exit: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "exitParent",
+				Expression: &ast.LiteralInteger{Value: "10"},
+			},
+		},
+		Substates: []ast.Node{childState},
+	}
+	
+	siblingState := &ast.StateNode{
+		Name: "siblingState",
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "enterSibling",
+				Expression: &ast.LiteralInteger{Value: "1000"},
+			},
+		},
+	}
+	
+	transition := &ast.TransitionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "childState"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "siblingState"}}},
+		Trigger: &ast.TimeEvent{
+			Duration: &ast.LiteralInteger{Value: "1"},
+		},
+	}
+	
+	stateMachine := &symbols.Symbol{
+		Name: "HierarchicalEntryExitSM",
+		Kind: symbols.SymbolStateUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageState,
+			Ident:   ast.Identification{Name: "HierarchicalEntryExitSM"},
+			Members: []ast.Node{parentState, siblingState, transition},
+		},
+	}
+	
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	err = exec.initialize()
+	if err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	
+	// After init: should have entered parent then child
+	if _, ok := exec.stateData["enterParent"]; !ok {
+		t.Error("expected enterParent to execute")
+	}
+	
+	if _, ok := exec.stateData["enterChild"]; !ok {
+		t.Error("expected enterChild to execute")
+	}
+	
+	// Process transition
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("process event: %v", err)
+	}
+	
+	// Verify exit/entry actions executed in order
+	if _, ok := exec.stateData["exitChild"]; !ok {
+		t.Error("expected exitChild to execute")
+	}
+	
+	if _, ok := exec.stateData["exitParent"]; !ok {
+		t.Error("expected exitParent to execute")
+	}
+	
+	if _, ok := exec.stateData["enterSibling"]; !ok {
+		t.Error("expected enterSibling to execute")
+	}
+	
+	// Verify final state
+	if exec.currentState != siblingState {
+		t.Errorf("expected siblingState, got %v", exec.currentState)
+	}
+}
+
+func TestStateExecutor_StateStackTracking(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build state machine:
+	//   composite
+	//     └─ nested (initial)
+	//         └─ deepNested (initial)
+	//   standalone
+	//
+	// Transition: deepNested →[after 1]→ standalone
+	
+	deepNested := &ast.StateNode{
+		Name:      "deepNested",
+		IsInitial: true,
+	}
+	
+	nested := &ast.StateNode{
+		Name:      "nested",
+		IsInitial: true,
+		Substates: []ast.Node{deepNested},
+	}
+	
+	composite := &ast.StateNode{
+		Name:      "composite",
+		Substates: []ast.Node{nested},
+	}
+	
+	standalone := &ast.StateNode{
+		Name: "standalone",
+	}
+	
+	transition := &ast.TransitionEdge{
+		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "deepNested"}}},
+		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "standalone"}}},
+		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
+	}
+	
+	stateMachine := &symbols.Symbol{
+		Name: "StateStackSM",
+		Kind: symbols.SymbolStateUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageState,
+			Ident:   ast.Identification{Name: "StateStackSM"},
+			Members: []ast.Node{composite, standalone, transition},
+		},
+	}
+	
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	err = exec.initialize()
+	if err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	
+	// Verify initial stateStack: [composite, nested, deepNested]
+	expectedStack := []*ast.StateNode{composite, nested, deepNested}
+	if len(exec.stateStack) != len(expectedStack) {
+		t.Fatalf("expected stateStack length %d, got %d", len(expectedStack), len(exec.stateStack))
+	}
+	
+	for i, expected := range expectedStack {
+		if exec.stateStack[i] != expected {
+			t.Errorf("stateStack[%d]: expected %s, got %s", i, expected.Name, exec.stateStack[i].Name)
+		}
+	}
+	
+	// Process transition to standalone
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("process event: %v", err)
+	}
+	
+	// Verify stateStack after transition: [standalone]
+	if len(exec.stateStack) != 1 {
+		t.Errorf("expected stateStack length 1, got %d", len(exec.stateStack))
+	}
+	
+	if len(exec.stateStack) > 0 && exec.stateStack[0] != standalone {
+		t.Errorf("expected stateStack[0] = standalone, got %s", exec.stateStack[0].Name)
+	}
+	
+	if exec.currentState != standalone {
+		t.Errorf("expected currentState = standalone, got %s", exec.currentState.Name)
+	}
+}
+
+func TestStateExecutor_Integration_HierarchicalWorkflow(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Complex hierarchical state machine:
+	//   workflow (composite)
+	//     ├─ ready (initial, entry: step=1)
+	//     └─ processing (entry: step=2, exit: step=3)
+	//         ├─ validate (initial, entry: step=step+10)
+	//         └─ execute (entry: step=step+100)
+	//   done (final, entry: step=step+1000)
+	//
+	// Transitions:
+	//   ready →[after 1]→ validate (enters processing parent)
+	//   validate →[after 1]→ execute (within same parent)
+	//   execute →[after 1]→ done (exits processing parent)
+	
+	validate := &ast.StateNode{
+		Name:      "validate",
+		IsInitial: true,
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "validateEntry",
+				Expression: &ast.LiteralInteger{Value: "10"},
+			},
+		},
+	}
+	
+	execute := &ast.StateNode{
+		Name: "execute",
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "executeEntry",
+				Expression: &ast.LiteralInteger{Value: "100"},
+			},
+		},
+	}
+	
+	processing := &ast.StateNode{
+		Name: "processing",
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "processingEntry",
+				Expression: &ast.LiteralInteger{Value: "2"},
+			},
+		},
+		Exit: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "processingExit",
+				Expression: &ast.LiteralInteger{Value: "3"},
+			},
+		},
+		Substates: []ast.Node{validate, execute},
+	}
+	
+	ready := &ast.StateNode{
+		Name:      "ready",
+		IsInitial: true,
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "readyEntry",
+				Expression: &ast.LiteralInteger{Value: "1"},
+			},
+		},
+	}
+	
+	workflow := &ast.StateNode{
+		Name:      "workflow",
+		Substates: []ast.Node{ready, processing},
+	}
+	
+	done := &ast.StateNode{
+		Name:    "done",
+		IsFinal: true,
+		Entry: []ast.Node{
+			&ast.ActionExecutionNode{
+				Name:       "doneEntry",
+				Expression: &ast.LiteralInteger{Value: "1000"},
+			},
+		},
+	}
+	
+	trans1 := &ast.TransitionEdge{
+		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "ready"}}},
+		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "validate"}}},
+		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
+	}
+	
+	trans2 := &ast.TransitionEdge{
+		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "validate"}}},
+		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "execute"}}},
+		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
+	}
+	
+	trans3 := &ast.TransitionEdge{
+		Source:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "execute"}}},
+		Target:  &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "done"}}},
+		Trigger: &ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}},
+	}
+	
+	stateMachine := &symbols.Symbol{
+		Name: "HierarchicalWorkflowSM",
+		Kind: symbols.SymbolStateUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageState,
+			Ident:   ast.Identification{Name: "HierarchicalWorkflowSM"},
+			Members: []ast.Node{workflow, done, trans1, trans2, trans3},
+		},
+	}
+	
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	err = exec.initialize()
+	if err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	
+	// Verify initial state: workflow/ready
+	if exec.currentState != ready {
+		t.Errorf("expected ready, got %s", exec.currentState.Name)
+	}
+	
+	if _, ok := exec.stateData["readyEntry"]; !ok {
+		t.Error("expected readyEntry to execute")
+	}
+	
+	// Transition 1: ready → validate (enters processing parent)
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("transition 1: %v", err)
+	}
+	
+	if exec.currentState != validate {
+		t.Errorf("expected validate, got %s", exec.currentState.Name)
+	}
+	
+	// Should have entered processing then validate
+	if _, ok := exec.stateData["processingEntry"]; !ok {
+		t.Error("expected processingEntry to execute")
+	}
+	
+	if _, ok := exec.stateData["validateEntry"]; !ok {
+		t.Error("expected validateEntry to execute")
+	}
+	
+	// Verify stateStack: [workflow, processing, validate]
+	if len(exec.stateStack) != 3 {
+		t.Errorf("expected stateStack length 3, got %d", len(exec.stateStack))
+	}
+	
+	// Transition 2: validate → execute (within processing parent)
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("transition 2: %v", err)
+	}
+	
+	if exec.currentState != execute {
+		t.Errorf("expected execute, got %s", exec.currentState.Name)
+	}
+	
+	if _, ok := exec.stateData["executeEntry"]; !ok {
+		t.Error("expected executeEntry to execute")
+	}
+	
+	// Verify stateStack: [workflow, processing, execute]
+	if len(exec.stateStack) != 3 {
+		t.Errorf("expected stateStack length 3, got %d", len(exec.stateStack))
+	}
+	
+	// Transition 3: execute → done (exits processing parent)
+	err = exec.processNextEvent()
+	if err != nil {
+		t.Fatalf("transition 3: %v", err)
+	}
+	
+	if exec.currentState != done {
+		t.Errorf("expected done, got %s", exec.currentState.Name)
+	}
+	
+	// Should have exited processing
+	if _, ok := exec.stateData["processingExit"]; !ok {
+		t.Error("expected processingExit to execute")
+	}
+	
+	if _, ok := exec.stateData["doneEntry"]; !ok {
+		t.Error("expected doneEntry to execute")
+	}
+	
+	// Verify final state
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+	
+	// Verify stateStack: [done]
+	if len(exec.stateStack) != 1 {
+		t.Errorf("expected stateStack length 1, got %d", len(exec.stateStack))
+	}
+}
