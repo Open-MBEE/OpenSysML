@@ -1107,3 +1107,190 @@ func TestActionExecutor_DecisionNode(t *testing.T) {
 		}
 	})
 }
+
+func TestActionExecutor_DecisionNode_ElseBranch(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → decision → [pathA (if x>10), pathElse (no guard)] → final
+	// Test that unguarded edge works as fallback after guarded edges
+	initial := &ast.InitialNode{Name: "start"}
+	decision := &ast.DecisionNode{Name: "check"}
+	pathA := &ast.ActionExecutionNode{
+		Name:       "pathA",
+		Expression: &ast.LiteralString{Value: "A"},
+	}
+	pathElse := &ast.ActionExecutionNode{
+		Name:       "pathElse",
+		Expression: &ast.LiteralString{Value: "Else"},
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Guard: x > 10
+	guardA := &ast.OperatorExpr{
+		Operator: ast.OpGt,
+		Operands: []ast.Node{
+			&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "x"}}}},
+			&ast.LiteralInteger{Value: "10"},
+		},
+	}
+	
+	action := &symbols.Symbol{
+		Name: "ElseBranchAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "ElseBranchAction"},
+			Members: []ast.Node{
+				initial, decision, pathA, pathElse, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+				},
+				// decision → pathA (guarded)
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathA"}}},
+					Guard:  guardA,
+				},
+				// decision → pathElse (unguarded - else branch)
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathElse"}}},
+					Guard:  nil,
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathA"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathElse"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	// Test 1: x=15 → should take pathA (guard matches)
+	t.Run("guard_matches_takes_pathA", func(t *testing.T) {
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 15},
+		}
+		
+		exec.stepToken(0) // initial → decision
+		if exec.tokens[0].Location != decision {
+			t.Fatal("token should be at decision node")
+		}
+		
+		err = exec.stepToken(0) // decision → pathA or pathElse
+		if err != nil {
+			t.Fatalf("step decision: %v", err)
+		}
+		
+		if exec.tokens[0].Location != pathA {
+			t.Errorf("expected token at pathA, got %T", exec.tokens[0].Location)
+		}
+	})
+	
+	// Test 2: x=5 → should take pathElse (guard doesn't match, fallback to unguarded)
+	t.Run("guard_doesnt_match_takes_else", func(t *testing.T) {
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 5},
+		}
+		
+		exec.stepToken(0) // initial → decision
+		if exec.tokens[0].Location != decision {
+			t.Fatal("token should be at decision node")
+		}
+		
+		err = exec.stepToken(0) // decision → pathElse (fallback)
+		if err != nil {
+			t.Fatalf("step decision: %v", err)
+		}
+		
+		if exec.tokens[0].Location != pathElse {
+			t.Errorf("expected token at pathElse, got %T", exec.tokens[0].Location)
+		}
+	})
+}
+
+func TestActionExecutor_DecisionNode_NonBooleanGuard(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → decision → pathA (with integer guard - invalid)
+	initial := &ast.InitialNode{Name: "start"}
+	decision := &ast.DecisionNode{Name: "check"}
+	pathA := &ast.ActionExecutionNode{
+		Name:       "pathA",
+		Expression: &ast.LiteralString{Value: "A"},
+	}
+	
+	// Guard that returns integer instead of boolean
+	guardInt := &ast.LiteralInteger{Value: "42"}
+	
+	action := &symbols.Symbol{
+		Name: "NonBoolGuardAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "NonBoolGuardAction"},
+			Members: []ast.Node{
+				initial, decision, pathA,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+				},
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "check"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "pathA"}}},
+					Guard:  guardInt,
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // initial → decision
+	
+	// Step decision - should error on non-boolean guard
+	err = exec.stepToken(0)
+	if err == nil {
+		t.Fatal("expected error for non-boolean guard")
+	}
+	
+	// Check error message contains expected text
+	if !containsText(err.Error(), "guard must evaluate to boolean") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func containsText(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

@@ -399,6 +399,13 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	ec := NewEvalContext(e.ctx, nil)
 	ec.Push(token.Data) // Make token data available to guard expressions
 	
+	// Two-pass evaluation:
+	// 1. Evaluate all guarded edges first
+	// 2. If none match, use unguarded edge as fallback (else branch)
+	
+	var unguardedEdge ast.Node
+	
+	// Pass 1: Check guarded edges
 	for _, succ := range successors {
 		// Get guard for this edge (if any)
 		var guard ast.Node
@@ -406,10 +413,10 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			guard = guards[succ]
 		}
 		
-		// No guard = always true (default/else branch)
+		// No guard = remember for fallback
 		if guard == nil {
-			token.Location = succ
-			return nil
+			unguardedEdge = succ
+			continue
 		}
 		
 		// Evaluate guard
@@ -418,11 +425,22 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			return fmt.Errorf("eval guard: %w", err)
 		}
 		
+		// Guard must be boolean
+		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
+			return fmt.Errorf("decision node %s: guard must evaluate to boolean, got %v", decisionNode.Name, result.Kind)
+		}
+		
 		// Check if guard is true
-		if result.Kind == ValConst && result.Const.Kind == semantics.ValBool && result.Const.Bool {
+		if result.Const.Bool {
 			token.Location = succ
 			return nil
 		}
+	}
+	
+	// Pass 2: Use unguarded edge as fallback
+	if unguardedEdge != nil {
+		token.Location = unguardedEdge
+		return nil
 	}
 	
 	return fmt.Errorf("decision node %s: no true guard", decisionNode.Name)
