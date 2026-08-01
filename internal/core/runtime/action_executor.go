@@ -192,6 +192,8 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		return e.stepForkNode(tokenIdx)
 	case *ast.JoinNode:
 		return e.stepJoinNode(tokenIdx)
+	case *ast.MergeNode:
+		return e.stepMergeNode(tokenIdx)
 	case *ast.ActionExecutionNode:
 		return e.stepActionExecutionNode(tokenIdx)
 	default:
@@ -335,6 +337,37 @@ func (e *ActionExecutor) getIncomingEdges(node ast.Node) []ast.Node {
 	}
 	return incoming
 }
+
+// stepMergeNode implements OR-join semantics (first-token-wins).
+func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	mergeNode, ok := token.Location.(*ast.MergeNode)
+	if !ok {
+		return fmt.Errorf("expected MergeNode, got %T", token.Location)
+	}
+	
+	// Check if merge already visited
+	if e.mergeVisited[mergeNode] {
+		// Discard token (first-wins)
+		e.tokens = append(e.tokens[:tokenIdx], e.tokens[tokenIdx+1:]...)
+		return nil
+	}
+	
+	// Mark merge visited, pass token through
+	e.mergeVisited[mergeNode] = true
+	
+	successors := e.edges[mergeNode]
+	if len(successors) == 0 {
+		return fmt.Errorf("merge node %s has no successors", mergeNode.Name)
+	}
+	if len(successors) > 1 {
+		return fmt.Errorf("merge node %s has multiple successors (not yet supported)", mergeNode.Name)
+	}
+	
+	token.Location = successors[0]
+	return nil
+}
+
 
 // copyTokenData creates a shallow copy of token data map.
 // This is sufficient as Value structs are copied by value, and pointer

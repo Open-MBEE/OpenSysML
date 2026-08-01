@@ -624,3 +624,102 @@ func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 		t.Error("expected token at final node after join fires")
 	}
 }
+
+func TestActionExecutor_MergeNode(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → fork → [merge, merge] → final
+	// Fork with 2 edges both targeting merge
+	// First token to reach merge wins, others discarded
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	merge := &ast.MergeNode{Name: "join"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "MergeAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "MergeAction"},
+			Members: []ast.Node{
+				initial, fork, merge, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+				},
+				// Fork creates 2 tokens both going to merge
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "join"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()           // Token at initial
+	exec.stepToken(0)            // initial → fork
+	exec.stepToken(0)            // fork → [2 tokens at merge]
+	
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens after fork, got %d", len(exec.tokens))
+	}
+	
+	// Both tokens should be at merge
+	for i, tok := range exec.tokens {
+		if tok.Location != merge {
+			t.Errorf("token %d not at merge node", i)
+		}
+	}
+	
+	// First token reaches merge (should pass through)
+	exec.stepToken(0)
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens (1 advanced, 1 waiting), got %d", len(exec.tokens))
+	}
+	
+	// Verify first token advanced to final
+	tokenAtFinal := false
+	tokenAtMerge := false
+	mergeIdx := -1
+	for i, tok := range exec.tokens {
+		if tok.Location == final {
+			tokenAtFinal = true
+		}
+		if tok.Location == merge {
+			tokenAtMerge = true
+			mergeIdx = i
+		}
+	}
+	if !tokenAtFinal || !tokenAtMerge {
+		t.Error("expected one token at final, one at merge")
+	}
+	
+	// Second token reaches merge (should be discarded)
+	err = exec.stepToken(mergeIdx)
+	if err != nil {
+		t.Fatalf("step merge: %v", err)
+	}
+	
+	if len(exec.tokens) != 1 {
+		t.Fatalf("expected 1 token after merge discard, got %d", len(exec.tokens))
+	}
+	
+	// Verify final token at expected location
+	if exec.tokens[0].Location != final {
+		t.Error("expected token at final node")
+	}
+}
