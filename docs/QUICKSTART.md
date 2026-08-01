@@ -300,25 +300,89 @@ sysml> %requirement SafetyReq
 
 **See [examples/repl-behavioral-demo.sysml](../examples/repl-behavioral-demo.sysml) for comprehensive examples.**
 
-### 5. Action Bodies (Parsed, execution in progress)
+### 5. Action & State Machine Debugging
 
+**Action execution (step-by-step):**
 ```sysml
-action TrafficLight {
-    first start startNode;
-    done end endNode;
-    
-    action green;
-    action yellow;
-    action red;
-    
-    then start green;
-    then green yellow;
-    then yellow red;
-    then red end;
-}
+sysml> action SimpleWorkflow {
+...>     first start initial;
+...>     action compute { return 42; }
+...>     done end final;
+...>     then initial compute;
+...>     then compute final;
+...> }
+✓ SimpleWorkflow
+
+sysml> %action SimpleWorkflow
+Action: SimpleWorkflow
+Tokens: 1
+State: Ready
+
+sysml> %step
+Tokens: 1 (at compute)
+
+sysml> %tokens
+Token 1: compute { }
+
+sysml> %continue
+✓ Completed
+Result: 42
 ```
 
-**Status:** Action bodies are parsed into AST (control flow nodes, succession edges). Execution coming in Tier 4-5.
+**State machine execution:**
+```sysml
+sysml> state TrafficLight {
+...>     entry start green;
+...>     state green;
+...>     state yellow;
+...>     state red;
+...>     done end off;
+...>     
+...>     transition green to yellow after 25;
+...>     transition yellow to red after 5;
+...>     transition red to off after 30;
+...> }
+✓ TrafficLight
+
+sysml> %state TrafficLight
+State machine: TrafficLight
+Current: green
+Time: 0.0s
+Events: 1
+
+sysml> %advance
+Current: yellow (Time: 25.0s)
+
+sysml> %current
+Current state: yellow
+State stack: [yellow]
+Time: 25.0s
+Events: 1
+State: Running
+
+sysml> %advance
+Current: red (Time: 30.0s)
+
+sysml> %advance
+✓ Final state reached (off)
+```
+
+**Action debugging commands:**
+- `%action <name>` — Start action debugging session
+- `%step` — Advance all tokens one step
+- `%continue` — Run to completion
+- `%tokens` — Show active tokens with data
+- `%break <node>` — Set breakpoint
+- `%stop` — Stop debugging
+
+**State machine debugging commands:**
+- `%state <name>` — Start state machine debugging
+- `%events` — Show event queue
+- `%current` — Show current state, stack, data
+- `%advance` — Process next event
+- `%stop` — Stop debugging
+
+**See [examples/action-demo.sysml](../examples/action-demo.sysml) and [examples/state-demo.sysml](../examples/state-demo.sysml) for complete workflows.**
 
 ---
 
