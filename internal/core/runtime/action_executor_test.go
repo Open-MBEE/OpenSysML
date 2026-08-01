@@ -1294,3 +1294,769 @@ func findSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+func TestActionExecutor_ObjectFlow(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → action1 → action2 → final
+	// With ObjectFlowEdge: action1.output → action2.input
+	initial := &ast.InitialNode{Name: "start"}
+	action1 := &ast.ActionExecutionNode{
+		Name:       "action1",
+		Expression: &ast.LiteralInteger{Value: "42"}, // Produces value 42
+	}
+	action2 := &ast.ActionExecutionNode{
+		Name:       "action2",
+		Expression: &ast.LiteralString{Value: "received"}, // Placeholder expression
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "ObjectFlowAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "ObjectFlowAction"},
+			Members: []ast.Node{
+				initial, action1, action2, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "action1"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "action1"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "action2"}}},
+				},
+				&ast.ObjectFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "action1"}, {Text: "output"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "action2"}, {Text: "input"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "action2"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	// Verify ObjectFlowEdge extracted
+	if len(exec.dataFlows) == 0 {
+		t.Fatal("expected dataFlows map to be populated")
+	}
+	
+	flows := exec.dataFlows[action1]
+	if len(flows) != 1 {
+		t.Fatalf("expected 1 object flow from action1, got %d", len(flows))
+	}
+	
+	if flows[0].SourcePin != "output" {
+		t.Errorf("expected source pin 'output', got %q", flows[0].SourcePin)
+	}
+	if flows[0].TargetPin != "input" {
+		t.Errorf("expected target pin 'input', got %q", flows[0].TargetPin)
+	}
+	if flows[0].Target != action2 {
+		t.Error("expected target to be action2 node")
+	}
+	
+	// Execute and verify data transfer
+	exec.initialize()
+	exec.stepToken(0) // initial → action1
+	exec.stepToken(0) // action1: execute, store result in "output" pin
+	
+	// Verify action1 stored result in "output" pin
+	if _, ok := exec.tokens[0].Data["output"]; !ok {
+		t.Fatal("expected action1 to store result in 'output' pin")
+	}
+	
+	outputVal := exec.tokens[0].Data["output"]
+	if outputVal.Kind != ValConst || outputVal.Const.Kind != semantics.ValInt || outputVal.Const.Int != 42 {
+		t.Errorf("expected output=42, got %v", outputVal)
+	}
+	
+	exec.stepToken(0) // action1 → action2 (control flow + data flow)
+	
+	// Verify action2 received data in "input" pin
+	if _, ok := exec.tokens[0].Data["input"]; !ok {
+		t.Fatal("expected action2 to receive data in 'input' pin")
+	}
+	
+	inputVal := exec.tokens[0].Data["input"]
+	if inputVal.Kind != ValConst || inputVal.Const.Kind != semantics.ValInt || inputVal.Const.Int != 42 {
+		t.Errorf("expected input=42, got %v", inputVal)
+	}
+}
+
+func TestActionExecutor_Step(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → action → final
+	initial := &ast.InitialNode{Name: "start"}
+	action := &ast.ActionExecutionNode{
+		Name:       "compute",
+		Expression: &ast.LiteralInteger{Value: "100"},
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	actionSym := &symbols.Symbol{
+		Name: "StepTestAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "StepTestAction"},
+			Members: []ast.Node{
+				initial, action, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	
+	// Step 1: initial → action
+	err = exec.Step()
+	if err != nil {
+		t.Fatalf("step 1: %v", err)
+	}
+	if exec.tokens[0].Location != action {
+		t.Error("expected token at action node after step 1")
+	}
+	
+	// Step 2: action executes, moves to final
+	err = exec.Step()
+	if err != nil {
+		t.Fatalf("step 2: %v", err)
+	}
+	if exec.tokens[0].Location != final {
+		t.Error("expected token at final node after step 2")
+	}
+	
+	// Step 3: final consumes token, marks completion
+	err = exec.Step()
+	if err != nil {
+		t.Fatalf("step 3: %v", err)
+	}
+	if len(exec.tokens) != 0 {
+		t.Errorf("expected no tokens after final, got %d", len(exec.tokens))
+	}
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+}
+
+func TestActionExecutor_RunToCompletion(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → fork → [action1, action2] → join → final
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	action1 := &ast.ActionExecutionNode{
+		Name:       "compute1",
+		Expression: &ast.LiteralInteger{Value: "10"},
+	}
+	action2 := &ast.ActionExecutionNode{
+		Name:       "compute2",
+		Expression: &ast.LiteralInteger{Value: "20"},
+	}
+	join := &ast.JoinNode{Name: "sync"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	actionSym := &symbols.Symbol{
+		Name: "RunToCompletionAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "RunToCompletionAction"},
+			Members: []ast.Node{
+				initial, fork, action1, action2, join, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute1"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute2"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute1"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute2"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	
+	// Run to completion
+	err = exec.RunToCompletion()
+	if err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	
+	// Verify completed state
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+	
+	if len(exec.tokens) != 0 {
+		t.Errorf("expected no tokens after completion, got %d", len(exec.tokens))
+	}
+}
+
+func TestActionExecutor_Deadlock_JoinStarvation(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build deadlock scenario: 
+	// initial → fork → [path1 → join, path2 → action2]
+	// Join expects 2 tokens (has 2 incoming edges), but path2 never reaches join
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	action1 := &ast.ActionExecutionNode{
+		Name:       "path1",
+		Expression: &ast.LiteralInteger{Value: "1"},
+	}
+	action2 := &ast.ActionExecutionNode{
+		Name:       "path2",
+		Expression: &ast.LiteralInteger{Value: "2"},
+	}
+	join := &ast.JoinNode{Name: "sync"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	actionSym := &symbols.Symbol{
+		Name: "DeadlockAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "DeadlockAction"},
+			Members: []ast.Node{
+				initial, fork, action1, action2, join, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+				},
+				// Fork creates 2 tokens
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "path1"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "path2"}}},
+				},
+				// Path1 reaches join
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "path1"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				// Path2 reaches join (creates expectation of 2 incoming tokens)
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "path2"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	
+	// Manually step to create deadlock scenario:
+	// Remove one token after fork to simulate path failure
+	exec.stepToken(0) // initial → fork
+	exec.stepToken(0) // fork → [path1, path2]
+	
+	// Should now have 2 tokens at path1 and path2
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens after fork, got %d", len(exec.tokens))
+	}
+	
+	// Remove path2 token to simulate failure (creates join starvation)
+	// Find path2 token
+	path2Idx := -1
+	for i, tok := range exec.tokens {
+		if n, ok := tok.Location.(*ast.ActionExecutionNode); ok && n.Name == "path2" {
+			path2Idx = i
+			break
+		}
+	}
+	if path2Idx == -1 {
+		t.Fatal("couldn't find path2 token")
+	}
+	exec.tokens = append(exec.tokens[:path2Idx], exec.tokens[path2Idx+1:]...)
+	
+	// Now run to completion - should detect deadlock
+	err = exec.RunToCompletion()
+	if err == nil {
+		t.Fatal("expected deadlock error, got nil")
+	}
+	
+	// Check error message
+	if !containsText(err.Error(), "deadlock") {
+		t.Errorf("expected deadlock error, got: %v", err)
+	}
+}
+
+// Integration Tests (Tasks 12-16)
+
+func TestActionExecutor_Integration_Sequential(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → compute1 → compute2 → compute3 → final
+	// Sequential execution with data flow
+	initial := &ast.InitialNode{Name: "start"}
+	compute1 := &ast.ActionExecutionNode{
+		Name:       "step1",
+		Expression: &ast.LiteralInteger{Value: "10"},
+	}
+	compute2 := &ast.ActionExecutionNode{
+		Name:       "step2",
+		Expression: &ast.LiteralInteger{Value: "20"},
+	}
+	compute3 := &ast.ActionExecutionNode{
+		Name:       "step3",
+		Expression: &ast.LiteralInteger{Value: "30"},
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "SequentialAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "SequentialAction"},
+			Members: []ast.Node{
+				initial, compute1, compute2, compute3, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "step1"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "step1"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "step2"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "step2"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "step3"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "step3"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	
+	// Run to completion
+	err = exec.RunToCompletion()
+	if err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	
+	// Verify completed state
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+	
+	if len(exec.tokens) != 0 {
+		t.Errorf("expected no tokens, got %d", len(exec.tokens))
+	}
+}
+
+func TestActionExecutor_Integration_ForkJoin(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → fork → [path1, path2, path3] → join → final
+	// Parallel execution with synchronization
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	path1 := &ast.ActionExecutionNode{
+		Name:       "parallel1",
+		Expression: &ast.LiteralInteger{Value: "1"},
+	}
+	path2 := &ast.ActionExecutionNode{
+		Name:       "parallel2",
+		Expression: &ast.LiteralInteger{Value: "2"},
+	}
+	path3 := &ast.ActionExecutionNode{
+		Name:       "parallel3",
+		Expression: &ast.LiteralInteger{Value: "3"},
+	}
+	join := &ast.JoinNode{Name: "sync"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "ForkJoinAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "ForkJoinAction"},
+			Members: []ast.Node{
+				initial, fork, path1, path2, path3, join, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel1"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel2"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel3"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel1"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel2"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "parallel3"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "sync"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	
+	// Run to completion
+	err = exec.RunToCompletion()
+	if err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	
+	// Verify completed
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+}
+
+func TestActionExecutor_Integration_DecisionMerge(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build: initial → decision → [pathTrue, pathFalse] → merge → final
+	// Conditional branching with merge
+	initial := &ast.InitialNode{Name: "start"}
+	decision := &ast.DecisionNode{Name: "branch"}
+	pathTrue := &ast.ActionExecutionNode{
+		Name:       "whenTrue",
+		Expression: &ast.LiteralString{Value: "true_path"},
+	}
+	pathFalse := &ast.ActionExecutionNode{
+		Name:       "whenFalse",
+		Expression: &ast.LiteralString{Value: "false_path"},
+	}
+	merge := &ast.MergeNode{Name: "converge"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Guard: x > 5
+	guardExpr := &ast.OperatorExpr{
+		Operator: ast.OpGt,
+		Operands: []ast.Node{
+			&ast.FeatureReference{Name: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "x"}}}},
+			&ast.LiteralInteger{Value: "5"},
+		},
+	}
+	
+	action := &symbols.Symbol{
+		Name: "DecisionMergeAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "DecisionMergeAction"},
+			Members: []ast.Node{
+				initial, decision, pathTrue, pathFalse, merge, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "branch"}}},
+				},
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "branch"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "whenTrue"}}},
+					Guard:  guardExpr,
+				},
+				&ast.ControlFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "branch"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "whenFalse"}}},
+					Guard:  nil, // Else branch
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "whenTrue"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "converge"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "whenFalse"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "converge"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "converge"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	// Test 1: x=10 (takes true path)
+	t.Run("true_path", func(t *testing.T) {
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 10},
+		}
+		
+		err = exec.RunToCompletion()
+		if err != nil {
+			t.Fatalf("run to completion: %v", err)
+		}
+		
+		if exec.state != StateCompleted {
+			t.Errorf("expected StateCompleted, got %v", exec.state)
+		}
+	})
+	
+	// Test 2: x=3 (takes false path)
+	t.Run("false_path", func(t *testing.T) {
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		exec.tokens[0].Data["x"] = Value{
+			Kind:  ValConst,
+			Const: semantics.Value{Kind: semantics.ValInt, Int: 3},
+		}
+		
+		err = exec.RunToCompletion()
+		if err != nil {
+			t.Fatalf("run to completion: %v", err)
+		}
+		
+		if exec.state != StateCompleted {
+			t.Errorf("expected StateCompleted, got %v", exec.state)
+		}
+	})
+}
+
+func TestActionExecutor_Integration_ObjectFlow(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Build pipeline with data flow: initial → producer → consumer → final
+	// ObjectFlow: producer.result → consumer.input
+	initial := &ast.InitialNode{Name: "start"}
+	producer := &ast.ActionExecutionNode{
+		Name:       "producer",
+		Expression: &ast.LiteralInteger{Value: "999"},
+	}
+	consumer := &ast.ActionExecutionNode{
+		Name:       "consumer",
+		Expression: &ast.LiteralString{Value: "processed"}, // Could read input in real scenario
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	action := &symbols.Symbol{
+		Name: "ObjectFlowAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "ObjectFlowAction"},
+			Members: []ast.Node{
+				initial, producer, consumer, final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "producer"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "producer"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "consumer"}}},
+				},
+				&ast.ObjectFlowEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "producer"}, {Text: "result"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "consumer"}, {Text: "input"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "consumer"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	err = exec.RunToCompletion()
+	if err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	
+	if exec.state != StateCompleted {
+		t.Errorf("expected StateCompleted, got %v", exec.state)
+	}
+}
+
+func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	// Test 1: Initial node missing
+	t.Run("missing_initial_node", func(t *testing.T) {
+		action := &symbols.Symbol{
+			Name: "NoInitialAction",
+			Kind: symbols.SymbolActionUsage,
+			Decl: &ast.Usage{
+				Kind:    ast.UsageAction,
+				Ident:   ast.Identification{Name: "NoInitialAction"},
+				Members: []ast.Node{
+					&ast.FinalNode{Name: "end"},
+				},
+			},
+		}
+		
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		err = exec.initialize()
+		if err == nil {
+			t.Fatal("expected error for missing initial node")
+		}
+		
+		if !containsText(err.Error(), "no initial node") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	
+	// Test 2: Undefined edge reference
+	t.Run("undefined_edge_reference", func(t *testing.T) {
+		initial := &ast.InitialNode{Name: "start"}
+		
+		action := &symbols.Symbol{
+			Name: "BadEdgeAction",
+			Kind: symbols.SymbolActionUsage,
+			Decl: &ast.Usage{
+				Kind:    ast.UsageAction,
+				Ident:   ast.Identification{Name: "BadEdgeAction"},
+				Members: []ast.Node{
+					initial,
+					&ast.SuccessionEdge{
+						Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+						Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "nonexistent"}}},
+					},
+				},
+			},
+		}
+		
+		_, err := newActionExecutor(ctx, action)
+		if err == nil {
+			t.Fatal("expected error for undefined edge reference")
+		}
+		
+		if !containsText(err.Error(), "undefined") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	
+	// Test 3: Initial node with no successors
+	t.Run("initial_no_successors", func(t *testing.T) {
+		initial := &ast.InitialNode{Name: "start"}
+		
+		action := &symbols.Symbol{
+			Name: "DeadEndAction",
+			Kind: symbols.SymbolActionUsage,
+			Decl: &ast.Usage{
+				Kind:    ast.UsageAction,
+				Ident:   ast.Identification{Name: "DeadEndAction"},
+				Members: []ast.Node{initial},
+			},
+		}
+		
+		exec, err := newActionExecutor(ctx, action)
+		if err != nil {
+			t.Fatalf("create executor: %v", err)
+		}
+		
+		exec.initialize()
+		err = exec.stepToken(0)
+		if err == nil {
+			t.Fatal("expected error for initial node with no successors")
+		}
+		
+		if !containsText(err.Error(), "no successors") {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}

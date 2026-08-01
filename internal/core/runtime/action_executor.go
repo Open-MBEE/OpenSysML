@@ -58,6 +58,99 @@ func newActionExecutor(ctx *Context, action *symbols.Symbol) (*ActionExecutor, e
 	return exec, nil
 }
 
+// Step advances execution by one step for all active tokens.
+// Safely handles token slice modifications (fork/join) by collecting indices first.
+// Returns error if deadlock detected (no progress made).
+func (e *ActionExecutor) Step() error {
+	if e.state == StateCompleted {
+		return nil // Already completed
+	}
+	
+	if e.state == StateReady {
+		return fmt.Errorf("executor not initialized (call initialize first)")
+	}
+	
+	// Snapshot token state before step (for deadlock detection)
+	tokenCountBefore := len(e.tokens)
+	tokenLocationsBefore := make([]ast.Node, len(e.tokens))
+	for i, t := range e.tokens {
+		tokenLocationsBefore[i] = t.Location
+	}
+	
+	// Collect token indices to step (snapshot before iteration)
+	tokenIndices := make([]int, len(e.tokens))
+	for i := range e.tokens {
+		tokenIndices[i] = i
+	}
+	
+	// Step tokens in reverse order to handle removal safely
+	// (removing token at higher index doesn't affect lower indices)
+	for i := len(tokenIndices) - 1; i >= 0; i-- {
+		// Check if token still exists (may have been removed by join/final)
+		if i >= len(e.tokens) {
+			continue
+		}
+		
+		err := e.stepToken(i)
+		if err != nil {
+			return err
+		}
+	}
+	
+	// Deadlock detection: check if any progress was made
+	progressMade := false
+	
+	// Progress indicators:
+	// 1. Token count changed (fork/join/final consumed/created tokens)
+	if len(e.tokens) != tokenCountBefore {
+		progressMade = true
+	}
+	
+	// 2. At least one token moved to different location
+	if !progressMade && len(e.tokens) > 0 {
+		for i := 0; i < len(e.tokens) && i < len(tokenLocationsBefore); i++ {
+			if e.tokens[i].Location != tokenLocationsBefore[i] {
+				progressMade = true
+				break
+			}
+		}
+	}
+	
+	// 3. All tokens consumed (completion)
+	if len(e.tokens) == 0 {
+		progressMade = true
+	}
+	
+	// If no progress and tokens remain, deadlock detected
+	if !progressMade && len(e.tokens) > 0 {
+		return fmt.Errorf("deadlock detected: %d token(s) stuck, no progress made", len(e.tokens))
+	}
+	
+	return nil
+}
+
+// RunToCompletion executes until StateCompleted or error.
+// Includes infinite loop protection.
+func (e *ActionExecutor) RunToCompletion() error {
+	const maxSteps = 10000
+	steps := 0
+	
+	for e.state == StateRunning {
+		if steps >= maxSteps {
+			return fmt.Errorf("execution exceeded max steps (%d), possible infinite loop", maxSteps)
+		}
+		
+		err := e.Step()
+		if err != nil {
+			return err
+		}
+		
+		steps++
+	}
+	
+	return nil
+}
+
 // extractGraph builds node and edge maps from action AST.
 func (e *ActionExecutor) extractGraph() error {
 	// Get action node
@@ -113,7 +206,23 @@ func (e *ActionExecutor) extractGraph() error {
 				e.guards[sourceNode][targetNode] = n.Guard
 			}
 		case *ast.ObjectFlowEdge:
-			// Data flow edges (deferred to Task 9)
+			// Data flow edges: pin-to-pin data routing
+			sourceNode, sourcePin := e.parsePinReference(n.Source)
+			targetNode, targetPin := e.parsePinReference(n.Target)
+			
+			if sourceNode == nil {
+				return fmt.Errorf("object flow edge references undefined source node")
+			}
+			if targetNode == nil {
+				return fmt.Errorf("object flow edge references undefined target node")
+			}
+			
+			// Store data flow: sourceNode → {targetNode, sourcePin, targetPin}
+			e.dataFlows[sourceNode] = append(e.dataFlows[sourceNode], objectFlow{
+				SourcePin: sourcePin,
+				TargetPin: targetPin,
+				Target:    targetNode,
+			})
 		}
 	}
 	
@@ -134,6 +243,28 @@ func (e *ActionExecutor) findNodeByName(qname *ast.QualifiedName) ast.Node {
 		}
 	}
 	return nil
+}
+
+// parsePinReference extracts node and pin name from qualified reference.
+// Expects format: nodeName.pinName (e.g., "action1.output")
+// Returns (node, pinName). If no pin specified, returns (node, "").
+func (e *ActionExecutor) parsePinReference(qname *ast.QualifiedName) (ast.Node, string) {
+	if qname == nil || len(qname.Parts) == 0 {
+		return nil, ""
+	}
+	
+	// Single part: just node name, no pin
+	if len(qname.Parts) == 1 {
+		nodeName := qname.Parts[0].Text
+		node := e.findNodeByName(&ast.QualifiedName{Parts: []ast.NameSegment{{Text: nodeName}}})
+		return node, ""
+	}
+	
+	// Two parts: nodeName.pinName
+	nodeName := qname.Parts[0].Text
+	pinName := qname.Parts[1].Text
+	node := e.findNodeByName(&ast.QualifiedName{Parts: []ast.NameSegment{{Text: nodeName}}})
+	return node, pinName
 }
 
 // getNodeName extracts the name from a behavioral node.
@@ -473,7 +604,16 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 		if err != nil {
 			return fmt.Errorf("eval expression: %w", err)
 		}
-		token.Data["result"] = result
+		
+		// Store result: check if dataFlows specify output pin, else use "result"
+		outputPin := "result"
+		if flows, ok := e.dataFlows[node]; ok && len(flows) > 0 {
+			// Use source pin from first data flow as output pin
+			if flows[0].SourcePin != "" {
+				outputPin = flows[0].SourcePin
+			}
+		}
+		token.Data[outputPin] = result
 	} else if node.ActionRef != nil {
 		return fmt.Errorf("nested action invocation not yet implemented")
 	}
@@ -486,6 +626,31 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 	if len(successors) > 1 {
 		return fmt.Errorf("action node %s has multiple successors (decision nodes not yet supported)", node.Name)
 	}
+	
+	// Apply data flows: transfer data from this node's output pins to target input pins
+	e.applyDataFlows(token, node)
+	
 	token.Location = successors[0]
 	return nil
+}
+
+// applyDataFlows transfers data along object flow edges.
+// Copies data from source pins to target pins for all outgoing data flows.
+func (e *ActionExecutor) applyDataFlows(token *Token, sourceNode ast.Node) {
+	flows, ok := e.dataFlows[sourceNode]
+	if !ok || len(flows) == 0 {
+		return
+	}
+	
+	for _, flow := range flows {
+		// Get data from source pin
+		sourceData, ok := token.Data[flow.SourcePin]
+		if !ok {
+			// No data at source pin - skip this flow
+			continue
+		}
+		
+		// Store in target pin (will be available when token reaches target)
+		token.Data[flow.TargetPin] = sourceData
+	}
 }
