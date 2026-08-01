@@ -663,3 +663,37 @@ func (e *ActionExecutor) applyDataFlows(token *Token, sourceNode ast.Node) {
 		token.Data[flow.TargetPin] = sourceData
 	}
 }
+
+// --- Public accessor methods for REPL debugging ---
+
+// Tokens returns a copy of active tokens.
+func (e *ActionExecutor) Tokens() []Token {
+	tokens := make([]Token, len(e.tokens))
+	copy(tokens, e.tokens)
+	return tokens
+}
+
+// State returns current execution state.
+func (e *ActionExecutor) State() ExecutionState {
+	return e.state
+}
+
+// Results returns accumulated results from final nodes.
+func (e *ActionExecutor) Results() map[string]Value {
+	return e.results
+}
+
+// SetBreakpoint adds a breakpoint at the given node name.
+func (e *ActionExecutor) SetBreakpoint(nodeName string) {
+	e.breakpoints[nodeName] = true
+}
+
+// ClearBreakpoints removes all breakpoints.
+func (e *ActionExecutor) ClearBreakpoints() {
+	e.breakpoints = make(map[string]bool)
+}
+
+// ActionSymbol returns the action being executed.
+func (e *ActionExecutor) ActionSymbol() *symbols.Symbol {
+	return e.action
+}

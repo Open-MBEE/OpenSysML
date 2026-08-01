@@ -35,6 +35,20 @@ var helpText = []string{
 	"%calc <name> <args> invoke a calculation with arguments",
 	"%constraint <name>  evaluate a constraint definition",
 	"%requirement <name> evaluate a requirement definition",
+	"",
+	"Action debugging:",
+	"%action <name>      start action executor debugging session",
+	"%step               advance one token step",
+	"%continue           run action to completion",
+	"%tokens             show active tokens",
+	"%break <node>       set breakpoint at node",
+	"%stop               stop current debugging session",
+	"",
+	"State machine debugging:",
+	"%state <name>       start state machine debugging session",
+	"%events             show event queue",
+	"%current            show current state and configuration",
+	"%advance <time>     advance simulation time",
 }
 
 // runMeta executes a meta command line. Returns lines to print, whether to quit,
@@ -99,6 +113,40 @@ func (s *Session) runMeta(line string) (out []string, quit bool, err error) {
 			return []string{"usage: %requirement <name>"}, false, nil
 		}
 		return s.doRequirement(fields[1])
+	// Action debugging
+	case "%action":
+		if len(fields) < 2 {
+			return []string{"usage: %action <name>"}, false, nil
+		}
+		return s.doAction(fields[1])
+	case "%step":
+		return s.doStep()
+	case "%continue":
+		return s.doContinue()
+	case "%tokens":
+		return s.doTokens()
+	case "%break":
+		if len(fields) < 2 {
+			return []string{"usage: %break <node>"}, false, nil
+		}
+		return s.doBreak(fields[1])
+	case "%stop":
+		return s.doStop()
+	// State machine debugging
+	case "%state":
+		if len(fields) < 2 {
+			return []string{"usage: %state <name>"}, false, nil
+		}
+		return s.doStateMachine(fields[1])
+	case "%events":
+		return s.doEvents()
+	case "%current":
+		return s.doCurrent()
+	case "%advance":
+		if len(fields) < 2 {
+			return []string{"usage: %advance <time>"}, false, nil
+		}
+		return s.doAdvance(fields[1])
 	default:
 		return []string{fmt.Sprintf("unknown command %q (try %%help)", fields[0])}, false, nil
 	}
@@ -491,4 +539,349 @@ func (s *Session) doRequirement(name string) ([]string, bool, error) {
 	return []string{
 		fmt.Sprintf("✓ Requirement %s satisfied", name),
 	}, false, nil
+}
+
+// --- Action Debugging Commands ---
+
+// doAction starts an action executor debugging session.
+func (s *Session) doAction(name string) ([]string, bool, error) {
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return nil, false, fmt.Errorf("runtime init: %w", err)
+	}
+	
+	doc := s.ws.Document(docName)
+	if doc == nil || doc.Scope == nil {
+		return []string{"error: no declarations loaded"}, false, nil
+	}
+	
+	sym, ok := doc.Scope.LookupLocal(name)
+	if !ok || sym == nil {
+		return []string{fmt.Sprintf("error: action %q not found", name)}, false, nil
+	}
+	
+	if sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolActionDef {
+		return []string{fmt.Sprintf("error: %q is not an action", name)}, false, nil
+	}
+	
+	// Create executor
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		return []string{fmt.Sprintf("error: failed to create executor: %v", err)}, false, nil
+	}
+	
+	// Store session
+	s.actionExec = &actionSession{
+		name:     name,
+		symbol:   sym,
+		executor: exec,
+	}
+	
+	// Display initial state
+	tokens := exec.Tokens()
+	return []string{
+		fmt.Sprintf("✓ Started action executor for %q", name),
+		fmt.Sprintf("  State: %s", exec.State()),
+		fmt.Sprintf("  Tokens: %d", len(tokens)),
+		"",
+		"Use %step to advance, %tokens to inspect, %continue to run to completion",
+	}, false, nil
+}
+
+// doStep advances the action executor one step.
+func (s *Session) doStep() ([]string, bool, error) {
+	if s.actionExec == nil {
+		return []string{"error: no active action session (use %action <name> first)"}, false, nil
+	}
+	
+	exec := s.actionExec.executor
+	
+	// Check if already completed
+	if exec.State() == runtime.StateCompleted {
+		return []string{"✓ Action already completed"}, false, nil
+	}
+	
+	// Step
+	err := exec.Step()
+	if err != nil {
+		return []string{fmt.Sprintf("error: step failed: %v", err)}, false, nil
+	}
+	
+	// Display state
+	tokens := exec.Tokens()
+	out := []string{
+		fmt.Sprintf("✓ Step complete"),
+		fmt.Sprintf("  State: %s", exec.State()),
+		fmt.Sprintf("  Tokens: %d", len(tokens)),
+	}
+	
+	if exec.State() == runtime.StateCompleted {
+		results := exec.Results()
+		out = append(out, "", "✓ Action completed")
+		if len(results) > 0 {
+			out = append(out, "  Results:")
+			for k, v := range results {
+				out = append(out, fmt.Sprintf("    %s = %s", k, formatValue(v)))
+			}
+		}
+	}
+	
+	return out, false, nil
+}
+
+// doContinue runs the action to completion.
+func (s *Session) doContinue() ([]string, bool, error) {
+	if s.actionExec == nil {
+		return []string{"error: no active action session (use %action <name> first)"}, false, nil
+	}
+	
+	exec := s.actionExec.executor
+	
+	// Check if already completed
+	if exec.State() == runtime.StateCompleted {
+		return []string{"✓ Action already completed"}, false, nil
+	}
+	
+	// Run to completion
+	err := exec.RunToCompletion()
+	if err != nil {
+		return []string{fmt.Sprintf("error: execution failed: %v", err)}, false, nil
+	}
+	
+	// Display results
+	results := exec.Results()
+	out := []string{
+		"✓ Action completed",
+		fmt.Sprintf("  Final state: %s", exec.State()),
+	}
+	
+	if len(results) > 0 {
+		out = append(out, "  Results:")
+		for k, v := range results {
+			out = append(out, fmt.Sprintf("    %s = %s", k, formatValue(v)))
+		}
+	}
+	
+	return out, false, nil
+}
+
+// doTokens displays active tokens.
+func (s *Session) doTokens() ([]string, bool, error) {
+	if s.actionExec == nil {
+		return []string{"error: no active action session (use %action <name> first)"}, false, nil
+	}
+	
+	exec := s.actionExec.executor
+	tokens := exec.Tokens()
+	
+	if len(tokens) == 0 {
+		return []string{"No active tokens"}, false, nil
+	}
+	
+	out := []string{fmt.Sprintf("Active tokens (%d):", len(tokens))}
+	for _, tok := range tokens {
+		locName := "<unknown>"
+		if stateNode, ok := tok.Location.(*ast.StateNode); ok {
+			if stateNode.Name != "" {
+				locName = stateNode.Name
+			}
+		} else if tok.Location != nil {
+			locName = fmt.Sprintf("%T", tok.Location)
+		}
+		
+		out = append(out, fmt.Sprintf("  Token %d @ %s", tok.ID, locName))
+		if len(tok.Data) > 0 {
+			for k, v := range tok.Data {
+				out = append(out, fmt.Sprintf("    %s = %s", k, formatValue(v)))
+			}
+		}
+	}
+	
+	return out, false, nil
+}
+
+// doBreak sets a breakpoint.
+func (s *Session) doBreak(nodeName string) ([]string, bool, error) {
+	if s.actionExec == nil {
+		return []string{"error: no active action session (use %action <name> first)"}, false, nil
+	}
+	
+	exec := s.actionExec.executor
+	exec.SetBreakpoint(nodeName)
+	
+	return []string{fmt.Sprintf("✓ Breakpoint set at node %q", nodeName)}, false, nil
+}
+
+// doStop stops the current debugging session.
+func (s *Session) doStop() ([]string, bool, error) {
+	if s.actionExec == nil && s.stateExec == nil {
+		return []string{"error: no active debugging session"}, false, nil
+	}
+	
+	sessionName := ""
+	if s.actionExec != nil {
+		sessionName = s.actionExec.name
+		s.actionExec = nil
+	} else if s.stateExec != nil {
+		sessionName = s.stateExec.name
+		s.stateExec = nil
+	}
+	
+	return []string{fmt.Sprintf("✓ Stopped debugging session for %q", sessionName)}, false, nil
+}
+
+// --- State Machine Debugging Commands ---
+
+// doStateMachine starts a state machine executor debugging session.
+func (s *Session) doStateMachine(name string) ([]string, bool, error) {
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return nil, false, fmt.Errorf("runtime init: %w", err)
+	}
+	
+	doc := s.ws.Document(docName)
+	if doc == nil || doc.Scope == nil {
+		return []string{"error: no declarations loaded"}, false, nil
+	}
+	
+	sym, ok := doc.Scope.LookupLocal(name)
+	if !ok || sym == nil {
+		return []string{fmt.Sprintf("error: state machine %q not found", name)}, false, nil
+	}
+	
+	if sym.Kind != symbols.SymbolStateDef && sym.Kind != symbols.SymbolStateUsage {
+		return []string{fmt.Sprintf("error: %q is not a state machine", name)}, false, nil
+	}
+	
+	// Create executor
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		return []string{fmt.Sprintf("error: failed to create executor: %v", err)}, false, nil
+	}
+	
+	// Store session
+	s.stateExec = &stateSession{
+		name:     name,
+		symbol:   sym,
+		executor: exec,
+	}
+	
+	// Display initial state
+	currentState := exec.CurrentState()
+	stateName := "<unknown>"
+	if stateNode, ok := currentState.(*ast.StateNode); ok && stateNode.Name != "" {
+		stateName = stateNode.Name
+	}
+	
+	return []string{
+		fmt.Sprintf("✓ Started state machine executor for %q", name),
+		fmt.Sprintf("  Current state: %s", stateName),
+		fmt.Sprintf("  Time: %.2f", exec.CurrentTime()),
+		fmt.Sprintf("  Events: %d", exec.EventQueue().Len()),
+		"",
+		"Use %events to see queue, %current for state, %advance <time> to step",
+	}, false, nil
+}
+
+// doEvents displays the event queue.
+func (s *Session) doEvents() ([]string, bool, error) {
+	if s.stateExec == nil {
+		return []string{"error: no active state machine session (use %state <name> first)"}, false, nil
+	}
+	
+	exec := s.stateExec.executor
+	queue := exec.EventQueue()
+	
+	if queue.Len() == 0 {
+		return []string{"Event queue empty"}, false, nil
+	}
+	
+	// Note: EventQueue doesn't expose events directly, so just show count
+	return []string{
+		fmt.Sprintf("Event queue: %d events", queue.Len()),
+		"Use %advance <time> to process next event",
+	}, false, nil
+}
+
+// doCurrent shows current state and configuration.
+func (s *Session) doCurrent() ([]string, bool, error) {
+	if s.stateExec == nil {
+		return []string{"error: no active state machine session (use %state <name> first)"}, false, nil
+	}
+	
+	exec := s.stateExec.executor
+	currentState := exec.CurrentState()
+	stateStack := exec.StateStack()
+	stateData := exec.StateData()
+	
+	stateName := "<unknown>"
+	if stateNode, ok := currentState.(*ast.StateNode); ok && stateNode.Name != "" {
+		stateName = stateNode.Name
+	}
+	
+	out := []string{
+		fmt.Sprintf("Current state: %s", stateName),
+		fmt.Sprintf("Time: %.2f", exec.CurrentTime()),
+		fmt.Sprintf("Execution state: %s", exec.State()),
+	}
+	
+	if len(stateStack) > 1 {
+		out = append(out, "", "State stack (active configuration):")
+		for i, stateNode := range stateStack {
+			if stateNode.Name != "" {
+				out = append(out, fmt.Sprintf("  %d. %s", i, stateNode.Name))
+			}
+		}
+	}
+	
+	if len(stateData) > 0 {
+		out = append(out, "", "State data:")
+		for k, v := range stateData {
+			out = append(out, fmt.Sprintf("  %s = %s", k, formatValue(v)))
+		}
+	}
+	
+	return out, false, nil
+}
+
+// doAdvance advances simulation time.
+func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
+	if s.stateExec == nil {
+		return []string{"error: no active state machine session (use %state <name> first)"}, false, nil
+	}
+	
+	// Parse time - for now just process next event
+	// TODO: parse timeStr and advance to specific time
+	
+	exec := s.stateExec.executor
+	
+	if exec.EventQueue().Len() == 0 {
+		return []string{"Event queue empty - no events to process"}, false, nil
+	}
+	
+	// Process next event
+	err := exec.ProcessNextEvent()
+	if err != nil {
+		return []string{fmt.Sprintf("error: event processing failed: %v", err)}, false, nil
+	}
+	
+	// Display new state
+	currentState := exec.CurrentState()
+	stateName := "<unknown>"
+	if stateNode, ok := currentState.(*ast.StateNode); ok && stateNode.Name != "" {
+		stateName = stateNode.Name
+	}
+	
+	out := []string{
+		"✓ Event processed",
+		fmt.Sprintf("  Current state: %s", stateName),
+		fmt.Sprintf("  Time: %.2f", exec.CurrentTime()),
+		fmt.Sprintf("  Remaining events: %d", exec.EventQueue().Len()),
+	}
+	
+	if exec.State() == runtime.StateCompleted {
+		out = append(out, "", "✓ State machine completed (final state reached)")
+	}
+	
+	return out, false, nil
 }

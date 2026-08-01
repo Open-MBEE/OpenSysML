@@ -34,6 +34,24 @@ type Session struct {
 	// Runtime execution context
 	rtCtx     *runtime.Context
 	instances map[string]*runtime.Instance // name -> instance for %instantiate tracking
+	
+	// Active executor sessions for debugging
+	actionExec *actionSession
+	stateExec  *stateSession
+}
+
+// actionSession holds an active action executor debugging session.
+type actionSession struct {
+	name     string
+	symbol   *symbols.Symbol
+	executor *runtime.ActionExecutor
+}
+
+// stateSession holds an active state machine executor debugging session.
+type stateSession struct {
+	name     string
+	symbol   *symbols.Symbol
+	executor *runtime.StateExecutor
 }
 
 // NewSession returns a session over a fresh workspace.
@@ -123,6 +141,8 @@ func (s *Session) Clear() {
 	s.version = 0
 	s.rtCtx = nil
 	s.instances = make(map[string]*runtime.Instance)
+	s.actionExec = nil
+	s.stateExec = nil
 }
 
 // getOrCreateRuntime lazily creates runtime context when first needed.

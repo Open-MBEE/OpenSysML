@@ -495,3 +495,51 @@ func (e *StateExecutor) pollChangeEvents() error {
 	
 	return nil
 }
+
+// --- Public accessor methods for REPL debugging ---
+
+// CurrentState returns the current active state node.
+func (e *StateExecutor) CurrentState() ast.Node {
+	return e.currentState
+}
+
+// StateStack returns a copy of the state stack (active configuration).
+func (e *StateExecutor) StateStack() []*ast.StateNode {
+	stack := make([]*ast.StateNode, len(e.stateStack))
+	copy(stack, e.stateStack)
+	return stack
+}
+
+// StateData returns a copy of state machine local data.
+func (e *StateExecutor) StateData() map[string]Value {
+	data := make(map[string]Value, len(e.stateData))
+	for k, v := range e.stateData {
+		data[k] = v
+	}
+	return data
+}
+
+// EventQueue returns the event queue (not copied - read-only access).
+func (e *StateExecutor) EventQueue() *EventQueue {
+	return e.eventQueue
+}
+
+// CurrentTime returns the current simulation time.
+func (e *StateExecutor) CurrentTime() float64 {
+	return e.currentTime
+}
+
+// State returns current execution state.
+func (e *StateExecutor) State() ExecutionState {
+	return e.state
+}
+
+// StateMachineSymbol returns the state machine being executed.
+func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
+	return e.stateMachine
+}
+
+// ProcessNextEvent processes the next event from the queue (for REPL stepping).
+func (e *StateExecutor) ProcessNextEvent() error {
+	return e.processNextEvent()
+}

@@ -52,3 +52,87 @@ func TestLoopEndToEnd(t *testing.T) {
 		t.Errorf("missing caret diagnostic for unresolved import:\n%s", got)
 	}
 }
+
+// TestActionDebuggerCommands tests %action command error handling.
+func TestActionDebuggerCommands(t *testing.T) {
+	script := []string{
+		"%action NonExistent",
+		"%step",
+		"%tokens",
+		"%continue",
+	}
+	var out strings.Builder
+	if err := Loop(&scriptReader{lines: script}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	got := out.String()
+
+	// Check error for non-existent action (empty session gives "no document loaded")
+	if !strings.Contains(got, "error:") {
+		t.Errorf("missing error:\n%s", got)
+	}
+	
+	// Check errors for commands without active session
+	if !strings.Contains(got, "no active action session") {
+		t.Errorf("missing session error:\n%s", got)
+	}
+}
+
+// TestStateMachineDebuggerCommands tests %state command error handling.
+func TestStateMachineDebuggerCommands(t *testing.T) {
+	script := []string{
+		"%state NonExistent",
+		"%current",
+		"%events",
+		"%advance 1",
+	}
+	var out strings.Builder
+	if err := Loop(&scriptReader{lines: script}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	got := out.String()
+
+	// Check error for non-existent state machine (empty session gives "no document loaded")
+	if !strings.Contains(got, "error:") {
+		t.Errorf("missing error:\n%s", got)
+	}
+	
+	// Check errors for commands without active session
+	if !strings.Contains(got, "no active state machine session") {
+		t.Errorf("missing session error:\n%s", got)
+	}
+}
+
+// TestBreakpointCommand tests %break command error handling.
+func TestBreakpointCommand(t *testing.T) {
+	script := []string{
+		"%break middle",
+	}
+	var out strings.Builder
+	if err := Loop(&scriptReader{lines: script}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	got := out.String()
+
+	// Check error without active session
+	if !strings.Contains(got, "no active action session") {
+		t.Errorf("missing session error:\n%s", got)
+	}
+}
+
+// TestStopCommand tests %stop command.
+func TestStopCommand(t *testing.T) {
+	script := []string{
+		"%stop",
+	}
+	var out strings.Builder
+	if err := Loop(&scriptReader{lines: script}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	got := out.String()
+
+	// Check error without active session
+	if !strings.Contains(got, "no active debugging session") {
+		t.Errorf("missing session error:\n%s", got)
+	}
+}

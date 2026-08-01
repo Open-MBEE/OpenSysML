@@ -373,3 +373,35 @@ func (ctx *Context) ExecuteState(stateMachine *symbols.Symbol) (map[string]Value
 	// Return state machine data
 	return exec.stateData, nil
 }
+
+// CreateActionExecutor creates an action executor without starting execution.
+// For REPL debugging - allows step-by-step execution control.
+func (ctx *Context) CreateActionExecutor(action *symbols.Symbol) (*ActionExecutor, error) {
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		return nil, fmt.Errorf("create action executor: %w", err)
+	}
+	
+	// Initialize (spawns initial token)
+	if err := exec.initialize(); err != nil {
+		return nil, fmt.Errorf("initialize action: %w", err)
+	}
+	
+	return exec, nil
+}
+
+// CreateStateExecutor creates a state executor without starting execution.
+// For REPL debugging - allows step-by-step execution control.
+func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExecutor, error) {
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		return nil, fmt.Errorf("create state executor: %w", err)
+	}
+	
+	// Initialize (enters initial state, schedules initial events)
+	if err := exec.initialize(); err != nil {
+		return nil, fmt.Errorf("initialize state machine: %w", err)
+	}
+	
+	return exec, nil
+}
