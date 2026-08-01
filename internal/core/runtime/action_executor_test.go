@@ -414,3 +414,107 @@ func TestActionExecutor_ForkNode_NoSuccessors(t *testing.T) {
 		t.Errorf("expected error %q, got %q", expectedMsg, err.Error())
 	}
 }
+
+func TestActionExecutor_JoinNode(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	task1 := &ast.ActionExecutionNode{
+		Name:       "task1",
+		Expression: &ast.LiteralInteger{Value: "1"},
+	}
+	task2 := &ast.ActionExecutionNode{
+		Name:       "task2",
+		Expression: &ast.LiteralInteger{Value: "2"},
+	}
+	task3 := &ast.ActionExecutionNode{
+		Name:       "task3",
+		Expression: &ast.LiteralInteger{Value: "3"},
+	}
+	join := &ast.JoinNode{Name: "merge"}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Build graph: initial → fork → [task1, task2, task3] → join → final
+	actionSym := &symbols.Symbol{
+		Name: "JoinAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "JoinAction"},
+			Members: []ast.Node{
+				initial, fork, task1, task2, task3, join, final,
+				// initial → fork
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}},
+				// fork → tasks
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task3"}}}},
+				// tasks → join
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task3"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}},
+				// join → final
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "merge"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}}},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // start → fork
+	exec.stepToken(0) // fork → [task1, task2, task3] (creates 3 tokens)
+	
+	// Should have 3 tokens at task nodes
+	if len(exec.tokens) != 3 {
+		t.Fatalf("expected 3 tokens after fork, got %d", len(exec.tokens))
+	}
+	
+	// Step each task node (moves tokens to join)
+	exec.stepToken(0) // task1 → join
+	exec.stepToken(1) // task2 → join
+	exec.stepToken(2) // task3 → join
+	
+	// All 3 tokens should be at join node
+	if len(exec.tokens) != 3 {
+		t.Fatalf("expected 3 tokens at join, got %d", len(exec.tokens))
+	}
+	
+	for i, token := range exec.tokens {
+		if token.Location != join {
+			t.Errorf("token %d not at join node", i)
+		}
+	}
+	
+	// Step join (should synchronize: 3 tokens → 1 token)
+	err = exec.stepToken(0)
+	if err != nil {
+		t.Fatalf("step join: %v", err)
+	}
+	
+	// Should have exactly 1 token
+	if len(exec.tokens) != 1 {
+		t.Fatalf("expected 1 token after join, got %d", len(exec.tokens))
+	}
+	
+	// Token should be at final node
+	if exec.tokens[0].Location != final {
+		t.Error("expected token at final node")
+	}
+	
+	// Token data should contain merged results from all tasks
+	token := exec.tokens[0]
+	result, ok := token.Data["result"]
+	if !ok {
+		t.Error("expected 'result' in merged token data")
+	}
+	
+	// Last-write-wins: task3's result should be final (value 3)
+	if result.Kind != ValConst || result.Const.Kind != semantics.ValInt || result.Const.Int != 3 {
+		t.Errorf("expected result=3, got %v", result)
+	}
+}

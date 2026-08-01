@@ -190,6 +190,8 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		return e.stepFinalNode(tokenIdx)
 	case *ast.ForkNode:
 		return e.stepForkNode(tokenIdx)
+	case *ast.JoinNode:
+		return e.stepJoinNode(tokenIdx)
 	case *ast.ActionExecutionNode:
 		return e.stepActionExecutionNode(tokenIdx)
 	default:
@@ -251,6 +253,88 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	e.tokens = append(e.tokens, newTokens...)
 	
 	return nil
+}
+
+// stepJoinNode synchronizes tokens from all incoming edges.
+// Waits for tokens on ALL incoming edges before firing.
+func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	node := token.Location.(*ast.JoinNode)
+	
+	// Get incoming edges
+	incomingEdges := e.getIncomingEdges(node)
+	if len(incomingEdges) == 0 {
+		return fmt.Errorf("join node %s has no incoming edges", node.Name)
+	}
+	
+	// Count tokens at this join node
+	tokensAtJoin := 0
+	for _, t := range e.tokens {
+		if t.Location == node {
+			tokensAtJoin++
+		}
+	}
+	
+	// Not ready yet: need tokens from all incoming edges
+	if tokensAtJoin < len(incomingEdges) {
+		return nil // Skip, wait for more tokens
+	}
+	
+	// Ready: collect all join tokens and remaining tokens
+	joinTokens := make([]Token, 0, tokensAtJoin)
+	remainingTokens := make([]Token, 0, len(e.tokens)-tokensAtJoin)
+	
+	for _, t := range e.tokens {
+		if t.Location == node {
+			joinTokens = append(joinTokens, t)
+		} else {
+			remainingTokens = append(remainingTokens, t)
+		}
+	}
+	
+	// Merge token data (last-write-wins)
+	mergedData := make(map[string]Value)
+	for _, t := range joinTokens {
+		for k, v := range t.Data {
+			mergedData[k] = v
+		}
+	}
+	
+	// Get successor
+	successors := e.edges[node]
+	if len(successors) == 0 {
+		return fmt.Errorf("join node %s has no successors", node.Name)
+	}
+	if len(successors) > 1 {
+		return fmt.Errorf("join node %s has multiple successors", node.Name)
+	}
+	
+	// Create output token at successor
+	outputToken := Token{
+		ID:       e.nextTokenID,
+		Location: successors[0],
+		Data:     mergedData,
+	}
+	e.nextTokenID++
+	
+	// Replace tokens: remove join tokens, add output token
+	e.tokens = append(remainingTokens, outputToken)
+	
+	return nil
+}
+
+// getIncomingEdges finds all nodes that have edges targeting the given node.
+func (e *ActionExecutor) getIncomingEdges(node ast.Node) []ast.Node {
+	incoming := make([]ast.Node, 0)
+	for source, targets := range e.edges {
+		for _, target := range targets {
+			if target == node {
+				incoming = append(incoming, source)
+				break // Only count each source once
+			}
+		}
+	}
+	return incoming
 }
 
 // copyTokenData creates a shallow copy of token data map.
