@@ -1,0 +1,14 @@
+SysML v2 Standard Library
+===========================
+
+The files in this directory are from the official OMG SysML v2 Pilot Implementation,
+available at: https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation
+
+Copyright (c) 2020-2024 Model Driven Solutions, Inc.
+Copyright (c) 2020-2024 OMG SysML v2 Contributors
+
+These files are licensed under the Eclipse Public License v2.0 (EPL-2.0).
+See LICENSE-EPL-2.0 for the complete license text.
+
+The standard library files (.kerml and .sysml) remain under EPL-2.0.
+The rest of Systemica is licensed under Apache 2.0 (see LICENSE in repository root).

@@ -1,0 +1,30 @@
+{
+  "index": {
+    "ISQ": "ISQ.sysml",
+    "ISQAcoustics": "ISQAcoustics.sysml",
+    "ISQAtomicNuclear": "ISQAtomicNuclear.sysml",
+    "ISQBase": "ISQBase.sysml",
+    "ISQCharacteristicNumbers": "ISQCharacteristicNumbers.sysml",
+    "ISQChemistryMolecular": "ISQChemistryMolecular.sysml",
+    "ISQCondensedMatter": "ISQCondensedMatter.sysml",
+    "ISQElectromagnetism": "ISQElectromagnetism.sysml",
+    "ISQInformation": "ISQInformation.sysml",
+    "ISQLight": "ISQLight.sysml",
+    "ISQMechanics": "ISQMechanics.sysml",
+    "ISQSpaceTime": "ISQSpaceTime.sysml",
+    "ISQThermodynamics": "ISQThermodynamics.sysml",
+    "MeasurementRefCalculations": "MeasurementRefCalculations.sysml",
+    "MeasurementReferences": "MeasurementReferences.sysml",
+    "Quantities": "Quantities.sysml",
+    "QuantityCalculations": "QuantityCalculations.sysml",
+    "SI": "SI.sysml",
+    "SIPrefixes": "SIPrefixes.sysml",
+    "TensorCalculations": "TensorCalculations.sysml",
+    "Time": "Time.sysml",
+    "USCU": "USCustomaryUnits.sysml",
+    "USCustomaryUnits": "USCustomaryUnits.sysml",
+    "VectorCalculations": "VectorCalculations.sysml"
+  },
+  "created": "2025-03-13T00:00:00Z",
+  "metamodel": "https://www.omg.org/spec/SysML/20250201"
+}

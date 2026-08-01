@@ -6,19 +6,20 @@ package libs
 import (
 	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
 
-//go:embed stdlib/*.kerml
+//go:embed stdlib
 var stdlibFS embed.FS
 
-// Source yields standard-library file contents by logical file name (base
-// name, e.g. "ScalarValues.kerml").
+// Source yields standard-library file contents by relative path
+// (e.g. "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml").
 type Source interface {
-	// List returns the logical names of available library files, sorted.
+	// List returns the relative paths of available library files, sorted.
 	List() []string
 	// Read returns the bytes of the named library file, or an error.
 	Read(name string) ([]byte, error)
@@ -41,16 +42,19 @@ func NewDirSource(dir string) Source {
 type embedSource struct{}
 
 func (s *embedSource) List() []string {
-	entries, err := stdlibFS.ReadDir("stdlib")
-	if err != nil {
-		return nil
-	}
 	var out []string
-	for _, e := range entries {
-		if !e.IsDir() {
-			out = append(out, e.Name())
+	fs.WalkDir(stdlibFS, "stdlib", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
 		}
-	}
+		// Only include .kerml and .sysml files, skip LICENSE/NOTICE
+		if strings.HasSuffix(path, ".kerml") || strings.HasSuffix(path, ".sysml") {
+			// Strip "stdlib/" prefix to get relative path
+			relPath := strings.TrimPrefix(path, "stdlib/")
+			out = append(out, relPath)
+		}
+		return nil
+	})
 	sort.Strings(out)
 	return out
 }
@@ -62,27 +66,31 @@ func (s *embedSource) Read(name string) ([]byte, error) {
 type dirSource struct{ dir string }
 
 func (s *dirSource) List() []string {
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return nil
-	}
 	var out []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
+	filepath.WalkDir(s.dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
 		}
-		n := e.Name()
-		if strings.HasSuffix(n, ".kerml") || strings.HasSuffix(n, ".sysml") {
-			out = append(out, n)
+		// Only include .kerml and .sysml files
+		if strings.HasSuffix(path, ".kerml") || strings.HasSuffix(path, ".sysml") {
+			// Get relative path from base dir
+			relPath, err := filepath.Rel(s.dir, path)
+			if err == nil {
+				out = append(out, relPath)
+			}
 		}
-	}
+		return nil
+	})
 	sort.Strings(out)
 	return out
 }
 
 func (s *dirSource) Read(name string) ([]byte, error) {
-	if name != filepath.Base(name) {
-		return nil, fmt.Errorf("libs: invalid library file name %q", name)
+	// Allow subdirectories now
+	path := filepath.Join(s.dir, name)
+	// Security check: ensure path doesn't escape base dir
+	if !strings.HasPrefix(filepath.Clean(path), filepath.Clean(s.dir)) {
+		return nil, fmt.Errorf("libs: invalid library file path %q", name)
 	}
-	return os.ReadFile(filepath.Join(s.dir, name))
+	return os.ReadFile(path)
 }

@@ -1,0 +1,27 @@
+{
+  "index": {
+    "Actions": "Actions.sysml",
+    "Allocations": "Allocations.sysml",
+    "AnalysisCases": "AnalysisCases.sysml",
+    "Attributes": "Attributes.sysml",
+    "Calculations": "Calculations.sysml",
+    "Cases": "Cases.sysml",
+    "Connections": "Connections.sysml",
+    "Constraints": "Constraints.sysml",
+    "Flows": "Flows.sysml",
+    "Interfaces": "Interfaces.sysml",
+    "Items": "Items.sysml",
+    "Metadata": "Metadata.sysml",
+    "Parts": "Parts.sysml",
+    "Ports": "Ports.sysml",
+    "Requirements": "Requirements.sysml",
+    "StandardViewDefinitions": "StandardViewDefinitions.sysml",
+    "States": "States.sysml",
+    "SysML": "SysML.sysml",
+    "UseCases": "UseCases.sysml",
+    "VerificationCases": "VerificationCases.sysml",
+    "Views": "Views.sysml"
+  },
+  "created": "2025-03-13T00:00:00Z",
+  "metamodel": "https://www.omg.org/spec/SysML/20250201"
+}

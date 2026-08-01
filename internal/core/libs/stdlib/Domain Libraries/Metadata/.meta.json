@@ -1,0 +1,10 @@
+{
+  "index": {
+    "ImageMetadata": "ImageMetadata.sysml",
+    "ModelingMetadata": "ModelingMetadata.sysml",
+    "ParametersOfInterestMetadata": "ParametersOfInterestMetadata.sysml",
+    "RiskMetadata": "RiskMetadata.sysml"
+  },
+  "created": "2025-03-13T00:00:00Z",
+  "metamodel": "https://www.omg.org/spec/SysML/20250201"
+}
