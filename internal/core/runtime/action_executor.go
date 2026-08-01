@@ -225,7 +225,10 @@ func (e *ActionExecutor) stepFinalNode(tokenIdx int) error {
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
 func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node := token.Location.(*ast.ActionExecutionNode)
+	node, ok := token.Location.(*ast.ActionExecutionNode)
+	if !ok {
+		return fmt.Errorf("expected ActionExecutionNode, got %T", token.Location)
+	}
 	
 	if node.Expression != nil {
 		// Evaluate inline expression
@@ -237,13 +240,16 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 		}
 		token.Data["result"] = result
 	} else if node.ActionRef != nil {
-		// Nested action invocation (deferred - just move token for now)
+		return fmt.Errorf("nested action invocation not yet implemented")
 	}
 	
 	// Advance to successor
 	successors := e.edges[token.Location]
 	if len(successors) == 0 {
 		return fmt.Errorf("action node %s has no successors", node.Name)
+	}
+	if len(successors) > 1 {
+		return fmt.Errorf("action node %s has multiple successors (decision nodes not yet supported)", node.Name)
 	}
 	token.Location = successors[0]
 	return nil
