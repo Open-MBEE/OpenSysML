@@ -146,3 +146,76 @@ func getNodeName(node ast.Node) string {
 		return ""
 	}
 }
+
+// initialize spawns initial token at InitialNode.
+func (e *ActionExecutor) initialize() error {
+	// Find initial node
+	var initialNode *ast.InitialNode
+	for _, node := range e.nodes {
+		if n, ok := node.(*ast.InitialNode); ok {
+			initialNode = n
+			break
+		}
+	}
+	
+	if initialNode == nil {
+		return fmt.Errorf("no initial node found in action %s", e.action.Name)
+	}
+	
+	// Spawn initial token
+	token := Token{
+		ID:       e.nextTokenID,
+		Location: initialNode,
+		Data:     make(map[string]Value),
+	}
+	e.nextTokenID++
+	e.tokens = append(e.tokens, token)
+	
+	e.state = StateRunning
+	return nil
+}
+
+// stepToken advances a specific token by index.
+func (e *ActionExecutor) stepToken(tokenIdx int) error {
+	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
+		return fmt.Errorf("invalid token index %d", tokenIdx)
+	}
+	
+	token := &e.tokens[tokenIdx]
+	
+	switch node := token.Location.(type) {
+	case *ast.InitialNode:
+		return e.stepInitialNode(tokenIdx)
+	case *ast.FinalNode:
+		return e.stepFinalNode(tokenIdx)
+	default:
+		return fmt.Errorf("unsupported node type: %T", node)
+	}
+}
+
+// stepInitialNode advances token from initial node to successors.
+func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	successors := e.edges[token.Location]
+	
+	if len(successors) == 0 {
+		return fmt.Errorf("initial node has no successors")
+	}
+	
+	// Move token to first successor (initial should have exactly 1)
+	token.Location = successors[0]
+	return nil
+}
+
+// stepFinalNode consumes token and checks for completion.
+func (e *ActionExecutor) stepFinalNode(tokenIdx int) error {
+	// Remove token
+	e.tokens = append(e.tokens[:tokenIdx], e.tokens[tokenIdx+1:]...)
+	
+	// Check if all tokens consumed
+	if len(e.tokens) == 0 {
+		e.state = StateCompleted
+	}
+	
+	return nil
+}
