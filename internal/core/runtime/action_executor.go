@@ -83,16 +83,24 @@ func (e *ActionExecutor) extractGraph() error {
 			// Build edge map (source → target)
 			sourceNode := e.findNodeByName(n.Source)
 			targetNode := e.findNodeByName(n.Target)
-			if sourceNode != nil && targetNode != nil {
-				e.edges[sourceNode] = append(e.edges[sourceNode], targetNode)
+			if sourceNode == nil {
+				return fmt.Errorf("succession edge references undefined source node")
 			}
+			if targetNode == nil {
+				return fmt.Errorf("succession edge references undefined target node")
+			}
+			e.edges[sourceNode] = append(e.edges[sourceNode], targetNode)
 		case *ast.ControlFlowEdge:
 			// Decision edges (with guards)
 			sourceNode := e.findNodeByName(n.Source)
 			targetNode := e.findNodeByName(n.Target)
-			if sourceNode != nil && targetNode != nil {
-				e.edges[sourceNode] = append(e.edges[sourceNode], targetNode)
+			if sourceNode == nil {
+				return fmt.Errorf("control flow edge references undefined source node")
 			}
+			if targetNode == nil {
+				return fmt.Errorf("control flow edge references undefined target node")
+			}
+			e.edges[sourceNode] = append(e.edges[sourceNode], targetNode)
 		case *ast.ObjectFlowEdge:
 			// Data flow edges (deferred to Task 9)
 		}
@@ -103,15 +111,11 @@ func (e *ActionExecutor) extractGraph() error {
 
 // findNodeByName looks up a node by its qualified name.
 func (e *ActionExecutor) findNodeByName(qname *ast.QualifiedName) ast.Node {
-	if qname == nil {
+	if qname == nil || len(qname.Parts) == 0 {
 		return nil
 	}
 	
-	targetName := ""
-	if len(qname.Parts) > 0 {
-		targetName = qname.Parts[len(qname.Parts)-1].Text
-	}
-	
+	targetName := qname.Parts[len(qname.Parts)-1].Text
 	for _, node := range e.nodes {
 		nodeName := getNodeName(node)
 		if nodeName == targetName {

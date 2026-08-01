@@ -39,3 +39,38 @@ func TestActionExecutor_Creation(t *testing.T) {
 		t.Errorf("expected StateReady, got %v", exec.state)
 	}
 }
+
+func TestActionExecutor_GraphExtraction(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	initial := &ast.InitialNode{Name: "start"}
+	final := &ast.FinalNode{Name: "end"}
+	edge := &ast.SuccessionEdge{
+		Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+		Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+	}
+	
+	action := &symbols.Symbol{
+		Name: "TestAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "TestAction"},
+			Members: []ast.Node{initial, final, edge},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	if len(exec.nodes) != 2 {
+		t.Errorf("expected 2 nodes, got %d", len(exec.nodes))
+	}
+	
+	successors, ok := exec.edges[initial]
+	if !ok || len(successors) != 1 || successors[0] != final {
+		t.Error("expected edge from initial to final")
+	}
+}
