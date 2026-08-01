@@ -2,6 +2,7 @@
 /SysML-v2-Pilot-Implementation/
 
 # Go build artifacts
+/build/
 /bin/
 *.test
 *.out
