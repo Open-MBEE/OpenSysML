@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"container/heap"
+	"fmt"
 	"github.com/Open-MBEE/Systemica/internal/core/ast"
 )
 
@@ -70,6 +71,10 @@ type Event struct {
 	Payload   interface{} // Event-specific data
 }
 
+func (e Event) String() string {
+	return fmt.Sprintf("Event{ID:%d, Type:%s, Time:%.2f}", e.ID, e.Type, e.Timestamp)
+}
+
 // EventQueue is a priority queue of events sorted by timestamp (min-heap).
 type EventQueue struct {
 	events eventHeap
@@ -89,6 +94,9 @@ func (q *EventQueue) Push(e Event) {
 
 // Pop removes and returns the earliest event.
 func (q *EventQueue) Pop() Event {
+	if len(q.events) == 0 {
+		return Event{} // Return zero Event if empty
+	}
 	return heap.Pop(&q.events).(Event)
 }
 

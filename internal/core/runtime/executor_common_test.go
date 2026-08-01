@@ -92,3 +92,17 @@ func TestEventQueue_Peek(t *testing.T) {
 		t.Error("peek should not remove event")
 	}
 }
+
+func TestEventQueue_PopEmpty(t *testing.T) {
+	queue := NewEventQueue()
+	
+	// Pop from empty queue should return zero Event (not panic)
+	event := queue.Pop()
+	if event.ID != 0 {
+		t.Errorf("expected zero Event from empty queue, got %+v", event)
+	}
+	
+	if event.Timestamp != 0.0 {
+		t.Errorf("expected zero timestamp, got %f", event.Timestamp)
+	}
+}
