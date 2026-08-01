@@ -188,6 +188,8 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		return e.stepInitialNode(tokenIdx)
 	case *ast.FinalNode:
 		return e.stepFinalNode(tokenIdx)
+	case *ast.ForkNode:
+		return e.stepForkNode(tokenIdx)
 	case *ast.ActionExecutionNode:
 		return e.stepActionExecutionNode(tokenIdx)
 	default:
@@ -220,6 +222,44 @@ func (e *ActionExecutor) stepFinalNode(tokenIdx int) error {
 	}
 	
 	return nil
+}
+
+// stepForkNode spawns N tokens (one per successor).
+func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	node := token.Location.(*ast.ForkNode)
+	
+	successors := e.edges[node]
+	if len(successors) == 0 {
+		return fmt.Errorf("fork node %s has no successors", node.Name)
+	}
+	
+	// Create N tokens (one per successor)
+	newTokens := make([]Token, 0, len(successors))
+	for _, succ := range successors {
+		newToken := Token{
+			ID:       e.nextTokenID,
+			Location: succ,
+			Data:     deepCopyData(token.Data), // Copy data to each fork
+		}
+		e.nextTokenID++
+		newTokens = append(newTokens, newToken)
+	}
+	
+	// Remove original token, add new tokens
+	e.tokens = append(e.tokens[:tokenIdx], e.tokens[tokenIdx+1:]...)
+	e.tokens = append(e.tokens, newTokens...)
+	
+	return nil
+}
+
+// deepCopyData creates a shallow copy of token data map.
+func deepCopyData(data map[string]Value) map[string]Value {
+	copy := make(map[string]Value)
+	for k, v := range data {
+		copy[k] = v
+	}
+	return copy
 }
 
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
