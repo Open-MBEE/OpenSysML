@@ -307,3 +307,110 @@ func TestActionExecutor_ForkNode(t *testing.T) {
 		t.Error("expected tokens at task1, task2, task3")
 	}
 }
+
+func TestActionExecutor_ForkNode_DataIsolation(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	action1 := &ast.ActionExecutionNode{Name: "task1"}
+	action2 := &ast.ActionExecutionNode{Name: "task2"}
+	action3 := &ast.ActionExecutionNode{Name: "task3"}
+	
+	actionSym := &symbols.Symbol{
+		Name: "ForkAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "ForkAction"},
+			Members: []ast.Node{
+				initial, fork, action1, action2, action3,
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task1"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task2"}}}},
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "task3"}}}},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	
+	// Set token data before fork
+	exec.tokens[0].Data["x"] = Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 100}}
+	
+	exec.stepToken(0) // start → fork
+	
+	// Step fork (1 token → 3 tokens)
+	err = exec.stepToken(0)
+	if err != nil {
+		t.Fatalf("step fork: %v", err)
+	}
+	
+	// Verify all 3 forked tokens have the value
+	for i, token := range exec.tokens {
+		val, ok := token.Data["x"]
+		if !ok {
+			t.Errorf("token %d missing 'x' in data", i)
+			continue
+		}
+		if val.Kind != ValConst || val.Const.Kind != semantics.ValInt || val.Const.Int != 100 {
+			t.Errorf("token %d has wrong value: %v", i, val)
+		}
+	}
+	
+	// Modify one token's data
+	exec.tokens[0].Data["x"] = Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 999}}
+	
+	// Verify other tokens unaffected
+	if exec.tokens[1].Data["x"].Const.Int != 100 {
+		t.Error("token 1 data was affected by token 0 modification")
+	}
+	if exec.tokens[2].Data["x"].Const.Int != 100 {
+		t.Error("token 2 data was affected by token 0 modification")
+	}
+}
+
+func TestActionExecutor_ForkNode_NoSuccessors(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	initial := &ast.InitialNode{Name: "start"}
+	fork := &ast.ForkNode{Name: "split"}
+	
+	// Fork node with NO outgoing edges
+	actionSym := &symbols.Symbol{
+		Name: "BrokenForkAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "BrokenForkAction"},
+			Members: []ast.Node{
+				initial, fork,
+				&ast.SuccessionEdge{Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}}, Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "split"}}}},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // start → fork
+	
+	// Step fork (should error: no successors)
+	err = exec.stepToken(0)
+	if err == nil {
+		t.Fatal("expected error for fork with no successors")
+	}
+	
+	expectedMsg := "fork node split has no successors"
+	if err.Error() != expectedMsg {
+		t.Errorf("expected error %q, got %q", expectedMsg, err.Error())
+	}
+}

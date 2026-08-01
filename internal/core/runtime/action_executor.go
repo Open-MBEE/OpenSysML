@@ -240,7 +240,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		newToken := Token{
 			ID:       e.nextTokenID,
 			Location: succ,
-			Data:     deepCopyData(token.Data), // Copy data to each fork
+			Data:     copyTokenData(token.Data), // Copy data to each fork
 		}
 		e.nextTokenID++
 		newTokens = append(newTokens, newToken)
@@ -253,8 +253,10 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	return nil
 }
 
-// deepCopyData creates a shallow copy of token data map.
-func deepCopyData(data map[string]Value) map[string]Value {
+// copyTokenData creates a shallow copy of token data map.
+// This is sufficient as Value structs are copied by value, and pointer
+// fields (Sequence, Set) are intended to be shared across forked tokens.
+func copyTokenData(data map[string]Value) map[string]Value {
 	copy := make(map[string]Value)
 	for k, v := range data {
 		copy[k] = v
