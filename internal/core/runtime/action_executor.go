@@ -188,6 +188,8 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		return e.stepInitialNode(tokenIdx)
 	case *ast.FinalNode:
 		return e.stepFinalNode(tokenIdx)
+	case *ast.ActionExecutionNode:
+		return e.stepActionExecutionNode(tokenIdx)
 	default:
 		return fmt.Errorf("unsupported node type: %T", node)
 	}
@@ -217,5 +219,32 @@ func (e *ActionExecutor) stepFinalNode(tokenIdx int) error {
 		e.state = StateCompleted
 	}
 	
+	return nil
+}
+
+// stepActionExecutionNode evaluates inline expression or invokes nested action.
+func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	node := token.Location.(*ast.ActionExecutionNode)
+	
+	if node.Expression != nil {
+		// Evaluate inline expression
+		ec := NewEvalContext(e.ctx, nil)
+		ec.Push(token.Data) // Make token data available
+		result, err := ec.Eval(node.Expression)
+		if err != nil {
+			return fmt.Errorf("eval expression: %w", err)
+		}
+		token.Data["result"] = result
+	} else if node.ActionRef != nil {
+		// Nested action invocation (deferred - just move token for now)
+	}
+	
+	// Advance to successor
+	successors := e.edges[token.Location]
+	if len(successors) == 0 {
+		return fmt.Errorf("action node %s has no successors", node.Name)
+	}
+	token.Location = successors[0]
 	return nil
 }

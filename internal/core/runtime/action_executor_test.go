@@ -183,3 +183,72 @@ func TestActionExecutor_FinalNode(t *testing.T) {
 		t.Errorf("expected StateCompleted, got %v", exec.state)
 	}
 }
+
+func TestActionExecutor_ActionExecutionNode(t *testing.T) {
+	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	
+	initial := &ast.InitialNode{Name: "start"}
+	action := &ast.ActionExecutionNode{
+		Name:       "compute",
+		Expression: &ast.LiteralInteger{Value: "42"},
+	}
+	final := &ast.FinalNode{Name: "end"}
+	
+	// Build action: initial → compute → final
+	actionSym := &symbols.Symbol{
+		Name: "ComputeAction",
+		Kind: symbols.SymbolActionUsage,
+		Decl: &ast.Usage{
+			Kind:    ast.UsageAction,
+			Ident:   ast.Identification{Name: "ComputeAction"},
+			Members: []ast.Node{
+				initial,
+				action,
+				final,
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "start"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute"}}},
+				},
+				&ast.SuccessionEdge{
+					Source: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "compute"}}},
+					Target: &ast.QualifiedName{Parts: []ast.NameSegment{{Text: "end"}}},
+				},
+			},
+		},
+	}
+	
+	exec, err := newActionExecutor(ctx, actionSym)
+	if err != nil {
+		t.Fatalf("create executor: %v", err)
+	}
+	
+	exec.initialize()
+	exec.stepToken(0) // start → compute
+	
+	// Step compute node
+	err = exec.stepToken(0)
+	if err != nil {
+		t.Fatalf("step compute: %v", err)
+	}
+	
+	// Token should have result in data
+	token := exec.tokens[0]
+	result, ok := token.Data["result"]
+	if !ok {
+		t.Error("expected result in token data")
+	}
+	
+	// Check result value
+	if result.Kind != ValConst {
+		t.Errorf("expected ValConst, got %v", result.Kind)
+	}
+	
+	if result.Const.Kind != semantics.ValInt || result.Const.Int != 42 {
+		t.Errorf("expected integer 42, got %v", result.Const)
+	}
+	
+	// Token should move to final node
+	if token.Location != final {
+		t.Error("expected token at final node")
+	}
+}
