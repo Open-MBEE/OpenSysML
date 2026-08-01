@@ -298,11 +298,12 @@ if err != nil {
 
 ## References
 
-- **Implementation:** `internal/core/runtime/action_executor.go` (449 lines)
-- **Tests:** `internal/core/runtime/action_executor_test.go` (1200+ lines)
-- **Design:** `docs/superpowers/specs/2026-07-31-action-state-execution-design.md`
-- **Plan:** `docs/superpowers/plans/2026-07-31-action-state-execution.md` (Tasks 1-8 complete)
+- **Implementation:** `internal/core/runtime/action_executor.go` (699 lines)
+- **Tests:** `internal/core/runtime/action_executor_test.go` (2244 lines, 35 tests passing)
+- **Architecture:** See [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for complete design
+- **API Documentation:** See [../docs/API.md](../docs/API.md) for runtime APIs
+- **More Examples:** See [state-machine-demo.sysml](state-machine-demo.sysml) and [combined-behavioral-demo.sysml](combined-behavioral-demo.sysml)
 
 ---
 
-**Status:** Action executor fully functional with comprehensive test coverage. Public APIs and REPL integration coming in Phases 4-5.
+**Status:** Action executor fully functional with comprehensive test coverage, REPL debugging commands, and integration tests complete.

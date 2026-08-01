@@ -66,9 +66,11 @@ Expected output: All tests pass (16/16)
 
 ## References
 
-- Implementation: `internal/core/runtime/action_executor.go`
-- Tests: `internal/core/runtime/action_executor_test.go`
-- Design: `docs/superpowers/specs/2026-07-31-action-state-execution-design.md`
-- Plan: `docs/superpowers/plans/2026-07-31-action-state-execution.md`
+- **Implementation:** `internal/core/runtime/action_executor.go` (699 lines)
+- **Tests:** `internal/core/runtime/action_executor_test.go` (2244 lines, 35 tests)
+- **Architecture:** [../docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) — Complete Tier 5 design
+- **API Documentation:** [../docs/API.md](../docs/API.md) — Runtime APIs with examples
+- **Demo Files:** [action-executor-demo.sysml](action-executor-demo.sysml), [state-machine-demo.sysml](state-machine-demo.sysml)
+- **Examples Guide:** [README.md](README.md) — Complete demo reference
 
-**Status:** Action executor complete and functional. Ready for Phase 2 completion or Phase 3 state executor.
+**Status:** Action executor, state executor, REPL debugging, and integration tests all complete. 116 tests passing.
