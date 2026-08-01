@@ -16,6 +16,7 @@ type ActionExecutor struct {
 	state       ExecutionState
 	nextTokenID int64
 	breakpoints map[string]bool
+	results     map[string]Value // Accumulated results from consumed final tokens
 	
 	// Graph structure
 	nodes       []ast.Node
@@ -44,6 +45,7 @@ func newActionExecutor(ctx *Context, action *symbols.Symbol) (*ActionExecutor, e
 		state:        StateReady,
 		nextTokenID:  1,
 		breakpoints:  make(map[string]bool),
+		results:      make(map[string]Value),
 		edges:        make(map[ast.Node][]ast.Node),
 		guards:       make(map[ast.Node]map[ast.Node]ast.Node),
 		dataFlows:    make(map[ast.Node][]objectFlow),
@@ -361,6 +363,13 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 
 // stepFinalNode consumes token and checks for completion.
 func (e *ActionExecutor) stepFinalNode(tokenIdx int) error {
+	token := &e.tokens[tokenIdx]
+	
+	// Save token data to results before consuming
+	for k, v := range token.Data {
+		e.results[k] = v
+	}
+	
 	// Remove token
 	e.tokens = append(e.tokens[:tokenIdx], e.tokens[tokenIdx+1:]...)
 	

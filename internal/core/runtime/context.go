@@ -304,3 +304,72 @@ func (ctx *Context) InvokeCalc(sym *symbols.Symbol, args []Value, scope *symbols
 	
 	return ec.Eval(returnExpr)
 }
+
+// ExecuteAction executes an action definition/usage to completion.
+// Returns final token data from the action's execution.
+func (ctx *Context) ExecuteAction(action *symbols.Symbol) (map[string]Value, error) {
+	// Create executor
+	exec, err := newActionExecutor(ctx, action)
+	if err != nil {
+		return nil, fmt.Errorf("create action executor: %w", err)
+	}
+	
+	// Initialize execution (spawns initial token)
+	if err := exec.initialize(); err != nil {
+		return nil, fmt.Errorf("initialize action: %w", err)
+	}
+	
+	// Run to completion
+	if err := exec.RunToCompletion(); err != nil {
+		return nil, fmt.Errorf("execute action: %w", err)
+	}
+	
+	// Return accumulated results from final nodes
+	return exec.results, nil
+}
+
+// ExecuteState executes a state machine, processing events until completion or suspension.
+// Returns final state data from the state machine's execution.
+// Execution stops when:
+// - A final state is reached (StateCompleted)
+// - Event queue is empty (StateSuspended)
+// - Max event processing steps exceeded (error)
+func (ctx *Context) ExecuteState(stateMachine *symbols.Symbol) (map[string]Value, error) {
+	// Create executor
+	exec, err := newStateExecutor(ctx, stateMachine)
+	if err != nil {
+		return nil, fmt.Errorf("create state executor: %w", err)
+	}
+	
+	// Initialize execution (enters initial state)
+	if err := exec.initialize(); err != nil {
+		return nil, fmt.Errorf("initialize state machine: %w", err)
+	}
+	
+	// Process events until completion or suspension
+	const maxEvents = 10000
+	eventCount := 0
+	
+	for exec.state == StateRunning {
+		// Check for pending events
+		if exec.eventQueue.Len() == 0 {
+			exec.state = StateSuspended
+			break
+		}
+		
+		// Check step limit
+		if eventCount >= maxEvents {
+			return nil, fmt.Errorf("state machine exceeded max events (%d), possible infinite loop", maxEvents)
+		}
+		
+		// Process next event
+		if err := exec.processNextEvent(); err != nil {
+			return nil, fmt.Errorf("process event: %w", err)
+		}
+		
+		eventCount++
+	}
+	
+	// Return state machine data
+	return exec.stateData, nil
+}
