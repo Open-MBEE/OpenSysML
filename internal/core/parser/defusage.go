@@ -180,6 +180,10 @@ func (p *Parser) atDefUsageStart() bool {
 	if t.KeywordID == "use" {
 		return p.atUseCase()
 	}
+	// Check for special usage-only keywords
+	if t.KeywordID == "perform" || t.KeywordID == "assert" || t.KeywordID == "assume" {
+		return true
+	}
 	_, isDef := definitionKindKeywords[t.KeywordID]
 	_, isUsage := usageKindKeywords[t.KeywordID]
 	return isDef || isUsage
@@ -317,11 +321,16 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		kw = t.KeywordID
 	}
 	
-	// Check for usage-only keywords (subject, objective, succession, inv, connector, bind, satisfy, step, expr, interaction, require, assert, assume) that never have def forms
-	if kw == "subject" || kw == "objective" || kw == "succession" || kw == "inv" || kw == "connector" || kw == "bind" || kw == "satisfy" || kw == "step" || kw == "expr" || kw == "interaction" || kw == "require" || kw == "transition" || kw == "assert" || kw == "assume" {
+	// Check for usage-only keywords (subject, objective, succession, inv, connector, bind, satisfy, step, expr, interaction, require, assert, assume, perform) that never have def forms
+	if kw == "subject" || kw == "objective" || kw == "succession" || kw == "inv" || kw == "connector" || kw == "bind" || kw == "satisfy" || kw == "step" || kw == "expr" || kw == "interaction" || kw == "require" || kw == "transition" || kw == "assert" || kw == "assume" || kw == "perform" {
 		p.advance() // consume the kind keyword
 		isAll := p.acceptKeyword("all")
-		return p.parseUsage(start, usageKindKeywords[kw], mods, isAll)
+		// Map perform to action usage
+		usageKind := usageKindKeywords[kw]
+		if kw == "perform" {
+			usageKind = ast.UsageAction
+		}
+		return p.parseUsage(start, usageKind, mods, isAll)
 	}
 	
 	defKind, ok := definitionKindKeywords[kw]
@@ -708,6 +717,39 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, mods featureMods, isA
 		IsNonunique: mods.isNonunique,
 	}
 	
+	// Handle perform special syntax: perform <actionRef> [:>> name];
+	// Creates action usage that performs the referenced action
+	// Detect: action kind + starts with name (not relationship) + doesn't have body/typing
+	// Distinguish from action declaration which has typing or body: action name : Type { } or action name { }
+	peek1 := p.peek()
+	peek2 := p.peekN(1)
+	hasNameToken := peek1.Kind == lexer.Identifier || peek1.Kind == lexer.UnrestrictedName
+	hasTypingOrBody := peek2.Kind == lexer.Colon || peek2.Kind == lexer.LBrace
+	isPerform := kind == ast.UsageAction && hasNameToken && !hasTypingOrBody && 
+		!p.at(lexer.ColonGt) && !p.at(lexer.ColonGtGt) && !p.at(lexer.LBracket)
+	
+	if isPerform {
+		actionRef := p.parseRelationshipTarget() // Can be QN or feature chain
+		if actionRef != nil {
+			// Store as typing relationship (performs = typed by action)
+			u.Relationships = append(u.Relationships, &ast.Relationship{
+				Kind:   ast.RelTyping,
+				Target: actionRef,
+			})
+		}
+		
+		// Parse optional redefines: :>> name
+		if p.at(lexer.ColonGtGt) || p.at(lexer.ColonGt) {
+			rels, _ := p.parseRelationships(false)
+			u.Relationships = append(u.Relationships, rels...)
+		}
+		
+		// Expect semicolon
+		p.expect(lexer.Semicolon, "expected ';' after perform statement")
+		u.NodeSpan = p.spanFrom(start)
+		return u
+	}
+	
 	// Handle UsageSatisfy special syntax: satisfy [requirement] <name> by <name> { body }
 	// requirement keyword is optional
 	if kind == ast.UsageSatisfy {
@@ -727,13 +769,13 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, mods featureMods, isA
 			u.NodeSpan = p.spanFrom(start)
 			return u
 		}
-		subjName := p.parseQualifiedName()
-		if subjName != nil {
-			// Store subject as identification (or could be relationship)
-			// For now, use as identification name
-			if len(subjName.Parts) > 0 {
-				u.Ident.Name = subjName.Parts[0].Text
-				u.Ident.NameSpan = subjName.Parts[0].Span
+		subjTarget := p.parseRelationshipTarget() // Can be QN or feature chain
+		if subjTarget != nil {
+			// Store subject as identification or relationship
+			// If QualifiedName, use first part as name
+			if qn, ok := subjTarget.(*ast.QualifiedName); ok && len(qn.Parts) > 0 {
+				u.Ident.Name = qn.Parts[0].Text
+				u.Ident.NameSpan = qn.Parts[0].Span
 			}
 		}
 		// Parse body (requirement body)

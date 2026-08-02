@@ -600,8 +600,12 @@ func (p *Parser) parseResultMember() ast.Node {
 	// Pattern 4: return name = expr;       (computed result with binding)
 	// Pattern 5: return [modifiers] name;  (named result parameter, no type)
 	// Pattern 6: return [modifiers] name : Type { body } (with body)
+	// Pattern 7: return :>> name : Type = expr; (redefines with typing and value)
 	// Use lookahead to distinguish Pattern 1 from Pattern 4
-	if p.at(lexer.Colon) || (p.atName() && p.peekN(1).Kind == lexer.Colon) {
+	hasRelToken := p.at(lexer.Colon) || p.at(lexer.ColonGt) || p.at(lexer.ColonGtGt) || p.at(lexer.Tilde)
+	hasNameThenColon := p.atName() && (p.peekN(1).Kind == lexer.Colon || p.peekN(1).Kind == lexer.ColonGt || p.peekN(1).Kind == lexer.ColonGtGt)
+	
+	if hasRelToken || hasNameThenColon {
 		// Parse as result parameter (named or anonymous usage with typing)
 		u := &ast.Usage{
 			Kind:        usageKind,
@@ -616,15 +620,17 @@ func (p *Parser) parseResultMember() ast.Node {
 			IsNonunique: mods.isNonunique,
 		}
 		
+		// Parse leading relationships (e.g., :>> before name)
+		leadingRels, _ := p.parseRelationships(false)
+		u.Relationships = append(u.Relationships, leadingRels...)
+		
 		// Check if named (identifier before colon)
 		if p.atName() {
 			u.Ident = p.parseIdentification()
 		}
 		
 		// Parse typing relationship ': Type'
-		if !p.at(lexer.Colon) {
-			p.error(p.peek().Span, "expected ':' after result parameter name")
-		} else {
+		if p.at(lexer.Colon) {
 			p.advance() // consume ':'
 			
 			// Parse type name directly (QualifiedName)
@@ -1306,12 +1312,21 @@ func (p *Parser) parseAcceptTransition(start int) ast.Node {
 		p.advance() // consume 'accept' if not already consumed
 	}
 	
-	// Parse signal type reference (use relaxed parsing to allow keywords as names)
-	signalType := p.parseQualifiedNameRelaxed()
+	// Check for temporal transition: accept at <timeExpr> then <state>
+	// vs event transition: accept <signal> then <state>
+	var trigger ast.Node
+	if p.atKeyword("at") {
+		// Temporal transition - parse 'at <expression>'
+		p.advance() // consume 'at'
+		trigger = p.ParseExpression()
+	} else {
+		// Event transition - parse signal type reference (use relaxed parsing to allow keywords as names)
+		trigger = p.parseQualifiedNameRelaxed()
+	}
 	
 	// Expect 'then' keyword
 	if !p.acceptKeyword("then") {
-		p.error(p.peek().Span, "expected 'then' after signal type")
+		p.error(p.peek().Span, "expected 'then' after accept trigger")
 		en := &ast.ErrorNode{Message: "expected 'then' keyword"}
 		en.NodeSpan = p.spanFrom(start)
 		return en
@@ -1327,9 +1342,9 @@ func (p *Parser) parseAcceptTransition(start int) ast.Node {
 	// For now, represent as transition usage (specialized connector)
 	transition := &ast.Usage{
 		Kind: ast.UsageTransition,
-		// Store signal type as first connector end, target state as second
+		// Store trigger as first connector end, target state as second
 		ConnectorEnds: []*ast.ConnectorEnd{
-			{Reference: signalType},  // trigger
+			{Reference: trigger},     // trigger (signal type or temporal expression)
 			{Reference: targetState}, // target
 		},
 	}
@@ -1341,12 +1356,24 @@ func (p *Parser) parseAcceptTransition(start int) ast.Node {
 func (p *Parser) parseEntryMember(start int) ast.Node {
 	// 'entry' already consumed
 	
-	// Check for semicolon (empty entry) or 'then' keyword (succession shorthand)
+	// Check for empty entry (semicolon or 'then') vs inline statement
+	// Allow behavioral keywords for inline statements: entry assign x := 5;
 	if p.at(lexer.Semicolon) || p.atKeyword("then") {
 		// Empty entry action - return placeholder
 		// Don't consume semicolon/then here - let caller handle it
 		node := &ast.EntryMember{
 			Actions: nil, // no actions
+		}
+		node.NodeSpan = p.spanFrom(start)
+		return node
+	}
+	
+	// Check for inline behavioral statement: entry assign/while/if/action
+	if p.atKeyword("assign") || p.atKeyword("while") || p.atKeyword("if") {
+		// Parse single inline statement
+		stmt := p.parseActionMember()
+		node := &ast.EntryMember{
+			Actions: []ast.Node{stmt},
 		}
 		node.NodeSpan = p.spanFrom(start)
 		return node
