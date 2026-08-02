@@ -524,6 +524,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		var paramMult *ast.Multiplicity
 		var paramValue ast.Node
 		var isRef bool
+		var redefinesTarget *ast.QualifiedName
 		
 		// Check for 'ref' modifier after 'in'
 		if p.atKeyword("ref") {
@@ -540,6 +541,10 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				if p.at(lexer.LBracket) {
 					paramMult = p.parseMultiplicity()
 				}
+			} else if p.at(lexer.ColonGt) || p.at(lexer.ColonGtGt) {
+				// Redefines relationship: in p :> Parent or in p :>> Parent
+				p.advance() // :> or :>>
+				redefinesTarget = p.parseQualifiedName()
 			}
 			if p.at(lexer.Eq) {
 				p.advance() // =
@@ -554,13 +559,14 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				p.expect(lexer.RBrace, "expected '}'")
 			}
 			b.Params = append(b.Params, ast.BodyParam{
-				Name:         seg.Text,
-				Type:         paramType,
-				Multiplicity: paramMult,
-				Value:        paramValue,
-				IsReference:  isRef,
-				Members:      paramMembers,
-				Span:         seg.Span,
+				Name:            seg.Text,
+				Type:            paramType,
+				RedefinesTarget: redefinesTarget,
+				Multiplicity:    paramMult,
+				Value:           paramValue,
+				IsReference:     isRef,
+				Members:         paramMembers,
+				Span:            seg.Span,
 			})
 		}
 		// No semicolon expected if param has body

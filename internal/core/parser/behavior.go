@@ -78,35 +78,59 @@ func (p *Parser) parseActionMember() ast.Node {
 	}
 	
 	// Check for keyword dispatch
-	if tok, ok := p.accept(lexer.Keyword); ok {
+	if tok := p.peek(); tok.Kind == lexer.Keyword {
 		kw := tok.KeywordID
 		switch kw {
 		case "first":
+			p.advance()
 			return p.parseInitialNode(tok)
 		case "done":
+			p.advance()
 			return p.parseFinalNode(tok)
 		case "fork":
+			p.advance()
 			return p.parseForkNode(tok)
 		case "join":
+			p.advance()
 			return p.parseJoinNode(tok)
 		case "merge":
+			p.advance()
 			return p.parseMergeNode(tok)
 		case "decision":
+			p.advance()
 			return p.parseDecisionNode(tok)
 		case "action":
+			// Disambiguate: action declaration vs action execution
+			// Declaration: action name { body } (has name and braced body)
+			// Execution: action ref; or action { expr };
+			// Lookahead: if followed by name + '{', parse as declaration
+			peek1 := p.peekN(1)
+			peek2 := p.peekN(2)
+			isNamedDecl := (peek1.Kind == lexer.Identifier || peek1.Kind == lexer.UnrestrictedName) && peek2.Kind == lexer.LBrace
+			if isNamedDecl {
+				// Parse as body member (declaration)
+				return p.parseBodyMember()
+			}
+			p.advance()
 			return p.parseActionExecutionNode(tok)
 		case "then":
+			p.advance()
 			return p.parseSuccessionEdge(tok)
 		case "assign":
+			p.advance()
 			return p.parseAssignmentAction(tok)
 		case "perform":
+			p.advance()
 			return p.parsePerformAction(tok)
 		case "while":
+			p.advance()
 			return p.parseWhileLoopAction(tok)
 		case "if":
+			p.advance()
 			return p.parseIfAction(tok)
 		default:
 			// Unknown keyword, return ErrorNode
+			p.advance()
 			p.error(tok.Span, "unknown action keyword: "+kw)
 			en := &ast.ErrorNode{Message: "unknown action keyword: " + kw}
 			en.NodeSpan = p.spanFrom(start)

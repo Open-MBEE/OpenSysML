@@ -708,14 +708,12 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, mods featureMods, isA
 		IsNonunique: mods.isNonunique,
 	}
 	
-	// Handle UsageSatisfy special syntax: satisfy requirement <name> by <name> { body }
+	// Handle UsageSatisfy special syntax: satisfy [requirement] <name> by <name> { body }
+	// requirement keyword is optional
 	if kind == ast.UsageSatisfy {
-		// Expect: requirement <name> by <name>
-		if !p.acceptKeyword("requirement") {
-			p.error(p.peek().Span, "expected 'requirement' keyword after 'satisfy'")
-			u.NodeSpan = p.spanFrom(start)
-			return u
-		}
+		// Optional: requirement <name> or just <name>
+		p.acceptKeyword("requirement") // consume if present, ignore if not
+		
 		reqName := p.parseQualifiedName()
 		if reqName != nil {
 			// Store as typing relationship
