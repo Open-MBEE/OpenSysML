@@ -94,6 +94,8 @@ var usageKindKeywords = map[string]ast.UsageKind{
 	"constraint":   ast.UsageConstraint,
 	"inv":          ast.UsageConstraint, // synonym for constraint (invariant)
 	"require":      ast.UsageConstraint, // synonym for constraint (required condition)
+	"assert":       ast.UsageConstraint, // synonym for constraint (assertion)
+	"assume":       ast.UsageConstraint, // synonym for constraint (assumption)
 	"requirement":  ast.UsageRequirement,
 	"satisfy":      ast.UsageSatisfy,
 	"subject":      ast.UsageSubject,
@@ -315,8 +317,8 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		kw = t.KeywordID
 	}
 	
-	// Check for usage-only keywords (subject, objective, succession, inv, connector, bind, satisfy, step, expr, interaction, require) that never have def forms
-	if kw == "subject" || kw == "objective" || kw == "succession" || kw == "inv" || kw == "connector" || kw == "bind" || kw == "satisfy" || kw == "step" || kw == "expr" || kw == "interaction" || kw == "require" || kw == "transition" {
+	// Check for usage-only keywords (subject, objective, succession, inv, connector, bind, satisfy, step, expr, interaction, require, assert, assume) that never have def forms
+	if kw == "subject" || kw == "objective" || kw == "succession" || kw == "inv" || kw == "connector" || kw == "bind" || kw == "satisfy" || kw == "step" || kw == "expr" || kw == "interaction" || kw == "require" || kw == "transition" || kw == "assert" || kw == "assume" {
 		p.advance() // consume the kind keyword
 		isAll := p.acceptKeyword("all")
 		return p.parseUsage(start, usageKindKeywords[kw], mods, isAll)
@@ -418,17 +420,11 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, mods featur
 			hasBody = true
 		}
 	case ast.DefConstraint:
-		// Constraint def bodies: constraint body OR generic
-		// Lookahead: if body starts with 'assert'/'assume' → parseConstraintBody
-		// Otherwise → generic parseDefUsageBody
+		// Constraint def bodies: always use parseConstraintBody (handles mixed members + expressions)
 		if p.accept2(lexer.Semicolon) {
 			hasBody = false
 		} else if _, ok := p.expect(lexer.LBrace, "expected '{' or ';'"); ok {
-			if p.isConstraintKeyword() {
-				members = p.parseConstraintBody()
-			} else {
-				members = p.parseActionBodyGeneric()
-			}
+			members = p.parseConstraintBody()
 			hasBody = true
 		}
 	case ast.DefRequirement:

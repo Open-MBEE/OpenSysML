@@ -780,6 +780,9 @@ func (p *Parser) parseConstraintBody() []ast.Node {
 		} else if p.atKeyword("assert") || p.atKeyword("assume") {
 			// Parse constraint expression (assert/assume)
 			members = append(members, p.parseConstraintMember())
+		} else if p.atKeyword("redefines") {
+			// Parse redefines statement (handled by parseBodyMember)
+			members = append(members, p.parseBodyMember())
 		} else if p.atDefUsageStart() {
 			// Definition/usage keyword - parse as body member
 			members = append(members, p.parseBodyMember())
@@ -1168,13 +1171,19 @@ func (p *Parser) parseStateMember() ast.Node {
 		switch kw {
 		case "entry":
 			p.advance()
-			return p.parseEntryMember(start)
+			member := p.parseEntryMember(start)
+			p.accept2(lexer.Semicolon) // consume optional semicolon
+			return member
 		case "do":
 			p.advance()
-			return p.parseDoMember(start)
+			member := p.parseDoMember(start)
+			p.accept2(lexer.Semicolon)
+			return member
 		case "exit":
 			p.advance()
-			return p.parseExitMember(start)
+			member := p.parseExitMember(start)
+			p.accept2(lexer.Semicolon)
+			return member
 		case "state":
 			// Check if this is a simple declaration (state name;) or full usage (state name { ... })
 			// Lookahead: state followed by identifier and semicolon → SubstateMember
@@ -1200,6 +1209,23 @@ func (p *Parser) parseStateMember() ast.Node {
 		case "first":
 			// Succession statement: first <state> then <state>;
 			return p.parseSuccessionStatement(start)
+		case "then":
+			// Standalone succession: then <state>; (implicit source from previous statement)
+			// Parse as partial succession (only target state)
+			p.advance() // consume 'then'
+			targetState := p.parseQualifiedName()
+			p.expect(lexer.Semicolon, "expected ';' after succession target")
+			
+			// Create succession with only target (source implicit)
+			succession := &ast.Usage{
+				Kind: ast.UsageSuccession,
+				ConnectorEnds: []*ast.ConnectorEnd{
+					nil, // implicit source
+					{Reference: targetState},
+				},
+			}
+			succession.NodeSpan = p.spanFrom(start)
+			return succession
 		case "accept":
 			// Accept transition: accept <signal> then <state>;
 			return p.parseAcceptTransition(start)
@@ -1290,6 +1316,17 @@ func (p *Parser) parseAcceptTransition(start int) ast.Node {
 // parseEntryMember parses: entry { <actions> } OR entry <actionRef> OR entry action <def>
 func (p *Parser) parseEntryMember(start int) ast.Node {
 	// 'entry' already consumed
+	
+	// Check for semicolon (empty entry) or 'then' keyword (succession shorthand)
+	if p.at(lexer.Semicolon) || p.atKeyword("then") {
+		// Empty entry action - return placeholder
+		// Don't consume semicolon/then here - let caller handle it
+		node := &ast.EntryMember{
+			Actions: nil, // no actions
+		}
+		node.NodeSpan = p.spanFrom(start)
+		return node
+	}
 	
 	// Check for action reference or inline definition
 	// Patterns:
