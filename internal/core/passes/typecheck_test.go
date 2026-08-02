@@ -43,9 +43,11 @@ func TestTypeCheckSpecializesCrossKindError(t *testing.T) {
 }
 
 func TestTypeCheckTypingWantsMatchingDef(t *testing.T) {
+	// Structural kinds (part/attribute/item/occurrence) can cross-type
+	// This is now allowed for compatibility
 	diags := typeDiags(t, "attribute def Mass; part def Car { part p : Mass; }")
-	if len(diags) != 1 {
-		t.Fatalf("expected one type diagnostic, got %v", diags)
+	if len(diags) != 0 {
+		t.Fatalf("expected no type diagnostics (structural cross-typing allowed), got %v", diags)
 	}
 }
 
