@@ -199,10 +199,15 @@ The project follows [Semantic Versioning](https://semver.org/):
 
 ### GitHub Actions
 
-`.github/workflows/pr.yml` is the check that gates pull requests: gofmt, `go vet`,
-`make lint`, the race-enabled test suite, and the binaries. It downloads the OMG training
-corpus before the suite and runs the corpus gate as its own step, so that gate is required
-rather than skipped.
+`.github/workflows/pr.yml` is the only CI a pull request runs, and it gates them: gofmt,
+`go vet`, `make lint`, the race-enabled test suite, the binaries, the client suites, the
+conformance suite over each transport, the protobuf lint and wire-compatibility checks, the
+documentation hygiene checks (`make docs-check`, `make man-check` and the census check), the
+site build, and in each client's job the release-digest copy it ships and the stubs it commits
+(regenerated with the pinned buf and diffed). It downloads the OMG
+corpora before the suite and runs each corpus gate as its own step, so those gates are required
+rather than skipped. Its `Build and test` job aggregates the rest, so that is the one check
+branch protection needs to require.
 
 Its first job, `Changed areas`, runs `scripts/ci-changed-areas.sh` over the pull request's
 files and the rest of the jobs are gated on what it reports: a change confined to one client
@@ -213,31 +218,34 @@ is over-tested rather than untested — teach the script about it, and add a cas
 
 ### CircleCI
 
-All commits and tags trigger CI:
+`.circleci/config.yml` runs after a merge and on tags, never on a pull request branch:
 
-**On every commit:**
-- Build for Linux/macOS/Windows
-- Run full test suite
-- Run race detector
+**On every push to `main`:**
+- The same suite, gates, client tests and conformance runs as the pull-request workflow, over
+  the merged tree, plus the host binaries
+- SonarCloud scan, fed by the Go and client coverage reports
 
 The conformance job stores its JSON report as an artifact and its JUnit XML
 (`bin/conformance-report.xml`) as test results, so a failing scenario is named in the Tests tab
-rather than only in the log.
+rather than only in the log. The README badge tracks this workflow.
 
-**On tags (`v*`):**
+**On tags (`v*`, and the client package tags):**
+- Run the suite again on the tagged revision
 - Build release binaries (all platforms)
-- Create GitHub Release
-- Upload binaries
+- Create GitHub Release and upload binaries
+- Publish the client packages
 
 ### Required Checks
 
-PRs must pass:
+PRs must pass the GitHub Actions `Build and test` check, which requires:
 - [ ] Build succeeds
 - [ ] All tests pass
 - [ ] No race conditions
 - [ ] Code formatted (`gofmt`)
 - [ ] Static analysis clean (`make lint`: staticcheck and gosec)
-- [ ] OMG training-corpus gate runs (not skipped) and matches its expectations
+- [ ] OMG corpus gates run (not skipped) and match their expectations
+- [ ] Protobuf schema lints and is wire-compatible with the base branch
+- [ ] Documentation checks pass (`make docs-check`, `make man-check`) and the site builds
 
 ## Project Structure
 

@@ -603,7 +603,7 @@ one cache directory and fails if any file's diagnostics differ between the two.
 
 ## Conclusion
 
-**Implementation Status**: Core behavioral semantics complete (380/380 execution conformance cases passing).
+**Implementation Status**: Core behavioral semantics complete (671/671 execution conformance cases passing).
 
 **Training Example Status**: 100/100 clean. The last two files were false positives of ours, not
 OMG bugs: `start` and `done` are declared by `Items::Item` and redefined by `Parts::Part`, and every

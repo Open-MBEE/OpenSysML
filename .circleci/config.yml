@@ -148,11 +148,14 @@ jobs:
             make proto-breaking
 
       # Committed stubs must be what buf generates, or the checked-in code and
-      # the schema can drift apart silently.
+      # the schema can drift apart silently. `git add -N` puts a regenerated
+      # file the commit had deleted into the diff.
       - run:
           name: Verify the committed Go and Java stubs are current
           command: |
             make proto-buf
+            git add -N api/proto \
+              clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
             git diff --exit-code api/proto \
               clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
       
@@ -599,6 +602,7 @@ jobs:
             # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
             pip install "grpcio-tools==1.83.0"
             make python-proto BUF=buf
+            git add -N clients/python/opensysml/proto
             git diff --exit-code clients/python/opensysml/proto
 
       - run:
@@ -666,6 +670,7 @@ jobs:
           name: Verify Rust generated artifacts
           command: |
             make BUF=/tmp/buf proto-rust
+            git add -N clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
             git diff --exit-code clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
 
       - store_artifacts:
@@ -850,6 +855,7 @@ jobs:
           name: Verify the committed TypeScript stubs are current
           command: |
             make proto-ts BUF=buf
+            git add -N clients/node/src/generated
             git diff --exit-code clients/node/src/generated
 
   # Publishes opensysml to PyPI on a `opensysml-v<version>` tag. PyPI has no
@@ -1439,61 +1445,68 @@ jobs:
 workflows:
   version: 2
   
-  # Build and test on every commit (but not tags)
+  # Build and test every merge into main. Pull requests are checked by the
+  # GitHub Actions workflow in .github/workflows/pr.yml, not here.
   build-test:
     jobs:
       - build-and-test:
+          name: Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - python-test:
+          name: Python client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - rust-test:
+          name: Rust client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - java-test:
+          name: Java client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - node-test:
+          name: Node client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - scan:
+          name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
           context:
             - SonarCloud
           requires:
-            - build-and-test
+            - Build and test
             # Each contributes a coverage report; without them the scan sees
             # only Go coverage and grades every other language at zero.
-            - python-test
-            - java-test
-            - node-test
+            - Python client tests
+            - Java client tests
+            - Node client tests
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
   
@@ -1502,6 +1515,7 @@ workflows:
   release:
     jobs:
       - build-and-test:
+          name: Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1509,8 +1523,9 @@ workflows:
               only: /^v.*/
 
       - build-release:
+          name: Build release artifacts
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1518,8 +1533,9 @@ workflows:
               only: /^v.*/
       
       - publish-github-release:
+          name: Publish GitHub release
           requires:
-            - build-release
+            - Build release artifacts
           filters:
             branches:
               ignore: /.*/
@@ -1536,6 +1552,7 @@ workflows:
   release-python:
     jobs:
       - build-and-test:
+          name: Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1543,8 +1560,9 @@ workflows:
               only: /^opensysml-v.*/
 
       - python-test:
+          name: Python client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1552,6 +1570,7 @@ workflows:
               only: /^opensysml-v.*/
 
       - publish-pypi:
+          name: Publish opensysml to PyPI
           # Last, and only after the Go suite and the Python client's own tests
           # have passed on this revision: an upload cannot be undone.
           # The organization context is named 'PyPI'; a context reference is
@@ -1559,8 +1578,8 @@ workflows:
           context:
             - PyPI
           requires:
-            - build-and-test
-            - python-test
+            - Build and test
+            - Python client tests
           filters:
             branches:
               ignore: /.*/
@@ -1575,6 +1594,7 @@ workflows:
   release-node:
     jobs:
       - build-and-test:
+          name: Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1582,8 +1602,9 @@ workflows:
               only: /^client-node-v.*/
 
       - node-test:
+          name: Node client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1591,8 +1612,9 @@ workflows:
               only: /^client-node-v.*/
 
       - build-node-binaries:
+          name: Build Node platform binaries
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1600,15 +1622,16 @@ workflows:
               only: /^client-node-v.*/
 
       - publish-npm:
+          name: Publish npm client
           # The organization context is named 'npm'; a context reference is
           # matched exactly, so the case here has to match it. A publish cannot
           # be taken back, so it runs last and only on a revision proven green.
           context:
             - npm
           requires:
-            - build-and-test
-            - node-test
-            - build-node-binaries
+            - Build and test
+            - Node client tests
+            - Build Node platform binaries
           filters:
             branches:
               ignore: /.*/
@@ -1624,6 +1647,7 @@ workflows:
       # python-test attaches the workspace this job persists (it needs a
       # sysml-grpc to talk to), so it cannot run on its own.
       - build-and-test:
+          name: Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1631,8 +1655,9 @@ workflows:
               only: /^pysysml-v.*/
 
       - python-test:
+          name: Python client tests
           requires:
-            - build-and-test
+            - Build and test
           filters:
             branches:
               ignore: /.*/
@@ -1640,10 +1665,11 @@ workflows:
               only: /^pysysml-v.*/
 
       - publish-pypi-pysysml:
+          name: Publish pysysml placeholder to PyPI
           context:
             - PyPI
           requires:
-            - python-test
+            - Python client tests
           filters:
             branches:
               ignore: /.*/
