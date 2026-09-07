@@ -131,15 +131,18 @@ def test_a_reference_nested_in_a_sequence_or_array_decodes_in_place():
 
 
 def test_a_reference_naming_no_unit_is_reported():
+    unnamed = pb_ref("")
     with pytest.raises(UnsupportedValueError, match="naming no unit"):
-        value_to_python(pb_ref(""))
+        value_to_python(unnamed)
 
 
 def test_a_named_reference_without_its_reduction_is_reported():
+    named = pb_ref("km")
     with pytest.raises(UnsupportedValueError, match="km carries no reduction"):
-        value_to_python(pb_ref("km"))
+        value_to_python(named)
+    identified = pb_ref("", unit_id="SI::kilometre")
     with pytest.raises(UnsupportedValueError, match="SI::kilometre carries no reduction"):
-        value_to_python(pb_ref("", unit_id="SI::kilometre"))
+        value_to_python(identified)
 
 
 def test_a_reference_survives_the_wire_bytes():
@@ -155,8 +158,9 @@ def test_a_reference_survives_the_wire_bytes():
 
 def test_a_service_without_the_capability_still_reports_unsupported():
     """An older service sends a null naming the unit, which stays an error."""
+    null = sysml_pb2.Value(null="unsupported: measurement reference m")
     with pytest.raises(UnsupportedValueError, match="measurement reference m"):
-        value_to_python(sysml_pb2.Value(null="unsupported: measurement reference m"))
+        value_to_python(null)
 
 
 # --- Sending -------------------------------------------------------------
@@ -185,8 +189,9 @@ def test_a_reference_is_sent_as_its_own_arm():
 
 def test_an_unreduced_reference_is_refused_before_it_is_sent():
     conn = make_connection(Mock(), CURRENT)
+    unreduced = MeasurementRef(Unit("km"), "SI::kilometre")
     with pytest.raises(UnsupportedValueError, match="carries no reduction"):
-        conn._python_to_value(MeasurementRef(Unit("km"), "SI::kilometre"))
+        conn._python_to_value(unreduced)
 
 
 def test_a_reference_is_not_sent_to_a_service_without_the_capability():
@@ -199,8 +204,9 @@ def test_a_reference_is_not_sent_to_a_service_without_the_capability():
         with pytest.raises(MissingCapabilityError) as excinfo:
             conn.execute_action("M::convert", "hash", inputs={"target": value})
         assert excinfo.value.capability == CAPABILITY_MEASUREMENT_REFS
+        arguments = [Quantity(3.0, KILOMETRE), value]
         with pytest.raises(MissingCapabilityError) as excinfo:
-            conn.calc("M::toUnit", "hash", arguments=[Quantity(3.0, KILOMETRE), value])
+            conn.calc("M::toUnit", "hash", arguments=arguments)
         assert excinfo.value.capability == CAPABILITY_MEASUREMENT_REFS
     stub.ExecuteAction.assert_not_called()
     stub.EvaluateCalc.assert_not_called()

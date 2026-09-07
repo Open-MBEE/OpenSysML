@@ -8,6 +8,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
+// msgIncommensurableBinding reports a value of one dimension, unit or frame
+// bound to a feature typed by another.
+const msgIncommensurableBinding = "cannot bind %s to a feature typed by %s"
+
 // checkDimensions warns when an operator that requires commensurable operands
 // combines quantities of statically known, incommensurable dimensions —
 // `mass < 1000.0[m]` — which evaluation rejects with an incommensurable-units
@@ -66,7 +70,7 @@ func (ec *exprChecker) checkValueDimension(valueScope, declScope *symbols.Scope,
 		if !ok || want.Term.Commensurable(got.Term) {
 			continue
 		}
-		ec.errorf(element.Span(), "cannot bind %s to a feature typed by %s",
+		ec.errorf(element.Span(), msgIncommensurableBinding,
 			describeDimension(got), describeDimension(want))
 	}
 }
@@ -87,7 +91,7 @@ func (ec *exprChecker) judgedAsMeasurementRef(scope *symbols.Scope, declared *sy
 		return false
 	}
 	if c.Known && !c.Holds {
-		ec.errorf(element.Span(), "cannot bind %s to a feature typed by %s", c.Found, declared.Name)
+		ec.errorf(element.Span(), msgIncommensurableBinding, c.Found, declared.Name)
 	}
 	return true
 }
@@ -105,7 +109,7 @@ func (ec *exprChecker) judgedAsFramedQuantity(scope *symbols.Scope, declared *sy
 		return false
 	}
 	if c.Known && !c.Holds {
-		ec.errorf(element.Span(), "cannot bind %s to a feature typed by %s", c.Found, declared.Name)
+		ec.errorf(element.Span(), msgIncommensurableBinding, c.Found, declared.Name)
 	}
 	return true
 }

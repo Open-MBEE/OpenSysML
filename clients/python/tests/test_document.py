@@ -152,13 +152,16 @@ def test_a_quantity_the_wire_cannot_carry_is_refused():
     """An unreduced unit or an oversized magnitude is a DocumentQueryError, not
     the Quantity's own UnsupportedValueError or a protobuf ValueError."""
     kg = Unit(text="kg", factors=(UnitFactor("SI::kg", 1),), reduction_given=True)
+    unreduced = {"limit": Quantity(1, Unit(text="furlong"))}
     with pytest.raises(DocumentQueryError, match="'limit'.*no reduction") as caught:
-        build_bindings({"limit": Quantity(1, Unit(text="furlong"))})
+        build_bindings(unreduced)
     assert isinstance(caught.value.__cause__, UnsupportedValueError)
+    oversized = {"limit": Quantity(1 << 63, kg)}
     with pytest.raises(DocumentQueryError, match="'limit'.*signed 64-bit"):
-        build_bindings({"limit": Quantity(1 << 63, kg)})
+        build_bindings(oversized)
+    boolean = {"limit": Quantity(True, kg)}
     with pytest.raises(DocumentQueryError, match="'limit'.*neither an Integer nor a Real"):
-        build_bindings({"limit": Quantity(True, kg)})
+        build_bindings(boolean)
 
 
 def test_no_bindings_is_an_empty_request():

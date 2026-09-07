@@ -210,7 +210,7 @@ func TestW8CMultiplicityBoundResultTypeSilent(t *testing.T) {
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
 			msgs := w8cMessages(t, "package P {\n\t"+body+"\n}")
-			if n := w8cCount(msgs, msgMultiplicityBoundNatural); n != 0 {
+			if w8cCount(msgs, msgMultiplicityBoundNatural) != 0 {
 				t.Errorf("want no %q, got %v", msgMultiplicityBoundNatural, msgs)
 			}
 		})

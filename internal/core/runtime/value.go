@@ -39,6 +39,9 @@ const (
 	valueKindCount
 )
 
+// unknownText stands for a value or reference that is absent where a name is rendered.
+const unknownText = "<unknown>"
+
 // FormatValue renders a value with the notation used by user-facing runtime
 // results and diagnostics.
 func FormatValue(v Value) string {
@@ -78,7 +81,7 @@ func FormatValue(v Value) string {
 	case ValQuantity:
 		q := v.Quantity()
 		if q == nil {
-			return "<unknown>"
+			return unknownText
 		}
 		return q.TextWithMagnitude(semantics.FormatConst(q.Num))
 	case ValComplex:
@@ -100,7 +103,7 @@ func FormatValue(v Value) string {
 	case ValExpr:
 		return "<expression>"
 	default:
-		return "<unknown>"
+		return unknownText
 	}
 }
 

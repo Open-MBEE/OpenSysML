@@ -465,7 +465,7 @@ class Array:
     def __iter__(self) -> Iterator[Any]:
         return iter(self.elements)
 
-    def __getitem__(self, index: Union[int, Tuple[int, ...]]) -> Any:
+    def __getitem__(self, index: int | Tuple[int, ...]) -> Any:
         """The element at a row-major position, or at a full multi-index."""
         if isinstance(index, tuple):
             if len(index) != self.rank:

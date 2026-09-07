@@ -16,7 +16,7 @@ type AnnotationOwnershipPass struct{}
 func (AnnotationOwnershipPass) Level() PassLevel { return LevelConstraint }
 
 // ElementScoped: each `about` reference gates on its own resolution.
-func (AnnotationOwnershipPass) ElementScoped() {}
+func (AnnotationOwnershipPass) ElementScoped() { /* marker: per-element gating */ }
 
 func (AnnotationOwnershipPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {

@@ -385,15 +385,20 @@ func (t *translator) pinTerm(p Pin, v *Var) (*Term, string, error) {
 			"the term language has scalar variables only, and "+text+" is not a scalar")
 	case runtime.ValMeasurementRef:
 		return nil, text, t.pinRefusal(p, v, text,
-			"the term language ranges over numbers, strings and datatype literals, and "+text+" is a measurement reference")
+			scalarTermsOnly(text, "a measurement reference"))
 	case runtime.ValCoordinateFrame:
 		return nil, text, t.pinRefusal(p, v, text,
-			"the term language ranges over numbers, strings and datatype literals, and "+text+" is a coordinate frame")
+			scalarTermsOnly(text, "a coordinate frame"))
 	case runtime.ValCoordinateTransformation:
 		return nil, text, t.pinRefusal(p, v, text,
-			"the term language ranges over numbers, strings and datatype literals, and "+text+" is a coordinate transformation")
+			scalarTermsOnly(text, "a coordinate transformation"))
 	}
 	return nil, text, t.pinRefusal(p, v, text, "a "+p.Value.Kind.String()+" has no literal in the term language")
+}
+
+// scalarTermsOnly words the refusal of a value the term language has no literal for.
+func scalarTermsOnly(text, kind string) string {
+	return "the term language ranges over numbers, strings and datatype literals, and " + text + " is " + kind
 }
 
 // pinConst fixes a number or a boolean, widening an integer to the real sort the

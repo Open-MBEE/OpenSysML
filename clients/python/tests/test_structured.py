@@ -144,10 +144,12 @@ def test_an_array_element_is_any_value_a_nested_array_or_a_quantity_included():
 
 
 def test_an_array_whose_elements_do_not_fill_its_shape_is_reported():
+    short = pb_array([2, 3], pb_int(1), pb_int(2))
     with pytest.raises(UnsupportedValueError, match="malformed array"):
-        value_to_python(pb_array([2, 3], pb_int(1), pb_int(2)))
+        value_to_python(short)
+    empty = pb_array([0], )
     with pytest.raises(UnsupportedValueError, match="malformed array"):
-        value_to_python(pb_array([0], ))
+        value_to_python(empty)
     with pytest.raises(ValueError):
         Array((2,), (1, 2, 3))
     with pytest.raises(ValueError):
@@ -176,7 +178,8 @@ def test_a_vector_decodes_as_one_vector_keeping_integer_and_real_apart():
     assert all(isinstance(c, int) for c in ints)
 
     mixed = value_to_python(pb_vector(pb_int(1), pb_real(2.5)))
-    assert isinstance(mixed[0], int) and isinstance(mixed[1], float)
+    assert isinstance(mixed[0], int)
+    assert isinstance(mixed[1], float)
 
 
 def test_an_empty_vector_is_a_vector_of_nothing():
@@ -184,10 +187,12 @@ def test_an_empty_vector_is_a_vector_of_nothing():
 
 
 def test_a_vector_with_a_component_that_is_not_a_number_is_reported():
+    text = pb_vector(pb_real(1.0), sysml_pb2.Value(string_value="two"))
     with pytest.raises(UnsupportedValueError, match="not a number"):
-        value_to_python(pb_vector(pb_real(1.0), sysml_pb2.Value(string_value="two")))
+        value_to_python(text)
+    unset = pb_vector(sysml_pb2.Value())
     with pytest.raises(UnsupportedValueError, match="not a number"):
-        value_to_python(pb_vector(sysml_pb2.Value()))
+        value_to_python(unset)
     with pytest.raises(ValueError):
         Vector((1.0, True))
     with pytest.raises(ValueError):
@@ -255,11 +260,12 @@ def test_a_vector_quantity_in_a_composed_unit_keeps_the_reduction():
 
 
 def test_a_malformed_vector_quantity_is_reported():
+    empty = pb_vector_quantity()
     with pytest.raises(UnsupportedValueError, match="no components"):
-        value_to_python(pb_vector_quantity())
-    unreduced = sysml_pb2.Quantity(real_magnitude=1.0, unit="Furlongs::furlong")
+        value_to_python(empty)
+    unreduced = pb_vector_quantity(sysml_pb2.Quantity(real_magnitude=1.0, unit="Furlongs::furlong"))
     with pytest.raises(UnsupportedValueError, match="no reduction"):
-        value_to_python(pb_vector_quantity(unreduced))
+        value_to_python(unreduced)
     with pytest.raises(ValueError):
         VectorQuantity(())
     with pytest.raises(ValueError):
@@ -314,8 +320,9 @@ def test_a_service_without_the_capability_still_reports_unsupported():
         "unsupported: vector ⟨3.0, 4.0⟩",
         "unsupported: vector quantity ⟨3.0, 4.0⟩ [m]",
     ):
+        null = sysml_pb2.Value(null=text)
         with pytest.raises(UnsupportedValueError):
-            value_to_python(sysml_pb2.Value(null=text))
+            value_to_python(null)
 
 
 def test_a_value_arm_this_client_predates_is_an_error_not_none():
@@ -387,8 +394,9 @@ def test_a_complex_in_an_array_still_needs_complex_values():
     stub = Mock()
     conn = make_connection(stub, (CAPABILITY_STRUCTURED_VALUES, CAPABILITY_VERIFICATION))
 
+    arguments = [Array((1,), (1 + 2j,))]
     with pytest.raises(MissingCapabilityError) as excinfo:
-        conn.calc("S::length", "hash", arguments=[Array((1,), (1 + 2j,))])
+        conn.calc("S::length", "hash", arguments=arguments)
     assert excinfo.value.capability == CAPABILITY_COMPLEX_VALUES
     stub.EvaluateCalc.assert_not_called()
 

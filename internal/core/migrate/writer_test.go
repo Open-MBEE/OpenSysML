@@ -32,7 +32,7 @@ func TestWriterSiblingBlocksAreLinear(t *testing.T) {
 	out := w.String()
 	runtime.ReadMemStats(&after)
 	allocated := after.TotalAlloc - before.TotalAlloc
-	if limit := uint64(len(out)) * 16; allocated > limit {
+	if allocated > uint64(len(out))*16 {
 		t.Errorf("allocated %d bytes for %d bytes of output; a quadratic writer copies far more", allocated, len(out))
 	}
 }

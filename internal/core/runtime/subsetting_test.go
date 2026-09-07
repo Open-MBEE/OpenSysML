@@ -302,7 +302,7 @@ func TestDefaultIsFallbackOnlyWhereWrittenDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(engines): %v", err)
 	}
-	if got := len(elementsOf(fv.HeldValue())); got != 0 {
+	if len(elementsOf(fv.HeldValue())) != 0 {
 		t.Errorf("engines = %s, want the bound empty sequence", FormatValue(fv.HeldValue()))
 	}
 

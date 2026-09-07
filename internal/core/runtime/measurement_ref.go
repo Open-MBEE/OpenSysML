@@ -47,7 +47,7 @@ func (r *MeasurementRef) Declaration() *symbols.Symbol {
 // String renders the reference as a quantity's unit is written: `m`, `km/h`, `m**2`.
 func (r *MeasurementRef) String() string {
 	if r == nil {
-		return "<unknown>"
+		return unknownText
 	}
 	if r.Unit.Product.IsEmpty() {
 		return r.Unit.Term.String()

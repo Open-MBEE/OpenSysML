@@ -18,16 +18,16 @@ TIMEOUT="${RELEASE_GATE_TIMEOUT:-5400}"
 
 deadline=$((SECONDS + TIMEOUT))
 until gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx 'SHA256SUMS.txt.bundle'; do
-  if [ "$SECONDS" -ge "$deadline" ]; then
-    echo "Error: CircleCI has not published SHA256SUMS.txt.bundle on release $TAG; giving up."
+  if [[ "$SECONDS" -ge "$deadline" ]]; then
+    echo "Error: CircleCI has not published SHA256SUMS.txt.bundle on release $TAG; giving up." >&2
     exit 1
   fi
   echo "Waiting for CircleCI to publish release $TAG..."
   sleep 60
 done
 resolved=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
-if [ "$resolved" != "$COMMIT" ]; then
-  echo "Error: tag $TAG resolves to $resolved, this workflow built $COMMIT."
+if [[ "$resolved" != "$COMMIT" ]]; then
+  echo "Error: tag $TAG resolves to $resolved, this workflow built $COMMIT." >&2
   exit 1
 fi
 echo "Release $TAG is published by CircleCI and matches $COMMIT."

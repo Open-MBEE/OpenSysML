@@ -34,8 +34,12 @@ type exprChecker struct {
 	performed map[*ast.InvocationExpr]bool
 }
 
+// codeTypeExpr is the code of an expression typing diagnostic no rule of its
+// own claims.
+const codeTypeExpr = "type.expr"
+
 func (ec *exprChecker) errorf(span source.Span, format string, args ...any) {
-	ec.errorCode("type.expr", span, format, args...)
+	ec.errorCode(codeTypeExpr, span, format, args...)
 }
 
 // errorCode is errorf under the code of a rule with its own.
@@ -50,7 +54,7 @@ func (ec *exprChecker) errorCode(code string, span source.Span, format string, a
 }
 
 func (ec *exprChecker) warnf(span source.Span, format string, args ...any) {
-	ec.warnCode("type.expr", span, format, args...)
+	ec.warnCode(codeTypeExpr, span, format, args...)
 }
 
 // warnCode is warnf under the code of a rule with its own.
@@ -190,7 +194,7 @@ func (ec *exprChecker) resolveTarget(scope *symbols.Scope, target ast.Node) *sym
 
 // checkBoolean checks an expression used where a condition is required.
 func (ec *exprChecker) checkBoolean(scope *symbols.Scope, n ast.Node, context string) {
-	ec.checkCondition(scope, n, "type.expr", context+" must be Boolean, found %s", false)
+	ec.checkCondition(scope, n, codeTypeExpr, context+" must be Boolean, found %s", false)
 }
 
 // checkCondition is checkBoolean reporting under a rule's own code and message,

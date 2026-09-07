@@ -104,7 +104,7 @@ func (f *CoordinateFrame) flattenedSizeError(what string) error {
 // how it was composed.
 func (f *CoordinateFrame) Name() string {
 	if f == nil {
-		return "<unknown>"
+		return unknownText
 	}
 	if f.Text != "" {
 		return f.Text
@@ -119,7 +119,7 @@ func (f *CoordinateFrame) Name() string {
 // scale over the unit its magnitudes are in: `°C_abs [°C]`.
 func (f *CoordinateFrame) String() string {
 	if f == nil {
-		return "<unknown>"
+		return unknownText
 	}
 	if f.Scale != nil {
 		return f.Name() + " [" + f.Scale.Unit.String() + "]"
@@ -223,7 +223,7 @@ func (s *MeasurementScale) equal(other *MeasurementScale) bool {
 // Name is how the transformation is referred to in diagnostics.
 func (t *CoordinateTransformation) Name() string {
 	if t == nil {
-		return "<unknown>"
+		return unknownText
 	}
 	if t.Decl != nil {
 		return symbolText(t.Decl)
@@ -250,7 +250,7 @@ func (t *CoordinateTransformation) sameDimensions(name string) error {
 // `trs (datum → lbcf)`.
 func (t *CoordinateTransformation) String() string {
 	if t == nil {
-		return "<unknown>"
+		return unknownText
 	}
 	source, target := "?", "?"
 	if t.Source != nil {

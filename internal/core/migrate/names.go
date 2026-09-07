@@ -110,7 +110,7 @@ func scopeChain(scope *xmi.Element) []*xmi.Element {
 // level): the shortest qualified name that resolves there, which is the simple
 // name when target is a member of an enclosing scope no nearer scope shadows,
 // and the full qualified name otherwise.
-func (m *migration) ref(target *xmi.Element, scope *xmi.Element) string {
+func (m *migration) ref(target, scope *xmi.Element) string {
 	segs := m.segments(target)
 	owner := target.Parent
 	if owner != nil && owner.Type == "Model" && owner.Parent == nil {

@@ -106,13 +106,13 @@ func TestChainThroughRedefiningUsageBindsToTheRedefiningMember(t *testing.T) {
 				}
 			}
 			chain := bindingAt(t, ws, uri, "= faces.edges")
-			if qualified := bindingAt(t, ws, uri, "Polygon::edges, faces::edges"); qualified != chain {
+			if bindingAt(t, ws, uri, "Polygon::edges, faces::edges") != chain {
 				t.Errorf("faces::edges binds to a different symbol than faces.edges")
 			}
 			if !chain.EffectiveName() || chain.Naming != symbols.NamedByRedefinition {
 				t.Errorf("the redefining member is named %q by %v, want by its redefinition", chain.Name, chain.Naming)
 			}
-			if masked := bindingAt(t, ws, uri, ":>> "+spelling); masked == chain {
+			if bindingAt(t, ws, uri, ":>> "+spelling) == chain {
 				t.Errorf("the chain reached the masked Polygon::edges")
 			}
 		})

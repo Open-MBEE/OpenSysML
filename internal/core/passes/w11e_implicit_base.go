@@ -102,7 +102,7 @@ func (c *implicitBaseChecker) checkFeatureHasType(sym *symbols.Symbol) {
 	if !ok {
 		return
 	}
-	if base := c.libraryType(fqn); base != nil {
+	if c.libraryType(fqn) != nil {
 		return
 	}
 	c.report(sym.Decl.Span(), msgFeatureNoType, "feature-has-type")

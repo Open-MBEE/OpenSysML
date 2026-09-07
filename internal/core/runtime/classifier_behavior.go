@@ -1013,7 +1013,7 @@ func (ctx *Context) typeHoldsFeature(typeSym, feature *symbols.Symbol) bool {
 // anonymous.
 func symbolText(sym *symbols.Symbol) string {
 	if sym == nil {
-		return "<unknown>"
+		return unknownText
 	}
 	if sym.Name != "" {
 		return sym.Name

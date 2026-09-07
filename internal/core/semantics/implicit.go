@@ -17,6 +17,7 @@ const (
 	renderingFQN    = "Views::Rendering"
 	concernCheckFQN = "Requirements::ConcernCheck"
 	linksFQN        = "Links::links"
+	linkFQN         = "Links::Link"
 	performanceFQN  = "Performances::Performance"
 	assocStructKw   = "assoc struct"
 )
@@ -126,13 +127,13 @@ var implicitKerMLBases = map[string]string{
 	"classifier":  anythingFQN,
 	"class":       occurrenceFQN,
 	"struct":      "Objects::Object",
-	"assoc":       "Links::Link",
-	"association": "Links::Link",
+	"assoc":       linkFQN,
+	"association": linkFQN,
 	assocStructKw: "Objects::LinkObject",
 	"behavior":    performanceFQN,
 	"function":    "Performances::Evaluation",
 	"predicate":   "Performances::BooleanEvaluation",
-	"interaction": "Links::Link",
+	"interaction": linkFQN,
 	"metaclass":   "Metaobjects::Metaobject",
 	"datatype":    dataValueFQN,
 	"type":        anythingFQN,

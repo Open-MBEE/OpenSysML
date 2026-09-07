@@ -558,7 +558,7 @@ func TestCoordinateFrameCrossesAsUnsupported(t *testing.T) {
 		if pv.GetSequence() != nil || pv.GetQuantity() != nil || pv.GetStringValue() != "" {
 			t.Fatalf("%s crossed as %T: %v", runtime.FormatValue(val), pv.GetKind(), pv)
 		}
-		if got := pv.GetNull(); got != want {
+		if pv.GetNull() != want {
 			t.Errorf("ValueToProto(%s) = %v, want null %q", runtime.FormatValue(val), pv, want)
 		}
 	}

@@ -373,7 +373,7 @@ func (m *Model) typeConformance(typ, want *symbols.Symbol) Conformance {
 // featureConformance judges a value that is what a feature holds: the feature's
 // declared type bounds it. A feature with a generalization that does not resolve
 // has an undetermined type, reported elsewhere.
-func (m *Model) featureConformance(sym *symbols.Symbol, want *symbols.Symbol) Conformance {
+func (m *Model) featureConformance(sym, want *symbols.Symbol) Conformance {
 	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = alias
 	}

@@ -134,7 +134,7 @@ func TestCoordinateTransformationHashesAsItCompares(t *testing.T) {
 		set := NewSet()
 		set.Add(a)
 		set.Add(b)
-		if got := set.Size() == 1; got != want {
+		if (set.Size() == 1) != want {
 			t.Errorf("a set of %s and %s holds %d values, want one: %v", FormatValue(a), FormatValue(b), set.Size(), want)
 		}
 		if !set.Contains(b) {
