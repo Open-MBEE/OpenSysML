@@ -86,9 +86,12 @@ jobs:
 
       # One buf template generates both the Go stubs and the Java client's message
       # classes, so without this check the committed stubs can drift from the schema.
+      # `git add -N` puts a regenerated file the commit had deleted into the diff.
       - name: Verify the committed Go and Java stubs are current
         run: |
           make proto-buf BUF=buf
+          git add -N api/proto \
+            clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
           git diff --exit-code api/proto \
             clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
@@ -684,6 +687,7 @@ jobs:
       - name: Verify the committed TypeScript stubs are current
         run: |
           make proto-ts BUF=buf
+          git add -N clients/node/src/generated
           git diff --exit-code clients/node/src/generated
 
   python-test:
@@ -776,6 +780,7 @@ jobs:
           # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
           pip install --only-binary :all: grpcio-tools==1.83.0
           make python-proto BUF=buf
+          git add -N clients/python/opensysml/proto
           git diff --exit-code clients/python/opensysml/proto
 
   rust-test:
@@ -856,6 +861,7 @@ jobs:
       - name: Verify Rust generated artifacts
         run: |
           make BUF=/tmp/buf proto-rust
+          git add -N clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
           git diff --exit-code clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
 
       - uses: actions/upload-artifact@v4
@@ -937,6 +943,7 @@ jobs:
       - name: Verify the committed Java stubs are current
         run: |
           make proto-buf BUF=buf
+          git add -N clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
           git diff --exit-code clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   conformance-pkg:
