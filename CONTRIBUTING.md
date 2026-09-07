@@ -202,10 +202,11 @@ The project follows [Semantic Versioning](https://semver.org/):
 `.github/workflows/pr.yml` is the only CI a pull request runs, and it gates them: gofmt,
 `go vet`, `make lint`, the race-enabled test suite, the binaries, the client suites, the
 conformance suite over each transport, the protobuf lint and wire-compatibility checks, the
-documentation hygiene checks (`make docs-check`, `make man-check`, the census and release-digest
-checks) and the site build. It downloads the OMG corpora before the suite and runs each corpus
-gate as its own step, so those gates are required rather than skipped. Its `Build and test` job
-aggregates the rest, so that is the one check branch protection needs to require.
+documentation hygiene checks (`make docs-check`, `make man-check` and the census check), the
+site build, and in each client's job the release-digest copy it ships. It downloads the OMG
+corpora before the suite and runs each corpus gate as its own step, so those gates are required
+rather than skipped. Its `Build and test` job aggregates the rest, so that is the one check
+branch protection needs to require.
 
 Its first job, `Changed areas`, runs `scripts/ci-changed-areas.sh` over the pull request's
 files and the rest of the jobs are gated on what it reports: a change confined to one client

@@ -589,11 +589,6 @@ jobs:
       - name: Check the compliance census hook
         run: python3 scripts/mkdocs_census-test.py
 
-      # Each client verifies a download against the copy of the pinned digests it
-      # ships, so a copy that drifts from the table pins something else.
-      - name: Check the clients ship the pinned release digests
-        run: python3 scripts/sync-release-digests.py --check
-
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
       - name: Build documentation site
@@ -608,6 +603,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
+      # The client verifies a download against the copy of the pinned digests it
+      # ships, so a copy that drifts from the table pins something else.
+      - name: Check the clients ship the pinned release digests
+        run: python3 scripts/sync-release-digests.py --check
 
       - uses: actions/download-artifact@v4
         with:
@@ -698,6 +698,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # The client verifies a download against the copy of the pinned digests it
+      # ships, so a copy that drifts from the table pins something else.
+      - name: Check the clients ship the pinned release digests
+        run: python3 scripts/sync-release-digests.py --check
+
       - name: Download binary artifacts
         uses: actions/download-artifact@v4
         with:
@@ -763,6 +768,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
+      # The client verifies a download against the copy of the pinned digests it
+      # ships, so a copy that drifts from the table pins something else.
+      - name: Check the clients ship the pinned release digests
+        run: python3 scripts/sync-release-digests.py --check
 
       # Reuse the service built by the Go job rather than installing Go again
       # in this Rust-focused gate.
@@ -846,6 +856,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      # The client verifies a download against the copy of the pinned digests it
+      # ships, so a copy that drifts from the table pins something else.
+      - name: Check the clients ship the pinned release digests
+        run: python3 scripts/sync-release-digests.py --check
 
       - uses: actions/download-artifact@v4
         with:
