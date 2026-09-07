@@ -759,6 +759,25 @@ jobs:
       - name: Verify Python client import
         run: python3 -c "import opensysml; print(f'opensysml {opensysml.__version__} imported successfully')"
 
+      # Pinned by digest, so a substituted asset is not run.
+      - name: Install buf
+        run: |
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
+            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
+          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
+          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
+          buf --version
+
+      # Committed stubs must be what buf generates, or the checked-in client and
+      # the schema can drift apart silently.
+      - name: Verify the committed Python stubs are current
+        run: |
+          # Pinned to the version recorded in the committed stubs
+          # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
+          pip install --only-binary :all: grpcio-tools==1.83.0
+          make python-proto BUF=buf
+          git diff --exit-code clients/python/opensysml/proto
+
   rust-test:
     name: Rust client tests
     needs: [changes, build]
@@ -896,6 +915,29 @@ jobs:
         with:
           name: java-conformance-report
           path: conformance-report-java.json
+
+      # The Java message classes come out of the one buf template that also runs the
+      # Go plugins through `go run`, so the check needs a Go toolchain even here.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Pinned by digest, so a substituted asset is not run.
+      - name: Install buf
+        run: |
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
+            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
+          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
+          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
+          buf --version
+
+      # Committed stubs must be what buf generates, or the checked-in client and
+      # the schema can drift apart silently.
+      - name: Verify the committed Java stubs are current
+        run: |
+          make proto-buf BUF=buf
+          git diff --exit-code clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
   conformance-pkg:
     name: Conformance suite
