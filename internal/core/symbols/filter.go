@@ -1,6 +1,7 @@
 package symbols
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -158,7 +159,7 @@ type FilterValue struct {
 // units are resolved there, so the symbol layer carries the value opaquely.
 type QuantityValue interface {
 	// String renders the quantity as `magnitude [unit]`.
-	String() string
+	fmt.Stringer
 }
 
 // Same reports whether two filters are the same condition, so that two routes to

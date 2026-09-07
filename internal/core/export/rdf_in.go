@@ -194,9 +194,9 @@ func legacyNamespaceError(iri string) error {
 // annotations and portions, each with the term that carries the same fact now.
 var supersededPredicates = map[string]string{
 	rdf.OpenSysML + "prefixMetadata": "an owned sysml:MetadataUsage with sysx:declaredKeyword \"#\"",
-	rdf.SysML + "annotates":          "sysml:" + pAnnotatedElement,
-	rdf.SysML + "isSnapshot":         "sysml:" + pPortionKind + " \"snapshot\"",
-	rdf.SysML + "isTimeslice":        "sysml:" + pPortionKind + " \"timeslice\"",
+	rdf.SysML + "annotates":          sysmlPrefix + pAnnotatedElement,
+	rdf.SysML + "isSnapshot":         sysmlPrefix + pPortionKind + " \"snapshot\"",
+	rdf.SysML + "isTimeslice":        sysmlPrefix + pPortionKind + " \"timeslice\"",
 }
 
 // checkSupersededPredicates refuses a graph stating a fact with a predicate
@@ -2071,26 +2071,26 @@ func (d *decoder) keywordTyped(el *element, keyword, portion string, event bool)
 		if portion == keyword {
 			return nil
 		}
-		stated, expected = "sysml:"+pPortionKind+" "+strconv.Quote(portion), "the "+strconv.Quote(keyword)+" its keyword states"
+		stated, expected = sysmlPrefix+pPortionKind+" "+strconv.Quote(portion), strconv.Quote(keyword)
 		if portion == "" {
-			stated = "no sysml:" + pPortionKind
+			stated = "no " + sysmlPrefix + pPortionKind
 		}
 	case "event":
 		if event {
 			return nil
 		}
-		stated, expected = "the metaclass "+el.metaclass, "the "+mEventOccurrenceUsage+" its keyword states"
+		stated, expected = "the metaclass "+el.metaclass, mEventOccurrenceUsage
 	case "assert":
 		if el.metaclass == mAssertConstraintUsage {
 			return nil
 		}
-		stated, expected = "the metaclass "+el.metaclass, "the "+mAssertConstraintUsage+" its keyword states"
+		stated, expected = "the metaclass "+el.metaclass, mAssertConstraintUsage
 	default:
 		return nil
 	}
 	return &UnsupportedError{
 		What: fmt.Sprintf("the `%s` declaration <%s>", keyword, el.iri),
-		Note: fmt.Sprintf("it has %s, not %s, so the notation cannot be rebuilt without declaring something else", stated, expected),
+		Note: fmt.Sprintf("it has %s, not the %s its keyword states, so the notation cannot be rebuilt without declaring something else", stated, expected),
 	}
 }
 
@@ -2150,7 +2150,7 @@ func (d *decoder) portionKind(el *element) (string, error) {
 	}
 	return "", &UnsupportedError{
 		What: fmt.Sprintf("the portion kind %q of <%s>", portion, el.iri),
-		Note: "sysml:" + pPortionKind + " is `snapshot` or `timeslice`, the two portions the notation declares",
+		Note: sysmlPrefix + pPortionKind + " is `snapshot` or `timeslice`, the two portions the notation declares",
 	}
 }
 

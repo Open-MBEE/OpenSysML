@@ -26,9 +26,9 @@ WIX_CMD="${WIX:-wix}"
 WIX_PATH_PREFIX="${WIX_PATH_PREFIX:-}"
 # Absolute host path -> the path as the (Windows) wix process sees it.
 if command -v cygpath >/dev/null 2>&1; then
-  wixpath() { cygpath -m "$1"; }  # Git Bash / MSYS2: /c/x -> C:/x
+  wixpath() { local host="$1"; cygpath -m "$host"; }  # Git Bash / MSYS2: /c/x -> C:/x
 else
-  wixpath() { printf '%s%s' "$WIX_PATH_PREFIX" "$1"; }
+  wixpath() { local host="$1"; printf '%s%s' "$WIX_PATH_PREFIX" "$host"; }
 fi
 
 if [[ $# -lt 4 || $# -gt 5 ]]; then
@@ -60,9 +60,9 @@ for tool in ${WIX_CMD%% *} curl sha256sum; do
 done
 # Git for Windows ships no unzip; the GitHub runners have 7z.
 if command -v unzip >/dev/null 2>&1; then
-  extract() { unzip -q -j "$1" "${@:3}" -d "$2"; }
+  extract() { local archive="$1" dest="$2"; unzip -q -j "$archive" "${@:3}" -d "$dest"; }
 elif command -v 7z >/dev/null 2>&1; then
-  extract() { 7z e -y -bso0 -bsp0 "-o$2" "$1" "${@:3}" >/dev/null; }
+  extract() { local archive="$1" dest="$2"; 7z e -y -bso0 -bsp0 "-o$dest" "$archive" "${@:3}" >/dev/null; }
 else
   echo "error: unzip or 7z is required" >&2; exit 1
 fi

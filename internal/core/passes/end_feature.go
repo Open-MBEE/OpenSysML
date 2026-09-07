@@ -18,7 +18,7 @@ type EndFeaturePass struct{}
 func (EndFeaturePass) Level() PassLevel { return LevelConstraint }
 
 // ElementScoped: each end feature gates on its own head.
-func (EndFeaturePass) ElementScoped() {}
+func (EndFeaturePass) ElementScoped() { /* marker: per-element gating */ }
 
 func (EndFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {

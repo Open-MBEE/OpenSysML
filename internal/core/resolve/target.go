@@ -197,7 +197,7 @@ func (f *refFilter) lookupLocal(scope *symbols.Scope, name string) (*symbols.Sym
 
 // referenceFilter is the filter a reference subsetting owned by decl resolves
 // its target under; a chain target's prefix is looked up unhidden (see forPrefix).
-func referenceFilter(decl ast.Node, target ast.Node) *refFilter {
+func referenceFilter(decl, target ast.Node) *refFilter {
 	hide := &refFilter{decl: decl}
 	if _, ok := target.(*ast.FeatureChainExpr); ok {
 		hide = hide.forPrefix()

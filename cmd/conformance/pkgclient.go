@@ -35,6 +35,10 @@ type uncoveredError struct{ reason string }
 
 func (e *uncoveredError) Error() string { return e.reason }
 
+// errNonNumericVector is the uncoveredError for a vector argument whose
+// component is not a number.
+var errNonNumericVector = &uncoveredError{reason: "the public Go API cannot send a vector with a non-numeric component"}
+
 func (c *pkgClient) protocol() string { return c.name }
 
 func (c *pkgClient) close() { _ = c.api.Close() }
@@ -269,7 +273,7 @@ func (c *pkgClient) executeAction(ctx context.Context, request protoreflect.Mess
 	for name, value := range req.Inputs {
 		input, converted := valueFromProto(value)
 		if !converted {
-			return nil, &uncoveredError{reason: "the public Go API cannot send a vector with a non-numeric component"}
+			return nil, errNonNumericVector
 		}
 		inputs[name] = input
 	}
@@ -397,7 +401,7 @@ func (c *pkgClient) evaluateCalc(ctx context.Context, request protoreflect.Messa
 	for _, argument := range req.Arguments {
 		converted, ok := valueFromProto(argument)
 		if !ok {
-			return nil, &uncoveredError{reason: "the public Go API cannot send a vector with a non-numeric component"}
+			return nil, errNonNumericVector
 		}
 		arguments = append(arguments, converted)
 	}
@@ -435,14 +439,14 @@ func (c *pkgClient) runAnalysis(ctx context.Context, request protoreflect.Messag
 	for _, argument := range req.Arguments {
 		converted, ok := valueFromProto(argument)
 		if !ok {
-			return nil, &uncoveredError{reason: "the public Go API cannot send a vector with a non-numeric component"}
+			return nil, errNonNumericVector
 		}
 		opts = append(opts, opensysml.Arguments(converted))
 	}
 	for _, name := range slices.Sorted(maps.Keys(req.NamedArguments)) {
 		converted, ok := valueFromProto(req.NamedArguments[name])
 		if !ok {
-			return nil, &uncoveredError{reason: "the public Go API cannot send a vector with a non-numeric component"}
+			return nil, errNonNumericVector
 		}
 		opts = append(opts, opensysml.Argument(name, converted))
 	}

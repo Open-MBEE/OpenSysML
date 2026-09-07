@@ -10,6 +10,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
 )
 
+// The v2 keywords the writer prefixes a declaration or annotation with.
+const (
+	privatePrefix = "private "
+	commentPrefix = "comment "
+)
+
 // Result is a migration's output: the v2 notation and the report over it.
 type Result struct {
 	Notation []byte
@@ -268,7 +274,7 @@ func (m *migration) imports(e *xmi.Element) {
 	}
 	vis := ""
 	if e.Attrs["visibility"] == "private" {
-		vis = "private "
+		vis = privatePrefix
 	}
 	m.w.line(vis + "import " + m.ref(target, m.scope) + "::*;")
 	m.add(e, Mapped, m.v2Name(target), "")
@@ -732,11 +738,11 @@ func (m *migration) feature(p *xmi.Element) {
 	var b strings.Builder
 	switch p.Attrs["visibility"] {
 	case "private":
-		b.WriteString("private ")
+		b.WriteString(privatePrefix)
 	case "protected":
 		b.WriteString("protected ")
 	case "package":
-		b.WriteString("private ")
+		b.WriteString(privatePrefix)
 		note = joinNotes(note, "package visibility is written as private")
 	}
 	// The v2 usage prefix orders direction, derived, abstract, constant, ref.
@@ -926,7 +932,7 @@ func (m *migration) inherits(e, general *xmi.Element) bool {
 
 // typeRef writes the type of a feature: a ScalarValues type, a reference to a
 // migrated classifier, or nothing with a note when the type is not migrated.
-func (m *migration) typeRef(t *xmi.Element, scope *xmi.Element) (string, string) {
+func (m *migration) typeRef(t, scope *xmi.Element) (string, string) {
 	if t == nil {
 		return "", ""
 	}
@@ -1574,7 +1580,7 @@ func (m *migration) writeComments(e *xmi.Element, first bool) {
 				refs = append(refs, m.ref(a, m.scope))
 			}
 			if len(refs) == 0 {
-				m.w.lines(prefixFirst("comment ", commentLines(text)))
+				m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
 			} else {
 				m.w.lines(prefixFirst("comment about "+strings.Join(refs, ", ")+" ", commentLines(text)))
 			}
@@ -1589,7 +1595,7 @@ func (m *migration) writeComments(e *xmi.Element, first bool) {
 			m.w.lines(prefixFirst("doc ", commentLines(text)))
 			first = false
 		} else {
-			m.w.lines(prefixFirst("comment ", commentLines(text)))
+			m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
 		}
 		m.add(c, verdictFor(missing), "", missing)
 	}
@@ -1613,7 +1619,7 @@ func (m *migration) comment(c *xmi.Element) {
 		m.add(c, Skipped, "", "empty comment")
 		return
 	}
-	m.w.lines(prefixFirst("comment ", commentLines(text)))
+	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
 	m.add(c, Mapped, "", "")
 }
 

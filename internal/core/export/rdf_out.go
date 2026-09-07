@@ -520,7 +520,9 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		if preceding != nil {
 			e.preceding[node] = preceding
 		}
-		if err := e.encodeMember(node, visibility, regions[i], inline, owner, ownerTerm, i, isTypeFeatureMember(member)); err != nil {
+		h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
+			lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member)}
+		if err := e.encodeMember(h, owner); err != nil {
 			return err
 		}
 		if ast.IsSuccessionSource(node) {
@@ -615,10 +617,11 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	}
 }
 
-// encodeMember maps one member: node is the declaration inside its membership
-// wrapper, and lines the text of the member, wrapper and all, unless inline;
-// typeFeature marks a wrapper declared `member` (KerML TypeFeatureMember).
-func (e *encoder) encodeMember(node ast.Node, visibility ast.Visibility, lines region, inline bool, owner string, ownerTerm rdf.Term, index int, typeFeature bool) error {
+// encodeMember maps one member: h.node is the declaration inside its membership
+// wrapper and h.lines the text of the member, wrapper and all, unless inline;
+// owner is the qualified name of the namespace the member is declared in.
+func (e *encoder) encodeMember(h memberHead, owner string) error {
+	node, ownerTerm, index := h.node, h.owner, h.index
 	name, _ := declaredNameAndMembers(node)
 	fqn := qualify(owner, name, index)
 	subject, err := e.mint(node, fqn)
@@ -628,8 +631,8 @@ func (e *encoder) encodeMember(node ast.Node, visibility ast.Visibility, lines r
 	// A bare expression among a body's members is the result the body computes.
 	result := ast.IsExpression(node)
 	head := func(metaclass rdf.Term) {
-		e.head(subject, memberHead{node: node, visibility: visibility, fqn: fqn, owner: ownerTerm,
-			index: index, metaclass: metaclass, lines: lines, inline: inline, typeFeature: typeFeature})
+		h.fqn, h.metaclass = fqn, metaclass
+		e.head(subject, h)
 	}
 
 	switch n := node.(type) {

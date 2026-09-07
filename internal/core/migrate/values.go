@@ -15,7 +15,7 @@ import (
 
 // valueExpr writes a UML value specification as a v2 expression. ok is false
 // when it has no v2 form; note explains an approximation or the refusal.
-func (m *migration) valueExpr(v *xmi.Element, scope *xmi.Element) (expr string, ok bool, note string) {
+func (m *migration) valueExpr(v, scope *xmi.Element) (expr string, ok bool, note string) {
 	switch v.Type {
 	case "LiteralInteger", "LiteralUnlimitedNatural":
 		val := v.Attrs["value"]

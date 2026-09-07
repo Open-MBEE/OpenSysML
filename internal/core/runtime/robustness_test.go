@@ -541,7 +541,7 @@ func testBindingMultipleCollectionContributors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("two.pick after the write: %v", err)
 		}
-		if got := fv.HeldValue().Const.Int; got != 8 {
+		if fv.HeldValue().Const.Int != 8 {
 			t.Errorf("two.pick = %s after writing 8, want 8", FormatValue(fv.HeldValue()))
 		}
 	})

@@ -356,19 +356,20 @@ func (ctx *Context) readMapping(what string, scaleUnit Unit, mapping Value) (*Qu
 	if err != nil {
 		return nil, err
 	}
+	reference := what + ": quantityValueMapping.referenceQuantityValue"
 	mapped, err := ctx.definitionalNum(what+": quantityValueMapping.mappedQuantityValue", inst, mappingMappedRole)
 	if err != nil {
 		return nil, err
 	}
-	refInst, err := ctx.roleObject(what+": quantityValueMapping.referenceQuantityValue", inst, mappingReferenceRole, definitionalQuantityFQN)
+	refInst, err := ctx.roleObject(reference, inst, mappingReferenceRole, definitionalQuantityFQN)
 	if err != nil {
 		return nil, err
 	}
-	refNum, err := ctx.definitionalNumOf(what+": quantityValueMapping.referenceQuantityValue", refInst)
+	refNum, err := ctx.definitionalNumOf(reference, refInst)
 	if err != nil {
 		return nil, err
 	}
-	refUnit, err := ctx.unitDeclaring(what+": quantityValueMapping.referenceQuantityValue", refInst)
+	refUnit, err := ctx.unitDeclaring(reference, refInst)
 	if err != nil {
 		return nil, err
 	}

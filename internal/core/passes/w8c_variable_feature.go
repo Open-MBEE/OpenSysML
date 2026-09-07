@@ -25,7 +25,7 @@ type VariableFeaturePass struct{}
 func (VariableFeaturePass) Level() PassLevel { return LevelConstraint }
 
 // ElementScoped: each feature gates on its own head and its owner's.
-func (VariableFeaturePass) ElementScoped() {}
+func (VariableFeaturePass) ElementScoped() { /* marker: per-element gating */ }
 
 func (VariableFeaturePass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {

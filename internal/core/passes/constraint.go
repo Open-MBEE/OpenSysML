@@ -18,6 +18,10 @@ import (
 // specialization graph and extracted multiplicities.
 type ConstraintPass struct{}
 
+// CodeConnectorEnds marks a connector whose ends do not fit the link it
+// specializes: too many for a binary link, or redefining no end of it.
+const CodeConnectorEnds = "connector-ends"
+
 func (ConstraintPass) Level() PassLevel { return LevelConstraint }
 
 func (ConstraintPass) Run(ctx *Context, name string, root *ast.RootNamespace) []Diagnostic {
@@ -332,7 +336,7 @@ func (cc *constraintChecker) checkBinaryConnectorEnds(sym *symbols.Symbol) bool 
 			Span:     node.Span(),
 			Message: fmt.Sprintf("%s has %d ends but specializes a binary link (%s), which cannot have more than two; "+
 				"drop the extra ends or specialize an n-ary link instead", name, total, semantics.BinaryConnectorBaseFQN),
-			Code:   "connector-ends",
+			Code:   CodeConnectorEnds,
 			Source: "constraint",
 		})
 	}
@@ -370,7 +374,7 @@ func (cc *constraintChecker) checkConnectorEndRedefinition(sym *symbols.Symbol) 
 			Span:     end.DeclSpan,
 			Message: fmt.Sprintf("end %s redefines no end of %s, which declares %d end(s)",
 				end.Name, general.Name, declared),
-			Code:   "connector-ends",
+			Code:   CodeConnectorEnds,
 			Source: "constraint",
 		})
 	}
@@ -412,7 +416,7 @@ func (cc *constraintChecker) addConnectorEndsDiag(sym *symbols.Symbol, u *ast.Us
 		Severity: SeverityError,
 		Span:     span,
 		Message:  msg,
-		Code:     "connector-ends",
+		Code:     CodeConnectorEnds,
 		Source:   "constraint",
 	})
 }

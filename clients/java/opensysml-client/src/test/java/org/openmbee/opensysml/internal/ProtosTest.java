@@ -168,22 +168,21 @@ class ProtosTest {
 
   @Test
   void anArrayWhoseElementsDoNotFillItsShapeIsRefused() {
+    org.openmbee.opensysml.proto.Value twoOfSix = array(List.of(2L, 3L), integer(1), integer(2));
     TransportException short_ =
-        assertThrows(
-            TransportException.class,
-            () -> Protos.value(array(List.of(2L, 3L), integer(1), integer(2))));
+        assertThrows(TransportException.class, () -> Protos.value(twoOfSix));
     assertTrue(short_.getMessage().contains("malformed array"), short_.getMessage());
-    assertThrows(TransportException.class, () -> Protos.value(array(List.of(0L))));
-    assertThrows(TransportException.class, () -> Protos.value(array(List.of(-1L), integer(1))));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new Value.ArrayValue(List.of(2L), List.of(new Value.IntegerValue(1))));
-    assertThrows(
-        IndexOutOfBoundsException.class,
-        () -> new Value.ArrayValue(List.of(2L), List.of(new Value.IntegerValue(1), new Value.IntegerValue(2))).get(2));
-    assertThrows(
-        IndexOutOfBoundsException.class,
-        () -> new Value.ArrayValue(List.of(2L), List.of(new Value.IntegerValue(1), new Value.IntegerValue(2))).get(0, 0));
+    org.openmbee.opensysml.proto.Value zeroExtent = array(List.of(0L));
+    assertThrows(TransportException.class, () -> Protos.value(zeroExtent));
+    org.openmbee.opensysml.proto.Value negativeExtent = array(List.of(-1L), integer(1));
+    assertThrows(TransportException.class, () -> Protos.value(negativeExtent));
+    List<Long> shape = List.of(2L);
+    List<Value> one = List.of(new Value.IntegerValue(1));
+    assertThrows(IllegalArgumentException.class, () -> new Value.ArrayValue(shape, one));
+    Value.ArrayValue two =
+        new Value.ArrayValue(shape, List.of(new Value.IntegerValue(1), new Value.IntegerValue(2)));
+    assertThrows(IndexOutOfBoundsException.class, () -> two.get(2));
+    assertThrows(IndexOutOfBoundsException.class, () -> two.get(0, 0));
   }
 
   @Test
@@ -199,21 +198,15 @@ class ProtosTest {
         Protos.value(vector(integer(1), real(2.5))).orElseThrow());
     assertEquals(new Value.VectorValue(List.of()), Protos.value(vector()).orElseThrow());
 
+    org.openmbee.opensysml.proto.Value oneThenTwo =
+        vector(real(1.0), org.openmbee.opensysml.proto.Value.newBuilder().setStringValue("two").build());
     TransportException text =
-        assertThrows(
-            TransportException.class,
-            () ->
-                Protos.value(
-                    vector(
-                        real(1.0),
-                        org.openmbee.opensysml.proto.Value.newBuilder().setStringValue("two").build())));
+        assertThrows(TransportException.class, () -> Protos.value(oneThenTwo));
     assertTrue(text.getMessage().contains("not a number"), text.getMessage());
-    assertThrows(
-        TransportException.class,
-        () -> Protos.value(vector(org.openmbee.opensysml.proto.Value.getDefaultInstance())));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> new Value.VectorValue(List.of(new Value.BooleanValue(true))));
+    org.openmbee.opensysml.proto.Value unset = vector(org.openmbee.opensysml.proto.Value.getDefaultInstance());
+    assertThrows(TransportException.class, () -> Protos.value(unset));
+    List<Value> aBoolean = List.of(new Value.BooleanValue(true));
+    assertThrows(IllegalArgumentException.class, () -> new Value.VectorValue(aBoolean));
   }
 
   @Test
@@ -250,10 +243,12 @@ class ProtosTest {
             new Quantity.UnitFactor("SI::metre", 1.0), new Quantity.UnitFactor("SI::second", -1.0)),
         mixed.components().get(1).reduction().orElseThrow().factors());
 
+    org.openmbee.opensysml.proto.Value noComponents = vectorQuantity();
     TransportException empty =
-        assertThrows(TransportException.class, () -> Protos.value(vectorQuantity()));
+        assertThrows(TransportException.class, () -> Protos.value(noComponents));
     assertTrue(empty.getMessage().contains("no components"), empty.getMessage());
-    assertThrows(IllegalArgumentException.class, () -> new Value.VectorQuantityValue(List.of()));
+    List<Quantity> none = List.of();
+    assertThrows(IllegalArgumentException.class, () -> new Value.VectorQuantityValue(none));
   }
 
   private static org.openmbee.opensysml.proto.Value measurementRef(MeasurementRef.Builder ref) {
@@ -306,15 +301,14 @@ class ProtosTest {
         speed.reduction().factors());
 
     // Naming no unit, or a unit without its reduction, is malformed at any depth.
+    org.openmbee.opensysml.proto.Value noUnit = measurementRef(MeasurementRef.newBuilder());
     TransportException nothing =
-        assertThrows(
-            TransportException.class,
-            () -> Protos.value(measurementRef(MeasurementRef.newBuilder())));
+        assertThrows(TransportException.class, () -> Protos.value(noUnit));
     assertTrue(nothing.getMessage().contains("names no unit"), nothing.getMessage());
+    org.openmbee.opensysml.proto.Value noReduction =
+        measurementRef(MeasurementRef.newBuilder().setUnit("km"));
     TransportException unreduced =
-        assertThrows(
-            TransportException.class,
-            () -> Protos.value(measurementRef(MeasurementRef.newBuilder().setUnit("km"))));
+        assertThrows(TransportException.class, () -> Protos.value(noReduction));
     assertTrue(unreduced.getMessage().contains("km: it has no reduction"), unreduced.getMessage());
     org.openmbee.opensysml.proto.Value nested =
         org.openmbee.opensysml.proto.Value.newBuilder()
@@ -330,10 +324,9 @@ class ProtosTest {
     org.openmbee.opensysml.proto.Quantity noMagnitude =
         org.openmbee.opensysml.proto.Quantity.newBuilder().setUnit("m").build();
 
+    org.openmbee.opensysml.proto.Value partlyUnmeasured = vectorQuantity(metres(3.0), noMagnitude);
     TransportException component =
-        assertThrows(
-            TransportException.class,
-            () -> Protos.value(vectorQuantity(metres(3.0), noMagnitude)));
+        assertThrows(TransportException.class, () -> Protos.value(partlyUnmeasured));
     assertTrue(component.getMessage().contains("no magnitude"), component.getMessage());
 
     org.openmbee.opensysml.proto.Value alone =
