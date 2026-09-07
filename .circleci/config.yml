@@ -148,11 +148,14 @@ jobs:
             make proto-breaking
 
       # Committed stubs must be what buf generates, or the checked-in code and
-      # the schema can drift apart silently.
+      # the schema can drift apart silently. `git add -N` puts a regenerated
+      # file the commit had deleted into the diff.
       - run:
           name: Verify the committed Go and Java stubs are current
           command: |
             make proto-buf
+            git add -N api/proto \
+              clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
             git diff --exit-code api/proto \
               clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
       
@@ -599,6 +602,7 @@ jobs:
             # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
             pip install "grpcio-tools==1.83.0"
             make python-proto BUF=buf
+            git add -N clients/python/opensysml/proto
             git diff --exit-code clients/python/opensysml/proto
 
       - run:
@@ -666,6 +670,7 @@ jobs:
           name: Verify Rust generated artifacts
           command: |
             make BUF=/tmp/buf proto-rust
+            git add -N clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
             git diff --exit-code clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
 
       - store_artifacts:
@@ -850,6 +855,7 @@ jobs:
           name: Verify the committed TypeScript stubs are current
           command: |
             make proto-ts BUF=buf
+            git add -N clients/node/src/generated
             git diff --exit-code clients/node/src/generated
 
   # Publishes opensysml to PyPI on a `opensysml-v<version>` tag. PyPI has no
@@ -1439,14 +1445,15 @@ jobs:
 workflows:
   version: 2
   
-  # Build and test on every commit (but not tags)
+  # Build and test every merge into main. Pull requests are checked by the
+  # GitHub Actions workflow in .github/workflows/pr.yml, not here.
   build-test:
     jobs:
       - build-and-test:
           name: Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - python-test:
@@ -1455,7 +1462,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - rust-test:
@@ -1464,7 +1471,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - java-test:
@@ -1473,7 +1480,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - node-test:
@@ -1482,7 +1489,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - scan:
@@ -1499,7 +1506,7 @@ workflows:
             - Node client tests
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
   

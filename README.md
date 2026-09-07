@@ -318,7 +318,7 @@ github.com/Open-MBEE/OpenSysML
 - **Grammar source:** OMG pilot Xtext grammars (`SysML.xtext` and `KerMLExpressions`)
 - **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-07 release)
 - **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-07](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-07), byte-identical, plus the non-normative `OpenSysML Libraries/OpenSysMLMathFunctions.kerml` extension
-- **CI/CD:** CircleCI for automated builds, tests and releases
+- **CI/CD:** GitHub Actions checks pull requests; CircleCI builds and tests `main` and publishes releases from tags
 
 ## Releases
 
