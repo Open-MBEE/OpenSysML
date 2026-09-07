@@ -305,9 +305,10 @@ class ProtosTest {
     TransportException nothing =
         assertThrows(TransportException.class, () -> Protos.value(noUnit));
     assertTrue(nothing.getMessage().contains("names no unit"), nothing.getMessage());
-    org.openmbee.opensysml.proto.Value km = measurementRef(MeasurementRef.newBuilder().setUnit("km"));
+    org.openmbee.opensysml.proto.Value noReduction =
+        measurementRef(MeasurementRef.newBuilder().setUnit("km"));
     TransportException unreduced =
-        assertThrows(TransportException.class, () -> Protos.value(km));
+        assertThrows(TransportException.class, () -> Protos.value(noReduction));
     assertTrue(unreduced.getMessage().contains("km: it has no reduction"), unreduced.getMessage());
     org.openmbee.opensysml.proto.Value nested =
         org.openmbee.opensysml.proto.Value.newBuilder()
