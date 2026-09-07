@@ -91,32 +91,30 @@ of the pilot corpora fails `cmd/pilot-diff`, `cmd/pilot-xpect` and the `TestPilo
 with a provenance message naming the drift; that is the gate working, not a regression — re-fetch
 before re-recording anything.
 
-| Gate | Count at this baseline |
+| Gate | Count at `main` @ `d7d432ff` (2026-09-07, Go 1.25.0) |
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
-| OMG pilot corpora (ratchet) | 213 files; 5 report a diagnostic, each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
+| OMG pilot corpora (ratchet) | 213 files; 6 report a diagnostic, each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
 | Stdlib parser conformance | 98/98 clean — 94 vendored OMG files and 4 non-normative OpenSysML extensions |
-| Execution conformance cases | 614 (`TestExecutionConformance`) |
-| Golden execution traces | 138 (`TestExecutionTrace`) |
-| Runtime robustness cases | 324 first-level subtests of `TestRuntimeRobustness` |
-| gRPC conformance fixtures / robustness cases | 15 / 10 |
-| Golden AST fixtures | 183 (`TestGolden`) |
-| Negative parser subtests | 225 first-level subtests of `TestNegative` (346 across every `*Negative*` parser test) |
-| Rejection oracle | 243 self-authored invalid models: 235 both reject, 0 the pilot alone, 8 ours alone (the control-node rules the pilot leaves unimplemented) |
-| Validation census | 156 of 217 named constraints reported (143 faithful, 13 approximate), 7 not implemented, 1 deliberate, 53 unknown — with the KerML unknown-row adjudications |
-| RDF corpus round trip | 305 of 345 models stable, 40 refused, no other verdict |
+| Execution conformance cases | 671 (`TestExecutionConformance`) |
+| Golden execution traces | 140 (`TestExecutionTrace`) |
+| Runtime robustness cases | 336 first-level subtests of `TestRuntimeRobustness` |
+| gRPC conformance fixtures / robustness cases | 15 / 8 |
+| Golden AST fixtures | 195 (`TestGolden`: 169 SysML, 26 KerML) |
+| Negative parser subtests | 249 first-level subtests of `TestNegative` (338 across the `TestNegative*` functions, 396 across every `*Negative*` parser test) |
+| Rejection oracle | 285 self-authored invalid models: 273 both reject by default and 276 when we are asked strictly, 3 the pilot alone by default and none strictly, 9 ours alone (the control-node rules the pilot leaves unimplemented and a non-Boolean succession guard) |
+| Validation census | 162 of 217 named constraints reported (156 faithful, 6 approximate), 1 not implemented, 1 deliberate, 53 unknown |
+| RDF corpus round trip | 346 of 346 models stable, none refused |
 
 The pilot differential, the Xpect oracle, the scope oracle and the rejection oracle are the
 external conformance statement, and their figures are generated into `README.md` by `make
 docs-counts` from the committed baselines; they are not repeated here.
 
-The test-suite figures above are counted from `go test -v` at the baseline, and the hand-counted
-surfaces have drifted further: `README.md` still says 380 conformance cases, 118 traces, 146
-golden ASTs, 261 negatives, 256 robustness cases and 8 gRPC robustness cases, and
-`docs/project/spec-compliance.md` says 389 and 266. `releasing.md` requires the four surfaces
-allowed to repeat these counts to agree and be recounted in one commit. That recount — or, better,
-folding these counts into `cmd/doc-counts` so they are generated like the pilot figures and can no
-longer drift — is a small open item and is listed under sequencing.
+The test-suite figures above are counted from `go test -v` at the commit the table names, and the
+other surfaces `releasing.md` allows to repeat them (`README.md`, `docs/project/spec-compliance.md`,
+`docs/project/training-examples.md`) were recounted in the same commit. They are still typed in by
+hand; folding them into `cmd/doc-counts` so they are generated like the pilot figures and can no
+longer drift is a small open item and is listed under sequencing.
 
 Statement coverage, measured with `go test -cover ./...` at the baseline. It counts only each
 package's own tests, which understates a package consumed by others (`internal/core/ast` is

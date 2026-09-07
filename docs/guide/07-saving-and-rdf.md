@@ -27,7 +27,7 @@ saved 102 bytes of sysml to my_model.sysml
 
 sysml> %save my_model.ttl
 note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-saved 1487 bytes of ttl to my_model.ttl
+saved 3702 bytes of ttl to my_model.ttl
 ```
 
 A leading `~` is expanded. An existing file is replaced (and the replacement is reported), and the
@@ -170,10 +170,10 @@ model converts in both directions:
 ```bash
 $ sysml examples/rdf-interop-demo.sysml -convert ttl -o /tmp/rover.ttl
 note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/rover.ttl (ttl, 10296 bytes)
+wrote /tmp/rover.ttl (ttl, 40883 bytes)
 $ sysml /tmp/rover.ttl -convert sysml -o /tmp/rover-back.sysml
 note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/rover-back.sysml (sysml, 877 bytes)
+wrote /tmp/rover-back.sysml (sysml, 1014 bytes)
 ```
 
 Converting the returned notation again produces a byte-identical graph, which is the round-trip
@@ -184,27 +184,36 @@ declarations and survive either way.
 
 [`examples/semantic-layer/demo.sysml`](../../examples/semantic-layer/demo.sysml)
 and [`examples/repl-behavioral-demo.sysml`](../../examples/repl-behavioral-demo.sysml)
-also convert, as do the `parser_features_demo_*.kerml` files but one, whose `feature`
-declarations name no element of their own. The
+also convert, as do all of the `parser_features_demo_*.kerml` files. The
 behavior written in a body converts too: states, regions, substates, action nodes, assignments,
 transitions and the result expression a calculation ends in all have a mapping. Conversion is
 refused for constructs the notation could not be rebuilt from, such as a name shared by two
-members of one body or a declaration without a name. A refusal names the construct
-where conversion stopped and suggests saving the source instead:
+members of one namespace. A refusal names the construct where conversion stopped and says why
+the graph could not carry it:
 
 ```bash
 $ sysml examples/parser_features_demo_action_semantics.sysml -convert ttl -o /tmp/action-semantics.ttl; echo $?
 note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-wrote /tmp/action-semantics.ttl (ttl, 21671 bytes)
+wrote /tmp/action-semantics.ttl (ttl, 84121 bytes)
 0
 ```
 
-For example, a `feature` declaration that names no element is refused:
+For example, two members of one namespace sharing a name are refused, since the name is what
+identifies an element in the graph:
+
+```sysml
+package P {
+  part def D {
+    attribute x : ScalarValues::Real;
+    attribute x : ScalarValues::Integer;
+  }
+}
+```
 
 ```bash
-$ sysml examples/parser_features_demo_declarations.kerml -convert ttl; echo $?
+$ sysml dup.sysml -convert ttl; echo $?
 note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-sysml: cannot convert the `feature` declaration at examples/parser_features_demo_declarations.kerml:69:9: it names no element of its own, so the notation cannot be rebuilt from the graph and would come back as `attribute`, a different declaration
+sysml: cannot convert the duplicate declaration of "x" at dup.sysml:4:5: a name identifies an element in the graph, so two members of one namespace cannot share it
 2
 ```
 

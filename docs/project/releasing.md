@@ -39,7 +39,7 @@ Run the Python client the way CircleCI's `python-test` job does, since a
 
 ```bash
 make build-grpc && mkdir -p ~/.opensysml/bin && cp bin/sysml-grpc ~/.opensysml/bin/
-pip install -e clients/python/ && pip install pytest pytest-mock
+pip install -e clients/python/ && pip install pytest pytest-mock psutil
 pytest clients/python/tests/ -v
 ```
 
