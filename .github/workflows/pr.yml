@@ -1,7 +1,7 @@
 name: PR
 
-# Pull requests only: pushes and tags are covered by the CircleCI config, and
-# this workflow deliberately mirrors only its build-test workflow, not release.
+# The only CI a pull request runs. Pushes to main and tags are covered by the
+# CircleCI config; this workflow mirrors its build-test workflow, not release.
 on:
   pull_request:
 
@@ -264,6 +264,18 @@ jobs:
       - name: Check grpc-go stays out of production code
         run: ./scripts/check-grpc-imports.sh
 
+      - name: Lint the protobuf schema
+        run: make proto-lint
+
+      # Wire compatibility against the branch this pull request merges into;
+      # the baseline is a git archive, so a shallow fetch of it is enough.
+      - name: Check the protobuf schema for breaking changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          make proto-breaking BUF_BREAKING_REF="origin/$BASE_REF"
+
       # Re-run the corpus gate on its own so its verdict is legible in the log
       # and a skip is impossible to miss. TestCorpusGates is the shared
       # cache-independence case over all four OMG roots, which skips with them.
@@ -523,7 +535,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -535,8 +547,52 @@ jobs:
           cache: pip
           cache-dependency-path: docs-requirements.txt
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Install documentation toolchain
         run: make docs-install
+
+      - name: Check documentation links
+        run: python3 scripts/check-doc-links.py
+
+      # The shipped pages are generated from each command's description, so a
+      # flag added without regenerating them would ship a stale page.
+      - name: Verify the committed manual pages are current
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends mandoc
+          make man-check
+
+      # Internal work-item labels have no public referent, so they may not
+      # appear in the pages a user reads.
+      - name: Check for internal labels in reader-facing documentation
+        run: python3 scripts/check-doc-ids.py
+
+      # An oracle total quoted outside the generated block is a snapshot, and a
+      # reader cannot tell that from a current figure unless the page says so.
+      - name: Check quoted oracle figures name the round they measured
+        run: python3 scripts/check-doc-figures.py
+
+      # The census figures are derived from the committed baseline, and every
+      # table row must be a constraint the baseline records (and vice versa).
+      - name: Check the validation-constraint census matches its baseline
+        run: go run ./cmd/validation-census -check
+
+      # Changelog entries live in changes/unreleased/ until a release folds them in.
+      - name: Check changelog fragments
+        run: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
+
+      # The compliance census is counted when the site is built, never committed.
+      - name: Check the compliance census hook
+        run: python3 scripts/mkdocs_census-test.py
+
+      # Each client verifies a download against the copy of the pinned digests it
+      # ships, so a copy that drifts from the table pins something else.
+      - name: Check the clients ship the pinned release digests
+        run: python3 scripts/sync-release-digests.py --check
 
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
@@ -827,7 +883,7 @@ jobs:
           path: conformance-report-java.json
 
   conformance-pkg:
-    name: Conformance through client/opensysml
+    name: Conformance suite
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
@@ -844,16 +900,30 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      # The runner builds and starts sysml-grpc itself; the pkg protocol runs
-      # in-process and pkg-connect dials that service, so this gate proves the
-      # public Go API answers as the wire does. Scenarios outside its v1
-      # surface are counted skips, not hidden.
+      # The runner builds and starts sysml-grpc itself, so this gate proves the
+      # whole path a client takes, not a pre-started service.
+      - name: Run conformance suite
+        run: make conformance
+
+      # The same suite against the legacy grpc-go transport, so -transport grpc
+      # cannot rot untested.
+      - name: Run conformance suite against -transport grpc
+        run: go run ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
+
+      # The same suite through the public Go API (client/opensysml); the pkg
+      # protocol runs in-process and pkg-connect dials the service, so this proves
+      # the API answers as the wire does. Scenarios outside its v1 surface are
+      # counted skips, not hidden.
       - name: Conformance suite through client/opensysml
         run: make conformance-pkg
 
-      # if: always() — the report matters most when the gate failed and halted the job.
+      # if: always() — the reports matter most when a gate failed and halted the job.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: conformance-pkg-report
-          path: bin/conformance-pkg-report.json
+          name: conformance-reports
+          path: |
+            bin/conformance-report.json
+            bin/conformance-report.xml
+            bin/conformance-grpc-transport-report.json
+            bin/conformance-pkg-report.json

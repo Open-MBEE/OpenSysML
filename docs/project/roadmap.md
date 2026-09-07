@@ -147,7 +147,7 @@ drifted file and record the verdict in `docs/project/training-examples.md`.
 A tag cannot be cut over a corpus regression: `.circleci/config.yml`'s `build-and-test`
 downloads the corpora (cached on the download scripts) and runs the suite with
 `OPENSYSML_REQUIRE_TRAINING_CORPUS=1` and `OPENSYSML_REQUIRE_PILOT_CORPORA=1`, on `v*` tags as
-well as on branches.
+well as on `main`; the GitHub Actions pull-request workflow does the same before a merge.
 
 ---
 

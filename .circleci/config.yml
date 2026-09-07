@@ -1439,14 +1439,15 @@ jobs:
 workflows:
   version: 2
   
-  # Build and test on every commit (but not tags)
+  # Build and test every merge into main. Pull requests are checked by the
+  # GitHub Actions workflow in .github/workflows/pr.yml, not here.
   build-test:
     jobs:
       - build-and-test:
           name: Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - python-test:
@@ -1455,7 +1456,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - rust-test:
@@ -1464,7 +1465,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - java-test:
@@ -1473,7 +1474,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - node-test:
@@ -1482,7 +1483,7 @@ workflows:
             - Build and test
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
       - scan:
@@ -1499,7 +1500,7 @@ workflows:
             - Node client tests
           filters:
             branches:
-              only: /.*/
+              only: main
             tags:
               ignore: /.*/
   
