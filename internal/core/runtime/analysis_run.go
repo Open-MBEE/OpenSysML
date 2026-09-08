@@ -482,12 +482,17 @@ func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scope
 
 // caseResult is the value the run's result parameter holds; false when the case returns none.
 func (run *calcRun) caseResult(bindings map[string]Value) (Value, bool) {
-	name := resultOutputName
-	if out := run.shape.resultOutput(); out != nil && out.Name != "" {
-		name = out.Name
-	}
-	value, ok := bindings[name]
+	value, ok := bindings[run.resultName()]
 	return value, ok
+}
+
+// resultName is the name the run's result reads under: the one the case's result
+// parameter declares, or `result` for a result it leaves unnamed.
+func (run *calcRun) resultName() string {
+	if out := run.shape.resultOutput(); out != nil && out.Name != "" {
+		return out.Name
+	}
+	return resultOutputName
 }
 
 // analysisChecks reports whether the case states an objective or asserts a

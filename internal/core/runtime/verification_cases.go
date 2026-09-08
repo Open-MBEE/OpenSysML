@@ -43,36 +43,22 @@ func verifies(verified []*symbols.Symbol, req *symbols.Symbol) bool {
 	return false
 }
 
-// VerifiedRequirements returns the requirements the objective of a verification
-// case verifies, its inherited objectives included, in declaration order.
+// VerifiedRequirements returns the requirements the objectives of a verification
+// case verify, in declaration order. The objectives are the ones the case states
+// as it runs them, so an objective a case redeclares verifies what the
+// redeclaration says and not also what the inherited one said.
 func (ctx *Context) VerifiedRequirements(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	for _, carrier := range append([]*symbols.Symbol{sym}, ctx.model.AllSupertypes(sym)...) {
-		for _, objective := range objectiveSymbols(carrier) {
-			for _, req := range ctx.verifiedIn(objective) {
-				if !seen[req] {
-					seen[req] = true
-					out = append(out, req)
-				}
+	for _, objective := range ctx.ObjectivesOf(sym, nil) {
+		for _, req := range ctx.verifiedIn(objective.Symbol) {
+			if !seen[req] {
+				seen[req] = true
+				out = append(out, req)
 			}
-		}
-	}
-	return out
-}
-
-// objectiveSymbols are the objectives a case declares.
-func objectiveSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Scope == nil {
-		return nil
-	}
-	var out []*symbols.Symbol
-	for _, member := range scopeMemberSymbols(sym.Scope) {
-		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective {
-			out = append(out, member)
 		}
 	}
 	return out

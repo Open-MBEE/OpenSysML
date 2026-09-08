@@ -40,6 +40,25 @@ package test {
 	}
 	verification stated : Stated { subject v = zero; }
 
+	requirement def Q { doc /* unit mass */ }
+	requirement q : Q;
+
+	verification def Aux {
+		subject v : V;
+		out attribute noted : VerificationCases::VerdictKind = VerificationCases::VerdictKind::fail;
+		return verdict : VerificationCases::VerdictKind = VerificationCases::VerdictKind::pass;
+	}
+	verification aux : Aux { subject v = zero; }
+
+	verification def Retargeted {
+		subject v : V;
+		objective check { verify r; }
+	}
+	verification retargeted : Retargeted {
+		subject v = zero;
+		objective check { verify q; }
+	}
+
 	verification def Plan {
 		subject v : V;
 		objective { verify r; }
@@ -64,6 +83,7 @@ func TestVerificationBodyVerdicts(t *testing.T) {
 		{fqn: "test::failing", kind: VerdictFail},
 		{fqn: "test::silent", kind: VerdictInconclusive, detail: "no VerdictKind"},
 		{fqn: "test::stated", kind: VerdictPass},
+		{fqn: "test::aux", kind: VerdictPass},
 		{fqn: "test::Case", kind: VerdictError, detail: "subject is unbound"},
 	} {
 		result, err := ctx.RunVerification(oneSymbol(t, idx, tc.fqn), AnalysisArgs{}, nil, nil)
@@ -125,7 +145,9 @@ func TestVerificationVerdictsForRequirement(t *testing.T) {
 
 // TestVerificationsOfRequirement pins the verification cases a requirement is
 // verified by: named directly (`verify r`) or by its definition
-// (`verify requirement : R`), through a case usage's inherited objective.
+// (`verify requirement : R`), through a case usage's inherited objective. A
+// usage redeclaring an inherited objective verifies what it says, not also what
+// the objective it restates said.
 func TestVerificationsOfRequirement(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationVerdictModel))
 	root := idx.DocumentRoot("<test>")
@@ -134,7 +156,8 @@ func TestVerificationsOfRequirement(t *testing.T) {
 		want        []string
 	}{
 		{requirement: "test::R", want: []string{"test::Case", "test::passing", "test::failing", "test::Plan::sub"}},
-		{requirement: "test::r", want: []string{"test::Silent", "test::silent", "test::Plan", "test::plan"}},
+		{requirement: "test::r", want: []string{"test::Silent", "test::silent", "test::Retargeted", "test::Plan", "test::plan"}},
+		{requirement: "test::q", want: []string{"test::retargeted"}},
 	} {
 		var got []string
 		for _, sym := range ctx.VerificationsOf(root, oneSymbol(t, idx, tc.requirement)) {

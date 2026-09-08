@@ -130,7 +130,7 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 			Verdict: VerificationVerdict{Case: name, Symbol: sym, Kind: VerdictError, Detail: err.Error()},
 		}, nil
 	}
-	result := VerificationResult{Verdict: ctx.bodyVerdict(sym, name, run), Run: run}
+	result := VerificationResult{Verdict: ctx.bodyVerdict(sym, name, caseRun, run), Run: run}
 	result.Subcases = ctx.subcaseVerdicts(caseRun)
 	return result, nil
 }
@@ -145,18 +145,25 @@ func badRequest(err error) bool {
 		errors.Is(err, ErrUnknownParameter)
 }
 
-// bodyVerdict reads the verdict a run's outputs carry: the VerdictKind literal
-// the case's `verdict` return holds, whether the body bound it from the
-// library's PassIf calculation or from a literal of its own.
-func (ctx *Context) bodyVerdict(sym *symbols.Symbol, name string, run AnalysisResult) VerificationVerdict {
+// bodyVerdict reads the verdict the case returned: the VerdictKind literal its
+// result parameter holds, bound from the library's PassIf calculation or from a
+// literal of its own. An `out` parameter of the same enumeration is not a
+// verdict, so it does not answer for the case.
+func (ctx *Context) bodyVerdict(sym *symbols.Symbol, name string, run *calcRun, result AnalysisResult) VerificationVerdict {
 	verdict := VerificationVerdict{Case: name, Symbol: sym}
-	for _, out := range run.Outputs {
-		kind, ok := ctx.verdictOf(out.Value)
-		if !ok {
+	values := make(map[string]Value, len(result.Outputs))
+	for _, out := range result.Outputs {
+		values[out.Name] = out.Value
+	}
+	for _, output := range verdictOutputNames(run.resultName()) {
+		value, held := values[output]
+		if !held {
 			continue
 		}
-		verdict.Kind = kind
-		return verdict
+		if kind, ok := ctx.verdictOf(value); ok {
+			verdict.Kind = kind
+			return verdict
+		}
 	}
 	verdict.Kind, verdict.Detail = VerdictInconclusive, "the case body bound no VerdictKind value"
 	return verdict
@@ -223,7 +230,7 @@ func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Sym
 	if err != nil || perf == nil {
 		return verdict, false
 	}
-	for _, name := range verdictOutputNames(perf) {
+	for _, name := range verdictOutputNames(perf.result) {
 		value, held := perf.data[perf.key(name)]
 		if !held {
 			continue
@@ -237,12 +244,12 @@ func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Sym
 	return verdict, true
 }
 
-// verdictOutputNames are the outputs of a performed case a verdict is read from:
-// the result the case names, then the library's `verdict`, then an unnamed result.
-func verdictOutputNames(perf *actionFrame) []string {
+// verdictOutputNames are the outputs of a case a verdict is read from: the result
+// the case names, then the library's `verdict`, then an unnamed result.
+func verdictOutputNames(result string) []string {
 	names := make([]string, 0, 3)
-	if perf.result != "" {
-		names = append(names, perf.result)
+	if result != "" {
+		names = append(names, result)
 	}
 	return append(names, verdictOutputName, resultOutputName)
 }
