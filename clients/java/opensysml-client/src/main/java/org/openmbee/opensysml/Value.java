@@ -1,7 +1,11 @@
 package org.openmbee.opensysml;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -533,8 +537,10 @@ public sealed interface Value {
    * Whether this is the same value as another to the model, as the service judges a set's
    * membership: numbers by value, so a whole {@link RealValue} is the {@link IntegerValue} of its
    * value and a {@link ComplexValue} on the real axis is its real part, exactly across the whole
-   * {@code long} range; a sequence's order counts and a set's does not; a quantity is one in its
-   * unit as written. Every other arm compares as {@link Object#equals} does, which stays
+   * {@code long} range; a sequence's order counts and a set's does not; a quantity is compared
+   * over its base units, so {@code 1 [m]} is {@code 100 [cm]} — exactly while integer magnitudes
+   * scale by whole factors — and one lacking a reduction is compared in its unit as written.
+   * Every other arm compares as {@link Object#equals} does, which stays
    * structural: {@code new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
    *
    * @param other the value to compare with
@@ -613,9 +619,63 @@ public sealed interface Value {
   }
 
   private static boolean quantitiesEqual(Quantity a, Quantity b) {
-    return magnitudesEqual(a.magnitude(), b.magnitude())
-        && a.unit().equals(b.unit())
-        && a.reduction().equals(b.reduction());
+    if (a.reduction().isEmpty() || b.reduction().isEmpty()) {
+      return magnitudesEqual(a.magnitude(), b.magnitude())
+          && a.unit().equals(b.unit())
+          && a.reduction().equals(b.reduction());
+    }
+    Quantity.UnitTerm x = a.reduction().get();
+    Quantity.UnitTerm y = b.reduction().get();
+    if (!exponents(x).equals(exponents(y)) || zeroScale(x) || zeroScale(y)) {
+      return false;
+    }
+    BigInteger[] m = exactBaseMagnitude(a);
+    BigInteger[] n = exactBaseMagnitude(b);
+    if (m != null && n != null) {
+      return m[0].multiply(n[1]).equals(n[0].multiply(m[1]));
+    }
+    return baseMagnitude(a) == baseMagnitude(b);
+  }
+
+  /** The base-unit exponents, repeated units summed and cancelled ones dropped. */
+  private static Map<String, Double> exponents(Quantity.UnitTerm term) {
+    Map<String, Double> totals = new HashMap<>();
+    for (Quantity.UnitFactor factor : term.factors()) {
+      totals.merge(factor.unitId(), factor.exponent(), Double::sum);
+    }
+    totals.values().removeIf(exponent -> exponent == 0.0);
+    return totals;
+  }
+
+  private static boolean zeroScale(Quantity.UnitTerm term) {
+    return term.scaleNumerator() == 0.0 || term.scaleDenominator() == 0.0;
+  }
+
+  private static double baseMagnitude(Quantity quantity) {
+    Quantity.UnitTerm term = quantity.reduction().get();
+    return quantity.magnitude().doubleValue() * term.scaleNumerator() / term.scaleDenominator();
+  }
+
+  /** The base magnitude as an exact numerator/denominator while an integer scales by whole factors. */
+  private static BigInteger[] exactBaseMagnitude(Quantity quantity) {
+    Quantity.UnitTerm term = quantity.reduction().get();
+    if (!(quantity.magnitude() instanceof Long magnitude)
+        || !isWhole(term.scaleNumerator())
+        || !isWhole(term.scaleDenominator())) {
+      return null;
+    }
+    return new BigInteger[] {
+      BigInteger.valueOf(magnitude).multiply(wholeOf(term.scaleNumerator())),
+      wholeOf(term.scaleDenominator())
+    };
+  }
+
+  private static boolean isWhole(double scale) {
+    return scale == Math.rint(scale) && !Double.isInfinite(scale);
+  }
+
+  private static BigInteger wholeOf(double scale) {
+    return new BigDecimal(scale).toBigIntegerExact();
   }
 
   private static boolean sameQuantities(List<Quantity> a, List<Quantity> b) {
@@ -638,6 +698,10 @@ public sealed interface Value {
       return Double.hashCode(magnitude.doubleValue() + 0.0);
     }
     if (value instanceof QuantityValue quantity) {
+      Optional<Quantity.UnitTerm> reduction = quantity.quantity().reduction();
+      if (reduction.isPresent()) {
+        return exponents(reduction.get()).hashCode();
+      }
       return Double.hashCode(quantity.quantity().magnitude().doubleValue() + 0.0)
           ^ quantity.quantity().unit().hashCode();
     }

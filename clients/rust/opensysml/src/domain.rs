@@ -579,8 +579,10 @@ impl Value {
     /// judges a set's membership: numbers by value, so a whole [`Value::Real`]
     /// is the [`Value::Integer`] of its value and a [`Value::Complex`] on the
     /// real axis is its real part, exactly across the whole `i64` range; a
-    /// sequence's order counts and a set's does not; a quantity is one in its
-    /// unit as written. Every other arm compares as `==` does.
+    /// sequence's order counts and a set's does not; a quantity is compared
+    /// over its base units, so `1 [m]` is `100 [cm]` — exactly while integer
+    /// magnitudes scale by whole factors — and one lacking a reduction is
+    /// compared in its unit as written. Every other arm compares as `==` does.
     pub fn same_value(&self, other: &Value) -> bool {
         match (self, other) {
             (Value::Integer(_) | Value::Real(_) | Value::Complex(_), _) => {
@@ -642,8 +644,89 @@ fn sequences_equal(a: &[Value], b: &[Value]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.same_value(y))
 }
 
+// As the service judges it: over the base units when both carry a reduction,
+// exactly while integer magnitudes scale by whole factors.
 fn quantities_equal(a: &Quantity, b: &Quantity) -> bool {
-    magnitudes_equal(a.magnitude, b.magnitude) && a.unit == b.unit && a.unit_term == b.unit_term
+    let (Some(x), Some(y)) = (&a.unit_term, &b.unit_term) else {
+        return magnitudes_equal(a.magnitude, b.magnitude)
+            && a.unit == b.unit
+            && a.unit_term == b.unit_term;
+    };
+    if !commensurable(x, y) || zero_scale(x) || zero_scale(y) {
+        return false;
+    }
+    if let (Some(m), Some(n)) = (exact_base_magnitude(a), exact_base_magnitude(b)) {
+        return m == n;
+    }
+    base_magnitude(a.magnitude, x) == base_magnitude(b.magnitude, y)
+}
+
+// The base unit exponents, repeated units summed and cancelled ones dropped.
+fn exponents(term: &UnitTerm) -> HashMap<&str, f64> {
+    let mut totals: HashMap<&str, f64> = HashMap::new();
+    for factor in &term.factors {
+        *totals.entry(factor.unit_id.as_str()).or_insert(0.0) += factor.exponent;
+    }
+    totals.retain(|_, exponent| *exponent != 0.0);
+    totals
+}
+
+fn commensurable(a: &UnitTerm, b: &UnitTerm) -> bool {
+    exponents(a) == exponents(b)
+}
+
+fn zero_scale(term: &UnitTerm) -> bool {
+    term.scale_num == 0.0 || term.scale_den == 0.0
+}
+
+fn base_magnitude(magnitude: Magnitude, term: &UnitTerm) -> f64 {
+    let m = match magnitude {
+        Magnitude::Integer(n) => n as f64,
+        Magnitude::Real(r) => r,
+    };
+    m * term.scale_num / term.scale_den
+}
+
+// The base magnitude as an exact rational (numerator, denominator), while an
+// integer magnitude scales by whole factors that fit.
+fn exact_base_magnitude(q: &Quantity) -> Option<ExactRational> {
+    let Magnitude::Integer(n) = q.magnitude else {
+        return None;
+    };
+    let term = q.unit_term.as_ref()?;
+    let num = i128::from(whole(term.scale_num)?);
+    let den = i128::from(whole(term.scale_den)?);
+    Some(ExactRational::new(i128::from(n).checked_mul(num)?, den))
+}
+
+fn whole(scale: f64) -> Option<i64> {
+    (scale.fract() == 0.0
+        && (-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&scale))
+    .then_some(scale as i64)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ExactRational {
+    num: i128,
+    den: i128,
+}
+
+impl ExactRational {
+    fn new(num: i128, den: i128) -> Self {
+        let g = gcd(num.unsigned_abs(), den.unsigned_abs()) as i128;
+        let sign = if den < 0 { -1 } else { 1 };
+        Self {
+            num: sign * num / g,
+            den: sign * den / g,
+        }
+    }
+}
+
+fn gcd(mut a: u128, mut b: u128) -> u128 {
+    while b != 0 {
+        (a, b) = (b, a % b);
+    }
+    a.max(1)
 }
 
 fn components_equal(a: &[Quantity], b: &[Quantity]) -> bool {
@@ -1695,6 +1778,164 @@ mod tests {
             Set::new(vec![Value::Integer(1)]).unwrap(),
             Set::new(vec![Value::Real(1.0)]).unwrap()
         );
+    }
+
+    /// `same_value` judges quantities over their base units, as the service
+    /// does, so equivalent quantities are one set member however written.
+    #[test]
+    fn same_value_judges_quantities_across_units() {
+        let term = |scale_num, scale_den, factors: &[(&str, f64)]| {
+            Some(UnitTerm {
+                scale_num,
+                scale_den,
+                factors: factors
+                    .iter()
+                    .map(|(unit_id, exponent)| UnitFactor {
+                        unit_id: (*unit_id).to_owned(),
+                        exponent: *exponent,
+                    })
+                    .collect(),
+            })
+        };
+        let quantity = |magnitude, unit: &str, unit_term| {
+            Value::Quantity(Quantity {
+                magnitude,
+                unit: unit.to_owned(),
+                unit_term,
+            })
+        };
+        let metre = &[("SI::metre", 1.0)][..];
+        let speed = &[("SI::metre", 1.0), ("SI::second", -1.0)][..];
+        let m = |n| quantity(Magnitude::Integer(n), "m", term(1.0, 1.0, metre));
+        let cm = |n| quantity(Magnitude::Integer(n), "cm", term(1.0, 100.0, metre));
+        let km = |n| quantity(Magnitude::Integer(n), "km", term(1000.0, 1.0, metre));
+        let huge = (1 << 53) + 1;
+        let cases = [
+            (m(1), cm(100), true),
+            (
+                m(1),
+                quantity(Magnitude::Real(100.0), "cm", term(0.01, 1.0, metre)),
+                true,
+            ),
+            (
+                quantity(Magnitude::Real(1.0), "m", term(1.0, 1.0, metre)),
+                cm(100),
+                true,
+            ),
+            (m(1), cm(1), false),
+            (m(1000), km(1), true),
+            (m(1001), km(1), false),
+            (m(1000 * huge), km(huge), true),
+            (m(1000 * huge + 1), km(huge), false),
+            (
+                m(1),
+                quantity(
+                    Magnitude::Integer(1),
+                    "s",
+                    term(1.0, 1.0, &[("SI::second", 1.0)]),
+                ),
+                false,
+            ),
+            (
+                quantity(Magnitude::Real(5.4), "km/h", term(1000.0, 3600.0, speed)),
+                quantity(
+                    Magnitude::Real(1.5),
+                    "m/s",
+                    term(1.0, 1.0, &[("SI::second", -1.0), ("SI::metre", 1.0)]),
+                ),
+                true,
+            ),
+            (
+                quantity(Magnitude::Integer(36), "km/h", term(1000.0, 3600.0, speed)),
+                quantity(Magnitude::Integer(10), "m/s", term(1.0, 1.0, speed)),
+                true,
+            ),
+            (
+                quantity(Magnitude::Integer(36), "km/h", term(1000.0, 3600.0, speed)),
+                quantity(Magnitude::Integer(11), "m/s", term(1.0, 1.0, speed)),
+                false,
+            ),
+            (
+                m(1),
+                quantity(
+                    Magnitude::Integer(1),
+                    "m·s/s",
+                    term(
+                        1.0,
+                        1.0,
+                        &[
+                            ("SI::metre", 1.0),
+                            ("SI::second", -1.0),
+                            ("SI::second", 1.0),
+                        ],
+                    ),
+                ),
+                true,
+            ),
+            (
+                m(0),
+                quantity(Magnitude::Integer(0), "x", term(0.0, 1.0, metre)),
+                false,
+            ),
+            (
+                quantity(Magnitude::Integer(0), "x", term(0.0, 1.0, metre)),
+                quantity(Magnitude::Integer(0), "x", term(0.0, 1.0, metre)),
+                false,
+            ),
+            // Without a reduction, the unit as written is all there is to compare.
+            (
+                quantity(Magnitude::Integer(1), "m", None),
+                quantity(Magnitude::Real(1.0), "m", None),
+                true,
+            ),
+            (
+                quantity(Magnitude::Integer(1), "m", None),
+                quantity(Magnitude::Integer(100), "cm", None),
+                false,
+            ),
+            (
+                quantity(Magnitude::Integer(1), "m", None),
+                quantity(Magnitude::Integer(1), "s", None),
+                false,
+            ),
+            (quantity(Magnitude::Integer(1), "m", None), m(1), false),
+            (
+                Value::Set(Set::new(vec![m(1), km(2)]).unwrap()),
+                Value::Set(Set::new(vec![m(2000), cm(100)]).unwrap()),
+                true,
+            ),
+            (
+                Value::Set(Set::new(vec![m(1), km(2)]).unwrap()),
+                Value::Set(Set::new(vec![m(2000), cm(1)]).unwrap()),
+                false,
+            ),
+        ];
+        for (a, b, want) in cases {
+            assert_eq!(a.same_value(&b), want, "{a:?} vs {b:?}");
+            assert_eq!(b.same_value(&a), want, "{b:?} vs {a:?}");
+        }
+
+        let component = |v| match v {
+            Value::Quantity(q) => q,
+            other => panic!("not a quantity: {other:?}"),
+        };
+        let lengths = Set::new(vec![m(1), m(2)]).unwrap();
+        assert!(lengths.contains(&cm(100)));
+        assert!(!lengths.contains(&cm(1)));
+        assert!(Set::new(vec![m(1), cm(100)]).is_err());
+        assert_eq!(Set::new(vec![m(1), cm(1)]).unwrap().len(), 2);
+        assert!(Value::VectorQuantity(
+            VectorQuantity::new(vec![component(m(1)), component(km(1))]).unwrap()
+        )
+        .same_value(&Value::VectorQuantity(
+            VectorQuantity::new(vec![component(cm(100)), component(m(1000))]).unwrap()
+        )));
+        assert!(Value::TensorQuantity(
+            TensorQuantity::new(vec![1, 1], vec![component(m(1))]).unwrap()
+        )
+        .same_value(&Value::TensorQuantity(
+            TensorQuantity::new(vec![1, 1], vec![component(cm(100))]).unwrap()
+        )));
     }
 
     #[test]

@@ -159,8 +159,68 @@ def pb_seq(*elements):
     (sysml_pb2.Value(bool_value=True), pb_seq(), sysml_pb2.Value(bool_value=True)),
 ])
 def test_a_set_listing_a_member_twice_is_malformed(elements):
-    with pytest.raises(UnsupportedValueError, match="malformed set: member listed twice"):
+    with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
         value_to_python(pb_set(*elements))
+
+
+@pytest.mark.parametrize("elements", [
+    (1, 2, 1),
+    (1, 1.0),
+    (2, 2 + 0j),
+    (0, -0.0),
+    ([1, 2], [1, 2]),
+    (SetValue((1, 2)), SetValue((2, 1))),
+    (SetValue(), SetValue()),
+    (Quantity(1.0, Unit("m", factors=(UnitFactor("SI::metre", 1.0),))),
+     Quantity(1, Unit("m", factors=(UnitFactor("SI::metre", 1.0),)))),
+    (True, [], True),
+])
+def test_a_set_is_never_assembled_with_a_member_twice(elements):
+    with pytest.raises(ValueError, match="set lists a member twice"):
+        SetValue(elements)
+    assert len(SetValue((1, 2 ** 53 + 1, float(2 ** 53), True, [1, 2], [2, 1], [1], SetValue((1,))))) == 8
+
+
+def length(text, magnitude, scale_num=1.0, scale_den=1.0, factors=(("SI::metre", 1.0),)):
+    return Quantity(magnitude, Unit(text, scale_num, scale_den, tuple(UnitFactor(*f) for f in factors)))
+
+
+def test_quantities_are_the_same_value_over_their_base_units():
+    """As the service judges them: 1 m is 100 cm, exactly while both are ints over whole scales."""
+    m, cm, km = length("m", 1), length("cm", 100, 1.0, 100.0), length("km", 1, 1000.0)
+    assert m == cm == length("cm", 100, 0.01)
+    assert length("m", 1.0) == length("cm", 100.0, 1.0, 100.0) == cm
+    assert m != length("cm", 1, 1.0, 100.0)
+    assert length("m", 1000) == km and length("m", 1001) != km
+    huge = 2 ** 53 + 1
+    assert length("m", 1000 * huge) == length("km", huge, 1000.0)
+    assert length("m", 1000 * huge + 1) != length("km", huge, 1000.0)
+    assert m != length("s", 1, factors=(("SI::second", 1.0),))
+    speed = (("SI::metre", 1.0), ("SI::second", -1.0))
+    assert length("km/h", 5.4, 1000.0, 3600.0, speed) == length("m/s", 1.5, factors=reversed(speed))
+    assert length("km/h", 36, 1000.0, 3600.0, speed) == length("m/s", 10, factors=speed)
+    assert length("km/h", 36, 1000.0, 3600.0, speed) != length("m/s", 11, factors=speed)
+    assert m == length("m", 1, factors=(("SI::metre", 1.0), ("SI::second", -1.0), ("SI::second", 1.0)))
+    assert m != length("x", 0, 0.0) and length("x", 0, 0.0) != length("x", 0, 0.0)
+    # A unit named without its reduction compares as written.
+    assert Quantity(1, Unit("m")) == Quantity(1.0, Unit("m"))
+    assert Quantity(1, Unit("m")) != Quantity(100, Unit("cm"))
+    assert Quantity(1, Unit("m")) != Quantity(1, Unit("s"))
+    assert Quantity(1, Unit("m")) != m
+    assert hash(m) == hash(cm) == hash(length("m", 1.0))
+
+    # Membership, duplicate detection and set equality follow.
+    lengths = SetValue((m, length("s", 1, factors=(("SI::second", 1.0),))))
+    assert cm in lengths and length("cm", 1, 1.0, 100.0) not in lengths
+    with pytest.raises(ValueError, match="set lists a member twice"):
+        SetValue((m, cm))
+    with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
+        value_to_python(pb_set(sysml_pb2.Value(quantity=m.to_pb()), sysml_pb2.Value(quantity=cm.to_pb())))
+    assert len(SetValue((m, length("cm", 1, 1.0, 100.0)))) == 2
+    assert SetValue((m, length("km", 2, 1000.0))) == SetValue((length("m", 2000), cm))
+    assert SetValue((m, length("km", 2, 1000.0))) != SetValue((length("m", 2000), length("cm", 1, 1.0, 100.0)))
+    assert VectorQuantity((m, km)) == VectorQuantity((cm, length("m", 1000)))
+    assert TensorQuantity((1, 1), (m,)) == TensorQuantity((1, 1), (cm,))
 
 
 @pytest.mark.parametrize("elements, expected", [

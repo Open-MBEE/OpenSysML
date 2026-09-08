@@ -2,15 +2,18 @@ package opensysml
 
 import (
 	"math"
+	"math/big"
 	"slices"
 )
 
 // Equal reports whether two values are the same value to the model, as the
 // service judges a Set's membership: numbers by value, so a whole Real is the
 // Int of its value and a Complex on the real axis is its real part, exactly
-// across the whole Int range; a Sequence's order counts and a Set's does not;
-// a Quantity is one in its unit as written; a Null is one whatever its reason;
-// and a nil Value equals only another nil.
+// across the whole Int range; a Sequence's order counts and a Set's does not,
+// nor does a member it lists twice; a Quantity is one with any commensurable
+// quantity of the same magnitude over their base units, so 1 m is 100 cm,
+// while one carrying no reduction is compared in its unit as written; a Null
+// is one whatever its reason; and a nil Value equals only another nil.
 func Equal(a, b Value) bool {
 	switch x := a.(type) {
 	case nil:
@@ -25,15 +28,7 @@ func Equal(a, b Value) bool {
 		return ok && slices.EqualFunc(x, y, Equal)
 	case Set:
 		y, ok := b.(Set)
-		if !ok || len(x) != len(y) {
-			return false
-		}
-		for _, e := range x {
-			if !y.Contains(e) {
-				return false
-			}
-		}
-		return true
+		return ok && x.subsetOf(y) && y.subsetOf(x)
 	case Array:
 		y, ok := b.(Array)
 		return ok && slices.Equal(x.Dimensions, y.Dimensions) && slices.EqualFunc(x.Elements, y.Elements, Equal)
@@ -60,6 +55,25 @@ func Equal(a, b Value) bool {
 // Contains reports whether value is a member of the set.
 func (s Set) Contains(value Value) bool {
 	return slices.ContainsFunc(s, func(e Value) bool { return Equal(e, value) })
+}
+
+func (s Set) subsetOf(t Set) bool {
+	for _, e := range s {
+		if !t.Contains(e) {
+			return false
+		}
+	}
+	return true
+}
+
+// repeated returns the first member the set lists twice, if any.
+func (s Set) repeated() (Value, bool) {
+	for i, e := range s {
+		if s[:i].Contains(e) {
+			return e, true
+		}
+	}
+	return nil, false
 }
 
 // numbersEqual compares an Int, Real or Complex with any value by numeric
@@ -102,7 +116,80 @@ func realIsInt(r float64, n int64) bool {
 }
 
 func quantityEqual(a, b Quantity) bool {
-	return numbersEqual(a.Magnitude, b.Magnitude) && a.Unit == b.Unit && unitTermEqual(a.Term, b.Term)
+	if a.Term == nil || b.Term == nil {
+		return numbersEqual(a.Magnitude, b.Magnitude) && a.Unit == b.Unit && unitTermEqual(a.Term, b.Term)
+	}
+	if !a.Term.commensurable(*b.Term) || a.Term.zeroScale() || b.Term.zeroScale() {
+		return false
+	}
+	if x, y, ok := exactBaseMagnitudes(a, b); ok {
+		return x.Cmp(y) == 0
+	}
+	return a.baseMagnitude() == b.baseMagnitude()
+}
+
+// exactBaseMagnitudes expresses two Int magnitudes over their base units as
+// rationals, which is exact only while both scales are whole.
+func exactBaseMagnitudes(a, b Quantity) (*big.Rat, *big.Rat, bool) {
+	x, xok := a.Magnitude.(Int)
+	y, yok := b.Magnitude.(Int)
+	if !xok || !yok || !a.Term.whole() || !b.Term.whole() {
+		return nil, nil, false
+	}
+	return a.Term.scaled(int64(x)), b.Term.scaled(int64(y)), true
+}
+
+func (q Quantity) baseMagnitude() float64 {
+	var m float64
+	switch x := q.Magnitude.(type) {
+	case Int:
+		m = float64(x)
+	case Real:
+		m = float64(x)
+	}
+	return m * q.Term.ScaleNum / q.Term.ScaleDen
+}
+
+// exponents sums the term's factors by base unit, dropping those that cancel,
+// so two reductions over the same base units compare however they are listed.
+func (t UnitTerm) exponents() map[string]float64 {
+	totals := make(map[string]float64, len(t.Factors))
+	for _, f := range t.Factors {
+		totals[f.UnitID] += f.Exponent
+	}
+	for id, exponent := range totals {
+		if exponent == 0 {
+			delete(totals, id)
+		}
+	}
+	return totals
+}
+
+// commensurable reports whether a magnitude in t converts into other.
+func (t UnitTerm) commensurable(other UnitTerm) bool {
+	x, y := t.exponents(), other.exponents()
+	if len(x) != len(y) {
+		return false
+	}
+	for id, exponent := range x {
+		if y[id] != exponent {
+			return false
+		}
+	}
+	return true
+}
+
+func (t UnitTerm) zeroScale() bool { return t.ScaleNum == 0 || t.ScaleDen == 0 }
+
+func (t UnitTerm) whole() bool { return isWhole(t.ScaleNum) && isWhole(t.ScaleDen) }
+
+func isWhole(f float64) bool { return f == math.Trunc(f) && !math.IsInf(f, 0) }
+
+// scaled is magnitude times the term's scale, exactly; the scale must be whole.
+func (t UnitTerm) scaled(magnitude int64) *big.Rat {
+	num, den := new(big.Rat).SetFloat64(t.ScaleNum), new(big.Rat).SetFloat64(t.ScaleDen)
+	m := new(big.Rat).SetInt64(magnitude)
+	return m.Mul(m, num.Quo(num, den))
 }
 
 func unitTermEqual(a, b *UnitTerm) bool {

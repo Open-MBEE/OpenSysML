@@ -284,6 +284,12 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Function{Function: &pb.Function{CalcId: v.CalcID, SelfId: int64(v.Self)}}}, nil
 	case Set:
+		if twice, ok := v.repeated(); ok {
+			return nil, &StatusError{
+				Code:    CodeInvalidArgument,
+				Message: fmt.Sprintf("set lists a member twice: %v", twice),
+			}
+		}
 		set := &pb.ValueSet{Elements: make([]*pb.Value, 0, len(v))}
 		for _, element := range v {
 			sent, err := valueToProto(element)

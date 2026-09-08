@@ -305,7 +305,9 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, {
         kind: {
           case: "set",
-          value: create(ValueSetSchema, { elements: value.elements.map(encodeValue) }),
+          value: create(ValueSetSchema, {
+            elements: uniqueMembers(value.elements).map(encodeValue),
+          }),
         },
       });
     case "tensorQuantity":
@@ -557,24 +559,27 @@ function decodeArray(array: ArrayMessage): ArrayValue {
 }
 
 function decodeSet(set: ValueSet): SysMLValue[] {
-  const elements: SysMLValue[] = [];
-  for (const element of set.elements) {
-    const member = decodeValue(element);
-    if (elements.some((held) => valuesEqual(held, member))) {
+  return uniqueMembers(set.elements.map(decodeValue));
+}
+
+/** Returns the members as given, refusing one listed twice by {@link valuesEqual}. */
+function uniqueMembers(members: SysMLValue[]): SysMLValue[] {
+  members.forEach((member, i) => {
+    if (members.slice(0, i).some((held) => valuesEqual(held, member))) {
       throw new MalformedValueError(
         `a set lists a member twice: ${formatValue(member)}`,
       );
     }
-    elements.push(member);
-  }
-  return elements;
+  });
+  return members;
 }
 
 /**
  * Whether two values are the same value to the model, as the service judges a
  * set's membership: numbers by value, so a whole `real` is the `int` of its
  * value and a `complex` on the real axis is its real part, exactly across the
- * whole `int` range; a `sequence`'s order counts and a `set`'s does not; a
+ * whole `int` range; a `sequence`'s order counts and a `set`'s does not, nor
+ * does a member it lists twice; a quantity is the same over its base units; a
  * `null` is the same whatever its reason.
  */
 export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
@@ -623,8 +628,8 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
     case "set":
       return (
         b.kind === "set" &&
-        a.elements.length === b.elements.length &&
-        a.elements.every((e) => b.elements.some((o) => valuesEqual(e, o)))
+        subsetOf(a.elements, b.elements) &&
+        subsetOf(b.elements, a.elements)
       );
     case "tensorQuantity":
       return (
@@ -644,6 +649,10 @@ function elementsEqual(a: SysMLValue[], b: SysMLValue[]): boolean {
     a.length === b.length &&
     a.every((e, i) => valuesEqual(e, b[i]))
   );
+}
+
+function subsetOf(members: SysMLValue[], of: SysMLValue[]): boolean {
+  return members.every((e) => of.some((o) => valuesEqual(e, o)));
 }
 
 function dimensionsEqual(a: bigint[], b: bigint[]): boolean {
@@ -693,12 +702,69 @@ function componentsEqual(a: QuantityValue[], b: QuantityValue[]): boolean {
   );
 }
 
+// Commensurable quantities are equal over their base units, as the service
+// judges them; one carrying no reduction is compared in its unit as written.
 function quantitiesEqual(a: QuantityValue, b: QuantityValue): boolean {
-  return (
-    numbersEqual(a.magnitude, b.magnitude) &&
-    a.unit === b.unit &&
-    unitTermsEqual(a.unitTerm, b.unitTerm)
-  );
+  if (a.unitTerm === undefined || b.unitTerm === undefined) {
+    return (
+      numbersEqual(a.magnitude, b.magnitude) &&
+      a.unit === b.unit &&
+      unitTermsEqual(a.unitTerm, b.unitTerm)
+    );
+  }
+  if (
+    !commensurable(a.unitTerm, b.unitTerm) ||
+    zeroScale(a.unitTerm) ||
+    zeroScale(b.unitTerm)
+  ) {
+    return false;
+  }
+  if (
+    a.magnitude.kind === "int" &&
+    b.magnitude.kind === "int" &&
+    wholeScale(a.unitTerm) &&
+    wholeScale(b.unitTerm)
+  ) {
+    // m₁·n₁/d₁ = m₂·n₂/d₂ exactly, cross-multiplied in bigint.
+    return (
+      a.magnitude.value * BigInt(a.unitTerm.scaleNum) * BigInt(b.unitTerm.scaleDen) ===
+      b.magnitude.value * BigInt(b.unitTerm.scaleNum) * BigInt(a.unitTerm.scaleDen)
+    );
+  }
+  return baseMagnitude(a.magnitude, a.unitTerm) === baseMagnitude(b.magnitude, b.unitTerm);
+}
+
+function baseMagnitude(magnitude: Magnitude, term: UnitFactorization): number {
+  return (Number(magnitude.value) * term.scaleNum) / term.scaleDen;
+}
+
+// The reduction as base unit → exponent, repeated base units summed and
+// cancelled ones dropped, so two reductions compare however they are listed.
+function exponents(term: UnitFactorization): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const factor of term.factors) {
+    totals.set(factor.unitId, (totals.get(factor.unitId) ?? 0) + factor.exponent);
+  }
+  for (const [unitId, exponent] of totals) {
+    if (exponent === 0) {
+      totals.delete(unitId);
+    }
+  }
+  return totals;
+}
+
+function commensurable(a: UnitFactorization, b: UnitFactorization): boolean {
+  const x = exponents(a);
+  const y = exponents(b);
+  return x.size === y.size && [...x].every(([unitId, exponent]) => y.get(unitId) === exponent);
+}
+
+function zeroScale(term: UnitFactorization): boolean {
+  return term.scaleNum === 0 || term.scaleDen === 0;
+}
+
+function wholeScale(term: UnitFactorization): boolean {
+  return Number.isInteger(term.scaleNum) && Number.isInteger(term.scaleDen);
 }
 
 function unitTermsEqual(

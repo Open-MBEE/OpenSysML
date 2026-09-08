@@ -193,6 +193,92 @@ class PublicTypesTest {
     return new Quantity(magnitude, Optional.of("m"), Optional.empty());
   }
 
+  private static Quantity reduced(
+      Number magnitude, String unit, double scaleNum, double scaleDen, Quantity.UnitFactor... factors) {
+    return new Quantity(
+        magnitude,
+        Optional.of(unit),
+        Optional.of(new Quantity.UnitTerm(scaleNum, scaleDen, List.of(factors))));
+  }
+
+  @Test
+  void quantitiesAreTheSameValueOverTheirBaseUnits() {
+    Quantity.UnitFactor metre = new Quantity.UnitFactor("SI::metre", 1.0);
+    Quantity.UnitFactor second = new Quantity.UnitFactor("SI::second", 1.0);
+    Quantity.UnitFactor perSecond = new Quantity.UnitFactor("SI::second", -1.0);
+    Value m = new Value.QuantityValue(reduced(1L, "m", 1.0, 1.0, metre));
+    Value cm = new Value.QuantityValue(reduced(100L, "cm", 1.0, 100.0, metre));
+    Value km = new Value.QuantityValue(reduced(1L, "km", 1000.0, 1.0, metre));
+    long huge = (1L << 53) + 1;
+
+    // 1 m is 100 cm however the scale is written, exactly for integers over whole scales.
+    assertTrue(m.sameValue(cm));
+    assertTrue(cm.sameValue(m));
+    assertTrue(m.sameValue(new Value.QuantityValue(reduced(100.0, "cm", 0.01, 1.0, metre))));
+    assertTrue(new Value.QuantityValue(reduced(1.0, "m", 1.0, 1.0, metre)).sameValue(cm));
+    assertFalse(m.sameValue(new Value.QuantityValue(reduced(1L, "cm", 1.0, 100.0, metre))));
+    assertTrue(new Value.QuantityValue(reduced(1000L, "m", 1.0, 1.0, metre)).sameValue(km));
+    assertFalse(new Value.QuantityValue(reduced(1001L, "m", 1.0, 1.0, metre)).sameValue(km));
+    assertTrue(
+        new Value.QuantityValue(reduced(1000 * huge, "m", 1.0, 1.0, metre))
+            .sameValue(new Value.QuantityValue(reduced(huge, "km", 1000.0, 1.0, metre))));
+    assertFalse(
+        new Value.QuantityValue(reduced(1000 * huge + 1, "m", 1.0, 1.0, metre))
+            .sameValue(new Value.QuantityValue(reduced(huge, "km", 1000.0, 1.0, metre))));
+
+    // Different dimensions, or a scale nothing converts through, are never the same value.
+    assertFalse(m.sameValue(new Value.QuantityValue(reduced(1L, "s", 1.0, 1.0, second))));
+    Value zeroScale = new Value.QuantityValue(reduced(0L, "x", 0.0, 1.0, metre));
+    assertFalse(m.sameValue(zeroScale));
+    assertFalse(zeroScale.sameValue(zeroScale));
+
+    // Compound units compare over their summed, cancelled factors.
+    assertTrue(
+        new Value.QuantityValue(reduced(5.4, "km/h", 1000.0, 3600.0, metre, perSecond))
+            .sameValue(new Value.QuantityValue(reduced(1.5, "m/s", 1.0, 1.0, perSecond, metre))));
+    assertTrue(
+        new Value.QuantityValue(reduced(36L, "km/h", 1000.0, 3600.0, metre, perSecond))
+            .sameValue(new Value.QuantityValue(reduced(10L, "m/s", 1.0, 1.0, metre, perSecond))));
+    assertFalse(
+        new Value.QuantityValue(reduced(36L, "km/h", 1000.0, 3600.0, metre, perSecond))
+            .sameValue(new Value.QuantityValue(reduced(11L, "m/s", 1.0, 1.0, metre, perSecond))));
+    assertTrue(m.sameValue(new Value.QuantityValue(reduced(1L, "m·s/s", 1.0, 1.0, metre, perSecond, second))));
+
+    // Without a reduction, the unit as written is all there is to compare.
+    assertTrue(new Value.QuantityValue(metres(1L)).sameValue(new Value.QuantityValue(metres(1.0))));
+    assertFalse(
+        new Value.QuantityValue(metres(1L))
+            .sameValue(new Value.QuantityValue(new Quantity(100L, Optional.of("cm"), Optional.empty()))));
+    assertFalse(new Value.QuantityValue(metres(1L)).sameValue(m));
+
+    // Membership, duplicate detection and set equality follow.
+    Value.SetValue lengths = new Value.SetValue(List.of(m, km));
+    assertTrue(lengths.contains(cm));
+    assertFalse(lengths.contains(new Value.QuantityValue(reduced(1L, "cm", 1.0, 100.0, metre))));
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(m, cm)));
+    assertEquals(
+        2, new Value.SetValue(List.of(m, new Value.QuantityValue(reduced(1L, "cm", 1.0, 100.0, metre)))).size());
+    Value.SetValue rewritten =
+        new Value.SetValue(List.of(new Value.QuantityValue(reduced(1000L, "m", 1.0, 1.0, metre)), cm));
+    assertEquals(rewritten, lengths);
+    assertEquals(rewritten.hashCode(), lengths.hashCode());
+    assertNotEquals(
+        new Value.SetValue(
+            List.of(
+                new Value.QuantityValue(reduced(1000L, "m", 1.0, 1.0, metre)),
+                new Value.QuantityValue(reduced(1L, "cm", 1.0, 100.0, metre)))),
+        lengths);
+    assertTrue(
+        new Value.VectorQuantityValue(List.of(reduced(1L, "m", 1.0, 1.0, metre), reduced(1L, "km", 1000.0, 1.0, metre)))
+            .sameValue(
+                new Value.VectorQuantityValue(
+                    List.of(reduced(100L, "cm", 1.0, 100.0, metre), reduced(1000L, "m", 1.0, 1.0, metre)))));
+    assertTrue(
+        new Value.TensorQuantityValue(List.of(1L, 1L), List.of(reduced(1L, "m", 1.0, 1.0, metre)))
+            .sameValue(
+                new Value.TensorQuantityValue(List.of(1L, 1L), List.of(reduced(100L, "cm", 1.0, 100.0, metre)))));
+  }
+
   @Test
   void aTensorQuantityIsShapedAndIndexedInRowMajorOrder() {
     List<Quantity> pascals = new ArrayList<>();

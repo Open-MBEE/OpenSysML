@@ -29,6 +29,7 @@ import {
   failureCause,
   formatValue,
   valuesEqual,
+  type QuantityValue,
   type SysMLValue,
 } from "../src/core/values.js";
 
@@ -403,10 +404,121 @@ test("valuesEqual judges numbers by value, as the service does", () => {
     ],
     [{ kind: "set", elements: [i(1n), r(2.5)] }, { kind: "set", elements: [r(2.5), r(1)] }, true],
     [{ kind: "set", elements: [i(2n ** 53n + 1n)] }, { kind: "set", elements: [r(2 ** 53)] }, false],
+    // A set assembled with a member listed twice equals only a set of the same members.
+    [{ kind: "set", elements: [i(1n), i(1n)] }, { kind: "set", elements: [i(1n), i(2n)] }, false],
+    [{ kind: "set", elements: [i(1n), i(1n), i(2n)] }, { kind: "set", elements: [i(1n), i(2n), i(2n)] }, true],
+    [{ kind: "set", elements: [i(1n), r(1)] }, { kind: "set", elements: [i(1n)] }, true],
   ];
   for (const [a, b, want] of cases) {
     assert.equal(valuesEqual(a, b), want, `${formatValue(a)} vs ${formatValue(b)}`);
     assert.equal(valuesEqual(b, a), want, `${formatValue(b)} vs ${formatValue(a)}`);
+  }
+});
+
+test("valuesEqual judges quantities over their base units, as the service does", () => {
+  const term = (scaleNum: number, scaleDen: number, ...factors: [string, number][]) => ({
+    scaleNum,
+    scaleDen,
+    factors: factors.map(([unitId, exponent]) => ({ unitId, exponent })),
+  });
+  const q = (
+    magnitude: bigint | number,
+    unit: string,
+    unitTerm?: ReturnType<typeof term>,
+  ): { kind: "quantity" } & QuantityValue => ({
+    kind: "quantity",
+    magnitude: typeof magnitude === "bigint" ? { kind: "int", value: magnitude } : { kind: "real", value: magnitude },
+    unit,
+    ...(unitTerm === undefined ? {} : { unitTerm }),
+  });
+  const m = (v: bigint | number) => q(v, "m", term(1, 1, ["SI::metre", 1]));
+  const cm = (v: bigint | number) => q(v, "cm", term(1, 100, ["SI::metre", 1]));
+  const cmDecimal = (v: bigint | number) => q(v, "cm", term(0.01, 1, ["SI::metre", 1]));
+  const km = (v: bigint | number) => q(v, "km", term(1000, 1, ["SI::metre", 1]));
+  const s = (v: bigint | number) => q(v, "s", term(1, 1, ["SI::second", 1]));
+  const kmh = (v: bigint | number) => q(v, "km/h", term(1000, 3600, ["SI::metre", 1], ["SI::second", -1]));
+  const ms = (v: bigint | number) => q(v, "m/s", term(1, 1, ["SI::second", -1], ["SI::metre", 1]));
+  const huge = 2n ** 53n + 1n;
+  const cases: [SysMLValue, SysMLValue, boolean][] = [
+    [m(1n), cm(100n), true],
+    [m(1n), cmDecimal(100n), true],
+    [m(1), cm(100), true],
+    [m(1n), cm(100), true],
+    [m(1n), cm(1n), false],
+    [m(1000n), km(1n), true],
+    [m(1000), km(1n), true],
+    [m(1001n), km(1n), false],
+    [m(1000n * huge), km(huge), true],
+    [m(1000n * huge + 1n), km(huge), false],
+    [m(1n), s(1n), false],
+    [kmh(5.4), ms(1.5), true],
+    [kmh(36n), ms(10n), true],
+    [kmh(36n), ms(11n), false],
+    [kmh(1n), m(1n), false],
+    [m(1n), q(1n, "m", term(1, 1, ["SI::metre", 1], ["SI::second", -1], ["SI::second", 1])), true],
+    [q(1n, "m"), q(1, "m"), true],
+    [q(1n, "m"), q(100n, "cm"), false],
+    [q(1n, "m"), m(1n), false],
+    [q(0n, "x", term(0, 1, ["SI::metre", 1])), m(0n), false],
+    [{ kind: "set", elements: [m(1n), km(2n)] }, { kind: "set", elements: [m(2000n), cm(100n)] }, true],
+    [{ kind: "set", elements: [m(1n), km(2n)] }, { kind: "set", elements: [m(2000n), cm(1n)] }, false],
+    [
+      { kind: "vectorQuantity", components: [m(1n), km(1n)] },
+      { kind: "vectorQuantity", components: [cm(100n), m(1000n)] },
+      true,
+    ],
+    [
+      { kind: "tensorQuantity", dimensions: [1n, 1n], components: [m(1n)] },
+      { kind: "tensorQuantity", dimensions: [1n, 1n], components: [cm(100n)] },
+      true,
+    ],
+  ];
+  for (const [a, b, want] of cases) {
+    assert.equal(valuesEqual(a, b), want, `${formatValue(a)} vs ${formatValue(b)}`);
+    assert.equal(valuesEqual(b, a), want, `${formatValue(b)} vs ${formatValue(a)}`);
+  }
+
+  // Membership and duplicate detection follow: a set holding 1 m holds 100 cm,
+  // and one listing both is refused, arriving or about to be sent.
+  assert.throws(() => encodeValue({ kind: "set", elements: [m(1n), cm(100n)] }), {
+    name: "MalformedValueError",
+    message: /^a set lists a member twice: /,
+  });
+  const sent = decodeValue(encodeValue({ kind: "set", elements: [m(1n), cm(1n)] }));
+  assert.equal(sent.kind, "set");
+  assert.equal(sent.elements.length, 2);
+  assert.throws(() => decodeValue(encodeValue({ kind: "set", elements: [m(1000), km(1n)] })), {
+    name: "MalformedValueError",
+    message: /^a set lists a member twice: /,
+  });
+});
+
+test("a set assembled with a member listed twice is refused before it is sent", () => {
+  const i = (value: bigint): SysMLValue => ({ kind: "int", value });
+  const r = (value: number): SysMLValue => ({ kind: "real", value });
+  const set = (...elements: SysMLValue[]): SysMLValue => ({ kind: "set", elements });
+  const seq = (...elements: SysMLValue[]): SysMLValue => ({ kind: "sequence", elements });
+  for (const twice of [
+    set(i(1n), i(2n), i(1n)),
+    set(i(1n), r(1)),
+    set(r(1.5), { kind: "complex", value: { real: 1.5, imaginary: 0 } }),
+    set(seq(i(1n), i(2n)), seq(i(1n), i(2n))),
+    set(set(i(1n), i(2n)), set(i(2n), i(1n))),
+    set(i(3n), set(i(1n), i(1n))),
+  ]) {
+    assert.throws(() => encodeValue(twice), {
+      name: "MalformedValueError",
+      message: /^a set lists a member twice: /,
+    });
+  }
+  for (const alike of [
+    set(i(2n ** 53n + 1n), r(2 ** 53)),
+    set(i(1n), { kind: "boolean", value: true }),
+    set(seq(i(1n)), set(i(1n))),
+    set(seq(i(1n), i(2n)), seq(i(2n), i(1n))),
+    set(set(), set(set())),
+  ]) {
+    assert.deepEqual(decodeValue(encodeValue(alike)), alike);
   }
 });
 

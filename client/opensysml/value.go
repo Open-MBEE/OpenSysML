@@ -143,8 +143,8 @@ type VectorQuantity []Quantity
 // Set is a unique, unordered collection — a Collections::Set's elements — as
 // distinct from a Sequence, whose order is part of its value. The service
 // sends the elements in its canonical order, so equal sets arrive alike; a
-// caller may list them in any order, but listing one twice is refused by the
-// service rather than read as one element.
+// caller may list them in any order, but one listing an element twice, by
+// Equal, is refused when sent rather than read as one element.
 type Set []Value
 
 // TensorQuantity is a tensor quantity of any rank: one Quantity per component,

@@ -156,7 +156,9 @@ the service's canonical order (numbers ascending, then strings, and so on), and
 equal to another set holding the same members in any order. Membership is
 judged by `Value::same_value`, as the service judges it: `Integer(1)` and
 `Real(1.0)` are one member, `Real(1.5)` and a `Complex` of `1.5 + 0.0i` are one
-member, exactly across the whole `i64` range, while `==` on `Value` stays
+member, exactly across the whole `i64` range, and a `Quantity` is judged by
+magnitude through its `unit_term`, so `1 m` and `100 cm` are one member (one
+without a `unit_term` in its unit as written); `==` on `Value` stays
 structural. A
 `Value::TensorQuantity` is a `Quantities::TensorQuantityValue` of any rank:
 its `dimensions()` and its `components()` flattened row-major, each a

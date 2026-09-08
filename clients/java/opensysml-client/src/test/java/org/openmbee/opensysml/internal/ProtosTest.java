@@ -282,7 +282,8 @@ class ProtosTest {
         members.elements());
     assertTrue(members.contains(new Value.IntegerValue(2)));
     assertTrue(!members.contains(new Value.IntegerValue(4)));
-    assertTrue(!members.contains(new Value.RealValue(2.0)));
+    assertTrue(members.contains(new Value.RealValue(2.0)));
+    assertTrue(!members.contains(new Value.RealValue(2.5)));
 
     // The same members in another order are the same set, with the same hash; a sequence is not.
     Value.SetValue reordered =

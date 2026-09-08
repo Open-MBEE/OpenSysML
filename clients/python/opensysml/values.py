@@ -2,6 +2,7 @@
 
 import math
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 from opensysml.enumeration import EnumLiteral
@@ -114,6 +115,11 @@ class Unit:
             or self.factors
             or (self.scale_num, self.scale_den) != (1.0, 1.0)
         )
+
+    @property
+    def zero_scale(self) -> bool:
+        """Whether the scale factor is zero or undefined, so no magnitude converts through it."""
+        return self.scale_num == 0 or self.scale_den == 0
 
     @property
     def dimensionless(self) -> bool:
@@ -262,14 +268,33 @@ class Quantity:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Quantity):
             return NotImplemented
-        if not self.unit.commensurable(other.unit):
+        if not (self.unit.reduced and other.unit.reduced):
+            # Nothing to convert over: the same quantity is one in the same unit as written.
+            return self.unit == other.unit and self.magnitude == other.magnitude
+        if not self.unit.commensurable(other.unit) or self.unit.zero_scale or other.unit.zero_scale:
             return False
+        mine, theirs = self._exact_base_magnitude(), other._exact_base_magnitude()
+        if mine is not None and theirs is not None:
+            return mine == theirs
         return self.base_magnitude() == other.base_magnitude()
+
+    def _exact_base_magnitude(self) -> Optional[Fraction]:
+        """The base magnitude as a Fraction while it can be exact: an int over a whole scale."""
+        if isinstance(self.magnitude, bool) or not isinstance(self.magnitude, int):
+            return None
+        num, den = self.unit.scale_num, self.unit.scale_den
+        if not (float(num).is_integer() and float(den).is_integer()):
+            return None
+        return Fraction(self.magnitude) * Fraction(int(num), int(den))
 
     def __hash__(self) -> int:
         # Keyed on the base-unit form, so commensurable equal quantities — `1
         # [km]` and `1000 [m]` — hash alike, as equality requires.
-        return hash((self.base_magnitude(), tuple(sorted(self.unit.exponents().items()))))
+        if not self.unit.reduced or self.unit.zero_scale:
+            return hash((self.magnitude, self.unit))
+        exact = self._exact_base_magnitude()
+        base = self.base_magnitude() if exact is None else exact
+        return hash((base, tuple(sorted(self.unit.exponents().items()))))
 
     def __lt__(self, other: "Quantity") -> bool:
         return self._compare(other, "order") < 0
@@ -697,18 +722,26 @@ class SetValue:
     sends the elements in its canonical order, so equal sets arrive alike, and
     ``elements`` keeps that order for reading; equality ignores it. A set to
     send may hold its elements in any order — a Python ``set`` or ``frozenset``
-    is accepted too — but one listing an element twice is refused by the service
-    rather than read as one element. Elements need not be hashable: a nested
-    list is one.
+    is accepted too — but one listing an element twice, by :func:`same_value`,
+    is refused rather than read as one element. Elements need not be hashable:
+    a nested list is one.
 
     Attributes:
         elements (tuple): The elements, each once, in the order held
+
+    Raises:
+        ValueError: If an element is listed twice.
     """
 
     elements: Tuple[Any, ...]
 
     def __init__(self, elements: Iterable[Any] = ()) -> None:
-        object.__setattr__(self, "elements", tuple(elements))
+        held: List[Any] = []
+        for element in elements:
+            if any(same_value(element, other) for other in held):
+                raise ValueError(f"set lists a member twice: {element!r}")
+            held.append(element)
+        object.__setattr__(self, "elements", tuple(held))
 
     def __len__(self) -> int:
         return len(self.elements)
@@ -736,13 +769,11 @@ class SetValue:
         Raises:
             UnsupportedValueError: If the message lists a member twice.
         """
-        elements: List[Any] = []
-        for pb_value in pb_set.elements:
-            element = value_to_python(pb_value, resolve_instance)
-            if any(same_value(element, held) for held in elements):
-                raise UnsupportedValueError(f"malformed set: member listed twice: {element}")
-            elements.append(element)
-        return cls(elements)
+        elements = [value_to_python(pb_value, resolve_instance) for pb_value in pb_set.elements]
+        try:
+            return cls(elements)
+        except ValueError as exc:
+            raise UnsupportedValueError(f"malformed set: {exc}") from exc
 
     def to_pb(self, encode: Callable[[Any], "sysml_pb2.Value"]) -> "sysml_pb2.ValueSet":
         """Encode as a ``ValueSet`` message, each element through ``encode``."""
