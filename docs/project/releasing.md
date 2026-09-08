@@ -60,7 +60,9 @@ Then check the release-facing text:
 - The changelog fragments under `changes/unreleased/` are folded into a dated entry for this
   version: `python3 scripts/changelog.py release X.Y.Z` (or `--date YYYY-MM-DD`) appends them
   to the `## Unreleased` section, renames it, and deletes the fragments. Commit `CHANGELOG.md`
-  and the deletions together. The previous version's entry stays unchanged.
+  and the deletions together. The previous version's entry stays unchanged. Whether `X.Y.Z`
+  bumps the patch or the minor segment is decided by model compatibility, as
+  [CONTRIBUTING.md § Versioning](../../CONTRIBUTING.md#versioning) states.
 - `README.md` and `docs/guide/` transcripts match what the binary prints.
   Build it (`make build-sysml`) and paste a few commands through it.
 - `python3 scripts/check-doc-links.py` reports no broken link (CI gates on it too).

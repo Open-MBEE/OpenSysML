@@ -1,8 +1,9 @@
 # Changelog
 
 Notable changes per release. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Cutting a release
-is described in [docs/project/releasing.md](docs/project/releasing.md).
+version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and, before
+1.0, are decided by model compatibility as CONTRIBUTING.md § Versioning states. Cutting a
+release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
