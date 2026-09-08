@@ -339,3 +339,91 @@ package test {
 		t.Errorf("level = %s, want 9, the limit the metadata type declares", FormatValue(v))
 	}
 }
+
+// TestMetadataAccessRenamedRedefinition binds a metadata feature through a
+// redefinition that gives it a name of its own, at both body levels.
+func TestMetadataAccessRenamedRedefinition(t *testing.T) {
+	src := `
+package test {
+	private import ScalarValues::*;
+
+	metadata def Cause {
+		attribute code : Integer = 0;
+	}
+
+	metadata def Safety {
+		attribute level : Integer = 0;
+		attribute cause : Cause;
+	}
+
+	part def Vehicle;
+
+	part seatBelt : Vehicle {
+		@Safety {
+			attribute severity :>> level = 3;
+			cause {
+				attribute reason :>> code = 42;
+			}
+		}
+	}
+}
+`
+	ctx, got, err := evalDeclaredExpr(t, src, "test::seatBelt.metadata")
+	if err != nil {
+		t.Fatalf("seatBelt.metadata failed: %v", err)
+	}
+	safety, ok := ctx.getInstance(elementsOf(got)[0].Instance)
+	if !ok {
+		t.Fatal("the metadata value is no object")
+	}
+	if v := featureValue(t, ctx, safety, "level"); FormatValue(v) != "3" {
+		t.Errorf("level = %s, want the redefining binding 3", FormatValue(v))
+	}
+	id, isObject := featureValue(t, ctx, safety, "cause").Object()
+	if !isObject {
+		t.Fatal("cause holds no object")
+	}
+	cause, ok := ctx.getInstance(id)
+	if !ok {
+		t.Fatal("the object cause holds is not live")
+	}
+	if v := featureValue(t, ctx, cause, "code"); FormatValue(v) != "42" {
+		t.Errorf("cause.code = %s, want the redefining binding 42", FormatValue(v))
+	}
+}
+
+// TestMetadataAccessDependentBindings reads a body value naming a feature an
+// earlier binding of the same body bound: it reads what was bound, not the
+// default the metadata type declares.
+func TestMetadataAccessDependentBindings(t *testing.T) {
+	src := `
+package test {
+	private import ScalarValues::*;
+
+	metadata def Safety {
+		attribute level : Integer = 0;
+		attribute margin : Integer = 0;
+	}
+
+	part def Vehicle;
+
+	part seatBelt : Vehicle {
+		@Safety {
+			level = 2;
+			margin = level + 1;
+		}
+	}
+}
+`
+	ctx, got, err := evalDeclaredExpr(t, src, "test::seatBelt.metadata")
+	if err != nil {
+		t.Fatalf("seatBelt.metadata failed: %v", err)
+	}
+	safety, ok := ctx.getInstance(elementsOf(got)[0].Instance)
+	if !ok {
+		t.Fatal("the metadata value is no object")
+	}
+	if v := featureValue(t, ctx, safety, "margin"); FormatValue(v) != "3" {
+		t.Errorf("margin = %s, want 3, one more than the level bound before it", FormatValue(v))
+	}
+}

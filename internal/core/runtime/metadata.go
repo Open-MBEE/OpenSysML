@@ -104,7 +104,8 @@ func (ec *EvalContext) bindMetadataFeatures(typ *symbols.Symbol, inst *Instance,
 				ErrTypeMismatch, name, binding.Feature)
 		}
 		if binding.Value != nil {
-			val, err := NewEvalContext(ctx, binding.Scope).Eval(binding.Value)
+			// A value naming a sibling feature reads it off the object being bound.
+			val, err := NewEvalContextIn(ctx, binding.Scope, inst).Eval(binding.Value)
 			if err != nil {
 				return fmt.Errorf("metadata %s: %s: %w", name, binding.Feature, err)
 			}

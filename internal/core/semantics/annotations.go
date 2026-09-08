@@ -184,7 +184,7 @@ func metadataBindings(scope *symbols.Scope, body []ast.Node) []MetadataBinding {
 		if usage == nil {
 			continue
 		}
-		name := boundFeatureName(usage)
+		name := redefinedFeatureName(usage)
 		if name == "" {
 			continue
 		}
@@ -491,6 +491,20 @@ func boundFeatureName(u *ast.Usage) string {
 	if u.Ident.Name != "" {
 		return u.Ident.Name
 	}
+	return redefinitionTargetName(u)
+}
+
+// redefinedFeatureName is the metadata feature a body member writes to: the one
+// it redefines, which a name of its own renames rather than replaces.
+func redefinedFeatureName(u *ast.Usage) string {
+	if name := redefinitionTargetName(u); name != "" {
+		return name
+	}
+	return u.Ident.Name
+}
+
+// redefinitionTargetName is the feature a `:>> f` clause names, or "".
+func redefinitionTargetName(u *ast.Usage) string {
 	for _, rel := range u.Relationships {
 		if rel == nil || rel.Kind != ast.RelRedefines {
 			continue
