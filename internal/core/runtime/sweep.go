@@ -517,11 +517,12 @@ func (b sweepBounds) within(steps uint64) bool {
 	if math.IsInf(value, 0) {
 		return false
 	}
+	// The drift is compared as the distance it is, which no endpoint overflows.
 	slack := math.Min(1e-12*math.Max(math.Abs(b.to), math.Abs(value)), math.Abs(b.step)/2)
 	if b.step > 0 {
-		return value <= b.to+slack
+		return value-b.to <= slack
 	}
-	return value >= b.to-slack
+	return b.to-value <= slack
 }
 
 // at is the range's value the given number of steps from its start. An Integer
