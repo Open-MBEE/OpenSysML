@@ -718,7 +718,7 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 		}
 		return runtime.NewSequenceValue(seq), nil
 	case *pb.Value_Set:
-		return protoToSet(k.Set, idx, sem)
+		return protoToSet(rt, k.Set, idx, sem)
 	case *pb.Value_TensorQuantity:
 		return protoToTensorQuantity(k.TensorQuantity, idx, sem)
 	case *pb.Value_Array:
@@ -770,10 +770,10 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 
 // protoToSet rebuilds a set from elements sent in any order, refusing one sent
 // twice rather than reading the two as one.
-func protoToSet(ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	set := runtime.NewSet()
 	for i, elem := range ps.GetElements() {
-		val, err := ProtoToValueIn(elem, idx, sem)
+		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {
 			return runtime.Value{}, err
 		}

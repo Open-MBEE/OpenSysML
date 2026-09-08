@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -128,6 +129,47 @@ func TestFunctionRoundTrip(t *testing.T) {
 	elems := fns.GetSequence().GetElements()
 	if len(elems) != 2 || elems[0].GetFunction().GetCalcId() != "F::Sq" || elems[1].GetFunction().GetCalcId() != "F::Cube" {
 		t.Fatalf("F::fns = %v, want a sequence of the functions Sq and Cube", fns)
+	}
+
+	// A function binds wherever it is nested: in a set, in a set held in a
+	// sequence, and in a sequence held in a set.
+	sqCube := []*pb.Value{functionValue("F::Sq", 0), functionValue("F::Cube", 0)}
+	sequenceOf := func(elements ...*pb.Value) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: elements}}}
+	}
+	for name, nested := range map[string]*pb.Value{
+		"set":             setOf(sqCube...),
+		"set in sequence": sequenceOf(setOf(sqCube...)),
+		"sequence in set": setOf(sequenceOf(sqCube...)),
+	} {
+		rt, _, release := srv.newRuntime(cached)
+		back, err := ProtoToRuntimeValue(rt, nested, idx, sem)
+		if err != nil {
+			release()
+			t.Fatalf("ProtoToRuntimeValue(functions in a %s): %v", name, err)
+		}
+		var got []string
+		var walk func(v runtime.Value)
+		walk = func(v runtime.Value) {
+			switch v.Kind {
+			case runtime.ValSet:
+				for _, m := range v.Set().Elements() {
+					walk(m)
+				}
+			case runtime.ValSequence:
+				for _, m := range v.Sequence().Elements() {
+					walk(m)
+				}
+			default:
+				got = append(got, v.Kind.String()+" "+runtime.FormatValue(v))
+			}
+		}
+		walk(back)
+		slices.Sort(got)
+		if want := []string{"function F::Cube", "function F::Sq"}; !slices.Equal(got, want) {
+			t.Errorf("functions in a %s read back as %s holding %v, want %v", name, back.Kind, got, want)
+		}
+		release()
 	}
 
 	// A function read in applies as the argument of a calc and an action.
@@ -264,6 +306,11 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 			intValue(1), functionValue("F::Nope", 0),
 		}}}}, ErrFunctionUnbound},
 		{"nested in an array", arrayValue([]int64{1}, functionValue("", 0)), ErrFunctionUnbound},
+		{"nested in a set", setOf(intValue(1), functionValue("F::Nope", 0)), ErrFunctionUnbound},
+		{"nested in a set in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{
+			setOf(functionValue("F::Sq", 12345)),
+		}}}}, ErrFunctionUnbound},
+		{"listed twice in a set", setOf(functionValue("F::Sq", 0), functionValue("F::Sq", 0)), ErrSetElementRepeated},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -280,6 +327,7 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 	for name, val := range map[string]*pb.Value{
 		"bare":     functionValue("F::Sq", 0),
 		"in array": arrayValue([]int64{1}, functionValue("F::Sq", 0)),
+		"in set":   setOf(functionValue("F::Sq", 0)),
 	} {
 		if _, err := ProtoToValueIn(val, idx, sem); !errors.Is(err, ErrFunctionNeedsRuntime) {
 			t.Errorf("%s without a runtime: err = %v, want %v", name, err, ErrFunctionNeedsRuntime)
