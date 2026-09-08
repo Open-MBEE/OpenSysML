@@ -126,10 +126,9 @@ func (ec *EvalContext) castKeepsReading(
 	return ec.castNarrowerKeeps(value, target)
 }
 
-// castComposedKeeps decides a value against a composed target by its operands: a
-// union keeps what any of them keeps, an intersection what all of them keep, a
-// difference what the first keeps and none of the rest. The second result reports
-// whether the target is composed at all.
+// castComposedKeeps decides a value by a composed target's operands — any of a
+// union, all of an intersection, the first of a difference and none of the rest —
+// and reports second whether the target is composed at all.
 func (ec *EvalContext) castComposedKeeps(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol, reading map[*symbols.Symbol]bool,
 ) (bool, bool, error) {
