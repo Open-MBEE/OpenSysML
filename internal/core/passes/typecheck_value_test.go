@@ -301,8 +301,10 @@ func collectionValueDiags(t *testing.T, members string) []string {
 	diags := libraryDiags(t, `package P {
 		private import ScalarValues::*;
 		private import ControlFunctions::*;
-		part def Vehicle; part def Truck :> Vehicle; part def Boat;
+		part def Vehicle; part def Truck :> Vehicle; part def Car :> Vehicle; part def Boat;
 		part vs : Vehicle[*];
+		part truck : Truck;
+		part car : Car;
 		part one : Vehicle[1];
 		part two : Vehicle[2..*];
 		part none : Vehicle[0];
@@ -455,6 +457,29 @@ func TestValueSelectShorthandOfSequenceTypesFeature(t *testing.T) {
 	wantCollectionValueDiags(t, `
 		part any = (one, boat).?{ in v; true };
 		function F { return r : Boat; any }`)
+}
+
+// Sibling elements kept or mapped to share their nearest supertype: a feature valued by a
+// selection of a Truck and a Car is a Vehicle, so it is judged as one where it is bound or cast.
+func TestValueSiblingElementsShareSupertype(t *testing.T) {
+	for _, keep := range []string{`.?{ in v : Vehicle; true }`, `->select { in v : Vehicle; true }`} {
+		wantCollectionValueDiags(t, `
+			part kin = (truck, car)`+keep+`;
+			function F { return r : Boat; kin }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part kin = (truck, car)`+keep+`;
+			part b = kin as Boat;`,
+			"cast argument is typed by Vehicle, unrelated to the target Boat: neither type specializes the other, so the cast selects no value")
+		wantCollectionValueDiags(t, `
+			part kin = (truck, car)`+keep+`;
+			function F { return r : Vehicle; kin }
+			part t = kin as Truck;`)
+	}
+	wantCollectionValueDiags(t, `
+		part kin = vs.{ in v : Vehicle; (truck, car) };
+		function F { return r : Boat; kin }`,
+		"Bound features should have conforming types")
 }
 
 // A collection value's body is checked once, as inferring the value: reading the types of

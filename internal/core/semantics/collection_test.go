@@ -137,8 +137,8 @@ func TestCollectionResultMultiplicity(t *testing.T) {
 }
 
 // A nested collect types the outer body by the inner result; a body returning a
-// sequence is typed by what every element conforms to — nothing, so Anything, where
-// the elements share no type.
+// sequence is typed by what every element conforms to — the nearest supertype the
+// elements share, Anything where an element is untyped.
 func TestCollectionNestedAndSequenceBodies(t *testing.T) {
 	m, s := collectionModel(t, `
 		attribute nested = cs->collect { in x : C; cs->collect { in y : C; y.name } };
@@ -152,7 +152,7 @@ func TestCollectionNestedAndSequenceBodies(t *testing.T) {
 	wantValueTypes(t, m, s, "nested2", "MassValue")
 	wantValueTypes(t, m, s, "pairs", "MassValue")
 	wantValueTypes(t, m, s, "widened", "Real")
-	wantValueTypes(t, m, s, "mixed", "Anything")
+	wantValueTypes(t, m, s, "mixed", "ScalarValue")
 	wantValueTypes(t, m, s, "partly", "Anything")
 	wantValueTypes(t, m, s, "chained", "String")
 }
@@ -524,6 +524,26 @@ func TestCollectionSelectShorthandElements(t *testing.T) {
 	}
 }
 
+// Elements of sibling types share their nearest common supertype, not Anything: a selection or
+// a body keeping a Truck and a Car is a collection of Vehicles; one keeping a Truck and a
+// String shares nothing worth saying.
+func TestCollectionSiblingElementsShareSupertype(t *testing.T) {
+	m, s := collectionModel(t, `
+		part def T :> C; part def U :> C; part def V :> U;
+		part t : T; part u : U; part v : V;
+		attribute kin = (t, u).?{ in x : C; true };
+		attribute kin2 = (t, u)->select { in x : C; true };
+		attribute kin3 = cs.{ in x : C; (t, v) };
+		attribute kin4 = (t, u, v)->reject { in x : C; false };
+		attribute line = (u, v).?{ in x : C; true };
+		attribute apart = (t, "s").?{ in x; true };`)
+	for _, name := range []string{"kin", "kin2", "kin3", "kin4"} {
+		wantValueTypes(t, m, s, name, "C")
+	}
+	wantValueTypes(t, m, s, "line", "U")
+	wantValueTypes(t, m, s, "apart", "Anything")
+}
+
 // An element that is itself a collection value contributes the elements it holds: a nested
 // collect's literals, a selection's elements, none from one over nothing.
 func TestCollectionNestedElements(t *testing.T) {
@@ -583,7 +603,7 @@ func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "Integer" {
 		t.Errorf("named: elements %v, want the reducer's Integer alone", elements)
 	}
-	wantValueTypes(t, m, s, "unsure", "Anything")
+	wantValueTypes(t, m, s, "unsure", "ScalarValue")
 	if elements, ok := m.CollectionElements(s, valueOf(t, s, "unsure")); !ok || len(elements) != 2 {
 		t.Errorf("unsure: elements %v, want the reducer's Integer and the mapper's String", elements)
 	}

@@ -612,7 +612,8 @@ func (m *Model) sharedAmong(lists [][]*symbols.Symbol) []*symbols.Symbol {
 	return common
 }
 
-// sharedTypes is the types of either list a value of each list conforms to.
+// sharedTypes is the most specific types a value of each list conforms to: those of either
+// list, else the nearest supertypes the lists share (Truck and Car share Vehicle).
 func (m *Model) sharedTypes(a, b []*symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, list := range [][]*symbols.Symbol{a, b} {
@@ -622,7 +623,40 @@ func (m *Model) sharedTypes(a, b []*symbols.Symbol) []*symbols.Symbol {
 			}
 		}
 	}
+	if len(out) > 0 {
+		return out
+	}
+	return m.nearestShared(a, b)
+}
+
+// nearestShared is the supertypes of a's types a value of each list conforms to, less any a
+// more specific one among them specializes.
+func (m *Model) nearestShared(a, b []*symbols.Symbol) []*symbols.Symbol {
+	var shared []*symbols.Symbol
+	for _, typ := range a {
+		for _, sup := range m.AllSupertypes(typ) {
+			if !containsElement(shared, sup) && m.anyConforms(a, sup) && m.anyConforms(b, sup) {
+				shared = append(shared, sup)
+			}
+		}
+	}
+	var out []*symbols.Symbol
+	for _, typ := range shared {
+		if !m.anySpecializes(shared, typ) {
+			out = append(out, typ)
+		}
+	}
 	return out
+}
+
+// anySpecializes reports a type among types conforming to want that want does not conform to.
+func (m *Model) anySpecializes(types []*symbols.Symbol, want *symbols.Symbol) bool {
+	for _, typ := range types {
+		if typ != want && m.Conforms(typ, want) && !m.Conforms(want, typ) {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Model) anyConforms(types []*symbols.Symbol, want *symbols.Symbol) bool {
