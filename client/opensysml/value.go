@@ -9,8 +9,8 @@ import (
 
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
-// Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef and
-// Function, and a type switch over them is exhaustive.
+// Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
+// Function, Set and TensorQuantity, and a type switch over them is exhaustive.
 type Value interface {
 	isValue()
 }
@@ -140,6 +140,23 @@ type Vector []Number
 // reduction included, since the axes need not share a unit.
 type VectorQuantity []Quantity
 
+// Set is a unique, unordered collection — a Collections::Set's elements — as
+// distinct from a Sequence, whose order is part of its value. The service
+// sends the elements in its canonical order, so equal sets arrive alike; a
+// caller may list them in any order, but listing one twice is refused by the
+// service rather than read as one element.
+type Set []Value
+
+// TensorQuantity is a tensor quantity of any rank: one Quantity per component,
+// unit and reduction included, in row-major order under its dimensions. A
+// tensor of rank one is not a VectorQuantity, here as in the runtime.
+type TensorQuantity struct {
+	// Dimensions are the positive extents, one per rank.
+	Dimensions []int64
+	// Components fill the dimensions in row-major order.
+	Components []Quantity
+}
+
 // String renders the quantity as it was written: magnitude then unit.
 func (q Quantity) String() string {
 	magnitude := fmt.Sprintf("%v", q.Magnitude)
@@ -194,6 +211,42 @@ func (vq VectorQuantity) String() string {
 	out := "⟨" + strings.Join(parts, ", ") + "⟩"
 	if shared && vq[0].Unit != "" {
 		out += " " + vq[0].Unit
+	}
+	return out
+}
+
+// String renders the set as SysML traces format it: `{1, 2, 3}`, the elements
+// in the order held.
+func (s Set) String() string {
+	parts := make([]string, len(s))
+	for i, e := range s {
+		parts[i] = fmt.Sprintf("%v", e)
+	}
+	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// String renders the tensor as SysML formats it: `Tensor(2, 2, 2)[1.0, 2.0, ...] m`
+// when every component shares a unit, else each component with its own.
+func (tq TensorQuantity) String() string {
+	dims := make([]string, len(tq.Dimensions))
+	for i, d := range tq.Dimensions {
+		dims[i] = fmt.Sprintf("%d", d)
+	}
+	shared := len(tq.Components) > 0
+	for _, q := range tq.Components[min(1, len(tq.Components)):] {
+		shared = shared && q.Unit == tq.Components[0].Unit
+	}
+	parts := make([]string, len(tq.Components))
+	for i, q := range tq.Components {
+		if shared {
+			parts[i] = fmt.Sprintf("%v", q.Magnitude)
+		} else {
+			parts[i] = q.String()
+		}
+	}
+	out := "Tensor(" + strings.Join(dims, ", ") + ")[" + strings.Join(parts, ", ") + "]"
+	if shared && tq.Components[0].Unit != "" {
+		out += " " + tq.Components[0].Unit
 	}
 	return out
 }
@@ -267,6 +320,8 @@ func (Vector) isValue()         { /* marker: closed Value set */ }
 func (VectorQuantity) isValue() { /* marker: closed Value set */ }
 func (MeasurementRef) isValue() { /* marker: closed Value set */ }
 func (Function) isValue()       { /* marker: closed Value set */ }
+func (Set) isValue()            { /* marker: closed Value set */ }
+func (TensorQuantity) isValue() { /* marker: closed Value set */ }
 
 func (Int) isNumber()  { /* marker: closed Number set */ }
 func (Real) isNumber() { /* marker: closed Number set */ }

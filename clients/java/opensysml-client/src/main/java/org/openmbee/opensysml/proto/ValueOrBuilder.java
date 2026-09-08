@@ -371,5 +371,59 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder();
 
+  /**
+   * <pre>
+   * distinct elements with no order of their own
+   * </pre>
+   *
+   * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+   * @return Whether the set field is set.
+   */
+  boolean hasSet();
+  /**
+   * <pre>
+   * distinct elements with no order of their own
+   * </pre>
+   *
+   * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+   * @return The set.
+   */
+  org.openmbee.opensysml.proto.ValueSet getSet();
+  /**
+   * <pre>
+   * distinct elements with no order of their own
+   * </pre>
+   *
+   * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+   */
+  org.openmbee.opensysml.proto.ValueSetOrBuilder getSetOrBuilder();
+
+  /**
+   * <pre>
+   * shape and one Quantity per component
+   * </pre>
+   *
+   * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+   * @return Whether the tensorQuantity field is set.
+   */
+  boolean hasTensorQuantity();
+  /**
+   * <pre>
+   * shape and one Quantity per component
+   * </pre>
+   *
+   * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+   * @return The tensorQuantity.
+   */
+  org.openmbee.opensysml.proto.TensorQuantity getTensorQuantity();
+  /**
+   * <pre>
+   * shape and one Quantity per component
+   * </pre>
+   *
+   * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+   */
+  org.openmbee.opensysml.proto.TensorQuantityOrBuilder getTensorQuantityOrBuilder();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

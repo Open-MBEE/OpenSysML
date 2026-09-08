@@ -254,17 +254,7 @@ impl Array {
     /// Builds an array, checking that every dimension is positive and that
     /// the elements fill the dimensions exactly.
     pub fn new(dimensions: Vec<i64>, elements: Vec<Value>) -> Result<Self, Error> {
-        let mut size: i64 = 1;
-        for &extent in &dimensions {
-            if extent <= 0 {
-                return Err(Error::Decode(format!(
-                    "array dimension is not positive: {extent}"
-                )));
-            }
-            size = size.checked_mul(extent).ok_or_else(|| {
-                Error::Decode(format!("array dimensions {dimensions:?} overflow"))
-            })?;
-        }
+        let size = shape_size("array", &dimensions)?;
         if u64::try_from(size).ok() != u64::try_from(elements.len()).ok() {
             return Err(Error::Decode(format!(
                 "array of dimensions {dimensions:?} holds {} element(s), want {size}",
@@ -295,17 +285,7 @@ impl Array {
     /// The element at a multi-index, one coordinate per dimension; `None` when
     /// the index has the wrong rank or a coordinate is outside its dimension.
     pub fn get(&self, index: &[i64]) -> Option<&Value> {
-        if index.len() != self.dimensions.len() {
-            return None;
-        }
-        let mut flat: i64 = 0;
-        for (&coordinate, &extent) in index.iter().zip(&self.dimensions) {
-            if coordinate < 0 || coordinate >= extent {
-                return None;
-            }
-            flat = flat * extent + coordinate;
-        }
-        self.elements.get(usize::try_from(flat).ok()?)
+        row_major(&self.dimensions, index).and_then(|flat| self.elements.get(flat))
     }
 }
 
@@ -367,6 +347,153 @@ impl VectorQuantity {
             .all(|component| component.unit == *first)
             .then_some(first.as_str())
     }
+}
+
+/// A unique, unordered collection: a `Collections::Set`'s elements.
+///
+/// The service sends the members in its canonical order (numbers ascending,
+/// then strings, and so on), each exactly once; two sets are equal when they
+/// hold the same members whatever the order. A service advertising
+/// `set_values` sends one as itself; an older one sends an unsupported
+/// [`Value::Null`] in its place.
+#[derive(Clone, Debug)]
+pub struct Set {
+    elements: Vec<Value>,
+}
+
+impl Set {
+    /// Builds a set, refusing one that lists a member twice.
+    pub fn new(elements: Vec<Value>) -> Result<Self, Error> {
+        for (i, element) in elements.iter().enumerate() {
+            if elements[..i].contains(element) {
+                return Err(Error::Decode(format!(
+                    "set lists a member twice: {element:?}"
+                )));
+            }
+        }
+        Ok(Self { elements })
+    }
+
+    /// The members, each once, in the order the service sent them.
+    pub fn elements(&self) -> &[Value] {
+        &self.elements
+    }
+
+    /// Number of members.
+    pub fn len(&self) -> usize {
+        self.elements.len()
+    }
+
+    /// Whether the set has no members.
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
+    /// Whether `value` is a member.
+    pub fn contains(&self, value: &Value) -> bool {
+        self.elements.contains(value)
+    }
+}
+
+impl PartialEq for Set {
+    /// Order-insensitive: the same members in any order are the same set.
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.elements.iter().all(|e| other.contains(e))
+    }
+}
+
+/// A tensor of quantities of any rank: its shape, and its components
+/// flattened in row-major order, each a [`Quantity`] with its own unit.
+///
+/// A rank-one tensor stays a tensor, distinct from a [`VectorQuantity`]. A
+/// service advertising `tensor_values` sends one as itself; an older one
+/// sends an unsupported [`Value::Null`] in its place.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TensorQuantity {
+    dimensions: Vec<i64>,
+    components: Vec<Quantity>,
+}
+
+impl TensorQuantity {
+    /// Builds a tensor, checking that every dimension is positive and that
+    /// the components fill the dimensions exactly.
+    pub fn new(dimensions: Vec<i64>, components: Vec<Quantity>) -> Result<Self, Error> {
+        let size = shape_size("tensor quantity", &dimensions)?;
+        if u64::try_from(size).ok() != u64::try_from(components.len()).ok() {
+            return Err(Error::Decode(format!(
+                "tensor quantity of dimensions {dimensions:?} holds {} component(s), want {size}",
+                components.len()
+            )));
+        }
+        Ok(Self {
+            dimensions,
+            components,
+        })
+    }
+
+    /// Extent of each dimension, all positive.
+    pub fn dimensions(&self) -> &[i64] {
+        &self.dimensions
+    }
+
+    /// Number of dimensions.
+    pub fn rank(&self) -> usize {
+        self.dimensions.len()
+    }
+
+    /// The components in row-major order.
+    pub fn components(&self) -> &[Quantity] {
+        &self.components
+    }
+
+    /// The component at a multi-index, one coordinate per dimension; `None`
+    /// when the index has the wrong rank or a coordinate is outside its
+    /// dimension.
+    pub fn get(&self, index: &[i64]) -> Option<&Quantity> {
+        row_major(&self.dimensions, index).and_then(|flat| self.components.get(flat))
+    }
+
+    /// The one unit every component is written in, or `None` when they differ
+    /// (a rank-0 tensor has exactly one component, so always its unit).
+    pub fn unit(&self) -> Option<&str> {
+        let first = &self.components.first()?.unit;
+        self.components
+            .iter()
+            .all(|component| component.unit == *first)
+            .then_some(first.as_str())
+    }
+}
+
+/// The element count a shape describes, refusing a non-positive extent or
+/// one that overflows.
+fn shape_size(what: &str, dimensions: &[i64]) -> Result<i64, Error> {
+    let mut size: i64 = 1;
+    for &extent in dimensions {
+        if extent <= 0 {
+            return Err(Error::Decode(format!(
+                "{what} dimension is not positive: {extent}"
+            )));
+        }
+        size = size
+            .checked_mul(extent)
+            .ok_or_else(|| Error::Decode(format!("{what} dimensions {dimensions:?} overflow")))?;
+    }
+    Ok(size)
+}
+
+/// The row-major offset of a multi-index, `None` when it is out of shape.
+fn row_major(dimensions: &[i64], index: &[i64]) -> Option<usize> {
+    if index.len() != dimensions.len() {
+        return None;
+    }
+    let mut flat: i64 = 0;
+    for (&coordinate, &extent) in index.iter().zip(dimensions) {
+        if coordinate < 0 || coordinate >= extent {
+            return None;
+        }
+        flat = flat * extent + coordinate;
+    }
+    usize::try_from(flat).ok()
 }
 
 /// A measurement unit held as a value by itself, with no magnitude: `SI::m`,
@@ -434,6 +561,10 @@ pub enum Value {
     MeasurementRef(MeasurementRef),
     /// A calc held as a value.
     Function(Function),
+    /// A unique, unordered collection.
+    Set(Set),
+    /// A tensor of quantities of any rank.
+    TensorQuantity(TensorQuantity),
     /// Explicit null value.
     Null,
     /// A materialized feature with no value.
@@ -503,6 +634,19 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 self_id: (v.self_id != 0).then_some(v.self_id),
             }))
         }
+        wire::value::Kind::Set(v) => Ok(Value::Set(Set::new(
+            v.elements
+                .into_iter()
+                .map(value_from_wire)
+                .collect::<Result<_, _>>()?,
+        )?)),
+        wire::value::Kind::TensorQuantity(v) => Ok(Value::TensorQuantity(TensorQuantity::new(
+            v.dimensions,
+            v.components
+                .into_iter()
+                .map(quantity_from_wire)
+                .collect::<Result<_, _>>()?,
+        )?)),
         wire::value::Kind::EnumLiteral(v) => Ok(Value::EnumLiteral(EnumLiteral {
             literal_id: v.literal_id,
             enumeration_id: v.enumeration_id,
@@ -541,6 +685,8 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::VectorQuantity(_) => "vector_quantity",
         wire::value::Kind::MeasurementRef(_) => "measurement_ref",
         wire::value::Kind::Function(_) => "function",
+        wire::value::Kind::Set(_) => "set",
+        wire::value::Kind::TensorQuantity(_) => "tensor_quantity",
     }
 }
 
@@ -1257,6 +1403,194 @@ mod tests {
         ));
         assert!(matches!(
             value_from_wire(vector_quantity(vec![wire::Quantity::default()])),
+            Err(Error::Decode(message)) if message.contains("no magnitude")
+        ));
+    }
+
+    fn set(elements: Vec<wire::Value>) -> wire::Value {
+        wire::Value {
+            kind: Some(wire::value::Kind::Set(wire::ValueSet { elements })),
+        }
+    }
+
+    fn tensor(dimensions: Vec<i64>, components: Vec<wire::Quantity>) -> wire::Value {
+        wire::Value {
+            kind: Some(wire::value::Kind::TensorQuantity(wire::TensorQuantity {
+                dimensions,
+                components,
+            })),
+        }
+    }
+
+    #[test]
+    fn a_set_holds_each_member_once_and_compares_in_any_order() {
+        let Ok(Value::Set(members)) = value_from_wire(set(vec![int(1), int(2), int(3)])) else {
+            panic!("a set should decode");
+        };
+        assert_eq!(members.len(), 3);
+        assert!(!members.is_empty());
+        assert_eq!(
+            members.elements(),
+            [Value::Integer(1), Value::Integer(2), Value::Integer(3)]
+        );
+        assert!(members.contains(&Value::Integer(2)));
+        assert!(!members.contains(&Value::Integer(4)));
+        assert!(!members.contains(&Value::Real(2.0)));
+
+        // The same members in another order are the same set; a sequence is not.
+        let reordered = Set::new(vec![
+            Value::Integer(3),
+            Value::Integer(1),
+            Value::Integer(2),
+        ])
+        .expect("three distinct members");
+        assert_eq!(members, reordered);
+        assert_ne!(
+            Value::Set(members.clone()),
+            Value::Sequence(vec![
+                Value::Integer(1),
+                Value::Integer(2),
+                Value::Integer(3)
+            ])
+        );
+        assert_ne!(
+            members,
+            Set::new(vec![Value::Integer(1), Value::Integer(2)]).expect("two members")
+        );
+
+        // An empty set is a set; a set nests.
+        let Ok(Value::Set(empty)) = value_from_wire(set(vec![])) else {
+            panic!("an empty set should decode");
+        };
+        assert!(empty.is_empty());
+        let Ok(Value::Set(nested)) = value_from_wire(set(vec![set(vec![int(1)]), set(vec![])]))
+        else {
+            panic!("a set of sets should decode");
+        };
+        assert_eq!(nested.len(), 2);
+        assert!(nested.contains(&Value::Set(empty)));
+        let Ok(Value::Sequence(holding)) = value_from_wire(wire::Value {
+            kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
+                elements: vec![set(vec![int(1)]), int(2)],
+            })),
+        }) else {
+            panic!("a sequence holding a set should decode");
+        };
+        assert!(matches!(holding[0], Value::Set(_)));
+
+        // A member listed twice is not a set.
+        let twice = value_from_wire(set(vec![int(1), int(1)]));
+        assert!(
+            matches!(&twice, Err(Error::Decode(message)) if message.contains("twice")),
+            "{twice:?}"
+        );
+        assert!(matches!(
+            value_from_wire(set(vec![wire::Value { kind: None }])),
+            Err(Error::Decode(message)) if message.contains("no kind")
+        ));
+    }
+
+    #[test]
+    fn a_tensor_quantity_keeps_its_rank_shape_and_row_major_components() {
+        let Ok(Value::TensorQuantity(cube)) = value_from_wire(tensor(
+            vec![2, 2, 2],
+            (1..=8).map(|i| metres(f64::from(i))).collect(),
+        )) else {
+            panic!("a (2, 2, 2) tensor should decode");
+        };
+        assert_eq!(cube.rank(), 3);
+        assert_eq!(cube.dimensions(), [2, 2, 2]);
+        assert_eq!(cube.components().len(), 8);
+        assert_eq!(cube.unit(), Some("m"));
+        assert_eq!(
+            cube.get(&[1, 0, 1]).map(|q| q.magnitude),
+            Some(Magnitude::Real(6.0))
+        );
+        assert_eq!(
+            cube.get(&[0, 0, 0]).map(|q| q.magnitude),
+            Some(Magnitude::Real(1.0))
+        );
+        assert_eq!(
+            cube.get(&[1, 1, 1]).map(|q| q.magnitude),
+            Some(Magnitude::Real(8.0))
+        );
+        assert_eq!(cube.get(&[1, 1]), None);
+        assert_eq!(cube.get(&[1, 1, 1, 0]), None);
+        assert_eq!(cube.get(&[2, 0, 0]), None);
+        assert_eq!(cube.get(&[0, -1, 0]), None);
+
+        // A rank-one tensor stays a tensor, never a vector quantity.
+        let Ok(Value::TensorQuantity(line)) =
+            value_from_wire(tensor(vec![2], vec![metres(1.0), metres(2.0)]))
+        else {
+            panic!("a rank-1 tensor should decode");
+        };
+        assert_eq!(line.rank(), 1);
+        assert_ne!(
+            Value::TensorQuantity(line),
+            Value::VectorQuantity(
+                VectorQuantity::new(vec![
+                    Quantity {
+                        magnitude: Magnitude::Real(1.0),
+                        unit: "m".to_owned(),
+                        unit_term: Some(metre_term()),
+                    },
+                    Quantity {
+                        magnitude: Magnitude::Real(2.0),
+                        unit: "m".to_owned(),
+                        unit_term: Some(metre_term()),
+                    },
+                ])
+                .expect("two components")
+            )
+        );
+
+        // Components with differing units report no shared one.
+        let speed = wire::Quantity {
+            magnitude: Some(wire::quantity::Magnitude::IntMagnitude(5)),
+            unit: "m/s".to_owned(),
+            unit_term: None,
+        };
+        let Ok(Value::TensorQuantity(mixed)) =
+            value_from_wire(tensor(vec![1, 2], vec![metres(1.0), speed]))
+        else {
+            panic!("a mixed tensor should decode");
+        };
+        assert_eq!(mixed.unit(), None);
+        assert_eq!(
+            mixed.get(&[0, 1]).map(|q| q.magnitude),
+            Some(Magnitude::Integer(5))
+        );
+    }
+
+    #[test]
+    fn a_malformed_tensor_quantity_is_refused() {
+        let short = value_from_wire(tensor(
+            vec![2, 2],
+            vec![metres(1.0), metres(2.0), metres(3.0)],
+        ));
+        assert!(
+            matches!(&short, Err(Error::Decode(message)) if message.contains("want 4")),
+            "{short:?}"
+        );
+        assert!(matches!(
+            value_from_wire(tensor(vec![], vec![metres(1.0), metres(2.0)])),
+            Err(Error::Decode(message)) if message.contains("want 1")
+        ));
+        assert!(matches!(
+            value_from_wire(tensor(vec![0], vec![])),
+            Err(Error::Decode(message)) if message.contains("not positive")
+        ));
+        assert!(matches!(
+            value_from_wire(tensor(vec![-1], vec![metres(1.0)])),
+            Err(Error::Decode(message)) if message.contains("not positive")
+        ));
+        assert!(matches!(
+            value_from_wire(tensor(vec![i64::MAX, 2], vec![])),
+            Err(Error::Decode(message)) if message.contains("overflow")
+        ));
+        assert!(matches!(
+            value_from_wire(tensor(vec![1], vec![wire::Quantity::default()])),
             Err(Error::Decode(message)) if message.contains("no magnitude")
         ));
     }

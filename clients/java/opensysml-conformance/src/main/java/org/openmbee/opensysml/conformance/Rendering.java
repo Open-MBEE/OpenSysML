@@ -12,10 +12,12 @@ import org.openmbee.opensysml.proto.MultiplicityInfo;
 import org.openmbee.opensysml.proto.Span;
 import org.openmbee.opensysml.proto.Specialization;
 import org.openmbee.opensysml.proto.SymbolInfo;
+import org.openmbee.opensysml.proto.TensorQuantity;
 import org.openmbee.opensysml.proto.TypeInfo;
 import org.openmbee.opensysml.proto.UnitFactor;
 import org.openmbee.opensysml.proto.UnitTerm;
 import org.openmbee.opensysml.proto.ValueSequence;
+import org.openmbee.opensysml.proto.ValueSet;
 import java.util.List;
 import java.util.Map;
 
@@ -92,6 +94,15 @@ final class Rendering {
           org.openmbee.opensysml.proto.Function.newBuilder()
               .setCalcId(function.calcId())
               .setSelfId(function.selfId().orElse(0L)));
+    } else if (value instanceof Value.SetValue set) {
+      ValueSet.Builder elements = ValueSet.newBuilder();
+      set.elements().forEach(element -> elements.addElements(value(element)));
+      builder.setSet(elements);
+    } else if (value instanceof Value.TensorQuantityValue tensor) {
+      TensorQuantity.Builder components =
+          TensorQuantity.newBuilder().addAllDimensions(tensor.dimensions());
+      tensor.components().forEach(component -> components.addComponents(quantity(component)));
+      builder.setTensorQuantity(components);
     } else {
       throw new IllegalStateException("no rendering for " + value.getClass());
     }

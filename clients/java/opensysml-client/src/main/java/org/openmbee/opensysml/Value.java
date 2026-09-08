@@ -3,6 +3,7 @@ package org.openmbee.opensysml;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A value the service evaluated: an immutable variant of {@code sysml.Value}.
@@ -329,6 +330,161 @@ public sealed interface Value {
      */
     public int dimension() {
       return components.size();
+    }
+
+    /**
+     * The one unit every component is written in, or empty when they differ.
+     *
+     * @return the shared unit as written, when there is one
+     */
+    public Optional<String> unit() {
+      Optional<String> first = components.get(0).unit();
+      for (Quantity component : components) {
+        if (!component.unit().equals(first)) {
+          return Optional.empty();
+        }
+      }
+      return first;
+    }
+  }
+
+  /**
+   * A unique, unordered collection: a {@code Collections::Set}'s elements.
+   *
+   * <p>The service sends the members in its canonical order (numbers ascending, then strings, and
+   * so on), each exactly once; two sets are equal when they hold the same members in any order.
+   * Only a service advertising the {@code set_values} capability reports one as itself rather
+   * than as an unsupported {@link NullValue}.
+   *
+   * @param elements the members, each once, in the order the service sent them
+   */
+  record SetValue(List<Value> elements) implements Value {
+    /**
+     * Creates a set, copying the members.
+     *
+     * @param elements the members, never {@code null}
+     * @throws IllegalArgumentException if a member is listed twice
+     */
+    public SetValue {
+      elements = List.copyOf(elements);
+      for (int i = 0; i < elements.size(); i++) {
+        if (elements.subList(0, i).contains(elements.get(i))) {
+          throw new IllegalArgumentException("set lists a member twice: " + elements.get(i));
+        }
+      }
+    }
+
+    /**
+     * Number of members.
+     *
+     * @return the size
+     */
+    public int size() {
+      return elements.size();
+    }
+
+    /**
+     * Whether the set has no members.
+     *
+     * @return {@code true} for the empty set
+     */
+    public boolean isEmpty() {
+      return elements.isEmpty();
+    }
+
+    /**
+     * Whether a value is a member.
+     *
+     * @param value the value to look for
+     * @return {@code true} when the set holds it
+     */
+    public boolean contains(Value value) {
+      return elements.contains(value);
+    }
+
+    /** Order-insensitive: the same members in any order are the same set. */
+    @Override
+    public boolean equals(Object other) {
+      return other instanceof SetValue that
+          && elements.size() == that.elements.size()
+          && elements.containsAll(that.elements);
+    }
+
+    @Override
+    public int hashCode() {
+      return Set.copyOf(elements).hashCode();
+    }
+  }
+
+  /**
+   * A tensor of quantities of any rank: its shape and its components flattened in row-major order,
+   * each a {@link Quantity} with its own unit. A rank-one tensor stays a tensor, distinct from a
+   * {@link VectorQuantityValue}.
+   *
+   * <p>Only a service advertising the {@code tensor_values} capability reports one as itself
+   * rather than as an unsupported {@link NullValue}.
+   *
+   * @param dimensions the extent of each dimension, all positive
+   * @param components the components, row-major, exactly as many as the dimensions multiply to
+   */
+  record TensorQuantityValue(List<Long> dimensions, List<Quantity> components) implements Value {
+    /**
+     * Creates a tensor, copying the dimensions and the components.
+     *
+     * @param dimensions the extent of each dimension, never {@code null}
+     * @param components the components, never {@code null}
+     * @throws IllegalArgumentException if a dimension is not positive, or the components do not
+     *     fill the dimensions exactly
+     */
+    public TensorQuantityValue {
+      dimensions = List.copyOf(dimensions);
+      components = List.copyOf(components);
+      long size = 1;
+      for (long extent : dimensions) {
+        if (extent <= 0) {
+          throw new IllegalArgumentException("tensor dimension is not positive: " + extent);
+        }
+        size = Math.multiplyExact(size, extent);
+      }
+      if (size != components.size()) {
+        throw new IllegalArgumentException(
+            "tensor of dimensions " + dimensions + " holds " + components.size()
+                + " component(s), want " + size);
+      }
+    }
+
+    /**
+     * Number of dimensions.
+     *
+     * @return the rank
+     */
+    public int rank() {
+      return dimensions.size();
+    }
+
+    /**
+     * The component at a multi-index, one coordinate per dimension.
+     *
+     * @param index the coordinates, each within its dimension
+     * @return the component there
+     * @throws IndexOutOfBoundsException if the index has the wrong rank or a coordinate is outside
+     *     its dimension
+     */
+    public Quantity get(long... index) {
+      if (index.length != dimensions.size()) {
+        throw new IndexOutOfBoundsException(
+            "index has " + index.length + " coordinate(s), tensor has rank " + dimensions.size());
+      }
+      long flat = 0;
+      for (int i = 0; i < index.length; i++) {
+        long extent = dimensions.get(i);
+        if (index[i] < 0 || index[i] >= extent) {
+          throw new IndexOutOfBoundsException(
+              "coordinate " + index[i] + " is outside dimension " + i + " of extent " + extent);
+        }
+        flat = flat * extent + index[i];
+      }
+      return components.get((int) flat);
     }
 
     /**

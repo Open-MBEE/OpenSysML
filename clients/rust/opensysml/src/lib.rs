@@ -17,7 +17,8 @@ pub use connection::Connection;
 pub use domain::{
     Array, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation, FeatureValue,
     Function, Instance, Instantiation, Language, Magnitude, MeasurementRef, Model, ParseOptions,
-    Quantity, ServerInfo, Span, Symbol, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
+    Quantity, ServerInfo, Set, Span, Symbol, TensorQuantity, UnitFactor, UnitTerm, Value, Vector,
+    VectorQuantity,
 };
 pub use error::{Error, Status};
 

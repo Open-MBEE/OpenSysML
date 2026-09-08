@@ -11,10 +11,12 @@ import {
   FunctionSchema,
   MeasurementRefSchema,
   QuantitySchema,
+  TensorQuantitySchema,
   UnitFactorSchema,
   UnitTermSchema,
   ValueSchema,
   ValueSequenceSchema,
+  ValueSetSchema,
   VectorQuantitySchema,
   VectorSchema,
   VerdictSchema,
@@ -273,6 +275,95 @@ test("a vector quantity carries one quantity per component, each with its unit",
   );
 });
 
+const setOf = (...elements: ReturnType<typeof int>[]) =>
+  create(ValueSchema, { kind: { case: "set", value: create(ValueSetSchema, { elements }) } });
+const tensor = (dimensions: bigint[], ...components: ReturnType<typeof metres>[]) =>
+  create(ValueSchema, {
+    kind: { case: "tensorQuantity", value: create(TensorQuantitySchema, { dimensions, components }) },
+  });
+
+test("a set is its elements, each once, in the order the service sent them", () => {
+  const set = decodeValue(setOf(int(1n), int(2n), int(3n)));
+  assert.deepEqual(set, { kind: "set", elements: [1n, 2n, 3n].map((value) => ({ kind: "int", value })) });
+  assert.equal(formatValue(set), "{1, 2, 3}");
+
+  // An empty set is a set of nothing, distinct from an empty sequence.
+  assert.deepEqual(decodeValue(setOf()), { kind: "set", elements: [] });
+  assert.equal(formatValue({ kind: "set", elements: [] }), "{}");
+
+  // A set nests, and is nested, in place.
+  const nested = decodeValue(setOf(setOf(int(1n)), setOf()));
+  assert.deepEqual(nested, {
+    kind: "set",
+    elements: [{ kind: "set", elements: [{ kind: "int", value: 1n }] }, { kind: "set", elements: [] }],
+  });
+  const sequence = create(ValueSchema, {
+    kind: { case: "sequence", value: create(ValueSequenceSchema, { elements: [setOf(int(1n)), int(2n)] }) },
+  });
+  assert.deepEqual(decodeValue(sequence), {
+    kind: "sequence",
+    elements: [{ kind: "set", elements: [{ kind: "int", value: 1n }] }, { kind: "int", value: 2n }],
+  });
+
+  // Sent in any order: the client does not reorder what a caller wrote.
+  const sent = encodeValue({ kind: "set", elements: [3n, 1n, 2n].map((value) => ({ kind: "int", value })) });
+  assert.equal(sent.kind.case, "set");
+  assert.deepEqual(
+    sent.kind.value.elements.map((e) => e.kind.value),
+    [3n, 1n, 2n],
+  );
+});
+
+test("a tensor quantity keeps its rank, its shape and its row-major components", () => {
+  const cube = decodeValue(tensor([2n, 2n, 2n], ...[1, 2, 3, 4, 5, 6, 7, 8].map(metres)));
+  assert.equal(cube.kind, "tensorQuantity");
+  assert.deepEqual(cube.dimensions, [2n, 2n, 2n]);
+  assert.equal(cube.components.length, 8);
+  assert.deepEqual(cube.components[7], { magnitude: { kind: "real", value: 8 }, unit: "m", unitTerm: METRE });
+  assert.equal(formatValue(cube), "Tensor(2, 2, 2)[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0][m]");
+
+  // A rank-one tensor stays a tensor, never a vector quantity.
+  const line = decodeValue(tensor([2n], metres(1), metres(2)));
+  assert.equal(line.kind, "tensorQuantity");
+  assert.deepEqual(line.dimensions, [2n]);
+
+  // Components with differing units each show their own.
+  const speed = create(QuantitySchema, {
+    magnitude: { case: "intMagnitude", value: 5n },
+    unit: "m/s",
+    unitTerm: create(UnitTermSchema, {
+      scaleNum: 1,
+      scaleDen: 1,
+      factors: [
+        create(UnitFactorSchema, { unitId: "SI::metre", exponent: 1 }),
+        create(UnitFactorSchema, { unitId: "SI::second", exponent: -1 }),
+      ],
+    }),
+  });
+  assert.equal(formatValue(decodeValue(tensor([1n, 2n], metres(1), speed))), "Tensor(1, 2)[1.0[m], 5[m/s]]");
+
+  // Shape and components must agree, both ways, and every dimension is positive.
+  const malformed = (message: RegExp) => (error: unknown) =>
+    error instanceof MalformedValueError && message.test(error.message);
+  assert.throws(() => decodeValue(tensor([2n, 2n], metres(1), metres(2), metres(3))), malformed(/holds 3/));
+  assert.throws(() => decodeValue(tensor([2n], metres(1), metres(2), metres(3))), malformed(/holds 3/));
+  assert.throws(() => decodeValue(tensor([0n])), malformed(/not positive/));
+  assert.throws(() => decodeValue(tensor([-1n], metres(1))), malformed(/not positive/));
+  assert.throws(() => decodeValue(tensor([], metres(1), metres(2))), malformed(/holds 2/));
+  assert.throws(
+    () => encodeValue({ kind: "tensorQuantity", dimensions: [2n, 2n], components: [] }),
+    malformed(/holds 0/),
+  );
+  assert.throws(
+    () => encodeValue({ kind: "tensorQuantity", dimensions: [0n], components: [] }),
+    malformed(/not positive/),
+  );
+
+  // A component without a magnitude is malformed, never read as zero.
+  const noMagnitude = create(QuantitySchema, { unit: "m" });
+  assert.throws(() => decodeValue(tensor([1n], noMagnitude)), malformed(/no magnitude/));
+});
+
 const unitTerm = (scaleNum: number, ...factors: [string, number][]) =>
   create(UnitTermSchema, {
     scaleNum,
@@ -403,6 +494,31 @@ test("encodeValue is the inverse of decodeValue, through the wire bytes", () => 
       ],
     },
     { kind: "sequence", elements: [{ kind: "vector", components: [{ kind: "real", value: 1 }] }] },
+    { kind: "set", elements: [] },
+    {
+      kind: "set",
+      elements: [
+        { kind: "int", value: 3n },
+        { kind: "string", value: "a" },
+        { kind: "set", elements: [{ kind: "boolean", value: true }] },
+        { kind: "sequence", elements: [{ kind: "int", value: 1n }] },
+      ],
+    },
+    {
+      kind: "tensorQuantity",
+      dimensions: [2n, 1n, 2n],
+      components: [
+        { magnitude: { kind: "real", value: 1 }, unit: "m", unitTerm: METRE },
+        { magnitude: { kind: "int", value: 2n }, unit: "m", unitTerm: METRE },
+        { magnitude: { kind: "real", value: 3 }, unit: "m", unitTerm: METRE },
+        { magnitude: { kind: "int", value: 4n }, unit: "m", unitTerm: METRE },
+      ],
+    },
+    {
+      kind: "array",
+      dimensions: [1n],
+      elements: [{ kind: "set", elements: [{ kind: "int", value: 1n }] }],
+    },
   ];
   for (const value of values) {
     const bytes = toBinary(ValueSchema, encodeValue(value));

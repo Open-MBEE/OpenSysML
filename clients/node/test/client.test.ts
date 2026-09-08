@@ -14,7 +14,9 @@ import {
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
+  CAPABILITY_SET_VALUES,
   CAPABILITY_STRUCTURED_VALUES,
+  CAPABILITY_TENSOR_VALUES,
   CAPABILITY_VERIFICATION_VERDICTS,
   ClosedConnectionError,
   MissingCapabilityError,
@@ -260,6 +262,47 @@ test("a calc held as a value arrives as the function it names, with the object i
     assert.equal(scale.calcId, "Demo::Scaler::scale");
     assert.ok(scale.selfId !== undefined && scale.selfId > 0n);
     assert.equal(formatValue(scale), "Demo::Scaler::scale");
+  }
+});
+
+const SET_TENSOR_MODEL = `package W {
+    private import ScalarValues::*;
+    private import Collections::*;
+    private import Quantities::*;
+    private import MeasurementReferences::*;
+    private import SI::*;
+    private import TensorCalculations::*;
+    attribute s : Set { :>> elements = (3, 1, 2, 2, 3); }
+    attribute e : Set { :>> elements = (); }
+    attribute cubeRef : TensorMeasurementReference {
+        :>> dimensions = (2, 2, 2);
+        :>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa);
+    }
+    attribute cube : TensorQuantityValue = TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);
+}`;
+
+test("a set arrives once per element in canonical order, and a tensor with its rank", async () => {
+  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+    await using connection = await connect(options);
+    const info = await connection.serverInfo();
+    assert.ok(info.has(CAPABILITY_SET_VALUES));
+    assert.ok(info.has(CAPABILITY_TENSOR_VALUES));
+    await using model = await connection.loads(SET_TENSOR_MODEL);
+
+    const set = await model.eval("W::s.elements");
+    assert.deepEqual(set, { kind: "set", elements: [1n, 2n, 3n].map((value) => ({ kind: "int", value })) });
+    assert.equal(formatValue(set), "{1, 2, 3}");
+    assert.deepEqual(await model.eval("W::e.elements"), { kind: "set", elements: [] });
+
+    const cube = await model.eval("W::cube");
+    assert.ok(cube.kind === "tensorQuantity");
+    assert.deepEqual(cube.dimensions, [2n, 2n, 2n]);
+    assert.deepEqual(
+      cube.components.map((c) => c.magnitude),
+      [1, 2, 3, 4, 5, 6, 7, 8].map((value) => ({ kind: "real", value })),
+    );
+    assert.ok(cube.components.every((c) => c.unit === "Pa"));
+    assert.equal(formatValue(cube), "Tensor(2, 2, 2)[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0][Pa]");
   }
 });
 

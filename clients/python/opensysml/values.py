@@ -689,6 +689,158 @@ class VectorQuantity:
         return "⟨" + ", ".join(str(c) for c in self.components) + "⟩"
 
 
+@dataclass(frozen=True)
+class SetValue:
+    """A unique, unordered collection: a ``Collections::Set``'s elements.
+
+    Distinct from a ``list``, whose order is part of its value. The service
+    sends the elements in its canonical order, so equal sets arrive alike, and
+    ``elements`` keeps that order for reading; equality ignores it. A set to
+    send may hold its elements in any order — a Python ``set`` or ``frozenset``
+    is accepted too — but one listing an element twice is refused by the service
+    rather than read as one element. Elements need not be hashable: a nested
+    list is one.
+
+    Attributes:
+        elements (tuple): The elements, each once, in the order held
+    """
+
+    elements: Tuple[Any, ...]
+
+    def __init__(self, elements: Sequence[Any] = ()) -> None:
+        object.__setattr__(self, "elements", tuple(elements))
+
+    def __len__(self) -> int:
+        return len(self.elements)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.elements)
+
+    def __contains__(self, item: Any) -> bool:
+        return any(element == item for element in self.elements)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (set, frozenset)):
+            other = SetValue(other)
+        if not isinstance(other, SetValue):
+            return NotImplemented
+        return len(self) == len(other) and all(e in other for e in self) and all(e in self for e in other)
+
+    def __hash__(self) -> int:
+        return hash(len(self.elements))
+
+    @classmethod
+    def from_pb(cls, pb_set, resolve_instance=None) -> "SetValue":
+        """Build from a ``ValueSet`` protobuf message, elements in the order sent."""
+        return cls(value_to_python(v, resolve_instance) for v in pb_set.elements)
+
+    def to_pb(self, encode: Callable[[Any], "sysml_pb2.Value"]) -> "sysml_pb2.ValueSet":
+        """Encode as a ``ValueSet`` message, each element through ``encode``."""
+        return sysml_pb2.ValueSet(elements=[encode(element) for element in self.elements])
+
+    def __str__(self) -> str:
+        return "{" + ", ".join(str(e) for e in self.elements) + "}"
+
+
+@dataclass(frozen=True)
+class TensorQuantity:
+    """A tensor quantity of any rank: its shape and one quantity per component.
+
+    ``TensorCalculations::'['((1.0, ..., 8.0), cubeRef)`` over a
+    ``(2, 2, 2)`` reference is ``TensorQuantity((2, 2, 2), (Quantity(1.0, Pa),
+    ...))``, the components flattened row-major as an :class:`Array`'s are. A
+    tensor of rank one is not a :class:`VectorQuantity`, here as in the model.
+
+    Attributes:
+        dimensions (tuple[int, ...]): Extent of each dimension, all positive
+        components (tuple[Quantity, ...]): The components, row-major
+
+    Raises:
+        ValueError: If a dimension is not positive, a component is not a
+            :class:`Quantity`, or the components do not fill the dimensions.
+    """
+
+    dimensions: Tuple[int, ...]
+    components: Tuple[Quantity, ...]
+
+    def __init__(self, dimensions: Sequence[int], components: Sequence[Quantity]) -> None:
+        dims = tuple(dimensions)
+        comps = tuple(components)
+        for extent in dims:
+            if isinstance(extent, bool) or not isinstance(extent, int) or extent <= 0:
+                raise ValueError(f"tensor dimension {extent!r} is not a positive integer")
+        if len(comps) != math.prod(dims):
+            raise ValueError(
+                f"tensor of dimensions {dims} holds {len(comps)} component(s), "
+                f"want {math.prod(dims)}"
+            )
+        for component in comps:
+            if not isinstance(component, Quantity):
+                raise ValueError(f"tensor component {component!r} is not a Quantity")
+        object.__setattr__(self, "dimensions", dims)
+        object.__setattr__(self, "components", comps)
+
+    @property
+    def rank(self) -> int:
+        """Number of dimensions."""
+        return len(self.dimensions)
+
+    @property
+    def unit(self) -> Optional[Unit]:
+        """The one unit every component shares, or ``None`` when they differ."""
+        units = {component.unit for component in self.components}
+        return next(iter(units)) if len(units) == 1 else None
+
+    def __len__(self) -> int:
+        return len(self.components)
+
+    def __iter__(self) -> Iterator[Quantity]:
+        return iter(self.components)
+
+    def __getitem__(self, index: int | Tuple[int, ...]) -> Quantity:
+        """The component at a row-major position, or at a full multi-index."""
+        if isinstance(index, tuple):
+            if len(index) != self.rank:
+                raise IndexError(
+                    f"index {index} has {len(index)} coordinate(s), tensor has rank {self.rank}"
+                )
+            flat = 0
+            for extent, coordinate in zip(self.dimensions, index):
+                if not 0 <= coordinate < extent:
+                    raise IndexError(f"index {index} is outside dimensions {self.dimensions}")
+                flat = flat * extent + coordinate
+            return self.components[flat]
+        return self.components[index]
+
+    @classmethod
+    def from_pb(cls, pb_tensor) -> "TensorQuantity":
+        """Build from a ``TensorQuantity`` protobuf message.
+
+        Raises:
+            UnsupportedValueError: If the message's shape and components
+                disagree, or a component is a quantity the client cannot read.
+        """
+        try:
+            return cls(tuple(pb_tensor.dimensions), [Quantity.from_pb(c) for c in pb_tensor.components])
+        except ValueError as exc:
+            raise UnsupportedValueError(f"malformed tensor quantity: {exc}") from exc
+
+    def to_pb(self) -> "sysml_pb2.TensorQuantity":
+        """Encode as a ``TensorQuantity`` message, one ``Quantity`` per component."""
+        return sysml_pb2.TensorQuantity(
+            dimensions=list(self.dimensions),
+            components=[c.to_pb() for c in self.components],
+        )
+
+    def __str__(self) -> str:
+        dims = ", ".join(str(d) for d in self.dimensions)
+        unit = self.unit
+        if unit is not None:
+            body = ", ".join(_format_number(c.magnitude) for c in self.components)
+            return f"Tensor({dims})[{body}] [{unit}]"
+        return f"Tensor({dims})[{', '.join(str(c) for c in self.components)}]"
+
+
 class UnsetType:
     """A feature holding no value: a valueless feature of a value type.
 
@@ -752,10 +904,11 @@ def value_to_python(pb_value, resolve_instance=None):
         int, float, complex, bool, str, list, None, :data:`UNSET`,
         :data:`INFINITY`, a
         :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, an
-        :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, an
-        :class:`~opensysml.enumeration.EnumLiteral`,
+        :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, a :class:`SetValue`, a
+        :class:`TensorQuantity`, an :class:`~opensysml.enumeration.EnumLiteral`,
         or the resolved instance object. A Complex is one ``complex``, never two
-        floats; a Vector is one :class:`Vector`, never a list of numbers.
+        floats; a Vector is one :class:`Vector`, never a list of numbers; a set
+        is one :class:`SetValue`, never a list.
 
     Raises:
         UnsupportedValueError: If the service reported the value as unsupported,
@@ -790,6 +943,10 @@ def value_to_python(pb_value, resolve_instance=None):
         return Vector.from_pb(pb_value.vector)
     if kind == 'vector_quantity':
         return VectorQuantity.from_pb(pb_value.vector_quantity)
+    if kind == 'set':
+        return SetValue.from_pb(pb_value.set, resolve_instance)
+    if kind == 'tensor_quantity':
+        return TensorQuantity.from_pb(pb_value.tensor_quantity)
     if kind == 'enum_literal':
         lit = pb_value.enum_literal
         return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name)

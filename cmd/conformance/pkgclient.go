@@ -802,6 +802,18 @@ func valueToProto(value opensysml.Value) *pb.Value {
 			vq.Components = append(vq.Components, quantityToProto(component))
 		}
 		return &pb.Value{Kind: &pb.Value_VectorQuantity{VectorQuantity: vq}}
+	case opensysml.Set:
+		set := &pb.ValueSet{}
+		for _, element := range v {
+			set.Elements = append(set.Elements, valueToProto(element))
+		}
+		return &pb.Value{Kind: &pb.Value_Set{Set: set}}
+	case opensysml.TensorQuantity:
+		tensor := &pb.TensorQuantity{Dimensions: append([]int64(nil), v.Dimensions...)}
+		for _, component := range v.Components {
+			tensor.Components = append(tensor.Components, quantityToProto(component))
+		}
+		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: tensor}}
 	case opensysml.MeasurementRef:
 		return &pb.Value{Kind: &pb.Value_MeasurementRef{MeasurementRef: &pb.MeasurementRef{
 			Unit:     v.Unit,
@@ -896,6 +908,22 @@ func valueFromProto(value *pb.Value) (opensysml.Value, bool) {
 			vq = append(vq, quantityFromProto(component))
 		}
 		return vq, true
+	case *pb.Value_Set:
+		set := make(opensysml.Set, 0, len(kind.Set.GetElements()))
+		for _, element := range kind.Set.GetElements() {
+			converted, ok := valueFromProto(element)
+			if !ok {
+				return nil, false
+			}
+			set = append(set, converted)
+		}
+		return set, true
+	case *pb.Value_TensorQuantity:
+		tensor := opensysml.TensorQuantity{Dimensions: append([]int64(nil), kind.TensorQuantity.GetDimensions()...)}
+		for _, component := range kind.TensorQuantity.GetComponents() {
+			tensor.Components = append(tensor.Components, quantityFromProto(component))
+		}
+		return tensor, true
 	case *pb.Value_MeasurementRef:
 		return opensysml.MeasurementRef{
 			Unit:   kind.MeasurementRef.GetUnit(),

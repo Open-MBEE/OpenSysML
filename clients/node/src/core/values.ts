@@ -8,8 +8,10 @@ import type {
   Function as FunctionMessage,
   MeasurementRef,
   Quantity,
+  TensorQuantity,
   UnitTerm,
   Value,
+  ValueSet,
   Vector,
   VectorQuantity,
   Verdict,
@@ -22,10 +24,12 @@ import {
   FunctionSchema,
   MeasurementRefSchema,
   QuantitySchema,
+  TensorQuantitySchema,
   UnitFactorSchema,
   UnitTermSchema,
   ValueSchema,
   ValueSequenceSchema,
+  ValueSetSchema,
   VectorQuantitySchema,
   VectorSchema,
 } from "../generated/sysml_pb.js";
@@ -101,10 +105,24 @@ export interface ArrayValue {
 }
 
 /**
+ * A tensor quantity of any rank: `dimensions` gives the extent of each dimension
+ * and `components` one quantity per component, flattened row-major as an
+ * array's elements are. A tensor of rank one is not a `vectorQuantity`.
+ */
+export interface TensorQuantityValue {
+  dimensions: bigint[];
+  components: QuantityValue[];
+}
+
+/**
  * A value the service computed. `absent` is the case a service sent no value at
  * all for, which is distinct from `unset` — a feature that exists and has none.
  * A `vector` is one value of numeric components, never a sequence of numbers,
  * and a `vectorQuantity` carries one quantity per component, each with its own unit.
+ * A `set` is a unique, unordered collection — a `Collections::Set`'s elements —
+ * distinct from a `sequence`, whose order is part of its value: the service
+ * sends its elements in canonical order, so equal sets arrive alike, and reads
+ * one sent in any order, refusing one that lists an element twice.
  */
 export type SysMLValue =
   | { kind: "int"; value: bigint }
@@ -121,6 +139,8 @@ export type SysMLValue =
   | ({ kind: "array" } & ArrayValue)
   | { kind: "vector"; components: Magnitude[] }
   | { kind: "vectorQuantity"; components: QuantityValue[] }
+  | { kind: "set"; elements: SysMLValue[] }
+  | ({ kind: "tensorQuantity" } & TensorQuantityValue)
   | { kind: "null"; reason: string }
   | { kind: "unset" }
   | { kind: "infinity" }
@@ -153,9 +173,10 @@ export type SysMLVerdict =
  *
  * @throws {MalformedValueError} for a value that contradicts itself: an array
  *   whose elements do not fill its dimensions, a vector with a component that
- *   is not a number, a vector quantity with no components, a quantity
- *   (alone or as a component) with no magnitude, or a measurement reference
- *   naming no unit or a unit without its reduction.
+ *   is not a number, a vector quantity with no components, a tensor quantity
+ *   whose components do not fill its dimensions, a quantity (alone or as a
+ *   component) with no magnitude, or a measurement reference naming no unit
+ *   or a unit without its reduction.
  */
 export function decodeValue(value: Value | undefined): SysMLValue {
   if (value === undefined) {
@@ -191,6 +212,10 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "vector", components: decodeVector(kind.value) };
     case "vectorQuantity":
       return { kind: "vectorQuantity", components: decodeVectorQuantity(kind.value) };
+    case "set":
+      return { kind: "set", elements: decodeSet(kind.value) };
+    case "tensorQuantity":
+      return { kind: "tensorQuantity", ...decodeTensorQuantity(kind.value) };
     case "null":
       return { kind: "null", reason: kind.value };
     case "unset":
@@ -249,7 +274,7 @@ export function encodeValue(value: SysMLValue): Value {
         kind: { case: "enumLiteral", value: create(EnumLiteralSchema, value.value) },
       });
     case "array":
-      checkArrayShape(value.dimensions, value.elements.length);
+      checkShape("an array", value.dimensions, value.elements.length);
       return create(ValueSchema, {
         kind: {
           case: "array",
@@ -274,6 +299,24 @@ export function encodeValue(value: SysMLValue): Value {
         kind: {
           case: "vectorQuantity",
           value: create(VectorQuantitySchema, { components: value.components.map(encodeQuantity) }),
+        },
+      });
+    case "set":
+      return create(ValueSchema, {
+        kind: {
+          case: "set",
+          value: create(ValueSetSchema, { elements: value.elements.map(encodeValue) }),
+        },
+      });
+    case "tensorQuantity":
+      checkShape("a tensor quantity", value.dimensions, value.components.length);
+      return create(ValueSchema, {
+        kind: {
+          case: "tensorQuantity",
+          value: create(TensorQuantitySchema, {
+            dimensions: value.dimensions,
+            components: value.components.map(encodeQuantity),
+          }),
         },
       });
     case "null":
@@ -356,6 +399,10 @@ export function formatValue(value: SysMLValue): string {
       return `⟨${value.components.map(formatMagnitude).join(", ")}⟩`;
     case "vectorQuantity":
       return `⟨${value.components.map((c) => formatValue({ kind: "quantity", ...c })).join(", ")}⟩`;
+    case "set":
+      return `{${value.elements.map(formatValue).join(", ")}}`;
+    case "tensorQuantity":
+      return formatTensorQuantity(value);
     case "null":
       return value.reason === "" ? "null" : `null (${value.reason})`;
     case "unset":
@@ -373,6 +420,18 @@ function formatReal(value: number): string {
 
 function formatMagnitude(magnitude: Magnitude): string {
   return magnitude.kind === "int" ? magnitude.value.toString() : formatReal(magnitude.value);
+}
+
+/** `Tensor(2, 2, 2)[1.0, …, 8.0][Pa]` when every component shares a unit; else each with its own. */
+function formatTensorQuantity(tensor: TensorQuantityValue): string {
+  const dims = tensor.dimensions.join(", ");
+  const units = new Set(tensor.components.map((c) => c.unit));
+  if (units.size === 1 && tensor.components[0]?.unit !== "") {
+    const body = tensor.components.map((c) => formatMagnitude(c.magnitude)).join(", ");
+    return `Tensor(${dims})[${body}][${tensor.components[0]?.unit ?? ""}]`;
+  }
+  const body = tensor.components.map((c) => formatValue({ kind: "quantity", ...c })).join(", ");
+  return `Tensor(${dims})[${body}]`;
 }
 
 /** `1.5 - 2.0i`, as the REPL prints a Complex; the sign is the imaginary part's. */
@@ -477,24 +536,33 @@ function encodeMagnitude(magnitude: Magnitude): Value {
 }
 
 /** The flattened size the dimensions demand, refusing a dimension that is not positive. */
-function checkArrayShape(dimensions: bigint[], elementCount: number): void {
+function checkShape(what: string, dimensions: bigint[], elementCount: number): void {
   let size = 1n;
   for (const extent of dimensions) {
     if (extent <= 0n) {
-      throw new MalformedValueError(`an array dimension is ${extent.toString()}, not positive`);
+      throw new MalformedValueError(`${what} dimension is ${extent.toString()}, not positive`);
     }
     size *= extent;
   }
   if (size !== BigInt(elementCount)) {
     throw new MalformedValueError(
-      `an array of dimensions (${dimensions.join(", ")}) holds ${elementCount} element(s), want ${size.toString()}`,
+      `${what} of dimensions (${dimensions.join(", ")}) holds ${elementCount} element(s), want ${size.toString()}`,
     );
   }
 }
 
 function decodeArray(array: ArrayMessage): ArrayValue {
-  checkArrayShape(array.dimensions, array.elements.length);
+  checkShape("an array", array.dimensions, array.elements.length);
   return { dimensions: [...array.dimensions], elements: array.elements.map(decodeValue) };
+}
+
+function decodeSet(set: ValueSet): SysMLValue[] {
+  return set.elements.map(decodeValue);
+}
+
+function decodeTensorQuantity(tensor: TensorQuantity): TensorQuantityValue {
+  checkShape("a tensor quantity", tensor.dimensions, tensor.components.length);
+  return { dimensions: [...tensor.dimensions], components: tensor.components.map(decodeQuantity) };
 }
 
 function decodeVector(vector: Vector): Magnitude[] {

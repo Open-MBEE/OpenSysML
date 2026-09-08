@@ -170,6 +170,28 @@ func valueFromProto(value *pb.Value) Value {
 			return Null("unsupported: function naming no calc")
 		}
 		return Function{CalcID: kind.Function.GetCalcId(), Self: InstanceID(kind.Function.GetSelfId())}
+	case *pb.Value_Set:
+		out := make(Set, 0, len(kind.Set.GetElements()))
+		for _, element := range kind.Set.GetElements() {
+			out = append(out, valueFromProto(element))
+		}
+		return out
+	case *pb.Value_TensorQuantity:
+		if err := sysmlgrpc.CheckTensorShape(kind.TensorQuantity.GetDimensions(), len(kind.TensorQuantity.GetComponents())); err != nil {
+			return Null("unsupported: " + err.Error())
+		}
+		out := TensorQuantity{
+			Dimensions: append([]int64(nil), kind.TensorQuantity.GetDimensions()...),
+			Components: make([]Quantity, 0, len(kind.TensorQuantity.GetComponents())),
+		}
+		for _, component := range kind.TensorQuantity.GetComponents() {
+			quantity, ok := quantityFromProto(component)
+			if !ok {
+				return Null("unsupported: tensor quantity with a component without a magnitude")
+			}
+			out.Components = append(out.Components, quantity)
+		}
+		return out
 	default:
 		// A newer service's arm parses as an unknown field: no kind at all.
 		return Null("unsupported: a value arm this client does not know")
@@ -255,6 +277,25 @@ func valueToProto(value Value) (*pb.Value, error) {
 			return nil, &StatusError{Code: CodeInvalidArgument, Message: "a function names no calc"}
 		}
 		return &pb.Value{Kind: &pb.Value_Function{Function: &pb.Function{CalcId: v.CalcID, SelfId: int64(v.Self)}}}, nil
+	case Set:
+		set := &pb.ValueSet{Elements: make([]*pb.Value, 0, len(v))}
+		for _, element := range v {
+			sent, err := valueToProto(element)
+			if err != nil {
+				return nil, err
+			}
+			set.Elements = append(set.Elements, sent)
+		}
+		return &pb.Value{Kind: &pb.Value_Set{Set: set}}, nil
+	case TensorQuantity:
+		tq := &pb.TensorQuantity{
+			Dimensions: append([]int64(nil), v.Dimensions...),
+			Components: make([]*pb.Quantity, 0, len(v.Components)),
+		}
+		for _, component := range v.Components {
+			tq.Components = append(tq.Components, quantityToProto(component))
+		}
+		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: tq}}, nil
 	case Unset:
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,

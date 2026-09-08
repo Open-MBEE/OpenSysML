@@ -27,7 +27,9 @@ from opensysml.capabilities import (
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_SCHEDULE,
+    CAPABILITY_SET_VALUES,
     CAPABILITY_STRUCTURED_VALUES,
+    CAPABILITY_TENSOR_VALUES,
     CAPABILITY_VERIFICATION,
     MissingCapabilityError,
     ServerInfo,
@@ -64,6 +66,8 @@ from opensysml.values import (
     Function,
     MeasurementRef,
     Quantity,
+    SetValue,
+    TensorQuantity,
     Vector,
     VectorQuantity,
     _Infinity,
@@ -1186,10 +1190,13 @@ class Connection:
             MissingCapabilityError: If an input holds a ``complex`` and the
                 service predates ``complex_values``, an :class:`~opensysml.values.Array`,
                 :class:`~opensysml.values.Vector` or :class:`~opensysml.values.VectorQuantity`
-                and the service predates ``structured_values``, or a
+                and the service predates ``structured_values``, a
                 :class:`~opensysml.values.MeasurementRef` and the service predates
-                ``measurement_refs``, or a :class:`~opensysml.values.Function`
-                and the service predates ``function_values``, or a schedule is
+                ``measurement_refs``, a :class:`~opensysml.values.Function`
+                and the service predates ``function_values``, a
+                :class:`~opensysml.values.SetValue` and the service predates
+                ``set_values``, a :class:`~opensysml.values.TensorQuantity`
+                and the service predates ``tensor_values``, or a schedule is
                 given and the service predates ``schedule``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
@@ -1408,9 +1415,10 @@ class Connection:
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, an array, vector or vector quantity and
                 the service predates ``structured_values``, a measurement
-                reference and the service predates ``measurement_refs``, or a
-                function and the service predates ``function_values``; nothing
-                is sent
+                reference and the service predates ``measurement_refs``, a
+                function and the service predates ``function_values``, a set
+                and the service predates ``set_values``, or a tensor quantity
+                and the service predates ``tensor_values``; nothing is sent
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
@@ -1426,6 +1434,8 @@ class Connection:
                 CAPABILITY_STRUCTURED_VALUES,
                 CAPABILITY_MEASUREMENT_REFS,
                 CAPABILITY_FUNCTION_VALUES,
+                CAPABILITY_SET_VALUES,
+                CAPABILITY_TENSOR_VALUES,
             ))
         ):
             response = self._stub.EvaluateCalc(request)
@@ -1480,9 +1490,11 @@ class Connection:
                 input with no value, a failing step
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
-                ``complex_values``, or an array, vector or vector quantity and
-                the service predates ``structured_values``, or a schedule is
-                given and the service predates ``schedule``; nothing is sent
+                ``complex_values``, an array, vector or vector quantity and
+                the service predates ``structured_values``, a set and the
+                service predates ``set_values``, a tensor quantity and the
+                service predates ``tensor_values``, or a schedule is given
+                and the service predates ``schedule``; nothing is sent
             InvalidRequestError: If the schedule names no policy
             ModelNotFoundError: If the service no longer holds the model
         """
@@ -1502,6 +1514,9 @@ class Connection:
                 CAPABILITY_VERIFICATION,
                 CAPABILITY_COMPLEX_VALUES,
                 CAPABILITY_STRUCTURED_VALUES,
+                CAPABILITY_MEASUREMENT_REFS,
+                CAPABILITY_SET_VALUES,
+                CAPABILITY_TENSOR_VALUES,
                 CAPABILITY_SCHEDULE,
             ))
         ):
@@ -1728,6 +1743,22 @@ class Connection:
                 upgrade_remedy(CAPABILITY_SCHEDULE),
             )
 
+    def _require_set_values(self):
+        """Refuse to send a set a service without ``set_values`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_SET_VALUES,
+            upgrade_remedy(CAPABILITY_SET_VALUES),
+        )
+
+    def _require_tensor_values(self):
+        """Refuse to send a tensor quantity a service without ``tensor_values`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_TENSOR_VALUES,
+            upgrade_remedy(CAPABILITY_TENSOR_VALUES),
+        )
+
     def _require_feature_values(self):
         """Refuse instances from a service that populates only the removed `slots` field."""
         require(
@@ -1790,6 +1821,12 @@ class Connection:
         elif isinstance(py_value, VectorQuantity):
             self._require_structured_values()
             return sysml_pb2.Value(vector_quantity=py_value.to_pb())
+        elif isinstance(py_value, (SetValue, set, frozenset)):
+            self._require_set_values()
+            return sysml_pb2.Value(set=SetValue(py_value).to_pb(self._python_to_value))
+        elif isinstance(py_value, TensorQuantity):
+            self._require_tensor_values()
+            return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
         elif isinstance(py_value, EnumLiteral):
             return sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,

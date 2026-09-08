@@ -16,9 +16,11 @@ import org.openmbee.opensysml.proto.FeatureValue;
 import org.openmbee.opensysml.proto.Function;
 import org.openmbee.opensysml.proto.MeasurementRef;
 import org.openmbee.opensysml.proto.SymbolInfo;
+import org.openmbee.opensysml.proto.TensorQuantity;
 import org.openmbee.opensysml.proto.UnitFactor;
 import org.openmbee.opensysml.proto.UnitTerm;
 import org.openmbee.opensysml.proto.ValueSequence;
+import org.openmbee.opensysml.proto.ValueSet;
 import org.openmbee.opensysml.proto.Vector;
 import org.openmbee.opensysml.proto.VectorQuantity;
 import java.util.List;
@@ -250,6 +252,140 @@ class ProtosTest {
     assertTrue(empty.getMessage().contains("no components"), empty.getMessage());
     List<Quantity> none = List.of();
     assertThrows(IllegalArgumentException.class, () -> new Value.VectorQuantityValue(none));
+  }
+
+  private static org.openmbee.opensysml.proto.Value set(
+      org.openmbee.opensysml.proto.Value... elements) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setSet(ValueSet.newBuilder().addAllElements(List.of(elements)))
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.Value tensor(
+      List<Long> dimensions, org.openmbee.opensysml.proto.Quantity... components) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setTensorQuantity(
+            TensorQuantity.newBuilder()
+                .addAllDimensions(dimensions)
+                .addAllComponents(List.of(components)))
+        .build();
+  }
+
+  @Test
+  void aSetHoldsEachMemberOnceAndComparesInAnyOrder() {
+    Value.SetValue members =
+        (Value.SetValue) Protos.value(set(integer(1), integer(2), integer(3))).orElseThrow();
+    assertEquals(3, members.size());
+    assertTrue(!members.isEmpty());
+    assertEquals(
+        List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3)),
+        members.elements());
+    assertTrue(members.contains(new Value.IntegerValue(2)));
+    assertTrue(!members.contains(new Value.IntegerValue(4)));
+    assertTrue(!members.contains(new Value.RealValue(2.0)));
+
+    // The same members in another order are the same set, with the same hash; a sequence is not.
+    Value.SetValue reordered =
+        new Value.SetValue(
+            List.of(new Value.IntegerValue(3), new Value.IntegerValue(1), new Value.IntegerValue(2)));
+    assertEquals(members, reordered);
+    assertEquals(members.hashCode(), reordered.hashCode());
+    assertNotEquals(
+        members,
+        new Value.Sequence(
+            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3))));
+    assertNotEquals(
+        members, new Value.SetValue(List.of(new Value.IntegerValue(1), new Value.IntegerValue(2))));
+
+    // An empty set is a set; a set nests in a set and in a sequence.
+    Value.SetValue empty = (Value.SetValue) Protos.value(set()).orElseThrow();
+    assertTrue(empty.isEmpty());
+    Value.SetValue nested = (Value.SetValue) Protos.value(set(set(integer(1)), set())).orElseThrow();
+    assertEquals(2, nested.size());
+    assertTrue(nested.contains(empty));
+    Value.Sequence holding =
+        (Value.Sequence)
+            Protos.value(
+                    org.openmbee.opensysml.proto.Value.newBuilder()
+                        .setSequence(
+                            ValueSequence.newBuilder().addElements(set(integer(1))).addElements(integer(2)))
+                        .build())
+                .orElseThrow();
+    assertEquals(new Value.SetValue(List.of(new Value.IntegerValue(1))), holding.elements().get(0));
+
+    // A member listed twice is not a set, on the wire or in the constructor.
+    org.openmbee.opensysml.proto.Value twice = set(integer(1), integer(1));
+    TransportException repeated =
+        assertThrows(TransportException.class, () -> Protos.value(twice));
+    assertTrue(repeated.getMessage().contains("twice"), repeated.getMessage());
+    List<Value> duplicated = List.of(new Value.StringValue("a"), new Value.StringValue("a"));
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(duplicated));
+    org.openmbee.opensysml.proto.Value unknown =
+        set(org.openmbee.opensysml.proto.Value.getDefaultInstance());
+    assertThrows(TransportException.class, () -> Protos.value(unknown));
+  }
+
+  @Test
+  void aTensorQuantityKeepsItsRankShapeAndRowMajorComponents() {
+    Value.TensorQuantityValue cube =
+        (Value.TensorQuantityValue)
+            Protos.value(
+                    tensor(
+                        List.of(2L, 2L, 2L),
+                        metres(1), metres(2), metres(3), metres(4),
+                        metres(5), metres(6), metres(7), metres(8)))
+                .orElseThrow();
+    assertEquals(3, cube.rank());
+    assertEquals(List.of(2L, 2L, 2L), cube.dimensions());
+    assertEquals(8, cube.components().size());
+    assertEquals(Optional.of("m"), cube.unit());
+    assertEquals(6.0, cube.get(1, 0, 1).magnitude().doubleValue());
+    assertEquals(1.0, cube.get(0, 0, 0).magnitude().doubleValue());
+    assertEquals(8.0, cube.get(1, 1, 1).magnitude().doubleValue());
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(1, 1));
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(1, 1, 1, 0));
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(2, 0, 0));
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(0, -1, 0));
+
+    // A rank-one tensor stays a tensor, never a vector quantity.
+    Value line = Protos.value(tensor(List.of(2L), metres(1), metres(2))).orElseThrow();
+    assertTrue(line instanceof Value.TensorQuantityValue, line.toString());
+    assertNotEquals(
+        line,
+        new Value.VectorQuantityValue(
+            List.of(
+                new Quantity(1.0, Optional.of("m"), Optional.of(METRE)),
+                new Quantity(2.0, Optional.of("m"), Optional.of(METRE)))));
+
+    // Components with differing units report no shared one.
+    org.openmbee.opensysml.proto.Quantity speed =
+        org.openmbee.opensysml.proto.Quantity.newBuilder().setIntMagnitude(5).setUnit("m/s").build();
+    Value.TensorQuantityValue mixed =
+        (Value.TensorQuantityValue)
+            Protos.value(tensor(List.of(1L, 2L), metres(1), speed)).orElseThrow();
+    assertEquals(Optional.empty(), mixed.unit());
+    assertEquals(5L, mixed.get(0, 1).magnitude());
+
+    // Shape and components must agree, and every dimension is positive.
+    org.openmbee.opensysml.proto.Value shortOne = tensor(List.of(2L, 2L), metres(1), metres(2), metres(3));
+    TransportException few = assertThrows(TransportException.class, () -> Protos.value(shortOne));
+    assertTrue(few.getMessage().contains("want 4"), few.getMessage());
+    org.openmbee.opensysml.proto.Value scalarWithTwo = tensor(List.of(), metres(1), metres(2));
+    assertThrows(TransportException.class, () -> Protos.value(scalarWithTwo));
+    org.openmbee.opensysml.proto.Value zero = tensor(List.of(0L));
+    TransportException nonPositive = assertThrows(TransportException.class, () -> Protos.value(zero));
+    assertTrue(nonPositive.getMessage().contains("not positive"), nonPositive.getMessage());
+    org.openmbee.opensysml.proto.Value negative = tensor(List.of(-1L), metres(1));
+    assertThrows(TransportException.class, () -> Protos.value(negative));
+    org.openmbee.opensysml.proto.Value overflow = tensor(List.of(Long.MAX_VALUE, 2L));
+    assertThrows(TransportException.class, () -> Protos.value(overflow));
+    org.openmbee.opensysml.proto.Value noMagnitude =
+        tensor(List.of(1L), org.openmbee.opensysml.proto.Quantity.newBuilder().setUnit("m").build());
+    TransportException unmeasured =
+        assertThrows(TransportException.class, () -> Protos.value(noMagnitude));
+    assertTrue(unmeasured.getMessage().contains("no magnitude"), unmeasured.getMessage());
+    List<Quantity> none = List.of();
+    assertThrows(IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(2L), none));
   }
 
   private static org.openmbee.opensysml.proto.Value measurementRef(MeasurementRef.Builder ref) {

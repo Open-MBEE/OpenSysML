@@ -61,6 +61,8 @@ switch (value.kind) {
   case "array":    value.dimensions; value.elements;  // row-major, an element is any SysMLValue
   case "vector":   value.components;                   // { kind: "int" | "real" }[]
   case "vectorQuantity": value.components;             // QuantityValue[], a unit per component
+  case "set":      value.elements;                     // SysMLValue[], each once, unordered
+  case "tensorQuantity": value.dimensions; value.components;  // any rank, row-major QuantityValue[]
   case "enum":     value.value.name;                   // and its literal/enumeration ids
   case "instance": value.id;                          // an object in the same tree
   case "sequence": value.elements;                    // SysMLValue[]
@@ -187,10 +189,15 @@ raise a `MissingCapabilityError` naming the service, its version and the way to
 get one that has it. A direct capability-gated request to a service without the
 capability is refused with `UNIMPLEMENTED`; response-population capabilities
 instead omit the fields they name. A service without `structured_values`,
-`measurement_refs` or `function_values` sends the value kinds those name (`array`,
-`vector`, `vectorQuantity`; `measurementRef`; `function`) as `null` with an
-`unsupported: …` reason. A function closing over the bindings of a behavior body
-has no wire form and is sent as `null` by every service.
+`measurement_refs`, `function_values`, `set_values` or `tensor_values` sends the
+value kinds those name (`array`, `vector`, `vectorQuantity`; `measurementRef`;
+`function`; `set`; `tensorQuantity`) as `null` with an `unsupported: …` reason.
+A function closing over the bindings of a behavior body has no wire form and is
+sent as `null` by every service. A `set` arrives
+with its elements in the service's canonical order, so two equal sets arrive
+alike; one sent to the service may list them in any order, but not twice. A
+`tensorQuantity` carries its `dimensions` and one quantity per component,
+row-major.
 
 ## Failures are typed
 

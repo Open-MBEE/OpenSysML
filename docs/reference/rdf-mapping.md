@@ -726,6 +726,8 @@ The rules the tree follows:
   (`size(ae) == (if isEmpty(af) ? 0 else 2) and …`, `(p ?? q) implies r`,
   `(a + b)[1]`, `(x as T).f`, `- (1 + 2) ** 2`, `not (p and q)`), one that binds as
   tightly or tighter is not (`a + b * c`, `if p ? x else - x`, `p hastype T or q`).
+  An index encloses a sequence, so a multi-dimensional index is written bare
+  (`cube#(2, 1, 2)`, `m[1, 2]`), never `cube#((2, 1, 2))`.
   A conditional, being the loosest form, is parenthesized wherever it is an
   operand or the condition of another conditional; as the operand of
   `**` the left side must bind tighter than exponentiation, so `(a ** b) ** c`
@@ -756,6 +758,26 @@ The rules the tree follows:
 Tests: `w6g4_rdf_expr_test.go` (structure, ordering, per-position identity,
 legacy literals, foreign trees, unsupported shapes, round-trip exactness),
 `result_expression_test.go` (expression bodies, their parameters and members).
+
+### Set and tensor values
+
+The mapping states a model, not an evaluation of it, so a value the runtime
+holds as a set (a `Collections::Set`'s `elements`, any unique, unordered
+collection) or as a tensor of any rank (`Quantities::TensorQuantityValue`)
+has **no literal form** in RDF. What the graph carries is the expression the
+feature is written with — the `(3, 1, 2, 2, 3)` valuing `elements`, the
+`TensorCalculations::'['(…, cubeRef)` building the tensor, the `cube#(2, 1, 2)`
+indexing it — as the typed tree above, and evaluating the model read back gives
+the same set or tensor, in the runtime's canonical order. No `xsd` datatype or
+`sysx:` vocabulary encodes an evaluated collection or a tensor's shape, and the
+RDF conversion never evaluates: a graph that wanted to state a set's members or a
+tensor's components would have to state the expression that yields them. The
+gRPC service is where evaluated values travel (the `set` and `tensorQuantity`
+arms of [the wire contract](wire-contract.md)).
+
+Tests: `set_tensor_rdf_test.go` (exactness with and without the source text,
+the expression trees a set-valued and a tensor-valued feature state, the
+absence of any evaluated form).
 
 ### Result expressions
 

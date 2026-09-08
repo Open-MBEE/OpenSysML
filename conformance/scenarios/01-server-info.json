@@ -27,6 +27,8 @@
             "structured_values",
             "measurement_refs",
             "function_values",
+            "set_values",
+            "tensor_values",
             "apply_edits",
             "strict_conformance",
             "feature_values",

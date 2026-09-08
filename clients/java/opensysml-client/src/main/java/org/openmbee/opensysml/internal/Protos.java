@@ -60,6 +60,8 @@ public final class Protos {
       case VECTOR_QUANTITY -> Optional.of(vectorQuantity(value.getVectorQuantity()));
       case MEASUREMENT_REF -> Optional.of(measurementRef(value.getMeasurementRef()));
       case FUNCTION -> Optional.of(function(value.getFunction()));
+      case SET -> Optional.of(set(value.getSet()));
+      case TENSOR_QUANTITY -> Optional.of(tensorQuantity(value.getTensorQuantity()));
       case KIND_NOT_SET -> Optional.empty();
     };
   }
@@ -116,6 +118,33 @@ public final class Protos {
       components.add(quantity(component));
     }
     return new Value.VectorQuantityValue(components);
+  }
+
+  private static Value set(org.openmbee.opensysml.proto.ValueSet set) {
+    List<Value> elements = new ArrayList<>(set.getElementsCount());
+    for (org.openmbee.opensysml.proto.Value element : set.getElementsList()) {
+      elements.add(readable(element));
+    }
+    try {
+      return new Value.SetValue(elements);
+    } catch (IllegalArgumentException malformed) {
+      throw new TransportException(
+          "the service answered a malformed set: " + malformed.getMessage(), malformed);
+    }
+  }
+
+  private static Value tensorQuantity(org.openmbee.opensysml.proto.TensorQuantity tensor) {
+    List<Quantity> components = new ArrayList<>(tensor.getComponentsCount());
+    for (org.openmbee.opensysml.proto.Quantity component : tensor.getComponentsList()) {
+      components.add(quantity(component));
+    }
+    try {
+      return new Value.TensorQuantityValue(tensor.getDimensionsList(), components);
+    } catch (IllegalArgumentException | ArithmeticException malformed) {
+      throw new TransportException(
+          "the service answered a malformed tensor quantity: " + malformed.getMessage(),
+          malformed);
+    }
   }
 
   private static Value measurementRef(org.openmbee.opensysml.proto.MeasurementRef ref) {

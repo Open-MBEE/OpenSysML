@@ -117,6 +117,68 @@ func TestMeasurementRefInputIsNotSentWithoutMeasurementRefs(t *testing.T) {
 	}
 }
 
+// A set or a tensor quantity is refused before it leaves the client when the
+// service lacks set_values or tensor_values, however deeply nested.
+func TestSetAndTensorInputsAreNotSentWithoutTheirCapabilities(t *testing.T) {
+	ctx := context.Background()
+	model := &Model{Hash: "h"}
+	metre := Quantity{Magnitude: Real(1), Unit: "m"}
+	old := &oldCaller{t: t, capabilities: []string{CapabilityFeatureValues, CapabilityComplexValues, CapabilityStructuredValues, CapabilityMeasurementRefs}}
+	c := &client{caller: old}
+	for label, input := range map[string]Value{
+		"set":                Set{Int(1)},
+		"set nested":         Sequence{Int(1), Sequence{Set{}}},
+		"set in an array":    Array{Dimensions: []int64{1}, Elements: []Value{Set{Int(1)}}},
+		"tensor":             TensorQuantity{Dimensions: []int64{1}, Components: []Quantity{metre}},
+		"tensor nested":      Sequence{TensorQuantity{Dimensions: []int64{1}, Components: []Quantity{metre}}},
+		"tensor in a set":    Set{TensorQuantity{Dimensions: []int64{1}, Components: []Quantity{metre}}},
+		"tensor in an array": Array{Dimensions: []int64{1}, Elements: []Value{TensorQuantity{Dimensions: []int64{1}, Components: []Quantity{metre}}}},
+	} {
+		_, err := c.ExecuteAction(ctx, model, "A", map[string]Value{"x": input})
+		wantUnimplemented(t, "ExecuteAction "+label, err)
+		_, err = c.EvaluateCalc(ctx, model, "f", Int(1), input)
+		wantUnimplemented(t, "EvaluateCalc "+label, err)
+	}
+}
+
+// A malformed tensor quantity in an answer reads as an unsupported null naming
+// the fault; a set reads as its elements, whatever they are.
+func TestMalformedTensorAnswersAreNullsNamingTheFault(t *testing.T) {
+	one := &pb.Quantity{Magnitude: &pb.Quantity_IntMagnitude{IntMagnitude: 1}, Unit: "m"}
+	tensor := func(dimensions []int64, components ...*pb.Quantity) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: &pb.TensorQuantity{Dimensions: dimensions, Components: components}}}
+	}
+	for name, tc := range map[string]struct {
+		value *pb.Value
+		want  string
+	}{
+		"too few components":  {tensor([]int64{2, 2}, one, one, one), "do not fill"},
+		"too many components": {tensor([]int64{2}, one, one, one), "do not fill"},
+		"zero dimension":      {tensor([]int64{0}), "not positive"},
+		"negative dimension":  {tensor([]int64{-1}, one), "not positive"},
+		"no magnitude":        {tensor([]int64{1}, &pb.Quantity{Unit: "m"}), "without a magnitude"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := valueFromProto(tc.value)
+			null, ok := got.(Null)
+			if !ok || !strings.HasPrefix(string(null), "unsupported: ") || !strings.Contains(string(null), tc.want) {
+				t.Fatalf("read as %#v, want an unsupported Null containing %q", got, tc.want)
+			}
+		})
+	}
+	set := &pb.Value{Kind: &pb.Value_Set{Set: &pb.ValueSet{Elements: []*pb.Value{
+		{Kind: &pb.Value_IntValue{IntValue: 1}},
+		{Kind: &pb.Value_Set{Set: &pb.ValueSet{}}},
+	}}}}
+	if got, want := valueFromProto(set), (Set{Int(1), Set{}}); !reflect.DeepEqual(got, want) {
+		t.Errorf("set read as %#v, want %#v", got, want)
+	}
+	sent, err := valueToProto(Set{Int(1), Set{}})
+	if err != nil || !proto.Equal(sent, set) {
+		t.Errorf("set sent as %v (%v), want %v", sent, err, set)
+	}
+}
+
 // A malformed measurement reference in an answer reads as an unsupported null
 // naming the fault; a well-formed one reads as itself, reduction and identity
 // intact.

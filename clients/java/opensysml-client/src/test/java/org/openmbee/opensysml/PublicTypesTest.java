@@ -68,6 +68,98 @@ class PublicTypesTest {
   }
 
   @Test
+  void aSetIsItsMembersInAnyOrderAndNoneTwice() {
+    Value.SetValue set =
+        new Value.SetValue(
+            List.of(new Value.IntegerValue(3), new Value.IntegerValue(1), new Value.IntegerValue(2)));
+    Value.SetValue reordered =
+        new Value.SetValue(
+            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3)));
+    assertEquals(reordered, set);
+    assertEquals(reordered.hashCode(), set.hashCode());
+    assertEquals(3, set.size());
+    assertFalse(set.isEmpty());
+    assertTrue(set.contains(new Value.IntegerValue(2)));
+    assertFalse(set.contains(new Value.IntegerValue(4)));
+    assertEquals(List.of(3L, 1L, 2L), set.elements().stream().map(Value::asLong).toList());
+
+    Value asSequence =
+        new Value.Sequence(
+            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3)));
+    Value setAsValue = set;
+    assertNotEquals(asSequence, setAsValue);
+    assertNotEquals(new Value.SetValue(List.of(new Value.IntegerValue(1))), setAsValue);
+
+    Value.SetValue empty = new Value.SetValue(List.of());
+    assertTrue(empty.isEmpty());
+    assertEquals(new Value.SetValue(List.of()), empty);
+    assertEquals(
+        new Value.SetValue(List.of(empty, set)), new Value.SetValue(List.of(set, empty)));
+
+    List<Value> members = new ArrayList<>(List.of(new Value.IntegerValue(1)));
+    Value.SetValue copied = new Value.SetValue(members);
+    members.add(new Value.IntegerValue(2));
+    assertEquals(1, copied.size());
+    List<Value> exposed = copied.elements();
+    Value added = new Value.IntegerValue(3);
+    assertThrows(UnsupportedOperationException.class, () -> exposed.add(added));
+
+    List<Value> twice = List.of(new Value.IntegerValue(1), new Value.IntegerValue(1));
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(twice));
+  }
+
+  @Test
+  void aTensorQuantityIsShapedAndIndexedInRowMajorOrder() {
+    List<Quantity> pascals = new ArrayList<>();
+    for (int i = 1; i <= 8; i++) {
+      pascals.add(new Quantity((double) i, Optional.of("Pa"), Optional.empty()));
+    }
+    Value.TensorQuantityValue cube = new Value.TensorQuantityValue(List.of(2L, 2L, 2L), pascals);
+    assertEquals(3, cube.rank());
+    assertEquals(Optional.of("Pa"), cube.unit());
+    assertEquals(1.0, cube.get(0, 0, 0).magnitude());
+    assertEquals(6.0, cube.get(1, 0, 1).magnitude());
+    assertEquals(8.0, cube.get(1, 1, 1).magnitude());
+    assertEquals(new Value.TensorQuantityValue(List.of(2L, 2L, 2L), pascals), cube);
+    assertNotEquals(new Value.TensorQuantityValue(List.of(2L, 4L), pascals), cube);
+
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(1, 1));
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(1, 1, 1, 1));
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(0, 2, 0));
+    assertThrows(IndexOutOfBoundsException.class, () -> cube.get(0, -1, 0));
+
+    Value.TensorQuantityValue line = new Value.TensorQuantityValue(List.of(2L), pascals.subList(0, 2));
+    assertEquals(1, line.rank());
+    Value lineAsValue = line;
+    assertNotEquals(new Value.VectorQuantityValue(pascals.subList(0, 2)), lineAsValue);
+
+    Value.TensorQuantityValue mixed =
+        new Value.TensorQuantityValue(
+            List.of(2L),
+            List.of(
+                new Quantity(1.0, Optional.of("m"), Optional.empty()),
+                new Quantity(2.0, Optional.of("s"), Optional.empty())));
+    assertEquals(Optional.empty(), mixed.unit());
+
+    List<Quantity> seven = pascals.subList(0, 7);
+    assertThrows(
+        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(2L, 2L, 2L), seven));
+    assertThrows(
+        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(0L), List.of()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Value.TensorQuantityValue(List.of(-2L, -4L), pascals));
+    assertThrows(
+        ArithmeticException.class,
+        () -> new Value.TensorQuantityValue(List.of(Long.MAX_VALUE, 2L), pascals));
+
+    List<Long> shape = new ArrayList<>(List.of(8L));
+    Value.TensorQuantityValue copied = new Value.TensorQuantityValue(shape, pascals);
+    shape.set(0, 4L);
+    assertEquals(List.of(8L), copied.dimensions());
+  }
+
+  @Test
   void anUnsetValueIsNotTheModelsNull() {
     Value unset = new Value.UnsetValue();
     Value modelsNull = new Value.NullValue();

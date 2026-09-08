@@ -717,6 +717,8 @@ message Value {
     // as DocumentValue.infinity is.
     bool infinity = 16;
     Function function = 17;     // a calc as a value, named by its declaration
+    ValueSet set = 18;          // distinct elements with no order of their own
+    TensorQuantity tensor_quantity = 19; // shape and one Quantity per component
   }
 }
 
@@ -735,6 +737,30 @@ message Function {
   // request function with a non-zero self_id is rejected, since no later call
   // holds that object.
   int64 self_id = 2;
+}
+
+// ValueSet is a unique, unordered collection — a Collections::Set's elements —
+// as distinct from a ValueSequence, whose order is part of its value. Two sets
+// are equal when they hold the same elements in any order. The service sends
+// the elements in the runtime's canonical order (Booleans, numbers, strings,
+// quantities, enumeration literals, objects, each class in its own order), so
+// equal sets cross alike; a client may send them in any order, but sending an
+// element twice is rejected rather than read as one, since a repeated element
+// is what a sequence carries.
+message ValueSet {
+  repeated Value elements = 1;
+}
+
+// TensorQuantity is a Quantities::TensorQuantityValue of any rank: its
+// dimensions and, flattened in row-major order under them, one Quantity per
+// component, each with its unit and reduction as a scalar Quantity carries them.
+// A tensor of rank one is not a VectorQuantity, on the wire as in the runtime.
+message TensorQuantity {
+  // Positive extents, one per rank; their product (one for rank 0) is how many
+  // components there are, and a tensor not filling them is rejected.
+  repeated int64 dimensions = 1;
+  // A named unit sent without its unit_term is rejected as a Quantity's is.
+  repeated Quantity components = 2;
 }
 
 // Array is a Collections::Array: its elements flattened in row-major order
@@ -917,6 +943,18 @@ message ServerInfoResponse {
   //                  built before this arm existed may already claim.
   //   "function_values" - a Value carries a calc held as a value as function,
   //                  named by its declaration, rather than reporting it as an
+  //                  unsupported null, and one is accepted as an action input
+  //                  or calc argument; without it, one is refused with
+  //                  UNIMPLEMENTED rather than read as another value.
+  //   "set_values" - a Value carries a unique, unordered collection (a
+  //                  Collections::Set's elements) as set, each element once in
+  //                  canonical order, rather than reporting it as an
+  //                  unsupported null, and one is accepted as an action input
+  //                  or calc argument in any order; without it, one is refused
+  //                  with UNIMPLEMENTED rather than read as a sequence.
+  //   "tensor_values" - a Value carries a tensor quantity of any rank as
+  //                  tensor_quantity, its dimensions and one Quantity per
+  //                  row-major component, rather than reporting it as an
   //                  unsupported null, and one is accepted as an action input
   //                  or calc argument; without it, one is refused with
   //                  UNIMPLEMENTED rather than read as another value.

@@ -323,6 +323,182 @@
       }
     },
     {
+      "id": "evaluate/a_set_arrives_as_its_members_in_canonical_order",
+      "description": "A Set's elements are unique and unordered, so they travel in their own arm with every repeat dropped and in the runtime's canonical order, not as written.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "set_values"
+      ],
+      "model": {
+        "fixture": "set_tensor.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "T::s.elements"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "set": {
+              "elements": [
+                {
+                  "int_value": 1
+                },
+                {
+                  "int_value": 2
+                },
+                {
+                  "int_value": 3
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate/a_tensor_quantity_arrives_with_its_shape",
+      "description": "A tensor quantity of any rank travels as its dimensions and one Quantity per row-major component, so a client can rebuild a rank-three shape rather than receive a flat sequence.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "tensor_values"
+      ],
+      "model": {
+        "fixture": "set_tensor.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "T::cube"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "tensor_quantity": {
+              "dimensions": [
+                2,
+                2,
+                2
+              ],
+              "components": [
+                {
+                  "real_magnitude": 1.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 2.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 3.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 4.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 5.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 6.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 7.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 8.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
       "id": "evaluate/a_named_measurement_reference_arrives_with_its_declaration",
       "description": "A unit held by itself travels in one arm carrying the unit as written, its reduction to base units and the declaration it names, so a client can hand it back as a conversion target.",
       "rpc": "Evaluate",

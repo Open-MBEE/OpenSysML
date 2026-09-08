@@ -63,7 +63,8 @@ type Client interface {
 	// parameter name, and reports the outputs it produced. A Complex input
 	// requires the complex_values capability, an Array, Vector or
 	// VectorQuantity input the structured_values one, a MeasurementRef input
-	// the measurement_refs one and a Function input the function_values one,
+	// the measurement_refs one, a Function input the function_values one, a Set
+	// input the set_values one and a TensorQuantity input the tensor_values one,
 	// checked before anything is sent. WithSchedule selects the scheduling
 	// policy, which requires the schedule capability, checked the same way.
 	ExecuteAction(ctx context.Context, model *Model, actionSymbolID string, inputs map[string]Value, opts ...ExecuteOption) (*ActionRun, error)
@@ -90,9 +91,9 @@ type Client interface {
 	// EvaluateCalc invokes the named calculation with positional arguments, or,
 	// given none, evaluates a calc usage from its own members. Requires the
 	// verification capability, and the complex_values, structured_values,
-	// measurement_refs or function_values capability for a Complex, a
-	// structured, a MeasurementRef or a Function argument, checked before
-	// anything is sent.
+	// measurement_refs, function_values, set_values or tensor_values capability
+	// for a Complex, a structured, a MeasurementRef, a Function, a Set or a
+	// TensorQuantity argument, checked before anything is sent.
 	EvaluateCalc(ctx context.Context, model *Model, symbolID string, arguments ...Value) (*Calculation, error)
 
 	// RunAnalysis runs the named analysis case — a definition or a usage — and
@@ -511,8 +512,9 @@ func (c *client) call(model *Model) (string, error) {
 // requireValueCapabilities refuses to send a value of a kind whose capability
 // the service lacks — a Complex without complex_values, an Array, Vector or
 // VectorQuantity without structured_values, a MeasurementRef without
-// measurement_refs, a Function without function_values — which would read it
-// as null rather than refuse it.
+// measurement_refs, a Function without function_values, a Set without
+// set_values, a TensorQuantity without tensor_values — which would read it as
+// null rather than refuse it.
 func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) error {
 	var needed []string
 	if slices.ContainsFunc(values, carriesComplex) {
@@ -526,6 +528,12 @@ func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) 
 	}
 	if slices.ContainsFunc(values, carriesFunction) {
 		needed = append(needed, CapabilityFunctionValues)
+	}
+	if slices.ContainsFunc(values, carriesSet) {
+		needed = append(needed, CapabilitySetValues)
+	}
+	if slices.ContainsFunc(values, carriesTensor) {
+		needed = append(needed, CapabilityTensorValues)
 	}
 	if len(needed) == 0 {
 		return nil
@@ -605,10 +613,30 @@ func carriesFunction(value Value) bool {
 	return slices.ContainsFunc(nestedValues(value), carriesFunction)
 }
 
-// nestedValues are the values a value holds: a sequence's elements, an array's.
+// carriesSet reports whether a value, or any value nested in it, is a Set.
+func carriesSet(value Value) bool {
+	if _, ok := value.(Set); ok {
+		return true
+	}
+	return slices.ContainsFunc(nestedValues(value), carriesSet)
+}
+
+// carriesTensor reports whether a value, or any value nested in it, is a
+// TensorQuantity.
+func carriesTensor(value Value) bool {
+	if _, ok := value.(TensorQuantity); ok {
+		return true
+	}
+	return slices.ContainsFunc(nestedValues(value), carriesTensor)
+}
+
+// nestedValues are the values a value holds: a sequence's or a set's elements,
+// an array's.
 func nestedValues(value Value) []Value {
 	switch v := value.(type) {
 	case Sequence:
+		return v
+	case Set:
 		return v
 	case Array:
 		return v.Elements
