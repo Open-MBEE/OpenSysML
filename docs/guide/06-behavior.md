@@ -477,7 +477,7 @@ produced, which is what running the body answered:
 ```sysml
 verification def SpeedCheck {
     subject lander : Lander;
-    objective { verify touchdown; }
+    objective { verify touchdown; require constraint { lander.verticalSpeed <= 1.5 } }
     VerificationCases::PassIf(lander.verticalSpeed <= 1.5)
 }
 verification checkSlow : SpeedCheck { subject lander = L::slowLander; }
@@ -488,8 +488,13 @@ $ sysml -analysis L::checkSlow landing.sysml
 ✓ package L
 ✓ L::checkSlow
   result = VerdictKind::pass
+  objective obj: satisfied
   ✓ Verification L::checkSlow verdict: pass
 ```
+
+The two verdicts are independent: an objective stating no condition of its own —
+`objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
+the body verdict beside it still reports what the body answered.
 
 A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one

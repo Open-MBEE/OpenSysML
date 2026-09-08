@@ -226,10 +226,17 @@ nested case steps — and reports in addition the `VerdictKind` its body produce
 
 ```bash
 $ sysml -analysis Landing::checkSlow model.sysml
+✓ package Landing
 ✓ Landing::checkSlow
   result = VerdictKind::pass
+  objective obj: satisfied
   ✓ Verification Landing::checkSlow verdict: pass
 ```
+
+The body verdict is beside the objective's, not instead of it: an objective
+stating no condition to check — `objective { verify touchdown; }` with no
+`require constraint` of its own — stays `undecided`, and the case is reported
+unresolved however its body came out.
 
 The verdict is what running the body answers, not a separate judgement of the
 model: a body whose result is a `VerificationCases::PassIf(...)` call is `pass`
@@ -246,6 +253,7 @@ verification body does not turn a satisfied requirement into a violated one:
 
 ```bash
 $ sysml -requirement Landing::touchdown model.sysml
+✓ package Landing
 ✓ Requirement Landing::touchdown satisfied
 ✓ Verification Landing::checkSlow verdict: pass
 ✗ Verification Landing::checkFast verdict: fail
