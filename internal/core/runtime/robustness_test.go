@@ -359,6 +359,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("performance_occurrence_write_of_a_wrong_typed_value", testPerformanceOccurrenceWriteOfAWrongTypedValue)
 	t.Run("verification_body_that_cannot_run", testVerificationBodyThatCannotRun)
 	t.Run("verification_body_step_that_fails", testVerificationBodyStepThatFails)
+	t.Run("verification_subcase_that_cannot_run", testVerificationSubcaseThatCannotRun)
 	t.Run("verification_of_a_symbol_that_is_not_a_case", testVerificationOfASymbolThatIsNotACase)
 	t.Run("verification_with_an_argument_the_case_does_not_take", testVerificationWithAnArgumentTheCaseDoesNotTake)
 }
@@ -11233,6 +11234,20 @@ const verificationRobustnessModel = `
 		}
 
 		verification stepping : Stepping { subject sensor = unread; }
+
+		verification def Thresholded {
+			subject sensor : Sensor;
+			in threshold : ScalarValues::Integer;
+			VerificationCases::PassIf(sensor.reading == threshold)
+		}
+
+		verification def Plan {
+			subject sensor : Sensor;
+			verification sub : Thresholded;
+			VerificationCases::PassIf(true)
+		}
+
+		verification plan : Plan { subject sensor = unread; }
 	}
 `
 
@@ -11268,6 +11283,29 @@ func testVerificationBodyStepThatFails(t *testing.T) {
 	}
 	if !strings.Contains(result.Verdict.Detail, "adder") {
 		t.Errorf("verdict detail %q does not name the step that failed", result.Verdict.Detail)
+	}
+}
+
+// testVerificationSubcaseThatCannotRun: a performed subcase whose input nothing
+// binds ends the performing case's run, so its verdict is the error naming the
+// subcase and the reason rather than a verdict of the body it never finished.
+func testVerificationSubcaseThatCannotRun(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationRobustnessModel))
+	scope := idx.DocumentRoot("<test>")
+	result, err := ctx.RunVerification(lookupOne(t, idx, "test::plan"), AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want an error verdict", err)
+	}
+	if result.Verdict.Kind != VerdictError {
+		t.Fatalf("verdict = %q (%s), want error", result.Verdict.Kind, result.Verdict.Detail)
+	}
+	for _, want := range []string{"sub", "threshold"} {
+		if !strings.Contains(result.Verdict.Detail, want) {
+			t.Errorf("verdict detail %q does not name %q", result.Verdict.Detail, want)
+		}
+	}
+	if len(result.Subcases) != 0 {
+		t.Errorf("subcase verdicts = %v, want none from a body that did not finish", result.Subcases)
 	}
 }
 
