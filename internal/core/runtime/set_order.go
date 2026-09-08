@@ -72,7 +72,8 @@ func canonicalCompare(a, b Value) int {
 }
 
 // compareContents orders two values of one kind that render alike by what
-// valueEqual compares: shape and elements, components, unit, or reference key.
+// valueEqual compares: shape and elements, components, unit, reference key, or
+// the calc, object and run a function is a value of.
 func compareContents(a, b Value) int {
 	switch a.Kind {
 	case ValSequence, ValSet:
@@ -111,8 +112,22 @@ func compareContents(a, b Value) int {
 		}
 		x, y := a.Expr().Span(), b.Expr().Span()
 		return cmp.Or(cmp.Compare(x.Offset, y.Offset), cmp.Compare(x.Len, y.Len))
+	case ValFunction:
+		return cmp.Or(
+			compareSymbols(a.Function(), b.Function()),
+			cmp.Compare(instanceID(a.FunctionSelf()), instanceID(b.FunctionSelf())),
+			cmp.Compare(a.functionRun(), b.functionRun()),
+		)
 	}
 	return 0
+}
+
+// instanceID is the identity of the object a function closes over, 0 for none.
+func instanceID(inst *Instance) int64 {
+	if inst == nil {
+		return 0
+	}
+	return inst.ID
 }
 
 // vectorComponents is every axis of the vector as a scalar quantity value.

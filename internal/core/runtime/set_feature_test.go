@@ -340,10 +340,10 @@ func TestSameNamedLiteralsOrderByDeclaration(t *testing.T) {
 	}
 }
 
-// TestSetMembersEqualAcrossCollectionKinds pins that a sequence and the set it
-// equals — valueEqual holds across the two kinds — share one key, so a set
-// admits only one of them and finds either.
-func TestSetMembersEqualAcrossCollectionKinds(t *testing.T) {
+// TestSetIsNotASequenceAsAMember pins that a set and the sequence `==` reads it
+// as are two members of a set — a set is never the sequence of its members —
+// while two equal sets, or any two empty values, are one.
+func TestSetIsNotASequenceAsAMember(t *testing.T) {
 	ints := func(ns ...int64) []Value {
 		vals := make([]Value, len(ns))
 		for i, n := range ns {
@@ -352,23 +352,86 @@ func TestSetMembersEqualAcrossCollectionKinds(t *testing.T) {
 		return vals
 	}
 	seq, set, other := sequenceOf(ints(1, 2)), setOf(ints(2, 1)), sequenceOf(ints(2, 1))
-	if valueKeyFunc(seq) != valueKeyFunc(set) {
-		t.Errorf("keys differ for %s and %s", FormatValue(seq), FormatValue(set))
+	if !equalValues(seq, set) || equalValues(other, set) {
+		t.Errorf("== reads %s against %s and %s in canonical order", FormatValue(set), FormatValue(seq), FormatValue(other))
+	}
+	if valueEqual(seq, set) || valueKeyFunc(seq) == valueKeyFunc(set) {
+		t.Errorf("%s and %s are one member", FormatValue(seq), FormatValue(set))
 	}
 	for _, members := range [][]Value{{seq, set, other}, {set, seq, other}, {other, set, seq}} {
 		outer := setOf(members).Set()
-		if outer.Size() != 2 {
-			t.Errorf("set of %v has %d members, want 2", members, outer.Size())
+		if outer.Size() != 3 {
+			t.Errorf("set of %v has %d members, want 3", members, outer.Size())
 		}
 		for _, m := range []Value{seq, set, other} {
 			if !outer.Contains(m) {
 				t.Errorf("set of %v lacks %s", members, FormatValue(m))
 			}
 		}
+		if got, want := FormatTraceValue(NewSetValue(outer)), "{(1, 2), (2, 1), {1, 2}}"; got != want {
+			t.Errorf("set of %v renders %s, want %s", members, got, want)
+		}
 	}
 	nested := setOf([]Value{setOf(ints(1, 2)), setOf(ints(2, 1))}).Set()
 	if nested.Size() != 1 {
 		t.Errorf("set of two equal sets has %d members, want 1", nested.Size())
+	}
+	// A set holding a sequence is not the set holding the set of its elements.
+	if valueEqual(setOf([]Value{seq}), setOf([]Value{set})) {
+		t.Errorf("%s and %s are one value", FormatValue(setOf([]Value{seq})), FormatValue(setOf([]Value{set})))
+	}
+	empties := setOf([]Value{{Kind: ValNull}, sequenceOf(nil), setOf(nil)}).Set()
+	if empties.Size() != 1 {
+		t.Errorf("null, () and {} are %d members, want 1", empties.Size())
+	}
+}
+
+// TestFunctionsRenderedAlikeOrderByIdentity pins that two distinct functions
+// with one trace rendering — one calc read against two objects, or within two
+// runs, or two declarations of one name — take one position each, so equal
+// sets of functions enumerate alike whatever order they were written in.
+func TestFunctionsRenderedAlikeOrderByIdentity(t *testing.T) {
+	shape := &calcShape{Sym: &symbols.Symbol{Name: "scale"}, Name: "P::scale"}
+	twin := &calcShape{Sym: &symbols.Symbol{Name: "scale", DocName: "other"}, Name: "P::scale"}
+	fn := func(shape *calcShape, self *Instance, run int64) Value {
+		f := &functionValue{shape: shape, self: self}
+		if run != 0 {
+			f.enclosing = []frame{{vars: map[string]Value{"k": integerValue(1)}, run: run}}
+		}
+		return Value{Kind: ValFunction, ref: f}
+	}
+	one, two := &Instance{ID: 1}, &Instance{ID: 2}
+	pairs := map[string][2]Value{
+		"two objects":      {fn(shape, one, 0), fn(shape, two, 0)},
+		"two runs":         {fn(shape, one, 1), fn(shape, one, 2)},
+		"two declarations": {fn(shape, one, 0), fn(twin, one, 0)},
+		"no object":        {fn(shape, nil, 0), fn(shape, one, 0)},
+	}
+	for name, pair := range pairs {
+		a, b := pair[0], pair[1]
+		if FormatTraceValue(a) != FormatTraceValue(b) {
+			t.Fatalf("%s: %s and %s render apart", name, FormatTraceValue(a), FormatTraceValue(b))
+		}
+		if valueEqual(a, b) {
+			t.Errorf("%s: %s compares equal to its twin", name, FormatValue(a))
+		}
+		c := canonicalCompare(a, b)
+		if c == 0 || canonicalCompare(b, a) != -c {
+			t.Errorf("%s: compare = %d, reversed = %d, want opposite non-zero", name, c, canonicalCompare(b, a))
+		}
+		if canonicalCompare(a, a) != 0 || canonicalCompare(b, fn(b.function().shape, b.FunctionSelf(), b.functionRun())) != 0 {
+			t.Errorf("%s: a function compares non-zero against itself", name)
+		}
+		ab, ba := setOf([]Value{a, b}).Set(), setOf([]Value{b, a}).Set()
+		if ab.Size() != 2 || !ab.Equal(ba) {
+			t.Fatalf("%s: sets of %s and %s are not two equal members", name, FormatValue(a), FormatValue(b))
+		}
+		x, y := ab.Elements(), ba.Elements()
+		for i := range x {
+			if !valueEqual(x[i], y[i]) {
+				t.Errorf("%s: element %d differs between insertion orders", name, i)
+			}
+		}
 	}
 }
 

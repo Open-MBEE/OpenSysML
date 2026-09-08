@@ -26,7 +26,7 @@ type valueKey struct {
 
 // valueKeyFunc extracts a comparable key from a Value. Values valueEqual holds
 // equal share a key: a whole number has the Integer's whatever kind carries it,
-// every empty value has null's, and a set has the key of its canonical sequence.
+// every empty value has null's, and a set hashes its members in canonical order.
 func valueKeyFunc(v Value) valueKey {
 	if isEmptyValue(v) {
 		return valueKey{kind: ValNull}
@@ -59,7 +59,6 @@ func valueKeyFunc(v Value) valueKey {
 	case ValInstance:
 		key.instID = v.Instance
 	case ValSequence, ValSet:
-		key.kind = ValSequence
 		key.colHash = hashElements(elementsOf(v))
 	case ValVariant:
 		key.variant = v.Variant()

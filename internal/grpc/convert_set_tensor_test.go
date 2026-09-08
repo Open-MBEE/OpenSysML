@@ -59,6 +59,10 @@ func setOf(elements ...*pb.Value) *pb.Value {
 	return &pb.Value{Kind: &pb.Value_Set{Set: &pb.ValueSet{Elements: elements}}}
 }
 
+func sequenceValue(elements ...*pb.Value) *pb.Value {
+	return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: elements}}}
+}
+
 func tensorQuantityValue(dimensions []int64, components ...*pb.Quantity) *pb.Value {
 	return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: &pb.TensorQuantity{Dimensions: dimensions, Components: components}}}
 }
@@ -178,6 +182,8 @@ func TestMalformedSetsAreRejected(t *testing.T) {
 		{"repeated nested set", setOf(setOf(intValue(1)), setOf(intValue(1))), ErrSetElementRepeated},
 		{"nested sets equal in another order", setOf(setOf(intValue(1), intValue(2)), setOf(intValue(2), intValue(1))), ErrSetElementRepeated},
 		{"Integer and the equal Real", setOf(intValue(1), realValue(1)), ErrSetElementRepeated},
+		{"null and the empty sequence", setOf(&pb.Value{Kind: &pb.Value_Null{}}, sequenceValue()), ErrSetElementRepeated},
+		{"empty set and the empty sequence", setOf(setOf(), sequenceValue()), ErrSetElementRepeated},
 		{"unset element", setOf(&pb.Value{Kind: &pb.Value_Unset{Unset: true}}), ErrUnsetNotAccepted},
 		{"malformed element", setOf(arrayValue([]int64{0})), ErrArrayDimensionNotPositive},
 	}
@@ -188,6 +194,55 @@ func TestMalformedSetsAreRejected(t *testing.T) {
 				t.Fatalf("ProtoToValueIn = %v, want %v", err, tc.want)
 			}
 		})
+	}
+
+	// A set is not the sequence of its members: the two are distinct members of a set.
+	val, err := ProtoToValueIn(setOf(setOf(intValue(1), intValue(2)), sequenceValue(intValue(1), intValue(2)), sequenceValue(intValue(2), intValue(1))), idx, sem)
+	if err != nil || val.Kind != runtime.ValSet || val.Set().Size() != 3 {
+		t.Fatalf("a set holding a set and the two sequences of its members = %s, %v, want three members", runtime.FormatValue(val), err)
+	}
+}
+
+// functionSetModel reads one calc against two objects, so two function values
+// render alike, and lists them in a set both ways round.
+const functionSetModel = `
+package G {
+  private import ScalarValues::*;
+  private import Collections::*;
+  calc def Unary { in v : Real; return : Real; }
+  part def Holder { attribute k : Real; calc scale :> Unary { in :>> v; return : Real = v * k; } }
+  part a : Holder { :>> k = 2.0; }
+  part b : Holder { :>> k = 3.0; }
+  attribute ab : Set { :>> elements = (a.scale, b.scale); }
+  attribute ba : Set { :>> elements = (b.scale, a.scale); }
+}
+`
+
+// Two functions that render alike — one calc read against two objects — are
+// two members, sent in one order however the set was written.
+func TestSetOfAlikeFunctionsCrossesInOneOrder(t *testing.T) {
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, functionSetModel)
+	if eq := mustEvaluate(t, srv, modelHash, "G::ab == G::ba"); !eq.GetBoolValue() {
+		t.Fatalf("G::ab == G::ba = %v, want true", eq)
+	}
+	if ab := mustEvaluate(t, srv, modelHash, "G::ab.elements").GetSet(); ab == nil || len(ab.GetElements()) != 2 {
+		t.Fatalf("G::ab.elements = %v, want a set of two functions", ab)
+	}
+	// Both sets flow into one sequence, so their members' objects are numbered
+	// within one response and the two enumerations can be compared.
+	both := mustEvaluate(t, srv, modelHash, "(G::ab.elements, G::ba.elements)").GetSequence().GetElements()
+	if len(both) != 4 {
+		t.Fatalf("(G::ab.elements, G::ba.elements) = %v, want four functions", both)
+	}
+	for i := range 2 {
+		x, y := both[i].GetFunction(), both[i+2].GetFunction()
+		if x == nil || y == nil || x.GetCalcId() != "G::Holder::scale" || x.GetCalcId() != y.GetCalcId() || x.GetSelfId() == 0 || x.GetSelfId() != y.GetSelfId() {
+			t.Errorf("member %d: %v in ab, %v in ba, want the function G::Holder::scale over one object in both", i, x, y)
+		}
+	}
+	if both[0].GetFunction().GetSelfId() == both[1].GetFunction().GetSelfId() {
+		t.Errorf("G::ab.elements = %v, want two functions over two objects", both[:2])
 	}
 }
 

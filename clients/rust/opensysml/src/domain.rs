@@ -1794,6 +1794,11 @@ mod tests {
                 Value::Set(Set::new(vec![Value::Real(9_007_199_254_740_992.0)]).unwrap()),
                 false,
             ),
+            (
+                Value::Set(Set::new(vec![Value::Integer(1), Value::Integer(2)]).unwrap()),
+                Value::Sequence(vec![Value::Integer(1), Value::Integer(2)]),
+                false,
+            ),
         ];
         for (a, b, want) in cases {
             assert_eq!(a.same_value(&b), want, "{a:?} vs {b:?}");

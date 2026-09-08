@@ -1958,7 +1958,7 @@ func (ctx *Context) equalityValues(op ast.OperatorKind, left, right Value) (Valu
 		}
 	}
 
-	equal := valueEqual(left, right)
+	equal := equalValues(left, right)
 	if op == ast.OpNeq {
 		equal = !equal
 	}
@@ -2621,7 +2621,17 @@ func qualifiedNameToString(qn *ast.QualifiedName) string {
 	return strings.Join(parts, "::")
 }
 
-// valueEqual checks deep equality of two runtime values.
+// equalValues is `==` over two operands: a set meeting a sequence flows into the
+// ordered context and is compared as its canonical sequence; otherwise valueEqual.
+func equalValues(a, b Value) bool {
+	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
+		return sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
+	}
+	return valueEqual(a, b)
+}
+
+// valueEqual checks deep equality of two runtime values: whether they are one
+// value, as a set's membership judges. A set is never the sequence of its members.
 func valueEqual(a, b Value) bool {
 	if isEmptyValue(a) || isEmptyValue(b) {
 		return isEmptyValue(a) && isEmptyValue(b)
@@ -2629,11 +2639,6 @@ func valueEqual(a, b Value) bool {
 	// A complex number equals the number it is, whichever kind carries it.
 	if a.Kind == ValComplex || b.Kind == ValComplex {
 		return complexEqual(a, b)
-	}
-	// A set compared with a sequence flows into the ordered context: its
-	// canonical sequence is compared.
-	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
-		return sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
 	}
 	if a.Kind != b.Kind {
 		return false

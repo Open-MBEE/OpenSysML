@@ -120,6 +120,12 @@ func TestSetsAndTensorsCrossEveryTransport(t *testing.T) {
 			if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument || !strings.Contains(status.Message, "set lists a member twice") {
 				t.Errorf("sizeOf({1, 1.0}) err = %v, want an invalid-argument status naming the repeated element", err)
 			}
+			// A set is not the sequence of its members, on either side: what the client admits, the service reads.
+			one, two := opensysml.Int(1), opensysml.Int(2)
+			calc, err = client.EvaluateCalc(ctx, model, "W::sizeOf", opensysml.Set{opensysml.Set{one, two}, opensysml.Sequence{one, two}, opensysml.Sequence{two, one}})
+			if err != nil || calc.Result != opensysml.Int(3) {
+				t.Errorf("sizeOf({{1, 2}, (1, 2), (2, 1)}) = %#v, %v, want 3", calc, err)
+			}
 			// A tensor its components do not fill is refused before it is sent.
 			short := opensysml.TensorQuantity{Dimensions: []int64{2, 2, 2}, Components: tq.Components[:7]}
 			_, err = client.EvaluateCalc(ctx, model, "W::corner", short)
