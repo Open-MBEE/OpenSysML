@@ -1049,8 +1049,7 @@ func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.Constructor
 }
 
 // checkFeatureBinding reports a constructor argument its feature cannot take: the values written
-// by scalar type together and by conformance to the feature's declared or inherited types each,
-// each element a collection value holds on its own, and the argument by count.
+// together by scalar type or each by conformance, each held element on its own, and the count.
 func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, feature, typ *symbols.Symbol) {
 	u, ok := feature.Decl.(*ast.Usage)
 	if !ok {
@@ -1244,8 +1243,7 @@ type misbinding struct {
 }
 
 // argumentMismatches says why value does not bind to p (none when it does or a type is unknown):
-// the values written are judged together, by the type a collection literal's elements share; each
-// element a collection value among them holds on its own.
+// the values written are judged together, as a collection literal is; each held element on its own.
 func (ec *exprChecker) argumentMismatches(scope *symbols.Scope, value ast.Node, p parameter) []misbinding {
 	var out []misbinding
 	written, held := ec.argumentElements(scope, value)
@@ -1271,9 +1269,8 @@ func symbolList(sym *symbols.Symbol) []*symbols.Symbol {
 	return []*symbols.Symbol{sym}
 }
 
-// argumentMismatch says why value, of scalar type prim and declared types, does not bind to p
-// ("" when it does or a type is unknown): a scalar parameter is judged by the lattice, any other
-// by declared type, a Collection taking any sequence and Element the element any argument names.
+// argumentMismatch says why value, of scalar type prim and declared types, does not bind to p (""
+// when it does or a type is unknown); a Collection parameter takes any sequence, Element any element.
 func (ec *exprChecker) argumentMismatch(value ast.Node, prim semantics.PrimType, types []*symbols.Symbol, p parameter) string {
 	if want := ec.parameterPrimType(p); want != semantics.PrimUnknown {
 		if prim == semantics.PrimUnknown || bindable(value, prim, want) {
