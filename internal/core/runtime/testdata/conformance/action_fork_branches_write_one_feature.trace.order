@@ -1,0 +1,5 @@
+# The fork precedes both branches; the join waits for both.
+split < left
+split < right
+left < sync
+right < sync
