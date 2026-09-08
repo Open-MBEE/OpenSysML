@@ -144,12 +144,8 @@ func (ec *exprChecker) effectiveRange(scope *symbols.Scope, d featureDecl, depth
 	return semantics.Range{}, false
 }
 
-// heldCount returns how many values a bound expression produces, where that is
-// statically bounded. A literal contributes one value, a collection literal the
-// values of its elements, and a collection operation the values it holds — none
-// over `()`, one per element mapped, at least two over a `[2..*]` collection;
-// anything else (a feature reference, an invocation) may itself be multi-valued,
-// so its count is unknown — as is that of a collection holding one.
+// heldCount is how many values a bound expression produces, where statically bounded: one per
+// literal, the sum over a collection literal, what a collection operation holds; else unknown.
 func (ec *exprChecker) heldCount(scope *symbols.Scope, value ast.Node) (semantics.Range, bool) {
 	if value == nil {
 		return semantics.Range{}, false
