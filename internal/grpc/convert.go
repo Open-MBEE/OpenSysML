@@ -621,7 +621,9 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 }
 
 // functionFromProto binds a function to the calc its calc_id names in rt's
-// model, read as a value in its own scope, against the object self_id names.
+// model, read as a value in its own scope. Objects live only within the call that
+// created them, so a self_id names none of this call's: it is refused rather
+// than matched to whichever object this call happened to number the same.
 func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index) (runtime.Value, error) {
 	if fn == nil || fn.GetCalcId() == "" {
 		return runtime.Value{}, fmt.Errorf("%w: calc_id is empty", ErrFunctionUnbound)
@@ -629,17 +631,13 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 	if rt == nil || idx == nil {
 		return runtime.Value{}, fmt.Errorf("%w: function %s", ErrFunctionNeedsRuntime, fn.GetCalcId())
 	}
-	var self *runtime.Instance
 	if fn.GetSelfId() != 0 {
-		inst, ok := rt.Instance(fn.GetSelfId())
-		if !ok {
-			return runtime.Value{}, fmt.Errorf("%w: %s: self_id %d names no object of this runtime",
-				ErrFunctionUnbound, fn.GetCalcId(), fn.GetSelfId())
-		}
-		self = inst
+		return runtime.Value{}, fmt.Errorf(
+			"%w: %s: self_id %d names no object of this call: an object lives only within the response that created it",
+			ErrFunctionUnbound, fn.GetCalcId(), fn.GetSelfId())
 	}
 	for _, sym := range idx.LookupQualified(fn.GetCalcId()) {
-		val, isFunction, err := rt.FunctionValueOn(sym, self)
+		val, isFunction, err := rt.FunctionValue(sym)
 		if !isFunction {
 			continue
 		}

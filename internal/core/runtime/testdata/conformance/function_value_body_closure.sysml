@@ -19,5 +19,9 @@ package test {
 		calc scale :> Unary { in :>> x; return : Real = x * k; }
 		return : Unary = scale;
 	}
-	calc def UseOuter { return : Real = Outer(3.0) + Outer(4.0) + Bare(5.0) + Fn(Maker(10.0), 2.0); }
+	// A nested usage inheriting its body still closes over a default it declares in the run.
+	calc def Mul { in a : Real; in b : Real; return : Real = a * b; }
+	calc def Fixer { in k : Real; calc byK : Mul { in :>> b = k; } return : Mul = byK; }
+	calc def ApplyOne { in calc f { in a : Real; return : Real; } in a : Real; return : Real = f(a); }
+	calc def UseOuter { return : Real = Outer(3.0) + Outer(4.0) + Bare(5.0) + Fn(Maker(10.0), 2.0) + ApplyOne(Fixer(10.0), 4.0); }
 }

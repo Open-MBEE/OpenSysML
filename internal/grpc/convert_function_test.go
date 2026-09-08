@@ -31,9 +31,17 @@ package F {
 
   part def Holder {
     attribute k : Real = 2.0;
-    calc scale { in x : Real; return : Real = x * k; }
+    calc scale :> Unary { in :>> v; return : Real = v * k; }
   }
   part holder : Holder;
+  part def Other { attribute k : Real = 100.0; }
+  part other : Other;
+  analysis def ApplyCase {
+    subject s : Other;
+    in calc f : Unary;
+    in a : Real;
+    out y : Real = f(a);
+  }
 
   calc def Outer {
     in k : Real;
@@ -41,6 +49,12 @@ package F {
     return : Unary = inner;
   }
   calc outer : Outer;
+
+  calc def Mul { in a : Real; in b : Real; return : Real = a * b; }
+  calc def Fixed { in k : Real; calc inner : Sq; return : Unary = inner; }
+  calc fixed : Fixed;
+  calc def Scaled { in k : Real; calc inner : Mul { in :>> b = k; } return : Mul = inner; }
+  calc scaled : Scaled;
 
   action run {
     in calc f { in v : Real; return : Real; }
@@ -116,36 +130,6 @@ func TestFunctionRoundTrip(t *testing.T) {
 		t.Fatalf("F::fns = %v, want a sequence of the functions Sq and Cube", fns)
 	}
 
-	// A calc usage read off a part closes over that part, which crosses by ID and
-	// resolves the calc's feature names when the value comes back.
-	scale := mustEvaluateIn(t, srv, modelHash, "F::holder", "scale")
-	if scale.GetFunction().GetCalcId() != "F::Holder::scale" || scale.GetFunction().GetSelfId() == 0 {
-		t.Fatalf("holder.scale = %v, want the calc F::Holder::scale closing over holder", scale)
-	}
-	func() {
-		rt, _, release := srv.newRuntime(cached)
-		defer release()
-		holder, err := rt.Instantiate(lookupNamed(idx, "F::holder")[0])
-		if err != nil {
-			t.Fatalf("Instantiate(holder): %v", err)
-		}
-		fn, isFunction, err := rt.FunctionValueOn(lookupNamed(idx, "F::Holder::scale")[0], holder)
-		if err != nil || !isFunction {
-			t.Fatalf("FunctionValueOn(scale, holder) = %v, %v, %v", fn, isFunction, err)
-		}
-		pv := ValueToProtoIn(rt, fn, idx)
-		if pv.GetFunction().GetCalcId() != "F::Holder::scale" || pv.GetFunction().GetSelfId() != holder.ID {
-			t.Fatalf("scale over holder crossed as %v, want calc_id F::Holder::scale, self_id %d", pv, holder.ID)
-		}
-		back, err := ProtoToRuntimeValue(rt, pv, idx, sem)
-		if err != nil || back.Kind != runtime.ValFunction || back.FunctionSelf() != holder {
-			t.Errorf("scale over holder read back as %v, %v; want the function over holder", back, err)
-		}
-		if back.Function() != fn.Function() {
-			t.Errorf("scale over holder read back as the calc %v, want %v", back.Function(), fn.Function())
-		}
-	}()
-
 	// A function read in applies as the argument of a calc and an action.
 	calc, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "F::apply", Arguments: []*pb.Value{functionValue("F::Sq", 0), realValue(3)}})
 	if err != nil || calc.Error != "" {
@@ -172,6 +156,77 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if closed.GetFunction() != nil || !strings.Contains(closed.GetNull(), "unsupported: function F::Outer::inner") {
 		t.Errorf("F::outer(3.0) = %v, want an unsupported null naming F::Outer::inner", closed)
 	}
+	// So does one whose inherited body reads nothing of the run, but whose own default does.
+	scaled := mustEvaluate(t, srv, modelHash, "F::scaled(3.0)")
+	if scaled.GetFunction() != nil || !strings.Contains(scaled.GetNull(), "unsupported: function F::Scaled::inner") {
+		t.Errorf("F::scaled(3.0) = %v, want an unsupported null naming F::Scaled::inner", scaled)
+	}
+
+	// A nested usage reading nothing of the run that returned it crosses as the
+	// calc it names, and comes back applying that calc's inherited body.
+	fixed := mustEvaluate(t, srv, modelHash, "F::fixed(3.0)")
+	if fixed.GetFunction().GetCalcId() != "F::Fixed::inner" || fixed.GetFunction().GetSelfId() != 0 {
+		t.Fatalf("F::fixed(3.0) = %v, want the calc F::Fixed::inner closing over no object", fixed)
+	}
+	applied, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{
+		ModelHash: modelHash, SymbolId: "F::apply", Arguments: []*pb.Value{fixed, realValue(3)},
+	})
+	if err != nil || applied.Error != "" {
+		t.Fatalf("EvaluateCalc(apply, fixed inner): %v %s", err, applied.GetError())
+	}
+	if got := applied.Result.GetRealValue(); got != 9 {
+		t.Errorf("apply(F::Fixed::inner, 3.0) = %v, want 9.0", applied.Result)
+	}
+}
+
+// A calc usage read off an object crosses with the object's id, which lives as
+// long as the response; sent back to any later call, it is refused rather than
+// matched to whatever object that call numbers the same. The object-bound calc
+// applies within the one call that reads it off its object.
+func TestObjectBoundFunctionsDoNotCrossCalls(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, functionWireModel)
+
+	scale := mustEvaluateIn(t, srv, modelHash, "F::holder", "scale")
+	if scale.GetFunction().GetCalcId() != "F::Holder::scale" || scale.GetFunction().GetSelfId() == 0 {
+		t.Fatalf("holder.scale = %v, want the calc F::Holder::scale closing over holder", scale)
+	}
+	refused := func(what, msg string) {
+		t.Helper()
+		if !strings.Contains(msg, "self_id") || !strings.Contains(msg, "lives only within the response") {
+			t.Errorf("%s with holder.scale: error %q, want the self_id refused as outliving its response", what, msg)
+		}
+	}
+
+	calc, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: "F::apply", Arguments: []*pb.Value{scale, realValue(3)}})
+	if err != nil || calc.Result != nil {
+		t.Fatalf("EvaluateCalc(apply, holder.scale): err = %v, result = %v, want an in-body refusal", err, calc.GetResult())
+	}
+	refused("EvaluateCalc", calc.Error)
+
+	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: modelHash, ActionSymbolId: "F::run", Inputs: map[string]*pb.Value{"f": scale, "a": realValue(2)},
+	})
+	if err != nil || len(act.Outputs) != 0 {
+		t.Fatalf("ExecuteAction(run, holder.scale): err = %v, outputs = %v, want an in-body refusal", err, act.GetOutputs())
+	}
+	refused("ExecuteAction", act.Error)
+
+	// An analysis instantiates its subject before reading its arguments, so this
+	// call holds an object numbered as holder was; the function does not bind to it.
+	an, err := srv.RunAnalysis(ctx, &pb.RunAnalysisRequest{
+		ModelHash: modelHash, SymbolId: "F::ApplyCase", SubjectSymbolId: "F::other", Arguments: []*pb.Value{scale, realValue(3)},
+	})
+	if err != nil || len(an.Outputs) != 0 {
+		t.Fatalf("RunAnalysis(ApplyCase over other, holder.scale): err = %v, outputs = %v, want an in-body refusal", err, an.GetOutputs())
+	}
+	refused("RunAnalysis", an.Error)
+
+	// Within one call, the object is read and the calc applied over it.
+	if got := mustEvaluate(t, srv, modelHash, "F::apply(F::holder.scale, 3.0)").GetRealValue(); got != 6 {
+		t.Errorf("apply(holder.scale, 3.0) = %v, want 6.0", got)
+	}
 }
 
 // A function naming no calc of the model, an object the runtime does not
@@ -193,7 +248,7 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 		{"unknown declaration", functionValue("F::Nope", 0), ErrFunctionUnbound},
 		{"declaration that is not a calc", functionValue("F::holder", 0), ErrFunctionUnbound},
 		{"calc usage computing a result", functionValue("F::pickSq", 0), ErrFunctionUnbound},
-		{"object the runtime does not hold", functionValue("F::Sq", 12345), ErrFunctionUnbound},
+		{"object of another call", functionValue("F::Sq", 12345), ErrFunctionUnbound},
 		{"nested in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{
 			intValue(1), functionValue("F::Nope", 0),
 		}}}}, ErrFunctionUnbound},

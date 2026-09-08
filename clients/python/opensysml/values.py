@@ -415,8 +415,9 @@ class Function:
         calc_id (str): FQN of the calc declaration (``Analysis::Sq``)
         self_id (int): ID of the object the calc's feature names resolve
             against, for a calc usage read off a part (``holder.scale``); 0 for
-            a function closing over no object. One sent to the service must name
-            an object of the runtime the value is read in.
+            a function closing over no object. An instance ID, valid only within
+            the response that sent it: the service rejects a function argument
+            whose ``self_id`` is not 0, since no later call holds that object.
     """
 
     calc_id: str

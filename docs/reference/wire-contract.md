@@ -285,7 +285,7 @@ decode(v):
                  require unit or id, else an error; id absent means a composed unit
   function     → calc := v.function.calcId, require it non-empty, else an error;
                  self := v.function.selfId when present and not "0", an opaque reference
-                 under the instanceId rule, else no object
+                 under the instanceId rule (this response only), else no object
   anything else → an error: a newer service than this decoder
 ```
 
@@ -474,6 +474,13 @@ $ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::scaler"}'
   rules: a 64-bit integer sent as a string, valid within the response it arrived in, and
   indexing that response's `instances` where the method returns them. Absent (or `"0"`, the
   proto default) means the calc computes over no object.
+- A function carrying a `selfId` cannot be sent back. Every call instantiates the model afresh
+  and numbers its objects from 1, so the object the function was read off does not exist in any
+  later call — and another call's object may well carry the same number. A request `function`
+  with a non-zero `selfId` is therefore refused in band, whatever the number, rather than bound
+  to whichever object that call numbered the same. To apply a calc over an object, name both
+  in one expression — `Evaluate` of `F::apply(F::holder.scale, 3.0)` reads the object and
+  applies the calc within the call that holds it.
 - Two functions are the same function when their `calcId`s are equal and both name the same
   object or neither names one; the engine's `==` says the same.
 - A calc that closes over the bindings of a behavior body — one returned by another calc, or
@@ -505,8 +512,9 @@ $ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::scaler"}'
   declaration; send it back as it came, with its `unit` and `unitTerm` only.
 - **Do not read a `function` as the value the calc computes, or invoke it locally.** It is a
   reference: hand it back as an argument (`EvaluateCalc`) and let the service invoke it.
-- **Do not keep a `function`'s `selfId` past the response it arrived in.** It is an
-  `instanceId`, with that arm's lifetime.
+- **Do not send back a `function` that carries a `selfId`.** It is an `instanceId`, with that
+  arm's lifetime: no later call holds the object, and the service refuses the function rather
+  than guess. Only a function over no object (`selfId` absent or `"0"`) is an argument.
 
 ## Three places a failure can be
 
@@ -818,9 +826,9 @@ $ … /EvaluateCalc -d '{"modelHash":"5b0f…40d5","symbolId":"M::toUnit","argum
 ```
 
 A `function` argument binds an `in calc` parameter to the calc it names, resolved against the
-model and, when it carries a `selfId`, against the objects of the runtime the model was
-instantiated into. A name that is empty, names nothing, names something that is not a calc,
-or a `selfId` that names no object, is an in-body failure, at any depth:
+model, over no object. A name that is empty, names nothing, or names something that is not a
+calc is an in-body failure, at any depth; so is any non-zero `selfId`, since the object it
+named lived only in the response that sent it and no call can hold it again:
 
 ```console
 $ … /EvaluateCalc -d '{"modelHash":"e587…f81e","symbolId":"F::apply","arguments":[{"function":{"calcId":"F::Sq"}},{"realValue":3.0}]}'
@@ -830,7 +838,7 @@ $ … /EvaluateCalc -d '{"modelHash":"e587…f81e","symbolId":"F::apply","argume
 {"error":"calc argument could not be read: function names no calc of this model: F::holder is not a calc", "failureReason":"FAILURE_REASON_EVALUATION"}
 
 $ … /EvaluateCalc -d '{"modelHash":"e587…f81e","symbolId":"F::apply","arguments":[{"function":{"calcId":"F::Scaler::scale","selfId":"3"}},{"realValue":2.0}]}'
-{"error":"calc argument could not be read: function names no calc of this model: F::Scaler::scale: self_id 3 names no object of this runtime", "failureReason":"FAILURE_REASON_EVALUATION"}
+{"error":"calc argument could not be read: function names no calc of this model: F::Scaler::scale: self_id 3 names no object of this call: an object lives only within the response that created it", "failureReason":"FAILURE_REASON_EVALUATION"}
 ```
 
 A service without the `structured_values` capability refuses a structured argument, one

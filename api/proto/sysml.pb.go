@@ -4058,8 +4058,9 @@ type Function struct {
 	CalcId string `protobuf:"bytes,1,opt,name=calc_id,json=calcId,proto3" json:"calc_id,omitempty"`
 	// ID of the object the calc's feature names resolve against, for a calc
 	// usage read off a part (`holder.scale`); 0 for a function closing over no
-	// object. Sent by the service; a client sending one must name an object of
-	// the runtime the value is read in, or the value is rejected.
+	// object. An instance id, living only within the response that sent it: a
+	// request function with a non-zero self_id is rejected, since no later call
+	// holds that object.
 	SelfId        int64 `protobuf:"varint,2,opt,name=self_id,json=selfId,proto3" json:"self_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

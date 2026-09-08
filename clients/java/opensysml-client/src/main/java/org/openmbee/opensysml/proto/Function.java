@@ -106,8 +106,9 @@ private static final long serialVersionUID = 0L;
    * <pre>
    * ID of the object the calc's feature names resolve against, for a calc
    * usage read off a part (`holder.scale`); 0 for a function closing over no
-   * object. Sent by the service; a client sending one must name an object of
-   * the runtime the value is read in, or the value is rejected.
+   * object. An instance id, living only within the response that sent it: a
+   * request function with a non-zero self_id is rejected, since no later call
+   * holds that object.
    * </pre>
    *
    * <code>int64 self_id = 2 [json_name = "selfId"];</code>
@@ -542,8 +543,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * ID of the object the calc's feature names resolve against, for a calc
      * usage read off a part (`holder.scale`); 0 for a function closing over no
-     * object. Sent by the service; a client sending one must name an object of
-     * the runtime the value is read in, or the value is rejected.
+     * object. An instance id, living only within the response that sent it: a
+     * request function with a non-zero self_id is rejected, since no later call
+     * holds that object.
      * </pre>
      *
      * <code>int64 self_id = 2 [json_name = "selfId"];</code>
@@ -557,8 +559,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * ID of the object the calc's feature names resolve against, for a calc
      * usage read off a part (`holder.scale`); 0 for a function closing over no
-     * object. Sent by the service; a client sending one must name an object of
-     * the runtime the value is read in, or the value is rejected.
+     * object. An instance id, living only within the response that sent it: a
+     * request function with a non-zero self_id is rejected, since no later call
+     * holds that object.
      * </pre>
      *
      * <code>int64 self_id = 2 [json_name = "selfId"];</code>
@@ -576,8 +579,9 @@ private static final long serialVersionUID = 0L;
      * <pre>
      * ID of the object the calc's feature names resolve against, for a calc
      * usage read off a part (`holder.scale`); 0 for a function closing over no
-     * object. Sent by the service; a client sending one must name an object of
-     * the runtime the value is read in, or the value is rejected.
+     * object. An instance id, living only within the response that sent it: a
+     * request function with a non-zero self_id is rejected, since no later call
+     * holds that object.
      * </pre>
      *
      * <code>int64 self_id = 2 [json_name = "selfId"];</code>

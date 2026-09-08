@@ -675,6 +675,24 @@ func (shape *calcShape) bodyEnclosing(enclosing []frame) []frame {
 	return enclosing
 }
 
+// closesOverBody reports the calc reading the bindings of the behavior body it is
+// declared in: through a body written there, or a default it declares there.
+func (shape *calcShape) closesOverBody() bool {
+	if !enclosedByBehaviorBody(shape.Sym) {
+		return false
+	}
+	behavior := enclosingBehavior(shape.Sym)
+	if declaredWithin(shape.BodyOwner, behavior) {
+		return true
+	}
+	for i := range shape.Params {
+		if param := &shape.Params[i]; param.Default != nil && declaredWithin(param.Owner, behavior) {
+			return true
+		}
+	}
+	return false
+}
+
 // declaredWithin reports sym declared in the body of behavior, directly or in a
 // behavior nested in it.
 func declaredWithin(sym, behavior *symbols.Symbol) bool {

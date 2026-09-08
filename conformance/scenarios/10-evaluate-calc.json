@@ -317,7 +317,7 @@
     },
     {
       "id": "evaluate_calc/a_function_argument_naming_no_object_is_refused",
-      "description": "Objects live only within the response that created them, so a function naming an object this call did not create is refused in band.",
+      "description": "Objects live only within the response that created them, so a function carrying a self_id, whatever object this call numbers the same, is refused in band.",
       "rpc": "EvaluateCalc",
       "requires_capabilities": [
         "function_values"
@@ -342,7 +342,7 @@
       },
       "expect": {
         "contains": {
-          "error": "self_id 3 names no object"
+          "error": "self_id 3 names no object of this call"
         },
         "response": {
           "failure_reason": "FAILURE_REASON_EVALUATION"

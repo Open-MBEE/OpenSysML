@@ -2,5 +2,5 @@
   "type": "calc",
   "evaluate": "test::UseOuter",
   "libraries": true,
-  "result": {"type": "Real", "value": 65.0}
+  "result": {"type": "Real", "value": 105.0}
 }

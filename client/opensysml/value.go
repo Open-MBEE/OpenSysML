@@ -105,7 +105,8 @@ type Function struct {
 	// CalcID is the FQN of the calc declaration ("M::Sq").
 	CalcID string
 	// Self is the object the calc computes over, an id of the answer that
-	// reported it; 0 for a calc bound to no object.
+	// reported it; 0 for a calc bound to no object. As any InstanceID it lives
+	// only within that answer: sent as an argument, a non-zero Self is refused.
 	Self InstanceID
 }
 

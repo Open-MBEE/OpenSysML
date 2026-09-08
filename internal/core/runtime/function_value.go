@@ -16,7 +16,7 @@ type functionValue struct {
 	scope   *symbols.Scope // names the calc's defaults and body resolve against
 	self    *Instance      // object the calc's feature names resolve against, nil for none
 	// enclosing are the bindings of the behavior body the calc is declared in, as
-	// they stood when it was read; nil for a calc declared outside any body.
+	// they stood when it was read; nil for a calc reading none of them.
 	enclosing []frame
 }
 
@@ -78,7 +78,7 @@ func (ec *EvalContext) functionValueOf(sym *symbols.Symbol) (Value, error) {
 	}
 	fn := &functionValue{shape: shape, scope: ec.scope, self: ec.self}
 	fn.library, _ = ec.ctx.libraryFunctionFor(sym)
-	if enclosedByBehaviorBody(sym) && len(ec.frames) > 0 {
+	if len(ec.frames) > 0 && shape.closesOverBody() {
 		fn.enclosing = ec.closure().frames
 	}
 	return Value{Kind: ValFunction, ref: fn}, nil
@@ -117,18 +117,12 @@ func (shape *calcShape) hasUnsuppliedInput() bool {
 
 // FunctionValue is the function a read of the declaration sym denotes — a calc
 // definition, or a calc usage with an input no read could supply — closed over
-// its own scope; false when sym is no calc read as one.
+// its own scope and no object; false when sym is no calc read as one.
 func (ctx *Context) FunctionValue(sym *symbols.Symbol) (Value, bool, error) {
-	return ctx.FunctionValueOn(sym, nil)
-}
-
-// FunctionValueOn is FunctionValue with the calc's feature names resolving
-// against the object self, as a calc usage read off a part does; nil for none.
-func (ctx *Context) FunctionValueOn(sym *symbols.Symbol, self *Instance) (Value, bool, error) {
 	if !ctx.readsAsFunction(sym) {
 		return Value{}, false, nil
 	}
-	val, err := NewEvalContextIn(ctx, sym.OwnerScope, self).functionValueOf(sym)
+	val, err := NewEvalContextIn(ctx, sym.OwnerScope, nil).functionValueOf(sym)
 	return val, true, err
 }
 
@@ -146,7 +140,13 @@ func (ec *EvalContext) calcAsValue(sym *symbols.Symbol) (Value, bool, error) {
 // environment — a parameter bound by argument, or a feature of the bound object —
 // which an invocation of callee applies; false when nothing here binds it.
 func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedName) (Value, bool, error) {
-	if qn == nil || len(qn.Parts) != 1 || qn.Global || !isCalcUsageSymbol(callee) {
+	if qn == nil || len(qn.Parts) == 0 || !isCalcUsageSymbol(callee) {
+		return Value{}, false, nil
+	}
+	if len(qn.Parts) > 1 {
+		return ec.qualifiedBoundFunction(callee, qn)
+	}
+	if qn.Global {
 		return Value{}, false, nil
 	}
 	name := qn.Parts[0].Text
@@ -163,6 +163,17 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 		}
 	}
 	return Value{}, false, nil
+}
+
+// qualifiedBoundFunction reads what the innermost run of the qualifying calc
+// (`Apply::f(2.0)`), or of one specializing it, bound the calc-typed callee to.
+func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.QualifiedName) (Value, bool, error) {
+	qualifier, ok := ec.ctx.resolver.ReadQualified(ec.scope, qn).Part(len(qn.Parts) - 2)
+	if !ok {
+		return Value{}, false, nil
+	}
+	val, ok := ec.frameFeatureValue(qualifier, callee)
+	return val, ok, nil
 }
 
 // checkFunction refuses a value bound to a calc usage parameter that is no
