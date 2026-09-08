@@ -68,13 +68,70 @@ func canonicalCompare(a, b Value) int {
 	if a.Kind != b.Kind {
 		return cmp.Compare(a.Kind, b.Kind)
 	}
+	return compareContents(a, b)
+}
+
+// compareContents orders two values of one kind that render alike by what
+// valueEqual compares: shape and elements, components, unit, or reference key.
+func compareContents(a, b Value) int {
 	switch a.Kind {
 	case ValSequence, ValSet:
 		return compareElements(elementsOf(a), elementsOf(b))
 	case ValArray:
-		return compareElements(a.Array().Elements, b.Array().Elements)
+		x, y := a.Array(), b.Array()
+		return cmp.Or(compareInt64s(x.Dimensions, y.Dimensions), compareElements(x.Elements, y.Elements))
+	case ValVector:
+		return compareElements(constValues(a.Vector().Elements), constValues(b.Vector().Elements))
+	case ValVectorQuantity:
+		x, y := a.VectorQuantity(), b.VectorQuantity()
+		return cmp.Or(
+			compareElements(vectorComponents(x), vectorComponents(y)),
+			strings.Compare(x.Frame.key(), y.Frame.key()),
+		)
+	case ValTensorQuantity:
+		x, y := a.TensorQuantity(), b.TensorQuantity()
+		return cmp.Or(compareInt64s(x.Dimensions, y.Dimensions), compareElements(x.components(), y.components()))
+	case ValQuantity:
+		// Two quantities of one dimension whose magnitudes will not compare: by
+		// unit, then by the number written.
+		x, y := a.Quantity(), b.Quantity()
+		return cmp.Or(
+			strings.Compare((&MeasurementRef{Unit: x.Unit}).key(), (&MeasurementRef{Unit: y.Unit}).key()),
+			compareNumbers(x.Num, y.Num),
+		)
+	case ValMeasurementRef:
+		return strings.Compare(a.MeasurementRef().key(), b.MeasurementRef().key())
+	case ValCoordinateFrame:
+		return strings.Compare(a.CoordinateFrame().key(), b.CoordinateFrame().key())
+	case ValCoordinateTransformation:
+		return strings.Compare(a.CoordinateTransformation().key(), b.CoordinateTransformation().key())
+	case ValExpr:
+		if a.Expr() == nil || b.Expr() == nil {
+			return compareBool(a.Expr() != nil, b.Expr() != nil)
+		}
+		x, y := a.Expr().Span(), b.Expr().Span()
+		return cmp.Or(cmp.Compare(x.Offset, y.Offset), cmp.Compare(x.Len, y.Len))
 	}
 	return 0
+}
+
+// vectorComponents is every axis of the vector as a scalar quantity value.
+func vectorComponents(vq *VectorQuantity) []Value {
+	out := make([]Value, len(vq.Num))
+	for i := range out {
+		out[i] = NewQuantityValue(vq.component(i))
+	}
+	return out
+}
+
+// compareInt64s orders two shapes lexicographically, a shorter prefix first.
+func compareInt64s(a, b []int64) int {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if c := cmp.Compare(a[i], b[i]); c != 0 {
+			return c
+		}
+	}
+	return cmp.Compare(len(a), len(b))
 }
 
 // compareElements orders two element lists lexicographically, a shorter prefix first.

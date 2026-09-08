@@ -313,3 +313,59 @@ func TestSetMembersEqualAcrossCollectionKinds(t *testing.T) {
 		t.Errorf("set of two equal sets has %d members, want 1", nested.Size())
 	}
 }
+
+// TestLikeRenderedValuesOrderByContents pins that two unequal structured values
+// whose trace text is the same — a unit spelt alike that reduces differently —
+// still take one position each, whatever order they were added in.
+func TestLikeRenderedValuesOrderByContents(t *testing.T) {
+	metre := &symbols.Symbol{Name: "metre"}
+	unit := func(scale float64) Unit {
+		return Unit{
+			Text:    "m",
+			Product: semantics.NamedUnitProduct(metre, "m", false),
+			Term:    semantics.UnitTerm{Scale: semantics.UnitScale(scale), Factors: []semantics.UnitFactor{{Unit: metre, Exponent: 1}}},
+		}
+	}
+	nums := func(ns ...int64) []semantics.Value {
+		out := make([]semantics.Value, len(ns))
+		for i, n := range ns {
+			out[i] = semantics.Value{Kind: semantics.ValInt, Int: n}
+		}
+		return out
+	}
+	m, km := unit(1), unit(1000)
+	pairs := map[string][2]Value{
+		"tensor": {
+			NewTensorQuantityValue([]int64{2}, nums(1, 2), []Unit{m, m}),
+			NewTensorQuantityValue([]int64{2}, nums(1, 2), []Unit{km, km}),
+		},
+		"vector": {
+			NewVectorQuantityValue(nums(1, 2), []Unit{m, m}),
+			NewVectorQuantityValue(nums(1, 2), []Unit{km, km}),
+		},
+		"mref": {NewMeasurementRefValue(m), NewMeasurementRefValue(km)},
+		"array": {
+			NewArrayValue([]int64{1}, []Value{NewMeasurementRefValue(m)}),
+			NewArrayValue([]int64{1}, []Value{NewMeasurementRefValue(km)}),
+		},
+	}
+	for name, pair := range pairs {
+		a, b := pair[0], pair[1]
+		if FormatTraceValue(a) != FormatTraceValue(b) || valueEqual(a, b) {
+			t.Fatalf("%s: %s and %s should render alike and differ", name, FormatTraceValue(a), FormatTraceValue(b))
+		}
+		if canonicalCompare(a, b) == 0 || canonicalCompare(a, b) != -canonicalCompare(b, a) {
+			t.Errorf("%s: compare(a, b) = %d, compare(b, a) = %d, want opposite and non-zero", name, canonicalCompare(a, b), canonicalCompare(b, a))
+		}
+		first, second := setOf([]Value{a, b}).Set(), setOf([]Value{b, a}).Set()
+		if first.Size() != 2 || !first.Equal(second) {
+			t.Fatalf("%s: sets differ: %s, %s", name, FormatValue(NewSetValue(first)), FormatValue(NewSetValue(second)))
+		}
+		x, y := first.Elements(), second.Elements()
+		for i := range x {
+			if !valueEqual(x[i], y[i]) {
+				t.Errorf("%s: element %d differs between insertion orders", name, i)
+			}
+		}
+	}
+}
