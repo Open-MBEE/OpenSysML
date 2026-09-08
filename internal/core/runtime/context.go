@@ -578,9 +578,8 @@ type executorRun struct {
 	scheduler *scheduler
 }
 
-// beginExecutorRun brackets one call into an executor driven call by call (the
-// REPL debuggers): the budget is reset once, at the run's start, and a top-level
-// call resolves its choices with the run's own scheduler, whatever ran in between.
+// beginExecutorRun brackets one call into a call-by-call driven executor: the budget
+// resets once at the run's start, and each top-level call uses the run's own scheduler.
 func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	if ctx.runDepth == 0 && !run.started {
 		ctx.steps = 0
