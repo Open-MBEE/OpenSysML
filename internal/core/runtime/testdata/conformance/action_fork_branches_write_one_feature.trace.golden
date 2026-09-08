@@ -9,4 +9,5 @@ stmt assign x
 stmt assign leftRan
   eval literal true -> true
 step 3: token 2@sync, token 3@sync
-step 4: no active tokens
+step 4: token 4@done
+step 5: no active tokens

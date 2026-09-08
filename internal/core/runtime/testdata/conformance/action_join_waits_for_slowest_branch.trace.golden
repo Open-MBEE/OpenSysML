@@ -14,7 +14,9 @@ stmt assign arrived
     eval feature arrived -> 2
     eval literal 1 -> 1
   eval operator + -> 3
+step 5: token 2@sync, token 3@sync, token 4@sync
+step 6: token 5@after
 stmt assign seen
   eval feature arrived -> 3
-step 5: token 5@done
-step 6: no active tokens
+step 7: token 5@done
+step 8: no active tokens

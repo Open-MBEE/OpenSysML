@@ -1,19 +1,21 @@
 step 1: token 1@split
 step 2: token 2@l1, token 3@l2, token 4@r1
 step 3: token 2@left, token 3@left, token 4@r2
-step 4: token 4@right, token 5@sync
+step 4: token 4@r3, token 5@sync
+step 5: token 4@right, token 5@sync
 stmt assign log
       eval feature log -> 0
       eval literal 10 -> 10
     eval operator * -> 0
     eval literal 1 -> 1
   eval operator + -> 1
-step 5: token 4@sync, token 5@sync
+step 6: token 4@sync, token 5@sync
+step 7: token 6@after
 stmt assign log
       eval feature log -> 1
       eval literal 10 -> 10
     eval operator * -> 10
     eval literal 2 -> 2
   eval operator + -> 12
-step 6: token 6@done
-step 7: no active tokens
+step 8: token 6@done
+step 9: no active tokens

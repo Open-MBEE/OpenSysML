@@ -10,4 +10,5 @@ stmt assign siblingGot
 stmt assign receiverGot
   eval feature value -> 42
 step 4: token 2@sync, token 3@sync
-step 5: no active tokens
+step 5: token 4@done
+step 6: no active tokens

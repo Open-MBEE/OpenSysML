@@ -522,6 +522,193 @@ func TestBodyBreakpointFreezesSiblingTokens(t *testing.T) {
 	}
 }
 
+// convergingDebugSrc forks into two nodes whose successions both lead to the node
+// declared by decl, named node: it is performed once, after both have arrived.
+func convergingDebugSrc(node, decl string) string {
+	return `package test {
+	private import ScalarValues::*;
+	action outer {
+		out attribute hits : Integer = 0;
+		fork split;
+		action l { assign hits := hits + 1; }
+		action r { assign hits := hits + 1; }
+		` + decl + `
+		succession first start then split;
+		succession first split then l;
+		succession first split then r;
+		succession first l then ` + node + `;
+		succession first r then ` + node + `;
+		succession first ` + node + ` then done;
+	}
+}`
+}
+
+// A breakpoint on a node two fork branches converge on — a join or a plain node —
+// pauses once, before its one performance, with both arrivals in; not once per token.
+func TestBreakpointPausesOncePerSynchronizedPerformance(t *testing.T) {
+	cases := []struct {
+		node, decl string
+		hits       int64
+	}{
+		{"sync", "join sync;", 2},
+		{"scale", "action scale { assign hits := hits * 10; }", 20},
+	}
+	for _, tc := range cases {
+		t.Run(tc.node, func(t *testing.T) {
+			ctx, sym := loadAction(t, convergingDebugSrc(tc.node, tc.decl), "outer")
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				t.Fatalf("CreateActionExecutor: %v", err)
+			}
+			exec.SetBreakpoint(tc.node)
+
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatalf("RunToCompletion: %v", err)
+			}
+			if got := exec.PausedAt(); got != tc.node {
+				t.Fatalf("PausedAt() = %q, want %s", got, tc.node)
+			}
+			if got := len(exec.Tokens()); got != 2 {
+				t.Fatalf("%d tokens while paused, want the 2 arrivals at %s", got, tc.node)
+			}
+			for _, tok := range exec.Tokens() {
+				if ActionNodeName(tok.Location) != tc.node {
+					t.Errorf("token %d @ %s while paused, want %s", tok.ID, ActionNodeName(tok.Location), tc.node)
+				}
+				if awaiting := exec.Awaiting(tok); len(awaiting) > 0 {
+					t.Errorf("paused at %s while token %d still awaits %d successions", tc.node, tok.ID, len(awaiting))
+				}
+			}
+			if hits := exec.Results()["hits"]; hits.Const.Int != 2 {
+				t.Errorf("hits = %v while paused, want 2: both branches ran, %s did not", hits, tc.node)
+			}
+
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatalf("resume: %v", err)
+			}
+			if got := exec.PausedAt(); got != "" {
+				t.Fatalf("PausedAt() = %q after resuming, want a run to the end", got)
+			}
+			if got := exec.State(); got != StateCompleted {
+				t.Errorf("State() = %v, want %v", got, StateCompleted)
+			}
+			if hits := exec.Results()["hits"]; hits.Const.Int != tc.hits {
+				t.Errorf("hits = %v, want %d", hits, tc.hits)
+			}
+		})
+	}
+}
+
+// A token entering a nested flow in the step a synchronization drops tokens below it
+// takes no second step: the breakpoint on the nested flow's first node still pauses.
+func TestBreakpointOnANestedFirstNodePausesWhileOthersSynchronize(t *testing.T) {
+	ctx, sym := loadAction(t, `package test {
+	private import ScalarValues::*;
+	action outer {
+		out attribute hits : Integer = 0;
+		out attribute n : Integer = 0;
+		fork split;
+		action l { assign hits := hits + 1; }
+		action r { assign hits := hits + 1; }
+		join sync;
+		action tally { assign hits := hits * 10; }
+		action pre { assign n := n + 1; }
+		action nested {
+			action inner { assign n := n * 10; }
+			first inner;
+		}
+		succession first start then split;
+		succession first split then l;
+		succession first split then r;
+		succession first split then pre;
+		succession first l then sync;
+		succession first r then sync;
+		succession first sync then tally;
+		succession first pre then nested;
+	}
+}`, "outer")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	exec.SetBreakpoint("inner")
+
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := exec.PausedAt(); got != "inner" {
+		t.Fatalf("PausedAt() = %q, want inner", got)
+	}
+	if n := exec.Results()["n"]; n.Const.Int != 1 {
+		t.Errorf("n = %v while paused, want 1: pre ran, inner did not", n)
+	}
+	var atInner int
+	for _, tok := range exec.Tokens() {
+		if ActionNodeName(tok.Location) == "inner" {
+			atInner++
+		}
+	}
+	if atInner != 1 {
+		t.Errorf("%d tokens at inner while paused, want 1", atInner)
+	}
+
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v, want %v", got, StateCompleted)
+	}
+	if n := exec.Results()["n"]; n.Const.Int != 10 {
+		t.Errorf("n = %v, want 10", n)
+	}
+	if hits := exec.Results()["hits"]; hits.Const.Int != 20 {
+		t.Errorf("hits = %v, want 20", hits)
+	}
+}
+
+// A breakpoint on a node reached from the flow's start and back around a loop pauses
+// before each pass: once per performance, for as many performances as the loop makes.
+func TestBreakpointOnALoopedNodePausesEachPass(t *testing.T) {
+	ctx, sym := loadAction(t, `package test {
+	private import ScalarValues::*;
+	action count {
+		out attribute n : Integer = 0;
+		action bump { assign n := n + 1; }
+		decide again;
+		succession first start then bump;
+		succession first bump then again;
+		succession first again if n < 3 then bump;
+		succession first again if n >= 3 then done;
+	}
+}`, "count")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	exec.SetBreakpoint("bump")
+
+	for pass := int64(0); pass < 3; pass++ {
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("pass %d: RunToCompletion: %v", pass, err)
+		}
+		if got := exec.PausedAt(); got != "bump" {
+			t.Fatalf("pass %d: PausedAt() = %q, want bump", pass, got)
+		}
+		if n := exec.Results()["n"]; n.Const.Int != pass {
+			t.Errorf("pass %d: n = %v while paused, want %d", pass, n, pass)
+		}
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("final run: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v, want %v", got, StateCompleted)
+	}
+	if n := exec.Results()["n"]; n.Const.Int != 3 {
+		t.Errorf("n = %v, want 3", n)
+	}
+}
+
 // Releasing an executor paused in a body ends the paused work, so nothing of the
 // run stays suspended; a later step is refused, and releasing again is harmless.
 func TestReleaseEndsAPausedBody(t *testing.T) {

@@ -5,4 +5,5 @@ stmt assign y
 stmt assign x
   eval literal 1 -> 1
 step 3: token 2@sync, token 3@sync
-step 4: no active tokens
+step 4: token 4@done
+step 5: no active tokens
