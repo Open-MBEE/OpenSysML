@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "evaluate": "AcceptPartAddressed::Node::Listen",
+  "trace": true,
+  "performers": [
+    {
+      "object": "AcceptPartAddressed::alpha",
+      "finalState": "received",
+      "stateVisits": ["start", "waiting", "received"]
+    }
+  ]
+}

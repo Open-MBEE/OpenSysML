@@ -1172,14 +1172,11 @@ func (e *StateExecutor) matchesEvent(trans *lower.Transition, event *Event) (boo
 		if !e.triggerMatches(trans.Trigger, trans.Scope, event) {
 			return false, nil
 		}
-		// `accept … via <port>` takes only an occurrence that arrived at that
-		// port; a trigger naming none takes it whatever route it came by.
-		if trans.Via == "" {
-			return true, nil
-		}
+		// A transfer is taken by the trigger whose receiver it reaches: the port
+		// a `via` names, or the performer itself when it names none.
 		msg, ok := event.Payload.(Message)
 		if !ok {
-			return false, nil
+			return trans.Via == "", nil
 		}
 		return e.ctx.messageReaches(msg, e.stateMachine.Name, trans.Via, e.self)
 

@@ -205,19 +205,23 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 
 	// Try state execution
 	if stateSym := entryBehavior(idx, stateEntry, rootScope, ast.DefState, ast.UsageState); stateSym != nil {
-		exec, err := ctx.CreateStateExecutor(stateSym)
-		if err != nil {
-			t.Fatalf("create state executor: %v", err)
-		}
-		exec.SetTrace(trace)
+		if len(expected.Performers) > 0 {
+			tracePerformers(t, ctx, idx, trace, stateSym, expected.Performers)
+		} else {
+			exec, err := ctx.CreateStateExecutor(stateSym)
+			if err != nil {
+				t.Fatalf("create state executor: %v", err)
+			}
+			exec.SetTrace(trace)
 
-		// The case's events drive the trace too, so ordering under an event —
-		// which transition wins, and in what order states are left — is recorded
-		// rather than only the initial entry.
-		injectEvents(t, exec, expected.Events)
+			// The case's events drive the trace too, so ordering under an event —
+			// which transition wins, and in what order states are left — is recorded
+			// rather than only the initial entry.
+			injectEvents(t, exec, expected.Events)
 
-		if err := exec.RunToCompletion(); err != nil {
-			t.Fatalf("state execution: %v", err)
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatalf("state execution: %v", err)
+			}
 		}
 		traceOutput = trace.String()
 	}
@@ -366,6 +370,27 @@ func traceObjectRuns(t *testing.T, ctx *Context, first *Instance, expected Expec
 		injectEvents(t, exec, run.Events)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("run machine of object #%d: %v", obj.ID, err)
+		}
+	}
+}
+
+// tracePerformers runs a state machine once per object performing it, as the
+// conformance harness does, recording each object's materialization then its run.
+func tracePerformers(t *testing.T, ctx *Context, idx *symbols.Index, trace *TraceRecorder, stateSym *symbols.Symbol, performers []Performer) {
+	t.Helper()
+	ctx.SetTrace(trace)
+	for _, performer := range performers {
+		self, err := ctx.Instantiate(oneSymbol(t, idx, performer.Object))
+		if err != nil {
+			t.Fatalf("instantiate %s: %v", performer.Object, err)
+		}
+		exec, err := ctx.CreateStateExecutorFor(stateSym, self)
+		if err != nil {
+			t.Fatalf("create state executor for %s: %v", performer.Object, err)
+		}
+		injectEvents(t, exec, performer.Events)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("state execution by %s: %v", performer.Object, err)
 		}
 	}
 }

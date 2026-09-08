@@ -1,6 +1,7 @@
 {
   "type": "state",
   "evaluate": "SendIdentity::Node::Listen",
+  "trace": true,
   "performers": [
     {
       "object": "SendIdentity::alpha",
