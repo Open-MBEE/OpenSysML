@@ -629,15 +629,13 @@ func (m *Model) sharedTypes(a, b []*symbols.Symbol) []*symbols.Symbol {
 	return m.nearestShared(a, b)
 }
 
-// nearestShared is the supertypes of a's types a value of each list conforms to, less any a
-// more specific one among them specializes.
+// nearestShared is the types a value of each list conforms to, among all either list's types
+// may conform to, less any a more specific one among them specializes.
 func (m *Model) nearestShared(a, b []*symbols.Symbol) []*symbols.Symbol {
 	var shared []*symbols.Symbol
-	for _, typ := range a {
-		for _, sup := range m.AllSupertypes(typ) {
-			if !containsElement(shared, sup) && m.anyConforms(a, sup) && m.anyConforms(b, sup) {
-				shared = append(shared, sup)
-			}
+	for _, sup := range m.conformableFrom(append(append([]*symbols.Symbol(nil), a...), b...)) {
+		if m.anyConforms(a, sup) && m.anyConforms(b, sup) {
+			shared = append(shared, sup)
 		}
 	}
 	var out []*symbols.Symbol
@@ -645,6 +643,35 @@ func (m *Model) nearestShared(a, b []*symbols.Symbol) []*symbols.Symbol {
 		if !m.anySpecializes(shared, typ) {
 			out = append(out, typ)
 		}
+	}
+	return out
+}
+
+// conformableFrom is every type the types may conform to: their supertypes, and — a union
+// conforming to whatever all its unioning types do — those of their unioning types in turn.
+func (m *Model) conformableFrom(types []*symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	visited := make(map[*symbols.Symbol]bool)
+	var visit func(sym *symbols.Symbol)
+	visit = func(sym *symbols.Symbol) {
+		if visited[sym] {
+			return
+		}
+		visited[sym] = true
+		for _, sup := range m.AllSupertypes(sym) {
+			if !containsElement(out, sup) {
+				out = append(out, sup)
+			}
+		}
+		for _, u := range m.UnioningTypes(sym) {
+			if !containsElement(out, u) {
+				out = append(out, u)
+			}
+			visit(u)
+		}
+	}
+	for _, typ := range types {
+		visit(typ)
 	}
 	return out
 }

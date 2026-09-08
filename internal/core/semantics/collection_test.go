@@ -544,6 +544,27 @@ func TestCollectionSiblingElementsShareSupertype(t *testing.T) {
 	wantValueTypes(t, m, s, "apart", "Anything")
 }
 
+// A union conforms to whatever all its unioning types do, so elements typed by a union and by a
+// sibling share the unioning types' supertype whichever comes first, as do two such unions; a
+// union whose members share nothing with the sibling stays Anything.
+func TestCollectionUnionElementsShareSupertype(t *testing.T) {
+	m, s := collectionModel(t, `
+		part def T :> C; part def U :> C; part def V :> C;
+		classifier TU unions T, U;
+		classifier UV unions U, V;
+		classifier TS unions T, String;
+		part tu : TU; part uv : UV; part ts : TS; part v : V;
+		attribute unionFirst = (tu, v).?{ in x; true };
+		attribute unionLast = (v, tu).?{ in x; true };
+		attribute unions = (tu, uv)->select { in x; true };
+		attribute unions2 = cs.{ in x : C; (uv, tu) };
+		attribute apart = (ts, v).?{ in x; true };`)
+	for _, name := range []string{"unionFirst", "unionLast", "unions", "unions2"} {
+		wantValueTypes(t, m, s, name, "C")
+	}
+	wantValueTypes(t, m, s, "apart", "Anything")
+}
+
 // An element that is itself a collection value contributes the elements it holds: a nested
 // collect's literals, a selection's elements, none from one over nothing.
 func TestCollectionNestedElements(t *testing.T) {
