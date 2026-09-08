@@ -32,6 +32,10 @@ func composedModel(t *testing.T) (*semantics.Model, *symbols.Index) {
 		part def CombustionVehicle differences Vehicle, Electric;
 		part def CycleA intersects CycleB, Vehicle;
 		part def CycleB intersects CycleA, Electric;
+		part def Burner :> CombustionVehicle;
+		part def RoadBurner intersects Burner, Vehicle;
+		part def Ping differences Ping, Pong;
+		part def Pong differences Pong, Ping;
 	}`))).ParseFile())
 	idx.ExpandWildcardImports()
 	return semantics.NewModel(resolve.New(idx)), idx
@@ -81,6 +85,34 @@ func TestClassifiesComposedTargets(t *testing.T) {
 		}
 		if !c.want && verdict == semantics.ClassifiesAll {
 			t.Errorf("ClassifiesTypes(%s, %s) = all, want less", c.typ, c.target)
+		}
+	}
+}
+
+// TestSubtractedTypeExcludesADeclaredValue: a value whose declared type
+// specializes a difference is still none of its values when another type it is of
+// is one the difference subtracts, however the difference is reached.
+func TestSubtractedTypeExcludesADeclaredValue(t *testing.T) {
+	m, idx := composedModel(t)
+	sym := func(name string) *symbols.Symbol { return dimensionSymbol(t, idx, "T::"+name) }
+	for _, c := range []struct {
+		name   string
+		types  []string
+		target string
+		want   semantics.TypeClassification
+	}{
+		{"declared burner", []string{"Burner"}, "CombustionVehicle", semantics.ClassifiesAll},
+		{"burner held as electric", []string{"Burner", "Electric"}, "CombustionVehicle", semantics.ClassifiesNone},
+		{"burner held as an electric car", []string{"Burner", "ElectricCar"}, "CombustionVehicle", semantics.ClassifiesNone},
+		{"through an intersection", []string{"RoadBurner", "Electric"}, "RoadBurner", semantics.ClassifiesNone},
+		{"cyclic differences terminate", []string{"Ping"}, "Ping", semantics.ClassifiesAll},
+	} {
+		types := make([]*symbols.Symbol, 0, len(c.types))
+		for _, name := range c.types {
+			types = append(types, sym(name))
+		}
+		if got := m.ClassifiesTypes(types, sym(c.target)); got != c.want {
+			t.Errorf("%s: ClassifiesTypes(%v, %s) = %v, want %v", c.name, c.types, c.target, got, c.want)
 		}
 	}
 }

@@ -45,6 +45,10 @@ func (m *Model) classifiesTypes(
 			continue
 		}
 		if m.Conforms(typ, target) {
+			// A type subtracted somewhere in the target still excludes the value.
+			if m.excludes(types, target, composing) {
+				return ClassifiesNone
+			}
 			return ClassifiesAll
 		}
 		if m.Conforms(target, typ) {
@@ -91,6 +95,44 @@ func (m *Model) classifiesComposed(
 		constraints = append(constraints, classifiesExcept(m.classifiesEach(types, differences, composing)))
 	}
 	return classifiesAll(constraints), true
+}
+
+// excludes reports whether target or a type it is one of the values of subtracts a
+// type the value is of: a difference subtracts it, an intersection or a
+// specialization is of a type that does, a union is of nothing else. reading holds
+// the targets being read so a cycle terminates.
+func (m *Model) excludes(
+	types []*symbols.Symbol, target *symbols.Symbol, reading map[*symbols.Symbol]bool,
+) bool {
+	if m == nil || target == nil || reading[target] {
+		return false
+	}
+	if reading == nil {
+		reading = make(map[*symbols.Symbol]bool)
+	}
+	reading[target] = true
+	defer delete(reading, target)
+
+	differences := m.DifferencingTypes(target)
+	for _, subtracted := range differences[min(1, len(differences)):] {
+		if m.classifiesTypes(types, subtracted, reading) == ClassifiesAll {
+			return true
+		}
+	}
+	for _, group := range [][]*symbols.Symbol{m.DirectSupertypes(target), m.IntersectingTypes(target)} {
+		for _, super := range group {
+			if m.excludes(types, super, reading) {
+				return true
+			}
+		}
+	}
+	unions := m.UnioningTypes(target)
+	for _, operand := range unions {
+		if !m.excludes(types, operand, reading) {
+			return false
+		}
+	}
+	return len(unions) > 0
 }
 
 // classifiesEach classifies types by each of a composition's operands in order.
