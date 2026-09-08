@@ -293,14 +293,18 @@ class SweepTable:
             were given
         sampled (bool): Whether the rows were drawn rather than stepped through
         seed (int): The seed the rows were drawn from; 0 for a swept table
+        instances (list[Instance]): The subjects the runs were about and the
+            objects reachable from them; empty when no run bound a subject
         diagnostics (list[Diagnostic]): Diagnostics the service reported
     """
 
-    def __init__(self, rows, parameters, sampled=False, seed=0, diagnostics=None):
+    def __init__(self, rows, parameters, sampled=False, seed=0,
+                 instances=None, diagnostics=None):
         self.rows = list(rows or [])
         self.parameters = list(parameters or [])
         self.sampled = sampled
         self.seed = seed
+        self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
 
     @property

@@ -1253,6 +1253,10 @@ pub struct RunSweepResponse {
     /// What kind of failure `error` reports.
     #[prost(enumeration="FailureReason", tag="7")]
     pub failure_reason: i32,
+    /// Every object a row's verdict is about, from every run of the table, so each
+    /// verdict's `instance_id` resolves here.
+    #[prost(message, repeated, tag="8")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
 }
 /// RunDocumentQueryRequest runs a named document query — a calc def
 /// specializing DocumentQueries::Query — against a model the service already

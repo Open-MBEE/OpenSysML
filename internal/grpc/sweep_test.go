@@ -398,3 +398,72 @@ func TestRunSweepCanceledCallerFailsTheCall(t *testing.T) {
 		t.Errorf("a canceled call reported %d row(s); want no response", len(resp.Rows))
 	}
 }
+
+// TestRunSweepVerdictInstancesResolve verifies every row verdict names an
+// object the table carries, whose feature values a client can read.
+func TestRunSweepVerdictInstancesResolve(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-instances")
+
+	resp := runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::CostAnalysis", SubjectSymbolId: "Sw::ship",
+		Ranges: []*pb.SweepRange{{
+			Parameter: "limit", Start: realProto(2), End: realProto(30), Step: realProto(14),
+		}},
+	})
+	if resp.Error != "" {
+		t.Fatalf("RunSweep reported %q", resp.Error)
+	}
+	byID := make(map[int64]*pb.Instance, len(resp.Instances))
+	for _, inst := range resp.Instances {
+		byID[inst.Id] = inst
+	}
+	for i, row := range resp.Rows {
+		for _, verdict := range row.Verdicts {
+			if verdict.InstanceId == 0 {
+				t.Fatalf("row %d verdict is about no object; want the subject", i)
+			}
+			inst, ok := byID[verdict.InstanceId]
+			if !ok {
+				t.Fatalf("row %d verdict names object %d, which the table does not carry",
+					i, verdict.InstanceId)
+			}
+			cost, ok := inst.FeatureValues["cost"]
+			if !ok || cost.Value.GetRealValue() != 5.0 {
+				t.Errorf("row %d subject holds cost = %v; want 5", i, cost)
+			}
+		}
+	}
+}
+
+// TestRunSweepRefusesAnalysisInputAnArgumentBinds verifies a case's positional
+// argument binds the input its run binds, the subject skipped, so sweeping that
+// input is refused rather than run twice over.
+func TestRunSweepRefusesAnalysisInputAnArgumentBinds(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-collision")
+
+	resp := runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::CostAnalysis", SubjectSymbolId: "Sw::ship",
+		Arguments: []*pb.Value{realProto(3)},
+		Ranges:    []*pb.SweepRange{{Parameter: "limit", Start: realProto(2), End: realProto(6), Step: realProto(2)}},
+	})
+	if !strings.Contains(resp.Error, "limit") || len(resp.Rows) != 0 {
+		t.Errorf("error = %q with %d row(s); want a refusal naming limit", resp.Error, len(resp.Rows))
+	}
+}
+
+// TestRunSweepRefusesSweepingTheSubject verifies a case's subject is an object
+// an instantiation binds, which no range of values stands for.
+func TestRunSweepRefusesSweepingTheSubject(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-subject-range")
+
+	resp := runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::CostAnalysis", SubjectSymbolId: "Sw::ship",
+		Ranges: []*pb.SweepRange{intRange("s", 1, 3)},
+	})
+	if !strings.Contains(resp.Error, "subject") || len(resp.Rows) != 0 {
+		t.Errorf("error = %q with %d row(s); want a refusal naming the subject", resp.Error, len(resp.Rows))
+	}
+}

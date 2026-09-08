@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"math/rand/v2"
 	"time"
 
@@ -68,6 +69,8 @@ type SweepPlan struct {
 type SweepRunResult struct {
 	Outputs  []CalcOutputValue
 	Verdicts []AnalysisVerdict
+	// The object the run was about, where a case ran on one.
+	Subject *Instance
 }
 
 // SweepRun makes one run of a sweep with the parameters bound as the row states.
@@ -80,8 +83,10 @@ type SweepRow struct {
 	Bindings []SweepBinding
 	Outputs  []CalcOutputValue
 	Verdicts []AnalysisVerdict
-	Elapsed  time.Duration
-	Err      error
+	// The object this run's verdicts are about, where a case ran on one.
+	Subject *Instance
+	Elapsed time.Duration
+	Err     error
 }
 
 // SweepTable is every run of one sweep, in the order they were made: a swept
@@ -138,6 +143,7 @@ func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan
 			row.Err = err
 		} else {
 			row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
+			row.Subject = result.Subject
 		}
 		table.Rows = append(table.Rows, row)
 	}
@@ -328,8 +334,8 @@ func (r SweepRange) endpoints() (sweepBounds, error) {
 	if bounds.to, err = to.magnitudeIn(from.unit, from.quantity, "range end "+FormatValue(r.To)); err != nil {
 		return sweepBounds{}, err
 	}
-	fromInt, fromWhole := exactInt(from.num, bounds.from, false)
-	toInt, toWhole := exactInt(to.num, bounds.to, from.quantity)
+	fromInt, fromWhole := from.exactInt(bounds.unit, bounds.from)
+	toInt, toWhole := to.exactInt(bounds.unit, bounds.to)
 	bounds.isInt = fromWhole && toWhole
 	bounds.intFrom, bounds.intTo = fromInt, toInt
 	return bounds, nil
@@ -363,7 +369,7 @@ func (r SweepRange) bounds() (sweepBounds, error) {
 	if bounds.step, err = step.magnitudeIn(bounds.unit, bounds.quantity, "step "+FormatValue(r.Step)); err != nil {
 		return sweepBounds{}, err
 	}
-	stepInt, stepWhole := exactInt(step.num, bounds.step, bounds.quantity)
+	stepInt, stepWhole := step.exactInt(bounds.unit, bounds.step)
 	bounds.isInt = bounds.isInt && stepWhole
 	bounds.intStep = stepInt
 	if bounds.step == 0 {
@@ -385,20 +391,61 @@ func (b sweepBounds) stepsAway() bool {
 	return b.to != b.from && (b.to-b.from)*b.step < 0
 }
 
-// exactInt is a magnitude as the Integer it was written as, where the range
-// still takes Integer values. A magnitude expressed in another unit is only an
-// Integer while float64 held it exactly.
-func exactInt(num semantics.Value, magnitude float64, converted bool) (int64, bool) {
-	if num.Kind != semantics.ValInt {
+// exactInt is the scalar as the Integer it was written as, expressed in the
+// range's unit, where the range still takes Integer values.
+func (s sweepScalar) exactInt(unit semantics.Unit, magnitude float64) (int64, bool) {
+	if s.num.Kind != semantics.ValInt {
 		return 0, false
 	}
-	if !converted {
-		return num.Int, true
+	if !s.quantity {
+		return s.num.Int, true
+	}
+	if mul, div, ok := scaleRatio(s.unit.Term.Scale, unit.Term.Scale); ok {
+		return exactScaled(s.num.Int, mul, div)
 	}
 	if magnitude != math.Trunc(magnitude) || math.Abs(magnitude) > exactFloatInt {
 		return 0, false
 	}
 	return int64(magnitude), true
+}
+
+// exactScaleFactor bounds a scale factor's parts, so that the ratio between two
+// of them is a product float64 holds exactly.
+const exactScaleFactor = 1 << 26
+
+// scaleRatio expresses a magnitude given over from in to, as the whole ratio
+// mul/div where both scale factors are whole numbers of that size.
+func scaleRatio(from, to semantics.Scale) (mul, div int64, ok bool) {
+	for _, part := range [...]float64{from.Num, from.Den, to.Num, to.Den} {
+		if part != math.Trunc(part) || part <= 0 || part > exactScaleFactor {
+			return 0, 0, false
+		}
+	}
+	return int64(from.Num * to.Den), int64(from.Den * to.Num), true
+}
+
+// exactScaled is n scaled by mul/div, where that leaves an Integer exactly:
+// the product must fit and the division must come out even.
+func exactScaled(n, mul, div int64) (int64, bool) {
+	magnitude := unsignedInt(n)
+	if n < 0 {
+		magnitude = -magnitude
+	}
+	hi, lo := bits.Mul64(magnitude, unsignedInt(mul))
+	if hi != 0 || lo%unsignedInt(div) != 0 {
+		return 0, false
+	}
+	scaled := lo / unsignedInt(div)
+	if n < 0 {
+		if scaled > 1<<63 {
+			return 0, false
+		}
+		return signedInt(-scaled), true
+	}
+	if scaled > math.MaxInt64 {
+		return 0, false
+	}
+	return signedInt(scaled), true
 }
 
 // enumerate is every value of a swept range, from its start towards its end,
@@ -546,32 +593,36 @@ func (ctx *Context) InputParameterNames(sym *symbols.Symbol) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, 0, len(shape.Params))
-	for i := range shape.Params {
-		names = append(names, shape.Params[i].Name)
-	}
-	return names, nil
+	return shape.parameterNames(), nil
 }
 
 // CheckSweepParameters refuses a plan whose parameter the target does not
-// declare, or which the invocation already binds — by name, or by holding the
-// position that parameter is bound from.
+// declare, whose parameter is a case's subject, or which the invocation already
+// binds — by name, or by holding the position that parameter is bound from.
 func (ctx *Context) CheckSweepParameters(sym *symbols.Symbol, plan SweepPlan, positional int, named []string) error {
-	declared, err := ctx.InputParameterNames(sym)
+	shape, err := ctx.calcShapeOf(sym)
 	if err != nil {
 		return err
 	}
+	declared := shape.parameterNames()
 	bound := make(map[string]bool, len(named)+positional)
 	for _, name := range named {
 		bound[name] = true
 	}
-	for i := 0; i < positional && i < len(declared); i++ {
-		bound[declared[i]] = true
+	for i, name := range shape.positionalOrder(IsAnalysisSymbol(sym), bound) {
+		if i >= positional {
+			break
+		}
+		bound[name] = true
 	}
 	for _, r := range plan.Ranges {
 		if !contains(declared, r.Param) {
 			return fmt.Errorf("%w: %s declares no input parameter %q (it declares %v)",
 				ErrSweepParameter, ctx.qualifiedSymbolName(sym), r.Param, declared)
+		}
+		if subject, ok := shape.subjectParameter(); ok && subject.Name == r.Param {
+			return fmt.Errorf("%w: %s is the subject of %s, which an object binds, not a range",
+				ErrSweepParameter, r.Param, ctx.qualifiedSymbolName(sym))
 		}
 		if bound[r.Param] {
 			return fmt.Errorf("%w: %s is both an argument of the invocation and swept",
@@ -579,4 +630,28 @@ func (ctx *Context) CheckSweepParameters(sym *symbols.Symbol, plan SweepPlan, po
 		}
 	}
 	return nil
+}
+
+// positionalOrder is the parameters the invocation's positional arguments bind,
+// in order: a case skips its subject and the parameters bound by name, as an
+// analysis run binds them, while a calc binds every parameter by position.
+func (shape *calcShape) positionalOrder(analysis bool, named map[string]bool) []string {
+	names := make([]string, 0, len(shape.Params))
+	for i := range shape.Params {
+		param := &shape.Params[i]
+		if analysis && (param.IsSubject || named[param.Name]) {
+			continue
+		}
+		names = append(names, param.Name)
+	}
+	return names
+}
+
+// parameterNames is the parameters the target declares, in declaration order.
+func (shape *calcShape) parameterNames() []string {
+	names := make([]string, 0, len(shape.Params))
+	for i := range shape.Params {
+		names = append(names, shape.Params[i].Name)
+	}
+	return names
 }

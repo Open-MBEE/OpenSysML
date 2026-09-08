@@ -626,9 +626,10 @@ A run that fails is a row of its own — falsy, with `error` set — rather than
 the runs after it are still made, so `table.failures` collects them; `raise_for_error()` on a row
 turns one into an `ExecutionError`. A plan the service refuses raises `ExecutionError` instead,
 naming what is wrong with it: a step of zero, a step whose sign never reaches its end, a Real
-range with no step, incompatible units, a parameter the target declares none of or the arguments
-already bind, a distribution asked for by name, and a plan asking for more runs than the
-service's budget allows.
+range with no step, incompatible units, a parameter the target declares none of, a case's
+subject, one the arguments already bind, a distribution asked for by name, and a plan asking for
+more runs than the service's budget allows. A row's verdicts resolve against `table.instances`,
+which carries the objects the runs were about, so a failing row's subject can be read.
 
 Verification is capability-negotiated the same way as conversion: against a service that does
 not report the `verification` capability, these calls raise `MissingCapabilityError` naming the

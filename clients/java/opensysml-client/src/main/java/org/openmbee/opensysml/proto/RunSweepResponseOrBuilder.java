@@ -163,4 +163,53 @@ public interface RunSweepResponseOrBuilder extends
    * @return The failureReason.
    */
   org.openmbee.opensysml.proto.FailureReason getFailureReason();
+
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Instance> 
+      getInstancesList();
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  org.openmbee.opensysml.proto.Instance getInstances(int index);
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  int getInstancesCount();
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.InstanceOrBuilder> 
+      getInstancesOrBuilderList();
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  org.openmbee.opensysml.proto.InstanceOrBuilder getInstancesOrBuilder(
+      int index);
 }

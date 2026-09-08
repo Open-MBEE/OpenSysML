@@ -845,8 +845,13 @@ $ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::CostAnalysis","su
 {"rows":[…,
          {"inputs":[{"name":"tax","value":{"realValue":1}}],"outputs":[{"name":"total","value":{"realValue":10}}],
           "verdicts":[{"kind":"objective","element":"obj","condition":"total <= 8.0","instanceId":"1","instanceTypeId":"An::barge"}],"elapsedMicros":"16"}],
- "parameters":["tax"]}
+ "parameters":["tax"],
+ "instances":[{"id":"1","typeSymbolId":"An::barge","featureValues":{"cost":{"featureName":"cost","value":{"realValue":5}}}}]}
 ```
+
+`instances` carries every object a row's verdict is about, each once over the whole table, so a
+verdict's `instanceId` resolves there as it does in a `RunAnalysis` response — a client can read
+what made a row fail.
 
 A run that fails is a row of its own, carrying `error` and `failureReason` in place of its
 `outputs`, and the runs after it are still made:
@@ -875,7 +880,8 @@ A request the plan cannot be built from answers `error` with no rows at all, so 
 distinguishes a refused plan from a table of failed runs by whether `rows` is present: a symbol
 that is neither an analysis case nor a calc is `FAILURE_REASON_WRONG_KIND`, and a missing range,
 a step of zero, a step whose sign never reaches `end`, incompatible units, an undeclared
-parameter, one the arguments bind, a negative `samples`, and a plan asking for more runs than
+parameter, the case's subject, one the arguments bind — by name or by holding the position it is
+bound from — a negative `samples`, and a plan asking for more runs than
 `OPENSYSML_MAX_SWEEP_RUNS` allows are `FAILURE_REASON_EVALUATION`. `seed` is a `uint64` with no
 unset state on the wire, so a request that draws without naming one draws from seed 0 (where the
 CLI's `-samples` requires `-seed` rather than choosing a seed for you):

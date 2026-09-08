@@ -40,6 +40,7 @@ private static final long serialVersionUID = 0L;
     error_ = "";
     diagnostics_ = java.util.Collections.emptyList();
     failureReason_ = 0;
+    instances_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -299,6 +300,72 @@ private static final long serialVersionUID = 0L;
     return result == null ? org.openmbee.opensysml.proto.FailureReason.UNRECOGNIZED : result;
   }
 
+  public static final int INSTANCES_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.Instance> instances_;
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.Instance> getInstancesList() {
+    return instances_;
+  }
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.InstanceOrBuilder> 
+      getInstancesOrBuilderList() {
+    return instances_;
+  }
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  @java.lang.Override
+  public int getInstancesCount() {
+    return instances_.size();
+  }
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Instance getInstances(int index) {
+    return instances_.get(index);
+  }
+  /**
+   * <pre>
+   * Every object a row's verdict is about, from every run of the table, so each
+   * verdict's `instance_id` resolves here.
+   * </pre>
+   *
+   * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.InstanceOrBuilder getInstancesOrBuilder(
+      int index) {
+    return instances_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -333,6 +400,9 @@ private static final long serialVersionUID = 0L;
     }
     if (failureReason_ != org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_UNSPECIFIED.getNumber()) {
       output.writeEnum(7, failureReason_);
+    }
+    for (int i = 0; i < instances_.size(); i++) {
+      output.writeMessage(8, instances_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -374,6 +444,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(7, failureReason_);
     }
+    for (int i = 0; i < instances_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, instances_.get(i));
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -402,6 +476,8 @@ private static final long serialVersionUID = 0L;
     if (!getDiagnosticsList()
         .equals(other.getDiagnosticsList())) return false;
     if (failureReason_ != other.failureReason_) return false;
+    if (!getInstancesList()
+        .equals(other.getInstancesList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -435,6 +511,10 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + FAILURE_REASON_FIELD_NUMBER;
     hash = (53 * hash) + failureReason_;
+    if (getInstancesCount() > 0) {
+      hash = (37 * hash) + INSTANCES_FIELD_NUMBER;
+      hash = (53 * hash) + getInstancesList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -592,6 +672,13 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000020);
       failureReason_ = 0;
+      if (instancesBuilder_ == null) {
+        instances_ = java.util.Collections.emptyList();
+      } else {
+        instances_ = null;
+        instancesBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000080);
       return this;
     }
 
@@ -642,6 +729,15 @@ private static final long serialVersionUID = 0L;
         result.diagnostics_ = diagnostics_;
       } else {
         result.diagnostics_ = diagnosticsBuilder_.build();
+      }
+      if (instancesBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0)) {
+          instances_ = java.util.Collections.unmodifiableList(instances_);
+          bitField0_ = (bitField0_ & ~0x00000080);
+        }
+        result.instances_ = instances_;
+      } else {
+        result.instances_ = instancesBuilder_.build();
       }
     }
 
@@ -753,6 +849,32 @@ private static final long serialVersionUID = 0L;
       if (other.failureReason_ != 0) {
         setFailureReasonValue(other.getFailureReasonValue());
       }
+      if (instancesBuilder_ == null) {
+        if (!other.instances_.isEmpty()) {
+          if (instances_.isEmpty()) {
+            instances_ = other.instances_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+          } else {
+            ensureInstancesIsMutable();
+            instances_.addAll(other.instances_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.instances_.isEmpty()) {
+          if (instancesBuilder_.isEmpty()) {
+            instancesBuilder_.dispose();
+            instancesBuilder_ = null;
+            instances_ = other.instances_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+            instancesBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetInstancesFieldBuilder() : null;
+          } else {
+            instancesBuilder_.addAllMessages(other.instances_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -831,6 +953,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 56
+            case 66: {
+              org.openmbee.opensysml.proto.Instance m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.Instance.parser(),
+                      extensionRegistry);
+              if (instancesBuilder_ == null) {
+                ensureInstancesIsMutable();
+                instances_.add(m);
+              } else {
+                instancesBuilder_.addMessage(m);
+              }
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1738,6 +1873,336 @@ private static final long serialVersionUID = 0L;
       failureReason_ = 0;
       onChanged();
       return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.Instance> instances_ =
+      java.util.Collections.emptyList();
+    private void ensureInstancesIsMutable() {
+      if (!((bitField0_ & 0x00000080) != 0)) {
+        instances_ = new java.util.ArrayList<org.openmbee.opensysml.proto.Instance>(instances_);
+        bitField0_ |= 0x00000080;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Instance, org.openmbee.opensysml.proto.Instance.Builder, org.openmbee.opensysml.proto.InstanceOrBuilder> instancesBuilder_;
+
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Instance> getInstancesList() {
+      if (instancesBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(instances_);
+      } else {
+        return instancesBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public int getInstancesCount() {
+      if (instancesBuilder_ == null) {
+        return instances_.size();
+      } else {
+        return instancesBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public org.openmbee.opensysml.proto.Instance getInstances(int index) {
+      if (instancesBuilder_ == null) {
+        return instances_.get(index);
+      } else {
+        return instancesBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder setInstances(
+        int index, org.openmbee.opensysml.proto.Instance value) {
+      if (instancesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureInstancesIsMutable();
+        instances_.set(index, value);
+        onChanged();
+      } else {
+        instancesBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder setInstances(
+        int index, org.openmbee.opensysml.proto.Instance.Builder builderForValue) {
+      if (instancesBuilder_ == null) {
+        ensureInstancesIsMutable();
+        instances_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        instancesBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder addInstances(org.openmbee.opensysml.proto.Instance value) {
+      if (instancesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureInstancesIsMutable();
+        instances_.add(value);
+        onChanged();
+      } else {
+        instancesBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder addInstances(
+        int index, org.openmbee.opensysml.proto.Instance value) {
+      if (instancesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureInstancesIsMutable();
+        instances_.add(index, value);
+        onChanged();
+      } else {
+        instancesBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder addInstances(
+        org.openmbee.opensysml.proto.Instance.Builder builderForValue) {
+      if (instancesBuilder_ == null) {
+        ensureInstancesIsMutable();
+        instances_.add(builderForValue.build());
+        onChanged();
+      } else {
+        instancesBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder addInstances(
+        int index, org.openmbee.opensysml.proto.Instance.Builder builderForValue) {
+      if (instancesBuilder_ == null) {
+        ensureInstancesIsMutable();
+        instances_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        instancesBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder addAllInstances(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.Instance> values) {
+      if (instancesBuilder_ == null) {
+        ensureInstancesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, instances_);
+        onChanged();
+      } else {
+        instancesBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder clearInstances() {
+      if (instancesBuilder_ == null) {
+        instances_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+      } else {
+        instancesBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public Builder removeInstances(int index) {
+      if (instancesBuilder_ == null) {
+        ensureInstancesIsMutable();
+        instances_.remove(index);
+        onChanged();
+      } else {
+        instancesBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public org.openmbee.opensysml.proto.Instance.Builder getInstancesBuilder(
+        int index) {
+      return internalGetInstancesFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public org.openmbee.opensysml.proto.InstanceOrBuilder getInstancesOrBuilder(
+        int index) {
+      if (instancesBuilder_ == null) {
+        return instances_.get(index);  } else {
+        return instancesBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.InstanceOrBuilder> 
+         getInstancesOrBuilderList() {
+      if (instancesBuilder_ != null) {
+        return instancesBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(instances_);
+      }
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public org.openmbee.opensysml.proto.Instance.Builder addInstancesBuilder() {
+      return internalGetInstancesFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.Instance.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public org.openmbee.opensysml.proto.Instance.Builder addInstancesBuilder(
+        int index) {
+      return internalGetInstancesFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.Instance.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Every object a row's verdict is about, from every run of the table, so each
+     * verdict's `instance_id` resolves here.
+     * </pre>
+     *
+     * <code>repeated .sysml.Instance instances = 8 [json_name = "instances"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Instance.Builder> 
+         getInstancesBuilderList() {
+      return internalGetInstancesFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Instance, org.openmbee.opensysml.proto.Instance.Builder, org.openmbee.opensysml.proto.InstanceOrBuilder> 
+        internalGetInstancesFieldBuilder() {
+      if (instancesBuilder_ == null) {
+        instancesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.Instance, org.openmbee.opensysml.proto.Instance.Builder, org.openmbee.opensysml.proto.InstanceOrBuilder>(
+                instances_,
+                ((bitField0_ & 0x00000080) != 0),
+                getParentForChildren(),
+                isClean());
+        instances_ = null;
+      }
+      return instancesBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.RunSweepResponse)

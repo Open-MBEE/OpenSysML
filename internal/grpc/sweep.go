@@ -88,7 +88,13 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		if err != nil {
 			return runtime.SweepRunResult{}, err
 		}
-		return runtime.SweepRunResult{Outputs: result.Outputs, Verdicts: result.Verdicts}, nil
+		// The case reports the subject it ran on: the one supplied, or the one
+		// the usage or the enclosing case bound.
+		return runtime.SweepRunResult{
+			Outputs:  result.Outputs,
+			Verdicts: result.Verdicts,
+			Subject:  result.Subject,
+		}, nil
 	}
 
 	table, err := v.runtime.RunSweep(ctx, req.SymbolId, plan, run)
@@ -99,7 +105,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		}
 		return sweepFailure(err), nil
 	}
-	return v.sweepResponse(table, subject), nil
+	return v.sweepResponse(table), nil
 }
 
 // sweepArguments reads the arguments every row of the sweep binds, the named
@@ -200,13 +206,14 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 
 // sweepResponse spells a table on the wire: one row per run, in the order the
 // runs were made.
-func (v *verifyContext) sweepResponse(table runtime.SweepTable, subject *runtime.Instance) *pb.RunSweepResponse {
+func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResponse {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
 		Sampled:    table.Sampled,
 		Seed:       table.Seed,
 		Rows:       make([]*pb.SweepRow, 0, len(table.Rows)),
 	}
+	seen := make(map[int64]bool)
 	for i := range table.Rows {
 		row := &table.Rows[i]
 		out := &pb.SweepRow{ElapsedMicros: row.Elapsed.Microseconds()}
@@ -223,8 +230,9 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, subject *runtime
 			})
 		}
 		for j := range row.Verdicts {
-			out.Verdicts = append(out.Verdicts, v.analysisVerdict(&row.Verdicts[j], subject))
+			out.Verdicts = append(out.Verdicts, v.analysisVerdict(&row.Verdicts[j], row.Subject))
 		}
+		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraph(row.Subject))
 		if row.Err != nil {
 			out.Error = row.Err.Error()
 			out.FailureReason = failureReason(row.Err)
@@ -232,4 +240,17 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, subject *runtime
 		resp.Rows = append(resp.Rows, out)
 	}
 	return resp
+}
+
+// appendInstances adds the objects of one run to the table's, each once, so
+// every row's verdict resolves against the same graph.
+func appendInstances(all []*pb.Instance, seen map[int64]bool, graph []*pb.Instance) []*pb.Instance {
+	for _, inst := range graph {
+		if seen[inst.Id] {
+			continue
+		}
+		seen[inst.Id] = true
+		all = append(all, inst)
+	}
+	return all
 }

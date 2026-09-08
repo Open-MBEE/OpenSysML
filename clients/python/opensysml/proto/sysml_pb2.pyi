@@ -944,7 +944,7 @@ class SweepRow(_message.Message):
     def __init__(self, inputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., elapsed_micros: _Optional[int] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
 
 class RunSweepResponse(_message.Message):
-    __slots__ = ("rows", "parameters", "sampled", "seed", "error", "diagnostics", "failure_reason")
+    __slots__ = ("rows", "parameters", "sampled", "seed", "error", "diagnostics", "failure_reason", "instances")
     ROWS_FIELD_NUMBER: _ClassVar[int]
     PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     SAMPLED_FIELD_NUMBER: _ClassVar[int]
@@ -952,6 +952,7 @@ class RunSweepResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    INSTANCES_FIELD_NUMBER: _ClassVar[int]
     rows: _containers.RepeatedCompositeFieldContainer[SweepRow]
     parameters: _containers.RepeatedScalarFieldContainer[str]
     sampled: bool
@@ -959,7 +960,8 @@ class RunSweepResponse(_message.Message):
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     failure_reason: FailureReason
-    def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., parameters: _Optional[_Iterable[str]] = ..., sampled: _Optional[bool] = ..., seed: _Optional[int] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
+    instances: _containers.RepeatedCompositeFieldContainer[Instance]
+    def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., parameters: _Optional[_Iterable[str]] = ..., sampled: _Optional[bool] = ..., seed: _Optional[int] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
 
 class RunDocumentQueryRequest(_message.Message):
     __slots__ = ("model_hash", "query_id", "bindings")

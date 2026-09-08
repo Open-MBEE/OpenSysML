@@ -205,6 +205,8 @@ func TestSweepErrors(t *testing.T) {
 		{"%sweep Sw::Twice n=4..1:1", []string{"away from"}},
 		{"%sweep Sw::Twice nope=1..4", []string{"nope"}},
 		{"%sweep Sw::Twice(n = 1) n=1..4", []string{"both an argument"}},
+		{"%sweep Sw::Priced(0.0) Sw::ship tax=0.0..1.0:0.5", []string{"both an argument"}},
+		{"%sweep Sw::Priced Sw::ship s=1..4", []string{"subject"}},
 		{"%sweep Sw::Twice n=1..4 n=5..6", []string{"swept twice"}},
 		{"%sweep Sw::Twice n=1..2000000", []string{"OPENSYSML_MAX_SWEEP_RUNS"}},
 		{"%sweep Sw::ship n=1..4", []string{"Sw::ship"}},

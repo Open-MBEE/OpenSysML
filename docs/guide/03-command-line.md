@@ -371,8 +371,8 @@ refused rather than guessed at. Several `-sweep` flags run their cartesian produ
 flag varying slowest. A run that fails is a row numbering its error, printed in full under the
 table, and the runs after it are still made, so a sweep through a singularity reports which
 value broke rather than losing the table. A step of zero, a step whose sign never reaches
-`<to>`, a unit that does not convert, a parameter the target declares none of, one the
-arguments already bind, and a sweep or sample without an `-analysis`/`-calc` are refused:
+`<to>`, a unit that does not convert, a parameter the target declares none of, a case's subject,
+one the arguments already bind, and a sweep or sample without an `-analysis`/`-calc` are refused:
 
 ```bash
 $ sysml -calc "An::Sum(2.0, 3.0)" -sweep "b=0.0..10.0" analysis.sysml; echo "exit=$?"

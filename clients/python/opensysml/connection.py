@@ -1520,10 +1520,14 @@ class Connection:
             raise _failure_of(
                 response.error, response.failure_reason, diagnostics
             )
-        rows = [self._sweep_row(row, diagnostics) for row in response.rows]
+        instances = self._instances_of(response)
+        rows = [
+            self._sweep_row(row, instances, diagnostics)
+            for row in response.rows
+        ]
         return SweepTable(
             rows, list(response.parameters), sampled=response.sampled,
-            seed=response.seed, diagnostics=diagnostics,
+            seed=response.seed, instances=instances, diagnostics=diagnostics,
         )
 
     def _sweep_range(self, name, bounds):
@@ -1541,7 +1545,7 @@ class Connection:
             pb_range.step.CopyFrom(self._python_to_value(bounds[2]))
         return pb_range
 
-    def _sweep_row(self, row, diagnostics):
+    def _sweep_row(self, row, instances, diagnostics):
         """One run of a sweep as Python values."""
         inputs = {}
         outputs = {}
@@ -1552,7 +1556,7 @@ class Connection:
                 except UnsupportedValueError as exc:
                     target[entry.name] = exc
         verdicts = [
-            Verdict(pb_verdict, diagnostics=diagnostics)
+            Verdict(pb_verdict, instances=instances, diagnostics=diagnostics)
             for pb_verdict in row.verdicts
         ]
         return SweepRow(

@@ -478,8 +478,10 @@ to the unit `<from>` is written in. `<to>` is included when the step lands on it
 Integers with no `:<step>` steps by one, up or down as the endpoints direct; a range between Reals
 with no step is refused, because no step is the obviously intended one. A step of zero, a step
 whose sign never reaches `<to>`, an endpoint that is no number, a parameter the case or calc does
-not declare, a parameter the arguments already bind, and a `-sweep`/`-samples` without an
-`-analysis` or `-calc` are each refused with status 2 before any run is made.
+not declare, a case's subject — which an `-instantiate`d object binds, not a range — a parameter
+the arguments already bind, by name or by holding the position it is bound from, and a
+`-sweep`/`-samples` without an `-analysis` or `-calc` are each refused with status 2 before any
+run is made.
 
 **Order.** Rows come out in the order the ranges are written: the first `-sweep` flag varies
 slowest, the last fastest, each range from `<from>` towards `<to>`. Two runs of one plan produce

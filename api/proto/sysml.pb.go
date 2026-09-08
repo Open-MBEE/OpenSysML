@@ -5687,6 +5687,9 @@ type RunSweepResponse struct {
 	Diagnostics []*Diagnostic `protobuf:"bytes,6,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	// What kind of failure `error` reports.
 	FailureReason FailureReason `protobuf:"varint,7,opt,name=failure_reason,json=failureReason,proto3,enum=sysml.FailureReason" json:"failure_reason,omitempty"`
+	// Every object a row's verdict is about, from every run of the table, so each
+	// verdict's `instance_id` resolves here.
+	Instances     []*Instance `protobuf:"bytes,8,rep,name=instances,proto3" json:"instances,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5768,6 +5771,13 @@ func (x *RunSweepResponse) GetFailureReason() FailureReason {
 		return x.FailureReason
 	}
 	return FailureReason_FAILURE_REASON_UNSPECIFIED
+}
+
+func (x *RunSweepResponse) GetInstances() []*Instance {
+	if x != nil {
+		return x.Instances
+	}
+	return nil
 }
 
 // RunDocumentQueryRequest runs a named document query — a calc def
@@ -6798,7 +6808,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\bverdicts\x18\x03 \x03(\v2\x0e.sysml.VerdictR\bverdicts\x12%\n" +
 	"\x0eelapsed_micros\x18\x04 \x01(\x03R\relapsedMicros\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x12;\n" +
-	"\x0efailure_reason\x18\x06 \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\"\x8d\x02\n" +
+	"\x0efailure_reason\x18\x06 \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\"\xbc\x02\n" +
 	"\x10RunSweepResponse\x12#\n" +
 	"\x04rows\x18\x01 \x03(\v2\x0f.sysml.SweepRowR\x04rows\x12\x1e\n" +
 	"\n" +
@@ -6808,7 +6818,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04seed\x18\x04 \x01(\x04R\x04seed\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error\x123\n" +
 	"\vdiagnostics\x18\x06 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12;\n" +
-	"\x0efailure_reason\x18\a \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\"\x8c\x01\n" +
+	"\x0efailure_reason\x18\a \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\x12-\n" +
+	"\tinstances\x18\b \x03(\v2\x0f.sysml.InstanceR\tinstances\"\x8c\x01\n" +
 	"\x17RunDocumentQueryRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x19\n" +
@@ -7110,65 +7121,66 @@ var file_sysml_proto_depIdxs = []int32{
 	74,  // 94: sysml.RunSweepResponse.rows:type_name -> sysml.SweepRow
 	61,  // 95: sysml.RunSweepResponse.diagnostics:type_name -> sysml.Diagnostic
 	0,   // 96: sysml.RunSweepResponse.failure_reason:type_name -> sysml.FailureReason
-	77,  // 97: sysml.RunDocumentQueryRequest.bindings:type_name -> sysml.DocumentQueryBinding
-	78,  // 98: sysml.DocumentQueryBinding.values:type_name -> sysml.DocumentValue
-	57,  // 99: sysml.DocumentValue.quantity:type_name -> sysml.Quantity
-	78,  // 100: sysml.DocumentQueryCell.values:type_name -> sysml.DocumentValue
-	78,  // 101: sysml.DocumentQueryRow.element:type_name -> sysml.DocumentValue
-	80,  // 102: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
-	79,  // 103: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
-	81,  // 104: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
-	50,  // 105: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	28,  // 106: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
-	50,  // 107: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
-	50,  // 108: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
-	50,  // 109: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
-	50,  // 110: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	63,  // 111: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
-	16,  // 112: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
-	18,  // 113: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
-	21,  // 114: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
-	23,  // 115: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
-	25,  // 116: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
-	29,  // 117: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
-	31,  // 118: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
-	33,  // 119: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
-	35,  // 120: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
-	37,  // 121: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
-	5,   // 122: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
-	7,   // 123: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
-	9,   // 124: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
-	11,  // 125: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
-	14,  // 126: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
-	73,  // 127: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
-	65,  // 128: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
-	76,  // 129: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
-	83,  // 130: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
-	64,  // 131: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
-	20,  // 132: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
-	19,  // 133: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
-	22,  // 134: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
-	24,  // 135: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
-	26,  // 136: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
-	30,  // 137: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
-	32,  // 138: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
-	34,  // 139: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
-	36,  // 140: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
-	43,  // 141: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
-	6,   // 142: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
-	8,   // 143: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
-	10,  // 144: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
-	12,  // 145: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
-	15,  // 146: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
-	75,  // 147: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
-	66,  // 148: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
-	82,  // 149: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
-	84,  // 150: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
-	131, // [131:151] is the sub-list for method output_type
-	111, // [111:131] is the sub-list for method input_type
-	111, // [111:111] is the sub-list for extension type_name
-	111, // [111:111] is the sub-list for extension extendee
-	0,   // [0:111] is the sub-list for field type_name
+	27,  // 97: sysml.RunSweepResponse.instances:type_name -> sysml.Instance
+	77,  // 98: sysml.RunDocumentQueryRequest.bindings:type_name -> sysml.DocumentQueryBinding
+	78,  // 99: sysml.DocumentQueryBinding.values:type_name -> sysml.DocumentValue
+	57,  // 100: sysml.DocumentValue.quantity:type_name -> sysml.Quantity
+	78,  // 101: sysml.DocumentQueryCell.values:type_name -> sysml.DocumentValue
+	78,  // 102: sysml.DocumentQueryRow.element:type_name -> sysml.DocumentValue
+	80,  // 103: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
+	79,  // 104: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
+	81,  // 105: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
+	50,  // 106: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	28,  // 107: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
+	50,  // 108: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
+	50,  // 109: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
+	50,  // 110: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
+	50,  // 111: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	63,  // 112: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
+	16,  // 113: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
+	18,  // 114: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
+	21,  // 115: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
+	23,  // 116: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
+	25,  // 117: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
+	29,  // 118: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
+	31,  // 119: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
+	33,  // 120: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
+	35,  // 121: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
+	37,  // 122: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
+	5,   // 123: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
+	7,   // 124: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
+	9,   // 125: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
+	11,  // 126: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
+	14,  // 127: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
+	73,  // 128: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
+	65,  // 129: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
+	76,  // 130: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
+	83,  // 131: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
+	64,  // 132: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
+	20,  // 133: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
+	19,  // 134: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
+	22,  // 135: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
+	24,  // 136: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
+	26,  // 137: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
+	30,  // 138: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
+	32,  // 139: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
+	34,  // 140: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
+	36,  // 141: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
+	43,  // 142: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
+	6,   // 143: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
+	8,   // 144: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
+	10,  // 145: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
+	12,  // 146: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
+	15,  // 147: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
+	75,  // 148: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
+	66,  // 149: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
+	82,  // 150: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
+	84,  // 151: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
+	132, // [132:152] is the sub-list for method output_type
+	112, // [112:132] is the sub-list for method input_type
+	112, // [112:112] is the sub-list for extension type_name
+	112, // [112:112] is the sub-list for extension extendee
+	0,   // [0:112] is the sub-list for field type_name
 }
 
 func init() { file_sysml_proto_init() }

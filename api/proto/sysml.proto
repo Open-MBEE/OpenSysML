@@ -1012,6 +1012,9 @@ message RunSweepResponse {
   repeated Diagnostic diagnostics = 6;
   // What kind of failure `error` reports.
   FailureReason failure_reason = 7;
+  // Every object a row's verdict is about, from every run of the table, so each
+  // verdict's `instance_id` resolves here.
+  repeated Instance instances = 8;
 }
 
 // RunDocumentQueryRequest runs a named document query — a calc def

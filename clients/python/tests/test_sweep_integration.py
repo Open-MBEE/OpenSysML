@@ -103,6 +103,26 @@ class TestSweepIntegration:
         assert [row.verdicts[0].holds for row in table] == [True, True, False]
         assert not table
 
+    def test_a_row_verdict_resolves_to_the_object_it_is_about(self):
+        table = self.model.run_sweep(
+            "Sw::CostAnalysis", {"limit": (2.0, 30.0, 14.0)}, subject="Sw::ship"
+        )
+        assert table.instances
+        by_id = {inst.id: inst for inst in table.instances}
+        for row in table:
+            for verdict in row.verdicts:
+                assert verdict.instance_id
+                subject = by_id[verdict.instance_id]
+                assert subject.get("cost") == 5.0
+
+    def test_a_case_input_a_positional_argument_binds_cannot_be_swept(self):
+        with pytest.raises(ExecutionError) as exc_info:
+            self.model.run_sweep(
+                "Sw::CostAnalysis", {"limit": (2.0, 6.0, 2.0)},
+                subject="Sw::ship", arguments=[3.0],
+            )
+        assert "limit" in str(exc_info.value)
+
     def test_the_same_seed_draws_the_same_table(self):
         first = self.model.run_sweep("Sw::Twice", {"n": (1, 100)}, samples=8, seed=7)
         again = self.model.run_sweep("Sw::Twice", {"n": (1, 100)}, samples=8, seed=7)

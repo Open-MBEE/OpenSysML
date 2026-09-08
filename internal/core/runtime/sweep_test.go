@@ -30,6 +30,14 @@ const sweepModel = `
 			in b : Real;
 			return : Real = a / b;
 		}
+		part def Ship { attribute hullMass : Real; }
+		part ship : Ship { attribute :>> hullMass = 1000.0; }
+		analysis def Margin {
+			subject s : Ship;
+			in load : Real;
+			in factor : Real;
+			return : Real = (s.hullMass + load) * factor;
+		}
 	}
 `
 
@@ -680,5 +688,117 @@ func TestSweepStopsWhenItsCallerGoesAway(t *testing.T) {
 	}
 	if len(table.Rows) != 0 {
 		t.Errorf("a stopped sweep reported %d row(s); want none", len(table.Rows))
+	}
+}
+
+// quantityInt is an Integer magnitude in the given unit, as an argument carries it.
+func quantityInt(n int64, unit string, scale float64) Value {
+	return NewQuantityValue(&Quantity{
+		Num:  semantics.Value{Kind: semantics.ValInt, Int: n},
+		Unit: Unit{Text: unit, Term: semantics.UnitTerm{Scale: semantics.UnitScale(scale)}},
+	})
+}
+
+// An Integer range carrying a unit keeps its endpoints exactly past the
+// magnitudes float64 counts by ones through, so it still steps by one.
+func TestSweepQuantityIntegerRangeBeyondFloatPrecisionStepsExactly(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	base := int64(1) << 60
+	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n",
+			quantityInt(base, "SI::m", 1), quantityInt(base+2, "SI::m", 1))},
+	})
+	want := []int64{base, base + 1, base + 2}
+	if len(table.Rows) != len(want) {
+		t.Fatalf("rows = %d; want %d", len(table.Rows), len(want))
+	}
+	for i, n := range want {
+		q := table.Rows[i].Bindings[0].Value.Quantity()
+		if q == nil || q.Num.Kind != semantics.ValInt || q.Num.Int != n {
+			t.Errorf("row %d bound %s; want %d [SI::m]", i, FormatValue(table.Rows[i].Bindings[0].Value), n)
+		}
+	}
+}
+
+// A range whose endpoints are expressed in units a whole factor apart converts
+// them exactly, so it stays a range between Integers past that precision too.
+func TestSweepQuantityRangeConvertsIntegerEndpointsExactly(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	const kilometres = 1152921504606844
+	metres := int64(kilometres) * 1000
+	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+		Ranges: []SweepRange{steppedRange("n",
+			quantityInt(metres, "SI::m", 1),
+			quantityInt(kilometres+2, "SI::km", 1000),
+			quantityInt(1000, "SI::m", 1))},
+	})
+	want := []int64{metres, metres + 1000, metres + 2000}
+	if len(table.Rows) != len(want) {
+		t.Fatalf("rows = %d; want %d", len(table.Rows), len(want))
+	}
+	for i, n := range want {
+		q := table.Rows[i].Bindings[0].Value.Quantity()
+		if q == nil || q.Num.Kind != semantics.ValInt || q.Num.Int != n {
+			t.Errorf("row %d bound %s; want %d [SI::m]", i, FormatValue(table.Rows[i].Bindings[0].Value), n)
+		}
+	}
+}
+
+// A case's positional arguments bind the inputs its run binds them to, the
+// subject skipped, so a parameter one of them binds cannot also be swept.
+func TestCheckSweepParametersFollowsAnalysisPositionalBinding(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	sym := calcNamed(t, scope, "Margin")
+
+	load := SweepPlan{Ranges: []SweepRange{rangeOf("load", realOf(0), realOf(1))}}
+	if err := ctx.CheckSweepParameters(sym, load, 1, nil); !errors.Is(err, ErrSweepParameter) {
+		t.Errorf("sweeping the input the positional argument binds: err = %v; want ErrSweepParameter", err)
+	}
+	factor := SweepPlan{Ranges: []SweepRange{rangeOf("factor", realOf(1), realOf(2))}}
+	if err := ctx.CheckSweepParameters(sym, factor, 1, nil); err != nil {
+		t.Errorf("sweeping the input no argument binds: %v", err)
+	}
+	if err := ctx.CheckSweepParameters(sym, factor, 2, nil); !errors.Is(err, ErrSweepParameter) {
+		t.Errorf("sweeping the second input two arguments bind: err = %v; want ErrSweepParameter", err)
+	}
+}
+
+// A case's subject is an object an instantiation binds, which no range of
+// values stands for, so sweeping it is refused rather than run.
+func TestCheckSweepParametersRefusesTheSubject(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	sym := calcNamed(t, scope, "Margin")
+	err := ctx.CheckSweepParameters(sym, SweepPlan{
+		Ranges: []SweepRange{rangeOf("s", intOf(1), intOf(2))},
+	}, 0, nil)
+	if !errors.Is(err, ErrSweepParameter) || !strings.Contains(err.Error(), "subject") {
+		t.Errorf("err = %v; want an ErrSweepParameter naming the subject", err)
+	}
+}
+
+// A sampled range carrying a unit draws Integers over the whole of it, past the
+// magnitudes float64 counts by ones through.
+func TestSamplesOverAQuantityIntegerRangeStayIntegers(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	base := int64(1) << 60
+	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n",
+			quantityInt(base, "SI::m", 1), quantityInt(base+1000, "SI::m", 1))},
+		Sampled: true, Samples: 16, Seed: 7,
+	})
+	spread := make(map[int64]bool, len(table.Rows))
+	for i := range table.Rows {
+		q := table.Rows[i].Bindings[0].Value.Quantity()
+		if q == nil || q.Num.Kind != semantics.ValInt {
+			t.Fatalf("row %d drew %s; want an Integer quantity",
+				i, FormatValue(table.Rows[i].Bindings[0].Value))
+		}
+		if q.Num.Int < base || q.Num.Int > base+1000 {
+			t.Errorf("row %d drew %d; want a value in the range", i, q.Num.Int)
+		}
+		spread[q.Num.Int] = true
+	}
+	if len(spread) < 2 {
+		t.Errorf("16 draws took %d distinct value(s); want them spread over the range", len(spread))
 	}
 }

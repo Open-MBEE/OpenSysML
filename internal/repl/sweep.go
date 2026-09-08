@@ -219,7 +219,11 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		if err != nil {
 			return runtime.SweepRunResult{}, err
 		}
-		return runtime.SweepRunResult{Outputs: result.Outputs, Verdicts: result.Verdicts}, nil
+		return runtime.SweepRunResult{
+			Outputs:  result.Outputs,
+			Verdicts: result.Verdicts,
+			Subject:  result.Subject,
+		}, nil
 	}
 
 	table, err := ctx.RunSweep(context.Background(), fqn, plan, run)
