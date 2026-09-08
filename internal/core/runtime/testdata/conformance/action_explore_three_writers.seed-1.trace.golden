@@ -1,0 +1,19 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b, token 4@c
+stmt assign x
+  eval literal 3 -> 3
+stmt assign cRan
+  eval literal true -> true
+stmt assign x
+  eval literal 1 -> 1
+stmt assign aRan
+  eval literal true -> true
+stmt assign x
+  eval literal 2 -> 2
+stmt assign bRan
+  eval literal true -> true
+choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 2 by token 3 stood)
+choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)
+step 3: token 2@sync, token 3@sync, token 4@sync
+step 4: token 5@done
+step 5: no active tokens

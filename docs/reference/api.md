@@ -28,6 +28,25 @@ intended shape. `ParseFile` and `ParseSource` each parse one document; `ParseFil
 `ParseDocuments` parse several as one model, each keeping its own name, so an import between them
 resolves and a diagnostic locates itself in the file it came from.
 
+`ExecuteAction`, `ExecuteState` and `RunAnalysis` answer one run, under the scheduling policy
+`WithSchedule`/`Schedule` names (`declared`, `reverse`, `seed:<n>`). `ExploreAction`,
+`ExploreState` and `ExploreAnalysis` answer every run: they take the `explore` policy — the
+default when none is given, or `explore:runs=N,depth=D` to set its budget — and report an
+`Exploration`, one `Outcome` per distinct result with the number of linearizations that reached
+it and one run's choices as its `Witness`, plus whether the search was `Complete` or which
+`BudgetsHit` ended it (`Status()` renders it as the `sysml` command does). A run that fails under
+some order is an `Outcome` whose `Error` is set, not a failure of the call. The two families
+refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
+`schedule_explore` capability alongside `schedule`.
+
+```go
+exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
+for _, outcome := range exploration.Outcomes {
+	fmt.Println(outcome.Outputs["winner"], outcome.Linearizations, outcome.Witness)
+}
+fmt.Println(exploration.Status()) // complete (6 runs)
+```
+
 Its errors, ownership rules, capability negotiation and v1 boundary are in
 [client/opensysml/README.md](../../client/opensysml/README.md), and the other client languages are on
 [client libraries](clients.md). A program with no client library that posts JSON to the service
@@ -384,20 +403,31 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - **`ExecuteState(sym *symbols.Symbol) (map[string]Value, error)`** — Execute state machine until final/suspended
   - **`CreateActionExecutor(sym *symbols.Symbol) (*ActionExecutor, error)`** — Create action executor for debugging
   - **`CreateStateExecutor(sym *symbols.Symbol) (*StateExecutor, error)`** — Create state executor for debugging
-  - `SetSchedule(policy SchedulePolicy)` — Set the scheduling policy the runs started from now on
-    resolve their choice points under; a run already under way keeps the one it started with
+  - `SetSchedule(policy SchedulePolicy) error` — Set the scheduling policy the runs started from
+    now on resolve their choice points under; a run already under way keeps the one it started
+    with. `explore` is refused with `ErrExploreUndriven`: an exploration replays whole runs over
+    fresh contexts, so `Explore` drives it rather than one context running under it
   - `Schedule() SchedulePolicy` — The policy the next run resolves its choice points under
+  - `StateOutcomeWithEvents(sym *symbols.Symbol, events []string) (Outcome, error)` — Run a
+    state machine on the events and answer its `Outcome`: the state it rests in, the states it
+    entered and the values it holds
 
 - **`SchedulePolicy`** — How the executors resolve a run's choice points (several steppable
   tokens in one step, several holding guards at a decision, several enabled transitions for one
   event; which same-step write to one feature stands follows from the token order). The zero
   value and `DefaultSchedulePolicy` are `reverse`, what every run did before policies were
   selectable; every `.expected.json` and `.trace.golden` recorded under it still holds
-  - `ParseSchedulePolicy(spelling string) (SchedulePolicy, error)` — Read `declared`, `reverse`
-    or `seed:<n>` (n a non-negative decimal integer); the empty spelling is the default. Any
-    other spelling — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc` —
-    is a `*SchedulePolicyError` (`Spelling`, `Reason`) matching `ErrInvalidSchedulePolicy` under
-    `errors.Is`, so every surface refuses it before anything runs
+  - `ParseSchedulePolicy(spelling string) (SchedulePolicy, error)` — Read `declared`, `reverse`,
+    `seed:<n>` (n a non-negative decimal integer) or `explore[:runs=<n>,depth=<d>]` (n at least 1,
+    d at least 0, in either order, each at most once; `DefaultExploreBudget`, 1024 runs and 64
+    choice points deep, for one not given); the empty spelling is the default. Any other
+    spelling — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`,
+    `explore:` with nothing after the colon, `explore:runs=0` — is a `*SchedulePolicyError`
+    (`Spelling`, `Reason`) matching `ErrInvalidSchedulePolicy` under `errors.Is`, so every surface
+    refuses it before anything runs
+  - `ExplorePolicy(budget ExploreBudget) (SchedulePolicy, error)` — The `explore` policy with the
+    budget given, refusing one outside the bounds above
+  - `Exploration() (ExploreBudget, bool)` — The budget when the policy is `explore`
   - `String() string` — The spelling `ParseSchedulePolicy` reads the policy back from
   - `IsDefault() bool` — Whether the policy is `reverse`
   - `SchedulePolicyNames` — The accepted spellings, for usage text
@@ -407,6 +437,30 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     one run and two seeds may take two linearizations. A policy changes which alternative each
     choice point takes, never whether it is reported: the `Taken` of each `ChoicePoint` is what
     the policy took
+
+- **`Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
+  — Run a behavior under `explore` once per linearization within the budget: each run starts
+  from the `Context` `fresh` builds over the model and lowering they all share, records the
+  alternative taken at every choice point, and the next run replays that prefix up to its
+  frontier and takes the first untried alternative there, depth-first over the tree of choice
+  sequences. `run` performs one run and answers its `Outcome`; an error it returns is the
+  `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
+  ending the search. A policy other than `explore` is `ErrNotExploring`; a replay that does not
+  meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the model's runs
+  are then not a function of their choices
+  - **`Outcome`** — What one run came to, in the observables a conformance case compares:
+    `Outputs`, and for a state machine `FinalState` and `StateVisits`; `Err` for a run that
+    failed. `String()` renders it canonically, so two runs agreeing on their observables are one
+    outcome. `ActionOutcome(outputs)`, `(*StateExecutor).Outcome()`, `AnalysisResult.Outcome()`
+    and `VerifiedOutcome(result, verdicts)` build one; a case's verdicts are values named
+    `objective <name>`, `assertion <name>` and `verdict <case>`
+  - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order and
+    `BudgetsHit`, `runs` before `depth`, empty when `Complete()`. `Status()` renders
+    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`
+  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, the
+    `Witness` (one run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`
+  - **`ChoiceTaken`** — One resolved choice point: its `Kind`, `Step`, `Where`, the
+    `Alternatives` and `Among` it had and the `Taken`/`Took` it resolved to
 
 **Behavioral Execution (Tier 5):**
 
@@ -491,8 +545,21 @@ result := results["result"]
 // Or under another scheduling policy, refusing a spelling that names none
 policy, err := runtime.ParseSchedulePolicy("seed:7")
 if err != nil { /* *runtime.SchedulePolicyError */ }
-ctx.SetSchedule(policy)
+if err := ctx.SetSchedule(policy); err != nil { /* runtime.ErrExploreUndriven for explore */ }
 results, err = ctx.ExecuteAction(myActionSym) // the same run on every call
+
+// Or every run: one fresh context per linearization over the shared model
+explore, _ := runtime.ParseSchedulePolicy("explore:runs=64")
+exploration, err := runtime.Explore(explore,
+    func() (*runtime.Context, error) { return runtime.NewContext(model, resolver, runtime.DefaultMaxSteps), nil },
+    func(c *runtime.Context) (runtime.Outcome, error) {
+        outputs, err := c.ExecuteAction(myActionSym)
+        return runtime.ActionOutcome(outputs), err
+    })
+for _, o := range exploration.Outcomes {
+    fmt.Println(o.Outcome, o.Linearizations, runtime.FormatChoices(o.Witness))
+}
+fmt.Println(exploration.Status()) // complete (6 runs), or the budget hit
 
 // Or debug step-by-step
 exec, _ := ctx.CreateActionExecutor(myActionSym)

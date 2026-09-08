@@ -135,9 +135,35 @@ beside `performers`, on a calc, constraint, requirement or instance case, or
 with an entry that states nothing. The `events` a state case injects are its
 input and stay at the top level: every outcome is a result of the same run.
 
-The set admits what one run may produce; the harness does not yet check that
-every listed outcome is reachable. The default schedule is deterministic, so a
-case with an admissible set still keeps its exact golden trace.
+The set is exact. Besides checking the default run, `TestExecutionConformance`
+explores every case with `outcomes` under the `explore` policy: the case is
+replayed from the start once per linearization the library admits, each run on a
+fresh context over the same lowering, and the case fails when a listed outcome
+no run reaches (`admissible outcome 2 of 3 is unreachable`), when a run reaches
+an outcome the set does not list or fails with an error — named with the choice
+sequence of a witness run (`step 1: t2 first of t1, t2, t3; step 2: t1 first of
+t1, t3`) — or when the exploration is incomplete. Exploration is bounded by a
+budget of runs and of choice points per run, `runs: 1024, depth: 64` by default;
+a case that hits it fails with a message telling the author to raise it:
+
+```json
+{
+  "type": "action",
+  "exploreBudget": {"runs": 4096, "depth": 128},
+  "outcomes": [ ... ],
+  "admissible": "..."
+}
+```
+
+- `exploreBudget`: optional beside `outcomes`; each of `runs` and `depth` defaults
+  to the default budget's when omitted. A budget without `outcomes`, a `runs`
+  below 1 or a `depth` below 0 is a schema error the test reports. Raising a
+  budget is the answer to a model with more linearizations than the default
+  covers, never to an outcome the set is missing: an unlisted outcome is a
+  derivation to add to the oracle or a bug to fix.
+
+Cases without `outcomes` are not explored by the harness. The default schedule is
+deterministic, so a case with an admissible set still keeps its exact golden trace.
 
 ### Scheduling Policy
 

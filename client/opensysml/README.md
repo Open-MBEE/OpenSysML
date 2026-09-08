@@ -33,6 +33,7 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Read the model | `LookupSymbol`, `Diagnostics` |
 | Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
+| Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
 | Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` |
 | Search it | `Query`, `QueryOSLC` |
 | Report on it | `RunDocumentQuery`, `RenderDocument` |
@@ -64,6 +65,26 @@ advertising `CapabilityVerificationVerdicts`. `Verification.Verifications`,
 `VerificationVerdict`s; because one `VerifySatisfaction` response can cover
 several requirements, each `Verdict` in it carries only the cases of its own
 `RequirementID`.
+
+A run resolves its choice points — several tokens steppable at once, several
+guards holding, several transitions enabled — under the scheduling policy
+`WithSchedule` (or `Schedule`, for an analysis) names: `declared`, `reverse`
+(the default) or `seed:<n>`. `ExploreAction`, `ExploreState` and
+`ExploreAnalysis` run every linearization instead and answer an `Exploration`:
+one `Outcome` per distinct result with the `Linearizations` that reached it and
+one run's `Witness`, and whether the search was `Complete` or which `BudgetsHit`
+ended it. `WithSchedule("explore:runs=64,depth=8")` sets the budget; a run that
+fails under some orders is an `Outcome` with its `Error` set, not a failed call.
+The single-run and exploring calls refuse each other's policies with
+`CodeInvalidArgument`, so a policy is never quietly answered by the wrong shape.
+
+```go
+exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
+for _, outcome := range exploration.Outcomes {
+	fmt.Println(outcome.Outputs["winner"], outcome.Linearizations, outcome.Witness)
+}
+fmt.Println(exploration.Status()) // complete (6 runs)
+```
 
 Queries are built from typed conditions rather than a string dialect, so an
 unsupported operator is a compile error rather than a refused call:
@@ -210,7 +231,10 @@ among `ExecuteAction` inputs or `EvaluateCalc`/`RunAnalysis` arguments needs
 `function_values`, a `Set` needs `set_values` and a `TensorQuantity` needs
 `tensor_values` — each at the top level or nested in a sequence, set or array; a
 service without them would read the value as null, so the client refuses with
-`CodeUnimplemented` before sending anything.
+`CodeUnimplemented` before sending anything. A scheduling policy is checked the
+same way: `WithSchedule`/`Schedule` need `schedule`, and the `Explore*` calls
+`schedule_explore` besides, since a service without them would run under the
+default, or run once, rather than refuse.
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class

@@ -291,6 +291,9 @@ func (s *Session) EvalBare(expr string) ([]string, error) {
 func (s *Session) RunCalc(invocation string) Verdict {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, explores := s.exploring(); explores {
+		return s.exploreCalc(invocation)
+	}
 	name, argText := splitCalcArgs(invocation)
 	lines, values, err := s.evalCalc(name, argText)
 	if err != nil {
@@ -310,6 +313,9 @@ func (s *Session) RunAnalysis(invocation string) Verdict {
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(invocation, err.Error()))
 	}
+	if _, explores := s.exploring(); explores {
+		return s.exploreAnalysis(inv)
+	}
 	return s.withTrace(s.analysisVerdict(inv))
 }
 
@@ -319,6 +325,9 @@ func (s *Session) RunAnalysis(invocation string) Verdict {
 func (s *Session) RunAction(name string, performer ...string) Verdict {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, explores := s.exploring(); explores {
+		return s.exploreAction(name, performer)
+	}
 	started, err := s.startAction(name, performer)
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, err.Error()))
@@ -354,6 +363,9 @@ func (s *Session) RunStateMachineFor(name string, duration float64, performer ..
 }
 
 func (s *Session) runStateMachine(name string, duration *float64, performer []string) Verdict {
+	if _, explores := s.exploring(); explores {
+		return s.exploreStateMachine(name, duration, performer)
+	}
 	started, err := s.startStateMachine(name, performer)
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, err.Error()))

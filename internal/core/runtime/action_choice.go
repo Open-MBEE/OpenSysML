@@ -209,18 +209,17 @@ func (e *ActionExecutor) messageAccept(t Token) (lower.Accept, bool) {
 	return accept, isAccept && accept.Trigger == nil
 }
 
-// stepTokenNoting steps the token at index i and notes it in order when it did
-// something it could have done first (not parked, and not enabled by this step),
-// or was offered a message another token took first. A step that fails was still
-// the token's turn, so the order taken is complete.
-func (e *ActionExecutor) stepTokenNoting(i int, order *stepOrder) error {
+// stepTokenNoting steps the token at index i and notes the order taken when it
+// could have acted first; a failed step was still its turn.
+func (e *ActionExecutor) stepTokenNoting(i int, order *stepOrder) (acted bool, err error) {
 	before := e.tokens[i]
 	count := len(e.tokens)
-	err := e.stepToken(i)
-	if order.eligible(before) && (err != nil || order.offered[before.ID] || e.tokenActed(before, count)) {
+	err = e.stepToken(i)
+	acted = err != nil || e.tokenActed(before, count)
+	if order.eligible(before) && (acted || order.offered[before.ID]) {
 		order.acted = append(order.acted, before)
 	}
-	return err
+	return acted, err
 }
 
 // eligible reports whether the token could have gone first in the step and is
@@ -290,7 +289,7 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 	for i, pos := range holding {
 		alts[i] = branchName(successors, pos)
 	}
-	e.ctx.noteChoice(ChoicePoint{
+	choice := ChoicePoint{
 		Kind:         ChoiceDecisionBranch,
 		Step:         e.stepCount + 1,
 		Where:        "decision " + nodeIdentifier(node),
@@ -298,7 +297,9 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 		Taken:        pick,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
-	})
+	}
+	e.ctx.scheduling().describe(choice)
+	e.ctx.noteChoice(choice)
 }
 
 // noteUnevaluableGuard records the guard of the succession at position pos out of

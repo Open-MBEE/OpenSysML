@@ -41,24 +41,29 @@ const (
 	scheduleDeclared
 	// scheduleSeeded draws every resolution from a pseudo-random sequence a seed fixes.
 	scheduleSeeded
+	// scheduleExplore replays runs under Explore, each following a recorded prefix of
+	// choices and taking the first untried alternative at its frontier.
+	scheduleExplore
 )
 
 // SchedulePolicy names how the executors resolve the choice points of a run.
 // The zero value is the default policy, `reverse`.
 type SchedulePolicy struct {
-	kind scheduleKind
-	seed uint64
+	kind   scheduleKind
+	seed   uint64
+	budget ExploreBudget
 }
 
 // DefaultSchedulePolicy is the policy runs use unless one is set: `reverse`.
 var DefaultSchedulePolicy = SchedulePolicy{kind: scheduleReverse}
 
 // SchedulePolicyNames lists the policy spellings ParseSchedulePolicy accepts, for
-// usage text; `seed:<n>` stands for any non-negative decimal seed.
-var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>"}
+// usage text; `seed:<n>` stands for any non-negative decimal seed and the
+// bracketed options of `explore` are each optional.
+var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>", "explore[:runs=<n>,depth=<d>]"}
 
-// ParseSchedulePolicy reads a policy spelling: `declared`, `reverse` or `seed:<n>`
-// with n a non-negative decimal integer. The empty spelling is the default policy.
+// ParseSchedulePolicy reads `declared`, `reverse`, `seed:<n>` or
+// `explore[:runs=<n>,depth=<d>]` (either option, either order); "" is the default.
 func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 	switch {
 	case spelling == "":
@@ -81,12 +86,61 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 	case spelling == "seed":
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: "seed: needs a number"}
 	case spelling == "explore":
-		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling,
-			Reason: "reserved for bounded exploration, which is not available yet; want one of " + strings.Join(SchedulePolicyNames, ", ")}
+		return SchedulePolicy{kind: scheduleExplore, budget: DefaultExploreBudget}, nil
+	case strings.HasPrefix(spelling, "explore:"):
+		budget, reason := parseExploreOptions(spelling[len("explore:"):])
+		if reason != "" {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: reason}
+		}
+		return SchedulePolicy{kind: scheduleExplore, budget: budget}, nil
 	default:
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling,
 			Reason: "want one of " + strings.Join(SchedulePolicyNames, ", ")}
 	}
+}
+
+// parseExploreOptions reads the `runs=<n>,depth=<d>` options of an explore
+// spelling, returning the budget or why the options name none.
+func parseExploreOptions(options string) (ExploreBudget, string) {
+	budget := DefaultExploreBudget
+	if options == "" {
+		return budget, "explore: needs runs=<n> and/or depth=<d> after the colon, or no colon"
+	}
+	seen := make(map[string]bool)
+	for _, option := range strings.Split(options, ",") {
+		name, digits, assigned := strings.Cut(option, "=")
+		if !assigned || (name != "runs" && name != "depth") {
+			return budget, fmt.Sprintf("explore option %q is not runs=<n> or depth=<d>", option)
+		}
+		if seen[name] {
+			return budget, fmt.Sprintf("explore option %s is given twice", name)
+		}
+		seen[name] = true
+		value, err := strconv.ParseUint(digits, 10, 31)
+		if err != nil || (name == "runs" && value < 1) {
+			least := "0"
+			if name == "runs" {
+				least = "1"
+			}
+			return budget, fmt.Sprintf("explore %s %q is not a decimal integer of at least %s", name, digits, least)
+		}
+		if name == "runs" {
+			budget.Runs = int(value)
+		} else {
+			budget.Depth = int(value)
+		}
+	}
+	return budget, ""
+}
+
+// ExplorePolicy is the `explore` policy under the given budget: at least one
+// run, and a depth of at least zero.
+func ExplorePolicy(budget ExploreBudget) (SchedulePolicy, error) {
+	if budget.Runs < 1 || budget.Depth < 0 {
+		return SchedulePolicy{}, &SchedulePolicyError{Spelling: fmt.Sprintf("explore:runs=%d,depth=%d", budget.Runs, budget.Depth),
+			Reason: "explore runs must be at least 1 and depth at least 0"}
+	}
+	return SchedulePolicy{kind: scheduleExplore, budget: budget}, nil
 }
 
 // String returns the spelling ParseSchedulePolicy reads the policy back from.
@@ -96,6 +150,18 @@ func (p SchedulePolicy) String() string {
 		return "declared"
 	case scheduleSeeded:
 		return "seed:" + strconv.FormatUint(p.seed, 10)
+	case scheduleExplore:
+		var options []string
+		if p.budget.Runs != DefaultExploreBudget.Runs {
+			options = append(options, "runs="+strconv.Itoa(p.budget.Runs))
+		}
+		if p.budget.Depth != DefaultExploreBudget.Depth {
+			options = append(options, "depth="+strconv.Itoa(p.budget.Depth))
+		}
+		if len(options) == 0 {
+			return "explore"
+		}
+		return "explore:" + strings.Join(options, ",")
 	default:
 		return "reverse"
 	}
@@ -103,6 +169,12 @@ func (p SchedulePolicy) String() string {
 
 // IsDefault reports whether the policy is the one runs use unless told otherwise.
 func (p SchedulePolicy) IsDefault() bool { return p == DefaultSchedulePolicy }
+
+// Exploration returns the budget of an `explore` policy, and whether the policy
+// is one: such a policy is driven by Explore rather than set on a context.
+func (p SchedulePolicy) Exploration() (ExploreBudget, bool) {
+	return p.budget, p.kind == scheduleExplore
+}
 
 // start begins the sequence of resolutions one run draws under the policy.
 func (p SchedulePolicy) start() *scheduler {
@@ -116,31 +188,75 @@ func (p SchedulePolicy) start() *scheduler {
 }
 
 // scheduler resolves the choice points of one run under a policy; a seeded one
-// carries the generator state the run consumes choice by choice.
+// carries the generator state the run consumes choice by choice, an exploring
+// one the exploration run the context takes part in.
 type scheduler struct {
-	policy SchedulePolicy
-	pcg    *rand.PCG
-	rng    *rand.Rand
+	policy  SchedulePolicy
+	pcg     *rand.PCG
+	rng     *rand.Rand
+	explore *exploreRun
 }
 
-// orderTokens permutes the IDs of the tokens one step may move, spawn order
-// given, into the order the step tries them. A seed draws the order of the tokens
-// able to act; a parked one keeps its place, so it costs no draw.
-func (s *scheduler) orderTokens(ids []int64, parked map[int64]bool) {
+// stepTokens are the tokens one step may try, in spawn order; parked ones cannot
+// act yet and held ones collapse into another's synchronization.
+type stepTokens struct {
+	step    int
+	ids     []int64
+	parked  map[int64]bool
+	held    map[int64]bool
+	enabled func(id int64) bool
+	label   func(id int64) string
+}
+
+// tokenSchedule hands a step its tokens one at a time in the order the policy
+// tries them, and is told after each whether it acted.
+type tokenSchedule struct {
+	order   []int64
+	next    int
+	explore *exploreStep
+}
+
+// Next is the token to try next; false once the step tried them all.
+func (ts *tokenSchedule) Next() (int64, bool) {
+	if ts.explore != nil {
+		return ts.explore.next()
+	}
+	if ts.next >= len(ts.order) {
+		return 0, false
+	}
+	id := ts.order[ts.next]
+	ts.next++
+	return id, true
+}
+
+// Acted tells the schedule whether the token last handed out did something.
+func (ts *tokenSchedule) Acted(id int64, acted bool) {
+	if ts.explore != nil {
+		ts.explore.acted(id, acted)
+	}
+}
+
+// scheduleStep fixes how the step tries its tokens: reversed, declared,
+// seeded shuffle, or one at a time as the exploration picks them.
+func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
+	if s.policy.kind == scheduleExplore && s.explore != nil {
+		return &tokenSchedule{explore: s.explore.beginStep(tokens)}
+	}
+	ids := tokens.ids
 	if len(ids) < 2 {
-		return
+		return &tokenSchedule{order: ids}
 	}
 	switch s.policy.kind {
-	case scheduleDeclared:
+	case scheduleDeclared, scheduleExplore:
 	case scheduleSeeded:
 		slots := make([]int, 0, len(ids))
 		for i, id := range ids {
-			if !parked[id] {
+			if !tokens.parked[id] {
 				slots = append(slots, i)
 			}
 		}
 		if len(slots) < 2 {
-			return
+			break
 		}
 		s.rng.Shuffle(len(slots), func(i, j int) {
 			ids[slots[i]], ids[slots[j]] = ids[slots[j]], ids[slots[i]]
@@ -150,20 +266,43 @@ func (s *scheduler) orderTokens(ids []int64, parked map[int64]bool) {
 			ids[i], ids[j] = ids[j], ids[i]
 		}
 	}
+	return &tokenSchedule{order: ids}
 }
 
 // pick chooses one of n alternatives given in declaration order.
 func (s *scheduler) pick(n int) int {
-	if n < 2 || s.policy.kind != scheduleSeeded {
+	if n < 2 {
 		return 0
 	}
-	return s.rng.IntN(n)
+	switch s.policy.kind {
+	case scheduleSeeded:
+		return s.rng.IntN(n)
+	case scheduleExplore:
+		if s.explore != nil {
+			return s.explore.pick(n)
+		}
+	}
+	return 0
 }
 
-// mark returns the generator state a probe restores, so previewing a run does
-// not move the choices the run itself goes on to make.
+// describe tells the scheduler how the run reports the choice its last pick made,
+// so an exploration's witness names the alternative as the trace does.
+func (s *scheduler) describe(c ChoicePoint) {
+	if s.policy.kind == scheduleExplore && s.explore != nil {
+		s.explore.describe(c)
+	}
+}
+
+// mark returns the state a probe restores, so previewing a run does not move
+// the seeded generator or the exploration's position.
 func (s *scheduler) mark() func() {
-	if s == nil || s.pcg == nil {
+	if s == nil {
+		return func() {}
+	}
+	if s.explore != nil {
+		return s.explore.mark()
+	}
+	if s.pcg == nil {
 		return func() {}
 	}
 	saved := *s.pcg

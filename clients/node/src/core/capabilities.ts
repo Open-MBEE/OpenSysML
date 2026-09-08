@@ -48,6 +48,8 @@ export const CAPABILITY_QUERY = "query";
 export const CAPABILITY_APPLY_EDITS = "apply_edits";
 /** The `schedule` field of the execution requests, naming the scheduling policy. Not used by this version; see the README. */
 export const CAPABILITY_SCHEDULE = "schedule";
+/** The `explore` scheduling policy, answering with every `outcomes` entry and an `exploration` status. Not used by this version; see the README. */
+export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

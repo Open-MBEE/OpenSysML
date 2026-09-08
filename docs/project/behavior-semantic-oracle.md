@@ -271,6 +271,66 @@ The first guard read is the run's own, not a preview, and its failure fails the 
 has. A decision whose guards are all false remains an execution error
 (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
 
+### Three concurrent writers of one feature: six orders, three values
+
+Fixture: `action_explore_three_writers` (golden, explored).
+
+```
+start → split ⇉ a { x := 1; aRan := true } ─┐
+              ⇉ b { x := 2; bRan := true } ─┤→ sync → done
+              ⇉ c { x := 3; cRan := true } ─┘
+```
+
+Derived constraints:
+
+- `a`, `b` and `c` are each performed exactly once (ForkAction), so `aRan`, `bRan` and `cRan`
+  all end `true`.
+- `sync` follows all three (JoinAction), so every write of `x` has ended before the action ends
+  and `x` is `1`, `2` or `3`, never `0`.
+
+Open: the order of the three branches. The library gives no `HappensBefore` link among them, so
+every one of the `3! = 6` orders is a valid linearization. The value of `x` is the last write, and
+each branch is last in exactly two of the six orders, so the six linearizations reach exactly
+three outcomes, `{x = 1, x = 2, x = 3}`, two linearizations each.
+
+Pinned outcome: that admissible set, with the three `…Ran` flags `true` in every member, stated
+as `outcomes` citing this section; `.trace.order` states the partial order the library does fix
+(`split < a`, `split < b`, `split < c`, `a < sync`, `b < sync`, `c < sync`). The exact golden
+records the default schedule (`c` is declared last, so its token is stepped first and `a` writes
+last, giving `x = 1`). Exploration is what makes the set checkable: `explore` replays the run
+along every choice sequence and must reach each of the three outcomes and no other, in six runs.
+The first pick among three tokens and the next among the two left are two choice points of one
+step, so a linearization is a sequence of two choices, not one choice among six.
+
+### A decision inside a loop: every pass is its own open choice
+
+Fixture: `action_explore_decision_in_loop` (golden, explored).
+
+```
+start → again → pick ─ if passes < 2  → left  { lefts++;  passes++ } → again
+                     ─ if passes < 2  → right { rights++; passes++ } → again
+                     ─ if passes >= 2 → done
+```
+
+Derived constraints:
+
+- `pick` is followed by a performance of exactly one target on each pass (DecisionPerformance), so
+  each pass adds one to `passes` and one to exactly one of `lefts` and `rights`.
+- On the first two passes `passes < 2` holds and `passes >= 2` does not, so `done` is not
+  selectable and one of `left`, `right` is; on the third `passes = 2`, only `done` is
+  selectable, and the loop ends. Every run ends with `passes = 2` and `lefts + rights = 2`.
+
+Open: which of `left` and `right` follows `pick` on each of the two passes. Each pass is its own
+decision performance, constrained by nothing the earlier pass did, so the four sequences
+`left,left`, `left,right`, `right,left`, `right,right` are all valid linearizations. Two of them
+agree on the tallies, so they reach three outcomes: `{lefts = 2, lefts = 1 ∧ rights = 1,
+rights = 2}`.
+
+Pinned outcome: that admissible set, stated as `outcomes` citing this section. The default takes
+the first declared branch on every pass, so the golden records `left` twice. Exploration must
+reach all three outcomes and no other in four runs, the third pass never being a choice point:
+a decision whose guards leave one link selectable is not a choice, however many links it has.
+
 ### Two accepts of one type racing for two sends: each takes one message, which one is open
 
 Fixture: `action_choice_shared_message_accept` (golden).

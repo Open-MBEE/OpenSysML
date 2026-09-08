@@ -283,6 +283,8 @@ make python-proto
 - `document.py` — native document queries: typed bindings, typed rows, and
   `model.render_document`'s Markdown
 - `verdict.py` — a verification's answer and what a calculation computed
+- `exploration.py` — every outcome a run under `explore` reached, each with its
+  linearization count and a witness, and whether the search completed
 - `errors.py` — the exception hierarchy and the gRPC status translation
 - `capabilities.py` — what the connected service reports it supports
 - `typefacts.py` — a symbol's static type, multiplicity and supertypes

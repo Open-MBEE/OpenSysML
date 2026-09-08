@@ -2,11 +2,14 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // RunAnalysis runs an analysis case, as the REPL's %analysis does: the subject
@@ -26,7 +29,6 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return nil, err
 	}
 	defer release()
-	v.runtime.SetSchedule(schedule)
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error()}, nil
@@ -34,16 +36,58 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if err := v.runtime.RequireAnalysisCase(sym); err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error(), FailureReason: failureReason(err)}, nil
 	}
-	subject, err := v.subject(req.SubjectSymbolId)
-	if err != nil {
-		return &pb.RunAnalysisResponse{Error: err.Error()}, nil
+	args, resp, err := v.analysisArgs(req)
+	if resp != nil || err != nil {
+		return resp, err
 	}
 
+	if _, explores := schedule.Exploration(); explores {
+		return s.exploreAnalysis(schedule, v, req, sym)
+	}
+	if err := v.runtime.SetSchedule(schedule); err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+
+	// The choices a run made are reported with its outcome, failed or not.
+	result, verdicts, err := v.runCase(sym, args)
+	if err != nil {
+		return &pb.RunAnalysisResponse{
+			Error:         err.Error(),
+			FailureReason: failureReason(err),
+			Diagnostics:   v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached)),
+		}, nil
+	}
+	diags := v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
+	// The case reports the subject it ran on: the one supplied, or the one the
+	// usage or the enclosing case bound.
+	subject := result.Subject
+	resp = &pb.RunAnalysisResponse{Instances: v.instanceGraph(subject), Diagnostics: diags}
+	for _, out := range result.Outputs {
+		resp.Outputs = append(resp.Outputs, &pb.CalcOutput{
+			Name:  out.Name,
+			Value: v.service.valueToProto(v.runtime, out.Value, v.cached.Index),
+		})
+	}
+	for i := range result.Verdicts {
+		resp.Verdicts = append(resp.Verdicts, v.analysisVerdict(&result.Verdicts[i], subject))
+	}
+	// A case run for itself answers for no requirement, so nothing associates it.
+	resp.VerificationVerdicts = v.verificationVerdicts(verdicts, "")
+	return resp, nil
+}
+
+// analysisArgs reads the request's subject and arguments on the context's own
+// runtime; an unreadable one answers the request, a capability gap fails the call.
+func (v *verifyContext) analysisArgs(req *pb.RunAnalysisRequest) (runtime.AnalysisArgs, *pb.RunAnalysisResponse, error) {
+	subject, err := v.subject(req.SubjectSymbolId)
+	if err != nil {
+		return runtime.AnalysisArgs{}, &pb.RunAnalysisResponse{Error: err.Error()}, nil
+	}
 	args := runtime.AnalysisArgs{Subject: subject}
 	for _, arg := range req.Arguments {
 		val, resp, err := v.analysisArgument(arg)
 		if resp != nil || err != nil {
-			return resp, err
+			return runtime.AnalysisArgs{}, resp, err
 		}
 		args.Positional = append(args.Positional, val)
 	}
@@ -58,52 +102,53 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		for _, name := range names {
 			val, resp, err := v.analysisArgument(req.NamedArguments[name])
 			if resp != nil || err != nil {
-				return resp, err
+				return runtime.AnalysisArgs{}, resp, err
 			}
 			args.Named[name] = val
 		}
 	}
+	return args, nil, nil
+}
 
-	// A verification case runs the same body, and its run answers with the
-	// verdict that body produced as well. The choices a run made are reported
-	// with its outcome, failed or not.
-	var verdicts []runtime.VerificationVerdict
-	var result runtime.AnalysisResult
+// runCase runs the case once on the context's runtime: a verification case runs
+// the same body and answers with the verdicts its body produced as well.
+func (v *verifyContext) runCase(sym *symbols.Symbol, args runtime.AnalysisArgs) (runtime.AnalysisResult, []runtime.VerificationVerdict, error) {
 	if runtime.IsVerificationCaseSymbol(sym) {
-		verified, verr := v.runtime.RunVerification(sym, args, v.declaringScope(sym), nil)
-		if verr != nil {
-			return &pb.RunAnalysisResponse{
-				Error:         fmt.Sprintf("verification run failed: %v", verr),
-				FailureReason: failureReason(verr),
-				Diagnostics:   v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached)),
-			}, nil
+		verified, err := v.runtime.RunVerification(sym, args, v.declaringScope(sym), nil)
+		if err != nil {
+			return runtime.AnalysisResult{}, nil, fmt.Errorf("verification run failed: %w", err)
 		}
-		result = verified.Run
-		verdicts = append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...)
-	} else if result, err = v.runtime.RunAnalysis(sym, args, v.declaringScope(sym), nil); err != nil {
-		return &pb.RunAnalysisResponse{
-			Error:         fmt.Sprintf("analysis run failed: %v", err),
-			FailureReason: failureReason(err),
-			Diagnostics:   v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached)),
-		}, nil
+		return verified.Run, append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...), nil
 	}
-	diags := v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
-	// The case reports the subject it ran on: the one supplied, or the one the
-	// usage or the enclosing case bound.
-	subject = result.Subject
-	resp := &pb.RunAnalysisResponse{Instances: v.instanceGraph(subject), Diagnostics: diags}
-	for _, out := range result.Outputs {
-		resp.Outputs = append(resp.Outputs, &pb.CalcOutput{
-			Name:  out.Name,
-			Value: v.service.valueToProto(v.runtime, out.Value, v.cached.Index),
-		})
+	result, err := v.runtime.RunAnalysis(sym, args, v.declaringScope(sym), nil)
+	if err != nil {
+		return runtime.AnalysisResult{}, nil, fmt.Errorf("analysis run failed: %w", err)
 	}
-	for i := range result.Verdicts {
-		resp.Verdicts = append(resp.Verdicts, v.analysisVerdict(&result.Verdicts[i], subject))
+	return result, nil, nil
+}
+
+// exploreAnalysis runs the case once per linearization on a context of its own
+// and answers every distinct outcome of outputs and verdicts.
+func (s *Service) exploreAnalysis(schedule runtime.SchedulePolicy, v *verifyContext, req *pb.RunAnalysisRequest, sym *symbols.Symbol) (*pb.RunAnalysisResponse, error) {
+	outcomes, status, err := s.explore(schedule, v.cached, v.sems, func(ctx *runtime.Context) (runtime.Outcome, error) {
+		fresh := &verifyContext{service: s, cached: v.cached, runtime: ctx, sem: v.sem, sems: v.sems}
+		args, resp, err := fresh.analysisArgs(req)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		if resp != nil {
+			return runtime.Outcome{}, errors.New(resp.Error)
+		}
+		result, verdicts, err := fresh.runCase(sym, args)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		return runtime.VerifiedOutcome(result, verdicts), nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	// A case run for itself answers for no requirement, so nothing associates it.
-	resp.VerificationVerdicts = v.verificationVerdicts(verdicts, "")
-	return resp, nil
+	return &pb.RunAnalysisResponse{Outcomes: outcomes, Exploration: status}, nil
 }
 
 // verificationVerdicts spells for the wire what the bodies of verification cases

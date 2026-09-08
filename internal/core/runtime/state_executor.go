@@ -779,9 +779,11 @@ func (e *StateExecutor) selectCandidates(
 // consulted only here, so a state outranked by a nested one draws nothing.
 func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
 	transitions := e.graph.Transitions[candidate.source]
-	pick := e.ctx.scheduling().pick(len(candidate.enabled))
+	scheduling := e.ctx.scheduling()
+	pick := scheduling.pick(len(candidate.enabled))
 	notes := candidate.notes
 	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled, pick); ok {
+		scheduling.describe(choice)
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
@@ -2751,6 +2753,28 @@ func (e *StateExecutor) ActiveStates() []*ast.StateNode {
 // GetStateVisits returns the ordered list of visited state names.
 func (e *StateExecutor) GetStateVisits() []string {
 	return e.stateVisits
+}
+
+// FinalStateName is the active configuration as a conformance case writes it,
+// orthogonal regions joined by "+" in region order.
+func (e *StateExecutor) FinalStateName() string {
+	if len(e.activeConfig.regionStates) > 0 {
+		type regionState struct{ region, state string }
+		pairs := make([]regionState, 0, len(e.activeConfig.regionStates))
+		for region, state := range e.activeConfig.regionStates {
+			pairs = append(pairs, regionState{region.Name, state.Name})
+		}
+		sort.Slice(pairs, func(i, j int) bool { return pairs[i].region < pairs[j].region })
+		names := make([]string, len(pairs))
+		for i, pair := range pairs {
+			names[i] = pair.state
+		}
+		return strings.Join(names, "+")
+	}
+	if state, ok := e.CurrentState().(*ast.StateNode); ok {
+		return state.Name
+	}
+	return ""
 }
 
 // getCurrentState returns the active simple state (nil if multi-region).

@@ -160,7 +160,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--debug` | | Report every diagnostic over the whole session buffer, with the pass that produced it |
 | `--quiet` | | Report errors only, suppressing warnings |
 | `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
-| `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)) |
+| `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
 | `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)) |
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`mdzip` for a SysML v1 model to migrate (default: from the input's extension; `.xmi` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
@@ -208,7 +208,7 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind. Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
-| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order) or `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc` — is refused before anything runs |
+| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
 | `-json` | Reports the checks as one JSON document rather than as lines |
 
 **Arguments:**
@@ -563,6 +563,71 @@ With `-json` the runs are the `rows` array of the check they belong to, inside t
 
 The REPL runs the same tables through [`%sweep` and `%samples`](repl-commands.md), and a service
 client through the [`RunSweep` RPC](api.md).
+
+## Exploring every linearization
+
+Where a behavior has [choice points](../guide/06-behavior.md) — several steppable tokens in one
+step, several holding guards at a decision, several enabled transitions out of one state for one
+event, two tokens writing one feature in one step — one run shows one linearization.
+`-schedule explore` runs them all: the first run records the alternative taken at each choice
+point, and every later run replays the recorded prefix and takes the next untried alternative at
+the frontier, depth-first, until no alternative is left untried or a budget is hit. Every run
+starts from a fresh executor on the same loaded model: no object, message, clock, calc memo or
+note of one run is seen by the next. The policy applies to `-action`, `-state`, `-analysis` and
+`-calc` alike; a body with no choice point explores in exactly one run.
+
+Runs that agree on what the harness compares — an action's outputs; a state machine's final state,
+the states it visited and its context's values; an analysis case's outputs and verdicts — are one
+*outcome*. The report is one row per distinct outcome, sorted by the outcome's rendering, with the
+number of linearizations that reached it and the choice sequence of one witness run, then a status
+line:
+
+```bash
+$ sysml -schedule explore -action test::race three-writers.sysml
+✓ package test
+✓ explored test::race: 3 outcomes
+outcome                                      | linearizations | witness
+---------------------------------------------+----------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 3: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+complete (6 runs)
+```
+
+A run that fails — a guard that divides by zero on one path, say — is an outcome of its own,
+rendered as `error: <message>`, not the end of the exploration; a witness of `no choice points`
+marks the one outcome of a behavior with none. The rendering is canonical: the same model tables
+the same rows in the same order every time.
+
+**Budget.** `explore` alone runs at most 1024 runs and resolves at most 64 choice points per run;
+`explore:runs=N`, `explore:depth=D` and `explore:runs=N,depth=D` (in either order) set them. `N`
+is a decimal integer of at least 1 and `D` of at least 0. Hitting either budget is never silent:
+the status line becomes `incomplete: <budget> budget <limit> hit after N runs` (naming both, `runs`
+then `depth`, when both were hit), the outcomes reached so far are still tabled, the check is
+reported `?` rather than `✓`, and the exit status is `2` — the exploration could not answer whether
+other outcomes exist. `explore:depth=0` therefore explores a behavior with a choice point in one
+run and reports `incomplete: depth budget 0 hit after 1 runs`.
+
+With `-trace`, the table and status come first and the trace of each outcome's witness run follows,
+under `trace of outcome <n>'s witness (run <r>):`, so every `choice` line a witness took is
+readable beside the row it produced; the other runs' traces are not printed, since a witness per
+outcome is what distinguishes the outcomes and the full set would repeat every prefix once per
+replay.
+
+With `-json` the check carries the rows as `outcomes` — each with its `values`, `linearizations`,
+`witness` (one choice per entry, in run order) and, for a failed run, its `error` — and how the
+exploration ended as `exploration` (`complete`, `runs`, `budgetsHit`):
+
+```json
+{"checks": [{"subject": "Mission::race", "status": "unresolved",
+  "outcomes": [{"values": [{"name": "x", "value": "2"}], "linearizations": 1,
+                "witness": ["step 3: 2@left first of 2@left, 3@right"]}],
+  "exploration": {"complete": false, "runs": 1, "budgetsHit": ["runs"]}}]}
+```
+
+The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run
+([`%schedule`](repl-commands.md)); a service client explores through the same `schedule` field
+and reads the outcomes off the response ([API](api.md), [wire contract](wire-contract.md)).
 
 ## Output Format
 

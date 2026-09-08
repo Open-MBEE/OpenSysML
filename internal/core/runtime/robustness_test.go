@@ -3323,7 +3323,7 @@ func testStateNestedRegionCompletionKeepsSiblingsRunning(t *testing.T) {
 	if exec.State() == StateCompleted {
 		t.Errorf("the machine completed while the sibling region rests outside `done`")
 	}
-	if got := finalStateName(t, exec); got != "done+rbusy" {
+	if got := exec.FinalStateName(); got != "done+rbusy" {
 		t.Errorf("expected the regions in done+rbusy, got %q", got)
 	}
 }
@@ -5769,7 +5769,7 @@ func testStateDefSpecializingALibraryStateKeepsItsContent(t *testing.T) {
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}
-	if got := finalStateName(t, exec); got != "hot" {
+	if got := exec.FinalStateName(); got != "hot" {
 		t.Fatalf("final state = %q, want hot", got)
 	}
 	seen, ok := exec.StateData()["burn.seen"]
@@ -5904,7 +5904,7 @@ func assertExhibitedMachineIn(t *testing.T, ctx *Context, inst *Instance, attr s
 	if !ok || machine.State == nil {
 		t.Fatal("the object exhibits no machine")
 	}
-	if got := finalStateName(t, machine.State); got != state {
+	if got := machine.State.FinalStateName(); got != state {
 		t.Errorf("final state = %q, want %q", got, state)
 	}
 }

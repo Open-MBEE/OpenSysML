@@ -285,6 +285,14 @@ fn the_service_advertises_the_schedule_of_its_execution_requests() {
 }
 
 #[test]
+fn the_service_advertises_the_explore_schedule() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("schedule_explore"));
+}
+
+#[test]
 fn a_bare_measurement_reference_arrives_with_its_reduction_and_declaration() {
     let Some(connection) = service_or_skip() else {
         return;

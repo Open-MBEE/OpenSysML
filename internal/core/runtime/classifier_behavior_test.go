@@ -1203,7 +1203,7 @@ func TestObjectExhibitsAMachineTypedByTheLibraryStateAction(t *testing.T) {
 			if machine.Name != "phases" {
 				t.Errorf("machine name = %q, want phases", machine.Name)
 			}
-			if got := finalStateName(t, machine.State); got != "launch" {
+			if got := machine.State.FinalStateName(); got != "launch" {
 				t.Errorf("final state = %q, want launch", got)
 			}
 		})

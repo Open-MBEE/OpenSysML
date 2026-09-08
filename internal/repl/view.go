@@ -408,7 +408,9 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	// Recorded like the session's own evaluation, so a trace does not depend on
 	// which objects the report had to materialize.
 	ctx.SetTrace(r.session.trace)
-	ctx.SetSchedule(r.session.schedule)
+	if err := ctx.SetSchedule(r.session.drivenSchedule()); err != nil {
+		return nil, err
+	}
 	r.ctx = ctx
 	return ctx, nil
 }
