@@ -31,25 +31,26 @@ func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
 	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]))
 }
 
-// declaredCastTypes names the type the cast's operand is declared with, which
+// declaredCastTypes names every type the cast's operand is declared with, which
 // classifies its values where their own content does not state their type.
 func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
-	sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, operand)
-	if !ok || sym == nil {
-		return nil
-	}
-	if canonical, ok := ec.ctx.resolver.ResolveAliasTarget(sym); ok {
-		sym = canonical
-	}
 	// An enumeration literal is of its enumeration however its value is written.
-	if enum := semantics.EnumerationOwning(sym); enum != nil {
-		return []*symbols.Symbol{enum}
+	if sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
+		if canonical, aliased := ec.ctx.resolver.ResolveAliasTarget(sym); aliased {
+			sym = canonical
+		}
+		if enum := semantics.EnumerationOwning(sym); enum != nil {
+			return []*symbols.Symbol{enum}
+		}
 	}
-	// A feature typed Anything states nothing about the values it holds.
-	if typ := ec.ctx.extractType(sym); typ != nil && !semantics.IsAnything(typ) {
-		return []*symbols.Symbol{typ}
+	var declared []*symbols.Symbol
+	for _, typ := range ec.ctx.model.ExprResultTypes(ec.scope, operand) {
+		// A feature typed Anything states nothing about the values it holds.
+		if typ != nil && !semantics.IsAnything(typ) {
+			declared = append(declared, typ)
+		}
 	}
-	return nil
+	return declared
 }
 
 // castValue keeps the values of value that target classifies: element-wise and in
@@ -171,8 +172,12 @@ func (ec *EvalContext) scalarLibraryType(value Value) *symbols.Symbol {
 	return ec.ctx.model.ScalarSymbol(prim)
 }
 
-// positiveValue reports whether a numeric constant is greater than zero.
+// positiveValue reports whether a numeric value is greater than zero; a complex
+// value off the real axis is not on the ordering Positive bounds.
 func positiveValue(value Value) bool {
+	if value.Kind == ValComplex {
+		return imag(value.Complex()) == 0 && real(value.Complex()) > 0
+	}
 	switch value.Const.Kind {
 	case semantics.ValInt:
 		return value.Const.Int > 0

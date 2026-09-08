@@ -22,7 +22,7 @@ func (m *Model) CastConformance(scope *symbols.Scope, e *ast.OperatorExpr) Confo
 		return conformanceUnknown()
 	}
 	for _, typ := range types {
-		if m.Conforms(typ, target) || m.Conforms(target, typ) {
+		if m.Classifies(target, typ) || m.Conforms(target, typ) {
 			return Conformance{Known: true, Holds: true}
 		}
 	}

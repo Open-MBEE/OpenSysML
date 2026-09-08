@@ -13,11 +13,11 @@ import (
 // instanceConforms reports whether an object is an instance of typ by its declaration or by
 // a feature it was held as a value of (KerML 1.0 §7.3.4.1: a feature's values are instances of its types).
 func (ctx *Context) instanceConforms(inst *Instance, typ *symbols.Symbol) bool {
-	if ctx.model.Conforms(inst.Type, typ) {
+	if ctx.model.Classifies(typ, inst.Type) {
 		return true
 	}
 	for _, c := range inst.classifiers {
-		if ctx.model.Conforms(c, typ) {
+		if ctx.model.Classifies(typ, c) {
 			return true
 		}
 	}

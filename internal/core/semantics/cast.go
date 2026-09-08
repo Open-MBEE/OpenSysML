@@ -28,7 +28,7 @@ func (m *Model) ClassifiesTypes(types []*symbols.Symbol, target *symbols.Symbol)
 		if typ == nil {
 			continue
 		}
-		if m.Conforms(typ, target) {
+		if m.Classifies(target, typ) {
 			return ClassifiesAll
 		}
 		if m.Conforms(target, typ) {
@@ -36,4 +36,33 @@ func (m *Model) ClassifiesTypes(types []*symbols.Symbol, target *symbols.Symbol)
 		}
 	}
 	return verdict
+}
+
+// Classifies reports whether every value of typ is one of target's: typ conforms
+// to target, or target unions a type typ conforms to.
+func (m *Model) Classifies(target, typ *symbols.Symbol) bool {
+	if m == nil {
+		return false
+	}
+	return m.Conforms(typ, target) || m.unionsAType(target, typ, nil)
+}
+
+// unionsAType reports whether target unions a type typ conforms to, so every
+// value of typ is one of target's (KerML 1.0 §8.3.3); unioning guards a cycle.
+func (m *Model) unionsAType(target, typ *symbols.Symbol, unioning map[*symbols.Symbol]bool) bool {
+	unions := m.UnioningTypes(target)
+	if len(unions) == 0 || unioning[target] {
+		return false
+	}
+	if unioning == nil {
+		unioning = make(map[*symbols.Symbol]bool)
+	}
+	unioning[target] = true
+	defer delete(unioning, target)
+	for _, u := range unions {
+		if m.Conforms(typ, u) || m.unionsAType(u, typ, unioning) {
+			return true
+		}
+	}
+	return false
 }

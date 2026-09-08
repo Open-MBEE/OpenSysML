@@ -11,6 +11,9 @@
     "vehiclesOfFleet": {"type": "Sequence", "elements": [
       {"type": "Instance"},
       {"type": "Instance"}
-    ]}
+    ]},
+    "carAsUnion": {"type": "Instance"},
+    "truckAsUnion": {"type": "Instance"},
+    "carAsNestedUnion": {"type": "Instance"}
   }
 }

@@ -8,6 +8,11 @@
     "asOwnEnumeration": {"type": "Real", "value": 4.0},
     "literalAsEnumeration": {"type": "Real", "value": 4.0},
     "asEnumerationSupertype": {"type": "Real", "value": 4.0},
-    "asOtherScalar": {"type": "Sequence", "elements": []}
+    "asOtherScalar": {"type": "Sequence", "elements": []},
+    "asSecondDeclaredType": {"type": "Integer", "value": 6},
+    "selectedAsSubtype": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 4},
+      {"type": "Integer", "value": 6}
+    ]}
   }
 }

@@ -5,7 +5,9 @@
   dimension the target fixes, arrays, vectors, vector and tensor quantities, measurement
   references, frames and transformations by their shape, units and frame, and objects and
   enumeration literals by the types they carry.
-  The type a value's feature is declared with counts among the types it is of, so a custom scalar
+  A union classifies the values of every type it unions, however deeply nested, so a cast to one
+  keeps them and the feature it is written to holds them.
+  Every type a value's feature is declared with counts among the types it is of, so a custom scalar
   subtype (`attribute e : Even = 4`) and a scalar-valued enumeration keep the values declared with
   them, and a quantity subtype narrowing its dimension by something a magnitude and a unit do not
   state keeps a value declared with it. An expression written as a value is kept by the evaluation

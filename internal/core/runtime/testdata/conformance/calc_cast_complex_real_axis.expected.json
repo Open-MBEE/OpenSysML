@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "onAxisAsPositive": {"type": "Complex", "value": 4.0, "im": 0.0},
+    "negativeOnAxisAsPositive": {"type": "Sequence", "elements": []},
+    "offAxisAsPositive": {"type": "Sequence", "elements": []}
+  }
+}

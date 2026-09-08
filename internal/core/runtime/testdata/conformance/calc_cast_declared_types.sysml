@@ -6,6 +6,7 @@ package test {
 	private import ScalarValues::*;
 
 	attribute def Even :> Integer;
+	attribute def Counted :> Integer;
 
 	enum def GradePoints :> Real {
 		enum a = 4.0;
@@ -14,6 +15,8 @@ package test {
 
 	attribute e : Even = 4;
 	attribute g : GradePoints = GradePoints::a;
+	attribute both : Even, Counted = 6;
+	attribute evens : Even[0..*] = (2, 4, 6);
 
 	calc def DeclaredCasts {
 		out asDeclaredSubtype : Even[0..1] = e as Even;
@@ -22,6 +25,8 @@ package test {
 		out literalAsEnumeration : GradePoints[0..1] = GradePoints::a as GradePoints;
 		out asEnumerationSupertype : Real[0..1] = g as Real;
 		out asOtherScalar : Boolean[0..1] = e as Boolean;
+		out asSecondDeclaredType : Counted[0..1] = both as Counted;
+		out selectedAsSubtype : Even[0..*] = (evens.?{in x; x > 2}) as Even;
 	}
 
 	calc c : DeclaredCasts;
