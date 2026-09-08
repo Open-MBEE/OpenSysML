@@ -144,7 +144,8 @@ final class Rendering {
     org.openmbee.opensysml.proto.Diagnostic.Builder builder =
         org.openmbee.opensysml.proto.Diagnostic.newBuilder()
             .setSeverity(diagnostic.severity().wireName())
-            .setMessage(diagnostic.message());
+            .setMessage(diagnostic.message())
+            .setCode(diagnostic.code());
     diagnostic
         .span()
         .ifPresent(

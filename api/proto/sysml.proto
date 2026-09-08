@@ -836,6 +836,9 @@ message Diagnostic {
   string severity = 1;  // "error", "warning", "info"
   string message = 2;
   Span span = 3;
+  // Stable identifier to branch on instead of the message: a pass or rule code,
+  // "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
+  string code = 4;
 }
 
 // Span represents a source location

@@ -134,6 +134,9 @@ pub struct Diagnostic {
     pub severity: String,
     /// Human-readable diagnostic message.
     pub message: String,
+    /// What was found, stable across message wording: `syntax`, a validation
+    /// code, `choice-point` or `guard-unevaluable`; empty when the service assigned none.
+    pub code: String,
     /// Optional source location.
     pub span: Option<Span>,
     wire: wire::Diagnostic,
@@ -145,6 +148,7 @@ impl From<wire::Diagnostic> for Diagnostic {
         Self {
             severity: wire.severity.clone(),
             message: wire.message.clone(),
+            code: wire.code.clone(),
             span,
             wire,
         }
@@ -881,6 +885,25 @@ impl Instantiation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_diagnostic_carries_its_code() {
+        let coded = Diagnostic::from(wire::Diagnostic {
+            severity: "info".to_owned(),
+            message: "choice point: 2 steppable tokens".to_owned(),
+            code: "choice-point".to_owned(),
+            span: None,
+        });
+        assert_eq!(coded.code, "choice-point");
+        assert_eq!(coded.wire().code, "choice-point");
+
+        let uncoded = Diagnostic::from(wire::Diagnostic {
+            severity: "error".to_owned(),
+            message: "expected '}'".to_owned(),
+            ..Default::default()
+        });
+        assert_eq!(uncoded.code, "");
+    }
 
     #[test]
     fn value_arms_are_decoded_without_loss() {

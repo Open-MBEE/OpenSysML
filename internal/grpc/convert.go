@@ -83,6 +83,7 @@ func DiagnosticToProto(diag passes.Diagnostic, sf *source.SourceFile) *pb.Diagno
 	return &pb.Diagnostic{
 		Severity: diag.Severity.String(),
 		Message:  diag.Message,
+		Code:     diag.Code,
 		Span: &pb.Span{
 			File:      sf.Name(),
 			StartLine: int32Clamp(start.Line),
@@ -108,12 +109,16 @@ func RunNoteDiagnosticsToProto(notes []runtime.RunNote, model *CachedModel) []*p
 			pbDiags = append(pbDiags, DiagnosticToProto(diag, sf))
 			continue
 		}
-		pbDiags = append(pbDiags, &pb.Diagnostic{Severity: diag.Severity.String(), Message: diag.Message})
+		pbDiags = append(pbDiags, &pb.Diagnostic{Severity: diag.Severity.String(), Message: diag.Message, Code: diag.Code})
 	}
 	return pbDiags
 }
 
-// ParserDiagnosticToProto converts a parser.Diagnostic to protobuf.
+// SyntaxDiagnosticCode is the code every reporter gives a parser error; the
+// parser itself codes only warnings.
+const SyntaxDiagnosticCode = "syntax"
+
+// ParserDiagnosticToProto converts a parser error to protobuf.
 func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
 	li := sf.Lines()
 	start := li.PosAt(diag.Span.Offset)
@@ -122,6 +127,7 @@ func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.
 	return &pb.Diagnostic{
 		Severity: "error", // Parser diagnostics are always errors
 		Message:  diag.Message,
+		Code:     SyntaxDiagnosticCode,
 		Span: &pb.Span{
 			File:      sf.Name(),
 			StartLine: int32Clamp(start.Line),

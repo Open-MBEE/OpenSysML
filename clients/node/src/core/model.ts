@@ -477,6 +477,7 @@ function decodeDiagnostic(diagnostic: Diagnostic): ModelDiagnostic {
   return {
     severity: diagnostic.severity,
     message: diagnostic.message,
+    code: diagnostic.code,
     ...(span === undefined
       ? {}
       : {

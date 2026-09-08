@@ -56,4 +56,26 @@ public interface DiagnosticOrBuilder extends
    * <code>.sysml.Span span = 3 [json_name = "span"];</code>
    */
   org.openmbee.opensysml.proto.SpanOrBuilder getSpanOrBuilder();
+
+  /**
+   * <pre>
+   * Stable identifier to branch on instead of the message: a pass or rule code,
+   * "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
+   * </pre>
+   *
+   * <code>string code = 4 [json_name = "code"];</code>
+   * @return The code.
+   */
+  java.lang.String getCode();
+  /**
+   * <pre>
+   * Stable identifier to branch on instead of the message: a pass or rule code,
+   * "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
+   * </pre>
+   *
+   * <code>string code = 4 [json_name = "code"];</code>
+   * @return The bytes for code.
+   */
+  com.google.protobuf.ByteString
+      getCodeBytes();
 }

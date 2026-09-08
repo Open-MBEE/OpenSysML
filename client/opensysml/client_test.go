@@ -73,6 +73,29 @@ func TestASyntaxErrorIsADiagnosticNotAnError(t *testing.T) {
 	if len(model.Diagnostics) == 0 {
 		t.Error("broken source parsed without diagnostics")
 	}
+	for _, diag := range model.Diagnostics {
+		if diag.Code != "syntax" {
+			t.Errorf("syntax error coded %q, want syntax: %s", diag.Code, diag.Message)
+		}
+	}
+}
+
+func TestADiagnosticCarriesItsCode(t *testing.T) {
+	client := newClient(t)
+	model, err := client.ParseSource(context.Background(), "package P { part def W { part hub : Missing; } }")
+	if err != nil {
+		t.Fatalf("ParseSource: %v", err)
+	}
+	found := false
+	for _, diag := range model.Diagnostics {
+		if diag.Code == "" {
+			t.Errorf("diagnostic without a code: %s", diag.Message)
+		}
+		found = found || diag.Code == "unresolved"
+	}
+	if !found {
+		t.Errorf("no unresolved diagnostic among %v", model.Diagnostics)
+	}
 }
 
 func TestAMissingFileIsNotFound(t *testing.T) {

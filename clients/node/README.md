@@ -214,7 +214,11 @@ try {
 ```
 
 Source that does not parse is not a failure: `load`/`loads` return a model whose
-`hasErrors` is true and whose `diagnostics` say where. Options that cannot work
+`hasErrors` is true and whose `diagnostics` say where. Each `ModelDiagnostic` has
+`severity`, `message`, `code` and an optional location; branch on `code`
+(`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
+`"guard-unevaluable"`; `""` when the service assigned none), not on the message
+text. Options that cannot work
 (an encoding that is not one, a timeout that cannot elapse, `grpc` with `json`)
 are refused before a connection is opened or a service started.
 

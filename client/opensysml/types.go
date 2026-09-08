@@ -175,6 +175,9 @@ type Diagnostic struct {
 	// Severity is SeverityError, SeverityWarning or SeverityInfo.
 	Severity string
 	Message  string
+	// Code identifies what was found, stable across message wording ("syntax", a
+	// validation code, "choice-point", "guard-unevaluable"); empty when none was assigned.
+	Code string
 	// Span locates the finding in its source, nil when it has no location.
 	Span *Span
 }

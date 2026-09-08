@@ -65,7 +65,7 @@ same mapping, and three of its rules matter here:
 
 ```console
 $ … /Evaluate -d '{"modelHash":"2af52c50cee63699ece8f9021b6344e4fe9f2fe6eeb0f3f8edd9feaa5443dea2","expresion":"1 + 1"}'
-{"error":"expression parse failed","diagnostics":[{"severity":"error","message":"expected an expression","span":{"file":"<expression>","startLine":1,"startCol":1,"endLine":1,"endCol":1}}]}
+{"error":"expression parse failed","diagnostics":[{"severity":"error","message":"expected an expression","span":{"file":"<expression>","startLine":1,"startCol":1,"endLine":1,"endCol":1},"code":"syntax"}]}
 ```
 
 A body that is not valid JSON, by contrast, is refused with a Connect error (see
@@ -115,7 +115,7 @@ check `diagnostics` for `"severity":"error"` first:
 
 ```console
 $ … /ParseSources -d '{"documents":[{"name":"syntax_error.sysml","content":"package Test { invalid syntax ((( }\n"}]}'
-{"modelHash":"da0e2628154910330555183af59d8f803233352122b69f64da8ff138094f0c50","roots":[{"kind":"RootNamespace","childIds":["Test"]}],"diagnostics":[{"severity":"error","message":"expected a namespace member","span":{"file":"syntax_error.sysml","startLine":1,"startCol":16,"endLine":1,"endCol":23}}]}
+{"modelHash":"da0e2628154910330555183af59d8f803233352122b69f64da8ff138094f0c50","roots":[{"kind":"RootNamespace","childIds":["Test"]}],"diagnostics":[{"severity":"error","message":"expected a namespace member","span":{"file":"syntax_error.sysml","startLine":1,"startCol":16,"endLine":1,"endCol":23},"code":"syntax"}]}
 ```
 
 What *is* refused, with a Connect error, is a request the service cannot make a model from at
@@ -545,13 +545,29 @@ type-check, an action has no start, a value overflowed.
 ### Diagnostics: the shape of a finding
 
 ```json
-{"severity":"error","message":"expected a namespace member","span":{"file":"syntax_error.sysml","startLine":1,"startCol":16,"endLine":1,"endCol":23}}
+{"severity":"error","message":"expected a namespace member","span":{"file":"syntax_error.sysml","startLine":1,"startCol":16,"endLine":1,"endCol":23},"code":"syntax"}
 ```
 
-`severity` is `"error"`, `"warning"` or `"info"`. `span` locates it: `file` is the document's
-`name` from the request (or `<expression>` for an `Evaluate` expression), lines and columns are
-**1-based**, `end*` is exclusive, and the whole `span` is omitted when there is no location.
-Line and column are `int32`, so unlike `int64` they are JSON *numbers*.
+| Field | Type | Meaning |
+|---|---|---|
+| `severity` | string | `"error"`, `"warning"` or `"info"` |
+| `message` | string | The finding, worded for a person; may change between releases |
+| `span` | `Span` | Where it is; omitted when there is no location |
+| `code` | string | What it is, stable across wording; `""` when the producer assigned none |
+
+`span` locates it: `file` is the document's `name` from the request (or `<expression>` for an
+`Evaluate` expression), lines and columns are **1-based**, `end*` is exclusive, and the whole
+`span` is omitted when there is no location. Line and column are `int32`, so unlike `int64`
+they are JSON *numbers*.
+
+`code` is the identifier to branch on; `message` is not. A syntax error is `"syntax"`, whether
+it came from a document, an `Evaluate` expression, an edit's new value or a `Convert` input. A
+validation finding carries its pass or rule code, the same one the LSP reports as the
+diagnostic's code (`"unresolved"` for a name that resolves to nothing, for instance). A run's
+notes are `"choice-point"` and `"guard-unevaluable"` (see [`ExecuteAction`](#executeaction)).
+The field is a proto3 string, so a producer that assigns no code sends `""`, which the JSON
+encoding omits; treat a missing `code` as empty, never as an error. New codes may appear in a
+release; a code, once published, keeps its meaning.
 
 ### In-body failures
 
@@ -776,7 +792,7 @@ done; … }` with a succession from `split` to each branch and from each to `syn
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally"}'
-{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2}}]}
+{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2},"code":"choice-point"}]}
 ```
 
 A run with no `diagnostics` had exactly one order to take. The order taken is the engine's fixed
@@ -793,12 +809,14 @@ then warn; if 1 / (level - 75) > 0 then alarm; … }`):
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::route"}'
-{"outputs":{"level":{"intValue":"75"},"handler":{"intValue":"1"}},"diagnostics":[{"severity":"info","message":"guard not evaluable: step 2: decision select branch 2->alarm: division by zero (not selected)","span":{"file":"tally.sysml","startLine":31,"startCol":10,"endLine":31,"endCol":30}}]}
+{"outputs":{"level":{"intValue":"75"},"handler":{"intValue":"1"}},"diagnostics":[{"severity":"info","message":"guard not evaluable: step 2: decision select branch 2->alarm: division by zero (not selected)","span":{"file":"tally.sysml","startLine":31,"startCol":10,"endLine":31,"endCol":30},"code":"guard-unevaluable"}]}
 ```
 
 The first guard read is the run's own, not a preview: when it cannot be evaluated the run fails
 with `error` as it always has, and no `guard not evaluable` diagnostic is added. The two kinds are
-told apart by message prefix, `choice point: ` and `guard not evaluable: `; both are `"info"`.
+told apart by `code`, `"choice-point"` and `"guard-unevaluable"`; both are `"info"`, and the
+message prefixes `choice point: ` and `guard not evaluable: ` are for reading, not branching.
+`RunAnalysis` carries the same two codes for the runs it makes.
 
 ### `ExecuteState`
 
@@ -839,7 +857,7 @@ Idle accept Go then B; }` in the same document:
 
 ```console
 $ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"]}'
-{"statesVisited":["Idle","A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml","startLine":25,"startCol":3,"endLine":26,"endCol":3}}]}
+{"statesVisited":["Idle","A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml","startLine":25,"startCol":3,"endLine":26,"endCol":3},"code":"choice-point"}]}
 ```
 
 ### `EvaluateCalc`

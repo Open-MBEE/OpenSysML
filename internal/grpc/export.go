@@ -144,6 +144,7 @@ func syntaxDiagnostics(syntax *export.SyntaxError) []*pb.Diagnostic {
 		diags = append(diags, &pb.Diagnostic{
 			Severity: "error",
 			Message:  message,
+			Code:     SyntaxDiagnosticCode,
 			Span:     &pb.Span{File: syntax.Name},
 		})
 	}

@@ -66,3 +66,16 @@ def test_diagnostic_span_property():
     # span property returns the protobuf Span object
     assert diag.span == pb_span
     assert diag.span.file == "test.sysml"
+
+
+def test_diagnostic_code():
+    coded = Diagnostic(sysml_pb2.Diagnostic(
+        severity="info",
+        message="choice point: 2 steppable tokens",
+        code="choice-point",
+    ))
+    uncoded = Diagnostic(sysml_pb2.Diagnostic(severity="error", message="expected '}'"))
+
+    assert coded.code == "choice-point"
+    assert "code='choice-point'" in repr(coded)
+    assert uncoded.code == ""

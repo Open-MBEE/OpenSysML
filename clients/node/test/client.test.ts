@@ -269,6 +269,17 @@ test("a file parses, and a syntax error is a diagnostic, not a thrown call", asy
   assert.ok(broken.diagnostics.some((diagnostic) => diagnostic.severity === "error"));
 });
 
+test("a diagnostic carries the service's code for what it found", async () => {
+  await using connection = await connect();
+  const broken = await connection.loads("package Broken { part def }");
+  assert.ok(broken.diagnostics.length > 0);
+  assert.ok(broken.diagnostics.every((diagnostic) => diagnostic.code === "syntax"));
+
+  const unresolved = await connection.loads("package P { part def W { part hub : Missing; } }");
+  assert.ok(unresolved.diagnostics.some((diagnostic) => diagnostic.code === "unresolved"));
+  assert.ok(unresolved.diagnostics.every((diagnostic) => diagnostic.code !== ""));
+});
+
 test("an evaluation that cannot be made is an error the caller can catch", async () => {
   await using model = await loads(SAMPLE);
   await assert.rejects(() => model.eval("1 +"), EvaluationError);
