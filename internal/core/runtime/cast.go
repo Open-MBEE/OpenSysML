@@ -56,14 +56,14 @@ func (ec *EvalContext) castValue(value Value, target *symbols.Symbol) (Value, er
 			}
 			return NewSetValue(set), nil
 		}
-		return ec.newSequence(kept)
+		return ec.sequenceFrom(kept, value)
 	}
 	keep, err := ec.castKeeps(value, target)
 	if err != nil {
 		return Value{}, err
 	}
 	if !keep {
-		return sequenceOf(nil), nil
+		return ec.sequenceFrom(nil, value)
 	}
 	return value, nil
 }
@@ -132,6 +132,17 @@ func (ec *EvalContext) scalarLibraryType(value Value) *symbols.Symbol {
 	return ec.ctx.model.ScalarSymbol(prim)
 }
 
+// positiveValue reports whether a numeric constant is greater than zero.
+func positiveValue(value Value) bool {
+	switch value.Const.Kind {
+	case semantics.ValInt:
+		return value.Const.Int > 0
+	case semantics.ValReal:
+		return value.Const.Real > 0
+	}
+	return false
+}
+
 // castNarrowerKeeps decides a target narrower than every type the value is of,
 // which only the value itself settles: a scalar by its own magnitude against the
 // ScalarValues lattice, a quantity by the dimension the target fixes, an object
@@ -144,7 +155,11 @@ func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (b
 		if !ok || got == semantics.PrimUnknown {
 			return false, ec.undecidedCast(value, target)
 		}
-		return semantics.PrimConforms(got, prim), nil
+		if !semantics.PrimConforms(got, prim) {
+			return false, nil
+		}
+		// Positive shares Natural's lattice element but not its zero.
+		return !ec.ctx.model.PositiveScalar(target) || positiveValue(value), nil
 	case ValQuantity:
 		return ec.quantityCastKeeps(value, target)
 	case ValEnumLiteral, ValVariant:

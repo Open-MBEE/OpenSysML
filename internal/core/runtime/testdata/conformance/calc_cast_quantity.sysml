@@ -5,6 +5,7 @@ package test {
 	private import ScalarValues::*;
 	private import SI::*;
 	private import ISQ::*;
+	private import QuantityCalculations::*;
 
 	calc def QuantityCasts {
 		in length : ISQBase::LengthValue = 5 [m];
@@ -12,6 +13,8 @@ package test {
 		out asScalarQuantity : Quantities::ScalarQuantityValue[0..1] = length as Quantities::ScalarQuantityValue;
 		out asDuration : ISQBase::DurationValue[0..1] = length as ISQBase::DurationValue;
 		out lengthsOfMixed : ISQBase::LengthValue[0..*] = (5 [m], 3 [s], 2 [m]) as ISQBase::LengthValue;
+		// Nothing kept still measures in the source's unit, so an aggregate of it does.
+		out sumOfNoDurations = sum((5 [m], 2 [m]) as ISQBase::DurationValue);
 	}
 
 	calc c : QuantityCasts;

@@ -13,6 +13,11 @@ package test {
 		out integerAsReal : Real[0..1] = 7 as Real;
 		out integerAsNatural : Natural[0..1] = 7 as Natural;
 		out negativeAsNatural : Natural[0..1] = -7 as Natural;
+		out zeroAsNatural : Natural[0..1] = 0 as Natural;
+		out oneAsPositive : Positive[0..1] = 1 as Positive;
+		out zeroAsPositive : Positive[0..1] = 0 as Positive;
+		out negativeAsPositive : Positive[0..1] = -1 as Positive;
+		out positivesOfMixed : Positive[0..*] = (2, 0, -1, 3) as Positive;
 		out integerAsNumber : Number[0..1] = 7 as Number;
 		out realAsScalarValue : ScalarValue[0..1] = fraction as ScalarValue;
 		out booleanAsBoolean : Boolean[0..1] = true as Boolean;
