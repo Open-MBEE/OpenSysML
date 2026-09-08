@@ -64,7 +64,6 @@ func tensorQuantityValue(dimensions []int64, components ...*pb.Quantity) *pb.Val
 }
 
 func stringValue(s string) *pb.Value { return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}} }
-func boolValue(b bool) *pb.Value     { return &pb.Value{Kind: &pb.Value_BoolValue{BoolValue: b}} }
 
 // A set crosses as its own arm holding each distinct element once, in the
 // runtime's canonical order, and reads back as an equal set whatever order it
