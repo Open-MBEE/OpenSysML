@@ -28,7 +28,22 @@ func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]))
+	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]),
+		ec.declaredElementCastTypes(n.Operands[0]))
+}
+
+// declaredElementCastTypes names the types each element of a written sequence is
+// declared with, so every element of `(GradePoints::a, 2.5)` is judged as itself.
+func (ec *EvalContext) declaredElementCastTypes(operand ast.Node) [][]*symbols.Symbol {
+	seq, ok := operand.(*ast.SequenceExpr)
+	if !ok {
+		return nil
+	}
+	out := make([][]*symbols.Symbol, 0, len(seq.Elements))
+	for _, element := range seq.Elements {
+		out = append(out, ec.declaredCastTypes(element))
+	}
+	return out
 }
 
 // declaredCastTypes names every type the cast's operand is declared with, which
@@ -57,6 +72,7 @@ func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
 // order for a collection, the value itself or the empty sequence for one value.
 func (ec *EvalContext) castValue(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
+	perElement [][]*symbols.Symbol,
 ) (Value, error) {
 	switch value.Kind {
 	case ValNull, ValInvalid:
@@ -64,8 +80,13 @@ func (ec *EvalContext) castValue(
 	case ValSequence, ValSet:
 		elements := elementsOf(value)
 		kept := make([]Value, 0, len(elements))
-		for _, element := range elements {
-			keep, err := ec.castKeeps(element, target, declared)
+		for i, element := range elements {
+			types := declared
+			// An element written in the sequence is judged by its own declaration.
+			if len(perElement) == len(elements) {
+				types = append(append([]*symbols.Symbol{}, declared...), perElement[i]...)
+			}
+			keep, err := ec.castKeeps(element, target, types)
 			if err != nil {
 				return Value{}, err
 			}

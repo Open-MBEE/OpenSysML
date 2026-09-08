@@ -133,6 +133,12 @@ func TestMayShareValuesOfComposedTypes(t *testing.T) {
 		{"Car", "Looped", false},
 		{"Electric", "ElectricVehicle", true},
 		{"Boat", "ElectricVehicle", false},
+		// A cast to a composed type selects from a type it is composed of.
+		{"ElectricVehicle", "Vehicle", true},
+		{"ElectricVehicle", "Car", true},
+		{"ElectricVehicle", "Boat", false},
+		{"CycleA", "Electric", true},
+		{"CycleA", "Boat", false},
 		{"Wheeled", "Boat", false},
 		// A difference holds values of the first type it names and none of the rest,
 		// so a type the rest classify shares nothing with it.

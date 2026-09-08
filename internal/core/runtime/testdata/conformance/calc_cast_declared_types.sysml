@@ -27,6 +27,9 @@ package test {
 		out asOtherScalar : Boolean[0..1] = e as Boolean;
 		out asSecondDeclaredType : Counted[0..1] = both as Counted;
 		out selectedAsSubtype : Even[0..*] = (evens.?{in x; x > 2}) as Even;
+		out literalsAsEnumeration : GradePoints[0..*] = (GradePoints::a, GradePoints::b) as GradePoints;
+		out mixedAsEnumeration : GradePoints[0..*] = (GradePoints::a, true) as GradePoints;
+		out declaredWithLiteral : Even[0..*] = (e, false) as Even;
 	}
 
 	calc c : DeclaredCasts;

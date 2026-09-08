@@ -13,6 +13,16 @@
     "selectedAsSubtype": {"type": "Sequence", "elements": [
       {"type": "Integer", "value": 4},
       {"type": "Integer", "value": 6}
+    ]},
+    "literalsAsEnumeration": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 4.0},
+      {"type": "Real", "value": 3.0}
+    ]},
+    "mixedAsEnumeration": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 4.0}
+    ]},
+    "declaredWithLiteral": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 4}
     ]}
   }
 }

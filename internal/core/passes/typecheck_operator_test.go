@@ -107,7 +107,7 @@ const castFixture = `package P {
 	function F { return r : A; }
 	classifier Q; classifier R :> Q; classifier CQ ~ Q; feature cq : CQ;
 	feature xs : A[*];
-	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype Diff differences A, C; feature u : U; feature dd : Diff;
+	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype NI intersects I, B; datatype Diff differences A, C; feature u : U; feature dd : Diff;
 	feature untyped;
 	feature valued = 3;
 	%s
@@ -165,6 +165,7 @@ func TestCastConformanceRelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature cond = (if true ? a else a) as C; feature sel = xs.?{in x; true} as B;`)
 	castDiags(t, "", `feature union = a as U; feature member = u as B; feature wider = u as A;`)
 	castDiags(t, "", `feature meet = d as I; feature less = b as Diff; feature kept = dd as A;`)
+	castDiags(t, "", `feature operand = a as I; feature nestedOperand = a as NI;`)
 }
 
 // The rule is KerML's, but SysML declares the same operator: a usage cast to an

@@ -201,23 +201,37 @@ func (m *Model) MayShareValues(target, typ *symbols.Symbol) bool {
 	return m.mayShareValues(target, typ, nil)
 }
 
-func (m *Model) mayShareValues(target, typ *symbols.Symbol, reading map[*symbols.Symbol]bool) bool {
-	if m == nil || target == nil || typ == nil || reading[typ] {
+func (m *Model) mayShareValues(
+	target, typ *symbols.Symbol, reading map[[2]*symbols.Symbol]bool,
+) bool {
+	if m == nil || target == nil || typ == nil || reading[[2]*symbols.Symbol{target, typ}] {
 		return false
 	}
 	if m.ClassifiesTypes([]*symbols.Symbol{typ}, target) != ClassifiesNone {
 		return true
 	}
 	if reading == nil {
-		reading = make(map[*symbols.Symbol]bool)
+		reading = make(map[[2]*symbols.Symbol]bool)
 	}
-	reading[typ] = true
-	defer delete(reading, typ)
+	pair := [2]*symbols.Symbol{target, typ}
+	reading[pair] = true
+	defer delete(reading, pair)
 	for _, kind := range []ast.RelationshipKind{ast.RelUnions, ast.RelIntersects} {
 		for _, operand := range m.composedOperands(typ, kind) {
 			if m.mayShareValues(target, operand, reading) {
 				return true
 			}
+		}
+		// A type composed of one the source relates to may hold its values too.
+		for _, operand := range m.composedOperands(target, kind) {
+			if m.mayShareValues(operand, typ, reading) {
+				return true
+			}
+		}
+	}
+	if subtracted := m.DifferencingTypes(target); len(subtracted) > 0 {
+		if m.mayShareValues(subtracted[0], typ, reading) {
+			return true
 		}
 	}
 	return m.differenceMayShareValues(target, m.DifferencingTypes(typ), reading)
@@ -226,7 +240,7 @@ func (m *Model) mayShareValues(target, typ *symbols.Symbol, reading map[*symbols
 // differenceMayShareValues reads a source difference: only the first type's values
 // are its own, and none of them is a value of the types it subtracts.
 func (m *Model) differenceMayShareValues(
-	target *symbols.Symbol, operands []*symbols.Symbol, reading map[*symbols.Symbol]bool,
+	target *symbols.Symbol, operands []*symbols.Symbol, reading map[[2]*symbols.Symbol]bool,
 ) bool {
 	if len(operands) == 0 || !m.mayShareValues(target, operands[0], reading) {
 		return false
