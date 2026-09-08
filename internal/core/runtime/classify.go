@@ -13,15 +13,8 @@ import (
 // instanceConforms reports whether an object is an instance of typ by its declaration or by
 // a feature it was held as a value of (KerML 1.0 §7.3.4.1: a feature's values are instances of its types).
 func (ctx *Context) instanceConforms(inst *Instance, typ *symbols.Symbol) bool {
-	if ctx.model.Conforms(inst.Type, typ) {
-		return true
-	}
-	for _, c := range inst.classifiers {
-		if ctx.model.Conforms(c, typ) {
-			return true
-		}
-	}
-	return false
+	// All of the object's types at once: a difference reads the types it subtracts too.
+	return ctx.model.ClassifiesTypes(inst.types(), typ) == semantics.ClassifiesAll
 }
 
 // isDirectTypeOf reports whether typ is already a direct type of an object: one it was

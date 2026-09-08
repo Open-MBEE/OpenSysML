@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::calibrate",
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"seen": {"type": "Real", "value": 1.5}}},
+		{"outputs": {"seen": {"type": "Real", "value": 2.5}}}
+	],
+	"admissible": "Concurrent branches writing one feature: the value is open, the writes are not"
+}

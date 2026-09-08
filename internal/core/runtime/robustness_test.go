@@ -80,6 +80,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("first_naming_a_final_node", testFirstNamingAFinalNode)
 	t.Run("fork_branches_assigning_the_same_feature", testForkBranchesAssigningTheSameFeature)
 	t.Run("decision_no_satisfied_guard", testDecisionNoSatisfiedGuard)
+	t.Run("decision_all_guards_false", testDecisionAllGuardsFalse)
 	t.Run("state_dangling_transition", testStateDanglingTransition)
 	t.Run("state_transition_endpoint_misspelled", testStateTransitionEndpointMisspelled)
 	t.Run("state_transition_endpoint_in_another_machine", testStateTransitionEndpointInAnotherMachine)
@@ -183,6 +184,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("operation_of_a_destroyed_object", testOperationOfADestroyedObject)
 	t.Run("structured_attribute_chain_of_an_unknown_feature", testStructuredAttributeChainOfAnUnknownFeature)
 	t.Run("elements_chain_of_a_non_numeric_collection", testElementsChainOfANonNumericCollection)
+	t.Run("arithmetic_over_the_unbounded_value", testArithmeticOverTheUnboundedValue)
+	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
+	t.Run("metadata_of_a_value", testMetadataOfAValue)
+	t.Run("metadata_of_an_unresolved_name", testMetadataOfAnUnresolvedName)
 	t.Run("constraint_missing_feature", testConstraintMissingFeature)
 	t.Run("nested_condition_subject_is_ambiguous", testNestedConditionSubjectIsAmbiguous)
 	t.Run("satisfaction_subject_is_ambiguous", testSatisfactionSubjectIsAmbiguous)
@@ -240,6 +245,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
+	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
+	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
+	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
+	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
 	t.Run("send_addressed_to_an_object_that_cannot_be_built", testSendAddressedToAnObjectThatCannotBeBuilt)
 	t.Run("send_addressed_to_a_part_no_sibling_takes", testSendAddressedToAPartNoSiblingTakes)
@@ -4338,6 +4347,93 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	}
 }
 
+func testCastToAnUnresolvedType(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		item def Integer;
+		calc narrow { return : Integer = 1 as MissingType; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	calc := resolveSymbol(t, pkg.Scope, "narrow")
+	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected a cast to an unresolved type to fail")
+	}
+	if !errors.Is(err, ErrUnresolvedType) {
+		t.Fatalf("expected ErrUnresolvedType, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "MissingType") {
+		t.Errorf("error = %v, want unresolved type name", err)
+	}
+}
+
+// testCastUndecidedByTheValue: a target narrower than the value's own type that
+// the value does not settle — 5 states nothing about being an Even — fails
+// rather than dropping a value that may well be one of the target's.
+func testCastUndecidedByTheValue(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		attribute def Even :> Integer;
+		calc narrow { return : Even = 5 as Even; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	calc := resolveSymbol(t, pkg.Scope, "narrow")
+	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected an undecidable cast to fail")
+	}
+	if !errors.Is(err, ErrUndecidedClassification) {
+		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Even") {
+		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
+// testDifferenceTypedFeatureHoldingASubtractedObject: a feature typed by a
+// difference refuses an object one of the subtracted types classifies, whether
+// the object was declared by it or classified by it since.
+func testDifferenceTypedFeatureHoldingASubtractedObject(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `
+		part def Vehicle;
+		part def Car :> Vehicle;
+		part def Electric;
+		part def ElectricCar :> Car, Electric;
+		part def CombustionVehicle differences Vehicle, Electric;
+		part sedan : Car;
+		part def Shop { part retrofit : ElectricCar = sedan; }
+		part shop : Shop;
+		part def Depot { part burner : CombustionVehicle = shop.retrofit; }
+		part depot : Depot;
+		attribute held = depot.burner istype Vehicle;
+	`)
+	sym := resolveSymbol(t, root, "held")
+	_, err := NewContext(model, resolver, 10000).Eval(sym.Decl.(*ast.Usage).Value)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "CombustionVehicle") {
+		t.Errorf("error = %v, want the feature's type named", err)
+	}
+}
+
+// testCastOfAQuantityToAConstrainedSubtype: a quantity subtype inheriting its
+// measurement reference narrows lengths by something a magnitude and a unit do
+// not state, so a bare length is undecided rather than kept by its dimension.
+func testCastOfAQuantityToAConstrainedSubtype(t *testing.T) {
+	err := calcErrorWithLibraries(t, `
+		package test {
+			private import SI::*;
+			attribute def RoomLength :> ISQBase::LengthValue;
+			calc narrow { return : RoomLength = 5 [m] as RoomLength; }
+		}`, "narrow", nil, 1000)
+	if !errors.Is(err, ErrUndecidedClassification) {
+		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "RoomLength") {
+		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
 // testSendAddressedToAnUnreachableTarget: a target reaching no port of an object
 // the sender can address is reported where it was written rather than delivered
 // to whatever else carries the last segment's name.
@@ -5383,6 +5479,54 @@ func testDecisionNoSatisfiedGuard(t *testing.T) {
 	err = exec.RunToCompletion()
 	if !errors.Is(err, ErrNoEnabledSuccession) {
 		t.Fatalf("error = %v, want ErrNoEnabledSuccession", err)
+	}
+}
+
+// testDecisionAllGuardsFalse: every guard of a decision is evaluated so that
+// several holding at once can be reported; none holding is still the same
+// error, recorded as no choice at all.
+func testDecisionAllGuardsFalse(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+
+			action pick {
+				attribute level : Integer = 5;
+
+				first start;
+				action low;
+				action high;
+				done;
+
+				succession first start then choose;
+				succession first low then done;
+				succession first high then done;
+
+				decide choose;
+				if level > 10 then low;
+				if level > 20 then high;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "pick", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action pick not found")
+	}
+
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	err = exec.RunToCompletion()
+	if !errors.Is(err, ErrNoEnabledSuccession) {
+		t.Fatalf("error = %v, want ErrNoEnabledSuccession", err)
+	}
+	if !strings.Contains(err.Error(), "decision node choose has no true guard") {
+		t.Fatalf("error = %v, want the decision named", err)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none when no guard holds", choices)
 	}
 }
 
@@ -11617,5 +11761,43 @@ func testVerificationWithAnArgumentTheCaseDoesNotTake(t *testing.T) {
 	_, err := ctx.RunVerification(lookupOne(t, idx, "test::stepping"), args, scope, nil)
 	if !errors.Is(err, ErrUnknownParameter) {
 		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	}
+}
+
+// testArithmeticOverTheUnboundedValue: `*` is no number, so arithmetic over it
+// fails with a typed error naming the operation.
+func testArithmeticOverTheUnboundedValue(t *testing.T) {
+	for _, expr := range []string{"* + 1", "1 - *", "2 * *", "* / 2", "* % 2", "* ** 2", "-*", "+*"} {
+		_, _, err := evalDeclaredExpr(t, "package test {}", expr)
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)
+		}
+	}
+}
+
+// testUnboundedValueComparedWithAString: nothing orders `*` against a string.
+func testUnboundedValueComparedWithAString(t *testing.T) {
+	_, _, err := evalDeclaredExpr(t, "package test {}", `* > "a"`)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("error = %v, want ErrTypeMismatch", err)
+	}
+}
+
+// testMetadataOfAValue: only an element carries metadata, so reading it from a
+// scalar fails rather than answering with the empty sequence.
+func testMetadataOfAValue(t *testing.T) {
+	for _, expr := range []string{"1.metadata", `"abc".metadata`} {
+		_, _, err := evalDeclaredExpr(t, "package test {}", expr)
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)
+		}
+	}
+}
+
+// testMetadataOfAnUnresolvedName: a name that names no element is refused.
+func testMetadataOfAnUnresolvedName(t *testing.T) {
+	_, _, err := evalDeclaredExpr(t, "package test {}", "test::missing.metadata")
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("error = %v, want ErrUnresolvedReference", err)
 	}
 }

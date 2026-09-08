@@ -1,0 +1,19 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"level": {"type": "Integer", "value": 75},
+				"handler": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"level": {"type": "Integer", "value": 75},
+				"handler": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "A decision with several holding guards: exactly one branch follows, which one is open"
+}

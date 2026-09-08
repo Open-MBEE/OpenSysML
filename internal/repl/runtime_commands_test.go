@@ -367,7 +367,7 @@ func TestFormatValue(t *testing.T) {
 		{"int", runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 7}}, "7"},
 		{"real", runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1.5}}, "1.5"},
 		{"bool", runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}, "true"},
-		{"infinity", runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, "∞"},
+		{"infinity", runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, "*"},
 		{"null", runtime.Value{Kind: runtime.ValNull}, "null"},
 		{"string", runtime.NewStringValue("hi"), `"hi"`},
 		{"instance", runtime.Value{Kind: runtime.ValInstance, Instance: 3}, "Instance(ID: 3)"},

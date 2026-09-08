@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -111,6 +112,10 @@ type StateExecutor struct {
 	// firingChange is the change-triggered transition being taken, whose latch the
 	// state entries it causes must leave alone.
 	firingChange *lower.Transition
+
+	// firingNotes is what selecting the transition being taken noted, recorded
+	// once its guard's final reading lets it fire (see transitionDecided).
+	firingNotes []RunNote
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -579,7 +584,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			// region's active state, so the region is resolved by containment.
 			var err error
 			if sourceState != nil {
-				dispatch.Fired, err = e.fireFrom(sourceState, lowerTrans)
+				dispatch.Fired, err = e.fireFrom(sourceState, lowerTrans, nil)
 			} else {
 				dispatch.Fired, err = e.fireTransition(lowerTrans)
 			}
@@ -700,7 +705,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 			unbind()
 			return consumed, fmt.Errorf("state %s: %w", candidate.source.Name, err)
 		}
-		fired, err := e.fireFrom(candidate.source, candidate.trans)
+		fired, err := e.fireFrom(candidate.source, candidate.trans, candidate.notes)
 		if err != nil {
 			return consumed, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -713,11 +718,13 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 }
 
 // dispatchCandidate is the transition one active leaf selected for an event,
-// taken out of the leaf itself or out of a composite state enclosing it.
+// taken out of the leaf itself or out of a composite state enclosing it. What
+// selecting it found worth noting is recorded only if it fires.
 type dispatchCandidate struct {
 	leaf   *ast.StateNode
 	source *ast.StateNode
 	trans  *lower.Transition
+	notes  []RunNote
 }
 
 // selectTransitions picks one transition per leaf active when the event is
@@ -727,21 +734,22 @@ type dispatchCandidate struct {
 // walk carries on past it. Leaves in sibling regions of one composite state
 // select the same transition out of it, which the event still takes only once.
 func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, error) {
-	return e.selectCandidates(func(source *ast.StateNode) (*lower.Transition, error) {
+	return e.selectCandidates(func(source *ast.StateNode) (*lower.Transition, []RunNote, error) {
 		return e.enabledTransition(source, event)
 	})
 }
 
 // selectCandidates walks outward from every active leaf, asking enabled for the
-// transition that state offers, and collects one candidate per leaf.
+// transition that state offers and what selecting it noted, and collects one
+// candidate per leaf.
 func (e *StateExecutor) selectCandidates(
-	enabled func(*ast.StateNode) (*lower.Transition, error),
+	enabled func(*ast.StateNode) (*lower.Transition, []RunNote, error),
 ) ([]dispatchCandidate, error) {
 	var candidates []dispatchCandidate
 	selected := make(map[*lower.Transition]bool)
 	for _, leaf := range e.activeLeaves() {
 		for _, source := range e.getParentChain(leaf) {
-			trans, err := enabled(source)
+			trans, notes, err := enabled(source)
 			if err != nil {
 				return nil, fmt.Errorf("state %s: %w", source.Name, err)
 			}
@@ -750,7 +758,7 @@ func (e *StateExecutor) selectCandidates(
 			}
 			if !selected[trans] {
 				selected[trans] = true
-				candidates = append(candidates, dispatchCandidate{leaf: leaf, source: source, trans: trans})
+				candidates = append(candidates, dispatchCandidate{leaf: leaf, source: source, trans: trans, notes: notes})
 			}
 			break
 		}
@@ -881,12 +889,22 @@ func lessPath(a, b []int) bool {
 // fireFrom takes a transition whose source is the given active state, which is
 // either the active leaf or a composite state enclosing it. A source lying in an
 // active orthogonal region moves that region; one outside every active region
-// moves the machine's single active hierarchy.
-func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition) (bool, error) {
+// moves the machine's single active hierarchy. notes are recorded only if it fires.
+func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote) (bool, error) {
+	saved := e.firingNotes
+	e.firingNotes = notes
+	defer func() { e.firingNotes = saved }()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans)
 	}
 	return e.fireTransition(trans)
+}
+
+// transitionDecided records what selecting the transition now firing noted, its
+// guard having passed its final reading.
+func (e *StateExecutor) transitionDecided() {
+	e.ctx.noteAll(e.firingNotes)
+	e.firingNotes = nil
 }
 
 // activeRegionOf returns the innermost active orthogonal region the state is
@@ -920,42 +938,144 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 // transition whose guard is false does not consume the event, so a later one
 // still gets its chance. Selecting a transition leaves the machine's data as it
 // was: the caller binds the trigger's arguments again before firing.
-func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, error) {
-	for _, trans := range e.graph.Transitions[state] {
-		matches, err := e.matchesEvent(trans, event)
-		if err != nil {
-			return nil, err
+// Every transition is examined so that several enabled at once are a choice
+// point; the notes are the caller's to record if the transition fires, since a
+// state selected through several leaves, or outranked by a nested one, is not a
+// choice the run made.
+func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, []RunNote, error) {
+	var enabled []int
+	var notes []RunNote
+	transitions := e.graph.Transitions[state]
+	// Once one is enabled the transition is decided; the rest are probed only to
+	// report the choice, which leaves the run as it was.
+	for i, trans := range transitions {
+		var ok bool
+		if len(enabled) > 0 {
+			var unevaluable *UnevaluableGuard
+			if ok, unevaluable = e.probeTransition(state, transitions, i, event); unevaluable != nil {
+				notes = append(notes, *unevaluable)
+			}
+		} else {
+			var err error
+			if ok, err = e.transitionEnabled(trans, event); err != nil {
+				return nil, nil, err
+			}
 		}
-		if !matches {
-			continue
-		}
-		// A call trigger's arguments are bound before the guard runs: the guard is
-		// written against the parameters the trigger declares. A transition that
-		// does not fire must leave no trace of them in the machine's data.
-		unbind, err := e.bindTriggerArguments(trans, event)
-		if err != nil {
-			unbind()
-			return nil, err
-		}
-		pass, err := e.passesGuard(trans)
-		unbind()
-		if err != nil {
-			return nil, err
-		}
-		if !pass {
-			continue
-		}
-		// A transition into a join whose other branches have not arrived is not
-		// enabled either: firing it would move nothing.
-		synchronized, err := e.joinSynchronized(trans)
-		if err != nil {
-			return nil, err
-		}
-		if synchronized {
-			return trans, nil
+		if ok {
+			enabled = append(enabled, i)
 		}
 	}
-	return nil, nil
+	if len(enabled) == 0 {
+		return nil, nil, nil
+	}
+	if choice, ok := e.transitionChoice(state, transitions, enabled); ok {
+		notes = append([]RunNote{choice}, notes...)
+	}
+	return transitions[enabled[0]], notes, nil
+}
+
+// probeTransition reads whether the transition at position i out of state reacts
+// to event once another already does, as a probe the context undoes whole. One
+// that cannot be evaluated is not selected and is returned as the note to record.
+func (e *StateExecutor) probeTransition(state *ast.StateNode, transitions []*lower.Transition, i int, event *Event) (bool, *UnevaluableGuard) {
+	var ok bool
+	var err error
+	e.preview(func() { ok, err = e.transitionEnabled(transitions[i], event) })
+	if err != nil {
+		note := e.unevaluableTransition(state, transitions, i, err)
+		return false, &note
+	}
+	return ok, nil
+}
+
+// transitionEnabled reports whether trans reacts to event: its trigger matches,
+// its guard holds and the join it may lead into is ready to fire.
+func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event) (bool, error) {
+	matches, err := e.matchesEvent(trans, event)
+	if err != nil || !matches {
+		return false, err
+	}
+	// A call trigger's arguments are bound before the guard runs: the guard is
+	// written against the parameters the trigger declares. A transition that
+	// does not fire must leave no trace of them in the machine's data.
+	unbind, err := e.bindTriggerArguments(trans, event)
+	if err != nil {
+		unbind()
+		return false, err
+	}
+	pass, err := e.passesGuard(trans)
+	unbind()
+	if err != nil || !pass {
+		return false, err
+	}
+	// A transition into a join whose other branches have not arrived is not
+	// enabled either: firing it would move nothing.
+	return e.joinSynchronized(trans)
+}
+
+// transitionChoice is the transitions out of state enabled for one event, at
+// their declared positions, as a choice point; there is none under two.
+func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+	if len(enabled) < 2 {
+		return ChoicePoint{}, false
+	}
+	alts := make([]string, len(enabled))
+	for i, pos := range enabled {
+		alts[i] = transitionName(transitions, pos)
+	}
+	taken := transitions[enabled[0]]
+	file, span := e.transitionLocation(state, taken)
+	return ChoicePoint{
+		Kind:         ChoiceTransition,
+		Where:        transitionWhere(state, taken),
+		Alternatives: alts,
+		Taken:        0,
+		File:         file,
+		Span:         span,
+	}, true
+}
+
+// unevaluableTransition is the transition at position pos out of state, probed
+// once another was enabled, as the note that it cannot be evaluated.
+func (e *StateExecutor) unevaluableTransition(state *ast.StateNode, transitions []*lower.Transition, pos int, err error) UnevaluableGuard {
+	trans := transitions[pos]
+	file, span := e.transitionLocation(state, trans)
+	if trans.Guard != nil {
+		span = trans.Guard.Span()
+	}
+	return UnevaluableGuard{
+		Where:       transitionWhere(state, trans),
+		Alternative: transitionName(transitions, pos),
+		Reason:      err.Error(),
+		File:        file,
+		Span:        span,
+	}
+}
+
+// transitionName names a transition out of a state by declared position and target.
+func transitionName(transitions []*lower.Transition, pos int) string {
+	return fmt.Sprintf("%d->%s", pos+1, getNodeName(transitions[pos].Target))
+}
+
+// transitionWhere names the state and the event trans reacts to, for a note.
+func transitionWhere(state *ast.StateNode, trans *lower.Transition) string {
+	where := "state " + state.Name
+	if name := triggerName(trans.Trigger); name != "" {
+		where += " on " + name
+	}
+	return where
+}
+
+// transitionLocation is where trans was declared, or state when it has no declaration.
+func (e *StateExecutor) transitionLocation(state *ast.StateNode, trans *lower.Transition) (string, source.Span) {
+	file := e.stateMachine.DocName
+	if trans.Scope != nil && trans.Scope.DocName() != "" {
+		file = trans.Scope.DocName()
+	}
+	if trans.Decl != nil {
+		return file, trans.Decl.Span()
+	}
+	return file, state.Span()
 }
 
 // bindTriggerArguments binds the parameters a call trigger declares to the
@@ -1146,6 +1266,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition) (bool, error) {
 		if err != nil || !pass {
 			return false, err
 		}
+		e.transitionDecided()
 		switch ps.Kind {
 		case ast.PseudostateFork:
 			return true, e.fireForkTransition(trans, ps)
@@ -1186,6 +1307,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition) (bool, error) {
 	if err != nil || !pass {
 		return false, err
 	}
+	e.transitionDecided()
 
 	return true, e.transitionTo(trans, targetState)
 }

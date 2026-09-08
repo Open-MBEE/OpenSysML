@@ -558,7 +558,7 @@ func constText(c semantics.Value) string {
 	case semantics.ValBool:
 		return strconv.FormatBool(c.Bool)
 	case semantics.ValInfinity:
-		return "∞"
+		return "*"
 	default:
 		return "<invalid>"
 	}

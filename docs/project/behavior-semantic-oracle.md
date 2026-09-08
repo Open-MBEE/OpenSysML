@@ -50,6 +50,11 @@ scheduling detail the library says nothing about:
 - A state machine records a transition's guard evaluation, exit, effect and entry as they run, and
   evaluates a guard once to select the transition and once again to fire it; the second
   evaluation is a tool detail with no observable effect, since a guard is an expression.
+- A `choice` line marks a point where the executor picked among alternatives the library leaves
+  unordered — several steppable tokens in one step, several holding decision guards, several
+  enabled transitions out of one state for one event, or two tokens writing one feature in one
+  step — and names the alternative it took. Everything after a `choice` line is one linearization
+  among the ones that line admits.
 
 When a golden is reviewed against this record, the question is whether the golden's
 linearization is *one of* the linearizations the derivation admits and whether every outcome the
@@ -209,9 +214,110 @@ against — a run must match exactly one member. The partial order the library d
 as `.trace.order` constraints (`split < left`, `split < right`, `left < sync`, `right < sync`) the
 trace must satisfy. The exact trace golden stays: it records the executor's scheduling (`right`
 is the branch declared last, so its token is stepped first and `left` writes last, giving
-`x = 1`) and exists only so a change in that scheduling is noticed. The compliance row stays
-approximate because the runtime still picks an order the specification does not, and reports no
-conflict.
+`x = 1`) and exists only so a change in that scheduling is noticed. The executor reports the
+conflict as a choice point (`choice step 3: writes x := 1 by token 2, x := 2 by token 3
+(unordered; x := 1 by token 2 stood)`), so the trace and the diagnostics name the value that
+stood as a tool decision rather than passing it off as the model's answer. Companion fixtures:
+`action_choice_same_step_write_conflict` (golden), the same shape over a `String` feature;
+`action_choice_chained_write_conflict` (golden), the same shape writing one object's feature
+through a feature chain (`s.reading`) from both branches; and
+`action_choice_performer_write_conflict` (golden), a performed action's branches both writing
+the part performing it. A destination is the object written and the feature written, whatever
+name reached it, so two chains reaching one object are one conflict
+(`TestWriteConflictOnOneObjectThroughTwoChains`), a feature and one redefining it are one
+destination under either name (`TestAliasWritesAreOneDestination`), and two writes of equal
+value are still one: the library orders the writes no more when they agree. The choice is
+recorded once the step is complete, one per destination, listing the last write of every token
+that wrote it and the one that stood: three branches are one choice of three
+(`TestThreeWritersAreOneChoice`), and a token writing twice contributes only its last write, the
+one that would stand had it gone last (`TestRepeatedWritesByOneTokenListItsLast`).
+
+### A decision with several holding guards: exactly one branch follows, which one is open
+
+Fixture: `action_choice_decision_overlapping_guards` (golden).
+
+```
+start → select ─ if level > 50 → warn  { handler := 1 } → done
+               ─ if level > 70 → alarm { handler := 2 } → done
+```
+
+Derived constraints:
+
+- `select` is followed by a performance of exactly one target (DecisionPerformance: "the
+  outgoingHBLink is an instance of exactly one of the Successions"), so `handler` ends `1` or
+  `2`, never `0`.
+- Each guard is a `TPCGuardConstraint` on its own link; a false guard leaves that link out. With
+  `level = 75` both guards are true, so neither link is excluded by its guard.
+
+Open: which of the two admissible links the decision performance takes. The library says only
+that it is exactly one of them; nothing ranks `warn` against `alarm`.
+
+Pinned outcome: the admissible set `{handler = 1, handler = 2}`, stated as `outcomes` citing this
+section. The executor evaluates every guard, takes the first declared, and records the choice
+(`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`);
+the golden pins that linearization. Reporting never changes the run: the guards after the first
+holding one are read in a preview that is undone — what evaluating them costs, writes or starts
+is restored, and nothing they do is traced — so the run spends and does what first-match did
+(`TestLaterGuardIsProbedWithoutCost`). A guard read that way that cannot be evaluated is not an
+alternative and not an error: the library's `TPCGuardConstraint` is `inv { allTrue(constrainedGuard()) }`,
+an expression with no result is not true, so the link it guards is simply not selected, and the
+library defines no failure for it. The executor records the guard as an informational
+`guard-unevaluable` note (`unevaluable guard step 2: decision select branch 2->alarm: division by
+zero (not selected)`) so the tool's reading is visible without changing the run
+(`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `action_choice_unevaluable_guard`, golden).
+The first guard read is the run's own, not a preview, and its failure fails the run as it always
+has. A decision whose guards are all false remains an execution error
+(`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
+
+### Two transitions out of one state enabled by one event: exactly one fires, which one is open
+
+Fixture: `state_choice_transition_conflict` (golden).
+
+```
+idle ─ accept Go if level > 5 → low  { route := 1 }
+     ─ accept Go if level > 7 → high { route := 2 }
+```
+
+Derived constraints:
+
+- A `StateTransitionPerformance` follows its trigger and its guard, and its
+  `transitionLinkSource.exit` follows the guard (`StatePerformances.kerml`); the source performance
+  `idle` ends once, so at most one transition out of it fires for one Go.
+- Both guards hold for `level = 8`, so both transitions are enabled by the one event; the
+  machine ends in `low` or `high`, never still in `idle`.
+
+Open: which enabled transition fires. UML orders a transition on a descendant state before one
+on its ancestor (the case `state_choice_ancestor_priority_not_reported` pins that rule, and the
+executor does not report it as a choice); between two transitions on the *same* state nothing
+in the library or the specification ranks them. The choice is the firing transition's: the
+regions of a parallel state that select the same transition out of it make one choice, reported
+once (`state_choice_shared_ancestor_regions`), and a composite state's transitions that lose to a
+nested one were never chosen among, so nothing about them is reported
+(`state_choice_ancestor_outranked_not_reported`).
+
+Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
+citing this section. The executor examines every transition out of the state for the event,
+fires the first declared, and records the choice (`choice state idle on accept Go: transitions
+1->low, 2->high (unordered; took 1->low)`); the golden pins that linearization. As for a decision,
+the transitions after the first enabled one are read in a preview that is undone, and one whose
+guard cannot be evaluated is not an alternative and does not fail the dispatch: it is recorded as
+an informational `guard-unevaluable` note naming the state, the event and the transition
+(`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `state_choice_unevaluable_transition`,
+golden). The first transition read is the run's own, and its failure fails the dispatch as it
+always has (`TestFirstTransitionFailureStillFailsTheRun`).
+
+The choice is recorded when the transition fires, not when it is selected: a transition selected
+on the event reads its guard once more as it fires, and one another region's reaction has
+meanwhile disabled does not fire and reports nothing
+(`TestNotesOfATransitionBlockedBeforeFiringAreDropped`), while one whose effect then fails was
+the run's choice all the same (`TestNotesOfATransitionFailingInItsEffectAreKept`). A change
+occurrence is an event like a signal: two `accept when` transitions out of one state whose
+conditions rise on one write are enabled by one occurrence, and the same rule applies — the
+first declared fires, the rise is consumed for the others, and the choice is recorded
+(`choice state watching on change: transitions 1->cool, 2->hot (unordered; took 1->cool)`;
+fixture `state_choice_change_transition_conflict`, golden; `TestChangeTransitionChoice`,
+`TestChangeTransitionChoiceUnderHierarchyAndRegions` for the nested-wins and parallel-region
+shapes).
 
 ### A merge is re-entered on every traversal of a loop
 

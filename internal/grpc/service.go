@@ -114,6 +114,10 @@ const CapabilityFunctionValues = "function_values"
 // verification case through RunAnalysis.
 const CapabilityVerificationVerdicts = "verification_verdicts"
 
+// CapabilityInfinityValue names the capability of carrying the unbounded value
+// `*` as Value.infinity, rather than reporting it as an unsupported null.
+const CapabilityInfinityValue = "infinity_value"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -124,6 +128,7 @@ var capabilities = []string{
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
+	CapabilityInfinityValue,
 }
 
 type capabilityAvailability struct {
@@ -279,7 +284,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesFunction(pv) {
-		return s.requireCapability(CapabilityFunctionValues)
+		if err := s.requireCapability(CapabilityFunctionValues); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesInfinity(pv) {
+		return s.requireCapability(CapabilityInfinityValue)
 	}
 	return nil
 }
@@ -744,9 +754,13 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 	// Execute action with the supplied inputs
 	outputs, err := runtimeCtx.ExecuteActionWithInputs(action, inputs)
+	// The choices the run made are reported with its outcome, failed or not: a
+	// failure may hang on the order taken.
+	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
-			Error: fmt.Sprintf("action execution failed: %v", err),
+			Error:       fmt.Sprintf("action execution failed: %v", err),
+			Diagnostics: diags,
 		}, nil
 	}
 
@@ -757,7 +771,8 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	return &pb.ExecuteActionResponse{
-		Outputs: pbOutputs,
+		Outputs:     pbOutputs,
+		Diagnostics: diags,
 	}, nil
 }
 
@@ -785,9 +800,11 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
 	finalContext, statesVisited, err := runtimeCtx.ExecuteStateWithEvents(stateMachine, req.Events)
+	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
-			Error: fmt.Sprintf("state machine execution failed: %v", err),
+			Error:       fmt.Sprintf("state machine execution failed: %v", err),
+			Diagnostics: diags,
 		}, nil
 	}
 
@@ -800,6 +817,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	return &pb.ExecuteStateResponse{
 		StatesVisited: statesVisited,
 		FinalContext:  pbContext,
+		Diagnostics:   diags,
 	}, nil
 }
 

@@ -68,7 +68,8 @@ private static final long serialVersionUID = 0L;
     VECTOR(13),
     VECTOR_QUANTITY(14),
     MEASUREMENT_REF(15),
-    FUNCTION(16),
+    INFINITY(16),
+    FUNCTION(17),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -101,7 +102,8 @@ private static final long serialVersionUID = 0L;
         case 13: return VECTOR;
         case 14: return VECTOR_QUANTITY;
         case 15: return MEASUREMENT_REF;
-        case 16: return FUNCTION;
+        case 16: return INFINITY;
+        case 17: return FUNCTION;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -676,30 +678,63 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.MeasurementRef.getDefaultInstance();
   }
 
-  public static final int FUNCTION_FIELD_NUMBER = 16;
+  public static final int INFINITY_FIELD_NUMBER = 16;
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return Whether the infinity field is set.
+   */
+  @java.lang.Override
+  public boolean hasInfinity() {
+    return kindCase_ == 16;
+  }
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return The infinity.
+   */
+  @java.lang.Override
+  public boolean getInfinity() {
+    if (kindCase_ == 16) {
+      return (java.lang.Boolean) kind_;
+    }
+    return false;
+  }
+
+  public static final int FUNCTION_FIELD_NUMBER = 17;
   /**
    * <pre>
    * a calc as a value, named by its declaration
    * </pre>
    *
-   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * <code>.sysml.Function function = 17 [json_name = "function"];</code>
    * @return Whether the function field is set.
    */
   @java.lang.Override
   public boolean hasFunction() {
-    return kindCase_ == 16;
+    return kindCase_ == 17;
   }
   /**
    * <pre>
    * a calc as a value, named by its declaration
    * </pre>
    *
-   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * <code>.sysml.Function function = 17 [json_name = "function"];</code>
    * @return The function.
    */
   @java.lang.Override
   public org.openmbee.opensysml.proto.Function getFunction() {
-    if (kindCase_ == 16) {
+    if (kindCase_ == 17) {
        return (org.openmbee.opensysml.proto.Function) kind_;
     }
     return org.openmbee.opensysml.proto.Function.getDefaultInstance();
@@ -709,11 +744,11 @@ private static final long serialVersionUID = 0L;
    * a calc as a value, named by its declaration
    * </pre>
    *
-   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * <code>.sysml.Function function = 17 [json_name = "function"];</code>
    */
   @java.lang.Override
   public org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder() {
-    if (kindCase_ == 16) {
+    if (kindCase_ == 17) {
        return (org.openmbee.opensysml.proto.Function) kind_;
     }
     return org.openmbee.opensysml.proto.Function.getDefaultInstance();
@@ -784,7 +819,11 @@ private static final long serialVersionUID = 0L;
       output.writeMessage(15, (org.openmbee.opensysml.proto.MeasurementRef) kind_);
     }
     if (kindCase_ == 16) {
-      output.writeMessage(16, (org.openmbee.opensysml.proto.Function) kind_);
+      output.writeBool(
+          16, (boolean)((java.lang.Boolean) kind_));
+    }
+    if (kindCase_ == 17) {
+      output.writeMessage(17, (org.openmbee.opensysml.proto.Function) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -860,7 +899,12 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 16) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(16, (org.openmbee.opensysml.proto.Function) kind_);
+        .computeBoolSize(
+            16, (boolean)((java.lang.Boolean) kind_));
+    }
+    if (kindCase_ == 17) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(17, (org.openmbee.opensysml.proto.Function) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -941,6 +985,10 @@ private static final long serialVersionUID = 0L;
             .equals(other.getMeasurementRef())) return false;
         break;
       case 16:
+        if (getInfinity()
+            != other.getInfinity()) return false;
+        break;
+      case 17:
         if (!getFunction()
             .equals(other.getFunction())) return false;
         break;
@@ -1025,6 +1073,11 @@ private static final long serialVersionUID = 0L;
         hash = (53 * hash) + getMeasurementRef().hashCode();
         break;
       case 16:
+        hash = (37 * hash) + INFINITY_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getInfinity());
+        break;
+      case 17:
         hash = (37 * hash) + FUNCTION_FIELD_NUMBER;
         hash = (53 * hash) + getFunction().hashCode();
         break;
@@ -1266,7 +1319,7 @@ private static final long serialVersionUID = 0L;
           measurementRefBuilder_ != null) {
         result.kind_ = measurementRefBuilder_.build();
       }
-      if (kindCase_ == 16 &&
+      if (kindCase_ == 17 &&
           functionBuilder_ != null) {
         result.kind_ = functionBuilder_.build();
       }
@@ -1347,6 +1400,10 @@ private static final long serialVersionUID = 0L;
         }
         case MEASUREMENT_REF: {
           mergeMeasurementRef(other.getMeasurementRef());
+          break;
+        }
+        case INFINITY: {
+          setInfinity(other.getInfinity());
           break;
         }
         case FUNCTION: {
@@ -1476,13 +1533,18 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 15;
               break;
             } // case 122
-            case 130: {
+            case 128: {
+              kind_ = input.readBool();
+              kindCase_ = 16;
+              break;
+            } // case 128
+            case 138: {
               input.readMessage(
                   internalGetFunctionFieldBuilder().getBuilder(),
                   extensionRegistry);
-              kindCase_ = 16;
+              kindCase_ = 17;
               break;
-            } // case 130
+            } // case 138
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3323,6 +3385,72 @@ private static final long serialVersionUID = 0L;
       return measurementRefBuilder_;
     }
 
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @return Whether the infinity field is set.
+     */
+    public boolean hasInfinity() {
+      return kindCase_ == 16;
+    }
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @return The infinity.
+     */
+    public boolean getInfinity() {
+      if (kindCase_ == 16) {
+        return (java.lang.Boolean) kind_;
+      }
+      return false;
+    }
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @param value The infinity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInfinity(boolean value) {
+
+      kindCase_ = 16;
+      kind_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearInfinity() {
+      if (kindCase_ == 16) {
+        kindCase_ = 0;
+        kind_ = null;
+        onChanged();
+      }
+      return this;
+    }
+
     private com.google.protobuf.SingleFieldBuilder<
         org.openmbee.opensysml.proto.Function, org.openmbee.opensysml.proto.Function.Builder, org.openmbee.opensysml.proto.FunctionOrBuilder> functionBuilder_;
     /**
@@ -3330,30 +3458,30 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      * @return Whether the function field is set.
      */
     @java.lang.Override
     public boolean hasFunction() {
-      return kindCase_ == 16;
+      return kindCase_ == 17;
     }
     /**
      * <pre>
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      * @return The function.
      */
     @java.lang.Override
     public org.openmbee.opensysml.proto.Function getFunction() {
       if (functionBuilder_ == null) {
-        if (kindCase_ == 16) {
+        if (kindCase_ == 17) {
           return (org.openmbee.opensysml.proto.Function) kind_;
         }
         return org.openmbee.opensysml.proto.Function.getDefaultInstance();
       } else {
-        if (kindCase_ == 16) {
+        if (kindCase_ == 17) {
           return functionBuilder_.getMessage();
         }
         return org.openmbee.opensysml.proto.Function.getDefaultInstance();
@@ -3364,7 +3492,7 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     public Builder setFunction(org.openmbee.opensysml.proto.Function value) {
       if (functionBuilder_ == null) {
@@ -3376,7 +3504,7 @@ private static final long serialVersionUID = 0L;
       } else {
         functionBuilder_.setMessage(value);
       }
-      kindCase_ = 16;
+      kindCase_ = 17;
       return this;
     }
     /**
@@ -3384,7 +3512,7 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     public Builder setFunction(
         org.openmbee.opensysml.proto.Function.Builder builderForValue) {
@@ -3394,7 +3522,7 @@ private static final long serialVersionUID = 0L;
       } else {
         functionBuilder_.setMessage(builderForValue.build());
       }
-      kindCase_ = 16;
+      kindCase_ = 17;
       return this;
     }
     /**
@@ -3402,11 +3530,11 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     public Builder mergeFunction(org.openmbee.opensysml.proto.Function value) {
       if (functionBuilder_ == null) {
-        if (kindCase_ == 16 &&
+        if (kindCase_ == 17 &&
             kind_ != org.openmbee.opensysml.proto.Function.getDefaultInstance()) {
           kind_ = org.openmbee.opensysml.proto.Function.newBuilder((org.openmbee.opensysml.proto.Function) kind_)
               .mergeFrom(value).buildPartial();
@@ -3415,13 +3543,13 @@ private static final long serialVersionUID = 0L;
         }
         onChanged();
       } else {
-        if (kindCase_ == 16) {
+        if (kindCase_ == 17) {
           functionBuilder_.mergeFrom(value);
         } else {
           functionBuilder_.setMessage(value);
         }
       }
-      kindCase_ = 16;
+      kindCase_ = 17;
       return this;
     }
     /**
@@ -3429,17 +3557,17 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     public Builder clearFunction() {
       if (functionBuilder_ == null) {
-        if (kindCase_ == 16) {
+        if (kindCase_ == 17) {
           kindCase_ = 0;
           kind_ = null;
           onChanged();
         }
       } else {
-        if (kindCase_ == 16) {
+        if (kindCase_ == 17) {
           kindCase_ = 0;
           kind_ = null;
         }
@@ -3452,7 +3580,7 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     public org.openmbee.opensysml.proto.Function.Builder getFunctionBuilder() {
       return internalGetFunctionFieldBuilder().getBuilder();
@@ -3462,14 +3590,14 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     @java.lang.Override
     public org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder() {
-      if ((kindCase_ == 16) && (functionBuilder_ != null)) {
+      if ((kindCase_ == 17) && (functionBuilder_ != null)) {
         return functionBuilder_.getMessageOrBuilder();
       } else {
-        if (kindCase_ == 16) {
+        if (kindCase_ == 17) {
           return (org.openmbee.opensysml.proto.Function) kind_;
         }
         return org.openmbee.opensysml.proto.Function.getDefaultInstance();
@@ -3480,13 +3608,13 @@ private static final long serialVersionUID = 0L;
      * a calc as a value, named by its declaration
      * </pre>
      *
-     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * <code>.sysml.Function function = 17 [json_name = "function"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
         org.openmbee.opensysml.proto.Function, org.openmbee.opensysml.proto.Function.Builder, org.openmbee.opensysml.proto.FunctionOrBuilder> 
         internalGetFunctionFieldBuilder() {
       if (functionBuilder_ == null) {
-        if (!(kindCase_ == 16)) {
+        if (!(kindCase_ == 17)) {
           kind_ = org.openmbee.opensysml.proto.Function.getDefaultInstance();
         }
         functionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -3496,7 +3624,7 @@ private static final long serialVersionUID = 0L;
                 isClean());
         kind_ = null;
       }
-      kindCase_ = 16;
+      kindCase_ = 17;
       onChanged();
       return functionBuilder_;
     }

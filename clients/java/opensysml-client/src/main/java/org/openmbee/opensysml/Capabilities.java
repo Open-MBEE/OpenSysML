@@ -50,6 +50,9 @@ public final class Capabilities {
   /** A calc held as a value travels as the {@code function} naming its declaration rather than as an unsupported null. */
   public static final String FUNCTION_VALUES = "function_values";
 
+  /** The unbounded value {@code *} travels as itself rather than as an unsupported null. */
+  public static final String INFINITY_VALUE = "infinity_value";
+
   /** The {@code ApplyEdits} RPC edits a parsed model's own source. */
   public static final String APPLY_EDITS = "apply_edits";
 

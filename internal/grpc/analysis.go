@@ -60,7 +60,8 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	}
 
 	// A verification case runs the same body, and its run answers with the
-	// verdict that body produced as well.
+	// verdict that body produced as well. The choices a run made are reported
+	// with its outcome, failed or not.
 	var verdicts []runtime.VerificationVerdict
 	var result runtime.AnalysisResult
 	if runtime.IsVerificationCaseSymbol(sym) {
@@ -69,6 +70,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 			return &pb.RunAnalysisResponse{
 				Error:         fmt.Sprintf("verification run failed: %v", verr),
 				FailureReason: failureReason(verr),
+				Diagnostics:   RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached),
 			}, nil
 		}
 		result = verified.Run
@@ -77,12 +79,14 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return &pb.RunAnalysisResponse{
 			Error:         fmt.Sprintf("analysis run failed: %v", err),
 			FailureReason: failureReason(err),
+			Diagnostics:   RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached),
 		}, nil
 	}
+	diags := RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached)
 	// The case reports the subject it ran on: the one supplied, or the one the
 	// usage or the enclosing case bound.
 	subject = result.Subject
-	resp := &pb.RunAnalysisResponse{Instances: v.instanceGraph(subject)}
+	resp := &pb.RunAnalysisResponse{Instances: v.instanceGraph(subject), Diagnostics: diags}
 	for _, out := range result.Outputs {
 		resp.Outputs = append(resp.Outputs, &pb.CalcOutput{
 			Name:  out.Name,

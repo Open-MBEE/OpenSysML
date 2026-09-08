@@ -13,18 +13,18 @@ import (
 // TestUnimplementedOperatorReportsWhy requires an operator the runtime does not
 // evaluate to say what it would need, rather than failing as "unsupported".
 func TestUnimplementedOperatorReportsWhy(t *testing.T) {
-	const src = `calc def classify { in n : Integer; return : Boolean = n as Integer; }`
+	const src = `calc def complement { in n : Integer; return : Integer = ~n; }`
 
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(model, resolver, 1000)
-	classify := resolveSymbol(t, root, "classify")
+	complement := resolveSymbol(t, root, "complement")
 
-	_, err := ctx.InvokeCalc(classify, []Value{constInt(1)}, root)
+	_, err := ctx.InvokeCalc(complement, []Value{constInt(1)}, root)
 	if !errors.Is(err, ErrUnsupportedOperator) {
 		t.Fatalf("InvokeCalc: got %v, want ErrUnsupportedOperator", err)
 	}
-	if !strings.Contains(err.Error(), "runtime type") {
-		t.Fatalf("InvokeCalc: %v does not say what classification would need", err)
+	if !strings.Contains(err.Error(), "function library") {
+		t.Fatalf("InvokeCalc: %v does not say what the complement would need", err)
 	}
 }
 
@@ -134,6 +134,51 @@ func TestTypeClassificationFollowsSelectedVariant(t *testing.T) {
 			}
 			if value.Const.Bool != tt.want {
 				t.Errorf("value = %v, want %v", value.Const.Bool, tt.want)
+			}
+		})
+	}
+}
+
+// TestClassificationWeighsEveryTypeOfAnObject requires a difference to read the
+// classifiers an object gained beside its own type: a Car held as an ElectricCar
+// is a value of Electric, so it is none of Vehicle minus Electric.
+func TestClassificationWeighsEveryTypeOfAnObject(t *testing.T) {
+	const src = `
+		part def Vehicle;
+		part def Car :> Vehicle;
+		part def Electric;
+		part def ElectricCar :> Car, Electric;
+		part def CombustionVehicle differences Vehicle, Electric;
+		part sedan : Car;
+		part def Shop {
+			part retrofit : ElectricCar = sedan;
+		}
+		part shop : Shop;
+		attribute burner = shop.retrofit istype CombustionVehicle;
+		attribute vehicle = shop.retrofit istype Vehicle;
+		attribute burnerCast = (shop.retrofit as CombustionVehicle) == ();
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(model, resolver, 10000)
+	for _, tt := range []struct {
+		name string
+		want bool
+	}{
+		{name: "burner", want: false},
+		{name: "vehicle", want: true},
+		{name: "burnerCast", want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			sym := resolveSymbol(t, root, tt.name)
+			value, err := ctx.Eval(sym.Decl.(*ast.Usage).Value)
+			if err != nil {
+				t.Fatalf("Eval: %v", err)
+			}
+			if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
+				t.Fatalf("value = %v, want Boolean", value)
+			}
+			if value.Const.Bool != tt.want {
+				t.Errorf("%s = %v, want %v", tt.name, value.Const.Bool, tt.want)
 			}
 		})
 	}
@@ -287,5 +332,29 @@ package test {
 		if !errors.Is(err, ErrDivisionByZero) {
 			t.Errorf("%s(2.0, 0.0) = (%v, %v), want ErrDivisionByZero", name, got, err)
 		}
+	}
+}
+
+// TestComposedCastUndecidedWhenNoOperandExcludes: an intersection or difference
+// no operand settles is still the typed undecidable-classification error.
+func TestComposedCastUndecidedWhenNoOperandExcludes(t *testing.T) {
+	const src = `
+		attribute def Integer;
+		attribute def Even :> Integer;
+		attribute def EvenInteger intersects Even, Integer;
+		attribute def OddInteger differences Integer, Even;
+		attribute intersected = 5 as EvenInteger;
+		attribute subtracted = 5 as OddInteger;
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(model, resolver, 10000)
+	for _, name := range []string{"intersected", "subtracted"} {
+		t.Run(name, func(t *testing.T) {
+			sym := resolveSymbol(t, root, name)
+			if _, err := ctx.Eval(sym.Decl.(*ast.Usage).Value); !errors.Is(
+				err, ErrUndecidedClassification) {
+				t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+			}
+		})
 	}
 }

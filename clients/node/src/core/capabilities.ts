@@ -24,6 +24,8 @@ export const CAPABILITY_STRUCTURED_VALUES = "structured_values";
 export const CAPABILITY_MEASUREMENT_REFS = "measurement_refs";
 /** A calc held as a value as `Value.function`, named by its declaration, rather than an unsupported null. */
 export const CAPABILITY_FUNCTION_VALUES = "function_values";
+/** The unbounded value `*` as `Value.infinity`, rather than an unsupported null. */
+export const CAPABILITY_INFINITY_VALUE = "infinity_value";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

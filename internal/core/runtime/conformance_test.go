@@ -1554,6 +1554,8 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 		t.Fatalf("invalid String value type: %T", ev.Value)
 	case "Null":
 		return Value{Kind: ValNull}
+	case "Infinity":
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}
 	case "Variant":
 		t.Fatalf("a variant is named by the model, so it cannot be built from a case value")
 	case "EnumLiteral":
@@ -1688,6 +1690,10 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 	case "Null":
 		if actual.Kind != ValNull {
 			t.Errorf("%s: type = %v, want Null", name, actual.Kind)
+		}
+	case "Infinity":
+		if actual.Kind != ValConst || !actual.Const.IsUnbounded() {
+			t.Errorf("%s: type = %v (Const.Kind=%v), want the unbounded `*`", name, actual.Kind, actual.Const.Kind)
 		}
 	case "Variant":
 		if actual.Kind != ValVariant || actual.Variant() == nil {

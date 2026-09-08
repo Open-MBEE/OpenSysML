@@ -22,6 +22,7 @@ from opensysml.capabilities import (
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
@@ -64,6 +65,7 @@ from opensysml.values import (
     Quantity,
     Vector,
     VectorQuantity,
+    _Infinity,
     value_to_python,
 )
 from opensysml.verdict import (
@@ -1673,6 +1675,14 @@ class Connection:
             upgrade_remedy(CAPABILITY_FUNCTION_VALUES),
         )
 
+    def _require_infinity_value(self):
+        """Refuse to send the unbounded value ``*`` a service without ``infinity_value`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_INFINITY_VALUE,
+            upgrade_remedy(CAPABILITY_INFINITY_VALUE),
+        )
+
     def _require_feature_values(self):
         """Refuse instances from a service that populates only the removed `slots` field."""
         require(
@@ -1717,6 +1727,9 @@ class Connection:
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, Quantity):
             return sysml_pb2.Value(quantity=py_value.to_pb())
+        elif isinstance(py_value, _Infinity):
+            self._require_infinity_value()
+            return sysml_pb2.Value(infinity=True)
         elif isinstance(py_value, MeasurementRef):
             self._require_measurement_refs()
             return sysml_pb2.Value(measurement_ref=py_value.to_pb())

@@ -311,6 +311,8 @@ Supported types:
 - `Boolean`: JSON boolean
 - `String`: JSON string
 - `Null`: JSON null
+- `Infinity`: the unbounded `*`, which is no number and carries no `value`
+  (`{"type": "Infinity"}`)
 - `Quantity`: JSON number, with the `unit` the magnitude is written in
 - `MeasurementRef`: the `unit` a measurement reference names, and no `value`
   (`{"type": "MeasurementRef", "unit": "m**2"}`)

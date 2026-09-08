@@ -341,13 +341,13 @@ func TestCalcBodySuccessionIsNotAStep(t *testing.T) {
 const unevaluableResultModel = `
 package test {
 	item def Foo { attribute v; }
-	calc def mk {
+	calc def complement {
 		in n;
-		Foo.metadata
+		~n
 	}
-	calc def unbounded {
+	calc def cast {
 		in n;
-		*
+		n as Foo
 	}
 }
 `
@@ -474,7 +474,7 @@ func TestUnevaluableResultIsNotReportedAsMissing(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, unevaluableResultModel))
 	root := idx.DocumentRoot("<test>")
 
-	for _, name := range []string{"mk", "unbounded"} {
+	for _, name := range []string{"complement", "cast"} {
 		calc, scope := calcByName(t, root, "test", name)
 		_, err := ctx.InvokeCalc(calc, []Value{constInt(1)}, scope)
 		if err == nil {

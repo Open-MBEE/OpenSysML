@@ -282,6 +282,10 @@ func (ec *EvalContext) eval(node ast.Node) (Value, error) {
 		return ec.evalLiteralBool(n)
 	case *ast.LiteralString:
 		return ec.evalLiteralString(n)
+	case *ast.LiteralInfinity:
+		return ec.evalLiteralInfinity(n)
+	case *ast.MetadataAccessExpr:
+		return ec.evalMetadataAccess(n)
 	case *ast.NullExpr:
 		return ec.evalNull(n)
 	case *ast.FeatureReference:
@@ -409,6 +413,12 @@ func (ec *EvalContext) evalLiteralString(n *ast.LiteralString) (Value, error) {
 }
 
 // evalNull evaluates a null expression.
+// evalLiteralInfinity evaluates `*`, the unbounded value: a scalar constant of
+// its own, ordered above every finite number and refused by arithmetic.
+func (ec *EvalContext) evalLiteralInfinity(_ *ast.LiteralInfinity) (Value, error) {
+	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, nil
+}
+
 func (ec *EvalContext) evalNull(n *ast.NullExpr) (Value, error) {
 	return Value{Kind: ValNull}, nil
 }
@@ -1133,12 +1143,18 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 	default:
+		if err := metadataOfAValue(value, parts); err != nil {
+			return Value{}, err
+		}
 		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
 	}
 
 	// A selected variant is chained through the object it materialized.
 	id, isObject := value.Object()
 	if !isObject {
+		if err := metadataOfAValue(value, parts); err != nil {
+			return Value{}, err
+		}
 		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
 	}
 	inst, ok := ec.ctx.instances[id]
@@ -1282,7 +1298,6 @@ func (ctx *Context) enumerationSummary(enum *symbols.Symbol) string {
 // says what each would need, so reaching one reports why rather than "unsupported".
 var unimplementedOperators = map[ast.OperatorKind]string{
 	ast.OpBitNot: "bitwise complement is declared by no function library the runtime applies",
-	ast.OpAs:     "a cast needs the runtime type of a value, which values do not carry yet",
 	ast.OpMeta:   "metadata access is evaluated from a MetadataAccessExpression, not this operator",
 	ast.OpAll:    "'all' needs the extent of a type, which the runtime does not enumerate",
 	ast.OpIndex:  "indexing is evaluated from an IndexExpression, not this operator",
@@ -1326,6 +1341,8 @@ func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 		return ec.evalClassification(n)
 	case ast.OpHasType, ast.OpIsType:
 		return ec.evalTypeClassification(n)
+	case ast.OpAs:
+		return ec.evalCast(n)
 	default:
 		if why, ok := unimplementedOperators[n.Operator]; ok {
 			return Value{}, fmt.Errorf("%w: '%s': %s", ErrUnsupportedOperator, n.Operator, why)
@@ -1415,12 +1432,12 @@ func (ec *EvalContext) valueHasType(value Value, target *symbols.Symbol, exact b
 	if err != nil {
 		return false, err
 	}
-	for _, typ := range direct {
-		if (exact && typ == target) || (!exact && ec.ctx.model.Conforms(typ, target)) {
-			return true, nil
-		}
+	// istype reads a composed target as a cast does, weighing the value's types
+	// together; hastype stays on identity with one of them.
+	if !exact {
+		return ec.ctx.model.ClassifiesTypes(direct, target) == semantics.ClassifiesAll, nil
 	}
-	return false, nil
+	return slices.Contains(direct, target), nil
 }
 
 // directValueTypes names the types a value is of, resolved in the scope reading it:
@@ -1482,6 +1499,12 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 			name = "Real"
 		case semantics.ValBool:
 			name = "Boolean"
+		case semantics.ValInfinity:
+			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
+			if positive := ctx.librarySymbol(positiveTypeFQN); positive != nil {
+				return positive, nil
+			}
+			return nil, fmt.Errorf("%w: direct type %q", ErrUndeterminedValueType, positiveTypeFQN)
 		default:
 			return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
 		}
@@ -1810,6 +1833,13 @@ func arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) 
 // evaluator and the compiled calc tier share so both report the same results
 // and the same errors.
 func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantics.Value, error) {
+	// The unbounded `*` is no number: arithmetic over it is refused rather than
+	// answered with a finite result or an infinity.
+	if left.IsUnbounded() || right.IsUnbounded() {
+		return semantics.Value{}, fmt.Errorf("%w: operator '%s' is not defined for the unbounded value '*': %s %s %s",
+			ErrTypeMismatch, op, semantics.FormatConst(left), op, semantics.FormatConst(right))
+	}
+
 	// Exponentiation shares the folder's implementation, so a folded and an
 	// evaluated `**` agree; the folder declines where this reports the error.
 	if op == ast.OpPow {
@@ -1984,6 +2014,20 @@ func comparisonValues(op ast.OperatorKind, left, right Value, span source.Span) 
 // constComparison orders two scalar constants, the core the evaluator and the
 // compiled calc tier share.
 func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, error) {
+	// The unbounded `*` orders above every finite number and equals itself.
+	if left.IsUnbounded() || right.IsUnbounded() {
+		order, ok := semantics.UnboundedOrder(left, right)
+		if !ok {
+			return false, fmt.Errorf("%w: '%s' is not defined between %s and %s",
+				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
+		}
+		res, ok := semantics.OrderSatisfies(op, order)
+		if !ok {
+			return false, fmt.Errorf("unknown comparison operator: %v", op)
+		}
+		return res, nil
+	}
+
 	// Compare integers
 	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
 		switch op {

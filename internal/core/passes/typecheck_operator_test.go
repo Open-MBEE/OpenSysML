@@ -107,7 +107,7 @@ const castFixture = `package P {
 	function F { return r : A; }
 	classifier Q; classifier R :> Q; classifier CQ ~ Q; feature cq : CQ;
 	feature xs : A[*];
-	feature d : D;
+	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype NI intersects I, B; datatype Diff differences A, C; feature u : U; feature dd : Diff;
 	feature untyped;
 	feature valued = 3;
 	%s
@@ -136,6 +136,13 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature bad = (1 < 2) as Integer;`, "16:16 cast argument is typed by Boolean, unrelated to the target Integer")
 	castDiags(t, "", `feature bad = xs.?{in x; true} as C;`, "16:16 cast argument is typed by A, unrelated to the target C")
 	castDiags(t, "", `feature bad = a#(1) as C;`, "16:16 cast argument is typed by A, unrelated to the target C")
+	castDiags(t, "", `feature bad = u as String;`, "16:16 cast argument is typed by U, unrelated to the target String")
+	castDiags(t, "", `feature bad = s as I;`, "16:16 cast argument is typed by String, unrelated to the target I")
+	// Every value of D is one of C's, which the difference subtracts.
+	castDiags(t, "", `feature bad = d as Diff;`, "16:16 cast argument is typed by D, unrelated to the target Diff")
+	castDiags(t, "", `feature bad = dd as C;`, "16:16 cast argument is typed by Diff, unrelated to the target C")
+	// A value of C as well as of A is none of the values A minus C holds.
+	castDiags(t, "", `feature bad = ab as Diff;`, "16:16 cast argument is typed by A and C, unrelated to the target Diff")
 	castDiags(t, "", `feature bad = a as s;`, "16:16 cast argument is typed by A, unrelated to the target s")
 	castDiags(t, "", `feature bad = cq as R;`, "16:16 cast argument is typed by CQ, unrelated to the target R")
 	castDiags(t, `feature bad = base as String;`, "", "9:59 cast argument is typed by A, unrelated to the target String")
@@ -145,7 +152,8 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 }
 
 // A cast up, down, or sideways through one of several types conforms; so does
-// one whose argument's type is not statically known, or is Anything.
+// one whose argument's type is not statically known, or is Anything, and one
+// between a composed type and a type it is composed of.
 func TestCastConformanceRelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature up = a as Base::Anything; feature down = a as B; feature same = a as A; feature self = a as a;`)
 	castDiags(t, "", `feature one = ab as B; feature other = ab as C; feature viaD = d as C;`)
@@ -155,6 +163,9 @@ func TestCastConformanceRelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature wide = untyped as String; feature nothing = null as A; feature real = 3 as Real;`)
 	castDiags(t, "", `feature data = (1 + 2) as String; feature seq = (1, 2) as Integer; feature body = xs.{in x; x} as C;`)
 	castDiags(t, "", `feature cond = (if true ? a else a) as C; feature sel = xs.?{in x; true} as B;`)
+	castDiags(t, "", `feature union = a as U; feature member = u as B; feature wider = u as A;`)
+	castDiags(t, "", `feature meet = d as I; feature less = b as Diff; feature kept = dd as A;`)
+	castDiags(t, "", `feature operand = a as I; feature nestedOperand = a as NI;`)
 }
 
 // The rule is KerML's, but SysML declares the same operator: a usage cast to an

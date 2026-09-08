@@ -825,7 +825,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -872,8 +872,13 @@ pub mod value {
         /// a unit by itself, no magnitude
         #[prost(message, tag="15")]
         MeasurementRef(super::MeasurementRef),
+        /// The unbounded value `*`, which is no number and no string: ordered above
+        /// every finite magnitude and refused by arithmetic. Always true when set,
+        /// as DocumentValue.infinity is.
+        #[prost(bool, tag="16")]
+        Infinity(bool),
         /// a calc as a value, named by its declaration
-        #[prost(message, tag="16")]
+        #[prost(message, tag="17")]
         Function(super::Function),
     }
 }

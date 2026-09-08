@@ -302,6 +302,11 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 			delete(ctx.occurrences, sym)
 		}
 	}
+	for annotation, id := range ctx.metadataObjects {
+		if _, live := ctx.instances[id]; !live {
+			delete(ctx.metadataObjects, annotation)
+		}
+	}
 	ctx.forgetLives(abandoned)
 	ctx.forgetVariantsNaming(abandoned)
 	ctx.forgetEdgesOf(gone)
@@ -966,6 +971,7 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 	if err := self.SetFeatureValue(ctx, name, value); err != nil {
 		return true, fmt.Errorf("write %s of object #%d: %w", name, self.ID, err)
 	}
+	ctx.noteObjectWrite(self, name, value)
 	return true, nil
 }
 

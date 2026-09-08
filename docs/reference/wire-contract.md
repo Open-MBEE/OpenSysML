@@ -217,6 +217,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `vector` | object | `{"result":{"vector":{"components":[{"realValue":3},{"realValue":4}]}}}` | Numeric vector; each component an `intValue` or `realValue` |
 | `vectorQuantity` | object | `{"result":{"vectorQuantity":{"components":[{"realMagnitude":3,"unit":"m","unitTerm":{…}},…]}}}` | Vector of quantities; one `quantity` body per component |
 | `measurementRef` | object | `{"result":{"measurementRef":{"unit":"m","unitTerm":{…},"unitId":"SI::metre"}}}` | A measurement reference on its own: a unit, its reduction, and the declaration it names |
+| `infinity` | boolean | `{"result":{"infinity":true}}` | The unbounded value `*`, which is no number and no string |
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
@@ -283,6 +284,11 @@ decode(v):
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
                  require v.measurementRef.unitTerm when either is present, else an error;
                  require unit or id, else an error; id absent means a composed unit
+  infinity     → the language's unbounded sentinel, distinct from a number and from the
+                 string "*"; it compares above every finite number and equals itself.
+                 The arm is the value itself, so only true carries it: a caller sending
+                 infinity: false, directly or nested, is answered with an error rather
+                 than with the unbounded value
   function     → calc := v.function.calcId, require it non-empty, else an error;
                  self := v.function.selfId when present and not "0", an opaque reference
                  under the instanceId rule (this response only), else no object
@@ -758,7 +764,41 @@ $ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::noSt
 
 An action with no outputs answers `{}` (captured for `action nop { first start; done;
 succession first start then done; }`). The response carries no step trace; ordering-sensitive
-behavior is pinned by the engine's golden traces, not exposed on this call.
+behavior is pinned by the engine's golden traces, not exposed on this call. What it does carry
+is every *choice point* the run made — a step in which the executor picked among alternatives
+the library leaves unordered (several steppable tokens, several holding decision guards, two
+tokens writing one feature in one step; see [Choice points](../guide/06-behavior.md)) — as an
+`"info"` diagnostic located at the action, present beside `outputs` on success and beside
+`error` when the run failed after making one (captured for `action tally { attribute leftCount :
+Integer = 0; attribute rightCount : Integer = 0; first start; fork split; action left { assign
+leftCount := leftCount + 1; } action right { assign rightCount := rightCount + 10; } join sync;
+done; … }` with a succession from `split` to each branch and from each to `sync`, in `tally.sysml`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally"}'
+{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2}}]}
+```
+
+A run with no `diagnostics` had exactly one order to take. The order taken is the engine's fixed
+rule, the same on every call, so the outputs are reproducible; the diagnostics say where another
+rule would have been equally valid.
+
+To report a decision's choice the engine reads the guards after the first holding one in a
+preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
+not an alternative and not an error — a guard with no result is not true, so its branch is not
+selected — and is reported as a second kind of `"info"` diagnostic, `guard not evaluable: …`,
+naming the step, the decision, the branch by position and target, and the failure, located at
+the guard (for `action route { attribute level : Integer = 75; … then decide select; if level > 50
+then warn; if 1 / (level - 75) > 0 then alarm; … }`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::route"}'
+{"outputs":{"level":{"intValue":"75"},"handler":{"intValue":"1"}},"diagnostics":[{"severity":"info","message":"guard not evaluable: step 2: decision select branch 2->alarm: division by zero (not selected)","span":{"file":"tally.sysml","startLine":31,"startCol":10,"endLine":31,"endCol":30}}]}
+```
+
+The first guard read is the run's own, not a preview: when it cannot be evaluated the run fails
+with `error` as it always has, and no `guard not evaluable` diagnostic is added. The two kinds are
+told apart by message prefix, `choice point: ` and `guard not evaluable: `; both are `"info"`.
 
 ### `ExecuteState`
 
@@ -786,7 +826,21 @@ $ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test:
 ```
 
 `finalContext` is absent when the machine has no variables; `statesVisited` lists a state each
-time it is entered, so a state entered twice appears twice.
+time it is entered, so a state entered twice appears twice. `diagnostics` carries an `"info"`
+entry for each event that enabled several transitions out of one state, located at the
+transition taken, as `ExecuteAction`'s does for its steps, and a `guard not evaluable: <state> on
+<trigger>: transition <n>-><target>: <failure> (not selected)` entry for a transition after the
+first enabled one whose guard it could not evaluate in its preview. Both belong to the transition
+that fires: a transition out of a parallel state that several of its regions select is one entry,
+and a transition on a substate beating one on the state enclosing it is spec-defined order, so
+nothing about the beaten state's transitions is reported. For `state def Hub { entry;
+then Idle; state Idle; state A; state B; transition first Idle accept Go then A; transition first
+Idle accept Go then B; }` in the same document:
+
+```console
+$ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"]}'
+{"statesVisited":["Idle","A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml","startLine":25,"startCol":3,"endLine":26,"endCol":3}}]}
+```
 
 ### `EvaluateCalc`
 
@@ -915,7 +969,8 @@ $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdo
 
 A step that fails, a body that deadlocks or exhausts its step budget and a case that runs itself are
 `FAILURE_REASON_EVALUATION` failures naming the case. Structured and complex arguments are
-capability-gated as `EvaluateCalc`'s are.
+capability-gated as `EvaluateCalc`'s are. The choice points the case's steps made are its
+`diagnostics`, shaped as `ExecuteAction`'s.
 
 ### `RunSweep`
 

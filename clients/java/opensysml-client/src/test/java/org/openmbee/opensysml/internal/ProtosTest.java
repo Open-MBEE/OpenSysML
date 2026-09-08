@@ -500,4 +500,21 @@ class ProtosTest {
     assertTrue(mass.materialized());
     assertEquals(Optional.empty(), mass.error());
   }
+
+  @Test
+  void onlyAnAssertedInfinityArmIsTheUnboundedValue() {
+    org.openmbee.opensysml.proto.Value asserted =
+        org.openmbee.opensysml.proto.Value.newBuilder().setInfinity(true).build();
+    assertEquals(Optional.of(new Value.InfinityValue()), Protos.value(asserted));
+
+    org.openmbee.opensysml.proto.Value denied =
+        org.openmbee.opensysml.proto.Value.newBuilder().setInfinity(false).build();
+    assertThrows(TransportException.class, () -> Protos.value(denied));
+
+    org.openmbee.opensysml.proto.Value nested =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSequence(ValueSequence.newBuilder().addElements(denied))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(nested));
+  }
 }

@@ -3,6 +3,9 @@ private import ScalarValues::*;
 package W7D {
 	part def Vehicle;
 	part def Car :> Vehicle;
+	part def Truck :> Vehicle;
+	part def Wheeled unions Car, Truck;
+	part def Registered unions Wheeled;
 	part def Sys;
 
 	attribute n7 : Integer = 7;
@@ -35,7 +38,11 @@ package W7D {
 			W7D::none istype Integer,
 			W7D::car istype Car,
 			W7D::car istype Vehicle,
-			W7D::sys istype Car
+			W7D::sys istype Car,
+			W7D::car istype Wheeled,
+			W7D::car istype Registered,
+			W7D::car hastype Wheeled,
+			W7D::sys istype Wheeled
 		);
 	}
 }

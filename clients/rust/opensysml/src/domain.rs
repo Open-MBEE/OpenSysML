@@ -434,6 +434,8 @@ pub enum Value {
     Null,
     /// A materialized feature with no value.
     Unset,
+    /// The unbounded value `*`, ordered above every finite magnitude.
+    Infinity,
 }
 
 pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
@@ -503,6 +505,15 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
             name: v.name,
         })),
         wire::value::Kind::Unset(_) => Ok(Value::Unset),
+        // Only an asserted arm carries the unbounded value.
+        wire::value::Kind::Infinity(asserted) => {
+            if !asserted {
+                return Err(Error::Decode(
+                    "the infinity arm states no value unless it is true".to_owned(),
+                ));
+            }
+            Ok(Value::Infinity)
+        }
     }
 }
 
@@ -519,6 +530,7 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Quantity(_) => "quantity",
         wire::value::Kind::EnumLiteral(_) => "enum_literal",
         wire::value::Kind::Unset(_) => "unset",
+        wire::value::Kind::Infinity(_) => "infinity",
         wire::value::Kind::Complex(_) => "complex",
         wire::value::Kind::Array(_) => "array",
         wire::value::Kind::Vector(_) => "vector",
@@ -942,6 +954,21 @@ mod tests {
             }),
             Value::Real(1.5)
         );
+    }
+
+    #[test]
+    fn only_an_asserted_infinity_arm_is_the_unbounded_value() {
+        let arm = |asserted| wire::Value {
+            kind: Some(wire::value::Kind::Infinity(asserted)),
+        };
+        assert_eq!(value_from_wire(arm(true)).ok(), Some(Value::Infinity));
+        assert!(matches!(value_from_wire(arm(false)), Err(Error::Decode(_))));
+        let nested = wire::Value {
+            kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
+                elements: vec![arm(false)],
+            })),
+        };
+        assert!(matches!(value_from_wire(nested), Err(Error::Decode(_))));
     }
 
     #[test]

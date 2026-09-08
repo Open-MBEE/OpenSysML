@@ -123,6 +123,7 @@ export type SysMLValue =
   | { kind: "vectorQuantity"; components: QuantityValue[] }
   | { kind: "null"; reason: string }
   | { kind: "unset" }
+  | { kind: "infinity" }
   | { kind: "absent" };
 
 /** What a verification answered about. Kept for the verification RPCs of a later version. */
@@ -194,6 +195,12 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "null", reason: kind.value };
     case "unset":
       return { kind: "unset" };
+    case "infinity":
+      // Only an asserted arm carries the unbounded value.
+      if (!kind.value) {
+        throw new MalformedValueError("the infinity arm states no value unless it is true");
+      }
+      return { kind: "infinity" };
     case undefined:
       return { kind: "absent" };
   }
@@ -273,6 +280,8 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, { kind: { case: "null", value: value.reason } });
     case "unset":
       return create(ValueSchema, { kind: { case: "unset", value: true } });
+    case "infinity":
+      return create(ValueSchema, { kind: { case: "infinity", value: true } });
     case "absent":
       throw new MalformedValueError("an absent value is no value at all, so it cannot be sent");
   }
@@ -351,6 +360,8 @@ export function formatValue(value: SysMLValue): string {
       return value.reason === "" ? "null" : `null (${value.reason})`;
     case "unset":
       return "unset";
+    case "infinity":
+      return "*";
     case "absent":
       return "absent";
   }

@@ -1,6 +1,8 @@
 step 1: token 1@split
 step 2: token 2@l1, token 3@l2, token 4@r1
+choice step 3: tokens 2@l1, 3@l2, 4@r1 (unordered; took 4@r1 first)
 step 3: token 2@left, token 3@left, token 4@r2
+choice step 4: tokens 3@left, 4@r2 (unordered; took 4@r2 first)
 step 4: token 4@r3, token 5@sync
 step 5: token 4@right, token 5@sync
 stmt assign log

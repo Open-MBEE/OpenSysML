@@ -1,0 +1,17 @@
+  eval feature level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+  eval feature level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+  eval feature level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+choice state work on accept Go: transitions 1->low, 2->high (unordered; took 1->low)
+exit: a1
+exit: b1
+exit: work
+enter: low (entry action)
+stmt assign route
+  eval literal 1 -> 1
+transition: work -> low (event: accept Go)

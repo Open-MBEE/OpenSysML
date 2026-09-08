@@ -313,9 +313,9 @@ def test_a_measurement_reference_is_an_added_value_arm():
 
 
 def test_a_function_is_an_added_value_arm():
-    """The function arm is new field 16."""
+    """The function arm is new field 17."""
     fields = sysml_pb2.Value.DESCRIPTOR.fields_by_name
-    assert fields["function"].number == 16
+    assert fields["function"].number == 17
     fn_fields = sysml_pb2.Function.DESCRIPTOR.fields_by_name
     assert {name: f.number for name, f in fn_fields.items()} == {
         "calc_id": 1, "self_id": 2,

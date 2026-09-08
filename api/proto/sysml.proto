@@ -700,7 +700,11 @@ message Value {
     Vector vector = 13;         // numeric components, never a sequence
     VectorQuantity vector_quantity = 14; // components each with their unit
     MeasurementRef measurement_ref = 15; // a unit by itself, no magnitude
-    Function function = 16;     // a calc as a value, named by its declaration
+    // The unbounded value `*`, which is no number and no string: ordered above
+    // every finite magnitude and refused by arithmetic. Always true when set,
+    // as DocumentValue.infinity is.
+    bool infinity = 16;
+    Function function = 17;     // a calc as a value, named by its declaration
   }
 }
 

@@ -1,0 +1,6 @@
+# The fork precedes both branches; the join waits for both. The library does
+# not order left against right.
+split < left
+split < right
+left < sync
+right < sync

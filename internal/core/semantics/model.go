@@ -48,7 +48,7 @@ type Model struct {
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
-	unioning   map[*symbols.Symbol][]*symbols.Symbol
+	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
 
 	superEdgeCache map[*symbols.Symbol][]superEdge      // generalization edges with conjugation
@@ -71,6 +71,9 @@ type Model struct {
 	filterTypes    map[string]*symbols.Symbol
 	annotations    map[*symbols.Symbol][]annotation
 	aboutAnnots    map[*symbols.Symbol][]annotation
+	// aboutByDecl keys the same annotations by the declaration of the element
+	// annotated, reaching them from a re-indexed twin of that symbol.
+	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
 
@@ -112,7 +115,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		params:            make(map[*symbols.Symbol]behaviorParameters),
 		invocations:       make(map[invocationKey]*InvocationSelection),
 		typingArgs:        make(map[*ast.InvocationExpr]bool),
-		unioning:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		composed:          make(map[composedKey][]*symbols.Symbol),
 		ends:              make(map[*symbols.Symbol][]connectorEnd),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
@@ -653,7 +656,7 @@ func (m *Model) conforms(a, b *symbols.Symbol, unioning map[*symbols.Symbol]bool
 	if a == nil || b == nil {
 		return false
 	}
-	if symbols.SameElement(a, b) || isAnything(b) {
+	if symbols.SameElement(a, b) || IsAnything(b) {
 		return true
 	}
 	for _, s := range m.AllSupertypes(a) {
@@ -813,23 +816,51 @@ func (m *Model) featureTypes(sym *symbols.Symbol, visiting map[*symbols.Symbol]b
 	return types
 }
 
+// composedKey names one kind of type composition of one type, the key its
+// resolved operands are memoized under.
+type composedKey struct {
+	sym  *symbols.Symbol
+	kind ast.RelationshipKind
+}
+
 // UnioningTypes returns the resolved targets of sym's `unions` relationships:
 // the types sym is declared to be the union of (KerML 1.0 §8.3.3). Unioning is
 // not a generalization edge — a union is constrained by its members rather than
 // inheriting from them — so it is resolved on its own. The result is memoized.
 func (m *Model) UnioningTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.composedOperands(sym, ast.RelUnions)
+}
+
+// IntersectingTypes returns the targets of sym's `intersects` relationships: the
+// types whose common values are sym's (KerML 1.0 §8.3.3), memoized.
+func (m *Model) IntersectingTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.composedOperands(sym, ast.RelIntersects)
+}
+
+// DifferencingTypes returns the targets of sym's `differences` relationships: the
+// values of the first that are none of the rest are sym's (KerML 1.0 §8.3.3).
+func (m *Model) DifferencingTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.composedOperands(sym, ast.RelDifferences)
+}
+
+// composedOperands resolves the targets of sym's relationships of one composition
+// kind, in declaration order and without repetition. The result is memoized.
+func (m *Model) composedOperands(
+	sym *symbols.Symbol, kind ast.RelationshipKind,
+) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	if cached, ok := m.unioning[sym]; ok {
+	key := composedKey{sym: sym, kind: kind}
+	if cached, ok := m.composed[key]; ok {
 		return cached
 	}
-	m.unioning[sym] = nil
+	m.composed[key] = nil
 
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil || rel.Kind != ast.RelUnions {
+		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue
 		}
 		targetNode := rel.Target
@@ -856,7 +887,7 @@ func (m *Model) UnioningTypes(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, target)
 	}
 
-	m.unioning[sym] = out
+	m.composed[key] = out
 	return out
 }
 
@@ -872,9 +903,9 @@ func IsElementType(sym *symbols.Symbol) bool {
 	return sym != nil && symbols.FQNOf(sym) == "KerML::Root::Element"
 }
 
-// isAnything reports whether sym is Base::Anything, the classifier every type
+// IsAnything reports whether sym is Base::Anything, the classifier every type
 // specializes (KerML 8.3.2.1), whether or not the chain to it is declared.
-func isAnything(sym *symbols.Symbol) bool {
+func IsAnything(sym *symbols.Symbol) bool {
 	return sym != nil && (sym.Name == "Base::Anything" ||
 		(sym.Name == "Anything" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
 			sym.OwnerScope.Owner().Name == "Base"))

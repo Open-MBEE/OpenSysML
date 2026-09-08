@@ -196,6 +196,7 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	if err != nil || !pass {
 		return false, err
 	}
+	e.transitionDecided()
 
 	target, err := e.transitionTarget(trans)
 	if err != nil {

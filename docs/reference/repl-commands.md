@@ -23,7 +23,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%save <file>` | Write the session model to a file: `.sysml` notation (comments preserved) or `.ttl` RDF, which is [experimental](rdf-mapping.md#status-experimental) and reported as such on each save |
 | `%query <oslc-query>` | Identify model elements using OSLC Query text |
 | `%verbosity [level]` | Show or set output level: `quiet` (errors only), `normal`, `debug` (every diagnostic over the whole buffer) |
-| `%trace [on\|off]` | Show or set execution tracing: each evaluation, calc invocation, action step and state transition |
+| `%trace [on\|off]` | Show or set execution tracing: each evaluation, calc invocation, action step and state transition, and each `choice` the executor made among alternatives the library leaves unordered — several steppable tokens, several holding decision guards, several enabled transitions out of one state for one event, two tokens writing one feature in one step — naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). `%step`, `%continue` and `%advance` end with a count of the choices they made and of the guards they could not evaluate (`1 choice point; 1 guard not evaluable`) whether or not tracing is on |
 | `%strict [on\|off]` | Show or set strict conformance: report notation no SysML v2 production admits as an error, and reprint the session's diagnostics under the new mode ([Strict conformance](../guide/03-command-line.md#strict-conformance)) |
 | `%budget` | Show the five bounds one run may spend, each with the variable that raises it |
 | **Library Discovery** | |

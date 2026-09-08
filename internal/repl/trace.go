@@ -1,6 +1,42 @@
 package repl
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+)
+
+// noteSummary is the line a debugger command adds when the steps it ran noted
+// choice points or guards it could not evaluate beyond the before notes it
+// started with: how many of each, and how to see them.
+func (s *Session) noteSummary(ctx *runtime.Context, before int) []string {
+	notes := ctx.Notes()
+	if before >= len(notes) {
+		return nil
+	}
+	var choices, unevaluable int
+	for _, n := range notes[before:] {
+		switch n.(type) {
+		case runtime.ChoicePoint:
+			choices++
+		case runtime.UnevaluableGuard:
+			unevaluable++
+		}
+	}
+	var parts []string
+	if choices > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", choices, plural(choices, "choice point", "choice points")))
+	}
+	if unevaluable > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", unevaluable, plural(unevaluable, "guard not evaluable", "guards not evaluable")))
+	}
+	line := "  " + strings.Join(parts, "; ")
+	if s.trace == nil {
+		line += "; %trace on to see them"
+	}
+	return []string{line}
+}
 
 // tracePrefix marks a recorded execution step, so a trace is distinguishable
 // from a command's own output.

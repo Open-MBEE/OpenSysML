@@ -54,6 +54,7 @@ public final class Protos {
       case QUANTITY -> Optional.of(new Value.QuantityValue(quantity(value.getQuantity())));
       case ENUM_LITERAL -> Optional.of(new Value.EnumerationValue(literal(value.getEnumLiteral())));
       case UNSET -> Optional.of(new Value.UnsetValue());
+      case INFINITY -> Optional.of(infinity(value));
       case ARRAY -> Optional.of(array(value.getArray()));
       case VECTOR -> Optional.of(vector(value.getVector()));
       case VECTOR_QUANTITY -> Optional.of(vectorQuantity(value.getVectorQuantity()));
@@ -61,6 +62,17 @@ public final class Protos {
       case FUNCTION -> Optional.of(function(value.getFunction()));
       case KIND_NOT_SET -> Optional.empty();
     };
+  }
+
+  /** Only an asserted arm carries the unbounded value. */
+  private static Value infinity(org.openmbee.opensysml.proto.Value value) {
+    if (!value.getInfinity()) {
+      throw new TransportException(
+          "the service answered a malformed value: the infinity arm states no value unless it is"
+              + " true",
+          null);
+    }
+    return new Value.InfinityValue();
   }
 
   private static Value array(org.openmbee.opensysml.proto.Array array) {

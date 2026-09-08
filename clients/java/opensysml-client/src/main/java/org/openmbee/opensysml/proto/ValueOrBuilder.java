@@ -323,10 +323,33 @@ public interface ValueOrBuilder extends
 
   /**
    * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return Whether the infinity field is set.
+   */
+  boolean hasInfinity();
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return The infinity.
+   */
+  boolean getInfinity();
+
+  /**
+   * <pre>
    * a calc as a value, named by its declaration
    * </pre>
    *
-   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * <code>.sysml.Function function = 17 [json_name = "function"];</code>
    * @return Whether the function field is set.
    */
   boolean hasFunction();
@@ -335,7 +358,7 @@ public interface ValueOrBuilder extends
    * a calc as a value, named by its declaration
    * </pre>
    *
-   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * <code>.sysml.Function function = 17 [json_name = "function"];</code>
    * @return The function.
    */
   org.openmbee.opensysml.proto.Function getFunction();
@@ -344,7 +367,7 @@ public interface ValueOrBuilder extends
    * a calc as a value, named by its declaration
    * </pre>
    *
-   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * <code>.sysml.Function function = 17 [json_name = "function"];</code>
    */
   org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder();
 

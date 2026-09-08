@@ -97,6 +97,10 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		if !s.capabilities.has(CapabilityFunctionValues) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: " + runtime.ValFunction.String() + " " + kind.Function.GetCalcId()}
 		}
+	case *pb.Value_Infinity:
+		if !s.capabilities.has(CapabilityInfinityValue) {
+			value.Kind = &pb.Value_Null{Null: "unsupported: unbounded value *"}
+		}
 	}
 }
 

@@ -1,0 +1,14 @@
+model: cmd/pilot-exec-diff/testdata/models/cast_expressions.sysml
+
+# `x as T` selects the values of x that T classifies and converts nothing
+# (KerML CastExpression): a whole Real is an Integer, 2.5 is not, and a
+# sequence is filtered element-wise. As with the classification cases, the
+# pilot cannot resolve ScalarValues names inside a bare %eval, so each case
+# reads a model-level attribute bound to the cast.
+integer-as-real ::  :: Cast::integerAsReal
+integer-as-natural ::  :: Cast::integerAsNatural
+fraction-as-integer ::  :: Cast::fractionAsInteger
+whole-as-integer ::  :: Cast::wholeAsInteger
+sequence-as-integer ::  :: Cast::sequenceAsInteger
+car-as-vehicle ::  :: Cast::carAsVehicle
+car-as-car ::  :: Cast::carAsCar

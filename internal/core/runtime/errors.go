@@ -114,6 +114,11 @@ var (
 	// direct runtime type to compare.
 	ErrUndeterminedValueType = errors.New("value type cannot be determined")
 
+	// ErrUndecidedClassification is returned when a cast reaches a value whose
+	// classification by a type narrower than the value's own the value does not
+	// settle, so the cast fails rather than dropping a value that may be one.
+	ErrUndecidedClassification = errors.New("classification of a value cannot be decided")
+
 	// ErrCalcNoReturn is returned when a calc body runs to its end without
 	// returning: it computed no result, which is not the same as a null one.
 	ErrCalcNoReturn = errors.New("calculation returned no value")

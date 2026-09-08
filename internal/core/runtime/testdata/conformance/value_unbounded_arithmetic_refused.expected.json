@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "instantiate": "test::Arithmetic",
+  "libraries": true,
+  "slots": {
+    "sum": {"error": "operator '+' is not defined for the unbounded value '*': * + 1"},
+    "addedTo": {"error": "operator '+' is not defined for the unbounded value '*': 1 + *"},
+    "difference": {"error": "operator '-' is not defined for the unbounded value '*': * - 1"},
+    "product": {"error": "operator '*' is not defined for the unbounded value '*': 2 * *"},
+    "quotient": {"error": "operator '/' is not defined for the unbounded value '*': * / 2"},
+    "remainder": {"error": "operator '%' is not defined for the unbounded value '*': * % 2"},
+    "power": {"error": "operator '**' is not defined for the unbounded value '*': * ** 2"},
+    "negated": {"error": "unary '-' is not defined for *"},
+    "positive": {"error": "unary '+' is not defined for *"}
+  }
+}

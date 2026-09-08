@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "annotations": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}]},
+    "mandatory": {"type": "Boolean", "value": true},
+    "level": {"type": "Integer", "value": 4},
+    "superseded": {"type": "String", "value": "none"},
+    "defaulted": {"type": "Integer", "value": 2},
+    "none": {"type": "Sequence", "elements": []}
+  }
+}

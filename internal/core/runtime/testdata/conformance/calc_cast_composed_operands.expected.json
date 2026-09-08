@@ -1,0 +1,11 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "fractionalUndecidedFirst": {"type": "Sequence", "elements": []},
+    "fractionalDecidedFirst": {"type": "Sequence", "elements": []},
+    "integralSubtractedLast": {"type": "Sequence", "elements": []},
+    "integralSubtractedFirst": {"type": "Sequence", "elements": []}
+  }
+}
