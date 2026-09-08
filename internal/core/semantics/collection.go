@@ -690,7 +690,7 @@ func decided(c Conformance) (Conformance, bool) {
 // informativeTypes is types unless every one is Anything, which says nothing; then nil.
 func informativeTypes(types []*symbols.Symbol) []*symbols.Symbol {
 	for _, typ := range types {
-		if !isAnything(typ) {
+		if !IsAnything(typ) {
 			return types
 		}
 	}
