@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -375,5 +376,25 @@ func TestRunSweepUnknownModel(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("RunSweep on an unknown model should fail the call")
+	}
+}
+
+// TestRunSweepCanceledCallerFailsTheCall verifies a caller that has gone away
+// fails the call rather than being reported as a table of failed rows.
+func TestRunSweepCanceledCallerFailsTheCall(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-canceled")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	resp, err := srv.RunSweep(ctx, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::Twice",
+		Ranges: []*pb.SweepRange{intRange("n", 1, 8)},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v; want context.Canceled", err)
+	}
+	if resp != nil {
+		t.Errorf("a canceled call reported %d row(s); want no response", len(resp.Rows))
 	}
 }

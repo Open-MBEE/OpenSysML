@@ -888,6 +888,10 @@ $ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::Fall"}'
 {"error":"no sweep range: name a range as <parameter>=<from>..<to>","failureReason":"FAILURE_REASON_EVALUATION"}
 ```
 
+A call the client cancels or lets time out stops between runs: the next run is not started, the
+call fails with that status rather than answering a partial table, and the model it held is
+released.
+
 ### `Evaluate`
 
 Not a behavior in the model, but the general-purpose call that every other example here uses:

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -108,8 +109,9 @@ func NewSampleSource(seed uint64) *rand.Rand {
 
 // RunSweep makes one run per row of the plan and reports the table. A run that
 // failed is that row's typed error; the table is completed either way. The plan
-// itself is refused before any run is made.
-func (ctx *Context) RunSweep(target string, plan SweepPlan, run SweepRun) (SweepTable, error) {
+// itself is refused before any run is made, and a caller that goes away between
+// runs takes the rest of the table with it.
+func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan, run SweepRun) (SweepTable, error) {
 	rows, err := ctx.sweepBindings(plan)
 	if err != nil {
 		return SweepTable{}, err
@@ -125,6 +127,9 @@ func (ctx *Context) RunSweep(target string, plan SweepPlan, run SweepRun) (Sweep
 		table.Params = append(table.Params, r.Param)
 	}
 	for _, bindings := range rows {
+		if err := stop.Err(); err != nil {
+			return SweepTable{}, err
+		}
 		row := SweepRow{Bindings: bindings}
 		started := time.Now()
 		result, err := run(bindings)
@@ -245,14 +250,21 @@ func (ctx *Context) sweepBudgetError() error {
 }
 
 // sweepBounds is a range as arithmetic reads it: magnitudes in the unit its
-// first endpoint carries, and whether its values are Integers.
+// first endpoint carries, and whether its values are Integers. A range between
+// Integers also keeps them exactly, which float64 stops doing beyond 2^53.
 type sweepBounds struct {
 	from, to float64
 	step     float64
 	isInt    bool
+	intFrom  int64
+	intTo    int64
+	intStep  int64
 	unit     semantics.Unit
 	quantity bool
 }
+
+// exactFloatInt is the largest magnitude float64 counts by ones through.
+const exactFloatInt = 1 << 53
 
 // scalar is one endpoint's magnitude and unit.
 type sweepScalar struct {
@@ -316,7 +328,10 @@ func (r SweepRange) endpoints() (sweepBounds, error) {
 	if bounds.to, err = to.magnitudeIn(from.unit, from.quantity, "range end "+FormatValue(r.To)); err != nil {
 		return sweepBounds{}, err
 	}
-	bounds.isInt = whole(from.num, bounds.from) && whole(to.num, bounds.to)
+	fromInt, fromWhole := exactInt(from.num, bounds.from, false)
+	toInt, toWhole := exactInt(to.num, bounds.to, from.quantity)
+	bounds.isInt = fromWhole && toWhole
+	bounds.intFrom, bounds.intTo = fromInt, toInt
 	return bounds, nil
 }
 
@@ -335,9 +350,9 @@ func (r SweepRange) bounds() (sweepBounds, error) {
 				ErrSweepRange, r.Param, FormatValue(r.From), FormatValue(r.To),
 			)
 		}
-		bounds.step = 1
-		if bounds.to < bounds.from {
-			bounds.step = -1
+		bounds.step, bounds.intStep = 1, 1
+		if bounds.intTo < bounds.intFrom {
+			bounds.step, bounds.intStep = -1, -1
 		}
 		return bounds, nil
 	}
@@ -348,22 +363,42 @@ func (r SweepRange) bounds() (sweepBounds, error) {
 	if bounds.step, err = step.magnitudeIn(bounds.unit, bounds.quantity, "step "+FormatValue(r.Step)); err != nil {
 		return sweepBounds{}, err
 	}
-	bounds.isInt = bounds.isInt && whole(step.num, bounds.step)
+	stepInt, stepWhole := exactInt(step.num, bounds.step, bounds.quantity)
+	bounds.isInt = bounds.isInt && stepWhole
+	bounds.intStep = stepInt
 	if bounds.step == 0 {
 		return sweepBounds{}, fmt.Errorf("%w: %s steps by zero, which never reaches %s",
 			ErrSweepRange, r.Param, FormatValue(r.To))
 	}
-	if bounds.to != bounds.from && (bounds.to-bounds.from)*bounds.step < 0 {
+	if bounds.stepsAway() {
 		return sweepBounds{}, fmt.Errorf("%w: %s steps by %s away from %s",
 			ErrSweepRange, r.Param, FormatValue(r.Step), FormatValue(r.To))
 	}
 	return bounds, nil
 }
 
-// whole reports whether a magnitude is an Integer as written and stayed one
-// after being expressed in the range's unit.
-func whole(num semantics.Value, magnitude float64) bool {
-	return num.Kind == semantics.ValInt && magnitude == math.Trunc(magnitude)
+// stepsAway reports whether the step leads away from the range's end.
+func (b sweepBounds) stepsAway() bool {
+	if b.isInt {
+		return b.intTo != b.intFrom && (b.intTo > b.intFrom) != (b.intStep > 0)
+	}
+	return b.to != b.from && (b.to-b.from)*b.step < 0
+}
+
+// exactInt is a magnitude as the Integer it was written as, where the range
+// still takes Integer values. A magnitude expressed in another unit is only an
+// Integer while float64 held it exactly.
+func exactInt(num semantics.Value, magnitude float64, converted bool) (int64, bool) {
+	if num.Kind != semantics.ValInt {
+		return 0, false
+	}
+	if !converted {
+		return num.Int, true
+	}
+	if magnitude != math.Trunc(magnitude) || math.Abs(magnitude) > exactFloatInt {
+		return 0, false
+	}
+	return int64(magnitude), true
 }
 
 // enumerate is every value of a swept range, from its start towards its end,
@@ -374,22 +409,75 @@ func (r SweepRange) enumerate(limit int64) ([]Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	span := (bounds.to - bounds.from) / bounds.step
-	// A step landing within a rounding error of the endpoint reaches it: the
-	// notation says 0.0..1.0:0.1 has eleven values, and binary reals do not.
-	count := int64(math.Floor(span+stepTolerance(span))) + 1
-	if count < 1 {
-		count = 1
-	}
-	if count > limit {
+	count := bounds.count()
+	if count > unsignedInt(limit) {
 		return nil, fmt.Errorf("%w: %s=%s..%s takes %d run(s), at most %d allowed (raise %s)",
 			ErrSweepBudget, r.Param, FormatValue(r.From), FormatValue(r.To), count, limit, MaxSweepRunsEnvVar)
 	}
 	values := make([]Value, 0, count)
-	for i := int64(0); i < count; i++ {
-		values = append(values, bounds.value(bounds.from+float64(i)*bounds.step))
+	for i := int64(0); i < signedInt(count); i++ {
+		values = append(values, bounds.at(i))
 	}
 	return values, nil
+}
+
+// count is how many values the range takes, its end included where a step
+// lands on it. An Integer range counts exactly; a real one counts within a
+// rounding error, since 0.0..1.0:0.1 has eleven values and binary reals do not.
+func (b sweepBounds) count() uint64 {
+	if b.isInt {
+		span := unsignedInt(b.intTo) - unsignedInt(b.intFrom)
+		if b.intStep < 0 {
+			span = unsignedInt(b.intFrom) - unsignedInt(b.intTo)
+		}
+		if span == math.MaxUint64 && b.intStepMagnitude() == 1 {
+			return math.MaxUint64
+		}
+		return span/b.intStepMagnitude() + 1
+	}
+	span := (b.to - b.from) / b.step
+	count := math.Floor(span+stepTolerance(span)) + 1
+	if !(count > 1) {
+		return 1
+	}
+	if count > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return uint64(count)
+}
+
+// at is the range's value the given number of steps from its start. An Integer
+// range steps in unsigned arithmetic, which reaches its endpoints exactly.
+func (b sweepBounds) at(i int64) Value {
+	if b.isInt {
+		offset := unsignedInt(i) * b.intStepMagnitude()
+		if b.intStep < 0 {
+			return b.valueInt(signedInt(unsignedInt(b.intFrom) - offset))
+		}
+		return b.valueInt(signedInt(unsignedInt(b.intFrom) + offset))
+	}
+	return b.value(b.from + float64(i)*b.step)
+}
+
+// intStepMagnitude is how far one Integer step reaches, which the widest step
+// only states unsigned.
+func (b sweepBounds) intStepMagnitude() uint64 {
+	if b.intStep < 0 {
+		return -unsignedInt(b.intStep)
+	}
+	return unsignedInt(b.intStep)
+}
+
+// unsignedInt and signedInt are the two views of one Integer. A sweep counts and
+// steps unsigned, so a range as wide as Integer arithmetic stays exact.
+func unsignedInt(n int64) uint64 {
+	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
+	return uint64(n)
+}
+
+func signedInt(n uint64) int64 {
+	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
+	return int64(n)
 }
 
 // stepTolerance is the rounding error a count of steps is allowed, scaled to
@@ -401,14 +489,31 @@ func stepTolerance(span float64) float64 {
 // draw is one uniform value of a sampled range: an Integer range draws over its
 // endpoints inclusively, a real one over [from, to).
 func (b sweepBounds) draw(source *rand.Rand) Value {
+	if b.isInt {
+		lo, hi := b.intFrom, b.intTo
+		if hi < lo {
+			lo, hi = hi, lo
+		}
+		return b.valueInt(signedInt(unsignedInt(lo) + drawOffset(source, unsignedInt(hi)-unsignedInt(lo))))
+	}
 	lo, hi := b.from, b.to
 	if hi < lo {
 		lo, hi = hi, lo
 	}
-	if b.isInt {
-		return b.value(float64(int64(lo) + source.Int64N(int64(hi)-int64(lo)+1)))
-	}
 	return b.value(lo + source.Float64()*(hi-lo))
+}
+
+// drawOffset is a uniform offset from zero to width inclusive, drawn as an
+// Int64N while the width leaves room for it so a wider range costs nothing.
+func drawOffset(source *rand.Rand, width uint64) uint64 {
+	switch {
+	case width < math.MaxInt64:
+		return unsignedInt(source.Int64N(signedInt(width) + 1))
+	case width == math.MaxUint64:
+		return source.Uint64()
+	default:
+		return source.Uint64N(width + 1)
+	}
 }
 
 // value is a magnitude as the range's own kind of value: an Integer or a real,
@@ -418,6 +523,16 @@ func (b sweepBounds) value(magnitude float64) Value {
 	if b.isInt {
 		num = semantics.Value{Kind: semantics.ValInt, Int: int64(math.Round(magnitude))}
 	}
+	return b.carry(num)
+}
+
+// valueInt is an Integer of the range, carrying its unit.
+func (b sweepBounds) valueInt(n int64) Value {
+	return b.carry(semantics.Value{Kind: semantics.ValInt, Int: n})
+}
+
+// carry is the number in the unit the range's first endpoint was expressed in.
+func (b sweepBounds) carry(num semantics.Value) Value {
 	if !b.quantity {
 		return Value{Kind: ValConst, Const: num}
 	}

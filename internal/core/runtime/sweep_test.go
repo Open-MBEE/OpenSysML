@@ -1,7 +1,9 @@
 package runtime
 
 import (
+	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -86,7 +88,7 @@ func sweepCalcRun(ctx *Context, sym *symbols.Symbol, scope *symbols.Scope) Sweep
 func runSweepOver(t *testing.T, ctx *Context, scope *symbols.Scope, name string, plan SweepPlan) SweepTable {
 	t.Helper()
 	sym := calcNamed(t, scope, name)
-	table, err := ctx.RunSweep("test::"+name, plan, sweepCalcRun(ctx, sym, scope))
+	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, sweepCalcRun(ctx, sym, scope))
 	if err != nil {
 		t.Fatalf("sweep of %s: %v", name, err)
 	}
@@ -98,7 +100,7 @@ func runSweepOver(t *testing.T, ctx *Context, scope *symbols.Scope, name string,
 func refuseSweep(t *testing.T, ctx *Context, scope *symbols.Scope, name string, plan SweepPlan) error {
 	t.Helper()
 	sym := calcNamed(t, scope, name)
-	table, err := ctx.RunSweep("test::"+name, plan, sweepCalcRun(ctx, sym, scope))
+	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, sweepCalcRun(ctx, sym, scope))
 	if err == nil {
 		t.Fatalf("sweep of %s ran %d row(s); want a refusal", name, len(table.Rows))
 	}
@@ -556,5 +558,127 @@ func TestNewSampleSourceIsSeededFromTheSeedAlone(t *testing.T) {
 		if a == c {
 			t.Fatalf("draw %d from seed 10 is what seed 9 drew: %d", i, a)
 		}
+	}
+}
+
+// A range between Integers too large for float64 to count by ones through
+// still takes every value between its endpoints.
+func TestSweepIntegerRangeBeyondFloatPrecisionStepsExactly(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	const big = int64(1) << 60
+	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n", intOf(big), intOf(big+3))},
+	})
+	want := []string{"n=1152921504606846976", "n=1152921504606846977", "n=1152921504606846978", "n=1152921504606846979"}
+	if got := inputsOf(table); !equalStrings(got, want) {
+		t.Errorf("rows bound %v; want %v", got, want)
+	}
+	stepped := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+		Ranges: []SweepRange{steppedRange("n", intOf(1<<53), intOf(1<<53+4), intOf(2))},
+	})
+	wantStepped := []string{"n=9007199254740992", "n=9007199254740994", "n=9007199254740996"}
+	if got := inputsOf(stepped); !equalStrings(got, wantStepped) {
+		t.Errorf("rows bound %v; want %v", got, wantStepped)
+	}
+}
+
+// A range against the ends of Integer arithmetic reaches its endpoints rather
+// than wrapping past them, in either direction and by a step of any width.
+func TestSweepIntegerRangeAtTheIntegerExtremes(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	cases := []struct {
+		name  string
+		plan  SweepRange
+		bound []string
+	}{
+		{"top", rangeOf("n", intOf(math.MaxInt64-2), intOf(math.MaxInt64)),
+			[]string{"n=9223372036854775805", "n=9223372036854775806", "n=9223372036854775807"}},
+		{"bottom", rangeOf("n", intOf(math.MinInt64), intOf(math.MinInt64+2)),
+			[]string{"n=-9223372036854775808", "n=-9223372036854775807", "n=-9223372036854775806"}},
+		{"descending", rangeOf("n", intOf(math.MinInt64+2), intOf(math.MinInt64)),
+			[]string{"n=-9223372036854775806", "n=-9223372036854775807", "n=-9223372036854775808"}},
+		{"widest step", steppedRange("n", intOf(math.MinInt64), intOf(math.MaxInt64), intOf(math.MaxInt64)),
+			[]string{"n=-9223372036854775808", "n=-1", "n=9223372036854775806"}},
+		{"singleton", rangeOf("n", intOf(math.MaxInt64), intOf(math.MaxInt64)),
+			[]string{"n=9223372036854775807"}},
+	}
+	for _, c := range cases {
+		table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{Ranges: []SweepRange{c.plan}})
+		if got := inputsOf(table); !equalStrings(got, c.bound) {
+			t.Errorf("%s: rows bound %v; want %v", c.name, got, c.bound)
+		}
+	}
+}
+
+// A range spanning every Integer takes more runs than any budget allows, and
+// is refused by the budget rather than counted wrongly.
+func TestSweepOverEveryIntegerIsRefusedByTheBudget(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	err := refuseSweep(t, ctx, scope, "Twice", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n", intOf(math.MinInt64), intOf(math.MaxInt64))},
+	})
+	if !errors.Is(err, ErrSweepBudget) {
+		t.Errorf("err = %v; want ErrSweepBudget", err)
+	}
+}
+
+// Sampling a range float64 cannot count through draws Integers spread over it,
+// rather than collapsing onto one endpoint.
+func TestSamplesOverWideIntegerRangesSpreadOverThem(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	const big = int64(1) << 60
+	cases := []struct {
+		name     string
+		from, to int64
+	}{
+		{"beyond float precision", big, big + 4},
+		{"every integer", math.MinInt64, math.MaxInt64},
+	}
+	for _, c := range cases {
+		table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+			Ranges:  []SweepRange{rangeOf("n", intOf(c.from), intOf(c.to))},
+			Sampled: true, Samples: 12, Seed: 11,
+		})
+		seen := map[int64]bool{}
+		for _, row := range table.Rows {
+			drawn := row.Bindings[0].Value.Const.Int
+			if drawn < c.from || drawn > c.to {
+				t.Errorf("%s: drew n=%d, which is outside %d..%d", c.name, drawn, c.from, c.to)
+			}
+			seen[drawn] = true
+		}
+		if len(seen) < 2 {
+			t.Errorf("%s: 12 draws took %d value(s); want a spread", c.name, len(seen))
+		}
+	}
+}
+
+// A sweep stops between runs once its caller has gone away, and reports why
+// rather than a table.
+func TestSweepStopsWhenItsCallerGoesAway(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	sym := calcNamed(t, scope, "Twice")
+	run := sweepCalcRun(ctx, sym, scope)
+	stop, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ran := 0
+	counted := func(bindings []SweepBinding) (SweepRunResult, error) {
+		ran++
+		if ran == 2 {
+			cancel()
+		}
+		return run(bindings)
+	}
+	table, err := ctx.RunSweep(stop, "test::Twice", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(20))},
+	}, counted)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v; want context.Canceled", err)
+	}
+	if ran != 2 {
+		t.Errorf("%d run(s) were made; want the sweep to stop after the second", ran)
+	}
+	if len(table.Rows) != 0 {
+		t.Errorf("a stopped sweep reported %d row(s); want none", len(table.Rows))
 	}
 }

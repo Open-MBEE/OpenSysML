@@ -91,8 +91,12 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		return runtime.SweepRunResult{Outputs: result.Outputs, Verdicts: result.Verdicts}, nil
 	}
 
-	table, err := v.runtime.RunSweep(req.SymbolId, plan, run)
+	table, err := v.runtime.RunSweep(ctx, req.SymbolId, plan, run)
 	if err != nil {
+		// A caller that went away is the call failing, not a table reporting it.
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return sweepFailure(err), nil
 	}
 	return v.sweepResponse(table, subject), nil
