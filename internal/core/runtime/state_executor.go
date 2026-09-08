@@ -2269,8 +2269,10 @@ func (d Decision) Enabled() bool {
 // occurrence not yet built — starts its behaviors as under dispatch, so the guard
 // reads what they make of it, then is discarded along with them and anything they
 // sent. So is a port materialized to tell whether the message reaches the machine
-// at all. A payload or guard error is returned.
+// at all. A payload or guard error is returned. Among several enabled transitions
+// it names the one this machine's own run would fire, its scheduler left in place.
 func (e *StateExecutor) Decide(m Message) (decision Decision, err error) {
+	defer e.ctx.previewExecutorRun(&e.driven)()
 	e.preview(func() { decision, err = e.decide(m) })
 	return decision, err
 }

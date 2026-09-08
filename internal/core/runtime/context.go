@@ -605,6 +605,21 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 	}
 }
 
+// previewExecutorRun installs, for a preview of a call into a call-by-call driven
+// executor, the scheduler that call would draw from; nothing is begun.
+func (ctx *Context) previewExecutorRun(run *executorRun) func() {
+	if ctx.runDepth > 0 {
+		return func() { /* nested: the outer run's scheduler */ }
+	}
+	saved := ctx.scheduler
+	if run.started {
+		ctx.scheduler = run.scheduler
+	} else {
+		ctx.scheduler = ctx.schedule.start()
+	}
+	return func() { ctx.scheduler = saved }
+}
+
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
 // budget, trace, bus, variant selections, objects made (identities included),
 // behaviors attached, every feature value written (see noteProbeWrite) and every

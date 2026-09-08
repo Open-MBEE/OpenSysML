@@ -311,6 +311,61 @@ func TestDrivenRunKeepsItsSchedulerAcrossOtherRuns(t *testing.T) {
 	}
 }
 
+// A decision previewed for a machine a debugger drives names the transition that
+// machine's own run fires next, after other runs have used the context, and the
+// preview consumes none of the run's draws.
+func TestDecidePredictsTheDrivenRunsTransition(t *testing.T) {
+	src := `package test {
+		state Dispatcher {
+			attribute level : Integer = 8;
+			entry; then idle;
+			state idle;
+			state low;
+			state high;
+			transition first idle accept Go if level > 5 then low;
+			transition first idle accept Go if level > 7 then high;
+		}
+	}`
+	finals := make(map[string]bool)
+	for seed := 0; seed < 16; seed++ {
+		policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		ctx.SetSchedule(policy)
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			t.Fatalf("%s: create executor: %v", policy, err)
+		}
+		// Another run in between draws from a scheduler of its own and leaves it behind.
+		if _, _, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"}); err != nil {
+			t.Fatalf("%s: run in between: %v", policy, err)
+		}
+		msg := Message{SignalType: "Go"}
+		first, err := exec.Decide(msg)
+		if err != nil || len(first.Fires) != 1 {
+			t.Fatalf("%s: Decide(Go) = %+v, %v; want one transition firing", policy, first, err)
+		}
+		if again, err := exec.Decide(msg); err != nil || again.Fires[0] != first.Fires[0] {
+			t.Errorf("%s: a second Decide(Go) = %+v, %v; want %q again, the preview drawing nothing", policy, again, err, first.Fires[0])
+		}
+		exec.SendSignal("Go", nil)
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("%s: ProcessNextEvent: %v", policy, err)
+		}
+		final := activeLeaf(exec)
+		finals[final] = true
+		if !strings.HasSuffix(first.Fires[0], "-> "+final) {
+			t.Errorf("%s: Decide(Go) named %q but the run fired into %s", policy, first.Fires[0], final)
+		}
+	}
+	if len(finals) != 2 {
+		t.Errorf("sixteen seeds reached only %v; both transitions are admissible", finals)
+	}
+}
+
 // A composite state reached from every leaf of its orthogonal regions offers one
 // transition per dispatch or change poll: the choice among its enabled
 // transitions draws once, so the run takes the seed's first draw and its next
