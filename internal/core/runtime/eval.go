@@ -2438,7 +2438,7 @@ func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
 // arguments written after it (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
 func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.FeatureChainExpr) (Value, error) {
 	callee := chainText(chain)
-	fn, err := ec.Eval(chain)
+	fn, err := ec.chainCallee(chain)
 	if err != nil {
 		return Value{}, err
 	}
@@ -2454,6 +2454,29 @@ func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.Fea
 		return Value{}, err
 	}
 	return ec.invokeFunction(callee, fn, callArgs)
+}
+
+// chainCallee is what a feature chain denotes in call position: a calc of the receiver's
+// object is the function applied over it even where a bare read would compute its result.
+func (ec *EvalContext) chainCallee(chain *ast.FeatureChainExpr) (Value, error) {
+	if chain.Member == nil || len(chain.Member.Parts) != 1 {
+		return ec.Eval(chain)
+	}
+	receiver, err := ec.Eval(chain.Operand)
+	if err != nil {
+		return Value{}, err
+	}
+	name := chain.Member.Parts[0].Text
+	if id, isObject := receiver.Object(); isObject {
+		if inst, ok := ec.ctx.instances[id]; ok {
+			if _, held := inst.FeatureValues[name]; !held {
+				if sym, found := ec.ctx.model.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
+					return NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
+				}
+			}
+		}
+	}
+	return ec.chainMemberValue(receiver, chain.Member.Parts, "")
 }
 
 // chainText spells a feature chain as written, `holder.scale`.
