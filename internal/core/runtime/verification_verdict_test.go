@@ -3,6 +3,8 @@ package runtime
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // verificationVerdictModel writes the four verdicts a body can produce: the
@@ -106,16 +108,18 @@ func TestVerificationSubcaseVerdictsAreReportedOnTheirOwn(t *testing.T) {
 // TestVerificationVerdictsForRequirement pins what a reporting surface asks
 // for: the body verdict of each case usage verifying a requirement, its
 // subcases beside it, a case nested in another reported only as that subcase.
+// A case is reported once however many of the searched scopes reach it.
 func TestVerificationVerdictsForRequirement(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationVerdictModel))
 	root := idx.DocumentRoot("<test>")
 	var got []string
-	for _, v := range ctx.VerificationVerdictsFor(root, oneSymbol(t, idx, "test::R")) {
+	scopes := []*symbols.Scope{root, root}
+	for _, v := range ctx.VerificationVerdictsIn(scopes, oneSymbol(t, idx, "test::R")) {
 		got = append(got, v.Case+"="+string(v.Kind))
 	}
 	want := []string{"test::passing=pass", "test::failing=fail"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("VerificationVerdictsFor(test::R) = %v, want %v", got, want)
+		t.Errorf("VerificationVerdictsIn(test::R) = %v, want %v", got, want)
 	}
 }
 

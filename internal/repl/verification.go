@@ -30,14 +30,12 @@ func (s *Session) withVerifications(v Verdict, ctx *runtime.Context, req *symbol
 	if ctx == nil || req == nil {
 		return v
 	}
-	for _, scope := range s.docScopes() {
-		for _, verdict := range ctx.VerificationVerdictsFor(scope, req) {
-			v.Verifications = append(v.Verifications, VerificationVerdict{
-				Case: verdict.Case, Kind: string(verdict.Kind), Detail: verdict.Detail,
-				Subcase: verdict.Subcase,
-			})
-			v.Lines = append(v.Lines, verificationLine(verdict))
-		}
+	for _, verdict := range ctx.VerificationVerdictsIn(s.docScopes(), req) {
+		v.Verifications = append(v.Verifications, VerificationVerdict{
+			Case: verdict.Case, Kind: string(verdict.Kind), Detail: verdict.Detail,
+			Subcase: verdict.Subcase,
+		})
+		v.Lines = append(v.Lines, verificationLine(verdict))
 	}
 	return v
 }

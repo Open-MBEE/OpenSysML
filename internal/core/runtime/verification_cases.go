@@ -111,17 +111,20 @@ func (ctx *Context) verifiedIn(objective *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// VerificationVerdictsFor runs the verification cases in scope whose objective
-// verifies req and reports the verdict of each body run, the verdict of every
-// subcase it performs beside it. A case nested in another is not run on its own:
-// its verdict is reported as the subcase of the run that performs it.
-func (ctx *Context) VerificationVerdictsFor(scope *symbols.Scope, req *symbols.Symbol) []VerificationVerdict {
+// VerificationVerdictsIn runs the verification cases of every scope whose
+// objective verifies req, each once, and reports its body verdict and the verdict
+// of every subcase it performs. A nested case answers only as a subcase.
+func (ctx *Context) VerificationVerdictsIn(scopes []*symbols.Scope, req *symbols.Symbol) []VerificationVerdict {
 	var out []VerificationVerdict
-	for _, sym := range ctx.VerificationsOf(scope, req) {
-		if !isVerificationUsage(sym) || nestedInCase(sym) {
-			continue
+	ran := make(map[*symbols.Symbol]bool)
+	for _, scope := range scopes {
+		for _, sym := range ctx.VerificationsOf(scope, req) {
+			if ran[sym] || !isVerificationUsage(sym) || nestedInCase(sym) {
+				continue
+			}
+			ran[sym] = true
+			out = append(out, ctx.VerificationVerdicts(sym)...)
 		}
-		out = append(out, ctx.VerificationVerdicts(sym)...)
 	}
 	return out
 }

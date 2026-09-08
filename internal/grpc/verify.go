@@ -211,8 +211,7 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 		Instances: v.instanceGraph(subject),
 		// Beside the satisfaction verdict: what the cases verifying this
 		// requirement answered when their bodies ran.
-		VerificationVerdicts: v.verificationVerdicts(
-			v.runtime.VerificationVerdictsFor(v.declaringScope(sym), sym)),
+		VerificationVerdicts: v.requirementVerifications(sym),
 	}, nil
 }
 
@@ -396,12 +395,19 @@ func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput,
 	return pbOutputs, true, nil
 }
 
+// requirementVerifications are the body verdicts of the verification cases of
+// the whole model whose objective verifies req, since the case need not be
+// written in the document the requirement is.
+func (v *verifyContext) requirementVerifications(req *symbols.Symbol) []*pb.VerificationVerdict {
+	return v.verificationVerdicts(
+		v.runtime.VerificationVerdictsIn(v.cached.DocumentRoots(), req))
+}
+
 // assertionVerifications are the body verdicts of the verification cases whose
 // objective verifies the requirement an assertion satisfies.
 func (v *verifyContext) assertionVerifications(a *runtime.SatisfyAssertion) []*pb.VerificationVerdict {
 	if a.Requirement == nil {
 		return nil
 	}
-	return v.verificationVerdicts(
-		v.runtime.VerificationVerdictsFor(v.declaringScope(a.Requirement), a.Requirement))
+	return v.requirementVerifications(a.Requirement)
 }

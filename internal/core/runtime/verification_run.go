@@ -196,9 +196,8 @@ func (ctx *Context) isVerdictKind(enum *symbols.Symbol) bool {
 	return false
 }
 
-// subcaseVerdicts are the verdicts of the verification cases the case performs
-// as steps, in declaration order, each read from the performance the case's own
-// body run produced rather than from a run of its own.
+// subcaseVerdicts are the verdicts of the verification cases the run performed as
+// steps, in declaration order; a step the run did not take answered no verdict.
 func (ctx *Context) subcaseVerdicts(run *calcRun) []VerificationVerdict {
 	if run == nil || run.perf == nil {
 		return nil
@@ -209,19 +208,20 @@ func (ctx *Context) subcaseVerdicts(run *calcRun) []VerificationVerdict {
 		if !IsVerificationCaseSymbol(sym) {
 			continue
 		}
-		out = append(out, ctx.subcaseVerdict(run, node, sym))
+		if verdict, performed := ctx.subcaseVerdict(run, node, sym); performed {
+			out = append(out, verdict)
+		}
 	}
 	return out
 }
 
 // subcaseVerdict reads the verdict of one performed subcase from the outputs its
-// performance holds, an error verdict when the step did not run.
-func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Symbol) VerificationVerdict {
+// performance holds; performed reports whether the run took the step at all.
+func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Symbol) (VerificationVerdict, bool) {
 	verdict := VerificationVerdict{Case: ctx.qualifiedSymbolName(sym), Symbol: sym, Subcase: true}
 	perf, _, err := run.perf.subaction(ActionNodeName(node), node)
-	if err != nil {
-		verdict.Kind, verdict.Detail = VerdictError, err.Error()
-		return verdict
+	if err != nil || perf == nil {
+		return verdict, false
 	}
 	for _, name := range verdictOutputNames(perf) {
 		value, held := perf.data[perf.key(name)]
@@ -230,11 +230,11 @@ func (ctx *Context) subcaseVerdict(run *calcRun, node ast.Node, sym *symbols.Sym
 		}
 		if kind, ok := ctx.verdictOf(value); ok {
 			verdict.Kind = kind
-			return verdict
+			return verdict, true
 		}
 	}
 	verdict.Kind, verdict.Detail = VerdictInconclusive, "the subcase bound no VerdictKind value"
-	return verdict
+	return verdict, true
 }
 
 // verdictOutputNames are the outputs of a performed case a verdict is read from:
