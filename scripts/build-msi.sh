@@ -20,8 +20,7 @@
 # WiX only runs on Windows, so CI runs this on a windows runner (Git Bash). For a
 # Linux dry run set WIX_CMD to a command that runs it under Wine and
 # WIX_PATH_PREFIX to Wine's drive for `/` (usually Z:); see packaging/msi/README.md.
-# (The override is deliberately not named WIX: the WiX v3 installer, present on
-# the GitHub Windows runners, exports WIX as its installation directory.)
+# (Not WIX: the WiX v3 installer on the GitHub Windows runners exports WIX as its install dir.)
 set -euo pipefail
 
 WIX_CMD="${WIX_CMD:-wix}"
