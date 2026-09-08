@@ -205,6 +205,9 @@ written in, so the verdicts are about that object:
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
 | `-advance <time>` | Simulated time units each `-state` machine is run for |
+| `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind. Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
+| `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names |
+| `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same table on every platform |
 | `-json` | Reports the checks as one JSON document rather than as lines |
 
 **Arguments:**
@@ -434,6 +437,84 @@ of WeasyPrint, pandoc and mermaid-cli under `build/doc-pdf/` and prints the vari
 (Prince is commercial and installed separately). Every tool runs with `SOURCE_DATE_EPOCH=0`, so
 an engine that embeds a creation date embeds the same one every run, and the artifact is
 reproducible for a given toolchain.
+
+## Sweeping a parameter
+
+`-sweep` runs the analysis case or calc named by `-analysis`/`-calc` once per value of a range,
+and reports the runs as a table. Each run is the ordinary run that flag makes on its own, with the
+swept parameter bound to that run's value and every other argument as written on the command line,
+so nothing about how a case executes changes:
+
+```bash
+$ sysml -calc "Dyn::Speed(mass = 1000.0 [SI::kg])" \
+    -sweep "power=1000.0 [SI::W]..3000.0 [SI::W]:1000.0 [SI::W]" model.sysml
+sweep Dyn::Speed — 3 run(s)
+power             | result           | time
+------------------+------------------+--------
+1000.0 [SI::W]    | 1.0 [SI::'m/s']  | 0.412ms
+2000.0 [SI::W]    | 2.0 [SI::'m/s']  | 0.221ms
+3000.0 [SI::W]    | 3.0 [SI::'m/s']  | 0.219ms
+```
+
+The columns are the swept parameters, the run's `return` or `out` values, the verdict of the
+case's `objective` where it has one, the wall time of that run, and an `error` column present only
+when a run failed. A failed run is a row carrying its typed error text — the table continues, and
+the check as a whole fails:
+
+```bash
+$ sysml -instantiate Sub::car -analysis "Dyn::DynamicsAnalysis(deltaT = 1.0 [SI::s]) Sub::car" \
+    -sweep "initialSpeed=0.0 [SI::'m/s']..1.0 [SI::'m/s']:1.0 [SI::'m/s']" model.sysml subject.sysml
+sweep Dyn::DynamicsAnalysis — 2 run(s)
+initialSpeed    | accelerationProfile | time    | error
+----------------+---------------------+---------+-----------------------------------
+0.0 [SI::'m/s'] |                     | 0.617ms | … calc Dyn::Acceleration: division by zero
+1.0 [SI::'m/s'] | [1.0 …, 0.5 …]      | 0.469ms |
+```
+
+**Ranges.** `<from>`, `<to>` and `<step>` carry the literal syntax an argument carries, units
+included; a quantity range's endpoints and step must be compatible, and the values are converted
+to the unit `<from>` is written in. `<to>` is included when the step lands on it. A range between
+Integers with no `:<step>` steps by one, up or down as the endpoints direct; a range between Reals
+with no step is refused, because no step is the obviously intended one. A step of zero, a step
+whose sign never reaches `<to>`, an endpoint that is no number, a parameter the case or calc does
+not declare, a parameter the arguments already bind, and a `-sweep`/`-samples` without an
+`-analysis` or `-calc` are each refused with status 2 before any run is made.
+
+**Order.** Rows come out in the order the ranges are written: the first `-sweep` flag varies
+slowest, the last fastest, each range from `<from>` towards `<to>`. Two runs of one plan produce
+the same rows in the same order.
+
+**Samples.** `-samples <n> -seed <s>` draws `n` values for each range instead of running every
+value of it, uniformly over `[<from>, <to>]` for a range between Integers and `[<from>, <to>)` for
+one between Reals, in draw order. A sampled range needs no step, and stating one is refused.
+Sampling is uniform because the bundled standard library states no probability distribution: a
+range written as a named distribution (`n=normal(1.0, 0.2)`) is refused naming what is missing,
+rather than approximated. The generator is `math/rand/v2`'s `PCG` seeded from `<s>`, so the same
+seed draws the same table on every platform; `-seed` is required with `-samples` (there is no
+wall-clock default) and is echoed in the table header:
+
+```bash
+$ sysml -calc "Dyn::Speed(mass = 1000.0 [SI::kg])" \
+    -sweep "power=0.0 [SI::W]..3000.0 [SI::W]" -samples 3 -seed 42 model.sysml
+samples Dyn::Speed — 3 run(s), seed 42
+```
+
+**Budget.** A plan is bounded by `OPENSYSML_MAX_SWEEP_RUNS` (default 1000, see
+[Environment variables](environment.md)) and one asking for more runs than that is refused with
+the count it asks for, rather than started.
+
+With `-json` the runs are the `rows` array of the check they belong to, inside the same document
+`-json` prints without them (`null` where the check made no sweep):
+
+```json
+{"checks": [{"kind": "calc", "subject": "Dyn::Speed", "status": "passes",
+  "rows": [{"inputs": [{"name": "power", "value": "1000.0 [SI::W]"}],
+            "outputs": [{"name": "result", "value": "1.0 [SI::'m/s']"}],
+            "verdicts": [], "milliseconds": 0.412, "error": ""}]}]}
+```
+
+The REPL runs the same tables through [`%sweep` and `%samples`](repl-commands.md), and a service
+client through the [`RunSweep` RPC](api.md).
 
 ## Output Format
 

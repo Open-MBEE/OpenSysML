@@ -579,6 +579,33 @@ class Model:
             named_arguments=named_arguments,
         )
 
+    def run_sweep(self, symbol_id, ranges, subject=None, arguments=None,
+                  named_arguments=None, samples=0, seed=0):
+        """Run one of this model's analysis cases or calcs once per swept row.
+
+        Args:
+            symbol_id (str): FQN of the analysis case or calc
+            ranges (dict): Range per swept parameter, ``{"speed": (0, 10, 2)}``
+            subject (str, optional): FQN of a part/usage to instantiate and run
+                an analysis case on
+            arguments (list, optional): Positional arguments every row binds
+            named_arguments (dict, optional): Arguments by name every row binds
+            samples (int, optional): Rows to draw rather than step through
+            seed (int, optional): Seed the draws are taken from
+
+        Returns:
+            SweepTable: One row per run, in the order the runs were made
+
+        Raises:
+            WrongKindError: If symbol_id names neither an analysis case nor a calc
+            ExecutionError: If no run followed from the request
+        """
+        return self._client.run_sweep(
+            symbol_id, self._hash, ranges, subject=subject,
+            arguments=arguments, named_arguments=named_arguments,
+            samples=samples, seed=seed,
+        )
+
     def __getitem__(self, name):
         """Look a symbol up by short name or FQN, raising when there is none.
 

@@ -12,6 +12,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MAX_DO_STEPS` | `5000000` | Do actions one state machine run may perform, and the ones one `%advance` drains |
 | `OPENSYSML_MAX_ELEMENTS` | `1000000` | Collection elements one evaluation may hold — the bound on the memory a run holds rather than on the work it does |
 | `OPENSYSML_MAX_CALC_DEPTH` | `10000` (ceiling `25000`) | Nested `calc` invocations one run may hold on the stack, which is what a recursion spends |
+| `OPENSYSML_MAX_SWEEP_RUNS` | `1000` | Runs one parameter sweep or sample may make (`-sweep`/`-samples`, `%sweep`/`%samples`, `RunSweep`), each a whole analysis or calc run with the budgets above of its own |
 | `OPENSYSML_CALC_COMPILE` | unset (on) | Set to `0`, `false`, `off` or `no` to run every `calc` on the reference evaluator, instead of compiling a pure scalar body to a closure fast path on its first invocation; results, errors and step counts are the same either way, so this is a bisecting aid |
 | `OPENSYSML_SMT` | unset (look for `z3`, then `cvc5`, on `PATH`) | Executable `%check`, `%explain`, `%solve`, `%configure` and `%optimize` drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental); `%optimize` needs `z3` in particular, as `(minimize …)`/`(maximize …)` is a z3 extension cvc5 does not implement |
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown` |
@@ -45,6 +46,9 @@ The budgets are what turn a run that would never finish into a reported error in
 of a hang. They count different things (expression evaluations, action token
 steps, dispatched events, do actions, materialized collection elements),
 so raising one says nothing about the others, and each has its own variable.
+`OPENSYSML_MAX_SWEEP_RUNS` counts runs rather than work inside a run: a plan whose
+ranges would make more runs than it allows is refused before the first one is
+made, naming the count the plan asks for and the bound it exceeds.
 
 A budget bounds **one run** (one `%eval`, one `%instantiate`, one `%calc`, one
 action, one state machine), not a whole session, so a long REPL session of small

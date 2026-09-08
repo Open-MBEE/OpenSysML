@@ -11,6 +11,7 @@ func BudgetEnvironment() []Item {
 		{"OPENSYSML_MAX_DO_STEPS", "Do actions one state machine run may perform. Default 5000000."},
 		{"OPENSYSML_MAX_ELEMENTS", "Collection elements one evaluation may hold, which bounds the memory a run holds rather than the work it does. Default 1000000."},
 		{"OPENSYSML_MAX_CALC_DEPTH", "Nested calc invocations one run may hold on the stack, which is what a recursion spends. Default 10000, ceiling 25000."},
+		{"OPENSYSML_MAX_SWEEP_RUNS", "Runs one parameter sweep or sample may make, each a whole analysis or calc run of its own with its own budgets. Default 1000."},
 	}
 }
 

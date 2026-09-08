@@ -336,6 +336,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | what an object holds for each feature | `%instantiate`, `%features`, `%instances` | [5](05-checking.md) |
 | whether a check holds | `%constraint`, `%requirement`, `%satisfy`, `%calc` | [5](05-checking.md) |
 | what an analysis case computes and whether its objective holds | `%analysis` | [6](06-behavior.md#running-an-analysis-case) |
+| what it computes across a range of one parameter | `%sweep`, `%samples` | [6](06-behavior.md#running-an-analysis-case) |
 | whether a check *can* hold at all (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%check` | [reference](../reference/repl-commands.md) |
 | which conditions conflict when it cannot (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%explain` | [reference](../reference/repl-commands.md) |
 | what values satisfy it, keeping what is already fixed (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%solve` | [reference](../reference/repl-commands.md) |

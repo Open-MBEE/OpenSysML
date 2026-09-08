@@ -327,6 +327,64 @@ naming the case. `-e` reads the results of a package-level usage or of one neste
 (`-e An::shipCost.total`, `-e An::holder.inner.total`) by running the case once and keeping
 what it computed until a value it depends on changes.
 
+A parameter can be swept rather than fixed. `-sweep <param>=<from>..<to>[:<step>]` runs the
+`-analysis` case or the `-calc` once per value of the range instead of once, each run an
+ordinary run with that value bound and every other argument as given, and reports the runs as
+a table of the inputs, the outputs, the verdict and the time that run took:
+
+```bash
+$ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
+    -sweep "limit=30.0..40.0:5.0" analysis.sysml; echo "exit=$?"
+✓ package An
+✓ Created instance of An::barge
+  ID: 1
+  Use %features An::barge to inspect
+sweep An::CostAnalysis — 3 run(s)
+limit | total | verdict                   | time
+------+-------+---------------------------+--------
+30.0  | 37.0  | affordable: not satisfied | 0.416ms
+35.0  | 37.0  | affordable: not satisfied | 0.019ms
+40.0  | 37.0  | affordable: satisfied     | 0.012ms
+exit=1
+```
+
+`-samples <n> -seed <s>` draws `n` values for each range instead of running every value of it,
+uniformly and in draw order, so a range needs no step; the seed is required and the table
+echoes it, and the same seed draws the same table on every platform:
+
+```bash
+$ sysml -calc "An::Sum(2.0)" -sweep "b=0.0..10.0" -samples 3 -seed 42 analysis.sysml
+✓ package An
+samples An::Sum — 3 run(s), seed 42
+b                  | result             | time
+-------------------+--------------------+--------
+8.254725069980449  | 10.254725069980449 | 0.035ms
+0.4281995136143024 | 2.4281995136143024 | 0.001ms
+7.76073049711954   | 9.760730497119539  | 0.000ms
+```
+
+The endpoints and step carry the syntax and the units an argument carries
+(`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`), `<to>` is included where the step lands on it, a
+range between Integers with no step steps by one, and a range between Reals with no step is
+refused rather than guessed at. Several `-sweep` flags run their cartesian product, the first
+flag varying slowest. A run that fails is a row carrying its error and the runs after it are
+still made, so a sweep through a singularity reports which value broke rather than losing the
+table. A step of zero, a step whose sign never reaches `<to>`, a unit that does not convert, a
+parameter the target declares none of, one the arguments already bind, and a sweep or sample
+without an `-analysis`/`-calc` are refused:
+
+```bash
+$ sysml -calc "An::Sum(2.0, 3.0)" -sweep "b=0.0..10.0" analysis.sysml; echo "exit=$?"
+sysml: invalid sweep parameter: b is both an argument of the invocation and swept
+exit=2
+```
+
+Sampling is uniform over the range: the bundled library states no probability distribution, so
+a distribution asked for by name is refused naming what is missing rather than approximated.
+`OPENSYSML_MAX_SWEEP_RUNS` bounds how many runs one table may make (1000 by default), counted
+before the first run, and `-json` reports the same rows inside the check the sweep ran. The
+REPL's [`%sweep` and `%samples`](04-repl.md#command-summary) do the same interactively.
+
 A state machine takes only its initial transition unless `-advance` says how much simulated
 time to run for. `-advance 0` runs the machine up to the present, dispatching whatever is already
 due. `-advance` without a matching `-state` is reported as a mistake rather than

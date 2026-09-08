@@ -606,6 +606,30 @@ an `ExecutionError`. A definition run with no subject, an `in` parameter left wi
 step that fails and a case that runs itself raise `ExecutionError` from the call; naming a symbol
 that is not an analysis raises `WrongKindError`, and so does asking `calc` to run an analysis.
 
+A parameter can be swept rather than fixed: `run_sweep` runs the analysis case or calc once per
+value of each range and returns a `SweepTable`, whose rows carry the inputs bound for that run,
+its outputs and verdicts, and the seconds it took. Ranges are `{parameter: (from, to)}` or
+`{parameter: (from, to, step)}`; several of them run their cartesian product, the first varying
+slowest, and `samples` with `seed` draws that many values per range instead:
+
+```python
+table = model.run_sweep("An::CostAnalysis", {"limit": (10.0, 50.0, 20.0)}, subject="An::barge")
+[row.inputs["limit"] for row in table]                 # [10.0, 30.0, 50.0]
+table[0].outputs["total"], table[0].verdicts["affordable"]
+
+drawn = model.run_sweep("An::CostAnalysis", {"limit": (10.0, 50.0)}, subject="An::barge",
+                        samples=8, seed=42)
+drawn.sampled, drawn.seed, len(drawn)                  # (True, 42, 8)
+```
+
+A run that fails is a row of its own — falsy, with `error` set — rather than an exception, and
+the runs after it are still made, so `table.failures` collects them; `raise_for_error()` on a row
+turns one into an `ExecutionError`. A plan the service refuses raises `ExecutionError` instead,
+naming what is wrong with it: a step of zero, a step whose sign never reaches its end, a Real
+range with no step, incompatible units, a parameter the target declares none of or the arguments
+already bind, a distribution asked for by name, and a plan asking for more runs than the
+service's budget allows.
+
 Verification is capability-negotiated the same way as conversion: against a service that does
 not report the `verification` capability, these calls raise `MissingCapabilityError` naming the
 required upgrade rather than failing on an unimplemented method.
