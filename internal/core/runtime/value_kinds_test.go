@@ -89,7 +89,7 @@ func TestFunctionValueIdentity(t *testing.T) {
 		t.Errorf("two reads of %s against one object are not one value", FormatValue(a))
 	}
 	c := closing()
-	if !valueEqual(c, c) || valueKeyFunc(c) != valueKeyFunc(c) {
+	if first, again := valueKeyFunc(c), valueKeyFunc(c); !valueEqual(c, c) || first != again {
 		t.Errorf("a body-closing function is not equal to itself")
 	}
 	if d := closing(); valueEqual(c, d) || valueKeyFunc(c) == valueKeyFunc(d) {
