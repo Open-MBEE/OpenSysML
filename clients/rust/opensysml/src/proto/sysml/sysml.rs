@@ -1132,6 +1132,8 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+    ///                   finding none was assigned; without it every code is empty.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

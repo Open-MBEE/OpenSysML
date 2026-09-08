@@ -90,6 +90,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+   * finding none was assigned; without it every code is empty.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -153,6 +155,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+   * finding none was assigned; without it every code is empty.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -215,6 +219,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+   * finding none was assigned; without it every code is empty.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -278,6 +284,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+   * finding none was assigned; without it every code is empty.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
