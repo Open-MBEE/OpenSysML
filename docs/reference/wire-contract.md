@@ -811,7 +811,7 @@ linearization runs, never whether a choice point is reported (captured for `Test
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"declared"}'
-{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2}}]}
+{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2},"code":"choice-point"}]}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"seed:abc"}'
 HTTP/1.1 400 Bad Request
