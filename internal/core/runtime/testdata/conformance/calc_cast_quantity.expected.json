@@ -1,0 +1,14 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "asLength": {"type": "Quantity", "value": 5, "unit": "m"},
+    "asScalarQuantity": {"type": "Quantity", "value": 5, "unit": "m"},
+    "asDuration": {"type": "Sequence", "elements": []},
+    "lengthsOfMixed": {"type": "Sequence", "elements": [
+      {"type": "Quantity", "value": 5, "unit": "m"},
+      {"type": "Quantity", "value": 2, "unit": "m"}
+    ]}
+  }
+}

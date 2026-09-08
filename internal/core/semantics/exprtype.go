@@ -152,6 +152,16 @@ func (m *Model) scalarTable() map[*symbols.Symbol]PrimType {
 	return table
 }
 
+// ScalarLatticeElement is the lattice element sym is, as opposed to one it
+// specializes; false for any type outside ScalarValues.
+func (m *Model) ScalarLatticeElement(sym *symbols.Symbol) (PrimType, bool) {
+	if m == nil || sym == nil {
+		return PrimUnknown, false
+	}
+	prim, ok := m.scalarTable()[sym]
+	return prim, ok
+}
+
 // ScalarSymbol returns the library definition a lattice element stands for
 // (`ScalarValues::Natural` for PrimNatural), or nil when none is loaded.
 func (m *Model) ScalarSymbol(prim PrimType) *symbols.Symbol {

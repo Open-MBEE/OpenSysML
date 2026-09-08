@@ -211,15 +211,15 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 147 committed cases, the original 32, the 62 the
+prints the current ones. State of the 154 committed cases, the original 32, the 62 the
 expression round added, the 10 of `value_classification.cases`, the 3 of `contextual_names.cases`,
 the 14 of `rational_terms.cases`, the 5 the empty-aggregate and subsetting round added to
-`w6d_expr_depth.cases` the 12 of `tensor_quantities.cases` and the 9 of
-`coordinate_frames.cases`:
+`w6d_expr_depth.cases` the 12 of `tensor_quantities.cases`, the 9 of
+`coordinate_frames.cases` and the 7 of `cast_expressions.cases`:
 
 ```
-agree: 69 · kind-only: 1 · order-only: 0 · disagree: 4
-pilot-unevaluated: 57 · pilot-silent: 4 · pilot-error: 2 · ours-error: 2 · both-error: 8
+agree: 71 · kind-only: 1 · order-only: 0 · disagree: 4
+pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
 
@@ -261,6 +261,16 @@ reported a scalar as classifying no element. `x @ Safety` with a metadata type k
 metadata reading, which the pilot does not share (its `@` is `istype` throughout, so it answers
 `false`); no committed case probes it, since the corpus was written model-level and the
 annotation forms are pinned by the runtime conformance fixtures instead.
+
+The seven `cast_expressions.cases` probe `x as T`, added with the evaluation they referee. Two
+agree: `n as Real` on `n : Integer = 7` answers `7` on both sides, and `(1, 2.5, 3) as Integer`
+answers `(1, 3)` on both — the cast selects element-wise and converts nothing. Three are
+`pilot-silent`: `n as Natural`, `2.5 as Integer` and `4.0 as Integer` draw no output at all from
+the pilot, so its reading of a value the target does not classify (we answer the empty sequence
+for `2.5 as Integer`) and of an integral `Real` cast to `Integer` (we keep `4.0`) is unobservable
+here. The two part cases, `car as Vehicle` and `car as Car`, land in `pilot-unevaluated`: the
+pilot answers with the unevaluated `PartUsage car`, which names the same value we select but is
+not an evaluation of the cast.
 
 The three `contextual_names.cases` all agree, and they were added with the parser fix they
 referee: `chain` is the feature chain modifier only when a name follows it, so `attribute chain =

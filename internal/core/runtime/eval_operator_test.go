@@ -13,18 +13,18 @@ import (
 // TestUnimplementedOperatorReportsWhy requires an operator the runtime does not
 // evaluate to say what it would need, rather than failing as "unsupported".
 func TestUnimplementedOperatorReportsWhy(t *testing.T) {
-	const src = `calc def classify { in n : Integer; return : Boolean = n as Integer; }`
+	const src = `calc def complement { in n : Integer; return : Integer = ~n; }`
 
 	model, resolver, root := parseAndBuildModel(t, src)
 	ctx := NewContext(model, resolver, 1000)
-	classify := resolveSymbol(t, root, "classify")
+	complement := resolveSymbol(t, root, "complement")
 
-	_, err := ctx.InvokeCalc(classify, []Value{constInt(1)}, root)
+	_, err := ctx.InvokeCalc(complement, []Value{constInt(1)}, root)
 	if !errors.Is(err, ErrUnsupportedOperator) {
 		t.Fatalf("InvokeCalc: got %v, want ErrUnsupportedOperator", err)
 	}
-	if !strings.Contains(err.Error(), "runtime type") {
-		t.Fatalf("InvokeCalc: %v does not say what classification would need", err)
+	if !strings.Contains(err.Error(), "function library") {
+		t.Fatalf("InvokeCalc: %v does not say what the complement would need", err)
 	}
 }
 

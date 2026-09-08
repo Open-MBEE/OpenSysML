@@ -1261,7 +1261,6 @@ func (ctx *Context) enumerationSummary(enum *symbols.Symbol) string {
 // says what each would need, so reaching one reports why rather than "unsupported".
 var unimplementedOperators = map[ast.OperatorKind]string{
 	ast.OpBitNot: "bitwise complement is declared by no function library the runtime applies",
-	ast.OpAs:     "a cast needs the runtime type of a value, which values do not carry yet",
 	ast.OpMeta:   "metadata access is evaluated from a MetadataAccessExpression, not this operator",
 	ast.OpAll:    "'all' needs the extent of a type, which the runtime does not enumerate",
 	ast.OpIndex:  "indexing is evaluated from an IndexExpression, not this operator",
@@ -1305,6 +1304,8 @@ func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 		return ec.evalClassification(n)
 	case ast.OpHasType, ast.OpIsType:
 		return ec.evalTypeClassification(n)
+	case ast.OpAs:
+		return ec.evalCast(n)
 	default:
 		if why, ok := unimplementedOperators[n.Operator]; ok {
 			return Value{}, fmt.Errorf("%w: '%s': %s", ErrUnsupportedOperator, n.Operator, why)

@@ -238,6 +238,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
+	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
+	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
 	t.Run("send_addressed_to_an_object_that_cannot_be_built", testSendAddressedToAnObjectThatCannotBeBuilt)
 	t.Run("send_addressed_to_a_part_no_sibling_takes", testSendAddressedToAPartNoSiblingTakes)
@@ -4318,6 +4320,48 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "null") {
 		t.Errorf("error = %v, want undecidable value description", err)
+	}
+}
+
+func testCastToAnUnresolvedType(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		item def Integer;
+		calc narrow { return : Integer = 1 as MissingType; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	calc := resolveSymbol(t, pkg.Scope, "narrow")
+	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected a cast to an unresolved type to fail")
+	}
+	if !errors.Is(err, ErrUnresolvedType) {
+		t.Fatalf("expected ErrUnresolvedType, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "MissingType") {
+		t.Errorf("error = %v, want unresolved type name", err)
+	}
+}
+
+// testCastUndecidedByTheValue: a target narrower than the value's own type that
+// the value does not settle — 5 states nothing about being an Even — fails
+// rather than dropping a value that may well be one of the target's.
+func testCastUndecidedByTheValue(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		attribute def Even :> Integer;
+		calc narrow { return : Even = 5 as Even; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	calc := resolveSymbol(t, pkg.Scope, "narrow")
+	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected an undecidable cast to fail")
+	}
+	if !errors.Is(err, ErrUndecidedClassification) {
+		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Even") {
+		t.Errorf("error = %v, want the target type named", err)
 	}
 }
 

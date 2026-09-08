@@ -1,0 +1,16 @@
+{
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "carAsCar": {"type": "Instance"},
+    "carAsVehicle": {"type": "Instance"},
+    "carAsTruck": {"type": "Sequence", "elements": []},
+    "carsOfFleet": {"type": "Sequence", "elements": [
+      {"type": "Instance"}
+    ]},
+    "vehiclesOfFleet": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]}
+  }
+}
