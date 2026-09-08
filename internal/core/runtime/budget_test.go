@@ -230,7 +230,7 @@ func TestSetBudgets(t *testing.T) {
 		t.Errorf("a new context runs under %+v, want the defaults %+v", got, DefaultBudgets())
 	}
 
-	want := Budgets{MaxSteps: 11, MaxActionSteps: 22, MaxStateEvents: 33, MaxDoSteps: 44, MaxElements: 55, MaxCalcDepth: 66}
+	want := Budgets{MaxSteps: 11, MaxActionSteps: 22, MaxStateEvents: 33, MaxDoSteps: 44, MaxElements: 55, MaxCalcDepth: 66, MaxSweepRuns: 77}
 	if err := ctx.SetBudgets(want); err != nil {
 		t.Fatalf("SetBudgets: %v", err)
 	}
@@ -239,11 +239,12 @@ func TestSetBudgets(t *testing.T) {
 	}
 
 	for _, bad := range []Budgets{
-		{MaxSteps: 0, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1},
-		{MaxSteps: 1, MaxActionSteps: -1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1},
-		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 0, MaxCalcDepth: 1},
-		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 0},
-		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: MaxCalcDepthCeiling + 1},
+		{MaxSteps: 0, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1},
+		{MaxSteps: 1, MaxActionSteps: -1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 1},
+		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 0, MaxCalcDepth: 1, MaxSweepRuns: 1},
+		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 0, MaxSweepRuns: 1},
+		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: MaxCalcDepthCeiling + 1, MaxSweepRuns: 1},
+		{MaxSteps: 1, MaxActionSteps: 1, MaxStateEvents: 1, MaxDoSteps: 1, MaxElements: 1, MaxCalcDepth: 1, MaxSweepRuns: 0},
 		{},
 	} {
 		if err := ctx.SetBudgets(bad); err == nil {

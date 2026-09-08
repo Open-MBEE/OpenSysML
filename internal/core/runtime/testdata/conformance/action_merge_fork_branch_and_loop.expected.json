@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"merged": {"type": "Integer", "value": 4},
+		"worked": {"type": "Integer", "value": 4},
+		"passes": {"type": "Integer", "value": 4}
+	}
+}

@@ -120,6 +120,10 @@ holds rather than the work it does. Default 1000000.
 .B OPENSYSML_MAX_CALC_DEPTH
 Nested calc invocations one run may hold on the stack, which is what a
 recursion spends. Default 10000, ceiling 25000.
+.TP
+.B OPENSYSML_MAX_SWEEP_RUNS
+Runs one parameter sweep or sample may make, each a whole analysis or calc run
+of its own with its own budgets. Default 1000.
 .PP
 Each variable above also answers to its legacy SYSML_\-prefixed name
 (SYSML_MAX_STEPS for OPENSYSML_MAX_STEPS, and so on), which remains accepted.

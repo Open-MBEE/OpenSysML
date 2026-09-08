@@ -97,9 +97,9 @@ sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 | what | wall | allocated |
 | ---- | ---- | --------- |
 | parse all 28 files | **8.2 ms** | 4.9 MiB in 31 000 allocations |
-| `sysml -validate`: load the standard library, resolve, validate, report | **0.37 s** | 186 MiB, about 155 MiB taken from the OS |
+| `sysml -validate`: load the standard library, resolve, validate, report | **0.43 s** | 196 MiB in 1.39 million allocations, about 157 MiB taken from the OS |
 
-Parsing is a little over 2% of the whole run — 880 lines a millisecond, 42 MB/s —
+Parsing is about 2% of the whole run — 880 lines a millisecond, 42 MB/s —
 so the cost of loading a model is name resolution and validation, and that is
 where the work described in the rest of this page goes. The largest single share
 of the remainder is the lookups made through the model's wildcard imports of the

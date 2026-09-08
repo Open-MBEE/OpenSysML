@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"count": {"type": "Integer", "value": 3},
+		"merged": {"type": "Integer", "value": 3}
+	}
+}

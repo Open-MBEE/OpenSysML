@@ -149,6 +149,17 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if y := act.Outputs["y"].GetRealValue(); y != 8 {
 		t.Errorf("output y = %v, want 8.0", act.Outputs["y"])
 	}
+	sweep, err := srv.RunSweep(ctx, &pb.RunSweepRequest{
+		ModelHash: modelHash, SymbolId: "F::apply",
+		NamedArguments: map[string]*pb.Value{"f": functionValue("F::Sq", 0)},
+		Ranges:         []*pb.SweepRange{{Parameter: "a", Start: realValue(1), End: realValue(3), Step: realValue(1)}},
+	})
+	if err != nil || sweep.Error != "" {
+		t.Fatalf("RunSweep(apply over a, f = Sq): err = %v, error = %q", err, sweep.GetError())
+	}
+	if got, want := rowText(sweep), "a=1.0 result -> 1.0\na=2.0 result -> 4.0\na=3.0 result -> 9.0"; got != want {
+		t.Errorf("sweep rows are\n%s\nwant\n%s", got, want)
+	}
 
 	// A function closing over a body's bindings has no wire form: it is named
 	// as unsupported rather than sent as a calc it could not be rebuilt from.

@@ -22,11 +22,54 @@ type checks struct {
 	satisfy      satisfyTargets
 	calcs        stringSlice
 	analyses     stringSlice
+	sweeps       stringSlice
+	samples      sweepCount
+	seed         sweepSeed
 	queries      stringSlice
 	actions      stringSlice
 	states       stringSlice
 	advance      advanceTime
 	jsonOut      bool
+}
+
+// sweepCount is -samples as written: the number of values to draw for each
+// range given, parsed where a bad value is reported in the caller's own form.
+type sweepCount struct {
+	value int64
+	text  string
+	given bool
+}
+
+func (s *sweepCount) String() string { return s.text }
+
+func (s *sweepCount) Set(value string) error {
+	s.text, s.given = value, true
+	count, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || count <= 0 {
+		return fmt.Errorf("-samples takes the number of values to draw, not %q", value)
+	}
+	s.value = count
+	return nil
+}
+
+// sweepSeed is -seed as written: the seed a sampled sweep draws from, which is
+// required rather than defaulted so a table is reproducible.
+type sweepSeed struct {
+	value uint64
+	text  string
+	given bool
+}
+
+func (s *sweepSeed) String() string { return s.text }
+
+func (s *sweepSeed) Set(value string) error {
+	s.text, s.given = value, true
+	seed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return fmt.Errorf("-seed takes a whole number to draw from, not %q", value)
+	}
+	s.value = seed
+	return nil
 }
 
 // advanceTime is -advance as written, parsed where a bad value is reported in
@@ -50,7 +93,35 @@ func (a *advanceTime) Set(value string) error {
 func (c *checks) requested() bool {
 	return c.validate || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
-		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0
+		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
+		c.sweeping()
+}
+
+// sweeping reports whether a sweep or a sample of one was asked for.
+func (c *checks) sweeping() bool {
+	return len(c.sweeps) > 0 || c.samples.given || c.seed.given
+}
+
+// sweepMisuse reports why the flags a sweep was asked for with make no sweep,
+// and "" when they make one.
+func (c *checks) sweepMisuse() string {
+	if !c.sweeping() {
+		return ""
+	}
+	targets := len(c.calcs) + len(c.analyses)
+	switch {
+	case targets == 0:
+		return "-sweep runs an analysis case or a calc; name one, as -analysis <name> or -calc <name>"
+	case targets > 1:
+		return "-sweep runs one analysis case or calc; name a single -analysis or -calc"
+	case len(c.sweeps) == 0:
+		return "-samples draws from a range; name one, as -sweep <parameter>=<from>..<to>"
+	case c.samples.given && !c.seed.given:
+		return "-samples draws from a seed; name one, as -seed <number>"
+	case c.seed.given && !c.samples.given:
+		return "-seed is the seed -samples draws from; name how many to draw, as -samples <number>"
+	}
+	return ""
 }
 
 // checksOnly reports whether anything was asked about the model itself, as
@@ -129,6 +200,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 			return rep.finish()
 		}
 		advance = duration
+	}
+	if message := c.sweepMisuse(); message != "" {
+		rep.failed(message)
+		return rep.finish()
 	}
 	if !c.checksOnly() {
 		if c.jsonOut {
@@ -253,9 +328,17 @@ func runChecks(files []string, exprs []string, c checks) int {
 		}
 	}
 	for _, invocation := range c.calcs {
+		if c.sweeping() {
+			rep.verdict(c.sweep(sess, invocation))
+			continue
+		}
 		rep.verdict(sess.RunCalc(invocation))
 	}
 	for _, invocation := range c.analyses {
+		if c.sweeping() {
+			rep.verdict(c.sweep(sess, invocation))
+			continue
+		}
 		rep.verdict(sess.RunAnalysis(invocation))
 	}
 	for _, invocation := range c.queries {
@@ -275,6 +358,15 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	return rep.finish()
+}
+
+// sweep runs one invocation once per row of the ranges given: over every value
+// of each range, or over values drawn from them when -samples was asked for.
+func (c *checks) sweep(sess *repl.Session, invocation string) repl.Verdict {
+	if c.samples.given {
+		return sess.RunSamples(invocation, c.sweeps, c.samples.value, c.seed.value)
+	}
+	return sess.RunSweep(invocation, c.sweeps)
 }
 
 // reportedErrors reports whether analysis found an error, which a check runs

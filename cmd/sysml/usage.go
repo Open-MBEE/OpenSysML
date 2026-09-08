@@ -54,6 +54,37 @@ func doc() usage.Doc {
 			},
 			Paragraphs: []string{"Each check flag may be repeated."},
 		}, {
+			Title: "Sweeping and sampling a parameter",
+			Examples: []usage.Example{
+				usage.Ex(`sysml -calc Twice -sweep "n=1..8:2" m.sysml`, "One run per range value"),
+				usage.Ex(`sysml -analysis C -sweep "m=1..3" -sweep "v=1..2" m.sysml`, "Every combination of the two"),
+				usage.Ex(`sysml -analysis C -sweep "m=1..9" -samples 20 -seed 7 m.sysml`, "20 values drawn uniformly"),
+				usage.Ex(`sysml -analysis C -sweep "m=1..3" -json m.sysml`, "Report the rows as JSON"),
+			},
+			Paragraphs: []string{
+				"A sweep is orchestration over the ordinary run: each row is one " +
+					"-analysis or -calc invocation with the swept parameter bound to " +
+					"that row's value and every other argument as given, so nothing " +
+					"about how a case executes changes. Name a single -analysis or " +
+					"-calc; a parameter the case does not declare, one the invocation " +
+					"already binds, a step of zero or one pointing away from the end " +
+					"of the range is an error rather than a silent row.",
+				"An endpoint and a step carry the syntax and the units an argument " +
+					`carries ("mass=0.0 [SI::kg]..9.0 [SI::kg]:3.0 [SI::kg]"), and ` +
+					"the end of the range is included where the step lands on it.",
+				"A range between Integers steps by one where no :<step> is written; " +
+					"a range between reals needs one. Rows come out in the order the " +
+					"ranges were given, the first varying slowest, and a run that " +
+					"failed is a row carrying its error rather than the end of the " +
+					"table.",
+				"-samples draws that many values uniformly from each range instead of " +
+					"stepping through it, and needs -seed: the same seed draws the " +
+					"same table on every platform. Uniform is the only distribution " +
+					"on offer — the bundled library states no probability " +
+					"distributions — so a range must be written <from>..<to> rather " +
+					"than as a named distribution.",
+			},
+		}, {
 			Title: "Conversion",
 			Examples: []usage.Example{
 				usage.Ex("sysml model.sysml -convert ttl", "SysML notation to RDF Turtle, on stdout"),
@@ -293,6 +324,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&modelChecks.validate, "validate", false, "Analyse the model and report its diagnostics, exiting nonzero on an error")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report what it computed, as -calc \"Fall(3, 4)\" (repeatable)")
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject (repeatable)")
+	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; several ranges run their cartesian product (repeatable)")
+	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them; needs -seed")
+	fs.Var(&modelChecks.seed, "seed", "Seed -samples draws from, so the same seed draws the same table")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"HeavySubsystems root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")

@@ -173,9 +173,16 @@ Evaluate this requirement and exit (repeatable)
 Execute this document query and report its rows, as \-run\-query
 "HeavySubsystems root=telescope" (repeatable)
 .TP
+.BI \-samples " value"
+Draw this many values uniformly from each \-sweep range instead of stepping
+through them; needs \-seed
+.TP
 .B \-satisfy
 Evaluate every satisfaction assertion, or with \-satisfy=<name> those the
 named element states (repeatable). The default is [].
+.TP
+.BI \-seed " value"
+Seed \-samples draws from, so the same seed draws the same table
 .TP
 .B \-source
 With \-compile, write the generated source to \-o instead of building it
@@ -187,6 +194,11 @@ Run this state machine, as \-state "Mission rover1" to run it on an object
 .B \-strict
 Judge the model as conforming SysML v2: notation no pinned production admits
 is an error, not a warning
+.TP
+.BI \-sweep " value"
+Run the named \-analysis or \-calc once per value of this range, as \-sweep
+"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']"; several ranges run
+their cartesian product (repeatable)
 .TP
 .BI \-sync\-annotate " string"
 Write the model to this file with each minted id declared as an @ElementId
@@ -282,6 +294,41 @@ sysml \-satisfy \-json model.sysml
 .RE
 .PP
 Each check flag may be repeated.
+.SH SWEEPING AND SAMPLING A PARAMETER
+.RS 2
+.nf
+# One run per range value
+sysml \-calc Twice \-sweep "n=1..8:2" m.sysml
+# Every combination of the two
+sysml \-analysis C \-sweep "m=1..3" \-sweep "v=1..2" m.sysml
+# 20 values drawn uniformly
+sysml \-analysis C \-sweep "m=1..9" \-samples 20 \-seed 7 m.sysml
+# Report the rows as JSON
+sysml \-analysis C \-sweep "m=1..3" \-json m.sysml
+.fi
+.RE
+.PP
+A sweep is orchestration over the ordinary run: each row is one \-analysis or
+\-calc invocation with the swept parameter bound to that row's value and every
+other argument as given, so nothing about how a case executes changes. Name a
+single \-analysis or \-calc; a parameter the case does not declare, one the
+invocation already binds, a step of zero or one pointing away from the end of
+the range is an error rather than a silent row.
+.PP
+An endpoint and a step carry the syntax and the units an argument carries
+("mass=0.0 [SI::kg]..9.0 [SI::kg]:3.0 [SI::kg]"), and the end of the range is
+included where the step lands on it.
+.PP
+A range between Integers steps by one where no :<step> is written; a range
+between reals needs one. Rows come out in the order the ranges were given, the
+first varying slowest, and a run that failed is a row carrying its error
+rather than the end of the table.
+.PP
+\-samples draws that many values uniformly from each range instead of stepping
+through it, and needs \-seed: the same seed draws the same table on every
+platform. Uniform is the only distribution on offer \(em the bundled library
+states no probability distributions \(em so a range must be written
+<from>..<to> rather than as a named distribution.
 .SH CONVERSION
 .RS 2
 .nf
@@ -492,6 +539,10 @@ holds rather than the work it does. Default 1000000.
 .B OPENSYSML_MAX_CALC_DEPTH
 Nested calc invocations one run may hold on the stack, which is what a
 recursion spends. Default 10000, ceiling 25000.
+.TP
+.B OPENSYSML_MAX_SWEEP_RUNS
+Runs one parameter sweep or sample may make, each a whole analysis or calc run
+of its own with its own budgets. Default 1000.
 .TP
 .B OPENSYSML_SMT
 Executable the %check, %explain, %solve, %configure and %optimize commands

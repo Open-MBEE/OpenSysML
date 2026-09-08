@@ -115,6 +115,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.RunAnalysisRequest.SerializeToString,
                 response_deserializer=sysml__pb2.RunAnalysisResponse.FromString,
                 _registered_method=True)
+        self.RunSweep = channel.unary_unary(
+                '/sysml.SysMLService/RunSweep',
+                request_serializer=sysml__pb2.RunSweepRequest.SerializeToString,
+                response_deserializer=sysml__pb2.RunSweepResponse.FromString,
+                _registered_method=True)
         self.Query = channel.unary_unary(
                 '/sysml.SysMLService/Query',
                 request_serializer=sysml__pb2.QueryRequest.SerializeToString,
@@ -255,6 +260,16 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RunSweep(self, request, context):
+        """Run one analysis case or calc once per row of a parameter sweep, as the
+        CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
+        swept parameter bound to that row's value. Reported as the "verification"
+        capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Query(self, request, context):
         """Run a SysML v2 API & Services Query over a parsed model: scope/select/where
         as the standard defines them, so a client that speaks that API can filter a
@@ -363,6 +378,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.RunAnalysis,
                     request_deserializer=sysml__pb2.RunAnalysisRequest.FromString,
                     response_serializer=sysml__pb2.RunAnalysisResponse.SerializeToString,
+            ),
+            'RunSweep': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunSweep,
+                    request_deserializer=sysml__pb2.RunSweepRequest.FromString,
+                    response_serializer=sysml__pb2.RunSweepResponse.SerializeToString,
             ),
             'Query': grpc.unary_unary_rpc_method_handler(
                     servicer.Query,
@@ -813,6 +833,33 @@ class SysMLService:
             '/sysml.SysMLService/RunAnalysis',
             sysml__pb2.RunAnalysisRequest.SerializeToString,
             sysml__pb2.RunAnalysisResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RunSweep(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/RunSweep',
+            sysml__pb2.RunSweepRequest.SerializeToString,
+            sysml__pb2.RunSweepResponse.FromString,
             options,
             channel_credentials,
             insecure,

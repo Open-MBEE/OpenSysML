@@ -3,5 +3,4 @@
 
 # Semantic-oracle cases whose library-derived expectation the executor does not
 # meet yet; the derivations are in docs/project/behavior-semantic-oracle.md.
-# A merge admits one traversal per executor run, so a loop's re-entry is dropped.
-action_merge_loop_reenters
+# The list is empty: every derived case passes.

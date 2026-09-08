@@ -1,17 +1,21 @@
 step 1: token 1@split
 step 2: token 2@gate, token 3@slow
+stmt assign mergeRuns
+    eval feature mergeRuns -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
 eval feature ready -> false
 step 3: token 3@slower
 stmt assign ready
   eval literal true -> true
 step 4: token 3@gate
-eval feature ready -> true
 stmt assign mergeRuns
-    eval feature mergeRuns -> 0
+    eval feature mergeRuns -> 1
     eval literal 1 -> 1
-  eval operator + -> 1
+  eval operator + -> 2
+eval feature ready -> true
 step 5: token 3@tail
 stmt assign passed
-  eval feature mergeRuns -> 1
+  eval feature mergeRuns -> 2
 step 6: token 3@done
 step 7: no active tokens

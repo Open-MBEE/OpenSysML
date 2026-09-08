@@ -253,6 +253,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 		runtime.MaxDoStepsEnvVar:     {runtime.DefaultMaxDoSteps, runtime.ErrDoStepLimitExceeded.Error()},
 		runtime.MaxElementsEnvVar:    {runtime.DefaultMaxElements, runtime.ErrElementLimitExceeded.Error()},
 		runtime.MaxCalcDepthEnvVar:   {runtime.DefaultMaxCalcDepth, runtime.ErrCalcRecursionLimit.Error()},
+		runtime.MaxSweepRunsEnvVar:   {runtime.DefaultMaxSweepRuns, runtime.ErrSweepBudget.Error()},
 	}
 	if fields := reflect.TypeOf(runtime.Budgets{}).NumField(); fields != len(actual) {
 		t.Fatalf("runtime.Budgets has %d fields, this test knows %d", fields, len(actual))

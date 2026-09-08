@@ -41,6 +41,9 @@ const (
 	// DefaultMaxCalcDepth bounds the nested calc invocations one evaluation holds
 	// on the stack, ~10KB each.
 	DefaultMaxCalcDepth int64 = 10000
+	// DefaultMaxSweepRuns bounds the runs one parameter sweep or sample makes,
+	// each of which is a whole analysis or calc run of its own.
+	DefaultMaxSweepRuns int64 = 1000
 )
 
 // MaxCalcDepthCeiling is the highest calc depth budget a run may be given: past
@@ -57,12 +60,14 @@ const (
 	MaxDoStepsEnvVar     = "OPENSYSML_MAX_DO_STEPS"
 	MaxElementsEnvVar    = "OPENSYSML_MAX_ELEMENTS"
 	MaxCalcDepthEnvVar   = "OPENSYSML_MAX_CALC_DEPTH"
+	MaxSweepRunsEnvVar   = "OPENSYSML_MAX_SWEEP_RUNS"
 )
 
-// Budgets bounds one run of the runtime. The six bounds count incommensurable
-// things — expression evaluations, action token-flow steps, state machine
-// events, do actions, materialized collection elements and nested calc
-// invocations — so raising one says nothing about the others.
+// Budgets bounds one run of the runtime, and how many runs one sweep asks for.
+// The bounds count incommensurable things — expression evaluations, action
+// token-flow steps, state machine events, do actions, materialized collection
+// elements, nested calc invocations and swept runs — so raising one says
+// nothing about the others.
 type Budgets struct {
 	MaxSteps       int64
 	MaxActionSteps int64
@@ -70,6 +75,7 @@ type Budgets struct {
 	MaxDoSteps     int64
 	MaxElements    int64
 	MaxCalcDepth   int64
+	MaxSweepRuns   int64
 }
 
 // DefaultBudgets returns the bounds a run uses when the environment names no
@@ -82,6 +88,7 @@ func DefaultBudgets() Budgets {
 		MaxDoSteps:     DefaultMaxDoSteps,
 		MaxElements:    DefaultMaxElements,
 		MaxCalcDepth:   DefaultMaxCalcDepth,
+		MaxSweepRuns:   DefaultMaxSweepRuns,
 	}
 }
 
@@ -104,6 +111,7 @@ var budgetVars = []budgetVar{
 	{MaxDoStepsEnvVar, DefaultMaxDoSteps, "do action steps", func(b *Budgets) *int64 { return &b.MaxDoSteps }, 0},
 	{MaxElementsEnvVar, DefaultMaxElements, "collection elements", func(b *Budgets) *int64 { return &b.MaxElements }, 0},
 	{MaxCalcDepthEnvVar, DefaultMaxCalcDepth, "nested calc invocations", func(b *Budgets) *int64 { return &b.MaxCalcDepth }, MaxCalcDepthCeiling},
+	{MaxSweepRunsEnvVar, DefaultMaxSweepRuns, "runs of one sweep", func(b *Budgets) *int64 { return &b.MaxSweepRuns }, 0},
 }
 
 // Validate reports every bound that is not positive, which would let a run make
@@ -178,6 +186,7 @@ func (ctx *Context) Budgets() Budgets {
 		MaxDoSteps:     ctx.maxDoSteps,
 		MaxElements:    ctx.maxElements,
 		MaxCalcDepth:   ctx.maxCalcDepth,
+		MaxSweepRuns:   ctx.maxSweepRuns,
 	}
 }
 
@@ -194,5 +203,6 @@ func (ctx *Context) SetBudgets(b Budgets) error {
 	ctx.maxDoSteps = b.MaxDoSteps
 	ctx.maxElements = b.MaxElements
 	ctx.maxCalcDepth = b.MaxCalcDepth
+	ctx.maxSweepRuns = b.MaxSweepRuns
 	return nil
 }

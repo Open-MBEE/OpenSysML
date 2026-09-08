@@ -66,7 +66,9 @@ from opensysml.values import (
     VectorQuantity,
     value_to_python,
 )
-from opensysml.verdict import AnalysisResult, CalcResult, Verdict
+from opensysml.verdict import (
+    AnalysisResult, CalcResult, SweepRow, SweepTable, Verdict,
+)
 
 
 #: Port the service listens on when a caller names none.
@@ -1458,6 +1460,113 @@ class Connection:
         ]
         return AnalysisResult(
             outputs, verdicts, instances=instances, diagnostics=diagnostics
+        )
+
+    def run_sweep(self, symbol_id, model_hash, ranges, subject=None,
+                  arguments=None, named_arguments=None, samples=0, seed=0):
+        """Run an analysis case or calc once per row of a parameter sweep.
+
+        Every row is an ordinary run of that target with the swept parameters
+        bound to the row's values and the other arguments as given, so nothing
+        about how one run executes changes. Several ranges make one row per
+        point of their cartesian product, the first varying slowest. Passing
+        ``samples`` draws that many rows uniformly from each range instead of
+        stepping through it, in draw order, from ``seed``: the same seed draws
+        the same table. A run that failed is a row carrying its error.
+
+        Args:
+            symbol_id (str): FQN of the analysis case or calc
+            model_hash (str): Hash from ParseFile response
+            ranges (dict): Range per swept parameter, as
+                ``{"speed": (0, 10, 2)}`` or ``{"speed": (0.0, 10.0)}`` where
+                the rows are drawn; a range between Integers steps by one where
+                it states no step, one between reals must state one
+            subject (str, optional): FQN of a part/usage to instantiate and run
+                an analysis case on
+            arguments (list, optional): Positional arguments every row binds
+            named_arguments (dict, optional): Arguments by name every row binds
+            samples (int, optional): Rows to draw rather than step through
+            seed (int, optional): Seed the draws are taken from
+
+        Returns:
+            SweepTable: One row per run, in the order the runs were made
+
+        Raises:
+            WrongKindError: If symbol_id names neither an analysis case nor a
+                calc
+            ExecutionError: If no run followed from the request — a parameter
+                the target does not declare, a range no values follow from, a
+                sample count of none, more runs than the service's budget
+            MissingCapabilityError: If the service cannot verify; nothing is sent
+            ModelNotFoundError: If the service no longer holds the model
+        """
+        self._require_verification()
+        request = sysml_pb2.RunSweepRequest(
+            model_hash=model_hash,
+            symbol_id=symbol_id,
+            subject_symbol_id=subject or "",
+            arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            samples=samples,
+            seed=seed,
+        )
+        for name, arg in (named_arguments or {}).items():
+            request.named_arguments[name].CopyFrom(self._python_to_value(arg))
+        for name, bounds in (ranges or {}).items():
+            request.ranges.append(self._sweep_range(name, bounds))
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES, CAPABILITY_STRUCTURED_VALUES)
+            )
+        ):
+            response = self._stub.RunSweep(request)
+
+        diagnostics = [Diagnostic(d) for d in response.diagnostics]
+        if response.error:
+            raise _failure_of(
+                response.error, response.failure_reason, diagnostics
+            )
+        instances = self._instances_of(response)
+        rows = [
+            self._sweep_row(row, instances, diagnostics)
+            for row in response.rows
+        ]
+        return SweepTable(
+            rows, list(response.parameters), sampled=response.sampled,
+            seed=response.seed, instances=instances, diagnostics=diagnostics,
+        )
+
+    def _sweep_range(self, name, bounds):
+        """One parameter's range as the wire states it: two endpoints, or three
+        where the range states the step it advances by."""
+        if len(bounds) not in (2, 3):
+            raise InvalidRequestError(
+                f"range of {name} takes (from, to) or (from, to, step), "
+                f"not {len(bounds)} value(s)"
+            )
+        pb_range = sysml_pb2.SweepRange(parameter=name)
+        pb_range.start.CopyFrom(self._python_to_value(bounds[0]))
+        pb_range.end.CopyFrom(self._python_to_value(bounds[1]))
+        if len(bounds) == 3:
+            pb_range.step.CopyFrom(self._python_to_value(bounds[2]))
+        return pb_range
+
+    def _sweep_row(self, row, instances, diagnostics):
+        """One run of a sweep as Python values."""
+        inputs = {}
+        outputs = {}
+        for target, source in ((inputs, row.inputs), (outputs, row.outputs)):
+            for entry in source:
+                try:
+                    target[entry.name] = self._value_to_python(entry.value)
+                except UnsupportedValueError as exc:
+                    target[entry.name] = exc
+        verdicts = [
+            Verdict(pb_verdict, instances=instances, diagnostics=diagnostics)
+            for pb_verdict in row.verdicts
+        ]
+        return SweepRow(
+            inputs, outputs, verdicts, row.elapsed_micros / 1e6,
+            error=row.error,
         )
 
     def _require_verification(self):
