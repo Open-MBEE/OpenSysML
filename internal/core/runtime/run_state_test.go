@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // runOutcome is what one run of choiceModel left on its context: the budget it
@@ -298,9 +299,9 @@ func TestPausedActivationKeepsItsCalcUsageEvaluations(t *testing.T) {
 	}
 }
 
-// Releasing a paused run ends its open activations in its own state, whatever
-// run the context reports at the time.
-func TestReleaseEndsThePausedRunsActivations(t *testing.T) {
+// pausedAtActivation drives the memo model to its breakpoint, an activation open.
+func pausedAtActivation(t *testing.T) (*Context, *ActionExecutor, *symbols.Symbol) {
+	t.Helper()
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, memoModel))
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
 	if sym == nil {
@@ -317,11 +318,39 @@ func TestReleaseEndsThePausedRunsActivations(t *testing.T) {
 	if len(exec.driven.state.calcUsageRuns) == 0 {
 		t.Fatal("the paused run holds no activation")
 	}
+	return ctx, exec, sym
+}
+
+// Releasing a paused run ends its open activations in its own state and leaves
+// the run the context reports as it was.
+func TestReleaseEndsThePausedRunsActivations(t *testing.T) {
+	ctx, exec, sym := pausedAtActivation(t)
 	if _, err := ctx.ExecuteAction(sym); err != nil {
 		t.Fatalf("run in between: %v", err)
 	}
+	between, notes := ctx.run, notesOf(ctx.Notes())
 	exec.Release()
 	if n := len(exec.driven.state.calcUsageRuns); n != 0 {
 		t.Errorf("%d activation(s) still held after the release", n)
 	}
+	if ctx.run != between || notesOf(ctx.Notes()) != notes {
+		t.Errorf("the release changed the run the context reports: notes %q, want %q", notesOf(ctx.Notes()), notes)
+	}
+}
+
+// A release inside another run still ends the paused run's own activations, not the
+// enclosing run's.
+func TestReleaseInsideAnotherRunEndsThePausedRunsOwn(t *testing.T) {
+	ctx, exec, _ := pausedAtActivation(t)
+	end := ctx.beginRun()
+	outer := ctx.run
+	outer.calcUsageRuns[1] = map[calcUsageKey]*calcRun{}
+	exec.Release()
+	if n := len(exec.driven.state.calcUsageRuns); n != 0 {
+		t.Errorf("%d activation(s) still held after the release", n)
+	}
+	if ctx.run != outer || len(outer.calcUsageRuns) != 1 {
+		t.Errorf("the release touched the enclosing run: %d activation(s) held, want 1", len(outer.calcUsageRuns))
+	}
+	end()
 }

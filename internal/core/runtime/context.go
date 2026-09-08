@@ -620,6 +620,17 @@ func (ctx *Context) previewExecutorRun(run *executorRun) func() {
 	return func() { ctx.run = saved }
 }
 
+// endExecutorRun brackets the release of a call-by-call driven run: its leftovers
+// are ended on its own state, nested or not, and the state installed before is restored.
+func (ctx *Context) endExecutorRun(run *executorRun) func() {
+	if run.state == nil {
+		return func() { /* never begun: nothing of its own to end */ }
+	}
+	saved := ctx.run
+	ctx.run = run.state
+	return func() { ctx.run = saved }
+}
+
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
 // budget, trace, bus, variant selections, objects made (identities included),
 // behaviors attached, every feature value written (see noteProbeWrite) and every
