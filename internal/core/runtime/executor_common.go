@@ -15,6 +15,10 @@ type Token struct {
 	ID       int64    // Unique token ID
 	Location ast.Node // Current node position
 
+	// Via is the succession the token travelled to reach Location; the zero edge for a
+	// token no succession delivered (a flow's first, or the one a synchronized node performs with).
+	Via lower.ActionEdge
+
 	// Wait records that this token is parked at an accept node: the accept
 	// found no message it could consume, so the action is suspended there
 	// until one arrives. It is nil for every token that is free to advance.
@@ -27,6 +31,12 @@ type Token struct {
 	// body is the work of this token's step a breakpoint paused, resumed by the
 	// next step (action_body_run.go); nil for a token with none pending.
 	body *bodyRun
+}
+
+// travel moves the token along a succession, recording the one it arrived over.
+func (t *Token) travel(edge lower.ActionEdge) {
+	t.Location = edge.Target
+	t.Via = edge
 }
 
 // AcceptWait describes the message a parked token is waiting for. It is the

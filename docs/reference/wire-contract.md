@@ -852,6 +852,84 @@ A step that fails, a body that deadlocks or exhausts its step budget and a case 
 `FAILURE_REASON_EVALUATION` failures naming the case. Structured and complex arguments are
 capability-gated as `EvaluateCalc`'s are.
 
+### `RunSweep`
+
+The same request as `RunAnalysis` — `symbolId` naming an analysis case **or** a calc,
+`subjectSymbolId`, `arguments`, `namedArguments` — plus `ranges`, and `samples` with `seed`.
+Each `SweepRange` names a `parameter` the target declares and the arguments do not bind, with
+`start`, `end` and an optional `step` as `Value`s; `end` is included where the step lands on it,
+a range between Integers with no step steps by one, and one between Reals with no step is
+refused. The response's `parameters` are the swept parameters in request order and `rows` is one
+run each, in lexicographic order over them (the first range varying slowest). A row carries the
+`inputs` bound for that run, its `outputs` (a calc's returned value under `result`, as
+`EvaluateCalc` reports it), its `verdicts` where the case has an objective, and `elapsedMicros`,
+the wall time of that run in microseconds — the one fixed unit, absent for a run that took
+under one:
+
+```console
+$ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::Fall","ranges":[{"parameter":"t","start":{"realValue":0.0},"end":{"realValue":2.0},"step":{"realValue":1.0}}]}'
+{"rows":[{"inputs":[{"name":"t","value":{"realValue":0}}],"outputs":[{"name":"result","value":{"realValue":0}}],"elapsedMicros":"31"},
+         {"inputs":[{"name":"t","value":{"realValue":1}}],"outputs":[{"name":"result","value":{"realValue":4.905}}]},
+         {"inputs":[{"name":"t","value":{"realValue":2}}],"outputs":[{"name":"result","value":{"realValue":19.62}}]}],
+ "parameters":["t"]}
+
+$ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::CostAnalysis","subjectSymbolId":"An::barge","ranges":[{"parameter":"tax","start":{"realValue":0.0},"end":{"realValue":1.0},"step":{"realValue":0.5}}]}'
+{"rows":[…,
+         {"inputs":[{"name":"tax","value":{"realValue":1}}],"outputs":[{"name":"total","value":{"realValue":10}}],
+          "verdicts":[{"kind":"objective","element":"obj","condition":"total <= 8.0","instanceId":"1","instanceTypeId":"An::barge"}],"elapsedMicros":"16"}],
+ "parameters":["tax"],
+ "instances":[{"id":"1","typeSymbolId":"An::barge","featureValues":{"cost":{"featureName":"cost","value":{"realValue":5}}}}]}
+```
+
+`instances` carries every object a row's verdict is about, each once over the whole table, so a
+verdict's `instanceId` resolves there as it does in a `RunAnalysis` response — a client can read
+what made a row fail.
+
+A run that fails is a row of its own, carrying `error` and `failureReason` in place of its
+`outputs`, and the runs after it are still made:
+
+```console
+$ … /RunSweep -d '{"modelHash":"ed8c…2ec4","symbolId":"An::Ratio","namedArguments":{"a":{"realValue":4.0}},"ranges":[{"parameter":"b","start":{"intValue":"-1"},"end":{"intValue":"1"}}]}'
+{"rows":[{"inputs":[{"name":"b","value":{"intValue":"-1"}}],"outputs":[{"name":"result","value":{"realValue":-4}}],"elapsedMicros":"18"},
+         {"inputs":[{"name":"b","value":{"intValue":"0"}}],"elapsedMicros":"6",
+          "error":"calc An::Ratio: evaluating the returned expression: division by zero","failureReason":"FAILURE_REASON_EVALUATION"},
+         {"inputs":[{"name":"b","value":{"intValue":"1"}}],"outputs":[{"name":"result","value":{"realValue":4}}]}],
+ "parameters":["b"]}
+```
+
+`samples` draws that many values for each range instead of running every value of it —
+uniformly, in draw order, from `math/rand/v2`'s `PCG` seeded from `seed`, which the response
+echoes alongside `sampled` — and a sampled range needs no `step`:
+
+```console
+$ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::Fall","ranges":[{"parameter":"t","start":{"realValue":0.0},"end":{"realValue":10.0}}],"samples":"2","seed":"42"}'
+{"rows":[{"inputs":[{"name":"t","value":{"realValue":8.254725069980449}}],"outputs":[{"name":"result","value":{"realValue":334.22908373662705}}],"elapsedMicros":"7"},
+         {"inputs":[{"name":"t","value":{"realValue":0.4281995136143024}}],"outputs":[{"name":"result","value":{"realValue":0.8993554090689709}}]}],
+ "parameters":["t"],"sampled":true,"seed":"42"}
+```
+
+A request the plan cannot be built from answers `error` with no rows at all, so a client
+distinguishes a refused plan from a table of failed runs by whether `rows` is present: a symbol
+that is neither an analysis case nor a calc is `FAILURE_REASON_WRONG_KIND`, and a missing range,
+a step of zero, a step whose sign never reaches `end`, incompatible units, an undeclared
+parameter, the case's subject, one the arguments bind — by name or by holding the position it is
+bound from — a negative `samples`, and a plan asking for more runs than
+`OPENSYSML_MAX_SWEEP_RUNS` allows are `FAILURE_REASON_EVALUATION`. `seed` is a `uint64` with no
+unset state on the wire, so a request that draws without naming one draws from seed 0 (where the
+CLI's `-samples` requires `-seed` rather than choosing a seed for you):
+
+```console
+$ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::Ship","ranges":[{"parameter":"t","start":{"intValue":"1"},"end":{"intValue":"3"}}]}'
+{"error":"not a calc: An::Ship declares neither an analysis case nor a calc","failureReason":"FAILURE_REASON_WRONG_KIND"}
+
+$ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::Fall"}'
+{"error":"no sweep range: name a range as <parameter>=<from>..<to>","failureReason":"FAILURE_REASON_EVALUATION"}
+```
+
+A call the client cancels or lets time out stops between runs: the next run is not started, the
+call fails with that status rather than answering a partial table, and the model it held is
+released.
+
 ### `Evaluate`
 
 Not a behavior in the model, but the general-purpose call that every other example here uses:

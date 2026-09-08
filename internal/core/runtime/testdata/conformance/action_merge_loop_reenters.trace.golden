@@ -1,0 +1,46 @@
+step 1: token 1@continueCharging
+step 2: token 1@monitor
+stmt assign passes
+    eval feature passes -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 3: token 1@decision
+  eval feature level -> 0
+  eval literal 100 -> 100
+eval operator < -> true
+step 4: token 1@addCharge
+stmt assign level
+    eval feature level -> 0
+    eval literal 50 -> 50
+  eval operator + -> 50
+step 5: token 1@continueCharging
+step 6: token 1@monitor
+stmt assign passes
+    eval feature passes -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 7: token 1@decision
+  eval feature level -> 50
+  eval literal 100 -> 100
+eval operator < -> true
+step 8: token 1@addCharge
+stmt assign level
+    eval feature level -> 50
+    eval literal 50 -> 50
+  eval operator + -> 100
+step 9: token 1@continueCharging
+step 10: token 1@monitor
+stmt assign passes
+    eval feature passes -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+step 11: token 1@decision
+  eval feature level -> 100
+  eval literal 100 -> 100
+eval operator < -> false
+  eval feature level -> 100
+  eval literal 100 -> 100
+eval operator >= -> true
+step 12: token 1@endCharging
+step 13: token 1@done
+step 14: no active tokens

@@ -5,6 +5,7 @@ This directory contains behavioral execution conformance tests. Each test consis
 1. **`<case>.sysml`** - The behavioral model (action/state/calc/constraint/requirement)
 2. **`<case>.expected.json`** - Expected execution outcome
 3. **`<case>.trace.golden`** - Optional ordered execution trace (see [Golden Traces](#golden-traces))
+4. **`<case>.trace.order`** - Optional partial-order constraints the trace must satisfy (see [Order Constraints](#order-constraints))
 
 ## Entry Points
 
@@ -93,6 +94,46 @@ top-level one is. `instantiate` names an instance case's type the same way.
   expected of that object's performance:
   `{"object": "P::alpha", "finalState": "arrived", "stateVisits": ["start", "sending", "arrived"]}`.
   Omit for a machine performed by no object.
+
+### Admissible Outcomes
+
+An action or state case whose model leaves more than one result open — two
+concurrent branches writing one feature, whose order the Kernel Semantic Library
+does not fix — lists every result it admits under `outcomes` instead of stating
+one:
+
+```json
+{
+  "type": "action",
+  "outcomes": [
+    {"outputs": {"x": {"type": "Integer", "value": 1}, "leftRan": {"type": "Boolean", "value": true}}},
+    {"outputs": {"x": {"type": "Integer", "value": 2}, "leftRan": {"type": "Boolean", "value": true}}}
+  ],
+  "admissible": "Concurrent branches writing one feature: the value is open, the writes are not"
+}
+```
+
+- `outcomes`: at least two complete results. Each entry carries the `outputs` of
+  an action case, or the `finalState` / `stateVisits` / `outputs` of a state
+  case, with the meaning those keys have above. The observed run must match
+  exactly one entry: matching none fails the case as inadmissible, matching
+  several fails it because the set is not distinct. `-v` output names the entry
+  matched (`matched admissible outcome 1 of 2`).
+- `admissible`: required beside `outcomes`. The exact title of the section of
+  `docs/project/behavior-semantic-oracle.md` deriving that every listed outcome is
+  valid under the Kernel Semantic Library. A missing citation, or one no section
+  carries, fails the case — an admissible set exists to state what the library
+  leaves open, never to accommodate a result the executor should not produce.
+
+A case states either `outcomes` or the single `outputs` / `finalState` /
+`stateVisits`; stating both is a schema error the test reports, as is `outcomes`
+beside `performers`, on a calc, constraint, requirement or instance case, or
+with an entry that states nothing. The `events` a state case injects are its
+input and stay at the top level: every outcome is a result of the same run.
+
+The set admits what one run may produce; the harness does not yet check that
+every listed outcome is reachable. The default schedule is deterministic, so a
+case with an admissible set still keeps its exact golden trace.
 
 ### For Calculations (`InvokeCalc`)
 
@@ -333,6 +374,39 @@ be written. Every owned case must execute and produce a trace: an update run
 reports one that does not rather than leaving a stale golden behind. State cases
 that broadcast an event over orthogonal regions have no order-stable trace yet,
 so they neither carry a golden nor opt in.
+
+## Order Constraints
+
+A case may carry a `<case>.trace.order` stating the partial order its trace must
+respect, checked by `TestExecutionTrace` beside the exact golden, or instead of
+one for a case that carries no golden and does not opt into one. Each line is
+`a < b`: the first entry mentioning label `a` comes strictly before the first
+entry mentioning label `b`. Blank lines and `#` comments are skipped; a file
+with no constraint, or a line of any other shape, fails the case.
+
+```
+# The fork precedes both branches; the join waits for both.
+split < left
+split < right
+left < sync
+right < sync
+```
+
+A label is the text a trace entry names a performance or statement by, exactly
+as it appears in `.trace.golden`:
+
+- a **performance label** is a node identifier — `split` in
+  `step 1: token 1@split`, `inner` in `enter action node: inner`, or a state name
+  `Idle` in `enter: Idle` / `enter: Idle (entry action)`. A step entry mentions
+  every node a token is at, so `left` and `right` are both mentioned by
+  `step 2: token 2@left, token 3@right`;
+- a **statement label** is the text after `stmt `, `assign x` in `stmt assign x`.
+
+Token numbers, `eval` entries and values are not labels. Two labels first
+mentioned by the same entry — two tokens stepped together — are unordered, so a
+constraint between them fails in both directions; a constraint naming a label no
+entry mentions fails as well. The failure reports which entries mention each
+label.
 
 ## Known Failures
 

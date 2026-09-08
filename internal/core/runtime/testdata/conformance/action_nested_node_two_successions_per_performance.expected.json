@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"trace": true,
+	"outputs": {
+		"total": {"type": "Integer", "value": 2},
+		"one.hits": {"type": "Integer", "value": 1},
+		"two.hits": {"type": "Integer", "value": 1}
+	}
+}

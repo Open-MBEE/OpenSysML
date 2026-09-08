@@ -24,7 +24,9 @@ from opensysml.typefacts import (
 )
 from opensysml.capabilities import MissingCapabilityError, ServerInfo
 from opensysml.values import UNSET, Array, MeasurementRef, UnsetType, Vector, VectorQuantity
-from opensysml.verdict import AnalysisResult, CalcResult, Verdict, VerificationVerdict
+from opensysml.verdict import (
+    AnalysisResult, CalcResult, SweepRow, SweepTable, Verdict, VerificationVerdict,
+)
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
     DocumentQueryError, DocumentQueryResult, DocumentRow, ElementRef, INFINITY,
@@ -58,7 +60,8 @@ __all__ = [
     "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
     "Editor", "EditResult", "AppliedEdit",
-    "Verdict", "CalcResult", "AnalysisResult", "VerificationVerdict",
+    "Verdict", "CalcResult", "AnalysisResult", "SweepRow", "SweepTable",
+    "VerificationVerdict",
     "QueryElement", "QueryError",
     "DocumentQueryError", "DocumentQueryResult", "DocumentRow", "ElementRef",
     "INFINITY",

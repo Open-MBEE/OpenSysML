@@ -35,6 +35,7 @@ const (
 	SysMLService_VerifySatisfaction_FullMethodName = "/sysml.SysMLService/VerifySatisfaction"
 	SysMLService_EvaluateCalc_FullMethodName       = "/sysml.SysMLService/EvaluateCalc"
 	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
+	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
 	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
 	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
 	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
@@ -83,6 +84,11 @@ type SysMLServiceClient interface {
 	VerifySatisfaction(ctx context.Context, in *VerifySatisfactionRequest, opts ...grpc.CallOption) (*VerifySatisfactionResponse, error)
 	EvaluateCalc(ctx context.Context, in *EvaluateCalcRequest, opts ...grpc.CallOption) (*EvaluateCalcResponse, error)
 	RunAnalysis(ctx context.Context, in *RunAnalysisRequest, opts ...grpc.CallOption) (*RunAnalysisResponse, error)
+	// Run one analysis case or calc once per row of a parameter sweep, as the
+	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
+	// swept parameter bound to that row's value. Reported as the "verification"
+	// capability.
+	RunSweep(ctx context.Context, in *RunSweepRequest, opts ...grpc.CallOption) (*RunSweepResponse, error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -248,6 +254,15 @@ func (c *sysMLServiceClient) RunAnalysis(ctx context.Context, in *RunAnalysisReq
 	return out, nil
 }
 
+func (c *sysMLServiceClient) RunSweep(ctx context.Context, in *RunSweepRequest, opts ...grpc.CallOption) (*RunSweepResponse, error) {
+	out := new(RunSweepResponse)
+	err := c.cc.Invoke(ctx, SysMLService_RunSweep_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
 	out := new(QueryResponse)
 	err := c.cc.Invoke(ctx, SysMLService_Query_FullMethodName, in, out, opts...)
@@ -318,6 +333,11 @@ type SysMLServiceServer interface {
 	VerifySatisfaction(context.Context, *VerifySatisfactionRequest) (*VerifySatisfactionResponse, error)
 	EvaluateCalc(context.Context, *EvaluateCalcRequest) (*EvaluateCalcResponse, error)
 	RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error)
+	// Run one analysis case or calc once per row of a parameter sweep, as the
+	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
+	// swept parameter bound to that row's value. Reported as the "verification"
+	// capability.
+	RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -383,6 +403,9 @@ func (UnimplementedSysMLServiceServer) EvaluateCalc(context.Context, *EvaluateCa
 }
 func (UnimplementedSysMLServiceServer) RunAnalysis(context.Context, *RunAnalysisRequest) (*RunAnalysisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunAnalysis not implemented")
+}
+func (UnimplementedSysMLServiceServer) RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunSweep not implemented")
 }
 func (UnimplementedSysMLServiceServer) Query(context.Context, *QueryRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
@@ -694,6 +717,24 @@ func _SysMLService_RunAnalysis_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_RunSweep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RunSweepRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).RunSweep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_RunSweep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).RunSweep(ctx, req.(*RunSweepRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryRequest)
 	if err := dec(in); err != nil {
@@ -818,6 +859,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RunAnalysis",
 			Handler:    _SysMLService_RunAnalysis_Handler,
+		},
+		{
+			MethodName: "RunSweep",
+			Handler:    _SysMLService_RunSweep_Handler,
 		},
 		{
 			MethodName: "Query",

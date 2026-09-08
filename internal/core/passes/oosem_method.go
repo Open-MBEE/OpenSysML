@@ -136,7 +136,9 @@ type oosemAudit struct {
 	// statesSatisfaction reports whether the workspace states any satisfy.
 	statesSatisfaction bool
 	kinds              map[*symbols.Symbol]oosemKind
-	diags              []Diagnostic
+	// typeKinds memoizes kindOfType: one type classifies every feature it types.
+	typeKinds map[*symbols.Symbol]oosemKind
+	diags     []Diagnostic
 }
 
 // newOOSEMAudit returns nil when the bundled OOSEM library is not loaded, since
@@ -152,6 +154,7 @@ func newOOSEMAudit(ctx *Context) *oosemAudit {
 		satisfied:   map[symbols.ElementKey]bool{},
 		allocated:   map[symbols.ElementKey]bool{},
 		kinds:       map[*symbols.Symbol]oosemKind{},
+		typeKinds:   map[*symbols.Symbol]oosemKind{},
 	}
 	found := false
 	for _, entry := range oosemKindDefinitions {
@@ -196,14 +199,21 @@ func (a *oosemAudit) kindOf(sym *symbols.Symbol) oosemKind {
 }
 
 func (a *oosemAudit) kindOfType(t *symbols.Symbol) oosemKind {
+	if kind, ok := a.typeKinds[t]; ok {
+		return kind
+	}
+	kind := oosemNone
+search:
 	for _, entry := range oosemKindDefinitions {
 		for _, def := range a.definitions[entry.kind] {
 			if a.model.Conforms(t, def) {
-				return entry.kind
+				kind = entry.kind
+				break search
 			}
 		}
 	}
-	return oosemNone
+	a.typeKinds[t] = kind
+	return kind
 }
 
 // gather records the kinds a document declares and the derivation,

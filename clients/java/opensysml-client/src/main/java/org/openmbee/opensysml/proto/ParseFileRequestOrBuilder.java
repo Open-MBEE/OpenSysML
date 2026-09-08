@@ -52,7 +52,7 @@ public interface ParseFileRequestOrBuilder extends
    *
    * <code>string content_hash = 3 [json_name = "contentHash", deprecated = true];</code>
    * @deprecated sysml.ParseFileRequest.content_hash is deprecated.
-   *     See sysml.proto;l=291
+   *     See sysml.proto;l=297
    * @return The contentHash.
    */
   @java.lang.Deprecated java.lang.String getContentHash();
@@ -64,7 +64,7 @@ public interface ParseFileRequestOrBuilder extends
    *
    * <code>string content_hash = 3 [json_name = "contentHash", deprecated = true];</code>
    * @deprecated sysml.ParseFileRequest.content_hash is deprecated.
-   *     See sysml.proto;l=291
+   *     See sysml.proto;l=297
    * @return The bytes for contentHash.
    */
   @java.lang.Deprecated com.google.protobuf.ByteString

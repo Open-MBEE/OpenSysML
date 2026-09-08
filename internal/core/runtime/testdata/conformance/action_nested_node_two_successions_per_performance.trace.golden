@@ -1,0 +1,27 @@
+step 1: token 1@split
+step 2: token 2@one, token 3@two
+eval literal 0 -> 0
+step 1: token 1@split
+step 2: token 2@l1, token 3@l2
+step 3: token 2@both, token 3@both
+stmt assign hits
+    eval feature hits -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 4: no active tokens
+eval literal 0 -> 0
+step 1: token 1@split
+step 2: token 2@l1, token 3@l2
+step 3: token 2@both, token 3@both
+stmt assign hits
+    eval feature hits -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 4: no active tokens
+step 3: token 2@sync, token 3@sync
+stmt assign total
+    eval chain hits -> 1
+    eval chain hits -> 1
+  eval operator + -> 2
+step 4: token 4@done
+step 5: no active tokens

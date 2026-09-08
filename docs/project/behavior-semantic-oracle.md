@@ -18,7 +18,9 @@ executor meets the derived expectation, the case also carries a `.trace.golden` 
 regression-locks the executor's linearization. Where it does not, the derived expectation is kept
 in the `.expected.json`, the case is listed in `known_failures.txt` so the harness reports rather
 than runs it, and the gap is recorded in [What the executor gets wrong](#what-the-executor-gets-wrong).
-No executor code was changed to build this corpus; that is the point of it.
+No executor code was changed to build this corpus; that is the point of it. The one gap the
+corpus found — a merge closed after its first traversal — was fixed afterwards against the
+derivation, not the other way round.
 
 ## What the library fixes, and what a trace adds
 
@@ -41,8 +43,9 @@ scheduling detail the library says nothing about:
   succession-declaration order, so the branch declared *last* is stepped *first* in every step.
 - A node's body runs in the step that moves its token on, so a body's statements appear in the
   golden between the `step N:` line that shows the token at the node and the `step N+1:` line.
-- A join's output is a fresh token appended to the token list, and the step that fired the join
-  may go on to step it (and tokens the removal shifted) again; a `step N:` line is therefore the
+- A node several successions reach (a join, or a plain node) performs with a fresh token appended
+  to the token list once every succession has delivered, and the step that fired it may go on to
+  step that token (and tokens the removal shifted) again; a `step N:` line is therefore the
   executor's step boundary, not a unit the library defines.
 - A state machine records a transition's guard evaluation, exit, effect and entry as they run, and
   evaluates a guard once to select the transition and once again to fire it; the second
@@ -66,6 +69,7 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `StatePerformances.kerml` `StatePerformance` | `succession [1] entry then [*] middle; succession [*] middle then [1] exit` | Entry first, exit last, within a state performance |
 | `StatePerformances.kerml` `StateTransitionPerformance` | `succession all [*] acceptable then [*] guard; succession [*] guard then [1] transitionLinkSource.exit` | The guard is evaluated after the trigger and before the source state's exit |
 | `TransitionPerformances.kerml` `TransitionPerformance` | `binding transitionLink.earlierOccurrence = transitionLinkSource; succession [1] transitionLinkSource then [*] effect; succession [*] effect then [1] transitionLink.laterOccurrence; succession all [*] guard then [*] effect` | The effect runs after the source state performance has ended (its exit included) and before the target state performance starts (its entry included) |
+| `Actions.sysml` `DecisionTransitionAction`, `TransitionPerformances.kerml` `NonStateTransitionPerformance`, `TPCGuardConstraint` | "the base type of TransitionUsages used as conditional successions in action models"; `in feature transitionLinkSource: Performance[1]`, `feature transitionLink: HappensBefore[0..1]`, `succession [1] transitionLinkSource then [1] Performance::self`, `connector all guardConstraint: TPCGuardConstraint[*] from [0..1] transitionLink to [*] guard` (`constrainedHBLink` / `constrainedGuard`, `inv { allTrue(constrainedGuard()) }`) | A guarded succession in an action is a transition performance that happens after its complete source performance — a merge's body included — and whose guard constrains the `HappensBefore` link to the successor: a false guard leaves the link out, not the source performance |
 
 The SysML v2 specification's own control-node example (`ChargeBattery`, §7.17.3, reproduced in
 the training corpus as `17. Control/Decision Example.sysml`) and the pilot validation corpus
@@ -108,7 +112,7 @@ Fixed outcome: `arrived = 3`, `seen = 3`. The executor agrees; the golden shows 
 
 ### A join counts one token per incoming succession, not the tokens parked at it
 
-Fixture: `action_join_one_token_per_incoming_succession` (**known failure**).
+Fixture: `action_join_one_token_per_incoming_succession` (golden).
 
 ```
 start → split ⇉ l1 ──┐
@@ -129,19 +133,20 @@ Open: the order of `left` against any node of the `r` branch.
 Fixed outcome: `log = 12` — `right` writes before `after`, whatever the interleaving, because
 `after` cannot start before `sync`, and `sync` cannot start before `right` has ended.
 
-Executor: `ErrActionDeadlock`. `left` is performed twice (see the next case), so two tokens park
-at `sync` while `right` has not run; `stepJoinNode` compares the number of parked tokens with
-the number of incoming successions and fires on the two `left` tokens, and the `right` token,
-arriving one step later, starves at a join that will never fire again. (`log` happens to read
-`12` when the executor stops, because the scheduler ran `right` in the same step the join
-fired; the failure is the deadlock, not the value.) The case is observable only because a node
-upstream is performed twice, so fixing the next case would also change this one's trace; it
-stays a separate case because it pins a distinct rule — a join fires on *which* successions
-delivered, not on how many tokens arrived.
+Executor: `log = 12`, no deadlock. Every token records the succession it travelled
+(`Token.Via`, the lowered `ActionEdge`), and `ActionExecutor.synchronize` holds a token at a
+node until one token has arrived over *each* succession into it; the golden shows the two
+`left` arrivals collapse into one token at `sync` (step 4), which waits there for `right`
+(step 5) before `after` runs. The case is observable only because a node upstream is reached
+over two successions, so it shares a mechanism with the next case; it stays a separate case
+because it pins a distinct rule — a join fires on *which* successions delivered, not on how
+many tokens arrived. `action_join_same_succession_twice` pins the converse: two tokens over
+one succession into a join satisfy that succession once, and the second waits for the join's
+next firing (`log = 1212`).
 
 ### A node reached over two successions is performed once, after both
 
-Fixture: `action_node_with_two_incoming_successions_runs_once` (**known failure**).
+Fixture: `action_node_with_two_incoming_successions_runs_once` (golden).
 
 ```
 start → split ⇉ l1 ──┐
@@ -160,9 +165,23 @@ Open: the order of `l1` against `l2`.
 
 Fixed outcome: `hits = 1`.
 
-Executor: `hits = 2`. A plain action node has no synchronization; each arriving token runs the
-body and moves on, so a node with several incoming successions is performed once per arrival.
-Only `join` synchronizes, and the map's join row says how.
+Executor: `hits = 1`. The same `synchronize` gate holds a token at a plain node until each
+succession into it has delivered, so `both` is performed once by the one token the two
+arrivals collapse into (golden, step 3). A join differs only in what it awaits: every incoming
+succession (source multiplicity 1..1), so a join one of whose sources no token can reach
+deadlocks (`robustness_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
+a plain node awaits a succession only once it has delivered or while some token of the
+activation, other than one held at the node, can still reach its source without passing through
+the node — the branch a decision did not take, or a loop back over the node itself, imposes no
+`HappensBefore` on this performance. `action_node_converges_after_decision` (golden) pins the
+first half: `converge` behind a decision's two branches performs once for the branch taken and
+does not deadlock on the other; `action_node_loop_back_reperforms` (golden) the second: `bump`,
+reached from `start` and from the decision after it, performs once per pass.
+`action_nested_node_two_successions_per_performance` pins that the count is per performance of
+the owning action: two performances of an action holding such a node each perform it once; and
+`action_node_concurrent_performances` and `action_node_concurrent_nested_bindings` (goldens)
+that a flow-owning node reached from both branches of a fork is likewise one performance,
+holding at each pin the one delivery the flow into that pin carried.
 
 ### Concurrent branches writing one feature: the value is open, the writes are not
 
@@ -183,16 +202,19 @@ Derived constraints:
 Open: the order of `left` against `right`, and so which write of `x` stands. The library gives
 no `HappensBefore` link between them and no conflict rule; either final value is admissible.
 
-Pinned outcome: `x = 1`. This value is **not** derived — it records the executor's scheduling
-(`right` is the branch declared last, so its token is stepped first and `left` writes last) and
-exists only so a change in that scheduling is noticed. The compliance row stays approximate for
-exactly this reason: the runtime picks an order the specification does not, and reports no
+Pinned outcome: the admissible set `{x = 1, x = 2}`, with `leftRan = true` and `rightRan = true`
+in both, which the case states as `outcomes` citing this section and the harness checks the run
+against — a run must match exactly one member. The partial order the library does fix is stated
+as `.trace.order` constraints (`split < left`, `split < right`, `left < sync`, `right < sync`) the
+trace must satisfy. The exact trace golden stays: it records the executor's scheduling (`right`
+is the branch declared last, so its token is stepped first and `left` writes last, giving
+`x = 1`) and exists only so a change in that scheduling is noticed. The compliance row stays
+approximate because the runtime still picks an order the specification does not, and reports no
 conflict.
 
 ### A merge is re-entered on every traversal of a loop
 
-Fixture: `action_merge_loop_reenters` (**known failure**), after the specification's
-`ChargeBattery`.
+Fixture: `action_merge_loop_reenters` (golden), after the specification's `ChargeBattery`.
 
 ```
 start → continueCharging(merge) → monitor → decide ─ level < 100 ─→ addCharge ─┐
@@ -221,10 +243,126 @@ Fixed outcome: `monitor` runs with `level` at `0`, `50` and `100`; the third `de
 the pilot corpus's comment ("a merge node is necessary to prevent a loop of successions from
 being unsatisfiable") take for granted: the merge exists so the loop can be re-entered.
 
-Executor: `level = 50`, `passes = 1`, and `endCharging` is never performed. `stepMergeNode`
-records the merge in `mergeVisited` on its first traversal and retires every later token that
-reaches it, so the second arrival — the one carrying the loop — is discarded and the action
-completes, without error, having never reached `endCharging` or `done`.
+Executor: `level = 100`, `passes = 3`. `stepMergeNode` keeps no record of earlier traversals:
+each arriving token is one `MergePerformance`, its body runs, then the guard on the merge's one
+outgoing succession is read and the token is forwarded or retired, so the token carrying the loop
+re-enters `continueCharging` as often as `decide` sends it back. The golden shows `monitor` reading `level -> 0`, `-> 50`
+and `-> 100`, the third `decide` evaluating `level >= 100 -> true`, then `endCharging` and
+`done`. A merge is the one node several successions reach that does *not* synchronize (the
+previous two cases): `ActionExecutor.synchronizes` exempts `MergeNode`, since
+`MergePerformance` follows *one* source performance while a plain node or join follows one per
+succession. Loop termination is the guard's and the step budget's job, not the merge's:
+`robustness_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
+exit to `ErrActionStepLimitExceeded`, both under `RunToCompletion` and after stepping it.
+
+### A merge counts one performance per pass of a loop
+
+Fixture: `action_merge_loop_three_passes` (golden).
+
+```
+start → again(merge) → work → decide ─ count < 3 ─┐      again { merged := merged + 1 }
+          ↑                            └ count >= 3 → done   work  { count := count + 1 }
+          └───────────────────────────────────────┘
+```
+
+Derived constraints:
+
+- The same chain as above: each `decide` is followed by the one target whose guard holds
+  (DecisionPerformance); each `decide → again` succession is a `HappensBefore` link to a merge
+  performance, followed by a `work` performance and a `decide` performance.
+- A merge performance is one performance with its own steps (`MergeAction` is an `Action`;
+  `Actions.sysml` `Action::merges : MergeAction[0..*]`), so its body runs once per merge
+  performance, i.e. once per arrival.
+
+Open: nothing observable.
+
+Fixed outcome: `count = 3`, `merged = 3` — three passes of `work`, three merge performances.
+The executor agrees; the golden shows `again`'s body and `work`'s body alternating three times
+before `count >= 3 -> true`.
+
+### A merge fed by a fork branch and by a loop passes every arrival
+
+Fixture: `action_merge_fork_branch_and_loop` (golden).
+
+```
+start → split ⇉ gate(merge) → work → more(decide) ─ passes < 3 ─┐   gate { merged := merged + 1 }
+              ⇉ prep → ↑                            └ passes >= 3 → done   work { worked := worked + 1 }
+                       └────────────────────────────────────────┘   more { passes := passes + 1 }
+```
+
+Derived constraints:
+
+- `split` is followed by exactly one performance of `gate` and one of `prep` (ForkAction, target
+  multiplicity 1..1); `prep` is followed by a `gate` performance (HappensBefore). Each is its own
+  merge performance following its own one source (MergePerformance, source multiplicity 0..1),
+  and neither waits for the other: two tokens are downstream of `gate`.
+- Each `gate` performance is followed by a `work` performance and a `more` performance; each
+  `more` is followed by the one target whose guard holds (DecisionPerformance), and `more → gate`
+  is a `HappensBefore` link to a further merge performance.
+- `more`'s body is a step of the decision performance, so it ends before the guard on the
+  outgoing succession is read (HappensBefore orders the whole source performance before its
+  target). Each `more` performance therefore reads a `passes` it has itself just incremented.
+
+Open: the interleaving of the two tokens at every node; which token takes which exit.
+
+Fixed outcome: `passes = 4`, `merged = 4`, `worked = 4`. Whatever the interleaving, `passes`
+takes the values 1, 2, 3, 4 one `more` performance at a time, the two that read 1 and 2 select
+`gate` and the two that read 3 and 4 select `done`, so the merge is reached twice from the fork
+(once directly, once through `prep`) and twice from the loop, and `work` follows each of the
+four. The executor agrees; the golden shows the direct token at `gate` in step 2 while the
+other is still at `prep`, the two loop re-entries at steps 5 and 6, and `done` reached twice.
+Had `passes` been counted in `work` instead, the outcome would depend on the interleaving
+(one token's `more` may read the other's write), which is why the count is where it is.
+
+### A merge performs on every arrival; the guard prunes the outgoing link, not the merge
+
+Fixtures: `f63_merge_body_runs_on_traversal` (golden) and `action_merge_body_flips_own_guard`
+(golden).
+
+```
+start → split ⇉ gate(merge) ─ if ready ─→ tail → done   gate { mergeRuns := mergeRuns + 1 }
+              ⇉ slow → slower → ↑                        slower { ready := true }
+                                                         tail { passed := mergeRuns }
+
+start → count(merge) ─ if arrivals < 3 ─→ work ─┐        count { arrivals := arrivals + 1 }
+          ↑                                     │        work { continued := continued + 1 }
+          └─────────────────────────────────────┘
+```
+
+Derived constraints:
+
+- Each arrival at `gate` is its own merge performance (MergePerformance, `incomingHBLink[1]`),
+  and a merge performance is an `Action` with its own steps (`Action::merges : MergeAction[0..*]`),
+  so `gate`'s body runs once per arrival: `mergeRuns` reaches 2 in the first model, `arrivals`
+  counts every entry to `count` in the second.
+- `succession first gate if ready then tail` is a `DecisionTransitionAction` — "the base type of
+  TransitionUsages used as conditional successions in action models" (`Actions.sysml`) — hence a
+  `NonStateTransitionPerformance` whose `transitionLinkSource: Performance[1]` is the `gate`
+  performance (`binding transitionLink.earlierOccurrence = transitionLinkSource`) and which
+  happens after it: `succession [1] transitionLinkSource then [1] Performance::self`
+  (`TransitionPerformances.kerml`). The guard is a step of that later performance, so it reads
+  the state the complete merge performance left, the merge body's write included.
+- The guard constrains the link, not the source: `TPCGuardConstraint` ties `constrainedHBLink`
+  (`transitionLink: HappensBefore[0..1]`) to `constrainedGuard` with `allTrue(constrainedGuard())`,
+  so a false guard means the `HappensBefore` link to `tail` (or `work`) does not exist. The
+  merge performance it would have left exists regardless — nothing in the library makes a
+  performance conditional on its outgoing links.
+
+Open: in the first model, the interleaving of the direct arrival with `slow → slower`; the
+outcome does not depend on it, since `ready` is written before the second arrival either way.
+
+Fixed outcome, first model: `ready = true`, `mergeRuns = 2`, `passed = 2` — the direct arrival
+performs `gate` and reads `ready = false`, so no link to `tail` follows it; the second arrival
+performs `gate` again, reads `ready = true`, and `tail` reads the two merge performances.
+Second model: `arrivals = 3`, `continued = 2` — the third `count` performance's own increment is
+what its guard reads, so `work` does not follow it and the action ends with no token. Had the
+guard been read before the body, `work` would have followed the third arrival (`continued = 3`),
+which is the observable the second fixture pins.
+
+Executor: both agree. `stepMergeNode` runs the body, then evaluates the outgoing succession's
+guard and retires the token when it is false; the goldens show `assign mergeRuns` before each
+`eval feature ready`, `tail` reading `mergeRuns -> 2`, and in the second model `arrivals < 3 ->
+false` read straight after the increment that made it so, followed by `no active tokens`.
 
 ### A transition's guard, the source's exit, the effect and the target's entry, in that order
 
@@ -255,22 +393,21 @@ the tool detail noted above, not a second reading the library asks for.
 
 ## What the executor gets wrong
 
-Three of the six derivations are not met. Each is listed in
-`internal/core/runtime/testdata/conformance/known_failures.txt`, its expected outcome is the
-derived one, and the compliance map cites it from the row it refutes.
+Nothing, at present: every derivation above is met and carries a golden. The table this section
+held is empty and so omitted; `internal/core/runtime/testdata/conformance/known_failures.txt` is
+kept with only its header comments, because the harness reads it and because it is where the
+next unmet derivation goes (see [Adding a case](#adding-a-case)).
 
-| Case | Derived | Executor | Root |
-|------|---------|----------|------|
-| `action_node_with_two_incoming_successions_runs_once` | one performance after both predecessors | one performance per arriving token | `stepActionExecutionNode` has no synchronization; only `join` does |
-| `action_join_one_token_per_incoming_succession` | the join waits for a token from each incoming succession | the join fires when as many tokens are parked as there are incoming successions | `stepJoinNode` counts parked tokens; a `Token` records no incoming edge |
-| `action_merge_loop_reenters` | every arrival traverses the merge | the first traversal closes the merge for the run | `stepMergeNode` keys `mergeVisited` on the merge node alone |
-
-The first two share a cause in the model — the join case's extra token is the first case's
-extra performance — but not in the executor: giving a plain node join semantics would leave a
-join that counts tokens rather than successions, and vice versa. Fixing either changes traces
-this corpus does not yet hold a golden for; when a fix lands, remove the entry from
-`known_failures.txt`, run `-update-traces` for the case, and review the new golden against the
-derivation above before committing it.
+The one entry it held, `action_merge_loop_reenters`, was met by removing the executor's
+first-traversal record from `stepMergeNode` so that a merge passes every arriving token; the
+case's expected outcome was not touched. The same change moved the merge's body ahead of its
+outgoing guard, as every other node kind already had it, which is the one existing expectation
+that moved: `f63_merge_body_runs_on_traversal` went from `mergeRuns = 1`, `passed = 1` (an
+arrival whose guard was false skipped the body) to `mergeRuns = 2`, `passed = 2`, per the
+derivation above. When a new gap is found, list the case there, record it
+in a table here (case, derived, executor, root), and when the fix lands remove the entry, run
+`-update-traces` for the case, and review the new golden against its derivation before
+committing it.
 
 ## Adding a case
 

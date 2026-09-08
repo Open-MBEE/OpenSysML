@@ -435,6 +435,68 @@ func TestTokensShowNodeNames(t *testing.T) {
 	rejects(t, got, "*ast.")
 }
 
+// A token held at a join says which succession it came over and which it waits for.
+func TestTokensShowHeldJoinArrivals(t *testing.T) {
+	s := loadSource(t, `package test {
+		action gather {
+			first start;
+			fork split;
+			action quick;
+			action slow1;
+			action slow2;
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then quick;
+			succession first split then slow1;
+			succession first slow1 then slow2;
+			succession first quick then sync;
+			succession first slow2 then sync;
+			succession first sync then done;
+		}
+	}`)
+	run(t, s, "%action gather")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	got := run(t, s, "%tokens")
+	wants(t, got, "Token 2 @ sync (arrived from quick; awaiting slow2)", "Token 3 @ slow2")
+	rejects(t, got, "slow2 (arrived")
+	wants(t, run(t, s, "%continue"), "✓ Action completed")
+}
+
+// A loop through a merge with no exit is stepped one node at a time; %continue then
+// stops at the action step budget instead of spinning.
+func TestActionDebuggerStepsAnUnguardedMergeLoop(t *testing.T) {
+	s := loadSource(t, `package test {
+		action spin {
+			first start;
+			merge m;
+			action a;
+			succession first start then m;
+			succession first m then a;
+			succession first a then m;
+		}
+	}`)
+	budgets := runtime.DefaultBudgets()
+	budgets.MaxActionSteps = 20
+	if err := s.SetBudgets(budgets); err != nil {
+		t.Fatalf("SetBudgets: %v", err)
+	}
+	run(t, s, "%action spin")
+	for i := 0; i < 2*int(budgets.MaxActionSteps); i++ {
+		wants(t, run(t, s, "%step"), "✓ Step complete", "Tokens: 1")
+		at := "Token 1 @ m"
+		if i%2 == 1 {
+			at = "Token 1 @ a"
+		}
+		wants(t, run(t, s, "%tokens"), at)
+	}
+	wants(t, run(t, s, "%continue"),
+		"error: execution failed:",
+		"exceeded max steps (20 steps; raise "+runtime.MaxActionStepsEnvVar)
+}
+
 func TestActionDebuggerRejectsNonAction(t *testing.T) {
 	s := loadFixture(t, "testdata/vehicle_package.sysml")
 	wants(t, run(t, s, "%action Vehicle"), "is not an action")

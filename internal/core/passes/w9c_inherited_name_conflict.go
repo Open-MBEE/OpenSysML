@@ -38,7 +38,8 @@ func (W9CInheritedNameConflictPass) Run(ctx *Context, name string, root *ast.Roo
 		model:    ctx.Model(),
 		idx:      ctx.Index,
 		resolver: ctx.Resolver(),
-		members:  map[*symbols.Symbol]map[string]w9cCandidate{},
+		members:  map[*symbols.Symbol]w9cContributor{},
+		own:      map[*symbols.Symbol]w9cContributor{},
 	}
 	if c.model == nil {
 		return nil
@@ -52,8 +53,10 @@ type w9cConflictChecker struct {
 	idx      *symbols.Index
 	resolver *resolve.Resolver
 	// members memoizes the visible member of each library base, per name.
-	members map[*symbols.Symbol]map[string]w9cCandidate
-	diags   []Diagnostic
+	members map[*symbols.Symbol]w9cContributor
+	// own memoizes the own members of each type passed through, per name.
+	own   map[*symbols.Symbol]w9cContributor
+	diags []Diagnostic
 }
 
 // w9cCandidate is one library base's contribution of a member name, with the
@@ -82,22 +85,21 @@ func (c *w9cConflictChecker) check(sym *symbols.Symbol) {
 	if len(reach.bases) == 0 {
 		return
 	}
-	byName := c.candidates(reach)
-	c.checkOwnedNames(sym, byName)
-	if len(reach.bases) < 2 && len(reach.through) == 0 {
+	contribs := c.contributors(reach)
+	c.checkOwnedNames(sym, contribs)
+	if len(contribs) < 2 {
 		// One base contributes each name once, so no name is reached twice.
 		return
 	}
-	names := make([]string, 0, len(byName))
-	for name := range byName {
-		if len(byName[name]) > 1 && !c.declares(sym, name) {
+	var names []string
+	for _, name := range sharedNames(contribs) {
+		if !c.declares(sym, name) {
 			names = append(names, name)
 		}
 	}
-	sort.Strings(names)
 	spans := append([]source.Span{sym.DeclSpan}, c.chainSpans(sym)...)
 	for _, name := range names {
-		if from := c.conflictingBases(byName[name]); len(from) > 1 {
+		if from := c.conflictingBases(contributionsOf(contribs, name)); len(from) > 1 {
 			for _, span := range spans {
 				c.report(span, name, from)
 			}
@@ -105,21 +107,73 @@ func (c *w9cConflictChecker) check(sym *symbols.Symbol) {
 	}
 }
 
-// candidates is every inherited member by name: each library base's members
-// plus the own members of the types and features passed on the way there.
-func (c *w9cConflictChecker) candidates(reach w9cReach) map[string][]w9cCandidate {
-	byName := map[string][]w9cCandidate{}
+// w9cContributor is one source of inherited members, by the name it supplies each under.
+type w9cContributor map[string]w9cCandidate
+
+// contributors are the memoized member maps of each library base, then of each
+// type passed on the way there; they are shared and looked up, never merged.
+func (c *w9cConflictChecker) contributors(reach w9cReach) []w9cContributor {
+	out := make([]w9cContributor, 0, len(reach.bases)+len(reach.through))
 	for _, base := range reach.bases {
-		for name, cand := range c.baseMembers(base) {
-			byName[name] = append(byName[name], cand)
-		}
+		out = append(out, c.baseMembers(base))
 	}
 	for _, via := range reach.through {
-		for name, member := range c.ownMembers(via) {
-			byName[name] = append(byName[name], w9cCandidate{declaredBy: via, member: member})
+		out = append(out, c.throughMembers(via))
+	}
+	return out
+}
+
+// contributionsOf is each contributor's member of one name, in contributor order.
+func contributionsOf(contribs []w9cContributor, name string) []w9cCandidate {
+	var out []w9cCandidate
+	for _, members := range contribs {
+		if cand, ok := members[name]; ok {
+			out = append(out, cand)
 		}
 	}
-	return byName
+	return out
+}
+
+// sharedNames are the names two or more contributors supply, sorted; the
+// largest map is only looked up, since a name it alone supplies is reached once.
+func sharedNames(contribs []w9cContributor) []string {
+	largest := 0
+	for i, members := range contribs {
+		if len(members) > len(contribs[largest]) {
+			largest = i
+		}
+	}
+	seen := map[string]bool{}
+	var names []string
+	for i, members := range contribs {
+		if i == largest {
+			continue
+		}
+		for name := range members {
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+			if len(contributionsOf(contribs, name)) > 1 {
+				names = append(names, name)
+			}
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// throughMembers are the own members of a type passed on the way to a library base. Memoized.
+func (c *w9cConflictChecker) throughMembers(via *symbols.Symbol) w9cContributor {
+	if cached, ok := c.own[via]; ok {
+		return cached
+	}
+	out := w9cContributor{}
+	for name, member := range c.ownMembers(via) {
+		out[name] = w9cCandidate{declaredBy: via, member: member}
+	}
+	c.own[via] = out
+	return out
 }
 
 // ownMembers is the visible member sym declares under each name, its short
@@ -156,7 +210,7 @@ func shortNameOf(sym *symbols.Symbol) string {
 // checkOwnedNames reports each member sym declares whose name a library base
 // already contributes (KerML 8.4.3.2): the two are indistinguishable unless the
 // declaration redefines or subsets the inherited feature.
-func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, byName map[string][]w9cCandidate) {
+func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9cContributor) {
 	if sym.Scope == nil || resolve.ParameterizedByName(sym) {
 		return
 	}
@@ -167,7 +221,7 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, byName map[str
 				continue
 			}
 			for _, key := range ownedKeysOf(mem) {
-				cands := byName[key.name]
+				cands := contributionsOf(contribs, key.name)
 				if len(cands) == 0 {
 					continue
 				}
@@ -426,11 +480,11 @@ func (c *w9cConflictChecker) specializes(sub, sup *symbols.Symbol) bool {
 
 // baseMembers is the member a library base makes visible under each name, the
 // closest one when several of its supertypes supply it. Memoized per base.
-func (c *w9cConflictChecker) baseMembers(base *symbols.Symbol) map[string]w9cCandidate {
+func (c *w9cConflictChecker) baseMembers(base *symbols.Symbol) w9cContributor {
 	if cached, ok := c.members[base]; ok {
 		return cached
 	}
-	out := map[string]w9cCandidate{}
+	out := w9cContributor{}
 	c.members[base] = out
 	seen := map[*symbols.Symbol]bool{}
 	queue := []*symbols.Symbol{base}

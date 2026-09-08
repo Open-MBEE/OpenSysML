@@ -1,0 +1,47 @@
+step 1: token 1@again
+stmt assign merged
+    eval feature merged -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 2: token 1@work
+stmt assign count
+    eval feature count -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 3: token 1@decision
+  eval feature count -> 1
+  eval literal 3 -> 3
+eval operator < -> true
+step 4: token 1@again
+stmt assign merged
+    eval feature merged -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 5: token 1@work
+stmt assign count
+    eval feature count -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 6: token 1@decision
+  eval feature count -> 2
+  eval literal 3 -> 3
+eval operator < -> true
+step 7: token 1@again
+stmt assign merged
+    eval feature merged -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+step 8: token 1@work
+stmt assign count
+    eval feature count -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+step 9: token 1@decision
+  eval feature count -> 3
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature count -> 3
+  eval literal 3 -> 3
+eval operator >= -> true
+step 10: token 1@done
+step 11: no active tokens

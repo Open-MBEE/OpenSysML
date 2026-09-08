@@ -37,6 +37,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	}
 	token.frame = perf
 	token.Location = perf.graph.Initial
+	token.Via = lower.ActionEdge{}
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(ActionNodeName(node))
 	}
@@ -152,6 +153,20 @@ func (t Token) inFlowOf(perf *actionFrame) bool {
 	return false
 }
 
+// positionIn returns the node of perf's flow the token stands at: its location, or the node
+// owning the flow nested under perf it runs in; false for a token outside perf's flow.
+func (t Token) positionIn(perf *actionFrame) (ast.Node, bool) {
+	if t.frame == perf {
+		return t.Location, true
+	}
+	for f := t.frame; f != nil; f = f.parent {
+		if f.parent == perf {
+			return f.node, true
+		}
+	}
+	return nil, false
+}
+
 // leaveSubflow returns a token to the node whose flow has just completed, ends
 // that node's performance and takes the node's own succession.
 func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
@@ -159,6 +174,7 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 	frame := token.frame
 	token.frame = frame.parent
 	token.Location = frame.node
+	token.Via = lower.ActionEdge{}
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(ActionNodeName(frame.node))

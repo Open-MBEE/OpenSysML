@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"arrived": {"type": "Integer", "value": 3},
+		"seen": {"type": "Integer", "value": 3}
+	}
+}

@@ -22,6 +22,7 @@ import (
 
 func TestRuntimeRobustness(t *testing.T) {
 	t.Run("deadlock_join_starvation", testDeadlockJoinStarvation)
+	t.Run("deadlock_join_same_succession_twice", testDeadlockJoinSameSuccessionTwice)
 	t.Run("nested_flow_without_an_initial_node", testNestedFlowWithoutAnInitialNode)
 	t.Run("nested_flow_with_a_dangling_succession", testNestedFlowWithADanglingSuccession)
 	t.Run("nested_flow_that_cannot_progress", testNestedFlowThatCannotProgress)
@@ -72,6 +73,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("explicit_succession_missing_endpoint", testExplicitSuccessionMissingEndpoint)
 	t.Run("control_flow_missing_endpoint", testControlFlowMissingEndpoint)
 	t.Run("merge_without_a_successor", testMergeWithoutASuccessor)
+	t.Run("unguarded_loop_through_a_merge", testUnguardedLoopThroughAMerge)
 	t.Run("action_whose_last_node_has_no_succession", testActionWhoseLastNodeHasNoSuccession)
 	t.Run("first_node_with_a_second_succession", testFirstNodeWithASecondSuccession)
 	t.Run("first_beside_an_initial_node", testFirstBesideAnInitialNode)
@@ -4935,6 +4937,53 @@ func testDeadlockJoinStarvation(t *testing.T) {
 	}
 }
 
+// testDeadlockJoinSameSuccessionTwice: two tokens reach the join over the one
+// succession from the merge; they do not stand in for the succession from
+// `stranded`, which no token can travel, so the join never fires.
+func testDeadlockJoinSameSuccessionTwice(t *testing.T) {
+	src := `
+		package test {
+			action starve {
+				first start;
+				fork split;
+				action a;
+				action b;
+				merge m;
+				action stranded;
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then m;
+				succession first b then m;
+				succession first m then sync;
+				succession first stranded then sync;
+				succession first sync then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "starve", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action starve not found")
+	}
+
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	if err := exec.RunToCompletion(); !errors.Is(err, ErrActionDeadlock) {
+		t.Fatalf("error = %v, want ErrActionDeadlock", err)
+	}
+	for _, token := range exec.Tokens() {
+		if awaiting := exec.Awaiting(token); len(awaiting) != 1 {
+			t.Errorf("token %d awaits %d successions, want the one from stranded", token.ID, len(awaiting))
+		}
+	}
+}
+
 func testForkWithoutASuccessor(t *testing.T) {
 	src := `
 		package test {
@@ -5028,6 +5077,66 @@ func testMergeWithoutASuccessor(t *testing.T) {
 	err = exec.RunToCompletion()
 	if !errors.Is(err, ErrInvalidActionFlow) {
 		t.Fatalf("error = %v, want ErrInvalidActionFlow", err)
+	}
+}
+
+// testUnguardedLoopThroughAMerge: a merge passes every arrival, so a loop with no
+// exit spins through it until the step budget stops the run with its typed error.
+func testUnguardedLoopThroughAMerge(t *testing.T) {
+	src := `
+		package test {
+			action spin {
+				first start;
+				merge m;
+				action a;
+				succession first start then m;
+				succession first m then a;
+				succession first a then m;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "spin", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action spin not found")
+	}
+
+	// RunToCompletion spends the whole budget on the loop and reports it.
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	err = exec.RunToCompletion()
+	if !errors.Is(err, ErrActionStepLimitExceeded) {
+		t.Fatalf("RunToCompletion() = %v, want ErrActionStepLimitExceeded", err)
+	}
+	if !strings.Contains(err.Error(), MaxActionStepsEnvVar) {
+		t.Errorf("error %q does not name %s", err, MaxActionStepsEnvVar)
+	}
+
+	// A debugger steps the loop one node at a time: each step is one bounded unit
+	// of work, the token keeps circling m and a, and continuing from there hits the budget.
+	ctx.maxActionSteps = 20
+	stepped, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	for i := 0; i < 2*int(ctx.maxActionSteps); i++ {
+		if err := stepped.Step(); err != nil {
+			t.Fatalf("Step() %d = %v, want nil", i, err)
+		}
+		tokens := stepped.Tokens()
+		if len(tokens) != 1 {
+			t.Fatalf("after step %d: %d tokens, want 1 circling the loop", i, len(tokens))
+		}
+		_, atMerge := tokens[0].Location.(*ast.MergeNode)
+		if atMerge != (i%2 == 0) {
+			t.Fatalf("after step %d: token at %T, want it alternating between m and a", i, tokens[0].Location)
+		}
+	}
+	err = stepped.RunToCompletion()
+	if !errors.Is(err, ErrActionStepLimitExceeded) {
+		t.Fatalf("RunToCompletion() after stepping = %v, want ErrActionStepLimitExceeded", err)
 	}
 }
 

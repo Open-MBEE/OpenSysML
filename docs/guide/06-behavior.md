@@ -507,6 +507,37 @@ parent's.
 and their own verdict is unchanged: the requirement engine still decides whether the requirement is
 satisfied, and a failing verification body does not make a satisfied requirement violated.
 
+`%sweep` runs the case once per value of a range rather than once, and `%samples <n> <seed>`
+draws that many values from it instead — the same tables `-sweep` and `-samples` print. Each row
+is an ordinary run of the case with the swept parameter bound to that row's value, so it reports
+what that run computed and how long it took:
+
+```
+%instantiate An::ship
+%sweep An::CostAnalysis An::ship limit=10.0..30.0:10.0
+sweep An::CostAnalysis — 3 run(s)
+limit | total | verdict                   | time
+------+-------+---------------------------+--------
+10.0  | 12.0  | affordable: not satisfied | 0.510ms
+20.0  | 12.0  | affordable: satisfied     | 0.022ms
+30.0  | 12.0  | affordable: satisfied     | 0.012ms
+
+%samples 3 42 An::CostAnalysis An::ship limit=10.0..30.0
+samples An::CostAnalysis — 3 run(s), seed 42
+limit              | total | verdict                   | time
+-------------------+-------+---------------------------+--------
+26.509450139960897 | 12.0  | affordable: satisfied     | 0.016ms
+10.856399027228605 | 12.0  | affordable: not satisfied | 0.015ms
+25.521460994239078 | 12.0  | affordable: satisfied     | 0.013ms
+```
+
+The endpoints are expressions evaluated where the session evaluates one, units included, and a
+calc is swept the same way (`%sweep An::Sum(2.0) b=0.0..10.0:2.5`). Several ranges run their
+cartesian product, a failed run is a row of the table rather than the end of it, and
+[reference/repl-commands.md](../reference/repl-commands.md) states each refusal. Sampling is
+uniform over the range — the bundled library defines no probability distribution, so a
+distribution asked for by name is refused naming what is missing.
+
 ## Token-flow patterns
 
 Each model below is in

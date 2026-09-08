@@ -398,7 +398,7 @@ package OpenSysMLPipeline {
     #Backend part def Runtime :> Stage {
         attribute :>> goPackage = "internal/core/runtime";
         attribute stepBudgeted : Boolean = true;
-        attribute budgetCount : Integer = 6;
+        attribute budgetCount : Integer = 7;
 
         part instances : InstanceModel;
         part evaluator : Evaluator;
@@ -440,6 +440,12 @@ package OpenSysMLPipeline {
             attribute :>> envVar = "OPENSYSML_MAX_CALC_DEPTH";
             attribute :>> defaultBound = 10000;
             attribute :>> exhaustion = "calc recursion limit exceeded";
+        }
+        part sweepRuns : Budget {
+            attribute :>> counts = "runs one parameter sweep or sample makes";
+            attribute :>> envVar = "OPENSYSML_MAX_SWEEP_RUNS";
+            attribute :>> defaultBound = 1000;
+            attribute :>> exhaustion = "sweep run budget exceeded";
         }
 
         in item actionGraph : ActionGraph;

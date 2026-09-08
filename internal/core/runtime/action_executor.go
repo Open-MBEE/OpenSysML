@@ -38,11 +38,8 @@ type ActionExecutor struct {
 	breakpoints map[string]bool
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
 	firedBreakpoints map[breakpointVisit]bool
-	// mergeVisited tracks merge node visits, per activation of the flow the merge
-	// belongs to: a nested flow entered again merges again.
-	mergeVisited map[mergeVisit]bool
-	inputs       map[string]Value // Input parameter bindings, applied over attribute defaults
-	pausedAt     string           // Node name RunToCompletion stopped at, empty when it ran to the end
+	inputs           map[string]Value // Input parameter bindings, applied over attribute defaults
+	pausedAt         string           // Node name RunToCompletion stopped at, empty when it ran to the end
 	// pause is set while a token's work runs as a coroutine (action_body_run.go):
 	// called with a breakpoint's name, it pauses the run there until resumed.
 	pause func(string) bool
@@ -76,13 +73,6 @@ func (e *ActionExecutor) chargeActionStep() error {
 // breakpointVisit identifies one token's stay at one node.
 type breakpointVisit struct {
 	token int64
-	node  ast.Node
-}
-
-// mergeVisit identifies one merge node in one performance of the flow it
-// belongs to.
-type mergeVisit struct {
-	frame *actionFrame
 	node  ast.Node
 }
 
@@ -137,7 +127,6 @@ func newActionExecutorForOccurrence(
 		breakpoints:  make(map[string]bool),
 
 		firedBreakpoints: make(map[breakpointVisit]bool),
-		mergeVisited:     make(map[mergeVisit]bool),
 	}
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
@@ -833,10 +822,14 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
 
-	token := &e.tokens[tokenIdx]
-	if token.body != nil {
+	if e.tokens[tokenIdx].body != nil {
 		return e.resumeBody(tokenIdx)
 	}
+	tokenIdx, ready := e.synchronize(tokenIdx)
+	if !ready {
+		return nil
+	}
+	token := &e.tokens[tokenIdx]
 
 	switch node := token.Location.(type) {
 	case *ast.InitialNode:
@@ -868,6 +861,143 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	default:
 		return fmt.Errorf("unsupported node type: %T", node)
 	}
+}
+
+// synchronize holds a token at a node several successions reach until one token has arrived
+// over each; the earliest per succession then collapse into the one token that performs it.
+func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
+	token := e.tokens[tokenIdx]
+	if token.Via == (lower.ActionEdge{}) || !synchronizes(token.Location) {
+		return tokenIdx, true
+	}
+	_, join := token.Location.(*ast.JoinNode)
+	incoming := e.awaitedSuccessions(token.frame, token.Location)
+	if len(incoming) < 2 && !join {
+		return tokenIdx, true
+	}
+
+	consumed := make([]int, 0, len(incoming))
+	for _, edge := range incoming {
+		idx, ok := e.arrival(token.frame, token.Location, edge)
+		if !ok {
+			return tokenIdx, false
+		}
+		consumed = append(consumed, idx)
+	}
+
+	sort.Sort(sort.Reverse(sort.IntSlice(consumed)))
+	for _, idx := range consumed {
+		e.removeToken(idx)
+	}
+	token.frame.live -= len(consumed) - 1
+	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: token.Location, frame: token.frame})
+	e.nextTokenID++
+	return len(e.tokens) - 1, true
+}
+
+// synchronizes reports whether a node waits for all its incoming successions: every node
+// does but a merge, the one multi-incoming node that fires per arrival (Actions::MergeAction).
+func synchronizes(node ast.Node) bool {
+	_, merge := node.(*ast.MergeNode)
+	return !merge
+}
+
+// arrival returns the earliest token of frame held at node that arrived over edge.
+func (e *ActionExecutor) arrival(frame *actionFrame, node ast.Node, edge lower.ActionEdge) (int, bool) {
+	for i, t := range e.tokens {
+		if t.Location == node && t.frame == frame && t.body == nil && t.Via == edge {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// awaitedSuccessions returns the successions into node a performance of it follows: every one
+// of a join (its sources are 1..1), else those delivered or whose source a token may still perform.
+func (e *ActionExecutor) awaitedSuccessions(frame *actionFrame, node ast.Node) []lower.ActionEdge {
+	graph := e.graphOf(frame)
+	incoming := incomingEdges(graph, node)
+	if _, join := node.(*ast.JoinNode); join || len(incoming) < 2 {
+		return incoming
+	}
+	live := e.reachableFrom(frame, node)
+	awaited := make([]lower.ActionEdge, 0, len(incoming))
+	for _, edge := range incoming {
+		if _, delivered := e.arrival(frame, node, edge); delivered || live[edge.Source] {
+			awaited = append(awaited, edge)
+		}
+	}
+	return awaited
+}
+
+// reachableFrom returns the nodes of frame's flow the tokens of that flow not held at node may
+// reach before node performs: paths through node itself or through a join it must feed do not count.
+func (e *ActionExecutor) reachableFrom(frame *actionFrame, node ast.Node) map[ast.Node]bool {
+	graph := e.graphOf(frame)
+	reached := make(map[ast.Node]bool)
+	for _, t := range e.tokens {
+		if at, ok := t.positionIn(frame); ok && at != node {
+			reached[at] = true
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for current := range reached {
+			if current == node || !e.leaves(frame, current, reached) {
+				continue
+			}
+			for _, edge := range graph.Edges[current] {
+				if !reached[edge.Target] {
+					reached[edge.Target] = true
+					changed = true
+				}
+			}
+		}
+	}
+	return reached
+}
+
+// leaves reports whether a token may leave node given the nodes reached so far: a join is left
+// only once every incoming succession has delivered or has a reachable source.
+func (e *ActionExecutor) leaves(frame *actionFrame, node ast.Node, reached map[ast.Node]bool) bool {
+	if _, join := node.(*ast.JoinNode); !join {
+		return true
+	}
+	for _, edge := range incomingEdges(e.graphOf(frame), node) {
+		if _, delivered := e.arrival(frame, node, edge); !delivered && !reached[edge.Source] {
+			return false
+		}
+	}
+	return true
+}
+
+// incomingEdges returns the successions into node, in the declaration order of
+// the nodes they leave.
+func incomingEdges(graph *lower.ActionGraph, node ast.Node) []lower.ActionEdge {
+	var incoming []lower.ActionEdge
+	for _, source := range graph.Nodes {
+		for _, edge := range graph.Edges[source] {
+			if edge.Target == node {
+				incoming = append(incoming, edge)
+			}
+		}
+	}
+	return incoming
+}
+
+// Awaiting returns the successions into the node token is held at that no token has
+// arrived over yet, nil for a token not held there.
+func (e *ActionExecutor) Awaiting(token Token) []lower.ActionEdge {
+	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
+		return nil
+	}
+	var awaited []lower.ActionEdge
+	for _, edge := range e.awaitedSuccessions(token.frame, token.Location) {
+		if _, delivered := e.arrival(token.frame, token.Location, edge); !delivered {
+			awaited = append(awaited, edge)
+		}
+	}
+	return awaited
 }
 
 // enabledSuccessions returns the successions a token at node may take, in
@@ -935,7 +1065,7 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	}
 
 	// Move token to first successor (initial should have exactly 1)
-	token.Location = successors[0].Target
+	token.travel(successors[0])
 	return nil
 }
 
@@ -1005,6 +1135,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 		newToken := Token{
 			ID:       e.nextTokenID,
 			Location: edge.Target,
+			Via:      edge,
 			frame:    frame,
 		}
 		e.nextTokenID++
@@ -1019,32 +1150,13 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	return nil
 }
 
-// stepJoinNode synchronizes tokens from all incoming edges.
-// Waits for tokens on ALL incoming edges before firing.
+// stepJoinNode passes the one token a join performs with — synchronize has
+// already waited for its incoming successions — on to its successor.
 func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	node := token.Location.(*ast.JoinNode)
 	frame := token.frame
 	graph := e.graphOf(frame)
-
-	// Get incoming edges
-	incomingEdges := e.getIncomingEdges(graph, node)
-
-	// The tokens of this activation waiting at the join: a nested flow
-	// synchronizes its own tokens, not those of an enclosing one.
-	atJoin := make([]int, 0, len(e.tokens))
-	for i := range e.tokens {
-		if e.tokens[i].Location == ast.Node(node) && e.tokens[i].frame == frame {
-			atJoin = append(atJoin, i)
-		}
-	}
-
-	// Wait until all incoming edges have tokens
-	if len(atJoin) < len(incomingEdges) {
-		// Not ready yet - barrier synchronization requires ALL incoming tokens.
-		// Returns nil (no-op) until all tokens arrive. Deadlock detection handled separately (Task 11).
-		return nil
-	}
 
 	if err := e.runNodeBody(frame, node); err != nil {
 		return err
@@ -1065,44 +1177,16 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 		return err
 	}
 
-	// The branches' tokens are consumed either way; one is kept to carry the
-	// join's outcome, or to end the flow where a guard rules the succession out.
-	for i := len(atJoin) - 1; i >= 1; i-- {
-		e.removeToken(atJoin[i])
-		frame.live--
-	}
+	// A guard ruling the join's succession out ends the flow through it.
 	if len(successors) == 0 {
-		return e.retireToken(atJoin[0])
+		return e.retireToken(tokenIdx)
 	}
-
-	// The output token is a token of its own. The branches wrote to the action's
-	// own features, so there is nothing per-branch left to merge here.
-	outputToken := e.tokens[atJoin[0]]
-	e.removeToken(atJoin[0])
-	outputToken.ID = e.nextTokenID
-	e.nextTokenID++
-	outputToken.Location = successors[0].Target
-	outputToken.Wait = nil
-	e.tokens = append(e.tokens, outputToken)
-
+	token.travel(successors[0])
 	return nil
 }
 
-// getIncomingEdges finds all nodes that have edges targeting the given node.
-func (e *ActionExecutor) getIncomingEdges(graph *lower.ActionGraph, node ast.Node) []ast.Node {
-	incoming := make([]ast.Node, 0)
-	for source, targets := range graph.Edges {
-		for _, edge := range targets {
-			if edge.Target == node {
-				incoming = append(incoming, source)
-				break // Only count each source once
-			}
-		}
-	}
-	return incoming
-}
-
-// stepMergeNode implements OR-join semantics (first-token-wins).
+// stepMergeNode performs a merge for each arriving token: a merge is one MergePerformance per
+// arrival (Actions::MergeAction), so a loop re-enters it and a fork's branches each traverse it.
 func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	mergeNode, ok := token.Location.(*ast.MergeNode)
@@ -1110,15 +1194,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return fmt.Errorf("expected MergeNode, got %T", token.Location)
 	}
 
-	visit := mergeVisit{frame: token.frame, node: mergeNode}
 	graph := e.graphOf(token.frame)
-
-	// Check if merge already visited
-	if e.mergeVisited[visit] {
-		// Discard token (first-wins)
-		return e.retireToken(tokenIdx)
-	}
-
 	declared := graph.Edges[mergeNode]
 	if len(declared) == 0 {
 		return fmt.Errorf("%w: merge node %s has no successors",
@@ -1128,6 +1204,12 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return fmt.Errorf("%w: merge node %s has multiple successors (not yet supported)",
 			ErrInvalidActionFlow, mergeNode.Name)
 	}
+	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
+		return err
+	}
+
+	// The guard follows the performance (TransitionPerformances::NonStateTransitionPerformance)
+	// and prunes the outgoing link, not the merge: a false guard retires the token after its body ran.
 	successors, err := e.enabledSuccessions(token.frame, mergeNode)
 	if err != nil {
 		return err
@@ -1135,15 +1217,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-
-	// First-wins counts the token that traverses, not the one that arrives: a
-	// token whose succession was pruned leaves the merge open for a later one,
-	// so the body runs with that traversal rather than on every arrival.
-	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
-		return err
-	}
-	e.mergeVisited[visit] = true
-	token.Location = successors[0].Target
+	token.travel(successors[0])
 	return nil
 }
 
@@ -1191,14 +1265,14 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			return err
 		}
 		if holds {
-			token.Location = edge.Target
+			token.travel(*edge)
 			return nil
 		}
 	}
 
 	// Pass 2: Use unguarded edge as fallback
 	if unguardedEdge != nil {
-		token.Location = unguardedEdge.Target
+		token.travel(*unguardedEdge)
 		return nil
 	}
 
@@ -1267,7 +1341,7 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	token.Location = successors[0].Target
+	token.travel(successors[0])
 	return nil
 }
 
@@ -1410,7 +1484,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	e.tokens[tokenIdx].Location = successors[0].Target
+	e.tokens[tokenIdx].travel(successors[0])
 	return nil
 }
 
@@ -1464,7 +1538,7 @@ func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 			return e.retireToken(tokenIdx)
 		}
 
-		e.tokens[tokenIdx].Location = successors[0].Target
+		e.tokens[tokenIdx].travel(successors[0])
 		return nil
 	})
 }

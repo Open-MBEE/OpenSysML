@@ -3,9 +3,4 @@
 
 # Semantic-oracle cases whose library-derived expectation the executor does not
 # meet yet; the derivations are in docs/project/behavior-semantic-oracle.md.
-# A node reached over two successions is performed once per arriving token.
-action_node_with_two_incoming_successions_runs_once
-# A join fires on the count of parked tokens, not one per incoming succession.
-action_join_one_token_per_incoming_succession
-# A merge admits one traversal per executor run, so a loop's re-entry is dropped.
-action_merge_loop_reenters
+# The list is empty: every derived case passes.

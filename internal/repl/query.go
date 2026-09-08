@@ -52,6 +52,19 @@ type Verdict struct {
 	// verifying the checked requirement answered, reported beside its status
 	// rather than deciding it.
 	Verifications []VerificationVerdict
+	// Rows are the runs a sweep made, one per row of its table; no other kind of
+	// verdict has any.
+	Rows []VerdictRow
+}
+
+// VerdictRow is one run of a sweep: what it was given, what it produced and
+// decided, how long it took, and what stopped it when it failed.
+type VerdictRow struct {
+	Inputs   []NamedValue
+	Outputs  []NamedValue
+	Verdicts []NamedValue
+	Millis   float64
+	Error    string
 }
 
 // Holds reports whether the checked condition is satisfied.

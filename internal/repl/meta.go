@@ -109,6 +109,8 @@ func opensName(sofar string, rest []rune) bool {
 const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
+	cmdSweep          = "%sweep"
+	cmdSamples        = "%samples"
 	cmdRunQuery       = "%run-query"
 	cmdRenderDocument = "%render-document"
 	argName           = "<name>"
@@ -159,6 +161,8 @@ var metaCommandTable = []metaCommand{
 
 	{group: groupBehavioral, name: "%calc", args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{group: groupBehavioral, name: cmdAnalysis, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
+	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{group: groupBehavioral, name: cmdRenderDocument, args: argName, desc: "compile a document definition, run its queries and print the rendered Markdown"},
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
@@ -382,6 +386,16 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{analysisUsage}, false, nil), true
 		}
 		return metaOut(s.doAnalysis(strings.TrimPrefix(strings.TrimSpace(line), cmdAnalysis))), true
+	case cmdSweep:
+		if len(fields) < 2 {
+			return metaOut([]string{sweepUsage}, false, nil), true
+		}
+		return metaOut(s.doSweep(strings.TrimPrefix(strings.TrimSpace(line), cmdSweep))), true
+	case cmdSamples:
+		if len(fields) < 2 {
+			return metaOut([]string{samplesUsage}, false, nil), true
+		}
+		return metaOut(s.doSamples(strings.TrimPrefix(strings.TrimSpace(line), cmdSamples))), true
 	case cmdRunQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{runQueryUsage}, false, nil), true
@@ -1071,6 +1085,7 @@ func (s *Session) doBudget() []string {
 		fmt.Sprintf("  do action steps      %-10d %s", b.MaxDoSteps, runtime.MaxDoStepsEnvVar),
 		fmt.Sprintf("  collection elements  %-10d %s", b.MaxElements, runtime.MaxElementsEnvVar),
 		fmt.Sprintf("  nested calc depth    %-10d %s", b.MaxCalcDepth, runtime.MaxCalcDepthEnvVar),
+		fmt.Sprintf("  sweep runs           %-10d %s", b.MaxSweepRuns, runtime.MaxSweepRunsEnvVar),
 	}
 }
 
@@ -2385,12 +2400,11 @@ func (s *Session) doTokens() ([]string, bool, error) {
 
 	out := []string{fmt.Sprintf("Active tokens (%d):", len(tokens))}
 	for _, tok := range tokens {
-		locName := runtime.ActionNodeName(tok.Location)
-		if locName == "" {
-			locName = anonymousNodeLabel(tok.Location)
+		line := fmt.Sprintf("  Token %d @ %s", tok.ID, nodeLabel(tok.Location))
+		if awaiting := exec.Awaiting(tok); len(awaiting) > 0 {
+			line += fmt.Sprintf(" (arrived from %s; awaiting %s)", nodeLabel(tok.Via.Source), sourceLabels(awaiting))
 		}
-
-		out = append(out, fmt.Sprintf("  Token %d @ %s", tok.ID, locName))
+		out = append(out, line)
 	}
 
 	// A token carries no values of its own: it reads and writes the features of
@@ -2403,6 +2417,23 @@ func (s *Session) doTokens() ([]string, bool, error) {
 	}
 
 	return out, false, nil
+}
+
+// nodeLabel names a node, or describes one that declares no name by kind.
+func nodeLabel(node ast.Node) string {
+	if name := runtime.ActionNodeName(node); name != "" {
+		return name
+	}
+	return anonymousNodeLabel(node)
+}
+
+// sourceLabels lists the nodes the successions leave, comma-separated.
+func sourceLabels(edges []lower.ActionEdge) string {
+	labels := make([]string, len(edges))
+	for i, edge := range edges {
+		labels[i] = nodeLabel(edge.Source)
+	}
+	return strings.Join(labels, ", ")
 }
 
 // anonymousNodeLabel describes a node that declares no name, by kind.

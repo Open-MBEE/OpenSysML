@@ -67,6 +67,14 @@ type Performer struct {
 	Outputs     map[string]ExpectedValue `json:"outputs,omitempty"`
 }
 
+// Outcome is one complete result a case admits: an action run's outputs, or a
+// state performance's final state, visits and outputs.
+type Outcome struct {
+	Outputs     map[string]ExpectedValue `json:"outputs,omitempty"`
+	FinalState  string                   `json:"finalState,omitempty"`
+	StateVisits []string                 `json:"stateVisits,omitempty"`
+}
+
 // ExpectedOutcome represents expected execution result
 type ExpectedOutcome struct {
 	Type string `json:"type"` // "action", "state", "calc", "constraint", "requirement", "instance"
@@ -74,6 +82,14 @@ type ExpectedOutcome struct {
 	// whose model names library elements the runtime resolves — the measurement
 	// unit of a quantity expression is one.
 	Libraries bool `json:"libraries,omitempty"`
+
+	// Outcomes are the complete results the case admits, in place of the single
+	// outputs/finalState/stateVisits, for a model whose library semantics leave
+	// more than one open. The observed run must match exactly one of them.
+	Outcomes []Outcome `json:"outcomes,omitempty"`
+	// Admissible cites the section of docs/project/behavior-semantic-oracle.md
+	// deriving that every listed outcome is valid. Required beside Outcomes.
+	Admissible string `json:"admissible,omitempty"`
 
 	// Action fields
 	Outputs    map[string]ExpectedValue `json:"outputs,omitempty"`
@@ -260,6 +276,12 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string) {
 	if err := json.Unmarshal(expectedData, &expected); err != nil {
 		t.Fatalf("failed to parse expected.json: %v", err)
 	}
+	for _, problem := range admissibleSchemaProblems(expected, oracleSectionTitles(t)) {
+		t.Error(problem)
+	}
+	if t.Failed() {
+		t.FailNow()
+	}
 
 	// Parse and build model
 	p := parser.New(source.New(sysmlPath, sysmlData))
@@ -303,6 +325,116 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string) {
 	default:
 		t.Fatalf("unknown test type: %s", expected.Type)
 	}
+}
+
+// oraclePath is the semantic oracle an admissible set must cite a section of.
+const oraclePath = "../../../docs/project/behavior-semantic-oracle.md"
+
+// oracleSectionTitles reads the section titles of the semantic oracle, which are
+// the citations an admissible set may resolve to.
+func oracleSectionTitles(t *testing.T) map[string]bool {
+	t.Helper()
+	data, err := os.ReadFile(oraclePath)
+	if err != nil {
+		t.Fatalf("read the semantic oracle: %v", err)
+	}
+	titles := make(map[string]bool)
+	for _, line := range strings.Split(string(data), "\n") {
+		if title, ok := strings.CutPrefix(line, "### "); ok {
+			titles[strings.TrimSpace(title)] = true
+		} else if title, ok := strings.CutPrefix(line, "## "); ok {
+			titles[strings.TrimSpace(title)] = true
+		}
+	}
+	return titles
+}
+
+// admissibleSchemaProblems reports how a case misuses outcomes and admissible:
+// the two go together, replace the single outcome rather than sit beside it,
+// list at least two distinct results, and cite a section the oracle has.
+func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]bool) []string {
+	var problems []string
+	if len(expected.Outcomes) == 0 {
+		if expected.Admissible != "" {
+			problems = append(problems, "admissible is stated without outcomes to admit")
+		}
+		return problems
+	}
+	if expected.Type != "action" && expected.Type != "state" {
+		problems = append(problems, fmt.Sprintf("outcomes apply to action and state cases, not %q", expected.Type))
+	}
+	if expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil {
+		problems = append(problems, "outcomes and a single outputs/finalState/stateVisits are stated together; a case uses one or the other")
+	}
+	if len(expected.Performers) > 0 {
+		problems = append(problems, "outcomes and performers are stated together")
+	}
+	if len(expected.Outcomes) < 2 {
+		problems = append(problems, "outcomes lists one result; state it as the single outcome")
+	}
+	for i, outcome := range expected.Outcomes {
+		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil {
+			problems = append(problems, fmt.Sprintf("outcome %d states nothing", i+1))
+		}
+	}
+	switch {
+	case expected.Admissible == "":
+		problems = append(problems, "outcomes are listed without admissible citing the oracle section deriving them")
+	case !oracleTitles[expected.Admissible]:
+		problems = append(problems, fmt.Sprintf("admissible %q is not a section title of %s", expected.Admissible, filepath.Base(oraclePath)))
+	}
+	return problems
+}
+
+// reporter is what a validation reports mismatches to: the test itself, or a
+// problem log when the harness probes an outcome that may legitimately not match.
+type reporter interface {
+	Helper()
+	Errorf(format string, args ...any)
+	Logf(format string, args ...any)
+}
+
+// problemLog collects the mismatches a validation reports.
+type problemLog struct {
+	problems []string
+}
+
+func (l *problemLog) Helper() {}
+
+func (l *problemLog) Errorf(format string, args ...any) {
+	l.problems = append(l.problems, fmt.Sprintf(format, args...))
+}
+
+func (l *problemLog) Logf(string, ...any) {}
+
+// matchOutcome checks that exactly one listed outcome matches the observed run:
+// none means the run is inadmissible, several means the set is not distinct.
+func matchOutcome(t *testing.T, outcomes []Outcome, validate func(r reporter, outcome Outcome)) {
+	t.Helper()
+	matched, report := matchedOutcomes(outcomes, validate)
+	switch len(matched) {
+	case 1:
+		t.Logf("matched admissible outcome %d of %d", matched[0], len(outcomes))
+	case 0:
+		t.Errorf("the run matches none of the %d admissible outcomes:\n  %s", len(outcomes), strings.Join(report, "\n  "))
+	default:
+		t.Errorf("the run matches admissible outcomes %v; an admissible set lists distinct outcomes", matched)
+	}
+}
+
+// matchedOutcomes is the 1-based positions of the outcomes the run matches, with
+// the problems that rule out each of the others.
+func matchedOutcomes(outcomes []Outcome, validate func(r reporter, outcome Outcome)) (matched []int, report []string) {
+	for i, outcome := range outcomes {
+		log := &problemLog{}
+		validate(log, outcome)
+		if len(log.problems) == 0 {
+			matched = append(matched, i+1)
+			continue
+		}
+		report = append(report, fmt.Sprintf("outcome %d: %s", i+1, strings.Join(log.problems, "; ")))
+	}
+	return matched, report
 }
 
 // checkDiagnostics fails the case unless the diagnostics its model reported are
@@ -433,16 +565,11 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 		t.Fatalf("ExecuteAction failed: %v", err)
 	}
 
-	// Validate outputs
-	if expected.Outputs != nil {
-		for name, expectedVal := range expected.Outputs {
-			actual, ok := outputs[name]
-			if !ok {
-				t.Errorf("missing output %q", name)
-				continue
-			}
-			validateValue(t, ctx, name, expectedVal, actual)
-		}
+	validateOutputs(t, ctx, expected.Outputs, outputs)
+	if len(expected.Outcomes) > 0 {
+		matchOutcome(t, expected.Outcomes, func(r reporter, outcome Outcome) {
+			validateOutputs(r, ctx, outcome.Outputs, outputs)
+		})
 	}
 
 	// Optional: validate token count
@@ -528,26 +655,44 @@ func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol
 		t.Fatalf("run state machine: %v", err)
 	}
 
-	validateFinalState(t, exec, expected.FinalState)
-	validateStateVisits(t, exec, expected.StateVisits)
+	validateStateOutcome(t, ctx, exec, Outcome{
+		Outputs:     expected.Outputs,
+		FinalState:  expected.FinalState,
+		StateVisits: expected.StateVisits,
+	})
+	if len(expected.Outcomes) > 0 {
+		matchOutcome(t, expected.Outcomes, func(r reporter, outcome Outcome) {
+			validateStateOutcome(r, ctx, exec, outcome)
+		})
+	}
+}
 
-	// Validate outputs
-	if expected.Outputs != nil {
-		data := exec.StateData()
-		for name, expectedVal := range expected.Outputs {
-			actual, ok := data[name]
-			if !ok {
-				t.Errorf("missing output %q", name)
-				continue
-			}
-			validateValue(t, ctx, name, expectedVal, actual)
+// validateStateOutcome checks a state performance against one outcome.
+func validateStateOutcome(r reporter, ctx *Context, exec *StateExecutor, outcome Outcome) {
+	r.Helper()
+	validateFinalState(r, exec, outcome.FinalState)
+	validateStateVisits(r, exec, outcome.StateVisits)
+	if outcome.Outputs != nil {
+		validateOutputs(r, ctx, outcome.Outputs, exec.StateData())
+	}
+}
+
+// validateOutputs checks each output a case states against the value produced.
+func validateOutputs(r reporter, ctx *Context, want map[string]ExpectedValue, got map[string]Value) {
+	r.Helper()
+	for name, expectedVal := range want {
+		actual, ok := got[name]
+		if !ok {
+			r.Errorf("missing output %q", name)
+			continue
 		}
+		validateValue(r, ctx, name, expectedVal, actual)
 	}
 }
 
 // validateFinalState checks the state a machine came to rest in, named as the
 // case names it: orthogonal regions as "State1+State2", sorted by region name.
-func validateFinalState(t *testing.T, exec *StateExecutor, want string) {
+func validateFinalState(t reporter, exec *StateExecutor, want string) {
 	t.Helper()
 	if want == "" {
 		return
@@ -561,7 +706,7 @@ func validateFinalState(t *testing.T, exec *StateExecutor, want string) {
 }
 
 // finalStateName is the active configuration as a case writes it.
-func finalStateName(t *testing.T, exec *StateExecutor) string {
+func finalStateName(t reporter, exec *StateExecutor) string {
 	t.Helper()
 	if len(exec.activeConfig.regionStates) > 0 {
 		type regionStatePair struct {
@@ -592,7 +737,7 @@ func finalStateName(t *testing.T, exec *StateExecutor) string {
 }
 
 // validateStateVisits checks the states a machine entered, in order.
-func validateStateVisits(t *testing.T, exec *StateExecutor, want []string) {
+func validateStateVisits(t reporter, exec *StateExecutor, want []string) {
 	t.Helper()
 	if len(want) == 0 {
 		return
@@ -1439,7 +1584,7 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 }
 
 // validateValue checks if runtime Value matches ExpectedValue
-func validateValue(t *testing.T, ctx *Context, name string, expected ExpectedValue, actual Value) {
+func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue, actual Value) {
 	switch expected.Type {
 	case "Sequence":
 		if actual.Kind != ValSequence {
@@ -1629,7 +1774,7 @@ func validateValue(t *testing.T, ctx *Context, name string, expected ExpectedVal
 
 // denotedObjectValue reads an object a slot holds as an expression naming the
 // slot does: a frame or transformation declaration is the value it declares.
-func denotedObjectValue(t *testing.T, ctx *Context, name string, actual Value) Value {
+func denotedObjectValue(t reporter, ctx *Context, name string, actual Value) Value {
 	t.Helper()
 	if ctx == nil || actual.Kind != ValInstance {
 		return actual
@@ -1647,13 +1792,90 @@ func denotedObjectValue(t *testing.T, ctx *Context, name string, actual Value) V
 }
 
 // validateElements checks the elements of a structured value one by one.
-func validateElements(t *testing.T, ctx *Context, name string, expected []ExpectedValue, actual []Value) {
+func validateElements(t reporter, ctx *Context, name string, expected []ExpectedValue, actual []Value) {
 	if len(actual) != len(expected) {
 		t.Errorf("%s: %d elements, want %d", name, len(actual), len(expected))
 		return
 	}
 	for i, want := range expected {
 		validateValue(t, ctx, fmt.Sprintf("%s#(%d)", name, i+1), want, actual[i])
+	}
+}
+
+// TestAdmissibleOutcomesSchema pins that an admissible set cannot hide a bug: it
+// replaces the single outcome, lists at least two, and cites an oracle section.
+func TestAdmissibleOutcomesSchema(t *testing.T) {
+	titles := oracleSectionTitles(t)
+	const cited = "Concurrent branches writing one feature: the value is open, the writes are not"
+	if !titles[cited] {
+		t.Fatalf("the oracle no longer has a section titled %q", cited)
+	}
+	one := ExpectedValue{Type: "Integer", Value: 1.0}
+	two := ExpectedValue{Type: "Integer", Value: 2.0}
+	outcomes := []Outcome{
+		{Outputs: map[string]ExpectedValue{"x": one}},
+		{Outputs: map[string]ExpectedValue{"x": two}},
+	}
+	tests := []struct {
+		name     string
+		expected ExpectedOutcome
+		problems int
+	}{
+		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
+		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []Outcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
+		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},
+		{"outcomes beside finalState", ExpectedOutcome{Type: "state", FinalState: "A", Outcomes: outcomes, Admissible: cited}, 1},
+		{"outcomes beside performers", ExpectedOutcome{Type: "state", Performers: []Performer{{Object: "P::a"}}, Outcomes: outcomes, Admissible: cited}, 1},
+		{"missing admissible", ExpectedOutcome{Type: "action", Outcomes: outcomes}, 1},
+		{"admissible cites no section", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: "the value is open"}, 1},
+		{"admissible without outcomes", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Admissible: cited}, 1},
+		{"one outcome listed", ExpectedOutcome{Type: "action", Outcomes: outcomes[:1], Admissible: cited}, 1},
+		{"empty outcome", ExpectedOutcome{Type: "action", Outcomes: []Outcome{outcomes[0], {}}, Admissible: cited}, 1},
+		{"calc case", ExpectedOutcome{Type: "calc", Outcomes: outcomes, Admissible: cited}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if problems := admissibleSchemaProblems(tt.expected, titles); len(problems) != tt.problems {
+				t.Errorf("problems = %v, want %d", problems, tt.problems)
+			}
+		})
+	}
+}
+
+// TestMatchOutcomeRequiresExactlyOne pins that a run matching no listed outcome
+// fails, and so does one matching several, since the set must be distinct.
+func TestMatchOutcomeRequiresExactlyOne(t *testing.T) {
+	outcomes := []Outcome{
+		{Outputs: map[string]ExpectedValue{"x": {Type: "Integer", Value: 1.0}}},
+		{Outputs: map[string]ExpectedValue{"x": {Type: "Integer", Value: 2.0}}},
+		{Outputs: map[string]ExpectedValue{"y": {Type: "Boolean", Value: true}}},
+	}
+	intValue := func(n int64) Value {
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+	}
+	trueValue := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: true}}
+	tests := []struct {
+		name    string
+		got     map[string]Value
+		matched []int
+	}{
+		{"one", map[string]Value{"x": intValue(2)}, []int{2}},
+		{"none", map[string]Value{"x": intValue(3)}, nil},
+		{"several", map[string]Value{"x": intValue(1), "y": trueValue}, []int{1, 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matched, report := matchedOutcomes(outcomes, func(r reporter, outcome Outcome) {
+				validateOutputs(r, nil, outcome.Outputs, tt.got)
+			})
+			if !slices.Equal(matched, tt.matched) {
+				t.Fatalf("matched %v, want %v (%v)", matched, tt.matched, report)
+			}
+			if len(report) != len(outcomes)-len(matched) {
+				t.Fatalf("report %v does not cover every unmatched outcome", report)
+			}
+		})
 	}
 }
 

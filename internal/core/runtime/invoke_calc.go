@@ -480,6 +480,19 @@ func (ctx *Context) requireCalcNotCase(sym *symbols.Symbol) error {
 		ErrNotACalc, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl), runAs)
 }
 
+// InvokeCalcWith invokes a calculation with positional arguments and arguments
+// bound by parameter name together, which is what an argument list plus a swept
+// parameter binds. Arguments bind exactly as InvokeCalc and InvokeCalcNamed
+// bind them: by position first, then by name.
+func (ctx *Context) InvokeCalcWith(sym *symbols.Symbol, positional []Value, named map[string]Value, scope *symbols.Scope) (Value, error) {
+	defer ctx.beginRun()()
+
+	if err := ctx.requireCalcNotCase(sym); err != nil {
+		return Value{}, err
+	}
+	return ctx.invokeCalc(sym, calcArgs{positional: positional, named: named}, scope)
+}
+
 // InvokeCalcNamed invokes a calculation with arguments bound by parameter name.
 // A parameter with no argument falls back to its declared default.
 func (ctx *Context) InvokeCalcNamed(sym *symbols.Symbol, args map[string]Value, scope *symbols.Scope) (Value, error) {

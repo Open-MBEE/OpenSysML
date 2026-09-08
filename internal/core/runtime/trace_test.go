@@ -2,7 +2,9 @@ package runtime
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +28,8 @@ var updateTraces = flag.Bool("update-traces", false, "Update golden trace files"
 //
 // The test owns the goldens already on disk plus the ones cases opt into with
 // "trace": true; -update-traces regenerates every one and writes nothing else.
+// A case carrying a .trace.order is checked against its constraints as well, or
+// instead when it owns no golden.
 func TestExecutionTrace(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 
@@ -46,8 +50,9 @@ func TestExecutionTrace(t *testing.T) {
 			continue // the case does not execute yet, so it owns no trace
 		}
 		goldenPath := filepath.Join(conformanceDir, testName+".trace.golden")
+		orderPath := filepath.Join(conformanceDir, testName+".trace.order")
 		expected := loadExpectedOutcome(t, conformanceDir, testName)
-		if !ownsGolden(goldenPath, expected) {
+		if !ownsGolden(goldenPath, expected) && !fileExists(orderPath) {
 			continue
 		}
 
@@ -68,7 +73,11 @@ func ownsGolden(goldenPath string, expected ExpectedOutcome) bool {
 	if expected.Trace {
 		return true
 	}
-	_, err := os.Stat(goldenPath)
+	return fileExists(goldenPath)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
 	return err == nil
 }
 
@@ -213,7 +222,12 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		traceOutput = trace.String()
 	}
 	if traceOutput == "" {
-		t.Fatalf("%s has a golden trace but produced none", testName)
+		t.Fatalf("%s is trace-checked but produced no trace", testName)
+	}
+
+	checkTraceOrder(t, strings.TrimSuffix(goldenPath, ".golden")+".order", trace.Entries())
+	if !ownsGolden(goldenPath, expected) {
+		return
 	}
 
 	// Update or compare golden
@@ -235,6 +249,104 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 			t.Errorf("trace mismatch for %s\n=== WANT ===\n%s\n=== GOT ===\n%s\n", testName, want, got)
 		}
 	}
+}
+
+// checkTraceOrder checks the recorded trace against the order constraints a case
+// carries, if any.
+func checkTraceOrder(t *testing.T, orderPath string, entries []string) {
+	t.Helper()
+	data, err := os.ReadFile(orderPath)
+	if os.IsNotExist(err) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("read order constraints: %v", err)
+	}
+	constraints, err := parseOrderConstraints(string(data))
+	if err != nil {
+		t.Fatalf("%s: %v", filepath.Base(orderPath), err)
+	}
+	for _, violation := range orderViolations(entries, constraints) {
+		t.Error(violation)
+	}
+}
+
+// orderConstraint states that the label before happens before the label after.
+type orderConstraint struct {
+	before, after string
+}
+
+// parseOrderConstraints reads `a < b` lines; blank lines and `#` comments are skipped.
+func parseOrderConstraints(text string) ([]orderConstraint, error) {
+	var constraints []orderConstraint
+	for i, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		before, after, ok := strings.Cut(line, "<")
+		before, after = strings.TrimSpace(before), strings.TrimSpace(after)
+		if !ok || before == "" || after == "" || strings.Contains(after, "<") {
+			return nil, fmt.Errorf("line %d: %q is not of the form `a < b`", i+1, line)
+		}
+		constraints = append(constraints, orderConstraint{before, after})
+	}
+	if len(constraints) == 0 {
+		return nil, errors.New("states no constraint")
+	}
+	return constraints, nil
+}
+
+// orderViolations reports every constraint the trace does not satisfy: a label
+// no entry mentions, or one whose first entry is not strictly before the other's.
+func orderViolations(entries []string, constraints []orderConstraint) []string {
+	var violations []string
+	for _, c := range constraints {
+		before, okBefore := labelPosition(entries, c.before)
+		after, okAfter := labelPosition(entries, c.after)
+		switch {
+		case !okBefore:
+			violations = append(violations, fmt.Sprintf("%s < %s: no trace entry mentions %q", c.before, c.after, c.before))
+		case !okAfter:
+			violations = append(violations, fmt.Sprintf("%s < %s: no trace entry mentions %q", c.before, c.after, c.after))
+		case before == after:
+			violations = append(violations, fmt.Sprintf("%s < %s: both first appear in entry %d, %q, which leaves them unordered", c.before, c.after, before+1, entries[before]))
+		case before > after:
+			violations = append(violations, fmt.Sprintf("%s < %s: %q first appears in entry %d, %q in entry %d", c.before, c.after, c.before, before+1, c.after, after+1))
+		}
+	}
+	return violations
+}
+
+// labelPosition is the index of the first entry mentioning a label: a
+// performance label names a node a token holds at in a step entry, an action
+// node entered or a state entered; a statement label is the text after `stmt `.
+func labelPosition(entries []string, label string) (int, bool) {
+	for i, entry := range entries {
+		if entryMentions(entry, label) {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func entryMentions(entry, label string) bool {
+	entry = strings.TrimLeft(entry, " ")
+	if rest, ok := strings.CutPrefix(entry, "step "); ok {
+		_, tokens, _ := strings.Cut(rest, ": ")
+		for _, token := range strings.Split(tokens, ", ") {
+			if _, node, ok := strings.Cut(token, "@"); ok && node == label {
+				return true
+			}
+		}
+		return false
+	}
+	for _, prefix := range []string{"enter action node: ", "enter: ", "stmt "} {
+		if rest, ok := strings.CutPrefix(entry, prefix); ok {
+			return rest == label || strings.TrimSuffix(rest, " (entry action)") == label
+		}
+	}
+	return false
 }
 
 // traceObjectRuns drives the object runs a case names, so the trace records how
@@ -285,6 +397,49 @@ func loadExpectedOutcome(t *testing.T, conformanceDir, testName string) Expected
 		t.Fatalf("parse expected outcome: %v", err)
 	}
 	return expected
+}
+
+// An order constraint is load-bearing: a trace that violates it, mentions one
+// label only in the same step as the other, or never mentions it fails.
+func TestTraceOrderViolationFails(t *testing.T) {
+	entries := []string{
+		"step 1: token 1@split",
+		"step 2: token 2@left, token 3@right",
+		"stmt assign x",
+		"  eval literal 2 -> 2",
+		"step 3: token 2@sync, token 3@sync",
+		"enter action node: inner",
+		"enter: Idle (entry action)",
+	}
+	tests := []struct {
+		name        string
+		constraints string
+		violations  int
+	}{
+		{"satisfied", "split < left\nright < sync\n# comment\n\nleft < assign x\nsync < inner\ninner < Idle", 0},
+		{"reversed", "sync < left", 1},
+		{"same step is unordered", "left < right\nright < left", 2},
+		{"unknown label", "split < nowhere", 1},
+		{"a value is not a label", "split < literal 2", 1},
+		{"a token is not a label", "token 1 < left", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			constraints, err := parseOrderConstraints(tt.constraints)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			if got := orderViolations(entries, constraints); len(got) != tt.violations {
+				t.Errorf("violations = %v, want %d", got, tt.violations)
+			}
+		})
+	}
+
+	for _, malformed := range []string{"", "# only a comment", "left sync", "< sync", "left <", "a < b < c"} {
+		if _, err := parseOrderConstraints(malformed); err == nil {
+			t.Errorf("parseOrderConstraints(%q) accepted a malformed file", malformed)
+		}
+	}
 }
 
 // A trace names control nodes by what they do, so an unnamed fork or final
