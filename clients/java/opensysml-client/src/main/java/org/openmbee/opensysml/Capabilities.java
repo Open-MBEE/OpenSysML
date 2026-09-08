@@ -53,6 +53,9 @@ public final class Capabilities {
   /** The unbounded value {@code *} travels as itself rather than as an unsupported null. */
   public static final String INFINITY_VALUE = "infinity_value";
 
+  /** {@code Diagnostic.code} is populated, so an empty code is a finding none was assigned. */
+  public static final String DIAGNOSTIC_CODES = "diagnostic_codes";
+
   /** The {@code ApplyEdits} RPC edits a parsed model's own source. */
   public static final String APPLY_EDITS = "apply_edits";
 

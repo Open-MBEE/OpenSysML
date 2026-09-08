@@ -7,6 +7,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"google.golang.org/protobuf/proto"
 )
 
 // codesOf lists the codes of diags, in order.
@@ -330,6 +331,113 @@ func TestApplyEdits_DiagnosticCodes(t *testing.T) {
 			}
 			requireCode(t, resp.Diagnostics, tc.code, "")
 			requireEveryCoded(t, resp.Diagnostics)
+		})
+	}
+}
+
+// Without "diagnostic_codes" every response family still reports its
+// diagnostics, identical but for the code, which is withheld; with it every
+// code is populated, so an empty one is a finding none was assigned.
+func TestDiagnosticCodes_Capability(t *testing.T) {
+	ctx := context.Background()
+	current := mustNewService(t, 10)
+	withheld := mustNewServiceWithout(t, CapabilityDiagnosticCodes)
+
+	stateMachine := `
+package Test {
+  state Dispatcher {
+    attribute level : Integer = 8;
+    entry; then idle;
+    state idle;
+    state low;
+    state high;
+    transition first idle accept Go if level > 5 then low;
+    transition first idle accept Go if level > 7 then high;
+  }
+}
+`
+	families := map[string]func(srv *Service) []*pb.Diagnostic{
+		"ParseFile": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.ParseFile(ctx, &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: codedModel}})
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			return resp.Diagnostics
+		},
+		"GetDiagnostics": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.GetDiagnostics(ctx, &pb.DiagnosticsRequest{ModelHash: mustParse(t, srv, codedModel)})
+			if err != nil {
+				t.Fatalf("GetDiagnostics: %v", err)
+			}
+			return resp.Diagnostics
+		},
+		"ParseSources": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.ParseSources(ctx, &pb.ParseSourcesRequest{
+				Documents: inlineDocuments("coded.sysml", codedModel, "broken.sysml", "package P { part def "),
+			})
+			if err != nil {
+				t.Fatalf("ParseSources: %v", err)
+			}
+			return resp.Diagnostics
+		},
+		"Evaluate": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.Evaluate(ctx, &pb.EvaluateRequest{ModelHash: mustParse(t, srv, "package P {}"), Expression: "1 +"})
+			if err != nil {
+				t.Fatalf("Evaluate: %v", err)
+			}
+			return resp.Diagnostics
+		},
+		"ExecuteState": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+				ModelHash: mustParse(t, srv, stateMachine), StateMachineSymbolId: "Test::Dispatcher", Events: []string{"Go"},
+			})
+			if err != nil {
+				t.Fatalf("ExecuteState: %v", err)
+			}
+			return resp.Diagnostics
+		},
+		"Convert": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.Convert(ctx, &pb.ConvertRequest{
+				Source: &pb.ConvertRequest_Content{Content: "package P { part def "}, FromFormat: "sysml", ToFormat: "ttl",
+			})
+			if err != nil {
+				t.Fatalf("Convert: %v", err)
+			}
+			return resp.Diagnostics
+		},
+		"ApplyEdits": func(srv *Service) []*pb.Diagnostic {
+			resp, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				ModelHash:  mustParsedModel(t, srv, editModelSource),
+				Operations: []*pb.EditOperation{setValueOp("Demo::SC::unitMass", "nosuchFeature")},
+			})
+			if err != nil {
+				t.Fatalf("ApplyEdits: %v", err)
+			}
+			return resp.Diagnostics
+		},
+	}
+
+	for name, call := range families {
+		t.Run(name, func(t *testing.T) {
+			coded := call(current)
+			uncoded := call(withheld)
+			if len(coded) == 0 {
+				t.Fatal("no diagnostics to compare")
+			}
+			requireEveryCoded(t, coded)
+			if len(uncoded) != len(coded) {
+				t.Fatalf("withheld service reported %d diagnostics, want %d", len(uncoded), len(coded))
+			}
+			for i, d := range uncoded {
+				if d.Code != "" {
+					t.Errorf("withheld service reported code %q", d.Code)
+				}
+				want := proto.Clone(coded[i]).(*pb.Diagnostic)
+				want.Code = ""
+				if !proto.Equal(d, want) {
+					t.Errorf("withheld diagnostic = %v, want %v", d, want)
+				}
+			}
 		})
 	}
 }

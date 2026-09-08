@@ -244,7 +244,8 @@ A `Diagnostic` has `severity`, `message`, `code` and a location (`file`,
 `start_line`, `start_column`, `end_line`, `end_column`, or the raw `span`). Branch
 on `code`, not on the message text: `"syntax"` for a syntax error, a validation
 code such as `"unresolved"` for a finding, `"choice-point"` and
-`"guard-unevaluable"` for a run's notes; `""` when the service assigned none.
+`"guard-unevaluable"` for a run's notes; `""` when the service assigned none. A service
+that populates `code` advertises `CAPABILITY_DIAGNOSTIC_CODES`; without it every code is `""`.
 
 ```python
 model = opensysml.load("model.sysml")

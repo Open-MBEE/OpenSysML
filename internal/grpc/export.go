@@ -48,12 +48,12 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 		resp.Error = err.Error()
 		var broken *export.SyntaxError
 		if errors.As(err, &broken) {
-			resp.Diagnostics = syntaxDiagnostics(broken)
+			resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(broken))
 		}
 		return resp, nil
 	}
 	resp.Content = string(out)
-	resp.Diagnostics = syntaxDiagnostics(syntax)
+	resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(syntax))
 	return resp, nil
 }
 

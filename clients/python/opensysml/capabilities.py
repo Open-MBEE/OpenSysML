@@ -120,6 +120,10 @@ CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts"
 #: with ``UNIMPLEMENTED``.
 CAPABILITY_INFINITY_VALUE = "infinity_value"
 
+#: ``Diagnostic.code`` populated, read as :attr:`~opensysml.diagnostic.Diagnostic.code`,
+#: so an empty code is a finding none was assigned. Without it every code is empty.
+CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

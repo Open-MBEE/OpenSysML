@@ -218,7 +218,8 @@ Source that does not parse is not a failure: `load`/`loads` return a model whose
 `severity`, `message`, `code` and an optional location; branch on `code`
 (`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
 `"guard-unevaluable"`; `""` when the service assigned none), not on the message
-text. Options that cannot work
+text. A service that populates `code` advertises `CAPABILITY_DIAGNOSTIC_CODES`;
+without it every code is `""`. Options that cannot work
 (an encoding that is not one, a timeout that cannot elapse, `grpc` with `json`)
 are refused before a connection is opened or a service started.
 

@@ -566,8 +566,10 @@ validation finding carries its pass or rule code, the same one the LSP reports a
 diagnostic's code (`"unresolved"` for a name that resolves to nothing, for instance). A run's
 notes are `"choice-point"` and `"guard-unevaluable"` (see [`ExecuteAction`](#executeaction)).
 The field is a proto3 string, so a producer that assigns no code sends `""`, which the JSON
-encoding omits; treat a missing `code` as empty, never as an error. New codes may appear in a
-release; a code, once published, keeps its meaning.
+encoding omits; treat a missing `code` as empty, never as an error. A service that populates
+the field advertises the `diagnostic_codes` capability; from one that does not, every `code` is
+empty and says nothing about the finding, so check the capability before branching on it. New
+codes may appear in a release; a code, once published, keeps its meaning.
 
 ### In-body failures
 

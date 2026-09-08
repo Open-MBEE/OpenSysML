@@ -82,6 +82,13 @@ func TestASyntaxErrorIsADiagnosticNotAnError(t *testing.T) {
 
 func TestADiagnosticCarriesItsCode(t *testing.T) {
 	client := newClient(t)
+	info, err := client.ServerInfo(context.Background())
+	if err != nil {
+		t.Fatalf("ServerInfo: %v", err)
+	}
+	if !info.Has(opensysml.CapabilityDiagnosticCodes) {
+		t.Errorf("capabilities %v do not include %s", info.Capabilities, opensysml.CapabilityDiagnosticCodes)
+	}
 	model, err := client.ParseSource(context.Background(), "package P { part def W { part hub : Missing; } }")
 	if err != nil {
 		t.Fatalf("ParseSource: %v", err)

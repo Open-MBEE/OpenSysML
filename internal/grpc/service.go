@@ -118,6 +118,10 @@ const CapabilityVerificationVerdicts = "verification_verdicts"
 // `*` as Value.infinity, rather than reporting it as an unsupported null.
 const CapabilityInfinityValue = "infinity_value"
 
+// CapabilityDiagnosticCodes names the capability of populating Diagnostic.code,
+// so an empty code is a finding none was assigned rather than an older service.
+const CapabilityDiagnosticCodes = "diagnostic_codes"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -128,7 +132,7 @@ var capabilities = []string{
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
-	CapabilityInfinityValue,
+	CapabilityInfinityValue, CapabilityDiagnosticCodes,
 }
 
 type capabilityAvailability struct {
@@ -554,7 +558,7 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 			pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
 		}
 	}
-	return pbDiags
+	return s.filterDiagnosticCapabilities(pbDiags)
 }
 
 // Evaluate evaluates a SysML expression in the context of a parsed model
@@ -583,7 +587,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 			pbDiags = append(pbDiags, ParserDiagnosticToProto(diag, exprSource))
 		}
 		return &pb.EvaluateResponse{
-			Diagnostics: pbDiags,
+			Diagnostics: s.filterDiagnosticCapabilities(pbDiags),
 			Error:       "expression parse failed",
 		}, nil
 	}
@@ -756,7 +760,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	outputs, err := runtimeCtx.ExecuteActionWithInputs(action, inputs)
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
-	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
+	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
 	if err != nil {
 		return &pb.ExecuteActionResponse{
 			Error:       fmt.Sprintf("action execution failed: %v", err),
@@ -800,7 +804,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
 	finalContext, statesVisited, err := runtimeCtx.ExecuteStateWithEvents(stateMachine, req.Events)
-	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
+	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:       fmt.Sprintf("state machine execution failed: %v", err),
