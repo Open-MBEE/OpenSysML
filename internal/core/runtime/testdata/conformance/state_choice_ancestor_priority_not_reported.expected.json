@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Tick"}],
+	"finalState": "warm",
+	"stateVisits": ["running", "fine", "warm"],
+	"outputs": {
+		"temp": {"type": "Integer", "value": 30},
+		"path": {"type": "Integer", "value": 1}
+	}
+}

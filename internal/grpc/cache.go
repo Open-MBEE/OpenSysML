@@ -91,6 +91,19 @@ func (m *CachedModel) DocumentRoots() []*symbols.Scope {
 	return roots
 }
 
+// document is the source of the model's document named name, nil when none is.
+func (m *CachedModel) document(name string) *source.SourceFile {
+	if name == "" {
+		return nil
+	}
+	for _, doc := range m.Documents {
+		if doc.Source.Name() == name {
+			return doc.Source
+		}
+	}
+	return nil
+}
+
 // PrimaryRoot is the root scope of the document the model is named by.
 func (m *CachedModel) PrimaryRoot() *symbols.Scope {
 	return m.Index.DocumentRoot(m.Primary().Source.Name())

@@ -1,0 +1,17 @@
+exit: start
+stmt assign temp
+  eval literal 30 -> 30
+enter: watching
+transition: start -> watching
+  eval feature temp -> 30
+  eval literal 20 -> 20
+eval operator > -> true
+  eval feature temp -> 30
+  eval literal 25 -> 25
+eval operator > -> true
+choice state watching on change: transitions 1->cool, 2->hot (unordered; took 1->cool)
+exit: watching
+enter: cool (entry action)
+stmt assign route
+  eval literal 1 -> 1
+transition: watching -> cool (event: change)

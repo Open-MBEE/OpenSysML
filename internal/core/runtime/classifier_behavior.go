@@ -966,6 +966,7 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 	if err := self.SetFeatureValue(ctx, name, value); err != nil {
 		return true, fmt.Errorf("write %s of object #%d: %w", name, self.ID, err)
 	}
+	ctx.noteObjectWrite(self, name, value)
 	return true, nil
 }
 

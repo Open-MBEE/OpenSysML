@@ -242,42 +242,24 @@ func (e *ActionExecutor) Step() error {
 		tokenLocationsBefore[i] = t.Location
 	}
 
-	// Collect token indices to step (snapshot before iteration)
-	tokenIndices := make([]int, len(e.tokens))
-	for i := range e.tokens {
-		tokenIndices[i] = i
-	}
-
 	// The tokens a breakpoint left paused resume last, the longest paused first,
 	// once every other token has had its step: one pausing again and again does
 	// not hold the rest back.
 	paused := e.pausedTokens()
 	defer e.beginSweep()()
 
-	// Step tokens in reverse order to handle removal safely
-	// (removing token at higher index doesn't affect lower indices)
-	for i := len(tokenIndices) - 1; i >= 0 && e.state != StateSuspended; i-- {
-		// Check if token still exists (may have been removed by join/final)
-		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
-			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
-			continue
-		}
+	// Several tokens advanced in one step are a choice point the library leaves open.
+	order := e.beginStepOrder()
+	endWrites := e.beginStepWrites(e.stepCount + 1)
 
-		if err := e.stepToken(i); err != nil {
-			e.endPausedBodies()
-			return err
-		}
-	}
-	for _, id := range paused {
-		if e.state == StateSuspended {
-			break
-		}
-		if i := e.tokenIndex(id); i >= 0 {
-			if err := e.stepToken(i); err != nil {
-				e.endPausedBodies()
-				return err
-			}
-		}
+	err := e.stepTokens(len(e.tokens), paused, &order)
+	// What the tokens wrote and the order they took are facts of the step whether
+	// or not it failed.
+	endWrites()
+	e.noteTokenOrder(e.stepCount+1, order)
+	if err != nil {
+		e.endPausedBodies()
+		return err
 	}
 
 	// A step a breakpoint ends leaves every other token where it was, yet the run
@@ -848,6 +830,7 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 	if tokenIdx < 0 || tokenIdx >= len(e.tokens) {
 		return fmt.Errorf("invalid token index %d", tokenIdx)
 	}
+	defer e.beginTokenStep(e.tokens[tokenIdx].ID)()
 
 	if e.tokens[tokenIdx].body != nil {
 		return e.resumeBody(tokenIdx)
@@ -1076,18 +1059,71 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 // guardHolds evaluates the guard a succession out of node carries; a succession
 // carrying none is unconditional.
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
-	if guard == nil {
-		return true, nil
-	}
-	result, err := ec.Eval(guard)
+	result, err := guardResult(ec, guard)
 	if err != nil {
 		return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
 	}
-	if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
+	if !result.isBool() {
 		return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
 			ErrTypeMismatch, nodeDescription(node), result.Kind)
 	}
 	return result.Const.Bool, nil
+}
+
+// guardResult is what a guard evaluates to; no guard is true.
+func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
+	if guard == nil {
+		return boolValue(true), nil
+	}
+	return ec.Eval(guard)
+}
+
+// probeGuard reads the guard of the succession at position i out of a decision
+// node whose branch is already decided, as a probe the context undoes whole: the
+// read reports a choice and leaves the run as it was. A guard with no result is
+// noted and not selected.
+func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) bool {
+	result, err := func() (Value, error) {
+		defer e.ctx.beginProbe()()
+		ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
+		defer ec.beginStep()()
+		return guardResult(ec, successors[i].Guard)
+	}()
+	if err == nil && !result.isBool() {
+		err = fmt.Errorf("%w: guard must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
+	}
+	if err != nil {
+		e.noteUnevaluableGuard(frame, node, successors, i, err)
+		return false
+	}
+	return result.Const.Bool
+}
+
+// stepTokens gives each of the first count tokens its step, highest index first
+// so a removal leaves the lower indices in place, then the tokens a breakpoint
+// left paused; a breakpoint reached on the way ends the sweep.
+func (e *ActionExecutor) stepTokens(count int, paused []int64, order *stepOrder) error {
+	for i := count - 1; i >= 0 && e.state != StateSuspended; i-- {
+		// The token may have been removed by a join or final node.
+		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
+			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
+			continue
+		}
+		if err := e.stepTokenNoting(i, order); err != nil {
+			return err
+		}
+	}
+	for _, id := range paused {
+		if e.state == StateSuspended {
+			break
+		}
+		if i := e.tokenIndex(id); i >= 0 {
+			if err := e.stepTokenNoting(i, order); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // stepInitialNode advances token from initial node to successors.
@@ -1294,12 +1330,14 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	defer ec.beginStep()()
 
 	// Two-pass evaluation:
-	// 1. Evaluate all guarded edges first
-	// 2. If none match, use unguarded edge as fallback (else branch)
+	// 1. Evaluate all guarded edges; take the first that holds (several: a choice point)
+	// 2. If none holds, use unguarded edge as fallback (else branch)
 
 	var unguardedEdge *lower.ActionEdge
+	var holding []int
 
-	// Pass 1: Check guarded edges
+	// Pass 1: Check guarded edges. Once one holds the branch is decided; the rest
+	// are probed only to report the choice, which leaves the run as it was.
 	for i := range successors {
 		edge := &successors[i]
 		// No guard = remember for fallback
@@ -1308,14 +1346,23 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			continue
 		}
 
-		holds, err := e.guardHolds(ec, decisionNode, edge.Guard)
-		if err != nil {
-			return err
+		var holds bool
+		if len(holding) > 0 {
+			holds = e.probeGuard(token.frame, decisionNode, successors, i)
+		} else {
+			var err error
+			if holds, err = e.guardHolds(ec, decisionNode, edge.Guard); err != nil {
+				return err
+			}
 		}
 		if holds {
-			token.travel(*edge, e.sweep)
-			return nil
+			holding = append(holding, i)
 		}
+	}
+	if len(holding) > 0 {
+		e.noteDecisionBranches(token.frame, decisionNode, successors, holding)
+		token.travel(successors[holding[0]], e.sweep)
+		return nil
 	}
 
 	// Pass 2: Use unguarded edge as fallback

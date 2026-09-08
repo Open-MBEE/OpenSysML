@@ -615,12 +615,17 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 // performance occurrence for the action's own features.
 func (e *performances) setFrameFeature(f *actionFrame, name string, value Value) error {
 	if f == e.root {
-		return e.owner.setFeature(name, value)
+		if err := e.owner.setFeature(name, value); err != nil {
+			return err
+		}
+		e.noteFrameWrite(f, name, value)
+		return nil
 	}
 	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, value); err != nil {
 		return err
 	}
 	f.data[f.key(name)] = value
+	e.noteFrameWrite(f, name, value)
 	return nil
 }
 

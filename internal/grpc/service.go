@@ -734,9 +734,13 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 	// Execute action with the supplied inputs
 	outputs, err := runtimeCtx.ExecuteActionWithInputs(action, inputs)
+	// The choices the run made are reported with its outcome, failed or not: a
+	// failure may hang on the order taken.
+	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
-			Error: fmt.Sprintf("action execution failed: %v", err),
+			Error:       fmt.Sprintf("action execution failed: %v", err),
+			Diagnostics: diags,
 		}, nil
 	}
 
@@ -747,7 +751,8 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	return &pb.ExecuteActionResponse{
-		Outputs: pbOutputs,
+		Outputs:     pbOutputs,
+		Diagnostics: diags,
 	}, nil
 }
 
@@ -775,9 +780,11 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
 	finalContext, statesVisited, err := runtimeCtx.ExecuteStateWithEvents(stateMachine, req.Events)
+	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
-			Error: fmt.Sprintf("state machine execution failed: %v", err),
+			Error:       fmt.Sprintf("state machine execution failed: %v", err),
+			Diagnostics: diags,
 		}, nil
 	}
 
@@ -790,6 +797,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	return &pb.ExecuteStateResponse{
 		StatesVisited: statesVisited,
 		FinalContext:  pbContext,
+		Diagnostics:   diags,
 	}, nil
 }
 

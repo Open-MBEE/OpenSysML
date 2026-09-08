@@ -1,0 +1,12 @@
+  eval feature level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+  eval feature level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+unevaluable guard state idle on accept Go: transition 2->high: eval guard of transition idle -> high: division by zero (not selected)
+exit: idle
+enter: low (entry action)
+stmt assign route
+  eval literal 1 -> 1
+transition: idle -> low (event: accept Go)

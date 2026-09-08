@@ -1,5 +1,6 @@
 step 1: token 1@split
 step 2: token 2@l1, token 3@l2
+choice step 3: tokens 2@l1, 3@l2 (unordered; took 3@l2 first)
 step 3: token 2@both, token 3@both
 stmt assign hits
     eval feature hits -> 0

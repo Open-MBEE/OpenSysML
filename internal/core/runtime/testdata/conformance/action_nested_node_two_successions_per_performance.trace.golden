@@ -3,6 +3,7 @@ step 2: token 2@one, token 3@two
 eval literal 0 -> 0
 step 1: token 1@split
 step 2: token 2@l1, token 3@l2
+choice step 3: tokens 2@l1, 3@l2 (unordered; took 3@l2 first)
 step 3: token 2@both, token 3@both
 stmt assign hits
     eval feature hits -> 0
@@ -13,6 +14,7 @@ step 5: no active tokens
 eval literal 0 -> 0
 step 1: token 1@split
 step 2: token 2@l1, token 3@l2
+choice step 3: tokens 2@l1, 3@l2 (unordered; took 3@l2 first)
 step 3: token 2@both, token 3@both
 stmt assign hits
     eval feature hits -> 0
@@ -20,6 +22,7 @@ stmt assign hits
   eval operator + -> 1
 step 4: token 4@done
 step 5: no active tokens
+choice step 3: tokens 2@one, 3@two (unordered; took 3@two first)
 step 3: token 2@sync, token 3@sync
 step 4: token 4@tally
 stmt assign total

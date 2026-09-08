@@ -167,6 +167,10 @@ type Context struct {
 
 	// trace records evaluation, nil when not tracing.
 	trace *TraceRecorder
+	// notes are what the latest run noted about itself, in order; see note.
+	notes []RunNote
+	// stepWrites is the ledger of the action step under way, nil between steps.
+	stepWrites *stepWriteLedger
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -483,6 +487,35 @@ func (s *idSequence) atLeast(id int64) {
 	}
 }
 
+// release hands out id next again, once every identity taken from it on is
+// abandoned: what a probe made and undid never happened.
+func (s *idSequence) release(id int64) {
+	if id < s.next {
+		s.next = id
+	}
+}
+
+// holdsIdentityFrom reports whether an object, or a connector one set aside,
+// holds an identity at or past id.
+func (ctx *Context) holdsIdentityFrom(id int64) bool {
+	for held, inst := range ctx.instances {
+		if held >= id {
+			return true
+		}
+		for _, kept := range inst.keptConnectors {
+			if kept >= id {
+				return true
+			}
+		}
+		for _, kept := range inst.keptAnonymous {
+			if kept.id >= id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // allocateID returns the next instance ID and increments the counter.
 func (ctx *Context) allocateID() int64 {
 	return ctx.ids.take()
@@ -496,6 +529,7 @@ func (ctx *Context) beginRun() func() {
 	if ctx.runDepth == 0 {
 		ctx.steps = 0
 		ctx.elements = 0
+		ctx.notes = nil
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	ctx.runDepth++
@@ -511,6 +545,7 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 	if ctx.runDepth == 0 && !*started {
 		ctx.steps = 0
 		ctx.elements = 0
+		ctx.notes = nil
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	*started = true
@@ -519,26 +554,30 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 }
 
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
-// budget, trace, bus, variant selections, objects made, behaviors attached, every
-// feature value written (see noteProbeWrite) and every other change noted (see
-// noteProbeUndo) after.
-// Behaviors the probe starts are the only ones it runs (see nextRunnableBehavior).
+// budget, trace, bus, variant selections, objects made (identities included),
+// behaviors attached, every feature value written (see noteProbeWrite) and every
+// other change noted (see noteProbeUndo) after. The writes it makes are not the
+// step's (see noteWrite); behaviors it starts are the only ones it runs (see nextRunnableBehavior).
 func (ctx *Context) beginProbe() func() {
-	steps, elements, trace := ctx.steps, ctx.elements, ctx.trace
+	steps, elements, trace, writes := ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites
+	ids, nextID := ctx.ids, ctx.ids.next
 	endBoundary := func() { /* no boundary to close */ }
 	if ctx.probes == 0 {
 		endBoundary = ctx.beginRunBoundary()
 	}
 	_, rollback := ctx.beginJournal()
-	ctx.trace = nil
+	ctx.trace, ctx.stepWrites = nil, nil
 	ctx.runDepth++
 	ctx.probes++
 	return func() {
 		rollback()
 		endBoundary()
+		if ctx.ids == ids && !ctx.holdsIdentityFrom(nextID) {
+			ids.release(nextID)
+		}
 		ctx.probes--
 		ctx.runDepth--
-		ctx.steps, ctx.elements, ctx.trace = steps, elements, trace
+		ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes
 	}
 }
 

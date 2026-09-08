@@ -8,6 +8,8 @@ stmt assign arrived
     eval feature arrived -> 1
     eval literal 1 -> 1
   eval operator + -> 2
+choice step 3: writes arrived := 2 by token 2, arrived := 1 by token 3 (unordered; arrived := 2 by token 2 stood)
+choice step 3: tokens 2@a, 3@b, 4@c1 (unordered; took 4@c1 first)
 step 3: token 2@sync, token 3@sync, token 4@c2
 step 4: token 2@sync, token 3@sync, token 4@c3
 stmt assign arrived

@@ -93,6 +93,26 @@ func DiagnosticToProto(diag passes.Diagnostic, sf *source.SourceFile) *pb.Diagno
 	}
 }
 
+// RunNoteDiagnosticsToProto converts what a run noted about itself — its choice
+// points and the guards it could not evaluate — to informational diagnostics,
+// located in their model document; one outside the model carries no span.
+func RunNoteDiagnosticsToProto(notes []runtime.RunNote, model *CachedModel) []*pb.Diagnostic {
+	if len(notes) == 0 {
+		return nil
+	}
+	pbDiags := make([]*pb.Diagnostic, 0, len(notes))
+	for _, n := range notes {
+		diag := n.Diagnostic()
+		file, _ := n.Location()
+		if sf := model.document(file); sf != nil {
+			pbDiags = append(pbDiags, DiagnosticToProto(diag, sf))
+			continue
+		}
+		pbDiags = append(pbDiags, &pb.Diagnostic{Severity: diag.Severity.String(), Message: diag.Message})
+	}
+	return pbDiags
+}
+
 // ParserDiagnosticToProto converts a parser.Diagnostic to protobuf.
 func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
 	li := sf.Lines()

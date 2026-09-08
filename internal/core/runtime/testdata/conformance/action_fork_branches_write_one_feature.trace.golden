@@ -8,6 +8,8 @@ stmt assign x
   eval literal 1 -> 1
 stmt assign leftRan
   eval literal true -> true
+choice step 3: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 1 by token 2 stood)
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
 step 3: token 2@sync, token 3@sync
 step 4: token 4@done
 step 5: no active tokens

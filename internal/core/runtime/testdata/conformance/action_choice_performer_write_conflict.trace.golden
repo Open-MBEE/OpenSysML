@@ -1,0 +1,15 @@
+materialize: Host #1
+start: performed action marking of #1
+materialize: marking #2
+run: performed action marking of #1
+step 1: token 1@split
+step 2: token 2@left, token 3@right
+stmt assign mark
+  eval literal 1 -> 1
+stmt assign mark
+  eval literal 1 -> 1
+choice step 3: writes mark of object #1 := 1 by token 2, mark of object #1 := 1 by token 3 (unordered; mark of object #1 := 1 by token 2 stood)
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
+step 3: token 2@sync, token 3@sync
+step 4: token 4@done
+step 5: no active tokens

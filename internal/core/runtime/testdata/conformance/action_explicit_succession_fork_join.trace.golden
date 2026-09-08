@@ -4,6 +4,7 @@ stmt assign rightValue
   eval literal 2 -> 2
 stmt assign leftValue
   eval literal 1 -> 1
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
 step 3: token 2@sync, token 3@sync
 step 4: token 4@done
 step 5: no active tokens

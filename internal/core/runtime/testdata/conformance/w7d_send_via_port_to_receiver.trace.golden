@@ -9,6 +9,8 @@ stmt assign siblingGot
   eval feature value -> 7
 stmt assign receiverGot
   eval feature value -> 42
+choice step 4: writes value := 42 by token 2, value := 7 by token 3 (unordered; value := 42 by token 2 stood)
+choice step 4: tokens 2@receiver, 3@sibling (unordered; took 3@sibling first)
 step 4: token 2@sync, token 3@sync
 step 5: token 4@done
 step 6: no active tokens

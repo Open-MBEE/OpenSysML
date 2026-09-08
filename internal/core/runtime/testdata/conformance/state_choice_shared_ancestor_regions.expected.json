@@ -1,0 +1,24 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "low",
+			"stateVisits": ["work", "a1", "b1", "low"],
+			"outputs": {
+				"level": {"type": "Integer", "value": 8},
+				"route": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"finalState": "high",
+			"stateVisits": ["work", "a1", "b1", "high"],
+			"outputs": {
+				"level": {"type": "Integer", "value": 8},
+				"route": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "Two transitions out of one state enabled by one event: exactly one fires, which one is open"
+}

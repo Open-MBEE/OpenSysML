@@ -32,7 +32,11 @@ func writeThroughChain(ec *EvalContext, chain *lower.AssignTarget, feature strin
 	}
 	// Written through the object itself, so the value is multiplicity-checked and
 	// seen by every feature reaching that object, as a direct write is.
-	return target.SetFeatureValue(ec.ctx, feature, value)
+	if err := target.SetFeatureValue(ec.ctx, feature, value); err != nil {
+		return err
+	}
+	ec.ctx.noteObjectWrite(target, feature, value)
+	return nil
 }
 
 // chainCarrier walks a chained target's steps to the object whose feature the

@@ -187,6 +187,27 @@ the state or the data a guard reads changes between the send and the dispatch, t
 - `%advance <time>` — Advance simulation time by `<time>` units, processing every event due
 - `%stop` — Stop debugging
 
+**Choice points.** The library orders some things and leaves others open: a succession says
+which step comes first, but nothing says which of two fork branches steps first, which of two
+waiting accepts takes the one message both answer to, which of two holding guards a decision
+follows, which of two transitions out of one state fires on the same event, or whose write
+stands when several branches assign one feature in one step. Where the
+executor has to pick, it follows one fixed rule — reverse token order, first holding guard, first
+declared transition, so a run replays exactly — and records a *choice point* rather than passing
+the pick off as the only outcome. `%step`, `%continue` and `%advance` end with a count of the
+choices they made (`2 choice points; %trace on to see them`), `%trace on` shows each as a
+`choice` line naming the alternatives and the one taken (`choice step 3: tokens 2@left, 3@right
+(unordered; took 3@right first)`), and the gRPC responses carry each as an informational
+diagnostic. A run with no choice points has the one outcome the model states; one with choice
+points has the outcome this executor's rule produces, and the lines say where another rule would
+diverge. The innermost-transition-wins rule between a substate and the state enclosing it is
+spec-defined order, not a choice, and is not reported. Reporting never changes the run: once a
+guard or transition holds, the ones after it are read in a preview that is undone, and one that
+cannot be evaluated there — a division by zero, say — is not an alternative and not an error (a
+guard with no result is not true, so its branch is not taken); it is counted beside the choices
+(`1 guard not evaluable`) and shown in the trace as an `unevaluable guard` line. The first guard
+read is the run's own, and its failure fails the run as it always has.
+
 For complete workflows, see
 [examples/action-executor-demo.sysml](../../examples/action-executor-demo.sysml),
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and
