@@ -107,9 +107,49 @@ type checkResult struct {
 	// Verifications are the verdicts the bodies of the verification cases
 	// verifying the requirement produced, reported beside its own.
 	Verifications []verificationVerdict `json:"verifications,omitempty"`
+	// Evaluations are the applications an analysis run made of its own calcs as
+	// values — a trade study's evaluation of each alternative — in the order made.
+	Evaluations []caseEvaluation `json:"evaluations,omitempty"`
 	// Rows are the runs a sweep made, one per row of its table; `null` for every
 	// other kind of check.
 	Rows []checkRow `json:"rows"`
+}
+
+// caseEvaluation is one application an analysis run made of a calc as a value.
+type caseEvaluation struct {
+	Function  string   `json:"function"`
+	Arguments []string `json:"arguments"`
+	// Result is the value computed; absent when the evaluation failed.
+	Result string `json:"result,omitempty"`
+	// Error is what stopped the evaluation, empty for one that completed.
+	Error string `json:"error,omitempty"`
+	// Selected marks the evaluation of the alternative the run selected; Tied one
+	// whose result equals the selected one's without being selected.
+	Selected bool `json:"selected,omitempty"`
+	Tied     bool `json:"tied,omitempty"`
+}
+
+// caseEvaluations reports the evaluations of a check as JSON data.
+func caseEvaluations(evaluations []repl.Evaluation) []caseEvaluation {
+	if len(evaluations) == 0 {
+		return nil
+	}
+	out := make([]caseEvaluation, 0, len(evaluations))
+	for _, e := range evaluations {
+		arguments := e.Arguments
+		if arguments == nil {
+			arguments = []string{}
+		}
+		out = append(out, caseEvaluation{
+			Function:  e.Function,
+			Arguments: arguments,
+			Result:    e.Result,
+			Error:     e.Error,
+			Selected:  e.Selected,
+			Tied:      e.Tied,
+		})
+	}
+	return out
 }
 
 // verificationVerdict is one verdict a verification case body produced.
@@ -128,6 +168,8 @@ type checkRow struct {
 	Inputs   []namedValue `json:"inputs"`
 	Outputs  []namedValue `json:"outputs"`
 	Verdicts []namedValue `json:"verdicts"`
+	// Evaluations are the applications that run made of the case's calcs as values.
+	Evaluations []caseEvaluation `json:"evaluations,omitempty"`
 	// Milliseconds is the wall time of that run.
 	Milliseconds float64 `json:"milliseconds"`
 	// Error is what stopped the run, empty for one that completed.
@@ -145,6 +187,7 @@ func checkRows(rows []repl.VerdictRow) []checkRow {
 			Inputs:       namedValues(row.Inputs),
 			Outputs:      namedValues(row.Outputs),
 			Verdicts:     namedValues(row.Verdicts),
+			Evaluations:  caseEvaluations(row.Evaluations),
 			Milliseconds: row.Millis,
 			Error:        row.Error,
 		})
@@ -272,6 +315,7 @@ func (r *reporter) finish() int {
 			Values:        namedValues(v.Values),
 			Lines:         v.Lines,
 			Verifications: verificationVerdicts(v.Verifications),
+			Evaluations:   caseEvaluations(v.Evaluations),
 			Rows:          checkRows(v.Rows),
 		})
 	}

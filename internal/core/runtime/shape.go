@@ -120,10 +120,7 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 }
 
 // parameterFeatures are the input parameters of typeSym no object carries as a
-// feature value — a `ref` or `calc` parameter, a library one — in member order,
-// the most specific declaration of each name standing for it. A predicate's
-// conditions read them as they read its other features; its result is its
-// verdict, which no condition reads.
+// feature value, in member order, the most specific declaration of each name.
 func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 	var order []string
 	byName := make(map[string]*symbols.Symbol)

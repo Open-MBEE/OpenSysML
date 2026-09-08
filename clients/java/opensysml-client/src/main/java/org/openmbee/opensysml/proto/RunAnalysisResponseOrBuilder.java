@@ -165,7 +165,9 @@ public interface RunAnalysisResponseOrBuilder extends
   /**
    * <pre>
    * Set when the case could not be run — an unknown symbol, a subject that
-   * could not be built or bound, an input with no value, a failed step.
+   * could not be built or bound, an input with no value, a failed step. The
+   * outputs computed and the evaluations made before the failure are still
+   * reported beside it, each verdict undecided.
    * </pre>
    *
    * <code>string error = 4 [json_name = "error"];</code>
@@ -175,7 +177,9 @@ public interface RunAnalysisResponseOrBuilder extends
   /**
    * <pre>
    * Set when the case could not be run — an unknown symbol, a subject that
-   * could not be built or bound, an input with no value, a failed step.
+   * could not be built or bound, an input with no value, a failed step. The
+   * outputs computed and the evaluations made before the failure are still
+   * reported beside it, each verdict undecided.
    * </pre>
    *
    * <code>string error = 4 [json_name = "error"];</code>
@@ -274,5 +278,59 @@ public interface RunAnalysisResponseOrBuilder extends
    * <code>repeated .sysml.VerificationVerdict verification_verdicts = 7 [json_name = "verificationVerdicts"];</code>
    */
   org.openmbee.opensysml.proto.VerificationVerdictOrBuilder getVerificationVerdictsOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> 
+      getEvaluationsList();
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index);
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  int getEvaluationsCount();
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
+      getEvaluationsOrBuilderList();
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
       int index);
 }

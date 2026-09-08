@@ -55,16 +55,33 @@ type Verdict struct {
 	// Rows are the runs a sweep made, one per row of its table; no other kind of
 	// verdict has any.
 	Rows []VerdictRow
+	// Evaluations are the applications an analysis case made of its own calcs as
+	// function values — a trade study's evaluation of each alternative — in the
+	// order made.
+	Evaluations []Evaluation
+}
+
+// Evaluation is one application of a case's calc as a function value: what it
+// was applied to, what it computed or failed with, and whether the case
+// returned its argument (selected) or passed it over for one evaluating alike (tied).
+type Evaluation struct {
+	Function  string
+	Arguments []string
+	Result    string
+	Error     string
+	Selected  bool
+	Tied      bool
 }
 
 // VerdictRow is one run of a sweep: what it was given, what it produced and
 // decided, how long it took, and what stopped it when it failed.
 type VerdictRow struct {
-	Inputs   []NamedValue
-	Outputs  []NamedValue
-	Verdicts []NamedValue
-	Millis   float64
-	Error    string
+	Inputs      []NamedValue
+	Outputs     []NamedValue
+	Verdicts    []NamedValue
+	Evaluations []Evaluation
+	Millis      float64
+	Error       string
 }
 
 // Holds reports whether the checked condition is satisfied.

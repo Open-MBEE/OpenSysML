@@ -1,0 +1,12 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::undecided",
+  "error": "no result expression: calc test::undecided::evaluationFunction has no return expression",
+  "verdicts": {
+    "tradeStudyObjective": "undecided"
+  },
+  "evaluations": [
+    {"function": "test::undecided::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::light"}], "error": "no result expression: calc test::undecided::evaluationFunction has no return expression"}
+  ]
+}

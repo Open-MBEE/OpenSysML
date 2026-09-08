@@ -68,10 +68,8 @@ func (t LibraryTier) Frame() bool {
 	}
 }
 
-// Semantic reports whether the tier states the language's own semantics — the
-// Kernel and Systems libraries, which an implementation realizes rather than
-// executes as written — or library content of no stated tier, held to the same
-// standard. A Domain or OpenSysML library is a model, executed as one.
+// Semantic reports a tier realized rather than executed as written: the Kernel
+// and Systems libraries, or library content of no stated tier.
 func (t LibraryTier) Semantic() bool {
 	switch t {
 	case TierDomain, TierOpenSysML:

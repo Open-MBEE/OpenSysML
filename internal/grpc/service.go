@@ -122,6 +122,12 @@ const CapabilityInfinityValue = "infinity_value"
 // so an empty code is a finding none was assigned rather than an older service.
 const CapabilityDiagnosticCodes = "diagnostic_codes"
 
+// CapabilityCaseEvaluations names the capability of reporting each application
+// an analysis run made of one of the case's calcs as a function value — a trade
+// study's evaluation of each alternative — and of keeping what a failed run
+// computed beside its error.
+const CapabilityCaseEvaluations = "case_evaluations"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -132,7 +138,7 @@ var capabilities = []string{
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
-	CapabilityInfinityValue, CapabilityDiagnosticCodes,
+	CapabilityInfinityValue, CapabilityDiagnosticCodes, CapabilityCaseEvaluations,
 }
 
 type capabilityAvailability struct {

@@ -42,9 +42,8 @@ func predicateKind(sym *symbols.Symbol) string {
 	return "requirement"
 }
 
-// predicateShapeOf builds the invocation interface of the predicate sym, memoized:
-// its parameters, the subject first, along the declarations it takes members from.
-// It states no body; its conditions are what an invocation evaluates.
+// predicateShapeOf is the memoized invocation interface of the predicate sym:
+// its parameters, the subject first; its conditions stand for a body.
 func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 	if cached, ok := ctx.predicateShapes[sym]; ok {
 		return cached
@@ -58,6 +57,10 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 	}
 	chain = append(chain, sym)
 	name := ctx.qualifiedSymbolName(sym)
+	if sym.Name == "" {
+		// An anonymous usage answers to the name it redefines (`objective : MinimizeObjective;`).
+		name += ctx.model.EffectiveNameOf(sym)
+	}
 	shape := &calcShape{Sym: sym, Name: name, Kind: predicateKind(sym), Label: predicateKind(sym) + " " + name}
 	shape.Params = ctx.calcParameters(chain, &shape.Aliases)
 	shape.ParamNames = make([]string, len(shape.Params))
@@ -69,8 +72,7 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 }
 
 // invokePredicate applies the predicate sym to args and answers whether its
-// conditions hold. A predicate declared in a behavior body reads the bindings of
-// the run enclosing it, as a nested calc does.
+// conditions hold, reading an enclosing run's bindings as a nested calc does.
 func (ec *EvalContext) invokePredicate(sym *symbols.Symbol, args calcArgs) (Value, error) {
 	ctx := ec.ctx
 	shape := ctx.predicateShapeOf(sym)
@@ -112,6 +114,7 @@ func (ec *EvalContext) invokePredicate(sym *symbols.Symbol, args calcArgs) (Valu
 		sym:      sym,
 		kind:     shape.Kind,
 		what:     "require condition",
+		element:  ctx.model.EffectiveNameOf(sym),
 		self:     ec.self,
 		bindings: env,
 		negated:  NegatedDecl(sym),
@@ -142,6 +145,10 @@ func flattenFrames(frames []frame) frame {
 		if f.perf != nil {
 			out.perf = f.perf
 		}
+		if run := f.running(); run != nil {
+			out.merged = append(out.merged, run)
+		}
+		out.merged = append(out.merged, f.merged...)
 	}
 	return out
 }

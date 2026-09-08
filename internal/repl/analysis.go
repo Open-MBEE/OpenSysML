@@ -95,7 +95,9 @@ func (s *Session) doAnalysis(tail string) ([]string, bool, error) {
 // decided. A run that could not be made is unresolved; one whose objective or
 // assertion did not hold fails; one a check left undecided is unresolved too,
 // since it decided nothing about the model. A verification case answers with
-// the verdict of its body as well, which its status reports.
+// the verdict of its body as well, which its status reports. A run that failed
+// after evaluating some of what it declares reports those evaluations and the
+// verdicts left undecided beneath the error.
 func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 	label := inv.name
 	if inv.argText != "" {
@@ -103,10 +105,11 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 	}
 	run, err := s.runAnalysis(inv)
 	if err != nil {
-		return unresolvedVerdict(label, err.Error())
+		verdict := unresolvedVerdict(label, err.Error())
+		s.reportCaseRun(&verdict, run.result)
+		return verdict
 	}
 	result, subject, subjectLabel := run.result, run.subject, run.label
-	ctx := s.rtCtx
 
 	status := VerdictHolds
 	for _, v := range result.Verdicts {
@@ -137,23 +140,8 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 	if subject != nil {
 		on = " on " + objectMention(subject, subjectLabel)
 	}
-	lines := []string{fmt.Sprintf("%s %s%s", mark, label, on)}
-	values := make([]NamedValue, 0, len(result.Outputs)+len(result.Verdicts))
-	for _, out := range result.Outputs {
-		text := formatValue(ctx, out.Value)
-		lines = append(lines, fmt.Sprintf("  %s = %s", out.Name, text))
-		values = append(values, NamedValue{Name: out.Name, Value: text})
-	}
-	for _, v := range result.Verdicts {
-		name := v.Kind + " " + v.Name
-		text := v.Status.String()
-		if v.Detail != "" {
-			text += ": " + v.Detail
-		}
-		lines = append(lines, fmt.Sprintf("  %s: %s", name, text))
-		values = append(values, NamedValue{Name: name, Value: text})
-	}
-	verdict := Verdict{Subject: label, Status: status, Lines: lines, Values: values}
+	verdict := Verdict{Subject: label, Status: status, Lines: []string{fmt.Sprintf("%s %s%s", mark, label, on)}}
+	s.reportCaseRun(&verdict, result)
 	for _, v := range run.verdicts {
 		verdict.Verifications = append(verdict.Verifications, VerificationVerdict{
 			Case: v.Case, Kind: string(v.Kind), Detail: v.Detail, Subcase: v.Subcase,
@@ -161,6 +149,71 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 		verdict.Lines = append(verdict.Lines, "  "+verificationLine(v))
 	}
 	return verdict
+}
+
+// reportCaseRun adds to verdict what a case run produced: each output, each
+// objective and assertion verdict, then each evaluation the run made of one of
+// the case's calcs — a trade study's alternatives in subject order, the
+// selected one marked, and those evaluating alike marked tied.
+func (s *Session) reportCaseRun(verdict *Verdict, result runtime.AnalysisResult) {
+	ctx := s.rtCtx
+	for _, out := range result.Outputs {
+		text := objectText(ctx, out.Value)
+		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  %s = %s", out.Name, text))
+		verdict.Values = append(verdict.Values, NamedValue{Name: out.Name, Value: text})
+	}
+	for _, v := range result.Verdicts {
+		name := v.Kind + " " + v.Name
+		text := v.Status.String()
+		if v.Detail != "" {
+			text += ": " + v.Detail
+		}
+		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  %s: %s", name, text))
+		verdict.Values = append(verdict.Values, NamedValue{Name: name, Value: text})
+	}
+	for _, e := range result.Evaluations {
+		evaluation, text := evaluationOf(ctx, result.Case, e)
+		verdict.Lines = append(verdict.Lines, "  "+text)
+		verdict.Evaluations = append(verdict.Evaluations, evaluation)
+	}
+}
+
+// evaluationOf reports one evaluation a run of caseName made, as data and as the
+// line a report prints: the call relative to the case, its result or error, and
+// whether it was selected or tied.
+func evaluationOf(ctx *runtime.Context, caseName string, e runtime.AnalysisEvaluation) (Evaluation, string) {
+	evaluation := Evaluation{Function: e.Function, Selected: e.Selected, Tied: e.Tied}
+	for _, arg := range e.Arguments {
+		evaluation.Arguments = append(evaluation.Arguments, objectText(ctx, arg))
+	}
+	text := fmt.Sprintf("%s(%s)", strings.TrimPrefix(e.Function, caseName+"::"), strings.Join(evaluation.Arguments, ", "))
+	if e.Error != nil {
+		evaluation.Error = e.Error.Error()
+		text += ": error: " + evaluation.Error
+	} else {
+		evaluation.Result = formatValue(ctx, e.Result)
+		text += " = " + evaluation.Result
+	}
+	switch {
+	case e.Selected:
+		text += " [selected]"
+	case e.Tied:
+		text += " [tied]"
+	}
+	return evaluation, text
+}
+
+// objectText spells a value as a report names it: an object that is the
+// occurrence of a usage by that usage, anything else as %eval prints it.
+func objectText(ctx *runtime.Context, val runtime.Value) string {
+	if val.Kind == runtime.ValInstance {
+		if inst, ok := ctx.Instance(val.Instance); ok {
+			if usage := ctx.OccurrenceUsage(inst); usage != "" {
+				return fmt.Sprintf("%s (object #%d)", usage, inst.ID)
+			}
+		}
+	}
+	return formatValue(ctx, val)
 }
 
 // caseRun is what one run of a case produced: what it computed and decided, the
@@ -242,12 +295,12 @@ func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 		return run, nil
 	}
 	result, err := ctx.RunAnalysis(sym, args, runScope, self)
+	run.result = result
 	if err != nil {
 		if errors.Is(err, runtime.ErrNotAnAnalysis) {
 			return caseRun{}, err
 		}
-		return caseRun{}, fmt.Errorf("analysis run failed: %w", err)
+		return run, fmt.Errorf("analysis run failed: %w", err)
 	}
-	run.result = result
 	return run, nil
 }

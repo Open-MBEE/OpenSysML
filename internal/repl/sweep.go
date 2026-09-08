@@ -112,7 +112,7 @@ func (s *Session) sweepVerdict(inv analysisInvocation, specs []sweepSpec, draws 
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
 	}
-	status, rows := sweepStatus(table)
+	status, rows := sweepStatus(ctx, table)
 	return Verdict{
 		Subject: label,
 		Status:  status,
@@ -217,14 +217,12 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		}
 		args := runtime.AnalysisArgs{Subject: subject, Positional: positional, Named: bound}
 		result, err := ctx.RunAnalysis(sym, args, runScope, self)
-		if err != nil {
-			return runtime.SweepRunResult{}, err
-		}
 		return runtime.SweepRunResult{
-			Outputs:  result.Outputs,
-			Verdicts: result.Verdicts,
-			Subject:  result.Subject,
-		}, nil
+			Outputs:     result.Outputs,
+			Verdicts:    result.Verdicts,
+			Subject:     result.Subject,
+			Evaluations: result.Evaluations,
+		}, err
 	}
 
 	table, err := ctx.RunSweep(context.Background(), fqn, plan, run)
@@ -284,7 +282,7 @@ func (s *Session) evalRangeBound(ctx *runtime.Context, scope *symbols.Scope, spe
 // sweepStatus judges a table and reports each of its runs: a run that failed or
 // an objective that was not satisfied fails the table, an undecided one leaves
 // it unresolved.
-func sweepStatus(table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
+func sweepStatus(ctx *runtime.Context, table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
 	status := VerdictHolds
 	rows := make([]VerdictRow, 0, len(table.Rows))
 	for _, row := range table.Rows {
@@ -299,10 +297,15 @@ func sweepStatus(table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
 			}
 		}
 		for _, o := range row.Outputs {
-			out.Outputs = append(out.Outputs, NamedValue{Name: o.Name, Value: runtime.FormatValue(o.Value)})
+			out.Outputs = append(out.Outputs, NamedValue{Name: o.Name, Value: objectText(ctx, o.Value)})
 		}
+		// A failed run's error is what the table holds against it; the verdicts
+		// it left undecided are reported with it, not counted again.
 		for _, v := range row.Verdicts {
 			out.Verdicts = append(out.Verdicts, NamedValue{Name: v.Kind + " " + v.Name, Value: v.Status.String()})
+			if row.Err != nil {
+				continue
+			}
 			switch v.Status {
 			case runtime.VerdictNotSatisfied:
 				if status == VerdictHolds {
@@ -311,6 +314,10 @@ func sweepStatus(table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
 			case runtime.VerdictUndecided:
 				status = VerdictUnresolved
 			}
+		}
+		for _, e := range row.Evaluations {
+			evaluation, _ := evaluationOf(ctx, table.Target, e)
+			out.Evaluations = append(out.Evaluations, evaluation)
 		}
 		rows = append(rows, out)
 	}
@@ -590,7 +597,7 @@ func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
 	cells := make([][]string, 0, len(table.Rows)+1)
 	cells = append(cells, columns.titles())
 	for _, row := range table.Rows {
-		cells = append(cells, columns.row(ctx, row))
+		cells = append(cells, columns.row(ctx, table.Target, row))
 	}
 	notes := footnoteErrors(columns, cells)
 	widths := make([]int, len(cells[0]))
@@ -629,10 +636,11 @@ func footnoteErrors(columns sweepColumns, cells [][]string) []string {
 // sweepColumns are the columns a table needs: its parameters, every output any
 // run produced, verdicts and errors where there are any, and the run's time.
 type sweepColumns struct {
-	params   []string
-	outputs  []string
-	verdicts bool
-	failures bool
+	params      []string
+	outputs     []string
+	verdicts    bool
+	evaluations bool
+	failures    bool
 }
 
 // newSweepColumns decides a table's columns from what its runs produced.
@@ -647,6 +655,7 @@ func newSweepColumns(table runtime.SweepTable) sweepColumns {
 			}
 		}
 		cols.verdicts = cols.verdicts || len(row.Verdicts) > 0
+		cols.evaluations = cols.evaluations || len(row.Evaluations) > 0
 		cols.failures = cols.failures || row.Err != nil
 	}
 	return cols
@@ -654,11 +663,14 @@ func newSweepColumns(table runtime.SweepTable) sweepColumns {
 
 // titles names each column.
 func (c sweepColumns) titles() []string {
-	titles := make([]string, 0, len(c.params)+len(c.outputs)+3)
+	titles := make([]string, 0, len(c.params)+len(c.outputs)+4)
 	titles = append(titles, c.params...)
 	titles = append(titles, c.outputs...)
 	if c.verdicts {
 		titles = append(titles, "verdict")
+	}
+	if c.evaluations {
+		titles = append(titles, "evaluations")
 	}
 	titles = append(titles, "time")
 	if c.failures {
@@ -668,8 +680,8 @@ func (c sweepColumns) titles() []string {
 }
 
 // row renders one run under the columns.
-func (c sweepColumns) row(ctx *runtime.Context, row runtime.SweepRow) []string {
-	cells := make([]string, 0, len(c.params)+len(c.outputs)+3)
+func (c sweepColumns) row(ctx *runtime.Context, target string, row runtime.SweepRow) []string {
+	cells := make([]string, 0, len(c.params)+len(c.outputs)+4)
 	bound := make(map[string]runtime.Value, len(row.Bindings))
 	for _, b := range row.Bindings {
 		bound[b.Param] = b.Value
@@ -679,7 +691,7 @@ func (c sweepColumns) row(ctx *runtime.Context, row runtime.SweepRow) []string {
 	}
 	produced := make(map[string]string, len(row.Outputs))
 	for _, out := range row.Outputs {
-		produced[out.Name] = formatValue(ctx, out.Value)
+		produced[out.Name] = objectText(ctx, out.Value)
 	}
 	for _, name := range c.outputs {
 		cells = append(cells, produced[name])
@@ -690,6 +702,14 @@ func (c sweepColumns) row(ctx *runtime.Context, row runtime.SweepRow) []string {
 			verdicts = append(verdicts, v.Name+": "+v.Status.String())
 		}
 		cells = append(cells, strings.Join(verdicts, "; "))
+	}
+	if c.evaluations {
+		evaluations := make([]string, 0, len(row.Evaluations))
+		for _, e := range row.Evaluations {
+			_, text := evaluationOf(ctx, target, e)
+			evaluations = append(evaluations, text)
+		}
+		cells = append(cells, strings.Join(evaluations, "; "))
 	}
 	cells = append(cells, formatElapsed(row))
 	if c.failures {

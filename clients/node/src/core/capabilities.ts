@@ -38,6 +38,8 @@ export const CAPABILITY_CONVERT = "convert";
 export const CAPABILITY_VERIFICATION = "verification";
 /** What the body of a verification case answered, as `verification_verdicts`. */
 export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
+/** `RunAnalysisResponse.evaluations`: each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
+export const CAPABILITY_CASE_EVALUATIONS = "case_evaluations";
 /** The `Query` RPC. Not used by this version; see the README. */
 export const CAPABILITY_QUERY = "query";
 /** The `ApplyEdits` RPC. Not used by this version; see the README. */
@@ -85,7 +87,8 @@ export class ServerInfo {
     if (!this.answered) {
       return `${this.origin} (version unknown: too old to answer GetServerInfo, so it predates every capability)`;
     }
-    const reported = [...this.capabilities].sort(byCodeUnit).join(", ") || "none";
+    const reported =
+      [...this.capabilities].sort(byCodeUnit).join(", ") || "none";
     const version = this.version === "" ? "unknown" : this.version;
     return `${this.origin} (version ${version}, capabilities: ${reported})`;
   }
@@ -107,7 +110,11 @@ export class MissingCapabilityError extends OpenSysMLError {
 }
 
 /** Throws unless the service reports `capability`. */
-export function requireCapability(info: ServerInfo, capability: string, remedy: string): void {
+export function requireCapability(
+  info: ServerInfo,
+  capability: string,
+  remedy: string,
+): void {
   if (!info.has(capability)) {
     throw new MissingCapabilityError(capability, info, remedy);
   }

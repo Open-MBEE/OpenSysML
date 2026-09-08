@@ -210,6 +210,27 @@ class WrongKindError(ExecutionError):
     """
 
 
+class AnalysisRunError(ExecutionError):
+    """Raised when an analysis case could not run to its end.
+
+    An unbound subject, an input with no value, a failing step, or an alternative
+    a trade study could not evaluate. What the run computed before it failed is
+    kept, so the evaluations that did succeed and the objective it left
+    undecided stay inspectable. An :class:`ExecutionError`, since that is what
+    such a failure used to be.
+
+    Attributes:
+        message (str): Error description
+        result (AnalysisResult): The outputs, verdicts and evaluations the run
+            made before it failed; each verdict is undecided
+        diagnostics (list): List of Diagnostic objects (if available)
+    """
+
+    def __init__(self, message, result, diagnostics=None):
+        super().__init__(message, diagnostics=diagnostics)
+        self.result = result
+
+
 class ModelError(OpenSysMLError):
     """Raised when a model the service parsed has errors and the caller wanted none.
 

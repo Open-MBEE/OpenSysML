@@ -7,12 +7,7 @@ export type {
   ResponseTap,
   TransportOptions,
 } from "./connection.js";
-export {
-  Instance,
-  InstanceTree,
-  Model,
-  ModelSymbol,
-} from "./model.js";
+export { Instance, InstanceTree, Model, ModelSymbol } from "./model.js";
 export type {
   AttributeFacts,
   EvalOptions,
@@ -23,6 +18,7 @@ export type {
 } from "./model.js";
 export {
   CAPABILITY_APPLY_EDITS,
+  CAPABILITY_CASE_EVALUATIONS,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DIAGNOSTIC_CODES,
@@ -69,7 +65,12 @@ export {
 export type { FailureCause, ModelDiagnostic } from "./errors.js";
 export { fromHandshakeError, fromRpcError, statusName } from "./status.js";
 export type { NotFoundSubject } from "./status.js";
-export { decodeValue, decodeVerdict, encodeValue, formatValue } from "./values.js";
+export {
+  decodeValue,
+  decodeVerdict,
+  encodeValue,
+  formatValue,
+} from "./values.js";
 export type {
   ArrayValue,
   ComplexValue,

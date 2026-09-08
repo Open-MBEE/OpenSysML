@@ -23,6 +23,9 @@ public final class Capabilities {
   /** A verification, satisfaction or analysis response carries what a case body answered. */
   public static final String VERIFICATION_VERDICTS = "verification_verdicts";
 
+  /** An analysis response carries each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
+  public static final String CASE_EVALUATIONS = "case_evaluations";
+
   /** The {@code Query} RPC evaluates a SysML v2 API and Services Query. */
   public static final String QUERY = "query";
 

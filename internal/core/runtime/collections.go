@@ -372,6 +372,19 @@ func (ec *EvalContext) applyBody(val Value, args ...Value) (Value, error) {
 	return inner.Eval(body.Result)
 }
 
+// applyValueBody is applyBody for an operation needing a value: a body answering
+// a feature holding none is a NoValueError, not a value of the wrong kind.
+func (ec *EvalContext) applyValueBody(body Value, args ...Value) (Value, error) {
+	val, err := ec.applyBody(body, args...)
+	if err != nil {
+		return Value{}, err
+	}
+	if expr, ok := body.Expr().(*ast.BodyExpr); ok && ec.ctx.HoldsNoValue(val) {
+		return Value{}, ec.ctx.noValueError(val, expr.Result)
+	}
+	return val, nil
+}
+
 // applyPredicate evaluates a body expression whose result the library declares
 // `Boolean[1]` — a selector, a rejector, a test — and reports a result that is
 // not a Boolean rather than reading it as false, which would silently drop the
@@ -953,7 +966,7 @@ func (ec *EvalContext) extremum(op string, args []Value, least bool) (Value, err
 	}
 	var best Value
 	for i, elem := range elements {
-		val, err := ec.applyBody(body, elem)
+		val, err := ec.applyValueBody(body, elem)
 		if err != nil {
 			return Value{}, err
 		}

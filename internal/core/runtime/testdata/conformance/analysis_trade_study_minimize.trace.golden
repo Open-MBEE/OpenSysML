@@ -1,0 +1,138 @@
+enter analysis test::lightest
+materialize: heavy #1
+    eval feature heavy -> instance#1
+materialize: light #2
+    eval feature light -> instance#2
+  eval sequence of 2 -> (instance#1, instance#2)
+  bind studyAlternatives = (instance#1, instance#2) [default]
+  stmt declare calc evaluationFunction
+  stmt return
+      enter calc ControlFunctions::selectOne
+        eval feature studyAlternatives -> (instance#1, instance#2)
+        eval body -> expr(body)
+        bind collection = (instance#1, instance#2) [argument]
+        bind selector1 = expr(body) [argument]
+          eval feature a -> instance#1
+          enter objective test::lightest::tradeStudyObjective
+            bind selectedAlternative = instance#1 [argument]
+            eval feature studyAlternatives -> (instance#1, instance#2)
+            bind alternatives = (instance#1, instance#2) [default]
+            eval feature evaluationFunction -> calc(test::lightest::evaluationFunction)
+            bind eval = calc(test::lightest::evaluationFunction) [default]
+                eval feature selectedAlternative -> instance#1
+                enter calc test::lightest::evaluationFunction
+                  bind e = instance#1 [argument]
+                  stmt return
+                      eval feature e -> instance#1
+                    eval chain mass -> 20.0
+                exit calc test::lightest::evaluationFunction -> 20.0
+              eval invoke eval -> 20.0
+                  enter calc ControlFunctions::minimize
+                    eval feature alternatives -> (instance#1, instance#2)
+                    eval body -> expr(body)
+                    bind collection = (instance#1, instance#2) [argument]
+                    bind fn = expr(body) [argument]
+                      eval feature x -> instance#1
+                      enter calc test::lightest::evaluationFunction
+                        bind e = instance#1 [argument]
+                        stmt return
+                            eval feature e -> instance#1
+                          eval chain mass -> 20.0
+                      exit calc test::lightest::evaluationFunction -> 20.0
+                    eval invoke eval -> 20.0
+                      eval feature x -> instance#2
+                      enter calc test::lightest::evaluationFunction
+                        bind e = instance#2 [argument]
+                        stmt return
+                            eval feature e -> instance#2
+                          eval chain mass -> 10.0
+                      exit calc test::lightest::evaluationFunction -> 10.0
+                    eval invoke eval -> 10.0
+                  exit calc ControlFunctions::minimize -> 10.0
+                eval invoke minimize -> 10.0
+              eval feature best -> 10.0
+            eval operator == -> false
+          exit objective test::lightest::tradeStudyObjective -> false
+        eval invoke tradeStudyObjective -> false
+          eval feature a -> instance#2
+          enter objective test::lightest::tradeStudyObjective
+            bind selectedAlternative = instance#2 [argument]
+            eval feature studyAlternatives -> (instance#1, instance#2)
+            bind alternatives = (instance#1, instance#2) [default]
+            eval feature evaluationFunction -> calc(test::lightest::evaluationFunction)
+            bind eval = calc(test::lightest::evaluationFunction) [default]
+                eval feature selectedAlternative -> instance#2
+                enter calc test::lightest::evaluationFunction
+                  bind e = instance#2 [argument]
+                  stmt return
+                      eval feature e -> instance#2
+                    eval chain mass -> 10.0
+                exit calc test::lightest::evaluationFunction -> 10.0
+              eval invoke eval -> 10.0
+                  enter calc ControlFunctions::minimize
+                    eval feature alternatives -> (instance#1, instance#2)
+                    eval body -> expr(body)
+                    bind collection = (instance#1, instance#2) [argument]
+                    bind fn = expr(body) [argument]
+                      eval feature x -> instance#1
+                      enter calc test::lightest::evaluationFunction
+                        bind e = instance#1 [argument]
+                        stmt return
+                            eval feature e -> instance#1
+                          eval chain mass -> 20.0
+                      exit calc test::lightest::evaluationFunction -> 20.0
+                    eval invoke eval -> 20.0
+                      eval feature x -> instance#2
+                      enter calc test::lightest::evaluationFunction
+                        bind e = instance#2 [argument]
+                        stmt return
+                            eval feature e -> instance#2
+                          eval chain mass -> 10.0
+                      exit calc test::lightest::evaluationFunction -> 10.0
+                    eval invoke eval -> 10.0
+                  exit calc ControlFunctions::minimize -> 10.0
+                eval invoke minimize -> 10.0
+              eval feature best -> 10.0
+            eval operator == -> true
+          exit objective test::lightest::tradeStudyObjective -> true
+        eval invoke tradeStudyObjective -> true
+      exit calc ControlFunctions::selectOne -> instance#2
+    eval invoke selectOne -> instance#2
+exit analysis test::lightest -> instance#2
+    eval feature evaluationFunction -> calc(test::lightest::evaluationFunction)
+    eval feature selectedAlternative -> instance#2
+    enter calc test::lightest::evaluationFunction
+      bind e = instance#2 [argument]
+      stmt return
+          eval feature e -> instance#2
+        eval chain mass -> 10.0
+    exit calc test::lightest::evaluationFunction -> 10.0
+  eval invoke eval -> 10.0
+      enter calc ControlFunctions::minimize
+          eval feature studyAlternatives -> (instance#1, instance#2)
+        eval feature alternatives -> (instance#1, instance#2)
+        eval body -> expr(body)
+        bind collection = (instance#1, instance#2) [argument]
+        bind fn = expr(body) [argument]
+          eval feature evaluationFunction -> calc(test::lightest::evaluationFunction)
+          eval feature x -> instance#1
+          enter calc test::lightest::evaluationFunction
+            bind e = instance#1 [argument]
+            stmt return
+                eval feature e -> instance#1
+              eval chain mass -> 20.0
+          exit calc test::lightest::evaluationFunction -> 20.0
+        eval invoke eval -> 20.0
+          eval feature evaluationFunction -> calc(test::lightest::evaluationFunction)
+          eval feature x -> instance#2
+          enter calc test::lightest::evaluationFunction
+            bind e = instance#2 [argument]
+            stmt return
+                eval feature e -> instance#2
+              eval chain mass -> 10.0
+          exit calc test::lightest::evaluationFunction -> 10.0
+        eval invoke eval -> 10.0
+      exit calc ControlFunctions::minimize -> 10.0
+    eval invoke minimize -> 10.0
+  eval feature best -> 10.0
+eval operator == -> true

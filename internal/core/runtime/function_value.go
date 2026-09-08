@@ -213,8 +213,13 @@ func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (
 	if fn == nil || fn.shape == nil {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", ErrNotAFunction, callee, describeValue(val))
 	}
+	var result Value
+	var err error
 	if fn.library != nil {
-		return fn.library.invoke(ec.ctx, args)
+		result, err = fn.library.invoke(ec.ctx, args)
+	} else {
+		result, err = ec.ctx.invokeCalcShapeIn(fn.shape, args, fn.scope, fn.self, fn.enclosing)
 	}
-	return ec.ctx.invokeCalcShapeIn(fn.shape, args, fn.scope, fn.self, fn.enclosing)
+	ec.ctx.evaluations.record(fn, args, result, err)
+	return result, err
 }

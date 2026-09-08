@@ -39,6 +39,7 @@ private static final long serialVersionUID = 0L;
     diagnostics_ = java.util.Collections.emptyList();
     failureReason_ = 0;
     verificationVerdicts_ = java.util.Collections.emptyList();
+    evaluations_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -263,7 +264,9 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Set when the case could not be run — an unknown symbol, a subject that
-   * could not be built or bound, an input with no value, a failed step.
+   * could not be built or bound, an input with no value, a failed step. The
+   * outputs computed and the evaluations made before the failure are still
+   * reported beside it, each verdict undecided.
    * </pre>
    *
    * <code>string error = 4 [json_name = "error"];</code>
@@ -285,7 +288,9 @@ private static final long serialVersionUID = 0L;
   /**
    * <pre>
    * Set when the case could not be run — an unknown symbol, a subject that
-   * could not be built or bound, an input with no value, a failed step.
+   * could not be built or bound, an input with no value, a failed step. The
+   * outputs computed and the evaluations made before the failure are still
+   * reported beside it, each verdict undecided.
    * </pre>
    *
    * <code>string error = 4 [json_name = "error"];</code>
@@ -439,6 +444,77 @@ private static final long serialVersionUID = 0L;
     return verificationVerdicts_.get(index);
   }
 
+  public static final int EVALUATIONS_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> evaluations_;
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> getEvaluationsList() {
+    return evaluations_;
+  }
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
+      getEvaluationsOrBuilderList() {
+    return evaluations_;
+  }
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  @java.lang.Override
+  public int getEvaluationsCount() {
+    return evaluations_.size();
+  }
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index) {
+    return evaluations_.get(index);
+  }
+  /**
+   * <pre>
+   * Each application the run made of one of the case's own calcs as a function
+   * value, in the order first made: a trade study's evaluation of each
+   * alternative in subject order, the selected one marked.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
+      int index) {
+    return evaluations_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -473,6 +549,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < verificationVerdicts_.size(); i++) {
       output.writeMessage(7, verificationVerdicts_.get(i));
+    }
+    for (int i = 0; i < evaluations_.size(); i++) {
+      output.writeMessage(8, evaluations_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -510,6 +589,10 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(7, verificationVerdicts_.get(i));
     }
+    for (int i = 0; i < evaluations_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, evaluations_.get(i));
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -538,6 +621,8 @@ private static final long serialVersionUID = 0L;
     if (failureReason_ != other.failureReason_) return false;
     if (!getVerificationVerdictsList()
         .equals(other.getVerificationVerdictsList())) return false;
+    if (!getEvaluationsList()
+        .equals(other.getEvaluationsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -572,6 +657,10 @@ private static final long serialVersionUID = 0L;
     if (getVerificationVerdictsCount() > 0) {
       hash = (37 * hash) + VERIFICATION_VERDICTS_FIELD_NUMBER;
       hash = (53 * hash) + getVerificationVerdictsList().hashCode();
+    }
+    if (getEvaluationsCount() > 0) {
+      hash = (37 * hash) + EVALUATIONS_FIELD_NUMBER;
+      hash = (53 * hash) + getEvaluationsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -745,6 +834,13 @@ private static final long serialVersionUID = 0L;
         verificationVerdictsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000040);
+      if (evaluationsBuilder_ == null) {
+        evaluations_ = java.util.Collections.emptyList();
+      } else {
+        evaluations_ = null;
+        evaluationsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000080);
       return this;
     }
 
@@ -822,6 +918,15 @@ private static final long serialVersionUID = 0L;
         result.verificationVerdicts_ = verificationVerdicts_;
       } else {
         result.verificationVerdicts_ = verificationVerdictsBuilder_.build();
+      }
+      if (evaluationsBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0)) {
+          evaluations_ = java.util.Collections.unmodifiableList(evaluations_);
+          bitField0_ = (bitField0_ & ~0x00000080);
+        }
+        result.evaluations_ = evaluations_;
+      } else {
+        result.evaluations_ = evaluationsBuilder_.build();
       }
     }
 
@@ -985,6 +1090,32 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (evaluationsBuilder_ == null) {
+        if (!other.evaluations_.isEmpty()) {
+          if (evaluations_.isEmpty()) {
+            evaluations_ = other.evaluations_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+          } else {
+            ensureEvaluationsIsMutable();
+            evaluations_.addAll(other.evaluations_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.evaluations_.isEmpty()) {
+          if (evaluationsBuilder_.isEmpty()) {
+            evaluationsBuilder_.dispose();
+            evaluationsBuilder_ = null;
+            evaluations_ = other.evaluations_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+            evaluationsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetEvaluationsFieldBuilder() : null;
+          } else {
+            evaluationsBuilder_.addAllMessages(other.evaluations_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1086,6 +1217,19 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 58
+            case 66: {
+              org.openmbee.opensysml.proto.CaseEvaluation m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.CaseEvaluation.parser(),
+                      extensionRegistry);
+              if (evaluationsBuilder_ == null) {
+                ensureEvaluationsIsMutable();
+                evaluations_.add(m);
+              } else {
+                evaluationsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2115,7 +2259,9 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Set when the case could not be run — an unknown symbol, a subject that
-     * could not be built or bound, an input with no value, a failed step.
+     * could not be built or bound, an input with no value, a failed step. The
+     * outputs computed and the evaluations made before the failure are still
+     * reported beside it, each verdict undecided.
      * </pre>
      *
      * <code>string error = 4 [json_name = "error"];</code>
@@ -2136,7 +2282,9 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Set when the case could not be run — an unknown symbol, a subject that
-     * could not be built or bound, an input with no value, a failed step.
+     * could not be built or bound, an input with no value, a failed step. The
+     * outputs computed and the evaluations made before the failure are still
+     * reported beside it, each verdict undecided.
      * </pre>
      *
      * <code>string error = 4 [json_name = "error"];</code>
@@ -2158,7 +2306,9 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Set when the case could not be run — an unknown symbol, a subject that
-     * could not be built or bound, an input with no value, a failed step.
+     * could not be built or bound, an input with no value, a failed step. The
+     * outputs computed and the evaluations made before the failure are still
+     * reported beside it, each verdict undecided.
      * </pre>
      *
      * <code>string error = 4 [json_name = "error"];</code>
@@ -2176,7 +2326,9 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Set when the case could not be run — an unknown symbol, a subject that
-     * could not be built or bound, an input with no value, a failed step.
+     * could not be built or bound, an input with no value, a failed step. The
+     * outputs computed and the evaluations made before the failure are still
+     * reported beside it, each verdict undecided.
      * </pre>
      *
      * <code>string error = 4 [json_name = "error"];</code>
@@ -2191,7 +2343,9 @@ private static final long serialVersionUID = 0L;
     /**
      * <pre>
      * Set when the case could not be run — an unknown symbol, a subject that
-     * could not be built or bound, an input with no value, a failed step.
+     * could not be built or bound, an input with no value, a failed step. The
+     * outputs computed and the evaluations made before the failure are still
+     * reported beside it, each verdict undecided.
      * </pre>
      *
      * <code>string error = 4 [json_name = "error"];</code>
@@ -2847,6 +3001,354 @@ private static final long serialVersionUID = 0L;
         verificationVerdicts_ = null;
       }
       return verificationVerdictsBuilder_;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> evaluations_ =
+      java.util.Collections.emptyList();
+    private void ensureEvaluationsIsMutable() {
+      if (!((bitField0_ & 0x00000080) != 0)) {
+        evaluations_ = new java.util.ArrayList<org.openmbee.opensysml.proto.CaseEvaluation>(evaluations_);
+        bitField0_ |= 0x00000080;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.CaseEvaluation, org.openmbee.opensysml.proto.CaseEvaluation.Builder, org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> evaluationsBuilder_;
+
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> getEvaluationsList() {
+      if (evaluationsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(evaluations_);
+      } else {
+        return evaluationsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public int getEvaluationsCount() {
+      if (evaluationsBuilder_ == null) {
+        return evaluations_.size();
+      } else {
+        return evaluationsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index) {
+      if (evaluationsBuilder_ == null) {
+        return evaluations_.get(index);
+      } else {
+        return evaluationsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder setEvaluations(
+        int index, org.openmbee.opensysml.proto.CaseEvaluation value) {
+      if (evaluationsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEvaluationsIsMutable();
+        evaluations_.set(index, value);
+        onChanged();
+      } else {
+        evaluationsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder setEvaluations(
+        int index, org.openmbee.opensysml.proto.CaseEvaluation.Builder builderForValue) {
+      if (evaluationsBuilder_ == null) {
+        ensureEvaluationsIsMutable();
+        evaluations_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        evaluationsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder addEvaluations(org.openmbee.opensysml.proto.CaseEvaluation value) {
+      if (evaluationsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEvaluationsIsMutable();
+        evaluations_.add(value);
+        onChanged();
+      } else {
+        evaluationsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder addEvaluations(
+        int index, org.openmbee.opensysml.proto.CaseEvaluation value) {
+      if (evaluationsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEvaluationsIsMutable();
+        evaluations_.add(index, value);
+        onChanged();
+      } else {
+        evaluationsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder addEvaluations(
+        org.openmbee.opensysml.proto.CaseEvaluation.Builder builderForValue) {
+      if (evaluationsBuilder_ == null) {
+        ensureEvaluationsIsMutable();
+        evaluations_.add(builderForValue.build());
+        onChanged();
+      } else {
+        evaluationsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder addEvaluations(
+        int index, org.openmbee.opensysml.proto.CaseEvaluation.Builder builderForValue) {
+      if (evaluationsBuilder_ == null) {
+        ensureEvaluationsIsMutable();
+        evaluations_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        evaluationsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder addAllEvaluations(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.CaseEvaluation> values) {
+      if (evaluationsBuilder_ == null) {
+        ensureEvaluationsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, evaluations_);
+        onChanged();
+      } else {
+        evaluationsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder clearEvaluations() {
+      if (evaluationsBuilder_ == null) {
+        evaluations_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+      } else {
+        evaluationsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public Builder removeEvaluations(int index) {
+      if (evaluationsBuilder_ == null) {
+        ensureEvaluationsIsMutable();
+        evaluations_.remove(index);
+        onChanged();
+      } else {
+        evaluationsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public org.openmbee.opensysml.proto.CaseEvaluation.Builder getEvaluationsBuilder(
+        int index) {
+      return internalGetEvaluationsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
+        int index) {
+      if (evaluationsBuilder_ == null) {
+        return evaluations_.get(index);  } else {
+        return evaluationsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
+         getEvaluationsOrBuilderList() {
+      if (evaluationsBuilder_ != null) {
+        return evaluationsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(evaluations_);
+      }
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public org.openmbee.opensysml.proto.CaseEvaluation.Builder addEvaluationsBuilder() {
+      return internalGetEvaluationsFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.CaseEvaluation.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public org.openmbee.opensysml.proto.CaseEvaluation.Builder addEvaluationsBuilder(
+        int index) {
+      return internalGetEvaluationsFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.CaseEvaluation.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Each application the run made of one of the case's own calcs as a function
+     * value, in the order first made: a trade study's evaluation of each
+     * alternative in subject order, the selected one marked.
+     * </pre>
+     *
+     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.CaseEvaluation.Builder> 
+         getEvaluationsBuilderList() {
+      return internalGetEvaluationsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.CaseEvaluation, org.openmbee.opensysml.proto.CaseEvaluation.Builder, org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
+        internalGetEvaluationsFieldBuilder() {
+      if (evaluationsBuilder_ == null) {
+        evaluationsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.CaseEvaluation, org.openmbee.opensysml.proto.CaseEvaluation.Builder, org.openmbee.opensysml.proto.CaseEvaluationOrBuilder>(
+                evaluations_,
+                ((bitField0_ & 0x00000080) != 0),
+                getParentForChildren(),
+                isClean());
+        evaluations_ = null;
+      }
+      return evaluationsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.RunAnalysisResponse)

@@ -124,6 +124,13 @@ CAPABILITY_INFINITY_VALUE = "infinity_value"
 #: so an empty code is a finding none was assigned. Without it every code is empty.
 CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
 
+#: Each application an analysis run made of one of the case's calcs as a value —
+#: a trade study's evaluation of each alternative — as ``RunAnalysisResponse.evaluations``,
+#: read as :class:`~opensysml.verdict.CaseEvaluation`, and what a failed run
+#: computed kept beside its error. Without it a run reports no evaluation and a
+#: failed run its error alone.
+CAPABILITY_CASE_EVALUATIONS = "case_evaluations"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

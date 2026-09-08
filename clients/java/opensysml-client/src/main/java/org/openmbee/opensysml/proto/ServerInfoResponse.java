@@ -163,6 +163,11 @@ private static final long serialVersionUID = 0L;
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -230,6 +235,11 @@ private static final long serialVersionUID = 0L;
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -296,6 +306,11 @@ private static final long serialVersionUID = 0L;
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -363,6 +378,11 @@ private static final long serialVersionUID = 0L;
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -879,6 +899,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -947,6 +972,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1013,6 +1043,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1080,6 +1115,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1148,6 +1188,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1222,6 +1267,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1295,6 +1345,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1368,6 +1423,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1438,6 +1498,11 @@ private static final long serialVersionUID = 0L;
      * Markdown.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>

@@ -25,7 +25,8 @@ from opensysml.typefacts import (
 from opensysml.capabilities import MissingCapabilityError, ServerInfo
 from opensysml.values import UNSET, Array, Function, MeasurementRef, UnsetType, Vector, VectorQuantity
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, SweepRow, SweepTable, Verdict, VerificationVerdict,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Verdict,
+    VerificationVerdict,
 )
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
@@ -37,7 +38,7 @@ from opensysml.conversion import (
 )
 from opensysml.edit import AppliedEdit, EditResult, Editor
 from opensysml.errors import (
-    OpenSysMLError, ChecksumMismatchError, ConnectionError, ConversionError,
+    OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
     FeatureValueError, InvalidEditError, NoEditsError, OverlappingEditsError,
     RenameReferencedError,
@@ -60,12 +61,12 @@ __all__ = [
     "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
     "Editor", "EditResult", "AppliedEdit",
-    "Verdict", "CalcResult", "AnalysisResult", "SweepRow", "SweepTable",
+    "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "VerificationVerdict",
     "QueryElement", "QueryError",
     "DocumentQueryError", "DocumentQueryResult", "DocumentRow", "ElementRef",
     "INFINITY",
-    "OpenSysMLError", "ChecksumMismatchError", "ConnectionError",
+    "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
     "RenameReferencedError", "OverlappingEditsError", "EditResultError",

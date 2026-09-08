@@ -84,6 +84,10 @@ type Context struct {
 	// requirements applied as predicates.
 	predicateShapes map[*symbols.Symbol]*calcShape
 
+	// evaluations is the log of the case run under way (evaluation_log.go), nil
+	// outside one.
+	evaluations *evaluationLog
+
 	// libraryPerformances memoizes, per model calc, the inherited library function a
 	// call of it applies; nil for a calc that computes on its own.
 	libraryPerformances map[*symbols.Symbol]*libraryPerformance
