@@ -252,7 +252,7 @@ func (e *ActionExecutor) Step() error {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
-	err := e.stepTokens(e.scheduleTokens(func(t Token) bool {
+	err := e.stepTokens(e.scheduleTokens(&order, func(t Token) bool {
 		return !t.drivenByBody() && t.body == nil
 	}), paused, &order)
 	// What the tokens wrote and the order they took are facts of the step whether
@@ -1102,16 +1102,31 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 }
 
 // scheduleTokens returns the IDs of the tokens the step may move, those eligible
-// now, in the order the run's scheduling policy has the step try them.
-func (e *ActionExecutor) scheduleTokens(eligible func(Token) bool) []int64 {
+// now, in the order the run's scheduling policy has the step try them; the policy
+// is told which of them are parked, as only the rest can act.
+func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) []int64 {
 	ids := make([]int64, 0, len(e.tokens))
+	parked := make(map[int64]bool)
 	for _, t := range e.tokens {
 		if !e.moving(t) && eligible(t) {
 			ids = append(ids, t.ID)
+			if e.parked(t, order) {
+				parked[t.ID] = true
+			}
 		}
 	}
-	e.ctx.scheduling().orderTokens(ids)
+	e.ctx.scheduling().orderTokens(ids, parked)
 	return ids
+}
+
+// parked reports whether the token cannot act by itself this step: held at a join
+// or at an accept no message in flight answers. It still gets its turn.
+func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
+	if order.unready[t.ID] {
+		return true
+	}
+	_, waitsForMessage := e.messageAccept(t)
+	return waitsForMessage && !order.offered[t.ID]
 }
 
 // stepTokens gives each of the scheduled tokens its step, in the order given, then

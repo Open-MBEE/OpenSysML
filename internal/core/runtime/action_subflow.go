@@ -103,7 +103,7 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 	var err error
-	for _, id := range e.scheduleTokens(func(t Token) bool { return t.inFlowOf(perf) }) {
+	for _, id := range e.scheduleTokens(&order, func(t Token) bool { return t.inFlowOf(perf) }) {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
 			continue

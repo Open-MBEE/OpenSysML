@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // Every accepted spelling reads back to itself; the empty spelling is the default.
@@ -363,6 +364,85 @@ func TestDecidePredictsTheDrivenRunsTransition(t *testing.T) {
 	}
 	if len(finals) != 2 {
 		t.Errorf("sixteen seeds reached only %v; both transitions are admissible", finals)
+	}
+}
+
+// Tokens parked at accepts nothing in flight answers are not a choice, so steps
+// taken while they wait draw nothing: the choices once the messages arrive are the
+// same however many idle steps a debugger took first.
+func TestParkedTokensDrawNothing(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		action listen {
+			attribute a : Integer = 0;
+			attribute b : Integer = 0;
+			first start;
+			fork split;
+			action left accept x : Integer;
+			action right accept y : Integer;
+			action la { assign a := 1; }
+			action ra { assign b := 1; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first left then la;
+			succession first right then ra;
+			succession first la then sync;
+			succession first ra then sync;
+			succession first sync then done;
+		}
+	}`
+	one := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+	choicesAfterIdling := func(policy SchedulePolicy, idle int) []ChoicePoint {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "listen", ast.DefAction)
+		if sym == nil {
+			t.Fatal("action not found")
+		}
+		ctx.SetSchedule(policy)
+		exec, err := ctx.CreateActionExecutor(sym)
+		if err != nil {
+			t.Fatalf("%s: create executor: %v", policy, err)
+		}
+		for i := 0; exec.State() != StateWaiting; i++ {
+			if i > 10 {
+				t.Fatalf("%s: the accepts did not park in ten steps", policy)
+			}
+			if err := exec.Step(); err != nil {
+				t.Fatalf("%s: step %d: %v", policy, i, err)
+			}
+		}
+		for i := 0; i < idle; i++ {
+			if err := exec.Step(); err != nil {
+				t.Fatalf("%s: idle step %d: %v", policy, i, err)
+			}
+		}
+		if got := ctx.Choices(); len(got) != 0 {
+			t.Fatalf("%s: choices while parked = %v, want none", policy, got)
+		}
+		ctx.PostMessage(Message{SignalType: "Integer", Value: &one})
+		ctx.PostMessage(Message{SignalType: "Integer", Value: &one})
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("%s: run on: %v", policy, err)
+		}
+		choices := ctx.Choices()
+		if len(choices) != 2 {
+			t.Fatalf("%s: choices = %v, want the accepts' order and the assignments' order", policy, choices)
+		}
+		return choices
+	}
+	for seed := 0; seed < 16; seed++ {
+		policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
+		prompt := choicesAfterIdling(policy, 0)
+		idled := choicesAfterIdling(policy, 5)
+		for i := range prompt {
+			if prompt[i].Taken != idled[i].Taken {
+				t.Errorf("%s: choice %d took %d after five idle steps, %d without them (%v)",
+					policy, i, idled[i].Taken, prompt[i].Taken, idled[i])
+			}
+		}
 	}
 }
 

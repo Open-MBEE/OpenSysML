@@ -124,15 +124,27 @@ type scheduler struct {
 }
 
 // orderTokens permutes the IDs of the tokens one step may move, spawn order
-// given, into the order the step tries them.
-func (s *scheduler) orderTokens(ids []int64) {
+// given, into the order the step tries them. A seed draws the order of the tokens
+// able to act; a parked one keeps its place, so it costs no draw.
+func (s *scheduler) orderTokens(ids []int64, parked map[int64]bool) {
 	if len(ids) < 2 {
 		return
 	}
 	switch s.policy.kind {
 	case scheduleDeclared:
 	case scheduleSeeded:
-		s.rng.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+		slots := make([]int, 0, len(ids))
+		for i, id := range ids {
+			if !parked[id] {
+				slots = append(slots, i)
+			}
+		}
+		if len(slots) < 2 {
+			return
+		}
+		s.rng.Shuffle(len(slots), func(i, j int) {
+			ids[slots[i]], ids[slots[j]] = ids[slots[j]], ids[slots[i]]
+		})
 	default:
 		for i, j := 0, len(ids)-1; i < j; i, j = i+1, j-1 {
 			ids[i], ids[j] = ids[j], ids[i]
