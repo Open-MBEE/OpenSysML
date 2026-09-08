@@ -2119,18 +2119,21 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 	}
 	result, err := ctx.CheckSatisfactionOn(a, subject)
 	subject, owner = s.reportedSubject(result, subject, owner)
+	// A `satisfy requirement r by p` declares its requirement rather than
+	// referencing one, so the assertion names it.
+	req := a.AssertedRequirement()
 	if unevaluable(err) {
-		return s.withVerifications(unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner), ctx, a.Requirement)
+		return s.withVerifications(unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner), ctx, req)
 	}
 	if err != nil || !result.Holds {
 		return s.withVerifications(Verdict{Subject: satisfyText(a), Status: VerdictFails, Lines: []string{
 			fmt.Sprintf("✗ %s fails%s", satisfyText(a), onInstance(subject, owner)),
 			"  " + verdictDetail("Required condition", err),
-		}}, ctx, a.Requirement)
+		}}, ctx, req)
 	}
 	return s.withVerifications(Verdict{Subject: satisfyText(a), Status: VerdictHolds, Lines: []string{
 		fmt.Sprintf("✓ %s holds%s", satisfyText(a), onInstance(subject, owner)),
-	}}, ctx, a.Requirement)
+	}}, ctx, req)
 }
 
 // subjectInstance returns the object the session has already created for an

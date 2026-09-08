@@ -1,6 +1,9 @@
 package repl
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // TestRequirementReportsTheVerificationBodyVerdicts checks that %requirement
 // keeps the satisfaction verdict it reported before and adds the verdict the
@@ -38,6 +41,26 @@ func TestSatisfyReportsTheVerificationBodyVerdicts(t *testing.T) {
 		"✓ Verification Landing::checkSlow verdict: pass",
 		"✗ Verification Landing::checkFast verdict: fail",
 	)
+}
+
+// TestSatisfyOfADeclaredRequirementReportsTheBodyVerdicts checks that a
+// satisfaction stating its own requirement (`satisfy requirement r by p`)
+// reports the cases verifying that requirement beside its own verdict.
+func TestSatisfyOfADeclaredRequirementReportsTheBodyVerdicts(t *testing.T) {
+	s := loadFixture(t, "testdata/verification_verdicts_declared.sysml")
+	lines := strings.Split(run(t, s, "%satisfy"), "\n")
+	want := "✓ Verification Landing::checkSlow verdict: pass"
+	for i, line := range lines {
+		if !strings.Contains(line, "satisfy grounded by slowLander holds") {
+			continue
+		}
+		if i+1 >= len(lines) || strings.TrimSpace(lines[i+1]) != want {
+			t.Fatalf("the declared satisfaction reports %q, want %q beside it",
+				strings.Join(lines[i:], " | "), want)
+		}
+		return
+	}
+	t.Fatalf("output does not report the declared satisfaction:\n%s", strings.Join(lines, "\n"))
 }
 
 // TestAnalysisRunsAVerificationCase checks that %analysis runs a verification

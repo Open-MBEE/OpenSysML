@@ -881,6 +881,10 @@ $ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::CostAnalysis","su
  "instances":[{"id":"1","typeSymbolId":"An::barge","featureValues":{"cost":{"featureName":"cost","value":{"realValue":5}}}}]}
 ```
 
+A row carries no `verificationVerdicts`, so a verification case is refused with
+`FAILURE_REASON_WRONG_KIND` rather than swept as an analysis case; run one through `RunAnalysis`,
+which reports the verdict of its body.
+
 `instances` carries every object a row's verdict is about, each once over the whole table, so a
 verdict's `instanceId` resolves there as it does in a `RunAnalysis` response — a client can read
 what made a row fail.

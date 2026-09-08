@@ -341,3 +341,26 @@ func TestCapabilitiesAdvertiseVerificationVerdicts(t *testing.T) {
 	}
 	t.Errorf("capabilities %v do not advertise %q", resp.Capabilities, CapabilityVerificationVerdicts)
 }
+
+// TestRunSweepRefusesAVerificationCase verifies a sweep, whose rows carry a
+// run's outputs and objective verdicts but no body verdict, refuses a
+// verification case rather than running it as an analysis case.
+func TestRunSweepRefusesAVerificationCase(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, verificationVerdictModel, "verification-verdicts-sweep")
+
+	resp := runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash,
+		SymbolId:  "Demo::Check",
+		Ranges:    []*pb.SweepRange{intRange("m", 0, 1)},
+	})
+	if !strings.Contains(resp.Error, "verification case") {
+		t.Errorf("RunSweep reported %q, want a refusal naming the verification case", resp.Error)
+	}
+	if len(resp.Rows) != 0 {
+		t.Errorf("RunSweep ran %d rows, want none", len(resp.Rows))
+	}
+	if resp.FailureReason != pb.FailureReason_FAILURE_REASON_WRONG_KIND {
+		t.Errorf("failure reason = %v, want WRONG_KIND", resp.FailureReason)
+	}
+}
