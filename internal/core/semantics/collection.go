@@ -193,7 +193,7 @@ func (m *Model) holdsNothing(scope *symbols.Scope, collection ast.Node) bool {
 func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	switch n := node.(type) {
 	case *ast.NullExpr:
-		return exactly(0), true
+		return CountRange(0), true
 	case *ast.CollectExpr:
 		return m.valuesMappedBy(scope, n.Operand, n.Body)
 	case *ast.SelectExpr:
@@ -201,9 +201,9 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 	case *ast.InvocationExpr:
 		return m.valuesHeldByCall(scope, n)
 	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
-		return exactly(1), true
+		return CountRange(1), true
 	case *ast.SequenceExpr:
-		sum := exactly(0)
+		sum := CountRange(0)
 		for _, element := range n.Elements {
 			r, ok := m.valuesHeldBy(scope, element)
 			if !ok {
@@ -315,35 +315,35 @@ func (m *Model) valuesGoverning(sym *symbols.Symbol) (Range, bool) {
 	return AssumedRange(), true
 }
 
-func exactly(n int64) Range {
+// CountRange is the range admitting n values alone.
+func CountRange(n int64) Range {
 	b := Bound{Value: n, Known: true}
 	return Range{Lower: b, Upper: b}
 }
 
-// addRanges is the values two collections hold together; a sum past int64 is unbounded above
-// and at least MaxInt64 below.
+// Plus is the values two collections hold together: the sum of their bounds.
+func (r Range) Plus(o Range) Range {
+	return addRanges(r, o)
+}
+
+// addRanges is the values two collections hold together; a bound summing past int64 exceeds
+// every multiplicity bound, so it is unbounded.
 func addRanges(a, b Range) Range {
-	return Range{Lower: addBounds(a.Lower, b.Lower, mostFinite), Upper: addBounds(a.Upper, b.Upper, unbounded)}
+	return Range{Lower: addBounds(a.Lower, b.Lower), Upper: addBounds(a.Upper, b.Upper)}
 }
 
-// mulRanges is the values held through each value of a, each holding b; a product past int64
-// is unbounded above and at least MaxInt64 below.
+// mulRanges is the values held through each value of a, each holding b; a bound multiplying
+// past int64 exceeds every multiplicity bound, so it is unbounded.
 func mulRanges(a, b Range) Range {
-	return Range{Lower: mulBounds(a.Lower, b.Lower, mostFinite), Upper: mulBounds(a.Upper, b.Upper, unbounded)}
+	return Range{Lower: mulBounds(a.Lower, b.Lower), Upper: mulBounds(a.Upper, b.Upper)}
 }
 
-var (
-	unbounded  = Bound{Infinite: true, Known: true}
-	mostFinite = Bound{Value: math.MaxInt64, Known: true}
-)
+var unbounded = Bound{Infinite: true, Known: true}
 
-// addBounds is a + b, or past where int64 reaches.
-func addBounds(a, b, past Bound) Bound {
-	if a.Infinite || b.Infinite {
+// addBounds is a + b, unbounded past where int64 reaches.
+func addBounds(a, b Bound) Bound {
+	if a.Infinite || b.Infinite || a.Value > math.MaxInt64-b.Value {
 		return unbounded
-	}
-	if a.Value > math.MaxInt64-b.Value {
-		return past
 	}
 	return Bound{Value: a.Value + b.Value, Known: true}
 }
@@ -358,16 +358,13 @@ func minBound(a, b Bound) Bound {
 	return b
 }
 
-// mulBounds is a × b, none through none, or past where int64 reaches.
-func mulBounds(a, b, past Bound) Bound {
+// mulBounds is a × b, none through none, unbounded past where int64 reaches.
+func mulBounds(a, b Bound) Bound {
 	if (!a.Infinite && a.Value == 0) || (!b.Infinite && b.Value == 0) {
 		return Bound{Known: true}
 	}
-	if a.Infinite || b.Infinite {
+	if a.Infinite || b.Infinite || a.Value > math.MaxInt64/b.Value {
 		return unbounded
-	}
-	if a.Value > math.MaxInt64/b.Value {
-		return past
 	}
 	return Bound{Value: a.Value * b.Value, Known: true}
 }

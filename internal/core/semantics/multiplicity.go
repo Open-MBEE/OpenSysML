@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -191,6 +192,25 @@ func (r Range) CountViolation(count int64) string {
 	}
 	if r.Lower.Known && !r.Lower.Infinite && count < r.Lower.Value {
 		return fmt.Sprintf("%d value(s) bound to a feature with multiplicity lower bound %d", count, r.Lower.Value)
+	}
+	return ""
+}
+
+// HeldViolation is CountViolation for a value whose count is only bounded: reported where even
+// its fewest values exceed the upper bound, or its most fall short of the lower.
+func (r Range) HeldViolation(held Range) string {
+	if n, ok := held.Exactly(); ok {
+		return r.CountViolation(n)
+	}
+	if r.Upper.Known && !r.Upper.Infinite && held.Lower.Known && (held.Lower.Infinite || held.Lower.Value > r.Upper.Value) {
+		fewest := "at least " + held.Lower.Text()
+		if held.Lower.Infinite {
+			fewest = fmt.Sprintf("more than %d", int64(math.MaxInt64))
+		}
+		return fmt.Sprintf("%s value(s) bound to a feature with multiplicity upper bound %d", fewest, r.Upper.Value)
+	}
+	if r.Lower.Known && !r.Lower.Infinite && held.Upper.Known && !held.Upper.Infinite && held.Upper.Value < r.Lower.Value {
+		return fmt.Sprintf("at most %d value(s) bound to a feature with multiplicity lower bound %d", held.Upper.Value, r.Lower.Value)
 	}
 	return ""
 }

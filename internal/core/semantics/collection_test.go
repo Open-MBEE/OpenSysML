@@ -422,11 +422,36 @@ func TestCollectionValues(t *testing.T) {
 			t.Errorf("%s: sized as a collection value", name)
 		}
 	}
-	if n, ok := exactly(3).Exactly(); !ok || n != 3 {
+	if n, ok := CountRange(3).Exactly(); !ok || n != 3 {
 		t.Errorf("[3] exactly %d %v, want 3", n, ok)
 	}
-	if _, ok := (Range{Lower: Bound{Value: 1, Known: true}, Upper: unbounded}).Exactly(); ok {
+	atLeastOne := Range{Lower: Bound{Value: 1, Known: true}, Upper: unbounded}
+	if _, ok := atLeastOne.Exactly(); ok {
 		t.Error("[1..*] is exact")
+	}
+	if sum := CountRange(math.MaxInt64).Plus(CountRange(1)); !sum.Lower.Infinite || !sum.Upper.Infinite {
+		t.Errorf("[%d] + [1] is %s, want [*..*]", int64(math.MaxInt64), sum.Text())
+	}
+	one := CountRange(1)
+	for _, c := range []struct{ held, want string }{
+		{"[2]", "2 value(s) bound to a feature with multiplicity upper bound 1"},
+		{"[0]", "0 value(s) bound to a feature with multiplicity lower bound 1"},
+		{"[2..*]", "at least 2 value(s) bound to a feature with multiplicity upper bound 1"},
+		{"[*..*]", "more than 9223372036854775807 value(s) bound to a feature with multiplicity upper bound 1"},
+		{"[0..*]", ""},
+		{"[0..1]", ""},
+	} {
+		held := map[string]Range{
+			"[2]": CountRange(2), "[0]": CountRange(0), "[0..1]": {Lower: CountRange(0).Lower, Upper: one.Upper},
+			"[2..*]": {Lower: CountRange(2).Lower, Upper: unbounded}, "[*..*]": {Lower: unbounded, Upper: unbounded},
+			"[0..*]": {Lower: CountRange(0).Lower, Upper: unbounded},
+		}[c.held]
+		if got := one.HeldViolation(held); got != c.want {
+			t.Errorf("%s held by [1]: %q, want %q", c.held, got, c.want)
+		}
+	}
+	if got := CountRange(3).HeldViolation(Range{Lower: CountRange(0).Lower, Upper: CountRange(2).Upper}); got != "at most 2 value(s) bound to a feature with multiplicity lower bound 3" {
+		t.Errorf("[0..2] held by [3]: %q", got)
 	}
 }
 
@@ -497,7 +522,7 @@ func TestCollectionNestedElements(t *testing.T) {
 
 // A mapper named by function holds one value per element where its result declares no
 // multiplicity, as a feature does — not any number — while a result whose declared bound is not
-// evaluable holds an unknown number; a count past int64 stays at least as many as it is.
+// evaluable holds an unknown number; a count past int64 exceeds every bound.
 func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 	m, s := collectionModel(t, `
 		part two : C[2];
@@ -526,8 +551,8 @@ func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 		}
 		collection := valueOf(t, s, name).(*ast.InvocationExpr).Operand
 		r, ok := m.valuesHeldBy(s, collection)
-		if !ok || !r.Lower.Known || r.Lower.Infinite || r.Lower.Value != math.MaxInt64 || !r.Upper.Known || !r.Upper.Infinite {
-			t.Errorf("%s: values held %s, want [%d..*]", name, r.Text(), int64(math.MaxInt64))
+		if !ok || !r.Lower.Known || !r.Lower.Infinite || !r.Upper.Known || !r.Upper.Infinite {
+			t.Errorf("%s: values held %s, want [*..*]", name, r.Text())
 		}
 	}
 }

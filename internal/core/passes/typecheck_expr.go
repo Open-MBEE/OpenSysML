@@ -1066,9 +1066,9 @@ func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, g
 	} else {
 		ec.checkObjectBinding(scope, arg, feature, typ)
 	}
-	if count, known := ec.exactCount(scope, arg); known {
+	if held, known := ec.heldCount(scope, arg); known {
 		if r, ok := ec.effectiveRange(feature.OwnerScope, usageDecl(u), 0); ok {
-			if msg := r.CountViolation(count); msg != "" {
+			if msg := r.HeldViolation(held); msg != "" {
 				ec.errorf(arg.Span(), "%s of %s: %s", feature.Name, typ.Name, msg)
 			}
 		}

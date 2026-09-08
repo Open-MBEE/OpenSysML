@@ -1,7 +1,6 @@
 package passes
 
 import (
-	"math"
 	"slices"
 	"strings"
 
@@ -99,7 +98,7 @@ func literalPrimType(value ast.Node) semantics.PrimType {
 // checkValueCount checks a bound value's element count against the multiplicity
 // governing the feature.
 func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
-	count, known := ec.exactCount(valueScope, value)
+	held, known := ec.heldCount(valueScope, value)
 	if !known {
 		return
 	}
@@ -107,7 +106,7 @@ func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d f
 	if !ok {
 		return
 	}
-	if msg := r.CountViolation(count); msg != "" {
+	if msg := r.HeldViolation(held); msg != "" {
 		ec.errorf(value.Span(), "%s", msg)
 	}
 }
@@ -145,46 +144,36 @@ func (ec *exprChecker) effectiveRange(scope *symbols.Scope, d featureDecl, depth
 	return semantics.Range{}, false
 }
 
-// exactCount returns how many values a bound expression produces, and whether
-// that is statically known. A literal contributes one value, a collection
-// literal the values of its elements, and a collection operation the values it
-// is known to hold — none over `()`, one per element mapped; anything else (a
-// feature reference, an invocation) may itself be multi-valued, so its count is
-// unknown — as is that of a collection holding one. A total past int64 stays
-// at its maximum, which still exceeds every finite bound.
-func (ec *exprChecker) exactCount(scope *symbols.Scope, value ast.Node) (int64, bool) {
+// heldCount returns how many values a bound expression produces, where that is
+// statically bounded. A literal contributes one value, a collection literal the
+// values of its elements, and a collection operation the values it holds — none
+// over `()`, one per element mapped, at least two over a `[2..*]` collection;
+// anything else (a feature reference, an invocation) may itself be multi-valued,
+// so its count is unknown — as is that of a collection holding one.
+func (ec *exprChecker) heldCount(scope *symbols.Scope, value ast.Node) (semantics.Range, bool) {
 	if value == nil {
-		return 0, false
+		return semantics.Range{}, false
 	}
 	if _, ok := value.(*ast.NullExpr); ok {
-		return 0, true
+		return semantics.CountRange(0), true
 	}
 	// Binding flattens a collection into the values its elements produce, so a
 	// nested literal contributes its own elements rather than one value.
 	if seq, ok := value.(*ast.SequenceExpr); ok {
-		var total int64
+		total := semantics.CountRange(0)
 		for _, element := range seq.Elements {
-			n, ok := ec.exactCount(scope, element)
+			held, ok := ec.heldCount(scope, element)
 			if !ok {
-				return 0, false
+				return semantics.Range{}, false
 			}
-			if total > math.MaxInt64-n {
-				total = math.MaxInt64
-			} else {
-				total += n
-			}
+			total = total.Plus(held)
 		}
 		return total, true
 	}
 	if literalPrimType(value) != semantics.PrimUnknown {
-		return 1, true
+		return semantics.CountRange(1), true
 	}
-	if r, ok := ec.model.CollectionValues(scope, value); ok {
-		if exact, ok := r.Exactly(); ok {
-			return exact, true
-		}
-	}
-	return 0, false
+	return ec.model.CollectionValues(scope, value)
 }
 
 // valueElements returns the values a bound expression contributes: the elements
