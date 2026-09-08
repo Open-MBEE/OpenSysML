@@ -414,6 +414,8 @@ pub enum Value {
     Null,
     /// A materialized feature with no value.
     Unset,
+    /// The unbounded value `*`, ordered above every finite magnitude.
+    Infinity,
 }
 
 pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
@@ -474,6 +476,7 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
             name: v.name,
         })),
         wire::value::Kind::Unset(_) => Ok(Value::Unset),
+        wire::value::Kind::Infinity(_) => Ok(Value::Infinity),
     }
 }
 
@@ -490,6 +493,7 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Quantity(_) => "quantity",
         wire::value::Kind::EnumLiteral(_) => "enum_literal",
         wire::value::Kind::Unset(_) => "unset",
+        wire::value::Kind::Infinity(_) => "infinity",
         wire::value::Kind::Complex(_) => "complex",
         wire::value::Kind::Array(_) => "array",
         wire::value::Kind::Vector(_) => "vector",

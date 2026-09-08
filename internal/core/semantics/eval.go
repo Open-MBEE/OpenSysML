@@ -125,6 +125,38 @@ func (v Value) WholeNumber() (int64, bool) {
 	return 0, false
 }
 
+// IsUnbounded reports whether the value is the unbounded `*`.
+func (v Value) IsUnbounded() bool { return v.Kind == ValInfinity }
+
+// UnboundedOrder compares l and r where at least one is the unbounded `*`: `*`
+// exceeds every finite number and equals itself. ok is false when the other
+// operand is neither a number nor `*`, since nothing orders it against one.
+func UnboundedOrder(l, r Value) (order int, ok bool) {
+	ordinal := func(v Value) (int, bool) {
+		switch {
+		case v.IsUnbounded():
+			return 1, true
+		case v.IsNumeric():
+			return 0, true
+		default:
+			return 0, false
+		}
+	}
+	lo, lok := ordinal(l)
+	ro, rok := ordinal(r)
+	if !lok || !rok {
+		return 0, false
+	}
+	switch {
+	case lo == ro:
+		return 0, true
+	case lo > ro:
+		return 1, true
+	default:
+		return -1, true
+	}
+}
+
 // AsReal returns the value as a float64 (int and real only).
 func (v Value) AsReal() float64 {
 	if v.Kind == ValInt {
@@ -382,6 +414,12 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 	switch {
 	case l.Kind == ValBool && r.Kind == ValBool:
 		eq = l.Bool == r.Bool
+	case l.IsUnbounded() || r.IsUnbounded():
+		order, ok := UnboundedOrder(l, r)
+		if !ok {
+			return Value{}, false
+		}
+		eq = order == 0
 	case l.IsNumeric() && r.IsNumeric():
 		eq = l.AsReal() == r.AsReal()
 	default:
@@ -394,6 +432,17 @@ func evalEquality(op ast.OperatorKind, l, r Value) (Value, bool) {
 }
 
 func evalComparison(op ast.OperatorKind, l, r Value) (Value, bool) {
+	if l.IsUnbounded() || r.IsUnbounded() {
+		order, ok := UnboundedOrder(l, r)
+		if !ok {
+			return Value{}, false
+		}
+		res, ok := OrderSatisfies(op, order)
+		if !ok {
+			return Value{}, false
+		}
+		return Value{Kind: ValBool, Bool: res}, true
+	}
 	if !l.IsNumeric() || !r.IsNumeric() {
 		return Value{}, false
 	}
@@ -410,6 +459,23 @@ func evalComparison(op ast.OperatorKind, l, r Value) (Value, bool) {
 		res = lf >= rf
 	}
 	return Value{Kind: ValBool, Bool: res}, true
+}
+
+// OrderSatisfies applies an ordering operator to a comparison result of -1, 0
+// or 1. ok is false for an operator that is no ordering.
+func OrderSatisfies(op ast.OperatorKind, order int) (res, ok bool) {
+	switch op {
+	case ast.OpLt:
+		return order < 0, true
+	case ast.OpLe:
+		return order <= 0, true
+	case ast.OpGt:
+		return order > 0, true
+	case ast.OpGe:
+		return order >= 0, true
+	default:
+		return false, false
+	}
 }
 
 func evalArithmetic(op ast.OperatorKind, l, r Value) (Value, bool) {

@@ -17,6 +17,7 @@ const (
 
 	fqnString                     = "ScalarValues::String"
 	fqnNatural                    = "ScalarValues::Natural"
+	fqnPositive                   = "ScalarValues::Positive"
 	fqnInteger                    = "ScalarValues::Integer"
 	fqnRational                   = "ScalarValues::Rational"
 	fqnReal                       = "ScalarValues::Real"
@@ -103,6 +104,9 @@ func (m *Model) exprConformance(scope *symbols.Scope, node ast.Node, want *symbo
 		return m.typeConformance(m.libSymbol(fqnNatural), want)
 	case *ast.LiteralReal:
 		return m.typeConformance(m.libSymbol(fqnRational), want)
+	case *ast.LiteralInfinity:
+		// `*` is the natural number exceeding every other (KerML 8.4.4.6).
+		return m.typeConformance(m.libSymbol(fqnPositive), want)
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
 		sym, ok := m.resolver.ResolveTarget(scope, n)
 		if !ok || sym == nil {

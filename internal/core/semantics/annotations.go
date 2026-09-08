@@ -123,6 +123,78 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	return out
 }
 
+// MetadataBinding is one feature an annotation body binds and the expression it
+// is bound to, read in the scope the annotation is stated in.
+type MetadataBinding struct {
+	Feature string
+	Value   ast.Node
+}
+
+// ElementMetadata is one metadata annotation of an element as `.metadata` reads
+// it: the metadata type to materialize and the values its body binds. Values
+// the body leaves unbound come from the type's own declarations.
+type ElementMetadata struct {
+	Type *symbols.Symbol
+	Node ast.Node
+	// Scope is where the annotating node is declared, which its bound values
+	// resolve names against.
+	Scope    *symbols.Scope
+	About    bool
+	Bindings []MetadataBinding
+}
+
+// ElementMetadataOf returns the metadata annotating sym, inline annotations
+// first and `about`-form ones after, each in declaration order — the same side
+// table an element filter classifies by.
+func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
+	var out []ElementMetadata
+	for _, a := range m.annotationsOf(sym) {
+		if a.typ == nil || a.node == nil {
+			continue
+		}
+		out = append(out, ElementMetadata{
+			Type:     a.typ,
+			Node:     a.node,
+			Scope:    a.scope,
+			About:    a.about,
+			Bindings: metadataBindings(metadataBody(a.node)),
+		})
+	}
+	return out
+}
+
+// metadataBody is the body an annotation node binds feature values in.
+func metadataBody(node ast.Node) []ast.Node {
+	switch n := node.(type) {
+	case *ast.PrefixMetadata:
+		return n.Body
+	case *ast.Usage:
+		return n.Members
+	default:
+		return nil
+	}
+}
+
+// metadataBindings is the features an annotation body binds, in declaration order.
+func metadataBindings(body []ast.Node) []MetadataBinding {
+	var out []MetadataBinding
+	for _, member := range body {
+		if mem, ok := member.(*ast.Membership); ok {
+			member = mem.Member
+		}
+		usage, ok := member.(*ast.Usage)
+		if !ok || usage.Value == nil {
+			continue
+		}
+		name := boundFeatureName(usage)
+		if name == "" {
+			continue
+		}
+		out = append(out, MetadataBinding{Feature: name, Value: usage.Value})
+	}
+	return out
+}
+
 // sortedFeatureNames orders an annotation's bound features by name, so that what
 // is reported does not depend on map iteration order.
 func sortedFeatureNames(values map[string]symbols.FilterValue) []string {

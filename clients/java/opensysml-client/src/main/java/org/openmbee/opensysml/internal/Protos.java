@@ -54,6 +54,7 @@ public final class Protos {
       case QUANTITY -> Optional.of(new Value.QuantityValue(quantity(value.getQuantity())));
       case ENUM_LITERAL -> Optional.of(new Value.EnumerationValue(literal(value.getEnumLiteral())));
       case UNSET -> Optional.of(new Value.UnsetValue());
+      case INFINITY -> Optional.of(new Value.InfinityValue());
       case ARRAY -> Optional.of(array(value.getArray()));
       case VECTOR -> Optional.of(vector(value.getVector()));
       case VECTOR_QUANTITY -> Optional.of(vectorQuantity(value.getVectorQuantity()));

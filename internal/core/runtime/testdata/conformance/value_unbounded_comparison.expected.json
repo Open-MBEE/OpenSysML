@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "instantiate": "test::Bounds",
+  "libraries": true,
+  "slots": {
+    "unbounded": {"type": "Infinity"},
+    "exceedsNatural": {"type": "Boolean", "value": true},
+    "exceedsInteger": {"type": "Boolean", "value": true},
+    "exceedsReal": {"type": "Boolean", "value": true},
+    "belowUnbounded": {"type": "Boolean", "value": true},
+    "equalsItself": {"type": "Boolean", "value": true},
+    "atMostItself": {"type": "Boolean", "value": true},
+    "aboveItself": {"type": "Boolean", "value": false},
+    "atMostFinite": {"type": "Boolean", "value": false},
+    "differsFromFinite": {"type": "Boolean", "value": true}
+  }
+}

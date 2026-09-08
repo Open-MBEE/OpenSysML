@@ -200,6 +200,19 @@ func (p *Parser) parsePrimary() ast.Node {
 	return p.parsePostfixes(start, expr)
 }
 
+// metadataAccessRef is the element reference `ref.metadata` reads the metadata
+// of; nothing but a name is one (KerMLExpressions MetadataAccessExpression).
+func metadataAccessRef(expr ast.Node) *ast.QualifiedName {
+	switch e := expr.(type) {
+	case *ast.FeatureReference:
+		return e.Name
+	case *ast.QualifiedName:
+		return e
+	default:
+		return nil
+	}
+}
+
 // atExprStart reports whether the current token can start an expression.
 func (p *Parser) atExprStart() bool {
 	t := p.peek()
@@ -241,6 +254,17 @@ func (p *Parser) parsePostfixes(start int, expr ast.Node) ast.Node {
 				c.NodeSpan = p.spanFrom(start)
 				expr = c
 				continue
+			}
+			// `ref.metadata` is a MetadataAccessExpression over an element
+			// reference, not a chain through a feature named `metadata`.
+			if p.atKeyword("metadata") {
+				if ref := metadataAccessRef(expr); ref != nil {
+					p.advance() // metadata
+					m := &ast.MetadataAccessExpr{Ref: ref}
+					m.NodeSpan = p.spanFrom(start)
+					expr = m
+					continue
+				}
 			}
 			// Use relaxed parsing to allow keywords as feature names (e.g., oSP.exit, state.entry)
 			member := p.parseQualifiedNameRelaxed()

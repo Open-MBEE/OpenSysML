@@ -107,6 +107,12 @@ CAPABILITY_MEASUREMENT_REFS = "measurement_refs"
 #: verification case.
 CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts"
 
+#: The unbounded value ``*`` as ``Value.infinity``, read as
+#: :data:`~opensysml.values.INFINITY`. Without it the service sends an
+#: unsupported null naming it, which is an error, and refuses one sent to it
+#: with ``UNIMPLEMENTED``.
+CAPABILITY_INFINITY_VALUE = "infinity_value"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

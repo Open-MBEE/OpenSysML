@@ -668,6 +668,30 @@ class UnsetType:
 UNSET = UnsetType()
 
 
+class _Infinity:
+    """The unbounded value ``*``: no number, ordered above every finite one.
+
+    A singleton, so ``is INFINITY`` tests it; also the unbounded multiplicity a
+    document query may answer with.
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self) -> str:
+        return "INFINITY"
+
+    __str__ = __repr__
+
+
+#: The unbounded value ``*``. See :class:`_Infinity`.
+INFINITY = _Infinity()
+
+
 def value_to_python(pb_value, resolve_instance=None):
     """Convert a protobuf Value into a plain Python value.
 
@@ -677,7 +701,8 @@ def value_to_python(pb_value, resolve_instance=None):
             when omitted, instance references are returned as their integer id.
 
     Returns:
-        int, float, complex, bool, str, list, None, :data:`UNSET`, a
+        int, float, complex, bool, str, list, None, :data:`UNSET`,
+        :data:`INFINITY`, a
         :class:`Quantity`, a :class:`MeasurementRef`, an :class:`Array`, a
         :class:`Vector`, a :class:`VectorQuantity`, an
         :class:`~opensysml.enumeration.EnumLiteral`,
@@ -720,6 +745,8 @@ def value_to_python(pb_value, resolve_instance=None):
         return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name)
     if kind == 'unset':
         return UNSET
+    if kind == 'infinity':
+        return INFINITY
     if kind == 'null':
         # A non-empty null carries the reason the value could not be sent.
         if pb_value.null:

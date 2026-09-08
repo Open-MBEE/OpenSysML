@@ -68,6 +68,7 @@ private static final long serialVersionUID = 0L;
     VECTOR(13),
     VECTOR_QUANTITY(14),
     MEASUREMENT_REF(15),
+    INFINITY(16),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -100,6 +101,7 @@ private static final long serialVersionUID = 0L;
         case 13: return VECTOR;
         case 14: return VECTOR_QUANTITY;
         case 15: return MEASUREMENT_REF;
+        case 16: return INFINITY;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -674,6 +676,39 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.MeasurementRef.getDefaultInstance();
   }
 
+  public static final int INFINITY_FIELD_NUMBER = 16;
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return Whether the infinity field is set.
+   */
+  @java.lang.Override
+  public boolean hasInfinity() {
+    return kindCase_ == 16;
+  }
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return The infinity.
+   */
+  @java.lang.Override
+  public boolean getInfinity() {
+    if (kindCase_ == 16) {
+      return (java.lang.Boolean) kind_;
+    }
+    return false;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -737,6 +772,10 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 15) {
       output.writeMessage(15, (org.openmbee.opensysml.proto.MeasurementRef) kind_);
+    }
+    if (kindCase_ == 16) {
+      output.writeBool(
+          16, (boolean)((java.lang.Boolean) kind_));
     }
     getUnknownFields().writeTo(output);
   }
@@ -809,6 +848,11 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 15) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(15, (org.openmbee.opensysml.proto.MeasurementRef) kind_);
+    }
+    if (kindCase_ == 16) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(
+            16, (boolean)((java.lang.Boolean) kind_));
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -887,6 +931,10 @@ private static final long serialVersionUID = 0L;
       case 15:
         if (!getMeasurementRef()
             .equals(other.getMeasurementRef())) return false;
+        break;
+      case 16:
+        if (getInfinity()
+            != other.getInfinity()) return false;
         break;
       case 0:
       default:
@@ -967,6 +1015,11 @@ private static final long serialVersionUID = 0L;
       case 15:
         hash = (37 * hash) + MEASUREMENT_REF_FIELD_NUMBER;
         hash = (53 * hash) + getMeasurementRef().hashCode();
+        break;
+      case 16:
+        hash = (37 * hash) + INFINITY_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+            getInfinity());
         break;
       case 0:
       default:
@@ -1282,6 +1335,10 @@ private static final long serialVersionUID = 0L;
           mergeMeasurementRef(other.getMeasurementRef());
           break;
         }
+        case INFINITY: {
+          setInfinity(other.getInfinity());
+          break;
+        }
         case KIND_NOT_SET: {
           break;
         }
@@ -1405,6 +1462,11 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 15;
               break;
             } // case 122
+            case 128: {
+              kind_ = input.readBool();
+              kindCase_ = 16;
+              break;
+            } // case 128
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3243,6 +3305,72 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 15;
       onChanged();
       return measurementRefBuilder_;
+    }
+
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @return Whether the infinity field is set.
+     */
+    public boolean hasInfinity() {
+      return kindCase_ == 16;
+    }
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @return The infinity.
+     */
+    public boolean getInfinity() {
+      if (kindCase_ == 16) {
+        return (java.lang.Boolean) kind_;
+      }
+      return false;
+    }
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @param value The infinity to set.
+     * @return This builder for chaining.
+     */
+    public Builder setInfinity(boolean value) {
+
+      kindCase_ = 16;
+      kind_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The unbounded value `*`, which is no number and no string: ordered above
+     * every finite magnitude and refused by arithmetic. Always true when set,
+     * as DocumentValue.infinity is.
+     * </pre>
+     *
+     * <code>bool infinity = 16 [json_name = "infinity"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearInfinity() {
+      if (kindCase_ == 16) {
+        kindCase_ = 0;
+        kind_ = null;
+        onChanged();
+      }
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

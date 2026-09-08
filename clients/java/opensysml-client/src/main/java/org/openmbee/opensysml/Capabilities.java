@@ -47,6 +47,9 @@ public final class Capabilities {
   /** A bare measurement unit ({@code SI::m}, {@code m / s}) travels as itself rather than as an unsupported null. */
   public static final String MEASUREMENT_REFS = "measurement_refs";
 
+  /** The unbounded value {@code *} travels as itself rather than as an unsupported null. */
+  public static final String INFINITY_VALUE = "infinity_value";
+
   /** The {@code ApplyEdits} RPC edits a parsed model's own source. */
   public static final String APPLY_EDITS = "apply_edits";
 

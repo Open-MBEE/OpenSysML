@@ -217,6 +217,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `vector` | object | `{"result":{"vector":{"components":[{"realValue":3},{"realValue":4}]}}}` | Numeric vector; each component an `intValue` or `realValue` |
 | `vectorQuantity` | object | `{"result":{"vectorQuantity":{"components":[{"realMagnitude":3,"unit":"m","unitTerm":{…}},…]}}}` | Vector of quantities; one `quantity` body per component |
 | `measurementRef` | object | `{"result":{"measurementRef":{"unit":"m","unitTerm":{…},"unitId":"SI::metre"}}}` | A measurement reference on its own: a unit, its reduction, and the declaration it names |
+| `infinity` | boolean | `{"result":{"infinity":true}}` | The unbounded value `*`, which is no number and no string |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
@@ -281,6 +282,8 @@ decode(v):
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
                  require v.measurementRef.unitTerm when either is present, else an error;
                  require unit or id, else an error; id absent means a composed unit
+  infinity     → the language's unbounded sentinel, distinct from a number and from the
+                 string "*"; it compares above every finite number and equals itself
   anything else → an error: a newer service than this decoder
 ```
 

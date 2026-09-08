@@ -1,0 +1,40 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="metadata" abstract=false variation=false name="Safety"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Vehicle"))
+      (Membership visibility="default"
+        (Usage kind="part" name="seatBelt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Vehicle
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (PrefixMetadata type="Safety"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="level" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (LiteralInteger value="4")))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Report"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="unbounded" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (LiteralInfinity)))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="exceedsFinite" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator=">"
+                (LiteralInfinity)
+                (LiteralInteger value="1000"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="annotations" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (MetadataAccessExpr ref="seatBelt")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="qualified" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (MetadataAccessExpr ref="test::seatBelt")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureChainExpr member="level"
+                (IndexExpr
+                  (MetadataAccessExpr ref="seatBelt")
+                  (LiteralInteger value="1"))))))))))
