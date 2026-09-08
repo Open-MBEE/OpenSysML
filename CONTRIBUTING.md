@@ -183,17 +183,40 @@ test(semantics): add conformance checking test cases
 - [ ] Documentation updated
 - [ ] Changelog fragments folded in (`python3 scripts/changelog.py release X.Y.Z`)
 - [ ] Version tag follows semver (`vX.Y.Z`)
+- [ ] Version bump (patch or minor) justified against [§ Versioning](#versioning)
 - [ ] Release notes prepared
 
 ### Versioning
 
-The project follows [Semantic Versioning](https://semver.org/):
+Versions are `0.MINOR.PATCH` until 1.0 and follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html), whose §4 leaves the meaning of the
+segments open while the major version is zero. This project decides the segment by **model
+compatibility**, not by the size of the release or the number of features it carries.
 
-- **MAJOR** (v1.0.0 → v2.0.0): Breaking changes
-- **MINOR** (v0.1.0 → v0.2.0): New features (backward compatible)
-- **PATCH** (v0.1.0 → v0.1.1): Bug fixes (backward compatible)
+A release is a **PATCH** when everything the previous release accepted still behaves the same:
 
-**Current status:** Pre-1.0, APIs subject to change
+- Every model the previous release accepted is still accepted, with the same diagnostics.
+- A model that ran gives the same results. The one exception is a bug fix that turns a wrong
+  result into the one the Kernel Semantic Library derives; that is compatible and is listed under
+  *Fixed*.
+- No CLI flag, REPL command, RPC or wire field is removed or renamed. The protobuf
+  wire-compatibility check, `make proto-breaking`, passes.
+
+New features, new flags, new capabilities and new wire fields are all patch material.
+
+A release is **MINOR** when any of that does not hold:
+
+- A construct the previous release accepted is refused.
+- A result the previous release derived correctly changes.
+- A flag, command, RPC or wire field is removed or renamed.
+- A fixture or output format changes so that existing user artifacts fail — an `.expected.json`
+  schema, the trace goldens, the shape of a `-json` report.
+
+**MAJOR** is reserved for 1.0; from 1.0 on, the conventional rule applies — MAJOR for breaking
+changes, MINOR for features, PATCH for fixes.
+
+The changelog entry for a release says nothing about which segment was bumped or why; the
+decision is recorded through the Release Checklist item above.
 
 ## CI/CD
 
