@@ -109,6 +109,7 @@ func (p SchedulePolicy) start() *scheduler {
 	s := &scheduler{policy: p}
 	if p.kind == scheduleSeeded {
 		s.pcg = rand.NewPCG(p.seed, 0)
+		// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 		s.rng = rand.New(s.pcg)
 	}
 	return s
