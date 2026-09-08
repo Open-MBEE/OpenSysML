@@ -118,22 +118,39 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	// A collection literal binds elementwise, so each element is checked
 	// against the feature's type rather than the sequence as a whole.
 	for _, element := range valueElements(value) {
+		// A collection value binds the elements its body or collection produces; inferring
+		// the value itself still checks what its body declares.
+		if elements, collection := ec.model.CollectionElements(valueScope, element); collection {
+			ec.infer(valueScope, element)
+			for _, produced := range elements {
+				if produced.Node != nil {
+					ec.checkScalarBinding(produced.Node, ec.infer(produced.Scope, produced.Node), want)
+				}
+			}
+			continue
+		}
 		var got semantics.PrimType
 		if inv, ok := element.(*ast.InvocationExpr); ok && node != nil {
 			got = ec.inferNodeInvocation(valueScope, inv, node)
 		} else {
 			got = ec.infer(valueScope, element)
 		}
-		if want == semantics.PrimUnknown || got == semantics.PrimUnknown {
-			continue
-		}
-		if !bindable(element, got, want) {
-			ec.errorf(element.Span(), "cannot bind %s value to a feature typed by %s", got, want)
-		}
+		ec.checkScalarBinding(element, got, want)
 	}
 	ec.checkValueConformance(valueScope, declScope, d, value)
 	ec.checkValueDimension(valueScope, declScope, d, value)
 	ec.checkValueCount(declScope, d, value)
+}
+
+// checkScalarBinding reports a got-typed value that may not bind to a want-typed feature,
+// where both are known.
+func (ec *exprChecker) checkScalarBinding(value ast.Node, got, want semantics.PrimType) {
+	if want == semantics.PrimUnknown || got == semantics.PrimUnknown {
+		return
+	}
+	if !bindable(value, got, want) {
+		ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", got, want)
+	}
 }
 
 // bindable reports whether a got-typed value may bind to a want-typed feature: a literal's

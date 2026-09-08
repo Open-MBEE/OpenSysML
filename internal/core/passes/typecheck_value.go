@@ -44,10 +44,10 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			}
 			continue
 		}
-		if elements, collection := ec.model.CollectionElementTypes(valueScope, value); collection {
+		if elements, collection := ec.model.CollectionElements(valueScope, value); collection {
 			// Every element a collection value may hold binds, not the Anything the
-			// library declares; the lattice does not type them.
-			if gots := ec.unboundElementTypes(elements, wants); len(gots) > 0 {
+			// library declares; a scalar one written out is the lattice rules' to report.
+			if gots := ec.unboundElementTypes(elements, wants, scalar); len(gots) > 0 {
 				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
 			}
 			continue
@@ -243,12 +243,17 @@ func (ec *exprChecker) boundTypesConform(feature *symbols.Symbol, gots, wants []
 	return false
 }
 
-// unboundElementTypes is the types of those elements of a collection value, given element by
-// element, none of whose types binds to a feature typed by wants; an untyped element binds.
-func (ec *exprChecker) unboundElementTypes(elements [][]*symbols.Symbol, wants []*symbols.Symbol) []*symbols.Symbol {
+// unboundElementTypes is the types of those elements of a collection value none of whose
+// types binds to a feature typed by wants; an untyped element binds, and a scalar expression
+// bound to a scalar feature is left to the lattice rules.
+func (ec *exprChecker) unboundElementTypes(elements []semantics.CollectionElement, wants []*symbols.Symbol, scalar bool) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, gots := range elements {
+	for _, element := range elements {
+		gots := element.Types
 		if len(gots) == 0 || ec.boundTypesConform(nil, gots, wants) {
+			continue
+		}
+		if scalar && element.Node != nil && ec.anyScalar(gots) {
 			continue
 		}
 		for _, got := range gots {

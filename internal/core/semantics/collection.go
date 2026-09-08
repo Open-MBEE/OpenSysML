@@ -80,14 +80,13 @@ func (m *Model) invocationSources(scope *symbols.Scope, e *ast.InvocationExpr, f
 }
 
 // holdsAtLeastTwo reports a collection statically known to hold two elements or more: a
-// sequence of that many literals, or a feature whose multiplicity's lower bound says so.
+// sequence of that many literals, or a feature or chain whose multiplicity's lower bound says so.
 func (m *Model) holdsAtLeastTwo(scope *symbols.Scope, collection ast.Node) bool {
-	switch n := collection.(type) {
-	case *ast.SequenceExpr:
-		if len(n.Elements) < 2 {
+	if seq, ok := collection.(*ast.SequenceExpr); ok {
+		if len(seq.Elements) < 2 {
 			return false
 		}
-		for _, element := range n.Elements {
+		for _, element := range seq.Elements {
 			switch element.(type) {
 			case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
 			default:
@@ -95,15 +94,58 @@ func (m *Model) holdsAtLeastTwo(scope *symbols.Scope, collection ast.Node) bool 
 			}
 		}
 		return true
+	}
+	lower, ok := m.fewestValuesOf(scope, collection)
+	return ok && lower >= 2
+}
+
+// fewestValuesOf is the lower bound of the values a feature reference or chain holds: a chain
+// holds, through each value of its operand, the values of its last feature.
+func (m *Model) fewestValuesOf(scope *symbols.Scope, node ast.Node) (int64, bool) {
+	switch n := node.(type) {
 	case *ast.FeatureReference, *ast.QualifiedName:
 		sym, ok := m.resolver.ResolveTarget(scope, n)
 		if !ok || sym == nil {
-			return false
+			return 0, false
 		}
-		lower := m.EffectiveMultiplicityOf(sym).Lower
-		return lower.Known && !lower.Infinite && lower.Value >= 2
+		return m.fewestValuesHeld(sym)
+	case *ast.FeatureChainExpr:
+		sym, ok := m.resolver.ResolveTarget(scope, n)
+		if !ok || sym == nil {
+			return 0, false
+		}
+		last, ok := m.fewestValuesHeld(sym)
+		if !ok {
+			return 0, false
+		}
+		through, ok := m.fewestValuesOf(scope, n.Operand)
+		if !ok {
+			return 0, false
+		}
+		return through * last, true
 	}
-	return false
+	return 0, false
+}
+
+// fewestValuesHeld is the lower bound of the multiplicity governing a feature: the one it
+// declares, or the one it inherits from a feature it redefines; one where it declares none.
+func (m *Model) fewestValuesHeld(sym *symbols.Symbol) (int64, bool) {
+	if r, ok := m.MultiplicityOf(sym); ok {
+		return knownLower(r)
+	}
+	for _, redefined := range m.redefinedTransitively(sym) {
+		if r, ok := m.MultiplicityOf(redefined); ok {
+			return knownLower(r)
+		}
+	}
+	return knownLower(AssumedRange())
+}
+
+func knownLower(r Range) (int64, bool) {
+	if !r.Lower.Known || r.Lower.Infinite {
+		return 0, false
+	}
+	return r.Lower.Value, true
 }
 
 // collectSources is the source of `xs.{ in x; … }`: its body's result.
@@ -194,9 +236,17 @@ func (m *Model) collectResultTypes(scope *symbols.Scope, e *ast.CollectExpr) []*
 	return m.sourcesTypes(srcs)
 }
 
-// CollectionElementTypes is the types of each element a collection value may hold, nil where
-// unknown, and whether the value is one whose arguments decide it rather than its declared result.
-func (m *Model) CollectionElementTypes(scope *symbols.Scope, node ast.Node) ([][]*symbols.Symbol, bool) {
+// CollectionElement is one element a collection value may hold: the expression producing it,
+// in its scope, or nil where a function's result parameter does; and its types, nil where unknown.
+type CollectionElement struct {
+	Scope *symbols.Scope
+	Node  ast.Node
+	Types []*symbols.Symbol
+}
+
+// CollectionElements is each element a collection value may hold, and whether the value is
+// one whose arguments decide it rather than its declared result.
+func (m *Model) CollectionElements(scope *symbols.Scope, node ast.Node) ([]CollectionElement, bool) {
 	if m == nil || m.resolver == nil || node == nil {
 		return nil, false
 	}
@@ -204,37 +254,41 @@ func (m *Model) CollectionElementTypes(scope *symbols.Scope, node ast.Node) ([][
 	if !ok {
 		return nil, false
 	}
-	return m.sourcesElementTypes(srcs), true
+	return m.sourcesElements(srcs), true
 }
 
 // sourcesTypes is the types every element of every source conforms to; nil when unknown or
 // when only Anything, which says nothing.
 func (m *Model) sourcesTypes(srcs []collectionSource) []*symbols.Symbol {
-	return informativeTypes(m.sharedAmong(m.sourcesElementTypes(srcs)))
+	var lists [][]*symbols.Symbol
+	for _, element := range m.sourcesElements(srcs) {
+		lists = append(lists, element.Types)
+	}
+	return informativeTypes(m.sharedAmong(lists))
 }
 
-// sourcesElementTypes is the types of each element of every source: a result parameter's
-// own, a sequence `(a, b)` those of each element in turn; nil where they say nothing.
-func (m *Model) sourcesElementTypes(srcs []collectionSource) [][]*symbols.Symbol {
-	var out [][]*symbols.Symbol
+// sourcesElements is each element of every source: a result parameter by its own types, a
+// sequence `(a, b)` each element in turn; types nil where they say nothing.
+func (m *Model) sourcesElements(srcs []collectionSource) []CollectionElement {
+	var out []CollectionElement
 	for _, src := range srcs {
 		if src.result != nil {
-			out = append(out, informativeTypes(m.featureResultTypes(src.result)))
+			out = append(out, CollectionElement{Types: informativeTypes(m.featureResultTypes(src.result))})
 			continue
 		}
-		out = append(out, m.elementTypes(src.scope, src.node)...)
+		out = append(out, m.elementsOf(src.scope, src.node)...)
 	}
 	return out
 }
 
-func (m *Model) elementTypes(scope *symbols.Scope, node ast.Node) [][]*symbols.Symbol {
+func (m *Model) elementsOf(scope *symbols.Scope, node ast.Node) []CollectionElement {
 	seq, ok := node.(*ast.SequenceExpr)
 	if !ok {
-		return [][]*symbols.Symbol{informativeTypes(m.resultTypes(scope, node))}
+		return []CollectionElement{{Scope: scope, Node: node, Types: informativeTypes(m.resultTypes(scope, node))}}
 	}
-	var out [][]*symbols.Symbol
+	var out []CollectionElement
 	for _, element := range seq.Elements {
-		out = append(out, m.elementTypes(scope, element)...)
+		out = append(out, m.elementsOf(scope, element)...)
 	}
 	return out
 }

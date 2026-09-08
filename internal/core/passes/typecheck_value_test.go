@@ -309,6 +309,12 @@ func collectionValueDiags(t *testing.T, members string) []string {
 		function Boats { in v : Vehicle; return r : Boat; }
 		function Sail { in b : Boat; return r : Boat; }
 		function Drive { in v : Vehicle; return r : Vehicle; }
+		function Half { in v : Vehicle; return r : Real; }
+		function Name { in v : Vehicle; return r : String; }
+		part def Pair { part items : Vehicle[2]; part item : Vehicle[1]; }
+		part def Pairs :> Pair { part :>> items; part :>> item; }
+		part pair : Pairs[1];
+		part couple : Pairs[2];
 		`+members+`
 	}`)
 	var got []string
@@ -340,9 +346,11 @@ func TestValueCollectionResultIsJudged(t *testing.T) {
 	wantCollectionValueDiags(t, `part b : Boat = vs->selectOne { in v : Vehicle; true };`,
 		"cannot bind a value of type Vehicle to a feature typed by Boat")
 	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; true };`,
-		"cannot bind a value of type Boolean to a feature typed by Integer")
+		"cannot bind Boolean value to a feature typed by Integer")
 	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (true, 1) };`,
-		"cannot bind a value of type Boolean to a feature typed by Integer")
+		"cannot bind Boolean value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect Name;`,
+		"cannot bind a value of type String to a feature typed by Integer")
 	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; (v, boat) };`,
 		"cannot bind a value of type Vehicle to a feature typed by Boat")
 	wantCollectionValueDiags(t, `
@@ -356,6 +364,33 @@ func TestValueCollectionResultIsJudged(t *testing.T) {
 		part open2 : Boat = vs.{ in v; (v, boat) };`)
 }
 
+// A scalar element a collection value spells out is exact, as a literal bound directly is:
+// a decimal does not bind to an Integer feature because Integer values are Real. An
+// element a feature or function result types only bounds its values, so it binds either way.
+func TestValueCollectionElementLiteralIsExact(t *testing.T) {
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; 1.5 };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; 1.5 };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (1, 2.5) };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute n : Natural = vs.{ in v : Vehicle; -1 };`,
+		"cannot bind Integer value to a feature typed by Natural")
+	wantCollectionValueDiags(t, `attribute i : Integer = (1, 2)->reduce { in a : Integer; in b : Integer; 1.5 };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = (1.5, 2.5)->select { in a : Real; true };`,
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `
+		attribute r : Real;
+		attribute i : Integer = vs.{ in v : Vehicle; r };
+		attribute i2 : Integer = vs->collect { in v : Vehicle; r / 2 };
+		attribute i3 : Integer = vs->collect Half;
+		attribute i4 : Integer = vs.{ in v : Vehicle; 2 };
+		attribute r2 : Real = vs.{ in v : Vehicle; 2 };
+		attribute i5 : Integer = (1, 2)->select { in a : Integer; true };`)
+}
+
 // reduce returns the reducer's result, or the collection's one element unreduced:
 // both bind unless the collection is known to hold two or more.
 func TestValueReduceResultIsJudged(t *testing.T) {
@@ -366,9 +401,13 @@ func TestValueReduceResultIsJudged(t *testing.T) {
 	wantCollectionValueDiags(t, `part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; boat };`,
 		"cannot bind a value of type Boat to a feature typed by Vehicle")
 	wantCollectionValueDiags(t, `attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; 3 };`,
-		"cannot bind a value of type Integer to a feature typed by String")
+		"cannot bind Natural value to a feature typed by String")
+	wantCollectionValueDiags(t, `part b : Boat = pair.item->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
 	wantCollectionValueDiags(t, `
 		part b : Boat = two->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part b2 : Boat = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part b3 : Boat = couple.item->reduce { in a : Vehicle; in b : Vehicle; boat };
 		part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; a };
 		attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };`)
 }
