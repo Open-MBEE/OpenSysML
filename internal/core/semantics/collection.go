@@ -141,7 +141,7 @@ func (m *Model) isCollectionFunction(fn *symbols.Symbol) bool {
 }
 
 // invocationSources type a collection function call: collect by what it applies, select/reject/
-// selectOne by the collection, reduce by the reducer plus the one element it may return unreduced.
+// selectOne by the collection, reduce by the reducer and the one element it may return unreduced.
 func (m *Model) invocationSources(scope *symbols.Scope, e *ast.InvocationExpr, fn *symbols.Symbol) ([]collectionSource, bool) {
 	if fn == nil || e == nil {
 		return nil, false
@@ -150,19 +150,29 @@ func (m *Model) invocationSources(scope *symbols.Scope, e *ast.InvocationExpr, f
 	case m.libSymbol(fqnCollect):
 		return m.appliedSources(scope, m.argumentTo(scope, e, fn, 1))
 	case m.libSymbol(fqnReduce):
-		srcs, ok := m.appliedSources(scope, m.argumentTo(scope, e, fn, 1))
-		if !ok {
-			return nil, false
-		}
-		collection := m.argumentTo(scope, e, fn, 0)
-		if collection != nil && !m.holdsAtLeastTwo(scope, collection) && !m.holdsNothing(scope, collection) {
-			srcs = append(srcs, collectionSource{scope: scope, node: collection})
-		}
-		return srcs, true
+		return m.reducedSources(scope, m.argumentTo(scope, e, fn, 0), m.argumentTo(scope, e, fn, 1))
 	case m.libSymbol(fqnSelect), m.libSymbol(fqnReject), m.libSymbol(fqnSelectOne):
 		return m.keptSources(scope, m.argumentTo(scope, e, fn, 0))
 	}
 	return nil, false
+}
+
+// reducedSources type a reduction: the reducer is applied only over two elements or more, the one
+// element a collection may hold is returned unreduced; over nothing the reducer types the result.
+func (m *Model) reducedSources(scope *symbols.Scope, collection, reducer ast.Node) ([]collectionSource, bool) {
+	var srcs []collectionSource
+	size, known := m.valuesHeldBy(scope, collection)
+	if !known || size.Upper.Infinite || size.Upper.Value != 1 {
+		applied, ok := m.appliedSources(scope, reducer)
+		if !ok {
+			return nil, false
+		}
+		srcs = applied
+	}
+	if collection != nil && (!known || !size.Lower.Infinite && size.Lower.Value <= 1 && (size.Upper.Infinite || size.Upper.Value >= 1)) {
+		srcs = append(srcs, collectionSource{scope: scope, node: collection})
+	}
+	return srcs, true
 }
 
 // keptSources is the source of a selection: the collection whose elements it keeps.
@@ -171,12 +181,6 @@ func (m *Model) keptSources(scope *symbols.Scope, collection ast.Node) ([]collec
 		return nil, false
 	}
 	return []collectionSource{{scope: scope, node: collection}}, true
-}
-
-// holdsAtLeastTwo reports a collection statically known to hold two elements or more.
-func (m *Model) holdsAtLeastTwo(scope *symbols.Scope, collection ast.Node) bool {
-	r, ok := m.valuesHeldBy(scope, collection)
-	return ok && (r.Lower.Infinite || r.Lower.Value >= 2)
 }
 
 // holdsNothing reports a collection statically known to hold no element: `()`, or a feature

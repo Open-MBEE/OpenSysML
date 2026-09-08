@@ -254,11 +254,13 @@ func TestCollectionResultConformance(t *testing.T) {
 // reduce returns what its reducer does, or the collection's one element unreduced, so
 // the result is what both conform to — the library's Anything where they share nothing —
 // unless the collection holds two or more: a declared `[2..*]`, one inherited by
-// redefinition, a chain through such a feature, or a sequence of two literals.
+// redefinition, a chain through such a feature, or a sequence of two literals; a collection
+// holding one at most, `[1]` or `[0..1]`, is never reduced, so its element alone is the result.
 func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 	m, s := collectionModel(t, `
 		part two : C[2..*];
 		part one : C[1];
+		part atMost : C[0..1];
 		part def Pair { part items : C[2]; part item : C[1]; }
 		part def Pairs :> Pair { part :>> items; part :>> item; }
 		part pair : Pairs[1];
@@ -266,6 +268,8 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 		part couple : Pairs[2];
 		attribute names = cs->reduce { in a : C; in b : C; a.name };
 		attribute names1 = one->reduce { in a : C; in b : C; a.name };
+		attribute names01 = atMost->reduce { in a : C; in b : C; a.name };
+		attribute names1lit = (one)->reduce { in a : C; in b : C; "s" };
 		attribute names2 = two->reduce { in a : C; in b : C; a.name };
 		attribute inherited = pair.items->reduce { in a : C; in b : C; a.name };
 		attribute chained = couple.item->reduce { in a : C; in b : C; a.name };
@@ -274,13 +278,16 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 		attribute lits = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };
 		attribute same = cs->reduce { in a : C; in b : C; a };
 		attribute cast = cs->reduce { in a : C; in b : C; a.name } as String;
-		attribute cast2 = two->reduce { in a : C; in b : C; a.name } as C;`)
+		attribute cast2 = two->reduce { in a : C; in b : C; a.name } as C;
+		attribute cast1 = one->reduce { in a : C; in b : C; a.name } as String;`)
 	wantValueTypes(t, m, s, "names", "Anything")
-	wantValueTypes(t, m, s, "names1", "Anything")
+	wantValueTypes(t, m, s, "names1", "C")
+	wantValueTypes(t, m, s, "names01", "C")
+	wantValueTypes(t, m, s, "names1lit", "C")
 	wantValueTypes(t, m, s, "names2", "String")
 	wantValueTypes(t, m, s, "inherited", "String")
 	wantValueTypes(t, m, s, "chained", "String")
-	wantValueTypes(t, m, s, "chained1", "Anything")
+	wantValueTypes(t, m, s, "chained1", "C")
 	wantValueTypes(t, m, s, "chainedAny", "Anything")
 	wantValueTypes(t, m, s, "lits", "String")
 	wantValueTypes(t, m, s, "same", "C")
@@ -290,9 +297,15 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 		elements[0].Node == nil || elements[1].Node == nil {
 		t.Errorf("names: elements %v, want the reducer's String then the collection's C", elements)
 	}
-	for _, name := range []string{"names", "names1"} {
+	for _, name := range []string{"names", "names1", "names01"} {
 		if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), fqnString); !c.Known || c.Holds || c.Untyped || c.Found != "C" {
 			t.Errorf("%s as String: %+v, want known, not holding, found C", name, c)
+		}
+	}
+	for _, name := range []string{"names1", "names01"} {
+		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
+		if !ok || len(elements) != 1 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "C" {
+			t.Errorf("%s: elements %v, want the collection's C alone", name, elements)
 		}
 	}
 	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "names2"), fqnString); !c.Known || !c.Holds {
@@ -303,6 +316,9 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 	}
 	if c := m.CastConformance(s, valueOf(t, s, "cast2").(*ast.OperatorExpr)); !c.Known || c.Holds || c.Found != "String" {
 		t.Errorf("cast of two to C: %+v, want known, not holding, found String", c)
+	}
+	if c := m.CastConformance(s, valueOf(t, s, "cast1").(*ast.OperatorExpr)); !c.Known || c.Holds || c.Found != "C" {
+		t.Errorf("cast of one to String: %+v, want known, not holding, found C", c)
 	}
 }
 
@@ -352,7 +368,7 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 		}
 	}
 	wantValueTypes(t, m, s, "two", "String")
-	wantValueTypes(t, m, s, "maybe", "Anything")
+	wantValueTypes(t, m, s, "maybe", "C")
 	if types, ok := m.CollectionHeldTypes(s, valueOf(t, s, "two")); !ok || len(types) != 1 || leafName(types[0].Name) != "String" {
 		t.Errorf("two: held types %v, want String", types)
 	}

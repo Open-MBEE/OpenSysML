@@ -558,12 +558,16 @@ func TestArgumentCollectionResultIsJudged(t *testing.T) {
 		"argument 1 of Drive expects Vehicle, found Boat")
 	wantCollectionValueDiags(t, `part v = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; boat });`,
 		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `part b = Sail(one->reduce { in a : Vehicle; in b : Vehicle; boat });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
 	wantCollectionValueDiags(t, `
 		part b = Sail(vs->collect { in v : Vehicle; boat });
 		part v = Drive(vs->select { in v : Vehicle; true });
 		part v4 = Drive(vs.?{ in v : Vehicle; true });
 		part v2 = Drive(two->reduce { in a : Vehicle; in b : Vehicle; one });
-		part v3 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; a });`)
+		part v3 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; a });
+		part v5 = Drive(one->reduce { in a : Vehicle; in b : Vehicle; boat });
+		part v6 = Drive((none, one)->reduce { in a : Vehicle; in b : Vehicle; boat });`)
 }
 
 // Each element a collection value holds is judged on its own, so a collection whose elements
