@@ -932,10 +932,7 @@ mod tests {
             kind: Some(wire::value::Kind::Infinity(asserted)),
         };
         assert_eq!(value_from_wire(arm(true)).ok(), Some(Value::Infinity));
-        assert!(matches!(
-            value_from_wire(arm(false)),
-            Err(Error::Decode(_))
-        ));
+        assert!(matches!(value_from_wire(arm(false)), Err(Error::Decode(_))));
         let nested = wire::Value {
             kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
                 elements: vec![arm(false)],

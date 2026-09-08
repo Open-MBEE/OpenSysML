@@ -181,7 +181,7 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "unset" };
     case "infinity":
       // Only an asserted arm carries the unbounded value.
-      if (kind.value !== true) {
+      if (!kind.value) {
         throw new MalformedValueError("the infinity arm states no value unless it is true");
       }
       return { kind: "infinity" };
