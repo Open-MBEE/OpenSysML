@@ -663,9 +663,10 @@ because the obvious ones cannot:
   bounded walk renders the nested feature as `child : Node (not expanded: contains its own kind)`
   after expanding one level. Don't grep for wording the binary never emits — capture the real line
   over a pipe first. Follow it with `%eval 1 + 1` → `= 2` to show the session survived the walk.
-- `%step` is **action-only**. In a state session it answers
-  `error: no active action session (use %action <name> first)`; drive a state machine with
-  `%advance <time>` instead. That message during a state sweep is expected, not a broken session.
+- `%step` drives a state session: it polls change conditions, dispatches the next event or
+  pending signal, or runs one do-behavior round. `%continue` remains action-only and answers
+  `error: no active action session (use %action <name> first)` in a state-only session.
+  Use repeated `%step` or `%advance <time>` and inspect `%current` for state-machine progress.
 - When comparing two variants of the same model (e.g. a `private import` version against a
   `public import` or bare-`Real` rewrite), load each in a **separate REPL process**. Loading both
   into one session makes the shared simple name ambiguous —
@@ -832,14 +833,17 @@ Limits worth knowing before writing fixtures:
 
 Testing this family end-to-end has a few traps that cost a whole run if hit late:
 
-- **A state machine cannot be handed a signal from the REPL** — there is no `%send`. To exercise
-  `accept <p> : <Item> [via <port>]` interactively, the model must post the message itself:
+- **Object-addressed signals can be injected with `%send <signal>[(p=expr)] to <object>`.**
+  Start `%state <machine> <object>` after `%instantiate <object>` when the object does not
+  already exhibit the machine. `%send` reports the transition it would enable; `%step` actually
+  dispatches it. Omitting `to` addresses the debugged performer. Use `%events` to distinguish
+  signals in flight from the timed-event queue. For a port-addressed signal, use a model sender:
   give the machine `port out : P; port in : P; connect out to in;` and a state whose
   `entry send Item(9) via out;` feeds the transition (the shape of
   `internal/core/runtime/testdata/conformance/state_transition_accept_via_port.sysml`). The shipped
   `state_transition_accept_payload.sysml` has **no** sender — its event comes from the
-  `.expected.json` `events` array, so in the REPL it just sits in `idle` forever. That is the
-  harness, not a bug.
+  `.expected.json` `events` array, so in the REPL it waits until a signal is injected.
+  The harness event array is not automatically replayed by `%load`.
 - **Always run a signal-driven state model on both the REPL and the gRPC/conformance path and
   diff them.** They disagreed until `ProcessNextEvent`/`%advance` learned to dispatch a pending
   context-bus signal: a port send produced by an entry action was delivered by `RunToCompletion`
@@ -3700,25 +3704,29 @@ Timers (`accept after N` + `%advance`) are the cheapest scheduling probe:
   *inside* the self-transitioning composite becomes an infinite event loop; post from a sibling
   region that is never re-entered.
 
-Change triggers (`accept when`) **cannot be driven from the REPL at all**: `pollChangeEvents` has
-no non-test caller (`grep -rn pollChangeEvents --include='*.go' .` → definition plus `*_test.go`),
-and no meta-command reaches it (`%advance`/`%step`/`%continue` are time and the *action* debugger).
-The REPL therefore parks in the source state with the condition already true — that is the
-documented ⚠️ Approximate row in `docs/project/spec-compliance.md`, not a defect. Show the grep on
-camera to justify covering the behavior with go tests instead:
+Change triggers (`accept when`) are reachable through state `%step`, which calls
+`PollChangeEvents`. A clean end-to-end example is:
 
-```go
-exec := stateExecutorForSource(t, "sm", `package test { state sm { … } }`)
-exec.RunToCompletion()
-exec.stateData["ready"] = boolValue(true)
-exec.pollChangeEvents()
-// read exec.ActiveStates() and exec.stateData["log"]
+```text
+%load internal/repl/testdata/change_condition_object.sysml
+%instantiate Watch::Sensor
+%state Watch::Sensor
+%step
+%invoke Watch::Sensor trip
+%step
+%current
 ```
 
-For an internal fix like this the strongest evidence is a worktree A/B:
-`git worktree add ~/wt<sha> <parent-sha>`, **copy the new test file (and any probe file) into the
-worktree** so `state_executor.go` is the only delta (`cmp -s` each file on camera to prove it),
-then run `go test -count=1 -run … -v ./internal/core/runtime` in both trees.
+Before `trip` the machine waits in `idle` with a false condition. After invocation,
+`%step` reports `Change event dispatched` and `idle → alerted`; `%features Watch::Sensor`
+shows `tripped = true`. The autonomous conformance fixture also works via repeated `%step`,
+but bare `Integer`/`Boolean` types can produce missing-import diagnostics during `%load`.
+Do not confuse runtime progression with a diagnostic-free model load.
+
+For a runtime routing fix, build a parent binary in an isolated worktree and load the same
+absolute model paths in both binaries. Enable `%trace on` before `%state`: the port-addressed
+fixture distinguishes an erroneous `choice`/`strayed` from `received` without a choice.
+Record the binary versions and full traces; final state alone can hide a wrong alternative.
 
 Designing discriminating probes here is genuinely tricky — always confirm a probe **FAILs on the
 parent** before trusting it:
@@ -5180,11 +5188,11 @@ to diff against a document's table verbatim.
 
 ## Driving state-machine completion (`then done;`) and its surfaces
 
-There is **no `%send`/signal-injection meta-command**. A machine whose transitions are triggered by
-`accept <SignalName>` will sit `quiesced` forever in the REPL — the signal lists in
-`internal/core/runtime/testdata/conformance/*.expected.json` are the *conformance harness*, not the
-REPL. To drive a machine interactively, write fixtures with **timed triggers**
-(`state a { accept after 5 then done; }`) and step them with `%advance <t>`; each region can be given
+Use `%send <SignalName> [to <object>]` followed by `%step` to drive signal transitions.
+The signal lists in `internal/core/runtime/testdata/conformance/*.expected.json` belong to the
+conformance harness and are not automatically injected by the REPL. Alternatively, write
+fixtures with **timed triggers** (`state a { accept after 5 then done; }`)
+and step them with `%advance <t>`; each region can be given
 a different delay so a partial configuration is observable. `sysml <model> -state <name>` only
 *starts* the executor and prints the initial configuration — it does not run to completion, so use
 the REPL for completion claims.
