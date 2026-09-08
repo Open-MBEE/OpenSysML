@@ -427,3 +427,46 @@ package test {
 		t.Errorf("margin = %s, want 3, one more than the level bound before it", FormatValue(v))
 	}
 }
+
+// TestMetadataAccessSameObjects reads the metadata of one element twice: an
+// annotation denotes one object, so both reads answer it and no second object
+// of the metadata type is made.
+func TestMetadataAccessSameObjects(t *testing.T) {
+	src := `
+package test {
+	private import ScalarValues::*;
+
+	metadata def Safety {
+		attribute level : Integer = 0;
+	}
+
+	part def Vehicle;
+
+	part seatBelt : Vehicle {
+		@Safety {
+			level = 3;
+		}
+	}
+}
+`
+	ctx, scope, decl := declaredExpr(t, src, "test::seatBelt.metadata")
+	first, err := NewEvalContext(ctx, scope).Eval(decl)
+	if err != nil {
+		t.Fatalf("seatBelt.metadata failed: %v", err)
+	}
+	made := len(ctx.instances)
+	second, err := NewEvalContext(ctx, scope).Eval(decl)
+	if err != nil {
+		t.Fatalf("the second seatBelt.metadata failed: %v", err)
+	}
+	one, two := elementsOf(first), elementsOf(second)
+	if len(one) != 1 || len(two) != 1 {
+		t.Fatalf("read %d then %d metadata values, want one each", len(one), len(two))
+	}
+	if one[0].Instance != two[0].Instance {
+		t.Errorf("the reads answered objects %d and %d, want one object", one[0].Instance, two[0].Instance)
+	}
+	if len(ctx.instances) != made {
+		t.Errorf("the second read left %d objects, want the %d the first did", len(ctx.instances), made)
+	}
+}

@@ -108,6 +108,9 @@ type Context struct {
 	// occurrences holds the object each usage carrying no value of its own
 	// denotes, so a feature chain through a part reads one occurrence of it.
 	occurrences map[*symbols.Symbol]int64
+	// metadataObjects holds the object each metadata annotation denotes, so
+	// reading `.metadata` twice reads one object per annotation.
+	metadataObjects map[ast.Node]int64
 	// behaving memoizes runsBehaviors per type; the model is fixed for the context's life.
 	behaving map[*symbols.Symbol]bool
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
@@ -321,6 +324,7 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 		maxSweepRuns:   DefaultMaxSweepRuns,
 
 		occurrences:      make(map[*symbols.Symbol]int64),
+		metadataObjects:  make(map[ast.Node]int64),
 		behaving:         make(map[*symbols.Symbol]bool),
 		behavingFeatures: make(map[*symbols.Symbol][]int),
 		redefGroups:      make(map[*symbols.Symbol][][]string),

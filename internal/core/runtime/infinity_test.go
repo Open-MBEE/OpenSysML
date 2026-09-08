@@ -7,10 +7,20 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // evalDeclaredExpr evaluates expr as the value of an attribute declared beside src.
 func evalDeclaredExpr(t *testing.T, src, expr string) (*Context, Value, error) {
+	t.Helper()
+	ctx, scope, decl := declaredExpr(t, src, expr)
+	got, err := NewEvalContext(ctx, scope).Eval(decl)
+	return ctx, got, err
+}
+
+// declaredExpr is expr as the value of an attribute declared beside src, with
+// the context and scope to evaluate it in, so one context can evaluate it twice.
+func declaredExpr(t *testing.T, src, expr string) (*Context, *symbols.Scope, ast.Node) {
 	t.Helper()
 	full := src + "\npackage probe {\n\tattribute result = " + expr + ";\n}"
 	model, resolver, root := parseAndBuildLibraryModel(t, full)
@@ -26,9 +36,7 @@ func evalDeclaredExpr(t *testing.T, src, expr string) (*Context, Value, error) {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ctx := NewContext(model, resolver, 10000)
-	got, err := NewEvalContext(ctx, pkg.Scope).Eval(decl.Value)
-	return ctx, got, err
+	return NewContext(model, resolver, 10000), pkg.Scope, decl.Value
 }
 
 // TestInfinityValue evaluates `*`: its own scalar value, printed as written.
