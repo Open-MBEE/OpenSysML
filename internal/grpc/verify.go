@@ -264,8 +264,8 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
 			verdict, instances := v.satisfyVerdict(a)
 			resp.Verdicts = append(resp.Verdicts, verdict)
-			if a.Requirement != nil && !verified[a.Requirement] {
-				verified[a.Requirement] = true
+			if req := a.AssertedRequirement(); req != nil && !verified[req] {
+				verified[req] = true
 				resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.assertionVerifications(a)...)
 			}
 			// One graph per response, so two assertions about the same object do
@@ -308,8 +308,8 @@ func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict
 // associateRequirement names on a satisfaction verdict the requirement it
 // asserts satisfied, which the body verdicts of that requirement also name.
 func (v *verifyContext) associateRequirement(verdict *pb.Verdict, a *runtime.SatisfyAssertion) {
-	if a.Requirement != nil {
-		verdict.RequirementId = namedFQN(v.cached.Index, a.Requirement)
+	if req := a.AssertedRequirement(); req != nil {
+		verdict.RequirementId = namedFQN(v.cached.Index, req)
 	}
 }
 
@@ -418,8 +418,9 @@ func (v *verifyContext) requirementVerifications(req *symbols.Symbol) []*pb.Veri
 // assertionVerifications are the body verdicts of the verification cases whose
 // objective verifies the requirement an assertion satisfies.
 func (v *verifyContext) assertionVerifications(a *runtime.SatisfyAssertion) []*pb.VerificationVerdict {
-	if a.Requirement == nil {
+	req := a.AssertedRequirement()
+	if req == nil {
 		return nil
 	}
-	return v.requirementVerifications(a.Requirement)
+	return v.requirementVerifications(req)
 }

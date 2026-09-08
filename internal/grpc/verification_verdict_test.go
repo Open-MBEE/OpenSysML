@@ -221,6 +221,65 @@ func TestVerifySatisfactionAssociatesBodyVerdictsWithTheirRequirement(t *testing
 	}
 }
 
+// declaredSatisfactionModel states its requirement in the satisfaction itself
+// (`satisfy requirement r by p`), so the requirement a case verifies is that
+// usage rather than one written elsewhere.
+const declaredSatisfactionModel = `package Demo {
+	private import ScalarValues::*;
+
+	part def Widget {
+		attribute m : Integer default = 0;
+	}
+
+	part good : Widget;
+
+	assert satisfy requirement zeroed by good {
+		subject w : Widget;
+		require constraint { w.m == 0 }
+	}
+
+	verification def Check {
+		subject w : Widget;
+		objective { verify zeroed; }
+		VerificationCases::PassIf(w.m == 0)
+	}
+
+	verification checkGood : Check { subject w = good; }
+}
+`
+
+// TestVerifySatisfactionOfADeclaredRequirementReportsItsBodyVerdicts verifies a
+// satisfaction declaring its own requirement is associated with it too, so the
+// cases verifying that requirement are reported and named for it.
+func TestVerifySatisfactionOfADeclaredRequirementReportsItsBodyVerdicts(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, declaredSatisfactionModel, "verification-verdicts-declared")
+
+	resp, err := srv.VerifySatisfaction(context.Background(), &pb.VerifySatisfactionRequest{
+		ModelHash: hash,
+	})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("VerifySatisfaction reported %q", resp.Error)
+	}
+	wantVerdicts(t, "VerifySatisfaction", resp.VerificationVerdicts, "Demo::checkGood=pass")
+	if len(resp.Verdicts) == 0 {
+		t.Fatal("VerifySatisfaction reported no assertion verdict")
+	}
+	for _, verdict := range resp.Verdicts {
+		if verdict.RequirementId != "Demo::zeroed" {
+			t.Errorf("%q names requirement %q, want Demo::zeroed", verdict.Element, verdict.RequirementId)
+		}
+	}
+	for _, verdict := range resp.VerificationVerdicts {
+		if verdict.RequirementId != "Demo::zeroed" {
+			t.Errorf("%s names requirement %q", verdict.CaseId, verdict.RequirementId)
+		}
+	}
+}
+
 // TestRunAnalysisRunsAVerificationCase verifies a verification case is accepted
 // by the run RPC rather than refused, reporting its body verdict and the verdict
 // of each subcase it performs.
