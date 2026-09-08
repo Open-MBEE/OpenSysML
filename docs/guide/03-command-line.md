@@ -350,7 +350,8 @@ exit=1
 
 `-samples <n> -seed <s>` draws `n` values for each range instead of running every value of it,
 uniformly and in draw order, so a range needs no step; the seed is required and the table
-echoes it, and the same seed draws the same table on every platform:
+echoes it, and the same seed draws the same values on every platform (the `time` column is the
+wall time each run took, so it is the one column two runs of the same table do not share):
 
 ```bash
 $ sysml -calc "An::Sum(2.0)" -sweep "b=0.0..10.0" -samples 3 -seed 42 analysis.sysml
@@ -367,11 +368,11 @@ The endpoints and step carry the syntax and the units an argument carries
 (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`), `<to>` is included where the step lands on it, a
 range between Integers with no step steps by one, and a range between Reals with no step is
 refused rather than guessed at. Several `-sweep` flags run their cartesian product, the first
-flag varying slowest. A run that fails is a row carrying its error and the runs after it are
-still made, so a sweep through a singularity reports which value broke rather than losing the
-table. A step of zero, a step whose sign never reaches `<to>`, a unit that does not convert, a
-parameter the target declares none of, one the arguments already bind, and a sweep or sample
-without an `-analysis`/`-calc` are refused:
+flag varying slowest. A run that fails is a row numbering its error, printed in full under the
+table, and the runs after it are still made, so a sweep through a singularity reports which
+value broke rather than losing the table. A step of zero, a step whose sign never reaches
+`<to>`, a unit that does not convert, a parameter the target declares none of, one the
+arguments already bind, and a sweep or sample without an `-analysis`/`-calc` are refused:
 
 ```bash
 $ sysml -calc "An::Sum(2.0, 3.0)" -sweep "b=0.0..10.0" analysis.sysml; echo "exit=$?"

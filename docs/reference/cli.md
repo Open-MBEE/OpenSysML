@@ -207,7 +207,7 @@ written in, so the verdicts are about that object:
 | `-advance <time>` | Simulated time units each `-state` machine is run for |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind. Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names |
-| `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same table on every platform |
+| `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
 | `-json` | Reports the checks as one JSON document rather than as lines |
 
 **Arguments:**
@@ -458,17 +458,18 @@ power             | result           | time
 
 The columns are the swept parameters, the run's `return` or `out` values, the verdict of the
 case's `objective` where it has one, the wall time of that run, and an `error` column present only
-when a run failed. A failed run is a row carrying its typed error text — the table continues, and
-the check as a whole fails:
+when a run failed. A failed run keeps its place in the table and numbers its typed error, which is
+printed in full under the table — the table continues, and the check as a whole fails:
 
 ```bash
 $ sysml -instantiate Sub::car -analysis "Dyn::DynamicsAnalysis(deltaT = 1.0 [SI::s]) Sub::car" \
     -sweep "initialSpeed=0.0 [SI::'m/s']..1.0 [SI::'m/s']:1.0 [SI::'m/s']" model.sysml subject.sysml
 sweep Dyn::DynamicsAnalysis — 2 run(s)
 initialSpeed    | accelerationProfile | time    | error
-----------------+---------------------+---------+-----------------------------------
-0.0 [SI::'m/s'] |                     | 0.617ms | … calc Dyn::Acceleration: division by zero
+----------------+---------------------+---------+------
+0.0 [SI::'m/s'] |                     | 0.617ms | 1
 1.0 [SI::'m/s'] | [1.0 …, 0.5 …]      | 0.469ms |
+error 1: analysis Dyn::DynamicsAnalysis: … calc Dyn::Acceleration: division by zero
 ```
 
 **Ranges.** `<from>`, `<to>` and `<step>` carry the literal syntax an argument carries, units

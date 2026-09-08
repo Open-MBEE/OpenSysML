@@ -546,6 +546,7 @@ func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
 	for _, row := range table.Rows {
 		cells = append(cells, columns.row(ctx, row))
 	}
+	notes := footnoteErrors(columns, cells)
 	widths := make([]int, len(cells[0]))
 	for _, row := range cells {
 		for i, cell := range row {
@@ -558,7 +559,26 @@ func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
 	for _, row := range cells[1:] {
 		lines = append(lines, renderSweepRow(row, widths, " | "))
 	}
-	return lines
+	return append(lines, notes...)
+}
+
+// footnoteErrors moves each failed run's error text out of its cell, which a
+// typed error is far too long for, and returns the notes to print under the
+// table. The cell keeps the note's number.
+func footnoteErrors(columns sweepColumns, cells [][]string) []string {
+	if !columns.failures {
+		return nil
+	}
+	last := len(cells[0]) - 1
+	notes := make([]string, 0, len(cells)-1)
+	for _, row := range cells[1:] {
+		if row[last] == "" {
+			continue
+		}
+		notes = append(notes, fmt.Sprintf("error %d: %s", len(notes)+1, row[last]))
+		row[last] = strconv.Itoa(len(notes))
+	}
+	return notes
 }
 
 // sweepColumns are the columns a table needs: its parameters, every output any
