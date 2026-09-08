@@ -446,6 +446,10 @@ var (
 	// that a feature value holds no value, which is something to read, not to supply.
 	ErrUnsetNotAccepted = errors.New("unset is not a value a caller can supply")
 
+	// ErrInfinityNotAsserted reports the infinity arm arriving as false. The arm
+	// is the unbounded value itself, so false states no value at all.
+	ErrInfinityNotAsserted = errors.New("the infinity arm states no value unless it is true")
+
 	// ErrArrayDimensionNotPositive reports an array sent with a dimension of no
 	// extent, which Collections::Array declares as dimensions: Positive.
 	ErrArrayDimensionNotPositive = errors.New("array dimension is not positive")
@@ -579,6 +583,11 @@ func ProtoToValueIn(pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (run
 		return protoToVectorQuantity(k.VectorQuantity, idx, sem)
 	case *pb.Value_MeasurementRef:
 		return ProtoToMeasurementRef(k.MeasurementRef, idx, sem)
+	case *pb.Value_Infinity:
+		if !k.Infinity {
+			return runtime.Value{}, ErrInfinityNotAsserted
+		}
+		return protoToScalar(pv), nil
 	default:
 		return protoToScalar(pv), nil
 	}
@@ -1151,6 +1160,9 @@ func protoToScalar(pv *pb.Value) runtime.Value {
 	case *pb.Value_Complex:
 		return runtime.NewComplex(ProtoToComplex(k.Complex))
 	case *pb.Value_Infinity:
+		if !k.Infinity {
+			return runtime.Value{Kind: runtime.ValNull}
+		}
 		return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}
 	default:
 		return runtime.Value{Kind: runtime.ValNull}

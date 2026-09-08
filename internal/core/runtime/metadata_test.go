@@ -164,3 +164,40 @@ package test {
 		t.Errorf("error %q, want it to name severity", err)
 	}
 }
+
+// TestMetadataAccessFailureAbandonsInstances requires one access to materialize
+// every annotation or none: an annotation that fails leaves no object behind of
+// the annotations read before it.
+func TestMetadataAccessFailureAbandonsInstances(t *testing.T) {
+	src := `
+package test {
+	metadata def Safety {
+		attribute level : ScalarValues::Integer = 2;
+	}
+
+	part def Vehicle;
+
+	part seatBelt : Vehicle {
+		@Safety {
+			level = 1;
+		}
+		@Safety {
+			severity = 3;
+		}
+	}
+}
+`
+	ctx, _, err := evalDeclaredExpr(t, src, "test::seatBelt.metadata")
+	if err == nil {
+		t.Fatal("the failing annotation succeeded, want a typed error")
+	}
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("error %v, want a type mismatch", err)
+	}
+	if live := len(ctx.instances); live != 0 {
+		t.Errorf("%d object(s) outlived the failed access, want none", live)
+	}
+	if created := len(ctx.created); created != 0 {
+		t.Errorf("%d object(s) stay registered as created, want none", created)
+	}
+}

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -140,5 +141,29 @@ func TestInfinityCapability(t *testing.T) {
 		if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityInfinityValue) {
 			t.Errorf("ExecuteAction with %s input without %s: err = %v, want UNIMPLEMENTED naming the capability", name, CapabilityInfinityValue, err)
 		}
+	}
+}
+
+// TestProtoToValueRefusesAFalseInfinityArm refuses the infinity arm sent as
+// false, directly and nested: the arm is the unbounded value itself, so false
+// states no value and must not be read as one.
+func TestProtoToValueRefusesAFalseInfinityArm(t *testing.T) {
+	false_ := &pb.Value{Kind: &pb.Value_Infinity{Infinity: false}}
+	for _, tc := range []struct {
+		name string
+		sent *pb.Value
+	}{
+		{"directly", false_},
+		{"in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{false_}}}}},
+		{"in an array", &pb.Value{Kind: &pb.Value_Array{Array: &pb.Array{Dimensions: []int64{1}, Elements: []*pb.Value{false_}}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := ProtoToValueIn(tc.sent, nil, nil); !errors.Is(err, ErrInfinityNotAsserted) {
+				t.Errorf("error %v, want the infinity arm refused", err)
+			}
+		})
+	}
+	if got, err := ProtoToValueIn(infinityValue(), nil, nil); err != nil || !got.Const.IsUnbounded() {
+		t.Errorf("infinity: true read as %v (%v), want the unbounded value", got.Kind, err)
 	}
 }

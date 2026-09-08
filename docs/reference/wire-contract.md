@@ -283,7 +283,10 @@ decode(v):
                  require v.measurementRef.unitTerm when either is present, else an error;
                  require unit or id, else an error; id absent means a composed unit
   infinity     → the language's unbounded sentinel, distinct from a number and from the
-                 string "*"; it compares above every finite number and equals itself
+                 string "*"; it compares above every finite number and equals itself.
+                 The arm is the value itself, so only true carries it: a caller sending
+                 infinity: false, directly or nested, is answered with an error rather
+                 than with the unbounded value
   anything else → an error: a newer service than this decoder
 ```
 

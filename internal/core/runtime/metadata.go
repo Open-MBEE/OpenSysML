@@ -22,15 +22,24 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 			ErrTypeMismatch, ec.ctx.qualifiedSymbolName(sym))
 	}
 	annotations := ec.ctx.model.ElementMetadataOf(sym)
+	// One access materializes every annotation or none: an annotation that fails
+	// leaves behind no object of the ones read before it.
+	mark := len(ec.ctx.created)
 	values := make([]Value, 0, len(annotations))
 	for _, annotation := range annotations {
 		val, err := ec.metadataInstance(annotation)
 		if err != nil {
+			ec.ctx.abandonInstancesSince(mark)
 			return Value{}, err
 		}
 		values = append(values, val)
 	}
-	return ec.newSequence(values)
+	seq, err := ec.newSequence(values)
+	if err != nil {
+		ec.ctx.abandonInstancesSince(mark)
+		return Value{}, err
+	}
+	return seq, nil
 }
 
 // metadataSubject is the element `ref.metadata` reads the metadata of. A name
@@ -70,30 +79,26 @@ func metadataOfAValue(value Value, parts []ast.NameSegment) error {
 
 // metadataInstance materializes one annotation as an object of its metadata
 // type, with the features its body binds set to the values they are bound to;
-// the remaining features keep the defaults the type declares.
+// the remaining features keep the defaults the type declares. Its caller
+// abandons what a failure left created.
 func (ec *EvalContext) metadataInstance(annotation semantics.ElementMetadata) (Value, error) {
 	ctx := ec.ctx
-	mark := len(ctx.created)
 	inst, err := ctx.materialize(annotation.Type, 0, nil, "")
 	if err != nil {
-		ctx.abandonInstancesSince(mark)
 		return Value{}, fmt.Errorf("metadata %s: %w", ctx.qualifiedSymbolName(annotation.Type), err)
 	}
 	body := NewEvalContext(ctx, annotation.Scope)
 	for _, binding := range annotation.Bindings {
 		if fv, held := inst.FeatureValues[binding.Feature]; !held || fv == nil {
-			ctx.abandonInstancesSince(mark)
 			return Value{}, fmt.Errorf("%w: metadata %s declares no feature %s",
 				ErrTypeMismatch, ctx.qualifiedSymbolName(annotation.Type), binding.Feature)
 		}
 		val, err := body.Eval(binding.Value)
 		if err != nil {
-			ctx.abandonInstancesSince(mark)
 			return Value{}, fmt.Errorf("metadata %s: %s: %w",
 				ctx.qualifiedSymbolName(annotation.Type), binding.Feature, err)
 		}
 		if err := inst.SetFeatureValue(ctx, binding.Feature, val); err != nil {
-			ctx.abandonInstancesSince(mark)
 			return Value{}, fmt.Errorf("metadata %s: %w", ctx.qualifiedSymbolName(annotation.Type), err)
 		}
 	}
