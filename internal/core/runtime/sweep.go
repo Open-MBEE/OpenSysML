@@ -307,12 +307,20 @@ func (s sweepScalar) magnitudeIn(unit semantics.Unit, quantity bool, what string
 		return 0, fmt.Errorf("%w: %s and the first endpoint do not both carry a unit", ErrSweepRange, what)
 	}
 	if !quantity {
-		return s.num.AsReal(), nil
+		return finiteMagnitude(s.num.AsReal(), what)
 	}
 	q := Quantity{Num: s.num, Unit: s.unit}
 	m, err := q.ConvertTo(unit)
 	if err != nil {
 		return 0, fmt.Errorf("%w: %s is expressed in %s, not in %s", ErrSweepRange, what, s.unit, unit)
+	}
+	return finiteMagnitude(m, what)
+}
+
+// finiteMagnitude refuses a magnitude no sequence of values runs between.
+func finiteMagnitude(m float64, what string) (float64, error) {
+	if math.IsNaN(m) || math.IsInf(m, 0) {
+		return 0, fmt.Errorf("%w: %s is not a finite number", ErrSweepRange, what)
 	}
 	return m, nil
 }
@@ -330,7 +338,9 @@ func (r SweepRange) endpoints() (sweepBounds, error) {
 		return sweepBounds{}, err
 	}
 	bounds := sweepBounds{unit: from.unit, quantity: from.quantity}
-	bounds.from = from.num.AsReal()
+	if bounds.from, err = finiteMagnitude(from.num.AsReal(), "range start "+FormatValue(r.From)); err != nil {
+		return sweepBounds{}, err
+	}
 	if bounds.to, err = to.magnitudeIn(from.unit, from.quantity, "range end "+FormatValue(r.To)); err != nil {
 		return sweepBounds{}, err
 	}

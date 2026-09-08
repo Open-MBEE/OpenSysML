@@ -16,6 +16,7 @@ const sweepModel = `package Sw {
 	calc def Plus { in a : Integer; in b : Integer; return : Integer = a + b; }
 	calc def Ratio { in a : Real; in b : Real; return : Real = a / b; }
 	calc def Reach { in v : Real; in t : Real; return : Real = v * t; }
+	calc def Lift { in 'launch mass' : Integer; return : Integer = 'launch mass' * 2; }
 	part def Ship { attribute cost : Real = 5.0; }
 	analysis def Priced {
 		subject s : Ship;
@@ -269,4 +270,22 @@ func TestRunSweepVerdict(t *testing.T) {
 func TestSweepCommandsAreInHelp(t *testing.T) {
 	s := sweepSession(t)
 	wants(t, run(t, s, "%help"), "%sweep", "%samples")
+}
+
+// A parameter whose name needs the quotes of an unrestricted name is swept
+// under that name, as it is written in the model.
+func TestSweepOverAnUnrestrictedParameterName(t *testing.T) {
+	s := sweepSession(t)
+	got := sweepTable(run(t, s, "%sweep Sw::Lift 'launch mass'=1..3"))
+	want := strings.Join([]string{
+		"sweep Sw::Lift — 3 run(s)",
+		"launch mass | result | time",
+		"-+-+-",
+		"1           | 2      | <time>",
+		"2           | 4      | <time>",
+		"3           | 6      | <time>",
+	}, "\n")
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
 }

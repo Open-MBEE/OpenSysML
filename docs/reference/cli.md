@@ -477,8 +477,8 @@ included; a quantity range's endpoints and step must be compatible, and the valu
 to the unit `<from>` is written in. `<to>` is included when the step lands on it. A range between
 Integers with no `:<step>` steps by one, up or down as the endpoints direct; a range between Reals
 with no step is refused, because no step is the obviously intended one. A step of zero, a step
-whose sign never reaches `<to>`, an endpoint that is no number, a parameter the case or calc does
-not declare, a case's subject — which an `-instantiate`d object binds, not a range — a parameter
+whose sign never reaches `<to>`, an endpoint that is no number or is not finite, a parameter the
+case or calc does not declare, a case's subject — which an `-instantiate`d object binds, not a range — a parameter
 the arguments already bind, by name or by holding the position it is bound from, and a
 `-sweep`/`-samples` without an `-analysis` or `-calc` are each refused with status 2 before any
 run is made.

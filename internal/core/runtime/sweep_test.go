@@ -802,3 +802,51 @@ func TestSamplesOverAQuantityIntegerRangeStayIntegers(t *testing.T) {
 		t.Errorf("16 draws took %d distinct value(s); want them spread over the range", len(spread))
 	}
 }
+
+// A range whose endpoint or step is not a finite number states no run to make,
+// stepped or drawn, so it is refused before any row is counted.
+func TestSweepNonFiniteRangeIsRefused(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	quantity := func(m float64) Value {
+		return NewQuantityValue(&Quantity{
+			Num:  semantics.Value{Kind: semantics.ValReal, Real: m},
+			Unit: Unit{Text: "SI::m", Term: semantics.UnitTerm{Scale: semantics.UnitScale(1)}},
+		})
+	}
+	kilometre := NewQuantityValue(&Quantity{
+		Num:  semantics.Value{Kind: semantics.ValReal, Real: 1},
+		Unit: Unit{Text: "SI::km", Term: semantics.UnitTerm{Scale: semantics.UnitScale(1000)}},
+	})
+	cases := []struct {
+		name string
+		plan SweepPlan
+	}{
+		{"start is not a number", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", realOf(math.NaN()), realOf(4), realOf(1))}}},
+		{"end is not a number", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", realOf(0), realOf(math.NaN()), realOf(1))}}},
+		{"step is not a number", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", realOf(0), realOf(4), realOf(math.NaN()))}}},
+		{"start is infinite", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", realOf(math.Inf(-1)), realOf(4), realOf(1))}}},
+		{"end is infinite", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", realOf(0), realOf(math.Inf(1)), realOf(1))}}},
+		{"step is infinite", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", realOf(0), realOf(4), realOf(math.Inf(1)))}}},
+		{"a drawn range is infinite", SweepPlan{
+			Ranges:  []SweepRange{rangeOf("a", realOf(0), realOf(math.Inf(1)))},
+			Sampled: true, Samples: 3, Seed: 7}},
+		{"an endpoint carrying a unit is infinite", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", quantity(0), quantity(math.Inf(1)), quantity(1))}}},
+		{"a converted endpoint is not a number", SweepPlan{
+			Ranges: []SweepRange{steppedRange("a", quantity(math.NaN()), kilometre, quantity(1))}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := refuseSweep(t, ctx, scope, "Ratio", tc.plan)
+			if !errors.Is(err, ErrSweepRange) || !strings.Contains(err.Error(), "finite") {
+				t.Errorf("err = %v; want an ErrSweepRange naming a non-finite number", err)
+			}
+		})
+	}
+}

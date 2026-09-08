@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 	"testing"
@@ -465,5 +466,62 @@ func TestRunSweepRefusesSweepingTheSubject(t *testing.T) {
 	})
 	if !strings.Contains(resp.Error, "subject") || len(resp.Rows) != 0 {
 		t.Errorf("error = %q with %d row(s); want a refusal naming the subject", resp.Error, len(resp.Rows))
+	}
+}
+
+// TestRunSweepRefusesNonFiniteRanges verifies a range whose endpoint or step is
+// not a finite number states no run to make and is refused as a whole.
+func TestRunSweepRefusesNonFiniteRanges(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-non-finite")
+
+	cases := []struct {
+		name  string
+		start float64
+		end   float64
+		step  float64
+	}{
+		{"start is not a number", math.NaN(), 4, 1},
+		{"end is not a number", 0, math.NaN(), 1},
+		{"step is not a number", 0, 4, math.NaN()},
+		{"end is infinite", 0, math.Inf(1), 1},
+		{"start is infinite", math.Inf(-1), 4, 1},
+		{"step is infinite", 0, 4, math.Inf(1)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := runSweep(t, srv, &pb.RunSweepRequest{
+				ModelHash: hash, SymbolId: "Sw::Ratio",
+				NamedArguments: map[string]*pb.Value{"b": realProto(2)},
+				Ranges: []*pb.SweepRange{{
+					Parameter: "a", Start: realProto(tc.start),
+					End: realProto(tc.end), Step: realProto(tc.step),
+				}},
+			})
+			if !strings.Contains(resp.Error, "finite") || len(resp.Rows) != 0 {
+				t.Errorf("error = %q with %d row(s); want a refusal naming a non-finite number",
+					resp.Error, len(resp.Rows))
+			}
+		})
+	}
+}
+
+// TestRunSweepRefusesSamplingANonFiniteRange verifies a drawn range is refused
+// for the same reason a stepped one is: no draw lies in it.
+func TestRunSweepRefusesSamplingANonFiniteRange(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-non-finite-samples")
+
+	resp := runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::Ratio",
+		NamedArguments: map[string]*pb.Value{"b": realProto(2)},
+		Ranges: []*pb.SweepRange{{
+			Parameter: "a", Start: realProto(0), End: realProto(math.Inf(1)),
+		}},
+		Samples: 3, Seed: 7,
+	})
+	if !strings.Contains(resp.Error, "finite") || len(resp.Rows) != 0 {
+		t.Errorf("error = %q with %d row(s); want a refusal naming a non-finite number",
+			resp.Error, len(resp.Rows))
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -429,27 +430,67 @@ func specStartAfter(text string, from int) int {
 }
 
 // specNameStart indexes the start of the name bound at eq, -1 when what
-// precedes it is not one bare name.
+// precedes it is not one name: a bare one, or an unrestricted one in quotes.
 func specNameStart(text string, eq int) int {
 	start := eq
-	for start > 0 && isSpecNameByte(text[start-1]) {
-		start--
-	}
-	if start == eq {
-		return -1
+	if eq > 0 && text[eq-1] == '\'' {
+		if start = quotedNameStart(text, eq-1); start < 0 {
+			return -1
+		}
+	} else {
+		for start > 0 {
+			r, width := utf8.DecodeLastRuneInString(text[:start])
+			if !isSpecNameRune(r) {
+				break
+			}
+			start -= width
+		}
+		if start == eq {
+			return -1
+		}
+		if first, _ := utf8.DecodeRuneInString(text[start:]); unicode.IsDigit(first) {
+			return -1
+		}
 	}
 	if start > 0 && !isSpace(text[start-1]) {
-		return -1
-	}
-	if unicode.IsDigit(rune(text[start])) {
 		return -1
 	}
 	return start
 }
 
-// isSpecNameByte reports whether b may spell part of a parameter's name.
-func isSpecNameByte(b byte) bool {
-	return b == '_' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9'
+// quotedNameStart indexes the quote opening the unrestricted name closed at
+// end, -1 when no quote opens there.
+func quotedNameStart(text string, end int) int {
+	open, q := -1, quoteTracker{}
+	for i, r := range text[:end+1] {
+		was := q.quote
+		if !q.inside(r) {
+			continue
+		}
+		if was == 0 && q.quote == '\'' {
+			open = i
+		} else if was == '\'' && q.quote == 0 {
+			if i == end {
+				return open
+			}
+			open = -1
+		}
+	}
+	return -1
+}
+
+// isSpecNameRune reports whether r may spell part of a bare parameter name.
+func isSpecNameRune(r rune) bool {
+	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+}
+
+// unquoteSpecName is a parameter's name as the model spells it: an unrestricted
+// name loses its quotes, as a declared name does when it is parsed.
+func unquoteSpecName(name string) string {
+	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
+		return name[1 : len(name)-1]
+	}
+	return name
 }
 
 // isSpace reports whether b separates words on a command line.
@@ -466,7 +507,7 @@ func parseSweepSpec(text string) (sweepSpec, error) {
 		return sweepSpec{}, fmt.Errorf("%w: %q is not written as <parameter>=<from>..<to>[:<step>]",
 			runtime.ErrSweepRange, text)
 	}
-	spec := sweepSpec{param: strings.TrimSpace(text[:eq]), text: text}
+	spec := sweepSpec{param: unquoteSpecName(strings.TrimSpace(text[:eq])), text: text}
 	if spec.param == "" {
 		return sweepSpec{}, fmt.Errorf("%w: %q names no parameter", runtime.ErrSweepParameter, text)
 	}

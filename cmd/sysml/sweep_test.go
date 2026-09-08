@@ -14,6 +14,7 @@ const sweepCLIModel = `package Sw {
     private import ScalarValues::*;
     calc def Twice { in n : Integer; return : Integer = n * 2; }
     calc def Ratio { in a : Real; in b : Real; return : Real = a / b; }
+    calc def Lift { in 'launch mass' : Integer; return : Integer = 'launch mass' * 2; }
     part def Ship { attribute cost : Real = 5.0; }
     analysis def Priced {
         subject s : Ship;
@@ -265,5 +266,26 @@ func TestSweepRefusalsThroughCLI(t *testing.T) {
 				t.Errorf("report is\n%s\nwant it to name %q", got.output(), tc.wants)
 			}
 		})
+	}
+}
+
+// TestSweepUnrestrictedParameterThroughCLI checks that a parameter whose name
+// needs the quotes of an unrestricted name is swept under that name.
+func TestSweepUnrestrictedParameterThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, sweepCLIModel, "-calc", "Sw::Lift", "-sweep", "'launch mass'=1..3")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	want := strings.Join([]string{
+		"launch mass | result | time",
+		"-+-+-",
+		"1           | 2      | <time>",
+		"2           | 4      | <time>",
+		"3           | 6      | <time>",
+	}, "\n")
+	if table := sweepTable(got.output()); !strings.Contains(table, want) {
+		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
 	}
 }

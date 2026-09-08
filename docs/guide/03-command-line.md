@@ -371,7 +371,7 @@ refused rather than guessed at. Several `-sweep` flags run their cartesian produ
 flag varying slowest. A run that fails is a row numbering its error, printed in full under the
 table, and the runs after it are still made, so a sweep through a singularity reports which
 value broke rather than losing the table. A step of zero, a step whose sign never reaches
-`<to>`, a unit that does not convert, a parameter the target declares none of, a case's subject,
+`<to>`, an endpoint or step that is not a finite number, a unit that does not convert, a parameter the target declares none of, a case's subject,
 one the arguments already bind, and a sweep or sample without an `-analysis`/`-calc` are refused:
 
 ```bash
