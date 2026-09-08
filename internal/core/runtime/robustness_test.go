@@ -22,6 +22,7 @@ import (
 
 func TestRuntimeRobustness(t *testing.T) {
 	t.Run("deadlock_join_starvation", testDeadlockJoinStarvation)
+	t.Run("deadlock_join_same_succession_twice", testDeadlockJoinSameSuccessionTwice)
 	t.Run("nested_flow_without_an_initial_node", testNestedFlowWithoutAnInitialNode)
 	t.Run("nested_flow_with_a_dangling_succession", testNestedFlowWithADanglingSuccession)
 	t.Run("nested_flow_that_cannot_progress", testNestedFlowThatCannotProgress)
@@ -4927,6 +4928,53 @@ func testDeadlockJoinStarvation(t *testing.T) {
 	}
 	if !errors.Is(err, ErrActionDeadlock) {
 		t.Errorf("expected ErrActionDeadlock, got: %v", err)
+	}
+}
+
+// testDeadlockJoinSameSuccessionTwice: two tokens reach the join over the one
+// succession from the merge; they do not stand in for the succession from
+// `stranded`, which no token can travel, so the join never fires.
+func testDeadlockJoinSameSuccessionTwice(t *testing.T) {
+	src := `
+		package test {
+			action starve {
+				first start;
+				fork split;
+				action a;
+				action b;
+				merge m;
+				action stranded;
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then m;
+				succession first b then m;
+				succession first m then sync;
+				succession first stranded then sync;
+				succession first sync then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "starve", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action starve not found")
+	}
+
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	if err := exec.RunToCompletion(); !errors.Is(err, ErrActionDeadlock) {
+		t.Fatalf("error = %v, want ErrActionDeadlock", err)
+	}
+	for _, token := range exec.Tokens() {
+		if awaiting := exec.Awaiting(token); len(awaiting) != 1 {
+			t.Errorf("token %d awaits %d successions, want the one from stranded", token.ID, len(awaiting))
+		}
 	}
 }
 

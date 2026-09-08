@@ -2385,12 +2385,11 @@ func (s *Session) doTokens() ([]string, bool, error) {
 
 	out := []string{fmt.Sprintf("Active tokens (%d):", len(tokens))}
 	for _, tok := range tokens {
-		locName := runtime.ActionNodeName(tok.Location)
-		if locName == "" {
-			locName = anonymousNodeLabel(tok.Location)
+		line := fmt.Sprintf("  Token %d @ %s", tok.ID, nodeLabel(tok.Location))
+		if awaiting := exec.Awaiting(tok); len(awaiting) > 0 {
+			line += fmt.Sprintf(" (arrived from %s; awaiting %s)", nodeLabel(tok.Via.Source), sourceLabels(awaiting))
 		}
-
-		out = append(out, fmt.Sprintf("  Token %d @ %s", tok.ID, locName))
+		out = append(out, line)
 	}
 
 	// A token carries no values of its own: it reads and writes the features of
@@ -2403,6 +2402,23 @@ func (s *Session) doTokens() ([]string, bool, error) {
 	}
 
 	return out, false, nil
+}
+
+// nodeLabel names a node, or describes one that declares no name by kind.
+func nodeLabel(node ast.Node) string {
+	if name := runtime.ActionNodeName(node); name != "" {
+		return name
+	}
+	return anonymousNodeLabel(node)
+}
+
+// sourceLabels lists the nodes the successions leave, comma-separated.
+func sourceLabels(edges []lower.ActionEdge) string {
+	labels := make([]string, len(edges))
+	for i, edge := range edges {
+		labels[i] = nodeLabel(edge.Source)
+	}
+	return strings.Join(labels, ", ")
 }
 
 // anonymousNodeLabel describes a node that declares no name, by kind.

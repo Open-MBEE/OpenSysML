@@ -75,9 +75,10 @@ type ActionGraph struct {
 	BlockNodes map[ast.Node][]ast.Node
 }
 
-// ActionEdge is one succession out of a node: the target it reaches, the guard
-// it carries, and the declaration it was written as.
+// ActionEdge is one succession out of a node: the node it leaves, the target it reaches, the
+// guard it carries and its declaration (nil when implicit). No two edges of a graph compare equal.
 type ActionEdge struct {
+	Source ast.Node
 	Target ast.Node
 	Guard  ast.Node
 	Decl   ast.Node
@@ -445,6 +446,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 					return nil, fmt.Errorf("initial node %s successor references undefined target %s", n.Name, edgeEndName(n.Successor))
 				}
 				graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
+					Source: sourceNode,
 					Target: targetNode,
 					Guard:  n.Guard,
 					Decl:   n,
@@ -461,6 +463,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				return nil, fmt.Errorf("succession edge references undefined target node %s", edgeEnd(n.Target, n.TargetMember))
 			}
 			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
+				Source: sourceNode,
 				Target: targetNode,
 				Decl:   n,
 			})
@@ -475,6 +478,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				return nil, fmt.Errorf("control flow edge references undefined target %s", edgeEnd(n.Target, n.TargetMember))
 			}
 			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
+				Source: sourceNode,
 				Target: targetNode,
 				Guard:  n.Guard,
 				Decl:   n,
@@ -489,6 +493,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				return nil, fmt.Errorf("succession references undefined target node %s", edgeEndName(n.Target))
 			}
 			graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
+				Source: sourceNode,
 				Target: targetNode,
 				Guard:  n.Guard,
 				Decl:   n,
@@ -550,6 +555,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 					return nil, fmt.Errorf("action succession references undefined target node %s", successionEndText(targetRef))
 				}
 				graph.Edges[sourceNode] = append(graph.Edges[sourceNode], ActionEdge{
+					Source: sourceNode,
 					Target: targetNode,
 					Decl:   n,
 				})

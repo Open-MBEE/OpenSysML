@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"n": {"type": "Integer", "value": 2},
+		"m": {"type": "Integer", "value": 2},
+		"log": {"type": "Integer", "value": 1212}
+	}
+}

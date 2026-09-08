@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"took": {"type": "Integer", "value": 2},
+		"hits": {"type": "Integer", "value": 1}
+	}
+}
