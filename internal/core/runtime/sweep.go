@@ -540,7 +540,11 @@ func signedInt(n uint64) int64 {
 // rounding error a step landing on it drifts by but never part of a step.
 func (b sweepBounds) endLimit() float64 {
 	slack := math.Min(1e-12*math.Max(math.Abs(b.to), math.Abs(b.step)), math.Abs(b.step)/2)
-	return b.to + math.Copysign(slack, b.step)
+	limit := b.to + math.Copysign(slack, b.step)
+	if math.IsInf(limit, 0) {
+		return b.to
+	}
+	return limit
 }
 
 // draw is one uniform value of a sampled range: an Integer range draws over its

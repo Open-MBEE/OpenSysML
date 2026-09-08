@@ -921,3 +921,24 @@ func TestSweepRefusesWideRealRangesPromptly(t *testing.T) {
 		}
 	}
 }
+
+// A range whose end is as large as the reals reach still runs: allowing its end
+// a rounding error must not push the end itself out of range.
+func TestSweepRunsToTheLargestRealEndpoint(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges: []SweepRange{
+			steppedRange("a", realOf(0), realOf(math.MaxFloat64), realOf(math.MaxFloat64/2)),
+			steppedRange("b", realOf(1), realOf(1), realOf(1)),
+		},
+	})
+	want := []float64{0, math.MaxFloat64 / 2, math.MaxFloat64}
+	if len(table.Rows) != len(want) {
+		t.Fatalf("the range took %d run(s); want %d", len(table.Rows), len(want))
+	}
+	for i, value := range want {
+		if got := table.Rows[i].Bindings[0].Value.Const.Real; got != value {
+			t.Errorf("row %d ran a = %v; want %v", i, got, value)
+		}
+	}
+}
