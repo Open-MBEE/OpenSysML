@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -122,7 +123,7 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 		// the value checks and reports on them; their types are then read silently.
 		if elements, collection := ec.model.CollectionElements(valueScope, element); collection {
 			ec.infer(valueScope, element)
-			silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
+			silent := ec.silent()
 			for _, produced := range elements {
 				if produced.Node != nil {
 					ec.checkScalarBinding(produced.Node, silent.infer(produced.Scope, produced.Node), want)
@@ -348,7 +349,7 @@ func (ec *exprChecker) inferIndex(scope *symbols.Scope, e *ast.IndexExpr) semant
 	// what walks them, so they are not inferred a second time below.
 	var elem semantics.PrimType
 	if seq, isSeq := e.Operand.(*ast.SequenceExpr); isSeq {
-		elem = ec.commonElementType(scope, seq)
+		elem = ec.commonElementType(scope, seq.Elements)
 	} else {
 		elem = ec.infer(scope, e.Operand)
 	}
@@ -410,10 +411,10 @@ func isLiteral(n ast.Node) bool {
 // expression conforms to, or PrimUnknown where they have none in common or any
 // one of them has no known type: PrimConforms holds of PrimUnknown either way
 // round, so it decides conformance but cannot merge types.
-func (ec *exprChecker) commonElementType(scope *symbols.Scope, seq *ast.SequenceExpr) semantics.PrimType {
+func (ec *exprChecker) commonElementType(scope *symbols.Scope, elements []ast.Node) semantics.PrimType {
 	common := semantics.PrimUnknown
 	unknown := false
-	for i, el := range seq.Elements {
+	for i, el := range elements {
 		elem := ec.infer(scope, el)
 		if elem == semantics.PrimUnknown {
 			// Every element is still typed, so an error inside one is reported.
@@ -818,10 +819,10 @@ func (ec *exprChecker) inferInvocation(scope *symbols.Scope, e *ast.InvocationEx
 // call).
 func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.InvocationExpr, node *symbols.Symbol) semantics.PrimType {
 	args := InvocationArgs(e)
-	// Typed once and reused by checkArguments, so nested errors report once.
+	// Typed once, for selecting the overload, so nested errors report once.
 	argTypes := ec.argumentTypes(scope, e)
 	if chain := ChainCallee(e); chain != nil {
-		return ec.inferChainInvocation(scope, e, chain, args, argTypes, node)
+		return ec.inferChainInvocation(scope, e, chain, args, node)
 	}
 	if e.Type == nil {
 		for _, arg := range e.NamedArgs {
@@ -883,7 +884,7 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	if !ok {
 		return semantics.PrimUnknown
 	}
-	ec.checkArguments(scope, invocation{e, sym, args, argTypes, params}, considered)
+	ec.checkArguments(scope, invocation{e, sym, args, params}, considered)
 	if considered != nil {
 		return semantics.PrimUnknown
 	}
@@ -892,7 +893,7 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 
 // inferChainInvocation is inferNodeInvocation for `x.f(a)`: the chain names the
 // calc feature applied, whose effective inputs the arguments bind.
-func (ec *exprChecker) inferChainInvocation(scope *symbols.Scope, e *ast.InvocationExpr, chain *ast.FeatureChainExpr, args []ast.Node, argTypes argumentTypes, node *symbols.Symbol) semantics.PrimType {
+func (ec *exprChecker) inferChainInvocation(scope *symbols.Scope, e *ast.InvocationExpr, chain *ast.FeatureChainExpr, args []ast.Node, node *symbols.Symbol) semantics.PrimType {
 	ec.infer(scope, chain)
 	sym, ok := ec.resolver.ResolveTarget(scope, chain)
 	if !ok || sym == nil {
@@ -917,7 +918,7 @@ func (ec *exprChecker) inferChainInvocation(scope *symbols.Scope, e *ast.Invocat
 	if !ok {
 		return semantics.PrimUnknown
 	}
-	ec.checkArguments(scope, invocation{e, sym, args, argTypes, params}, nil)
+	ec.checkArguments(scope, invocation{e, sym, args, params}, nil)
 	return ec.model.PrimTypeOf(ec.model.ResultParameterOf(sym))
 }
 
@@ -940,19 +941,18 @@ func listing(report reporter, considered []*symbols.Symbol) reporter {
 const msgInvocationParameterRedefinition = "Must correspond to one input parameter of the invoked type"
 
 // invocation is a call under argument checking: the expression, the behavior it names,
-// its positional arguments and their types, and the `in` parameters.
+// its positional arguments, and the `in` parameters.
 type invocation struct {
-	e        *ast.InvocationExpr
-	sym      *symbols.Symbol
-	args     []ast.Node
-	argTypes argumentTypes
-	params   []parameter
+	e      *ast.InvocationExpr
+	sym    *symbols.Symbol
+	args   []ast.Node
+	params []parameter
 }
 
 // checkArguments reports the arguments of the call that do not bind to its `in` parameters,
 // listing considered (the other declarations the call could name) on each report.
 func (ec *exprChecker) checkArguments(scope *symbols.Scope, call invocation, considered []*symbols.Symbol) {
-	e, sym, args, argTypes, params := call.e, call.sym, call.args, call.argTypes, call.params
+	e, sym, args, params := call.e, call.sym, call.args, call.params
 	report := listing(ec.errorf, considered)
 	advise := listing(func(span source.Span, format string, args ...any) {
 		ec.warnCode(CodeUnboundParameter, span, format, args...)
@@ -966,8 +966,8 @@ func (ec *exprChecker) checkArguments(scope *symbols.Scope, call invocation, con
 		return
 	}
 	for i, arg := range args {
-		if mismatch := ec.argumentMismatch(arg, argTypes.positional[i], params[i]); mismatch != "" {
-			report(arg.Span(), "argument %d of %s %s", i+1, sym.Name, mismatch)
+		for _, m := range ec.argumentMismatches(scope, arg, params[i]) {
+			report(m.span, "argument %d of %s %s", i+1, sym.Name, m.why)
 		}
 	}
 	// Arguments bind in order, so the parameters past the last one are unbound.
@@ -985,13 +985,11 @@ const msgUnboundParameter = "%s leaves parameter %s unbound, so the call cannot 
 // positional argument binds the feature at its position, a label the feature it
 // names, and a feature is bound at most once.
 func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.ConstructorExpr) semantics.PrimType {
-	argTypes := make([]semantics.PrimType, len(e.Args))
-	for i, a := range e.Args {
-		argTypes[i] = ec.infer(scope, a)
+	for _, a := range e.Args {
+		ec.infer(scope, a)
 	}
-	namedTypes := make([]semantics.PrimType, len(e.NamedArgs))
-	for i, na := range e.NamedArgs {
-		namedTypes[i] = ec.infer(scope, na.Value)
+	for _, na := range e.NamedArgs {
+		ec.infer(scope, na.Value)
 	}
 	if e.Type == nil {
 		return semantics.PrimUnknown
@@ -1019,9 +1017,9 @@ func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.Constructor
 			break
 		}
 		bound[features[i]] = true
-		ec.checkFeatureBinding(scope, arg, argTypes[i], features[i], typ)
+		ec.checkFeatureBinding(scope, arg, features[i], typ)
 	}
-	for i, na := range e.NamedArgs {
+	for _, na := range e.NamedArgs {
 		if na.Name == nil {
 			continue
 		}
@@ -1045,26 +1043,41 @@ func (ec *exprChecker) inferConstructor(scope *symbols.Scope, e *ast.Constructor
 			continue
 		}
 		bound[slot] = true
-		ec.checkFeatureBinding(scope, na.Value, namedTypes[i], feature, typ)
+		ec.checkFeatureBinding(scope, na.Value, feature, typ)
 	}
 	return semantics.PrimUnknown
 }
 
-// checkFeatureBinding reports a constructor argument its feature cannot take: by
-// scalar type, by conformance to its declared or inherited type, or by count.
-func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, got semantics.PrimType, feature, typ *symbols.Symbol) {
+// checkFeatureBinding reports a constructor argument its feature cannot take: the values written
+// by scalar type together and by conformance to the feature's declared or inherited types each,
+// each element a collection value holds on its own, and the argument by count.
+func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, feature, typ *symbols.Symbol) {
 	u, ok := feature.Decl.(*ast.Usage)
 	if !ok {
 		return
 	}
-	// An argument with no scalar type (an object, a constructor) is checked by
+	want := ec.model.PrimTypeOf(feature)
+	wants := w8cMostSpecific(ec.model, ec.model.DeclaredFeatureTypes(feature))
+	written, held := ec.argumentElements(scope, arg)
+	// A value with no scalar type (an object, a constructor) is checked by
 	// conformance against the feature's types whether or not those are scalar.
-	if want := ec.model.PrimTypeOf(feature); want != semantics.PrimUnknown && got != semantics.PrimUnknown {
+	if got := ec.silent().commonElementType(scope, written); want != semantics.PrimUnknown && got != semantics.PrimUnknown {
 		if !bindable(arg, got, want) {
 			ec.errorf(arg.Span(), "%s of %s expects %s, found %s", feature.Name, typ.Name, want, got)
 		}
 	} else {
-		ec.checkObjectBinding(scope, arg, feature, typ)
+		for _, value := range written {
+			ec.checkObjectBinding(value, value.Span(), ec.argumentTypeSymbols(scope, value), wants, feature, typ)
+		}
+	}
+	for _, el := range held {
+		if got := ec.heldPrim(el); want != semantics.PrimUnknown && got != semantics.PrimUnknown {
+			if !bindable(el.Node, got, want) {
+				ec.errorf(heldSpan(el, arg), "%s of %s expects %s, found %s", feature.Name, typ.Name, want, got)
+			}
+			continue
+		}
+		ec.checkObjectBinding(el.Node, heldSpan(el, arg), el.Types, wants, feature, typ)
 	}
 	if held, known := ec.heldCount(scope, arg); known {
 		if r, ok := ec.effectiveRange(feature.OwnerScope, usageDecl(u), 0); ok {
@@ -1075,26 +1088,29 @@ func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, g
 	}
 }
 
-// checkObjectBinding checks each value of a constructor argument against the
-// non-scalar types its feature declares or inherits; a `new T(…)` is exactly a T.
-func (ec *exprChecker) checkObjectBinding(scope *symbols.Scope, arg ast.Node, feature, typ *symbols.Symbol) {
-	wants := w8cMostSpecific(ec.model, ec.model.DeclaredFeatureTypes(feature))
-	if len(wants) == 0 {
+// checkObjectBinding checks one value a constructor argument binds, typed gots, against wants,
+// the types its feature declares or inherits; a `new T(…)` is exactly a T, another may be a subtype.
+func (ec *exprChecker) checkObjectBinding(value ast.Node, at source.Span, gots, wants []*symbols.Symbol, feature, typ *symbols.Symbol) {
+	if len(gots) == 0 {
 		return
 	}
-	for _, value := range valueElements(arg) {
-		got := ec.argumentTypeSymbol(scope, value)
-		if got == nil {
+	_, exact := value.(*ast.ConstructorExpr)
+	for _, want := range wants {
+		if slices.ContainsFunc(gots, func(got *symbols.Symbol) bool {
+			return ec.model.Conforms(got, want) || (!exact && ec.model.Conforms(want, got))
+		}) {
 			continue
 		}
-		_, exact := value.(*ast.ConstructorExpr)
-		for _, want := range wants {
-			if ec.model.Conforms(got, want) || (!exact && ec.model.Conforms(want, got)) {
-				continue
-			}
-			ec.errorf(value.Span(), "%s of %s is typed by %s; cannot bind a value of type %s", feature.Name, typ.Name, want.Name, got.Name)
-		}
+		ec.errorf(at, "%s of %s is typed by %s; cannot bind a value of type %s", feature.Name, typ.Name, want.Name, typeNames(gots))
 	}
+}
+
+// argumentTypeSymbols is argumentTypeSymbol as a list, empty for none.
+func (ec *exprChecker) argumentTypeSymbols(scope *symbols.Scope, value ast.Node) []*symbols.Symbol {
+	if got := ec.argumentTypeSymbol(scope, value); got != nil {
+		return []*symbols.Symbol{got}
+	}
+	return nil
 }
 
 // argumentTypeSymbol resolves a value's type in scope (feature reference or
@@ -1141,7 +1157,7 @@ func (ec *exprChecker) memberOf(typ, feature *symbols.Symbol) bool {
 // not bind to it, a parameter bound twice (by whichever name or position), and advises
 // of default-less parameters no argument names.
 func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation, report, advise reporter) {
-	e, sym, args, argTypes, params := call.e, call.sym, call.args, call.argTypes, call.params
+	e, sym, args, params := call.e, call.sym, call.args, call.params
 	// A receiver binds by position, which named arguments leave unstated; runtime/eval.go
 	// reports the same call.
 	if e.Operand != nil && ChainCallee(e) == nil {
@@ -1155,12 +1171,12 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 	bound := make([]bool, len(params))
 	for i, arg := range args {
 		bound[i] = true
-		if mismatch := ec.argumentMismatch(arg, argTypes.positional[i], params[i]); mismatch != "" {
-			report(arg.Span(), "argument %d of %s %s", i+1, sym.Name, mismatch)
+		for _, m := range ec.argumentMismatches(scope, arg, params[i]) {
+			report(m.span, "argument %d of %s %s", i+1, sym.Name, m.why)
 		}
 	}
 	unknown := false
-	for i, arg := range e.NamedArgs {
+	for _, arg := range e.NamedArgs {
 		if arg.Name == nil || len(arg.Name.Parts) == 0 {
 			continue
 		}
@@ -1176,8 +1192,8 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 			continue
 		}
 		bound[at] = true
-		if mismatch := ec.argumentMismatch(arg.Value, argTypes.named[i], p); mismatch != "" {
-			report(arg.Value.Span(), "argument %s of %s %s", p.name(), sym.Name, mismatch)
+		for _, m := range ec.argumentMismatches(scope, arg.Value, p) {
+			report(m.span, "argument %s of %s %s", p.name(), sym.Name, m.why)
 		}
 	}
 	// A misspelt name is the likelier cause of a parameter left unbound.
@@ -1221,22 +1237,56 @@ func (ec *exprChecker) parameterPrimType(p parameter) semantics.PrimType {
 	return ec.declaredPrimType(p.scope(), p.usage.Relationships)
 }
 
-// argumentMismatch says why value, typed got, does not bind to p ("" when it does or a type is
-// unknown): a scalar parameter is judged by the lattice, any other by declared type, a Collection
-// taking any sequence and Element the element any argument names.
-func (ec *exprChecker) argumentMismatch(value ast.Node, got semantics.Argument, p parameter) string {
+// misbinding is a value an argument binds that does not bind to its parameter, and why.
+type misbinding struct {
+	span source.Span
+	why  string
+}
+
+// argumentMismatches says why value does not bind to p (none when it does or a type is unknown):
+// the values written are judged together, by the type a collection literal's elements share; each
+// element a collection value among them holds on its own.
+func (ec *exprChecker) argumentMismatches(scope *symbols.Scope, value ast.Node, p parameter) []misbinding {
+	var out []misbinding
+	written, held := ec.argumentElements(scope, value)
+	if len(written) > 0 {
+		got := ec.silent().argumentOf(scope, written)
+		if why := ec.argumentMismatch(value, got.Prim, symbolList(got.Type), p); why != "" {
+			out = append(out, misbinding{value.Span(), why})
+		}
+	}
+	for _, el := range held {
+		if why := ec.argumentMismatch(el.Node, ec.heldPrim(el), el.Types, p); why != "" {
+			out = append(out, misbinding{heldSpan(el, value), why})
+		}
+	}
+	return out
+}
+
+// symbolList is sym as a list, empty for nil.
+func symbolList(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil {
+		return nil
+	}
+	return []*symbols.Symbol{sym}
+}
+
+// argumentMismatch says why value, of scalar type prim and declared types, does not bind to p
+// ("" when it does or a type is unknown): a scalar parameter is judged by the lattice, any other
+// by declared type, a Collection taking any sequence and Element the element any argument names.
+func (ec *exprChecker) argumentMismatch(value ast.Node, prim semantics.PrimType, types []*symbols.Symbol, p parameter) string {
 	if want := ec.parameterPrimType(p); want != semantics.PrimUnknown {
-		if got.Prim == semantics.PrimUnknown || bindable(value, got.Prim, want) {
+		if prim == semantics.PrimUnknown || bindable(value, prim, want) {
 			return ""
 		}
-		return fmt.Sprintf("expects %s, found %s", want, got.Prim)
+		return fmt.Sprintf("expects %s, found %s", want, prim)
 	}
 	want := ec.declaredTypeSymbol(p.scope(), p.usage.Relationships)
-	if want == nil || got.Type == nil || semantics.IsCollection(want) || semantics.IsElementType(want) ||
-		ec.model.Conforms(got.Type, want) || ec.model.Conforms(want, got.Type) {
+	if want == nil || len(types) == 0 || semantics.IsCollection(want) || semantics.IsElementType(want) ||
+		ec.boundTypesConform(nil, types, []*symbols.Symbol{want}) {
 		return ""
 	}
-	return fmt.Sprintf("expects %s, found %s", want.Name, got.Type.Name)
+	return fmt.Sprintf("expects %s, found %s", want.Name, typeNames(types))
 }
 
 // isBehaviorKind reports the behavior kinds whose parameter lists are checked.

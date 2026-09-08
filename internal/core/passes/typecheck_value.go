@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -191,6 +192,46 @@ func valueElements(value ast.Node) []ast.Node {
 	return []ast.Node{value}
 }
 
+// argumentElements is the values an argument binds: those written — the argument, or the elements
+// of a collection literal — and, apart, each element a collection value among them holds.
+func (ec *exprChecker) argumentElements(scope *symbols.Scope, value ast.Node) (written []ast.Node, held []semantics.CollectionElement) {
+	for _, element := range valueElements(value) {
+		if elements, collection := ec.model.CollectionElements(scope, element); collection {
+			held = append(held, elements...)
+			continue
+		}
+		written = append(written, element)
+	}
+	return written, held
+}
+
+// heldSpan is where a held element is written, or the argument when a result parameter produces it.
+func heldSpan(el semantics.CollectionElement, argument ast.Node) source.Span {
+	if el.Node != nil {
+		return el.Node.Span()
+	}
+	return argument.Span()
+}
+
+// heldPrim is the scalar type of a held element, read silently — the collection value has been
+// typed and reported once already; a result parameter's by its type.
+func (ec *exprChecker) heldPrim(el semantics.CollectionElement) semantics.PrimType {
+	if el.Node != nil {
+		return ec.silent().infer(el.Scope, el.Node)
+	}
+	for _, t := range el.Types {
+		if prim := ec.model.PrimTypeOf(t); prim != semantics.PrimUnknown {
+			return prim
+		}
+	}
+	return semantics.PrimUnknown
+}
+
+// silent is a checker typing as ec does, under the same chains and performances, reporting nothing.
+func (ec *exprChecker) silent() *exprChecker {
+	return &exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
+}
+
 // declaredTypeSymbol returns the symbol a usage is typed by, or nil.
 func (ec *exprChecker) declaredTypeSymbol(scope *symbols.Scope, rels []*ast.Relationship) *symbols.Symbol {
 	if types := ec.declaredTypeSymbols(scope, rels); len(types) > 0 {
@@ -372,7 +413,7 @@ func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast
 	} else if inv.Type != nil {
 		// The arguments type silently, but under the chains being typed: one whose
 		// body reads the feature being valued would otherwise type it again.
-		silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
+		silent := ec.silent()
 		sym = silent.selectInvocation(scope, inv, silent.argumentTypes(scope, inv), ec.performs(inv)).Selected
 	}
 	if sym == nil || !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {

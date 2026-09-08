@@ -556,10 +556,64 @@ func TestArgumentCollectionResultIsJudged(t *testing.T) {
 		"argument 1 of Sail expects Boat, found Vehicle")
 	wantCollectionValueDiags(t, `part v = Drive(two->reduce { in a : Vehicle; in b : Vehicle; boat });`,
 		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `part v = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; boat });`,
+		"argument 1 of Drive expects Vehicle, found Boat")
 	wantCollectionValueDiags(t, `
 		part b = Sail(vs->collect { in v : Vehicle; boat });
 		part v = Drive(vs->select { in v : Vehicle; true });
 		part v4 = Drive(vs.?{ in v : Vehicle; true });
-		part v2 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; boat });
+		part v2 = Drive(two->reduce { in a : Vehicle; in b : Vehicle; one });
 		part v3 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; a });`)
+}
+
+// Each element a collection value holds is judged on its own, so a collection whose elements
+// share no type does not pass unjudged, and a literal an element spells binds exactly.
+func TestArgumentCollectionElementsAreJudgedSeverally(t *testing.T) {
+	wantCollectionValueDiags(t, `part b = Sail(vs.{ in v : Vehicle; (v, boat) });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail((boat, vs.{ in v : Vehicle; v }));`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part v = Drive(vs->collect { in v : Vehicle; (boat, v) });`,
+		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `
+		function Count { in n : Integer; return r : Integer; }
+		part n = Count(vs.{ in v : Vehicle; 1.5 });`,
+		"argument 1 of Count expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		function Count { in n : Integer; return r : Integer; }
+		part n = Count(n = vs->collect { in v : Vehicle; (1, 1.5) });`,
+		"argument n of Count expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		function Count { in n : Integer; return r : Integer; }
+		attribute h : Real;
+		part n = Count(vs.{ in v : Vehicle; 1 });
+		part n2 = Count(vs.{ in v : Vehicle; h });
+		part b = Sail((boat, vs.{ in v : Vehicle; boat }));`)
+}
+
+// A constructor argument binds each element a collection value holds to the feature: a mixed
+// collection is refused by the element that does not conform, a collected literal by its exact type.
+func TestConstructorCollectionElementsAreJudgedSeverally(t *testing.T) {
+	wantCollectionValueDiags(t, `
+		part def Fleet { part b : Boat; }
+		part f = new Fleet(vs.{ in v : Vehicle; (v, boat) });`,
+		"b of Fleet is typed by Boat; cannot bind a value of type Vehicle")
+	wantCollectionValueDiags(t, `
+		part def Fleet { part b : Boat; }
+		part f = new Fleet(b = (boat, vs.{ in v : Vehicle; v }));`,
+		"b of Fleet is typed by Boat; cannot bind a value of type Vehicle")
+	wantCollectionValueDiags(t, `
+		part def Fleet { attribute n : Integer; }
+		part f = new Fleet(vs.{ in v : Vehicle; 1.5 });`,
+		"n of Fleet expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		part def Fleet { attribute n : Integer; }
+		part f = new Fleet(n = vs->collect { in v : Vehicle; (1, 1.5) });`,
+		"n of Fleet expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		part def Fleet { part b : Boat; attribute n : Integer; }
+		attribute h : Real;
+		part f = new Fleet(vs.{ in v : Vehicle; boat }, vs.{ in v : Vehicle; 1 });
+		part f2 = new Fleet(n = vs.{ in v : Vehicle; h });
+		part f3 = new Fleet((boat, vs.{ in v : Vehicle; boat }));`)
 }
