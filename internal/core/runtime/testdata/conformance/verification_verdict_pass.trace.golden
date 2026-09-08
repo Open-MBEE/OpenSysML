@@ -1,0 +1,22 @@
+enter verification test::checkZeroed
+materialize: zeroed #1
+  eval feature zeroed -> instance#1
+  bind sensor = instance#1 [default]
+  stmt return
+          eval feature sensor -> instance#1
+        eval chain reading -> 0
+        eval literal 0 -> 0
+      eval operator == -> true
+      enter calc VerificationCases::PassIf
+        bind isPassing = true [argument]
+        stmt return
+            eval feature isPassing -> true
+            eval feature VerdictKind::pass -> VerdictKind::pass
+          eval operator if -> VerdictKind::pass
+      exit calc VerificationCases::PassIf -> VerdictKind::pass
+    eval invoke VerificationCases::PassIf -> VerdictKind::pass
+exit verification test::checkZeroed -> VerdictKind::pass
+    eval feature sensor -> instance#1
+  eval chain reading -> 0
+  eval literal 0 -> 0
+eval operator == -> true

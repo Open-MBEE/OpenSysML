@@ -178,6 +178,33 @@ top-level one is. `instantiate` names an instance case's type the same way.
   diagnostic — satisfying a requirement that states no condition. Set it
   instead of a verdict.
 
+### For Verification Cases (`RunVerification`)
+
+```json
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkZeroed",
+  "verdict": "pass",
+  "subcases": {"test::plan::checkDrifted": "fail"},
+  "verdicts": {"obj": "satisfied"}
+}
+```
+
+- `verdict`: the `VerdictKind` the run of the case's body produced — `pass` or
+  `fail` as the library's `PassIf` calculation computed it, `inconclusive` for a
+  body that bound no verdict value, `error` for a body whose run could not be
+  carried out.
+- `verdictDetail`: text the verdict carries, matched as a substring — the
+  message of an `error` verdict, or why an `inconclusive` one decided nothing.
+- `subcases`: the verdict of each verification case the body performs, by
+  qualified name. The library states no roll-up of a subcase's verdict into its
+  parent's, so each is stated on its own.
+- `evaluate`, `subject`, `inputs`, `bindings`, `outputs`, `verdicts` and `reads`
+  mean what they mean for an analysis case: a verification case runs the same
+  body and reports the same objective and assertion verdicts beside its own.
+  A case whose body could not run states no outputs or verdicts.
+
 ### For Instances (`Instantiate`)
 
 ```json

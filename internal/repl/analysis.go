@@ -94,16 +94,18 @@ func (s *Session) doAnalysis(tail string) ([]string, bool, error) {
 // analysisVerdict runs an analysis case and reports what it computed and
 // decided. A run that could not be made is unresolved; one whose objective or
 // assertion did not hold fails; one a check left undecided is unresolved too,
-// since it decided nothing about the model.
+// since it decided nothing about the model. A verification case answers with
+// the verdict of its body as well, which its status reports.
 func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 	label := inv.name
 	if inv.argText != "" {
 		label += "(" + strings.TrimSpace(inv.argText) + ")"
 	}
-	result, subject, subjectLabel, err := s.runAnalysis(inv)
+	run, err := s.runAnalysis(inv)
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
 	}
+	result, subject, subjectLabel := run.result, run.subject, run.label
 	ctx := s.rtCtx
 
 	status := VerdictHolds
@@ -115,6 +117,11 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 			}
 		case runtime.VerdictUndecided:
 			status = VerdictUnresolved
+		}
+	}
+	for _, v := range run.verdicts {
+		if s := verificationStatus(v.Kind); s > status {
+			status = s
 		}
 	}
 	mark := "✓"
@@ -144,69 +151,101 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 		lines = append(lines, fmt.Sprintf("  %s: %s", name, text))
 		values = append(values, NamedValue{Name: name, Value: text})
 	}
-	return Verdict{Subject: label, Status: status, Lines: lines, Values: values}
+	verdict := Verdict{Subject: label, Status: status, Lines: lines, Values: values}
+	for _, v := range run.verdicts {
+		verdict.Verifications = append(verdict.Verifications, VerificationVerdict{
+			Case: v.Case, Kind: string(v.Kind), Detail: v.Detail,
+		})
+		verdict.Lines = append(verdict.Lines, "  "+verificationLine(v))
+	}
+	return verdict
+}
+
+// caseRun is what one run of a case produced: what it computed and decided, the
+// object it ran on, and, for a verification case, the verdict of its body and of
+// every subcase it performed.
+type caseRun struct {
+	result   runtime.AnalysisResult
+	subject  *runtime.Instance
+	label    string
+	verdicts []runtime.VerificationVerdict
 }
 
 // runAnalysis resolves the case an invocation names, evaluates its arguments
 // and the object named as its subject, and runs it. A usage nested in a type is
 // run as a feature of the object the session holds for that type, as a
 // constraint is checked on the object carrying it.
-func (s *Session) runAnalysis(inv analysisInvocation) (runtime.AnalysisResult, *runtime.Instance, string, error) {
+func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {
-		return runtime.AnalysisResult{}, nil, "", errors.New("no declarations loaded")
+		return caseRun{}, errors.New("no declarations loaded")
 	}
-	sym, fqn, lerr := s.lookupSymbolOfKinds(inv.name, symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage)
+	sym, fqn, lerr := s.lookupSymbolOfKinds(inv.name,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage)
 	if lerr != nil {
-		return runtime.AnalysisResult{}, nil, "", lerr
+		return caseRun{}, lerr
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return runtime.AnalysisResult{}, nil, "", err
+		return caseRun{}, err
 	}
 	if err := ctx.RequireAnalysisCase(sym); err != nil {
-		return runtime.AnalysisResult{}, nil, "", err
+		return caseRun{}, err
 	}
 
 	parsed, err := parseAnalysisArgs(inv.argText)
 	if err != nil {
-		return runtime.AnalysisResult{}, nil, "", err
+		return caseRun{}, err
 	}
 	var args runtime.AnalysisArgs
 	scope := s.promptScope()
 	for _, arg := range parsed.positional {
 		val, err := ctx.EvalWithScope(arg.expr, scope)
 		if err != nil {
-			return runtime.AnalysisResult{}, nil, "", fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+			return caseRun{}, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
 		}
 		args.Positional = append(args.Positional, val)
 	}
 	if args.Named, err = s.evalArguments(ctx, parsed.named); err != nil {
-		return runtime.AnalysisResult{}, nil, "", err
+		return caseRun{}, err
 	}
 
-	var subject *runtime.Instance
-	var subjectLabel string
+	run := caseRun{}
 	if inv.object != "" {
-		if subject, subjectLabel, err = s.resolveObject(inv.object); err != nil {
-			return runtime.AnalysisResult{}, nil, "", err
+		if run.subject, run.label, err = s.resolveObject(inv.object); err != nil {
+			return caseRun{}, err
 		}
-		args.Subject = subject
+		args.Subject = run.subject
 	}
 
 	// A usage owned by a type is a feature of an object of that type, which the
 	// session holds when one was created; a package-level case has no such owner.
 	var self *runtime.Instance
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageAnalysisCase {
+	if usage, ok := sym.Decl.(*ast.Usage); ok &&
+		(usage.Kind == ast.UsageAnalysisCase || usage.Kind == ast.UsageVerificationCase) {
 		self, _ = s.owningInstance(fqn)
 	}
 	runScope := declaringScope(sym, doc.Scope)
+
+	// A verification case runs the same body; asking the run for its verdict too
+	// reports it beside what the run computed.
+	if runtime.IsVerificationCaseSymbol(sym) {
+		verified, err := ctx.RunVerification(sym, args, runScope, self)
+		if err != nil {
+			return caseRun{}, err
+		}
+		run.result = verified.Run
+		run.verdicts = append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...)
+		return run, nil
+	}
 	result, err := ctx.RunAnalysis(sym, args, runScope, self)
 	if err != nil {
 		if errors.Is(err, runtime.ErrNotAnAnalysis) {
-			return runtime.AnalysisResult{}, nil, "", err
+			return caseRun{}, err
 		}
-		return runtime.AnalysisResult{}, nil, "", fmt.Errorf("analysis run failed: %w", err)
+		return caseRun{}, fmt.Errorf("analysis run failed: %w", err)
 	}
-	return result, subject, subjectLabel, nil
+	run.result = result
+	return run, nil
 }

@@ -104,6 +104,17 @@ type checkResult struct {
 	Values []namedValue `json:"values"`
 	// Lines is the verdict as the prompt prints it.
 	Lines []string `json:"lines"`
+	// Verifications are the verdicts the bodies of the verification cases
+	// verifying the requirement produced, reported beside its own.
+	Verifications []verificationVerdict `json:"verifications,omitempty"`
+}
+
+// verificationVerdict is one verdict a verification case body produced.
+type verificationVerdict struct {
+	Case string `json:"case"`
+	Kind string `json:"kind"`
+	// Detail is why an error or inconclusive verdict decided nothing.
+	Detail string `json:"detail,omitempty"`
 }
 
 func newReporter(asJSON bool) *reporter {
@@ -221,10 +232,11 @@ func (r *reporter) finish() int {
 	r.report.Exit = exit
 	for _, v := range r.verdicts {
 		r.report.Checks = append(r.report.Checks, checkResult{
-			Subject: v.Subject,
-			Status:  v.Status.String(),
-			Values:  namedValues(v.Values),
-			Lines:   v.Lines,
+			Subject:       v.Subject,
+			Status:        v.Status.String(),
+			Values:        namedValues(v.Values),
+			Lines:         v.Lines,
+			Verifications: verificationVerdicts(v.Verifications),
 		})
 	}
 	out, err := json.MarshalIndent(r.report, "", "  ")
@@ -258,4 +270,16 @@ func writeLines(w io.Writer, lines []string) {
 	for _, line := range lines {
 		fmt.Fprintln(w, line)
 	}
+}
+
+// verificationVerdicts reports the body verdicts of a check as JSON data.
+func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVerdict {
+	if len(verdicts) == 0 {
+		return nil
+	}
+	out := make([]verificationVerdict, 0, len(verdicts))
+	for _, v := range verdicts {
+		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail})
+	}
+	return out
 }

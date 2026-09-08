@@ -64,7 +64,7 @@ from opensysml.values import (
     VectorQuantity,
     value_to_python,
 )
-from opensysml.verdict import AnalysisResult, CalcResult, Verdict
+from opensysml.verdict import AnalysisResult, CalcResult, Verdict, VerificationVerdict
 
 
 #: Port the service listens on when a caller names none.
@@ -176,6 +176,13 @@ def _failure_of(message, failure_reason, diagnostics):
     if failure_reason == sysml_pb2.FAILURE_REASON_WRONG_KIND:
         return WrongKindError(message, diagnostics=diagnostics)
     return ExecutionError(message, diagnostics=diagnostics)
+
+
+def _verifications_of(response):
+    """Read the body verdicts of a response, empty for a service without them."""
+    return [
+        VerificationVerdict(pb) for pb in getattr(response, "verification_verdicts", ())
+    ]
 
 
 def _raise_wrong_kind(pb_verdict, diagnostics):
@@ -1319,8 +1326,16 @@ class Connection:
         for pb_verdict in response.verdicts:
             _raise_wrong_kind(pb_verdict, diagnostics)
         instances = self._instances_of(response)
+        # The bodies of the cases verifying the requirements asserted as
+        # satisfied answered for the call, not for one assertion of it.
+        verifications = _verifications_of(response)
         return [
-            Verdict(pb_verdict, instances=instances, diagnostics=diagnostics)
+            Verdict(
+                pb_verdict,
+                instances=instances,
+                diagnostics=diagnostics,
+                verifications=verifications,
+            )
             for pb_verdict in response.verdicts
         ]
 
@@ -1452,7 +1467,11 @@ class Connection:
             for pb_verdict in response.verdicts
         ]
         return AnalysisResult(
-            outputs, verdicts, instances=instances, diagnostics=diagnostics
+            outputs,
+            verdicts,
+            instances=instances,
+            diagnostics=diagnostics,
+            verifications=_verifications_of(response),
         )
 
     def _require_verification(self):
@@ -1492,6 +1511,7 @@ class Connection:
             response.verdict,
             instances=self._instances_of(response),
             diagnostics=diagnostics,
+            verifications=_verifications_of(response),
         )
 
     def _require_complex_values(self):

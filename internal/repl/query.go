@@ -48,6 +48,10 @@ type Verdict struct {
 	Lines   []string
 	// Values are what a run produced, for a caller reporting more than a status.
 	Values []NamedValue
+	// Verifications are the verdicts the bodies of the verification cases
+	// verifying the checked requirement answered, reported beside its status
+	// rather than deciding it.
+	Verifications []VerificationVerdict
 }
 
 // Holds reports whether the checked condition is satisfied.
@@ -173,17 +177,17 @@ func (s *Session) checkRequirement(name string) Verdict {
 	result, err := target.ctx.CheckRequirementOn(target.sym, target.scope, inst)
 	inst, owner = s.reportedSubject(result, inst, owner)
 	if unevaluable(err) {
-		return unevaluableVerdict(name, "Requirement "+name, err, inst, owner)
+		return s.withVerifications(unevaluableVerdict(name, "Requirement "+name, err, inst, owner), target.ctx, target.sym)
 	}
 	if err != nil || !result.Holds {
-		return Verdict{Subject: name, Status: VerdictFails, Lines: []string{
+		return s.withVerifications(Verdict{Subject: name, Status: VerdictFails, Lines: []string{
 			fmt.Sprintf("✗ Requirement %s failed%s", name, onInstance(inst, owner)),
 			"  " + verdictDetail("Required condition", err),
-		}}
+		}}, target.ctx, target.sym)
 	}
-	return Verdict{Subject: name, Status: VerdictHolds, Lines: []string{
+	return s.withVerifications(Verdict{Subject: name, Status: VerdictHolds, Lines: []string{
 		fmt.Sprintf("✓ Requirement %s satisfied%s", name, onInstance(inst, owner)),
-	}}
+	}}, target.ctx, target.sym)
 }
 
 // CheckSatisfy evaluates satisfaction assertions: every one the model states

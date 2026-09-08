@@ -127,17 +127,31 @@ class VerifyRequirementRequest(_message.Message):
     subject_symbol_id: str
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ...) -> None: ...
 
+class VerificationVerdict(_message.Message):
+    __slots__ = ("case_id", "kind", "detail", "subcase")
+    CASE_ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    DETAIL_FIELD_NUMBER: _ClassVar[int]
+    SUBCASE_FIELD_NUMBER: _ClassVar[int]
+    case_id: str
+    kind: str
+    detail: str
+    subcase: bool
+    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ...) -> None: ...
+
 class VerifyRequirementResponse(_message.Message):
-    __slots__ = ("verdict", "instances", "error", "diagnostics")
+    __slots__ = ("verdict", "instances", "error", "diagnostics", "verification_verdicts")
     VERDICT_FIELD_NUMBER: _ClassVar[int]
     INSTANCES_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    VERIFICATION_VERDICTS_FIELD_NUMBER: _ClassVar[int]
     verdict: Verdict
     instances: _containers.RepeatedCompositeFieldContainer[Instance]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
-    def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
+    verification_verdicts: _containers.RepeatedCompositeFieldContainer[VerificationVerdict]
+    def __init__(self, verdict: _Optional[_Union[Verdict, _Mapping]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ...) -> None: ...
 
 class VerifySatisfactionRequest(_message.Message):
     __slots__ = ("model_hash", "symbol_id")
@@ -148,18 +162,20 @@ class VerifySatisfactionRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ...) -> None: ...
 
 class VerifySatisfactionResponse(_message.Message):
-    __slots__ = ("verdicts", "instances", "error", "diagnostics", "failure_reason")
+    __slots__ = ("verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts")
     VERDICTS_FIELD_NUMBER: _ClassVar[int]
     INSTANCES_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    VERIFICATION_VERDICTS_FIELD_NUMBER: _ClassVar[int]
     verdicts: _containers.RepeatedCompositeFieldContainer[Verdict]
     instances: _containers.RepeatedCompositeFieldContainer[Instance]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     failure_reason: FailureReason
-    def __init__(self, verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
+    verification_verdicts: _containers.RepeatedCompositeFieldContainer[VerificationVerdict]
+    def __init__(self, verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ...) -> None: ...
 
 class EvaluateCalcRequest(_message.Message):
     __slots__ = ("model_hash", "symbol_id", "arguments")
@@ -215,20 +231,22 @@ class RunAnalysisRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class RunAnalysisResponse(_message.Message):
-    __slots__ = ("outputs", "verdicts", "instances", "error", "diagnostics", "failure_reason")
+    __slots__ = ("outputs", "verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts")
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     VERDICTS_FIELD_NUMBER: _ClassVar[int]
     INSTANCES_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    VERIFICATION_VERDICTS_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
     verdicts: _containers.RepeatedCompositeFieldContainer[Verdict]
     instances: _containers.RepeatedCompositeFieldContainer[Instance]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     failure_reason: FailureReason
-    def __init__(self, outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
+    verification_verdicts: _containers.RepeatedCompositeFieldContainer[VerificationVerdict]
+    def __init__(self, outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ...) -> None: ...
 
 class ParseFileRequest(_message.Message):
     __slots__ = ("file_path", "content", "content_hash", "language", "strict_conformance")

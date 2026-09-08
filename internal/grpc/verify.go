@@ -209,6 +209,10 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	return &pb.VerifyRequirementResponse{
 		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr),
 		Instances: v.instanceGraph(subject),
+		// Beside the satisfaction verdict: what the cases verifying this
+		// requirement answered when their bodies ran.
+		VerificationVerdicts: v.verificationVerdicts(
+			v.runtime.VerificationVerdictsFor(v.declaringScope(sym), sym)),
 	}, nil
 }
 
@@ -236,8 +240,9 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		if a, aerr := v.runtime.SatisfyAssertionOf(sym); aerr == nil {
 			verdict, instances := v.satisfyVerdict(a)
 			return &pb.VerifySatisfactionResponse{
-				Verdicts:  []*pb.Verdict{verdict},
-				Instances: instances,
+				Verdicts:             []*pb.Verdict{verdict},
+				Instances:            instances,
+				VerificationVerdicts: v.assertionVerifications(a),
 			}, nil
 		}
 		// A symbol that is neither an assertion nor a scope stating any is the
@@ -253,10 +258,17 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 
 	resp := &pb.VerifySatisfactionResponse{}
 	seen := map[int64]bool{}
+	// The cases verifying one requirement answer once for the response, however
+	// many assertions of that requirement it reports.
+	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
 			verdict, instances := v.satisfyVerdict(a)
 			resp.Verdicts = append(resp.Verdicts, verdict)
+			if a.Requirement != nil && !verified[a.Requirement] {
+				verified[a.Requirement] = true
+				resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.assertionVerifications(a)...)
+			}
 			// One graph per response, so two assertions about the same object do
 			// not report it twice.
 			for _, inst := range instances {
@@ -382,4 +394,14 @@ func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput,
 		})
 	}
 	return pbOutputs, true, nil
+}
+
+// assertionVerifications are the body verdicts of the verification cases whose
+// objective verifies the requirement an assertion satisfies.
+func (v *verifyContext) assertionVerifications(a *runtime.SatisfyAssertion) []*pb.VerificationVerdict {
+	if a.Requirement == nil {
+		return nil
+	}
+	return v.verificationVerdicts(
+		v.runtime.VerificationVerdictsFor(v.declaringScope(a.Requirement), a.Requirement))
 }

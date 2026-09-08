@@ -146,12 +146,31 @@ message VerifyRequirementRequest {
   string subject_symbol_id = 3;
 }
 
+// VerificationVerdict is what the body of a verification case answered when it
+// ran: the VerdictKind its return bound, which is a separate answer from whether
+// a requirement is satisfied. Reported as the "verification_verdicts" capability.
+message VerificationVerdict {
+  // FQN of the verification case definition or usage that ran.
+  string case_id = 1;
+  // The VerdictKind the body produced: "pass", "fail", "inconclusive" or "error".
+  string kind = 2;
+  // Why the body decided nothing, or the text of the error that stopped its run.
+  // Empty for a pass or a fail, which are the case's own answers.
+  string detail = 3;
+  // Set for the verdict of a subcase the case performed, which the library
+  // states no roll-up for and which is therefore reported on its own.
+  bool subcase = 4;
+}
+
 // VerifyRequirementResponse carries the verdict.
 message VerifyRequirementResponse {
   Verdict verdict = 1;
   repeated Instance instances = 2;
   string error = 3;
   repeated Diagnostic diagnostics = 4;
+  // What the body of every verification case verifying this requirement
+  // answered, beside the satisfaction verdict rather than instead of it.
+  repeated VerificationVerdict verification_verdicts = 5;
 }
 
 // VerifySatisfactionRequest asks whether the satisfaction assertions a model
@@ -174,6 +193,9 @@ message VerifySatisfactionResponse {
   repeated Diagnostic diagnostics = 4;
   // What kind of failure `error` reports.
   FailureReason failure_reason = 5;
+  // What the body of every verification case verifying a requirement asserted
+  // as satisfied answered, in the order the assertions were evaluated.
+  repeated VerificationVerdict verification_verdicts = 6;
 }
 
 // EvaluateCalcRequest invokes a calculation, as %calc does. Arguments are bound
@@ -244,6 +266,9 @@ message RunAnalysisResponse {
   repeated Diagnostic diagnostics = 5;
   // What kind of failure `error` reports.
   FailureReason failure_reason = 6;
+  // What the body answered when the case run was a verification case: its own
+  // verdict first, then the verdict of each subcase it performed.
+  repeated VerificationVerdict verification_verdicts = 7;
 }
 
 // ParseFileRequest specifies the source to parse
@@ -813,6 +838,10 @@ message ServerInfoResponse {
   //   "unset_value" - a valueless feature of a value type is reported as
   //                  Value.unset, rather than as the empty object it
   //                  materializes.
+  //   "verification_verdicts" - the VerifyRequirement, VerifySatisfaction and
+  //                  RunAnalysis RPCs report what the body of a verification
+  //                  case answered as verification_verdicts, and RunAnalysis
+  //                  accepts a verification case.
   //   "complex_values" - a Value carries a complex number as complex, rather
   //                  than reporting it as an unsupported null, and a complex
   //                  action input or calc argument is accepted; without it,

@@ -20,6 +20,9 @@ public final class Capabilities {
   /** The verification RPCs answer whether constraints and requirements hold. */
   public static final String VERIFICATION = "verification";
 
+  /** A verification, satisfaction or analysis response carries what a case body answered. */
+  public static final String VERIFICATION_VERDICTS = "verification_verdicts";
+
   /** The {@code Query} RPC evaluates a SysML v2 API and Services Query. */
   public static final String QUERY = "query";
 

@@ -227,15 +227,23 @@ type AnalysisResult struct {
 func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (AnalysisResult, error) {
 	defer ctx.beginRun()()
 
+	_, result, err := ctx.runCase(sym, args, scope, self)
+	return result, err
+}
+
+// runCase runs a case's body once and reports the run beside what it produced,
+// so a caller reading more of the run than its outputs — a verification case's
+// subcase verdicts — reads it from the same run.
+func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (*calcRun, AnalysisResult, error) {
 	if err := ctx.RequireAnalysisCase(sym); err != nil {
-		return AnalysisResult{}, err
+		return nil, AnalysisResult{}, err
 	}
 	if err := ctx.checkCalcTyping(sym); err != nil {
-		return AnalysisResult{}, err
+		return nil, AnalysisResult{}, err
 	}
 	shape, err := ctx.calcShapeOf(sym)
 	if err != nil {
-		return AnalysisResult{}, err
+		return nil, AnalysisResult{}, err
 	}
 	reader := NewEvalContextIn(ctx, scope, self)
 
@@ -246,15 +254,15 @@ func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *s
 		run, err = ctx.analysisRun(shape, reader, args)
 	}
 	if err != nil {
-		return AnalysisResult{}, err
+		return nil, AnalysisResult{}, err
 	}
 
 	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx)}
 	if result.Outputs, err = run.outputValues(ctx); err != nil {
-		return AnalysisResult{}, err
+		return nil, AnalysisResult{}, err
 	}
 	result.Verdicts = ctx.analysisVerdicts(run, sym, scope)
-	return result, nil
+	return run, result, nil
 }
 
 // analysisRun binds a case's parameters from args and runs its body once,
@@ -505,7 +513,7 @@ func assertionName(cond Condition) (string, *symbols.Symbol) {
 			return c.Name, c
 		}
 	}
-	if owner := cond.Owner(); owner != nil && !IsAnalysisSymbol(owner) {
+	if owner := cond.Owner(); owner != nil && !IsRunnableCaseSymbol(owner) {
 		return owner.Name, owner
 	}
 	return cond.Label(), nil
@@ -560,25 +568,32 @@ func (run *calcRun) bindings(ctx *Context) map[string]Value {
 	return bindings
 }
 
-// IsAnalysisSymbol reports whether sym declares an analysis case definition or usage.
-func IsAnalysisSymbol(sym *symbols.Symbol) bool {
+// IsRunnableCaseSymbol reports whether sym declares a case whose body runs as
+// steps: an analysis case or a verification case, definition or usage.
+func IsRunnableCaseSymbol(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
 	if sym.Decl != nil {
 		return lower.PerformsSteps(sym.Decl)
 	}
-	return sym.Kind == symbols.SymbolAnalysisCaseDef || sym.Kind == symbols.SymbolAnalysisCaseUsage
+	switch sym.Kind {
+	case symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage:
+		return true
+	}
+	return false
 }
 
-// RequireAnalysisCase reports ErrNotAnAnalysis for a symbol that is not an analysis
-// case definition or usage, describing what it is instead.
+// RequireAnalysisCase reports ErrNotAnAnalysis for a symbol that is not a case
+// whose body runs — an analysis or verification case definition or usage —
+// describing what it is instead.
 func (ctx *Context) RequireAnalysisCase(sym *symbols.Symbol) error {
 	if sym == nil {
 		return fmt.Errorf("%w: invalid symbol", ErrNotAnAnalysis)
 	}
-	if !IsAnalysisSymbol(sym) {
-		return fmt.Errorf("%w: %s is %s, not an analysis case definition or usage",
+	if !IsRunnableCaseSymbol(sym) {
+		return fmt.Errorf("%w: %s is %s, not an analysis or verification case definition or usage",
 			ErrNotAnAnalysis, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
 	}
 	return nil

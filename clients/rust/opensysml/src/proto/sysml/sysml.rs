@@ -87,6 +87,26 @@ pub struct VerifyRequirementRequest {
     #[prost(string, tag="3")]
     pub subject_symbol_id: ::prost::alloc::string::String,
 }
+/// VerificationVerdict is what the body of a verification case answered when it
+/// ran: the VerdictKind its return bound, which is a separate answer from whether
+/// a requirement is satisfied. Reported as the "verification_verdicts" capability.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct VerificationVerdict {
+    /// FQN of the verification case definition or usage that ran.
+    #[prost(string, tag="1")]
+    pub case_id: ::prost::alloc::string::String,
+    /// The VerdictKind the body produced: "pass", "fail", "inconclusive" or "error".
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// Why the body decided nothing, or the text of the error that stopped its run.
+    /// Empty for a pass or a fail, which are the case's own answers.
+    #[prost(string, tag="3")]
+    pub detail: ::prost::alloc::string::String,
+    /// Set for the verdict of a subcase the case performed, which the library
+    /// states no roll-up for and which is therefore reported on its own.
+    #[prost(bool, tag="4")]
+    pub subcase: bool,
+}
 /// VerifyRequirementResponse carries the verdict.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VerifyRequirementResponse {
@@ -98,6 +118,10 @@ pub struct VerifyRequirementResponse {
     pub error: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="4")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// What the body of every verification case verifying this requirement
+    /// answered, beside the satisfaction verdict rather than instead of it.
+    #[prost(message, repeated, tag="5")]
+    pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
 }
 /// VerifySatisfactionRequest asks whether the satisfaction assertions a model
 /// states hold, as %satisfy does. Each is evaluated against an object of its
@@ -127,6 +151,10 @@ pub struct VerifySatisfactionResponse {
     /// What kind of failure `error` reports.
     #[prost(enumeration="FailureReason", tag="5")]
     pub failure_reason: i32,
+    /// What the body of every verification case verifying a requirement asserted
+    /// as satisfied answered, in the order the assertions were evaluated.
+    #[prost(message, repeated, tag="6")]
+    pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
 }
 /// EvaluateCalcRequest invokes a calculation, as %calc does. Arguments are bound
 /// positionally; a calc usage named with no arguments binds its inputs from its
@@ -218,6 +246,10 @@ pub struct RunAnalysisResponse {
     /// What kind of failure `error` reports.
     #[prost(enumeration="FailureReason", tag="6")]
     pub failure_reason: i32,
+    /// What the body answered when the case run was a verification case: its own
+    /// verdict first, then the verdict of each subcase it performed.
+    #[prost(message, repeated, tag="7")]
+    pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
 }
 /// ParseFileRequest specifies the source to parse
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1022,6 +1054,10 @@ pub struct ServerInfoResponse {
     ///    "unset_value" - a valueless feature of a value type is reported as
     ///                   Value.unset, rather than as the empty object it
     ///                   materializes.
+    ///    "verification_verdicts" - the VerifyRequirement, VerifySatisfaction and
+    ///                   RunAnalysis RPCs report what the body of a verification
+    ///                   case answered as verification_verdicts, and RunAnalysis
+    ///                   accepts a verification case.
     ///    "complex_values" - a Value carries a complex number as complex, rather
     ///                   than reporting it as an unsupported null, and a complex
     ///                   action input or calc argument is accepted; without it,

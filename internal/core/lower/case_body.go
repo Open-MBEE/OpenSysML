@@ -9,14 +9,15 @@ import (
 )
 
 // PerformsSteps reports whether decl is a behavior whose body performs the action
-// nodes among its members as steps: an analysis case (SysML v2 §7.22), which is
-// a calculation and an action. A calc's body reads them as declarations only.
+// nodes among its members as steps: an analysis case (SysML v2 §7.22) or a
+// verification case (§7.23), each a calculation and an action. A calc's body
+// reads them as declarations only.
 func PerformsSteps(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefAnalysisCase
+		return d.Kind == ast.DefAnalysisCase || d.Kind == ast.DefVerificationCase
 	case *ast.Usage:
-		return d.Kind == ast.UsageAnalysisCase
+		return d.Kind == ast.UsageAnalysisCase || d.Kind == ast.UsageVerificationCase
 	default:
 		return false
 	}

@@ -18,6 +18,83 @@ KIND_OBJECTIVE = "objective"
 KIND_ASSERTION = "assertion"
 
 
+#: VerdictKind values a verification case's body produces, as the library
+#: declares them (``VerificationCases::VerdictKind``).
+VERDICT_PASS = "pass"
+VERDICT_FAIL = "fail"
+VERDICT_INCONCLUSIVE = "inconclusive"
+VERDICT_ERROR = "error"
+
+
+class VerificationVerdict:
+    """What the body of a verification case answered when it ran.
+
+    This is a separate answer from whether a requirement is satisfied: the
+    specification leaves the evaluation of a verdict unspecified, so the service
+    runs the case's body and the library's own ``PassIf`` calculation and reports
+    the ``VerdictKind`` that produced. It is reported beside the satisfaction
+    verdicts, never instead of them.
+
+    Truthy only for a pass, so a body that decided nothing does not read as one.
+
+    Attributes:
+        case_id (str): FQN of the verification case that ran
+        kind (str): The VerdictKind the body produced: 'pass', 'fail',
+            'inconclusive' or 'error'
+        detail (str): Why an inconclusive body decided nothing, or the error that
+            stopped the run; empty for a pass and a fail
+        subcase (bool): Whether this is the verdict of a case performed by
+            another, which the library states no roll-up for
+    """
+
+    def __init__(self, pb_verdict):
+        self._pb = pb_verdict
+
+    @property
+    def case_id(self):
+        """FQN of the verification case that ran."""
+        return self._pb.case_id
+
+    @property
+    def kind(self):
+        """The VerdictKind the body produced."""
+        return self._pb.kind
+
+    @property
+    def detail(self):
+        """Why the body decided nothing, or the error that stopped its run."""
+        return self._pb.detail
+
+    @property
+    def subcase(self):
+        """Whether this verdict is of a case performed by another."""
+        return self._pb.subcase
+
+    def explain(self):
+        """One line saying what the body answered and why."""
+        marks = {VERDICT_PASS: "\u2713", VERDICT_FAIL: "\u2717"}
+        mark = marks.get(self.kind, "?")
+        line = f"{mark} verification {self.case_id} verdict: {self.kind}"
+        if self.subcase:
+            line += " (subcase)"
+        if self.detail:
+            line += f" \u2014 {self.detail}"
+        return line
+
+    def __bool__(self):
+        """A verdict is truthy only when the body passed."""
+        return self.kind == VERDICT_PASS
+
+    def __str__(self):
+        return self.explain()
+
+    def __repr__(self):
+        return (
+            f"VerificationVerdict(case_id={self.case_id!r}, kind={self.kind!r}, "
+            f"detail={self.detail!r}, subcase={self.subcase!r})"
+        )
+
+
 class Verdict:
     """One verification's answer.
 
@@ -46,12 +123,17 @@ class Verdict:
             call answering several assertions reports one graph for them all, so
             filter on ``instance_id`` to single out this verdict's own object
         diagnostics (list[Diagnostic]): Diagnostics the service reported
+        verifications (list[VerificationVerdict]): What the bodies of the
+            verification cases verifying this requirement answered, beside this
+            verdict rather than instead of it. Empty when the model states none,
+            or when the service predates ``verification_verdicts``
     """
 
-    def __init__(self, pb_verdict, instances=None, diagnostics=None):
+    def __init__(self, pb_verdict, instances=None, diagnostics=None, verifications=None):
         self._pb = pb_verdict
         self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
+        self.verifications = list(verifications or [])
 
     @property
     def kind(self):
@@ -205,13 +287,17 @@ class AnalysisResult:
         instances (list[Instance]): The subject the case ran on and the objects
             reachable from it; empty when the case bound no subject
         diagnostics (list[Diagnostic]): Diagnostics the service reported
+        verifications (list[VerificationVerdict]): For a verification case, what
+            its body answered, followed by the verdict of each subcase it
+            performed; empty for an analysis case
     """
 
-    def __init__(self, outputs, verdicts, instances=None, diagnostics=None):
+    def __init__(self, outputs, verdicts, instances=None, diagnostics=None, verifications=None):
         self.outputs = dict(outputs or {})
         self.verdicts = list(verdicts or [])
         self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
+        self.verifications = list(verifications or [])
 
     @property
     def satisfied(self):
@@ -225,6 +311,7 @@ class AnalysisResult:
     def __str__(self):
         lines = [f"{name} = {val}" for name, val in self.outputs.items()]
         lines.extend(v.explain() for v in self.verdicts)
+        lines.extend(v.explain() for v in self.verifications)
         return "\n".join(lines)
 
     def __repr__(self):

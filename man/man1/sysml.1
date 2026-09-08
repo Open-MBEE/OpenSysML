@@ -22,9 +22,10 @@ Simulated time units to run each \-state machine for (default: only its
 initial transition)
 .TP
 .BI \-analysis " value"
-Run this analysis case and report its outputs and the verdict of its
-objective, as \-analysis "Pkg::Case(3.0) Pkg::part" with arguments for its
-inputs and an object as its subject (repeatable)
+Run this analysis or verification case and report its outputs and the verdict
+of its objective, as \-analysis "Pkg::Case(3.0) Pkg::part" with arguments for
+its inputs and an object as its subject; a verification case also reports the
+verdict its body produced (repeatable)
 .TP
 .BI \-calc " value"
 Invoke this calculation and report what it computed, as \-calc "Fall(3, 4)"
@@ -167,7 +168,8 @@ destination\-dependent for \-render, each kind's machine form for
 \-render\-all)
 .TP
 .BI \-requirement " value"
-Evaluate this requirement and exit (repeatable)
+Evaluate this requirement and exit, reporting beside its verdict the verdict
+of every verification case verifying it (repeatable)
 .TP
 .BI \-run\-query " value"
 Execute this document query and report its rows, as \-run\-query
@@ -175,7 +177,8 @@ Execute this document query and report its rows, as \-run\-query
 .TP
 .B \-satisfy
 Evaluate every satisfaction assertion, or with \-satisfy=<name> those the
-named element states (repeatable). The default is [].
+named element states, reporting beside each verdict the verdict of every
+verification case verifying the requirement (repeatable). The default is [].
 .TP
 .B \-source
 With \-compile, write the generated source to \-o instead of building it
@@ -270,6 +273,8 @@ sysml \-calc "Fall(3, 4)" model.sysml
 sysml \-analysis shipCost model.sysml
 # \&...on an object as its subject
 sysml \-analysis "CostAnalysis ship" model.sysml
+# Run a verification case for its verdict
+sysml \-analysis speedCheck model.sysml
 # Execute a document query
 sysml \-run\-query "Heavy root=scope" model.sysml
 # Run an action to completion

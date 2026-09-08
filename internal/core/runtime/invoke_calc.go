@@ -224,9 +224,9 @@ func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
-	// A calc computes nothing unless it returns or binds an output; an analysis
-	// also computes through its steps, or answers with its verdicts alone.
-	performs := shape.Kind == "analysis" && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
+	// A calc computes nothing unless it returns or binds an output; a case also
+	// computes through its steps, or answers with its verdicts alone.
+	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs
 	if !computes {
 		if len(shape.Outputs) > 0 && shape.resultOutput() == nil {
@@ -466,14 +466,18 @@ func (ctx *Context) InvokeCalc(sym *symbols.Symbol, args []Value, scope *symbols
 	return ctx.invokeCalc(sym, calcArgs{positional: args}, scope)
 }
 
-// requireCalcNotCase refuses an analysis case as the target of a calc
-// invocation: run as a case, it also binds a subject and reports its verdicts.
+// requireCalcNotCase refuses a case as the target of a calc invocation: run as
+// a case, it also binds a subject and reports its verdicts.
 func (ctx *Context) requireCalcNotCase(sym *symbols.Symbol) error {
-	if sym == nil || !IsAnalysisSymbol(sym) {
+	if sym == nil || !IsRunnableCaseSymbol(sym) {
 		return nil
 	}
-	return fmt.Errorf("%w: %s is %s, not a calc definition or usage; run it as an analysis case",
-		ErrNotACalc, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl))
+	runAs := "an analysis case"
+	if IsVerificationCaseSymbol(sym) {
+		runAs = "a verification case"
+	}
+	return fmt.Errorf("%w: %s is %s, not a calc definition or usage; run it as %s",
+		ErrNotACalc, ctx.qualifiedSymbolName(sym), describeDecl(sym.Decl), runAs)
 }
 
 // InvokeCalcNamed invokes a calculation with arguments bound by parameter name.
@@ -820,7 +824,13 @@ func (shape *calcShape) hasParameter(name string) bool {
 // performs reports whether the body's action nodes are performed as steps: a case
 // is an action, so its body is; a calc's body performs nothing.
 func (shape *calcShape) performs() bool {
-	return shape.Kind == "analysis"
+	return shape.isCase()
+}
+
+// isCase reports whether the shape is a case — an analysis or a verification —
+// rather than a plain calc.
+func (shape *calcShape) isCase() bool {
+	return shape.Kind == "analysis" || shape.Kind == "verification"
 }
 
 // bodyScope is the namespace the body's names resolve in.
@@ -1105,24 +1115,29 @@ func (ctx *Context) calcComputes(chain []*symbols.Symbol) bool {
 }
 
 // isCalcDecl reports whether a declaration is a calc definition or usage, or an
-// analysis case, which is a calculation (SysML v2 §7.22): it is invoked the same way.
+// analysis or verification case, each a calculation (SysML v2 §7.22, §7.23):
+// each is invoked the same way.
 func isCalcDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:
-		return d.Kind == ast.DefCalc || d.Kind == ast.DefAnalysisCase
+		return d.Kind == ast.DefCalc || d.Kind == ast.DefAnalysisCase || d.Kind == ast.DefVerificationCase
 	case *ast.Usage:
-		return d.Kind == ast.UsageCalc || d.Kind == ast.UsageAnalysisCase
+		return d.Kind == ast.UsageCalc || d.Kind == ast.UsageAnalysisCase || d.Kind == ast.UsageVerificationCase
 	default:
 		return false
 	}
 }
 
-// calcKindLabel names what sym declares — a calc or an analysis case — and how
-// diagnostics about it refer to it.
+// calcKindLabel names what sym declares — a calc, an analysis case or a
+// verification case — and how diagnostics about it refer to it.
 func calcKindLabel(sym *symbols.Symbol, name string) (kind, label string) {
-	kind = "calc"
-	if lower.PerformsSteps(sym.Decl) {
+	switch {
+	case IsVerificationCaseSymbol(sym):
+		kind = "verification"
+	case lower.PerformsSteps(sym.Decl):
 		kind = "analysis"
+	default:
+		kind = "calc"
 	}
 	return kind, kind + " " + name
 }
@@ -1137,7 +1152,9 @@ func isCalcSymbol(sym *symbols.Symbol) bool {
 		return isCalcDecl(sym.Decl)
 	}
 	switch sym.Kind {
-	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage:
+	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage:
 		return true
 	}
 	return false

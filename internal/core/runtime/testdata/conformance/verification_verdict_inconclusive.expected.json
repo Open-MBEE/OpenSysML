@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkSilently",
+  "verdict": "inconclusive",
+  "verdictDetail": "no VerdictKind value"
+}
