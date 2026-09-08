@@ -143,7 +143,7 @@ func (m *Model) exprConformance(scope *symbols.Scope, node ast.Node, want *symbo
 		return c
 	case *ast.CollectExpr:
 		// `xs.{…}` is the result of ControlFunctions::collect: the body's results, else Anything.
-		if c, ok := m.collectConformance(scope, n, want, byUnit); ok {
+		if c, ok := m.collectionConformance(scope, n, want, byUnit); ok {
 			return c
 		}
 		c := m.typeConformance(m.libSymbol(fqnAnything), want)
@@ -970,7 +970,7 @@ func (m *Model) incommensurableSum(scope *symbols.Scope, node ast.Node) (*ast.Op
 // result parameter of the overload it calls.
 func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExpr, want *symbols.Symbol, byUnit bool) Conformance {
 	called := m.invocationCallee(scope, e)
-	if c, ok := m.collectionConformance(scope, e, called, want, byUnit); ok {
+	if c, ok := m.collectionConformance(scope, e, want, byUnit); ok {
 		return c
 	}
 	result := m.ResultParameterOf(called)

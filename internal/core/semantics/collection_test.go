@@ -305,9 +305,8 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 	}
 }
 
-// reduce over a collection known to hold nothing — `()`, a feature admitting no value, a
-// chain through one — returns nothing without applying the reducer, so neither the reducer's
-// result nor the element types it: the declared Anything stands, and nothing is judged.
+// Over a collection known to hold nothing, reduce is typed by the reducer alone and collect by
+// its body; but the value holds no element, so nothing is judged and it casts to anything.
 func TestCollectionReduceOfNothing(t *testing.T) {
 	m, s := collectionModel(t, `
 		part none : C[0];
@@ -318,11 +317,13 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 		attribute empty2 = none->reduce { in a : C; in b : C; a.name };
 		attribute empty3 = holders.item->reduce { in a : C; in b : C; a.name };
 		attribute emptyCollect = ()->collect { in a : Integer; "s" };
+		attribute emptyCollect2 = none.{ in a : C; a.name };
+		attribute emptyCollect3 = holders.item->collect { in a : C; a.name };
 		attribute cast = none->reduce { in a : C; in b : C; a.name } as Integer;
 		attribute two = (none, one, one)->reduce { in a : C; in b : C; a.name };
 		attribute maybe = (none, one)->reduce { in a : C; in b : C; a.name };`)
-	for _, name := range []string{"empty", "empty2", "empty3", "emptyCollect"} {
-		wantValueTypes(t, m, s, name, "Anything")
+	for _, name := range []string{"empty", "empty2", "empty3", "emptyCollect", "emptyCollect2", "emptyCollect3"} {
+		wantValueTypes(t, m, s, name, "String")
 		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
 		if !ok || len(elements) != 0 {
 			t.Errorf("%s: elements %v, want none", name, elements)
@@ -363,5 +364,44 @@ func TestCollectionSelectShorthandElements(t *testing.T) {
 	}
 	if _, isReal := elements[1].Node.(*ast.LiteralReal); !isReal {
 		t.Errorf("lits: second element %T, want the literal 2.5", elements[1].Node)
+	}
+}
+
+// An element that is itself a collection value contributes the elements it holds: a nested
+// collect's literals, a selection's elements, none from one over nothing.
+func TestCollectionNestedElements(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute nested = cs.{ in x : C; cs.{ in y : C; 1.5 } };
+		attribute nested2 = cs->collect { in x : C; (x.name, cs->select { in y : C; true }) };
+		attribute selected = (cs.{ in x : C; 2 }).?{ in n : Integer; true };
+		attribute nestedEmpty = cs.{ in x : C; ().{ in y : Integer; 1.5 } };`)
+	wantValueTypes(t, m, s, "nested", "Real")
+	elements, ok := m.CollectionElements(s, valueOf(t, s, "nested"))
+	if !ok || len(elements) != 1 {
+		t.Fatalf("nested: elements %v, want the inner literal", elements)
+	}
+	if _, isReal := elements[0].Node.(*ast.LiteralReal); !isReal {
+		t.Errorf("nested: element %T, want the literal 1.5", elements[0].Node)
+	}
+	elements, ok = m.CollectionElements(s, valueOf(t, s, "nested2"))
+	if !ok || len(elements) != 2 {
+		t.Fatalf("nested2: elements %v, want the name and the selection's C", elements)
+	}
+	if _, isRef := elements[0].Node.(*ast.FeatureChainExpr); !isRef || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "String" {
+		t.Errorf("nested2: first element %T %v, want x.name : String", elements[0].Node, elements[0].Types)
+	}
+	if len(elements[1].Types) != 1 || leafName(elements[1].Types[0].Name) != "C" {
+		t.Errorf("nested2: second element %v, want the selection's C", elements[1].Types)
+	}
+	elements, ok = m.CollectionElements(s, valueOf(t, s, "selected"))
+	if !ok || len(elements) != 1 {
+		t.Fatalf("selected: elements %v, want the collected literal", elements)
+	}
+	if _, isInt := elements[0].Node.(*ast.LiteralInteger); !isInt {
+		t.Errorf("selected: element %T, want the literal 2", elements[0].Node)
+	}
+	wantValueTypes(t, m, s, "nestedEmpty", "Real")
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "nestedEmpty")); !ok || len(elements) != 0 {
+		t.Errorf("nestedEmpty: elements %v, want none", elements)
 	}
 }
