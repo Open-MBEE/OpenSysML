@@ -12,8 +12,11 @@ import (
 // across the whole Int range; a Sequence's order counts and a Set's does not,
 // nor does a member it lists twice; a Quantity is one with any commensurable
 // quantity of the same magnitude over their base units, so 1 m is 100 cm,
-// while one carrying no reduction is compared in its unit as written; a Null
-// is one whatever its reason; and a nil Value equals only another nil.
+// while one carrying no reduction is compared in its unit as written; a
+// MeasurementRef is one reduction at one scale however spelt, except that a
+// named unit of dimension one is only its own declaration (rad is not sr); an
+// EnumLiteral is its LiteralID, whatever else describes it; a Null is one
+// whatever its reason; and a nil Value equals only another nil.
 func Equal(a, b Value) bool {
 	switch x := a.(type) {
 	case nil:
@@ -46,7 +49,10 @@ func Equal(a, b Value) bool {
 		return ok && quantityEqual(x, y)
 	case MeasurementRef:
 		y, ok := b.(MeasurementRef)
-		return ok && x.Unit == y.Unit && x.UnitID == y.UnitID && unitTermEqual(x.Term, y.Term)
+		return ok && measurementRefEqual(x, y)
+	case EnumLiteral:
+		y, ok := b.(EnumLiteral)
+		return ok && x.LiteralID == y.LiteralID
 	default:
 		return a == b
 	}
@@ -148,6 +154,27 @@ func (q Quantity) baseMagnitude() float64 {
 		m = float64(x)
 	}
 	return m * q.Term.ScaleNum / q.Term.ScaleDen
+}
+
+// measurementRefEqual holds for one reduction at one scale (SI::'m/s' is m/s, km/m
+// is m/mm); a named unit reducing to nothing is only the declaration it names.
+func measurementRefEqual(a, b MeasurementRef) bool {
+	if a.Term == nil || b.Term == nil {
+		return a.Unit == b.Unit && a.UnitID == b.UnitID && unitTermEqual(a.Term, b.Term)
+	}
+	if !a.Term.same(*b.Term) {
+		return false
+	}
+	if len(a.Term.exponents()) == 0 && (a.UnitID != "" || b.UnitID != "") {
+		return a.UnitID == b.UnitID
+	}
+	return true
+}
+
+// same reports one reduction: commensurable at one scale, however the ratio is written.
+func (t UnitTerm) same(other UnitTerm) bool {
+	return t.commensurable(other) && !t.zeroScale() && !other.zeroScale() &&
+		t.ScaleNum*other.ScaleDen == other.ScaleNum*t.ScaleDen
 }
 
 // exponents sums the term's factors by base unit, dropping those that cancel,

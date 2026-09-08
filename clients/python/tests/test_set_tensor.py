@@ -22,10 +22,12 @@ from opensysml.capabilities import (
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
+from opensysml.enumeration import EnumLiteral
 from opensysml.errors import ExecutionError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
 from opensysml.values import (
     Array,
+    MeasurementRef,
     Quantity,
     SetValue,
     TensorQuantity,
@@ -221,6 +223,61 @@ def test_quantities_are_the_same_value_over_their_base_units():
     assert SetValue((m, length("km", 2, 1000.0))) != SetValue((length("m", 2000), length("cm", 1, 1.0, 100.0)))
     assert VectorQuantity((m, km)) == VectorQuantity((cm, length("m", 1000)))
     assert TensorQuantity((1, 1), (m,)) == TensorQuantity((1, 1), (cm,))
+
+
+def ref(text, unit_id="", scale_num=1.0, scale_den=1.0, factors=(("SI::metre", 1.0),)):
+    unit = Unit(text, scale_num, scale_den, tuple(UnitFactor(*f) for f in factors), reduction_given=True)
+    return MeasurementRef(unit, unit_id)
+
+
+def test_measurement_refs_are_the_same_value_over_one_reduction():
+    """As the service judges them: one reduction at one scale, however spelt."""
+    speed = (("SI::metre", 1.0), ("SI::second", -1.0))
+    named = ref("SI::'m/s'", "SI::'m/s'", factors=speed)
+    composed = ref("m / s", factors=reversed(speed))
+    assert named == composed and hash(named) == hash(composed)
+    assert ref("km/m", scale_num=1000.0) == ref("m/mm", scale_num=1.0, scale_den=0.001)
+    assert ref("km", "SI::kilometre", 1000.0) == ref("km", "SI::km", 2000.0, 2.0)
+    assert ref("km", "SI::kilometre", 1000.0) != ref("m", "SI::metre")
+    assert ref("m", "SI::metre") != ref("s", "SI::second", factors=(("SI::second", 1.0),))
+    assert ref("x", scale_num=0.0) != ref("x", scale_num=0.0)
+    # A named unit of dimension one reduces to nothing, so it is only itself.
+    rad, sr = ref("rad", "SI::radian", factors=()), ref("sr", "SI::steradian", factors=())
+    assert rad != sr and rad == ref("SI::rad", "SI::radian", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
+    assert ref("m/m", factors=(("SI::metre", 1.0), ("SI::metre", -1.0))) == ref("", factors=())
+    assert rad != ref("m/m", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
+    # One named without its reduction compares as written.
+    assert MeasurementRef(Unit("m"), "SI::metre") == MeasurementRef(Unit("m"), "SI::metre")
+    assert MeasurementRef(Unit("m"), "SI::metre") != ref("m", "SI::metre")
+
+    # Membership, duplicate detection and set equality follow.
+    assert composed in SetValue((named,)) and sr not in SetValue((rad,))
+    for twice in ((named, composed), (rad, ref("SI::rad", "SI::radian", factors=()))):
+        with pytest.raises(ValueError, match="set lists a member twice"):
+            SetValue(twice)
+    with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
+        value_to_python(pb_set(
+            sysml_pb2.Value(measurement_ref=named.to_pb()),
+            sysml_pb2.Value(measurement_ref=composed.to_pb()),
+        ))
+    assert len(SetValue((rad, sr))) == 2
+    assert SetValue((named, rad)) == SetValue((rad, composed))
+
+
+def test_enumeration_literals_are_the_same_value_by_literal_id():
+    red = EnumLiteral("D::Color::red", "D::Color", "Color::red")
+    same = EnumLiteral("D::Color::red", "E::Palette", "red")
+    assert red == same and EnumLiteral("D::Color::red") in SetValue((red,))
+    assert red != EnumLiteral("D::Color::green", "D::Color", "Color::red")
+    with pytest.raises(ValueError, match="set lists a member twice"):
+        SetValue((red, same))
+    with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
+        value_to_python(pb_set(
+            sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
+                literal_id="D::Color::red", enumeration_id="D::Color", name="Color::red")),
+            sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(literal_id="D::Color::red")),
+        ))
+    assert SetValue((red, EnumLiteral("D::Color::green"))) == SetValue((EnumLiteral("D::Color::green", name="g"), same))
 
 
 @pytest.mark.parametrize("elements, expected", [
@@ -516,5 +573,5 @@ class TestSetsAndTensorsAgainstTheService:
 
     def test_a_set_sent_in_any_order_is_read_as_its_elements(self):
         assert self.conn.calc("W::sizeOf", self.model.hash, arguments=[{3, 1, 2}]).value == 3
-        with pytest.raises(ExecutionError, match="set element is repeated"):
-            self.conn.calc("W::sizeOf", self.model.hash, arguments=[SetValue((1, 1))])
+        with pytest.raises(ValueError, match="set lists a member twice"):
+            SetValue((1, 1))

@@ -279,6 +279,76 @@ class PublicTypesTest {
                 new Value.TensorQuantityValue(List.of(1L, 1L), List.of(reduced(100L, "cm", 1.0, 100.0, metre)))));
   }
 
+  private static Value reference(
+      String unit, String unitId, double scaleNum, double scaleDen, Quantity.UnitFactor... factors) {
+    return new Value.MeasurementRefValue(
+        unit,
+        new Quantity.UnitTerm(scaleNum, scaleDen, List.of(factors)),
+        Optional.ofNullable(unitId));
+  }
+
+  @Test
+  void measurementRefsAreTheSameValueOverOneReduction() {
+    Quantity.UnitFactor metre = new Quantity.UnitFactor("SI::metre", 1.0);
+    Quantity.UnitFactor perMetre = new Quantity.UnitFactor("SI::metre", -1.0);
+    Quantity.UnitFactor perSecond = new Quantity.UnitFactor("SI::second", -1.0);
+    Value namedSpeed = reference("SI::'m/s'", "SI::'m/s'", 1.0, 1.0, metre, perSecond);
+    Value composedSpeed = reference("m / s", null, 1.0, 1.0, perSecond, metre);
+    Value km = reference("km", "SI::kilometre", 1000.0, 1.0, metre);
+    Value kmAlias = reference("km", "SI::km", 2000.0, 2.0, metre);
+    Value rad = reference("rad", "SI::radian", 1.0, 1.0);
+    Value sr = reference("sr", "SI::steradian", 1.0, 1.0);
+    Value ratio = reference("m / m", null, 1.0, 1.0, metre, perMetre);
+
+    // One reduction at one scale, however it is spelt or which declaration names it.
+    assertTrue(namedSpeed.sameValue(composedSpeed));
+    assertTrue(composedSpeed.sameValue(namedSpeed));
+    assertTrue(km.sameValue(kmAlias));
+    assertTrue(reference("km/m", null, 1000.0, 1.0).sameValue(reference("m/mm", null, 1.0, 0.001)));
+    assertFalse(km.sameValue(reference("m", "SI::metre", 1.0, 1.0, metre)));
+    assertFalse(
+        reference("m", "SI::metre", 1.0, 1.0, metre)
+            .sameValue(reference("s", "SI::second", 1.0, 1.0, new Quantity.UnitFactor("SI::second", 1.0))));
+    Value zeroScale = reference("x", null, 0.0, 1.0, metre);
+    assertFalse(zeroScale.sameValue(zeroScale));
+
+    // A named unit of dimension one reduces to nothing, so it is only itself.
+    assertFalse(rad.sameValue(sr));
+    assertTrue(rad.sameValue(reference("SI::rad", "SI::radian", 1.0, 1.0, metre, perMetre)));
+    assertFalse(rad.sameValue(ratio));
+    assertTrue(ratio.sameValue(reference("", null, 1.0, 1.0)));
+
+    // Membership, duplicate detection and set equality follow.
+    assertTrue(new Value.SetValue(List.of(namedSpeed)).contains(composedSpeed));
+    assertFalse(new Value.SetValue(List.of(rad)).contains(sr));
+    assertThrows(
+        IllegalArgumentException.class, () -> new Value.SetValue(List.of(namedSpeed, composedSpeed)));
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(km, kmAlias)));
+    assertEquals(2, new Value.SetValue(List.of(rad, sr)).size());
+    Value.SetValue references = new Value.SetValue(List.of(namedSpeed, rad));
+    Value.SetValue rewritten = new Value.SetValue(List.of(rad, composedSpeed));
+    assertEquals(rewritten, references);
+    assertEquals(rewritten.hashCode(), references.hashCode());
+    assertNotEquals(new Value.SetValue(List.of(sr, composedSpeed)), references);
+  }
+
+  @Test
+  void enumerationLiteralsAreTheSameValueByLiteralId() {
+    Value red = new Value.EnumerationValue(new EnumLiteral("D::Color::red", "D::Color", "Color::red"));
+    Value same = new Value.EnumerationValue(new EnumLiteral("D::Color::red", "E::Palette", "red"));
+    Value green = new Value.EnumerationValue(new EnumLiteral("D::Color::green", "D::Color", "Color::red"));
+    assertTrue(red.sameValue(same));
+    assertFalse(red.sameValue(green));
+    assertTrue(new Value.SetValue(List.of(red)).contains(new Value.EnumerationValue(new EnumLiteral("D::Color::red", "", ""))));
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(red, same)));
+    assertEquals(2, new Value.SetValue(List.of(red, green)).size());
+    Value.SetValue colours = new Value.SetValue(List.of(red, green));
+    Value.SetValue rewritten =
+        new Value.SetValue(List.of(new Value.EnumerationValue(new EnumLiteral("D::Color::green", "", "")), same));
+    assertEquals(rewritten, colours);
+    assertEquals(rewritten.hashCode(), colours.hashCode());
+  }
+
   @Test
   void aTensorQuantityIsShapedAndIndexedInRowMajorOrder() {
     List<Quantity> pascals = new ArrayList<>();

@@ -582,7 +582,11 @@ impl Value {
     /// sequence's order counts and a set's does not; a quantity is compared
     /// over its base units, so `1 [m]` is `100 [cm]` — exactly while integer
     /// magnitudes scale by whole factors — and one lacking a reduction is
-    /// compared in its unit as written. Every other arm compares as `==` does.
+    /// compared in its unit as written; a measurement reference is one
+    /// reduction at one scale however spelt, except that a named unit of
+    /// dimension one is only its own declaration (`rad` is not `sr`); an
+    /// enumeration literal is its `literal_id`, whatever else describes it.
+    /// Every other arm compares as `==` does.
     pub fn same_value(&self, other: &Value) -> bool {
         match (self, other) {
             (Value::Integer(_) | Value::Real(_) | Value::Complex(_), _) => {
@@ -606,9 +610,31 @@ impl Value {
             (Value::TensorQuantity(a), Value::TensorQuantity(b)) => {
                 a.dimensions == b.dimensions && components_equal(&a.components, &b.components)
             }
+            (Value::MeasurementRef(a), Value::MeasurementRef(b)) => measurement_refs_equal(a, b),
+            (Value::EnumLiteral(a), Value::EnumLiteral(b)) => a.literal_id == b.literal_id,
             _ => self == other,
         }
     }
+}
+
+// One reduction at one scale (`SI::'m/s'` is `m/s`, `km/m` is `m/mm`); a named
+// unit reducing to nothing is only the declaration it names.
+fn measurement_refs_equal(a: &MeasurementRef, b: &MeasurementRef) -> bool {
+    if !same_reduction(&a.unit_term, &b.unit_term) {
+        return false;
+    }
+    if exponents(&a.unit_term).is_empty() && (a.unit_id.is_some() || b.unit_id.is_some()) {
+        return a.unit_id == b.unit_id;
+    }
+    true
+}
+
+// One reduction: commensurable at one scale, however the ratio is written.
+fn same_reduction(a: &UnitTerm, b: &UnitTerm) -> bool {
+    commensurable(a, b)
+        && !zero_scale(a)
+        && !zero_scale(b)
+        && a.scale_num * b.scale_den == b.scale_num * a.scale_den
 }
 
 fn numbers_equal(a: &Value, b: &Value) -> bool {
@@ -1936,6 +1962,134 @@ mod tests {
         .same_value(&Value::TensorQuantity(
             TensorQuantity::new(vec![1, 1], vec![component(cm(100))]).unwrap()
         )));
+    }
+
+    #[test]
+    fn same_value_judges_measurement_refs_by_reduction() {
+        let reference =
+            |unit: &str, unit_id: Option<&str>, scale_num, scale_den, factors: &[(&str, f64)]| {
+                Value::MeasurementRef(MeasurementRef {
+                    unit: unit.to_owned(),
+                    unit_id: unit_id.map(str::to_owned),
+                    unit_term: UnitTerm {
+                        scale_num,
+                        scale_den,
+                        factors: factors
+                            .iter()
+                            .map(|(unit_id, exponent)| UnitFactor {
+                                unit_id: (*unit_id).to_owned(),
+                                exponent: *exponent,
+                            })
+                            .collect(),
+                    },
+                })
+            };
+        let metre = &[("SI::metre", 1.0)][..];
+        let ratio_factors = &[("SI::metre", 1.0), ("SI::metre", -1.0)][..];
+        let named_speed = || {
+            reference(
+                "SI::'m/s'",
+                Some("SI::'m/s'"),
+                1.0,
+                1.0,
+                &[("SI::metre", 1.0), ("SI::second", -1.0)],
+            )
+        };
+        let composed_speed = || {
+            reference(
+                "m / s",
+                None,
+                1.0,
+                1.0,
+                &[("SI::second", -1.0), ("SI::metre", 1.0)],
+            )
+        };
+        let km = || reference("km", Some("SI::kilometre"), 1000.0, 1.0, metre);
+        let km_alias = || reference("km", Some("SI::km"), 2000.0, 2.0, metre);
+        let rad = || reference("rad", Some("SI::radian"), 1.0, 1.0, &[]);
+        let sr = || reference("sr", Some("SI::steradian"), 1.0, 1.0, &[]);
+        let ratio = || reference("m / m", None, 1.0, 1.0, ratio_factors);
+        let set = |members| Value::Set(Set::new(members).unwrap());
+        let cases = [
+            (named_speed(), composed_speed(), true),
+            (km(), km_alias(), true),
+            (
+                reference("km/m", None, 1000.0, 1.0, &[]),
+                reference("m/mm", None, 1.0, 0.001, &[]),
+                true,
+            ),
+            (
+                km(),
+                reference("m", Some("SI::metre"), 1.0, 1.0, metre),
+                false,
+            ),
+            (
+                reference("m", Some("SI::metre"), 1.0, 1.0, metre),
+                reference("s", Some("SI::second"), 1.0, 1.0, &[("SI::second", 1.0)]),
+                false,
+            ),
+            (
+                reference("x", None, 0.0, 1.0, metre),
+                reference("x", None, 0.0, 1.0, metre),
+                false,
+            ),
+            (rad(), sr(), false),
+            (
+                rad(),
+                reference("SI::rad", Some("SI::radian"), 1.0, 1.0, ratio_factors),
+                true,
+            ),
+            (rad(), ratio(), false),
+            (ratio(), reference("", None, 1.0, 1.0, &[]), true),
+            (
+                set(vec![named_speed(), rad()]),
+                set(vec![rad(), composed_speed()]),
+                true,
+            ),
+            (
+                set(vec![named_speed(), rad()]),
+                set(vec![sr(), composed_speed()]),
+                false,
+            ),
+        ];
+        for (a, b, want) in cases {
+            assert_eq!(a.same_value(&b), want, "{a:?} vs {b:?}");
+            assert_eq!(b.same_value(&a), want, "{b:?} vs {a:?}");
+        }
+
+        assert!(Set::new(vec![named_speed()])
+            .unwrap()
+            .contains(&composed_speed()));
+        assert!(!Set::new(vec![rad()]).unwrap().contains(&sr()));
+        assert!(Set::new(vec![named_speed(), composed_speed()]).is_err());
+        assert!(Set::new(vec![km(), km_alias()]).is_err());
+        assert_eq!(Set::new(vec![rad(), sr()]).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn same_value_judges_enum_literals_by_literal_id() {
+        let literal = |literal_id: &str, enumeration_id: &str, name: &str| {
+            Value::EnumLiteral(EnumLiteral {
+                literal_id: literal_id.to_owned(),
+                enumeration_id: enumeration_id.to_owned(),
+                name: name.to_owned(),
+            })
+        };
+        let red = || literal("D::Color::red", "D::Color", "Color::red");
+        let same = || literal("D::Color::red", "E::Palette", "red");
+        let green = || literal("D::Color::green", "D::Color", "Color::red");
+        assert!(red().same_value(&same()));
+        assert!(!red().same_value(&green()));
+        assert!(Set::new(vec![red()])
+            .unwrap()
+            .contains(&literal("D::Color::red", "", "")));
+        assert!(
+            Value::Set(Set::new(vec![red(), green()]).unwrap()).same_value(&Value::Set(
+                Set::new(vec![literal("D::Color::green", "", ""), same()]).unwrap()
+            ))
+        );
+        assert!(Set::new(vec![red(), same()]).is_err());
+        assert_eq!(Set::new(vec![red(), green()]).unwrap().len(), 2);
     }
 
     #[test]

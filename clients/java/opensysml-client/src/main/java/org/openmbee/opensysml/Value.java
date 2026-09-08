@@ -539,7 +539,10 @@ public sealed interface Value {
    * value and a {@link ComplexValue} on the real axis is its real part, exactly across the whole
    * {@code long} range; a sequence's order counts and a set's does not; a quantity is compared
    * over its base units, so {@code 1 [m]} is {@code 100 [cm]} — exactly while integer magnitudes
-   * scale by whole factors — and one lacking a reduction is compared in its unit as written.
+   * scale by whole factors — and one lacking a reduction is compared in its unit as written; a
+   * {@link MeasurementRefValue} is one reduction at one scale however spelt, except that a named
+   * unit of dimension one is only its own declaration ({@code rad} is not {@code sr}); an {@link
+   * EnumerationValue} is its {@link EnumLiteral#literalId()}, whatever else describes it.
    * Every other arm compares as {@link Object#equals} does, which stays
    * structural: {@code new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
    *
@@ -570,7 +573,33 @@ public sealed interface Value {
       return a.dimensions().equals(b.dimensions())
           && sameQuantities(a.components(), b.components());
     }
+    if (this instanceof MeasurementRefValue a && other instanceof MeasurementRefValue b) {
+      return measurementRefsEqual(a, b);
+    }
+    if (this instanceof EnumerationValue a && other instanceof EnumerationValue b) {
+      return a.literal().literalId().equals(b.literal().literalId());
+    }
     return equals(other);
+  }
+
+  // One reduction at one scale (SI::'m/s' is m/s, km/m is m/mm); a named unit
+  // reducing to nothing is only the declaration it names.
+  private static boolean measurementRefsEqual(MeasurementRefValue a, MeasurementRefValue b) {
+    if (!sameReduction(a.reduction(), b.reduction())) {
+      return false;
+    }
+    if (exponents(a.reduction()).isEmpty() && (a.unitId().isPresent() || b.unitId().isPresent())) {
+      return a.unitId().equals(b.unitId());
+    }
+    return true;
+  }
+
+  /** One reduction: commensurable at one scale, however the ratio is written. */
+  private static boolean sameReduction(Quantity.UnitTerm x, Quantity.UnitTerm y) {
+    return exponents(x).equals(exponents(y))
+        && !zeroScale(x)
+        && !zeroScale(y)
+        && x.scaleNumerator() * y.scaleDenominator() == y.scaleNumerator() * x.scaleDenominator();
   }
 
   private static boolean numbersEqual(Value a, Value b) {
@@ -704,6 +733,12 @@ public sealed interface Value {
       }
       return Double.hashCode(quantity.quantity().magnitude().doubleValue() + 0.0)
           ^ quantity.quantity().unit().hashCode();
+    }
+    if (value instanceof MeasurementRefValue ref) {
+      return exponents(ref.reduction()).hashCode();
+    }
+    if (value instanceof EnumerationValue literal) {
+      return literal.literal().literalId().hashCode();
     }
     if (value instanceof SetValue
         || value instanceof Sequence

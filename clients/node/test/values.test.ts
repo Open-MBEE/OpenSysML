@@ -493,6 +493,81 @@ test("valuesEqual judges quantities over their base units, as the service does",
   });
 });
 
+test("valuesEqual judges measurement references by their reduction, as the service does", () => {
+  const ref = (
+    unit: string,
+    unitId: string | undefined,
+    scaleNum: number,
+    scaleDen: number,
+    ...factors: [string, number][]
+  ): SysMLValue => ({
+    kind: "measurementRef",
+    unit,
+    unitTerm: { scaleNum, scaleDen, factors: factors.map(([unitId, exponent]) => ({ unitId, exponent })) },
+    ...(unitId === undefined ? {} : { unitId }),
+  });
+  const namedSpeed = ref("SI::'m/s'", "SI::'m/s'", 1, 1, ["SI::metre", 1], ["SI::second", -1]);
+  const composedSpeed = ref("m / s", undefined, 1, 1, ["SI::second", -1], ["SI::metre", 1]);
+  const km = ref("km", "SI::kilometre", 1000, 1, ["SI::metre", 1]);
+  const rad = ref("rad", "SI::radian", 1, 1);
+  const sr = ref("sr", "SI::steradian", 1, 1);
+  const ratio = ref("m / m", undefined, 1, 1, ["SI::metre", 1], ["SI::metre", -1]);
+  const cases: [SysMLValue, SysMLValue, boolean][] = [
+    [namedSpeed, composedSpeed, true],
+    [km, ref("km", "SI::km", 2000, 2, ["SI::metre", 1]), true],
+    [ref("km/m", undefined, 1000, 1), ref("m/mm", undefined, 1, 0.001), true],
+    [km, ref("m", "SI::metre", 1, 1, ["SI::metre", 1]), false],
+    [ref("m", "SI::metre", 1, 1, ["SI::metre", 1]), ref("s", "SI::second", 1, 1, ["SI::second", 1]), false],
+    [ref("x", undefined, 0, 1, ["SI::metre", 1]), ref("x", undefined, 0, 1, ["SI::metre", 1]), false],
+    [rad, sr, false],
+    [rad, ref("SI::rad", "SI::radian", 1, 1, ["SI::metre", 1], ["SI::metre", -1]), true],
+    [rad, ratio, false],
+    [ratio, ref("", undefined, 1, 1), true],
+    [{ kind: "set", elements: [namedSpeed, rad] }, { kind: "set", elements: [rad, composedSpeed] }, true],
+    [{ kind: "set", elements: [namedSpeed, rad] }, { kind: "set", elements: [sr, composedSpeed] }, false],
+  ];
+  for (const [a, b, want] of cases) {
+    assert.equal(valuesEqual(a, b), want, `${formatValue(a)} vs ${formatValue(b)}`);
+    assert.equal(valuesEqual(b, a), want, `${formatValue(b)} vs ${formatValue(a)}`);
+  }
+  for (const twice of [[namedSpeed, composedSpeed], [km, ref("km", "SI::km", 2000, 2, ["SI::metre", 1])]]) {
+    assert.throws(() => encodeValue({ kind: "set", elements: twice }), {
+      name: "MalformedValueError",
+      message: /^a set lists a member twice: /,
+    });
+  }
+  assert.throws(() => decodeValue(setOf(encodeValue(rad), encodeValue(ref("SI::rad", "SI::radian", 1, 1)))), {
+    name: "MalformedValueError",
+    message: /^a set lists a member twice: /,
+  });
+  const sent = decodeValue(encodeValue({ kind: "set", elements: [rad, sr] }));
+  assert.equal(sent.kind, "set");
+  assert.equal(sent.elements.length, 2);
+});
+
+test("valuesEqual judges enumeration literals by their literalId, as the service does", () => {
+  const lit = (literalId: string, enumerationId = "", name = ""): SysMLValue => ({
+    kind: "enum",
+    value: { literalId, enumerationId, name },
+  });
+  const red = lit("D::Color::red", "D::Color", "Color::red");
+  const same = lit("D::Color::red", "E::Palette", "red");
+  const green = lit("D::Color::green", "D::Color", "Color::red");
+  assert.equal(valuesEqual(red, same), true);
+  assert.equal(valuesEqual(red, green), false);
+  assert.equal(
+    valuesEqual({ kind: "set", elements: [red, green] }, { kind: "set", elements: [lit("D::Color::green"), same] }),
+    true,
+  );
+  assert.throws(() => encodeValue({ kind: "set", elements: [red, same] }), {
+    name: "MalformedValueError",
+    message: /^a set lists a member twice: /,
+  });
+  const sent = decodeValue(encodeValue({ kind: "set", elements: [red, green] }));
+  assert.equal(sent.kind, "set");
+  assert.equal(sent.elements.length, 2);
+});
+
 test("a set assembled with a member listed twice is refused before it is sent", () => {
   const i = (value: bigint): SysMLValue => ({ kind: "int", value });
   const r = (value: number): SysMLValue => ({ kind: "real", value });

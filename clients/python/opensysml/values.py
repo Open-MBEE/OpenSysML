@@ -138,6 +138,15 @@ class Unit:
         """Whether a magnitude in this unit converts into ``other``."""
         return self.exponents() == other.exponents()
 
+    def same_reduction(self, other: "Unit") -> bool:
+        """Whether both reduce to one thing at one scale, however the ratio is written."""
+        return (
+            self.commensurable(other)
+            and not self.zero_scale
+            and not other.zero_scale
+            and self.scale_num * other.scale_den == other.scale_num * self.scale_den
+        )
+
     def reduction(self) -> str:
         """The reduction as text ("1000/3600·SI::m·SI::s^-1"), for a diagnostic."""
         parts = []
@@ -367,7 +376,7 @@ class Quantity:
         return f"Quantity({self.magnitude!r}, {self.unit!r})"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MeasurementRef:
     """A measurement unit held as a value by itself, with no magnitude.
 
@@ -375,6 +384,11 @@ class MeasurementRef:
     ``MeasurementUnit``-typed attribute or a quantity's ``mRef`` evaluates to,
     and what ``ConvertQuantity`` takes as its target. It carries the unit as a
     :class:`Quantity` does — text and reduction — plus the declaration it names.
+
+    Two references are equal when they are one reduction at one scale, however
+    spelt: ``SI::'m/s'`` is ``m / s`` and ``km / m`` is ``m / mm``. A named unit
+    of dimension one reduces to nothing, so it is only its own declaration:
+    ``rad`` is not ``sr``.
 
     Attributes:
         unit (Unit): The unit as written and its reduction to base units
@@ -420,6 +434,23 @@ class MeasurementRef:
         return sysml_pb2.MeasurementRef(
             unit=self.unit.text, unit_term=self.unit.to_pb(), unit_id=self.unit_id
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MeasurementRef):
+            return NotImplemented
+        if not (self.unit.reduced and other.unit.reduced):
+            return self.unit == other.unit and self.unit_id == other.unit_id
+        if not self.unit.same_reduction(other.unit):
+            return False
+        if self.unit.dimensionless and (self.unit_id or other.unit_id):
+            return self.unit_id == other.unit_id
+        return True
+
+    def __hash__(self) -> int:
+        if not self.unit.reduced:
+            return hash((self.unit, self.unit_id))
+        exponents = tuple(sorted(self.unit.exponents().items()))
+        return hash((exponents, self.unit_id if not exponents else ""))
 
     def __str__(self) -> str:
         return str(self.unit)

@@ -525,9 +525,13 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::s.elements"}'
   and so are `1.5` and the complex `1.5 + 0.0i`, exactly — an Integer past 2^53 is not the Real
   it would round to; a Boolean is never a number; sequences in order; sets by membership;
   quantities by magnitude, converting commensurable units, so `1 [m]` and `100 [cm]` are one
-  member. The bundled clients' equality helpers judge the same way, converting a quantity
-  through its `unitTerm` (exactly, while the magnitude is an integer and the scale a whole
-  ratio); a quantity sent without a `unitTerm` they compare in its unit as written.
+  member; a `measurementRef` by its reduction at its scale, however it is spelt or which
+  declaration names it (`SI::'m/s'` and `m / s` are one member, `km / m` and `m / mm` too),
+  except that a named unit of dimension one reduces to nothing and so is only its own
+  declaration (`rad` is not `sr`); an `enumLiteral` by its `literalId` alone. The bundled
+  clients' equality helpers judge the same way, converting a quantity through its `unitTerm`
+  (exactly, while the magnitude is an integer and the scale a whole ratio); a quantity sent
+  without a `unitTerm` they compare in its unit as written.
 - An empty set has no `elements` key (default omission). A `set` listing a member twice is
   refused on both sides, as is a `set` where the model wants a sequence's order or a sequence
   where it wants a set; a set flowing into an ordered parameter is read in canonical order.

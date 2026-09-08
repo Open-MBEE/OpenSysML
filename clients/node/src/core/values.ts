@@ -580,7 +580,10 @@ function uniqueMembers(members: SysMLValue[]): SysMLValue[] {
  * value and a `complex` on the real axis is its real part, exactly across the
  * whole `int` range; a `sequence`'s order counts and a `set`'s does not, nor
  * does a member it lists twice; a quantity is the same over its base units; a
- * `null` is the same whatever its reason.
+ * `measurementRef` is one reduction at one scale however spelt, except that a
+ * named unit of dimension one is only its own declaration (`rad` is not `sr`);
+ * an `enum` is its `literalId`, whatever else describes it; a `null` is the
+ * same whatever its reason.
  */
 export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
   switch (a.kind) {
@@ -599,19 +602,9 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
     case "quantity":
       return b.kind === "quantity" && quantitiesEqual(a, b);
     case "measurementRef":
-      return (
-        b.kind === "measurementRef" &&
-        a.unit === b.unit &&
-        a.unitId === b.unitId &&
-        unitTermsEqual(a.unitTerm, b.unitTerm)
-      );
+      return b.kind === "measurementRef" && measurementRefsEqual(a, b);
     case "enum":
-      return (
-        b.kind === "enum" &&
-        a.value.literalId === b.value.literalId &&
-        a.value.enumerationId === b.value.enumerationId &&
-        a.value.name === b.value.name
-      );
+      return b.kind === "enum" && a.value.literalId === b.value.literalId;
     case "array":
       return (
         b.kind === "array" &&
@@ -761,6 +754,28 @@ function commensurable(a: UnitFactorization, b: UnitFactorization): boolean {
 
 function zeroScale(term: UnitFactorization): boolean {
   return term.scaleNum === 0 || term.scaleDen === 0;
+}
+
+/** One reduction: commensurable at one scale, however the ratio is written. */
+function sameReduction(a: UnitFactorization, b: UnitFactorization): boolean {
+  return (
+    commensurable(a, b) &&
+    !zeroScale(a) &&
+    !zeroScale(b) &&
+    a.scaleNum * b.scaleDen === b.scaleNum * a.scaleDen
+  );
+}
+
+// One reduction at one scale (`SI::'m/s'` is `m/s`, `km/m` is `m/mm`); a named
+// unit reducing to nothing is only the declaration it names.
+function measurementRefsEqual(a: MeasurementRefValue, b: MeasurementRefValue): boolean {
+  if (!sameReduction(a.unitTerm, b.unitTerm)) {
+    return false;
+  }
+  if (exponents(a.unitTerm).size === 0 && (a.unitId !== undefined || b.unitId !== undefined)) {
+    return a.unitId === b.unitId;
+  }
+  return true;
 }
 
 function wholeScale(term: UnitFactorization): boolean {

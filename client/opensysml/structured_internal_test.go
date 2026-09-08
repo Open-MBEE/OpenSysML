@@ -385,6 +385,83 @@ func TestEqualJudgesQuantitiesAcrossUnits(t *testing.T) {
 	}
 }
 
+// A measurement reference is one reduction at one scale however it is spelt;
+// a named unit of dimension one is only its own declaration.
+func TestEqualJudgesMeasurementRefsByReduction(t *testing.T) {
+	metre := UnitFactor{UnitID: "SI::metre", Exponent: 1}
+	perMetre := UnitFactor{UnitID: "SI::metre", Exponent: -1}
+	perSecond := UnitFactor{UnitID: "SI::second", Exponent: -1}
+	ref := func(unit, id string, num, den float64, factors ...UnitFactor) MeasurementRef {
+		return MeasurementRef{Unit: unit, UnitID: id, Term: &UnitTerm{ScaleNum: num, ScaleDen: den, Factors: factors}}
+	}
+	namedSpeed := ref("SI::'m/s'", "SI::'m/s'", 1, 1, metre, perSecond)
+	composedSpeed := ref("m / s", "", 1, 1, perSecond, metre)
+	km := ref("km", "SI::kilometre", 1000, 1, metre)
+	rad := ref("rad", "SI::radian", 1, 1)
+	sr := ref("sr", "SI::steradian", 1, 1)
+	ratio := ref("m / m", "", 1, 1, metre, perMetre)
+	for name, tc := range map[string]struct {
+		a, b Value
+		want bool
+	}{
+		"named and composed, factors reordered": {namedSpeed, composedSpeed, true},
+		"aliases":                               {km, ref("km", "SI::km", 2000, 2, metre), true},
+		"scale as ratio or decimal":             {ref("km/m", "", 1000, 1), ref("m/mm", "", 1, 0.001), true},
+		"unlike scale":                          {km, ref("m", "SI::metre", 1, 1, metre), false},
+		"unlike dimension":                      {ref("m", "SI::metre", 1, 1, metre), ref("s", "SI::second", 1, 1, UnitFactor{UnitID: "SI::second", Exponent: 1}), false},
+		"zero scale":                            {ref("x", "", 0, 1, metre), ref("x", "", 0, 1, metre), false},
+		"named dimension one":                   {rad, sr, false},
+		"named dimension one, spelt twice":      {rad, ref("SI::rad", "SI::radian", 1, 1, metre, perMetre), true},
+		"named and composed dimension one":      {rad, ratio, false},
+		"composed dimension one":                {ratio, ref("", "", 1, 1), true},
+		"no reduction, alike":                   {MeasurementRef{Unit: "m", UnitID: "SI::metre"}, MeasurementRef{Unit: "m", UnitID: "SI::metre"}, true},
+		"no reduction on one side":              {MeasurementRef{Unit: "m", UnitID: "SI::metre"}, ref("m", "SI::metre", 1, 1, metre), false},
+		"set of references":                     {Set{namedSpeed, rad}, Set{rad, composedSpeed}, true},
+		"set of references, one unlike":         {Set{namedSpeed, rad}, Set{sr, composedSpeed}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := Equal(tc.a, tc.b); got != tc.want {
+				t.Errorf("Equal(%#v, %#v) = %v, want %v", tc.a, tc.b, got, tc.want)
+			}
+			if got := Equal(tc.b, tc.a); got != tc.want {
+				t.Errorf("Equal(%#v, %#v) = %v, want %v", tc.b, tc.a, got, tc.want)
+			}
+		})
+	}
+	if !(Set{namedSpeed}).Contains(composedSpeed) || (Set{rad}).Contains(sr) {
+		t.Error("membership does not follow Equal")
+	}
+	var status *StatusError
+	for name, set := range map[string]Set{"named and composed": {namedSpeed, composedSpeed}, "aliases": {km, ref("km", "SI::km", 2000, 2, metre)}} {
+		if _, err := valueToProto(set); !errors.As(err, &status) || status.Code != CodeInvalidArgument {
+			t.Errorf("valueToProto(%s) = %v, want an invalid-argument StatusError", name, err)
+		}
+	}
+	if _, err := valueToProto(Set{rad, sr}); err != nil {
+		t.Errorf("valueToProto(Set{rad, sr}) = %v", err)
+	}
+}
+
+// An enumeration literal is its LiteralID; its name and enumeration describe it.
+func TestEqualJudgesEnumLiteralsByID(t *testing.T) {
+	red := EnumLiteral{LiteralID: "D::Color::red", EnumerationID: "D::Color", Name: "Color::red"}
+	same := EnumLiteral{LiteralID: "D::Color::red", EnumerationID: "E::Palette", Name: "red"}
+	green := EnumLiteral{LiteralID: "D::Color::green", EnumerationID: "D::Color", Name: "Color::red"}
+	if !Equal(red, same) || Equal(red, green) || !(Set{red}).Contains(EnumLiteral{LiteralID: "D::Color::red"}) {
+		t.Errorf("Equal(red, same) = %v, Equal(red, green) = %v", Equal(red, same), Equal(red, green))
+	}
+	if !Equal(Set{red, green}, Set{EnumLiteral{LiteralID: "D::Color::green"}, same}) {
+		t.Error("sets of literals compare by LiteralID")
+	}
+	var status *StatusError
+	if _, err := valueToProto(Set{red, same}); !errors.As(err, &status) || status.Code != CodeInvalidArgument {
+		t.Errorf("valueToProto(Set{red, same}) = %v, want an invalid-argument StatusError", err)
+	}
+	if _, err := valueToProto(Set{red, green}); err != nil {
+		t.Errorf("valueToProto(Set{red, green}) = %v", err)
+	}
+}
+
 // A set a caller assembles with a member listed twice, by Equal, is refused
 // before it is sent, as the service would refuse it; one whose members only
 // look alike is sent.
