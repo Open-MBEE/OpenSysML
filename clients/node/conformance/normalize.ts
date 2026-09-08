@@ -16,6 +16,7 @@ const NORMALIZED_IDS = new Set([
   "sysml.Instance.id",
   "sysml.Value.instance_id",
   "sysml.Verdict.instance_id",
+  "sysml.Function.self_id",
 ]);
 
 /**
