@@ -348,8 +348,9 @@ func redefinesSibling(redefining, target *symbols.Symbol) bool {
 	return target.OwnerScope != nil && target.OwnerScope == redefining.OwnerScope
 }
 
-// redefinitionClosure returns what candidate's redefinitions remove from a type
-// inheriting it, transitively; a sibling edge removes nothing but is followed.
+// redefinitionClosure returns what candidate's redefinitions, by clause or by
+// position, remove from a type inheriting it, transitively; a sibling edge
+// removes nothing but is followed.
 func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Symbol]bool, bool) {
 	if candidate == nil {
 		return nil, false
@@ -363,7 +364,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 	m.computingRedefClosure[candidate] = true
 	out := make(map[*symbols.Symbol]bool)
 	cyclic := false
-	for _, target := range m.RedefinedFeatures(candidate) {
+	for _, target := range m.directRedefinedFeatures(candidate) {
 		if !redefinesSibling(candidate, target) {
 			out[target] = true
 		}
@@ -461,7 +462,7 @@ func (m *Model) namingRedefiner(sym, masked *symbols.Symbol, declared bool) *sym
 	mask := m.redefinitionMask(sym, declared)
 	var found *symbols.Symbol
 	m.forEachMaskCandidate(sym, declared, func(candidate *symbols.Symbol) bool {
-		if candidate.Naming != symbols.NamedByRedefinition || m.maskedBy(mask, candidate) {
+		if declaresIdentifier(candidate) || m.maskedBy(mask, candidate) {
 			return true
 		}
 		if m.namedThrough(candidate, masked) {

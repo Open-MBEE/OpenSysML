@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -391,7 +392,8 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 				sym: obj.Symbol, kind: "objective", what: "require condition",
 				element: name, self: run.self, bindings: own,
 			}
-			verdict = ctx.analysisVerdict("objective", name, check, obj.Conditions)
+			conds := append(slices.Clone(obj.LibraryConditions), obj.Conditions...)
+			verdict = ctx.analysisVerdict("objective", name, check, conds)
 		}
 		verdict.Symbol = obj.Symbol
 		verdicts = append(verdicts, verdict)

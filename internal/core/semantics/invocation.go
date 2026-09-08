@@ -404,9 +404,14 @@ type signatureParameter struct {
 	optional bool // may go without an argument: a default, or a multiplicity admitting none
 }
 
-// signatureOf returns sym's effective input parameters, in signature order.
+// signatureOf returns sym's effective input parameters, in signature order: the
+// subject of a requirement or case first, being its first input parameter (SysML
+// v2 §7.19.1, §7.20.1), then its directed `in` and `inout` parameters.
 func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 	sig := invocationSignature{owner: sym}
+	if subject := m.SubjectParameterOf(sym); subject != nil {
+		sig.params = append(sig.params, m.signatureParameterOf(subject, m.EffectiveNameOf(subject)))
+	}
 	for _, p := range m.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
 			continue
@@ -418,24 +423,29 @@ func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 				name = effective
 			}
 		}
-		param := signatureParameter{
-			sym:      p.Symbol,
-			name:     name,
-			typ:      m.featureType(p.Symbol),
-			prim:     m.PrimTypeOf(p.Symbol),
-			optional: m.OptionalParameter(p.Symbol),
-		}
-		switch {
-		case IsAnything(param.typ):
-			param.typ, param.untyped = nil, true
-		case param.typ == nil && param.prim == PrimUnknown && !m.declaresType(p.Symbol):
-			param.untyped = true
-		}
-		sig.params = append(sig.params, param)
+		sig.params = append(sig.params, m.signatureParameterOf(p.Symbol, name))
 	}
 	// A parameterless declaration with supertypes may inherit an unseen signature.
 	sig.known = len(sig.params) > 0 || (sym.Decl != nil && len(m.DirectSupertypes(sym)) == 0)
 	return sig
+}
+
+// signatureParameterOf describes the parameter sym as a call binds it under name.
+func (m *Model) signatureParameterOf(sym *symbols.Symbol, name string) signatureParameter {
+	param := signatureParameter{
+		sym:      sym,
+		name:     name,
+		typ:      m.featureType(sym),
+		prim:     m.PrimTypeOf(sym),
+		optional: m.OptionalParameter(sym),
+	}
+	switch {
+	case IsAnything(param.typ):
+		param.typ, param.untyped = nil, true
+	case param.typ == nil && param.prim == PrimUnknown && !m.declaresType(sym):
+		param.untyped = true
+	}
+	return param
 }
 
 // OptionalParameter reports whether a call may omit the parameter: it or a parameter it

@@ -90,10 +90,15 @@ type Objective struct {
 	ReboundBest *symbols.Symbol
 
 	// Conditions are the conditions the objective states itself, its own body's
-	// and the ones it inherits from the model's own objective definitions: the
-	// trade-study library's own conditions are left out, being about choosing
-	// among alternatives rather than about which values are feasible.
+	// and the ones it inherits from the model's own objective definitions: what
+	// values are feasible, which a solver translates.
 	Conditions []Condition
+
+	// LibraryConditions are the conditions the objective inherits from the
+	// trade-study library (`eval(selectedAlternative) == best`): about the
+	// choice among the listed alternatives, which the analysis run checks and
+	// no solver translates.
+	LibraryConditions []Condition
 }
 
 // Text renders the expression stating the objective's value as written, empty
@@ -173,13 +178,13 @@ func (ctx *Context) redefines(obj, prev Objective) bool {
 func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
 	typ := ctx.extractType(objSym)
 	obj := Objective{
-		Name:       ctx.model.EffectiveNameOf(objSym),
-		Symbol:     objSym,
-		Type:       typ,
-		Direction:  ctx.objectiveDirection(typ),
-		Scope:      objSym.OwnerScope,
-		Conditions: ctx.objectiveConditionsOf(objSym),
+		Name:      ctx.model.EffectiveNameOf(objSym),
+		Symbol:    objSym,
+		Type:      typ,
+		Direction: ctx.objectiveDirection(typ),
+		Scope:     objSym.OwnerScope,
 	}
+	obj.Conditions, obj.LibraryConditions = ctx.objectiveConditionsOf(objSym)
 	tradeStudy := ctx.specializesLibraryType(typ, tradeStudyObjectiveFQN)
 	if tradeStudy {
 		obj.ReboundBest = ctx.reboundBestOf(objSym)
@@ -358,31 +363,35 @@ func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 }
 
 // objectiveConditionsOf returns the conditions an objective states in its own
-// body together with the ones it inherits from a model's own definitions, the
-// library's left out: a trade-study library condition is about choosing among
-// alternatives rather than about which values are feasible.
-func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) []Condition {
+// body together with the ones it inherits from a model's own definitions, and
+// apart from those the ones it inherits from the trade-study library, which are
+// about the choice among alternatives rather than about which values are feasible.
+func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library []Condition) {
 	if sym == nil {
-		return nil
+		return nil, nil
 	}
 	// An inherited condition is read where it is inherited: the objective's own
 	// body, where the `best` it inherits answers that name.
 	body := bodyScope(sym, sym.OwnerScope)
-	var members []scopedMember
+	var members, libraryMembers []scopedMember
 	supers := ctx.model.AllSupertypes(sym)
 	for i := len(supers) - 1; i >= 0; i-- {
 		link := supers[i]
-		if link == nil || ctx.libraryDeclared(link) {
+		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
 		for _, node := range declMembers(link.Decl) {
-			members = append(members, scopedMember{node: node, scope: body})
+			if ctx.libraryDeclared(link) {
+				libraryMembers = append(libraryMembers, scopedMember{node: node, scope: body})
+			} else {
+				members = append(members, scopedMember{node: node, scope: body})
+			}
 		}
 	}
 	for _, node := range declMembers(sym.Decl) {
 		members = append(members, scopedMember{node: node, scope: body})
 	}
-	return ctx.conditionsOf(sym, members)
+	return ctx.conditionsOf(sym, members), ctx.conditionsOf(sym, libraryMembers)
 }
 
 // CaseConditionsOf returns the conditions a case states as what it holds true of

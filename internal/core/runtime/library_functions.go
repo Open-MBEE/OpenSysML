@@ -347,6 +347,28 @@ func (ctx *Context) libraryDeclared(sym *symbols.Symbol) bool {
 	return idx != nil && idx.Library(sym)
 }
 
+// frameDeclared reports a library declaration this runtime realizes rather than
+// executes as written: the semantic libraries' metamodel frame, and a library calc
+// it implements natively. A domain library's other declarations are executed as the
+// model's own, since only their text states what they mean.
+func (ctx *Context) frameDeclared(sym *symbols.Symbol) bool {
+	if ctx == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+		return false
+	}
+	tier := ctx.resolver.Index().LibraryTier(sym)
+	if !tier.Library() {
+		return false
+	}
+	if tier.Semantic() {
+		return true
+	}
+	if _, ok := ctx.builtinFor(sym); ok {
+		return true
+	}
+	_, ok := ctx.libraryFunctionFor(sym)
+	return ok
+}
+
 // librarySymbol is the declaration the bundled library makes under fqn, nil
 // where it is not loaded.
 func (ctx *Context) librarySymbol(fqn string) *symbols.Symbol {

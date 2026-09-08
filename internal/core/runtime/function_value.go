@@ -163,6 +163,16 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 	if val, ok := ec.Lookup(name); ok {
 		return val, true, nil
 	}
+	// A calc-typed feature the element being evaluated binds (`in calc :>> f = g`)
+	// is called as the function it is bound to.
+	if val, ok, err := ec.valuedFeatureValue(name); ok {
+		if err != nil {
+			return Value{}, true, err
+		}
+		if val.Kind == ValFunction {
+			return val, true, nil
+		}
+	}
 	if ec.self != nil && ec.selfFeatureInScope(name) {
 		val, ok, err := ec.selfFeatureValue(name)
 		if err != nil {

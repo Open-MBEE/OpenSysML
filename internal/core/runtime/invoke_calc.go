@@ -271,12 +271,13 @@ func resultBindingExpr(bindings []lower.Binding) ast.Node {
 }
 
 // calcChain returns the calcs sym takes members from (its supertypes and the calc
-// it references), most general first, then sym. Non-calc and library links contribute nothing.
+// it references), most general first, then sym. Non-calc links and the library's
+// frame contribute nothing; a domain library's calc contributes as a model's does.
 func (ctx *Context) calcChain(sym *symbols.Symbol) []*symbols.Symbol {
 	supers := ctx.model.MemberSources(sym)
 	chain := make([]*symbols.Symbol, 0, len(supers)+1)
 	for i := len(supers) - 1; i >= 0; i-- {
-		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.libraryDeclared(supers[i]) {
+		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
 			chain = append(chain, supers[i])
 		}
 	}
