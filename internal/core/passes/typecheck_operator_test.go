@@ -163,6 +163,9 @@ func TestCastConformanceCollectionBody(t *testing.T) {
 	castDiags(t, "", `feature some = xs.{in x : A; (true, 1)} as Integer; feature other = xs.{in x : A; (x, 1)} as B;`)
 	castDiags(t, "", `feature open = xs.{in x; (x, 1)} as String; feature open2 = xs.{in x; (untyped, 1)} as String;`)
 	castDiags(t, "", `feature kept = xs->ControlFunctions::select {in x : A; true} as B;`)
+	castDiags(t, "", `feature kept = xs.?{in x : A; true} as B;`)
+	castDiags(t, "", `feature bad = xs.?{in x : A; true} as String;`, "16:16 cast argument is typed by A, unrelated to the target String")
+	castDiags(t, "", `feature none = ()->ControlFunctions::reduce {in x : A; in y : A; s} as C;`)
 }
 
 // A cast up, down, or sideways through one of several types conforms; so does

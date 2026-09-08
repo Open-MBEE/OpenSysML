@@ -39,12 +39,14 @@ func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*s
 	return m.sourcesTypes(srcs), true
 }
 
-// sourcesOf is the sources of a collection value: `xs.{…}` by its body, a collection function
-// call by its arguments; not ok for any other value.
+// sourcesOf is the sources of a collection value: `xs.{…}` by its body, `xs.?{…}` by xs, a
+// collection function call by its arguments; not ok for any other value.
 func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSource, bool) {
 	switch n := node.(type) {
 	case *ast.CollectExpr:
 		return m.collectSources(scope, n)
+	case *ast.SelectExpr:
+		return m.keptSources(scope, n.Operand)
 	case *ast.InvocationExpr:
 		return m.invocationSources(scope, n, m.invocationCallee(scope, n))
 	}
@@ -53,106 +55,147 @@ func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSour
 
 // invocationSources are the sources of a call of a ControlFunctions collection function: collect
 // the body or function applied, select/reject/selectOne the collection, reduce the reducer and,
-// unless the collection holds two or more, the one element it returns unreduced; not ok where
-// the arguments say nothing and the declaration alone decides.
+// unless the collection holds two or more, the one element it returns unreduced; none over a
+// collection known to hold nothing, which nothing is applied to. Not ok where the arguments say
+// nothing and the declaration alone decides.
 func (m *Model) invocationSources(scope *symbols.Scope, e *ast.InvocationExpr, fn *symbols.Symbol) ([]collectionSource, bool) {
 	if fn == nil || e == nil {
 		return nil, false
 	}
 	switch fn {
 	case m.libSymbol(fqnCollect):
+		if m.holdsNothing(scope, m.argumentTo(scope, e, fn, 0)) {
+			return nil, true
+		}
 		return m.appliedSources(scope, m.argumentTo(scope, e, fn, 1))
 	case m.libSymbol(fqnReduce):
+		collection := m.argumentTo(scope, e, fn, 0)
+		if m.holdsNothing(scope, collection) {
+			return nil, true
+		}
 		srcs, ok := m.appliedSources(scope, m.argumentTo(scope, e, fn, 1))
 		if !ok {
 			return nil, false
 		}
-		if collection := m.argumentTo(scope, e, fn, 0); collection != nil && !m.holdsAtLeastTwo(scope, collection) {
+		if collection != nil && !m.holdsAtLeastTwo(scope, collection) {
 			srcs = append(srcs, collectionSource{scope: scope, node: collection})
 		}
 		return srcs, true
 	case m.libSymbol(fqnSelect), m.libSymbol(fqnReject), m.libSymbol(fqnSelectOne):
-		if collection := m.argumentTo(scope, e, fn, 0); collection != nil {
-			return []collectionSource{{scope: scope, node: collection}}, true
-		}
+		return m.keptSources(scope, m.argumentTo(scope, e, fn, 0))
 	}
 	return nil, false
 }
 
-// holdsAtLeastTwo reports a collection statically known to hold two elements or more: a
-// sequence of that many literals, or a feature or chain whose multiplicity's lower bound says so.
+// keptSources is the source of a selection: the collection whose elements it keeps.
+func (m *Model) keptSources(scope *symbols.Scope, collection ast.Node) ([]collectionSource, bool) {
+	if collection == nil {
+		return nil, false
+	}
+	return []collectionSource{{scope: scope, node: collection}}, true
+}
+
+// holdsAtLeastTwo reports a collection statically known to hold two elements or more.
 func (m *Model) holdsAtLeastTwo(scope *symbols.Scope, collection ast.Node) bool {
-	if seq, ok := collection.(*ast.SequenceExpr); ok {
-		if len(seq.Elements) < 2 {
-			return false
+	r, ok := m.valuesHeldBy(scope, collection)
+	return ok && (r.Lower.Infinite || r.Lower.Value >= 2)
+}
+
+// holdsNothing reports a collection statically known to hold no element: `()`, or a feature
+// whose multiplicity admits none.
+func (m *Model) holdsNothing(scope *symbols.Scope, collection ast.Node) bool {
+	r, ok := m.valuesHeldBy(scope, collection)
+	return ok && !r.Upper.Infinite && r.Upper.Value == 0
+}
+
+// valuesHeldBy is how many values a collection expression holds: `()` none, a literal one, a
+// sequence the sum over its elements, a feature or chain the multiplicity governing it, a chain
+// holding through each value of its operand the values of its last feature; not ok where unknown.
+func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) {
+	switch n := node.(type) {
+	case *ast.NullExpr:
+		return exactly(0), true
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
+		return exactly(1), true
+	case *ast.SequenceExpr:
+		sum := exactly(0)
+		for _, element := range n.Elements {
+			r, ok := m.valuesHeldBy(scope, element)
+			if !ok {
+				return Range{}, false
+			}
+			sum = Range{Lower: addBounds(sum.Lower, r.Lower), Upper: addBounds(sum.Upper, r.Upper)}
 		}
-		for _, element := range seq.Elements {
-			switch element.(type) {
-			case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
-			default:
-				return false
+		return sum, true
+	case *ast.FeatureReference, *ast.QualifiedName:
+		return m.valuesHeldByFeature(scope, n)
+	case *ast.FeatureChainExpr:
+		last, ok := m.valuesHeldByFeature(scope, n)
+		if !ok {
+			return Range{}, false
+		}
+		through, ok := m.valuesHeldBy(scope, n.Operand)
+		if !ok {
+			return Range{}, false
+		}
+		return Range{Lower: mulBounds(through.Lower, last.Lower), Upper: mulBounds(through.Upper, last.Upper)}, true
+	}
+	return Range{}, false
+}
+
+// valuesHeldByFeature is the multiplicity governing the feature a name or chain resolves to:
+// the one it declares, or inherits from a feature it redefines; one where it declares none.
+func (m *Model) valuesHeldByFeature(scope *symbols.Scope, node ast.Node) (Range, bool) {
+	sym, ok := m.resolver.ResolveTarget(scope, node)
+	if !ok || sym == nil {
+		return Range{}, false
+	}
+	r := AssumedRange()
+	if declared, ok := m.MultiplicityOf(sym); ok {
+		r = declared
+	} else {
+		for _, redefined := range m.redefinedTransitively(sym) {
+			if inherited, ok := m.MultiplicityOf(redefined); ok {
+				r = inherited
+				break
 			}
 		}
-		return true
 	}
-	lower, ok := m.fewestValuesOf(scope, collection)
-	return ok && lower >= 2
+	return r, r.Lower.Known && r.Upper.Known
 }
 
-// fewestValuesOf is the lower bound of the values a feature reference or chain holds: a chain
-// holds, through each value of its operand, the values of its last feature.
-func (m *Model) fewestValuesOf(scope *symbols.Scope, node ast.Node) (int64, bool) {
-	switch n := node.(type) {
-	case *ast.FeatureReference, *ast.QualifiedName:
-		sym, ok := m.resolver.ResolveTarget(scope, n)
-		if !ok || sym == nil {
-			return 0, false
-		}
-		return m.fewestValuesHeld(sym)
-	case *ast.FeatureChainExpr:
-		sym, ok := m.resolver.ResolveTarget(scope, n)
-		if !ok || sym == nil {
-			return 0, false
-		}
-		last, ok := m.fewestValuesHeld(sym)
-		if !ok {
-			return 0, false
-		}
-		through, ok := m.fewestValuesOf(scope, n.Operand)
-		if !ok {
-			return 0, false
-		}
-		return through * last, true
-	}
-	return 0, false
+func exactly(n int64) Range {
+	b := Bound{Value: n, Known: true}
+	return Range{Lower: b, Upper: b}
 }
 
-// fewestValuesHeld is the lower bound of the multiplicity governing a feature: the one it
-// declares, or the one it inherits from a feature it redefines; one where it declares none.
-func (m *Model) fewestValuesHeld(sym *symbols.Symbol) (int64, bool) {
-	if r, ok := m.MultiplicityOf(sym); ok {
-		return knownLower(r)
+func addBounds(a, b Bound) Bound {
+	if a.Infinite || b.Infinite {
+		return Bound{Infinite: true, Known: true}
 	}
-	for _, redefined := range m.redefinedTransitively(sym) {
-		if r, ok := m.MultiplicityOf(redefined); ok {
-			return knownLower(r)
-		}
-	}
-	return knownLower(AssumedRange())
+	return Bound{Value: a.Value + b.Value, Known: true}
 }
 
-func knownLower(r Range) (int64, bool) {
-	if !r.Lower.Known || r.Lower.Infinite {
-		return 0, false
+// mulBounds is the values held through a values, each holding b: none through none.
+func mulBounds(a, b Bound) Bound {
+	if (!a.Infinite && a.Value == 0) || (!b.Infinite && b.Value == 0) {
+		return Bound{Known: true}
 	}
-	return r.Lower.Value, true
+	if a.Infinite || b.Infinite {
+		return Bound{Infinite: true, Known: true}
+	}
+	return Bound{Value: a.Value * b.Value, Known: true}
 }
 
-// collectSources is the source of `xs.{ in x; … }`: its body's result.
+// collectSources is the source of `xs.{ in x; … }`: its body's result; none where xs is known
+// to hold nothing.
 func (m *Model) collectSources(scope *symbols.Scope, e *ast.CollectExpr) ([]collectionSource, bool) {
 	body, ok := e.Body.(*ast.BodyExpr)
 	if !ok {
 		return nil, false
+	}
+	if m.holdsNothing(scope, e.Operand) {
+		return nil, true
 	}
 	return m.bodySources(scope, body)
 }
@@ -349,7 +392,17 @@ func (m *Model) collectConformance(scope *symbols.Scope, e *ast.CollectExpr, wan
 	return m.sourcesConformance(srcs, want, byUnit)
 }
 
+// sourcesConformance judges a collection value by its sources: every element must conform. A
+// value with no source holds nothing, an empty value typed Anything as `null` is.
 func (m *Model) sourcesConformance(srcs []collectionSource, want *symbols.Symbol, byUnit bool) (Conformance, bool) {
+	if len(srcs) == 0 {
+		c := m.typeConformance(m.libSymbol(fqnAnything), want)
+		if c.Known && !c.Holds {
+			c.Found = "an empty value over a collection holding nothing, typed Anything"
+			c.Untyped = true
+		}
+		return c, true
+	}
 	judged := m.judgeSources(srcs,
 		func(scope *symbols.Scope, node ast.Node) Conformance {
 			return m.elementConformance(scope, node, want, byUnit)

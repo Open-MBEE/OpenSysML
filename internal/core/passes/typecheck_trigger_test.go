@@ -505,6 +505,7 @@ func TestIndexedTriggerArgument(t *testing.T) {
 // collect shapes kept silent too, and accepts the select shapes kept silent.
 func TestCollectAndSelectTriggerArguments(t *testing.T) {
 	const collected = "found a collection `.{…}` maps to, typed Anything"
+	const nothing = "found an empty value over a collection holding nothing, typed Anything"
 	for _, tc := range []struct{ trigger, code, found string }{
 		{"when counts.{in n : Integer; n}", "trigger-when-boolean", "found Integer"},
 		{"when flags.{in f; f}", "trigger-when-boolean", collected},
@@ -521,6 +522,10 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 		{"when flags.{in f : Boolean; (f, (1, label))}", "trigger-when-boolean", "found Natural and String"},
 		{"when flags.{in f; (f, label)}", "trigger-when-boolean", "found String"},
 		{"when counts.{in n : Integer; (n > 3, untyped)}", "trigger-when-boolean", collected},
+		{"when counts->ControlFunctions::reduce {in a : Integer; in b : Integer; 5}", "trigger-when-boolean", "found Natural"},
+		{"when ()->ControlFunctions::reduce {in a : Integer; in b : Integer; 5}", "trigger-when-boolean", nothing},
+		{"when ()->ControlFunctions::collect {in a : Integer; 5}", "trigger-when-boolean", nothing},
+		{"when ().{in a : Integer; 5}", "trigger-when-boolean", nothing},
 	} {
 		wantTriggerDiag(t, "transition first a accept "+tc.trigger+" then b;", tc.code, tc.found)
 	}
@@ -540,6 +545,8 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 	} {
 		wantTriggerSilent(t, "transition first a accept "+trigger+" then b;")
 	}
+	wantTriggerSilent(t, "entry action { if ()->ControlFunctions::reduce {in a : Integer; in b : Integer; 5} { assign x := 1; } }")
+	wantTriggerSilent(t, "entry action { if ().{in a : Integer; 5} { assign x := 1; } }")
 }
 
 // `{ … }` written as a trigger argument is the expression itself, an Evaluation,

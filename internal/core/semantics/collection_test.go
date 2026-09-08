@@ -304,3 +304,64 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 		t.Errorf("cast of two to C: %+v, want known, not holding, found String", c)
 	}
 }
+
+// reduce over a collection known to hold nothing — `()`, a feature admitting no value, a
+// chain through one — returns nothing without applying the reducer, so neither the reducer's
+// result nor the element types it: the declared Anything stands, and nothing is judged.
+func TestCollectionReduceOfNothing(t *testing.T) {
+	m, s := collectionModel(t, `
+		part none : C[0];
+		part one : C[1];
+		part def Holder { part item : C[1]; }
+		part holders : Holder[0..0];
+		attribute empty = ()->reduce { in a : Integer; in b : Integer; "s" };
+		attribute empty2 = none->reduce { in a : C; in b : C; a.name };
+		attribute empty3 = holders.item->reduce { in a : C; in b : C; a.name };
+		attribute emptyCollect = ()->collect { in a : Integer; "s" };
+		attribute cast = none->reduce { in a : C; in b : C; a.name } as Integer;
+		attribute two = (none, one, one)->reduce { in a : C; in b : C; a.name };
+		attribute maybe = (none, one)->reduce { in a : C; in b : C; a.name };`)
+	for _, name := range []string{"empty", "empty2", "empty3", "emptyCollect"} {
+		wantValueTypes(t, m, s, name, "Anything")
+		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
+		if !ok || len(elements) != 0 {
+			t.Errorf("%s: elements %v, want none", name, elements)
+		}
+		for _, want := range []string{fqnString, fqnInteger} {
+			if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), want); c.Known && !c.Untyped {
+				t.Errorf("%s as %s: %+v, want nothing decided", name, want, c)
+			}
+		}
+	}
+	if c := m.CastConformance(s, valueOf(t, s, "cast").(*ast.OperatorExpr)); c.Known && !c.Holds {
+		t.Errorf("cast of nothing to Integer: %+v, want it not to fail", c)
+	}
+	wantValueTypes(t, m, s, "two", "String")
+	wantValueTypes(t, m, s, "maybe", "Anything")
+}
+
+// `xs.?{…}` is select written out: its elements are the collection's, so a binding or an
+// argument is judged by them as `xs->select {…}` is.
+func TestCollectionSelectShorthandElements(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute heavy = cs.?{ in x : C; x.mass > 1 [kg] };
+		attribute heavy2 = cs->select { in x : C; x.mass > 1 [kg] };
+		attribute lits = (1, 2.5).?{ in x : Real; true };`)
+	for _, name := range []string{"heavy", "heavy2"} {
+		wantValueTypes(t, m, s, name, "C")
+		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
+		if !ok || len(elements) != 1 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "C" || elements[0].Node == nil {
+			t.Errorf("%s: elements %v, want the collection's C", name, elements)
+		}
+	}
+	elements, ok := m.CollectionElements(s, valueOf(t, s, "lits"))
+	if !ok || len(elements) != 2 {
+		t.Fatalf("lits: elements %v, want one per literal", elements)
+	}
+	if _, isInt := elements[0].Node.(*ast.LiteralInteger); !isInt {
+		t.Errorf("lits: first element %T, want the literal 1", elements[0].Node)
+	}
+	if _, isReal := elements[1].Node.(*ast.LiteralReal); !isReal {
+		t.Errorf("lits: second element %T, want the literal 2.5", elements[1].Node)
+	}
+}

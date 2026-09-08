@@ -47,6 +47,30 @@ func TestBoundNestedCollectionQuantityOfAnotherDimension(t *testing.T) {
 	wantNoDimensionDiags(t, `attribute ls : LengthValue[*] = (1 [m], (2 [m], 3 [mm]));`)
 }
 
+// TestBoundCollectionQuantityOfAnotherDimension: a collection value binds each element its
+// body produces, or keeps, so a unit written in the body is measured against the target too.
+func TestBoundCollectionQuantityOfAnotherDimension(t *testing.T) {
+	const parts = `private import ControlFunctions::*; part def Part; part parts : Part[*];`
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts.{ in p : Part; 5 [m] };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts->collect { in p : Part; 5 [m] };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts.{ in p : Part; (5 [s], 5 [m]) };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = (5 [m], 6 [s]).?{ in l : LengthValue; true };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = (5 [s], 6 [m])->select { in l : LengthValue; true };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = (5 [m])->reduce { in a : LengthValue; in b : LengthValue; 1 [s] };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantNoDimensionDiags(t, parts+`
+		attribute t : DurationValue = parts.{ in p : Part; 5 [min] };
+		attribute t2 : DurationValue = parts->collect { in p : Part; (5 [s], 5 [min]) };
+		attribute t3 : DurationValue = (5 [s], 6 [min]).?{ in d : DurationValue; true };
+		attribute t4 : DurationValue = (5 [s], 6 [min])->reduce { in a : DurationValue; in b : DurationValue; 1 [min] };
+		attribute l : LengthValue = parts.{ in p : Part; 5 [m] };`)
+}
+
 // TestBoundQuantityOfTheSameDimensionAtAnotherScale: a dimension has no scale,
 // so any unit measuring in it conforms.
 func TestBoundQuantityOfTheSameDimensionAtAnotherScale(t *testing.T) {

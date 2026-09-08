@@ -305,6 +305,7 @@ func collectionValueDiags(t *testing.T, members string) []string {
 		part vs : Vehicle[*];
 		part one : Vehicle[1];
 		part two : Vehicle[2..*];
+		part none : Vehicle[0];
 		part boat : Boat;
 		function Boats { in v : Vehicle; return r : Boat; }
 		function Sail { in b : Boat; return r : Boat; }
@@ -345,6 +346,8 @@ func TestValueCollectionResultIsJudged(t *testing.T) {
 		"cannot bind a value of type Vehicle to a feature typed by Boat")
 	wantCollectionValueDiags(t, `part b : Boat = vs->selectOne { in v : Vehicle; true };`,
 		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs.?{ in v : Vehicle; true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
 	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; true };`,
 		"cannot bind Boolean value to a feature typed by Integer")
 	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (true, 1) };`,
@@ -356,6 +359,7 @@ func TestValueCollectionResultIsJudged(t *testing.T) {
 	wantCollectionValueDiags(t, `
 		part t : Truck = vs->collect { in v : Vehicle; v };
 		part v : Vehicle = vs->select { in v : Vehicle; true };
+		part v2 : Vehicle = vs.?{ in v : Vehicle; true };
 		part b : Boat = vs->collect { in v : Vehicle; boat };
 		part b2 : Boat = vs->collect Boats;
 		attribute i : Integer = vs->collect { in v : Vehicle; (1, 2) };
@@ -381,6 +385,9 @@ func TestValueCollectionElementLiteralIsExact(t *testing.T) {
 	wantCollectionValueDiags(t, `attribute i : Integer = (1.5, 2.5)->select { in a : Real; true };`,
 		"cannot bind Rational value to a feature typed by Integer",
 		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = (1.5, 2.5).?{ in a : Real; true };`,
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Integer")
 	wantCollectionValueDiags(t, `
 		attribute r : Real;
 		attribute i : Integer = vs.{ in v : Vehicle; r };
@@ -388,7 +395,23 @@ func TestValueCollectionElementLiteralIsExact(t *testing.T) {
 		attribute i3 : Integer = vs->collect Half;
 		attribute i4 : Integer = vs.{ in v : Vehicle; 2 };
 		attribute r2 : Real = vs.{ in v : Vehicle; 2 };
-		attribute i5 : Integer = (1, 2)->select { in a : Integer; true };`)
+		attribute i5 : Integer = (1, 2)->select { in a : Integer; true };
+		attribute i6 : Integer = (1, 2).?{ in a : Integer; true };`)
+}
+
+// A collection value's body is checked once, as inferring the value: reading the types of
+// the elements it produces to judge their binding reports nothing again.
+func TestValueCollectionBodyIsCheckedOnce(t *testing.T) {
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; 1 + true };`,
+		"operator '+' is not defined for Natural and Boolean")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; 1 + true };`,
+		"operator '+' is not defined for Natural and Boolean")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (1 + true, 2.5) };`,
+		"operator '+' is not defined for Natural and Boolean",
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = one->reduce { in a : Vehicle; in b : Vehicle; 1 + true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Integer",
+		"operator '+' is not defined for Natural and Boolean")
 }
 
 // reduce returns the reducer's result, or the collection's one element unreduced:
@@ -409,7 +432,20 @@ func TestValueReduceResultIsJudged(t *testing.T) {
 		part b2 : Boat = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
 		part b3 : Boat = couple.item->reduce { in a : Vehicle; in b : Vehicle; boat };
 		part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; a };
-		attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };`)
+		attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };
+		attribute s2 : String = (one, boat)->reduce { in a : Vehicle; in b : Vehicle; "s" };`)
+}
+
+// reduce over a collection known to hold nothing returns nothing, and never applies the
+// reducer: neither the reducer's result nor the collection's element is bound.
+func TestValueReduceOfNothingIsJudgedByNeither(t *testing.T) {
+	wantCollectionValueDiags(t, `
+		attribute s : String = ()->reduce { in a : Integer; in b : Integer; 3 };
+		attribute s2 : String = none->reduce { in a : Vehicle; in b : Vehicle; 3 };
+		part b : Boat = none->reduce { in a : Vehicle; in b : Vehicle; a };
+		part b2 : Boat = none.item->reduce { in a : Vehicle; in b : Vehicle; a };
+		attribute s3 : String = ()->collect { in a : Integer; 3 };
+		part b3 = Sail(none->reduce { in a : Vehicle; in b : Vehicle; a });`)
 }
 
 // A collection value passed as an argument is typed by its elements, so the parameter
@@ -423,11 +459,14 @@ func TestArgumentCollectionResultIsJudged(t *testing.T) {
 		"argument 1 of Sail expects Boat, found Vehicle")
 	wantCollectionValueDiags(t, `part b = Sail(vs.{ in v : Vehicle; v });`,
 		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs.?{ in v : Vehicle; true });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
 	wantCollectionValueDiags(t, `part v = Drive(two->reduce { in a : Vehicle; in b : Vehicle; boat });`,
 		"argument 1 of Drive expects Vehicle, found Boat")
 	wantCollectionValueDiags(t, `
 		part b = Sail(vs->collect { in v : Vehicle; boat });
 		part v = Drive(vs->select { in v : Vehicle; true });
+		part v4 = Drive(vs.?{ in v : Vehicle; true });
 		part v2 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; boat });
 		part v3 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; a });`)
 }

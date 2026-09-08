@@ -118,13 +118,14 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	// A collection literal binds elementwise, so each element is checked
 	// against the feature's type rather than the sequence as a whole.
 	for _, element := range valueElements(value) {
-		// A collection value binds the elements its body or collection produces; inferring
-		// the value itself still checks what its body declares.
+		// A collection value binds the elements its body or collection produces. Inferring
+		// the value checks and reports on them; their types are then read silently.
 		if elements, collection := ec.model.CollectionElements(valueScope, element); collection {
 			ec.infer(valueScope, element)
+			silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
 			for _, produced := range elements {
 				if produced.Node != nil {
-					ec.checkScalarBinding(produced.Node, ec.infer(produced.Scope, produced.Node), want)
+					ec.checkScalarBinding(produced.Node, silent.infer(produced.Scope, produced.Node), want)
 				}
 			}
 			continue
