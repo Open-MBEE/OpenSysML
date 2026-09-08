@@ -183,10 +183,14 @@ Derived constraints:
 Open: the order of `left` against `right`, and so which write of `x` stands. The library gives
 no `HappensBefore` link between them and no conflict rule; either final value is admissible.
 
-Pinned outcome: `x = 1`. This value is **not** derived — it records the executor's scheduling
-(`right` is the branch declared last, so its token is stepped first and `left` writes last) and
-exists only so a change in that scheduling is noticed. The compliance row stays approximate for
-exactly this reason: the runtime picks an order the specification does not, and reports no
+Pinned outcome: the admissible set `{x = 1, x = 2}`, with `leftRan = true` and `rightRan = true`
+in both, which the case states as `outcomes` citing this section and the harness checks the run
+against — a run must match exactly one member. The partial order the library does fix is stated
+as `.trace.order` constraints (`split < left`, `split < right`, `left < sync`, `right < sync`) the
+trace must satisfy. The exact trace golden stays: it records the executor's scheduling (`right`
+is the branch declared last, so its token is stepped first and `left` writes last, giving
+`x = 1`) and exists only so a change in that scheduling is noticed. The compliance row stays
+approximate because the runtime still picks an order the specification does not, and reports no
 conflict.
 
 ### A merge is re-entered on every traversal of a loop

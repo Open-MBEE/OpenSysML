@@ -1,9 +1,21 @@
 {
 	"type": "action",
 	"trace": true,
-	"outputs": {
-		"x": {"type": "Integer", "value": 1},
-		"leftRan": {"type": "Boolean", "value": true},
-		"rightRan": {"type": "Boolean", "value": true}
-	}
+	"outcomes": [
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"leftRan": {"type": "Boolean", "value": true},
+				"rightRan": {"type": "Boolean", "value": true}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"leftRan": {"type": "Boolean", "value": true},
+				"rightRan": {"type": "Boolean", "value": true}
+			}
+		}
+	],
+	"admissible": "Concurrent branches writing one feature: the value is open, the writes are not"
 }
