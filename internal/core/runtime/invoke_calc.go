@@ -164,6 +164,9 @@ type calcShape struct {
 	BodyOutputs map[string]bool
 	Bindings    []lower.Binding
 	ResultExpr  ast.Node
+	// Uncomputed says why the calc computes nothing (no body, no bound output);
+	// the calc is still a function value, and invoking it reports this.
+	Uncomputed error
 	// compiled is the body in the compiled tier once compileState says it is
 	// eligible; a shape found ineligible keeps the evaluator for good.
 	compiled     *compiledCalc
@@ -176,8 +179,21 @@ type calcShape struct {
 
 // calcShapeOf resolves the invocation interface of a calc symbol: its
 // positional input parameters (own and inherited, with defaults) and its result
-// expression. The result is memoized per symbol.
+// expression. A calc computing nothing is an error. The result is memoized per symbol.
 func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
+	shape, err := ctx.calcInterfaceOf(sym)
+	if err != nil {
+		return nil, err
+	}
+	if shape.Uncomputed != nil {
+		return nil, shape.Uncomputed
+	}
+	return shape, nil
+}
+
+// calcInterfaceOf is calcShapeOf for a calc that may compute nothing — an
+// abstract calc, or one awaiting a body — whose shape records why in Uncomputed.
+func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	if sym == nil || sym.Decl == nil {
 		return nil, fmt.Errorf("%w: invalid symbol", ErrNotACalc)
 	}
@@ -232,12 +248,13 @@ func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
 	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
 	_, native := ctx.libraryFunctionFor(sym)
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
-	if !computes {
-		if len(shape.Outputs) > 0 && shape.resultOutput() == nil {
-			return nil, fmt.Errorf("%w: %s binds none of its outputs (%s)",
-				ErrNoResultExpression, label, shape.outputNames())
-		}
-		return nil, fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
+	switch {
+	case computes:
+	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
+		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
+			ErrNoResultExpression, label, shape.outputNames())
+	default:
+		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
 	}
 
 	ctx.calcShapes[sym] = shape
@@ -631,6 +648,9 @@ func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope
 // invokeCalcShapeIn is invokeCalcShape for a calc declared in a behavior body:
 // enclosing holds that body's bindings, outermost first, which the calc's own shadow.
 func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
+	if shape.Uncomputed != nil {
+		return Value{}, shape.Uncomputed
+	}
 	if err := shape.checkArgs(args); err != nil {
 		return Value{}, err
 	}

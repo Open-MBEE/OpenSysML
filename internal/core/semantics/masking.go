@@ -84,6 +84,18 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return append(out, m.ImplicitRoleRedefinitions(sym)...)
 }
 
+// maskingRedefinedFeatures returns the features sym redefines by clause or by
+// case role, which its owner does not inherit.
+func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+	explicit := m.RedefinedFeatures(sym)
+	roles := m.ImplicitRoleRedefinitions(sym)
+	if len(roles) == 0 {
+		return explicit
+	}
+	out := make([]*symbols.Symbol, 0, len(explicit)+len(roles))
+	return append(append(out, explicit...), roles...)
+}
+
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
 // the feature an unnamed feature takes its identifiers from (KerML 1.1 §8.2.4).
 func (m *Model) EffectiveNameOf(sym *symbols.Symbol) string {
@@ -364,7 +376,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 	m.computingRedefClosure[candidate] = true
 	out := make(map[*symbols.Symbol]bool)
 	cyclic := false
-	for _, target := range m.directRedefinedFeatures(candidate) {
+	for _, target := range m.maskingRedefinedFeatures(candidate) {
 		if !redefinesSibling(candidate, target) {
 			out[target] = true
 		}

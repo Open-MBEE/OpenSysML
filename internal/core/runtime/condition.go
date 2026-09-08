@@ -868,14 +868,14 @@ func negatedText(conds []Condition) string {
 // unresolved one.
 func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr {
 	features := ctx.FeaturesOf(sym)
-	if len(features) == 0 {
+	params := ctx.parameterFeatures(sym)
+	if len(features)+len(params) == 0 {
 		return nil
 	}
-	out := make(map[string]scopedExpr, len(features))
-	for i := range features {
-		feat := &features[i]
-		if feat.Name == "" {
-			continue
+	out := make(map[string]scopedExpr, len(features)+len(params))
+	add := func(feat *EffectiveFeature) {
+		if _, present := out[feat.Name]; feat.Name == "" || present {
+			return
 		}
 		expr := feat.DefaultValue
 		if !ctx.valueBinds(feat) {
@@ -885,6 +885,12 @@ func (ctx *Context) conditionFeatures(sym *symbols.Symbol) map[string]scopedExpr
 			expr = nil
 		}
 		out[feat.Name] = scopedExpr{expr: expr, scope: feat.DefaultScope(), decl: feat.DefaultDecl}
+	}
+	for i := range features {
+		add(&features[i])
+	}
+	for i := range params {
+		add(&params[i])
 	}
 	return out
 }

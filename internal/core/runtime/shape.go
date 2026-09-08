@@ -94,26 +94,59 @@ func (ctx *Context) buildFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 	result := make([]EffectiveFeature, 0, len(shape))
 	seenNames := make(map[string]bool, len(shape))
 	for _, f := range shape {
-		memberSym := f.Symbol
-		typ := ctx.extractType(memberSym)
-		mult := ctx.featureMultiplicity(memberSym, typeSym)
-		defaultVal := ctx.extractDefaultValue(memberSym)
-		defaultDecl := memberSym
-		if defaultVal == nil {
-			defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
-		}
 		seenNames[f.Name] = true
-		result = append(result, EffectiveFeature{
-			Name:         f.Name,
-			Symbol:       memberSym,
-			OwnerType:    ctx.findOwnerType(memberSym),
-			Type:         typ,
-			Multiplicity: mult,
-			DefaultValue: defaultVal,
-			DefaultDecl:  defaultDecl,
-		})
+		result = append(result, ctx.effectiveFeature(f.Name, f.Symbol, typeSym))
 	}
 	return append(result, ctx.connectorEndFeatures(typeSym, seenNames)...)
+}
+
+// effectiveFeature is the member memberSym of typeSym as name, with the value it
+// states or inherits from what it redefines.
+func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Symbol) EffectiveFeature {
+	defaultVal := ctx.extractDefaultValue(memberSym)
+	defaultDecl := memberSym
+	if defaultVal == nil {
+		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
+	}
+	return EffectiveFeature{
+		Name:         name,
+		Symbol:       memberSym,
+		OwnerType:    ctx.findOwnerType(memberSym),
+		Type:         ctx.extractType(memberSym),
+		Multiplicity: ctx.featureMultiplicity(memberSym, typeSym),
+		DefaultValue: defaultVal,
+		DefaultDecl:  defaultDecl,
+	}
+}
+
+// parameterFeatures are the input parameters of typeSym no object carries as a
+// feature value — a `ref` or `calc` parameter, a library one — in member order,
+// the most specific declaration of each name standing for it. A predicate's
+// conditions read them as they read its other features; its result is its
+// verdict, which no condition reads.
+func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
+	var order []string
+	byName := make(map[string]*symbols.Symbol)
+	for _, member := range ctx.model.MembersOfIncludingRedefined(typeSym) {
+		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.FrameFeature(member) {
+			continue
+		}
+		if _, seen := byName[member.Name]; !seen {
+			order = append(order, member.Name)
+		}
+		byName[member.Name] = member
+	}
+	out := make([]EffectiveFeature, 0, len(order))
+	for _, name := range order {
+		out = append(out, ctx.effectiveFeature(name, byName[name], typeSym))
+	}
+	return out
+}
+
+// isInputParameter reports an `in` or `inout` parameter usage.
+func isInputParameter(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && !usage.IsResult && (usage.Direction == ast.DirIn || usage.Direction == ast.DirInOut)
 }
 
 // extractType resolves the type of a feature: the one it declares, or the one

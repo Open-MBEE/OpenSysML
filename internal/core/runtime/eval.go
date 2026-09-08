@@ -615,6 +615,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// — rather than the ones in force here — answer the names it uses.
 		if ec.scope != nil && !ec.resolving[name] {
 			if sym, ok := ec.ctx.resolver.LookupName(ec.scope, name); ok && sym != nil {
+				// An inherited expression reads the feature as the running behavior
+				// inherits it: through the redefinition, when it states one.
+				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
 				// An enumerated value is the value of its enumeration it stands
 				// for; any other variant names a choice, not the value it declares.
 				if semantics.EnumerationOwning(sym) != nil {
@@ -2339,7 +2342,7 @@ func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget
 	if sel := passes.SelectInvocation(ec.ctx.resolver, ec.ctx.model, ec.scope, n, semantics.PerformsBehavior); sel.Ambiguous {
 		target.ambiguous = sel.Tied
 	} else if sym := sel.Called(); sym != nil {
-		ec.ctx.implementInvocation(target, ec.ctx.inheritedCallee(key.running, sym))
+		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.running, sym))
 	}
 	if len(n.NamedArgs) > 0 {
 		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, target.calc, n.NamedArgs)
@@ -2359,18 +2362,18 @@ func (ec *EvalContext) runningBehavior() *symbols.Symbol {
 	return nil
 }
 
-// inheritedCallee is callee as the running behavior inherits it: a feature it
-// redefines, by clause or by role, is not inherited, and the redefining feature
-// answers to its name (KerML §7.3.4.5), so an inherited expression calling the
-// redefined feature applies the redefinition.
-func (ctx *Context) inheritedCallee(running, callee *symbols.Symbol) *symbols.Symbol {
-	if running == nil || callee == nil || !ctx.model.InheritanceMasked(running, callee) {
-		return callee
+// inheritedFeature is sym as the running behavior, or one enclosing it, inherits
+// it: a feature redefined there answers to the redefinition (KerML §7.3.4.5).
+func (ctx *Context) inheritedFeature(running, sym *symbols.Symbol) *symbols.Symbol {
+	for b := running; b != nil && sym != nil; b = enclosingBehavior(b) {
+		if !ctx.model.InheritanceMasked(b, sym) {
+			continue
+		}
+		if redefiner := ctx.model.NamingRedefiner(b, sym); redefiner != nil {
+			return redefiner
+		}
 	}
-	if redefiner := ctx.model.NamingRedefiner(running, callee); redefiner != nil {
-		return redefiner
-	}
-	return callee
+	return sym
 }
 
 // boundParameterNames is the parameter each named argument binds in callee, spelled as

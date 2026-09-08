@@ -82,7 +82,7 @@ type Context struct {
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
-	predicateShapes map[*symbols.Symbol]*predicateShape
+	predicateShapes map[*symbols.Symbol]*calcShape
 
 	// libraryPerformances memoizes, per model calc, the inherited library function a
 	// call of it applies; nil for a calc that computes on its own.
@@ -319,7 +319,7 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 		holders:             make(map[*symbols.Symbol]map[string][]string),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
-		predicateShapes:     make(map[*symbols.Symbol]*predicateShape),
+		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 
 		invocationTargets: make(map[invocationKey]*invocationTarget),
