@@ -488,11 +488,17 @@ func TestCollectionValues(t *testing.T) {
 }
 
 // `xs.?{…}` is select written out: its elements are the collection's, so a binding or an
-// argument is judged by them as `xs->select {…}` is.
+// argument is judged by them as `xs->select {…}` is, and a sequence written out is typed by
+// what its elements share rather than the Anything the sequence itself is.
 func TestCollectionSelectShorthandElements(t *testing.T) {
 	m, s := collectionModel(t, `
+		part c1 : C;
+		part c2 : C;
 		attribute heavy = cs.?{ in x : C; x.mass > 1 [kg] };
 		attribute heavy2 = cs->select { in x : C; x.mass > 1 [kg] };
+		attribute picked = (c1, c2).?{ in x : C; true };
+		attribute picked2 = (c1, c2)->select { in x : C; true };
+		attribute mixed = (c1, "s").?{ in x; true };
 		attribute lits = (1, 2.5).?{ in x : Real; true };`)
 	for _, name := range []string{"heavy", "heavy2"} {
 		wantValueTypes(t, m, s, name, "C")
@@ -501,6 +507,11 @@ func TestCollectionSelectShorthandElements(t *testing.T) {
 			t.Errorf("%s: elements %v, want the collection's C", name, elements)
 		}
 	}
+	for _, name := range []string{"picked", "picked2"} {
+		wantValueTypes(t, m, s, name, "C")
+	}
+	wantValueTypes(t, m, s, "mixed", "Anything")
+	wantValueTypes(t, m, s, "lits", "Real")
 	elements, ok := m.CollectionElements(s, valueOf(t, s, "lits"))
 	if !ok || len(elements) != 2 {
 		t.Fatalf("lits: elements %v, want one per literal", elements)

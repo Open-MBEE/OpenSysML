@@ -426,6 +426,37 @@ func TestValueNestedCollectionElementsAreJudged(t *testing.T) {
 		attribute i2 : Integer = vs.{ in v : Vehicle; ().{ in w : Integer; 1.5 } };`)
 }
 
+// A feature valued by `xs.?{…}` over a sequence written out takes the type its elements share,
+// as one valued by `xs->select {…}` does, so a result, a subject or a cast it is bound to is
+// judged by that type rather than by the Anything the sequence is.
+func TestValueSelectShorthandOfSequenceTypesFeature(t *testing.T) {
+	for _, keep := range []string{`.?{ in v : Vehicle; true }`, `->select { in v : Vehicle; true }`} {
+		wantCollectionValueDiags(t, `function F { return r : Boat; (one, one)`+keep+` }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part picked = (one, one)`+keep+`;
+			function F { return r : Boat; picked }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part picked = (one, one)`+keep+`;
+			requirement def R { subject s : Boat; }
+			requirement r : R { subject s = picked; }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part picked = (one, one)`+keep+`;
+			function F { return r : Vehicle; picked }
+			requirement def R { subject s : Vehicle; }
+			requirement r : R { subject s = picked; }`)
+	}
+	wantCollectionValueDiags(t, `
+		attribute picked = (1, 2).?{ in v : Integer; true };
+		part b = picked as Boat;`,
+		"cast argument is typed by Integer, unrelated to the target Boat: neither type specializes the other, so the cast selects no value")
+	wantCollectionValueDiags(t, `
+		part any = (one, boat).?{ in v; true };
+		function F { return r : Boat; any }`)
+}
+
 // A collection value's body is checked once, as inferring the value: reading the types of
 // the elements it produces to judge their binding reports nothing again.
 func TestValueCollectionBodyIsCheckedOnce(t *testing.T) {

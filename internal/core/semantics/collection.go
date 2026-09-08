@@ -495,6 +495,16 @@ func (m *Model) collectResultTypes(scope *symbols.Scope, e *ast.CollectExpr) []*
 	return m.sourcesTypes(srcs)
 }
 
+// selectResultTypes is the types every element of `xs.?{ in x; … }` has: those of the elements
+// of xs, as `xs->select {…}` keeps them; nil when unknown.
+func (m *Model) selectResultTypes(scope *symbols.Scope, e *ast.SelectExpr) []*symbols.Symbol {
+	srcs, ok := m.keptSources(scope, e.Operand)
+	if !ok {
+		return nil
+	}
+	return m.sourcesTypes(srcs)
+}
+
 // CollectionElement is one element a collection value may hold: the expression producing it,
 // in its scope, or nil where a function's result parameter does; and its types, nil where unknown.
 type CollectionElement struct {

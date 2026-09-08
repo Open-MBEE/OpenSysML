@@ -85,6 +85,9 @@ func (m *Model) resultTypes(scope *symbols.Scope, node ast.Node) []*symbols.Symb
 			return m.indexResultTypes(scope, n)
 		}
 	case *ast.SelectExpr:
+		if types := m.selectResultTypes(scope, n); len(types) > 0 {
+			return types
+		}
 		return m.resultTypes(scope, n.Operand)
 	}
 	if typ := m.ExprResultType(scope, node); typ != nil {

@@ -154,6 +154,9 @@ func (m *Model) exprConformance(scope *symbols.Scope, node ast.Node, want *symbo
 		return c
 	case *ast.SelectExpr:
 		// `xs.?{…}` keeps elements of xs (KerML checkSelectExpressionResultSpecialization).
+		if c, ok := m.collectionConformance(scope, n, want, byUnit); ok {
+			return c
+		}
 		return m.exprConformance(scope, n.Operand, want, byUnit)
 	case *ast.BodyExpr:
 		c := m.typeConformance(m.bodyExprType(scope, n), want)
@@ -220,6 +223,9 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 		return m.indexResultType(scope, n)
 	case *ast.SelectExpr:
 		// `xs.?{…}` keeps elements of xs (KerML checkSelectExpressionResultSpecialization).
+		if types := m.selectResultTypes(scope, n); len(types) > 0 {
+			return types[0]
+		}
 		return m.ExprResultType(scope, n.Operand)
 	case *ast.CollectExpr:
 		// `xs.{…}` is the result of ControlFunctions::collect: the body's results, else Anything.
