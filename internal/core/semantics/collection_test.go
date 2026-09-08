@@ -415,19 +415,35 @@ func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
 }
 
 // CollectionValues sizes a collection value alone — an operation over a known collection — and
-// says nothing of a literal or a feature, whose sizes are read elsewhere.
+// says nothing of a literal or a feature, whose sizes are read elsewhere. A reduce yields the one
+// element it holds unreduced, or what its reducer yields over two or more, or either.
 func TestCollectionValues(t *testing.T) {
 	m, s := collectionModel(t, `
 		part none : C[0];
+		part one : C[1];
+		part maybe : C[0..1];
 		part two : C[2];
+		function Pair { in a : C; in b : C; return r : C[2]; }
 		attribute mapped = two.{ in c : C; (c.name, c.name) };
 		attribute reduced = two->reduce { in a : C; in b : C; a.name };
+		attribute reducedTwo = two->reduce { in a : C; in b : C; (a, b) };
+		attribute reducedNone = two->reduce { in a : C; in b : C; () };
+		attribute reducedNamed = two->reduce Pair;
+		attribute reducedOpen = two->reduce { in a : C; in b : C; a.name + b.name };
+		attribute reducedOne = one->reduce { in a : C; in b : C; (a, b) };
+		attribute reducedMaybe = maybe->reduce { in a : C; in b : C; (a, b) };
+		attribute reducedAny = cs->reduce { in a : C; in b : C; (a, b) };
+		attribute reducedEmpty = none->reduce { in a : C; in b : C; (a, b) };
 		attribute nothing = none->select { in c : C; true };
 		attribute atMost = two->selectOne { in c : C; true };
 		attribute open = cs.{ in c : C; c.name };
 		attribute literal = (1, 2);
 		attribute named = two;`)
-	for name, want := range map[string]string{"mapped": "[4]", "reduced": "[1]", "nothing": "[0]", "atMost": "[0..1]", "open": "[0..*]"} {
+	for name, want := range map[string]string{
+		"mapped": "[4]", "reduced": "[1]", "nothing": "[0]", "atMost": "[0..1]", "open": "[0..*]",
+		"reducedTwo": "[2]", "reducedNone": "[0]", "reducedNamed": "[2]", "reducedOpen": "[0..*]",
+		"reducedOne": "[1]", "reducedMaybe": "[0..1]", "reducedAny": "[0..2]", "reducedEmpty": "[0]",
+	} {
 		r, ok := m.CollectionValues(s, valueOf(t, s, name))
 		if !ok || r.Text() != want {
 			t.Errorf("%s: %s %v, want %s", name, r.Text(), ok, want)

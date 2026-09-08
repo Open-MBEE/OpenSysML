@@ -465,8 +465,9 @@ func TestValueReduceResultIsJudged(t *testing.T) {
 }
 
 // A collection value binds as many values as it is known to hold: none over a collection
-// holding none, one per element a collect maps over a known count, one from a reduce; one
-// only bounded is reported where even its fewest or its most cannot fit, else left to evaluation.
+// holding none, one per element a collect maps over a known count, from a reduce the one element
+// unreduced or as many as the reducer yields over two or more; one only bounded is reported where
+// even its fewest or its most cannot fit, else left to evaluation.
 func TestValueCollectionCountIsJudged(t *testing.T) {
 	wantCollectionValueDiags(t, `part b : Boat[1] = none.{ in v : Vehicle; boat };`,
 		"0 value(s) bound to a feature with multiplicity lower bound 1")
@@ -494,9 +495,22 @@ func TestValueCollectionCountIsJudged(t *testing.T) {
 		"at most 1 value(s) bound to a feature with multiplicity lower bound 3")
 	wantCollectionValueDiags(t, `part v : Vehicle[2] = pair.items->selectOne { in v : Vehicle; true };`,
 		"at most 1 value(s) bound to a feature with multiplicity lower bound 2")
+	wantCollectionValueDiags(t, `part b : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; (boat, boat) };`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; () };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1] = two->reduce { in a : Vehicle; in b : Vehicle; (boat, boat) };`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part v : Vehicle[3] = vs->reduce { in a : Vehicle; in b : Vehicle; (a, b) };`,
+		"at most 2 value(s) bound to a feature with multiplicity lower bound 3")
 	wantCollectionValueDiags(t, `
 		part b : Boat[2] = pair.items.{ in v : Vehicle; boat };
 		part b2 : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part b5 : Boat[2] = pair.items->reduce { in a : Vehicle; in b : Vehicle; (boat, boat) };
+		part b6 : Boat[0..1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; () };
+		part v3 : Vehicle[1..2] = vs->reduce { in a : Vehicle; in b : Vehicle; (a, b) };
+		part v4 : Vehicle[1] = one->reduce { in a : Vehicle; in b : Vehicle; (a, b) };
+		part v5 : Vehicle[0..1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; a };
 		part v : Vehicle[0..1] = pair.items->selectOne { in v : Vehicle; true };
 		part b3 : Boat[1] = vs.{ in v : Vehicle; boat };
 		part v2 : Vehicle[0..2] = pair.items->select { in v : Vehicle; true };

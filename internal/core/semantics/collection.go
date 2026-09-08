@@ -233,8 +233,8 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 }
 
 // valuesHeldByCall is how many values a call holds: collect what it maps to, select/reject up to
-// all, selectOne up to one, reduce one unless the collection holds none, any other function what
-// its result parameter declares.
+// all, selectOne up to one, reduce what it reduces to, any other function what its result
+// parameter declares.
 func (m *Model) valuesHeldByCall(scope *symbols.Scope, e *ast.InvocationExpr) (Range, bool) {
 	fn := m.invocationCallee(scope, e)
 	if fn == nil {
@@ -248,11 +248,7 @@ func (m *Model) valuesHeldByCall(scope *symbols.Scope, e *ast.InvocationExpr) (R
 	case m.libSymbol(fqnSelectOne):
 		return m.valuesKeptFrom(scope, m.argumentTo(scope, e, fn, 0), Bound{Value: 1, Known: true})
 	case m.libSymbol(fqnReduce):
-		through, ok := m.valuesHeldBy(scope, m.argumentTo(scope, e, fn, 0))
-		if !ok {
-			return Range{}, false
-		}
-		return Range{Lower: minBound(through.Lower, Bound{Value: 1, Known: true}), Upper: minBound(through.Upper, Bound{Value: 1, Known: true})}, true
+		return m.valuesReducedFrom(scope, m.argumentTo(scope, e, fn, 0), m.argumentTo(scope, e, fn, 1))
 	}
 	if result := m.ResultParameterOf(fn); result != nil {
 		return m.valuesGoverning(result)
@@ -270,22 +266,50 @@ func (m *Model) valuesMappedBy(scope *symbols.Scope, collection, applied ast.Nod
 	if !ok {
 		return Range{}, false
 	}
-	per := Range{Lower: Bound{Known: true}, Upper: Bound{Infinite: true, Known: true}}
+	return mulRanges(through, m.valuesApplied(scope, applied)), true
+}
+
+// valuesReducedFrom is how many values reducing a collection yields: none from none, the one
+// element it holds unreduced, the reducer's result over two or more; either where it may hold
+// one or more than one.
+func (m *Model) valuesReducedFrom(scope *symbols.Scope, collection, reducer ast.Node) (Range, bool) {
+	if collection == nil {
+		return Range{}, false
+	}
+	through, ok := m.valuesHeldBy(scope, collection)
+	if !ok {
+		return Range{}, false
+	}
+	one := Bound{Value: 1, Known: true}
+	unreduced := Range{Lower: minBound(through.Lower, one), Upper: minBound(through.Upper, one)}
+	if !through.Upper.Infinite && through.Upper.Value <= 1 {
+		return unreduced, true
+	}
+	reduced := m.valuesApplied(scope, reducer)
+	if through.Lower.Infinite || through.Lower.Value >= 2 {
+		return reduced, true
+	}
+	return Range{Lower: minBound(unreduced.Lower, reduced.Lower), Upper: maxBound(unreduced.Upper, reduced.Upper)}, true
+}
+
+// valuesApplied is how many values one application of a body or named function yields: as many
+// as the body's result or the function's result parameter holds; any number where unknown.
+func (m *Model) valuesApplied(scope *symbols.Scope, applied ast.Node) Range {
 	switch a := applied.(type) {
 	case *ast.BodyExpr:
 		if a.Result != nil {
 			if r, ok := m.valuesHeldBy(symbols.BodyExprScope(scope, a), a.Result); ok {
-				per = r
+				return r
 			}
 		}
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
 		if result := m.appliedResult(scope, a); result != nil {
 			if r, ok := m.valuesGoverning(result); ok {
-				per = r
+				return r
 			}
 		}
 	}
-	return mulRanges(through, per), true
+	return Range{Lower: Bound{Known: true}, Upper: unbounded}
 }
 
 // valuesKeptFrom is how many values a selection keeps: none up to the collection's, capped at most.
@@ -357,6 +381,16 @@ func minBound(a, b Bound) Bound {
 	case a.Infinite:
 		return b
 	case b.Infinite || a.Value <= b.Value:
+		return a
+	}
+	return b
+}
+
+func maxBound(a, b Bound) Bound {
+	switch {
+	case a.Infinite || b.Infinite:
+		return unbounded
+	case a.Value >= b.Value:
 		return a
 	}
 	return b
