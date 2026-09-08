@@ -19,8 +19,9 @@
   specializes, or one an intersection of it reaches.
   Every type a value's feature is declared with counts among the types it is of, so a custom scalar
   subtype (`attribute e : Even = 4`) and a scalar-valued enumeration keep the values declared with
-  them — each element written in a sequence by its own declaration, so `(GradePoints::a,
-  GradePoints::b) as GradePoints` keeps both and no element is judged by another's type — and a quantity subtype narrowing its dimension by something a magnitude and a unit do not
+  them — a written sequence entry by entry, each judged by its own declaration however many values
+  it holds and however deeply nested, so `(GradePoints::a, GradePoints::b) as GradePoints` keeps
+  both and no entry is judged by another's type — and a quantity subtype narrowing its dimension by something a magnitude and a unit do not
   state keeps a value declared with it. An expression written as a value is kept by the evaluation
   type it is read as, a boolean body by `BooleanEvaluation`.
   A cast converts nothing: `ToInteger` and its siblings remain the library functions that do.

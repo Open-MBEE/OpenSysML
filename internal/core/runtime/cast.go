@@ -24,26 +24,47 @@ func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedType,
 			qualifiedNameToString(n.TypeRef))
 	}
+	// A written sequence is cast entry by entry, each judged by its own types.
+	if _, ok := n.Operands[0].(*ast.SequenceExpr); ok {
+		kept, sources, err := ec.castEntries(n.Operands[0], target)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.sequenceFrom(kept, sources...)
+	}
 	value, err := ec.Eval(n.Operands[0])
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]),
-		ec.declaredElementCastTypes(n.Operands[0]))
+	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]))
 }
 
-// declaredElementCastTypes names the types each element of a written sequence is
-// declared with, so every element of `(GradePoints::a, 2.5)` is judged as itself.
-func (ec *EvalContext) declaredElementCastTypes(operand ast.Node) [][]*symbols.Symbol {
-	seq, ok := operand.(*ast.SequenceExpr)
-	if !ok {
-		return nil
+// castEntries casts one entry of a written sequence, answering the values target
+// keeps of it and the values it holds, whose unit an empty result keeps. A KerML
+// sequence is flat, so a nested one contributes its own entries.
+func (ec *EvalContext) castEntries(
+	entry ast.Node, target *symbols.Symbol,
+) (kept, sources []Value, err error) {
+	if seq, ok := entry.(*ast.SequenceExpr); ok {
+		for _, element := range seq.Elements {
+			elementKept, elementSources, err := ec.castEntries(element, target)
+			if err != nil {
+				return nil, nil, err
+			}
+			kept = append(kept, elementKept...)
+			sources = append(sources, elementSources...)
+		}
+		return kept, sources, nil
 	}
-	out := make([][]*symbols.Symbol, 0, len(seq.Elements))
-	for _, element := range seq.Elements {
-		out = append(out, ec.declaredCastTypes(element))
+	value, err := ec.Eval(entry)
+	if err != nil {
+		return nil, nil, err
 	}
-	return out
+	out, err := ec.castValue(value, target, ec.declaredCastTypes(entry))
+	if err != nil {
+		return nil, nil, err
+	}
+	return elementsOf(out), []Value{value}, nil
 }
 
 // declaredCastTypes names every type the cast's operand is declared with, which
@@ -72,7 +93,6 @@ func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
 // order for a collection, the value itself or the empty sequence for one value.
 func (ec *EvalContext) castValue(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
-	perElement [][]*symbols.Symbol,
 ) (Value, error) {
 	switch value.Kind {
 	case ValNull, ValInvalid:
@@ -80,13 +100,8 @@ func (ec *EvalContext) castValue(
 	case ValSequence, ValSet:
 		elements := elementsOf(value)
 		kept := make([]Value, 0, len(elements))
-		for i, element := range elements {
-			types := declared
-			// An element written in the sequence is judged by its own declaration.
-			if len(perElement) == len(elements) {
-				types = append(append([]*symbols.Symbol{}, declared...), perElement[i]...)
-			}
-			keep, err := ec.castKeeps(element, target, types)
+		for _, element := range elements {
+			keep, err := ec.castKeeps(element, target, declared)
 			if err != nil {
 				return Value{}, err
 			}

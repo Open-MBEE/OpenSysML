@@ -23,6 +23,16 @@
     ]},
     "declaredWithLiteral": {"type": "Sequence", "elements": [
       {"type": "Integer", "value": 4}
+    ]},
+    "nestedAsEnumeration": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 4.0},
+      {"type": "Real", "value": 3.0},
+      {"type": "Real", "value": 4.0}
+    ]},
+    "multiValuedEntry": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 4},
+      {"type": "Integer", "value": 6}
     ]}
   }
 }
