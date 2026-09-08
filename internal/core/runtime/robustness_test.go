@@ -1418,6 +1418,17 @@ func testTensorQuantityFailureModes(t *testing.T) {
 		{"tensor times tensor by operator", "stress * stress", ErrUnevaluableLibraryFunction, "TensorCalculations::tensorTensorMult"},
 		{"outer product", "VectorCalculations::outer(VectorFunctions::VectorOf((1.0, 2.0)) [Pa], VectorFunctions::VectorOf((1.0, 2.0)) [Pa])", ErrUnevaluableLibraryFunction, "VectorCalculations::outer"},
 		{"transform", "TensorCalculations::transform(stressRef, stress)", ErrUnevaluableLibraryFunction, "TensorCalculations::transform"},
+		{"rank three, too few indexes", "cube#(1, 2)", ErrMultiplicityViolation, "2 indexes address an array of rank 3"},
+		{"rank three, too many indexes", "cube#(1, 1, 1, 1)", ErrMultiplicityViolation, "4 indexes address an array of rank 3"},
+		{"rank three, first index low", "cube#(0, 1, 1)", ErrIndexOutOfRange, "index 1 is 0, dimension 1 has 1..2"},
+		{"rank three, middle index high", "cube#(1, 3, 1)", ErrIndexOutOfRange, "index 2 is 3, dimension 2 has 1..2"},
+		{"rank three, last index high", "cube#(1, 1, 3)", ErrIndexOutOfRange, "index 3 is 3, dimension 3 has 1..2"},
+		{"rank three, non-integer index", "cube#(1, 1.5, 1)", ErrTypeMismatch, "requires an Integer index"},
+		{"rank three, too few components", "TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0), cubeRef)", ErrMultiplicityViolation, "7 elements for a reference of dimensions [2, 2, 2]"},
+		{"rank three, too many components", "TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0), cubeRef)", ErrMultiplicityViolation, "9 elements for a reference of dimensions [2, 2, 2]"},
+		{"rank three against rank two", "cube + stress", ErrMultiplicityViolation, "dimensions [2, 2, 2] and [2, 2] differ"},
+		{"rank three shapes differ", "cube - TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0), slabRef)", ErrMultiplicityViolation, "dimensions [2, 2, 2] and [2, 3, 2] differ"},
+		{"rank three unit predicate", "TensorCalculations::isUnitTensorQuantity(cube)", ErrUnevaluableLibraryFunction, "only a square tensor of order two has an identity"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`
@@ -1427,6 +1438,9 @@ func testTensorQuantityFailureModes(t *testing.T) {
 					private import MeasurementReferences::*;
 					private import Quantities::*;
 					attribute stressRef : TensorMeasurementReference { :>> dimensions = (2, 2); :>> mRefs = (Pa, Pa, Pa, Pa); }
+					attribute cubeRef : TensorMeasurementReference { :>> dimensions = (2, 2, 2); :>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa); }
+					attribute slabRef : TensorMeasurementReference { :>> dimensions = (2, 3, 2); :>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa); }
+					attribute cube = TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);
 					attribute lengthRef : TensorMeasurementReference { :>> dimensions = (2, 2); :>> mRefs = (Pa, m, Pa, Pa); }
 					attribute rowRef : TensorMeasurementReference { :>> dimensions = (3); :>> mRefs = (Pa, Pa, Pa); }
 					attribute oneRef : TensorMeasurementReference { :>> dimensions = (2, 2); :>> mRefs = Pa; }

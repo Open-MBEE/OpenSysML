@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -481,13 +482,12 @@ func (s *Sequence) Elements() []Value {
 
 // Set is a unique collection backed by hash buckets and exact comparisons. A set
 // has no inherent order, but enumerating one has to answer in some order, and
-// insertion order is the one order a set does carry: it makes a sequence
-// derived from a set — what `select` and `collect` over a set return —
-// reproducible instead of dependent on map iteration.
+// the one it answers in is the canonical order (see canonicalLess): equal sets
+// enumerate alike, whatever order their elements were added in.
 type Set struct {
 	elements map[valueKey][]Value
-	order    []Value
-	size     int
+	order    []Value // insertion order, the tie-break canonical order falls back to
+	sorted   []Value // canonical order, built on the first read after an Add
 }
 
 // NewSet creates an empty Set.
@@ -506,7 +506,7 @@ func (s *Set) Add(val Value) {
 	}
 	s.elements[key] = append(bucket, val)
 	s.order = append(s.order, val)
-	s.size++
+	s.sorted = nil
 }
 
 // Contains checks if the value is in the set.
@@ -521,10 +521,42 @@ func (s *Set) Contains(val Value) bool {
 
 // Size returns the number of unique elements.
 func (s *Set) Size() int {
-	return s.size
+	if s == nil {
+		return 0
+	}
+	return len(s.order)
 }
 
-// Elements returns all elements, in the order they were added.
+// Elements returns all elements in canonical order.
 func (s *Set) Elements() []Value {
-	return append([]Value(nil), s.order...)
+	if s.sorted == nil && len(s.order) > 0 {
+		s.sorted = append([]Value(nil), s.order...)
+		sort.SliceStable(s.sorted, func(i, j int) bool { return canonicalLess(s.sorted[i], s.sorted[j]) })
+	}
+	return append([]Value(nil), s.sorted...)
+}
+
+// Equal holds when the sets have the same members, in whatever order.
+func (s *Set) Equal(other *Set) bool {
+	if s == nil || other == nil {
+		return s.Size() == 0 && other.Size() == 0
+	}
+	if s.Size() != other.Size() {
+		return false
+	}
+	for _, elem := range s.order {
+		if !other.Contains(elem) {
+			return false
+		}
+	}
+	return true
+}
+
+// setOf builds a set value holding the distinct elements.
+func setOf(elements []Value) Value {
+	set := NewSet()
+	for _, elem := range elements {
+		set.Add(elem)
+	}
+	return NewSetValue(set)
 }

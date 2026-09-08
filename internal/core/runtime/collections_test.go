@@ -439,8 +439,8 @@ package test {
 }
 
 // TestCollectionOperationsOverSets pins that the operations read a set as the
-// sequence of its elements, in the order the set was built in, so a model
-// iterating or filtering a set gets a stable answer rather than a hash order.
+// sequence of its elements in canonical order, whatever order the set was built
+// in, so a model iterating or filtering a set gets the same answer for equal sets.
 func TestCollectionOperationsOverSets(t *testing.T) {
 	set := NewSet()
 	for _, n := range []int64{3, 1, 2, 3} {
@@ -448,8 +448,8 @@ func TestCollectionOperationsOverSets(t *testing.T) {
 	}
 	setVal := NewSetValue(set)
 
-	if got := intsOf(t, sequenceOf(elementsOf(setVal))); !equalInts(got, []int64{3, 1, 2}) {
-		t.Fatalf("set elements = %v, want the distinct elements in insertion order", got)
+	if got := intsOf(t, sequenceOf(elementsOf(setVal))); !equalInts(got, []int64{1, 2, 3}) {
+		t.Fatalf("set elements = %v, want the distinct elements in canonical order", got)
 	}
 
 	size, err := builtinSequenceSize(nil, []Value{setVal})

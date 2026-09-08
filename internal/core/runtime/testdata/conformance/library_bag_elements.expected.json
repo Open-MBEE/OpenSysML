@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::b",
+  "slots": {
+    "elements": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 2}
+    ]}
+  }
+}

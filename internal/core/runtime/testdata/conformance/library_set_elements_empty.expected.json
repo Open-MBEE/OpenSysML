@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::e",
+  "slots": {
+    "elements": {"type": "Set", "elements": []}
+  }
+}

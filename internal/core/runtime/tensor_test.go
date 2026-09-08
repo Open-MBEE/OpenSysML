@@ -297,3 +297,60 @@ func TestWriteOfEqualTensorComponentsOverAnotherReferenceRecomputesDerivedValues
 		t.Fatal("writing the same tensor over the same reference again unmaterialized its readers")
 	}
 }
+
+// TestTensorQuantityRankThree: a tensor of rank three constructs, indexes with
+// one index per dimension in row-major order, keeps its shape through the
+// arithmetic, renders canonically, and is equal to a same-shape tensor of the
+// same components only.
+func TestTensorQuantityRankThree(t *testing.T) {
+	ctx, idx := libraryModelContext(t, `package test {
+		private import ISQ::*;
+		private import SI::*;
+		private import MeasurementReferences::*;
+		private import Quantities::*;
+		attribute cubeRef : TensorMeasurementReference {
+			:>> dimensions = (2, 2, 2);
+			:>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa);
+		}
+		attribute cube = TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);
+	}`)
+	pkg, _ := idx.DocumentRoot("<test>").LookupLocal("test")
+	scope := pkg.Scope
+	cube := tensorEval(t, ctx, scope, "cube")
+	if cube.Kind != ValTensorQuantity || cube.TensorQuantity().Rank() != 3 || cube.TensorQuantity().FlattenedSize() != 8 {
+		t.Fatalf("cube = %s, want a rank-3 tensor of 8 components", FormatValue(cube))
+	}
+	if got, want := FormatTraceValue(cube), "Tensor(2, 2, 2)[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] [Pa]"; got != want {
+		t.Errorf("trace = %q, want %q", got, want)
+	}
+	for src, want := range map[string]float64{
+		"cube#(1, 1, 1)": 1, "cube#(1, 1, 2)": 2, "cube#(1, 2, 1)": 3, "cube#(2, 1, 1)": 5, "cube#(2, 2, 2)": 8,
+		"(cube + cube)#(2, 1, 2)": 12, "(2 * cube)#(1, 2, 2)": 8, "(cube - cube)#(2, 2, 1)": 0,
+	} {
+		val := tensorEval(t, ctx, scope, src)
+		if val.Kind != ValQuantity || val.Quantity().Unit.Text != "Pa" || numberOf(val.Quantity().Num) != want {
+			t.Errorf("%s = %s, want %v [Pa]", src, FormatValue(val), want)
+		}
+	}
+	for _, src := range []string{"cube + cube", "2 * cube", "cube - cube"} {
+		val := tensorEval(t, ctx, scope, src)
+		if val.Kind != ValTensorQuantity || !strings.HasPrefix(FormatValue(val), "Tensor(2, 2, 2)[") {
+			t.Errorf("%s = %s, want the shape kept", src, FormatValue(val))
+		}
+	}
+	tq := cube.TensorQuantity()
+	if !valueEqual(cube, NewTensorQuantityValue([]int64{2, 2, 2}, tq.Num, tq.Units)) {
+		t.Error("a same-shape tensor of the same components is not equal")
+	}
+	if valueEqual(cube, NewTensorQuantityValue([]int64{2, 4}, tq.Num, tq.Units)) {
+		t.Error("a reshaped tensor of the same components is equal")
+	}
+	for src, want := range map[string]error{
+		"cube#(1, 2)": ErrMultiplicityViolation, "cube#(1, 1, 1, 1)": ErrMultiplicityViolation,
+		"cube#(0, 1, 1)": ErrIndexOutOfRange, "cube#(1, 1, 3)": ErrIndexOutOfRange,
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, want) {
+			t.Errorf("%s: err = %v, want %v", src, err, want)
+		}
+	}
+}

@@ -1,0 +1,102 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Block",
+  "slots": {
+    "cube": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 1.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 2.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 3.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 4.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 5.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 6.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 7.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 8.0,
+          "unit": "Pa"
+        }
+      ]
+    },
+    "tooFewIndexes": {
+      "error": "multiplicity violation: BaseFunctions::'#': 2 indexes address an array of rank 3 (indexes: Positive[n], n = arr.rank)"
+    },
+    "oneIndex": {
+      "error": "multiplicity violation: BaseFunctions::'#': 1 indexes address an array of rank 3 (indexes: Positive[n], n = arr.rank)"
+    },
+    "tooManyIndexes": {
+      "error": "multiplicity violation: BaseFunctions::'#': 4 indexes address an array of rank 3 (indexes: Positive[n], n = arr.rank)"
+    },
+    "firstIndexLow": {
+      "error": "index out of range: BaseFunctions::'#': index 1 is 0, dimension 1 has 1..2"
+    },
+    "firstIndexHigh": {
+      "error": "index out of range: BaseFunctions::'#': index 1 is 3, dimension 1 has 1..2"
+    },
+    "middleIndexHigh": {
+      "error": "index out of range: BaseFunctions::'#': index 2 is 3, dimension 2 has 1..2"
+    },
+    "lastIndexLow": {
+      "error": "index out of range: BaseFunctions::'#': index 3 is 0, dimension 3 has 1..2"
+    },
+    "lastIndexHigh": {
+      "error": "index out of range: BaseFunctions::'#': index 3 is 3, dimension 3 has 1..2"
+    },
+    "slabMiddleHigh": {
+      "error": "index out of range: BaseFunctions::'#': index 2 is 4, dimension 2 has 1..3"
+    },
+    "nonIntegerIndex": {
+      "error": "type mismatch: BaseFunctions::'#' requires an Integer index, got a Real"
+    },
+    "short": {
+      "error": "multiplicity violation: function TensorCalculations::'[': 7 elements for a reference of dimensions [2, 2, 2]: the declaration `in elements: Number[1..n]` has `n = mRef.flattenedSize` = 8, and Array binds mRefs to one reference per component"
+    },
+    "long": {
+      "error": "multiplicity violation: function TensorCalculations::'[': 9 elements for a reference of dimensions [2, 2, 2]: the declaration `in elements: Number[1..n]` has `n = mRef.flattenedSize` = 8, and Array binds mRefs to one reference per component"
+    },
+    "shapes": {
+      "error": "multiplicity violation: function TensorCalculations::'+': dimensions [2, 2, 2] and [2, 3, 2] differ; both parameters are TensorQuantityValue[1] of one shape"
+    },
+    "orders": {
+      "error": "multiplicity violation: function TensorCalculations::'+': dimensions [2, 2, 2] and [2, 2] differ; both parameters are TensorQuantityValue[1] of one shape"
+    },
+    "scaledShapes": {
+      "error": "multiplicity violation: function TensorCalculations::'-': dimensions [2, 2, 2] and [2, 3, 2] differ; both parameters are TensorQuantityValue[1] of one shape"
+    }
+  }
+}
