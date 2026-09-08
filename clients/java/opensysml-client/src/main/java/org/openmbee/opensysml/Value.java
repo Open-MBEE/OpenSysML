@@ -733,6 +733,9 @@ public sealed interface Value {
 
   /** A hash consistent with {@link #sameValue}: values the model equates hash alike. */
   private static int valueHash(Value value) {
+    if (isEmpty(value)) {
+      return 0;
+    }
     Number magnitude = onRealAxis(value);
     if (magnitude != null) {
       return Double.hashCode(magnitude.doubleValue() + 0.0);

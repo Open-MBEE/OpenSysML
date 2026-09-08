@@ -14,6 +14,7 @@ import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -207,6 +208,15 @@ class PublicTypesTest {
     assertTrue(new Value.SetValue(List.of(nul)).contains(emptySequence));
     assertTrue(new Value.SetValue(List.of(emptySet)).contains(nul));
     assertEquals(new Value.SetValue(List.of(one, nul)), new Value.SetValue(List.of(emptySet, one)));
+    assertEquals(
+        new Value.SetValue(List.of(one, nul)).hashCode(),
+        new Value.SetValue(List.of(emptySequence, one)).hashCode());
+    assertEquals(
+        new Value.SetValue(List.of(one, nul)).hashCode(),
+        new Value.SetValue(List.of(emptySet, one)).hashCode());
+    Map<Value, String> keyed = new HashMap<>();
+    keyed.put(new Value.SetValue(List.of(nul)), "absent");
+    assertEquals("absent", keyed.get(new Value.SetValue(List.of(emptySet))));
     assertTrue(
         new Value.Sequence(List.of(one, nul))
             .sameValue(new Value.Sequence(List.of(one, emptySequence))));
