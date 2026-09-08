@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"arrivals": {"type": "Integer", "value": 3},
+		"continued": {"type": "Integer", "value": 2}
+	}
+}

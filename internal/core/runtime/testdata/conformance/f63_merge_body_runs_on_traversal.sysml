@@ -1,9 +1,10 @@
 package test {
 	private import ScalarValues::*;
 
-	// A merge's body belongs to the traversal, not to every arrival: the token
-	// whose succession a guard prunes leaves the merge open, so the merge fires
-	// once and states its steps once.
+	// A merge performs on every arrival (Actions::MergeAction is one MergePerformance
+	// per incoming link), so its body runs for each of the two tokens; the guard is a
+	// DecisionTransitionAction whose TPCGuardConstraint only prunes the outgoing link,
+	// so the first arrival is retired after its body ran and the second passes.
 	action orJoin {
 		attribute ready : Boolean = false;
 		attribute mergeRuns : Integer = 0;

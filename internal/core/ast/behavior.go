@@ -46,7 +46,7 @@ type JoinNode struct {
 	HasBody  bool
 }
 
-// MergeNode merges alternative flows (N incoming → 1 outgoing, first-wins).
+// MergeNode merges alternative flows (N incoming → 1 outgoing, each arrival passes).
 type MergeNode struct {
 	NodeBase
 	Name     string
