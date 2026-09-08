@@ -13,6 +13,9 @@
     "sumOfNoDurations": {"type": "Quantity", "value": 0, "unit": "m"},
     "declaredAsSubtype": {"type": "Quantity", "value": 4, "unit": "m"},
     "declaredAsBaseQuantity": {"type": "Quantity", "value": 4, "unit": "m"},
-    "declaredAsDuration": {"type": "Sequence", "elements": []}
+    "declaredAsDuration": {"type": "Sequence", "elements": []},
+    "bareAsUnion": {"type": "Quantity", "value": 5, "unit": "m"},
+    "bareSecondsAsUnion": {"type": "Quantity", "value": 3, "unit": "s"},
+    "bareMassAsUnion": {"type": "Sequence", "elements": []}
   }
 }

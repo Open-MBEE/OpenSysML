@@ -10,6 +10,8 @@
   the first that are none of the rest, however deeply nested — so a cast to one keeps them, the
   feature it is written to holds them, and `istype` answers for them; casting a value of a union to
   one of its members is not reported as unrelated either.
+  A composed target a value's types leave open is read through its operands, so a bare quantity
+  cast to a union of quantity types is kept by the operand whose reference its unit matches.
   A composed type weighs all the types a value is of at once, so an object held as a type a
   difference subtracts is none of its values, whether the difference is the target, one it
   specializes, or one an intersection of it reaches.

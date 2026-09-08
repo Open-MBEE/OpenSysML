@@ -101,6 +101,14 @@ func (ec *EvalContext) castValue(
 func (ec *EvalContext) castKeeps(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 ) (bool, error) {
+	return ec.castKeepsReading(value, target, declared, nil)
+}
+
+// castKeepsReading answers castKeeps; reading holds the composed targets being
+// read, so a composition naming itself does not recur.
+func (ec *EvalContext) castKeepsReading(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol, reading map[*symbols.Symbol]bool,
+) (bool, error) {
 	types, err := ec.castTypes(value)
 	if err != nil && len(declared) == 0 {
 		return false, err
@@ -112,7 +120,70 @@ func (ec *EvalContext) castKeeps(
 	case semantics.ClassifiesNone:
 		return false, nil
 	}
+	if keep, composed, err := ec.castComposedKeeps(value, target, declared, reading); composed {
+		return keep, err
+	}
 	return ec.castNarrowerKeeps(value, target)
+}
+
+// castComposedKeeps decides a value against a composed target by its operands: a
+// union keeps what any of them keeps, an intersection what all of them keep, a
+// difference what the first keeps and none of the rest. The second result reports
+// whether the target is composed at all.
+func (ec *EvalContext) castComposedKeeps(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol, reading map[*symbols.Symbol]bool,
+) (bool, bool, error) {
+	unions := ec.ctx.model.UnioningTypes(target)
+	intersects := ec.ctx.model.IntersectingTypes(target)
+	differences := ec.ctx.model.DifferencingTypes(target)
+	if len(unions)+len(intersects)+len(differences) == 0 || reading[target] {
+		return false, false, nil
+	}
+	if reading == nil {
+		reading = make(map[*symbols.Symbol]bool)
+	}
+	reading[target] = true
+	defer delete(reading, target)
+
+	keeps := func(operand *symbols.Symbol) (bool, error) {
+		return ec.castKeepsReading(value, operand, declared, reading)
+	}
+	if len(unions) > 0 {
+		kept, err := anyKeeps(unions, keeps)
+		if err != nil || !kept {
+			return false, true, err
+		}
+	}
+	for _, operand := range intersects {
+		kept, err := keeps(operand)
+		if err != nil || !kept {
+			return false, true, err
+		}
+	}
+	for i, operand := range differences {
+		kept, err := keeps(operand)
+		if err != nil || kept != (i == 0) {
+			return false, true, err
+		}
+	}
+	return true, true, nil
+}
+
+// anyKeeps reports whether any operand keeps the value, reporting an operand's
+// error only when no other one keeps it.
+func anyKeeps(operands []*symbols.Symbol, keeps func(*symbols.Symbol) (bool, error)) (bool, error) {
+	var undecided error
+	for _, operand := range operands {
+		kept, err := keeps(operand)
+		if err != nil {
+			undecided = err
+			continue
+		}
+		if kept {
+			return true, nil
+		}
+	}
+	return false, undecided
 }
 
 // castTypes names the types a value is of for a cast: a quantity value is the
