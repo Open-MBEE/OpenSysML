@@ -269,6 +269,14 @@ fn an_array_a_vector_and_a_vector_quantity_arrive_whole() {
 }
 
 #[test]
+fn the_service_advertises_the_verification_body_verdicts_it_reports() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("verification_verdicts"));
+}
+
+#[test]
 fn a_bare_measurement_reference_arrives_with_its_reduction_and_declaration() {
     let Some(connection) = service_or_skip() else {
         return;

@@ -856,18 +856,20 @@ func (run *calcRun) lookupOutput(ctx *Context, name string) (Value, bool, error)
 	return value, true, err
 }
 
-// isCalcUsageSymbol reports whether sym declares a calc usage or an analysis case
-// usage, the forms that carry an evaluation whose outputs are features. A
-// definition is a type: it is invoked, not read.
+// isCalcUsageSymbol reports whether sym declares a calc usage or a case usage —
+// analysis or verification — the forms that carry an evaluation whose outputs are
+// features. A definition is a type: it is invoked, not read.
 func isCalcUsageSymbol(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
 	if sym.Decl != nil {
 		usage, ok := sym.Decl.(*ast.Usage)
-		return ok && (usage.Kind == ast.UsageCalc || usage.Kind == ast.UsageAnalysisCase)
+		return ok && (usage.Kind == ast.UsageCalc || usage.Kind == ast.UsageAnalysisCase ||
+			usage.Kind == ast.UsageVerificationCase)
 	}
-	return sym.Kind == symbols.SymbolCalcUsage || sym.Kind == symbols.SymbolAnalysisCaseUsage
+	return sym.Kind == symbols.SymbolCalcUsage || sym.Kind == symbols.SymbolAnalysisCaseUsage ||
+		sym.Kind == symbols.SymbolVerificationCaseUsage
 }
 
 // evalCalcUsageMembers reads a name written after a calc usage: its first part

@@ -31,6 +31,8 @@ const (
 	CapabilityComplexValues     = sysmlgrpc.CapabilityComplexValues
 	CapabilityStructuredValues  = sysmlgrpc.CapabilityStructuredValues
 	CapabilityMeasurementRefs   = sysmlgrpc.CapabilityMeasurementRefs
+
+	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

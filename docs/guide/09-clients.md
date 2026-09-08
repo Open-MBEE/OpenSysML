@@ -545,6 +545,26 @@ for verdict in model.verify_satisfaction():
         print(verdict.explain())
 ```
 
+Where the model states verification cases for a requirement, the verdict their bodies produced is
+reported beside the requirement's own — `verdict.holds` still says what the requirement engine
+decided, and a failing verification body does not change it:
+
+```python
+verdict = model.verify_requirement("Landing::touchdown")
+verdict.holds                        # True — the requirement is satisfied
+[(v.case_id, v.kind) for v in verdict.verifications]
+# [('Landing::checkSlow', 'pass'), ('Landing::checkFast', 'fail')]
+bool(verdict.verifications[0])       # True — a VerificationVerdict is truthy when it passed
+print(verdict.verifications[1].explain())
+```
+
+A `kind` of `"pass"` or `"fail"` is what the library's own `VerificationCases::PassIf` calculation
+computed over the run of the case body, `"inconclusive"` a body that produced no verdict value and
+`"error"` one whose run could not be carried out, with `detail` carrying the reason. `subcase` is
+true for a case another case performed as a step. `run_analysis` accepts a verification case and
+reports the same list, and `verify_satisfaction`'s verdicts carry it too. A service that does not
+advertise `verification_verdicts` (`opensysml.CAPABILITY_VERIFICATION_VERDICTS`) reports none.
+
 A request that cannot be answered at all, such as one naming an unknown symbol or a subject that
 cannot be instantiated, raises `ExecutionError` from the call itself rather than returning a
 verdict. Narrowing to an element that makes no satisfaction assertion is not such a request: it

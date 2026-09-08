@@ -646,7 +646,7 @@ func (ctx *Context) CheckSweepParameters(sym *symbols.Symbol, plan SweepPlan, po
 	for _, name := range named {
 		bound[name] = true
 	}
-	for i, name := range shape.positionalOrder(IsAnalysisSymbol(sym), bound) {
+	for i, name := range shape.positionalOrder(IsRunnableCaseSymbol(sym), bound) {
 		if i >= positional {
 			break
 		}

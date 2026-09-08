@@ -61,10 +61,14 @@ var (
 	// request, not the model.
 	ErrNotARequirement = errors.New("not a requirement")
 
-	// ErrNotAnAnalysis is returned when a symbol asked for its objectives is not
-	// an analysis case. Like ErrNotAConstraint it reports the request, not the
-	// model.
+	// ErrNotAnAnalysis is returned when a symbol asked for its objectives or
+	// asked to be run is not a case whose body runs. Like ErrNotAConstraint it
+	// reports the request, not the model.
 	ErrNotAnAnalysis = errors.New("not an analysis case")
+
+	// ErrNotAVerification is returned when a symbol asked for a verification
+	// verdict is not a verification case definition or usage.
+	ErrNotAVerification = errors.New("not a verification case")
 
 	// ErrCalcArity is returned when a calc invocation passes more arguments than
 	// the calc declares input parameters.
@@ -430,14 +434,14 @@ func (e *NoValueError) Unwrap() error { return ErrNoValue }
 // UnboundSubjectError reports a check whose subject nothing supplied, naming
 // the subject and how a caller supplies one.
 type UnboundSubjectError struct {
-	Kind    string // "constraint", "requirement", "analysis" or "objective"
+	Kind    string // "constraint", "requirement", "analysis", "verification" or "objective"
 	Element string // name of the element declaring the subject
 	Subject string // name of the subject parameter
 }
 
 func (e *UnboundSubjectError) Error() string {
 	switch e.Kind {
-	case "analysis":
+	case "analysis", "verification":
 		return fmt.Sprintf("%s %s: %s %v: bind it (`subject %s = <element>`) or run it on an object",
 			e.Kind, e.Element, e.Subject, ErrUnboundSubject, e.Subject)
 	case "objective":

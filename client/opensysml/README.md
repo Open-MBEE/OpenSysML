@@ -57,6 +57,14 @@ fails only when it could not be evaluated at all, and then it is a
 `*VerifyError` whose `Reason` classifies the failure. A condition the runtime
 could not evaluate for one subject arrives as `Verdict.Undecided()`.
 
+What running a verification case's body answered is a separate answer, reported
+beside the satisfaction verdict rather than instead of it, by a service
+advertising `CapabilityVerificationVerdicts`. `Verification.Verifications`,
+`Analysis.Verifications` and `Satisfaction.Verifications` carry those
+`VerificationVerdict`s; because one `VerifySatisfaction` response can cover
+several requirements, each `Verdict` in it carries only the cases of its own
+`RequirementID`.
+
 Queries are built from typed conditions rather than a string dialect, so an
 unsupported operator is a compile error rather than a refused call:
 

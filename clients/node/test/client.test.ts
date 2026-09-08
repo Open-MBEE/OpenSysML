@@ -12,6 +12,7 @@ import {
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
   CAPABILITY_STRUCTURED_VALUES,
+  CAPABILITY_VERIFICATION_VERDICTS,
   ClosedConnectionError,
   MissingCapabilityError,
   EvaluationError,
@@ -188,6 +189,11 @@ const MEASUREMENT_REF_MODEL = `package M {
     attribute u : MeasurementUnit = m;
     attribute speed = m / s;
 }`;
+
+test("the service advertises the verification body verdicts it reports", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_VERIFICATION_VERDICTS));
+});
 
 test("a bare measurement reference arrives as a unit with its reduction and declaration", async () => {
   for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {

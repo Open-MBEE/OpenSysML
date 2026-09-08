@@ -47,6 +47,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -calc "Fall(3, 4)" model.sysml`, "Invoke a calculation"),
 				usage.Ex("sysml -analysis shipCost model.sysml", "Run an analysis case"),
 				usage.Ex(`sysml -analysis "CostAnalysis ship" model.sysml`, "...on an object as its subject"),
+				usage.Ex("sysml -analysis speedCheck model.sysml", "Run a verification case for its verdict"),
 				usage.Ex(`sysml -run-query "Heavy root=scope" model.sysml`, "Execute a document query"),
 				usage.Ex("sysml -action Drive model.sysml", "Run an action to completion"),
 				usage.Ex("sysml -state Mission -advance 10 model.sysml", "Run a state machine for 10 time units"),
@@ -319,11 +320,11 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&deprecatedFlag{instead: "-to has been replaced by -convert, as `sysml model.sysml -convert ttl`"}, "to", "Replaced by -convert, which names the output format")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition before the checks, so a verdict is about it (repeatable)")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
-	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement and exit (repeatable)")
-	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states (repeatable)")
+	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement and exit, reporting beside its verdict the verdict of every verification case verifying it (repeatable)")
+	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, reporting beside each verdict the verdict of every verification case verifying the requirement (repeatable)")
 	fs.BoolVar(&modelChecks.validate, "validate", false, "Analyse the model and report its diagnostics, exiting nonzero on an error")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report what it computed, as -calc \"Fall(3, 4)\" (repeatable)")
-	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject (repeatable)")
+	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject; a verification case also reports the verdict its body produced (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them; needs -seed")
 	fs.Var(&modelChecks.seed, "seed", "Seed -samples draws from, so the same seed draws the same table")

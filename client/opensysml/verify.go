@@ -51,6 +51,47 @@ type Verdict struct {
 	Error string
 	// Reason says what kind of failure Error reports.
 	Reason Reason
+	// RequirementID is the FQN of the requirement a satisfaction verdict
+	// asserts satisfied, empty when the assertion names none.
+	RequirementID string
+	// Verifications are the body verdicts of that requirement's verification
+	// cases, reported beside this verdict rather than instead of it.
+	Verifications []VerificationVerdict
+}
+
+// VerdictKind is the verdict a run of a verification case's body produced, one
+// literal of the library's VerdictKind enumeration.
+type VerdictKind string
+
+// The verdicts a verification case's body produces.
+const (
+	// VerdictPass is a body whose verdict value is VerdictKind::pass.
+	VerdictPass VerdictKind = "pass"
+	// VerdictFail is a body whose verdict value is VerdictKind::fail.
+	VerdictFail VerdictKind = "fail"
+	// VerdictInconclusive is a body that ran and produced no verdict value.
+	VerdictInconclusive VerdictKind = "inconclusive"
+	// VerdictError is a body whose run could not be carried out.
+	VerdictError VerdictKind = "error"
+)
+
+// VerificationVerdict is what the body of a verification case answered when it
+// ran, which is a separate answer from whether a requirement is satisfied.
+// Reported by a service advertising CapabilityVerificationVerdicts.
+type VerificationVerdict struct {
+	// CaseID is the FQN of the verification case that ran.
+	CaseID string
+	// Kind is the VerdictKind the body produced.
+	Kind VerdictKind
+	// Detail is the text of an error verdict, or why an inconclusive one
+	// decided nothing; empty for a pass and a fail.
+	Detail string
+	// Subcase marks the verdict of a case another performed, which the library
+	// states no roll-up for and which is therefore reported on its own.
+	Subcase bool
+	// RequirementID is the FQN of the requirement this verdict was reported
+	// for, empty when the case ran for itself rather than for a requirement.
+	RequirementID string
 }
 
 // Undecided reports a verdict that is no answer about the model: evaluation
@@ -62,6 +103,9 @@ func (v *Verdict) Undecided() bool { return v != nil && v.Error != "" }
 type Verification struct {
 	// Verdict is the answer.
 	Verdict *Verdict
+	// Verifications are the body verdicts of the verification cases verifying
+	// this requirement, empty for a constraint and for a service reporting none.
+	Verifications []VerificationVerdict
 	// Instances are the objects reachable from the verdict's subject, including
 	// it, so its feature values need no follow-up call.
 	Instances []*Instance
@@ -72,8 +116,12 @@ type Verification struct {
 // Satisfaction is the verdict of each satisfaction assertion evaluated, in
 // declaration order. A model stating none answers with no verdicts.
 type Satisfaction struct {
-	// Verdicts is one verdict per assertion evaluated.
+	// Verdicts is one verdict per assertion evaluated, each carrying the body
+	// verdicts of its own requirement.
 	Verdicts []Verdict
+	// Verifications are the body verdicts of every requirement the response
+	// covers, each naming the requirement it was reported for.
+	Verifications []VerificationVerdict
 	// Instances are the objects the verdicts are about, each reported once.
 	Instances []*Instance
 	// Diagnostics the verification reported.
@@ -163,8 +211,13 @@ func (c *client) VerifyRequirement(
 	if err != nil {
 		return nil, err
 	}
-	return verification("VerifyRequirement", resp.Verdict, resp.Instances, resp.Error,
+	out, err := verification("VerifyRequirement", resp.Verdict, resp.Instances, resp.Error,
 		ReasonUnspecified, resp.Diagnostics)
+	if err != nil {
+		return nil, err
+	}
+	out.Verifications = verificationVerdictsFromProto(resp.VerificationVerdicts)
+	return out, nil
 }
 
 func (c *client) VerifySatisfaction(ctx context.Context, model *Model, symbolID string) (*Satisfaction, error) {
@@ -187,11 +240,13 @@ func (c *client) VerifySatisfaction(ctx context.Context, model *Model, symbolID 
 		}
 	}
 	out := &Satisfaction{
-		Instances:   instancesFromProto(resp.Instances),
-		Diagnostics: diagnostics,
+		Instances:     instancesFromProto(resp.Instances),
+		Diagnostics:   diagnostics,
+		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
 	}
 	for _, verdict := range resp.Verdicts {
 		if converted := verdictFromProto(verdict); converted != nil {
+			converted.Verifications = verificationsOf(out.Verifications, converted.RequirementID)
 			out.Verdicts = append(out.Verdicts, *converted)
 		}
 	}
@@ -285,5 +340,42 @@ func verdictFromProto(verdict *pb.Verdict) *Verdict {
 		InstanceTypeID: verdict.InstanceTypeId,
 		Error:          verdict.Error,
 		Reason:         Reason(verdict.FailureReason),
+		RequirementID:  verdict.RequirementId,
 	}
+}
+
+func verificationVerdictsFromProto(verdicts []*pb.VerificationVerdict) []VerificationVerdict {
+	if len(verdicts) == 0 {
+		return nil
+	}
+	out := make([]VerificationVerdict, 0, len(verdicts))
+	for _, verdict := range verdicts {
+		if verdict == nil {
+			continue
+		}
+		out = append(out, VerificationVerdict{
+			CaseID:        verdict.CaseId,
+			Kind:          VerdictKind(verdict.Kind),
+			Detail:        verdict.Detail,
+			Subcase:       verdict.Subcase,
+			RequirementID: verdict.RequirementId,
+		})
+	}
+	return out
+}
+
+// verificationsOf is the body verdicts of one requirement. A response answering
+// several assertions carries the cases of every requirement it covers, so a
+// verdict takes only its own; naming no requirement takes none rather than all.
+func verificationsOf(verdicts []VerificationVerdict, requirementID string) []VerificationVerdict {
+	if requirementID == "" {
+		return nil
+	}
+	var out []VerificationVerdict
+	for _, verdict := range verdicts {
+		if verdict.RequirementID == requirementID {
+			out = append(out, verdict)
+		}
+	}
+	return out
 }

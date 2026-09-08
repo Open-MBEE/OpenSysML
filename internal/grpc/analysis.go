@@ -59,8 +59,21 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		}
 	}
 
-	result, err := v.runtime.RunAnalysis(sym, args, v.declaringScope(sym), nil)
-	if err != nil {
+	// A verification case runs the same body, and its run answers with the
+	// verdict that body produced as well.
+	var verdicts []runtime.VerificationVerdict
+	var result runtime.AnalysisResult
+	if runtime.IsVerificationCaseSymbol(sym) {
+		verified, verr := v.runtime.RunVerification(sym, args, v.declaringScope(sym), nil)
+		if verr != nil {
+			return &pb.RunAnalysisResponse{
+				Error:         fmt.Sprintf("verification run failed: %v", verr),
+				FailureReason: failureReason(verr),
+			}, nil
+		}
+		result = verified.Run
+		verdicts = append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...)
+	} else if result, err = v.runtime.RunAnalysis(sym, args, v.declaringScope(sym), nil); err != nil {
 		return &pb.RunAnalysisResponse{
 			Error:         fmt.Sprintf("analysis run failed: %v", err),
 			FailureReason: failureReason(err),
@@ -79,7 +92,29 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	for i := range result.Verdicts {
 		resp.Verdicts = append(resp.Verdicts, v.analysisVerdict(&result.Verdicts[i], subject))
 	}
+	// A case run for itself answers for no requirement, so nothing associates it.
+	resp.VerificationVerdicts = v.verificationVerdicts(verdicts, "")
 	return resp, nil
+}
+
+// verificationVerdicts spells for the wire what the bodies of verification cases
+// answered, in the order they were reported. requirementID names the requirement
+// they were reported for, so a response covering several keeps them apart.
+func (v *verifyContext) verificationVerdicts(verdicts []runtime.VerificationVerdict, requirementID string) []*pb.VerificationVerdict {
+	if len(verdicts) == 0 {
+		return nil
+	}
+	out := make([]*pb.VerificationVerdict, 0, len(verdicts))
+	for _, verdict := range verdicts {
+		out = append(out, &pb.VerificationVerdict{
+			CaseId:        verdict.Case,
+			Kind:          string(verdict.Kind),
+			Detail:        verdict.Detail,
+			Subcase:       verdict.Subcase,
+			RequirementId: requirementID,
+		})
+	}
+	return out
 }
 
 // analysisArgument reads one argument off the wire against the model's index,

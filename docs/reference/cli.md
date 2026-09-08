@@ -195,12 +195,12 @@ written in, so the verdicts are about that object:
 |------|--------|
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
 | `-constraint <name>` | One constraint, as `%constraint` does |
-| `-requirement <name>` | One requirement, as `%requirement` does |
-| `-satisfy` | Every satisfaction assertion the model states |
+| `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
+| `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
-| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis case and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. Repeatable |
+| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>` |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
@@ -220,6 +220,50 @@ sysml [options] [file...]
 
 Flags may be written before or after the files. `--` ends the flags, so a file whose
 name looks like a flag can be given after it: `sysml -trace -- -m.sysml`.
+
+### Verification case verdicts
+
+A `verification def` or `verification` usage runs the way an analysis case does —
+the same subject and `in` bindings, the same body of `action`, `perform` and
+nested case steps — and reports in addition the `VerdictKind` its body produced:
+
+```bash
+$ sysml -analysis Landing::checkSlow model.sysml
+✓ package Landing
+✓ Landing::checkSlow
+  result = VerdictKind::pass
+  objective obj: satisfied
+  ✓ Verification Landing::checkSlow verdict: pass
+```
+
+The body verdict is beside the objective's, not instead of it: an objective
+stating no condition to check — `objective { verify touchdown; }` with no
+`require constraint` of its own — stays `undecided`, and the case is reported
+unresolved however its body came out.
+
+The verdict is what running the body answers, not a separate judgement of the
+model: a body whose result is a `VerificationCases::PassIf(...)` call is `pass`
+or `fail` as that library calculation computes it, a body binding `verdict` to a
+`VerdictKind` literal reports that literal, a body producing no verdict value is
+`inconclusive`, and a body whose run could not be carried out is `error` carrying
+the reason. Each nested `verification` step is reported on its own line, marked
+`(subcase)` and carrying `"subcase": true` in the JSON report: the library
+states no roll-up of a subcase's verdict into its parent's.
+
+`-requirement` and `-satisfy` report the same verdicts beside their own. The
+requirement verdict stays what the requirement engine decided — a failing
+verification body does not turn a satisfied requirement into a violated one:
+
+```bash
+$ sysml -requirement Landing::touchdown model.sysml
+✓ package Landing
+✓ Requirement Landing::touchdown satisfied
+✓ Verification Landing::checkSlow verdict: pass
+✗ Verification Landing::checkFast verdict: fail
+```
+
+With `-json` each check carries them as a `verifications` array of `case`, `kind`
+and, for a verdict that decided nothing, `detail`.
 
 ## Examples
 

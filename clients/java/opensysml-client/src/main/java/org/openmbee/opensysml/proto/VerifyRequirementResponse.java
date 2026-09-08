@@ -35,6 +35,7 @@ private static final long serialVersionUID = 0L;
     instances_ = java.util.Collections.emptyList();
     error_ = "";
     diagnostics_ = java.util.Collections.emptyList();
+    verificationVerdicts_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -198,6 +199,72 @@ private static final long serialVersionUID = 0L;
     return diagnostics_.get(index);
   }
 
+  public static final int VERIFICATION_VERDICTS_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.VerificationVerdict> verificationVerdicts_;
+  /**
+   * <pre>
+   * What the body of every verification case verifying this requirement
+   * answered, beside the satisfaction verdict rather than instead of it.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.VerificationVerdict> getVerificationVerdictsList() {
+    return verificationVerdicts_;
+  }
+  /**
+   * <pre>
+   * What the body of every verification case verifying this requirement
+   * answered, beside the satisfaction verdict rather than instead of it.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.VerificationVerdictOrBuilder> 
+      getVerificationVerdictsOrBuilderList() {
+    return verificationVerdicts_;
+  }
+  /**
+   * <pre>
+   * What the body of every verification case verifying this requirement
+   * answered, beside the satisfaction verdict rather than instead of it.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+   */
+  @java.lang.Override
+  public int getVerificationVerdictsCount() {
+    return verificationVerdicts_.size();
+  }
+  /**
+   * <pre>
+   * What the body of every verification case verifying this requirement
+   * answered, beside the satisfaction verdict rather than instead of it.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.VerificationVerdict getVerificationVerdicts(int index) {
+    return verificationVerdicts_.get(index);
+  }
+  /**
+   * <pre>
+   * What the body of every verification case verifying this requirement
+   * answered, beside the satisfaction verdict rather than instead of it.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.VerificationVerdictOrBuilder getVerificationVerdictsOrBuilder(
+      int index) {
+    return verificationVerdicts_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -224,6 +291,9 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < diagnostics_.size(); i++) {
       output.writeMessage(4, diagnostics_.get(i));
     }
+    for (int i = 0; i < verificationVerdicts_.size(); i++) {
+      output.writeMessage(5, verificationVerdicts_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -247,6 +317,10 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < diagnostics_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(4, diagnostics_.get(i));
+    }
+    for (int i = 0; i < verificationVerdicts_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(5, verificationVerdicts_.get(i));
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -274,6 +348,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getError())) return false;
     if (!getDiagnosticsList()
         .equals(other.getDiagnosticsList())) return false;
+    if (!getVerificationVerdictsList()
+        .equals(other.getVerificationVerdictsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -298,6 +374,10 @@ private static final long serialVersionUID = 0L;
     if (getDiagnosticsCount() > 0) {
       hash = (37 * hash) + DIAGNOSTICS_FIELD_NUMBER;
       hash = (53 * hash) + getDiagnosticsList().hashCode();
+    }
+    if (getVerificationVerdictsCount() > 0) {
+      hash = (37 * hash) + VERIFICATION_VERDICTS_FIELD_NUMBER;
+      hash = (53 * hash) + getVerificationVerdictsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -436,6 +516,7 @@ private static final long serialVersionUID = 0L;
         internalGetVerdictFieldBuilder();
         internalGetInstancesFieldBuilder();
         internalGetDiagnosticsFieldBuilder();
+        internalGetVerificationVerdictsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -462,6 +543,13 @@ private static final long serialVersionUID = 0L;
         diagnosticsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000008);
+      if (verificationVerdictsBuilder_ == null) {
+        verificationVerdicts_ = java.util.Collections.emptyList();
+      } else {
+        verificationVerdicts_ = null;
+        verificationVerdictsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000010);
       return this;
     }
 
@@ -512,6 +600,15 @@ private static final long serialVersionUID = 0L;
         result.diagnostics_ = diagnostics_;
       } else {
         result.diagnostics_ = diagnosticsBuilder_.build();
+      }
+      if (verificationVerdictsBuilder_ == null) {
+        if (((bitField0_ & 0x00000010) != 0)) {
+          verificationVerdicts_ = java.util.Collections.unmodifiableList(verificationVerdicts_);
+          bitField0_ = (bitField0_ & ~0x00000010);
+        }
+        result.verificationVerdicts_ = verificationVerdicts_;
+      } else {
+        result.verificationVerdicts_ = verificationVerdictsBuilder_.build();
       }
     }
 
@@ -602,6 +699,32 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (verificationVerdictsBuilder_ == null) {
+        if (!other.verificationVerdicts_.isEmpty()) {
+          if (verificationVerdicts_.isEmpty()) {
+            verificationVerdicts_ = other.verificationVerdicts_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+          } else {
+            ensureVerificationVerdictsIsMutable();
+            verificationVerdicts_.addAll(other.verificationVerdicts_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.verificationVerdicts_.isEmpty()) {
+          if (verificationVerdictsBuilder_.isEmpty()) {
+            verificationVerdictsBuilder_.dispose();
+            verificationVerdictsBuilder_ = null;
+            verificationVerdicts_ = other.verificationVerdicts_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+            verificationVerdictsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetVerificationVerdictsFieldBuilder() : null;
+          } else {
+            verificationVerdictsBuilder_.addAllMessages(other.verificationVerdicts_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -666,6 +789,19 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 34
+            case 42: {
+              org.openmbee.opensysml.proto.VerificationVerdict m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.VerificationVerdict.parser(),
+                      extensionRegistry);
+              if (verificationVerdictsBuilder_ == null) {
+                ensureVerificationVerdictsIsMutable();
+                verificationVerdicts_.add(m);
+              } else {
+                verificationVerdictsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1354,6 +1490,336 @@ private static final long serialVersionUID = 0L;
         diagnostics_ = null;
       }
       return diagnosticsBuilder_;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.VerificationVerdict> verificationVerdicts_ =
+      java.util.Collections.emptyList();
+    private void ensureVerificationVerdictsIsMutable() {
+      if (!((bitField0_ & 0x00000010) != 0)) {
+        verificationVerdicts_ = new java.util.ArrayList<org.openmbee.opensysml.proto.VerificationVerdict>(verificationVerdicts_);
+        bitField0_ |= 0x00000010;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.VerificationVerdict, org.openmbee.opensysml.proto.VerificationVerdict.Builder, org.openmbee.opensysml.proto.VerificationVerdictOrBuilder> verificationVerdictsBuilder_;
+
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.VerificationVerdict> getVerificationVerdictsList() {
+      if (verificationVerdictsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(verificationVerdicts_);
+      } else {
+        return verificationVerdictsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public int getVerificationVerdictsCount() {
+      if (verificationVerdictsBuilder_ == null) {
+        return verificationVerdicts_.size();
+      } else {
+        return verificationVerdictsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public org.openmbee.opensysml.proto.VerificationVerdict getVerificationVerdicts(int index) {
+      if (verificationVerdictsBuilder_ == null) {
+        return verificationVerdicts_.get(index);
+      } else {
+        return verificationVerdictsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder setVerificationVerdicts(
+        int index, org.openmbee.opensysml.proto.VerificationVerdict value) {
+      if (verificationVerdictsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.set(index, value);
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder setVerificationVerdicts(
+        int index, org.openmbee.opensysml.proto.VerificationVerdict.Builder builderForValue) {
+      if (verificationVerdictsBuilder_ == null) {
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder addVerificationVerdicts(org.openmbee.opensysml.proto.VerificationVerdict value) {
+      if (verificationVerdictsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.add(value);
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder addVerificationVerdicts(
+        int index, org.openmbee.opensysml.proto.VerificationVerdict value) {
+      if (verificationVerdictsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.add(index, value);
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder addVerificationVerdicts(
+        org.openmbee.opensysml.proto.VerificationVerdict.Builder builderForValue) {
+      if (verificationVerdictsBuilder_ == null) {
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.add(builderForValue.build());
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder addVerificationVerdicts(
+        int index, org.openmbee.opensysml.proto.VerificationVerdict.Builder builderForValue) {
+      if (verificationVerdictsBuilder_ == null) {
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder addAllVerificationVerdicts(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.VerificationVerdict> values) {
+      if (verificationVerdictsBuilder_ == null) {
+        ensureVerificationVerdictsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, verificationVerdicts_);
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder clearVerificationVerdicts() {
+      if (verificationVerdictsBuilder_ == null) {
+        verificationVerdicts_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000010);
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public Builder removeVerificationVerdicts(int index) {
+      if (verificationVerdictsBuilder_ == null) {
+        ensureVerificationVerdictsIsMutable();
+        verificationVerdicts_.remove(index);
+        onChanged();
+      } else {
+        verificationVerdictsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public org.openmbee.opensysml.proto.VerificationVerdict.Builder getVerificationVerdictsBuilder(
+        int index) {
+      return internalGetVerificationVerdictsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public org.openmbee.opensysml.proto.VerificationVerdictOrBuilder getVerificationVerdictsOrBuilder(
+        int index) {
+      if (verificationVerdictsBuilder_ == null) {
+        return verificationVerdicts_.get(index);  } else {
+        return verificationVerdictsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.VerificationVerdictOrBuilder> 
+         getVerificationVerdictsOrBuilderList() {
+      if (verificationVerdictsBuilder_ != null) {
+        return verificationVerdictsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(verificationVerdicts_);
+      }
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public org.openmbee.opensysml.proto.VerificationVerdict.Builder addVerificationVerdictsBuilder() {
+      return internalGetVerificationVerdictsFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.VerificationVerdict.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public org.openmbee.opensysml.proto.VerificationVerdict.Builder addVerificationVerdictsBuilder(
+        int index) {
+      return internalGetVerificationVerdictsFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.VerificationVerdict.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * What the body of every verification case verifying this requirement
+     * answered, beside the satisfaction verdict rather than instead of it.
+     * </pre>
+     *
+     * <code>repeated .sysml.VerificationVerdict verification_verdicts = 5 [json_name = "verificationVerdicts"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.VerificationVerdict.Builder> 
+         getVerificationVerdictsBuilderList() {
+      return internalGetVerificationVerdictsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.VerificationVerdict, org.openmbee.opensysml.proto.VerificationVerdict.Builder, org.openmbee.opensysml.proto.VerificationVerdictOrBuilder> 
+        internalGetVerificationVerdictsFieldBuilder() {
+      if (verificationVerdictsBuilder_ == null) {
+        verificationVerdictsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.VerificationVerdict, org.openmbee.opensysml.proto.VerificationVerdict.Builder, org.openmbee.opensysml.proto.VerificationVerdictOrBuilder>(
+                verificationVerdicts_,
+                ((bitField0_ & 0x00000010) != 0),
+                getParentForChildren(),
+                isClean());
+        verificationVerdicts_ = null;
+      }
+      return verificationVerdictsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.VerifyRequirementResponse)

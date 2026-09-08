@@ -789,7 +789,7 @@ for an analysis case the message says to use `RunAnalysis`.
 
 ### `RunAnalysis`
 
-`symbolId` names an analysis definition or usage. `subjectSymbolId` optionally names a part or
+`symbolId` names an analysis or verification definition or usage. `subjectSymbolId` optionally names a part or
 usage to instantiate as the case's `subject`, as `VerifyRequirement` takes one; a usage that
 binds its own subject (`subject s = ship;`) needs none, and a definition or unbinding usage
 run without one is an in-body failure naming the subject. `arguments` is a positional list of
@@ -799,8 +799,9 @@ are the case's `out` and `return` values as `EvaluateCalc` reports a usage's, a 
 with no name under `result`; `verdicts` is one `Verdict` per `objective` and per
 `assert constraint` in the body, in that order, with `kind` `objective` or `assertion`,
 `holds` for a satisfied one, `condition` for one that is not, and `error` for one that could
-not be decided; `instances` is the subject's object graph when one was
-instantiated:
+not be decided; `verificationVerdicts` is the verdict the body of a verification case produced
+and the verdict of each verification case it performs (see below); `instances` is the subject's
+object graph when one was instantiated:
 
 ```console
 $ … /RunAnalysis -d '{"modelHash":"e43c…9a2a","symbolId":"An::shipCost"}'
@@ -813,7 +814,38 @@ $ … /RunAnalysis -d '{"modelHash":"e43c…9a2a","symbolId":"An::CostAnalysis"}
 {"error":"analysis run failed: analysis An::CostAnalysis: s subject is unbound: bind it (`subject s = <element>`) or run it on an object","failureReason":"FAILURE_REASON_EVALUATION"}
 
 $ … /RunAnalysis -d '{"modelHash":"e43c…9a2a","symbolId":"An::Ship"}'
-{"error":"not an analysis case: An::Ship is a part def, not an analysis case definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}
+{"error":"not an analysis case: An::Ship is a part def, not an analysis or verification case definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}
+
+$ … /RunAnalysis -d '{"modelHash":"96c9…994d","symbolId":"Ver::checkSlow"}'
+{"outputs":[{"name":"result","value":{"enumLiteral":{"literalId":"VerificationCases::VerdictKind::pass","enumerationId":"VerificationCases::VerdictKind","name":"VerdictKind::pass"}}}],"verdicts":[{"kind":"objective","element":"obj","holds":true,"instanceId":"1","instanceTypeId":"Ver::slow"}],"instances":[…],"verificationVerdicts":[{"caseId":"Ver::checkSlow","kind":"pass"}]}
+```
+
+### Verification verdicts
+
+`verificationVerdicts` is a repeated `VerificationVerdict` on `RunAnalysisResponse`,
+`VerifyRequirementResponse` and `VerifySatisfactionResponse`, advertised as the
+`verification_verdicts` capability. It reports what running the body of a verification case
+answered, beside — never instead of — the requirement and objective verdicts the same response
+already carries: a service withholding the capability omits the field, and the other fields mean
+what they meant before.
+
+- `caseId` — the qualified name of the verification case that ran.
+- `kind` — `"pass"` or `"fail"` as the library's own `VerificationCases::PassIf` calculation
+  computed it, the `VerdictKind` literal a body bound directly, `"inconclusive"` for a body that
+  produced no verdict value, or `"error"` for a body whose run could not be carried out.
+- `detail` — why an `error` or `inconclusive` verdict decided nothing, carrying the message the
+  run failed with. Omitted for `pass` and `fail`.
+- `subcase` — true for a verification case the run performed as a step of another. The library
+  states no roll-up of a subcase's verdict into its parent's, so each is reported on its own.
+- `requirementId` — the qualified name of the requirement the case was reported for, the one its
+  objective verifies. A `VerifySatisfaction` response covering several requirements is kept apart
+  by it: a `"satisfy"` verdict carries the same `requirementId` for the requirement it asserts
+  satisfied, so a client reads a verdict's own cases rather than the whole response's. Empty for a
+  case run for itself by `RunAnalysis`, and for a requirement no qualified name reaches.
+
+```console
+$ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdown"}'
+{"verdict":{"kind":"requirement","elementId":"Ver::touchdown","element":"Ver::touchdown","holds":true},"verificationVerdicts":[{"caseId":"Ver::checkSlow","kind":"pass"},{"caseId":"Ver::checkFast","kind":"fail"}]}
 ```
 
 A step that fails, a body that deadlocks or exhausts its step budget and a case that runs itself are
@@ -848,6 +880,10 @@ $ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::CostAnalysis","su
  "parameters":["tax"],
  "instances":[{"id":"1","typeSymbolId":"An::barge","featureValues":{"cost":{"featureName":"cost","value":{"realValue":5}}}}]}
 ```
+
+A row carries no `verificationVerdicts`, so a verification case is refused with
+`FAILURE_REASON_WRONG_KIND` rather than swept as an analysis case; run one through `RunAnalysis`,
+which reports the verdict of its body.
 
 `instances` carries every object a row's verdict is about, each once over the whole table, so a
 verdict's `instanceId` resolves there as it does in a `RunAnalysis` response — a client can read
@@ -983,6 +1019,9 @@ Reading a `Verdict`:
 - `instanceId` / `instanceTypeId` — the instance the condition was evaluated on, a key into
   `instances`, and its type. Absent when no subject was instantiated (the first two examples,
   which evaluated against the definition's own defaults).
+- `requirementId` — for a `"satisfy"` verdict, the qualified name of the requirement it asserts
+  satisfied, which is the key into the response's `verificationVerdicts`. Absent for every other
+  kind, and for a requirement no qualified name reaches.
 
 `VerifySatisfaction` over `Demo::analysis`, which asserts `massLimit` (max 2000) and `massTiny`
 (max 10) are satisfied by `sedan`:

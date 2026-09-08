@@ -464,8 +464,48 @@ performs its own definition, or a `calc def` through a `calc` usage member typed
 the calc depth limit, and the error collapses the repeated frames to one line as `-calc`'s does:
 `analysis An::rec: node again: analysis An::Rec::again: … 9999 frames: node again: calc recursion
 limit exceeded: calc An::Rec::again nested 10000 deep (unbounded recursion?; raise
-OPENSYSML_MAX_CALC_DEPTH to allow more)`. The verification-case body uses the same grammar but is
-not run this way yet; `%requirement` and `%satisfy` check it as before.
+OPENSYSML_MAX_CALC_DEPTH to allow more)`.
+
+### Verification cases
+
+A verification case body uses the same grammar and runs the same way: `%analysis` and `-analysis`
+accept a `verification def` or `verification` usage, bind its `subject` and `in` parameters as they
+bind an analysis case's, run its body over the same action graph, and check its `objective` and
+`assert constraint`s afterwards. Beside those verdicts they report the `VerdictKind` the body
+produced, which is what running the body answered:
+
+```sysml
+verification def SpeedCheck {
+    subject lander : Lander;
+    objective { verify touchdown; require constraint { lander.verticalSpeed <= 1.5 } }
+    VerificationCases::PassIf(lander.verticalSpeed <= 1.5)
+}
+verification checkSlow : SpeedCheck { subject lander = L::slowLander; }
+```
+
+```bash
+$ sysml -analysis L::checkSlow landing.sysml
+✓ package L
+✓ L::checkSlow
+  result = VerdictKind::pass
+  objective obj: satisfied
+  ✓ Verification L::checkSlow verdict: pass
+```
+
+The two verdicts are independent: an objective stating no condition of its own —
+`objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
+the body verdict beside it still reports what the body answered.
+
+A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
+calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
+producing no verdict value is `inconclusive`; and one whose run could not be carried out is `error`
+carrying the same message the run failed with. Each nested `verification` step is reported on its
+own line, marked `(subcase)`, since the library states no roll-up of a subcase's verdict into its
+parent's.
+
+`%requirement`, `%satisfy`, `-requirement` and `-satisfy` report those verdicts beside their own,
+and their own verdict is unchanged: the requirement engine still decides whether the requirement is
+satisfied, and a failing verification body does not make a satisfied requirement violated.
 
 `%sweep` runs the case once per value of a range rather than once, and `%samples <n> <seed>`
 draws that many values from it instead — the same tables `-sweep` and `-samples` print. Each row
