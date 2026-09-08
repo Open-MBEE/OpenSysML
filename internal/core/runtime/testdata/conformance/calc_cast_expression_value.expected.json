@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "selectedByKeptBody": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3}
+    ]},
+    "keptAsEvaluation": {"type": "Integer", "value": 1},
+    "droppedByScalarType": {"type": "Integer", "value": 0}
+  }
+}

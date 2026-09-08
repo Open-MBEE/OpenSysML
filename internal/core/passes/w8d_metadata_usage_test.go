@@ -175,3 +175,40 @@ func TestW8DLegalMetadataAnnotationsStaySilent(t *testing.T) {
 		}
 	}
 }
+
+// Classifying a value is evaluated from the model: `as`, `istype` and `hastype`
+// read the type they name rather than folding their operand, so a metadata value
+// written with one is model-level evaluable — unless its operand is not.
+func TestW8DMetadataClassificationValuesAreModelLevelEvaluable(t *testing.T) {
+	src := `package Test {
+	private import ScalarValues::*;
+	metadata def A {
+		attribute x : Integer[0..*];
+		attribute b : Boolean[0..*];
+	}
+	part def P { attribute own : Integer = 1; }
+	part p : P {
+		@A {
+			x = 1 as Integer;
+			b = (1 istype Integer, 1 hastype Real);
+		}
+	}
+}
+`
+	if lines := w8dLines(t, src, "metadata-value-not-evaluable"); len(lines) != 0 {
+		t.Fatalf("classification values reported at lines %v", lines)
+	}
+
+	src = `package Test {
+	private import ScalarValues::*;
+	metadata def A { attribute x : Integer[0..*]; }
+	part def P { attribute own : Integer = 1; }
+	part p : P {
+		@A {
+			x = own as Integer;
+		}
+	}
+}
+`
+	w8dWantLines(t, src, "metadata-value-not-evaluable", 7)
+}

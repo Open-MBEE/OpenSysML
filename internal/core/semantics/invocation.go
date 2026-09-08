@@ -426,7 +426,7 @@ func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 			optional: m.OptionalParameter(p.Symbol),
 		}
 		switch {
-		case isAnything(param.typ):
+		case IsAnything(param.typ):
 			param.typ, param.untyped = nil, true
 		case param.typ == nil && param.prim == PrimUnknown && !m.declaresType(p.Symbol):
 			param.untyped = true

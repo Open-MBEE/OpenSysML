@@ -52,7 +52,7 @@ func (m *Model) evaluable(scope *symbols.Scope, expr ast.Node, depth int) bool {
 	case *ast.FeatureChainExpr:
 		return m.evaluable(scope, e.Operand, depth+1)
 	}
-	// A cast, a body and anything else read the instance the expression runs on.
+	// A body and anything else read the instance the expression runs on.
 	return false
 }
 
@@ -80,6 +80,12 @@ func (m *Model) allEvaluable(scope *symbols.Scope, nodes []ast.Node, depth int) 
 func (m *Model) evaluableOperator(scope *symbols.Scope, e *ast.OperatorExpr, depth int) bool {
 	if !m.allEvaluable(scope, e.Operands, depth) {
 		return false
+	}
+	switch e.Operator {
+	case ast.OpAs, ast.OpIsType, ast.OpHasType:
+		// Classifying a value reads the named type, which the model holds, rather
+		// than folding the operation over its operand.
+		return m.namedType(scope, e.TypeRef) != nil
 	}
 	if !allConstant(e.Operands) {
 		return true

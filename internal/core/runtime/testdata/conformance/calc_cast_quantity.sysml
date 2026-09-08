@@ -7,6 +7,11 @@ package test {
 	private import ISQ::*;
 	private import QuantityCalculations::*;
 
+	// A subtype narrowing lengths by something a magnitude and a unit do not state.
+	attribute def RoomLength :> ISQBase::LengthValue;
+
+	attribute room : RoomLength = 4 [m];
+
 	calc def QuantityCasts {
 		in length : ISQBase::LengthValue = 5 [m];
 		out asLength : ISQBase::LengthValue[0..1] = length as ISQBase::LengthValue;
@@ -15,6 +20,10 @@ package test {
 		out lengthsOfMixed : ISQBase::LengthValue[0..*] = (5 [m], 3 [s], 2 [m]) as ISQBase::LengthValue;
 		// Nothing kept still measures in the source's unit, so an aggregate of it does.
 		out sumOfNoDurations = sum((5 [m], 2 [m]) as ISQBase::DurationValue);
+		// The declaring type says which of its dimension's values these are.
+		out declaredAsSubtype : RoomLength[0..1] = room as RoomLength;
+		out declaredAsBaseQuantity : ISQBase::LengthValue[0..1] = room as ISQBase::LengthValue;
+		out declaredAsDuration : ISQBase::DurationValue[0..1] = room as ISQBase::DurationValue;
 	}
 
 	calc c : QuantityCasts;

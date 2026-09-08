@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "asDeclaredSubtype": {"type": "Integer", "value": 4},
+    "asScalarSupertype": {"type": "Integer", "value": 4},
+    "asOwnEnumeration": {"type": "Real", "value": 4.0},
+    "literalAsEnumeration": {"type": "Real", "value": 4.0},
+    "asEnumerationSupertype": {"type": "Real", "value": 4.0},
+    "asOtherScalar": {"type": "Sequence", "elements": []}
+  }
+}

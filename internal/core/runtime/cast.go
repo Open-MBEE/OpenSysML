@@ -8,6 +8,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
+// evaluationTypeFQN types a deferred expression: the functions computing a result.
+const evaluationTypeFQN = "Performances::Evaluation"
+
 // evalCast evaluates `x as T`: a CastExpression's result is the values of x that
 // the type T classifies, so it selects values and never converts one (KerML 1.1
 // §8.3.4.9). Converting between types is what the library functions do.
@@ -25,12 +28,35 @@ func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.castValue(value, target)
+	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]))
+}
+
+// declaredCastTypes names the type the cast's operand is declared with, which
+// classifies its values where their own content does not state their type.
+func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
+	sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, operand)
+	if !ok || sym == nil {
+		return nil
+	}
+	if canonical, ok := ec.ctx.resolver.ResolveAliasTarget(sym); ok {
+		sym = canonical
+	}
+	// An enumeration literal is of its enumeration however its value is written.
+	if enum := semantics.EnumerationOwning(sym); enum != nil {
+		return []*symbols.Symbol{enum}
+	}
+	// A feature typed Anything states nothing about the values it holds.
+	if typ := ec.ctx.extractType(sym); typ != nil && !semantics.IsAnything(typ) {
+		return []*symbols.Symbol{typ}
+	}
+	return nil
 }
 
 // castValue keeps the values of value that target classifies: element-wise and in
 // order for a collection, the value itself or the empty sequence for one value.
-func (ec *EvalContext) castValue(value Value, target *symbols.Symbol) (Value, error) {
+func (ec *EvalContext) castValue(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
+) (Value, error) {
 	switch value.Kind {
 	case ValNull, ValInvalid:
 		return sequenceOf(nil), nil
@@ -38,7 +64,7 @@ func (ec *EvalContext) castValue(value Value, target *symbols.Symbol) (Value, er
 		elements := elementsOf(value)
 		kept := make([]Value, 0, len(elements))
 		for _, element := range elements {
-			keep, err := ec.castKeeps(element, target)
+			keep, err := ec.castKeeps(element, target, declared)
 			if err != nil {
 				return Value{}, err
 			}
@@ -58,7 +84,7 @@ func (ec *EvalContext) castValue(value Value, target *symbols.Symbol) (Value, er
 		}
 		return ec.sequenceFrom(kept, value)
 	}
-	keep, err := ec.castKeeps(value, target)
+	keep, err := ec.castKeeps(value, target, declared)
 	if err != nil {
 		return Value{}, err
 	}
@@ -71,12 +97,15 @@ func (ec *EvalContext) castValue(value Value, target *symbols.Symbol) (Value, er
 // castKeeps reports whether target classifies one value. The types the value is
 // of decide it wherever they are enough; where target is narrower than all of
 // them, the value's own content does (castNarrowerKeeps).
-func (ec *EvalContext) castKeeps(value Value, target *symbols.Symbol) (bool, error) {
+func (ec *EvalContext) castKeeps(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
+) (bool, error) {
 	types, err := ec.castTypes(value)
-	if err != nil {
+	if err != nil && len(declared) == 0 {
 		return false, err
 	}
-	switch ec.ctx.model.ClassifiesTypes(types, target) {
+	known := append(append([]*symbols.Symbol{}, declared...), types...)
+	switch ec.ctx.model.ClassifiesTypes(known, target) {
 	case semantics.ClassifiesAll:
 		return true, nil
 	case semantics.ClassifiesNone:
@@ -89,6 +118,18 @@ func (ec *EvalContext) castKeeps(value Value, target *symbols.Symbol) (bool, err
 // quantity type it is, whose dimension castNarrowerKeeps then judges, and every
 // other value is of the types a classification reads it as.
 func (ec *EvalContext) castTypes(value Value) ([]*symbols.Symbol, error) {
+	// A deferred expression is of the evaluation type the model reads it as, in
+	// the scope it closes over.
+	if value.Kind == ValExpr {
+		if typ := ec.ctx.model.ExprResultType(value.exprEnv(ec).scope, value.Expr()); typ != nil {
+			return []*symbols.Symbol{typ}, nil
+		}
+		evaluation, err := ec.ctx.loadedLibraryType(evaluationTypeFQN)
+		if err != nil {
+			return nil, err
+		}
+		return []*symbols.Symbol{evaluation}, nil
+	}
 	if value.Kind == ValQuantity {
 		quantity, err := ec.ctx.loadedLibraryType(scalarQuantityTypeFQN)
 		if err != nil {
@@ -177,9 +218,10 @@ func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (b
 	return false, ec.undecidedCast(value, target)
 }
 
-// quantityCastKeeps judges a quantity against a narrower target by dimension:
-// commensurable quantities are values of the same quantity type. A target fixing
-// no dimension, or a unit reducing to none, leaves the question undecided.
+// quantityCastKeeps judges a quantity against a narrower target by dimension: an
+// incommensurable target measures none of its values, and a target stating its own
+// measurement reference measures every value of that dimension. Anything else a
+// magnitude and a unit do not state, so it is undecided.
 func (ec *EvalContext) quantityCastKeeps(value Value, target *symbols.Symbol) (bool, error) {
 	want, ok := ec.ctx.model.DimensionOfType(target)
 	if !ok || value.Quantity() == nil {
@@ -189,7 +231,13 @@ func (ec *EvalContext) quantityCastKeeps(value Value, target *symbols.Symbol) (b
 	if !ok {
 		return false, ec.undecidedCast(value, target)
 	}
-	return want.Term.Commensurable(got.Term), nil
+	if !want.Term.Commensurable(got.Term) {
+		return false, nil
+	}
+	if !ec.ctx.model.FixesMeasurementReference(target) {
+		return false, ec.undecidedCast(value, target)
+	}
+	return true, nil
 }
 
 // undecidedCast reports a cast whose verdict the value does not settle, so the

@@ -240,6 +240,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
+	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
 	t.Run("send_addressed_to_an_object_that_cannot_be_built", testSendAddressedToAnObjectThatCannotBeBuilt)
 	t.Run("send_addressed_to_a_part_no_sibling_takes", testSendAddressedToAPartNoSiblingTakes)
@@ -4361,6 +4362,24 @@ func testCastUndecidedByTheValue(t *testing.T) {
 		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "Even") {
+		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
+// testCastOfAQuantityToAConstrainedSubtype: a quantity subtype inheriting its
+// measurement reference narrows lengths by something a magnitude and a unit do
+// not state, so a bare length is undecided rather than kept by its dimension.
+func testCastOfAQuantityToAConstrainedSubtype(t *testing.T) {
+	err := calcErrorWithLibraries(t, `
+		package test {
+			private import SI::*;
+			attribute def RoomLength :> ISQBase::LengthValue;
+			calc narrow { return : RoomLength = 5 [m] as RoomLength; }
+		}`, "narrow", nil, 1000)
+	if !errors.Is(err, ErrUndecidedClassification) {
+		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "RoomLength") {
 		t.Errorf("error = %v, want the target type named", err)
 	}
 }

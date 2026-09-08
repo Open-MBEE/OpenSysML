@@ -262,6 +262,30 @@ func (m *Model) dimensionOfQuantityType(typ *symbols.Symbol) (Dimension, bool) {
 	return Dimension{Term: term, Unit: leafName(typ.Name)}, true
 }
 
+// FixesMeasurementReference reports whether a quantity type states a measurement
+// reference of its own, so its values are exactly the quantities that reference
+// measures; a subtype inheriting one narrows it by something else.
+func (m *Model) FixesMeasurementReference(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || m.resolver == nil {
+		return false
+	}
+	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
+		sym = target
+	}
+	if _, ok := m.resolver.LocalBinding(sym.Scope, memberMRef); ok {
+		return true
+	}
+	if sym.Scope != nil {
+		return false
+	}
+	for _, child := range m.resolver.Index().LookupDirectChildrenNamed(sym.Name, memberMRef) {
+		if leafName(child.Name) == memberMRef {
+			return true
+		}
+	}
+	return false
+}
+
 // quantityValueTypeOf returns the nearest supertype of sym that is a
 // ScalarQuantityValue definition, or nil.
 func (m *Model) quantityValueTypeOf(sym *symbols.Symbol) *symbols.Symbol {
