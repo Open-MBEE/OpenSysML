@@ -116,8 +116,13 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
 			return
 		}
+		shown := displayValue(value)
 		for _, nested := range nestedValues(value) {
 			s.filterValueCapabilities(nested)
+			if reason, ok := unsupportedReason(nested); ok {
+				value.Kind = unsupportedSet(shown, reason).Kind
+				return
+			}
 		}
 	case *pb.Value_TensorQuantity:
 		if !s.capabilities.has(CapabilityTensorValues) {

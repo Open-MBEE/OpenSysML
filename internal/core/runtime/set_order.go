@@ -15,8 +15,9 @@ import (
 // (null, Booleans, numbers, complex numbers, strings, quantities, enumeration
 // literals, objects, then every other kind), then within a class by their own
 // order where they have one (numeric, lexicographic, dimension then magnitude,
-// declaration, object identity), then by their trace rendering, and finally by
-// their elements, so that only equal values compare as neither before nor after.
+// declaration, object identity), and otherwise by kind and then by what
+// valueEqual compares, so that only equal values compare as neither before nor
+// after, whichever kind carries them.
 func canonicalLess(a, b Value) bool {
 	return canonicalCompare(a, b) < 0
 }
@@ -24,13 +25,14 @@ func canonicalLess(a, b Value) bool {
 // canonicalCompare orders a before b as negative, after as positive, and equal
 // values — valueEqual ones, whose position a set never depends on — as zero.
 func canonicalCompare(a, b Value) int {
+	a, b = canonicalRepresentative(a), canonicalRepresentative(b)
 	ca, cb := canonicalClass(a), canonicalClass(b)
 	if ca != cb {
 		return cmp.Compare(ca, cb)
 	}
 	switch ca {
 	case classNull:
-		return 0
+		return cmp.Compare(a.Kind, b.Kind)
 	case classBool:
 		return compareBool(a.Const.Bool, b.Const.Bool)
 	case classNumber:
@@ -62,19 +64,34 @@ func canonicalCompare(a, b Value) int {
 		}
 		return cmp.Compare(a.Instance, b.Instance)
 	}
-	if c := strings.Compare(FormatTraceValue(a), FormatTraceValue(b)); c != 0 {
-		return c
-	}
 	if a.Kind != b.Kind {
 		return cmp.Compare(a.Kind, b.Kind)
 	}
 	return compareContents(a, b)
 }
 
-// compareContents orders two values of one kind that render alike by what
-// valueEqual compares: shape and elements, components, unit, reference key, or
-// the calc, object and run a function is a value of.
+// canonicalRepresentative is the value valueEqual reads v as, so equal values
+// of different kinds take one place: null for every empty collection, the Real
+// for a complex number on the real axis.
+func canonicalRepresentative(v Value) Value {
+	if isEmptyValue(v) {
+		return Value{Kind: ValNull}
+	}
+	if v.Kind == ValComplex {
+		if re, ok := v.realPart(); ok {
+			return realConst(re)
+		}
+	}
+	return v
+}
+
+// compareContents orders two structured values of one kind by what valueEqual
+// compares: shape and elements, components, unit, reference key, or the calc,
+// object and run a function is a value of.
 func compareContents(a, b Value) int {
+	if a.ref == nil || b.ref == nil {
+		return compareBool(a.ref != nil, b.ref != nil)
+	}
 	switch a.Kind {
 	case ValSequence, ValSet:
 		return compareElements(elementsOf(a), elementsOf(b))
@@ -111,7 +128,11 @@ func compareContents(a, b Value) int {
 			return compareBool(a.Expr() != nil, b.Expr() != nil)
 		}
 		x, y := a.Expr().Span(), b.Expr().Span()
-		return cmp.Or(cmp.Compare(x.Offset, y.Offset), cmp.Compare(x.Len, y.Len))
+		return cmp.Or(
+			cmp.Compare(x.Offset, y.Offset),
+			cmp.Compare(x.Len, y.Len),
+			strings.Compare(FormatTraceValue(a), FormatTraceValue(b)),
+		)
 	case ValFunction:
 		return cmp.Or(
 			compareSymbols(a.Function(), b.Function()),

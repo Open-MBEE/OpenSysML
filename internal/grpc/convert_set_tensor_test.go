@@ -147,10 +147,10 @@ func TestSetRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := runtime.FormatValue(back); got != "Set{Set{1, 2, 3}, Set{}}" {
+	if got := runtime.FormatValue(back); got != "Set{Set{}, Set{1, 2, 3}}" {
 		t.Errorf("set of sets read back as %s", got)
 	}
-	if got := runtime.FormatValue(displayValue(ValueToProto(back, idx))); got != "Set{Set{1, 2, 3}, Set{}}" {
+	if got := runtime.FormatValue(displayValue(ValueToProto(back, idx))); got != "Set{Set{}, Set{1, 2, 3}}" {
 		t.Errorf("set of sets crossed as %s", got)
 	}
 	seq := &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{written, intValue(4)}}}}
@@ -200,6 +200,53 @@ func TestMalformedSetsAreRejected(t *testing.T) {
 	val, err := ProtoToValueIn(setOf(setOf(intValue(1), intValue(2)), sequenceValue(intValue(1), intValue(2)), sequenceValue(intValue(2), intValue(1))), idx, sem)
 	if err != nil || val.Kind != runtime.ValSet || val.Set().Size() != 3 {
 		t.Fatalf("a set holding a set and the two sequences of its members = %s, %v, want three members", runtime.FormatValue(val), err)
+	}
+}
+
+// A set holding a member with no wire form is withheld whole. Two frames read
+// from two objects are two members that render alike; sent as two nulls they
+// would read back as one repeated, so the null names the set instead. A
+// sequence of the same still crosses member by member, its places kept.
+func TestSetHoldingAMemberWithNoWireFormIsWithheldWhole(t *testing.T) {
+	frames := []runtime.Value{
+		runtime.NewCoordinateFrameValue(&runtime.CoordinateFrame{Object: 1, Text: "spatialCF"}),
+		runtime.NewCoordinateFrameValue(&runtime.CoordinateFrame{Object: 2, Text: "spatialCF"}),
+	}
+	set := runtime.NewSet()
+	for _, frame := range frames {
+		set.Add(frame)
+	}
+	if set.Size() != 2 {
+		t.Fatalf("two frames read from two objects make a set of %d", set.Size())
+	}
+	const want = "unsupported: set Set{spatialCF [], spatialCF []} holding coordinate frame spatialCF []"
+	if pv := ValueToProto(runtime.NewSetValue(set), nil); pv.GetNull() != want {
+		t.Errorf("set of two frames crossed as %v, want null %q", pv, want)
+	}
+	seq := runtime.NewSequence()
+	for _, frame := range frames {
+		seq.Append(frame)
+	}
+	seq.Append(runtime.NewSetValue(set))
+	pv := ValueToProto(runtime.NewSequenceValue(seq), nil)
+	elems := pv.GetSequence().GetElements()
+	if len(elems) != 3 || elems[0].GetNull() != "unsupported: coordinate frame spatialCF []" || elems[2].GetNull() != want {
+		t.Errorf("sequence of two frames and their set crossed as %v", pv)
+	}
+
+	// One member with a wire form beside one without withholds the set too,
+	// wherever the member lies.
+	mixed := runtime.NewSet()
+	mixed.Add(runtime.NewStringValue("a"))
+	mixed.Add(frames[0])
+	if pv := ValueToProto(runtime.NewSetValue(mixed), nil); pv.GetNull() != `unsupported: set Set{"a", spatialCF []} holding coordinate frame spatialCF []` {
+		t.Errorf("set of a string and a frame crossed as %v", pv)
+	}
+	outer := runtime.NewSet()
+	outer.Add(runtime.NewSetValue(mixed))
+	outer.Add(runtime.NewStringValue("b"))
+	if pv := ValueToProto(runtime.NewSetValue(outer), nil); !strings.HasPrefix(pv.GetNull(), `unsupported: set Set{"b", Set{"a", spatialCF []}} holding set `) {
+		t.Errorf("set nesting the set crossed as %v", pv)
 	}
 }
 
@@ -476,16 +523,16 @@ func TestSetAndTensorCapabilities(t *testing.T) {
 			t.Errorf("%s without %s = %v, want null %q", expr, CapabilitySetValues, got, want)
 		}
 	}
-	// Tensors still cross without set_values, and a set's elements are filtered
-	// like any values when the arm itself crosses.
+	// Tensors still cross without set_values, and a set holding a member the
+	// service withholds is withheld whole, not sent with a null in its place.
 	if got := mustEvaluate(t, noSets, modelHash, "W::cube"); got.GetTensorQuantity() == nil {
 		t.Errorf("W::cube without %s = %v, want a tensor", CapabilitySetValues, got)
 	}
 	noComplex := mustNewServiceWithout(t, CapabilityComplexValues)
-	pv := setOf(&pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(0, 1))}})
+	pv := setOf(intValue(1), &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(complex(0, 1))}})
 	noComplex.filterValueCapabilities(pv)
-	if pv.GetSet() == nil || !strings.Contains(pv.GetSet().GetElements()[0].GetNull(), "complex number") {
-		t.Errorf("set of a complex without complex_values = %v, want the element withheld", pv)
+	if want := "unsupported: set Set{1, 0.0 + 1.0i} holding complex number 0.0 + 1.0i"; pv.GetNull() != want {
+		t.Errorf("set of a complex without complex_values = %v, want null %q", pv, want)
 	}
 
 	noTensors := mustNewServiceWithout(t, CapabilityTensorValues)

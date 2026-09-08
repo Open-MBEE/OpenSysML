@@ -517,8 +517,10 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::s.elements"}'
 - The model wrote `(3, 1, 2, 2, 3)`; the set has three members. The service lists them in the
   engine's **canonical order** — the order `FormatTraceValue` prints and every ordered
   operation on a set reads (nulls, then Booleans, numbers by value, complex numbers, strings,
-  quantities, enumeration literals, then objects by identity) — so two equal sets are sent
-  identically, but the order carries no meaning and a client must not read one into it.
+  quantities, enumeration literals, then objects by identity), each member placed by the value
+  it equals whichever arm carries it (`1.0 + 0.0i` among the numbers, an empty collection with
+  `null`) — so two equal sets are sent identically, but the order carries no meaning and a
+  client must not read one into it.
 - A `set` is not a `sequence`: `(1, 2) == (2, 1)` is false, the sets they populate are equal.
   A client compares sets by membership and sends one back in any order it likes. As members
   of a set, a `set` and the `sequence` of its members are two members, on both sides; only
@@ -538,6 +540,13 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::s.elements"}'
   refused on both sides, as is a `set` where the model wants a sequence's order or a sequence
   where it wants a set; a set flowing into an ordered parameter is read in canonical order.
 - Members nest: a set of sets, or of arrays, needs no second encoding.
+- A set holding a member that has no wire form — one the rule under `null` would send as a
+  non-empty `null`, whether because no arm carries it (a coordinate frame, a function closing
+  over a body) or because the service withholds its arm (a complex number without
+  `complex_values`) — is withheld **whole**, as `{"null":"unsupported: set Set{…} holding
+  <the member's reason>"}`. Two such members would otherwise cross as two equal nulls, which a
+  set may not hold; a `sequence` of the same members keeps each in its place, so a set nested
+  in one is the null in the set's place. This also applies to a set nesting such a set.
 
 **`tensorQuantity`.** `dimensions` is the shape, `components` the quantities flattened in
 row-major order, each a `quantity` body with its own magnitude, `unit` and `unitTerm`:

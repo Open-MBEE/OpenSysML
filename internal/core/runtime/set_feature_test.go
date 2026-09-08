@@ -435,6 +435,57 @@ func TestFunctionsRenderedAlikeOrderByIdentity(t *testing.T) {
 	}
 }
 
+// TestEqualSetsWithOtherRepresentativesEnumerateAlike pins that a member takes
+// the place of the value it equals whichever kind carries it: a real-axis
+// Complex sits among the numbers, `()` and `{}` with null, so two equal sets
+// holding different representatives enumerate, render and cross the wire alike.
+func TestEqualSetsWithOtherRepresentativesEnumerateAlike(t *testing.T) {
+	ints := func(ns ...int64) []Value {
+		vals := make([]Value, len(ns))
+		for i, n := range ns {
+			vals[i] = integerValue(n)
+		}
+		return vals
+	}
+	for _, tc := range []struct {
+		name       string
+		one, other []Value
+	}{
+		{"real-axis complex", []Value{integerValue(3), integerValue(2)}, []Value{integerValue(3), NewComplex(2)}},
+		{"real-axis complex among reals", []Value{realConst(2.5), realConst(1.5)}, []Value{realConst(2.5), NewComplex(1.5)}},
+		{"empty sequence", []Value{boolValue(true), {Kind: ValNull}}, []Value{boolValue(true), sequenceOf(nil)}},
+		{"empty set", []Value{boolValue(true), {Kind: ValNull}}, []Value{boolValue(true), setOf(nil)}},
+		{"nested", []Value{sequenceOf([]Value{{Kind: ValNull}, integerValue(2)}), sequenceOf([]Value{boolValue(true), integerValue(1)})},
+			[]Value{sequenceOf([]Value{setOf(nil), integerValue(2)}), sequenceOf([]Value{boolValue(true), integerValue(1)})}},
+		{"integer and real spelt apart", []Value{sequenceOf([]Value{integerValue(2)}), sequenceOf(ints(2, 1))},
+			[]Value{sequenceOf([]Value{realConst(2)}), sequenceOf(ints(2, 1))}},
+		{"complex element", []Value{sequenceOf(ints(10)), sequenceOf(ints(9))},
+			[]Value{sequenceOf([]Value{NewComplex(10)}), sequenceOf(ints(9))}},
+	} {
+		one, other := setOf(tc.one).Set(), setOf(tc.other).Set()
+		if !one.Equal(other) || one.Size() != 2 {
+			t.Fatalf("%s: %s and %s are not equal sets of two", tc.name, FormatValue(setOf(tc.one)), FormatValue(setOf(tc.other)))
+		}
+		x, y := one.Elements(), other.Elements()
+		for i := range x {
+			if !valueEqual(x[i], y[i]) {
+				t.Errorf("%s: element %d is %s in one set, %s in the other", tc.name, i, FormatValue(x[i]), FormatValue(y[i]))
+			}
+		}
+		if !valueEqual(sequenceOf(x), sequenceOf(y)) {
+			t.Errorf("%s: canonical sequences %s and %s differ", tc.name, FormatValue(sequenceOf(x)), FormatValue(sequenceOf(y)))
+		}
+		for _, elems := range [][]Value{tc.one, tc.other} {
+			for i, j := 0, len(elems)-1; i < j; i, j = i+1, j-1 {
+				elems[i], elems[j] = elems[j], elems[i]
+			}
+			if !valueEqual(sequenceOf(setOf(elems).Set().Elements()), sequenceOf(x)) {
+				t.Errorf("%s: reversed insertion enumerates %s", tc.name, FormatValue(setOf(elems)))
+			}
+		}
+	}
+}
+
 // TestLikeRenderedValuesOrderByContents pins that two unequal structured values
 // whose trace text is the same — a unit spelt alike that reduces differently —
 // still take one position each, whatever order they were added in.

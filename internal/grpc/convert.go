@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strings"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -296,7 +297,7 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		}
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: pbElements}}}
 	case runtime.ValSet:
-		return &pb.Value{Kind: &pb.Value_Set{Set: setToProto(rt, val.Set(), idx)}}
+		return setToProto(rt, val, idx)
 	case runtime.ValVariant:
 		// The wire Value has no variant form: the object a selected variant
 		// materialized is reported by identity, a valueless selection as unsupported.
@@ -400,16 +401,35 @@ func arrayToProto(rt *runtime.Context, a *runtime.Array, idx *symbols.Index) *pb
 }
 
 // setToProto marshals a set's distinct elements in canonical order, each
-// converted as any value is.
-func setToProto(rt *runtime.Context, s *runtime.Set, idx *symbols.Index) *pb.ValueSet {
+// converted as any value is. A member with no wire form withholds the whole
+// set: sent as nulls, two such members would read as one repeated.
+func setToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *pb.Value {
 	ps := &pb.ValueSet{}
-	if s == nil {
-		return ps
+	if s := val.Set(); s != nil {
+		for _, elem := range s.Elements() {
+			pv := ValueToProtoIn(rt, elem, idx)
+			if reason, ok := unsupportedReason(pv); ok {
+				return unsupportedSet(val, reason)
+			}
+			ps.Elements = append(ps.Elements, pv)
+		}
 	}
-	for _, elem := range s.Elements() {
-		ps.Elements = append(ps.Elements, ValueToProtoIn(rt, elem, idx))
+	return &pb.Value{Kind: &pb.Value_Set{Set: ps}}
+}
+
+// unsupportedReason reads the non-empty null arm a value without a wire form
+// crosses as; the SysML `null` is the empty one.
+func unsupportedReason(pv *pb.Value) (string, bool) {
+	if null, ok := pv.GetKind().(*pb.Value_Null); ok && null.Null != "" {
+		return strings.TrimPrefix(null.Null, "unsupported: "), true
 	}
-	return ps
+	return "", false
+}
+
+// unsupportedSet is the null arm a set holding a member without a wire form
+// crosses as, naming the set and the member's reason.
+func unsupportedSet(shown runtime.Value, reason string) *pb.Value {
+	return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + runtime.ValSet.String() + " " + runtime.FormatValue(shown) + " holding " + reason}}
 }
 
 // tensorQuantityToProto marshals a tensor as its dimensions and one Quantity
