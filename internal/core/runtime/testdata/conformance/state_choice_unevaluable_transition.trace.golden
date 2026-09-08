@@ -1,7 +1,7 @@
   eval feature level -> 8
   eval literal 5 -> 5
 eval operator > -> true
-choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)
+unevaluable guard state idle on accept Go: transition 2->high: eval guard of transition idle -> high: division by zero (not selected)
   eval feature level -> 8
   eval literal 5 -> 5
 eval operator > -> true

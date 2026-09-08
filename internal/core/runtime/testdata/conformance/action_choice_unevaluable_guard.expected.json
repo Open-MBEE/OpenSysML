@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"level": {"type": "Integer", "value": 75},
+		"handler": {"type": "Integer", "value": 1}
+	}
+}

@@ -167,8 +167,10 @@ type Context struct {
 
 	// trace records evaluation, nil when not tracing.
 	trace *TraceRecorder
-	// choices are the choice points the latest run made, in order; see noteChoice.
-	choices []ChoicePoint
+	// notes are what the latest run noted about itself, in order; see note.
+	notes []RunNote
+	// stepWrites is the ledger of the action step under way, nil between steps.
+	stepWrites *stepWriteLedger
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -498,7 +500,7 @@ func (ctx *Context) beginRun() func() {
 	if ctx.runDepth == 0 {
 		ctx.steps = 0
 		ctx.elements = 0
-		ctx.choices = nil
+		ctx.notes = nil
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	ctx.runDepth++
@@ -514,7 +516,7 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 	if ctx.runDepth == 0 && !*started {
 		ctx.steps = 0
 		ctx.elements = 0
-		ctx.choices = nil
+		ctx.notes = nil
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	*started = true
@@ -525,16 +527,16 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
 // budget, trace, bus, variant selections, objects made, behaviors attached, every
 // feature value written (see noteProbeWrite) and every other change noted (see
-// noteProbeUndo) after.
+// noteProbeUndo) after. The writes it makes are not the step's (see noteWrite).
 // Behaviors the probe starts are the only ones it runs (see nextRunnableBehavior).
 func (ctx *Context) beginProbe() func() {
-	steps, elements, trace := ctx.steps, ctx.elements, ctx.trace
+	steps, elements, trace, writes := ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites
 	endBoundary := func() { /* no boundary to close */ }
 	if ctx.probes == 0 {
 		endBoundary = ctx.beginRunBoundary()
 	}
 	_, rollback := ctx.beginJournal()
-	ctx.trace = nil
+	ctx.trace, ctx.stepWrites = nil, nil
 	ctx.runDepth++
 	ctx.probes++
 	return func() {
@@ -542,7 +544,7 @@ func (ctx *Context) beginProbe() func() {
 		endBoundary()
 		ctx.probes--
 		ctx.runDepth--
-		ctx.steps, ctx.elements, ctx.trace = steps, elements, trace
+		ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes
 	}
 }
 

@@ -736,7 +736,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	outputs, err := runtimeCtx.ExecuteActionWithInputs(action, inputs)
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
-	diags := ChoiceDiagnosticsToProto(runtimeCtx.Choices(), cached)
+	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
 			Error:       fmt.Sprintf("action execution failed: %v", err),
@@ -780,7 +780,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
 	finalContext, statesVisited, err := runtimeCtx.ExecuteStateWithEvents(stateMachine, req.Events)
-	diags := ChoiceDiagnosticsToProto(runtimeCtx.Choices(), cached)
+	diags := RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:       fmt.Sprintf("state machine execution failed: %v", err),

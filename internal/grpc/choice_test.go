@@ -203,3 +203,91 @@ package Test {
 		t.Errorf("diagnostic = %s %q, want info %q", choices[0].Severity, choices[0].Message, want)
 	}
 }
+
+// A guard the run read only to report a choice and could not evaluate is an
+// informational diagnostic naming the decision, the branch and the failure; the
+// run itself is unchanged, and a first guard's failure still fails it.
+func TestExecuteAction_UnevaluableGuardDiagnostics(t *testing.T) {
+	srv := mustNewService(t, 10)
+
+	content := `
+package Test {
+  action route {
+    attribute level : Integer = 75;
+    attribute handler : Integer = 0;
+    first start;
+    then decide select;
+      if level > 50 then warn;
+      if 1 / (level - 75) > 0 then alarm;
+    action warn { assign handler := 1; }
+    then done;
+    action alarm { assign handler := 2; }
+    then done;
+  }
+  action broken {
+    attribute level : Integer = 75;
+    first start;
+    then decide select;
+      if 1 / (level - 75) > 0 then alarm;
+      if level > 50 then warn;
+    action warn;
+    then done;
+    action alarm;
+    then done;
+  }
+}
+`
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: content},
+		ContentHash: "test-execute-action-unevaluable-guard",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+
+	resp, err := srv.ExecuteAction(context.Background(), &pb.ExecuteActionRequest{
+		ModelHash:      parseResp.ModelHash,
+		ActionSymbolId: "Test::route",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction failed: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("execution error: %s", resp.Error)
+	}
+	if got := choiceDiagnostics(resp.Diagnostics); len(got) != 0 {
+		t.Errorf("an unevaluable guard was reported as a choice: %v", got)
+	}
+	var unevaluable []*pb.Diagnostic
+	for _, d := range resp.Diagnostics {
+		if strings.HasPrefix(d.Message, "guard not evaluable: ") {
+			unevaluable = append(unevaluable, d)
+		}
+	}
+	if len(unevaluable) != 1 {
+		t.Fatalf("unevaluable-guard diagnostics = %v, want one", resp.Diagnostics)
+	}
+	want := "guard not evaluable: step 2: decision select branch 2->alarm: division by zero (not selected)"
+	if unevaluable[0].Message != want || unevaluable[0].Severity != "info" {
+		t.Errorf("diagnostic = %s %q, want info %q", unevaluable[0].Severity, unevaluable[0].Message, want)
+	}
+	if unevaluable[0].Span == nil || unevaluable[0].Span.StartLine != 9 {
+		t.Errorf("diagnostic is not located at the guard: %v", unevaluable[0].Span)
+	}
+
+	resp, err = srv.ExecuteAction(context.Background(), &pb.ExecuteActionRequest{
+		ModelHash:      parseResp.ModelHash,
+		ActionSymbolId: "Test::broken",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction failed: %v", err)
+	}
+	if !strings.Contains(resp.Error, "division by zero") {
+		t.Fatalf("error = %q, want the first guard's evaluation failure", resp.Error)
+	}
+	for _, d := range resp.Diagnostics {
+		if strings.HasPrefix(d.Message, "guard not evaluable: ") {
+			t.Errorf("the first guard's failure was reported as unevaluable: %q", d.Message)
+		}
+	}
+}

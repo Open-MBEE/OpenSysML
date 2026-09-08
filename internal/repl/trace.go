@@ -2,21 +2,36 @@ package repl
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
-// choiceSummary is the line a debugger command adds when the steps it ran made
-// choice points beyond the before it started with: how many, and how to see them.
-func (s *Session) choiceSummary(ctx *runtime.Context, before int) []string {
-	n := ctx.ChoiceCount() - before
-	if n <= 0 {
+// noteSummary is the line a debugger command adds when the steps it ran noted
+// choice points or guards it could not evaluate beyond the before notes it
+// started with: how many of each, and how to see them.
+func (s *Session) noteSummary(ctx *runtime.Context, before int) []string {
+	notes := ctx.Notes()
+	if before >= len(notes) {
 		return nil
 	}
-	line := fmt.Sprintf("  %d choice point", n)
-	if n > 1 {
-		line += "s"
+	var choices, unevaluable int
+	for _, n := range notes[before:] {
+		switch n.(type) {
+		case runtime.ChoicePoint:
+			choices++
+		case runtime.UnevaluableGuard:
+			unevaluable++
+		}
 	}
+	var parts []string
+	if choices > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", choices, plural(choices, "choice point", "choice points")))
+	}
+	if unevaluable > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", unevaluable, plural(unevaluable, "guard not evaluable", "guards not evaluable")))
+	}
+	line := "  " + strings.Join(parts, "; ")
 	if s.trace == nil {
 		line += "; %trace on to see them"
 	}

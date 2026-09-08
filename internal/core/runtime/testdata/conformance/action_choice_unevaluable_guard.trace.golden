@@ -2,7 +2,7 @@ step 1: token 1@select
   eval feature level -> 75
   eval literal 50 -> 50
 eval operator > -> true
-choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)
+unevaluable guard step 2: decision select branch 2->alarm: division by zero (not selected)
 step 2: token 1@warn
 stmt assign handler
   eval literal 1 -> 1

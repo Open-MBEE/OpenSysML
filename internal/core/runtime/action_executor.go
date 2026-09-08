@@ -1082,18 +1082,44 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 // guardHolds evaluates the guard a succession out of node carries; a succession
 // carrying none is unconditional.
 func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
-	if guard == nil {
-		return true, nil
-	}
-	result, err := ec.Eval(guard)
+	result, err := guardResult(ec, guard)
 	if err != nil {
 		return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
 	}
-	if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
+	if !result.isBool() {
 		return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
 			ErrTypeMismatch, nodeDescription(node), result.Kind)
 	}
 	return result.Const.Bool, nil
+}
+
+// guardResult is what a guard evaluates to; no guard is true.
+func guardResult(ec *EvalContext, guard ast.Node) (Value, error) {
+	if guard == nil {
+		return boolValue(true), nil
+	}
+	return ec.Eval(guard)
+}
+
+// probeGuard reads the guard of the succession at position i out of a decision
+// node whose branch is already decided, as a probe the context undoes whole: the
+// read reports a choice and leaves the run as it was. A guard with no result is
+// noted and not selected.
+func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, i int) bool {
+	result, err := func() (Value, error) {
+		defer e.ctx.beginProbe()()
+		ec := e.evalContextFor(frame, e.graphOf(frame).Scope)
+		defer ec.beginStep()()
+		return guardResult(ec, successors[i].Guard)
+	}()
+	if err == nil && !result.isBool() {
+		err = fmt.Errorf("%w: guard must evaluate to boolean, got %v", ErrTypeMismatch, result.Kind)
+	}
+	if err != nil {
+		e.noteUnevaluableGuard(frame, node, successors, i, err)
+		return false
+	}
+	return result.Const.Bool
 }
 
 // stepInitialNode advances token from initial node to successors.
@@ -1307,7 +1333,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	var holding []int
 
 	// Pass 1: Check guarded edges. Once one holds the branch is decided; the rest
-	// are read only to report the choice, so one that fails to evaluate is no alternative.
+	// are probed only to report the choice, which leaves the run as it was.
 	for i := range successors {
 		edge := &successors[i]
 		// No guard = remember for fallback
@@ -1316,12 +1342,14 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			continue
 		}
 
-		holds, err := e.guardHolds(ec, decisionNode, edge.Guard)
-		if err != nil {
-			if len(holding) > 0 {
-				continue
+		var holds bool
+		if len(holding) > 0 {
+			holds = e.probeGuard(token.frame, decisionNode, successors, i)
+		} else {
+			var err error
+			if holds, err = e.guardHolds(ec, decisionNode, edge.Guard); err != nil {
+				return err
 			}
-			return err
 		}
 		if holds {
 			holding = append(holding, i)

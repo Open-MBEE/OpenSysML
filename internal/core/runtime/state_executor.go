@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -920,19 +921,21 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 // transition whose guard is false does not consume the event, so a later one
 // still gets its chance. Selecting a transition leaves the machine's data as it
 // was: the caller binds the trigger's arguments again before firing.
-// Every transition is examined so that several enabled at once are a choice point;
-// once one is enabled the rest are read only to report it, so one that fails to
-// evaluate is no alternative.
+// Every transition is examined so that several enabled at once are a choice point.
 func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, error) {
 	var enabled []int
 	transitions := e.graph.Transitions[state]
+	// Once one is enabled the transition is decided; the rest are probed only to
+	// report the choice, which leaves the run as it was.
 	for i, trans := range transitions {
-		ok, err := e.transitionEnabled(trans, event)
-		if err != nil {
-			if len(enabled) > 0 {
-				continue
+		var ok bool
+		if len(enabled) > 0 {
+			ok = e.probeTransition(state, transitions, i, event)
+		} else {
+			var err error
+			if ok, err = e.transitionEnabled(trans, event); err != nil {
+				return nil, err
 			}
-			return nil, err
 		}
 		if ok {
 			enabled = append(enabled, i)
@@ -943,6 +946,20 @@ func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*
 	}
 	e.noteTransitionChoice(state, transitions, enabled)
 	return transitions[enabled[0]], nil
+}
+
+// probeTransition reads whether the transition at position i out of state reacts
+// to event once another already does, as a probe the context undoes whole. One
+// that cannot be evaluated is noted and not selected.
+func (e *StateExecutor) probeTransition(state *ast.StateNode, transitions []*lower.Transition, i int, event *Event) bool {
+	var ok bool
+	var err error
+	e.preview(func() { ok, err = e.transitionEnabled(transitions[i], event) })
+	if err != nil {
+		e.noteUnevaluableTransition(state, transitions, i, err)
+		return false
+	}
+	return ok
 }
 
 // transitionEnabled reports whether trans reacts to event: its trigger matches,
@@ -978,29 +995,61 @@ func (e *StateExecutor) noteTransitionChoice(state *ast.StateNode, transitions [
 	}
 	alts := make([]string, len(enabled))
 	for i, pos := range enabled {
-		alts[i] = fmt.Sprintf("%d->%s", pos+1, getNodeName(transitions[pos].Target))
+		alts[i] = transitionName(transitions, pos)
 	}
 	taken := transitions[enabled[0]]
-	where := "state " + state.Name
-	if name := triggerName(taken.Trigger); name != "" {
-		where += " on " + name
-	}
-	file := e.stateMachine.DocName
-	if taken.Scope != nil && taken.Scope.DocName() != "" {
-		file = taken.Scope.DocName()
-	}
-	span := state.Span()
-	if taken.Decl != nil {
-		span = taken.Decl.Span()
-	}
+	file, span := e.transitionLocation(state, taken)
 	e.ctx.noteChoice(ChoicePoint{
 		Kind:         ChoiceTransition,
-		Where:        where,
+		Where:        transitionWhere(state, taken),
 		Alternatives: alts,
 		Taken:        0,
 		File:         file,
 		Span:         span,
 	})
+}
+
+// noteUnevaluableTransition records the transition at position pos out of state,
+// probed once another was enabled, as one that cannot be evaluated.
+func (e *StateExecutor) noteUnevaluableTransition(state *ast.StateNode, transitions []*lower.Transition, pos int, err error) {
+	trans := transitions[pos]
+	file, span := e.transitionLocation(state, trans)
+	if trans.Guard != nil {
+		span = trans.Guard.Span()
+	}
+	e.ctx.noteUnevaluableGuard(UnevaluableGuard{
+		Where:       transitionWhere(state, trans),
+		Alternative: transitionName(transitions, pos),
+		Reason:      err.Error(),
+		File:        file,
+		Span:        span,
+	})
+}
+
+// transitionName names a transition out of a state by declared position and target.
+func transitionName(transitions []*lower.Transition, pos int) string {
+	return fmt.Sprintf("%d->%s", pos+1, getNodeName(transitions[pos].Target))
+}
+
+// transitionWhere names the state and the event trans reacts to, for a note.
+func transitionWhere(state *ast.StateNode, trans *lower.Transition) string {
+	where := "state " + state.Name
+	if name := triggerName(trans.Trigger); name != "" {
+		where += " on " + name
+	}
+	return where
+}
+
+// transitionLocation is where trans was declared, or state when it has no declaration.
+func (e *StateExecutor) transitionLocation(state *ast.StateNode, trans *lower.Transition) (string, source.Span) {
+	file := e.stateMachine.DocName
+	if trans.Scope != nil && trans.Scope.DocName() != "" {
+		file = trans.Scope.DocName()
+	}
+	if trans.Decl != nil {
+		return file, trans.Decl.Span()
+	}
+	return file, state.Span()
 }
 
 // bindTriggerArguments binds the parameters a call trigger declares to the

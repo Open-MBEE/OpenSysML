@@ -1,0 +1,15 @@
+step 1: token 1@split
+step 2: token 2@coarse, token 3@fine
+stmt assign s.reading
+  eval literal 2.5 -> 2.5
+materialize: s #1
+stmt assign s.reading
+  eval literal 1.5 -> 1.5
+choice step 3: writes reading of object #1 := 1.5 by token 2, reading of object #1 := 2.5 by token 3 (unordered; reading of object #1 := 1.5 by token 2 stood)
+choice step 3: tokens 2@coarse, 3@fine (unordered; took 3@fine first)
+step 3: token 2@settle, token 3@settle
+step 4: token 4@read
+stmt assign seen
+  eval chain reading -> 1.5
+step 5: token 4@done
+step 6: no active tokens

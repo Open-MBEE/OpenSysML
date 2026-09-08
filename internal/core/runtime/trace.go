@@ -74,13 +74,13 @@ func (tr *TraceRecorder) RecordActionStep(step int, tokens []Token) {
 	tr.entries = append(tr.entries, fmt.Sprintf("step %d: %s", step, strings.Join(parts, ", ")))
 }
 
-// RecordChoice records a choice point where it was made: before the step line
-// of the action step it belongs to, or before the transition it decided.
-func (tr *TraceRecorder) RecordChoice(c ChoicePoint) {
+// RecordNote records a run's note where it was made: before the step line of the
+// action step it belongs to, or before the transition it decided.
+func (tr *TraceRecorder) RecordNote(n RunNote) {
 	if !tr.enabled {
 		return
 	}
-	tr.entries = append(tr.entries, c.String())
+	tr.entries = append(tr.entries, n.String())
 }
 
 // RecordStateTransition records a state transition with event.

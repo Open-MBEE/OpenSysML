@@ -27,9 +27,6 @@ stmt assign passes
   eval feature passes -> 1
   eval literal 3 -> 3
 eval operator < -> true
-  eval feature passes -> 1
-  eval literal 3 -> 3
-eval operator >= -> false
 choice step 5: tokens 2@more, 3@work (unordered; took 3@work first)
 step 5: token 2@gate, token 3@more
 stmt assign passes
@@ -39,9 +36,6 @@ stmt assign passes
   eval feature passes -> 2
   eval literal 3 -> 3
 eval operator < -> true
-  eval feature passes -> 2
-  eval literal 3 -> 3
-eval operator >= -> false
 stmt assign merged
     eval feature merged -> 2
     eval literal 1 -> 1

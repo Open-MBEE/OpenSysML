@@ -185,9 +185,26 @@ func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	if got := ctx.Choices(); len(got) != 0 {
 		t.Fatalf("an unevaluable guard was reported as a choice: %v", got)
 	}
+	want := "unevaluable guard step 2: decision select branch 2->alarm: division by zero (not selected)"
+	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].String() != want {
+		t.Fatalf("unevaluable guards = %v, want [%s]", got, want)
+	}
+	diag := ctx.UnevaluableGuards()[0].Diagnostic()
+	if diag.Severity != passes.SeverityInfo || diag.Code != UnevaluableGuardCode || diag.Source != "runtime" {
+		t.Errorf("diagnostic = %+v, want an informational %s from the runtime", diag, UnevaluableGuardCode)
+	}
+	if !strings.HasPrefix(diag.Message, "guard not evaluable: ") {
+		t.Errorf("message = %q, want it to say the guard is not evaluable", diag.Message)
+	}
+	if file, span := ctx.UnevaluableGuards()[0].Location(); file != "<test>" || span.Len == 0 {
+		t.Errorf("location = %q %v, want the guard's span in the test file", file, span)
+	}
 
 	if _, err := ctx.ExecuteAction(broken); err == nil || !strings.Contains(err.Error(), "division by zero") {
 		t.Fatalf("broken: err = %v, want the first guard's evaluation error", err)
+	}
+	if got := ctx.UnevaluableGuards(); len(got) != 0 {
+		t.Fatalf("the first guard's failure was noted rather than raised: %v", got)
 	}
 
 	_, visited, err := ctx.ExecuteStateWithEvents(dispatcher, []string{"Go"})
@@ -199,6 +216,133 @@ func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 	}
 	if got := ctx.Choices(); len(got) != 0 {
 		t.Fatalf("an unevaluable transition guard was reported as a choice: %v", got)
+	}
+	got := ctx.UnevaluableGuards()
+	if len(got) != 1 || got[0].Where != "state idle on accept Go" || got[0].Alternative != "2->high" ||
+		!strings.Contains(got[0].Reason, "division by zero") || got[0].Step != 0 {
+		t.Fatalf("unevaluable guards = %+v, want the second transition out of idle on Go", got)
+	}
+	if !strings.HasPrefix(got[0].Describe(), "state idle on accept Go: transition 2->high: ") {
+		t.Errorf("description = %q, want the state, event and transition first", got[0].Describe())
+	}
+}
+
+// A guard read only to report a choice is previewed: what evaluating it costs
+// and does is undone, so the run spends and traces exactly what first-match did.
+func TestLaterGuardIsProbedWithoutCost(t *testing.T) {
+	route := func(second string) string {
+		return `package test {
+			private import ScalarValues::*;
+			calc def cost { in n : Integer; return : Integer = if n > 0 ? cost(n - 1) + 1 else 0; }
+			action route {
+				attribute level : Integer = 75;
+				attribute handler : Integer = 0;
+				first start;
+				then decide select;
+					if level > 50 then warn;
+					if ` + second + ` then alarm;
+				action warn { assign handler := 1; }
+				then done;
+				action alarm { assign handler := 2; }
+				then done;
+			}
+		}`
+	}
+	spent := func(t *testing.T, second string) int64 {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, route(second)))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "route", ast.DefAction)
+		if sym == nil {
+			t.Fatal("action not found")
+		}
+		values, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			t.Fatalf("route with guard %s: %v", second, err)
+		}
+		if got := FormatTraceValue(values["handler"]); got != "1" {
+			t.Fatalf("handler = %s with guard %s, want the first holding guard's branch", got, second)
+		}
+		if len(ctx.Choices()) != 1 || len(ctx.UnevaluableGuards()) != 0 {
+			t.Fatalf("notes with guard %s = %v, want the one branch choice", second, ctx.Notes())
+		}
+		return ctx.steps
+	}
+	cheap := spent(t, "level > 70")
+	dear := spent(t, "cost(40) > 0")
+	if cheap != dear {
+		t.Errorf("steps spent = %d with a cheap later guard, %d with a dear one; want the same", cheap, dear)
+	}
+}
+
+// The first transition read is the run's, not a preview: its failure fails the
+// run as it always has.
+func TestFirstTransitionFailureStillFailsTheRun(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Dispatcher {
+			attribute level : Integer = 8;
+			entry; then idle;
+			state idle;
+			state low;
+			state high;
+			transition first idle accept Go if 1 / (level - 8) > 0 then high;
+			transition first idle accept Go if level > 5 then low;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+	if sym == nil {
+		t.Fatal("state not found")
+	}
+	_, _, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("err = %v, want the first transition's evaluation error", err)
+	}
+	if got := ctx.UnevaluableGuards(); len(got) != 0 {
+		t.Fatalf("the first transition's failure was noted rather than raised: %v", got)
+	}
+}
+
+// Writes to one object through different features are writes to one destination:
+// a step writing `cell.mark` and `twin.mark` of the same cell is one conflict.
+func TestWriteConflictOnOneObjectThroughTwoChains(t *testing.T) {
+	src := `
+	package test {
+		private import ScalarValues::*;
+		part def Cell {
+			attribute mark : Integer = 0;
+		}
+		part def Rig {
+			part cell : Cell;
+			ref part twin : Cell = cell;
+			perform action marking {
+				first start;
+				fork split;
+				action viaCell { assign cell.mark := 1; }
+				action viaTwin { assign twin.mark := 2; }
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then viaCell;
+				succession first split then viaTwin;
+				succession first viaCell then sync;
+				succession first viaTwin then sync;
+				succession first sync then done;
+			}
+		}
+	}`
+	ctx, _, err := instantiateWithLibraries(t, src, "test::Rig")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	var writes []string
+	for _, c := range ctx.Choices() {
+		if c.Kind == ChoiceWriteOrder {
+			writes = append(writes, c.String())
+		}
+	}
+	if len(writes) != 1 || !strings.Contains(writes[0], "writes mark of object #") ||
+		!strings.Contains(writes[0], ":= 1 by token 2,") || !strings.Contains(writes[0], ":= 2 by token 3") {
+		t.Fatalf("write choices = %q, want one conflict on the cell's mark", writes)
 	}
 }
 

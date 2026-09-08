@@ -237,6 +237,11 @@ func NewEnumLiteral(sym *symbols.Symbol) Value {
 }
 
 // Str is the text of a ValString; "" for every other kind.
+// isBool reports whether v is a boolean constant.
+func (v Value) isBool() bool {
+	return v.Kind == ValConst && v.Const.Kind == semantics.ValBool
+}
+
 func (v Value) Str() string {
 	if v.Kind != ValString {
 		return ""

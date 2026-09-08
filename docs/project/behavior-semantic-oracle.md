@@ -217,8 +217,15 @@ is the branch declared last, so its token is stepped first and `left` writes las
 `x = 1`) and exists only so a change in that scheduling is noticed. The executor reports the
 conflict as a choice point (`choice step 3: writes x := 1 by token 2, x := 2 by token 3
 (unordered; x := 1 by token 2 stood)`), so the trace and the diagnostics name the value that
-stood as a tool decision rather than passing it off as the model's answer. Companion fixture:
-`action_choice_same_step_write_conflict` (golden), the same shape over a `String` feature.
+stood as a tool decision rather than passing it off as the model's answer. Companion fixtures:
+`action_choice_same_step_write_conflict` (golden), the same shape over a `String` feature;
+`action_choice_chained_write_conflict` (golden), the same shape writing one object's feature
+through a feature chain (`s.reading`) from both branches; and
+`action_choice_performer_write_conflict` (golden), a performed action's branches both writing
+the part performing it. A destination is the object written and the feature written, whatever
+name reached it, so two chains reaching one object are one conflict
+(`TestWriteConflictOnOneObjectThroughTwoChains`), and two writes of equal value are still one:
+the library orders the writes no more when they agree.
 
 ### A decision with several holding guards: exactly one branch follows, which one is open
 
@@ -243,11 +250,19 @@ that it is exactly one of them; nothing ranks `warn` against `alarm`.
 Pinned outcome: the admissible set `{handler = 1, handler = 2}`, stated as `outcomes` citing this
 section. The executor evaluates every guard, takes the first declared, and records the choice
 (`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`);
-the golden pins that linearization. Reporting never changes the run: a guard after the first
-holding one that cannot be evaluated is not an alternative rather than an error the run never had
-(`TestLaterGuardErrorIsNotAChoiceNorAFailure`). A decision whose guards are all false remains an
-execution error (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no
-outgoing link.
+the golden pins that linearization. Reporting never changes the run: the guards after the first
+holding one are read in a preview that is undone — what evaluating them costs, writes or starts
+is restored, and nothing they do is traced — so the run spends and does what first-match did
+(`TestLaterGuardIsProbedWithoutCost`). A guard read that way that cannot be evaluated is not an
+alternative and not an error: the library's `TPCGuardConstraint` is `inv { allTrue(constrainedGuard()) }`,
+an expression with no result is not true, so the link it guards is simply not selected, and the
+library defines no failure for it. The executor records the guard as an informational
+`guard-unevaluable` note (`unevaluable guard step 2: decision select branch 2->alarm: division by
+zero (not selected)`) so the tool's reading is visible without changing the run
+(`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `action_choice_unevaluable_guard`, golden).
+The first guard read is the run's own, not a preview, and its failure fails the run as it always
+has. A decision whose guards are all false remains an execution error
+(`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
 
 ### Two transitions out of one state enabled by one event: exactly one fires, which one is open
 
@@ -275,8 +290,12 @@ Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stat
 citing this section. The executor examines every transition out of the state for the event,
 fires the first declared, and records the choice (`choice state idle on accept Go: transitions
 1->low, 2->high (unordered; took 1->low)`); the golden pins that linearization. As for a decision,
-a later transition whose guard cannot be evaluated is not an alternative and does not fail the
-dispatch (`TestLaterGuardErrorIsNotAChoiceNorAFailure`).
+the transitions after the first enabled one are read in a preview that is undone, and one whose
+guard cannot be evaluated is not an alternative and does not fail the dispatch: it is recorded as
+an informational `guard-unevaluable` note naming the state, the event and the transition
+(`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `state_choice_unevaluable_transition`,
+golden). The first transition read is the run's own, and its failure fails the dispatch as it
+always has (`TestFirstTransitionFailureStillFailsTheRun`).
 
 ### A merge is re-entered on every traversal of a loop
 

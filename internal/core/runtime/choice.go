@@ -43,6 +43,23 @@ func (k ChoiceKind) String() string {
 // ChoiceDiagnosticCode is the code every choice-point diagnostic carries.
 const ChoiceDiagnosticCode = "choice-point"
 
+// UnevaluableGuardCode is the code a diagnostic about a guard the run could not
+// evaluate carries.
+const UnevaluableGuardCode = "guard-unevaluable"
+
+// RunNote is a finding a run records about itself without changing it: a choice
+// point it made, or a guard it read only to report one and could not evaluate.
+type RunNote interface {
+	// Describe renders the note for a diagnostic; String is its trace line.
+	Describe() string
+	String() string
+	// Diagnostic is the note as an informational finding about the run.
+	Diagnostic() passes.Diagnostic
+	// Location is the file and span of the declaration the note is about; file is
+	// "" when the runtime could not name one.
+	Location() (file string, span source.Span)
+}
+
 // ChoicePoint is one point where an executor had several enabled alternatives the
 // Kernel Semantic Library leaves unordered and took one by its own scheduling rule.
 type ChoicePoint struct {
@@ -87,6 +104,11 @@ func (c ChoicePoint) String() string {
 	return "choice " + c.Describe()
 }
 
+// Location is where the choice was made.
+func (c ChoicePoint) Location() (string, source.Span) {
+	return c.File, c.Span
+}
+
 // Diagnostic is the choice as a finding about the run: informational, since a
 // model is not wrong for admitting several orders and the run took one of them.
 func (c ChoicePoint) Diagnostic() passes.Diagnostic {
@@ -99,27 +121,109 @@ func (c ChoicePoint) Diagnostic() passes.Diagnostic {
 	}
 }
 
+// UnevaluableGuard is a guard an executor read only to report a choice, once a
+// branch or transition already held, and could not evaluate. A guard with no
+// result is not true, so its succession is not selected; the run is unchanged.
+type UnevaluableGuard struct {
+	// Step is the action step the guard was read in, 0 for a state machine.
+	Step int
+	// Where names the decision node or the state and event, as a ChoicePoint does.
+	Where string
+	// Alternative is the branch or transition by declaration position, as a
+	// ChoicePoint lists it.
+	Alternative string
+	// Reason is the evaluation error.
+	Reason string
+	File   string
+	Span   source.Span
+}
+
+// Describe renders the guard for a diagnostic: where it was read, which
+// alternative it guards and why it has no result.
+func (g UnevaluableGuard) Describe() string {
+	if g.Step > 0 {
+		return fmt.Sprintf("step %d: %s branch %s: %s (not selected)", g.Step, g.Where, g.Alternative, g.Reason)
+	}
+	return fmt.Sprintf("%s: transition %s: %s (not selected)", g.Where, g.Alternative, g.Reason)
+}
+
+// String is the trace line the guard is recorded as.
+func (g UnevaluableGuard) String() string {
+	return "unevaluable guard " + g.Describe()
+}
+
+// Location is where the guard was declared.
+func (g UnevaluableGuard) Location() (string, source.Span) {
+	return g.File, g.Span
+}
+
+// Diagnostic is the guard as a finding about the run: informational, since the
+// library selects no succession whose guard is not true and defines no failure.
+func (g UnevaluableGuard) Diagnostic() passes.Diagnostic {
+	return passes.Diagnostic{
+		Severity: passes.SeverityInfo,
+		Span:     g.Span,
+		Message:  "guard not evaluable: " + g.Describe(),
+		Code:     UnevaluableGuardCode,
+		Source:   "runtime",
+	}
+}
+
 // noteChoice keeps a choice point for the run's diagnostics and, when tracing,
-// writes it to the trace where it was made. A probe's preview is not a run.
+// writes it to the trace where it was made.
 func (ctx *Context) noteChoice(c ChoicePoint) {
+	ctx.note(c)
+}
+
+// noteUnevaluableGuard keeps a guard the run could not evaluate, as noteChoice does.
+func (ctx *Context) noteUnevaluableGuard(g UnevaluableGuard) {
+	ctx.note(g)
+}
+
+// note keeps n for the run's diagnostics and, when tracing, writes it to the
+// trace where it was made. A probe's preview is not a run.
+func (ctx *Context) note(n RunNote) {
 	if ctx.probes > 0 {
 		return
 	}
-	ctx.choices = append(ctx.choices, c)
+	ctx.notes = append(ctx.notes, n)
 	if ctx.trace != nil {
-		ctx.trace.RecordChoice(c)
+		ctx.trace.RecordNote(n)
 	}
+}
+
+// Notes returns what the latest run noted about itself, in order: its choice
+// points and the guards it could not evaluate.
+func (ctx *Context) Notes() []RunNote {
+	out := make([]RunNote, len(ctx.notes))
+	copy(out, ctx.notes)
+	return out
+}
+
+// NoteCount is how many notes the latest run has made so far, so a caller
+// stepping an executor can tell what one of its steps noted.
+func (ctx *Context) NoteCount() int {
+	return len(ctx.notes)
 }
 
 // Choices returns the choice points made since the latest run began, in order.
 func (ctx *Context) Choices() []ChoicePoint {
-	out := make([]ChoicePoint, len(ctx.choices))
-	copy(out, ctx.choices)
+	var out []ChoicePoint
+	for _, n := range ctx.notes {
+		if c, ok := n.(ChoicePoint); ok {
+			out = append(out, c)
+		}
+	}
 	return out
 }
 
-// ChoiceCount is how many choice points the latest run has made so far, so a
-// caller stepping an executor can tell what one of its steps chose.
-func (ctx *Context) ChoiceCount() int {
-	return len(ctx.choices)
+// UnevaluableGuards returns the guards the latest run could not evaluate, in order.
+func (ctx *Context) UnevaluableGuards() []UnevaluableGuard {
+	var out []UnevaluableGuard
+	for _, n := range ctx.notes {
+		if g, ok := n.(UnevaluableGuard); ok {
+			out = append(out, g)
+		}
+	}
+	return out
 }

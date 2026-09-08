@@ -11,9 +11,6 @@ step 4: token 3@s3, token 4@sync, token 5@again
   eval feature n -> 1
   eval literal 2 -> 2
 eval operator < -> true
-  eval feature n -> 1
-  eval literal 2 -> 2
-eval operator >= -> false
 choice step 5: tokens 3@s3, 5@again (unordered; took 5@again first)
 step 5: token 3@s4, token 4@sync, token 5@tick
 stmt assign n
@@ -55,9 +52,6 @@ step 11: token 6@sync, token 8@more
   eval feature m -> 1
   eval literal 2 -> 2
 eval operator < -> true
-  eval feature m -> 1
-  eval literal 2 -> 2
-eval operator >= -> false
 step 12: token 6@sync, token 8@s1
 step 13: token 6@sync, token 8@s2
 step 14: token 6@sync, token 8@s3

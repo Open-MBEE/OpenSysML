@@ -147,3 +147,64 @@ package Debug {
 	wants(t, out, "Current state: halted")
 	rejects(t, out, "choice point")
 }
+
+// A guard read only to report a choice that could not be evaluated is counted in
+// the summary line beside the choices, and shown in the trace when it is on.
+func TestStepReportsUnevaluableGuards(t *testing.T) {
+	src := `
+package Debug {
+	private import ScalarValues::*;
+	action route {
+		attribute level : Integer = 75;
+		attribute handler : Integer = 0;
+		first start;
+		then decide select;
+			if level > 50 then warn;
+			if 1 / (level - 75) > 0 then alarm;
+		action warn { assign handler := 1; }
+		then done;
+		action alarm { assign handler := 2; }
+		then done;
+	}
+	action mixed {
+		attribute level : Integer = 75;
+		attribute handler : Integer = 0;
+		first start;
+		then decide select;
+			if level > 50 then warn;
+			if level > 70 then alarm;
+			if 1 / (level - 75) > 0 then halt;
+		action warn { assign handler := 1; }
+		then done;
+		action alarm { assign handler := 2; }
+		then done;
+		action halt { assign handler := 3; }
+		then done;
+	}
+}
+`
+	s := loadSource(t, src)
+	run(t, s, "%action route")
+	rejects(t, run(t, s, "%step"), "guard not evaluable")
+	out := run(t, s, "%step")
+	wants(t, out, "✓ Step complete", "  1 guard not evaluable; %trace on to see them")
+	rejects(t, out, "choice point")
+
+	s = loadSource(t, src)
+	run(t, s, "%trace on")
+	run(t, s, "%action route")
+	run(t, s, "%step")
+	out = run(t, s, "%step")
+	wants(t, out,
+		"unevaluable guard step 2: decision select branch 2->alarm: division by zero (not selected)",
+		"  1 guard not evaluable")
+	rejects(t, out, "%trace on to see them")
+
+	s = loadSource(t, src)
+	run(t, s, "%action route")
+	wants(t, run(t, s, "%continue"), "✓ Action completed", "  1 guard not evaluable; %trace on to see them")
+
+	run(t, s, "%action mixed")
+	wants(t, run(t, s, "%continue"), "✓ Action completed",
+		"  1 choice point; 1 guard not evaluable; %trace on to see them")
+}

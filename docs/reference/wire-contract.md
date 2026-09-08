@@ -729,6 +729,23 @@ A run with no `diagnostics` had exactly one order to take. The order taken is th
 rule, the same on every call, so the outputs are reproducible; the diagnostics say where another
 rule would have been equally valid.
 
+To report a decision's choice the engine reads the guards after the first holding one in a
+preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
+not an alternative and not an error — a guard with no result is not true, so its branch is not
+selected — and is reported as a second kind of `"info"` diagnostic, `guard not evaluable: …`,
+naming the step, the decision, the branch by position and target, and the failure, located at
+the guard (for `action route { attribute level : Integer = 75; … then decide select; if level > 50
+then warn; if 1 / (level - 75) > 0 then alarm; … }`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::route"}'
+{"outputs":{"level":{"intValue":"75"},"handler":{"intValue":"1"}},"diagnostics":[{"severity":"info","message":"guard not evaluable: step 2: decision select branch 2->alarm: division by zero (not selected)","span":{"file":"tally.sysml","startLine":31,"startCol":10,"endLine":31,"endCol":30}}]}
+```
+
+The first guard read is the run's own, not a preview: when it cannot be evaluated the run fails
+with `error` as it always has, and no `guard not evaluable` diagnostic is added. The two kinds are
+told apart by message prefix, `choice point: ` and `guard not evaluable: `; both are `"info"`.
+
 ### `ExecuteState`
 
 `events` is an ordered list of event names to feed the machine after it enters; `statesVisited`
@@ -757,8 +774,10 @@ $ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test:
 `finalContext` is absent when the machine has no variables; `statesVisited` lists a state each
 time it is entered, so a state entered twice appears twice. `diagnostics` carries an `"info"`
 entry for each event that enabled several transitions out of one state, located at the
-transition taken, as `ExecuteAction`'s does for its steps; a transition on a substate beating one
-on the state enclosing it is spec-defined order and is not reported. For `state def Hub { entry;
+transition taken, as `ExecuteAction`'s does for its steps, and a `guard not evaluable: <state> on
+<trigger>: transition <n>-><target>: <failure> (not selected)` entry for a transition after the
+first enabled one whose guard it could not evaluate in its preview; a transition on a substate
+beating one on the state enclosing it is spec-defined order and is not reported. For `state def Hub { entry;
 then Idle; state Idle; state A; state B; transition first Idle accept Go then A; transition first
 Idle accept Go then B; }` in the same document:
 

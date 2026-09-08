@@ -1,0 +1,8 @@
+{
+	"type": "instance",
+	"instantiate": "test::Host",
+	"trace": true,
+	"slots": {
+		"mark": {"type": "Integer", "value": 1}
+	}
+}

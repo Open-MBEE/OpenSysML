@@ -70,7 +70,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 			return &pb.RunAnalysisResponse{
 				Error:         fmt.Sprintf("verification run failed: %v", verr),
 				FailureReason: failureReason(verr),
-				Diagnostics:   ChoiceDiagnosticsToProto(v.runtime.Choices(), v.cached),
+				Diagnostics:   RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached),
 			}, nil
 		}
 		result = verified.Run
@@ -79,10 +79,10 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return &pb.RunAnalysisResponse{
 			Error:         fmt.Sprintf("analysis run failed: %v", err),
 			FailureReason: failureReason(err),
-			Diagnostics:   ChoiceDiagnosticsToProto(v.runtime.Choices(), v.cached),
+			Diagnostics:   RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached),
 		}, nil
 	}
-	diags := ChoiceDiagnosticsToProto(v.runtime.Choices(), v.cached)
+	diags := RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached)
 	// The case reports the subject it ran on: the one supplied, or the one the
 	// usage or the enclosing case bound.
 	subject = result.Subject
