@@ -5,7 +5,7 @@ package test {
 	private import ScalarValues::*;
 
 	part def Sensor {
-		attribute reading : Integer = 0;
+		attribute reading : Integer default = 0;
 	}
 	part zeroed : Sensor;
 	part drifted : Sensor {

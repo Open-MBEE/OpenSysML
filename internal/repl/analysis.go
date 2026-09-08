@@ -154,7 +154,7 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 	verdict := Verdict{Subject: label, Status: status, Lines: lines, Values: values}
 	for _, v := range run.verdicts {
 		verdict.Verifications = append(verdict.Verifications, VerificationVerdict{
-			Case: v.Case, Kind: string(v.Kind), Detail: v.Detail,
+			Case: v.Case, Kind: string(v.Kind), Detail: v.Detail, Subcase: v.Subcase,
 		})
 		verdict.Lines = append(verdict.Lines, "  "+verificationLine(v))
 	}

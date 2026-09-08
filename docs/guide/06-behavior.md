@@ -495,7 +495,8 @@ A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fai
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
 producing no verdict value is `inconclusive`; and one whose run could not be carried out is `error`
 carrying the same message the run failed with. Each nested `verification` step is reported on its
-own line, since the library states no roll-up of a subcase's verdict into its parent's.
+own line, marked `(subcase)`, since the library states no roll-up of a subcase's verdict into its
+parent's.
 
 `%requirement`, `%satisfy`, `-requirement` and `-satisfy` report those verdicts beside their own,
 and their own verdict is unchanged: the requirement engine still decides whether the requirement is

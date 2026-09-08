@@ -49,6 +49,64 @@ func TestRunVerification(t *testing.T) {
 		"? Verification Ver::unbound verdict: error", "l subject is unbound")
 }
 
+// subcaseModel declares a verification plan performing two subcases, one
+// passing and one failing, while binding no verdict of its own.
+const subcaseModel = `package Ver {
+    private import ScalarValues::*;
+    part def Lander { attribute speed : Real default = 1.2; }
+    part slow : Lander;
+    part fast : Lander { attribute :>> speed = 2.4; }
+    verification def SpeedCheck {
+        subject l : Lander;
+        VerificationCases::PassIf(l.speed <= 1.5)
+    }
+    verification plan {
+        subject l = slow;
+        verification checkSlow : SpeedCheck { subject l = Ver::slow; }
+        verification checkFast : SpeedCheck { subject l = Ver::fast; }
+    }
+}`
+
+// TestVerificationSubcasesAreMarked checks that a verdict a case produced as a
+// step of another is reported on its own line, marked as a subcase, and carries
+// that mark in the JSON report.
+func TestVerificationSubcasesAreMarked(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, subcaseModel, "-analysis", "Ver::plan"), 2,
+		"? Verification Ver::plan verdict: inconclusive",
+		"✓ Verification Ver::plan::checkSlow verdict: pass (subcase)",
+		"✗ Verification Ver::plan::checkFast verdict: fail (subcase)")
+
+	got := check(t, binary, subcaseModel, "-analysis", "Ver::plan", "-json")
+	var report struct {
+		Checks []struct {
+			Verifications []struct {
+				Case    string `json:"case"`
+				Kind    string `json:"kind"`
+				Subcase bool   `json:"subcase"`
+			} `json:"verifications"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	if len(report.Checks) != 1 {
+		t.Fatalf("the report states no check:\n%s", got.stdout)
+	}
+	subcases := map[string]bool{}
+	for _, v := range report.Checks[0].Verifications {
+		subcases[v.Case] = v.Subcase
+	}
+	for name, want := range map[string]bool{
+		"Ver::plan": false, "Ver::plan::checkSlow": true, "Ver::plan::checkFast": true,
+	} {
+		if got, ok := subcases[name]; !ok || got != want {
+			t.Errorf("%s reports subcase %v (present %v), want %v", name, got, ok, want)
+		}
+	}
+}
+
 // TestVerificationVerdictsBesideRequirements checks that the requirement and
 // satisfaction surfaces report the body verdicts beside their own verdict,
 // which stays what the requirement engine decided, and that the JSON report

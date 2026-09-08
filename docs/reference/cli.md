@@ -236,8 +236,9 @@ model: a body whose result is a `VerificationCases::PassIf(...)` call is `pass`
 or `fail` as that library calculation computes it, a body binding `verdict` to a
 `VerdictKind` literal reports that literal, a body producing no verdict value is
 `inconclusive`, and a body whose run could not be carried out is `error` carrying
-the reason. Each nested `verification` step is reported on its own line: the
-library states no roll-up of a subcase's verdict into its parent's.
+the reason. Each nested `verification` step is reported on its own line, marked
+`(subcase)` and carrying `"subcase": true` in the JSON report: the library
+states no roll-up of a subcase's verdict into its parent's.
 
 `-requirement` and `-satisfy` report the same verdicts beside their own. The
 requirement verdict stays what the requirement engine decided — a failing

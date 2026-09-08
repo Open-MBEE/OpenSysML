@@ -19,6 +19,8 @@ type VerificationVerdict struct {
 	Kind string
 	// Detail is why an error or inconclusive verdict decided nothing.
 	Detail string
+	// Subcase marks a case another case performed as a step of its body.
+	Subcase bool
 }
 
 // withVerifications appends to a verdict the body verdict of every verification
@@ -32,6 +34,7 @@ func (s *Session) withVerifications(v Verdict, ctx *runtime.Context, req *symbol
 		for _, verdict := range ctx.VerificationVerdictsFor(scope, req) {
 			v.Verifications = append(v.Verifications, VerificationVerdict{
 				Case: verdict.Case, Kind: string(verdict.Kind), Detail: verdict.Detail,
+				Subcase: verdict.Subcase,
 			})
 			v.Lines = append(v.Lines, verificationLine(verdict))
 		}
@@ -43,6 +46,9 @@ func (s *Session) withVerifications(v Verdict, ctx *runtime.Context, req *symbol
 // other one: a mark, what ran, and the verdict it answered.
 func verificationLine(v runtime.VerificationVerdict) string {
 	line := fmt.Sprintf("%s Verification %s verdict: %s", verdictMark(v.Kind), v.Case, v.Kind)
+	if v.Subcase {
+		line += " (subcase)"
+	}
 	if v.Detail != "" {
 		line += " — " + v.Detail
 	}

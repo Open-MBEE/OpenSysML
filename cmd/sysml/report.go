@@ -115,6 +115,8 @@ type verificationVerdict struct {
 	Kind string `json:"kind"`
 	// Detail is why an error or inconclusive verdict decided nothing.
 	Detail string `json:"detail,omitempty"`
+	// Subcase marks a case another case performed as a step of its body.
+	Subcase bool `json:"subcase,omitempty"`
 }
 
 func newReporter(asJSON bool) *reporter {
@@ -279,7 +281,7 @@ func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVer
 	}
 	out := make([]verificationVerdict, 0, len(verdicts))
 	for _, v := range verdicts {
-		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail})
+		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase})
 	}
 	return out
 }
