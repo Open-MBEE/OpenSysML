@@ -331,7 +331,7 @@ func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast
 		return nil
 	}
 	var sym *symbols.Symbol
-	if chain := chainCallee(inv); chain != nil {
+	if chain := ChainCallee(inv); chain != nil {
 		sym, _ = ec.resolver.ResolveTarget(scope, chain)
 	} else if inv.Type != nil {
 		sym = SelectInvocation(ec.resolver, ec.model, scope, inv, ec.performs(inv)).Selected

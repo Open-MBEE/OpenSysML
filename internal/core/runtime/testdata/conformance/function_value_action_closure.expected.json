@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::outer",
+	"libraries": true,
+	"outputs": {
+		"result": {"type": "Real", "value": 150.0},
+		"scale.y": {"type": "Real", "value": 150.0}
+	}
+}

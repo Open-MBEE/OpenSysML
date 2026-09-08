@@ -44,7 +44,7 @@ type argumentTypes struct {
 
 // argumentTypes types e's arguments once, so nested errors report once.
 func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr) argumentTypes {
-	args := invocationArgs(e)
+	args := InvocationArgs(e)
 	types := argumentTypes{
 		positional: make([]semantics.Argument, len(args)),
 		named:      make([]semantics.Argument, len(e.NamedArgs)),
@@ -58,18 +58,18 @@ func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr
 	return types
 }
 
-// invocationArgs returns e's positional arguments, the receiver of `x->f(a)`
+// InvocationArgs returns e's positional arguments, the receiver of `x->f(a)`
 // first; the operand of a chain call `x.f(a)` is the calc applied, not an argument.
-func invocationArgs(e *ast.InvocationExpr) []ast.Node {
-	if e.Operand == nil || chainCallee(e) != nil {
+func InvocationArgs(e *ast.InvocationExpr) []ast.Node {
+	if e.Operand == nil || ChainCallee(e) != nil {
 		return e.Args
 	}
 	return append([]ast.Node{e.Operand}, e.Args...)
 }
 
-// chainCallee is the feature chain a call `x.f(a)` applies (KerMLExpressions
+// ChainCallee is the feature chain a call `x.f(a)` applies (KerMLExpressions
 // InstantiatedTypeMember → OwnedFeatureChain), nil for `T(a)` and `x->T(a)`.
-func chainCallee(e *ast.InvocationExpr) *ast.FeatureChainExpr {
+func ChainCallee(e *ast.InvocationExpr) *ast.FeatureChainExpr {
 	if e.Type != nil {
 		return nil
 	}

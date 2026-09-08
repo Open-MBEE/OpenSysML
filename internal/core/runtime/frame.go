@@ -16,6 +16,9 @@ type frame struct {
 	// owner is the calc whose parameters, locals and outputs the frame binds, so a
 	// qualified name of one of its members (`MassCase::result`) reads the binding.
 	owner *calcShape
+	// performed is the action whose performance a snapshot copied its bindings from,
+	// so the copy still answers for a run of that action without the live perf.
+	performed *symbols.Symbol
 }
 
 // canonical is the name aliases bind name under: its redefinition's, else its own.
@@ -61,16 +64,25 @@ func (f frame) runs(ctx *Context, behavior *symbols.Symbol) bool {
 	if f.owner != nil {
 		return f.owner.qualifiedBy(ctx, behavior)
 	}
-	if f.perf != nil && f.perf.scope != nil {
-		return ctx.isOrSpecializes(f.perf.scope.Owner(), behavior)
+	if performed := f.performs(); performed != nil {
+		return ctx.isOrSpecializes(performed, behavior)
 	}
 	return false
+}
+
+// performs is the action the frame holds a performance of: the live one's, or
+// the one a snapshot copied; nil for a frame of a calc run or of plain bindings.
+func (f frame) performs() *symbols.Symbol {
+	if f.perf != nil && f.perf.scope != nil {
+		return f.perf.scope.Owner()
+	}
+	return f.performed
 }
 
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
@@ -120,11 +132,13 @@ func (f frame) each(fn func(name string, value Value)) {
 }
 
 // snapshot copies the frame's bindings, and the aliases they are read through,
-// into storage of its own, unchanged by whatever later reuses the frame's.
+// into storage of its own, unchanged by whatever later reuses the frame's. The
+// copy still answers for the run it was taken from, though not for its flow's nodes.
 func (f frame) snapshot() frame {
 	vars := make(map[string]Value, f.width())
 	f.each(func(name string, value Value) { vars[name] = value })
 	out := ownedFrame(f.owner, vars)
+	out.performed = f.performs()
 	if len(f.aliases) > 0 {
 		out.aliases = make(map[string]string, len(f.aliases))
 		for name, alias := range f.aliases {

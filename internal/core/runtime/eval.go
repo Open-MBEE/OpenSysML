@@ -2356,8 +2356,8 @@ func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written strin
 // evalInvocation evaluates a function/calc invocation.
 func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	// `holder.f(a)`: the chain names the function applied, not the callee's type.
-	if n.Type == nil && n.Operand != nil {
-		return ec.evalChainInvocation(n)
+	if chain := passes.ChainCallee(n); chain != nil {
+		return ec.evalChainInvocation(n, chain)
 	}
 	target := ec.invocationTarget(n)
 	qualName := target.qualName
@@ -2376,12 +2376,9 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 
 	// Eval args in source order. An operand is the first argument of the
 	// invocation it is written before: `seq->size()` invokes size with seq, which
-	// is how the semantics layer reads the same expression (passes/
-	// typecheck_expr.go), so the two agree on which parameter an argument binds.
-	exprs := n.Args
-	if n.Operand != nil {
-		exprs = append([]ast.Node{n.Operand}, n.Args...)
-	}
+	// is how the semantics layer reads the same expression, so the two agree on
+	// which parameter an argument binds.
+	exprs := passes.InvocationArgs(n)
 	// A calc-typed feature bound to a function value here — a parameter given a
 	// calc as its argument — applies that value, not the feature's own declaration.
 	if fn, ok, err := ec.boundFunction(target.calc, n.Type); ok {
@@ -2439,9 +2436,9 @@ func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
 
 // evalChainInvocation applies the function value a feature chain denotes to the
 // arguments written after it (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
-func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr) (Value, error) {
-	callee := chainText(n.Operand)
-	fn, err := ec.Eval(n.Operand)
+func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr, chain *ast.FeatureChainExpr) (Value, error) {
+	callee := chainText(chain)
+	fn, err := ec.Eval(chain)
 	if err != nil {
 		return Value{}, err
 	}

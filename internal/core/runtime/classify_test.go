@@ -221,6 +221,50 @@ func TestArgumentNotReturnedIsNotHeldByTheCall(t *testing.T) {
 	}
 }
 
+// A call through a feature chain, `picker.pickChosen(lead, trail)`, applies the calc the
+// chain denotes: the feature it values holds the arguments that calc's returns pass on,
+// and the chain itself is the callee, not an argument.
+func TestChainCallReturnedArgumentsAreHeldByTheCall(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::*;
+		item def Tallied { attribute tally : Integer = 7; }
+		item def Picker {
+			calc pickChosen { in chosen; in other; return : Anything = chosen; }
+			calc pickOther { in chosen; in other; return : Anything = other; }
+		}
+		item def Rack {
+			item picker : Picker;
+			item lead [1];
+			item trail [1];
+			item spare [1];
+			item tallied : Tallied [1] = picker.pickChosen(lead, trail);
+			item named : Tallied [1] = picker.pickOther(other = spare, chosen = trail);
+		}
+		item rack : Rack;
+	}`)
+	rack := instantiateQualified(t, ctx, idx, "test::rack")
+	tallied := idx.LookupQualified("test::Tallied")[0]
+
+	trail := readInstance(t, ctx, rack, "trail")
+	if ctx.instanceConforms(trail, tallied) {
+		t.Fatal("trail, which neither call returns, is a Tallied")
+	}
+	if rack.FeatureValues["tallied"].Materialized || rack.FeatureValues["named"].Materialized {
+		t.Fatal("reading trail computed a call that does not hold it")
+	}
+	lead := readInstance(t, ctx, rack, "lead")
+	if !ctx.instanceConforms(lead, tallied) {
+		t.Fatalf("lead, read first, is classified by %v, want Tallied", lead.classifiers)
+	}
+	spare := readInstance(t, ctx, rack, "spare")
+	if !ctx.instanceConforms(spare, tallied) {
+		t.Fatalf("spare, read first, is classified by %v, want Tallied", spare.classifiers)
+	}
+	if picker := readInstance(t, ctx, rack, "picker"); ctx.instanceConforms(picker, tallied) {
+		t.Fatal("picker, the callee's holder, is a Tallied")
+	}
+}
+
 // A holder that cannot materialize holds nothing: the held feature reads alike in either
 // order, and the holder's own error is reported when the holder is read.
 func TestFailingHolderDoesNotFailTheFeatureItWouldHold(t *testing.T) {

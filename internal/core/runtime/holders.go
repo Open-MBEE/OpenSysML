@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -214,11 +215,13 @@ func (ctx *Context) bodyReferences(scope *symbols.Scope, body *ast.BodyExpr, ope
 // to parameters a calc's returns pass on; every one for a function whose body is not
 // written in the model; none for a call that denotes nothing or computes no result.
 func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.InvocationExpr) []ast.Node {
-	target := NewEvalContext(ctx, scope).invocationTarget(call)
-	positional := call.Args
-	if call.Operand != nil {
-		positional = append([]ast.Node{call.Operand}, call.Args...)
+	var target *invocationTarget
+	if chain := passes.ChainCallee(call); chain != nil {
+		target = ctx.chainTarget(scope, chain, call.NamedArgs)
+	} else {
+		target = NewEvalContext(ctx, scope).invocationTarget(call)
 	}
+	positional := passes.InvocationArgs(call)
 	var args []ast.Node
 	switch {
 	case target.shape != nil:
@@ -240,6 +243,21 @@ func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.Invocation
 		}
 	}
 	return args
+}
+
+// chainTarget is how a call `x.f(a)` is applied as far as the model states it: by the
+// shape of the calc feature the chain denotes, which the named arguments bind parameters of.
+func (ctx *Context) chainTarget(scope *symbols.Scope, chain *ast.FeatureChainExpr, named []ast.NamedArg) *invocationTarget {
+	target := &invocationTarget{qualName: chainText(chain)}
+	if sym, ok := ctx.resolver.ResolveTarget(scope, chain); ok && sym != nil {
+		if shape, err := ctx.calcShapeOf(sym); err == nil {
+			target.calc, target.shape = sym, shape
+		}
+	}
+	if len(named) > 0 {
+		target.names, target.unbound = ctx.boundParameterNames(scope, target.calc, named)
+	}
+	return target
 }
 
 // returnedAnalysis is the parameters a calc shape's returns pass on, as far as known.
