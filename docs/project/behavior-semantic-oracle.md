@@ -284,7 +284,11 @@ Derived constraints:
 Open: which enabled transition fires. UML orders a transition on a descendant state before one
 on its ancestor (the case `state_choice_ancestor_priority_not_reported` pins that rule, and the
 executor does not report it as a choice); between two transitions on the *same* state nothing
-in the library or the specification ranks them.
+in the library or the specification ranks them. The choice is the firing transition's: the
+regions of a parallel state that select the same transition out of it make one choice, reported
+once (`state_choice_shared_ancestor_regions`), and a composite state's transitions that lose to a
+nested one were never chosen among, so nothing about them is reported
+(`state_choice_ancestor_outranked_not_reported`).
 
 Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
 citing this section. The executor examines every transition out of the state for the event,

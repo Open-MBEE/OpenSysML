@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"finalState": "a2+b1",
+	"stateVisits": ["work", "a1", "b1", "a2"],
+	"outputs": {
+		"level": {"type": "Integer", "value": 8},
+		"route": {"type": "Integer", "value": 3}
+	}
+}

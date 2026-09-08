@@ -180,6 +180,13 @@ func (ctx *Context) noteUnevaluableGuard(g UnevaluableGuard) {
 	ctx.note(g)
 }
 
+// noteAll records notes in order.
+func (ctx *Context) noteAll(notes []RunNote) {
+	for _, n := range notes {
+		ctx.note(n)
+	}
+}
+
 // note keeps n for the run's diagnostics and, when tracing, writes it to the
 // trace where it was made. A probe's preview is not a run.
 func (ctx *Context) note(n RunNote) {

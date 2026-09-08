@@ -380,6 +380,135 @@ func TestAncestorPriorityIsNotAChoice(t *testing.T) {
 	}
 }
 
+// Leaves in sibling regions select the same transition out of the composite
+// state enclosing them, which fires once: so does the choice among the
+// transitions out of it.
+func TestSharedAncestorChoiceIsReportedOnce(t *testing.T) {
+	src := `package test {
+		state Machine {
+			attribute level : Integer = 8;
+			entry; then work;
+			state work parallel {
+				state a { entry; then a1; state a1; }
+				state b { entry; then b1; state b1; }
+			}
+			state low;
+			state high;
+			transition first work accept Go if level > 5 then low;
+			transition first work accept Go if level > 7 then high;
+			transition first work accept Go if 1 / (level - 8) > 0 then high;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,b1,low" {
+		t.Fatalf("visited %v, want both regions entered, then the first transition out of work", visited)
+	}
+	want := "choice state work on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"
+	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
+		t.Fatalf("choices = %v, want exactly [%s]", got, want)
+	}
+	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].Alternative != "3->high" {
+		t.Fatalf("unevaluable guards = %v, want the third transition out of work, once", got)
+	}
+}
+
+// A transition out of a composite state loses to one a nested state takes on the
+// same event, so the alternatives found out of the composite state were never
+// the run's to choose among: nothing about them is reported.
+func TestAncestorChoiceSuppressedByNestedTransitionIsNotReported(t *testing.T) {
+	src := `package test {
+		state Machine {
+			attribute level : Integer = 8;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept Go then a2;
+				}
+				state b { entry; then b1; state b1; }
+			}
+			state low;
+			state high;
+			transition first work accept Go if level > 5 then low;
+			transition first work accept Go if level > 7 then high;
+			transition first work accept Go if 1 / (level - 8) > 0 then high;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,b1,a2" {
+		t.Fatalf("visited %v, want the nested transition to fire and work to stay active", visited)
+	}
+	if got := ctx.Notes(); len(got) != 0 {
+		t.Fatalf("the outranked transitions out of work were reported: %v", got)
+	}
+}
+
+// A step that fails after one token already went still made an ordering choice:
+// the failing token could have gone first, and the diagnostics of a failed run
+// must say what the run did before it failed.
+func TestTokenOrderIsReportedWhenALaterTokenFails(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		action race {
+			attribute x : Integer = 0;
+			attribute n : Integer = 0;
+			first start;
+			fork split;
+			action safe { assign x := 1; }
+			action failing { assign x := 1 / n; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then failing;
+			succession first split then safe;
+			succession first safe then sync;
+			succession first failing then sync;
+			succession first sync then done;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "race", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action not found")
+	}
+	_, err := ctx.ExecuteAction(sym)
+	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("err = %v, want the failing token's error", err)
+	}
+	var tokenOrders []ChoicePoint
+	for _, c := range ctx.Choices() {
+		if c.Kind == ChoiceTokenOrder {
+			tokenOrders = append(tokenOrders, c)
+		}
+	}
+	if len(tokenOrders) != 1 {
+		t.Fatalf("token-order choices = %v, want the one step both tokens took part in", tokenOrders)
+	}
+	got := tokenOrders[0]
+	if len(got.Alternatives) != 2 || !strings.HasSuffix(got.Alternatives[0], "@failing") ||
+		!strings.HasSuffix(got.Alternatives[1], "@safe") || got.Taken != 1 {
+		t.Fatalf("choice = %s, want failing and safe as the alternatives, safe taken first", got)
+	}
+}
+
 // Two tokens writing one feature in one step is a choice point naming both
 // writes and the one that stood, whether or not the values differ: which
 // performance wrote last is the executor's order either way.

@@ -145,16 +145,15 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 
 // stepTokenNoting steps the token at index i and notes it in order when it did
 // something it could have done first (not parked, and not enabled by this step).
+// A step that fails was still the token's turn, so the order taken is complete.
 func (e *ActionExecutor) stepTokenNoting(i int, order *stepOrder) error {
 	before := e.tokens[i]
 	count := len(e.tokens)
-	if err := e.stepToken(i); err != nil {
-		return err
-	}
-	if order.eligible(before) && e.tokenActed(before, count) {
+	err := e.stepToken(i)
+	if order.eligible(before) && (err != nil || e.tokenActed(before, count)) {
 		order.acted = append(order.acted, before)
 	}
-	return nil
+	return err
 }
 
 // eligible reports whether the token could have gone first in the step and is

@@ -58,8 +58,9 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, nil
 	}
 
-	candidates, err := e.selectCandidates(func(state *ast.StateNode) (*lower.Transition, error) {
-		return e.risenChangeTransition(state, poll)
+	candidates, err := e.selectCandidates(func(state *ast.StateNode) (*lower.Transition, []RunNote, error) {
+		trans, err := e.risenChangeTransition(state, poll)
+		return trans, nil, err
 	})
 	if err != nil {
 		e.changeWaits = poll.waits

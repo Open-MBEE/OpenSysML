@@ -242,12 +242,6 @@ func (e *ActionExecutor) Step() error {
 		tokenLocationsBefore[i] = t.Location
 	}
 
-	// Collect token indices to step (snapshot before iteration)
-	tokenIndices := make([]int, len(e.tokens))
-	for i := range e.tokens {
-		tokenIndices[i] = i
-	}
-
 	// The tokens a breakpoint left paused resume last, the longest paused first,
 	// once every other token has had its step: one pausing again and again does
 	// not hold the rest back.
@@ -258,32 +252,13 @@ func (e *ActionExecutor) Step() error {
 	order := e.beginStepOrder()
 	defer e.beginStepWrites(e.stepCount + 1)()
 
-	// Step tokens in reverse order to handle removal safely
-	// (removing token at higher index doesn't affect lower indices)
-	for i := len(tokenIndices) - 1; i >= 0 && e.state != StateSuspended; i-- {
-		// Check if token still exists (may have been removed by join/final)
-		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
-			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
-			continue
-		}
-
-		if err := e.stepTokenNoting(i, &order); err != nil {
-			e.endPausedBodies()
-			return err
-		}
-	}
-	for _, id := range paused {
-		if e.state == StateSuspended {
-			break
-		}
-		if i := e.tokenIndex(id); i >= 0 {
-			if err := e.stepTokenNoting(i, &order); err != nil {
-				e.endPausedBodies()
-				return err
-			}
-		}
-	}
+	err := e.stepTokens(len(e.tokens), paused, &order)
+	// The order the tokens took is a fact of the step whether or not it failed.
 	e.noteTokenOrder(e.stepCount+1, order)
+	if err != nil {
+		e.endPausedBodies()
+		return err
+	}
 
 	// A step a breakpoint ends leaves every other token where it was, yet the run
 	// went on.
@@ -1120,6 +1095,33 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 		return false
 	}
 	return result.Const.Bool
+}
+
+// stepTokens gives each of the first count tokens its step, highest index first
+// so a removal leaves the lower indices in place, then the tokens a breakpoint
+// left paused; a breakpoint reached on the way ends the sweep.
+func (e *ActionExecutor) stepTokens(count int, paused []int64, order *stepOrder) error {
+	for i := count - 1; i >= 0 && e.state != StateSuspended; i-- {
+		// The token may have been removed by a join or final node.
+		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
+			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
+			continue
+		}
+		if err := e.stepTokenNoting(i, order); err != nil {
+			return err
+		}
+	}
+	for _, id := range paused {
+		if e.state == StateSuspended {
+			break
+		}
+		if i := e.tokenIndex(id); i >= 0 {
+			if err := e.stepTokenNoting(i, order); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // stepInitialNode advances token from initial node to successors.

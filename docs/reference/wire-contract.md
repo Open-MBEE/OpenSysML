@@ -776,8 +776,10 @@ time it is entered, so a state entered twice appears twice. `diagnostics` carrie
 entry for each event that enabled several transitions out of one state, located at the
 transition taken, as `ExecuteAction`'s does for its steps, and a `guard not evaluable: <state> on
 <trigger>: transition <n>-><target>: <failure> (not selected)` entry for a transition after the
-first enabled one whose guard it could not evaluate in its preview; a transition on a substate
-beating one on the state enclosing it is spec-defined order and is not reported. For `state def Hub { entry;
+first enabled one whose guard it could not evaluate in its preview. Both belong to the transition
+that fires: a transition out of a parallel state that several of its regions select is one entry,
+and a transition on a substate beating one on the state enclosing it is spec-defined order, so
+nothing about the beaten state's transitions is reported. For `state def Hub { entry;
 then Idle; state Idle; state A; state B; transition first Idle accept Go then A; transition first
 Idle accept Go then B; }` in the same document:
 

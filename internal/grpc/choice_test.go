@@ -103,6 +103,56 @@ package Test {
 	}
 }
 
+// A run that fails in a step one token had already taken reports the order the
+// two tokens went in alongside the error: the failure may depend on that order.
+func TestExecuteAction_ChoicePointDiagnosticsOnFailure(t *testing.T) {
+	srv := mustNewService(t, 10)
+
+	content := `
+package Test {
+  action race {
+    attribute x : Integer = 0;
+    attribute n : Integer = 0;
+    first start;
+    fork split;
+    action safe { assign x := 1; }
+    action failing { assign x := 1 / n; }
+    join sync;
+    done;
+    succession first start then split;
+    succession first split then failing;
+    succession first split then safe;
+    succession first safe then sync;
+    succession first failing then sync;
+    succession first sync then done;
+  }
+}
+`
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: content},
+		ContentHash: "test-execute-action-choices-on-failure",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+
+	resp, err := srv.ExecuteAction(context.Background(), &pb.ExecuteActionRequest{
+		ModelHash:      parseResp.ModelHash,
+		ActionSymbolId: "Test::race",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction failed: %v", err)
+	}
+	if !strings.Contains(resp.Error, "division by zero") {
+		t.Fatalf("error = %q, want the failing token's error", resp.Error)
+	}
+	choices := choiceDiagnostics(resp.Diagnostics)
+	want := "choice point: step 3: tokens 2@failing, 3@safe (unordered; took 3@safe first)"
+	if len(choices) != 1 || choices[0].Message != want || choices[0].Severity != "info" {
+		t.Fatalf("choice diagnostics = %v, want one info %q", choices, want)
+	}
+}
+
 // An analysis whose performed action forked reports the order the executor
 // took among the branches and between their writes, with the case's outputs.
 func TestRunAnalysis_ChoicePointDiagnostics(t *testing.T) {
