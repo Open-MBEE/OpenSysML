@@ -78,8 +78,8 @@ func (ec *EvalContext) functionValueOf(sym *symbols.Symbol) (Value, error) {
 	}
 	fn := &functionValue{shape: shape, scope: ec.scope, self: ec.self}
 	fn.library, _ = ec.ctx.libraryFunctionFor(sym)
-	if len(ec.frames) > 0 && shape.closesOverBody() {
-		fn.enclosing = ec.closure().frames
+	if shape.closesOverBody() {
+		fn.enclosing = snapshotFrames(ec.enclosingRun(shape))
 	}
 	return Value{Kind: ValFunction, ref: fn}, nil
 }

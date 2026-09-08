@@ -367,6 +367,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("function_value_of_a_built_in", testFunctionValueOfABuiltIn)
 	t.Run("function_value_applied_to_itself_forever", testFunctionValueAppliedToItselfForever)
 	t.Run("function_value_inherited_body_outside_the_closure", testFunctionValueInheritedBodyOutsideTheClosure)
+	t.Run("function_value_nested_calc_outside_its_run", testFunctionValueNestedCalcOutsideItsRun)
 }
 
 func testBindingConflict(t *testing.T) {
@@ -11405,6 +11406,23 @@ func testFunctionValueInheritedBodyOutsideTheClosure(t *testing.T) {
 		err := invokeCalcExpecting(t, src, expr)
 		if !errors.Is(err, ErrNoValue) && !errors.Is(err, ErrUnresolvedReference) {
 			t.Fatalf("%s: error = %v, want k unresolved in Leaky's body", expr, err)
+		}
+	}
+}
+
+// testFunctionValueNestedCalcOutsideItsRun: a calc nested in another calc's body
+// closes over a run of that calc alone; applied from a calc that binds the same
+// parameter name while no such run is active, it reads no binding of the caller's.
+func testFunctionValueNestedCalcOutsideItsRun(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Outer { in k : Real; calc inner { in v : Real; return : Real = v * k; } return : Real = inner(1.0); }
+		calc def Called { in k : Real; return : Real = Outer::inner(2.0); }
+		calc def Passed { in k : Real; return : Real = Fn(Outer::inner, 2.0); }
+	}`
+	for _, expr := range []string{"test::Called(3.0)", "test::Passed(3.0)"} {
+		err := invokeCalcExpecting(t, src, expr)
+		if !errors.Is(err, ErrNoValue) && !errors.Is(err, ErrUnresolvedReference) {
+			t.Fatalf("%s: error = %v, want k unresolved in inner's body", expr, err)
 		}
 	}
 }

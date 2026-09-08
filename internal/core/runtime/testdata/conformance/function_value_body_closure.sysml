@@ -23,5 +23,13 @@ package test {
 	calc def Mul { in a : Real; in b : Real; return : Real = a * b; }
 	calc def Fixer { in k : Real; calc byK : Mul { in :>> b = k; } return : Mul = byK; }
 	calc def ApplyOne { in calc f { in a : Real; return : Real; } in a : Real; return : Real = f(a); }
-	calc def UseOuter { return : Real = Outer(3.0) + Outer(4.0) + Bare(5.0) + Fn(Maker(10.0), 2.0) + ApplyOne(Fixer(10.0), 4.0); }
+	// A nested calc reads the run of the calc it is declared in, not the caller
+	// between them, even where that caller binds the same name.
+	calc def Shadowed {
+		in k : Real;
+		calc inner { in x : Real; return : Real = x * k; }
+		calc wrap { in k : Real; return : Real = inner(1.0) + Fn(inner, 1.0) + k; }
+		return : Real = wrap(100.0);
+	}
+	calc def UseOuter { return : Real = Outer(3.0) + Outer(4.0) + Bare(5.0) + Fn(Maker(10.0), 2.0) + ApplyOne(Fixer(10.0), 4.0) + Shadowed(3.0); }
 }

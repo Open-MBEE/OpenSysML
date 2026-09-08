@@ -273,11 +273,19 @@ func (shape *calcShape) memberName(ctx *Context, sym *symbols.Symbol) (string, b
 // qualifiedBy reports whether a name qualified by qualifier (`MassCase::result`,
 // `Cases::Case::result`) denotes this calc's run: the calc itself or one it specializes.
 func (shape *calcShape) qualifiedBy(ctx *Context, qualifier *symbols.Symbol) bool {
-	if qualifier == shape.Sym {
+	return ctx.isOrSpecializes(shape.Sym, qualifier)
+}
+
+// isOrSpecializes reports sym being general, or inheriting its members from it.
+func (ctx *Context) isOrSpecializes(sym, general *symbols.Symbol) bool {
+	if sym == nil || general == nil {
+		return false
+	}
+	if sym == general {
 		return true
 	}
-	for _, general := range ctx.model.MemberSources(shape.Sym) {
-		if general == qualifier {
+	for _, source := range ctx.model.MemberSources(sym) {
+		if source == general {
 			return true
 		}
 	}
@@ -661,8 +669,13 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 // members or in a body-local block of it, which declares no owner of its own —
 // rather than in a part or a package, whose members hold no running values.
 func enclosedByBehaviorBody(sym *symbols.Symbol) bool {
-	owner := enclosingBehavior(sym)
-	return isCalcSymbol(owner) || isActionSymbol(owner) || isStateSymbol(owner)
+	return holdsRunningValues(enclosingBehavior(sym))
+}
+
+// holdsRunningValues reports a behavior whose runs bind values: a calc, an action
+// or a state machine.
+func holdsRunningValues(sym *symbols.Symbol) bool {
+	return isCalcSymbol(sym) || isActionSymbol(sym) || isStateSymbol(sym)
 }
 
 // bodyEnclosing is the part of enclosing, the bindings of the behavior body the
@@ -673,6 +686,20 @@ func (shape *calcShape) bodyEnclosing(enclosing []frame) []frame {
 		return nil
 	}
 	return enclosing
+}
+
+// runOf is the environment of the innermost run of behavior among frames: the
+// frames through the one holding that run; nil when none of them does.
+func runOf(ctx *Context, frames []frame, behavior *symbols.Symbol) []frame {
+	if !holdsRunningValues(behavior) {
+		return nil
+	}
+	for i := len(frames) - 1; i >= 0; i-- {
+		if frames[i].runs(ctx, behavior) {
+			return frames[:i+1]
+		}
+	}
+	return nil
 }
 
 // closesOverBody reports the calc reading the bindings of the behavior body it is
@@ -734,7 +761,7 @@ func (ctx *Context) runCalcUsage(
 	// an invocation of it does.
 	var enclosing []frame
 	if nested != nil {
-		enclosing = shape.bodyEnclosing(nested.frames)
+		enclosing = shape.bodyEnclosing(nested.enclosingRun(shape))
 	}
 	engine := newStmtEngineIn(ctx, host, env, enclosing)
 	host.attachPerformances(engine)

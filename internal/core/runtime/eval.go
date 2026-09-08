@@ -134,12 +134,20 @@ func (ec *EvalContext) nestedEnv(scope *symbols.Scope) *EvalContext {
 // are copied since an invocation's frame storage is reused once it returns, and
 // the calc evaluation whose outputs it may name is detached from that storage.
 func (ec *EvalContext) closure() *EvalContext {
-	frames := make([]frame, len(ec.frames))
-	for i, f := range ec.frames {
-		frames[i] = f.snapshot()
-	}
-	out := ec.over(ec.scope, frames)
+	out := ec.over(ec.scope, snapshotFrames(ec.frames))
 	out.calcRun = ec.calcRun.detached()
+	return out
+}
+
+// snapshotFrames copies the bindings of frames, which their runs may reuse or drop.
+func snapshotFrames(frames []frame) []frame {
+	if len(frames) == 0 {
+		return nil
+	}
+	out := make([]frame, len(frames))
+	for i, f := range frames {
+		out[i] = f.snapshot()
+	}
 	return out
 }
 
@@ -2254,7 +2262,6 @@ type invocationTarget struct {
 	builtinName string            // the built-in's registered name, keying its declared signature
 	library     *libraryFunction  // the library function the name denotes: the library declaration calc is
 	shape       *calcShape        // calc's invocation interface, nil when it has none
-	enclosed    bool              // calc is declared in a behavior body, whose bindings it reads
 	names       []string          // the parameter each named argument binds, as calc's signature spells it
 	unbound     []error           // per named argument, why calc has no parameter for it; nil when it binds
 }
@@ -2324,7 +2331,6 @@ func (ctx *Context) implementInvocation(target *invocationTarget, sym *symbols.S
 		target.library = fn
 	} else if shape, err := ctx.calcShapeOf(sym); err == nil {
 		target.shape = shape
-		target.enclosed = enclosedByBehaviorBody(sym)
 	}
 }
 
@@ -2396,7 +2402,7 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	// A calc bound by position alone consumes its arguments within the call, so
 	// they live on the context's argument stack rather than in a slice of their own.
 	if target.shape != nil && len(n.NamedArgs) == 0 {
-		return ec.invokeCalcShapeStacked(target.shape, exprs, ec.enclosingFor(target))
+		return ec.invokeCalcShapeStacked(target.shape, exprs, ec.enclosingRun(target.shape))
 	}
 	// A built-in binds its arguments by its declared signature.
 	if target.builtin != nil {
@@ -2422,16 +2428,13 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	if target.shape == nil {
 		return ec.ctx.invokeCalcWithSelf(target.calc, callArgs, ec.scope, ec.self)
 	}
-	return ec.ctx.invokeCalcShapeIn(target.shape, callArgs, ec.scope, ec.self, ec.enclosingFor(target))
+	return ec.ctx.invokeCalcShapeIn(target.shape, callArgs, ec.scope, ec.self, ec.enclosingRun(target.shape))
 }
 
-// enclosingFor is the environment a call of target runs under: this one's bindings
-// for a calc declared in the body being evaluated, none for any other.
-func (ec *EvalContext) enclosingFor(target *invocationTarget) []frame {
-	if !target.enclosed {
-		return nil
-	}
-	return ec.frames
+// enclosingRun is the environment a nested calc closes over here: the frames through
+// the innermost run of the behavior it is declared in, none when no such run is active.
+func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
+	return runOf(ec.ctx, ec.frames, enclosingBehavior(shape.Sym))
 }
 
 // evalChainInvocation applies the function value a feature chain denotes to the

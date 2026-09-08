@@ -1,5 +1,7 @@
 package runtime
 
+import "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+
 // frame is one level of local bindings an evaluation reads: a calc invocation's
 // parameter slots, a map of named values, or both.
 type frame struct {
@@ -51,6 +53,18 @@ func mapFrame(vars map[string]Value) frame {
 // ownedFrame is a frame holding the values a run of owner bound, by name.
 func ownedFrame(owner *calcShape, vars map[string]Value) frame {
 	return frame{vars: vars, owner: owner}
+}
+
+// runs reports whether the frame holds a run of behavior: an invocation or usage of
+// that calc or one specializing it, or a performance of that action or one typed by it.
+func (f frame) runs(ctx *Context, behavior *symbols.Symbol) bool {
+	if f.owner != nil {
+		return f.owner.qualifiedBy(ctx, behavior)
+	}
+	if f.perf != nil && f.perf.scope != nil {
+		return ctx.isOrSpecializes(f.perf.scope.Owner(), behavior)
+	}
+	return false
 }
 
 // withVars is the frame holding vars in place of its own, still answering for
