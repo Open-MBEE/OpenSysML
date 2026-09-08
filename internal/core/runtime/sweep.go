@@ -492,14 +492,36 @@ func (b sweepBounds) count() uint64 {
 		}
 		return span/b.intStepMagnitude() + 1
 	}
-	steps := math.Floor((b.endLimit() - b.from) / b.step)
-	if !(steps > 0) {
-		return 1
-	}
+	steps := math.Floor((b.to - b.from) / b.step)
 	if steps >= math.MaxInt64 {
 		return math.MaxInt64
 	}
-	return uint64(steps) + 1
+	if !(steps > 0) {
+		return 1
+	}
+	// The quotient rounds either way, so the value the last step reaches decides.
+	n := uint64(steps)
+	switch {
+	case b.within(n + 1):
+		n++
+	case !b.within(n):
+		n--
+	}
+	return n + 1
+}
+
+// within reports whether the value the given number of steps from the start
+// stays within the range's end, allowing a step landing on it to drift there.
+func (b sweepBounds) within(steps uint64) bool {
+	value := b.from + float64(steps)*b.step
+	if math.IsInf(value, 0) {
+		return false
+	}
+	slack := math.Min(1e-12*math.Max(math.Abs(b.to), math.Abs(value)), math.Abs(b.step)/2)
+	if b.step > 0 {
+		return value <= b.to+slack
+	}
+	return value >= b.to-slack
 }
 
 // at is the range's value the given number of steps from its start. An Integer
@@ -534,17 +556,6 @@ func unsignedInt(n int64) uint64 {
 func signedInt(n uint64) int64 {
 	// #nosec G115 -- the two's-complement image is the value meant, not an overflow.
 	return int64(n)
-}
-
-// endLimit is how far a real range's values reach: its end, allowed the
-// rounding error a step landing on it drifts by but never part of a step.
-func (b sweepBounds) endLimit() float64 {
-	slack := math.Min(1e-12*math.Max(math.Abs(b.to), math.Abs(b.step)), math.Abs(b.step)/2)
-	limit := b.to + math.Copysign(slack, b.step)
-	if math.IsInf(limit, 0) {
-		return b.to
-	}
-	return limit
 }
 
 // draw is one uniform value of a sampled range: an Integer range draws over its
