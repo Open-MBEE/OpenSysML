@@ -22,6 +22,8 @@ export const CAPABILITY_COMPLEX_VALUES = "complex_values";
 export const CAPABILITY_STRUCTURED_VALUES = "structured_values";
 /** A bare measurement unit (`SI::m`, `m / s`) as `Value.measurement_ref`, rather than an unsupported null. */
 export const CAPABILITY_MEASUREMENT_REFS = "measurement_refs";
+/** The unbounded value `*` as `Value.infinity`, rather than an unsupported null. */
+export const CAPABILITY_INFINITY_VALUE = "infinity_value";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

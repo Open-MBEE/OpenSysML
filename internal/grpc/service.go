@@ -109,6 +109,10 @@ const CapabilityMeasurementRefs = "measurement_refs"
 // verification case through RunAnalysis.
 const CapabilityVerificationVerdicts = "verification_verdicts"
 
+// CapabilityInfinityValue names the capability of carrying the unbounded value
+// `*` as Value.infinity, rather than reporting it as an unsupported null.
+const CapabilityInfinityValue = "infinity_value"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -119,6 +123,7 @@ var capabilities = []string{
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityVerificationVerdicts,
+	CapabilityInfinityValue,
 }
 
 type capabilityAvailability struct {
@@ -269,7 +274,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesMeasurementRef(pv) {
-		return s.requireCapability(CapabilityMeasurementRefs)
+		if err := s.requireCapability(CapabilityMeasurementRefs); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesInfinity(pv) {
+		return s.requireCapability(CapabilityInfinityValue)
 	}
 	return nil
 }

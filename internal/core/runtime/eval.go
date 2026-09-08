@@ -274,6 +274,10 @@ func (ec *EvalContext) eval(node ast.Node) (Value, error) {
 		return ec.evalLiteralBool(n)
 	case *ast.LiteralString:
 		return ec.evalLiteralString(n)
+	case *ast.LiteralInfinity:
+		return ec.evalLiteralInfinity(n)
+	case *ast.MetadataAccessExpr:
+		return ec.evalMetadataAccess(n)
 	case *ast.NullExpr:
 		return ec.evalNull(n)
 	case *ast.FeatureReference:
@@ -397,6 +401,12 @@ func (ec *EvalContext) evalLiteralString(n *ast.LiteralString) (Value, error) {
 }
 
 // evalNull evaluates a null expression.
+// evalLiteralInfinity evaluates `*`, the unbounded value: a scalar constant of
+// its own, ordered above every finite number and refused by arithmetic.
+func (ec *EvalContext) evalLiteralInfinity(_ *ast.LiteralInfinity) (Value, error) {
+	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInfinity}}, nil
+}
+
 func (ec *EvalContext) evalNull(n *ast.NullExpr) (Value, error) {
 	return Value{Kind: ValNull}, nil
 }
@@ -1112,12 +1122,18 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 	default:
+		if err := metadataOfAValue(value, parts); err != nil {
+			return Value{}, err
+		}
 		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
 	}
 
 	// A selected variant is chained through the object it materialized.
 	id, isObject := value.Object()
 	if !isObject {
+		if err := metadataOfAValue(value, parts); err != nil {
+			return Value{}, err
+		}
 		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
 	}
 	inst, ok := ec.ctx.instances[id]
@@ -1462,6 +1478,12 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 			name = "Real"
 		case semantics.ValBool:
 			name = "Boolean"
+		case semantics.ValInfinity:
+			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
+			if positive := ctx.librarySymbol(positiveTypeFQN); positive != nil {
+				return positive, nil
+			}
+			return nil, fmt.Errorf("%w: direct type %q", ErrUndeterminedValueType, positiveTypeFQN)
 		default:
 			return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
 		}
@@ -1784,6 +1806,13 @@ func arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) 
 // evaluator and the compiled calc tier share so both report the same results
 // and the same errors.
 func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantics.Value, error) {
+	// The unbounded `*` is no number: arithmetic over it is refused rather than
+	// answered with a finite result or an infinity.
+	if left.IsUnbounded() || right.IsUnbounded() {
+		return semantics.Value{}, fmt.Errorf("%w: operator '%s' is not defined for the unbounded value '*': %s %s %s",
+			ErrTypeMismatch, op, semantics.FormatConst(left), op, semantics.FormatConst(right))
+	}
+
 	// Exponentiation shares the folder's implementation, so a folded and an
 	// evaluated `**` agree; the folder declines where this reports the error.
 	if op == ast.OpPow {
@@ -1958,6 +1987,20 @@ func comparisonValues(op ast.OperatorKind, left, right Value, span source.Span) 
 // constComparison orders two scalar constants, the core the evaluator and the
 // compiled calc tier share.
 func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, error) {
+	// The unbounded `*` orders above every finite number and equals itself.
+	if left.IsUnbounded() || right.IsUnbounded() {
+		order, ok := semantics.UnboundedOrder(left, right)
+		if !ok {
+			return false, fmt.Errorf("%w: '%s' is not defined between %s and %s",
+				ErrTypeMismatch, op, semantics.FormatConst(left), semantics.FormatConst(right))
+		}
+		res, ok := semantics.OrderSatisfies(op, order)
+		if !ok {
+			return false, fmt.Errorf("unknown comparison operator: %v", op)
+		}
+		return res, nil
+	}
+
 	// Compare integers
 	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
 		switch op {

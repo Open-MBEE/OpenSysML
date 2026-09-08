@@ -184,6 +184,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("operation_of_a_destroyed_object", testOperationOfADestroyedObject)
 	t.Run("structured_attribute_chain_of_an_unknown_feature", testStructuredAttributeChainOfAnUnknownFeature)
 	t.Run("elements_chain_of_a_non_numeric_collection", testElementsChainOfANonNumericCollection)
+	t.Run("arithmetic_over_the_unbounded_value", testArithmeticOverTheUnboundedValue)
+	t.Run("unbounded_value_compared_with_a_string", testUnboundedValueComparedWithAString)
+	t.Run("metadata_of_a_value", testMetadataOfAValue)
+	t.Run("metadata_of_an_unresolved_name", testMetadataOfAnUnresolvedName)
 	t.Run("constraint_missing_feature", testConstraintMissingFeature)
 	t.Run("nested_condition_subject_is_ambiguous", testNestedConditionSubjectIsAmbiguous)
 	t.Run("satisfaction_subject_is_ambiguous", testSatisfactionSubjectIsAmbiguous)
@@ -11578,5 +11582,43 @@ func testVerificationWithAnArgumentTheCaseDoesNotTake(t *testing.T) {
 	_, err := ctx.RunVerification(lookupOne(t, idx, "test::stepping"), args, scope, nil)
 	if !errors.Is(err, ErrUnknownParameter) {
 		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	}
+}
+
+// testArithmeticOverTheUnboundedValue: `*` is no number, so arithmetic over it
+// fails with a typed error naming the operation.
+func testArithmeticOverTheUnboundedValue(t *testing.T) {
+	for _, expr := range []string{"* + 1", "1 - *", "2 * *", "* / 2", "* % 2", "* ** 2", "-*", "+*"} {
+		_, _, err := evalDeclaredExpr(t, "package test {}", expr)
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)
+		}
+	}
+}
+
+// testUnboundedValueComparedWithAString: nothing orders `*` against a string.
+func testUnboundedValueComparedWithAString(t *testing.T) {
+	_, _, err := evalDeclaredExpr(t, "package test {}", `* > "a"`)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("error = %v, want ErrTypeMismatch", err)
+	}
+}
+
+// testMetadataOfAValue: only an element carries metadata, so reading it from a
+// scalar fails rather than answering with the empty sequence.
+func testMetadataOfAValue(t *testing.T) {
+	for _, expr := range []string{"1.metadata", `"abc".metadata`} {
+		_, _, err := evalDeclaredExpr(t, "package test {}", expr)
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)
+		}
+	}
+}
+
+// testMetadataOfAnUnresolvedName: a name that names no element is refused.
+func testMetadataOfAnUnresolvedName(t *testing.T) {
+	_, _, err := evalDeclaredExpr(t, "package test {}", "test::missing.metadata")
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("error = %v, want ErrUnresolvedReference", err)
 	}
 }

@@ -376,7 +376,7 @@ func formatQueryValue(value queryexec.Value) string {
 		return strconv.FormatBool(boolean)
 	}
 	if value.Kind() == queryexec.ValueInfinity {
-		return "∞"
+		return "*"
 	}
 	if quantity, ok := value.Quantity(); ok {
 		return quantity.String()

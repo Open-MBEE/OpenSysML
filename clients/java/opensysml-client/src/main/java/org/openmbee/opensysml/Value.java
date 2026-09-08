@@ -68,6 +68,14 @@ public sealed interface Value {
   record UnsetValue() implements Value {}
 
   /**
+   * The unbounded value {@code *}: no number, ordered above every finite magnitude.
+   *
+   * <p>Only a service advertising the {@code infinity_value} capability reports it as itself rather
+   * than as an unsupported {@link NullValue}.
+   */
+  record InfinityValue() implements Value {}
+
+  /**
    * A reference to a runtime instance, by the id the service assigned it.
    *
    * @param instanceId id of the referenced instance

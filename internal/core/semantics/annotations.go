@@ -123,6 +123,89 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	return out
 }
 
+// MetadataBinding is one feature an annotation body binds: the value it is bound
+// to, if any, and the bindings its own body nests under it.
+type MetadataBinding struct {
+	Feature string
+	Value   ast.Node
+	// Scope is where the value resolves names: the body's own scope, which sees
+	// the metadata type's members before those around the annotated element.
+	Scope  *symbols.Scope
+	Nested []MetadataBinding
+}
+
+// ElementMetadata is one metadata annotation of an element as `.metadata` reads
+// it: the metadata type to materialize and the values its body binds. Values
+// the body leaves unbound come from the type's own declarations.
+type ElementMetadata struct {
+	Type *symbols.Symbol
+	Node ast.Node
+	// Doc is the document stating the annotation, which an `about` form states
+	// away from the element it annotates.
+	Doc      string
+	About    bool
+	Bindings []MetadataBinding
+}
+
+// ElementMetadataOf returns the metadata annotating sym, inline annotations
+// first and `about`-form ones after, each in declaration order — the same side
+// table an element filter classifies by.
+func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
+	var out []ElementMetadata
+	for _, a := range m.annotationsOf(sym) {
+		if a.typ == nil || a.node == nil {
+			continue
+		}
+		out = append(out, ElementMetadata{
+			Type:     a.typ,
+			Node:     a.node,
+			Doc:      symbols.DocNameOf(a.scope),
+			About:    a.about,
+			Bindings: metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)),
+		})
+	}
+	return out
+}
+
+// metadataBody is the body an annotation node binds feature values in.
+func metadataBody(node ast.Node) []ast.Node {
+	switch n := node.(type) {
+	case *ast.PrefixMetadata:
+		return n.Body
+	case *ast.Usage:
+		return n.Members
+	default:
+		return nil
+	}
+}
+
+// metadataBindings is the features an annotation body binds, in declaration
+// order, each with the bindings its own body states under it.
+func metadataBindings(scope *symbols.Scope, body []ast.Node) []MetadataBinding {
+	var out []MetadataBinding
+	for _, member := range body {
+		usage := metadataBodyFeature(member)
+		if usage == nil {
+			continue
+		}
+		name := redefinedFeatureName(usage)
+		if name == "" {
+			continue
+		}
+		nested := metadataBindings(valueScope(scope, usage), usage.Members)
+		if usage.Value == nil && len(nested) == 0 {
+			continue
+		}
+		out = append(out, MetadataBinding{
+			Feature: name,
+			Value:   usage.Value,
+			Scope:   scope,
+			Nested:  nested,
+		})
+	}
+	return out
+}
+
 // sortedFeatureNames orders an annotation's bound features by name, so that what
 // is reported does not depend on map iteration order.
 func sortedFeatureNames(values map[string]symbols.FilterValue) []string {
@@ -266,7 +349,15 @@ func bodyScope(_ *ast.Usage, declared *symbols.Scope) *symbols.Scope { return de
 // aboutAnnotations returns the annotations that `metadata m about sym;`
 // declarations elsewhere in the workspace state about sym.
 func (m *Model) aboutAnnotations(sym *symbols.Symbol) []annotation {
-	return m.annotationsAbout()[sym]
+	if out, ok := m.annotationsAbout()[sym]; ok {
+		return out
+	}
+	// The caller may hold a symbol re-indexed from the same declaration as the
+	// one indexed here, which the declaration identifies across both trees.
+	if sym.Decl == nil {
+		return nil
+	}
+	return m.aboutByDecl[sym.Decl]
 }
 
 // AboutAnnotatedSymbols returns every element an `about` metadata usage
@@ -286,6 +377,7 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 		return m.aboutAnnots
 	}
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
+	m.aboutByDecl = make(map[ast.Node][]annotation)
 	idx := m.resolver.Index()
 	if idx == nil {
 		return m.aboutAnnots
@@ -345,6 +437,9 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 			m.aboutOrder = append(m.aboutOrder, target)
 		}
 		m.aboutAnnots[target] = append(m.aboutAnnots[target], a)
+		if target.Decl != nil {
+			m.aboutByDecl[target.Decl] = append(m.aboutByDecl[target.Decl], a)
+		}
 	}
 }
 
@@ -400,6 +495,20 @@ func boundFeatureName(u *ast.Usage) string {
 	if u.Ident.Name != "" {
 		return u.Ident.Name
 	}
+	return redefinitionTargetName(u)
+}
+
+// redefinedFeatureName is the metadata feature a body member writes to: the one
+// it redefines, which a name of its own renames rather than replaces.
+func redefinedFeatureName(u *ast.Usage) string {
+	if name := redefinitionTargetName(u); name != "" {
+		return name
+	}
+	return u.Ident.Name
+}
+
+// redefinitionTargetName is the feature a `:>> f` clause names, or "".
+func redefinitionTargetName(u *ast.Usage) string {
 	for _, rel := range u.Relationships {
 		if rel == nil || rel.Kind != ast.RelRedefines {
 			continue

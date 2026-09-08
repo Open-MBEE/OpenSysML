@@ -59,6 +59,8 @@ final class Rendering {
       builder.setNull("");
     } else if (value instanceof Value.UnsetValue) {
       builder.setUnset(true);
+    } else if (value instanceof Value.InfinityValue) {
+      builder.setInfinity(true);
     } else if (value instanceof Value.QuantityValue quantity) {
       builder.setQuantity(quantity(quantity.quantity()));
     } else if (value instanceof Value.EnumerationValue literal) {

@@ -321,5 +321,28 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.MeasurementRefOrBuilder getMeasurementRefOrBuilder();
 
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return Whether the infinity field is set.
+   */
+  boolean hasInfinity();
+  /**
+   * <pre>
+   * The unbounded value `*`, which is no number and no string: ordered above
+   * every finite magnitude and refused by arithmetic. Always true when set,
+   * as DocumentValue.infinity is.
+   * </pre>
+   *
+   * <code>bool infinity = 16 [json_name = "infinity"];</code>
+   * @return The infinity.
+   */
+  boolean getInfinity();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

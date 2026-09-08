@@ -17,7 +17,7 @@ from typing import Sequence, Union
 
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
-from opensysml.values import Quantity
+from opensysml.values import INFINITY, Quantity, _Infinity
 
 
 class DocumentQueryError(OpenSysMLError, ValueError):
@@ -40,17 +40,6 @@ class ElementRef:
     def __str__(self):
         return f"{self.id} ({self.type})" if self.type else self.id
 
-
-class _Infinity:
-    """The unbounded multiplicity a query may answer with."""
-
-    def __repr__(self):
-        return "INFINITY"
-
-
-#: An unbounded multiplicity in an answered cell. Only ever answered: binding
-#: it is refused by the service.
-INFINITY = _Infinity()
 
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[ElementRef, str, int, float, bool, Quantity, _Infinity]

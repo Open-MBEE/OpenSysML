@@ -3888,6 +3888,7 @@ type Value struct {
 	//	*Value_Vector
 	//	*Value_VectorQuantity
 	//	*Value_MeasurementRef
+	//	*Value_Infinity
 	Kind          isValue_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4065,6 +4066,15 @@ func (x *Value) GetMeasurementRef() *MeasurementRef {
 	return nil
 }
 
+func (x *Value) GetInfinity() bool {
+	if x != nil {
+		if x, ok := x.Kind.(*Value_Infinity); ok {
+			return x.Infinity
+		}
+	}
+	return false
+}
+
 type isValue_Kind interface {
 	isValue_Kind()
 }
@@ -4131,6 +4141,13 @@ type Value_MeasurementRef struct {
 	MeasurementRef *MeasurementRef `protobuf:"bytes,15,opt,name=measurement_ref,json=measurementRef,proto3,oneof"` // a unit by itself, no magnitude
 }
 
+type Value_Infinity struct {
+	// The unbounded value `*`, which is no number and no string: ordered above
+	// every finite magnitude and refused by arithmetic. Always true when set,
+	// as DocumentValue.infinity is.
+	Infinity bool `protobuf:"varint,16,opt,name=infinity,proto3,oneof"`
+}
+
 func (*Value_IntValue) isValue_Kind() {}
 
 func (*Value_RealValue) isValue_Kind() {}
@@ -4160,6 +4177,8 @@ func (*Value_Vector) isValue_Kind() {}
 func (*Value_VectorQuantity) isValue_Kind() {}
 
 func (*Value_MeasurementRef) isValue_Kind() {}
+
+func (*Value_Infinity) isValue_Kind() {}
 
 // Array is a Collections::Array: its elements flattened in row-major order
 // under its dimensions, compared by content rather than by the object read.
@@ -6813,7 +6832,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\"\n" +
 	"\x05value\x18\x03 \x01(\v2\f.sysml.ValueR\x05value\x12\x12\n" +
-	"\x04unit\x18\x04 \x01(\tR\x04unit\"\x81\x05\n" +
+	"\x04unit\x18\x04 \x01(\tR\x04unit\"\x9f\x05\n" +
 	"\x05Value\x12\x1d\n" +
 	"\tint_value\x18\x01 \x01(\x03H\x00R\bintValue\x12\x1f\n" +
 	"\n" +
@@ -6833,7 +6852,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05array\x18\f \x01(\v2\f.sysml.ArrayH\x00R\x05array\x12'\n" +
 	"\x06vector\x18\r \x01(\v2\r.sysml.VectorH\x00R\x06vector\x12@\n" +
 	"\x0fvector_quantity\x18\x0e \x01(\v2\x15.sysml.VectorQuantityH\x00R\x0evectorQuantity\x12@\n" +
-	"\x0fmeasurement_ref\x18\x0f \x01(\v2\x15.sysml.MeasurementRefH\x00R\x0emeasurementRefB\x06\n" +
+	"\x0fmeasurement_ref\x18\x0f \x01(\v2\x15.sysml.MeasurementRefH\x00R\x0emeasurementRef\x12\x1c\n" +
+	"\binfinity\x18\x10 \x01(\bH\x00R\binfinityB\x06\n" +
 	"\x04kind\"Q\n" +
 	"\x05Array\x12\x1e\n" +
 	"\n" +
@@ -7373,6 +7393,7 @@ func file_sysml_proto_init() {
 		(*Value_Vector)(nil),
 		(*Value_VectorQuantity)(nil),
 		(*Value_MeasurementRef)(nil),
+		(*Value_Infinity)(nil),
 	}
 	file_sysml_proto_msgTypes[54].OneofWrappers = []any{
 		(*Quantity_IntMagnitude)(nil),
