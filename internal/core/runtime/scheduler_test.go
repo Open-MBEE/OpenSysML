@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -365,6 +366,89 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 			_, visited, err := ctx.ExecuteStateWithEvents(sym, tc.events)
 			if err != nil {
 				t.Fatalf("%s %s: %v", tc.name, policy, err)
+			}
+			choices := ctx.Choices()
+			if len(choices) != 2 {
+				t.Fatalf("%s %s: choices = %v, want one out of busy and one after it (visited %v)",
+					tc.name, policy, choices, visited)
+			}
+			draws := policy.start()
+			for i, choice := range choices {
+				if choice.Kind != ChoiceTransition {
+					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
+				}
+				if want := draws.pick(2); choice.Taken != want {
+					t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
+						tc.name, policy, i, choice.Taken, want, choice)
+				}
+			}
+		}
+	}
+}
+
+// A composite state with several enabled transitions loses to a nested state that
+// also reacts: the choice it never got to make draws nothing, so the run's first
+// reported choice takes the seed's first draw.
+func TestOutrankedChoiceDrawsNothing(t *testing.T) {
+	const after = `state low;
+			state high;
+			state calm;
+			state loud;
+			transition first busy accept Next if level > 5 then low;
+			transition first busy accept Next if level > 7 then high;
+			transition first low accept Then if level > 5 then calm;
+			transition first low accept Then if level > 7 then loud;
+			transition first high accept Then if level > 5 then calm;
+			transition first high accept Then if level > 7 then loud;`
+	cases := []struct {
+		name   string
+		src    string
+		events []string
+	}{
+		{"dispatch", `package test {
+			state Dispatcher {
+				attribute level : Integer = 8;
+				entry; then busy;
+				state busy parallel {
+					state left { entry; then l; state l; state l2; transition first l accept Go then l2; }
+					state right { entry; then r; state r; }
+				}
+				transition first busy accept Go if level > 5 then low;
+				transition first busy accept Go if level > 7 then high;
+				` + after + `
+			}
+		}`, []string{"Go", "Next", "Then"}},
+		{"change poll", `package test {
+			state Dispatcher {
+				attribute level : Integer = 0;
+				entry; then start;
+				state start;
+				state busy parallel {
+					state left { entry; then l; state l; state l2; transition first l accept when level > 5 then l2; }
+					state right { entry; then r; state r; }
+				}
+				transition first start do assign level := 8 then busy;
+				transition first busy accept when level > 5 then low;
+				transition first busy accept when level > 7 then high;
+				` + after + `
+			}
+		}`, []string{"Next", "Then"}},
+	}
+	for _, tc := range cases {
+		for seed := 0; seed < 16; seed++ {
+			idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, tc.src))
+			sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+			if sym == nil {
+				t.Fatal("state machine not found")
+			}
+			policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
+			ctx.SetSchedule(policy)
+			_, visited, err := ctx.ExecuteStateWithEvents(sym, tc.events)
+			if err != nil {
+				t.Fatalf("%s %s: %v", tc.name, policy, err)
+			}
+			if !slices.Contains(visited, "l2") {
+				t.Fatalf("%s %s: the nested transition did not fire (visited %v)", tc.name, policy, visited)
 			}
 			choices := ctx.Choices()
 			if len(choices) != 2 {

@@ -698,14 +698,15 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 		if e.losesToNestedTransition(candidates, candidate) || !e.isActive(candidate.leaf) {
 			continue
 		}
+		trans, notes := e.chooseTransition(candidate)
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
-		unbind, err := e.bindTriggerArguments(candidate.trans, event)
+		unbind, err := e.bindTriggerArguments(trans, event)
 		if err != nil {
 			unbind()
 			return consumed, fmt.Errorf("state %s: %w", candidate.source.Name, err)
 		}
-		fired, err := e.fireFrom(candidate.source, candidate.trans, candidate.notes)
+		fired, err := e.fireFrom(candidate.source, trans, notes)
 		if err != nil {
 			return consumed, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -717,58 +718,73 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 	return consumed, nil
 }
 
-// dispatchCandidate is the transition one active leaf selected for an event,
-// taken out of the leaf itself or out of a composite state enclosing it. What
-// selecting it found worth noting is recorded only if it fires.
+// dispatchCandidate is the state one active leaf selected for an event, the leaf
+// itself or a composite state enclosing it, with the positions of the transitions
+// out of it the event enables. Which of them fires is chosen only once the
+// candidate survives conflict resolution; what selecting it found worth noting is
+// recorded only if it fires.
 type dispatchCandidate struct {
-	leaf   *ast.StateNode
-	source *ast.StateNode
-	trans  *lower.Transition
-	notes  []RunNote
+	leaf    *ast.StateNode
+	source  *ast.StateNode
+	enabled []int
+	notes   []RunNote
 }
 
-// selectTransitions picks one transition per leaf active when the event is
+// selectTransitions picks one source state per leaf active when the event is
 // dispatched: a transition out of a composite state is enabled while any of its
 // substates is active, so the walk goes outward from the leaf and stops at the
-// innermost enabled transition. A false guard does not consume the event, so the
-// walk carries on past it. Leaves in sibling regions of one composite state
-// select the same transition out of it, which the event still takes only once.
+// innermost state with an enabled transition. A false guard does not consume
+// the event, so the walk carries on past it. Leaves in sibling regions of one
+// composite state select the same state, which the event still leaves only once.
 func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, error) {
-	return e.selectCandidates(func(source *ast.StateNode) (*lower.Transition, []RunNote, error) {
-		return e.enabledTransition(source, event)
+	return e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
+		return e.enabledTransitions(source, event)
 	})
 }
 
-// selectCandidates walks outward from every active leaf, asking enabled for the
-// transition that state offers and what selecting it noted, and collects one
+// selectCandidates walks outward from every active leaf, asking enabled which
+// transitions that state offers and what finding them noted, and collects one
 // candidate per leaf. A state is asked once per dispatch, however many leaves
-// reach it: which transition it offers is one choice, made once.
+// reach it.
 func (e *StateExecutor) selectCandidates(
-	enabled func(*ast.StateNode) (*lower.Transition, []RunNote, error),
+	enabled func(*ast.StateNode) ([]int, []RunNote, error),
 ) ([]dispatchCandidate, error) {
 	var candidates []dispatchCandidate
-	offered := make(map[*ast.StateNode]*lower.Transition)
+	offered := make(map[*ast.StateNode][]int)
 	for _, leaf := range e.activeLeaves() {
 		for _, source := range e.getParentChain(leaf) {
-			if trans, asked := offered[source]; asked {
-				if trans != nil {
+			if positions, asked := offered[source]; asked {
+				if len(positions) > 0 {
 					break
 				}
 				continue
 			}
-			trans, notes, err := enabled(source)
+			positions, notes, err := enabled(source)
 			if err != nil {
 				return nil, fmt.Errorf("state %s: %w", source.Name, err)
 			}
-			offered[source] = trans
-			if trans == nil {
+			offered[source] = positions
+			if len(positions) == 0 {
 				continue
 			}
-			candidates = append(candidates, dispatchCandidate{leaf: leaf, source: source, trans: trans, notes: notes})
+			candidates = append(candidates, dispatchCandidate{leaf: leaf, source: source, enabled: positions, notes: notes})
 			break
 		}
 	}
 	return candidates, nil
+}
+
+// chooseTransition resolves which of the candidate's enabled transitions fires,
+// with the choice point it makes ahead of the candidate's notes. The policy is
+// consulted only here, so a state outranked by a nested one draws nothing.
+func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
+	transitions := e.graph.Transitions[candidate.source]
+	pick := e.ctx.scheduling().pick(len(candidate.enabled))
+	notes := candidate.notes
+	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled, pick); ok {
+		notes = append([]RunNote{choice}, notes...)
+	}
+	return transitions[candidate.enabled[pick]], notes
 }
 
 // losesToNestedTransition reports whether another leaf selected a transition out
@@ -938,15 +954,14 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 	return false
 }
 
-// enabledTransition returns the first transition out of state that this event
-// triggers and whose guard holds, or nil when the state cannot react to it. A
-// transition whose guard is false does not consume the event, so a later one
-// still gets its chance. Selecting a transition leaves the machine's data as it
-// was: the caller binds the trigger's arguments again before firing.
-// Every transition is examined so that several enabled at once are a choice
-// point; the notes are the caller's to record if the transition fires, since a
-// state outranked by a nested one is not a choice the run made.
-func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, []RunNote, error) {
+// enabledTransitions returns the positions of the transitions out of state that
+// this event triggers and whose guards hold, none when the state cannot react to
+// it. A transition whose guard is false does not consume the event, so a later
+// one still gets its chance. Selection leaves the machine's data as it was: the
+// caller binds the trigger's arguments again before firing. Every transition is
+// examined so that several enabled at once are a choice point; the notes are
+// the caller's to record if a transition fires.
+func (e *StateExecutor) enabledTransitions(state *ast.StateNode, event *Event) ([]int, []RunNote, error) {
 	var enabled []int
 	var notes []RunNote
 	transitions := e.graph.Transitions[state]
@@ -969,14 +984,7 @@ func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*
 			enabled = append(enabled, i)
 		}
 	}
-	if len(enabled) == 0 {
-		return nil, nil, nil
-	}
-	pick := e.ctx.scheduling().pick(len(enabled))
-	if choice, ok := e.transitionChoice(state, transitions, enabled, pick); ok {
-		notes = append([]RunNote{choice}, notes...)
-	}
-	return transitions[enabled[pick]], notes, nil
+	return enabled, notes, nil
 }
 
 // probeTransition reads whether the transition at position i out of state reacts
@@ -2280,7 +2288,8 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 	var decision Decision
 	for _, candidate := range candidates {
 		if !e.losesToNestedTransition(candidates, candidate) {
-			decision.Fires = append(decision.Fires, transitionDescription(candidate.trans))
+			trans, _ := e.chooseTransition(candidate)
+			decision.Fires = append(decision.Fires, transitionDescription(trans))
 		}
 	}
 	if len(decision.Fires) == 0 {
