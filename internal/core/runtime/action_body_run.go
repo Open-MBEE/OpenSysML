@@ -49,6 +49,7 @@ func (e *ActionExecutor) runPausable(tokenIdx int, work func() error, after func
 // later Step or RunToCompletion returns ErrExecutorReleased, completed or not.
 // Safe to call more than once.
 func (e *ActionExecutor) Release() {
+	defer e.ctx.beginExecutorRun(&e.driven)()
 	e.released = true
 	e.endPausedBodies()
 }

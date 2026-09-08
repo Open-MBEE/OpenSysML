@@ -266,7 +266,7 @@ func TestLaterGuardIsProbedWithoutCost(t *testing.T) {
 		if len(ctx.Choices()) != 1 || len(ctx.UnevaluableGuards()) != 0 {
 			t.Fatalf("notes with guard %s = %v, want the one branch choice", second, ctx.Notes())
 		}
-		return ctx.steps
+		return ctx.run.steps
 	}
 	cheap := spent(t, "level > 70")
 	dear := spent(t, "cost(40) > 0")

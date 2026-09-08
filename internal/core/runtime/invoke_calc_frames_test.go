@@ -98,8 +98,8 @@ func wantFramesReleased(t *testing.T, ctx *Context) {
 	if ctx.calcDepth != 0 {
 		t.Errorf("calc depth %d after every invocation returned, want 0", ctx.calcDepth)
 	}
-	if len(ctx.calcUsageRuns) != 0 {
-		t.Errorf("%d activations still hold calc usage runs after every invocation returned", len(ctx.calcUsageRuns))
+	if len(ctx.run.calcUsageRuns) != 0 {
+		t.Errorf("%d activations still hold calc usage runs after every invocation returned", len(ctx.run.calcUsageRuns))
 	}
 	if len(ctx.freeInvocationFrames) > maxFreeInvocationFrames {
 		t.Errorf("%d frames kept, want at most %d", len(ctx.freeInvocationFrames), maxFreeInvocationFrames)

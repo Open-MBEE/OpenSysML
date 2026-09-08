@@ -103,7 +103,7 @@ func invokeOutcome(t *testing.T, ctx *Context, scope *symbols.Scope, name string
 		t.Fatalf("calc %s not found", name)
 	}
 	value, err := ctx.InvokeCalc(sym, args, scope)
-	return calcOutcome{value: value, err: err, steps: ctx.steps}
+	return calcOutcome{value: value, err: err, steps: ctx.run.steps}
 }
 
 // wantSameOutcome invokes name on both tiers and requires the same value or the

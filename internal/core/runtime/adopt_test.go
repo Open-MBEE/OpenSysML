@@ -273,11 +273,11 @@ func carriedSysWithThreeConnectors(t *testing.T) (*Context, *Instance, []int64) 
 func restoreCost(t *testing.T) int64 {
 	t.Helper()
 	ctx, obj, ids := carriedSysWithThreeConnectors(t)
-	spent := ctx.steps
+	spent := ctx.run.steps
 	if _, err := obj.RestoreConnector(ctx, ids[2]); err != nil {
 		t.Fatalf("RestoreConnector(%d): %v", ids[2], err)
 	}
-	return ctx.steps - spent
+	return ctx.run.steps - spent
 }
 
 // Asking for one connector a carry-over set aside materializes that connector
@@ -312,7 +312,7 @@ func TestRestoreConnectorMaterializesTheOneAskedForAlone(t *testing.T) {
 	// A budget admitting exactly the one asked for admits it, whatever its siblings would cost.
 	cost := restoreCost(t)
 	ctx, obj, ids = carriedSysWithThreeConnectors(t)
-	ctx.maxSteps = ctx.steps + cost
+	ctx.maxSteps = ctx.run.steps + cost
 	if conn, err := obj.RestoreConnector(ctx, ids[2]); err != nil || conn == nil || conn.ID != ids[2] {
 		t.Fatalf("RestoreConnector(%d) under a budget admitting it alone = %v, %v; want the connector", ids[2], conn, err)
 	}
@@ -320,7 +320,7 @@ func TestRestoreConnectorMaterializesTheOneAskedForAlone(t *testing.T) {
 		t.Errorf("KeptConnectorIDs() = %v, want the siblings %v still set aside", got, ids[:2])
 	}
 	// The siblings take their identities back when asked for, in either order.
-	ctx.maxSteps = ctx.steps + 2*cost
+	ctx.maxSteps = ctx.run.steps + 2*cost
 	for _, id := range []int64{ids[0], ids[1]} {
 		conn, err := obj.RestoreConnector(ctx, id)
 		if err != nil || conn == nil || conn.ID != id {
@@ -385,7 +385,7 @@ func TestRestoreConnectorThatFailsKeepsEveryIdentity(t *testing.T) {
 	cost := restoreCost(t)
 	ctx, obj, ids := carriedSysWithThreeConnectors(t)
 	held := ctx.InstanceIDs()
-	ctx.maxSteps = ctx.steps + cost - 1
+	ctx.maxSteps = ctx.run.steps + cost - 1
 	conn, err := obj.RestoreConnector(ctx, ids[1])
 	if !errors.Is(err, ErrStepLimitExceeded) {
 		t.Fatalf("RestoreConnector(%d) one step short = %v, %v; want the budget spent", ids[1], conn, err)

@@ -252,7 +252,7 @@ func (ec *EvalContext) Lookup(name string) (Value, bool) {
 }
 
 // Eval evaluates an expression node. Returns a Value or an error.
-// Increments ctx.steps on each eval call; errors when ctx.steps >= ctx.maxSteps.
+// Increments the run's steps on each eval call; errors when they are >= ctx.maxSteps.
 // When the context is traced, the evaluation is recorded after its
 // sub-expressions, which makes sub-expression order part of the trace.
 func (ec *EvalContext) Eval(node ast.Node) (Value, error) {

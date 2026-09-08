@@ -497,8 +497,8 @@ func TestStepBudgetIsPerRun(t *testing.T) {
 				t.Fatalf("nested evaluation %d failed: %v", i, err)
 			}
 		}
-		if ctx.steps < 10 {
-			t.Errorf("nested runs reset the counter: %d steps after 10 evaluations", ctx.steps)
+		if ctx.run.steps < 10 {
+			t.Errorf("nested runs reset the counter: %d steps after 10 evaluations", ctx.run.steps)
 		}
 	})
 }
@@ -548,7 +548,7 @@ func TestStepBudgetHoldsAcrossExecutorDrivenRun(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 		err = exec.RunToCompletion()
-		return ctx.steps, err
+		return ctx.run.steps, err
 	}
 
 	// The same action run in one call, whose budget the nested invocation
@@ -562,7 +562,7 @@ func TestStepBudgetHoldsAcrossExecutorDrivenRun(t *testing.T) {
 	if _, err := ctx.ExecuteAction(sym); err != nil {
 		t.Fatalf("ExecuteAction: %v", err)
 	}
-	cost := ctx.steps
+	cost := ctx.run.steps
 
 	spent, err := run(t, DefaultMaxSteps)
 	if err != nil {

@@ -21,7 +21,6 @@ type Context struct {
 	// ids hands out instance identities. Contexts holding the same objects share
 	// one sequence, so no two of them name different objects alike.
 	ids       *idSequence
-	steps     int64
 	maxSteps  int64
 	instances map[int64]*Instance
 	created   []int64
@@ -35,9 +34,8 @@ type Context struct {
 	maxStateEvents int64
 	maxDoSteps     int64
 
-	// elements and maxElements bound the collection elements one run materializes,
-	// which is what its memory grows with, unlike a step.
-	elements    int64
+	// maxElements bounds the collection elements one run materializes, which is
+	// what its memory grows with, unlike a step.
 	maxElements int64
 
 	features map[*symbols.Symbol][]EffectiveFeature
@@ -93,10 +91,6 @@ type Context struct {
 	integerLiterals map[*ast.LiteralInteger]int64
 	realLiterals    map[*ast.LiteralReal]float64
 
-	// calcUsageRuns holds the evaluation of each calc usage read in an activation
-	// under way, so reading several outputs of one usage answers from one
-	// execution of its body. An activation's evaluations end with it.
-	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
 	// calcUsageRunning holds the calc usages whose bodies are running, so a body
 	// reading its own usage is a recursion rather than a nested evaluation.
 	calcUsageRunning map[calcUsageKey]*calcShape
@@ -175,8 +169,6 @@ type Context struct {
 
 	// trace records evaluation, nil when not tracing.
 	trace *TraceRecorder
-	// notes are what the latest run noted about itself, in order; see note.
-	notes []RunNote
 	// stepWrites is the ledger of the action step under way, nil between steps.
 	stepWrites *stepWriteLedger
 
@@ -233,14 +225,14 @@ type Context struct {
 	// pendingBehaviors the behaviors a change still to be kept or undone attached
 	// begin: the only ones a drain under it may run (see nextRunnableBehavior).
 	runBoundaries []runBoundary
-	// runDepth is the number of runs currently under way, so the step counter is
-	// reset per run rather than accumulated over the context's whole life.
+	// run is the state of the run under way, or of the latest one ended; see beginRun.
+	run *runState
+	// runDepth is the number of runs currently under way, so the state is installed
+	// per top-level run rather than kept over the context's whole life.
 	runDepth int
 
-	// schedule is the policy the next run resolves its choice points under, and
-	// scheduler the resolutions the run under way is drawing from it (scheduler.go).
-	schedule  SchedulePolicy
-	scheduler *scheduler
+	// schedule is the policy the next run resolves its choice points under.
+	schedule SchedulePolicy
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
@@ -311,7 +303,6 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 		model:               model,
 		resolver:            resolver,
 		ids:                 &idSequence{next: 1}, // IDs start at 1 (0 = invalid)
-		steps:               0,
 		maxSteps:            maxSteps,
 		instances:           make(map[int64]*Instance),
 		lives:               make(map[int64]life),
@@ -327,7 +318,7 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 		realLiterals:      make(map[*ast.LiteralReal]float64),
 		compileCalcs:      CalcCompileFromEnv(),
 
-		calcUsageRuns:    make(map[int64]map[calcUsageKey]*calcRun),
+		run:              &runState{calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun)},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
 
 		maxActionSteps: DefaultMaxActionSteps,
@@ -459,10 +450,10 @@ func (ctx *Context) Schedule() SchedulePolicy {
 // scheduling returns the resolutions the run under way draws, starting them for
 // a run no bracket began.
 func (ctx *Context) scheduling() *scheduler {
-	if ctx.scheduler == nil {
-		ctx.scheduler = ctx.schedule.start()
+	if ctx.run.scheduler == nil {
+		ctx.run.scheduler = ctx.schedule.start()
 	}
-	return ctx.scheduler
+	return ctx.run.scheduler
 }
 
 // Model returns the semantic model this context operates over.
@@ -555,69 +546,78 @@ func (ctx *Context) allocateID() int64 {
 	return ctx.ids.take()
 }
 
-// beginRun starts a run and returns the function that ends it, resetting the
-// step counter so the budget bounds one run rather than a whole session. A run
-// started inside another - an action invoked from an expression, say - shares the
-// outer one's budget, so a runaway cannot escape the bound by starting runs.
-func (ctx *Context) beginRun() func() {
+// runState is what one run keeps of itself: the budget it spent, what it noted
+// (see note), its scheduler, and the calc usage evaluations of its open activations.
+type runState struct {
+	steps    int64
+	elements int64
+	notes    []RunNote
+	// scheduler is the resolutions the run's choices draw from (scheduler.go).
+	scheduler *scheduler
+	// calcUsageRuns holds, per activation under way, the evaluation of each calc
+	// usage read in it, so its outputs answer from one run of the body (calc_usage.go).
+	calcUsageRuns map[int64]map[calcUsageKey]*calcRun
+}
+
+// newRunState is the state a run starts with, under the schedule policy set now.
+func (ctx *Context) newRunState() *runState {
+	return &runState{
+		scheduler:     ctx.schedule.start(),
+		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
+	}
+}
+
+// enterRun brackets one call of the run with this state: a top-level call installs
+// it, and it stays installed after so callers read that run; a nested one shares the outer's.
+func (ctx *Context) enterRun(state *runState) func() {
 	if ctx.runDepth == 0 {
-		ctx.steps = 0
-		ctx.elements = 0
-		ctx.notes = nil
-		ctx.scheduler = ctx.schedule.start()
-		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
+		ctx.run = state
 	}
 	ctx.runDepth++
 	return func() { ctx.runDepth-- }
 }
 
-// executorRun is a run driven call by call: begun or not, and the scheduler its
-// choices draw from over every call.
-type executorRun struct {
-	started   bool
-	scheduler *scheduler
+// beginRun starts a run and returns the function that ends it: a top-level run
+// starts on a fresh state, so the budget bounds one run, not a whole session.
+func (ctx *Context) beginRun() func() {
+	if ctx.runDepth > 0 {
+		return ctx.enterRun(ctx.run)
+	}
+	return ctx.enterRun(ctx.newRunState())
 }
 
-// beginExecutorRun brackets one call into a call-by-call driven executor: the budget
-// resets once at the run's start, and each top-level call uses the run's own scheduler.
+// executorRun is a run driven call by call: its state, nil until its first call
+// begins it, which every later call resumes.
+type executorRun struct {
+	state *runState
+}
+
+// beginExecutorRun brackets one call into a call-by-call driven executor: the run's
+// own state, fresh at its first call, is installed for each, whatever ran in between.
 func (ctx *Context) beginExecutorRun(run *executorRun) func() {
-	if ctx.runDepth == 0 && !run.started {
-		ctx.steps = 0
-		ctx.elements = 0
-		ctx.notes = nil
-		ctx.scheduler = ctx.schedule.start()
-		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
+	if run.state == nil {
+		if ctx.runDepth > 0 {
+			run.state = ctx.run
+		} else {
+			run.state = ctx.newRunState()
+		}
 	}
-	if !run.started {
-		run.scheduler = ctx.scheduling()
-	}
-	run.started = true
-	if ctx.runDepth > 0 {
-		ctx.runDepth++
-		return func() { ctx.runDepth-- }
-	}
-	saved := ctx.scheduler
-	ctx.scheduler = run.scheduler
-	ctx.runDepth++
-	return func() {
-		ctx.runDepth--
-		ctx.scheduler = saved
-	}
+	return ctx.enterRun(run.state)
 }
 
 // previewExecutorRun installs, for a preview of a call into a call-by-call driven
-// executor, the scheduler that call would draw from; nothing is begun.
+// executor, the state that call would run on, restored after; nothing is begun.
 func (ctx *Context) previewExecutorRun(run *executorRun) func() {
 	if ctx.runDepth > 0 {
-		return func() { /* nested: the outer run's scheduler */ }
+		return func() { /* nested: the outer run's state */ }
 	}
-	saved := ctx.scheduler
-	if run.started {
-		ctx.scheduler = run.scheduler
+	saved := ctx.run
+	if run.state != nil {
+		ctx.run = run.state
 	} else {
-		ctx.scheduler = ctx.schedule.start()
+		ctx.run = ctx.newRunState()
 	}
-	return func() { ctx.scheduler = saved }
+	return func() { ctx.run = saved }
 }
 
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
@@ -626,14 +626,15 @@ func (ctx *Context) previewExecutorRun(run *executorRun) func() {
 // other change noted (see noteProbeUndo) after. The writes it makes are not the
 // step's (see noteWrite); behaviors it starts are the only ones it runs (see nextRunnableBehavior).
 func (ctx *Context) beginProbe() func() {
-	steps, elements, trace, writes := ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites
+	run := ctx.run
+	steps, elements, trace, writes := run.steps, run.elements, ctx.trace, ctx.stepWrites
 	ids, nextID := ctx.ids, ctx.ids.next
 	endBoundary := func() { /* no boundary to close */ }
 	if ctx.probes == 0 {
 		endBoundary = ctx.beginRunBoundary()
 	}
 	_, rollback := ctx.beginJournal()
-	restoreSchedule := ctx.scheduler.mark()
+	restoreSchedule := run.scheduler.mark()
 	ctx.trace, ctx.stepWrites = nil, nil
 	ctx.runDepth++
 	ctx.probes++
@@ -646,7 +647,7 @@ func (ctx *Context) beginProbe() func() {
 		}
 		ctx.probes--
 		ctx.runDepth--
-		ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes
+		run.steps, run.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes
 	}
 }
 
@@ -740,11 +741,11 @@ func (ctx *Context) newRun() int64 {
 // endActivation forgets what an activation computed, once it has ended, and the
 // activations of the calc usage evaluations it held.
 func (ctx *Context) endActivation(activation int64) {
-	runs, ok := ctx.calcUsageRuns[activation]
+	runs, ok := ctx.run.calcUsageRuns[activation]
 	if !ok {
 		return
 	}
-	delete(ctx.calcUsageRuns, activation)
+	delete(ctx.run.calcUsageRuns, activation)
 	for _, run := range runs {
 		ctx.endActivation(run.activation)
 	}
@@ -753,8 +754,8 @@ func (ctx *Context) endActivation(activation int64) {
 // incrementStep increments the step counter and returns ErrStepLimitExceeded if limit reached.
 // The error names the effective budget and the variable that raises it.
 func (ctx *Context) incrementStep() error {
-	ctx.steps++
-	if ctx.steps > ctx.maxSteps {
+	ctx.run.steps++
+	if ctx.run.steps > ctx.maxSteps {
 		return ctx.stepLimitExceeded()
 	}
 	return nil
@@ -771,8 +772,8 @@ func (ctx *Context) stepLimitExceeded() error {
 // elementScope brackets one evaluation and returns the function releasing what
 // it materialized, so the bound counts elements held at once, not in total.
 func (ctx *Context) elementScope() func() {
-	held := ctx.elements
-	return func() { ctx.elements = held }
+	run, held := ctx.run, ctx.run.elements
+	return func() { run.elements = held }
 }
 
 // beginStep brackets one evaluation outside a body: it answers the activation the
@@ -789,9 +790,9 @@ func (ctx *Context) beginStep() (int64, func()) {
 // chargeElements counts elements an evaluation materializes, which unlike a step
 // is memory the collection holding it keeps, against the element budget.
 func (ctx *Context) chargeElements(n int64) error {
-	ctx.elements += n
+	ctx.run.elements += n
 	// A count that overflowed is past any budget, so it reads as one.
-	if ctx.elements > ctx.maxElements || ctx.elements < 0 {
+	if ctx.run.elements > ctx.maxElements || ctx.run.elements < 0 {
 		return fmt.Errorf("%w (%d elements; raise %s to allow more)", ErrElementLimitExceeded, ctx.maxElements, MaxElementsEnvVar)
 	}
 	return nil

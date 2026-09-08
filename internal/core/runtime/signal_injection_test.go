@@ -302,12 +302,12 @@ func TestDecideRefundsTheBudgetItSpends(t *testing.T) {
 
 	// What dispatching Dim costs on its own, guard and effect included.
 	ctx, exec, dim := lampOn(t)
-	spent := ctx.steps
+	spent := ctx.run.steps
 	ctx.PostMessage(dim)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Dim): %v", err)
 	}
-	cost := ctx.steps - spent
+	cost := ctx.run.steps - spent
 	if cost <= 0 || activeLeaf(exec) != "dimmed" {
 		t.Fatalf("dispatching Dim cost %d steps and reached %s; want a cost and dimmed", cost, activeLeaf(exec))
 	}
@@ -315,13 +315,13 @@ func TestDecideRefundsTheBudgetItSpends(t *testing.T) {
 	// A budget with exactly that left: deciding first leaves it whole, so the
 	// dispatch still fits.
 	ctx, exec, dim = lampOn(t)
-	ctx.maxSteps = ctx.steps + cost
-	steps, elements := ctx.steps, ctx.elements
+	ctx.maxSteps = ctx.run.steps + cost
+	steps, elements := ctx.run.steps, ctx.run.elements
 	if d, err := exec.Decide(dim); err != nil || len(d.Fires) != 1 {
 		t.Fatalf("Decide(Dim) = %+v, %v; want on_dim firing", d, err)
 	}
-	if ctx.steps != steps || ctx.elements != elements {
-		t.Errorf("deciding charged the run %d steps and %d elements", ctx.steps-steps, ctx.elements-elements)
+	if ctx.run.steps != steps || ctx.run.elements != elements {
+		t.Errorf("deciding charged the run %d steps and %d elements", ctx.run.steps-steps, ctx.run.elements-elements)
 	}
 	ctx.PostMessage(dim)
 	if err := exec.ProcessNextEvent(); err != nil {
@@ -333,13 +333,13 @@ func TestDecideRefundsTheBudgetItSpends(t *testing.T) {
 
 	// No budget left: the guard is still bounded, and the refund still made.
 	ctx, exec, dim = lampOn(t)
-	ctx.maxSteps = ctx.steps
-	steps = ctx.steps
+	ctx.maxSteps = ctx.run.steps
+	steps = ctx.run.steps
 	if _, err := exec.Decide(dim); !errors.Is(err, ErrStepLimitExceeded) {
 		t.Errorf("Decide(Dim) with no budget gave %v, want ErrStepLimitExceeded", err)
 	}
-	if ctx.steps != steps || ctx.runDepth != 0 {
-		t.Errorf("a failed preflight left %d steps charged and %d runs open", ctx.steps-steps, ctx.runDepth)
+	if ctx.run.steps != steps || ctx.runDepth != 0 {
+		t.Errorf("a failed preflight left %d steps charged and %d runs open", ctx.run.steps-steps, ctx.runDepth)
 	}
 }
 
