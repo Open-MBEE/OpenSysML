@@ -968,10 +968,11 @@ func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*
 	if len(enabled) == 0 {
 		return nil, nil, nil
 	}
-	if choice, ok := e.transitionChoice(state, transitions, enabled); ok {
+	pick := e.ctx.scheduling().pick(len(enabled))
+	if choice, ok := e.transitionChoice(state, transitions, enabled, pick); ok {
 		notes = append([]RunNote{choice}, notes...)
 	}
-	return transitions[enabled[0]], notes, nil
+	return transitions[enabled[pick]], notes, nil
 }
 
 // probeTransition reads whether the transition at position i out of state reacts
@@ -1014,8 +1015,9 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 }
 
 // transitionChoice is the transitions out of state enabled for one event, at
-// their declared positions, as a choice point; there is none under two.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
+// their declared positions, as a choice point; there is none under two. pick is
+// the position in enabled of the one that fires.
+func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int, pick int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -1023,13 +1025,13 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 	for i, pos := range enabled {
 		alts[i] = transitionName(transitions, pos)
 	}
-	taken := transitions[enabled[0]]
+	taken := transitions[enabled[pick]]
 	file, span := e.transitionLocation(state, taken)
 	return ChoicePoint{
 		Kind:         ChoiceTransition,
 		Where:        transitionWhere(state, taken),
 		Alternatives: alts,
-		Taken:        0,
+		Taken:        pick,
 		File:         file,
 		Span:         span,
 	}, true

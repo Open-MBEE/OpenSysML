@@ -13,6 +13,7 @@ import {
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
+  CAPABILITY_SCHEDULE,
   CAPABILITY_STRUCTURED_VALUES,
   CAPABILITY_VERIFICATION_VERDICTS,
   ClosedConnectionError,
@@ -195,6 +196,11 @@ const MEASUREMENT_REF_MODEL = `package M {
 test("the service advertises the verification body verdicts it reports", async () => {
   await using connection = await connect();
   assert.ok((await connection.serverInfo()).has(CAPABILITY_VERIFICATION_VERDICTS));
+});
+
+test("the service advertises the schedule field of its execution requests", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_SCHEDULE));
 });
 
 test("a bare measurement reference arrives as a unit with its reduction and declaration", async () => {

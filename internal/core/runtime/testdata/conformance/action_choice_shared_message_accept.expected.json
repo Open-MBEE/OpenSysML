@@ -1,6 +1,7 @@
 {
 	"type": "action",
 	"trace": true,
+	"schedule": "reverse",
 	"outputs": {
 		"a": {"type": "Integer", "value": 2},
 		"b": {"type": "Integer", "value": 1}

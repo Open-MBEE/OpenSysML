@@ -142,6 +142,7 @@ What a request asks for is fixed per capability:
 | `inline_language` | Refuse `ParseFile` only when inline content names a language. |
 | `strict_conformance` | Refuse `ParseFile` only when `strict_conformance` is true. |
 | `evaluate_subject` | Refuse `Evaluate` only when `subject_symbol_id` is set. |
+| `schedule` | Refuse `ExecuteAction`, `ExecuteState` and `RunAnalysis` only when `schedule` is set; an empty field runs under the default policy. |
 | `type_facts` | Response-population capability: omit type facts; no request asks for them. |
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |

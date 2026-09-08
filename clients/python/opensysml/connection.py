@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_SCHEDULE,
     CAPABILITY_STRUCTURED_VALUES,
     CAPABILITY_VERIFICATION,
     MissingCapabilityError,
@@ -1161,13 +1162,18 @@ class Connection:
         graph = {inst.id: inst for inst in response.instances}
         return Instance(response.instance, graph)
     
-    def execute_action(self, action_symbol_id, model_hash, inputs=None):
+    def execute_action(self, action_symbol_id, model_hash, inputs=None,
+                       schedule=None):
         """Execute an action definition.
         
         Args:
             action_symbol_id (str): FQN of action def
             model_hash (str): Hash from ParseFile response
             inputs (dict, optional): Input parameter name → value
+            schedule (str, optional): Scheduling policy the run resolves its
+                choice points under — ``"declared"``, ``"reverse"`` (the
+                default) or ``"seed:<n>"`` — spelled as ``sysml -schedule``
+                spells it
             
         Returns:
             dict: Output parameter name → value; an output the wire format cannot
@@ -1183,18 +1189,26 @@ class Connection:
                 and the service predates ``structured_values``, or a
                 :class:`~opensysml.values.MeasurementRef` and the service predates
                 ``measurement_refs``, or a :class:`~opensysml.values.Function`
-                and the service predates ``function_values``; nothing is sent
+                and the service predates ``function_values``, or a schedule is
+                given and the service predates ``schedule``; nothing is sent
+            InvalidRequestError: If the schedule names no policy
         """
         # Convert Python inputs to protobuf Values
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
+        self._require_schedule(schedule)
         
         req = sysml_pb2.ExecuteActionRequest(
             model_hash=model_hash,
             action_symbol_id=action_symbol_id,
-            inputs=pb_inputs
+            inputs=pb_inputs,
+            schedule=schedule or "",
         )
         
-        with translate_rpc_errors():
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_SCHEDULE,) if schedule else ()
+            )
+        ):
             response = self._stub.ExecuteAction(req)
         
         if response.error:
@@ -1203,13 +1217,16 @@ class Connection:
         
         return self._values_to_python(response.outputs)
     
-    def execute_state(self, state_machine_symbol_id, model_hash, events=None):
+    def execute_state(self, state_machine_symbol_id, model_hash, events=None,
+                      schedule=None):
         """Execute a state machine.
         
         Args:
             state_machine_symbol_id (str): FQN of state machine def
             model_hash (str): Hash from ParseFile response
             events (list, optional): Event names to process
+            schedule (str, optional): Scheduling policy the run resolves its
+                choice points under, as for :meth:`execute_action`
             
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}}; a context value
@@ -1219,14 +1236,23 @@ class Connection:
         Raises:
             ExecutionError: If execution fails
             ModelNotFoundError: If the service no longer holds the model
+            MissingCapabilityError: If a schedule is given and the service
+                predates ``schedule``; nothing is sent
+            InvalidRequestError: If the schedule names no policy
         """
+        self._require_schedule(schedule)
         req = sysml_pb2.ExecuteStateRequest(
             model_hash=model_hash,
             state_machine_symbol_id=state_machine_symbol_id,
-            events=events or []
+            events=events or [],
+            schedule=schedule or "",
         )
         
-        with translate_rpc_errors():
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_SCHEDULE,) if schedule else ()
+            )
+        ):
             response = self._stub.ExecuteState(req)
         
         if response.error:
@@ -1422,7 +1448,7 @@ class Connection:
         return CalcResult(value, outputs, diagnostics=diagnostics)
 
     def run_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
-                     named_arguments=None):
+                     named_arguments=None, schedule=None):
         """Run an analysis case, as the REPL's ``%analysis`` does.
 
         The subject named is instantiated and bound as the case's subject; a
@@ -1439,6 +1465,9 @@ class Connection:
                 the case on
             arguments (list, optional): Positional arguments, as Python values
             named_arguments (dict, optional): Arguments by parameter name
+            schedule (str, optional): Scheduling policy the actions the case
+                performs resolve their choice points under, as for
+                :meth:`execute_action`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
@@ -1452,22 +1481,29 @@ class Connection:
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, or an array, vector or vector quantity and
-                the service predates ``structured_values``; nothing is sent
+                the service predates ``structured_values``, or a schedule is
+                given and the service predates ``schedule``; nothing is sent
+            InvalidRequestError: If the schedule names no policy
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_schedule(schedule)
         request = sysml_pb2.RunAnalysisRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject or "",
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            schedule=schedule or "",
         )
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal(
-                (CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES, CAPABILITY_STRUCTURED_VALUES)
-            )
+            unimplemented=self._capability_refusal((
+                CAPABILITY_VERIFICATION,
+                CAPABILITY_COMPLEX_VALUES,
+                CAPABILITY_STRUCTURED_VALUES,
+                CAPABILITY_SCHEDULE,
+            ))
         ):
             response = self._stub.RunAnalysis(request)
 
@@ -1682,6 +1718,15 @@ class Connection:
             CAPABILITY_INFINITY_VALUE,
             upgrade_remedy(CAPABILITY_INFINITY_VALUE),
         )
+
+    def _require_schedule(self, schedule):
+        """Refuse to send a schedule a service without ``schedule`` would run under the default."""
+        if schedule:
+            require(
+                self.server_info(),
+                CAPABILITY_SCHEDULE,
+                upgrade_remedy(CAPABILITY_SCHEDULE),
+            )
 
     def _require_feature_values(self):
         """Refuse instances from a service that populates only the removed `slots` field."""

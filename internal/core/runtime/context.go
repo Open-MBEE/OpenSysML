@@ -237,6 +237,11 @@ type Context struct {
 	// reset per run rather than accumulated over the context's whole life.
 	runDepth int
 
+	// schedule is the policy the next run resolves its choice points under, and
+	// scheduler the resolutions the run under way is drawing from it (scheduler.go).
+	schedule  SchedulePolicy
+	scheduler *scheduler
+
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
@@ -440,6 +445,26 @@ func (ctx *Context) SetTrace(tr *TraceRecorder) {
 	ctx.trace = tr
 }
 
+// SetSchedule sets the policy the runs started from now on resolve their choice
+// points under; a run already under way keeps the one it started with.
+func (ctx *Context) SetSchedule(policy SchedulePolicy) {
+	ctx.schedule = policy
+}
+
+// Schedule returns the policy the next run resolves its choice points under.
+func (ctx *Context) Schedule() SchedulePolicy {
+	return ctx.schedule
+}
+
+// scheduling returns the resolutions the run under way draws, starting them for
+// a run no bracket began.
+func (ctx *Context) scheduling() *scheduler {
+	if ctx.scheduler == nil {
+		ctx.scheduler = ctx.schedule.start()
+	}
+	return ctx.scheduler
+}
+
 // Model returns the semantic model this context operates over.
 func (ctx *Context) Model() *semantics.Model {
 	return ctx.model
@@ -539,6 +564,7 @@ func (ctx *Context) beginRun() func() {
 		ctx.steps = 0
 		ctx.elements = 0
 		ctx.notes = nil
+		ctx.scheduler = ctx.schedule.start()
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	ctx.runDepth++
@@ -555,6 +581,7 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 		ctx.steps = 0
 		ctx.elements = 0
 		ctx.notes = nil
+		ctx.scheduler = ctx.schedule.start()
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	*started = true
@@ -575,12 +602,14 @@ func (ctx *Context) beginProbe() func() {
 		endBoundary = ctx.beginRunBoundary()
 	}
 	_, rollback := ctx.beginJournal()
+	restoreSchedule := ctx.scheduler.mark()
 	ctx.trace, ctx.stepWrites = nil, nil
 	ctx.runDepth++
 	ctx.probes++
 	return func() {
 		rollback()
 		endBoundary()
+		restoreSchedule()
 		if ctx.ids == ids && !ctx.holdsIdentityFrom(nextID) {
 			ids.release(nextID)
 		}

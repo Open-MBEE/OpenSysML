@@ -223,10 +223,11 @@ func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *change
 	if len(enabled) == 0 {
 		return nil, nil
 	}
-	if choice, ok := e.transitionChoice(state, transitions, enabled); ok {
+	pick := e.ctx.scheduling().pick(len(enabled))
+	if choice, ok := e.transitionChoice(state, transitions, enabled, pick); ok {
 		notes = append([]RunNote{choice}, notes...)
 	}
-	return transitions[enabled[0]], notes
+	return transitions[enabled[pick]], notes
 }
 
 // wait records, once per transition, a change condition the configuration is

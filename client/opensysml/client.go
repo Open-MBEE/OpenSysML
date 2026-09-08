@@ -64,12 +64,15 @@ type Client interface {
 	// requires the complex_values capability, an Array, Vector or
 	// VectorQuantity input the structured_values one, a MeasurementRef input
 	// the measurement_refs one and a Function input the function_values one,
-	// checked before anything is sent.
-	ExecuteAction(ctx context.Context, model *Model, actionSymbolID string, inputs map[string]Value) (*ActionRun, error)
+	// checked before anything is sent. WithSchedule selects the scheduling
+	// policy, which requires the schedule capability, checked the same way.
+	ExecuteAction(ctx context.Context, model *Model, actionSymbolID string, inputs map[string]Value, opts ...ExecuteOption) (*ActionRun, error)
 
 	// ExecuteState runs the named state machine, feeding it the events in
 	// order, and reports the states visited and the context left behind.
-	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string) (*StateRun, error)
+	// WithSchedule selects the scheduling policy, which requires the schedule
+	// capability, checked before anything is sent.
+	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*StateRun, error)
 
 	// VerifyConstraint evaluates the named constraint, optionally Against a
 	// part to instantiate and check. Requires the verification capability.
@@ -96,9 +99,10 @@ type Client interface {
 	// reports its outputs with the verdict of its objective and of each
 	// assertion in its body. Positional arguments bind its inputs in
 	// declaration order; Against names its subject and Binding a parameter by
-	// name. Requires the verification capability, and the complex_values or
-	// structured_values capability for a Complex or a structured argument,
-	// checked before anything is sent.
+	// name; Schedule selects the scheduling policy. Requires the verification
+	// capability, the complex_values or structured_values capability for a
+	// Complex or a structured argument and the schedule capability for a
+	// policy, checked before anything is sent.
 	RunAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Analysis, error)
 
 	// Query selects the model's elements the query matches, in declaration

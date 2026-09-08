@@ -17,11 +17,16 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
+	schedule, err := s.schedulePolicy(req.Schedule)
+	if err != nil {
+		return nil, err
+	}
 	v, release, err := s.newVerifyContext(req.ModelHash)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
+	v.runtime.SetSchedule(schedule)
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error()}, nil

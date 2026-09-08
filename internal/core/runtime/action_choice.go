@@ -12,7 +12,7 @@ import (
 )
 
 // The choice points an action run makes; recording one never alters what the
-// executor does (reverse token order, first holding guard, later write stands).
+// executor does (the policy's token order and guard, later write stands).
 
 // writeDest identifies a feature a write reaches: one a performance holds under
 // its canonical name, or one an object holds under any of its names (FeatureValue).
@@ -273,8 +273,9 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder) {
 }
 
 // noteDecisionBranches records the holding guarded successions of a decision node,
-// at their declared positions, as a choice point when there are at least two.
-func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) {
+// at their declared positions, as a choice point when there are at least two;
+// pick is the position in holding of the one the token takes.
+func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int, pick int) {
 	if len(holding) < 2 {
 		return
 	}
@@ -287,7 +288,7 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 		Step:         e.stepCount + 1,
 		Where:        "decision " + nodeIdentifier(node),
 		Alternatives: alts,
-		Taken:        0,
+		Taken:        pick,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
 	})

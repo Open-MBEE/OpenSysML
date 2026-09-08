@@ -252,6 +252,58 @@ func TestRunAction(t *testing.T) {
 	wantReport(t, check(t, binary, behaviorModel, "-action", "Mission::nosuch"), 2, "unresolved reference: Mission::nosuch")
 }
 
+// forkModel forks into two branches the library leaves unordered, so the
+// scheduling policy decides which steps first.
+const forkModel = `package Mission {
+    private import ScalarValues::*;
+    action race {
+        attribute x : Integer = 0;
+        first start;
+        fork split;
+        action left { assign x := 1; }
+        action right { assign x := 2; }
+        join sync;
+        done;
+        succession first start then split;
+        succession first split then left;
+        succession first split then right;
+        succession first left then sync;
+        succession first right then sync;
+        succession first sync then done;
+    }
+}
+`
+
+// TestRunActionUnderSchedule checks that -schedule decides the order a run
+// takes at a choice point, that the trace reports the order actually taken,
+// and that a spelling naming no policy is refused at startup.
+func TestRunActionUnderSchedule(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, forkModel, "-trace", "-action", "Mission::race")
+	wantReport(t, got, 0, "took 3@right first", "x = 1")
+
+	got = check(t, binary, forkModel, "-trace", "-schedule", "declared", "-action", "Mission::race")
+	wantReport(t, got, 0, "took 2@left first", "x = 2")
+
+	got = check(t, binary, forkModel, "-trace", "-schedule", "reverse", "-action", "Mission::race")
+	wantReport(t, got, 0, "took 3@right first", "x = 1")
+
+	seeded := check(t, binary, forkModel, "-trace", "-schedule", "seed:1", "-action", "Mission::race")
+	wantReport(t, seeded, 0, "✓ Action completed")
+	if again := check(t, binary, forkModel, "-trace", "-schedule", "seed:1", "-action", "Mission::race"); again.output() != seeded.output() {
+		t.Errorf("seed:1 ran\n%s\nthen\n%s", seeded.output(), again.output())
+	}
+
+	for _, bad := range []string{"random", "seed:", "seed:-1", "seed:abc"} {
+		got := check(t, binary, forkModel, "-schedule", bad, "-action", "Mission::race")
+		wantReport(t, got, 2, `invalid scheduling policy "`+bad+`"`)
+		if strings.Contains(got.output(), "Action completed") {
+			t.Errorf("-schedule %s ran the action:\n%s", bad, got.output())
+		}
+	}
+}
+
 // TestRunStateMachine checks that a machine runs for the simulated time asked
 // for, reporting the configuration it settled in.
 func TestRunStateMachine(t *testing.T) {

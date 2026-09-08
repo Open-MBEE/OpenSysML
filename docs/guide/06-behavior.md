@@ -208,6 +208,22 @@ guard with no result is not true, so its branch is not taken); it is counted bes
 (`1 guard not evaluable`) and shown in the trace as an `unevaluable guard` line. The first guard
 read is the run's own, and its failure fails the run as it always has.
 
+**Scheduling policies.** The fixed rule is one *scheduling policy*, named `reverse`, and the
+executor can be told to resolve every choice point under another: `declared` takes tokens in the
+order they were spawned and guards and transitions in declaration order, and `seed:<n>` draws each
+pick from a pseudo-random sequence the non-negative integer `n` fixes, so `seed:1` replays the same
+run every time and on every platform while `seed:2` may take another linearization. The policy is
+spelled the same everywhere — `sysml -schedule declared` for `-action`, `-state`, `-analysis` and a
+`-calc` whose body performs actions, `%schedule seed:7` in the REPL for the runs started after it
+(a debugging session under way keeps its own), a `schedule` field on the gRPC execution requests,
+and a `schedule` pin on a conformance case — and changes only which alternative each choice takes:
+the same choice points are reported, and each `took …` is what the named policy took, so running
+a model under two policies and comparing the outcomes is how a scheduling artefact is told from a
+bug. An unknown spelling — `random`, `seed` without a number, `seed:-1` — is refused before
+anything runs rather than falling back to the default. Where the library orders the alternatives
+— the innermost transition over its enclosing state's — there is no choice, and every policy
+follows that order.
+
 For complete workflows, see
 [examples/action-executor-demo.sysml](../../examples/action-executor-demo.sysml),
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and

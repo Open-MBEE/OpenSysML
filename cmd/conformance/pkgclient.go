@@ -277,7 +277,8 @@ func (c *pkgClient) executeAction(ctx context.Context, request protoreflect.Mess
 		}
 		inputs[name] = input
 	}
-	run, err := c.api.ExecuteAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, inputs)
+	run, err := c.api.ExecuteAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, inputs,
+		opensysml.WithSchedule(req.Schedule))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.ExecuteActionResponse{
@@ -299,7 +300,8 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events)
+	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events,
+		opensysml.WithSchedule(req.Schedule))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.ExecuteStateResponse{
@@ -435,7 +437,7 @@ func (c *pkgClient) runAnalysis(ctx context.Context, request protoreflect.Messag
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	opts := []opensysml.AnalysisOption{opensysml.Subject(req.SubjectSymbolId)}
+	opts := []opensysml.AnalysisOption{opensysml.Subject(req.SubjectSymbolId), opensysml.Schedule(req.Schedule)}
 	for _, argument := range req.Arguments {
 		converted, ok := valueFromProto(argument)
 		if !ok {

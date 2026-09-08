@@ -29,7 +29,9 @@ var updateTraces = flag.Bool("update-traces", false, "Update golden trace files"
 // The test owns the goldens already on disk plus the ones cases opt into with
 // "trace": true; -update-traces regenerates every one and writes nothing else.
 // A case carrying a .trace.order is checked against its constraints as well, or
-// instead when it owns no golden.
+// instead when it owns no golden. A case with an admissible set also owns a
+// <case>.<policy>.trace.golden under each sweep policy, recording the
+// linearization that policy takes.
 func TestExecutionTrace(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 
@@ -57,9 +59,23 @@ func TestExecutionTrace(t *testing.T) {
 		}
 
 		updated++
+		owned := ownsGolden(goldenPath, expected)
 		t.Run(testName, func(t *testing.T) {
-			runTraceTest(t, conformanceDir, testName, goldenPath, expected)
+			runTraceTest(t, conformanceDir, testName, goldenPath, expected, DefaultSchedulePolicy, owned)
 		})
+		if len(expected.Outcomes) == 0 || !owned {
+			continue
+		}
+		for _, spelling := range sweepPolicies {
+			policy, err := ParseSchedulePolicy(spelling)
+			if err != nil {
+				t.Fatalf("sweep policy: %v", err)
+			}
+			policyGolden := filepath.Join(conformanceDir, testName+"."+policyFileTag(policy)+".trace.golden")
+			t.Run(testName+"/"+spelling, func(t *testing.T) {
+				runTraceTest(t, conformanceDir, testName, policyGolden, expected, policy, true)
+			})
+		}
 	}
 
 	if updated == 0 {
@@ -81,7 +97,14 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, expected ExpectedOutcome) {
+// policyFileTag spells a policy as a file-name segment: `seed:1` becomes `seed-1`.
+func policyFileTag(policy SchedulePolicy) string {
+	return strings.ReplaceAll(policy.String(), ":", "-")
+}
+
+// runTraceTest drives a case under policy (or the policy it pins) and, when
+// the harness owns the golden at goldenPath, checks the trace against it.
+func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, expected ExpectedOutcome, policy SchedulePolicy, owned bool) {
 	sysmlPath := filepath.Join(conformanceDir, testName+".sysml")
 
 	// Load file
@@ -109,6 +132,7 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	ctx := NewContext(model, resolver, 10000)
+	ctx.SetSchedule(casePolicy(t, expected, policy))
 
 	// Find behavioral symbol and execute with trace
 	trace := NewTraceRecorder()
@@ -229,8 +253,8 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 		t.Fatalf("%s is trace-checked but produced no trace", testName)
 	}
 
-	checkTraceOrder(t, strings.TrimSuffix(goldenPath, ".golden")+".order", trace.Entries())
-	if !ownsGolden(goldenPath, expected) {
+	checkTraceOrder(t, filepath.Join(conformanceDir, testName+".trace.order"), trace.Entries())
+	if !owned {
 		return
 	}
 

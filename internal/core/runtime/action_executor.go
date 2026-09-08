@@ -252,7 +252,9 @@ func (e *ActionExecutor) Step() error {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
-	err := e.stepTokens(len(e.tokens), paused, &order)
+	err := e.stepTokens(e.scheduleTokens(func(t Token) bool {
+		return !t.drivenByBody() && t.body == nil
+	}), paused, &order)
 	// What the tokens wrote and the order they took are facts of the step whether
 	// or not it failed.
 	endWrites()
@@ -1099,13 +1101,29 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 	return result.Const.Bool
 }
 
-// stepTokens gives each of the first count tokens its step, highest index first
-// so a removal leaves the lower indices in place, then the tokens a breakpoint
-// left paused; a breakpoint reached on the way ends the sweep.
-func (e *ActionExecutor) stepTokens(count int, paused []int64, order *stepOrder) error {
-	for i := count - 1; i >= 0 && e.state != StateSuspended; i-- {
+// scheduleTokens returns the IDs of the tokens the step may move, those eligible
+// now, in the order the run's scheduling policy has the step try them.
+func (e *ActionExecutor) scheduleTokens(eligible func(Token) bool) []int64 {
+	ids := make([]int64, 0, len(e.tokens))
+	for _, t := range e.tokens {
+		if !e.moving(t) && eligible(t) {
+			ids = append(ids, t.ID)
+		}
+	}
+	e.ctx.scheduling().orderTokens(ids)
+	return ids
+}
+
+// stepTokens gives each of the scheduled tokens its step, in the order given, then
+// the tokens a breakpoint left paused; a breakpoint reached on the way ends the sweep.
+func (e *ActionExecutor) stepTokens(scheduled []int64, paused []int64, order *stepOrder) error {
+	for _, id := range scheduled {
+		if e.state == StateSuspended {
+			break
+		}
 		// The token may have been removed by a join or final node.
-		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
+		i := e.tokenIndex(id)
+		if i < 0 || e.moving(e.tokens[i]) ||
 			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
 			continue
 		}
@@ -1360,8 +1378,9 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		}
 	}
 	if len(holding) > 0 {
-		e.noteDecisionBranches(token.frame, decisionNode, successors, holding)
-		token.travel(successors[holding[0]], e.sweep)
+		pick := e.ctx.scheduling().pick(len(holding))
+		e.noteDecisionBranches(token.frame, decisionNode, successors, holding, pick)
+		token.travel(successors[holding[pick]], e.sweep)
 		return nil
 	}
 

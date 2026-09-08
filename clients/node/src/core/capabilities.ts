@@ -42,6 +42,8 @@ export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
 export const CAPABILITY_QUERY = "query";
 /** The `ApplyEdits` RPC. Not used by this version; see the README. */
 export const CAPABILITY_APPLY_EDITS = "apply_edits";
+/** The `schedule` field of the execution requests, naming the scheduling policy. Not used by this version; see the README. */
+export const CAPABILITY_SCHEDULE = "schedule";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

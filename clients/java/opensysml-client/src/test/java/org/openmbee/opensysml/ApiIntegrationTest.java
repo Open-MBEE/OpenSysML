@@ -206,6 +206,11 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesTheScheduleOfItsExecutionRequests() {
+    assertTrue(connection.capabilities().has(Capabilities.SCHEDULE));
+  }
+
+  @Test
   void aBareMeasurementReferenceArrivesWithItsReductionAndDeclarationOverProtobufAndJson() {
     assertTrue(connection.capabilities().has(Capabilities.MEASUREMENT_REFS));
     try (Connection json =

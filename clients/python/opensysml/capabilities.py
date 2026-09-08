@@ -124,6 +124,12 @@ CAPABILITY_INFINITY_VALUE = "infinity_value"
 #: so an empty code is a finding none was assigned. Without it every code is empty.
 CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
 
+#: The ``schedule`` field of an action, state or analysis run, naming the
+#: scheduling policy its choice points are resolved under: ``declared``,
+#: ``reverse`` (the default) or ``seed:<n>``. Without it the service would drop
+#: the field and run under the default, so the client refuses to send one.
+CAPABILITY_SCHEDULE = "schedule"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

@@ -262,6 +262,10 @@ message RunAnalysisRequest {
   repeated Value arguments = 4;
   // Arguments bound to input parameters by name.
   map<string, Value> named_arguments = 5;
+  // Scheduling policy the run resolves its choice points under: "declared",
+  // "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+  // spelling is INVALID_ARGUMENT.
+  string schedule = 6;
 }
 
 // RunAnalysisResponse carries what the case computed and decided.
@@ -427,6 +431,10 @@ message ExecuteActionRequest {
   string model_hash = 1;
   string action_symbol_id = 2;   // FQN of action def
   map<string, Value> inputs = 3; // parameter name → value
+  // Scheduling policy the run resolves its choice points under: "declared",
+  // "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+  // spelling is INVALID_ARGUMENT.
+  string schedule = 4;
 }
 
 // ExecuteActionResponse contains action execution results
@@ -441,6 +449,10 @@ message ExecuteStateRequest {
   string model_hash = 1;
   string state_machine_symbol_id = 2;
   repeated string events = 3;    // sequence of event names to process
+  // Scheduling policy the run resolves its choice points under: "declared",
+  // "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+  // spelling is INVALID_ARGUMENT.
+  string schedule = 4;
 }
 
 // ExecuteStateResponse contains state machine execution trace
