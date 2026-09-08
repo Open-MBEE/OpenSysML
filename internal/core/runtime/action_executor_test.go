@@ -678,12 +678,12 @@ func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 	}
 }
 
+// TestActionExecutor_MergeNode: a merge passes every arriving token, so two fork
+// branches reaching it are two traversals, each going on to the final node.
 func TestActionExecutor_MergeNode(t *testing.T) {
 	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
 
 	// Build: initial → fork → [merge, merge] → final
-	// Fork with 2 edges both targeting merge
-	// First token to reach merge wins, others discarded
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
 	merge := &ast.MergeNode{Name: "join"}
@@ -738,48 +738,43 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 		}
 	}
 
-	// First token reaches merge (should pass through)
-	exec.stepToken(0)
-	if len(exec.tokens) != 2 {
-		t.Fatalf("expected 2 tokens (1 advanced, 1 waiting), got %d", len(exec.tokens))
+	// The first arrival traverses to final; the second still stands at the merge.
+	if err := exec.stepToken(0); err != nil {
+		t.Fatalf("step first merge token: %v", err)
 	}
-
-	// Verify first token advanced to final
-	tokenAtFinal := false
-	tokenAtMerge := false
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens (1 advanced, 1 at the merge), got %d", len(exec.tokens))
+	}
 	mergeIdx := -1
+	tokenAtFinal := false
 	for i, tok := range exec.tokens {
 		if tok.Location == final {
 			tokenAtFinal = true
 		}
 		if tok.Location == merge {
-			tokenAtMerge = true
 			mergeIdx = i
 		}
 	}
-	if !tokenAtFinal || !tokenAtMerge {
-		t.Error("expected one token at final, one at merge")
+	if !tokenAtFinal || mergeIdx < 0 {
+		t.Fatal("expected one token at final, one at merge")
 	}
 
-	// Second token reaches merge (should be discarded)
-	err = exec.stepToken(mergeIdx)
-	if err != nil {
-		t.Fatalf("step merge: %v", err)
+	// The second arrival traverses too: the merge passes it, it does not discard it.
+	if err := exec.stepToken(mergeIdx); err != nil {
+		t.Fatalf("step second merge token: %v", err)
 	}
-
-	if len(exec.tokens) != 1 {
-		t.Fatalf("expected 1 token after merge discard, got %d", len(exec.tokens))
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens after both traversed the merge, got %d", len(exec.tokens))
 	}
-
-	// Verify final token at expected location
-	if exec.tokens[0].Location != final {
-		t.Error("expected token at final node")
+	for i, tok := range exec.tokens {
+		if tok.Location != final {
+			t.Errorf("token %d at %T, want the final node", i, tok.Location)
+		}
 	}
 }
 
-// TestActionExecutor_MergeNode_ControlOnly checks that a merge discards the
-// tokens it does not pass but nothing the branches wrote: the value their
-// writes left in the action's feature space survives the discard.
+// TestActionExecutor_MergeNode_ControlOnly: a merge carries control only — both
+// branches' tokens pass it and the value their writes left is untouched by the traversals.
 func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
 
@@ -869,35 +864,35 @@ func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 		t.Fatalf("expected result written by one of the branches, got %d", beforeMerge)
 	}
 
-	// Step first token through merge (wins, moves to final)
-	err = exec.stepToken(0)
-	if err != nil {
+	// Each token traverses the merge to final in turn.
+	if err := exec.stepToken(0); err != nil {
 		t.Fatalf("step first merge token: %v", err)
 	}
-
-	// Should have 2 tokens: 1 at final (winner), 1 at merge (loser)
 	if len(exec.tokens) != 2 {
 		t.Fatalf("expected 2 tokens (1 at final, 1 at merge), got %d", len(exec.tokens))
 	}
-
-	// Find which token is at final (winner)
-	var winnerIdx int
+	mergeIdx := -1
 	for i, tok := range exec.tokens {
-		if _, ok := tok.Location.(*ast.FinalNode); ok {
-			winnerIdx = i
-			break
+		if _, ok := tok.Location.(*ast.MergeNode); ok {
+			mergeIdx = i
+		}
+	}
+	if mergeIdx < 0 {
+		t.Fatal("expected the second token still at the merge")
+	}
+	if err := exec.stepToken(mergeIdx); err != nil {
+		t.Fatalf("step second merge token: %v", err)
+	}
+	if len(exec.tokens) != 2 {
+		t.Fatalf("expected 2 tokens at final after both traversed, got %d", len(exec.tokens))
+	}
+	for i, tok := range exec.tokens {
+		if _, ok := tok.Location.(*ast.FinalNode); !ok {
+			t.Errorf("token %d at %T, want the final node", i, tok.Location)
 		}
 	}
 
-	// Step second token through merge (discarded)
-	loserIdx := 1 - winnerIdx
-	exec.stepToken(loserIdx)
-
-	if len(exec.tokens) != 1 {
-		t.Fatalf("expected 1 token after discard, got %d", len(exec.tokens))
-	}
-
-	// Discarding a token discards no value.
+	// Traversing a merge touches no value.
 	if got := exec.root.data["result"].Const.Int; got != beforeMerge {
 		t.Errorf("expected result to stay %d after the merge, got %d", beforeMerge, got)
 	}
@@ -2558,8 +2553,8 @@ func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 	}
 }
 
-// A token whose succession out of a merge is pruned does not consume the merge:
-// first-wins counts the token that traverses, so a later token still passes.
+// A token whose succession out of a merge is pruned is retired, and a later token
+// still traverses: the guard drops the link, not the merge.
 func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -2622,7 +2617,7 @@ func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
 	step(initial) // start → split
 	step(fork)    // split → low, high
 	step(low)     // result = 1, low → join
-	step(merge)   // guard 1 > 1 does not hold: pruned, merge left open
+	step(merge)   // guard 1 > 1 does not hold: this arrival is retired
 	step(high)    // result = 2, high → join
 	step(merge)   // guard 2 > 1 holds: join → after
 	step(after)

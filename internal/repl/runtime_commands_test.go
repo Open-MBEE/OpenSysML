@@ -465,6 +465,38 @@ func TestTokensShowHeldJoinArrivals(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "✓ Action completed")
 }
 
+// A loop through a merge with no exit is stepped one node at a time; %continue then
+// stops at the action step budget instead of spinning.
+func TestActionDebuggerStepsAnUnguardedMergeLoop(t *testing.T) {
+	s := loadSource(t, `package test {
+		action spin {
+			first start;
+			merge m;
+			action a;
+			succession first start then m;
+			succession first m then a;
+			succession first a then m;
+		}
+	}`)
+	budgets := runtime.DefaultBudgets()
+	budgets.MaxActionSteps = 20
+	if err := s.SetBudgets(budgets); err != nil {
+		t.Fatalf("SetBudgets: %v", err)
+	}
+	run(t, s, "%action spin")
+	for i := 0; i < 2*int(budgets.MaxActionSteps); i++ {
+		wants(t, run(t, s, "%step"), "✓ Step complete", "Tokens: 1")
+		at := "Token 1 @ m"
+		if i%2 == 1 {
+			at = "Token 1 @ a"
+		}
+		wants(t, run(t, s, "%tokens"), at)
+	}
+	wants(t, run(t, s, "%continue"),
+		"error: execution failed:",
+		"exceeded max steps (20 steps; raise "+runtime.MaxActionStepsEnvVar)
+}
+
 func TestActionDebuggerRejectsNonAction(t *testing.T) {
 	s := loadFixture(t, "testdata/vehicle_package.sysml")
 	wants(t, run(t, s, "%action Vehicle"), "is not an action")
