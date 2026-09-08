@@ -224,8 +224,13 @@ through a feature chain (`s.reading`) from both branches; and
 `action_choice_performer_write_conflict` (golden), a performed action's branches both writing
 the part performing it. A destination is the object written and the feature written, whatever
 name reached it, so two chains reaching one object are one conflict
-(`TestWriteConflictOnOneObjectThroughTwoChains`), and two writes of equal value are still one:
-the library orders the writes no more when they agree.
+(`TestWriteConflictOnOneObjectThroughTwoChains`), a feature and one redefining it are one
+destination under either name (`TestAliasWritesAreOneDestination`), and two writes of equal
+value are still one: the library orders the writes no more when they agree. The choice is
+recorded once the step is complete, one per destination, listing the last write of every token
+that wrote it and the one that stood: three branches are one choice of three
+(`TestThreeWritersAreOneChoice`), and a token writing twice contributes only its last write, the
+one that would stand had it gone last (`TestRepeatedWritesByOneTokenListItsLast`).
 
 ### A decision with several holding guards: exactly one branch follows, which one is open
 
@@ -300,6 +305,19 @@ an informational `guard-unevaluable` note naming the state, the event and the tr
 (`TestLaterGuardErrorIsNotAChoiceNorAFailure`; fixture `state_choice_unevaluable_transition`,
 golden). The first transition read is the run's own, and its failure fails the dispatch as it
 always has (`TestFirstTransitionFailureStillFailsTheRun`).
+
+The choice is recorded when the transition fires, not when it is selected: a transition selected
+on the event reads its guard once more as it fires, and one another region's reaction has
+meanwhile disabled does not fire and reports nothing
+(`TestNotesOfATransitionBlockedBeforeFiringAreDropped`), while one whose effect then fails was
+the run's choice all the same (`TestNotesOfATransitionFailingInItsEffectAreKept`). A change
+occurrence is an event like a signal: two `accept when` transitions out of one state whose
+conditions rise on one write are enabled by one occurrence, and the same rule applies — the
+first declared fires, the rise is consumed for the others, and the choice is recorded
+(`choice state watching on change: transitions 1->cool, 2->hot (unordered; took 1->cool)`;
+fixture `state_choice_change_transition_conflict`, golden; `TestChangeTransitionChoice`,
+`TestChangeTransitionChoiceUnderHierarchyAndRegions` for the nested-wins and parallel-region
+shapes).
 
 ### A merge is re-entered on every traversal of a loop
 

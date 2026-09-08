@@ -113,6 +113,10 @@ type StateExecutor struct {
 	// state entries it causes must leave alone.
 	firingChange *lower.Transition
 
+	// firingNotes is what selecting the transition being taken noted, recorded
+	// once its guard's final reading lets it fire (see transitionDecided).
+	firingNotes []RunNote
+
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
 	changeRearmed map[*lower.Transition]bool
@@ -580,7 +584,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			// region's active state, so the region is resolved by containment.
 			var err error
 			if sourceState != nil {
-				dispatch.Fired, err = e.fireFrom(sourceState, lowerTrans)
+				dispatch.Fired, err = e.fireFrom(sourceState, lowerTrans, nil)
 			} else {
 				dispatch.Fired, err = e.fireTransition(lowerTrans)
 			}
@@ -694,7 +698,6 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 		if e.losesToNestedTransition(candidates, candidate) || !e.isActive(candidate.leaf) {
 			continue
 		}
-		e.ctx.noteAll(candidate.notes)
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
 		unbind, err := e.bindTriggerArguments(candidate.trans, event)
@@ -702,7 +705,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 			unbind()
 			return consumed, fmt.Errorf("state %s: %w", candidate.source.Name, err)
 		}
-		fired, err := e.fireFrom(candidate.source, candidate.trans)
+		fired, err := e.fireFrom(candidate.source, candidate.trans, candidate.notes)
 		if err != nil {
 			return consumed, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -886,12 +889,22 @@ func lessPath(a, b []int) bool {
 // fireFrom takes a transition whose source is the given active state, which is
 // either the active leaf or a composite state enclosing it. A source lying in an
 // active orthogonal region moves that region; one outside every active region
-// moves the machine's single active hierarchy.
-func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition) (bool, error) {
+// moves the machine's single active hierarchy. notes are recorded only if it fires.
+func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote) (bool, error) {
+	saved := e.firingNotes
+	e.firingNotes = notes
+	defer func() { e.firingNotes = saved }()
 	if region := e.activeRegionOf(source); region != nil {
 		return e.fireTransitionInRegion(region, trans)
 	}
 	return e.fireTransition(trans)
+}
+
+// transitionDecided records what selecting the transition now firing noted, its
+// guard having passed its final reading.
+func (e *StateExecutor) transitionDecided() {
+	e.ctx.noteAll(e.firingNotes)
+	e.firingNotes = nil
 }
 
 // activeRegionOf returns the innermost active orthogonal region the state is
@@ -1253,6 +1266,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition) (bool, error) {
 		if err != nil || !pass {
 			return false, err
 		}
+		e.transitionDecided()
 		switch ps.Kind {
 		case ast.PseudostateFork:
 			return true, e.fireForkTransition(trans, ps)
@@ -1293,6 +1307,7 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition) (bool, error) {
 	if err != nil || !pass {
 		return false, err
 	}
+	e.transitionDecided()
 
 	return true, e.transitionTo(trans, targetState)
 }

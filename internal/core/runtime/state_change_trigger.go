@@ -59,8 +59,8 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	}
 
 	candidates, err := e.selectCandidates(func(state *ast.StateNode) (*lower.Transition, []RunNote, error) {
-		trans, err := e.risenChangeTransition(state, poll)
-		return trans, nil, err
+		trans, notes := e.risenChangeTransition(state, poll)
+		return trans, notes, nil
 	})
 	if err != nil {
 		e.changeWaits = poll.waits
@@ -90,7 +90,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		e.changeFired[candidate.trans] = true
 		e.firingChange = candidate.trans
 		fired = true
-		_, err = e.fireFrom(candidate.source, candidate.trans)
+		_, err = e.fireFrom(candidate.source, candidate.trans, candidate.notes)
 		e.firingChange = nil
 		if err != nil {
 			return fired, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
@@ -182,21 +182,27 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 }
 
 // risenChangeTransition returns the state's first change-triggered transition
-// whose condition has risen and whose guard does not block it. A blocked one
-// consumes nothing and stays armed, so its guard is re-tested next poll.
-func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *changePoll) (*lower.Transition, error) {
-	for _, trans := range e.graph.Transitions[state] {
+// whose condition has risen and whose guard does not block it, several enabled at
+// once being a choice point. A blocked one stays armed for the next poll.
+func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *changePoll) (*lower.Transition, []RunNote) {
+	var enabled []int
+	transitions := e.graph.Transitions[state]
+	for i, trans := range transitions {
 		if _, ok := trans.Trigger.(*ast.ChangeEvent); !ok {
 			continue
 		}
-		if !poll.condition[trans] || e.changeFired[trans] {
-			continue
-		}
-		if poll.guard[trans] {
-			return trans, nil
+		if poll.condition[trans] && !e.changeFired[trans] && poll.guard[trans] {
+			enabled = append(enabled, i)
 		}
 	}
-	return nil, nil
+	if len(enabled) == 0 {
+		return nil, nil
+	}
+	var notes []RunNote
+	if choice, ok := e.transitionChoice(state, transitions, enabled); ok {
+		notes = []RunNote{choice}
+	}
+	return transitions[enabled[0]], notes
 }
 
 // wait records, once per transition, a change condition the configuration is

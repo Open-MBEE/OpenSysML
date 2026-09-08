@@ -1,10 +1,10 @@
   eval feature level -> 8
   eval literal 5 -> 5
 eval operator > -> true
-choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)
   eval feature level -> 8
   eval literal 5 -> 5
 eval operator > -> true
+choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)
 exit: idle
 enter: low (entry action)
 stmt assign route

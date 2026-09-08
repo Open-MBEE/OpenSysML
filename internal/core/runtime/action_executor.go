@@ -250,10 +250,12 @@ func (e *ActionExecutor) Step() error {
 
 	// Several tokens advanced in one step are a choice point the library leaves open.
 	order := e.beginStepOrder()
-	defer e.beginStepWrites(e.stepCount + 1)()
+	endWrites := e.beginStepWrites(e.stepCount + 1)
 
 	err := e.stepTokens(len(e.tokens), paused, &order)
-	// The order the tokens took is a fact of the step whether or not it failed.
+	// What the tokens wrote and the order they took are facts of the step whether
+	// or not it failed.
+	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order)
 	if err != nil {
 		e.endPausedBodies()

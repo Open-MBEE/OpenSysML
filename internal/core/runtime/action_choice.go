@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -14,19 +15,12 @@ import (
 // executor does (reverse token order, first holding guard, later write stands).
 
 // writeDest identifies a feature a write reaches: one a performance holds under
-// its canonical name, or one an object holds.
+// its canonical name, or one an object holds under any of its names (FeatureValue).
 type writeDest struct {
-	holder *actionFrame
-	object *Instance
-	name   string
-}
-
-// String names the destination as a trace does: `x`, or `x of object #3`.
-func (d writeDest) String() string {
-	if d.object != nil {
-		return fmt.Sprintf("%s of object #%d", d.name, d.object.ID)
-	}
-	return d.name
+	holder  *actionFrame
+	object  *Instance
+	feature *FeatureValue
+	name    string
 }
 
 // stepWrite is one write a step made: by which token, and what it wrote.
@@ -35,20 +29,34 @@ type stepWrite struct {
 	value Value
 }
 
+// destWrites is what one step wrote to one destination: each token's last write,
+// in the order the tokens first wrote, and the write that stands.
+type destWrites struct {
+	label string // the destination as a trace names it: `x`, or `x of object #3`
+	file  string
+	span  source.Span
+	last  []stepWrite
+	stood stepWrite
+}
+
 // stepWriteLedger is what the action step under way wrote so far, by destination.
 type stepWriteLedger struct {
 	step   int
 	writer int64 // the token whose step is running, 0 between tokens
-	writes map[writeDest]stepWrite
+	writes map[writeDest]*destWrites
+	order  []writeDest // destinations in the order first written
 }
 
-// beginStepWrites opens the ledger of the writes one step makes, numbered step,
-// returning what to restore once the step is over. A nested run's steps keep
-// ledgers of their own.
+// beginStepWrites opens the ledger of the writes one step makes, numbered step;
+// the closer returned records its choices and restores the ledger it shadowed.
 func (e *performances) beginStepWrites(step int) func() {
 	saved := e.ctx.stepWrites
-	e.ctx.stepWrites = &stepWriteLedger{step: step, writes: make(map[writeDest]stepWrite)}
-	return func() { e.ctx.stepWrites = saved }
+	ledger := &stepWriteLedger{step: step, writes: make(map[writeDest]*destWrites)}
+	e.ctx.stepWrites = ledger
+	return func() {
+		ledger.noteChoices(e.ctx)
+		e.ctx.stepWrites = saved
+	}
 }
 
 // beginTokenStep marks the token whose step is running, returning what to
@@ -66,49 +74,74 @@ func (e *performances) beginTokenStep(id int64) func() {
 // noteFrameWrite records a write the running token made to a feature f holds.
 func (e *performances) noteFrameWrite(f *actionFrame, name string, value Value) {
 	file, span := e.ctx.featureLocation(f.scope, name)
-	e.ctx.noteWrite(writeDest{holder: f, name: f.key(name)}, value, file, span)
+	key := f.key(name)
+	e.ctx.noteWrite(writeDest{holder: f, name: key}, key, value, file, span)
 }
 
-// noteObjectWrite records a write the running token made to a feature obj holds.
+// noteObjectWrite records a write the running token made to a feature obj holds,
+// under whichever of its names the write spelled.
 func (ctx *Context) noteObjectWrite(obj *Instance, name string, value Value) {
+	dest := writeDest{object: obj, name: name}
 	var file string
 	var span source.Span
-	if fv := obj.FeatureValues[name]; fv != nil && fv.Feature != nil && fv.Feature.Symbol != nil {
-		file, span = fv.Feature.Symbol.DocName, fv.Feature.Symbol.DeclSpan
+	if fv := obj.FeatureValues[name]; fv != nil {
+		dest = writeDest{object: obj, feature: fv}
+		if fv.Feature != nil && fv.Feature.Symbol != nil {
+			file, span = fv.Feature.Symbol.DocName, fv.Feature.Symbol.DeclSpan
+		}
 	}
-	ctx.noteWrite(writeDest{object: obj, name: name}, value, file, span)
+	ctx.noteWrite(dest, fmt.Sprintf("%s of object #%d", name, obj.ID), value, file, span)
 }
 
-// noteWrite records a write the running token made; two tokens writing one
-// destination within one step are a choice point, whatever they wrote.
-func (ctx *Context) noteWrite(dest writeDest, value Value, file string, span source.Span) {
+// noteWrite records a write the running token made to dest, labelled as a trace
+// names it; destinations several tokens wrote are reported once the step ends.
+func (ctx *Context) noteWrite(dest writeDest, label string, value Value, file string, span source.Span) {
 	ledger := ctx.stepWrites
 	if ledger == nil || ledger.writer == 0 {
 		return
 	}
-	prev, seen := ledger.writes[dest]
-	ledger.writes[dest] = stepWrite{token: ledger.writer, value: value}
-	if !seen || prev.token == ledger.writer {
+	w := stepWrite{token: ledger.writer, value: value}
+	d := ledger.writes[dest]
+	if d == nil {
+		d = &destWrites{label: label, file: file, span: span}
+		ledger.writes[dest] = d
+		ledger.order = append(ledger.order, dest)
+	}
+	d.stood = w
+	if i := slices.IndexFunc(d.last, func(prev stepWrite) bool { return prev.token == w.token }); i >= 0 {
+		d.last[i] = w
 		return
 	}
-	writes := []stepWrite{prev, {token: ledger.writer, value: value}}
-	sort.Slice(writes, func(i, j int) bool { return writes[i].token < writes[j].token })
-	alts := make([]string, len(writes))
-	taken := 0
-	for i, w := range writes {
-		alts[i] = fmt.Sprintf("%s := %s by token %d", dest, FormatTraceValue(w.value), w.token)
-		if w.token == ledger.writer {
-			taken = i
+	d.last = append(d.last, w)
+}
+
+// noteChoices records each destination two or more tokens wrote within the step
+// as a choice point, whatever they wrote: another order lets another write stand.
+func (l *stepWriteLedger) noteChoices(ctx *Context) {
+	for _, dest := range l.order {
+		d := l.writes[dest]
+		if len(d.last) < 2 {
+			continue
 		}
+		writes := slices.Clone(d.last)
+		sort.Slice(writes, func(i, j int) bool { return writes[i].token < writes[j].token })
+		alts := make([]string, len(writes))
+		taken := 0
+		for i, w := range writes {
+			alts[i] = fmt.Sprintf("%s := %s by token %d", d.label, FormatTraceValue(w.value), w.token)
+			if w.token == d.stood.token {
+				taken = i
+			}
+		}
+		ctx.noteChoice(ChoicePoint{
+			Kind:         ChoiceWriteOrder,
+			Step:         l.step,
+			Alternatives: alts,
+			Taken:        taken,
+			File:         d.file,
+			Span:         d.span,
+		})
 	}
-	ctx.noteChoice(ChoicePoint{
-		Kind:         ChoiceWriteOrder,
-		Step:         ledger.step,
-		Alternatives: alts,
-		Taken:        taken,
-		File:         file,
-		Span:         span,
-	})
 }
 
 // featureLocation locates the declaration of the feature name resolves to in

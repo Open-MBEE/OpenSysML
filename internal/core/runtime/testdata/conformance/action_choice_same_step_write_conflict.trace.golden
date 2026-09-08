@@ -6,9 +6,9 @@ stmt assign tortoiseRan
   eval literal true -> true
 stmt assign winner
   eval literal "hare" -> "hare"
-choice step 3: writes winner := "hare" by token 2, winner := "tortoise" by token 3 (unordered; winner := "hare" by token 2 stood)
 stmt assign hareRan
   eval literal true -> true
+choice step 3: writes winner := "hare" by token 2, winner := "tortoise" by token 3 (unordered; winner := "hare" by token 2 stood)
 choice step 3: tokens 2@hare, 3@tortoise (unordered; took 3@tortoise first)
 step 3: token 2@finish, token 3@finish
 step 4: token 4@done

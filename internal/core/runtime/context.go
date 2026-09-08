@@ -487,6 +487,35 @@ func (s *idSequence) atLeast(id int64) {
 	}
 }
 
+// release hands out id next again, once every identity taken from it on is
+// abandoned: what a probe made and undid never happened.
+func (s *idSequence) release(id int64) {
+	if id < s.next {
+		s.next = id
+	}
+}
+
+// holdsIdentityFrom reports whether an object, or a connector one set aside,
+// holds an identity at or past id.
+func (ctx *Context) holdsIdentityFrom(id int64) bool {
+	for held, inst := range ctx.instances {
+		if held >= id {
+			return true
+		}
+		for _, kept := range inst.keptConnectors {
+			if kept >= id {
+				return true
+			}
+		}
+		for _, kept := range inst.keptAnonymous {
+			if kept.id >= id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // allocateID returns the next instance ID and increments the counter.
 func (ctx *Context) allocateID() int64 {
 	return ctx.ids.take()
@@ -525,12 +554,13 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 }
 
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
-// budget, trace, bus, variant selections, objects made, behaviors attached, every
-// feature value written (see noteProbeWrite) and every other change noted (see
-// noteProbeUndo) after. The writes it makes are not the step's (see noteWrite).
-// Behaviors the probe starts are the only ones it runs (see nextRunnableBehavior).
+// budget, trace, bus, variant selections, objects made (identities included),
+// behaviors attached, every feature value written (see noteProbeWrite) and every
+// other change noted (see noteProbeUndo) after. The writes it makes are not the
+// step's (see noteWrite); behaviors it starts are the only ones it runs (see nextRunnableBehavior).
 func (ctx *Context) beginProbe() func() {
 	steps, elements, trace, writes := ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites
+	ids, nextID := ctx.ids, ctx.ids.next
 	endBoundary := func() { /* no boundary to close */ }
 	if ctx.probes == 0 {
 		endBoundary = ctx.beginRunBoundary()
@@ -542,6 +572,9 @@ func (ctx *Context) beginProbe() func() {
 	return func() {
 		rollback()
 		endBoundary()
+		if ctx.ids == ids && !ctx.holdsIdentityFrom(nextID) {
+			ids.release(nextID)
+		}
 		ctx.probes--
 		ctx.runDepth--
 		ctx.steps, ctx.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes

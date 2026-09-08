@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -564,5 +565,360 @@ func TestWriteConflictChoice(t *testing.T) {
 	want = "choice step 3: writes x := 2 by token 2, x := 2 by token 3 (unordered; x := 2 by token 2 stood)"
 	if got := agreeing[0].String(); got != want {
 		t.Errorf("choice = %q, want %q", got, want)
+	}
+}
+
+// Three tokens writing one feature in one step are one choice point listing
+// every token's write and the one that stood, not two pairwise ones.
+func TestThreeWritersAreOneChoice(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		action race {
+			attribute x : Integer = 0;
+			first start;
+			fork split;
+			action a { assign x := 1; }
+			action b { assign x := 2; }
+			action c { assign x := 3; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then a;
+			succession first split then b;
+			succession first split then c;
+			succession first a then sync;
+			succession first b then sync;
+			succession first c then sync;
+			succession first sync then done;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "race", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action not found")
+	}
+	values, err := ctx.ExecuteAction(sym)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := FormatTraceValue(values["x"]); got != "1" {
+		t.Fatalf("x = %s, want the last token stepped (the lowest) to stand", got)
+	}
+	writes := writeChoices(ctx)
+	want := "choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood)"
+	if len(writes) != 1 || writes[0].String() != want {
+		t.Fatalf("write choices = %v, want exactly [%s]", writes, want)
+	}
+}
+
+// A token writing one feature twice in its step contributes its last write only:
+// had it gone last, that is what would stand.
+func TestRepeatedWritesByOneTokenListItsLast(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		action race {
+			attribute x : Integer = 0;
+			first start;
+			fork split;
+			action left { assign x := 1; assign x := 3; }
+			action right { assign x := 2; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first left then sync;
+			succession first right then sync;
+			succession first sync then done;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "race", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action not found")
+	}
+	values, err := ctx.ExecuteAction(sym)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := FormatTraceValue(values["x"]); got != "3" {
+		t.Fatalf("x = %s, want left's last write to stand", got)
+	}
+	writes := writeChoices(ctx)
+	want := "choice step 3: writes x := 3 by token 2, x := 2 by token 3 (unordered; x := 3 by token 2 stood)"
+	if len(writes) != 1 || writes[0].String() != want {
+		t.Fatalf("write choices = %v, want exactly [%s]", writes, want)
+	}
+}
+
+// A feature and the one redefining it are one destination, so writes under either
+// name within one step conflict, direct from the performer or through a chain.
+func TestAliasWritesAreOneDestination(t *testing.T) {
+	flow := func(viaMark, viaLabel string) string {
+		return `
+			first start;
+			fork split;
+			action viaMark { ` + viaMark + ` }
+			action viaLabel { ` + viaLabel + ` }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then viaMark;
+			succession first split then viaLabel;
+			succession first viaMark then sync;
+			succession first viaLabel then sync;
+			succession first sync then done;`
+	}
+	cases := map[string]struct{ src, fqn string }{
+		"performer": {`package test {
+			private import ScalarValues::*;
+			part def Cell { attribute mark : Integer = 0; }
+			part def Twin :> Cell {
+				attribute :>> mark;
+				attribute label :>> mark;
+				perform action marking {` + flow("assign mark := 1;", "assign label := 2;") + `}
+			}
+		}`, "test::Twin"},
+		"chain": {`package test {
+			private import ScalarValues::*;
+			part def Cell { attribute mark : Integer = 0; }
+			part def Twin :> Cell { attribute label :>> mark; }
+			part def Rig {
+				part cell : Twin;
+				perform action marking {` + flow("assign cell.mark := 1;", "assign cell.label := 2;") + `}
+			}
+		}`, "test::Rig"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, _, err := instantiateWithLibraries(t, c.src, c.fqn)
+			if err != nil {
+				t.Fatalf("instantiate: %v", err)
+			}
+			writes := writeChoices(ctx)
+			if len(writes) != 1 || len(writes[0].Alternatives) != 2 {
+				t.Fatalf("write choices = %v, want one conflict on the cell's mark", writes)
+			}
+			got := writes[0].String()
+			if !strings.Contains(got, " of object #") || !strings.Contains(got, ":= 1 by token 2,") ||
+				!strings.Contains(got, ":= 2 by token 3") || !strings.Contains(got, ":= 1 by token 2 stood") {
+				t.Fatalf("choice = %q, want both names' writes as one destination, the mark's write standing", got)
+			}
+		})
+	}
+}
+
+// writeChoices is the write-order choice points of the last run.
+func writeChoices(ctx *Context) []ChoicePoint {
+	var writes []ChoicePoint
+	for _, c := range ctx.Choices() {
+		if c.Kind == ChoiceWriteOrder {
+			writes = append(writes, c)
+		}
+	}
+	return writes
+}
+
+// An object a probed later guard makes is undone with its identity, so the run's
+// objects are numbered as when no later guard is probed at all.
+func TestProbedGuardLeavesObjectIdentitiesUntouched(t *testing.T) {
+	route := func(second string) string {
+		return `package test {
+			private import ScalarValues::*;
+			item def Cell { attribute v : Integer; }
+			action route {
+				attribute level : Integer = 75;
+				attribute made : Integer = 0;
+				first start;
+				then decide select;
+					if level > 50 then warn;
+					if ` + second + ` then alarm;
+				action warn { assign made := new Cell(2).v; }
+				then done;
+				action alarm { assign made := new Cell(3).v; }
+				then done;
+			}
+		}`
+	}
+	objects := func(t *testing.T, second string) string {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, route(second)))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "route", ast.DefAction)
+		if sym == nil {
+			t.Fatal("action not found")
+		}
+		values, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			t.Fatalf("route with guard %s: %v", second, err)
+		}
+		if got := FormatTraceValue(values["made"]); got != "2" {
+			t.Fatalf("made = %s with guard %s, want the first holding guard's branch", got, second)
+		}
+		if len(ctx.Choices()) != 1 || len(ctx.UnevaluableGuards()) != 0 {
+			t.Fatalf("notes with guard %s = %v, want the one branch choice", second, ctx.Notes())
+		}
+		return fmt.Sprint(ctx.InstanceIDs())
+	}
+	plain := objects(t, "level > 70")
+	probed := objects(t, "new Cell(1).v > 0")
+	if plain != probed {
+		t.Errorf("objects %s after a probed guard made one, %s otherwise; want the same identities", probed, plain)
+	}
+}
+
+// A selected transition whose guard another region's reaction falsified before
+// its turn does not fire, so nothing about selecting it is reported.
+func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute level : Integer = 8;
+			entry; then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept Go do assign level := 0 then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					state b3;
+					transition first b1 accept Go if level > 5 then b2;
+					transition first b1 accept Go if level > 7 then b3;
+				}
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "work,a1,b1,a2" {
+		t.Fatalf("visited %v, want region a to fire and region b, its guards blocked by a's effect, to stay", visited)
+	}
+	if got := ctx.Notes(); len(got) != 0 {
+		t.Fatalf("a transition that did not fire was reported: %v", got)
+	}
+}
+
+// A transition that fires and fails in its effect was the run's choice all the
+// same: the choice explains how the run got to the failure.
+func TestNotesOfATransitionFailingInItsEffectAreKept(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Dispatcher {
+			attribute level : Integer = 8;
+			entry; then idle;
+			state idle;
+			state low;
+			state high;
+			transition first idle accept Go if level > 5 do assign level := 1 / (level - 8) then low;
+			transition first idle accept Go if level > 7 then high;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, _, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("err = %v, want the effect's evaluation error", err)
+	}
+	want := "choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"
+	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
+		t.Fatalf("choices = %v, want exactly [%s]", got, want)
+	}
+}
+
+// Change-triggered transitions out of one state enabled by one poll are a choice
+// point as event-triggered ones are; the first declared fires.
+func TestChangeTransitionChoice(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Monitor {
+			attribute temp : Integer = 0;
+			entry; then start;
+			state start;
+			state watching;
+			state cool;
+			state hot;
+			transition first start do assign temp := 30 then watching;
+			transition first watching accept when temp > 20 then cool;
+			transition first watching accept when temp > 25 then hot;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Monitor", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "start,watching,cool" {
+		t.Fatalf("visited %v, want the first declared change transition to fire", visited)
+	}
+	want := "choice state watching on change: transitions 1->cool, 2->hot (unordered; took 1->cool)"
+	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
+		t.Fatalf("choices = %v, want exactly [%s]", got, want)
+	}
+}
+
+// A composite state's change transition loses to a nested state's on the same rise
+// and parallel regions fire alongside: only a state with two enabled reports.
+func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute temp : Integer = 0;
+			entry; then start;
+			state start;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					state a3;
+					transition first a1 accept when temp > 20 then a2;
+					transition first a1 accept when temp > 25 then a3;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					transition first b1 accept when temp > 20 then b2;
+				}
+			}
+			state halted;
+			state stopped;
+			transition first start do assign temp := 30 then work;
+			transition first work accept when temp > 20 then halted;
+			transition first work accept when temp > 25 then stopped;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := strings.Join(visited, ","); got != "start,work,a1,b1,a2,b2" {
+		t.Fatalf("visited %v, want both regions to take their nested transitions and work to stay active", visited)
+	}
+	want := "choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)"
+	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
+		t.Fatalf("choices = %v, want exactly [%s]", got, want)
 	}
 }

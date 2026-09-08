@@ -101,7 +101,7 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 	before := e.subflowLocations(perf)
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
-	defer e.beginStepWrites(e.stepCount + 1)()
+	endWrites := e.beginStepWrites(e.stepCount + 1)
 	var err error
 	for i := len(e.tokens) - 1; i >= 0 && err == nil; i-- {
 		if i >= len(e.tokens) || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -109,6 +109,7 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 		}
 		err = e.stepTokenNoting(i, &order)
 	}
+	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order)
 	if err != nil {
 		return false, err
