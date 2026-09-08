@@ -630,6 +630,7 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
         dimensionsEqual(a.dimensions, b.dimensions) &&
         componentsEqual(a.components, b.components)
       );
+    case "infinity":
     case "null":
     case "unset":
     case "absent":
