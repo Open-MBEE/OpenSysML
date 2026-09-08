@@ -143,6 +143,12 @@ CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
 #: the field and run under the default, so the client refuses to send one.
 CAPABILITY_SCHEDULE = "schedule"
 
+#: ``final_time`` populated on an action or state run's response: the run's
+#: simulation clock when it ended, in seconds, read as the ``final_time`` of
+#: :meth:`~opensysml.connection.Connection.execute_state`. Without it the
+#: field is 0 whatever the run waited on.
+CAPABILITY_FINAL_TIME = "final_time"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

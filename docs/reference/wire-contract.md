@@ -904,6 +904,24 @@ predates the field would drop it and run under the default, which is why every c
 repository ships checks the advertised list before sending one. `ExecuteState` and `RunAnalysis`
 carry the same field with the same spellings and the same refusals.
 
+An action that waits on time — `accept after 5 [SI::s]`, or `accept at` an instant — runs on
+the simulation clock of its own run, which starts at 0 and advances to each instant a token
+waits for; the call answers once the action completes, and `finalTime` is the clock when it
+did, in seconds. It is omitted when the run ended at 0, so an action that never waited on time
+answers as before (captured for `action delayed { attribute count : Integer = 0; first start;
+then action wait accept after 5 [SI::s]; then action tick assign count := count + 1; then
+done; }`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"70ee…0c59","actionSymbolId":"Test::delayed"}'
+{"outputs":{"count":{"intValue":"1"}},"finalTime":5}
+```
+
+The field is advertised as the `final_time` capability; a service withholding it answers
+without the field whatever the run waited on. The response has no field to bound the clock: a
+run goes as far as its waits require, and a machine that re-arms a timer forever ends at the
+event budget, as it does on the CLI without `-advance`.
+
 To report a decision's choice the engine reads the guards after the first holding one in a
 preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
 not an alternative and not an error — a guard with no result is not true, so its branch is not
@@ -971,6 +989,18 @@ $ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test:
 `schedule` names the policy the machine's transition picks — and the token order of any action
 its states perform — are resolved under, as `ExecuteAction`'s does; the diagnostic's span moves
 to the transition the policy took.
+
+`finalTime` is the machine's simulation clock when the run ended, in seconds from the 0 it
+started at: the clock advances to each time-triggered transition (`accept after`, `accept at`)
+the machine takes, and the field is omitted when it never moved. It is advertised as the
+`final_time` capability, as `ExecuteAction`'s is (captured for `state Timer { attribute fired :
+Integer = 0; entry; then armed; state armed; transition armed then done accept after 3 [SI::s]
+do assign fired := fired + 1; }`):
+
+```console
+$ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test::Timer"}'
+{"statesVisited":["armed","done"],"finalContext":{"fired":{"intValue":"1"}},"finalTime":3}
+```
 
 ### `EvaluateCalc`
 

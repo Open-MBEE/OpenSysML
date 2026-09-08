@@ -1058,3 +1058,36 @@ func TestStateDebuggerStepsThroughInheritedContent(t *testing.T) {
 	wants(t, run(t, s, "%advance 5"), "Current state: i2")
 	wants(t, run(t, s, "%current"), "one.hits = 1", "two.hits = 0", "Time: 5.0")
 }
+
+// An action parked at `accept after` waits on the session's clock: %step says
+// so instead of failing, and %advance moves the action and a state debugger in
+// the same context together, delivering the signal the action then sends.
+func TestAdvanceMovesActionAndStateDebuggersTogether(t *testing.T) {
+	s := loadFixture(t, "testdata/timed_action.sysml")
+
+	run(t, s, "%action pinger")
+	wants(t, run(t, s, "%step"), "✓ Step complete")
+	wants(t, run(t, s, "%step"),
+		"Nothing to step: the action waits on the clock",
+		"for the clock to reach t=5.0",
+		"Use %advance 5.0 to move the clock from t=0.0")
+
+	wants(t, run(t, s, "%state listener"), "Current state: idle", "Time: 0.0")
+
+	wants(t, run(t, s, "%advance 2"),
+		"Advanced to 2.0 (0 event(s) processed)",
+		"Current state: idle",
+		"Action state: Waiting",
+		"t=5.0: action pinger, accept after waiting since step 2")
+	wants(t, run(t, s, "%step"), "Use %advance 3.0 to move the clock from t=2.0")
+
+	wants(t, run(t, s, "%advance 3"),
+		"Advanced to 5.0 (1 event(s) processed)",
+		"Current state: pinged",
+		"Last event at: 5.0",
+		"Action state: Completed",
+		"Action steps taken: 4",
+		"count = 1")
+	wants(t, run(t, s, "%current"), "Time: 5.0")
+	wants(t, run(t, s, "%advance 1"), "No pending work - simulation time is now 6.0")
+}

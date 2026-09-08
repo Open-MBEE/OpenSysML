@@ -214,7 +214,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("accept_payload_without_a_value", testAcceptPayloadWithoutAValue)
 	t.Run("accept_payload_read_before_it_is_bound", testAcceptPayloadReadBeforeItIsBound)
 	t.Run("flow_from_a_node_that_produced_nothing", testFlowFromANodeThatProducedNothing)
-	t.Run("action_accept_time_trigger", testActionAcceptTimeTrigger)
+	t.Run("action_accept_time_waits", testActionAcceptTimeWaits)
+	t.Run("clock_advance", testClockAdvance)
 	t.Run("action_accept_non_boolean_change_trigger", testActionAcceptNonBooleanChangeTrigger)
 	t.Run("action_body_unresolved_unit", testActionBodyUnresolvedUnit)
 	t.Run("action_body_unresolved_feature", testActionBodyUnresolvedFeature)
@@ -7529,45 +7530,227 @@ func testFlowFromANodeThatProducedNothing(t *testing.T) {
 	}
 }
 
-// testActionAcceptTimeTrigger: an action body has no clock, so an accept that
-// waits for an instant is reported rather than passed through as though the
-// instant had already arrived.
-func testActionAcceptTimeTrigger(t *testing.T) {
-	for name, trigger := range map[string]string{
-		"at":    "accept at maintenanceTime",
-		"after": "accept after 5",
-	} {
-		t.Run(name, func(t *testing.T) {
-			src := `
-				package test {
-					action maintain {
-						attribute maintenanceTime : Integer = 3;
-						attribute done : Integer = 0;
-						first start;
-						action waitForIt ` + trigger + `;
-						action work { assign done := 1; }
-						done;
-						succession first start then waitForIt;
-						succession first waitForIt then work;
-						succession first work then done;
-					}
+// testActionAcceptTimeWaits: an action's `accept after`/`accept at` waits on
+// the context's clock. Run to completion, the clock advances to the instant;
+// an instant already past fires at once without the clock moving back; a
+// negative delay and an argument of another dimension are refused as typed errors.
+func testActionAcceptTimeWaits(t *testing.T) {
+	run := func(t *testing.T, trigger string) (map[string]Value, *Context, error) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import SI::*;
+				private import ISQ::*;
+				private import Time::*;
+				action maintain {
+					attribute maintenanceTime : TimeInstantValue = 3 [s];
+					attribute past : TimeInstantValue = 0 [s];
+					attribute wrongWay : DurationValue = -2 [s];
+					attribute load : MassValue = 5 [kg];
+					attribute done : Integer = 0;
+					first start;
+					action waitForIt `+trigger+`;
+					action work { assign done := 1; }
+					done;
+					succession first start then waitForIt;
+					succession first waitForIt then work;
+					succession first work then done;
 				}
-			`
-			idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
-			sym := findSymbolByName(idx.DocumentRoot("<test>"), "maintain", ast.DefAction)
-			if sym == nil {
-				t.Fatal("action maintain not found")
 			}
-
-			_, err := ctx.ExecuteAction(sym)
-			if !errors.Is(err, ErrNoClock) {
-				t.Fatalf("ExecuteAction error = %v, want ErrNoClock", err)
-			}
-			if !strings.Contains(err.Error(), "state machine") {
-				t.Errorf("error does not say where a time event is waited on: %v", err)
-			}
-		})
+		`))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "maintain", ast.DefAction)
+		if sym == nil {
+			t.Fatal("action maintain not found")
+		}
+		results, err := ctx.ExecuteAction(sym)
+		return results, ctx, err
 	}
+	fires := func(t *testing.T, trigger string, wantNow float64) {
+		results, ctx, err := run(t, trigger)
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := results["done"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("done = %v; want 1: the accept fired", got)
+		}
+		if got := ctx.Clock().Now(); got != wantNow {
+			t.Errorf("clock = %v after the run; want %v", got, wantNow)
+		}
+		if waits := ctx.Clock().Waits(); len(waits) != 0 {
+			t.Errorf("%d wait(s) left on the clock after the run; want none", len(waits))
+		}
+	}
+	t.Run("after advances the clock", func(t *testing.T) { fires(t, "accept after 5 [s]", 5) })
+	t.Run("at advances the clock", func(t *testing.T) { fires(t, "accept at maintenanceTime", 3) })
+	t.Run("at an instant already past fires at once", func(t *testing.T) { fires(t, "accept at past", 0) })
+	t.Run("negative after", func(t *testing.T) {
+		_, _, err := run(t, "accept after wrongWay")
+		if !errors.Is(err, ErrNegativeDuration) {
+			t.Fatalf("err = %v; want ErrNegativeDuration", err)
+		}
+	})
+	t.Run("non-time dimension", func(t *testing.T) {
+		_, _, err := run(t, "accept after load")
+		if !errors.Is(err, ErrTimeTriggerType) {
+			t.Fatalf("err = %v; want ErrTimeTriggerType", err)
+		}
+		if !strings.Contains(err.Error(), "`after load` must be a ISQBase::DurationValue, found MassValue") {
+			t.Errorf("err = %v; want it to name the type found", err)
+		}
+	})
+}
+
+// testClockAdvance: advancing the context's clock is bounded and total. Zero
+// moves nothing and fires nothing; nothing waiting is not an error; a wait due
+// after the advance stays queued and the executor holding it reports that it
+// waits on the clock rather than a deadlock; a negative advance is refused; a
+// machine that never settles is stopped by the event budget, which names itself.
+func testClockAdvance(t *testing.T) {
+	newRun := func(t *testing.T) (*Context, *ActionExecutor, *symbols.Scope) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				action patient {
+					attribute done : Integer = 0;
+					first start;
+					then action wait accept after 8 [s];
+					then action work assign done := 1;
+					then done;
+				}
+				action tardy {
+					attribute two : Time::TimeInstantValue = 2 [s];
+					attribute done : Integer = 0;
+					first start;
+					then action wait accept at two;
+					then action work assign done := 1;
+					then done;
+				}
+				state metronome {
+					attribute beats : Integer = 0;
+					entry; then ticking;
+					state ticking;
+					transition ticking then ticking accept after 1 [s] do assign beats := beats + 1;
+				}
+			}
+		`))
+		root := idx.DocumentRoot("<test>")
+		action := findSymbolByName(root, "patient", ast.DefAction)
+		machine := findSymbolByName(root, "metronome", ast.DefState)
+		if action == nil || machine == nil {
+			t.Fatal("behaviors not found")
+		}
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+		return ctx, exec, root
+	}
+	t.Run("zero", func(t *testing.T) {
+		ctx, exec, _ := newRun(t)
+		report, err := ctx.Advance(0)
+		if err != nil {
+			t.Fatalf("Advance(0): %v", err)
+		}
+		if report.From != 0 || report.To != 0 || report.Steps != 0 || report.Events != 0 {
+			t.Errorf("report = %+v; want nothing moved", report)
+		}
+		if got := len(ctx.Clock().Waits()); got != 1 {
+			t.Errorf("%d wait(s) on the clock; want the action's one, still queued", got)
+		}
+		if exec.State() == StateCompleted {
+			t.Error("the action completed without the clock moving")
+		}
+	})
+	t.Run("nothing waiting", func(t *testing.T) {
+		_, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test { part def P; }`))
+		report, err := ctx.Advance(12.5)
+		if err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		if report.To != 12.5 || ctx.Clock().Now() != 12.5 {
+			t.Errorf("clock at %v, report %+v; want 12.5 with nothing run", ctx.Clock().Now(), report)
+		}
+	})
+	t.Run("wait beyond the advance stays queued", func(t *testing.T) {
+		ctx, exec, _ := newRun(t)
+		if _, err := ctx.Advance(5); err != nil {
+			t.Fatalf("Advance(5): %v", err)
+		}
+		if got := ctx.Clock().Now(); got != 5 {
+			t.Errorf("clock = %v; want 5", got)
+		}
+		waits := ctx.Clock().Waits()
+		if len(waits) != 1 || waits[0].Due != 8 {
+			t.Fatalf("waits = %+v; want the action's wait still due at 8", waits)
+		}
+		if err := exec.Step(); !errors.Is(err, ErrNothingDue) {
+			t.Errorf("Step at t=5 = %v; want ErrNothingDue, the token waits on the clock", err)
+		}
+		if _, err := ctx.Advance(3); err != nil {
+			t.Fatalf("Advance(3): %v", err)
+		}
+		if got := exec.Results()["done"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("done = %v after the clock reached 8; want 1", got)
+		}
+		if got := len(ctx.Clock().Waits()); got != 0 {
+			t.Errorf("%d wait(s) left after the action completed; want none", got)
+		}
+	})
+	t.Run("at an instant the clock has passed fires at once", func(t *testing.T) {
+		ctx, _, root := newRun(t)
+		if _, err := ctx.Advance(4); err != nil {
+			t.Fatalf("Advance(4): %v", err)
+		}
+		tardy := findSymbolByName(root, "tardy", ast.DefAction)
+		if tardy == nil {
+			t.Fatal("action tardy not found")
+		}
+		results, err := ctx.ExecuteAction(tardy)
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := results["done"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("done = %v; want 1: an instant already reached is not waited for", got)
+		}
+		if got := ctx.Clock().Now(); got != 4 {
+			t.Errorf("clock = %v; want 4, never moved back to 2", got)
+		}
+	})
+	t.Run("negative", func(t *testing.T) {
+		ctx, _, _ := newRun(t)
+		_, err := ctx.Advance(-1)
+		if !errors.Is(err, ErrNegativeDuration) {
+			t.Fatalf("Advance(-1) = %v; want ErrNegativeDuration", err)
+		}
+		if got := ctx.Clock().Now(); got != 0 {
+			t.Errorf("clock moved to %v on a refused advance", got)
+		}
+	})
+	t.Run("event budget bounds a machine that never settles", func(t *testing.T) {
+		ctx, _, root := newRun(t)
+		budgets := ctx.Budgets()
+		budgets.MaxStateEvents = 5
+		if err := ctx.SetBudgets(budgets); err != nil {
+			t.Fatal(err)
+		}
+		machine := findSymbolByName(root, "metronome", ast.DefState)
+		if _, err := ctx.CreateStateExecutor(machine); err != nil {
+			t.Fatalf("CreateStateExecutor: %v", err)
+		}
+		_, err := ctx.Advance(1000)
+		if !errors.Is(err, ErrStateEventLimitExceeded) {
+			t.Fatalf("Advance = %v; want ErrStateEventLimitExceeded", err)
+		}
+		if !strings.Contains(err.Error(), MaxStateEventsEnvVar) {
+			t.Errorf("err = %v; want it to say how to raise the budget", err)
+		}
+		if got := ctx.Clock().Now(); got > 6 {
+			t.Errorf("clock = %v; want it stopped where the budget ran out", got)
+		}
+	})
 }
 
 // testActionAcceptNonBooleanChangeTrigger: a change trigger states a condition,

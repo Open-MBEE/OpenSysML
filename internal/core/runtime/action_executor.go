@@ -1,8 +1,10 @@
 package runtime
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -59,6 +61,9 @@ type ActionExecutor struct {
 	steps int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
+	// awaiting is the subflow whose parked tokens a run waits on the clock for,
+	// nil for the action's own.
+	awaiting *actionFrame
 }
 
 // chargeActionStep spends one step of the action's token-flow budget
@@ -143,6 +148,7 @@ func newActionExecutorForOccurrence(
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
+	ctx.clock.attach(exec)
 
 	return exec, nil
 }
@@ -297,6 +303,11 @@ func (e *ActionExecutor) Step() error {
 				ErrActionDeadlock, len(e.tokens))
 		}
 		e.state = StateWaiting
+		if e.waitsOnClockAlone() {
+			next, _ := e.NextWait()
+			return fmt.Errorf("%w: %d token(s) wait on the clock, the earliest until t=%s",
+				ErrNothingDue, len(e.timeWaits(nil)), semantics.FormatReal(next))
+		}
 	}
 
 	// Increment step count
@@ -308,6 +319,17 @@ func (e *ActionExecutor) Step() error {
 	}
 
 	return nil
+}
+
+// waitsOnClockAlone reports whether every remaining token is parked on the clock
+// for an instant it has not reached, so only advancing it moves the action.
+func (e *ActionExecutor) waitsOnClockAlone() bool {
+	for _, token := range e.tokens {
+		if token.Wait == nil || !token.Wait.Timed || token.Wait.Due <= e.ctx.clock.now {
+			return false
+		}
+	}
+	return len(e.tokens) > 0
 }
 
 // anyTokenWaiting reports whether some token is parked at an accept.
@@ -365,11 +387,20 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 // breakpoints set the run is unconditional.
 //
 // Nothing outside the action can post a message while this runs, so an action
-// whose every remaining token is parked at an accept can never be resumed: the
-// suspension is a deadlock and is reported as ErrAcceptDeadlock at the first
-// step that makes no progress. A parked action therefore cannot spend the step
-// budget spinning — the budget is only consumed by steps that move something.
+// whose every remaining token is parked at an accept for a message can never be
+// resumed: the suspension is a deadlock and is reported as ErrAcceptDeadlock at
+// the first step that makes no progress. A token parked on the clock is resumed
+// by advancing it to the instant it waits for — whatever else is due there,
+// in another executor of the context, runs too. A parked action therefore
+// cannot spend the step budget spinning — the budget is only consumed by steps
+// that move something.
 func (e *ActionExecutor) RunToCompletion() error {
+	return e.run(false)
+}
+
+// run is the RunToCompletion loop, holding the clock where it is when
+// atCurrentTime is set.
+func (e *ActionExecutor) run(atCurrentTime bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
@@ -387,7 +418,23 @@ func (e *ActionExecutor) RunToCompletion() error {
 
 	// A run may start from StateWaiting: a caller that stepped an action into a
 	// suspension and then posted the awaited message resumes it here.
+	var progress dueProgress
 	for e.state == StateRunning || e.state == StateWaiting {
+		// Tokens parked on the clock alone: advancing it is what moves them.
+		if e.state == StateWaiting && len(e.timeWaits(nil)) > 0 && !e.dueNow(nil) {
+			if atCurrentTime {
+				return nil
+			}
+			moved, err := e.awaitClock(nil, &progress)
+			if err != nil {
+				return err
+			}
+			if moved {
+				continue
+			}
+			break
+		}
+
 		if node := e.breakpointHit(); node != "" {
 			e.pausedAt = node
 			e.state = StateSuspended
@@ -399,25 +446,56 @@ func (e *ActionExecutor) RunToCompletion() error {
 			return err
 		}
 
-		if err := e.Step(); err != nil {
+		if err := e.Step(); err != nil && !errors.Is(err, ErrNothingDue) {
 			return err
 		}
-		if e.state == StateWaiting {
-			e.endPausedBodies()
+		if e.state == StateWaiting && (atCurrentTime || len(e.timeWaits(nil)) == 0) {
+			break
+		}
+	}
+	if e.state == StateWaiting {
+		e.endPausedBodies()
+		if !atCurrentTime {
 			return e.deadlockError(nil)
 		}
 	}
-
 	return nil
 }
 
+// awaitClock lets the executors due at this instant run, then moves the clock
+// to the earliest wait, until a parked token of perf's flow (the action's for
+// nil) can proceed. It reports false when the clock cannot move, which leaves
+// the tokens where they are.
+func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (bool, error) {
+	awaiting := e.awaiting
+	e.awaiting = perf
+	defer func() { e.awaiting = awaiting }()
+	for {
+		if _, err := e.ctx.runDue(e, progress); err != nil {
+			return false, err
+		}
+		if e.dueNow(perf) {
+			return true, nil
+		}
+		if !e.ctx.advanceToNextDue() {
+			return false, nil
+		}
+	}
+}
+
+// dueNow reports whether a parked token of perf's flow (the action's for nil)
+// can proceed at this instant: its instant has come, or its message is in flight.
+func (e *ActionExecutor) dueNow(perf *actionFrame) bool {
+	return e.hasDueTimeWait(perf) || e.HasPendingSignal()
+}
+
 // RunToQuiescence runs the action until it completes, stops at a breakpoint, or
-// parks every remaining token at an accept. Unlike RunToCompletion, a parked
-// action is quiescence rather than a deadlock: this is what an object performing
-// an action is run with, where a sibling object may still send the awaited
-// message.
+// parks every remaining token at an accept, holding the clock where it is. A
+// parked action is quiescence rather than a deadlock: this is what an object
+// performing an action is run with, where a sibling object may still send the
+// awaited message, and advancing the clock ends a wait on it.
 func (e *ActionExecutor) RunToQuiescence() error {
-	if err := e.RunToCompletion(); err != nil && !errors.Is(err, ErrAcceptDeadlock) {
+	if err := e.run(true); err != nil && !errors.Is(err, ErrAcceptDeadlock) {
 		return err
 	}
 	return nil
@@ -427,7 +505,7 @@ func (e *ActionExecutor) RunToQuiescence() error {
 // proceed, without consuming it.
 func (e *ActionExecutor) HasPendingSignal() bool {
 	for _, token := range e.tokens {
-		if token.Wait == nil {
+		if token.Wait == nil || token.Wait.Timed {
 			continue
 		}
 		usage, ok := token.Location.(*ast.Usage)
@@ -1502,7 +1580,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	if isAccept && accept.Trigger != nil {
 		// A trigger waits for time to pass or for a condition to hold rather
 		// than for a message, so it is answered here and not from the queue.
-		ready, err := e.triggerHolds(token.frame, accept)
+		ready, err := e.triggerHolds(token, accept)
 		if err != nil {
 			return err
 		}
@@ -1632,10 +1710,11 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 // triggerHolds reports whether the time or change event an accept waits for has
 // happened. A change event holds when its condition does, which every step
 // re-evaluates in the action's scope with its feature values over it — the same
-// polling a state machine's change transitions use. A time event needs a clock
-// the action executor does not have, so it is reported rather than treated as
-// having already fired.
-func (e *ActionExecutor) triggerHolds(frame *actionFrame, accept lower.Accept) (bool, error) {
+// polling a state machine's change transitions use. A time event holds once the
+// context's clock has reached its instant: reaching the accept sets the instant
+// (`after` counting from then) and parks the token on the clock until it comes.
+func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, error) {
+	frame := token.frame
 	switch t := accept.Trigger.(type) {
 	case *ast.ChangeEvent:
 		ec := e.evalContextFor(frame, frame.graph.Scope)
@@ -1649,11 +1728,158 @@ func (e *ActionExecutor) triggerHolds(frame *actionFrame, accept lower.Accept) (
 		}
 		return result.Const.Bool, nil
 	case *ast.TimeEvent:
-		return false, fmt.Errorf("%w: %s in an action body: a time event is only waited on by a state machine's transitions",
-			ErrNoClock, triggerDescription(t))
+		if token.Wait != nil && token.Wait.Timed {
+			return e.ctx.clock.now >= token.Wait.Due, nil
+		}
+		if err := e.ctx.judgeTimeTriggerType(frame.graph.Scope, t); err != nil {
+			return false, err
+		}
+		ec := e.evalContextFor(frame, frame.graph.Scope)
+		defer ec.beginStep()()
+		val, err := ec.Eval(t.Duration)
+		if err != nil {
+			return false, fmt.Errorf("eval %s: %w", triggerDescription(t), err)
+		}
+		due, err := e.ctx.dueInstant(t, val, triggerDescription(t))
+		if err != nil {
+			return false, err
+		}
+		if due <= e.ctx.clock.now {
+			return true, nil
+		}
+		token.Wait = &AcceptWait{
+			ParamName: accept.ParamName,
+			Trigger:   triggerDescription(t),
+			Since:     e.stepCount + 1,
+			Timed:     true,
+			Due:       due,
+		}
+		return false, nil
 	default:
 		return false, fmt.Errorf("accept trigger of kind %T is not executed", accept.Trigger)
 	}
+}
+
+// timeWaits lists the tokens of perf's flow (the action's for nil) parked on
+// the clock, in token-ID order.
+func (e *ActionExecutor) timeWaits(perf *actionFrame) []Token {
+	var waiting []Token
+	for _, token := range e.tokens {
+		if token.Wait != nil && token.Wait.Timed && token.inFlowOf(perf) {
+			waiting = append(waiting, token)
+		}
+	}
+	sort.Slice(waiting, func(i, j int) bool { return waiting[i].ID < waiting[j].ID })
+	return waiting
+}
+
+// hasDueTimeWait reports whether a token of perf's flow (the action's for nil)
+// parked on the clock can proceed now.
+func (e *ActionExecutor) hasDueTimeWait(perf *actionFrame) bool {
+	for _, token := range e.timeWaits(perf) {
+		if token.Wait.Due <= e.ctx.clock.now {
+			return true
+		}
+	}
+	return false
+}
+
+// NextWait returns the instant the earliest token parked on the clock proceeds
+// at, false when none is; one already due is not a wait.
+func (e *ActionExecutor) NextWait() (float64, bool) {
+	due, found := 0.0, false
+	for _, token := range e.timeWaits(nil) {
+		if token.Wait.Due > e.ctx.clock.now && (!found || token.Wait.Due < due) {
+			due, found = token.Wait.Due, true
+		}
+	}
+	return due, found
+}
+
+// TimeWaits describes the tokens parked on the clock, in token-ID order.
+func (e *ActionExecutor) TimeWaits() []string {
+	waits := e.timeWaits(nil)
+	out := make([]string, 0, len(waits))
+	for _, token := range waits {
+		out = append(out, token.Wait.String())
+	}
+	return out
+}
+
+// dueLabel names the executor in a due-order choice.
+func (e *ActionExecutor) dueLabel() string {
+	return "action " + symbolText(e.action) + performerSuffix(e.self)
+}
+
+// clockWaits lists the tokens parked on the clock for an instant it has not reached.
+func (e *ActionExecutor) clockWaits() []ClockWait {
+	var waits []ClockWait
+	for _, token := range e.timeWaits(nil) {
+		if token.Wait.Due > e.ctx.clock.now {
+			waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
+		}
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// dueWork reports a token that can move at this instant — one not parked, or one
+// parked whose instant has come or whose message is in flight — in the flow
+// awaiting the clock, the whole action's when none is.
+func (e *ActionExecutor) dueWork() bool {
+	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
+		return false
+	}
+	for _, token := range e.tokens {
+		if token.Wait == nil && token.inFlowOf(e.awaiting) {
+			return true
+		}
+	}
+	return e.dueNow(e.awaiting)
+}
+
+// watchesChange reports a token parked at an `accept when`, which data written
+// outside the action can let proceed.
+func (e *ActionExecutor) watchesChange() bool {
+	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
+		return false
+	}
+	for _, token := range e.tokens {
+		if token.Wait != nil && token.Wait.Trigger != "" && !token.Wait.Timed {
+			return true
+		}
+	}
+	return false
+}
+
+// runDue runs the action to quiescence at the current instant, counting the
+// steps taken.
+func (e *ActionExecutor) runDue(progress *dueProgress) (bool, error) {
+	before, positions := e.stepCount, e.tokenPositions()
+	err := e.run(true)
+	progress.steps += int64(e.stepCount - before)
+	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()), err
+}
+
+// tokenPositions maps each token to where it stands, for telling a step that
+// got somewhere from one that only found every token still parked.
+func (e *ActionExecutor) tokenPositions() map[int64]ast.Node {
+	positions := make(map[int64]ast.Node, len(e.tokens))
+	for _, token := range e.tokens {
+		positions[token.ID] = token.Location
+	}
+	return positions
+}
+
+func (e *ActionExecutor) finished() bool { return e.released || e.state == StateCompleted }
+func (e *ActionExecutor) running() bool  { return e.inRun }
+
+// performerSuffix names the object performing a behavior, nothing for none.
+func performerSuffix(self *Instance) string {
+	if self == nil {
+		return ""
+	}
+	return fmt.Sprintf(" of object #%d", self.ID)
 }
 
 // stepStatementNode runs an action node member the author wrote as a statement

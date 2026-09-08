@@ -190,8 +190,8 @@ func runChecks(files []string, exprs []string, c checks) int {
 
 	var advance float64
 	if c.advance.given {
-		if len(c.states) == 0 {
-			rep.failed("-advance is the time a state machine runs for; name one, as -state <name>")
+		if len(c.actions) == 0 && len(c.states) == 0 {
+			rep.failed("-advance is the time a behavior runs for; name one, as -action <name> or -state <name>")
 			return rep.finish()
 		}
 		duration, err := parseAdvance(c.advance.value)
@@ -344,20 +344,34 @@ func runChecks(files []string, exprs []string, c checks) int {
 	for _, invocation := range c.queries {
 		rep.verdict(sess.RunDocumentQuery(invocation))
 	}
+	// With -advance every behavior named is started first and the clock they share
+	// is moved once, so an action's signal reaches a machine that accepts it later.
+	if c.advance.given {
+		for _, v := range sess.RunFor(behaviors(c.actions), behaviors(c.states), advance) {
+			rep.verdict(v)
+		}
+		return rep.finish()
+	}
 	for _, value := range c.actions {
 		name, performer := splitPerformer(value)
 		rep.verdict(sess.RunAction(name, performer...))
 	}
 	for _, value := range c.states {
 		name, performer := splitPerformer(value)
-		if c.advance.given {
-			rep.verdict(sess.RunStateMachineFor(name, advance, performer...))
-			continue
-		}
 		rep.verdict(sess.RunStateMachine(name, performer...))
 	}
 
 	return rep.finish()
+}
+
+// behaviors reads `-action`/`-state` values as the behaviors they name.
+func behaviors(values []string) []repl.Behavior {
+	out := make([]repl.Behavior, 0, len(values))
+	for _, value := range values {
+		name, performer := splitPerformer(value)
+		out = append(out, repl.Behavior{Name: name, Performer: performer})
+	}
+	return out
 }
 
 // sweep runs one invocation once per row of the ranges given: over every value
@@ -396,8 +410,8 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// parseAdvance reads the -advance value, which is the simulated time a state
-// machine is run for.
+// parseAdvance reads the -advance value, which is the simulated time the
+// behaviors named are run for.
 func parseAdvance(value string) (float64, error) {
 	duration, err := strconv.ParseFloat(value, 64)
 	if err != nil {

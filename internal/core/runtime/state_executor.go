@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"math"
@@ -65,10 +66,11 @@ type StateExecutor struct {
 
 	// State machine execution state
 	activeConfig *StateConfiguration // Active state configuration (simple or multi-region)
-	currentTime  float64
-	nextEventID  int64 // Monotonic counter for unique event IDs
-	eventQueue   *EventQueue
-	stateData    map[string]Value // State machine local variables
+	nextEventID  int64               // Monotonic counter for unique event IDs
+	// eventQueue holds this machine's events by instant of the context's clock; a
+	// timer set for later is this machine's wait on the clock.
+	eventQueue *EventQueue
+	stateData  map[string]Value // State machine local variables
 	// stateAttrs holds the attributes each state owns, one map per state node, so
 	// two usages of one state definition keep separate values.
 	stateAttrs  map[*ast.StateNode]map[string]Value
@@ -83,8 +85,10 @@ type StateExecutor struct {
 	// deferred holds, in arrival order, the events an active state defers and no
 	// transition of the active configuration handled.
 	deferred []Event
-	// lastDispatch is what became of the event the last step took off the queue.
+	// lastDispatch is what became of the event the last step took off the queue,
+	// lastEventAt the instant it was dispatched at.
 	lastDispatch *Dispatch
+	lastEventAt  float64
 
 	// doActions are the running do behaviors, in the order their states were
 	// entered. Concurrently active states interleave one action per round, so this
@@ -97,6 +101,8 @@ type StateExecutor struct {
 	// driven is this executor's run over however many calls drive it: begun once,
 	// so the step budget is reset once, and keeping its scheduler throughout.
 	driven executorRun
+	// inRun is set while a run loop of this machine is on the stack.
+	inRun bool
 
 	// timerScheduled holds the time-triggered transitions whose timer is already
 	// running, so a state's timer is not restarted while it stays active.
@@ -178,7 +184,6 @@ func newStateExecutorForOccurrence(
 		occurrence:         occurrence,
 		state:              StateReady,
 		graph:              graph,
-		currentTime:        0.0,
 		nextEventID:        1,
 		eventQueue:         NewEventQueue(),
 		stateData:          make(map[string]Value),
@@ -202,6 +207,7 @@ func newStateExecutorForOccurrence(
 	if err := exec.initializeStateAttributes(); err != nil {
 		return nil, err
 	}
+	ctx.clock.attach(exec)
 
 	return exec, nil
 }
@@ -458,7 +464,7 @@ func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) erro
 		e.eventQueue.Push(Event{
 			ID:        e.nextEventID,
 			Type:      EventTime, // Use EventTime with nil trigger
-			Timestamp: e.currentTime,
+			Timestamp: e.ctx.clock.now,
 			Payload:   trans,
 		})
 		e.nextEventID++
@@ -475,7 +481,7 @@ func (e *StateExecutor) scheduleTransitionsForState(state *ast.StateNode) error 
 }
 
 // scheduleTimeTransitions queues a time event per time-triggered transition out
-// of the state whose timer is not running yet.
+// of the state whose timer is not running yet, due at the clock's instant.
 func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
 	for _, trans := range e.graph.Transitions[state] {
 		if e.timerScheduled[trans] {
@@ -493,24 +499,16 @@ func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
 			if err != nil {
 				return fmt.Errorf("eval time duration: %w", err)
 			}
-
-			// `accept at t` names an instant, `accept after d` an offset from
-			// entering the state. An instant already past fires immediately.
-			duration, err := e.timeMagnitude(durationVal, "time duration")
+			due, err := e.ctx.dueInstant(timeEvent, durationVal, "time duration")
 			if err != nil {
 				return err
 			}
-			timestamp := e.currentTime + duration
-			if timeEvent.Absolute {
-				timestamp = math.Max(duration, e.currentTime)
-			}
 
-			// Schedule event (generate unique ID using current queue length)
 			e.eventQueue.Push(Event{
 				ID:        e.nextEventID,
 				Type:      EventTime,
-				Timestamp: timestamp,
-				Payload:   trans, // Store transition reference
+				Timestamp: due,
+				Payload:   trans,
 			})
 			e.nextEventID++
 			e.timerScheduled[trans] = true
@@ -518,6 +516,17 @@ func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
 	}
 
 	return nil
+}
+
+// checkTimeTriggerType refuses, before evaluating it, the trigger argument
+// validation refuses. The verdict is static, so it is judged once per transition.
+func (e *StateExecutor) checkTimeTriggerType(trans *lower.Transition, t *ast.TimeEvent) error {
+	if err, ok := e.timeTriggerVerdict[trans]; ok {
+		return err
+	}
+	err := e.ctx.judgeTimeTriggerType(trans.Scope, t)
+	e.timeTriggerVerdict[trans] = err
+	return err
 }
 
 // processNextEvent pops and processes the next event from queue. It is one
@@ -530,9 +539,9 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 
 	event := e.eventQueue.Pop()
-
-	// Advance time
-	e.currentTime = event.Timestamp
+	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
+	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
+	e.lastEventAt = e.ctx.clock.now
 
 	dispatch, err := e.dispatchEvent(event)
 	if err != nil {
@@ -670,7 +679,7 @@ func (e *StateExecutor) recallDeferredEvents() {
 			retained = append(retained, event)
 			continue
 		}
-		event.Timestamp = e.currentTime
+		event.Timestamp = e.ctx.clock.now
 		e.eventQueue.Push(event)
 	}
 	e.deferred = retained
@@ -1917,18 +1926,28 @@ func (e *StateExecutor) RunToCompletion() error {
 	return e.run(false)
 }
 
-// RunToQuiescence runs the machine as RunToCompletion does, but leaves an event
-// scheduled for a later time queued rather than advancing to it: the
+// RunToQuiescence runs the machine as RunToCompletion does, but leaves a timer
+// set for later waiting on the clock rather than advancing to it: the
 // configuration an object settles into is the one reached at the time it was
-// materialized, and a timer it is waiting on is driven by advancing time.
+// materialized, and a timer it is waiting on is driven by advancing the clock.
 func (e *StateExecutor) RunToQuiescence() error {
 	return e.run(true)
 }
 
-// run is the run-to-completion loop, holding simulation time where it is when
-// atCurrentTime is set.
+// run is the run-to-completion loop. With atCurrentTime set, the clock is held
+// where it is; otherwise, once nothing is due, the clock is advanced to the
+// earliest wait — whoever holds it — and whatever else comes due there runs
+// too, the order among several being a scheduling choice.
 func (e *StateExecutor) run(atCurrentTime bool) error {
+	var progress dueProgress
+	return e.runCounting(atCurrentTime, &progress)
+}
+
+func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	wasRunning := e.inRun
+	e.inRun = true
+	defer func() { e.inRun = wasRunning }()
 
 	// Suspension is derived at quiescence, so re-running is allowed: a run that
 	// finds nothing to do suspends again.
@@ -1936,54 +1955,134 @@ func (e *StateExecutor) run(atCurrentTime bool) error {
 		e.state = StateRunning
 	}
 
-	maxStateEvents, maxDoSteps := e.ctx.maxStateEvents, e.ctx.maxDoSteps
-	var events, doSteps int64
 	for e.state == StateRunning {
-		ran, err := e.runDoRound()
+		stepped, err := e.runStep(progress)
 		if err != nil {
 			return err
 		}
-		doSteps += int64(ran)
-		if doSteps >= maxDoSteps {
-			return budgetExceeded(ErrDoStepLimitExceeded,
-				fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
-					maxDoSteps, MaxDoStepsEnvVar))
-		}
-		fired, err := e.pollChangeEvents()
-		if err != nil {
-			return fmt.Errorf("poll change conditions: %w", err)
-		}
-		if fired {
-			if events >= maxStateEvents {
-				return budgetExceeded(ErrStateEventLimitExceeded,
-					fmt.Sprintf("state machine exceeded max events (%d events; raise %s to allow more), possible infinite loop",
-						maxStateEvents, MaxStateEventsEnvVar))
-			}
-			events++
+		if stepped {
 			continue
 		}
-		delivered, err := e.deliverPendingSignal(atCurrentTime)
-		if err != nil {
-			return err
-		}
-		if !delivered {
-			if ran > 0 {
-				continue // do behaviors are still running; they may yet queue events
-			}
+		if atCurrentTime {
 			e.state = StateSuspended
 			return nil
 		}
-		if events >= maxStateEvents {
-			return budgetExceeded(ErrStateEventLimitExceeded,
-				fmt.Sprintf("state machine exceeded max events (%d events; raise %s to allow more), possible infinite loop",
-					maxStateEvents, MaxStateEventsEnvVar))
+		// Nothing left at this instant: the other executors due run, then the
+		// clock moves to the earliest wait and the order at that instant is drawn.
+		// Only a machine with a timer of its own running moves the clock; one with
+		// nothing to wait for has quiesced.
+		if _, err := e.ctx.runDue(e, progress); err != nil {
+			return err
 		}
-		events++
-		if err := e.processNextEvent(); err != nil {
-			return fmt.Errorf("process event: %w", err)
+		for !e.dueWork() {
+			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue() {
+				e.state = StateSuspended
+				return nil
+			}
+			if _, err := e.ctx.runDue(e, progress); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+// dueLabel names the machine in a due-order choice.
+func (e *StateExecutor) dueLabel() string {
+	return "state machine " + symbolText(e.stateMachine) + performerSuffix(e.self)
+}
+
+// clockWaits lists the timers set for an instant the clock has not reached.
+func (e *StateExecutor) clockWaits() []ClockWait {
+	var waits []ClockWait
+	for _, event := range e.eventQueue.events {
+		trans, ok := event.Payload.(*lower.Transition)
+		if !ok || event.Timestamp <= e.ctx.clock.now {
+			continue
+		}
+		waits = append(waits, ClockWait{
+			Due:    event.Timestamp,
+			Holder: e.dueLabel(),
+			What:   fmt.Sprintf("%s -> %s", triggerName(trans.Trigger), getNodeName(trans.Target)),
+		})
+	}
+	slices.SortFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// dueWork reports an event due, a signal in flight this machine takes, or a do
+// action left to run, on a machine initialized and not completed.
+func (e *StateExecutor) dueWork() bool {
+	if e.state != StateRunning && e.state != StateSuspended {
+		return false
+	}
+	return e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
+}
+
+// watchesChange reports a change condition the active configuration waits on.
+func (e *StateExecutor) watchesChange() bool {
+	return (e.state == StateRunning || e.state == StateSuspended) && e.WatchesChangeCondition()
+}
+
+// runDue runs the machine to quiescence at the current instant.
+func (e *StateExecutor) runDue(progress *dueProgress) (bool, error) {
+	before := *progress
+	err := e.runCounting(true, progress)
+	return progress.events > before.events || progress.doSteps > before.doSteps, err
+}
+
+func (e *StateExecutor) finished() bool { return e.state == StateCompleted }
+func (e *StateExecutor) running() bool  { return e.inRun }
+
+// runStep is one run-to-completion step: every active state's do behavior
+// advances by one action, a change condition risen is taken, else the next due
+// event is dispatched. It reports false when nothing was left to do at the
+// current instant, and counts what it did against the budgets.
+func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
+	maxStateEvents, maxDoSteps := e.ctx.maxStateEvents, e.ctx.maxDoSteps
+	ran, err := e.runDoRound()
+	if err != nil {
+		return false, err
+	}
+	progress.doSteps += int64(ran)
+	if progress.doSteps >= maxDoSteps {
+		return false, budgetExceeded(ErrDoStepLimitExceeded,
+			fmt.Sprintf("state machine exceeded max do action steps (%d steps; raise %s to allow more), possible non-terminating do behavior",
+				maxDoSteps, MaxDoStepsEnvVar))
+	}
+	fired, err := e.pollChangeEvents()
+	if err != nil {
+		return false, fmt.Errorf("poll change conditions: %w", err)
+	}
+	if fired {
+		if progress.events >= maxStateEvents {
+			return false, e.eventBudgetExceeded(maxStateEvents)
+		}
+		progress.events++
+		return true, nil
+	}
+	delivered, err := e.deliverPendingSignal()
+	if err != nil {
+		return false, err
+	}
+	if !delivered {
+		return ran > 0, nil // do behaviors still running may yet queue events
+	}
+	if progress.events >= maxStateEvents {
+		return false, e.eventBudgetExceeded(maxStateEvents)
+	}
+	progress.events++
+	if err := e.processNextEvent(); err != nil {
+		return false, fmt.Errorf("process event: %w", err)
+	}
+	progress.noteDispatch(*e.lastDispatch)
+	return true, nil
+}
+
+func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
+	return budgetExceeded(ErrStateEventLimitExceeded,
+		fmt.Sprintf("state machine exceeded max events (%d events; raise %s to allow more), possible infinite loop",
+			maxStateEvents, MaxStateEventsEnvVar))
 }
 
 // startDoAction registers a state's do behavior as running. Re-entering a
@@ -2111,7 +2210,7 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
-		Timestamp: e.currentTime,
+		Timestamp: e.ctx.clock.now,
 		Payload:   Call{Operation: operation, Args: args},
 	})
 	e.nextEventID++
@@ -2122,7 +2221,7 @@ func (e *StateExecutor) enqueueSignal(msg Message) {
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventAccept,
-		Timestamp: e.currentTime,
+		Timestamp: e.ctx.clock.now,
 		Payload:   msg,
 	})
 	e.nextEventID++
@@ -2132,7 +2231,7 @@ func (e *StateExecutor) enqueueSignal(msg Message) {
 // message this machine takes: one in flight is due now, so it goes ahead of a
 // timer set for later rather than after the run has advanced to it. Messages
 // this machine leaves, and one whose port fails to resolve, stay in flight.
-func (e *StateExecutor) deliverPendingSignal(atCurrentTime bool) (bool, error) {
+func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 	var failed error
 	msg, ok := e.ctx.TakeMessage(func(m Message) bool {
 		if failed != nil {
@@ -2149,7 +2248,7 @@ func (e *StateExecutor) deliverPendingSignal(atCurrentTime bool) (bool, error) {
 		return false, failed
 	}
 	if !ok {
-		return e.hasDueEvent(atCurrentTime), nil
+		return e.hasDueEvent(), nil
 	}
 	e.enqueueSignal(msg)
 	return true, nil
@@ -2222,7 +2321,7 @@ func (e *StateExecutor) acceptableMessage(m Message) (bool, error) {
 // defersMessage reports whether the active configuration defers a message,
 // whatever route it came by, as a trigger naming no port takes it.
 func (e *StateExecutor) defersMessage(m Message) bool {
-	event := Event{Type: EventAccept, Timestamp: e.currentTime, Payload: m}
+	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
 	return e.defersEvent(&event)
 }
 
@@ -2282,7 +2381,7 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 	if accepted, err := e.acceptableMessage(m); err != nil || !accepted {
 		return Decision{}, err
 	}
-	event := Event{Type: EventAccept, Timestamp: e.currentTime, Payload: m}
+	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
 	candidates, err := e.selectTransitions(&event)
 	if err != nil {
 		return Decision{}, err
@@ -2822,9 +2921,32 @@ func (e *StateExecutor) DeferredEvents() []Event {
 	return append([]Event(nil), e.deferred...)
 }
 
-// CurrentTime returns the current simulation time.
+// CurrentTime returns the current instant of the clock this machine shares with
+// every executor of its context, in seconds.
 func (e *StateExecutor) CurrentTime() float64 {
-	return e.currentTime
+	return e.ctx.clock.now
+}
+
+// LastEventAt returns the instant the machine last dispatched an event at, zero
+// before it dispatched any.
+func (e *StateExecutor) LastEventAt() float64 {
+	return e.lastEventAt
+}
+
+// NextWait returns the instant the machine's earliest timer comes due at, false
+// when none is set for later than the clock's instant.
+func (e *StateExecutor) NextWait() (float64, bool) {
+	if e.eventQueue.Len() == 0 || e.eventQueue.Peek().Timestamp <= e.ctx.clock.now {
+		return 0, false
+	}
+	return e.eventQueue.Peek().Timestamp, true
+}
+
+// Release lets go of a machine its driver is done with: the clock drives it no
+// further, so its timers and the signals it would take are left to the others.
+// Safe to call more than once.
+func (e *StateExecutor) Release() {
+	e.ctx.clock.detach(e)
 }
 
 // Resume returns a machine suspended at quiescence to running, so a driver that
@@ -2863,47 +2985,71 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // advances by one action, then the next event is dispatched. Advancing the do
 // behaviors is progress in itself, so a step that ran one and found no event to
 // dispatch succeeds — the completion transition it enables is queued next.
+//
+// When nothing is due at the current instant but a timer of this machine is
+// running, the shared clock is advanced to the earliest wait on it — whatever
+// else is due there, in another executor of the context, runs by the
+// scheduling policy — until this machine's next event is due.
 func (e *StateExecutor) ProcessNextEvent() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	e.lastDispatch = nil
-	ran, err := e.runDoRound()
-	if err != nil {
-		return err
+	var progress dueProgress
+	for {
+		ran, err := e.runDoRound()
+		if err != nil {
+			return err
+		}
+		// A condition risen in the do round is taken here, as RunToCompletion does.
+		fired, err := e.pollChangeEvents()
+		if err != nil {
+			return fmt.Errorf("poll change conditions: %w", err)
+		}
+		if fired {
+			return nil
+		}
+		// A signal sent by a behavior sharing this context is dispatched by the same
+		// step RunToCompletion takes, so stepping and running agree.
+		delivered, err := e.deliverPendingSignal()
+		if err != nil {
+			return err
+		}
+		if !delivered && ran > 0 {
+			return nil
+		}
+		if _, waiting := e.NextWait(); delivered || !waiting {
+			return e.processNextEvent()
+		}
+		if err := e.awaitClock(&progress); err != nil {
+			return err
+		}
 	}
-	// A condition risen in the do round is taken here, as RunToCompletion does.
-	fired, err := e.pollChangeEvents()
-	if err != nil {
-		return fmt.Errorf("poll change conditions: %w", err)
-	}
-	if fired {
-		return nil
-	}
-	// A signal sent by a behavior sharing this context is dispatched by the same
-	// step RunToCompletion takes, so stepping and running agree.
-	delivered, err := e.deliverPendingSignal(false)
-	if err != nil {
-		return err
-	}
-	if !delivered && ran > 0 {
-		return nil
-	}
-	return e.processNextEvent()
 }
 
-// hasDueEvent reports whether an event the run may dispatch is queued: with time
-// held where it is, one scheduled for later is not yet due.
-func (e *StateExecutor) hasDueEvent(atCurrentTime bool) bool {
-	if e.eventQueue.Len() == 0 {
-		return false
+// awaitClock lets the executors due at this instant run, then moves the clock
+// to the earliest wait on it, until this machine has work due. It returns with
+// nothing due only when no wait is left on the clock.
+func (e *StateExecutor) awaitClock(progress *dueProgress) error {
+	for {
+		if _, err := e.ctx.runDue(e, progress); err != nil {
+			return err
+		}
+		if e.dueWork() || !e.ctx.advanceToNextDue() {
+			return nil
+		}
 	}
-	return !atCurrentTime || e.eventQueue.Peek().Timestamp <= e.currentTime
 }
 
-// HasDueEvent reports whether an event scheduled no later than the machine's
-// current time is queued, which a run holding time where it is dispatches.
+// hasDueEvent reports whether an event the run may dispatch at the current
+// instant is queued: one set for later is not yet due.
+func (e *StateExecutor) hasDueEvent() bool {
+	return e.eventQueue.Len() > 0 && e.eventQueue.Peek().Timestamp <= e.ctx.clock.now
+}
+
+// HasDueEvent reports whether an event due at the current instant is queued,
+// which a run holding time where it is dispatches.
 func (e *StateExecutor) HasDueEvent() bool {
-	return e.hasDueEvent(true)
+	return e.hasDueEvent()
 }
 
 // HasPendingWork reports whether stepping the machine can still make progress:

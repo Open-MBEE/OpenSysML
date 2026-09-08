@@ -213,11 +213,17 @@ type stateSession struct {
 	// restart rebinds to the same one when the object exhibits several.
 	machine   string
 	machineAt int
-	// rtCtx is the context the executor runs in; see actionSession.rtCtx.
+	// rtCtx is the context the executor runs in; see actionSession.rtCtx. Its
+	// clock is the session's time.
 	rtCtx *runtime.Context
-	// now is the debugger's clock. The executor's own clock only moves when an
-	// event is processed, so successive %advance calls accumulate here.
-	now float64
+}
+
+// release lets go of a detached run the session started, so the clock drives it
+// no further; a machine an object exhibits runs on, and a nil session has none.
+func (s *stateSession) release() {
+	if s != nil && s.machine == "" {
+		s.executor.Release()
+	}
 }
 
 // contextOf returns the context the executor's values belong to, nil for none.
@@ -286,6 +292,7 @@ func (s *Session) endDebugSessions(cause string) {
 	}
 	if s.stateExec != nil {
 		s.endedState = &endedSession{kind: "state machine", name: s.stateExec.name, outside: cause}
+		s.stateExec.release()
 		s.stateExec = nil
 	}
 }
@@ -888,7 +895,6 @@ func (s *Session) rebindRestartedMachine() {
 	s.stateExec.symbol = behavior.Symbol
 	s.stateExec.executor = behavior.State
 	s.stateExec.rtCtx = s.rtCtx
-	s.stateExec.now = behavior.State.CurrentTime()
 }
 
 // restartedMachine finds, among the machines the rebuilt object exhibits, the
@@ -997,6 +1003,7 @@ func (s *Session) dropStaleDebugSessions(gone []string, over carryover) []string
 			objectGone: objectGone,
 			version:    s.version,
 		}
+		s.stateExec.release()
 		s.stateExec = nil
 	}
 	return notices

@@ -45,13 +45,14 @@ func (e *ActionExecutor) runPausable(tokenIdx int, work func() error, after func
 }
 
 // Release ends the run for good: the work of every token a breakpoint left
-// paused is ended, so an executor abandoned mid-run holds no suspended run, and a
-// later Step or RunToCompletion returns ErrExecutorReleased, completed or not.
-// Safe to call more than once.
+// paused is ended, so an executor abandoned mid-run holds no suspended run, the
+// clock drives it no further, and a later Step or RunToCompletion returns
+// ErrExecutorReleased, completed or not. Safe to call more than once.
 func (e *ActionExecutor) Release() {
 	defer e.ctx.endExecutorRun(&e.driven)()
 	e.released = true
 	e.endPausedBodies()
+	e.ctx.clock.detach(e)
 }
 
 // endPausedBodies ends the work of every token a breakpoint left paused; a run

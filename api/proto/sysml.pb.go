@@ -2421,10 +2421,14 @@ func (x *ExecuteActionRequest) GetSchedule() string {
 
 // ExecuteActionResponse contains action execution results
 type ExecuteActionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Outputs       map[string]*Value      `protobuf:"bytes,1,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // output parameter name → value
-	Error         string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
-	Diagnostics   []*Diagnostic          `protobuf:"bytes,3,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Outputs     map[string]*Value      `protobuf:"bytes,1,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // output parameter name → value
+	Error       string                 `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
+	Diagnostics []*Diagnostic          `protobuf:"bytes,3,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	// The run's simulation clock when it ended, in seconds (SI::s) from the 0
+	// it started at: the clock advances through every `accept after`/`accept
+	// at` the action waited on. Populated under the "final_time" capability.
+	FinalTime     float64 `protobuf:"fixed64,4,opt,name=final_time,json=finalTime,proto3" json:"final_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2478,6 +2482,13 @@ func (x *ExecuteActionResponse) GetDiagnostics() []*Diagnostic {
 		return x.Diagnostics
 	}
 	return nil
+}
+
+func (x *ExecuteActionResponse) GetFinalTime() float64 {
+	if x != nil {
+		return x.FinalTime
+	}
+	return 0
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -2559,6 +2570,10 @@ type ExecuteStateResponse struct {
 	FinalContext  map[string]*Value      `protobuf:"bytes,2,rep,name=final_context,json=finalContext,proto3" json:"final_context,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	Error         string                 `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
 	Diagnostics   []*Diagnostic          `protobuf:"bytes,4,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	// The run's simulation clock when it ended, in seconds (SI::s) from the 0
+	// it started at: the clock advances through every time-triggered transition
+	// the machine took. Populated under the "final_time" capability.
+	FinalTime     float64 `protobuf:"fixed64,5,opt,name=final_time,json=finalTime,proto3" json:"final_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2619,6 +2634,13 @@ func (x *ExecuteStateResponse) GetDiagnostics() []*Diagnostic {
 		return x.Diagnostics
 	}
 	return nil
+}
+
+func (x *ExecuteStateResponse) GetFinalTime() float64 {
+	if x != nil {
+		return x.FinalTime
+	}
+	return 0
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -5322,6 +5344,9 @@ type ServerInfoResponse struct {
 	//	               the run resolves its choice points under; without it a
 	//	               service drops the field and runs under the default, so a
 	//	               client must not send one.
+	//	"final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+	//	               final_time, the run's simulation clock when it ended;
+	//	               without it the field is 0 whatever the run waited on.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6998,11 +7023,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\bschedule\x18\x04 \x01(\tR\bschedule\x1aG\n" +
 	"\vInputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xf1\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x90\x02\n" +
 	"\x15ExecuteActionResponse\x12C\n" +
 	"\aoutputs\x18\x01 \x03(\v2).sysml.ExecuteActionResponse.OutputsEntryR\aoutputs\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x123\n" +
-	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x1aH\n" +
+	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\x1d\n" +
+	"\n" +
+	"final_time\x18\x04 \x01(\x01R\tfinalTime\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x9f\x01\n" +
@@ -7011,12 +7038,14 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x125\n" +
 	"\x17state_machine_symbol_id\x18\x02 \x01(\tR\x14stateMachineSymbolId\x12\x16\n" +
 	"\x06events\x18\x03 \x03(\tR\x06events\x12\x1a\n" +
-	"\bschedule\x18\x04 \x01(\tR\bschedule\"\xab\x02\n" +
+	"\bschedule\x18\x04 \x01(\tR\bschedule\"\xca\x02\n" +
 	"\x14ExecuteStateResponse\x12%\n" +
 	"\x0estates_visited\x18\x01 \x03(\tR\rstatesVisited\x12R\n" +
 	"\rfinal_context\x18\x02 \x03(\v2-.sysml.ExecuteStateResponse.FinalContextEntryR\ffinalContext\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x123\n" +
-	"\vdiagnostics\x18\x04 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x1aM\n" +
+	"\vdiagnostics\x18\x04 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\x1d\n" +
+	"\n" +
+	"final_time\x18\x05 \x01(\x01R\tfinalTime\x1aM\n" +
 	"\x11FinalContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xea\x01\n" +

@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::sender",
+  "objects": [
+    {
+      "path": "",
+      "finalState": "pinged",
+      "stateVisits": ["holding", "pinged"]
+    },
+    {
+      "path": "receiver",
+      "finalState": "gotPing",
+      "stateVisits": ["waiting", "armed", "gotPing"]
+    }
+  ]
+}

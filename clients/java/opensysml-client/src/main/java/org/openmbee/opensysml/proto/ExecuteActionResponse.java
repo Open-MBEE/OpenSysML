@@ -236,6 +236,23 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     return diagnostics_.get(index);
   }
 
+  public static final int FINAL_TIME_FIELD_NUMBER = 4;
+  private double finalTime_ = 0D;
+  /**
+   * <pre>
+   * The run's simulation clock when it ended, in seconds (SI::s) from the 0
+   * it started at: the clock advances through every `accept after`/`accept
+   * at` the action waited on. Populated under the "final_time" capability.
+   * </pre>
+   *
+   * <code>double final_time = 4 [json_name = "finalTime"];</code>
+   * @return The finalTime.
+   */
+  @java.lang.Override
+  public double getFinalTime() {
+    return finalTime_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -261,6 +278,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     for (int i = 0; i < diagnostics_.size(); i++) {
       output.writeMessage(3, diagnostics_.get(i));
+    }
+    if (java.lang.Double.doubleToRawLongBits(finalTime_) != 0) {
+      output.writeDouble(4, finalTime_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -288,6 +308,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(3, diagnostics_.get(i));
     }
+    if (java.lang.Double.doubleToRawLongBits(finalTime_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(4, finalTime_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -309,6 +333,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         .equals(other.getError())) return false;
     if (!getDiagnosticsList()
         .equals(other.getDiagnosticsList())) return false;
+    if (java.lang.Double.doubleToLongBits(getFinalTime())
+        != java.lang.Double.doubleToLongBits(
+            other.getFinalTime())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -330,6 +357,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       hash = (37 * hash) + DIAGNOSTICS_FIELD_NUMBER;
       hash = (53 * hash) + getDiagnosticsList().hashCode();
     }
+    hash = (37 * hash) + FINAL_TIME_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getFinalTime()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -496,6 +526,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         diagnosticsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000004);
+      finalTime_ = 0D;
       return this;
     }
 
@@ -548,6 +579,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (((from_bitField0_ & 0x00000002) != 0)) {
         result.error_ = error_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.finalTime_ = finalTime_;
+      }
     }
 
     @java.lang.Override
@@ -595,6 +629,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
             diagnosticsBuilder_.addAllMessages(other.diagnostics_);
           }
         }
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getFinalTime()) != 0) {
+        setFinalTime(other.getFinalTime());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -649,6 +686,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               }
               break;
             } // case 26
+            case 33: {
+              finalTime_ = input.readDouble();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 33
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1163,6 +1205,56 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         diagnostics_ = null;
       }
       return diagnosticsBuilder_;
+    }
+
+    private double finalTime_ ;
+    /**
+     * <pre>
+     * The run's simulation clock when it ended, in seconds (SI::s) from the 0
+     * it started at: the clock advances through every `accept after`/`accept
+     * at` the action waited on. Populated under the "final_time" capability.
+     * </pre>
+     *
+     * <code>double final_time = 4 [json_name = "finalTime"];</code>
+     * @return The finalTime.
+     */
+    @java.lang.Override
+    public double getFinalTime() {
+      return finalTime_;
+    }
+    /**
+     * <pre>
+     * The run's simulation clock when it ended, in seconds (SI::s) from the 0
+     * it started at: the clock advances through every `accept after`/`accept
+     * at` the action waited on. Populated under the "final_time" capability.
+     * </pre>
+     *
+     * <code>double final_time = 4 [json_name = "finalTime"];</code>
+     * @param value The finalTime to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFinalTime(double value) {
+
+      finalTime_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's simulation clock when it ended, in seconds (SI::s) from the 0
+     * it started at: the clock advances through every `accept after`/`accept
+     * at` the action waited on. Populated under the "final_time" capability.
+     * </pre>
+     *
+     * <code>double final_time = 4 [json_name = "finalTime"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFinalTime() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      finalTime_ = 0D;
+      onChanged();
+      return this;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.ExecuteActionResponse)

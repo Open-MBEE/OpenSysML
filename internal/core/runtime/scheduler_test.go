@@ -615,3 +615,91 @@ func TestProbeLeavesTheSeededSequenceInPlace(t *testing.T) {
 		t.Errorf("after a probe drew %d the run drew %d; the probe consumed the sequence", drawn, again)
 	}
 }
+
+// dueOrderChoices runs machines whose timers fall due at one instant of the
+// shared clock under policy and returns the run's choices.
+func dueOrderChoices(t *testing.T, policy SchedulePolicy, machines int) []ChoicePoint {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import SI::*;
+			private import ScalarValues::*;
+			state metronome {
+				attribute beat : Integer = 0;
+				entry; then ticking;
+				state ticking;
+				state ticked;
+				transition ticking then ticked accept after 5 [s] do assign beat := beat + 1;
+			}
+		}
+	`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "metronome", ast.DefState)
+	if sym == nil {
+		t.Fatal("state metronome not found")
+	}
+	ctx.SetSchedule(policy)
+	execs := make([]*StateExecutor, machines)
+	for i := range execs {
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			t.Fatalf("create machine %d: %v", i, err)
+		}
+		execs[i] = exec
+	}
+	report, err := ctx.Advance(5)
+	if err != nil {
+		t.Fatalf("%s: Advance: %v", policy, err)
+	}
+	if report.Events != int64(machines) {
+		t.Errorf("%s: %d events dispatched, want one per machine (%d)", policy, report.Events, machines)
+	}
+	for i, exec := range execs {
+		if got := exec.CurrentState(); got == nil || getNodeName(got) != "ticked" {
+			t.Errorf("%s: machine %d in %v after the advance, want ticked", policy, i, got)
+		}
+		if got := exec.StateData()["beat"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("%s: machine %d beat = %v, want 1", policy, i, got)
+		}
+	}
+	return ctx.Choices()
+}
+
+// Executors due at one instant of the shared clock are a choice point: the
+// default runs the last created first, `declared` the first, and a seed draws;
+// a single executor due is no choice and is not reported.
+func TestDueOrderChoice(t *testing.T) {
+	if choices := dueOrderChoices(t, DefaultSchedulePolicy, 1); len(choices) != 0 {
+		t.Errorf("one machine due: choices = %v, want none", choices)
+	}
+
+	for _, tc := range []struct {
+		policy string
+		taken  int
+	}{{"reverse", 1}, {"declared", 0}} {
+		choices := dueOrderChoices(t, mustPolicy(t, tc.policy), 2)
+		if len(choices) != 1 {
+			t.Fatalf("%s: choices = %v, want the one due-order choice", tc.policy, choices)
+		}
+		c := choices[0]
+		if c.Kind != ChoiceDueOrder || c.Where != "t=5.0" || len(c.Alternatives) != 2 || c.Taken != tc.taken {
+			t.Errorf("%s: choice = %+v, want a due order at t=5.0 over two machines taking %d", tc.policy, c, tc.taken)
+		}
+		want := fmt.Sprintf("at t=5.0: due %s, %s (unordered; ran %s first)",
+			c.Alternatives[0], c.Alternatives[1], c.Alternatives[tc.taken])
+		if got := c.Describe(); got != want {
+			t.Errorf("%s: Describe() = %q, want %q", tc.policy, got, want)
+		}
+	}
+
+	taken := map[int]bool{}
+	for seed := 0; seed < 16; seed++ {
+		choices := dueOrderChoices(t, mustPolicy(t, fmt.Sprintf("seed:%d", seed)), 2)
+		if len(choices) != 1 || choices[0].Kind != ChoiceDueOrder {
+			t.Fatalf("seed:%d: choices = %v, want one due-order choice", seed, choices)
+		}
+		taken[choices[0].Taken] = true
+	}
+	if !taken[0] || !taken[1] {
+		t.Errorf("sixteen seeds took only %v; want both orders drawn", taken)
+	}
+}

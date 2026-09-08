@@ -1,0 +1,27 @@
+materialize: sender #1
+start: exhibited state machine pinging of #1
+materialize: pinging #2
+enter: holding
+  eval literal 5 -> 5
+eval index -> 5 [s]
+materialize: Receiver #3
+start: exhibited state machine listening of #3
+materialize: listening #4
+enter: waiting
+  eval literal 3 -> 3
+eval index -> 3 [s]
+run: exhibited state machine pinging of #1
+run: exhibited state machine listening of #3
+run: exhibited state machine listening of #3
+exit: waiting
+enter: armed
+transition: waiting -> armed (event: time)
+exit: holding
+enter: pinged (entry action)
+stmt send
+materialize: Ping #5
+transition: holding -> pinged (event: time)
+run: exhibited state machine listening of #3
+exit: armed
+enter: gotPing
+transition: armed -> gotPing (event: accept Ping)

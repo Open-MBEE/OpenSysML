@@ -1,0 +1,18 @@
+step 1: token 1@waitA
+  eval literal 5 -> 5
+eval index -> 5 [s]
+step 2: token 1@tick
+stmt assign count
+    eval feature count -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 3: token 1@waitB
+  eval literal 2.5 -> 2.5
+eval index -> 2.5 [s]
+step 4: token 1@tock
+stmt assign count
+    eval feature count -> 1
+    eval literal 10 -> 10
+  eval operator * -> 10
+step 5: token 1@done
+step 6: no active tokens

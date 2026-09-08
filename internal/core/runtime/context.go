@@ -238,6 +238,11 @@ type Context struct {
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
 
+	// clock is the simulation time every executor of this context shares, and
+	// clockRun the run an advance of it draws its due-order choices from.
+	clock    Clock
+	clockRun executorRun
+
 	// derivingFeatureValues holds the feature values whose defaults are being evaluated, so a
 	// default that refers back to its own feature value is reported as a cycle.
 	derivingFeatureValues map[featureValueRef]bool
@@ -687,6 +692,7 @@ func (ctx *Context) beginJournal() (commit, rollback func()) {
 	mark, undoMark := len(ctx.journalWrites), len(ctx.journalUndos)
 	created, attached := len(ctx.created), len(ctx.objectBehaviors)
 	messages := slices.Clone(ctx.messages)
+	restoreClock := ctx.clock.snapshot()
 	ctx.journals++
 	commit = func() {
 		ctx.journals--
@@ -706,6 +712,7 @@ func (ctx *Context) beginJournal() (commit, rollback func()) {
 		ctx.journalUndos = ctx.journalUndos[:undoMark]
 		ctx.messages = messages
 		ctx.abandonCreationSince(created, attached)
+		restoreClock()
 	}
 	return commit, rollback
 }
@@ -1325,7 +1332,7 @@ func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, in
 }
 
 // performActionFrom creates the executor for action, seeds its inputs, starts
-// it with start, and runs it to completion.
+// it with start, and runs it to completion; the clock drives it no further.
 func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	defer ctx.beginRun()()
 
@@ -1333,6 +1340,7 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
+	defer ctx.clock.detach(exec)
 
 	// Bind inputs before initialization so they seed the initial token.
 	if len(inputs) > 0 {
@@ -1382,6 +1390,7 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 	if err != nil {
 		return nil, nil, fmt.Errorf("create state executor: %w", err)
 	}
+	defer ctx.clock.detach(exec)
 
 	// Initialize execution (enters initial state)
 	if err := exec.initialize(); err != nil {
@@ -1418,6 +1427,7 @@ func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instan
 
 	// Initialize (spawns initial token)
 	if err := exec.initialize(); err != nil {
+		exec.Release()
 		return nil, fmt.Errorf("initialize action: %w", err)
 	}
 
@@ -1440,6 +1450,7 @@ func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *I
 
 	// Initialize (enters initial state, schedules initial events)
 	if err := exec.initialize(); err != nil {
+		exec.Release()
 		return nil, fmt.Errorf("initialize state machine: %w", err)
 	}
 

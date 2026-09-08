@@ -136,6 +136,11 @@ const CapabilityDiagnosticCodes = "diagnostic_codes"
 // every request under the default, so a client must not send the field to one.
 const CapabilitySchedule = "schedule"
 
+// CapabilityFinalTime names the capability of populating final_time on
+// ExecuteActionResponse and ExecuteStateResponse, the run's simulation clock
+// when it ended. Without it the field is 0 whatever the run waited on.
+const CapabilityFinalTime = "final_time"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -147,7 +152,7 @@ var capabilities = []string{
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
-	CapabilityDiagnosticCodes, CapabilitySchedule,
+	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityFinalTime,
 }
 
 type capabilityAvailability struct {
@@ -812,6 +817,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		return &pb.ExecuteActionResponse{
 			Error:       fmt.Sprintf("action execution failed: %v", err),
 			Diagnostics: diags,
+			FinalTime:   s.finalTime(runtimeCtx),
 		}, nil
 	}
 
@@ -824,7 +830,16 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	return &pb.ExecuteActionResponse{
 		Outputs:     pbOutputs,
 		Diagnostics: diags,
+		FinalTime:   s.finalTime(runtimeCtx),
 	}, nil
+}
+
+// finalTime is the run's clock when it ended, under the final_time capability.
+func (s *Service) finalTime(runtimeCtx *runtime.Context) float64 {
+	if !s.capabilities.has(CapabilityFinalTime) {
+		return 0
+	}
+	return runtimeCtx.Clock().Now()
 }
 
 // ExecuteState executes a state machine
@@ -862,6 +877,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{
 			Error:       fmt.Sprintf("state machine execution failed: %v", err),
 			Diagnostics: diags,
+			FinalTime:   s.finalTime(runtimeCtx),
 		}, nil
 	}
 
@@ -875,6 +891,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		StatesVisited: statesVisited,
 		FinalContext:  pbContext,
 		Diagnostics:   diags,
+		FinalTime:     s.finalTime(runtimeCtx),
 	}, nil
 }
 

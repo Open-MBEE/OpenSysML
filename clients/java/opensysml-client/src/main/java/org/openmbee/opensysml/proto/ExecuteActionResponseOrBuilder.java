@@ -99,4 +99,16 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   org.openmbee.opensysml.proto.DiagnosticOrBuilder getDiagnosticsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * The run's simulation clock when it ended, in seconds (SI::s) from the 0
+   * it started at: the clock advances through every `accept after`/`accept
+   * at` the action waited on. Populated under the "final_time" capability.
+   * </pre>
+   *
+   * <code>double final_time = 4 [json_name = "finalTime"];</code>
+   * @return The finalTime.
+   */
+  double getFinalTime();
 }

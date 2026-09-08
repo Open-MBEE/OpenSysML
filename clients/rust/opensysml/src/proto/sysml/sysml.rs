@@ -501,6 +501,11 @@ pub struct ExecuteActionResponse {
     pub error: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="3")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// The run's simulation clock when it ended, in seconds (SI::s) from the 0
+    /// it started at: the clock advances through every `accept after`/`accept
+    /// at` the action waited on. Populated under the "final_time" capability.
+    #[prost(double, tag="4")]
+    pub final_time: f64,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -530,6 +535,11 @@ pub struct ExecuteStateResponse {
     pub error: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="4")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// The run's simulation clock when it ended, in seconds (SI::s) from the 0
+    /// it started at: the clock advances through every time-triggered transition
+    /// the machine took. Populated under the "final_time" capability.
+    #[prost(double, tag="5")]
+    pub final_time: f64,
 }
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
@@ -1199,6 +1209,9 @@ pub struct ServerInfoResponse {
     ///                   the run resolves its choice points under; without it a
     ///                   service drops the field and runs under the default, so a
     ///                   client must not send one.
+    ///    "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+    ///                   final_time, the run's simulation clock when it ended;
+    ///                   without it the field is 0 whatever the run waited on.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

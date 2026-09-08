@@ -454,9 +454,10 @@ class Model:
                 choice points under, as for :meth:`execute_action`
 
         Returns:
-            dict: {'states_visited': [...], 'final_context': {...}}; a context
-                value the wire format cannot represent is reported as an
-                UnsupportedValueError in its place
+            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
+                a context value the wire format cannot represent is reported as
+                an UnsupportedValueError in its place; ``final_time`` is the
+                run's simulation clock when it ended, in seconds
 
         Raises:
             ExecutionError: If the state machine could not be executed

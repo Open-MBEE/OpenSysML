@@ -171,8 +171,9 @@ func TestCollectionMemberIsAddressedByIndexOrById(t *testing.T) {
 	wants(t, run(t, s, "%current"), "waiting")
 	wants(t, run(t, s, "%advance 5"), "Current state: moving")
 
-	// The advance drove that member alone: the other is where it started.
-	wants(t, run(t, s, "%state #"+first), `exhibited by object #`+first, "Current state: waiting")
+	// The advance moved the clock every machine of the context shares: the other
+	// member moved with it, and each session still names its own object.
+	wants(t, run(t, s, "%state #"+first), `exhibited by object #`+first, "Current state: moving")
 	wants(t, run(t, s, "%state #"+id), `exhibited by object #`+id, "Current state: moving")
 }
 
@@ -349,8 +350,9 @@ func TestStateOverASharedDefinitionNamesTheUsages(t *testing.T) {
 	}
 
 	wants(t, run(t, s, "%state Shared::Lamp::rear Shared::lamp"), `Debugging state machine "rear"`, "note:", "Current state: dark")
+	// Both usages wait on the object's one clock, so the advance lights both.
 	wants(t, run(t, s, "%advance 2"), "Current state: lit")
-	wants(t, run(t, s, "%features Shared::lamp"), "front", "dark", "rear", "lit")
+	wants(t, run(t, s, "%features Shared::lamp"), "front: exhibited state machine, current state lit", "rear: exhibited state machine, current state lit")
 }
 
 // A command's expressions are parsed before its object is reached: a malformed
@@ -584,8 +586,9 @@ func TestSupersededObjectKeepsItsDebuggingSession(t *testing.T) {
 		t.Fatalf("debugger label after displacement = %q, want #%s", got, first)
 	}
 	wants(t, run(t, s, "%advance 5"), "Current state: moving")
+	// Both objects run on the one clock the advance moved.
 	wants(t, run(t, s, "%features #"+first), `log = "WM"`)
-	wants(t, run(t, s, "%features #"+second), `log = "W"`)
+	wants(t, run(t, s, "%features #"+second), `log = "WM"`)
 
 	// A debugger over a nested performing object follows it through its root's
 	// id when the root's name is given away; one over another name is untouched.
@@ -1091,7 +1094,7 @@ func TestStateOverASharedDefinitionNamedAlone(t *testing.T) {
 
 	wants(t, run(t, s, "%state Shared::Lamp::rear"), `Debugging state machine "rear" exhibited by object #`, "Current state: dark")
 	wants(t, run(t, s, "%advance 2"), "Current state: lit")
-	wants(t, run(t, s, "%features Shared::lamp"), "front", "dark", "rear", "lit")
+	wants(t, run(t, s, "%features Shared::lamp"), "front: exhibited state machine, current state lit", "rear: exhibited state machine, current state lit")
 }
 
 // A definition no type exhibits still runs detached when named alone, since no

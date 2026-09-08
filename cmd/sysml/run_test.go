@@ -725,13 +725,62 @@ func TestJSONLocatesADiagnosticInItsOwnFile(t *testing.T) {
 	}
 }
 
-// TestAdvanceWithoutStateMachine checks that -advance with nothing to run it for
+// TestAdvanceWithoutBehavior checks that -advance with nothing to run it for
 // is a misuse reported as such, rather than silently having no effect.
-func TestAdvanceWithoutStateMachine(t *testing.T) {
+func TestAdvanceWithoutBehavior(t *testing.T) {
 	binary := buildCLI(t)
 
-	wantReport(t, check(t, binary, behaviorModel, "-advance", "10"), 2, "-advance is the time a state machine runs for")
-	wantReport(t, check(t, binary, behaviorModel, "-advance", "10", "-constraint", "Mission::Fall"), 2, "name one, as -state")
+	wantReport(t, check(t, binary, behaviorModel, "-advance", "10"), 2, "-advance is the time a behavior runs for")
+	wantReport(t, check(t, binary, behaviorModel, "-advance", "10", "-constraint", "Mission::Fall"), 2, "name one, as -action <name> or -state <name>")
+}
+
+// timedBehaviorModel states an action parked on the clock that then signals a
+// machine, so -action and -state have one clock to share.
+const timedBehaviorModel = `package Timed {
+    private import ScalarValues::*;
+
+    item def Ping;
+
+    action pinger {
+        attribute count : Integer = 0;
+        first start;
+        then action wait accept after 5 [SI::s];
+        then action tick assign count := count + 1;
+        then send new Ping() to listener;
+        then done;
+    }
+
+    state listener {
+        entry; then idle;
+        state idle;
+        transition idle_pinged first idle accept Ping then pinged;
+        state pinged;
+    }
+}
+`
+
+// TestAdvanceRunsActionsAndStatesOnOneClock checks that -advance runs an action
+// for the simulated time asked for, on its own or with a machine that accepts
+// what the action sends, and reports an action the time did not complete.
+func TestAdvanceRunsActionsAndStatesOnOneClock(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-advance", "5"),
+		0, "✓ Advanced to 5.0", "Action state: Completed", "✓ Action completed", "count = 1")
+
+	short := check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-advance", "2")
+	wantReport(t, short, 2, "✓ Advanced to 2.0", "Action state: Waiting",
+		"stopped at Waiting at simulation time 2.0 without completing", "for the clock to reach t=5.0", "run it with -advance 5.0 or more")
+
+	both := check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-state", "Timed::listener", "-advance", "10")
+	wantReport(t, both, 0, "Started action executor", "Started state machine executor",
+		"✓ Advanced to 10.0 (1 event(s) processed)", "✓ Action completed", "count = 1",
+		"Current state: pinged", "Last event at: 5.0")
+
+	// Without -advance the action runs to completion on its own, moving the clock
+	// to its wait, and the machine only takes its initial transition.
+	wantReport(t, check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-state", "Timed::listener"),
+		0, "✓ Action completed", "count = 1", "Current state: idle")
 }
 
 // TestJSONWithoutCheck checks that -json alone is a misuse reported as such,

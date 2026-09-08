@@ -163,11 +163,14 @@ var (
 	// ErrNoEnabledSuccession is returned when a decision can select no branch.
 	ErrNoEnabledSuccession = errors.New("no enabled succession")
 
-	// ErrNoClock is returned when a behavior waits for a time event where no
-	// clock advances: an action body has no time base of its own, so
-	// `accept at t` / `accept after d` written among an action's nodes is
-	// reported rather than passed through as if the instant had arrived.
-	ErrNoClock = errors.New("no clock to wait on")
+	// ErrNegativeDuration is returned when a delay — an `accept after`, a time
+	// transition's or an advance of the clock — is negative or no number at all:
+	// the clock never runs backwards.
+	ErrNegativeDuration = errors.New("negative duration")
+
+	// ErrNothingDue is returned when one step is asked of an executor whose only
+	// remaining work waits on the clock for an instant it has not reached.
+	ErrNothingDue = errors.New("nothing due at the current instant")
 
 	// ErrTimeTriggerType is returned when a time trigger's argument is declared as
 	// no value of the type the trigger takes — the judgement validation makes of it.

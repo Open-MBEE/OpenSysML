@@ -10,6 +10,7 @@ import { after, before, test } from "node:test";
 import {
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_DIAGNOSTIC_CODES,
+  CAPABILITY_FINAL_TIME,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
@@ -203,6 +204,11 @@ test("the service advertises the verification body verdicts it reports", async (
 test("the service advertises the schedule field of its execution requests", async () => {
   await using connection = await connect();
   assert.ok((await connection.serverInfo()).has(CAPABILITY_SCHEDULE));
+});
+
+test("the service advertises the final clock instant of its execution responses", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_FINAL_TIME));
 });
 
 test("a bare measurement reference arrives as a unit with its reduction and declaration", async () => {

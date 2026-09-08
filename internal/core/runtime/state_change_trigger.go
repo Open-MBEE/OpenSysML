@@ -292,6 +292,9 @@ func (e *StateExecutor) SuspendReason() string {
 	if waits := e.ChangeWaits(); len(waits) > 0 {
 		reason = "waiting on change condition: " + strings.Join(waits, "; ")
 	}
+	if due, waiting := e.NextWait(); waiting {
+		reason = fmt.Sprintf("waiting on the clock: the next timer is due at t=%s (advance the clock to reach it)", semantics.FormatReal(due))
+	}
 	// An event the active states still defer cannot be dispatched here, but it is
 	// not gone either, so a stalled machine reports it rather than losing it.
 	if held := len(e.deferred); held > 0 {

@@ -18,8 +18,9 @@ Run this action to completion, as \-action "Drive rover1" to run it on an
 object (repeatable)
 .TP
 .BI \-advance " value"
-Simulated time units to run each \-state machine for (default: only its
-initial transition)
+Simulated time units to run the \-action and \-state behaviors for, on one
+shared clock (default: a state machine takes only its initial transition; an
+action runs to completion)
 .TP
 .BI \-analysis " value"
 Run this analysis or verification case and report its outputs and the verdict
@@ -298,6 +299,8 @@ sysml \-run\-query "Heavy root=scope" model.sysml
 sysml \-action Drive model.sysml
 # Run a state machine for 10 time units
 sysml \-state Mission \-advance 10 model.sysml
+# \&...an action and a machine on one clock
+sysml \-action Ping \-state Sm \-advance 5 m.sysml
 # Report the verdicts as JSON
 sysml \-satisfy \-json model.sysml
 .fi

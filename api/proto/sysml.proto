@@ -442,6 +442,10 @@ message ExecuteActionResponse {
   map<string, Value> outputs = 1; // output parameter name → value
   string error = 2;
   repeated Diagnostic diagnostics = 3;
+  // The run's simulation clock when it ended, in seconds (SI::s) from the 0
+  // it started at: the clock advances through every `accept after`/`accept
+  // at` the action waited on. Populated under the "final_time" capability.
+  double final_time = 4;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -461,6 +465,10 @@ message ExecuteStateResponse {
   map<string, Value> final_context = 2;
   string error = 3;
   repeated Diagnostic diagnostics = 4;
+  // The run's simulation clock when it ended, in seconds (SI::s) from the 0
+  // it started at: the clock advances through every time-triggered transition
+  // the machine took. Populated under the "final_time" capability.
+  double final_time = 5;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -971,6 +979,9 @@ message ServerInfoResponse {
   //                  the run resolves its choice points under; without it a
   //                  service drops the field and runs under the default, so a
   //                  client must not send one.
+  //   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+  //                  final_time, the run's simulation clock when it ended;
+  //                  without it the field is 0 whatever the run waited on.
   repeated string capabilities = 2;
 }
 

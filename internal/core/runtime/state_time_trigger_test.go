@@ -56,8 +56,8 @@ func TestTimeTriggerUnitIsConverted(t *testing.T) {
 				t.Fatalf("run: %v", err)
 			}
 			assertCurrentState(t, exec, "done")
-			if exec.currentTime != tc.want {
-				t.Errorf("clock = %v, want %v", exec.currentTime, tc.want)
+			if exec.CurrentTime() != tc.want {
+				t.Errorf("clock = %v, want %v", exec.CurrentTime(), tc.want)
 			}
 		})
 	}
@@ -88,8 +88,8 @@ func TestTimeTriggerSubSecondUnit(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertCurrentState(t, exec, "done")
-	if exec.currentTime != 0.5 {
-		t.Errorf("clock = %v, want 0.5 seconds", exec.currentTime)
+	if exec.CurrentTime() != 0.5 {
+		t.Errorf("clock = %v, want 0.5 seconds", exec.CurrentTime())
 	}
 }
 
@@ -114,8 +114,8 @@ func TestTimeTriggerAbsoluteInstantWithUnit(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertCurrentState(t, exec, "done")
-	if exec.currentTime != 120 {
-		t.Errorf("clock = %v, want 120 seconds", exec.currentTime)
+	if exec.CurrentTime() != 120 {
+		t.Errorf("clock = %v, want 120 seconds", exec.CurrentTime())
 	}
 }
 
@@ -178,8 +178,8 @@ func TestTimeTriggerAdmitsATypedFeature(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertCurrentState(t, exec, "done")
-	if exec.currentTime != 3 {
-		t.Errorf("clock = %v, want 3 seconds", exec.currentTime)
+	if exec.CurrentTime() != 3 {
+		t.Errorf("clock = %v, want 3 seconds", exec.CurrentTime())
 	}
 }
 
@@ -228,11 +228,7 @@ func TestTimeMagnitudeRejectsNonTimeDimension(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval 5 [kg]: %v", err)
 	}
-	exec, err := newStateExecutor(ctx, findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState), nil)
-	if err != nil {
-		t.Fatalf("create state executor: %v", err)
-	}
-	_, err = exec.timeMagnitude(mass, "time duration")
+	_, err = ctx.timeMagnitude(mass, "time duration")
 	if err == nil {
 		t.Fatal("converting a mass to seconds succeeded")
 	}

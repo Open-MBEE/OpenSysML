@@ -348,11 +348,16 @@ func acceptingMachines(machines []*runtime.StateExecutor, msg runtime.Message) (
 // transition fired on; "" when one did, or when the step dispatched no signal.
 func droppedSignalNote(exec *runtime.StateExecutor) string {
 	d, ok := exec.LastDispatch()
-	if !ok || d.Fired {
+	if !ok {
 		return ""
 	}
+	return droppedDispatchNote(d)
+}
+
+// droppedDispatchNote is droppedSignalNote for one dispatch.
+func droppedDispatchNote(d runtime.Dispatch) string {
 	msg, isSignal := d.Event.Payload.(runtime.Message)
-	if !isSignal {
+	if !isSignal || d.Fired {
 		return ""
 	}
 	if d.Deferred {

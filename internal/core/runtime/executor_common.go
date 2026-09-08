@@ -56,11 +56,17 @@ type AcceptWait struct {
 	// Trigger describes the time or change event awaited instead of a message
 	// (`accept when x > 1`), empty when the accept waits for a message.
 	Trigger string
+	// Timed is set for a wait on the context's clock, Due the instant it ends.
+	Timed bool
+	Due   float64
 }
 
 // String describes what a parked token is waiting for, and since when, for
 // error messages and for the REPL's view of a suspended executor.
 func (w AcceptWait) String() string {
+	if w.Timed {
+		return fmt.Sprintf("%s waiting since step %d for the clock to reach t=%s", w.Trigger, w.Since, semantics.FormatReal(w.Due))
+	}
 	if w.Trigger != "" {
 		return fmt.Sprintf("%s waiting since step %d for its event", w.Trigger, w.Since)
 	}

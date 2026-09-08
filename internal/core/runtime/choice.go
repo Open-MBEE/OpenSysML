@@ -24,6 +24,9 @@ const (
 	// ChoiceTransition: several transitions out of one state were enabled for
 	// one event.
 	ChoiceTransition
+	// ChoiceDueOrder: several executors had work due at one instant of the
+	// shared clock, and one of them ran first.
+	ChoiceDueOrder
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -37,6 +40,8 @@ func (k ChoiceKind) String() string {
 		return "write order"
 	case ChoiceTransition:
 		return "transition"
+	case ChoiceDueOrder:
+		return "due order"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
 }
@@ -67,10 +72,12 @@ type ChoicePoint struct {
 	Kind ChoiceKind
 	// Step is the action step the choice was made in, 0 for a state machine.
 	Step int
-	// Where names the decision node or the state and event; empty for a token order.
+	// Where names the decision node, the state and event, or the instant of a
+	// due order; empty for a token order.
 	Where string
 	// Alternatives are canonical: tokens by ID, branches and transitions by
-	// declaration position, writes by writing token. Taken indexes the one taken.
+	// declaration position, writes by writing token, executors due at one instant
+	// in the order they were created. Taken indexes the one taken.
 	Alternatives []string
 	Taken        int
 	// File and Span locate the declaration the choice was made at; File is ""
@@ -96,6 +103,8 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("step %d: writes %s (unordered; %s stood)", c.Step, alts, taken)
 	case ChoiceTransition:
 		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
+	case ChoiceDueOrder:
+		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
 }

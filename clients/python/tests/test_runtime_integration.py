@@ -220,6 +220,28 @@ class TestRuntimeIntegration:
         model = self.conn.load_from_content("package P { part def W { part hub : Missing; } }")
         assert "unresolved" in {d.code for d in model.diagnostics}
 
+    def test_service_reports_the_final_time_capability(self):
+        """The service says it reports the clock a run ended at, and does."""
+        from opensysml.capabilities import CAPABILITY_FINAL_TIME
+
+        assert self.conn.server_info().has(CAPABILITY_FINAL_TIME)
+        src = '''
+        package Test {
+            private import ScalarValues::*;
+            state Timer {
+                attribute fired : Integer = 0;
+                entry; then armed;
+                state armed;
+                transition armed then done accept after 3 [SI::s] do assign fired := fired + 1;
+            }
+        }
+        '''
+        model = self.conn.load_from_content(src)
+
+        result = self.conn.execute_state("Test::Timer", model.hash)
+        assert result["final_context"]["fired"] == 1
+        assert result["final_time"] == 3.0
+
     def test_service_reports_the_enum_values_capability(self):
         """The wire form is a contract, so the service says it honours it."""
         from opensysml.capabilities import CAPABILITY_ENUM_VALUES
