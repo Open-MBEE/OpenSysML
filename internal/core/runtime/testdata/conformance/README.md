@@ -168,12 +168,10 @@ pinned to `reverse` — never removed from the sweep — until either the outcom
 the library admits are derived in `docs/project/behavior-semantic-oracle.md` and
 the case restated as an admissible set (`action_choice_shared_message_accept`,
 two accepts racing for two sends, was), or the difference is found to be a bug
-and the pin stays until the fix lands:
-
-- `send_identity_same_named_ports`: `waiting` has two transitions enabled by
-  one `Ping` because the via-less `accept` over-matches a transfer addressed to
-  `alpha.inPort`; under `seed:1` `alpha` takes the second (`strayed`). Pinned
-  until the accept's receiver is held to the destination the transfer names.
+and the pin stays until the fix lands (`send_identity_same_named_ports` was
+pinned while the via-less `accept Ping` over-matched a transfer addressed to
+`alpha.inPort`; with a via-less accept held to the receiver the transfer reaches,
+`waiting` has one enabled transition and the case runs unpinned).
 
 A case with an admissible set also owns a `<case>.<policy>.trace.golden` for
 each sweep policy (`declared`, `seed-1` — a colon is not a portable file-name
