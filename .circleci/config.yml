@@ -34,17 +34,11 @@ executors:
       - image: cimg/node:22.12
     resource_class: medium
 
-jobs:
-  build-and-test:
-    executor: go-executor
+commands:
+  # The solver is an external process: without one on PATH the
+  # solver-dependent tests would skip rather than run.
+  install-solvers:
     steps:
-      - checkout
-      - go/load-cache
-      - go/mod-download
-      - go/save-cache
-      
-      # The solver is an external process: without one on PATH the
-      # solver-dependent tests would skip rather than run.
       - run:
           name: Install Z3
           command: |
@@ -52,8 +46,8 @@ jobs:
             sudo apt-get install -y z3
             z3 --version
 
-      # The second verified backend, for the portability gate below: cvc5 has no
-      # apt package, so the official static release is what CI runs, pinned by
+      # The second verified backend, for the portability gate: cvc5 has no apt
+      # package, so the official static release is what CI runs, pinned by
       # digest so a substituted asset is not run.
       - run:
           name: Install cvc5
@@ -65,6 +59,65 @@ jobs:
             sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
             cvc5 --version | head -1
 
+  # The corpora are not vendored and the gates skip while they are absent, so a
+  # release tag could be cut over a corpus regression without them.
+  download-corpora:
+    steps:
+      - restore_cache:
+          keys:
+            - training-corpus-v1-{{ checksum "scripts/download-training-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the OMG training corpus
+          command: ./scripts/download-training-examples.sh
+
+      - save_cache:
+          key: training-corpus-v1-{{ checksum "scripts/download-training-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - examples/sysml-v2-training
+
+      # The three pilot corpora, gated the same way and keyed the same way. Their
+      # gate is our-side-only: the comparison against the reference implementation
+      # (cmd/pilot-diff) needs Java validators and is not run in CI.
+      - restore_cache:
+          keys:
+            - pilot-corpora-v1-{{ checksum "scripts/download-pilot-corpora.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the OMG pilot corpora
+          command: ./scripts/download-pilot-corpora.sh
+
+      - save_cache:
+          key: pilot-corpora-v1-{{ checksum "scripts/download-pilot-corpora.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - examples/pilot-corpora
+
+      - run:
+          name: Verify the OMG pilot corpora
+          command: |
+            for root in sysml-examples sysml-validation kerml-examples; do
+              count=$(find "examples/pilot-corpora/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
+              echo "pilot corpus $root: $count model files"
+              if [ "$count" -eq 0 ]; then
+                echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
+                exit 1
+              fi
+            done
+
+# The Go suite is four jobs rather than one because the plan caps a job at 60
+# minutes and the race run and the coverage run alone take ~45 of them. Each
+# job runs on its own executor and every downstream job requires all four.
+jobs:
+  # Formatting, vet, static analysis, the documentation gates and the protobuf
+  # schema checks: everything that needs neither a solver nor the corpora.
+  go-static:
+    executor: go-executor
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+
       - run:
           name: Check Go formatting
           command: |
@@ -74,7 +127,7 @@ jobs:
               echo "$unformatted"
               exit 1
             fi
-      
+
       - run:
           name: Run Go vet
           command: go vet ./...
@@ -138,14 +191,25 @@ jobs:
           name: Lint the protobuf schema
           command: make proto-lint
 
-      # The mechanical half of the wire contract that
-      # clients/python/tests/test_wire_compat.py pins by hand. The baseline is main, so a
-      # shallow fetch of it is enough.
+      # Baseline is an ancestor of HEAD, never live `origin/main` (a merge landing meanwhile
+      # would read as deletions): the first parent on main, the previous release on a `v*` tag.
       - run:
           name: Check the protobuf schema for breaking changes
           command: |
-            git fetch --no-tags --depth=1 origin main
-            make proto-breaking
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              git fetch --tags --quiet origin
+              if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+                git fetch --unshallow --quiet origin
+              fi
+              baseline=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$CIRCLE_TAG" HEAD)
+              echo "release tag ${CIRCLE_TAG}: comparing against the previous release, ${baseline}"
+            else
+              git rev-parse --verify --quiet HEAD^1 > /dev/null \
+                || git fetch --quiet --depth=2 origin "$CIRCLE_SHA1"
+              baseline=HEAD^1
+              echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
+            fi
+            make proto-breaking BUF_BREAKING_REF="$baseline"
 
       # Committed stubs must be what buf generates, or the checked-in code and
       # the schema can drift apart silently. `git add -N` puts a regenerated
@@ -158,49 +222,19 @@ jobs:
               clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
             git diff --exit-code api/proto \
               clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-      
-      # The corpus is not vendored and the gate skips while it is absent, so a
-      # release tag could be cut over a corpus regression without it.
-      - restore_cache:
-          keys:
-            - training-corpus-v1-{{ checksum "scripts/download-training-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
 
-      - run:
-          name: Download the OMG training corpus
-          command: ./scripts/download-training-examples.sh
-
-      - save_cache:
-          key: training-corpus-v1-{{ checksum "scripts/download-training-examples.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
-          paths:
-            - examples/sysml-v2-training
-
-      # The three pilot corpora, gated the same way and keyed the same way. Their
-      # gate is our-side-only: the comparison against the reference implementation
-      # (cmd/pilot-diff) needs Java validators and is not run in CI.
-      - restore_cache:
-          keys:
-            - pilot-corpora-v1-{{ checksum "scripts/download-pilot-corpora.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
-
-      - run:
-          name: Download the OMG pilot corpora
-          command: ./scripts/download-pilot-corpora.sh
-
-      - save_cache:
-          key: pilot-corpora-v1-{{ checksum "scripts/download-pilot-corpora.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
-          paths:
-            - examples/pilot-corpora
-
-      - run:
-          name: Verify the OMG pilot corpora
-          command: |
-            for root in sysml-examples sysml-validation kerml-examples; do
-              count=$(find "examples/pilot-corpora/$root" -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l)
-              echo "pilot corpus $root: $count model files"
-              if [ "$count" -eq 0 ]; then
-                echo "error: pilot corpus $root is empty; the corpora gate would not run" >&2
-                exit 1
-              fi
-            done
+  # The race-enabled suite. It is the longest single step in the pipeline, so
+  # it gets the larger class and a job to itself.
+  go-race-test:
+    executor: go-executor
+    resource_class: large
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+      - install-solvers
+      - download-corpora
 
       # Per-package timeout: under -race, passes and model exceed go's 10m default
       # on this executor. Matches `make test` and the GitHub Actions PR workflow.
@@ -218,8 +252,18 @@ jobs:
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
 
-      # A second, race-free pass, because the profile the scan reads is written
-      # with -coverpkg, which is too slow to instrument under -race.
+  # A second, race-free pass, because the profile the scan reads is written
+  # with -coverpkg, which is too slow to instrument under -race.
+  go-coverage:
+    executor: go-executor
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+      - install-solvers
+      - download-corpora
+
       - run:
           name: Write the coverage profile the scan reads
           command: make coverage
@@ -228,6 +272,25 @@ jobs:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
             OPENSYSML_REQUIRE_SMT: "1"
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            # The scan job reads this profile; without it Sonar shows no coverage.
+            - coverage.txt
+
+  # The gates that re-run part of the suite on their own so their verdicts are
+  # legible in the log, the conformance suite over every transport, and the
+  # host binaries the client jobs test against.
+  go-gates:
+    executor: go-executor
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+      - install-solvers
+      - download-corpora
 
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
@@ -275,7 +338,7 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
             OPENSYSML_REQUIRE_SMT: "1"
-      
+
       # Portability: the same subset against both verified backends, so a feature
       # one of them refuses is reported here rather than found by a user. The
       # requirement flag makes an absent solver a failure rather than a skip.
@@ -375,30 +438,25 @@ jobs:
             COMMIT=${CIRCLE_SHA1:-unknown}
             BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
             GO_VERSION=$(go version | awk '{print $3}')
-            
+
             make build VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
-      
+
       - run:
           name: Verify binaries
           command: |
             ./bin/sysml --version
             ./bin/sysml-lsp --version
             ls -lh bin/
-      
+
+      # The client jobs test against this binary.
       - persist_to_workspace:
           root: .
           paths:
             - bin/sysml-grpc
-            # The scan job reads this profile; without it Sonar shows no coverage.
-            - coverage.txt
-      
+
       - store_artifacts:
           path: bin/
           destination: binaries
-      
-      - store_test_results:
-          path: coverage.txt
-  
   # SonarCloud analysis. The `SonarCloud` context supplies SONAR_TOKEN.
   scan:
     docker:
@@ -757,7 +815,7 @@ jobs:
       - store_artifacts:
           path: clients/java/opensysml-client/target
 
-      # The committed Java stubs are checked in build-and-test, which has the Go
+      # The committed Java stubs are checked in go-static, which has the Go
       # toolchain the one buf template needs.
 
   # The npm client's gate. The service binary comes from the workspace because
@@ -1444,103 +1502,96 @@ jobs:
 
 workflows:
   version: 2
-  
-  # Build and test every merge into main. Pull requests are checked by the
-  # GitHub Actions workflow in .github/workflows/pr.yml, not here.
+
+  # Build and test every merge into main; pull requests run .github/workflows/pr.yml instead.
+  # The Go suite is the four `Go …` jobs, and everything downstream requires all of them.
   build-test:
     jobs:
-      - build-and-test:
-          name: Build and test
-          filters:
+      - go-static:
+          name: Go static checks
+          filters: &main-only
             branches:
               only: main
             tags:
               ignore: /.*/
+      - go-race-test:
+          name: Go race tests
+          filters: *main-only
+      - go-coverage:
+          name: Go coverage profile
+          filters: *main-only
+      - go-gates:
+          name: Go gates and binaries
+          filters: *main-only
       - python-test:
           name: Python client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
+          requires: &go-suite
+            - Go static checks
+            - Go race tests
+            - Go coverage profile
+            - Go gates and binaries
+          filters: *main-only
       - rust-test:
           name: Rust client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
+          requires: *go-suite
+          filters: *main-only
       - java-test:
           name: Java client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
+          requires: *go-suite
+          filters: *main-only
       - node-test:
           name: Node client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
+          requires: *go-suite
+          filters: *main-only
       - scan:
           name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
           context:
             - SonarCloud
           requires:
-            - Build and test
+            - Go static checks
+            - Go race tests
+            # Persists coverage.txt, the Go report the scan reads.
+            - Go coverage profile
+            - Go gates and binaries
             # Each contributes a coverage report; without them the scan sees
             # only Go coverage and grades every other language at zero.
             - Python client tests
             - Java client tests
             - Node client tests
-          filters:
-            branches:
-              only: main
-            tags:
-              ignore: /.*/
-  
+          filters: *main-only
+
   # Build and release on tags. The suite runs here too: a tag can point at any
   # commit, so a release is only published from a revision proven green.
   release:
     jobs:
-      - build-and-test:
-          name: Build and test
-          filters:
+      - go-static:
+          name: Go static checks
+          filters: &release-tags
             branches:
               ignore: /.*/
             tags:
               only: /^v.*/
+      - go-race-test:
+          name: Go race tests
+          filters: *release-tags
+      - go-coverage:
+          name: Go coverage profile
+          filters: *release-tags
+      - go-gates:
+          name: Go gates and binaries
+          filters: *release-tags
 
       - build-release:
           name: Build release artifacts
-          requires:
-            - Build and test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v.*/
-      
+          requires: *go-suite
+          filters: *release-tags
+
       - publish-github-release:
           name: Publish GitHub release
           requires:
             - Build release artifacts
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v.*/
+          filters: *release-tags
 
   # Publish opensysml to PyPI on its own tag. The package's version is not
   # lockstep with the core's: it resolves a sysml-grpc binary at runtime from
@@ -1551,23 +1602,27 @@ workflows:
   # publish-github-release relies on ('ghr -replace').
   release-python:
     jobs:
-      - build-and-test:
-          name: Build and test
-          filters:
+      - go-static:
+          name: Go static checks
+          filters: &python-tags
             branches:
               ignore: /.*/
             tags:
               only: /^opensysml-v.*/
+      - go-race-test:
+          name: Go race tests
+          filters: *python-tags
+      - go-coverage:
+          name: Go coverage profile
+          filters: *python-tags
+      - go-gates:
+          name: Go gates and binaries
+          filters: *python-tags
 
       - python-test:
           name: Python client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^opensysml-v.*/
+          requires: *go-suite
+          filters: *python-tags
 
       - publish-pypi:
           name: Publish opensysml to PyPI
@@ -1578,13 +1633,12 @@ workflows:
           context:
             - PyPI
           requires:
-            - Build and test
+            - Go static checks
+            - Go race tests
+            - Go coverage profile
+            - Go gates and binaries
             - Python client tests
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^opensysml-v.*/
+          filters: *python-tags
 
   # Publish the npm client on its own tag, for the same reason the Python client
   # has one: the package resolves a service binary at run time, so a client fix
@@ -1593,33 +1647,32 @@ workflows:
   # downloaded from a release.
   release-node:
     jobs:
-      - build-and-test:
-          name: Build and test
-          filters:
+      - go-static:
+          name: Go static checks
+          filters: &node-tags
             branches:
               ignore: /.*/
             tags:
               only: /^client-node-v.*/
+      - go-race-test:
+          name: Go race tests
+          filters: *node-tags
+      - go-coverage:
+          name: Go coverage profile
+          filters: *node-tags
+      - go-gates:
+          name: Go gates and binaries
+          filters: *node-tags
 
       - node-test:
           name: Node client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^client-node-v.*/
+          requires: *go-suite
+          filters: *node-tags
 
       - build-node-binaries:
           name: Build Node platform binaries
-          requires:
-            - Build and test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^client-node-v.*/
+          requires: *go-suite
+          filters: *node-tags
 
       - publish-npm:
           name: Publish npm client
@@ -1629,14 +1682,13 @@ workflows:
           context:
             - npm
           requires:
-            - Build and test
+            - Go static checks
+            - Go race tests
+            - Go coverage profile
+            - Go gates and binaries
             - Node client tests
             - Build Node platform binaries
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^client-node-v.*/
+          filters: *node-tags
 
   # Publishes the final release of the pre-rename PyPI name on a `pysysml-v*`
   # tag. It is its own workflow because the artifact shares no code with the
@@ -1644,25 +1696,29 @@ workflows:
   # published without a client release (or ever again).
   release-pysysml-placeholder:
     jobs:
-      # python-test attaches the workspace this job persists (it needs a
+      # python-test attaches the workspace the Go suite persists (it needs a
       # sysml-grpc to talk to), so it cannot run on its own.
-      - build-and-test:
-          name: Build and test
-          filters:
+      - go-static:
+          name: Go static checks
+          filters: &pysysml-tags
             branches:
               ignore: /.*/
             tags:
               only: /^pysysml-v.*/
+      - go-race-test:
+          name: Go race tests
+          filters: *pysysml-tags
+      - go-coverage:
+          name: Go coverage profile
+          filters: *pysysml-tags
+      - go-gates:
+          name: Go gates and binaries
+          filters: *pysysml-tags
 
       - python-test:
           name: Python client tests
-          requires:
-            - Build and test
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^pysysml-v.*/
+          requires: *go-suite
+          filters: *pysysml-tags
 
       - publish-pypi-pysysml:
           name: Publish pysysml placeholder to PyPI
@@ -1670,8 +1726,4 @@ workflows:
             - PyPI
           requires:
             - Python client tests
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^pysysml-v.*/
+          filters: *pysysml-tags
