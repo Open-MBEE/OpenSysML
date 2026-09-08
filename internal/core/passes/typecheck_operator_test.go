@@ -141,6 +141,8 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 	// Every value of D is one of C's, which the difference subtracts.
 	castDiags(t, "", `feature bad = d as Diff;`, "16:16 cast argument is typed by D, unrelated to the target Diff")
 	castDiags(t, "", `feature bad = dd as C;`, "16:16 cast argument is typed by Diff, unrelated to the target C")
+	// A value of C as well as of A is none of the values A minus C holds.
+	castDiags(t, "", `feature bad = ab as Diff;`, "16:16 cast argument is typed by A and C, unrelated to the target Diff")
 	castDiags(t, "", `feature bad = a as s;`, "16:16 cast argument is typed by A, unrelated to the target s")
 	castDiags(t, "", `feature bad = cq as R;`, "16:16 cast argument is typed by CQ, unrelated to the target R")
 	castDiags(t, `feature bad = base as String;`, "", "9:59 cast argument is typed by A, unrelated to the target String")

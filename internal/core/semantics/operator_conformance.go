@@ -9,7 +9,8 @@ import (
 
 // CastConformance judges `x as T`: sound when a type of x and T may share values
 // (KerML validateOperatorExpressionCastConformance), which they do when either
-// specializes the other or a type either is composed of does.
+// specializes the other or a type either is composed of does, and no type the
+// operand is declared with is one the target subtracts.
 func (m *Model) CastConformance(scope *symbols.Scope, e *ast.OperatorExpr) Conformance {
 	if m == nil || m.resolver == nil || e == nil || e.Operator != ast.OpAs || len(e.Operands) != 1 {
 		return conformanceUnknown()
@@ -22,9 +23,12 @@ func (m *Model) CastConformance(scope *symbols.Scope, e *ast.OperatorExpr) Confo
 	if len(types) == 0 {
 		return conformanceUnknown()
 	}
-	for _, typ := range types {
-		if m.MayShareValues(target, typ) {
-			return Conformance{Known: true, Holds: true}
+	// A type the target subtracts leaves it none of the operand's values.
+	if !m.excludes(types, target, nil) {
+		for _, typ := range types {
+			if m.MayShareValues(target, typ) {
+				return Conformance{Known: true, Holds: true}
+			}
 		}
 	}
 	names := make([]string, 0, len(types))
