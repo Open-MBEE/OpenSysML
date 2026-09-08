@@ -182,7 +182,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		return runtime.SweepTable{}, nil, err
 	}
 
-	analysis := runtime.IsAnalysisSymbol(sym)
+	analysis := runtime.IsRunnableCaseSymbol(sym)
 	var subject *runtime.Instance
 	if inv.object != "" {
 		if !analysis {

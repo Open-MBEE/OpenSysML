@@ -14,6 +14,9 @@ type Analysis struct {
 	// Verdicts are the case's objectives, in order, then the assertions in its
 	// body. Kind is "objective" or "assertion".
 	Verdicts []Verdict
+	// Verifications are the verdicts the bodies of the case and of the
+	// verification cases it performs produced, empty for an analysis case.
+	Verifications []VerificationVerdict
 	// Instances are the objects reachable from the subject the run was given,
 	// including it; empty when the case bound its own subject.
 	Instances []*Instance
@@ -128,7 +131,11 @@ func (c *client) RunAnalysis(
 			Reason:       Reason(resp.FailureReason),
 		}
 	}
-	out := &Analysis{Instances: instancesFromProto(resp.Instances), Diagnostics: diagnostics}
+	out := &Analysis{
+		Instances:     instancesFromProto(resp.Instances),
+		Diagnostics:   diagnostics,
+		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
+	}
 	for _, output := range resp.Outputs {
 		out.Outputs = append(out.Outputs, CalcOutput{Name: output.Name, Value: valueFromProto(output.Value)})
 	}

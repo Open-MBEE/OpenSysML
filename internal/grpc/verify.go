@@ -209,6 +209,9 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	return &pb.VerifyRequirementResponse{
 		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr),
 		Instances: v.instanceGraph(subject),
+		// Beside the satisfaction verdict: what the cases verifying this
+		// requirement answered when their bodies ran.
+		VerificationVerdicts: v.requirementVerifications(sym),
 	}, nil
 }
 
@@ -236,8 +239,9 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		if a, aerr := v.runtime.SatisfyAssertionOf(sym); aerr == nil {
 			verdict, instances := v.satisfyVerdict(a)
 			return &pb.VerifySatisfactionResponse{
-				Verdicts:  []*pb.Verdict{verdict},
-				Instances: instances,
+				Verdicts:             []*pb.Verdict{verdict},
+				Instances:            instances,
+				VerificationVerdicts: v.assertionVerifications(a),
 			}, nil
 		}
 		// A symbol that is neither an assertion nor a scope stating any is the
@@ -253,10 +257,17 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 
 	resp := &pb.VerifySatisfactionResponse{}
 	seen := map[int64]bool{}
+	// The cases verifying one requirement answer once for the response, however
+	// many assertions of that requirement it reports.
+	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
 			verdict, instances := v.satisfyVerdict(a)
 			resp.Verdicts = append(resp.Verdicts, verdict)
+			if req := a.AssertedRequirement(); req != nil && !verified[req] {
+				verified[req] = true
+				resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.assertionVerifications(a)...)
+			}
 			// One graph per response, so two assertions about the same object do
 			// not report it twice.
 			for _, inst := range instances {
@@ -281,14 +292,25 @@ func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict
 		if err != nil {
 			// The assertion cannot be evaluated without the object it is about,
 			// which is a failure to evaluate rather than a verdict of false.
-			return v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err), nil
+			verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err)
+			v.associateRequirement(verdict, a)
+			return verdict, nil
 		}
 		subject = inst
 	}
 	result, err := v.runtime.CheckSatisfactionOn(a, subject)
 	subject = subjectOf(result, subject)
-	return v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err),
-		v.instanceGraph(subject)
+	verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err)
+	v.associateRequirement(verdict, a)
+	return verdict, v.instanceGraph(subject)
+}
+
+// associateRequirement names on a satisfaction verdict the requirement it
+// asserts satisfied, which the body verdicts of that requirement also name.
+func (v *verifyContext) associateRequirement(verdict *pb.Verdict, a *runtime.SatisfyAssertion) {
+	if req := a.AssertedRequirement(); req != nil {
+		verdict.RequirementId = namedFQN(v.cached.Index, req)
+	}
 }
 
 // subjectOf is the object a verdict is about: the one the runtime evaluated the
@@ -382,4 +404,23 @@ func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput,
 		})
 	}
 	return pbOutputs, true, nil
+}
+
+// requirementVerifications are the body verdicts of the verification cases of
+// the whole model whose objective verifies req, since the case need not be
+// written in the document the requirement is.
+func (v *verifyContext) requirementVerifications(req *symbols.Symbol) []*pb.VerificationVerdict {
+	return v.verificationVerdicts(
+		v.runtime.VerificationVerdictsIn(v.cached.DocumentRoots(), req),
+		namedFQN(v.cached.Index, req))
+}
+
+// assertionVerifications are the body verdicts of the verification cases whose
+// objective verifies the requirement an assertion satisfies.
+func (v *verifyContext) assertionVerifications(a *runtime.SatisfyAssertion) []*pb.VerificationVerdict {
+	req := a.AssertedRequirement()
+	if req == nil {
+		return nil
+	}
+	return v.requirementVerifications(req)
 }

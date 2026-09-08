@@ -109,6 +109,11 @@ const CapabilityMeasurementRefs = "measurement_refs"
 // as an unsupported null.
 const CapabilityFunctionValues = "function_values"
 
+// CapabilityVerificationVerdicts names the capability of reporting what the body
+// of a verification case answered as VerificationVerdict, and of running a
+// verification case through RunAnalysis.
+const CapabilityVerificationVerdicts = "verification_verdicts"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -118,7 +123,7 @@ var capabilities = []string{
 	CapabilityApplyEdits, CapabilityAuthoring, CapabilityInlineLanguage,
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
-	CapabilityMeasurementRefs, CapabilityFunctionValues,
+	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
 }
 
 type capabilityAvailability struct {

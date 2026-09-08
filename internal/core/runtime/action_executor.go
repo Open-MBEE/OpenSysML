@@ -38,8 +38,11 @@ type ActionExecutor struct {
 	breakpoints map[string]bool
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
 	firedBreakpoints map[breakpointVisit]bool
-	inputs           map[string]Value // Input parameter bindings, applied over attribute defaults
-	pausedAt         string           // Node name RunToCompletion stopped at, empty when it ran to the end
+	// sweep numbers the pass over a flow's tokens in progress, 0 between passes; sweeps
+	// counts those begun. A token a sweep moved is not an arrival until the sweep ends.
+	sweep, sweeps uint64
+	inputs        map[string]Value // Input parameter bindings, applied over attribute defaults
+	pausedAt      string           // Node name RunToCompletion stopped at, empty when it ran to the end
 	// pause is set while a token's work runs as a coroutine (action_body_run.go):
 	// called with a breakpoint's name, it pauses the run there until resumed.
 	pause func(string) bool
@@ -68,6 +71,15 @@ func (e *ActionExecutor) chargeActionStep() error {
 	}
 	e.steps++
 	return nil
+}
+
+// beginSweep opens a pass over a flow's tokens and returns the call that closes it,
+// restoring the enclosing pass a body statement's flow runs within.
+func (e *ActionExecutor) beginSweep() func() {
+	outer := e.sweep
+	e.sweeps++
+	e.sweep = e.sweeps
+	return func() { e.sweep = outer }
 }
 
 // breakpointVisit identifies one token's stay at one node.
@@ -172,6 +184,10 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 // Step advances execution by one step for all active tokens.
 // Safely handles token slice modifications (fork/join) by collecting indices first.
 //
+// A step moves each token at most once: a token the step created or moved — a
+// fork's branch, the one a synchronized node performs with — has its first step
+// in the next, so the tokens held at a node are all in before it performs.
+//
 // A token that reaches an accept with no message it can consume parks there
 // rather than failing: the action is suspended until a matching message
 // arrives. When a step moves nothing and at least one token is parked, the
@@ -236,12 +252,14 @@ func (e *ActionExecutor) Step() error {
 	// once every other token has had its step: one pausing again and again does
 	// not hold the rest back.
 	paused := e.pausedTokens()
+	defer e.beginSweep()()
 
 	// Step tokens in reverse order to handle removal safely
 	// (removing token at higher index doesn't affect lower indices)
 	for i := len(tokenIndices) - 1; i >= 0 && e.state != StateSuspended; i-- {
 		// Check if token still exists (may have been removed by join/final)
-		if i >= len(e.tokens) || e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
+		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
+			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
 			continue
 		}
 
@@ -475,10 +493,10 @@ func (e *ActionExecutor) acceptMatch(frame *actionFrame, accept lower.Accept, us
 	}, &failed
 }
 
-// breakpointHit returns the name of a breakpoint node a token sits on and has
-// not yet stopped the run at, or "" if none does. Firing once per token and
-// visit means a resumed run continues past the node it stopped at, while a
-// token that leaves and comes back around a loop stops again.
+// breakpointHit returns the name of a breakpoint node a token sits on and has not yet
+// stopped the run at, or "" if none does. Firing once per token and visit means a resumed
+// run continues past the node it stopped at, while a token that comes back around a loop
+// stops again; tokens held at a synchronized node stop once, when the last has arrived.
 func (e *ActionExecutor) breakpointHit() string {
 	if len(e.breakpoints) == 0 {
 		return ""
@@ -488,19 +506,28 @@ func (e *ActionExecutor) breakpointHit() string {
 			delete(e.firedBreakpoints, visit)
 		}
 	}
-	for _, token := range e.tokens {
+	for i, token := range e.tokens {
 		name := e.breakpointNameOf(token.Location)
 		if name == "" {
 			continue
 		}
-		visit := breakpointVisit{token: token.ID, node: token.Location}
-		if e.firedBreakpoints[visit] {
+		if e.firedBreakpoints[breakpointVisit{token: token.ID, node: token.Location}] {
 			continue
+		}
+		// A synchronized node stops once, for the arrivals its next performance collapses.
+		performers := []int{i}
+		if consumed, held := e.arrivals(token); held {
+			if !slices.Contains(consumed, i) {
+				continue
+			}
+			performers = consumed
 		}
 		if e.firedBreakpoints == nil {
 			e.firedBreakpoints = make(map[breakpointVisit]bool)
 		}
-		e.firedBreakpoints[visit] = true
+		for _, idx := range performers {
+			e.firedBreakpoints[breakpointVisit{token: e.tokens[idx].ID, node: token.Location}] = true
+		}
 		return name
 	}
 	return ""
@@ -867,22 +894,12 @@ func (e *ActionExecutor) stepToken(tokenIdx int) error {
 // over each; the earliest per succession then collapse into the one token that performs it.
 func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 	token := e.tokens[tokenIdx]
-	if token.Via == (lower.ActionEdge{}) || !synchronizes(token.Location) {
+	consumed, held := e.arrivals(token)
+	if !held {
 		return tokenIdx, true
 	}
-	_, join := token.Location.(*ast.JoinNode)
-	incoming := e.awaitedSuccessions(token.frame, token.Location)
-	if len(incoming) < 2 && !join {
-		return tokenIdx, true
-	}
-
-	consumed := make([]int, 0, len(incoming))
-	for _, edge := range incoming {
-		idx, ok := e.arrival(token.frame, token.Location, edge)
-		if !ok {
-			return tokenIdx, false
-		}
-		consumed = append(consumed, idx)
+	if consumed == nil {
+		return tokenIdx, false
 	}
 
 	sort.Sort(sort.Reverse(sort.IntSlice(consumed)))
@@ -890,9 +907,32 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 		e.removeToken(idx)
 	}
 	token.frame.live -= len(consumed) - 1
-	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: token.Location, frame: token.frame})
+	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: token.Location, moved: e.sweep, frame: token.frame})
 	e.nextTokenID++
 	return len(e.tokens) - 1, true
+}
+
+// arrivals returns the tokens the next performance of the node token is held at collapses,
+// the earliest per awaited succession, or nil while one has yet to deliver; held is false
+// for a token no synchronization holds.
+func (e *ActionExecutor) arrivals(token Token) (consumed []int, held bool) {
+	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
+		return nil, false
+	}
+	_, join := token.Location.(*ast.JoinNode)
+	incoming := e.awaitedSuccessions(token.frame, token.Location)
+	if len(incoming) < 2 && !join {
+		return nil, false
+	}
+	consumed = make([]int, 0, len(incoming))
+	for _, edge := range incoming {
+		idx, ok := e.arrival(token.frame, token.Location, edge, true)
+		if !ok {
+			return nil, true
+		}
+		consumed = append(consumed, idx)
+	}
+	return consumed, true
 }
 
 // synchronizes reports whether a node waits for all its incoming successions: every node
@@ -902,14 +942,21 @@ func synchronizes(node ast.Node) bool {
 	return !merge
 }
 
-// arrival returns the earliest token of frame held at node that arrived over edge.
-func (e *ActionExecutor) arrival(frame *actionFrame, node ast.Node, edge lower.ActionEdge) (int, bool) {
+// arrival returns the earliest token of frame held at node that arrived over edge; settled
+// passes over those the sweep in progress moved there, which arrive once it ends.
+func (e *ActionExecutor) arrival(frame *actionFrame, node ast.Node, edge lower.ActionEdge, settled bool) (int, bool) {
 	for i, t := range e.tokens {
-		if t.Location == node && t.frame == frame && t.body == nil && t.Via == edge {
+		if t.Location == node && t.frame == frame && t.body == nil && t.Via == edge &&
+			(!settled || !e.moving(t)) {
 			return i, true
 		}
 	}
 	return 0, false
+}
+
+// moving reports whether the sweep in progress moved or created the token.
+func (e *ActionExecutor) moving(t Token) bool {
+	return e.sweep != 0 && t.moved == e.sweep
 }
 
 // awaitedSuccessions returns the successions into node a performance of it follows: every one
@@ -923,7 +970,7 @@ func (e *ActionExecutor) awaitedSuccessions(frame *actionFrame, node ast.Node) [
 	live := e.reachableFrom(frame, node)
 	awaited := make([]lower.ActionEdge, 0, len(incoming))
 	for _, edge := range incoming {
-		if _, delivered := e.arrival(frame, node, edge); delivered || live[edge.Source] {
+		if _, delivered := e.arrival(frame, node, edge, false); delivered || live[edge.Source] {
 			awaited = append(awaited, edge)
 		}
 	}
@@ -964,7 +1011,7 @@ func (e *ActionExecutor) leaves(frame *actionFrame, node ast.Node, reached map[a
 		return true
 	}
 	for _, edge := range incomingEdges(e.graphOf(frame), node) {
-		if _, delivered := e.arrival(frame, node, edge); !delivered && !reached[edge.Source] {
+		if _, delivered := e.arrival(frame, node, edge, false); !delivered && !reached[edge.Source] {
 			return false
 		}
 	}
@@ -993,7 +1040,7 @@ func (e *ActionExecutor) Awaiting(token Token) []lower.ActionEdge {
 	}
 	var awaited []lower.ActionEdge
 	for _, edge := range e.awaitedSuccessions(token.frame, token.Location) {
-		if _, delivered := e.arrival(token.frame, token.Location, edge); !delivered {
+		if _, delivered := e.arrival(token.frame, token.Location, edge, false); !delivered {
 			awaited = append(awaited, edge)
 		}
 	}
@@ -1065,7 +1112,7 @@ func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	}
 
 	// Move token to first successor (initial should have exactly 1)
-	token.travel(successors[0])
+	token.travel(successors[0], e.sweep)
 	return nil
 }
 
@@ -1136,6 +1183,7 @@ func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 			ID:       e.nextTokenID,
 			Location: edge.Target,
 			Via:      edge,
+			moved:    e.sweep,
 			frame:    frame,
 		}
 		e.nextTokenID++
@@ -1181,7 +1229,7 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-	token.travel(successors[0])
+	token.travel(successors[0], e.sweep)
 	return nil
 }
 
@@ -1217,7 +1265,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
 	}
-	token.travel(successors[0])
+	token.travel(successors[0], e.sweep)
 	return nil
 }
 
@@ -1265,14 +1313,14 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			return err
 		}
 		if holds {
-			token.travel(*edge)
+			token.travel(*edge, e.sweep)
 			return nil
 		}
 	}
 
 	// Pass 2: Use unguarded edge as fallback
 	if unguardedEdge != nil {
-		token.travel(*unguardedEdge)
+		token.travel(*unguardedEdge, e.sweep)
 		return nil
 	}
 
@@ -1341,7 +1389,7 @@ func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	token.travel(successors[0])
+	token.travel(successors[0], e.sweep)
 	return nil
 }
 
@@ -1484,7 +1532,7 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	e.tokens[tokenIdx].travel(successors[0])
+	e.tokens[tokenIdx].travel(successors[0], e.sweep)
 	return nil
 }
 
@@ -1538,7 +1586,7 @@ func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 			return e.retireToken(tokenIdx)
 		}
 
-		e.tokens[tokenIdx].travel(successors[0])
+		e.tokens[tokenIdx].travel(successors[0], e.sweep)
 		return nil
 	})
 }

@@ -201,6 +201,11 @@ class ApiIntegrationTest {
       """;
 
   @Test
+  void theServiceAdvertisesTheVerificationBodyVerdictsItReports() {
+    assertTrue(connection.capabilities().has(Capabilities.VERIFICATION_VERDICTS));
+  }
+
+  @Test
   void aBareMeasurementReferenceArrivesWithItsReductionAndDeclarationOverProtobufAndJson() {
     assertTrue(connection.capabilities().has(Capabilities.MEASUREMENT_REFS));
     try (Connection json =

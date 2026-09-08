@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::plan",
+  "verdict": "inconclusive",
+  "verdictDetail": "no VerdictKind value",
+  "subcases": {
+    "test::plan::checkZeroed": "pass"
+  }
+}

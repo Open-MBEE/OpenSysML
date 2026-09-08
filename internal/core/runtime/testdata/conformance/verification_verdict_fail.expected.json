@@ -1,0 +1,6 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkDrifted",
+  "verdict": "fail"
+}

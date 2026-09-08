@@ -17,7 +17,7 @@ from opensysml.capabilities import (
 from opensysml.connection import Connection
 from opensysml.errors import ExecutionError, ModelNotFoundError, WrongKindError
 from opensysml.proto import sysml_pb2
-from opensysml.verdict import AnalysisResult, CalcResult, Verdict
+from opensysml.verdict import AnalysisResult, CalcResult, Verdict, VerificationVerdict
 
 
 def make_connection(stub):
@@ -161,6 +161,173 @@ def test_verify_requirement_holds():
     assert request.subject_symbol_id == "Demo::sedan"
     assert verdict.kind == "requirement"
     assert verdict.holds
+
+
+def test_verify_requirement_reports_the_body_verdicts_beside_satisfaction():
+    stub = Mock()
+    stub.VerifyRequirement.return_value = sysml_pb2.VerifyRequirementResponse(
+        verdict=sysml_pb2.Verdict(
+            kind="requirement",
+            element_id="Demo::Vehicle::lightEnough",
+            holds=True,
+        ),
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::checkMass", kind="fail",
+            ),
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::checkMass::inner", kind="inconclusive",
+                detail="body produced no verdict", subcase=True,
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    verdict = conn.verify_requirement("Demo::Vehicle::lightEnough", "hash1")
+
+    # Satisfaction is unchanged; the bodies answer beside it.
+    assert verdict.holds
+    assert [v.kind for v in verdict.verifications] == ["fail", "inconclusive"]
+    assert isinstance(verdict.verifications[0], VerificationVerdict)
+    assert verdict.verifications[0].case_id == "Demo::checkMass"
+    assert not verdict.verifications[0]
+    assert not verdict.verifications[0].subcase
+    subcase = verdict.verifications[1]
+    assert subcase.subcase
+    assert subcase.detail == "body produced no verdict"
+    assert "(subcase)" in subcase.explain()
+    assert "body produced no verdict" in str(subcase)
+    assert "inconclusive" in repr(subcase)
+
+
+def test_a_passing_body_verdict_reads_as_a_pass():
+    stub = Mock()
+    stub.VerifyRequirement.return_value = sysml_pb2.VerifyRequirementResponse(
+        verdict=sysml_pb2.Verdict(kind="requirement", element_id="Demo::r", holds=True),
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(case_id="Demo::check", kind="pass"),
+        ],
+    )
+    conn = make_connection(stub)
+
+    passing = conn.verify_requirement("Demo::r", "hash1").verifications[0]
+
+    assert passing
+    assert passing.kind == "pass"
+    assert passing.detail == ""
+
+
+def test_verify_satisfaction_reports_the_body_verdicts_of_the_run():
+    stub = Mock()
+    stub.VerifySatisfaction.return_value = sysml_pb2.VerifySatisfactionResponse(
+        verdicts=[
+            sysml_pb2.Verdict(
+                kind="satisfy",
+                element="satisfy r by sedan",
+                holds=True,
+                requirement_id="Demo::r",
+            ),
+        ],
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::check",
+                kind="error",
+                detail="no value for feature m",
+                requirement_id="Demo::r",
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    verdicts = conn.verify_satisfaction("hash1")
+
+    assert verdicts[0].holds
+    assert verdicts[0].requirement_id == "Demo::r"
+    assert [v.kind for v in verdicts[0].verifications] == ["error"]
+    assert verdicts[0].verifications[0].detail == "no value for feature m"
+    assert verdicts[0].verifications[0].requirement_id == "Demo::r"
+
+
+def test_verify_satisfaction_gives_each_verdict_only_its_own_requirements_cases():
+    stub = Mock()
+    stub.VerifySatisfaction.return_value = sysml_pb2.VerifySatisfactionResponse(
+        verdicts=[
+            sysml_pb2.Verdict(
+                kind="satisfy",
+                element="satisfy massLimit by sedan",
+                holds=True,
+                requirement_id="Demo::massLimit",
+            ),
+            sysml_pb2.Verdict(
+                kind="satisfy",
+                element="satisfy rangeLimit by sedan",
+                holds=True,
+                requirement_id="Demo::rangeLimit",
+            ),
+            sysml_pb2.Verdict(kind="satisfy", element="satisfy by sedan", holds=True),
+        ],
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::checkMass", kind="pass", requirement_id="Demo::massLimit",
+            ),
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::checkRange", kind="fail", requirement_id="Demo::rangeLimit",
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    verdicts = conn.verify_satisfaction("hash1")
+
+    # One call covering several requirements keeps their cases apart.
+    assert [v.case_id for v in verdicts[0].verifications] == ["Demo::checkMass"]
+    assert [v.case_id for v in verdicts[1].verifications] == ["Demo::checkRange"]
+    # An assertion of a requirement no FQN names takes none rather than all.
+    assert verdicts[2].verifications == []
+
+
+def test_run_analysis_of_a_verification_case_reports_its_body_verdict():
+    stub = Mock()
+    stub.RunAnalysis.return_value = sysml_pb2.RunAnalysisResponse(
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(case_id="Demo::check", kind="pass"),
+            sysml_pb2.VerificationVerdict(
+                case_id="Demo::check::sub", kind="fail", subcase=True,
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    result = conn.run_analysis("Demo::check", "hash1")
+
+    assert [v.kind for v in result.verifications] == ["pass", "fail"]
+    assert result.verifications[1].subcase
+    assert "verification Demo::check verdict: pass" in str(result)
+
+
+def test_a_service_without_body_verdicts_reports_none():
+    stub = Mock()
+    stub.VerifyRequirement.return_value = sysml_pb2.VerifyRequirementResponse(
+        verdict=sysml_pb2.Verdict(kind="requirement", element_id="Demo::r", holds=True),
+    )
+    conn = make_connection(stub)
+
+    assert conn.verify_requirement("Demo::r", "hash1").verifications == []
+
+
+def test_a_service_without_requirement_association_reports_no_satisfaction_cases():
+    stub = Mock()
+    stub.VerifySatisfaction.return_value = sysml_pb2.VerifySatisfactionResponse(
+        verdicts=[sysml_pb2.Verdict(kind="satisfy", element="satisfy r", holds=True)],
+        verification_verdicts=[
+            sysml_pb2.VerificationVerdict(case_id="Demo::check", kind="pass"),
+        ],
+    )
+    conn = make_connection(stub)
+
+    # Naming no requirement, the response says of no verdict that these are its
+    # own cases, so none are read as such rather than all of them being.
+    assert conn.verify_satisfaction("hash1")[0].verifications == []
 
 
 def test_verify_satisfaction_reports_one_verdict_per_assertion():

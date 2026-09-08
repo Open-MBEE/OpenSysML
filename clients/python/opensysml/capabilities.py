@@ -107,6 +107,13 @@ CAPABILITY_MEASUREMENT_REFS = "measurement_refs"
 #: it with ``UNIMPLEMENTED``.
 CAPABILITY_FUNCTION_VALUES = "function_values"
 
+#: What the body of a verification case answered, as the
+#: ``verification_verdicts`` of a requirement, satisfaction or analysis
+#: response, read as :class:`~opensysml.verdict.VerificationVerdict`. Without it
+#: the service reports satisfaction verdicts alone and refuses to run a
+#: verification case.
+CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

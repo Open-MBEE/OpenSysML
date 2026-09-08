@@ -47,6 +47,11 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_sysml_VerifyRequirementRequest_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_VerificationVerdict_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_VerificationVerdict_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_sysml_VerifyRequirementResponse_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -485,66 +490,77 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\013sysml.proto\022\005sysml\"\250\002\n\007Verdict\022\022\n\004kind" +
+      "\n\013sysml.proto\022\005sysml\"\317\002\n\007Verdict\022\022\n\004kind" +
       "\030\001 \001(\tR\004kind\022\035\n\nelement_id\030\002 \001(\tR\telemen" +
       "tId\022\030\n\007element\030\003 \001(\tR\007element\022\024\n\005holds\030\004" +
       " \001(\010R\005holds\022\034\n\tcondition\030\005 \001(\tR\tconditio" +
       "n\022\037\n\013instance_id\030\006 \001(\003R\ninstanceId\022(\n\020in" +
       "stance_type_id\030\007 \001(\tR\016instanceTypeId\022\024\n\005" +
       "error\030\010 \001(\tR\005error\022;\n\016failure_reason\030\t \001" +
-      "(\0162\024.sysml.FailureReasonR\rfailureReason\"" +
-      "\201\001\n\027VerifyConstraintRequest\022\035\n\nmodel_has" +
-      "h\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010s" +
-      "ymbolId\022*\n\021subject_symbol_id\030\003 \001(\tR\017subj" +
-      "ectSymbolId\"\276\001\n\030VerifyConstraintResponse" +
-      "\022(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007verdi" +
-      "ct\022-\n\tinstances\030\002 \003(\0132\017.sysml.InstanceR\t" +
-      "instances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013diagn" +
-      "ostics\030\004 \003(\0132\021.sysml.DiagnosticR\013diagnos" +
-      "tics\"\202\001\n\030VerifyRequirementRequest\022\035\n\nmod" +
-      "el_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 " +
-      "\001(\tR\010symbolId\022*\n\021subject_symbol_id\030\003 \001(\t" +
-      "R\017subjectSymbolId\"\277\001\n\031VerifyRequirementR" +
-      "esponse\022(\n\007verdict\030\001 \001(\0132\016.sysml.Verdict" +
-      "R\007verdict\022-\n\tinstances\030\002 \003(\0132\017.sysml.Ins" +
-      "tanceR\tinstances\022\024\n\005error\030\003 \001(\tR\005error\0223" +
-      "\n\013diagnostics\030\004 \003(\0132\021.sysml.DiagnosticR\013" +
-      "diagnostics\"W\n\031VerifySatisfactionRequest" +
-      "\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbo" +
-      "l_id\030\002 \001(\tR\010symbolId\"\377\001\n\032VerifySatisfact" +
-      "ionResponse\022*\n\010verdicts\030\001 \003(\0132\016.sysml.Ve" +
-      "rdictR\010verdicts\022-\n\tinstances\030\002 \003(\0132\017.sys" +
-      "ml.InstanceR\tinstances\022\024\n\005error\030\003 \001(\tR\005e" +
-      "rror\0223\n\013diagnostics\030\004 \003(\0132\021.sysml.Diagno" +
-      "sticR\013diagnostics\022;\n\016failure_reason\030\005 \001(" +
-      "\0162\024.sysml.FailureReasonR\rfailureReason\"}" +
-      "\n\023EvaluateCalcRequest\022\035\n\nmodel_hash\030\001 \001(" +
+      "(\0162\024.sysml.FailureReasonR\rfailureReason\022" +
+      "%\n\016requirement_id\030\n \001(\tR\rrequirementId\"\201" +
+      "\001\n\027VerifyConstraintRequest\022\035\n\nmodel_hash" +
+      "\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010sy" +
+      "mbolId\022*\n\021subject_symbol_id\030\003 \001(\tR\017subje" +
+      "ctSymbolId\"\276\001\n\030VerifyConstraintResponse\022" +
+      "(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007verdic" +
+      "t\022-\n\tinstances\030\002 \003(\0132\017.sysml.InstanceR\ti" +
+      "nstances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013diagno" +
+      "stics\030\004 \003(\0132\021.sysml.DiagnosticR\013diagnost" +
+      "ics\"\202\001\n\030VerifyRequirementRequest\022\035\n\nmode" +
+      "l_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001" +
+      "(\tR\010symbolId\022*\n\021subject_symbol_id\030\003 \001(\tR" +
+      "\017subjectSymbolId\"\233\001\n\023VerificationVerdict" +
+      "\022\027\n\007case_id\030\001 \001(\tR\006caseId\022\022\n\004kind\030\002 \001(\tR" +
+      "\004kind\022\026\n\006detail\030\003 \001(\tR\006detail\022\030\n\007subcase" +
+      "\030\004 \001(\010R\007subcase\022%\n\016requirement_id\030\005 \001(\tR" +
+      "\rrequirementId\"\220\002\n\031VerifyRequirementResp" +
+      "onse\022(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007v" +
+      "erdict\022-\n\tinstances\030\002 \003(\0132\017.sysml.Instan" +
+      "ceR\tinstances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013d" +
+      "iagnostics\030\004 \003(\0132\021.sysml.DiagnosticR\013dia" +
+      "gnostics\022O\n\025verification_verdicts\030\005 \003(\0132" +
+      "\032.sysml.VerificationVerdictR\024verificatio" +
+      "nVerdicts\"W\n\031VerifySatisfactionRequest\022\035" +
+      "\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_" +
+      "id\030\002 \001(\tR\010symbolId\"\320\002\n\032VerifySatisfactio" +
+      "nResponse\022*\n\010verdicts\030\001 \003(\0132\016.sysml.Verd" +
+      "ictR\010verdicts\022-\n\tinstances\030\002 \003(\0132\017.sysml" +
+      ".InstanceR\tinstances\022\024\n\005error\030\003 \001(\tR\005err" +
+      "or\0223\n\013diagnostics\030\004 \003(\0132\021.sysml.Diagnost" +
+      "icR\013diagnostics\022;\n\016failure_reason\030\005 \001(\0162" +
+      "\024.sysml.FailureReasonR\rfailureReason\022O\n\025" +
+      "verification_verdicts\030\006 \003(\0132\032.sysml.Veri" +
+      "ficationVerdictR\024verificationVerdicts\"}\n" +
+      "\023EvaluateCalcRequest\022\035\n\nmodel_hash\030\001 \001(\t" +
+      "R\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolId" +
+      "\022*\n\targuments\030\003 \003(\0132\014.sysml.ValueR\targum" +
+      "ents\"\361\001\n\024EvaluateCalcResponse\022$\n\006result\030" +
+      "\001 \001(\0132\014.sysml.ValueR\006result\022+\n\007outputs\030\002" +
+      " \003(\0132\021.sysml.CalcOutputR\007outputs\022\024\n\005erro" +
+      "r\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004 \003(\0132\021.sy" +
+      "sml.DiagnosticR\013diagnostics\022;\n\016failure_r" +
+      "eason\030\005 \001(\0162\024.sysml.FailureReasonR\rfailu" +
+      "reReason\"D\n\nCalcOutput\022\022\n\004name\030\001 \001(\tR\004na" +
+      "me\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005value\"\321" +
+      "\002\n\022RunAnalysisRequest\022\035\n\nmodel_hash\030\001 \001(" +
       "\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolI" +
-      "d\022*\n\targuments\030\003 \003(\0132\014.sysml.ValueR\targu" +
-      "ments\"\361\001\n\024EvaluateCalcResponse\022$\n\006result" +
-      "\030\001 \001(\0132\014.sysml.ValueR\006result\022+\n\007outputs\030" +
-      "\002 \003(\0132\021.sysml.CalcOutputR\007outputs\022\024\n\005err" +
-      "or\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004 \003(\0132\021.s" +
-      "ysml.DiagnosticR\013diagnostics\022;\n\016failure_" +
-      "reason\030\005 \001(\0162\024.sysml.FailureReasonR\rfail" +
-      "ureReason\"D\n\nCalcOutput\022\022\n\004name\030\001 \001(\tR\004n" +
-      "ame\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005value\"" +
-      "\321\002\n\022RunAnalysisRequest\022\035\n\nmodel_hash\030\001 \001" +
-      "(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbol" +
-      "Id\022*\n\021subject_symbol_id\030\003 \001(\tR\017subjectSy" +
-      "mbolId\022*\n\targuments\030\004 \003(\0132\014.sysml.ValueR" +
-      "\targuments\022V\n\017named_arguments\030\005 \003(\0132-.sy" +
-      "sml.RunAnalysisRequest.NamedArgumentsEnt" +
-      "ryR\016namedArguments\032O\n\023NamedArgumentsEntr" +
-      "y\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sys" +
-      "ml.ValueR\005value:\0028\001\"\245\002\n\023RunAnalysisRespo" +
-      "nse\022+\n\007outputs\030\001 \003(\0132\021.sysml.CalcOutputR" +
-      "\007outputs\022*\n\010verdicts\030\002 \003(\0132\016.sysml.Verdi" +
-      "ctR\010verdicts\022-\n\tinstances\030\003 \003(\0132\017.sysml." +
-      "InstanceR\tinstances\022\024\n\005error\030\004 \001(\tR\005erro" +
-      "r\0223\n\013diagnostics\030\005 \003(\0132\021.sysml.Diagnosti" +
-      "cR\013diagnostics\022;\n\016failure_reason\030\006 \001(\0162\024" +
-      ".sysml.FailureReasonR\rfailureReason\"\311\001\n\020" +
+      "d\022*\n\021subject_symbol_id\030\003 \001(\tR\017subjectSym" +
+      "bolId\022*\n\targuments\030\004 \003(\0132\014.sysml.ValueR\t" +
+      "arguments\022V\n\017named_arguments\030\005 \003(\0132-.sys" +
+      "ml.RunAnalysisRequest.NamedArgumentsEntr" +
+      "yR\016namedArguments\032O\n\023NamedArgumentsEntry" +
+      "\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysm" +
+      "l.ValueR\005value:\0028\001\"\366\002\n\023RunAnalysisRespon" +
+      "se\022+\n\007outputs\030\001 \003(\0132\021.sysml.CalcOutputR\007" +
+      "outputs\022*\n\010verdicts\030\002 \003(\0132\016.sysml.Verdic" +
+      "tR\010verdicts\022-\n\tinstances\030\003 \003(\0132\017.sysml.I" +
+      "nstanceR\tinstances\022\024\n\005error\030\004 \001(\tR\005error" +
+      "\0223\n\013diagnostics\030\005 \003(\0132\021.sysml.Diagnostic" +
+      "R\013diagnostics\022;\n\016failure_reason\030\006 \001(\0162\024." +
+      "sysml.FailureReasonR\rfailureReason\022O\n\025ve" +
+      "rification_verdicts\030\007 \003(\0132\032.sysml.Verifi" +
+      "cationVerdictR\024verificationVerdicts\"\311\001\n\020" +
       "ParseFileRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010f" +
       "ilePath\022\032\n\007content\030\002 \001(\tH\000R\007content\022%\n\014c" +
       "ontent_hash\030\003 \001(\tB\002\030\001R\013contentHash\022\032\n\010la" +
@@ -873,7 +889,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "nSweepRequest\032\027.sysml.RunSweepResponse\0222" +
       "\n\005Query\022\023.sysml.QueryRequest\032\024.sysml.Que" +
       "ryResponse\022S\n\020RunDocumentQuery\022\036.sysml.R" +
-      "unDocumentQueryRequest\032\037.sysml.RunDocume" +
+      "unDocumentQueryRequest\032\037.sysml.RunDocume",
       "ntQueryResponse\022M\n\016RenderDocument\022\034.sysm" +
       "l.RenderDocumentRequest\032\035.sysml.RenderDo" +
       "cumentResponseBJ\n\034org.openmbee.opensysml" +
@@ -889,7 +905,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     internal_static_sysml_Verdict_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Verdict_descriptor,
-        new java.lang.String[] { "Kind", "ElementId", "Element", "Holds", "Condition", "InstanceId", "InstanceTypeId", "Error", "FailureReason", });
+        new java.lang.String[] { "Kind", "ElementId", "Element", "Holds", "Condition", "InstanceId", "InstanceTypeId", "Error", "FailureReason", "RequirementId", });
     internal_static_sysml_VerifyConstraintRequest_descriptor =
       getDescriptor().getMessageType(1);
     internal_static_sysml_VerifyConstraintRequest_fieldAccessorTable = new
@@ -908,44 +924,50 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VerifyRequirementRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", "SubjectSymbolId", });
-    internal_static_sysml_VerifyRequirementResponse_descriptor =
+    internal_static_sysml_VerificationVerdict_descriptor =
       getDescriptor().getMessageType(4);
+    internal_static_sysml_VerificationVerdict_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_VerificationVerdict_descriptor,
+        new java.lang.String[] { "CaseId", "Kind", "Detail", "Subcase", "RequirementId", });
+    internal_static_sysml_VerifyRequirementResponse_descriptor =
+      getDescriptor().getMessageType(5);
     internal_static_sysml_VerifyRequirementResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VerifyRequirementResponse_descriptor,
-        new java.lang.String[] { "Verdict", "Instances", "Error", "Diagnostics", });
+        new java.lang.String[] { "Verdict", "Instances", "Error", "Diagnostics", "VerificationVerdicts", });
     internal_static_sysml_VerifySatisfactionRequest_descriptor =
-      getDescriptor().getMessageType(5);
+      getDescriptor().getMessageType(6);
     internal_static_sysml_VerifySatisfactionRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VerifySatisfactionRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_VerifySatisfactionResponse_descriptor =
-      getDescriptor().getMessageType(6);
+      getDescriptor().getMessageType(7);
     internal_static_sysml_VerifySatisfactionResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VerifySatisfactionResponse_descriptor,
-        new java.lang.String[] { "Verdicts", "Instances", "Error", "Diagnostics", "FailureReason", });
+        new java.lang.String[] { "Verdicts", "Instances", "Error", "Diagnostics", "FailureReason", "VerificationVerdicts", });
     internal_static_sysml_EvaluateCalcRequest_descriptor =
-      getDescriptor().getMessageType(7);
+      getDescriptor().getMessageType(8);
     internal_static_sysml_EvaluateCalcRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateCalcRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", "Arguments", });
     internal_static_sysml_EvaluateCalcResponse_descriptor =
-      getDescriptor().getMessageType(8);
+      getDescriptor().getMessageType(9);
     internal_static_sysml_EvaluateCalcResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateCalcResponse_descriptor,
         new java.lang.String[] { "Result", "Outputs", "Error", "Diagnostics", "FailureReason", });
     internal_static_sysml_CalcOutput_descriptor =
-      getDescriptor().getMessageType(9);
+      getDescriptor().getMessageType(10);
     internal_static_sysml_CalcOutput_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_CalcOutput_descriptor,
         new java.lang.String[] { "Name", "Value", });
     internal_static_sysml_RunAnalysisRequest_descriptor =
-      getDescriptor().getMessageType(10);
+      getDescriptor().getMessageType(11);
     internal_static_sysml_RunAnalysisRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunAnalysisRequest_descriptor,
@@ -957,79 +979,79 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_RunAnalysisRequest_NamedArgumentsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_RunAnalysisResponse_descriptor =
-      getDescriptor().getMessageType(11);
+      getDescriptor().getMessageType(12);
     internal_static_sysml_RunAnalysisResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunAnalysisResponse_descriptor,
-        new java.lang.String[] { "Outputs", "Verdicts", "Instances", "Error", "Diagnostics", "FailureReason", });
+        new java.lang.String[] { "Outputs", "Verdicts", "Instances", "Error", "Diagnostics", "FailureReason", "VerificationVerdicts", });
     internal_static_sysml_ParseFileRequest_descriptor =
-      getDescriptor().getMessageType(12);
+      getDescriptor().getMessageType(13);
     internal_static_sysml_ParseFileRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseFileRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "ContentHash", "Language", "StrictConformance", "Source", });
     internal_static_sysml_SourceDocument_descriptor =
-      getDescriptor().getMessageType(13);
+      getDescriptor().getMessageType(14);
     internal_static_sysml_SourceDocument_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SourceDocument_descriptor,
         new java.lang.String[] { "FilePath", "Content", "Language", "Name", "Source", });
     internal_static_sysml_ParseSourcesRequest_descriptor =
-      getDescriptor().getMessageType(14);
+      getDescriptor().getMessageType(15);
     internal_static_sysml_ParseSourcesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseSourcesRequest_descriptor,
         new java.lang.String[] { "Documents", "StrictConformance", });
     internal_static_sysml_ParseSourcesResponse_descriptor =
-      getDescriptor().getMessageType(15);
+      getDescriptor().getMessageType(16);
     internal_static_sysml_ParseSourcesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseSourcesResponse_descriptor,
         new java.lang.String[] { "ModelHash", "Roots", "Diagnostics", "Error", });
     internal_static_sysml_ParseFileResponse_descriptor =
-      getDescriptor().getMessageType(16);
+      getDescriptor().getMessageType(17);
     internal_static_sysml_ParseFileResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseFileResponse_descriptor,
         new java.lang.String[] { "ModelHash", "Root", "Diagnostics", "Error", });
     internal_static_sysml_GetSymbolRequest_descriptor =
-      getDescriptor().getMessageType(17);
+      getDescriptor().getMessageType(18);
     internal_static_sysml_GetSymbolRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_GetSymbolRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_SymbolResponse_descriptor =
-      getDescriptor().getMessageType(18);
+      getDescriptor().getMessageType(19);
     internal_static_sysml_SymbolResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SymbolResponse_descriptor,
         new java.lang.String[] { "Symbol", "Error", });
     internal_static_sysml_DiagnosticsRequest_descriptor =
-      getDescriptor().getMessageType(19);
+      getDescriptor().getMessageType(20);
     internal_static_sysml_DiagnosticsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DiagnosticsRequest_descriptor,
         new java.lang.String[] { "ModelHash", });
     internal_static_sysml_DiagnosticsResponse_descriptor =
-      getDescriptor().getMessageType(20);
+      getDescriptor().getMessageType(21);
     internal_static_sysml_DiagnosticsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DiagnosticsResponse_descriptor,
         new java.lang.String[] { "Diagnostics", "Error", });
     internal_static_sysml_EvaluateRequest_descriptor =
-      getDescriptor().getMessageType(21);
+      getDescriptor().getMessageType(22);
     internal_static_sysml_EvaluateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Expression", "ContextSymbolId", "SubjectSymbolId", });
     internal_static_sysml_EvaluateResponse_descriptor =
-      getDescriptor().getMessageType(22);
+      getDescriptor().getMessageType(23);
     internal_static_sysml_EvaluateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateResponse_descriptor,
         new java.lang.String[] { "Result", "Error", "Diagnostics", });
     internal_static_sysml_Instance_descriptor =
-      getDescriptor().getMessageType(23);
+      getDescriptor().getMessageType(24);
     internal_static_sysml_Instance_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Instance_descriptor,
@@ -1041,25 +1063,25 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_Instance_FeatureValuesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_FeatureValue_descriptor =
-      getDescriptor().getMessageType(24);
+      getDescriptor().getMessageType(25);
     internal_static_sysml_FeatureValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_FeatureValue_descriptor,
         new java.lang.String[] { "FeatureName", "Value", "Values", "Materialized", "Error", });
     internal_static_sysml_InstantiateRequest_descriptor =
-      getDescriptor().getMessageType(25);
+      getDescriptor().getMessageType(26);
     internal_static_sysml_InstantiateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_InstantiateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_InstantiateResponse_descriptor =
-      getDescriptor().getMessageType(26);
+      getDescriptor().getMessageType(27);
     internal_static_sysml_InstantiateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_InstantiateResponse_descriptor,
         new java.lang.String[] { "Instance", "Error", "Diagnostics", "Instances", });
     internal_static_sysml_ExecuteActionRequest_descriptor =
-      getDescriptor().getMessageType(27);
+      getDescriptor().getMessageType(28);
     internal_static_sysml_ExecuteActionRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteActionRequest_descriptor,
@@ -1071,7 +1093,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteActionRequest_InputsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ExecuteActionResponse_descriptor =
-      getDescriptor().getMessageType(28);
+      getDescriptor().getMessageType(29);
     internal_static_sysml_ExecuteActionResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteActionResponse_descriptor,
@@ -1083,13 +1105,13 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteActionResponse_OutputsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ExecuteStateRequest_descriptor =
-      getDescriptor().getMessageType(29);
+      getDescriptor().getMessageType(30);
     internal_static_sysml_ExecuteStateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteStateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "StateMachineSymbolId", "Events", });
     internal_static_sysml_ExecuteStateResponse_descriptor =
-      getDescriptor().getMessageType(30);
+      getDescriptor().getMessageType(31);
     internal_static_sysml_ExecuteStateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteStateResponse_descriptor,
@@ -1101,67 +1123,67 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteStateResponse_FinalContextEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ConvertRequest_descriptor =
-      getDescriptor().getMessageType(31);
+      getDescriptor().getMessageType(32);
     internal_static_sysml_ConvertRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ConvertRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "ModelHash", "FromFormat", "ToFormat", "TolerateSyntaxErrors", "Source", });
     internal_static_sysml_ConvertResponse_descriptor =
-      getDescriptor().getMessageType(32);
+      getDescriptor().getMessageType(33);
     internal_static_sysml_ConvertResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ConvertResponse_descriptor,
         new java.lang.String[] { "Content", "FromFormat", "ToFormat", "Error", "Diagnostics", "Experimental", "ExperimentalNotice", });
     internal_static_sysml_ApplyEditsRequest_descriptor =
-      getDescriptor().getMessageType(33);
+      getDescriptor().getMessageType(34);
     internal_static_sysml_ApplyEditsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ApplyEditsRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Operations", });
     internal_static_sysml_EditOperation_descriptor =
-      getDescriptor().getMessageType(34);
+      getDescriptor().getMessageType(35);
     internal_static_sysml_EditOperation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EditOperation_descriptor,
         new java.lang.String[] { "SetValue", "Rename", "AddMember", "Delete", "Operation", });
     internal_static_sysml_AddMemberEdit_descriptor =
-      getDescriptor().getMessageType(35);
+      getDescriptor().getMessageType(36);
     internal_static_sysml_AddMemberEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddMemberEdit_descriptor,
         new java.lang.String[] { "Owner", "Kind", "Name", "Type", "Multiplicity", "Value", "Specializes", });
     internal_static_sysml_DeleteEdit_descriptor =
-      getDescriptor().getMessageType(36);
+      getDescriptor().getMessageType(37);
     internal_static_sysml_DeleteEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DeleteEdit_descriptor,
         new java.lang.String[] { "Target", "Cascade", });
     internal_static_sysml_SetValueEdit_descriptor =
-      getDescriptor().getMessageType(37);
+      getDescriptor().getMessageType(38);
     internal_static_sysml_SetValueEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SetValueEdit_descriptor,
         new java.lang.String[] { "Target", "Value", });
     internal_static_sysml_RenameEdit_descriptor =
-      getDescriptor().getMessageType(38);
+      getDescriptor().getMessageType(39);
     internal_static_sysml_RenameEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenameEdit_descriptor,
         new java.lang.String[] { "Target", "NewName", });
     internal_static_sysml_ApplyEditsResponse_descriptor =
-      getDescriptor().getMessageType(39);
+      getDescriptor().getMessageType(40);
     internal_static_sysml_ApplyEditsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ApplyEditsResponse_descriptor,
         new java.lang.String[] { "Content", "Applied", "Error", "Failure", "Diagnostics", "ReferringElements", });
     internal_static_sysml_AppliedEdit_descriptor =
-      getDescriptor().getMessageType(40);
+      getDescriptor().getMessageType(41);
     internal_static_sysml_AppliedEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AppliedEdit_descriptor,
         new java.lang.String[] { "OperationIndex", "Target", "Offset", "Length", "OldText", "NewText", });
     internal_static_sysml_SymbolInfo_descriptor =
-      getDescriptor().getMessageType(41);
+      getDescriptor().getMessageType(42);
     internal_static_sysml_SymbolInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SymbolInfo_descriptor,
@@ -1173,163 +1195,163 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_SymbolInfo_MetadataEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_Specialization_descriptor =
-      getDescriptor().getMessageType(42);
+      getDescriptor().getMessageType(43);
     internal_static_sysml_Specialization_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Specialization_descriptor,
         new java.lang.String[] { "Kind", "Declared", "TargetId", "TargetKind", });
     internal_static_sysml_TypeInfo_descriptor =
-      getDescriptor().getMessageType(43);
+      getDescriptor().getMessageType(44);
     internal_static_sysml_TypeInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_TypeInfo_descriptor,
         new java.lang.String[] { "Declared", "ResolvedId", "ResolvedKind", "Primitive", "PrimitiveSource", "Quantity", "Unit", });
     internal_static_sysml_MultiplicityInfo_descriptor =
-      getDescriptor().getMessageType(44);
+      getDescriptor().getMessageType(45);
     internal_static_sysml_MultiplicityInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MultiplicityInfo_descriptor,
         new java.lang.String[] { "Lower", "Upper", });
     internal_static_sysml_AttributeInfo_descriptor =
-      getDescriptor().getMessageType(45);
+      getDescriptor().getMessageType(46);
     internal_static_sysml_AttributeInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AttributeInfo_descriptor,
         new java.lang.String[] { "Name", "Type", "Value", "Unit", });
     internal_static_sysml_Value_descriptor =
-      getDescriptor().getMessageType(46);
+      getDescriptor().getMessageType(47);
     internal_static_sysml_Value_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Value_descriptor,
         new java.lang.String[] { "IntValue", "RealValue", "BoolValue", "StringValue", "InstanceId", "Sequence", "Null", "Quantity", "EnumLiteral", "Unset", "Complex", "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Kind", });
     internal_static_sysml_Function_descriptor =
-      getDescriptor().getMessageType(47);
+      getDescriptor().getMessageType(48);
     internal_static_sysml_Function_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Function_descriptor,
         new java.lang.String[] { "CalcId", "SelfId", });
     internal_static_sysml_Array_descriptor =
-      getDescriptor().getMessageType(48);
+      getDescriptor().getMessageType(49);
     internal_static_sysml_Array_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Array_descriptor,
         new java.lang.String[] { "Dimensions", "Elements", });
     internal_static_sysml_Vector_descriptor =
-      getDescriptor().getMessageType(49);
+      getDescriptor().getMessageType(50);
     internal_static_sysml_Vector_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Vector_descriptor,
         new java.lang.String[] { "Components", });
     internal_static_sysml_VectorQuantity_descriptor =
-      getDescriptor().getMessageType(50);
+      getDescriptor().getMessageType(51);
     internal_static_sysml_VectorQuantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VectorQuantity_descriptor,
         new java.lang.String[] { "Components", });
     internal_static_sysml_Complex_descriptor =
-      getDescriptor().getMessageType(51);
+      getDescriptor().getMessageType(52);
     internal_static_sysml_Complex_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Complex_descriptor,
         new java.lang.String[] { "Real", "Imaginary", });
     internal_static_sysml_EnumLiteral_descriptor =
-      getDescriptor().getMessageType(52);
+      getDescriptor().getMessageType(53);
     internal_static_sysml_EnumLiteral_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EnumLiteral_descriptor,
         new java.lang.String[] { "LiteralId", "EnumerationId", "Name", });
     internal_static_sysml_ValueSequence_descriptor =
-      getDescriptor().getMessageType(53);
+      getDescriptor().getMessageType(54);
     internal_static_sysml_ValueSequence_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ValueSequence_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_Quantity_descriptor =
-      getDescriptor().getMessageType(54);
+      getDescriptor().getMessageType(55);
     internal_static_sysml_Quantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Quantity_descriptor,
         new java.lang.String[] { "IntMagnitude", "RealMagnitude", "Unit", "UnitTerm", "Magnitude", });
     internal_static_sysml_MeasurementRef_descriptor =
-      getDescriptor().getMessageType(55);
+      getDescriptor().getMessageType(56);
     internal_static_sysml_MeasurementRef_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MeasurementRef_descriptor,
         new java.lang.String[] { "Unit", "UnitTerm", "UnitId", });
     internal_static_sysml_UnitTerm_descriptor =
-      getDescriptor().getMessageType(56);
+      getDescriptor().getMessageType(57);
     internal_static_sysml_UnitTerm_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_UnitTerm_descriptor,
         new java.lang.String[] { "ScaleNum", "ScaleDen", "Factors", });
     internal_static_sysml_UnitFactor_descriptor =
-      getDescriptor().getMessageType(57);
+      getDescriptor().getMessageType(58);
     internal_static_sysml_UnitFactor_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_UnitFactor_descriptor,
         new java.lang.String[] { "UnitId", "Exponent", });
     internal_static_sysml_Diagnostic_descriptor =
-      getDescriptor().getMessageType(58);
+      getDescriptor().getMessageType(59);
     internal_static_sysml_Diagnostic_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Diagnostic_descriptor,
         new java.lang.String[] { "Severity", "Message", "Span", });
     internal_static_sysml_Span_descriptor =
-      getDescriptor().getMessageType(59);
+      getDescriptor().getMessageType(60);
     internal_static_sysml_Span_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Span_descriptor,
         new java.lang.String[] { "File", "StartLine", "StartCol", "EndLine", "EndCol", });
     internal_static_sysml_ServerInfoRequest_descriptor =
-      getDescriptor().getMessageType(60);
+      getDescriptor().getMessageType(61);
     internal_static_sysml_ServerInfoRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ServerInfoRequest_descriptor,
         new java.lang.String[] { });
     internal_static_sysml_ServerInfoResponse_descriptor =
-      getDescriptor().getMessageType(61);
+      getDescriptor().getMessageType(62);
     internal_static_sysml_ServerInfoResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ServerInfoResponse_descriptor,
         new java.lang.String[] { "Version", "Capabilities", });
     internal_static_sysml_QueryRequest_descriptor =
-      getDescriptor().getMessageType(62);
+      getDescriptor().getMessageType(63);
     internal_static_sysml_QueryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Query", "OslcQuery", });
     internal_static_sysml_QueryResponse_descriptor =
-      getDescriptor().getMessageType(63);
+      getDescriptor().getMessageType(64);
     internal_static_sysml_QueryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryResponse_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_Query_descriptor =
-      getDescriptor().getMessageType(64);
+      getDescriptor().getMessageType(65);
     internal_static_sysml_Query_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Query_descriptor,
         new java.lang.String[] { "Scope", "Select", "Where", });
     internal_static_sysml_Constraint_descriptor =
-      getDescriptor().getMessageType(65);
+      getDescriptor().getMessageType(66);
     internal_static_sysml_Constraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Constraint_descriptor,
         new java.lang.String[] { "Primitive", "Composite", "Constraint", });
     internal_static_sysml_PrimitiveConstraint_descriptor =
-      getDescriptor().getMessageType(66);
+      getDescriptor().getMessageType(67);
     internal_static_sysml_PrimitiveConstraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_PrimitiveConstraint_descriptor,
         new java.lang.String[] { "Inverse", "Property", "Operator", "Value", });
     internal_static_sysml_CompositeConstraint_descriptor =
-      getDescriptor().getMessageType(67);
+      getDescriptor().getMessageType(68);
     internal_static_sysml_CompositeConstraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_CompositeConstraint_descriptor,
         new java.lang.String[] { "Operator", "Constraint", });
     internal_static_sysml_QueryResultElement_descriptor =
-      getDescriptor().getMessageType(68);
+      getDescriptor().getMessageType(69);
     internal_static_sysml_QueryResultElement_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryResultElement_descriptor,
@@ -1341,13 +1363,13 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_QueryResultElement_PropertiesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_SweepRange_descriptor =
-      getDescriptor().getMessageType(69);
+      getDescriptor().getMessageType(70);
     internal_static_sysml_SweepRange_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SweepRange_descriptor,
         new java.lang.String[] { "Parameter", "Start", "End", "Step", });
     internal_static_sysml_RunSweepRequest_descriptor =
-      getDescriptor().getMessageType(70);
+      getDescriptor().getMessageType(71);
     internal_static_sysml_RunSweepRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunSweepRequest_descriptor,
@@ -1359,67 +1381,67 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_RunSweepRequest_NamedArgumentsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_SweepRow_descriptor =
-      getDescriptor().getMessageType(71);
+      getDescriptor().getMessageType(72);
     internal_static_sysml_SweepRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SweepRow_descriptor,
         new java.lang.String[] { "Inputs", "Outputs", "Verdicts", "ElapsedMicros", "Error", "FailureReason", });
     internal_static_sysml_RunSweepResponse_descriptor =
-      getDescriptor().getMessageType(72);
+      getDescriptor().getMessageType(73);
     internal_static_sysml_RunSweepResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunSweepResponse_descriptor,
         new java.lang.String[] { "Rows", "Parameters", "Sampled", "Seed", "Error", "Diagnostics", "FailureReason", "Instances", });
     internal_static_sysml_RunDocumentQueryRequest_descriptor =
-      getDescriptor().getMessageType(73);
+      getDescriptor().getMessageType(74);
     internal_static_sysml_RunDocumentQueryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunDocumentQueryRequest_descriptor,
         new java.lang.String[] { "ModelHash", "QueryId", "Bindings", });
     internal_static_sysml_DocumentQueryBinding_descriptor =
-      getDescriptor().getMessageType(74);
+      getDescriptor().getMessageType(75);
     internal_static_sysml_DocumentQueryBinding_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryBinding_descriptor,
         new java.lang.String[] { "Parameter", "Values", });
     internal_static_sysml_DocumentValue_descriptor =
-      getDescriptor().getMessageType(75);
+      getDescriptor().getMessageType(76);
     internal_static_sysml_DocumentValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentValue_descriptor,
         new java.lang.String[] { "ElementId", "StringValue", "IntValue", "RealValue", "BoolValue", "Infinity", "Quantity", "ElementType", "Kind", });
     internal_static_sysml_DocumentQueryColumn_descriptor =
-      getDescriptor().getMessageType(76);
+      getDescriptor().getMessageType(77);
     internal_static_sysml_DocumentQueryColumn_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryColumn_descriptor,
         new java.lang.String[] { "Name", });
     internal_static_sysml_DocumentQueryCell_descriptor =
-      getDescriptor().getMessageType(77);
+      getDescriptor().getMessageType(78);
     internal_static_sysml_DocumentQueryCell_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryCell_descriptor,
         new java.lang.String[] { "Values", });
     internal_static_sysml_DocumentQueryRow_descriptor =
-      getDescriptor().getMessageType(78);
+      getDescriptor().getMessageType(79);
     internal_static_sysml_DocumentQueryRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryRow_descriptor,
         new java.lang.String[] { "Element", "Cells", });
     internal_static_sysml_RunDocumentQueryResponse_descriptor =
-      getDescriptor().getMessageType(79);
+      getDescriptor().getMessageType(80);
     internal_static_sysml_RunDocumentQueryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunDocumentQueryResponse_descriptor,
         new java.lang.String[] { "Columns", "Rows", });
     internal_static_sysml_RenderDocumentRequest_descriptor =
-      getDescriptor().getMessageType(80);
+      getDescriptor().getMessageType(81);
     internal_static_sysml_RenderDocumentRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentRequest_descriptor,
         new java.lang.String[] { "ModelHash", "DocumentId", });
     internal_static_sysml_RenderDocumentResponse_descriptor =
-      getDescriptor().getMessageType(81);
+      getDescriptor().getMessageType(82);
     internal_static_sysml_RenderDocumentResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentResponse_descriptor,

@@ -104,9 +104,22 @@ type checkResult struct {
 	Values []namedValue `json:"values"`
 	// Lines is the verdict as the prompt prints it.
 	Lines []string `json:"lines"`
+	// Verifications are the verdicts the bodies of the verification cases
+	// verifying the requirement produced, reported beside its own.
+	Verifications []verificationVerdict `json:"verifications,omitempty"`
 	// Rows are the runs a sweep made, one per row of its table; `null` for every
 	// other kind of check.
 	Rows []checkRow `json:"rows"`
+}
+
+// verificationVerdict is one verdict a verification case body produced.
+type verificationVerdict struct {
+	Case string `json:"case"`
+	Kind string `json:"kind"`
+	// Detail is why an error or inconclusive verdict decided nothing.
+	Detail string `json:"detail,omitempty"`
+	// Subcase marks a case another case performed as a step of its body.
+	Subcase bool `json:"subcase,omitempty"`
 }
 
 // checkRow is one run of a sweep in the JSON report.
@@ -254,11 +267,12 @@ func (r *reporter) finish() int {
 	r.report.Exit = exit
 	for _, v := range r.verdicts {
 		r.report.Checks = append(r.report.Checks, checkResult{
-			Subject: v.Subject,
-			Status:  v.Status.String(),
-			Values:  namedValues(v.Values),
-			Lines:   v.Lines,
-			Rows:    checkRows(v.Rows),
+			Subject:       v.Subject,
+			Status:        v.Status.String(),
+			Values:        namedValues(v.Values),
+			Lines:         v.Lines,
+			Verifications: verificationVerdicts(v.Verifications),
+			Rows:          checkRows(v.Rows),
 		})
 	}
 	out, err := json.MarshalIndent(r.report, "", "  ")
@@ -292,4 +306,16 @@ func writeLines(w io.Writer, lines []string) {
 	for _, line := range lines {
 		fmt.Fprintln(w, line)
 	}
+}
+
+// verificationVerdicts reports the body verdicts of a check as JSON data.
+func verificationVerdicts(verdicts []repl.VerificationVerdict) []verificationVerdict {
+	if len(verdicts) == 0 {
+		return nil
+	}
+	out := make([]verificationVerdict, 0, len(verdicts))
+	for _, v := range verdicts {
+		out = append(out, verificationVerdict{Case: v.Case, Kind: v.Kind, Detail: v.Detail, Subcase: v.Subcase})
+	}
+	return out
 }

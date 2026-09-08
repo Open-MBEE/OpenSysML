@@ -6,11 +6,12 @@ stmt assign v
   eval literal 1 -> 1
 step 3: token 2@leg, token 3@leg
 enter action node: leg
+step 4: token 4@inner
 stmt assign v
     eval feature w -> 1
     eval literal 10 -> 10
   eval operator * -> 10
-step 4: token 4@rest
+step 5: token 4@rest
 stmt assign collected
     eval feature collected -> 0
       eval feature n -> 10
@@ -18,6 +19,6 @@ stmt assign collected
     eval operator * -> 20
   eval operator + -> 20
 leave action node: leg
-step 5: token 4@sync
-step 6: token 5@done
-step 7: no active tokens
+step 6: token 4@sync
+step 7: token 5@done
+step 8: no active tokens

@@ -38,6 +38,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token.frame = perf
 	token.Location = perf.graph.Initial
 	token.Via = lower.ActionEdge{}
+	token.moved = e.sweep
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(ActionNodeName(node))
 	}
@@ -98,8 +99,9 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 // which a retired, forked or relocated token did.
 func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 	before := e.subflowLocations(perf)
+	defer e.beginSweep()()
 	for i := len(e.tokens) - 1; i >= 0; i-- {
-		if i >= len(e.tokens) || !e.tokens[i].inFlowOf(perf) {
+		if i >= len(e.tokens) || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
 			continue
 		}
 		if err := e.stepToken(i); err != nil {

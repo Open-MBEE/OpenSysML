@@ -58,6 +58,23 @@ type SatisfyAssertion struct {
 	Negated bool
 }
 
+// AssertedRequirement is the requirement the assertion is about: the one it
+// references, or its own usage where the assertion declares the requirement
+// (`satisfy requirement r by p { ... }`). It is nil for a reference naming
+// nothing resolvable.
+func (a *SatisfyAssertion) AssertedRequirement() *symbols.Symbol {
+	if a.Requirement != nil {
+		return a.Requirement
+	}
+	if a.Symbol == nil {
+		return nil
+	}
+	if usage, ok := a.Symbol.Decl.(*ast.Usage); ok && usage.DeclaresRequirement {
+		return a.Symbol
+	}
+	return nil
+}
+
 // Text renders the assertion as it was written, so an anonymous one can be
 // named in a verdict. A `satisfy requirement r by p` form declares the
 // requirement rather than referencing one, so it is named by the usage itself.

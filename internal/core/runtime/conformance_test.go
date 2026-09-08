@@ -139,6 +139,13 @@ type ExpectedOutcome struct {
 	Subject  string            `json:"subject,omitempty"`
 	Verdicts map[string]string `json:"verdicts,omitempty"`
 
+	// Verification fields: the VerdictKind the run of the case's body produced,
+	// the text an error or inconclusive verdict carries, and the verdict of each
+	// verification subcase the body performs, by qualified name.
+	Verdict       string            `json:"verdict,omitempty"`
+	VerdictDetail string            `json:"verdictDetail,omitempty"`
+	Subcases      map[string]string `json:"subcases,omitempty"`
+
 	// Performers are the objects that each perform the case's behavior, for a
 	// case whose contract depends on which object performs it — two objects
 	// selecting different variants of one variation route over their own.
@@ -311,6 +318,8 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string) {
 		runSatisfyConformance(t, ctx, idx, sysmlPath, expected)
 	case "analysis":
 		runAnalysisConformance(t, ctx, idx, sysmlPath, expected)
+	case "verification":
+		runVerificationConformance(t, ctx, idx, sysmlPath, expected)
 	case "instance":
 		runInstanceConformance(t, ctx, idx, expected)
 	default:
@@ -936,6 +945,15 @@ func runAnalysisConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 		t.Fatalf("RunAnalysis(%s) failed: %v", ctx.qualifiedSymbolName(caseSym), err)
 	}
 
+	checkCaseRun(t, ctx, idx, result, expected)
+}
+
+// checkCaseRun validates what one run of a case produced: its outputs, its
+// result, the verdict of every objective and assertion, and the values a model
+// reading its outputs computes. Analysis and verification cases run the same
+// body, so their outcomes are checked the same way.
+func checkCaseRun(t *testing.T, ctx *Context, idx *symbols.Index, result AnalysisResult, expected ExpectedOutcome) {
+	t.Helper()
 	values := make(map[string]Value, len(result.Outputs))
 	for _, out := range result.Outputs {
 		values[out.Name] = out.Value
@@ -978,6 +996,53 @@ func runAnalysisConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 
 	for name, expectedVal := range expected.Reads {
 		validateRead(t, ctx, idx, name, expectedVal)
+	}
+}
+
+// runVerificationConformance runs a verification case and validates the verdict
+// its body produced, the verdict of each subcase it performs, and everything the
+// same run reports as an analysis case's run does.
+func runVerificationConformance(t *testing.T, ctx *Context, idx *symbols.Index, path string, expected ExpectedOutcome) {
+	rootScope := idx.DocumentRoot(path)
+	caseSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefVerificationCase, ast.UsageVerificationCase)
+
+	result, err := ctx.RunVerification(caseSym, analysisArgsOf(t, ctx, idx, expected), rootScope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification(%s) failed: %v", ctx.qualifiedSymbolName(caseSym), err)
+	}
+	if got := string(result.Verdict.Kind); got != expected.Verdict {
+		t.Errorf("verdict = %q (%s), want %q", got, result.Verdict.Detail, expected.Verdict)
+	}
+	if expected.VerdictDetail != "" && !strings.Contains(result.Verdict.Detail, expected.VerdictDetail) {
+		t.Errorf("verdict detail = %q, want it to contain %q", result.Verdict.Detail, expected.VerdictDetail)
+	}
+	checkSubcaseVerdicts(t, result.Subcases, expected.Subcases)
+	if result.Verdict.Kind == VerdictError {
+		return
+	}
+	checkCaseRun(t, ctx, idx, result.Run, expected)
+}
+
+// checkSubcaseVerdicts validates the verdict of each verification subcase the
+// case performs, which the library states no roll-up for.
+func checkSubcaseVerdicts(t *testing.T, got []VerificationVerdict, want map[string]string) {
+	t.Helper()
+	kinds := make(map[string]string, len(got))
+	for _, verdict := range got {
+		kinds[verdict.Case] = string(verdict.Kind)
+	}
+	for name, wantKind := range want {
+		kind, ok := kinds[name]
+		if !ok {
+			t.Errorf("no subcase verdict for %q among %v", name, kinds)
+			continue
+		}
+		if kind != wantKind {
+			t.Errorf("subcase %s verdict = %q, want %q", name, kind, wantKind)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("the case reported %d subcase verdict(s) %v, the outcome states %d", len(got), kinds, len(want))
 	}
 }
 

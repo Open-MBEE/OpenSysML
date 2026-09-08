@@ -226,4 +226,53 @@ public interface RunAnalysisResponseOrBuilder extends
    * @return The failureReason.
    */
   org.openmbee.opensysml.proto.FailureReason getFailureReason();
+
+  /**
+   * <pre>
+   * What the body answered when the case run was a verification case: its own
+   * verdict first, then the verdict of each subcase it performed.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 7 [json_name = "verificationVerdicts"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.VerificationVerdict> 
+      getVerificationVerdictsList();
+  /**
+   * <pre>
+   * What the body answered when the case run was a verification case: its own
+   * verdict first, then the verdict of each subcase it performed.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 7 [json_name = "verificationVerdicts"];</code>
+   */
+  org.openmbee.opensysml.proto.VerificationVerdict getVerificationVerdicts(int index);
+  /**
+   * <pre>
+   * What the body answered when the case run was a verification case: its own
+   * verdict first, then the verdict of each subcase it performed.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 7 [json_name = "verificationVerdicts"];</code>
+   */
+  int getVerificationVerdictsCount();
+  /**
+   * <pre>
+   * What the body answered when the case run was a verification case: its own
+   * verdict first, then the verdict of each subcase it performed.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 7 [json_name = "verificationVerdicts"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.VerificationVerdictOrBuilder> 
+      getVerificationVerdictsOrBuilderList();
+  /**
+   * <pre>
+   * What the body answered when the case run was a verification case: its own
+   * verdict first, then the verdict of each subcase it performed.
+   * </pre>
+   *
+   * <code>repeated .sysml.VerificationVerdict verification_verdicts = 7 [json_name = "verificationVerdicts"];</code>
+   */
+  org.openmbee.opensysml.proto.VerificationVerdictOrBuilder getVerificationVerdictsOrBuilder(
+      int index);
 }

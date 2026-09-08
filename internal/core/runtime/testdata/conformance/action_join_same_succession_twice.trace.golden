@@ -34,23 +34,24 @@ stmt assign log
     eval literal 1 -> 1
   eval operator + -> 1
 step 9: token 3@sync, token 4@sync, token 6@sync
+step 10: token 6@sync, token 8@after
 stmt assign log
       eval feature log -> 1
       eval literal 10 -> 10
     eval operator * -> 10
     eval literal 2 -> 2
   eval operator + -> 12
-step 10: token 6@sync, token 8@more
+step 11: token 6@sync, token 8@more
   eval feature m -> 1
   eval literal 2 -> 2
 eval operator < -> true
-step 11: token 6@sync, token 8@s1
-step 12: token 6@sync, token 8@s2
-step 13: token 6@sync, token 8@s3
-step 14: token 6@sync, token 8@s4
-step 15: token 6@sync, token 8@s5
-step 16: token 6@sync, token 8@s6
-step 17: token 6@sync, token 8@right
+step 12: token 6@sync, token 8@s1
+step 13: token 6@sync, token 8@s2
+step 14: token 6@sync, token 8@s3
+step 15: token 6@sync, token 8@s4
+step 16: token 6@sync, token 8@s5
+step 17: token 6@sync, token 8@s6
+step 18: token 6@sync, token 8@right
 stmt assign m
     eval feature m -> 1
     eval literal 1 -> 1
@@ -61,19 +62,20 @@ stmt assign log
     eval operator * -> 120
     eval literal 1 -> 1
   eval operator + -> 121
-step 18: token 9@after
+step 19: token 6@sync, token 8@sync
+step 20: token 9@after
 stmt assign log
       eval feature log -> 121
       eval literal 10 -> 10
     eval operator * -> 1210
     eval literal 2 -> 2
   eval operator + -> 1212
-step 19: token 9@more
+step 21: token 9@more
   eval feature m -> 2
   eval literal 2 -> 2
 eval operator < -> false
   eval feature m -> 2
   eval literal 2 -> 2
 eval operator >= -> true
-step 20: token 9@done
-step 21: no active tokens
+step 22: token 9@done
+step 23: no active tokens

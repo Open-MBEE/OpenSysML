@@ -5,4 +5,5 @@ stmt assign hits
     eval feature hits -> 0
     eval literal 1 -> 1
   eval operator + -> 1
-step 4: no active tokens
+step 4: token 4@done
+step 5: no active tokens

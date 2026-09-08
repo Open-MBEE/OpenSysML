@@ -31,7 +31,13 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	if err != nil {
 		return &pb.RunSweepResponse{Error: err.Error()}, nil
 	}
-	analysis := runtime.IsAnalysisSymbol(sym)
+	// A sweep reports a row's outputs and objective verdicts, which carry no
+	// verification verdict, so a verification case runs through RunVerification.
+	if runtime.IsVerificationCaseSymbol(sym) {
+		return sweepFailure(fmt.Errorf("%w: %s is a verification case, which a sweep does not run; run it with RunAnalysis",
+			runtime.ErrNotAnAnalysis, req.SymbolId)), nil
+	}
+	analysis := runtime.IsRunnableCaseSymbol(sym)
 	if !analysis {
 		switch sym.Kind {
 		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage:

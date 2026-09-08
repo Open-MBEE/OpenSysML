@@ -32,6 +32,8 @@ export const CAPABILITY_STRICT_CONFORMANCE = "strict_conformance";
 export const CAPABILITY_CONVERT = "convert";
 /** The verification RPCs. Not used by this version; see the README. */
 export const CAPABILITY_VERIFICATION = "verification";
+/** What the body of a verification case answered, as `verification_verdicts`. */
+export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
 /** The `Query` RPC. Not used by this version; see the README. */
 export const CAPABILITY_QUERY = "query";
 /** The `ApplyEdits` RPC. Not used by this version; see the README. */

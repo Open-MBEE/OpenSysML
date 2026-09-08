@@ -4,7 +4,8 @@ step 3: token 2@reader, token 3@sender
 stmt send
   eval literal 7 -> 7
 step 4: token 2@sync, token 3@sync
+step 5: token 4@recorder
 stmt assign received
   eval feature n -> 7
-step 5: token 4@done
-step 6: no active tokens
+step 6: token 4@done
+step 7: no active tokens

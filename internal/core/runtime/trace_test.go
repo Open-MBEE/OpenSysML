@@ -158,6 +158,15 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 			t.Fatalf("run analysis: %v", err)
 		}
 		traceOutput = trace.String()
+	case "verification":
+		// A verification case's body runs as an analysis case's does, so its
+		// trace records the same binding, steps and outputs.
+		ctx.SetTrace(trace)
+		caseSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefVerificationCase, ast.UsageVerificationCase)
+		if _, err := ctx.RunVerification(caseSym, analysisArgsOf(t, ctx, idx, expected), rootScope, nil); err != nil {
+			t.Fatalf("run verification: %v", err)
+		}
+		traceOutput = trace.String()
 	case "instance":
 		// Materializing the object records its own start: the objects built, the
 		// behaviors their types bind, and the bodies those behaviors run.
