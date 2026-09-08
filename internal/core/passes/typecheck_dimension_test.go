@@ -128,6 +128,19 @@ func TestRecursiveRollupThroughACall(t *testing.T) {
 	}`)
 }
 
+// TestRecursiveRollupThroughACollectBody: the rollup written with a collect whose
+// body names the feature being typed — its result type is the body's — terminates too.
+func TestRecursiveRollupThroughACollectBody(t *testing.T) {
+	wantNoDimensionDiags(t, `private import NumericalFunctions::*;
+	private import ControlFunctions::*;
+	part def MassedComponent {
+		part subcomponents : MassedComponent [*] default null;
+		attribute mass :> ISQ::mass;
+		attribute totalMass :> ISQ::mass = mass + sum(subcomponents->collect { in c : MassedComponent; c.totalMass });
+		attribute heaviest :> ISQ::mass = subcomponents->collect { in c : MassedComponent; c.heaviest }->reduce '+';
+	}`)
+}
+
 // TestBoundMeasurementUnit: a unit binds to the unit definition typing it, to any
 // measurement-reference supertype, and to no quantity value type; the checker
 // judges each as the runtime's write conformance does. A quantity bound to a

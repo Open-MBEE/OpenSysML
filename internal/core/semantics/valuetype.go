@@ -142,7 +142,10 @@ func (m *Model) exprConformance(scope *symbols.Scope, node ast.Node, want *symbo
 		}
 		return c
 	case *ast.CollectExpr:
-		// `xs.{…}` is the result of ControlFunctions::collect, typed Anything.
+		// `xs.{…}` is the result of ControlFunctions::collect: the body's results, else Anything.
+		if types := m.collectResultTypes(scope, n); len(types) > 0 {
+			return m.typesConformance(types, want)
+		}
 		c := m.typeConformance(m.libSymbol(fqnAnything), want)
 		if c.Known && !c.Holds {
 			c.Found = "a collection `.{…}` maps to, typed Anything"
@@ -218,14 +221,24 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 	case *ast.SelectExpr:
 		// `xs.?{…}` keeps elements of xs (KerML checkSelectExpressionResultSpecialization).
 		return m.ExprResultType(scope, n.Operand)
-	case *ast.NullExpr, *ast.SequenceExpr, *ast.CollectExpr:
+	case *ast.CollectExpr:
+		// `xs.{…}` is the result of ControlFunctions::collect: the body's results, else Anything.
+		if types := m.collectResultTypes(scope, n); len(types) > 0 {
+			return types[0]
+		}
+		return m.libSymbol(fqnAnything)
+	case *ast.NullExpr, *ast.SequenceExpr:
 		return m.libSymbol(fqnAnything)
 	case *ast.BodyExpr:
 		return m.bodyExprType(scope, n)
 	case *ast.ConstructorExpr:
 		return m.namedType(scope, n.Type)
 	case *ast.InvocationExpr:
-		if result := m.invocationResult(scope, n); result != nil {
+		called := m.invocationCallee(scope, n)
+		if types := m.collectionResultTypes(scope, n, called); len(types) > 0 {
+			return types[0]
+		}
+		if result := m.ResultParameterOf(called); result != nil {
 			return m.featureResultType(result)
 		}
 	}
@@ -956,22 +969,32 @@ func (m *Model) incommensurableSum(scope *symbols.Scope, node ast.Node) (*ast.Op
 // invocationConformance judges an invocation's value by the declared type of the
 // result parameter of the overload it calls.
 func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExpr, want *symbols.Symbol) Conformance {
-	result := m.invocationResult(scope, e)
+	called := m.invocationCallee(scope, e)
+	if types := m.collectionResultTypes(scope, e, called); len(types) > 0 {
+		return m.typesConformance(types, want)
+	}
+	result := m.ResultParameterOf(called)
 	if result == nil {
 		return conformanceUnknown()
 	}
 	return m.featureConformance(result, want)
 }
 
-// invocationResult is the result parameter of the declaration e calls, as the
-// checker selects it; nil when the call is unresolved, ambiguous or fits none.
-func (m *Model) invocationResult(scope *symbols.Scope, e *ast.InvocationExpr) *symbols.Symbol {
+// invocationCallee is the declaration e calls, as the checker selects it; nil
+// when the call is unresolved, ambiguous or fits none.
+func (m *Model) invocationCallee(scope *symbols.Scope, e *ast.InvocationExpr) *symbols.Symbol {
 	if e.Type == nil || m.resolver == nil {
 		return nil
 	}
 	sym, ok := m.calledFunction(scope, e)
-	if !ok || sym == nil {
+	if !ok {
 		return nil
 	}
-	return m.ResultParameterOf(sym)
+	return sym
+}
+
+// invocationResult is the result parameter of the declaration e calls; nil when
+// the call is unresolved, ambiguous or fits none.
+func (m *Model) invocationResult(scope *symbols.Scope, e *ast.InvocationExpr) *symbols.Symbol {
+	return m.ResultParameterOf(m.invocationCallee(scope, e))
 }

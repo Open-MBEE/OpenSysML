@@ -334,7 +334,10 @@ func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast
 	if chain := ChainCallee(inv); chain != nil {
 		sym, _ = ec.resolver.ResolveTarget(scope, chain)
 	} else if inv.Type != nil {
-		sym = SelectInvocation(ec.resolver, ec.model, scope, inv, ec.performs(inv)).Selected
+		// The arguments type silently, but under the chains being typed: one whose
+		// body reads the feature being valued would otherwise type it again.
+		silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
+		sym = silent.selectInvocation(scope, inv, silent.argumentTypes(scope, inv), ec.performs(inv)).Selected
 	}
 	if sym == nil || !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {
 		return nil

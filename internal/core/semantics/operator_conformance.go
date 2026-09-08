@@ -56,10 +56,18 @@ func (m *Model) resultTypes(scope *symbols.Scope, node ast.Node) []*symbols.Symb
 		}
 		return m.featureResultTypes(sym)
 	case *ast.InvocationExpr:
-		if result := m.invocationResult(scope, n); result != nil {
+		called := m.invocationCallee(scope, n)
+		if types := m.collectionResultTypes(scope, n, called); len(types) > 0 {
+			return types
+		}
+		if result := m.ResultParameterOf(called); result != nil {
 			return m.featureResultTypes(result)
 		}
 		return nil
+	case *ast.CollectExpr:
+		if types := m.collectResultTypes(scope, n); len(types) > 0 {
+			return types
+		}
 	case *ast.IndexExpr:
 		if !n.Bracket {
 			return m.indexResultTypes(scope, n)
