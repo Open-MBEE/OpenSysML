@@ -1,0 +1,20 @@
+step 1: token 1@split
+step 2: token 2@a, token 3@b, token 4@c1
+stmt assign arrived
+    eval feature arrived -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign arrived
+    eval feature arrived -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 3: token 2@sync, token 3@sync, token 4@c2
+step 4: token 2@sync, token 3@sync, token 4@c3
+stmt assign arrived
+    eval feature arrived -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+stmt assign seen
+  eval feature arrived -> 3
+step 5: token 5@done
+step 6: no active tokens

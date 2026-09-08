@@ -3,10 +3,11 @@
 	"evaluate": "test::pipeline",
 	"trace": true,
 	"outputs": {
-		"collected": {"type": "Integer", "value": 50},
+		"collected": {"type": "Integer", "value": 20},
 		"left.v": {"type": "Integer", "value": 1},
 		"right.v": {"type": "Integer", "value": 2},
-		"leg.x": {"type": "Integer", "value": 1},
+		"leg.x1": {"type": "Integer", "value": 1},
+		"leg.x2": {"type": "Integer", "value": 2},
 		"leg.inner.w": {"type": "Integer", "value": 1},
 		"leg.inner.v": {"type": "Integer", "value": 10},
 		"leg.rest.n": {"type": "Integer", "value": 10}

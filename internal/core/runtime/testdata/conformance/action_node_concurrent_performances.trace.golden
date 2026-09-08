@@ -6,35 +6,23 @@ stmt assign v
   eval literal 1 -> 1
 step 3: token 2@stage, token 3@stage
 enter action node: stage
-enter action node: stage
-step 4: token 2@scale, token 3@scale
 stmt assign y
-    eval feature x -> 2
+      eval feature x1 -> 1
+      eval feature x2 -> 2
+    eval operator + -> 3
     eval literal 10 -> 10
-  eval operator * -> 20
-stmt assign y
-    eval feature x -> 1
-    eval literal 10 -> 10
-  eval operator * -> 10
-step 5: token 2@tally, token 3@tally
+  eval operator * -> 30
+step 4: token 4@tally
 stmt assign scaled
     eval feature scaled -> 0
-    eval feature y -> 20
-  eval operator + -> 20
-leave action node: stage
-stmt assign scaled
-    eval feature scaled -> 20
-    eval feature y -> 10
+    eval feature y -> 30
   eval operator + -> 30
 leave action node: stage
-step 6: token 2@collect, token 3@collect
+step 5: token 4@collect
 stmt assign collected
     eval feature collected -> 0
-    eval feature z -> 20
-  eval operator + -> 20
-stmt assign collected
-    eval feature collected -> 20
-    eval feature z -> 10
+    eval feature z -> 30
   eval operator + -> 30
-step 7: token 2@sync, token 3@sync
+step 6: token 4@sync
+step 7: token 5@done
 step 8: no active tokens

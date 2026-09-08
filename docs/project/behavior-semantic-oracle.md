@@ -41,8 +41,9 @@ scheduling detail the library says nothing about:
   succession-declaration order, so the branch declared *last* is stepped *first* in every step.
 - A node's body runs in the step that moves its token on, so a body's statements appear in the
   golden between the `step N:` line that shows the token at the node and the `step N+1:` line.
-- A join's output is a fresh token appended to the token list, and the step that fired the join
-  may go on to step it (and tokens the removal shifted) again; a `step N:` line is therefore the
+- A node several successions reach (a join, or a plain node) performs with a fresh token appended
+  to the token list once every succession has delivered, and the step that fired it may go on to
+  step that token (and tokens the removal shifted) again; a `step N:` line is therefore the
   executor's step boundary, not a unit the library defines.
 - A state machine records a transition's guard evaluation, exit, effect and entry as they run, and
   evaluates a guard once to select the transition and once again to fire it; the second
@@ -108,7 +109,7 @@ Fixed outcome: `arrived = 3`, `seen = 3`. The executor agrees; the golden shows 
 
 ### A join counts one token per incoming succession, not the tokens parked at it
 
-Fixture: `action_join_one_token_per_incoming_succession` (**known failure**).
+Fixture: `action_join_one_token_per_incoming_succession` (golden).
 
 ```
 start → split ⇉ l1 ──┐
@@ -129,19 +130,20 @@ Open: the order of `left` against any node of the `r` branch.
 Fixed outcome: `log = 12` — `right` writes before `after`, whatever the interleaving, because
 `after` cannot start before `sync`, and `sync` cannot start before `right` has ended.
 
-Executor: `ErrActionDeadlock`. `left` is performed twice (see the next case), so two tokens park
-at `sync` while `right` has not run; `stepJoinNode` compares the number of parked tokens with
-the number of incoming successions and fires on the two `left` tokens, and the `right` token,
-arriving one step later, starves at a join that will never fire again. (`log` happens to read
-`12` when the executor stops, because the scheduler ran `right` in the same step the join
-fired; the failure is the deadlock, not the value.) The case is observable only because a node
-upstream is performed twice, so fixing the next case would also change this one's trace; it
-stays a separate case because it pins a distinct rule — a join fires on *which* successions
-delivered, not on how many tokens arrived.
+Executor: `log = 12`, no deadlock. Every token records the succession it travelled
+(`Token.Via`, the lowered `ActionEdge`), and `ActionExecutor.synchronize` holds a token at a
+node until one token has arrived over *each* succession into it; the golden shows the two
+`left` arrivals collapse into one token at `sync` (step 4), which waits there for `right`
+(step 5) before `after` runs. The case is observable only because a node upstream is reached
+over two successions, so it shares a mechanism with the next case; it stays a separate case
+because it pins a distinct rule — a join fires on *which* successions delivered, not on how
+many tokens arrived. `action_join_same_succession_twice` pins the converse: two tokens over
+one succession into a join satisfy that succession once, and the second waits for the join's
+next firing (`log = 1212`).
 
 ### A node reached over two successions is performed once, after both
 
-Fixture: `action_node_with_two_incoming_successions_runs_once` (**known failure**).
+Fixture: `action_node_with_two_incoming_successions_runs_once` (golden).
 
 ```
 start → split ⇉ l1 ──┐
@@ -160,9 +162,23 @@ Open: the order of `l1` against `l2`.
 
 Fixed outcome: `hits = 1`.
 
-Executor: `hits = 2`. A plain action node has no synchronization; each arriving token runs the
-body and moves on, so a node with several incoming successions is performed once per arrival.
-Only `join` synchronizes, and the map's join row says how.
+Executor: `hits = 1`. The same `synchronize` gate holds a token at a plain node until each
+succession into it has delivered, so `both` is performed once by the one token the two
+arrivals collapse into (golden, step 3). A join differs only in what it awaits: every incoming
+succession (source multiplicity 1..1), so a join one of whose sources no token can reach
+deadlocks (`robustness_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
+a plain node awaits a succession only once it has delivered or while some token of the
+activation, other than one held at the node, can still reach its source without passing through
+the node — the branch a decision did not take, or a loop back over the node itself, imposes no
+`HappensBefore` on this performance. `action_node_converges_after_decision` (golden) pins the
+first half: `converge` behind a decision's two branches performs once for the branch taken and
+does not deadlock on the other; `action_node_loop_back_reperforms` (golden) the second: `bump`,
+reached from `start` and from the decision after it, performs once per pass.
+`action_nested_node_two_successions_per_performance` pins that the count is per performance of
+the owning action: two performances of an action holding such a node each perform it once; and
+`action_node_concurrent_performances` and `action_node_concurrent_nested_bindings` (goldens)
+that a flow-owning node reached from both branches of a fork is likewise one performance,
+holding at each pin the one delivery the flow into that pin carried.
 
 ### Concurrent branches writing one feature: the value is open, the writes are not
 
@@ -255,22 +271,16 @@ the tool detail noted above, not a second reading the library asks for.
 
 ## What the executor gets wrong
 
-Three of the six derivations are not met. Each is listed in
+One of the six derivations is not met. It is listed in
 `internal/core/runtime/testdata/conformance/known_failures.txt`, its expected outcome is the
 derived one, and the compliance map cites it from the row it refutes.
 
 | Case | Derived | Executor | Root |
 |------|---------|----------|------|
-| `action_node_with_two_incoming_successions_runs_once` | one performance after both predecessors | one performance per arriving token | `stepActionExecutionNode` has no synchronization; only `join` does |
-| `action_join_one_token_per_incoming_succession` | the join waits for a token from each incoming succession | the join fires when as many tokens are parked as there are incoming successions | `stepJoinNode` counts parked tokens; a `Token` records no incoming edge |
 | `action_merge_loop_reenters` | every arrival traverses the merge | the first traversal closes the merge for the run | `stepMergeNode` keys `mergeVisited` on the merge node alone |
 
-The first two share a cause in the model — the join case's extra token is the first case's
-extra performance — but not in the executor: giving a plain node join semantics would leave a
-join that counts tokens rather than successions, and vice versa. Fixing either changes traces
-this corpus does not yet hold a golden for; when a fix lands, remove the entry from
-`known_failures.txt`, run `-update-traces` for the case, and review the new golden against the
-derivation above before committing it.
+When a fix lands, remove the entry from `known_failures.txt`, run `-update-traces` for the
+case, and review the new golden against the derivation above before committing it.
 
 ## Adding a case
 

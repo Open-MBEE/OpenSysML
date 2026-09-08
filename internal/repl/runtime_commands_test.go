@@ -435,6 +435,36 @@ func TestTokensShowNodeNames(t *testing.T) {
 	rejects(t, got, "*ast.")
 }
 
+// A token held at a join says which succession it came over and which it waits for.
+func TestTokensShowHeldJoinArrivals(t *testing.T) {
+	s := loadSource(t, `package test {
+		action gather {
+			first start;
+			fork split;
+			action quick;
+			action slow1;
+			action slow2;
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then quick;
+			succession first split then slow1;
+			succession first slow1 then slow2;
+			succession first quick then sync;
+			succession first slow2 then sync;
+			succession first sync then done;
+		}
+	}`)
+	run(t, s, "%action gather")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	run(t, s, "%step")
+	got := run(t, s, "%tokens")
+	wants(t, got, "Token 2 @ sync (arrived from quick; awaiting slow2)", "Token 3 @ slow2")
+	rejects(t, got, "slow2 (arrived")
+	wants(t, run(t, s, "%continue"), "✓ Action completed")
+}
+
 func TestActionDebuggerRejectsNonAction(t *testing.T) {
 	s := loadFixture(t, "testdata/vehicle_package.sysml")
 	wants(t, run(t, s, "%action Vehicle"), "is not an action")
