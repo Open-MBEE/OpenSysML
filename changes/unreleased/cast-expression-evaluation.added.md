@@ -12,7 +12,9 @@
   one of its members is not reported as unrelated either, nor is casting a value to a type composed
   of one it relates to.
   A composed target a value's types leave open is read through its operands, so a bare quantity
-  cast to a union of quantity types is kept by the operand whose reference its unit matches.
+  cast to a union of quantity types is kept by the operand whose reference its unit matches, and an
+  operand the value settles nothing about is reported as undecided only where no other operand
+  excludes the value outright.
   A composed type weighs all the types a value is of at once, whether they are the types a runtime
   value carries or those its feature is declared with, so an object held as a type a
   difference subtracts is none of its values, whether the difference is the target, one it

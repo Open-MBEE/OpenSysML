@@ -183,23 +183,38 @@ func (ec *EvalContext) castComposedKeeps(
 	keeps := func(operand *symbols.Symbol) (bool, error) {
 		return ec.castKeepsReading(value, operand, declared, reading)
 	}
+	// An operand no type of the value settles leaves the cast undecided, but only
+	// where no other operand excludes the value outright.
+	var undecided error
 	if len(unions) > 0 {
 		kept, err := anyKeeps(unions, keeps)
-		if err != nil || !kept {
-			return false, true, err
+		switch {
+		case err != nil:
+			undecided = err
+		case !kept:
+			return false, true, nil
 		}
 	}
 	for _, operand := range intersects {
 		kept, err := keeps(operand)
-		if err != nil || !kept {
-			return false, true, err
+		switch {
+		case err != nil:
+			undecided = err
+		case !kept:
+			return false, true, nil
 		}
 	}
 	for i, operand := range differences {
 		kept, err := keeps(operand)
-		if err != nil || kept != (i == 0) {
-			return false, true, err
+		switch {
+		case err != nil:
+			undecided = err
+		case kept != (i == 0):
+			return false, true, nil
 		}
+	}
+	if undecided != nil {
+		return false, true, undecided
 	}
 	return true, true, nil
 }

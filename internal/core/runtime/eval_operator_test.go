@@ -334,3 +334,27 @@ package test {
 		}
 	}
 }
+
+// TestComposedCastUndecidedWhenNoOperandExcludes: an intersection or difference
+// no operand settles is still the typed undecidable-classification error.
+func TestComposedCastUndecidedWhenNoOperandExcludes(t *testing.T) {
+	const src = `
+		attribute def Integer;
+		attribute def Even :> Integer;
+		attribute def EvenInteger intersects Even, Integer;
+		attribute def OddInteger differences Integer, Even;
+		attribute intersected = 5 as EvenInteger;
+		attribute subtracted = 5 as OddInteger;
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(model, resolver, 10000)
+	for _, name := range []string{"intersected", "subtracted"} {
+		t.Run(name, func(t *testing.T) {
+			sym := resolveSymbol(t, root, name)
+			if _, err := ctx.Eval(sym.Decl.(*ast.Usage).Value); !errors.Is(
+				err, ErrUndecidedClassification) {
+				t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+			}
+		})
+	}
+}
