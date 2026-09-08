@@ -189,8 +189,9 @@ the state or the data a guard reads changes between the send and the dispatch, t
 
 **Choice points.** The library orders some things and leaves others open: a succession says
 which step comes first, but nothing says which of two fork branches steps first, which of two
-holding guards a decision follows, which of two transitions out of one state fires on the same
-event, or whose write stands when several branches assign one feature in one step. Where the
+waiting accepts takes the one message both answer to, which of two holding guards a decision
+follows, which of two transitions out of one state fires on the same event, or whose write
+stands when several branches assign one feature in one step. Where the
 executor has to pick, it follows one fixed rule — reverse token order, first holding guard, first
 declared transition, so a run replays exactly — and records a *choice point* rather than passing
 the pick off as the only outcome. `%step`, `%continue` and `%advance` end with a count of the

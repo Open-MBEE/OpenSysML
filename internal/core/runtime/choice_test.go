@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // A choice point renders one canonical line per kind, and its diagnostic is
@@ -507,6 +508,91 @@ func TestTokenOrderIsReportedWhenALaterTokenFails(t *testing.T) {
 	if len(got.Alternatives) != 2 || !strings.HasSuffix(got.Alternatives[0], "@failing") ||
 		!strings.HasSuffix(got.Alternatives[1], "@safe") || got.Taken != 1 {
 		t.Fatalf("choice = %s, want failing and safe as the alternatives, safe taken first", got)
+	}
+}
+
+// One message two parked accepts both answer to goes to whichever is stepped
+// first: the recipient is the executor's choice, and the accept left waiting is
+// the alternative even though it did nothing in the step.
+func TestSharedMessageAcceptIsAChoice(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		action listen {
+			first start;
+			fork split;
+			action left accept a : Integer;
+			action right accept b : Integer;
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then left;
+			succession first split then right;
+			succession first left then sync;
+			succession first right then sync;
+			succession first sync then done;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "listen", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action not found")
+	}
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	for i := 0; i < 10 && exec.State() != StateWaiting; i++ {
+		if err := exec.Step(); err != nil {
+			t.Fatalf("step %d: %v", i, err)
+		}
+	}
+	if exec.State() != StateWaiting {
+		t.Fatalf("state = %v, want both accepts parked", exec.State())
+	}
+	if got := ctx.Choices(); len(got) != 0 {
+		t.Fatalf("choices before any message = %v, want none: two parked accepts have nothing to take", got)
+	}
+	at := func(node string) (Token, bool) {
+		for _, tok := range exec.Tokens() {
+			if nodeIdentifier(tok.Location) == node {
+				return tok, true
+			}
+		}
+		return Token{}, false
+	}
+	left, _ := at("left")
+	right, _ := at("right")
+	if left.Wait == nil || right.Wait == nil {
+		t.Fatalf("tokens = %v, want both accepts parked", exec.Tokens())
+	}
+	one := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+	ctx.PostMessage(Message{SignalType: "Integer", Value: &one})
+	if err := exec.Step(); err != nil {
+		t.Fatalf("step with the message in flight: %v", err)
+	}
+	if still, ok := at("left"); !ok || still.Wait == nil {
+		t.Fatalf("tokens = %v, want left to keep waiting", exec.Tokens())
+	}
+	if _, ok := at("right"); ok {
+		t.Fatalf("tokens = %v, want right, stepped first, to take the message and move on", exec.Tokens())
+	}
+	got := ctx.Choices()
+	if len(got) != 1 || got[0].Kind != ChoiceTokenOrder {
+		t.Fatalf("choices = %v, want the one recipient choice", got)
+	}
+	want := fmt.Sprintf("choice step %d: tokens %d@left, %d@right (unordered; took %d@right first)",
+		got[0].Step, left.ID, right.ID, right.ID)
+	if got[0].String() != want {
+		t.Fatalf("choice = %s, want %s", got[0], want)
+	}
+	if pending := ctx.PendingMessages(); len(pending) != 0 {
+		t.Fatalf("pending messages = %+v, want the one message taken", pending)
+	}
+	if err := exec.Step(); err != nil {
+		t.Fatalf("step with nothing in flight: %v", err)
+	}
+	if got := ctx.Choices(); len(got) != 1 {
+		t.Fatalf("choices = %v, want no choice while left waits alone", got)
 	}
 }
 

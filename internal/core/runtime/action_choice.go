@@ -157,33 +157,60 @@ func (ctx *Context) featureLocation(scope *symbols.Scope, name string) (string, 
 	return sym.DocName, sym.DeclSpan
 }
 
-// stepOrder collects the tokens one step advanced that could have gone first, in
-// the order it advanced them.
+// stepOrder collects the tokens of one step that could have gone first, in the
+// order the step reached them: the ones it advanced, and an accept a message in
+// flight would have answered had another not taken it first.
 type stepOrder struct {
 	firstNew int64          // tokens from this ID on were created by the step itself
 	unready  map[int64]bool // held at a join whose branches had not all arrived
+	offered  map[int64]bool // at an accept a message in flight answers
 	acted    []Token
 }
 
 // beginStepOrder opens the order of a step about to run.
 func (e *ActionExecutor) beginStepOrder() stepOrder {
-	order := stepOrder{firstNew: e.nextTokenID, unready: make(map[int64]bool)}
+	order := stepOrder{firstNew: e.nextTokenID, unready: make(map[int64]bool), offered: make(map[int64]bool)}
 	for _, t := range e.tokens {
 		if consumed, held := e.arrivals(t); held && consumed == nil {
 			order.unready[t.ID] = true
 		}
 	}
+	if pending := e.ctx.PendingMessages(); len(pending) > 0 {
+		// Matching may materialize a port; as a probe, the scan leaves the run as it was.
+		defer e.ctx.beginProbe()()
+		for _, t := range e.tokens {
+			if e.offeredMessage(t, pending) {
+				order.offered[t.ID] = true
+			}
+		}
+	}
 	return order
 }
 
+// offeredMessage reports whether one of the messages in flight answers the accept
+// the token sits at, so that stepping it first would have taken the message.
+func (e *ActionExecutor) offeredMessage(t Token, pending []Message) bool {
+	usage, ok := t.Location.(*ast.Usage)
+	if !ok || t.body != nil {
+		return false
+	}
+	accept, isAccept := e.graphOf(t.frame).Accepts[usage]
+	if !isAccept || accept.Trigger != nil {
+		return false
+	}
+	matches, _ := e.acceptMatch(t.frame, accept, usage)
+	return slices.ContainsFunc(pending, matches)
+}
+
 // stepTokenNoting steps the token at index i and notes it in order when it did
-// something it could have done first (not parked, and not enabled by this step).
-// A step that fails was still the token's turn, so the order taken is complete.
+// something it could have done first (not parked, and not enabled by this step),
+// or was offered a message another token took first. A step that fails was still
+// the token's turn, so the order taken is complete.
 func (e *ActionExecutor) stepTokenNoting(i int, order *stepOrder) error {
 	before := e.tokens[i]
 	count := len(e.tokens)
 	err := e.stepToken(i)
-	if order.eligible(before) && (err != nil || e.tokenActed(before, count)) {
+	if order.eligible(before) && (err != nil || order.offered[before.ID] || e.tokenActed(before, count)) {
 		order.acted = append(order.acted, before)
 	}
 	return err
