@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -891,6 +892,32 @@ func TestSamplesOverTheWidestRealRangeStayInIt(t *testing.T) {
 		}
 		if drawn < -math.MaxFloat64 || drawn >= math.MaxFloat64 {
 			t.Errorf("row %d drew %v; want a value in [-MaxFloat64, MaxFloat64)", i, drawn)
+		}
+	}
+}
+
+// A range asking for more runs than any budget allows is refused promptly: how
+// many runs it takes is counted, not enumerated.
+func TestSweepRefusesWideRealRangesPromptly(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	sym := calcNamed(t, scope, "Ratio")
+	for _, r := range []SweepRange{
+		steppedRange("a", realOf(0), realOf(1e18), realOf(1)),
+		steppedRange("a", realOf(-math.MaxFloat64), realOf(math.MaxFloat64), realOf(1e-3)),
+	} {
+		plan := SweepPlan{Ranges: []SweepRange{r, steppedRange("b", realOf(1), realOf(1), realOf(1))}}
+		done := make(chan error, 1)
+		go func() {
+			_, err := ctx.RunSweep(context.Background(), "test::Ratio", plan, sweepCalcRun(ctx, sym, scope))
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			if !errors.Is(err, ErrSweepBudget) {
+				t.Errorf("range ending at %s: got %v; want a budget refusal", FormatValue(r.To), err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("range ending at %s was still being counted after ten seconds", FormatValue(r.To))
 		}
 	}
 }

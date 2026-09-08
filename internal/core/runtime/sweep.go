@@ -492,31 +492,14 @@ func (b sweepBounds) count() uint64 {
 		}
 		return span/b.intStepMagnitude() + 1
 	}
-	span := (b.to - b.from) / b.step
-	count := math.Floor(span+stepTolerance(span)) + 1
-	if !(count > 1) {
+	steps := math.Floor((b.endLimit() - b.from) / b.step)
+	if !(steps > 0) {
 		return 1
 	}
-	if count > math.MaxInt64 {
-		count = math.MaxInt64
+	if steps >= math.MaxInt64 {
+		return math.MaxInt64
 	}
-	n := uint64(count)
-	for n > 1 && b.overshoots(n-1) {
-		n--
-	}
-	return n
-}
-
-// overshoots reports whether the value the given number of steps from the
-// start lies past the range's end, the rounding error of the arithmetic that
-// reaches it allowed but no part of a step.
-func (b sweepBounds) overshoots(steps uint64) bool {
-	value := b.from + float64(steps)*b.step
-	slack := 1e-12 * math.Max(math.Abs(b.to), math.Abs(b.step))
-	if b.step > 0 {
-		return value > b.to+slack
-	}
-	return value < b.to-slack
+	return uint64(steps) + 1
 }
 
 // at is the range's value the given number of steps from its start. An Integer
@@ -553,10 +536,11 @@ func signedInt(n uint64) int64 {
 	return int64(n)
 }
 
-// stepTolerance is the rounding error a count of steps is allowed, scaled to
-// how many steps were counted.
-func stepTolerance(span float64) float64 {
-	return 1e-9 * math.Max(1, math.Abs(span))
+// endLimit is how far a real range's values reach: its end, allowed the
+// rounding error a step landing on it drifts by but never part of a step.
+func (b sweepBounds) endLimit() float64 {
+	slack := math.Min(1e-12*math.Max(math.Abs(b.to), math.Abs(b.step)), math.Abs(b.step)/2)
+	return b.to + math.Copysign(slack, b.step)
 }
 
 // draw is one uniform value of a sampled range: an Integer range draws over its
