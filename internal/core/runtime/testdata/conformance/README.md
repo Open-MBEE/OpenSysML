@@ -93,7 +93,9 @@ top-level one is. `instantiate` names an instance case's type the same way.
   object's usage plus the `events` / `finalState` / `stateVisits` / `outputs`
   expected of that object's performance:
   `{"object": "P::alpha", "finalState": "arrived", "stateVisits": ["start", "sending", "arrived"]}`.
-  Omit for a machine performed by no object.
+  Omit for a machine performed by no object. Such a case may carry a golden
+  trace too: it records each object's materialization followed by its own
+  performance, in the order the performers are listed.
 
 ### Admissible Outcomes
 

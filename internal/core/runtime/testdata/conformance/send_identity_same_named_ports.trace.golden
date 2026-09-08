@@ -1,0 +1,19 @@
+materialize: alpha #1
+enter: start
+exit: start
+enter: waiting (entry action)
+stmt send
+materialize: Ping #2
+materialize: PingPort #3
+transition: start -> waiting
+exit: waiting
+enter: received
+transition: waiting -> received (event: accept Ping)
+materialize: beta #4
+enter: start
+exit: start
+enter: waiting (entry action)
+stmt send
+materialize: Ping #5
+transition: start -> waiting
+materialize: PingPort #6

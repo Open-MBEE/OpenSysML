@@ -1056,6 +1056,123 @@ func TestPortRoutedMessageDoesNotReachStateMachine(t *testing.T) {
 	}
 }
 
+// The two judgements of whether a machine reacts to a message — matchesEvent,
+// dispatching a queued occurrence to a transition, and acceptsSignalFrom,
+// deciding whether a state takes a message in flight — agree for a transfer
+// addressed to the performer, addressed to its port, and routed to its port: a
+// via-less accept receives only what is addressed to the performer itself.
+func TestAcceptRoutingAgreesBetweenDispatchAndAcceptance(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P {
+		item def Ping;
+		port def PingPort {
+			in item ping : Ping;
+		}
+		part def Node {
+			port inPort : PingPort;
+			exhibit state Listen {
+				entry; then waiting;
+				state waiting;
+				state onPort;
+				state received;
+				transition byPort first waiting accept Ping via inPort then onPort;
+				transition byPart first waiting accept Ping then received;
+			}
+		}
+		part def Emitter {
+			port outPort : ~PingPort;
+			action routed {
+				first start;
+				action emit { send new Ping() via outPort; }
+				succession first start then emit;
+			}
+		}
+		part def Group {
+			part alpha : Node;
+			part emitter : Emitter;
+			connect emitter.outPort to alpha.inPort;
+			action toPort {
+				first start;
+				action emit { send new Ping() to alpha.inPort; }
+				succession first start then emit;
+			}
+			action toPart {
+				first start;
+				action emit { send new Ping() to alpha; }
+				succession first start then emit;
+			}
+		}
+	}`))
+	root := idx.DocumentRoot("<test>")
+	group, err := ctx.Instantiate(oneSymbol(t, idx, "P::Group"))
+	if err != nil {
+		t.Fatalf("instantiate Group: %v", err)
+	}
+	alpha := instanceAtPath(t, ctx, group, "alpha")
+	emitter := instanceAtPath(t, ctx, group, "emitter")
+	exec := objectMachine(t, alpha, "")
+	if err := exec.RunToQuiescence(); err != nil {
+		t.Fatalf("settle Listen: %v", err)
+	}
+	active := exec.ActiveStates()
+	if len(active) != 1 || active[0].Name != "waiting" {
+		t.Fatalf("Listen settled in %v, want waiting", active)
+	}
+	waiting := active[0]
+
+	// sent runs a send by self and returns the one message it left in flight.
+	sent := func(owner, action string, self *Instance) Message {
+		before := len(ctx.PendingMessages())
+		sym := findSymbolByName(findSymbolByName(root, owner, ast.DefPart).Scope, action, ast.DefAction)
+		if sym == nil {
+			t.Fatalf("%s::%s not found", owner, action)
+		}
+		actionExec, err := ctx.CreateActionExecutorFor(sym, self)
+		if err != nil {
+			t.Fatalf("create %s: %v", action, err)
+		}
+		if err := actionExec.RunToCompletion(); err != nil {
+			t.Fatalf("run %s: %v", action, err)
+		}
+		pending := ctx.PendingMessages()
+		if len(pending) != before+1 {
+			t.Fatalf("%s left %d messages in flight, want 1", action, len(pending)-before)
+		}
+		return pending[before]
+	}
+
+	tests := []struct {
+		name  string
+		msg   Message
+		fires string
+	}{
+		{"port-addressed", sent("Group", "toPort", group), "byPort"},
+		{"part-addressed", sent("Group", "toPart", group), "byPart"},
+		{"port-routed", sent("Emitter", "routed", emitter), "byPort"},
+	}
+	for _, tc := range tests {
+		var fired []string
+		for _, trans := range exec.graph.Transitions[waiting] {
+			matches, err := exec.matchesEvent(trans, &Event{Type: EventAccept, Payload: tc.msg})
+			if err != nil {
+				t.Fatalf("%s: matchesEvent %s: %v", tc.name, trans.Name, err)
+			}
+			if matches {
+				fired = append(fired, trans.Name)
+			}
+		}
+		if len(fired) != 1 || fired[0] != tc.fires {
+			t.Errorf("%s: matchesEvent enables %v, want [%s]", tc.name, fired, tc.fires)
+		}
+		accepts, err := exec.acceptsSignalFrom(waiting, tc.msg)
+		if err != nil {
+			t.Fatalf("%s: acceptsSignalFrom: %v", tc.name, err)
+		}
+		if accepts != (len(fired) > 0) {
+			t.Errorf("%s: acceptsSignalFrom = %v while matchesEvent enables %v", tc.name, accepts, fired)
+		}
+	}
+}
+
 // A call event fires only the transition triggered by the operation invoked,
 // and only when the call carries every argument the trigger declares.
 func TestCallEventMatchesOperationName(t *testing.T) {

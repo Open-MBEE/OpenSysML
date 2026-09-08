@@ -1,0 +1,6 @@
+{
+  "type": "state",
+  "trace": true,
+  "finalState": "received",
+  "stateVisits": ["start", "waiting", "received"]
+}
