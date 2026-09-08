@@ -398,6 +398,38 @@ func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
 	}
 }
 
+// CollectionValues sizes a collection value alone — an operation over a known collection — and
+// says nothing of a literal or a feature, whose sizes are read elsewhere.
+func TestCollectionValues(t *testing.T) {
+	m, s := collectionModel(t, `
+		part none : C[0];
+		part two : C[2];
+		attribute mapped = two.{ in c : C; (c.name, c.name) };
+		attribute reduced = two->reduce { in a : C; in b : C; a.name };
+		attribute nothing = none->select { in c : C; true };
+		attribute atMost = two->selectOne { in c : C; true };
+		attribute open = cs.{ in c : C; c.name };
+		attribute literal = (1, 2);
+		attribute named = two;`)
+	for name, want := range map[string]string{"mapped": "[4]", "reduced": "[1]", "nothing": "[0]", "atMost": "[0..1]", "open": "[0..*]"} {
+		r, ok := m.CollectionValues(s, valueOf(t, s, name))
+		if !ok || r.Text() != want {
+			t.Errorf("%s: %s %v, want %s", name, r.Text(), ok, want)
+		}
+	}
+	for _, name := range []string{"literal", "named"} {
+		if _, ok := m.CollectionValues(s, valueOf(t, s, name)); ok {
+			t.Errorf("%s: sized as a collection value", name)
+		}
+	}
+	if n, ok := exactly(3).Exactly(); !ok || n != 3 {
+		t.Errorf("[3] exactly %d %v, want 3", n, ok)
+	}
+	if _, ok := (Range{Lower: Bound{Value: 1, Known: true}, Upper: unbounded}).Exactly(); ok {
+		t.Error("[1..*] is exact")
+	}
+}
+
 // `xs.?{…}` is select written out: its elements are the collection's, so a binding or an
 // argument is judged by them as `xs->select {…}` is.
 func TestCollectionSelectShorthandElements(t *testing.T) {

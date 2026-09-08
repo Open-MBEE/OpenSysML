@@ -40,6 +40,18 @@ func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*s
 	return m.sourcesTypes(srcs), true
 }
 
+// CollectionValues is how many values a collection value — `xs.{…}`, `xs.?{…}` or a call of a
+// ControlFunctions collection function — holds, where the value is one and its size is known.
+func (m *Model) CollectionValues(scope *symbols.Scope, node ast.Node) (Range, bool) {
+	if m == nil || m.resolver == nil || node == nil {
+		return Range{}, false
+	}
+	if _, ok := m.collectionOf(scope, node); !ok {
+		return Range{}, false
+	}
+	return m.valuesHeldBy(scope, node)
+}
+
 // sourcesOf is the sources typing a collection value: `xs.{…}` by its body, `xs.?{…}` by xs, a
 // collection function call by its arguments; not ok for any other value.
 func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSource, bool) {

@@ -464,6 +464,35 @@ func TestValueReduceResultIsJudged(t *testing.T) {
 		attribute i : Integer = (two->collect Name)->reduce { in a : String; in b : String; 3 };`)
 }
 
+// A collection value binds as many values as it is known to hold: none over a collection
+// holding none, one per element a collect maps over a known count, one from a reduce; a
+// count that is not exact is left to evaluation.
+func TestValueCollectionCountIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b : Boat[1] = none.{ in v : Vehicle; boat };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1..2] = ()->collect { in v : Vehicle; boat };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[2] = none->select { in v : Vehicle; true };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 2")
+	wantCollectionValueDiags(t, `part b : Boat[1] = ()->reduce { in a : Boat; in b : Boat; a };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1] = pair.items.{ in v : Vehicle; boat };`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[0..1] = pair.items->collect { in v : Vehicle; (boat, boat) };`,
+		"4 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `attribute s : String[3] = ("a", one.{ in v : Vehicle; "b" });`,
+		"2 value(s) bound to a feature with multiplicity lower bound 3")
+	wantCollectionValueDiags(t, `part b : Boat[3] = pair.items->collect Boats;`,
+		"2 value(s) bound to a feature with multiplicity lower bound 3")
+	wantCollectionValueDiags(t, `
+		part b : Boat[2] = pair.items.{ in v : Vehicle; boat };
+		part b2 : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part v : Vehicle[0..1] = pair.items->selectOne { in v : Vehicle; true };
+		part b3 : Boat[1] = vs.{ in v : Vehicle; boat };
+		part v2 : Vehicle[3] = pair.items->select { in v : Vehicle; true };
+		part b4 : Boat[2] = pair.items->collect Boats;`)
+}
+
 // A collection operation over a collection known to hold nothing returns nothing, and never
 // applies the reducer or body: no element is bound, though the value is still typed by them.
 func TestValueReduceOfNothingIsJudgedByNeither(t *testing.T) {

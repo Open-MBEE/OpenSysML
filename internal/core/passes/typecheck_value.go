@@ -97,8 +97,8 @@ func literalPrimType(value ast.Node) semantics.PrimType {
 
 // checkValueCount checks a bound value's element count against the multiplicity
 // governing the feature.
-func (ec *exprChecker) checkValueCount(declScope *symbols.Scope, d featureDecl, value ast.Node) {
-	count, known := exactCount(value)
+func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
+	count, known := ec.exactCount(valueScope, value)
 	if !known {
 		return
 	}
@@ -145,11 +145,12 @@ func (ec *exprChecker) effectiveRange(scope *symbols.Scope, d featureDecl, depth
 }
 
 // exactCount returns how many values a bound expression produces, and whether
-// that is statically known. A literal contributes one value and a collection
-// literal the values of its elements; anything else (a feature reference, an
-// invocation) may itself be multi-valued, so its count is unknown — as is that
-// of a collection holding one.
-func exactCount(value ast.Node) (int64, bool) {
+// that is statically known. A literal contributes one value, a collection
+// literal the values of its elements, and a collection operation the values it
+// is known to hold — none over `()`, one per element mapped; anything else (a
+// feature reference, an invocation) may itself be multi-valued, so its count is
+// unknown — as is that of a collection holding one.
+func (ec *exprChecker) exactCount(scope *symbols.Scope, value ast.Node) (int64, bool) {
 	if value == nil {
 		return 0, false
 	}
@@ -161,7 +162,7 @@ func exactCount(value ast.Node) (int64, bool) {
 	if seq, ok := value.(*ast.SequenceExpr); ok {
 		var total int64
 		for _, element := range seq.Elements {
-			n, ok := exactCount(element)
+			n, ok := ec.exactCount(scope, element)
 			if !ok {
 				return 0, false
 			}
@@ -171,6 +172,11 @@ func exactCount(value ast.Node) (int64, bool) {
 	}
 	if literalPrimType(value) != semantics.PrimUnknown {
 		return 1, true
+	}
+	if r, ok := ec.model.CollectionValues(scope, value); ok {
+		if exact, ok := r.Exactly(); ok {
+			return exact, true
+		}
 	}
 	return 0, false
 }

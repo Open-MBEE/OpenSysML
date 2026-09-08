@@ -140,7 +140,7 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	}
 	ec.checkValueConformance(valueScope, declScope, d, value)
 	ec.checkValueDimension(valueScope, declScope, d, value)
-	ec.checkValueCount(declScope, d, value)
+	ec.checkValueCount(valueScope, declScope, d, value)
 }
 
 // checkScalarBinding reports a got-typed value that may not bind to a want-typed feature,
@@ -1066,7 +1066,7 @@ func (ec *exprChecker) checkFeatureBinding(scope *symbols.Scope, arg ast.Node, g
 	} else {
 		ec.checkObjectBinding(scope, arg, feature, typ)
 	}
-	if count, known := exactCount(arg); known {
+	if count, known := ec.exactCount(scope, arg); known {
 		if r, ok := ec.effectiveRange(feature.OwnerScope, usageDecl(u), 0); ok {
 			if msg := r.CountViolation(count); msg != "" {
 				ec.errorf(arg.Span(), "%s of %s: %s", feature.Name, typ.Name, msg)

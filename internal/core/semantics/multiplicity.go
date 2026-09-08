@@ -195,6 +195,14 @@ func (r Range) CountViolation(count int64) string {
 	return ""
 }
 
+// Exactly is the one count the range admits, ok where both bounds are that finite count.
+func (r Range) Exactly() (int64, bool) {
+	if !r.Lower.Known || !r.Upper.Known || r.Lower.Infinite || r.Upper.Infinite || r.Lower.Value != r.Upper.Value {
+		return 0, false
+	}
+	return r.Lower.Value, true
+}
+
 // HasBounds reports whether the range is exactly lower..upper — the spec's
 // multiplicityHasBounds (SysML v2 8.3.3.1). ok is false when a bound is not
 // evaluable, so callers can skip the check.
