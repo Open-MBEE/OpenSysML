@@ -5109,6 +5109,43 @@ then `server_info()`, `load_from_content(content)` → a `Model` whose hash is `
 
 ### Connect transport
 
+#### Diagnostic codes across Connect and Python gRPC
+
+For local wire checks, rebuild `make build-grpc`, run
+`bin/sysml-grpc -transport connect -port 50123 -health-port 0`, and attach the
+editable Python client with `opensysml.connect(port=50123, auto_start=False)`.
+Set `OPENSYSML_BINARY` to the absolute rebuilt binary; confirm the startup log's
+commit rather than trusting a cached auto-started service. This recipe disables
+the deprecated separate health listener.
+
+- POST `ParseSources` with `documents: [{name, content}]`, not `sources`. Feed its
+  `modelHash` to `ExecuteAction` (`actionSymbolId`) or `ExecuteState`
+  (`stateMachineSymbolId`, `events`). Check `diagnostics` is nonempty before
+  asserting exact `code`, severity, and span. Compare parsed Connect JSON with
+  `MessageToDict` of the real gRPC response.
+- Fixtures using Integer need `private import ScalarValues::*;`. Execution can
+  still run when parse diagnostics contain unresolved types, so explicitly assert
+  the runtime fixture parsed without errors before relying on its run.
+- Inspect public Python return shapes before claiming runtime notes are exposed:
+  successful `execute_action`/`execute_state` wrappers may return only outputs or
+  state data. For wire-specific coverage use the live `connection._stub` response,
+  wrap each protobuf diagnostic with `opensysml.diagnostic.Diagnostic`, and assert
+  `.code` and `repr`. Report this as raw-stub/wrapper coverage, not as successful
+  public execution methods exposing notes. Public `load_from_content` diagnostics
+  and strict `ModelError.diagnostics` can be tested without private APIs.
+- Keep empty-code compatibility distinct from live emissions: if no current
+  producer emits uncoded diagnostics, Go `protojson.Marshal` of an uncoded
+  generated Diagnostic plus Python JSON/binary decoding checks omission/defaults
+  only. Do not describe that as a real uncoded RPC response. Unknown future codes
+  should roundtrip unchanged.
+- A divide-by-zero guard after the selected branch is a preview note
+  (`guard-unevaluable`); the same failure in the first evaluated guard is a run
+  error, not that note. This is a useful negative control.
+
+##### Devin Secrets Needed
+
+None for these local service/client checks.
+
 `-transport connect -port P` puts gRPC, gRPC-Web, the Connect protocol, reflection and
 `/health` on port P. Note the separate `-health-port` server **still binds** in this mode, so
 `/health` answers on both ports; "the 8081 port stops being necessary" is a statement about
