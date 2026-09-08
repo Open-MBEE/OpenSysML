@@ -124,6 +124,7 @@ exclude_docs: |
   project/execution-performance-2026-09.md
   project/performance-profile-2026-09.md
   project/performance-release-0.5-vs-0.4.3.md
+  project/performance-release-0.6-vs-0.4.2.md
   project/native-compilation.md
   project/releasing.md
   project/macos-distribution.md
