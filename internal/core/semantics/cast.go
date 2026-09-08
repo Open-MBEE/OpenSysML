@@ -171,12 +171,28 @@ func (m *Model) mayShareValues(target, typ *symbols.Symbol, reading map[*symbols
 	}
 	reading[typ] = true
 	defer delete(reading, typ)
-	for _, kind := range []ast.RelationshipKind{ast.RelUnions, ast.RelIntersects, ast.RelDifferences} {
+	for _, kind := range []ast.RelationshipKind{ast.RelUnions, ast.RelIntersects} {
 		for _, operand := range m.composedOperands(typ, kind) {
 			if m.mayShareValues(target, operand, reading) {
 				return true
 			}
 		}
 	}
-	return false
+	return m.differenceMayShareValues(target, m.DifferencingTypes(typ), reading)
+}
+
+// differenceMayShareValues reads a source difference: only the first type's values
+// are its own, and none of them is a value of the types it subtracts.
+func (m *Model) differenceMayShareValues(
+	target *symbols.Symbol, operands []*symbols.Symbol, reading map[*symbols.Symbol]bool,
+) bool {
+	if len(operands) == 0 || !m.mayShareValues(target, operands[0], reading) {
+		return false
+	}
+	for _, subtracted := range operands[1:] {
+		if m.Classifies(subtracted, target) {
+			return false
+		}
+	}
+	return true
 }

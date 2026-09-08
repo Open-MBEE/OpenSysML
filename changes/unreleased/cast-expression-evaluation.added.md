@@ -10,6 +10,8 @@
   the first that are none of the rest, however deeply nested — so a cast to one keeps them, the
   feature it is written to holds them, and `istype` answers for them; casting a value of a union to
   one of its members is not reported as unrelated either.
+  A composed type weighs all the types a value is of at once, so an object held as a type a
+  difference subtracts is none of its values.
   Every type a value's feature is declared with counts among the types it is of, so a custom scalar
   subtype (`attribute e : Even = 4`) and a scalar-valued enumeration keep the values declared with
   them, and a quantity subtype narrowing its dimension by something a magnitude and a unit do not

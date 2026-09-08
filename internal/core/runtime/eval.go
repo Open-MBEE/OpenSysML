@@ -1395,14 +1395,12 @@ func (ec *EvalContext) valueHasType(value Value, target *symbols.Symbol, exact b
 	if err != nil {
 		return false, err
 	}
-	for _, typ := range direct {
-		// istype reads a composed target too: every value of a unioned type is one
-		// of the union's, while hastype stays on the value's direct types.
-		if (exact && typ == target) || (!exact && ec.ctx.model.Classifies(target, typ)) {
-			return true, nil
-		}
+	// istype reads a composed target as a cast does, weighing the value's types
+	// together; hastype stays on identity with one of them.
+	if !exact {
+		return ec.ctx.model.ClassifiesTypes(direct, target) == semantics.ClassifiesAll, nil
 	}
-	return false, nil
+	return slices.Contains(direct, target), nil
 }
 
 // directValueTypes names the types a value is of, resolved in the scope reading it:

@@ -107,7 +107,7 @@ const castFixture = `package P {
 	function F { return r : A; }
 	classifier Q; classifier R :> Q; classifier CQ ~ Q; feature cq : CQ;
 	feature xs : A[*];
-	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype Diff differences A, C; feature u : U;
+	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype Diff differences A, C; feature u : U; feature dd : Diff;
 	feature untyped;
 	feature valued = 3;
 	%s
@@ -140,6 +140,7 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature bad = s as I;`, "16:16 cast argument is typed by String, unrelated to the target I")
 	// Every value of D is one of C's, which the difference subtracts.
 	castDiags(t, "", `feature bad = d as Diff;`, "16:16 cast argument is typed by D, unrelated to the target Diff")
+	castDiags(t, "", `feature bad = dd as C;`, "16:16 cast argument is typed by Diff, unrelated to the target C")
 	castDiags(t, "", `feature bad = a as s;`, "16:16 cast argument is typed by A, unrelated to the target s")
 	castDiags(t, "", `feature bad = cq as R;`, "16:16 cast argument is typed by CQ, unrelated to the target R")
 	castDiags(t, `feature bad = base as String;`, "", "9:59 cast argument is typed by A, unrelated to the target String")
@@ -161,7 +162,7 @@ func TestCastConformanceRelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature data = (1 + 2) as String; feature seq = (1, 2) as Integer; feature body = xs.{in x; x} as C;`)
 	castDiags(t, "", `feature cond = (if true ? a else a) as C; feature sel = xs.?{in x; true} as B;`)
 	castDiags(t, "", `feature union = a as U; feature member = u as B; feature wider = u as A;`)
-	castDiags(t, "", `feature meet = d as I; feature less = b as Diff;`)
+	castDiags(t, "", `feature meet = d as I; feature less = b as Diff; feature kept = dd as A;`)
 }
 
 // The rule is KerML's, but SysML declares the same operator: a usage cast to an

@@ -19,6 +19,8 @@
     "plugInAsIntersection": {"type": "Instance"},
     "carAsIntersection": {"type": "Sequence", "elements": []},
     "carAsDifference": {"type": "Instance"},
-    "plugInAsDifference": {"type": "Sequence", "elements": []}
+    "plugInAsDifference": {"type": "Sequence", "elements": []},
+    "hybridAsDifference": {"type": "Sequence", "elements": []},
+    "hybridAsIntersection": {"type": "Instance"}
   }
 }

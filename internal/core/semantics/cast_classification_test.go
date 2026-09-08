@@ -102,6 +102,11 @@ func TestMayShareValuesOfComposedTypes(t *testing.T) {
 		{"Electric", "ElectricVehicle", true},
 		{"Boat", "ElectricVehicle", false},
 		{"Wheeled", "Boat", false},
+		// A difference holds values of the first type it names and none of the rest,
+		// so a type the rest classify shares nothing with it.
+		{"Car", "CombustionVehicle", true},
+		{"Electric", "CombustionVehicle", false},
+		{"ElectricCar", "CombustionVehicle", false},
 	}
 	for _, c := range cases {
 		target := dimensionSymbol(t, idx, "T::"+c.target)

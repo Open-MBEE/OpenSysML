@@ -241,6 +241,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
+	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
 	t.Run("send_addressed_to_an_object_that_cannot_be_built", testSendAddressedToAnObjectThatCannotBeBuilt)
 	t.Run("send_addressed_to_a_part_no_sibling_takes", testSendAddressedToAPartNoSiblingTakes)
@@ -4363,6 +4364,33 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Even") {
 		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
+// testDifferenceTypedFeatureHoldingASubtractedObject: a feature typed by a
+// difference refuses an object one of the subtracted types classifies, whether
+// the object was declared by it or classified by it since.
+func testDifferenceTypedFeatureHoldingASubtractedObject(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `
+		part def Vehicle;
+		part def Car :> Vehicle;
+		part def Electric;
+		part def ElectricCar :> Car, Electric;
+		part def CombustionVehicle differences Vehicle, Electric;
+		part sedan : Car;
+		part def Shop { part retrofit : ElectricCar = sedan; }
+		part shop : Shop;
+		part def Depot { part burner : CombustionVehicle = shop.retrofit; }
+		part depot : Depot;
+		attribute held = depot.burner istype Vehicle;
+	`)
+	sym := resolveSymbol(t, root, "held")
+	_, err := NewContext(model, resolver, 10000).Eval(sym.Decl.(*ast.Usage).Value)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "CombustionVehicle") {
+		t.Errorf("error = %v, want the feature's type named", err)
 	}
 }
 

@@ -18,6 +18,7 @@ package test {
 	part car : Car;
 	part truck : Truck;
 	part plugIn : ElectricCar;
+	part hybrid : Car, Electric;
 
 	calc def InstanceCasts {
 		out carAsCar : Car[0..1] = car as Car;
@@ -33,6 +34,8 @@ package test {
 		out carAsIntersection : ElectricVehicle[0..1] = car as ElectricVehicle;
 		out carAsDifference : CombustionVehicle[0..1] = car as CombustionVehicle;
 		out plugInAsDifference : CombustionVehicle[0..1] = plugIn as CombustionVehicle;
+		out hybridAsDifference : CombustionVehicle[0..1] = hybrid as CombustionVehicle;
+		out hybridAsIntersection : ElectricVehicle[0..1] = hybrid as ElectricVehicle;
 	}
 
 	calc c : InstanceCasts;

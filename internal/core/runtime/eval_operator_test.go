@@ -139,6 +139,51 @@ func TestTypeClassificationFollowsSelectedVariant(t *testing.T) {
 	}
 }
 
+// TestClassificationWeighsEveryTypeOfAnObject requires a difference to read the
+// classifiers an object gained beside its own type: a Car held as an ElectricCar
+// is a value of Electric, so it is none of Vehicle minus Electric.
+func TestClassificationWeighsEveryTypeOfAnObject(t *testing.T) {
+	const src = `
+		part def Vehicle;
+		part def Car :> Vehicle;
+		part def Electric;
+		part def ElectricCar :> Car, Electric;
+		part def CombustionVehicle differences Vehicle, Electric;
+		part sedan : Car;
+		part def Shop {
+			part retrofit : ElectricCar = sedan;
+		}
+		part shop : Shop;
+		attribute burner = shop.retrofit istype CombustionVehicle;
+		attribute vehicle = shop.retrofit istype Vehicle;
+		attribute burnerCast = (shop.retrofit as CombustionVehicle) == ();
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	ctx := NewContext(model, resolver, 10000)
+	for _, tt := range []struct {
+		name string
+		want bool
+	}{
+		{name: "burner", want: false},
+		{name: "vehicle", want: true},
+		{name: "burnerCast", want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			sym := resolveSymbol(t, root, tt.name)
+			value, err := ctx.Eval(sym.Decl.(*ast.Usage).Value)
+			if err != nil {
+				t.Fatalf("Eval: %v", err)
+			}
+			if value.Kind != ValConst || value.Const.Kind != semantics.ValBool {
+				t.Fatalf("value = %v, want Boolean", value)
+			}
+			if value.Const.Bool != tt.want {
+				t.Errorf("%s = %v, want %v", tt.name, value.Const.Bool, tt.want)
+			}
+		})
+	}
+}
+
 // strValue is a String runtime value, the representation of a string literal.
 func strValue(s string) Value { return NewStringValue(s) }
 
