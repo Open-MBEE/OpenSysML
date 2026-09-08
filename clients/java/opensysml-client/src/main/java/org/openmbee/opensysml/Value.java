@@ -135,6 +135,36 @@ public sealed interface Value {
   }
 
   /**
+   * A calc held as a value: a calc definition, or a calc usage with an input no read could
+   * supply, as {@code Sq} in {@code Fn(Sq, 3.0)} or the {@code f} of {@code in calc f {...}}.
+   *
+   * <p>It is the declaration it is a value of, which is its identity: two functions are equal
+   * exactly when both components are. A function closing over the bindings of the behavior body
+   * it is declared in has no wire form; the service sends it as an unsupported {@link NullValue},
+   * as does a service without the {@code function_values} capability for every function.
+   *
+   * @param calcId FQN of the calc declaration ({@code "Analysis::Sq"}), never empty
+   * @param selfId id of the object the calc's feature names resolve against, for a calc usage read
+   *     off a part ({@code holder.scale}); absent for a function closing over no object
+   */
+  record FunctionValue(String calcId, Optional<Long> selfId) implements Value {
+    /**
+     * Creates a function.
+     *
+     * @param calcId the calc declaration, never {@code null} or empty
+     * @param selfId the object read against, never {@code null}
+     * @throws IllegalArgumentException if {@code calcId} is empty
+     */
+    public FunctionValue {
+      Objects.requireNonNull(calcId, "calcId");
+      Objects.requireNonNull(selfId, "selfId");
+      if (calcId.isEmpty()) {
+        throw new IllegalArgumentException("a function names no calc");
+      }
+    }
+  }
+
+  /**
    * One literal of an enumeration definition.
    *
    * <p>Only a service advertising the {@code enum_values} capability reports a literal as itself

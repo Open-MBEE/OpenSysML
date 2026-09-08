@@ -85,6 +85,11 @@ final class Rendering {
               .setUnitTerm(unitTerm(ref.reduction()));
       ref.unitId().ifPresent(reference::setUnitId);
       builder.setMeasurementRef(reference);
+    } else if (value instanceof Value.FunctionValue function) {
+      builder.setFunction(
+          org.openmbee.opensysml.proto.Function.newBuilder()
+              .setCalcId(function.calcId())
+              .setSelfId(function.selfId().orElse(0L)));
     } else {
       throw new IllegalStateException("no rendering for " + value.getClass());
     }

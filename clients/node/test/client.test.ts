@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 import {
   CAPABILITY_COMPLEX_VALUES,
+  CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
   CAPABILITY_STRUCTURED_VALUES,
@@ -215,6 +216,37 @@ test("a bare measurement reference arrives as a unit with its reduction and decl
       { unitId: "SI::metre", exponent: 1 },
       { unitId: "SI::second", exponent: -1 },
     ]);
+  }
+});
+
+const FUNCTION_MODEL = `package Demo {
+    private import ScalarValues::*;
+    calc def Sq { in v : Real; return : Real = v * v; }
+    calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+    calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
+    attribute pick = Identity(Sq);
+    attribute nine = Fn(Sq, 3.0);
+    part def Scaler {
+        attribute k : Real = 2.0;
+        calc scale { in x : Real; return : Real = x * k; }
+    }
+    part holder : Scaler;
+    attribute scaler = holder.scale;
+}`;
+
+test("a calc held as a value arrives as the function it names, with the object it was read off", async () => {
+  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+    await using connection = await connect(options);
+    assert.ok((await connection.serverInfo()).has(CAPABILITY_FUNCTION_VALUES));
+    await using model = await connection.loads(FUNCTION_MODEL);
+
+    assert.deepEqual(await model.eval("Demo::pick"), { kind: "function", calcId: "Demo::Sq" });
+    assert.deepEqual(await model.eval("Demo::nine"), { kind: "real", value: 9 });
+    const scale = await model.eval("Demo::scaler");
+    assert.ok(scale.kind === "function");
+    assert.equal(scale.calcId, "Demo::Scaler::scale");
+    assert.ok(scale.selfId !== undefined && scale.selfId > 0n);
+    assert.equal(formatValue(scale), "Demo::Scaler::scale");
   }
 });
 

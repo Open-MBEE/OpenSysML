@@ -781,7 +781,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -828,7 +828,28 @@ pub mod value {
         /// a unit by itself, no magnitude
         #[prost(message, tag="15")]
         MeasurementRef(super::MeasurementRef),
+        /// a calc as a value, named by its declaration
+        #[prost(message, tag="16")]
+        Function(super::Function),
     }
+}
+/// Function is a calc held as a value: a calc definition, or a calc usage with
+/// an input no read could supply, as `Sq` in `Fn(Sq, 3.0)` or the `f` of
+/// `in calc f {...}`. It crosses as the declaration it is a value of, which is
+/// its identity: two functions are the same exactly when calc_id and self_id
+/// are. A function closing over the bindings of the behavior body it is
+/// declared in has no wire form and crosses as the null arm.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Function {
+    /// FQN of the calc declaration ("Analysis::Sq"). Its identity.
+    #[prost(string, tag="1")]
+    pub calc_id: ::prost::alloc::string::String,
+    /// ID of the object the calc's feature names resolve against, for a calc
+    /// usage read off a part (`holder.scale`); 0 for a function closing over no
+    /// object. Sent by the service; a client sending one must name an object of
+    /// the runtime the value is read in, or the value is rejected.
+    #[prost(int64, tag="2")]
+    pub self_id: i64,
 }
 /// Array is a Collections::Array: its elements flattened in row-major order
 /// under its dimensions, compared by content rather than by the object read.
@@ -1042,6 +1063,11 @@ pub struct ServerInfoResponse {
     ///                   refused with UNIMPLEMENTED rather than read as another
     ///                   value. Separate from structured_values, which a client
     ///                   built before this arm existed may already claim.
+    ///    "function_values" - a Value carries a calc held as a value as function,
+    ///                   named by its declaration, rather than reporting it as an
+    ///                   unsupported null, and one is accepted as an action input
+    ///                   or calc argument; without it, one is refused with
+    ///                   UNIMPLEMENTED rather than read as another value.
     ///    "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
     ///                   preserving everything the edit did not touch.
     ///    "document_query" - the RunDocumentQuery RPC runs a named document query

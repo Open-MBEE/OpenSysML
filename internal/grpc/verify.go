@@ -339,7 +339,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		if err := s.requireValueCapabilities(arg); err != nil {
 			return nil, err
 		}
-		val, cerr := ProtoToValueIn(arg, v.cached.Index, v.sem)
+		val, cerr := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem)
 		if cerr != nil {
 			return &pb.EvaluateCalcResponse{
 				Error:         fmt.Sprintf("calc argument could not be read: %v", cerr),

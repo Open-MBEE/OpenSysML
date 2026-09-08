@@ -34,6 +34,7 @@ const (
 	ValTensorQuantity           // a TensorQuantityValue: an array of numbers with a measurement unit per component
 	ValCoordinateFrame          // a VectorMeasurementReference: a frame's axes, or a measurement scale's one
 	ValCoordinateTransformation // a CoordinateTransformation: a placement of one frame in another
+	ValFunction                 // a calc as a value: its lowered shape closed over the environment it was read in
 
 	// valueKindCount bounds the kinds; TestEveryValueKindIsDispatched walks them.
 	valueKindCount
@@ -102,6 +103,8 @@ func FormatValue(v Value) string {
 		return v.CoordinateTransformation().String()
 	case ValExpr:
 		return "<expression>"
+	case ValFunction:
+		return v.FunctionName()
 	default:
 		return unknownText
 	}
@@ -165,6 +168,8 @@ func (k ValueKind) String() string {
 		return "coordinate frame"
 	case ValCoordinateTransformation:
 		return "coordinate transformation"
+	case ValFunction:
+		return "function"
 	default:
 		return "invalid"
 	}
@@ -179,8 +184,9 @@ type Value struct {
 	Instance int64           // ValInstance: instance ID; ValVariant: materialized object, 0 for none
 	// ref holds the kind-specific payload of the remaining kinds: a string
 	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
-	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity, or the
-	// *symbols.Symbol of a variant (ValVariant) or enumeration literal (ValEnumLiteral).
+	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
+	// *functionValue (ValFunction), or the *symbols.Symbol of a variant (ValVariant) or
+	// enumeration literal (ValEnumLiteral).
 	ref any
 }
 

@@ -194,13 +194,14 @@ answering implementation supports, and `ServerInfo.Has` checks one. A request
 that asks for an unavailable capability is refused with `CodeUnimplemented`;
 capabilities that describe response population instead omit the fields they
 name. Check the list first for an operation-specific error (the `Capability*`
-constants name the known ones). Three capabilities are checked for you: a `Complex`
+constants name the known ones). Four capabilities are checked for you: a `Complex`
 among `ExecuteAction` inputs or `EvaluateCalc`/`RunAnalysis` arguments needs
 `complex_values`, an `Array`, `Vector` or `VectorQuantity` needs
-`structured_values`, and a `MeasurementRef` needs `measurement_refs` — each at
-the top level or nested in a sequence or array; a service without them would read
-the value as null, so the client refuses with `CodeUnimplemented` before sending
-anything.
+`structured_values`, a `MeasurementRef` needs `measurement_refs`, and a `Function`
+(a calc held as a value, sent back to bind a calc-typed parameter) needs
+`function_values` — each at the top level or nested in a sequence or array; a
+service without them would read the value as null, so the client refuses with
+`CodeUnimplemented` before sending anything.
 
 ## Stability
 

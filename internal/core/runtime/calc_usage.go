@@ -688,7 +688,13 @@ func (ctx *Context) runCalcUsage(
 	shape *calcShape, ec, nested *EvalContext, env frame, reader *EvalContext,
 ) (*calcRun, error) {
 	host := &calcStmtHost{ctx: ctx, shape: shape, self: reader.self}
-	engine := newStmtEngineIn(ctx, host, env, nil)
+	// A usage nested in a behavior body computes over that body's bindings, as
+	// an invocation of it does.
+	var enclosing []frame
+	if nested != nil {
+		enclosing = nested.frames
+	}
+	engine := newStmtEngineIn(ctx, host, env, enclosing)
 	host.attachPerformances(engine)
 	result, returned, err := runCalcSteps(engine, host, shape)
 	if err != nil {
@@ -989,6 +995,9 @@ func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, boo
 // against that object so its inputs read the object's feature values. Naming the usage
 // itself names no value: its outputs are what it computes.
 func (ec *EvalContext) calcUsageMemberValue(sym *symbols.Symbol, self *Instance, parts []ast.NameSegment) (Value, error) {
+	if len(parts) == 0 && ec.ctx.readsAsFunction(sym) {
+		return NewEvalContextIn(ec.ctx, sym.OwnerScope, self).functionValueOf(sym)
+	}
 	if len(parts) == 0 && ec.ctx.returnsResult(sym) {
 		parts = resultSegments
 	}

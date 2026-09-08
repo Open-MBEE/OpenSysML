@@ -336,6 +336,10 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		if val, ok, err := ctx.declaredArrayValue(sym); ok {
 			return val, err
 		}
+		// A calc definition, or a calc usage awaiting arguments, is a function.
+		if val, ok, err := ctx.FunctionValue(sym); ok {
+			return val, err
+		}
 		// A calc usage returning one unnamed result is read as that result.
 		if isCalcUsageSymbol(sym) && ctx.returnsResult(sym) {
 			return NewEvalContext(ctx, sym.OwnerScope).evalCalcUsageMembers(sym, resultSegments)
@@ -617,6 +621,10 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 				if val, ok, err := ec.occurrenceReference(sym); ok {
 					return val, err
 				}
+				// A calc definition, or a calc usage awaiting arguments, is a function.
+				if val, ok, err := ec.calcAsValue(sym); ok {
+					return val, err
+				}
 				// A calc usage returning one unnamed result is read as that result.
 				if isCalcUsageSymbol(sym) && ec.ctx.returnsResult(sym) {
 					return ec.evalCalcUsageMembers(sym, resultSegments)
@@ -706,6 +714,11 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	// A qualified feature of an enclosing type (`Rectangle::length` inside its
 	// `e1`) reads the enclosing object's value of that feature.
 	if val, ok, err := ec.outerFeatureValue(currentSym); ok {
+		return val, err
+	}
+
+	// A calc definition, or a calc usage awaiting arguments, is a function.
+	if val, ok, err := ec.calcAsValue(currentSym); ok {
 		return val, err
 	}
 
@@ -1481,6 +1494,12 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 				ErrUndeterminedValueType, value.Literal().Name)
 		}
 		return enum, nil
+	case ValFunction:
+		// A function is of the calc it is a value of: a usage's type is that usage.
+		if value.Function() == nil {
+			return nil, fmt.Errorf("%w: function", ErrUndeterminedValueType)
+		}
+		return value.Function(), nil
 	case ValQuantity:
 		if value.Quantity() == nil {
 			return nil, fmt.Errorf("%w: quantity", ErrUndeterminedValueType)
@@ -2235,6 +2254,7 @@ type invocationTarget struct {
 	builtinName string            // the built-in's registered name, keying its declared signature
 	library     *libraryFunction  // the library function the name denotes: the library declaration calc is
 	shape       *calcShape        // calc's invocation interface, nil when it has none
+	enclosed    bool              // calc is declared in a behavior body, whose bindings it reads
 	names       []string          // the parameter each named argument binds, as calc's signature spells it
 	unbound     []error           // per named argument, why calc has no parameter for it; nil when it binds
 }
@@ -2304,6 +2324,7 @@ func (ctx *Context) implementInvocation(target *invocationTarget, sym *symbols.S
 		target.library = fn
 	} else if shape, err := ctx.calcShapeOf(sym); err == nil {
 		target.shape = shape
+		target.enclosed = enclosedByBehaviorBody(sym)
 	}
 }
 
@@ -2328,6 +2349,10 @@ func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written strin
 
 // evalInvocation evaluates a function/calc invocation.
 func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
+	// `holder.f(a)`: the chain names the function applied, not the callee's type.
+	if n.Type == nil && n.Operand != nil {
+		return ec.evalChainInvocation(n)
+	}
 	target := ec.invocationTarget(n)
 	qualName := target.qualName
 	if len(target.ambiguous) > 0 {
@@ -2351,45 +2376,36 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	if n.Operand != nil {
 		exprs = append([]ast.Node{n.Operand}, n.Args...)
 	}
+	// A calc-typed feature bound to a function value here — a parameter given a
+	// calc as its argument — applies that value, not the feature's own declaration.
+	if fn, ok, err := ec.boundFunction(target.calc, n.Type); ok {
+		if err != nil {
+			return Value{}, err
+		}
+		// Named arguments bind parameters of the calc applied, not of the feature named.
+		applied := *target
+		if len(n.NamedArgs) > 0 {
+			applied.names, applied.unbound = ec.ctx.boundParameterNames(ec.scope, fn.Function(), n.NamedArgs)
+		}
+		callArgs, err := ec.evalInvocationArgs(qualName, exprs, n.NamedArgs, &applied)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.invokeFunction(qualName, fn, callArgs)
+	}
 	// A calc bound by position alone consumes its arguments within the call, so
 	// they live on the context's argument stack rather than in a slice of their own.
 	if target.shape != nil && len(n.NamedArgs) == 0 {
-		return ec.invokeCalcShapeStacked(target.shape, exprs)
+		return ec.invokeCalcShapeStacked(target.shape, exprs, ec.enclosingFor(target))
 	}
 	// A built-in binds its arguments by its declared signature.
 	if target.builtin != nil {
 		return ec.invokeBuiltin(target.builtinName, target.builtin, exprs, n.NamedArgs, target.names, target.unbound)
 	}
 
-	args := make([]Value, len(exprs))
-	for i, arg := range exprs {
-		val, err := ec.Eval(arg)
-		if err != nil {
-			return Value{}, err
-		}
-		args[i] = val
-	}
-
-	var named map[string]Value
-	if len(n.NamedArgs) > 0 {
-		named = make(map[string]Value, len(n.NamedArgs))
-	}
-	for i, arg := range n.NamedArgs {
-		name := target.names[i]
-		if name == "" {
-			return Value{}, fmt.Errorf("unnamed argument in invocation of %s", qualName)
-		}
-		if err := target.unbound[i]; err != nil {
-			return Value{}, err
-		}
-		if _, dup := named[name]; dup {
-			return Value{}, fmt.Errorf("%w: %s binds parameter %q twice", ErrCalcArity, qualName, name)
-		}
-		val, err := ec.Eval(arg.Value)
-		if err != nil {
-			return Value{}, err
-		}
-		named[name] = val
+	callArgs, err := ec.evalInvocationArgs(qualName, exprs, n.NamedArgs, target)
+	if err != nil {
+		return Value{}, err
 	}
 
 	// An argument that fails is reported before the target is judged. A name
@@ -2399,24 +2415,97 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 		return Value{}, ec.unresolvedInvocation(n.Type, qualName)
 	}
 	// Every invocation goes through the one calc path, so an expression and a
-	// direct InvokeCalc bind parameters and trace identically. The notation keeps
-	// the argument forms mutually exclusive.
-	callArgs := calcArgs{positional: args}
-	if len(named) > 0 {
-		callArgs = calcArgs{named: named}
-	}
+	// direct InvokeCalc bind parameters and trace identically.
 	if target.library != nil {
 		return target.library.invoke(ec.ctx, callArgs)
 	}
 	if target.shape == nil {
 		return ec.ctx.invokeCalcWithSelf(target.calc, callArgs, ec.scope, ec.self)
 	}
-	return ec.ctx.invokeCalcShape(target.shape, callArgs, ec.scope, ec.self)
+	return ec.ctx.invokeCalcShapeIn(target.shape, callArgs, ec.scope, ec.self, ec.enclosingFor(target))
+}
+
+// enclosingFor is the environment a call of target runs under: this one's bindings
+// for a calc declared in the body being evaluated, none for any other.
+func (ec *EvalContext) enclosingFor(target *invocationTarget) []frame {
+	if !target.enclosed {
+		return nil
+	}
+	return ec.frames
+}
+
+// evalChainInvocation applies the function value a feature chain denotes to the
+// arguments written after it (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
+func (ec *EvalContext) evalChainInvocation(n *ast.InvocationExpr) (Value, error) {
+	callee := chainText(n.Operand)
+	fn, err := ec.Eval(n.Operand)
+	if err != nil {
+		return Value{}, err
+	}
+	if fn.Kind != ValFunction {
+		return Value{}, fmt.Errorf("%w: %s is %s, not a function", ErrNotAFunction, callee, describeValue(fn))
+	}
+	target := &invocationTarget{qualName: callee, calc: fn.Function()}
+	if len(n.NamedArgs) > 0 {
+		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, fn.Function(), n.NamedArgs)
+	}
+	callArgs, err := ec.evalInvocationArgs(callee, n.Args, n.NamedArgs, target)
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.invokeFunction(callee, fn, callArgs)
+}
+
+// chainText spells a feature chain as written, `holder.scale`.
+func chainText(n ast.Node) string {
+	switch c := n.(type) {
+	case *ast.FeatureChainExpr:
+		return chainText(c.Operand) + "." + qualifiedNameToString(c.Member)
+	case *ast.FeatureReference:
+		return qualifiedNameToString(c.Name)
+	}
+	return TraceLabel(n)
+}
+
+// evalInvocationArgs evaluates an invocation's arguments in source order into the
+// calc arguments they bind: positional, or named against target's parameter names.
+// The notation keeps the two forms mutually exclusive.
+func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, namedArgs []ast.NamedArg, target *invocationTarget) (calcArgs, error) {
+	args := make([]Value, len(exprs))
+	for i, arg := range exprs {
+		val, err := ec.Eval(arg)
+		if err != nil {
+			return calcArgs{}, err
+		}
+		args[i] = val
+	}
+	if len(namedArgs) == 0 {
+		return calcArgs{positional: args}, nil
+	}
+	named := make(map[string]Value, len(namedArgs))
+	for i, arg := range namedArgs {
+		name := target.names[i]
+		if name == "" {
+			return calcArgs{}, fmt.Errorf("unnamed argument in invocation of %s", qualName)
+		}
+		if err := target.unbound[i]; err != nil {
+			return calcArgs{}, err
+		}
+		if _, dup := named[name]; dup {
+			return calcArgs{}, fmt.Errorf("%w: %s binds parameter %q twice", ErrCalcArity, qualName, name)
+		}
+		val, err := ec.Eval(arg.Value)
+		if err != nil {
+			return calcArgs{}, err
+		}
+		named[name] = val
+	}
+	return calcArgs{named: named}, nil
 }
 
 // invokeCalcShapeStacked evaluates exprs onto the context's argument stack and
 // invokes shape with them, popping them however the invocation ends.
-func (ec *EvalContext) invokeCalcShapeStacked(shape *calcShape, exprs []ast.Node) (Value, error) {
+func (ec *EvalContext) invokeCalcShapeStacked(shape *calcShape, exprs []ast.Node, enclosing []frame) (Value, error) {
 	ctx := ec.ctx
 	base := len(ctx.argStack)
 	for _, arg := range exprs {
@@ -2429,7 +2518,7 @@ func (ec *EvalContext) invokeCalcShapeStacked(shape *calcShape, exprs []ast.Node
 	}
 	top := len(ctx.argStack)
 	args := ctx.argStack[base:top:top]
-	result, err := ctx.invokeCalcShape(shape, calcArgs{positional: args}, ec.scope, ec.self)
+	result, err := ctx.invokeCalcShapeIn(shape, calcArgs{positional: args}, ec.scope, ec.self, enclosing)
 	ctx.popArgs(base)
 	return result, err
 }
@@ -2507,6 +2596,13 @@ func valueEqual(a, b Value) bool {
 		return a.CoordinateFrame().equal(b.CoordinateFrame())
 	case ValCoordinateTransformation:
 		return a.CoordinateTransformation().equal(b.CoordinateTransformation())
+	case ValFunction:
+		// A function is the calc it is a value of, read against the same object; one
+		// closing over a body's bindings is equal only to the same read.
+		if a.FunctionClosesOverBody() || b.FunctionClosesOverBody() {
+			return a.function() == b.function()
+		}
+		return a.Function() == b.Function() && a.FunctionSelf() == b.FunctionSelf()
 	default:
 		return false
 	}

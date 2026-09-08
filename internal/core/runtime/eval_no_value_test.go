@@ -85,8 +85,8 @@ func TestChainOverValuelessOperandResolvesItsMembers(t *testing.T) {
 }
 
 // TestTypeDeclarationIsNotAValuelessFeature: a KerML type the parser records as
-// a usage — a class, struct, behavior, datatype or function — is a type like a
-// definition, not a feature that lacks a value.
+// a usage — a class, struct, behavior or datatype — is a type like a definition,
+// not a feature that lacks a value; a function, being a calc, is a function value.
 func TestTypeDeclarationIsNotAValuelessFeature(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `
 package test {
@@ -104,7 +104,7 @@ package test {
 	pkg, _ := root.LookupLocal("test")
 	scope := pkg.Scope
 
-	for _, name := range []string{"Vehicle", "Frame", "Drive", "Mass", "Twice", "Car"} {
+	for _, name := range []string{"Vehicle", "Frame", "Drive", "Mass", "Car"} {
 		_, err := ctx.EvalWithScope(parseExpr(t, name), scope)
 		if err == nil || !strings.Contains(err.Error(), "cannot evaluate definition "+name) {
 			t.Errorf("%s: err = %v; want cannot evaluate definition", name, err)
@@ -113,6 +113,10 @@ package test {
 		if errors.As(err, &noValue) {
 			t.Errorf("%s: a type declaration was reported as a valueless feature: %v", name, err)
 		}
+	}
+
+	if val, err := ctx.EvalWithScope(parseExpr(t, "Twice"), scope); err != nil || val.Kind != ValFunction || val.FunctionName() != "test::Twice" {
+		t.Errorf("Twice = %s, %v; want the function test::Twice", FormatValue(val), err)
 	}
 
 	car, _ := scope.LookupLocal("car")

@@ -424,6 +424,8 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"MixedEquality", "a Integer[0..*] at the left operand of '==', which holds Real[0..*]"},
 		{"MixedSame", "same over Integer and Real collections"},
 		{"MixedUnion", "union over Integer and Real collections"},
+		{"CalcParam", "parameter f binds a function value"},
+		{"FunctionArgument", "parameter f binds a function value"},
 	} {
 		_, err := s.CompileCalc("Refused::" + tc.calc)
 		if err == nil {

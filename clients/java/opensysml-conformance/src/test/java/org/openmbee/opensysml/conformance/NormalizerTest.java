@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.openmbee.opensysml.proto.Diagnostic;
 import org.openmbee.opensysml.proto.EvaluateResponse;
 import org.openmbee.opensysml.proto.FeatureValue;
+import org.openmbee.opensysml.proto.Function;
 import org.openmbee.opensysml.proto.Instance;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.ParseFileResponse;
@@ -75,6 +76,15 @@ class NormalizerTest {
                         FeatureValue.newBuilder()
                             .setFeatureName("part")
                             .setValue(Value.newBuilder().setInstanceId(7))
+                            .build())
+                    .putFeatureValues(
+                        "scale",
+                        FeatureValue.newBuilder()
+                            .setFeatureName("scale")
+                            .setValue(
+                                Value.newBuilder()
+                                    .setFunction(
+                                        Function.newBuilder().setCalcId("T::scale").setSelfId(41)))
                             .build()))
             .addInstances(Instance.newBuilder().setId(41))
             .addInstances(Instance.newBuilder().setId(7))
@@ -86,6 +96,9 @@ class NormalizerTest {
     Map<?, ?> features = (Map<?, ?>) root.get("feature_values");
     Map<?, ?> value = (Map<?, ?>) ((Map<?, ?>) features.get("part")).get("value");
     assertEquals("@2", value.get("instance_id"));
+    Map<?, ?> function =
+        (Map<?, ?>) ((Map<?, ?>) ((Map<?, ?>) features.get("scale")).get("value")).get("function");
+    assertEquals("@1", function.get("self_id"));
 
     List<?> instances = (List<?>) normalized.get("instances");
     assertEquals("@1", ((Map<?, ?>) instances.get(0)).get("id"));

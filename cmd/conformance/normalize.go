@@ -24,6 +24,7 @@ var normalizedIDs = map[string]bool{
 	"sysml.Instance.id":         true,
 	"sysml.Value.instance_id":   true,
 	"sysml.Verdict.instance_id": true,
+	"sysml.Function.self_id":    true,
 }
 
 // integer and unsigned are normalized integral values. They are distinct from

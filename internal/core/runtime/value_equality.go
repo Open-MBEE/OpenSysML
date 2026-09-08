@@ -20,6 +20,8 @@ type valueKey struct {
 	colHash uint64
 	variant *symbols.Symbol
 	literal *symbols.Symbol
+	calc    *symbols.Symbol
+	closure *functionValue
 }
 
 // valueKeyFunc extracts a comparable key from a Value. Values valueEqual holds
@@ -77,6 +79,15 @@ func valueKeyFunc(v Value) valueKey {
 		key.strVal = v.CoordinateFrame().key()
 	case ValCoordinateTransformation:
 		key.strVal = v.CoordinateTransformation().key()
+	case ValFunction:
+		key.calc = v.Function()
+		if self := v.FunctionSelf(); self != nil {
+			key.instID = self.ID
+		}
+		// A function closing over a body's bindings is one only with itself.
+		if v.FunctionClosesOverBody() {
+			key.closure = v.function()
+		}
 	}
 	return key
 }

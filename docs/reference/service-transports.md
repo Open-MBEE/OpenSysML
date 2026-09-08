@@ -52,10 +52,10 @@ capability's definition rather than something a client has to guess:
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
 | what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `query`, `oslc_query`, `document_query`, `render_document` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
-| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `complex_values`, `structured_values`, `measurement_refs` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
-`complex_values`, `structured_values` and `measurement_refs` sit in both rows: a complex — or
-an array, vector or vector quantity, or a bare measurement reference — in a response is
+`complex_values`, `structured_values`, `measurement_refs` and `function_values` sit in both rows: a complex — or
+an array, vector or vector quantity, a bare measurement reference, or a calc held as a value — in a response is
 reported as an `unsupported` null without it, and one in an action input or calc argument is
 refused with `UNIMPLEMENTED` rather than read as another value — a service that predates the
 arm would read it as an unknown field, so every client checks the list before sending one

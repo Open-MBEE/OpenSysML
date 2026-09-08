@@ -58,6 +58,7 @@ public final class Protos {
       case VECTOR -> Optional.of(vector(value.getVector()));
       case VECTOR_QUANTITY -> Optional.of(vectorQuantity(value.getVectorQuantity()));
       case MEASUREMENT_REF -> Optional.of(measurementRef(value.getMeasurementRef()));
+      case FUNCTION -> Optional.of(function(value.getFunction()));
       case KIND_NOT_SET -> Optional.empty();
     };
   }
@@ -119,6 +120,16 @@ public final class Protos {
     }
     return new Value.MeasurementRefValue(
         ref.getUnit(), unitTerm(ref.getUnitTerm()), present(ref.getUnitId()));
+  }
+
+  private static Value function(org.openmbee.opensysml.proto.Function function) {
+    if (function.getCalcId().isEmpty()) {
+      throw new TransportException(
+          "the service answered a malformed function: it names no calc", null);
+    }
+    return new Value.FunctionValue(
+        function.getCalcId(),
+        function.getSelfId() == 0 ? Optional.empty() : Optional.of(function.getSelfId()));
   }
 
   private static Value sequence(org.openmbee.opensysml.proto.Value value) {

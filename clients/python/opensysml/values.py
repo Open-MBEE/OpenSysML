@@ -400,6 +400,53 @@ class MeasurementRef:
         return str(self.unit)
 
 
+@dataclass(frozen=True)
+class Function:
+    """A calc held as a value: a calc definition, or a calc usage with an input
+    no read could supply, as ``Sq`` in ``Fn(Sq, 3.0)`` or the ``f`` of
+    ``in calc f {...}``.
+
+    It is the declaration it is a value of, which is its identity: two functions
+    are equal exactly when ``calc_id`` and ``self_id`` are. A function closing
+    over the bindings of the behavior body it is declared in has no wire form;
+    the service sends it as an unsupported null.
+
+    Attributes:
+        calc_id (str): FQN of the calc declaration (``Analysis::Sq``)
+        self_id (int): ID of the object the calc's feature names resolve
+            against, for a calc usage read off a part (``holder.scale``); 0 for
+            a function closing over no object. One sent to the service must name
+            an object of the runtime the value is read in.
+    """
+
+    calc_id: str
+    self_id: int = 0
+
+    @classmethod
+    def from_pb(cls, pb_fn) -> "Function":
+        """Build from a ``Function`` protobuf message.
+
+        Raises:
+            UnsupportedValueError: If the message names no calc.
+        """
+        if not pb_fn.calc_id:
+            raise UnsupportedValueError("function naming no calc")
+        return cls(pb_fn.calc_id, pb_fn.self_id)
+
+    def to_pb(self) -> "sysml_pb2.Function":
+        """Encode as a ``Function`` message.
+
+        Raises:
+            UnsupportedValueError: If the function names no calc.
+        """
+        if not self.calc_id:
+            raise UnsupportedValueError("function naming no calc")
+        return sysml_pb2.Function(calc_id=self.calc_id, self_id=self.self_id)
+
+    def __str__(self) -> str:
+        return self.calc_id
+
+
 def _is_number(value: object) -> bool:
     """Whether a value is an Integer or a Real as the wire keeps them apart: a bool is neither."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
@@ -678,8 +725,8 @@ def value_to_python(pb_value, resolve_instance=None):
 
     Returns:
         int, float, complex, bool, str, list, None, :data:`UNSET`, a
-        :class:`Quantity`, a :class:`MeasurementRef`, an :class:`Array`, a
-        :class:`Vector`, a :class:`VectorQuantity`, an
+        :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, an
+        :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, an
         :class:`~opensysml.enumeration.EnumLiteral`,
         or the resolved instance object. A Complex is one ``complex``, never two
         floats; a Vector is one :class:`Vector`, never a list of numbers.
@@ -703,6 +750,8 @@ def value_to_python(pb_value, resolve_instance=None):
         return Quantity.from_pb(pb_value.quantity)
     if kind == 'measurement_ref':
         return MeasurementRef.from_pb(pb_value.measurement_ref)
+    if kind == 'function':
+        return Function.from_pb(pb_value.function)
     if kind == 'instance_id':
         if resolve_instance is None:
             return pb_value.instance_id

@@ -22,6 +22,8 @@ export const CAPABILITY_COMPLEX_VALUES = "complex_values";
 export const CAPABILITY_STRUCTURED_VALUES = "structured_values";
 /** A bare measurement unit (`SI::m`, `m / s`) as `Value.measurement_ref`, rather than an unsupported null. */
 export const CAPABILITY_MEASUREMENT_REFS = "measurement_refs";
+/** A calc held as a value as `Value.function`, named by its declaration, rather than an unsupported null. */
+export const CAPABILITY_FUNCTION_VALUES = "function_values";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

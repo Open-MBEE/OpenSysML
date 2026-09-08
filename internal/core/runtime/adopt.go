@@ -95,6 +95,9 @@ func (ctx *Context) recordShapes(obj *Instance, shapes *Shapes, seen map[int64]b
 			if v.Kind == ValVariant {
 				ctx.recordShape(v.Variant(), shapes)
 			}
+			if self := v.FunctionSelf(); self != nil {
+				ctx.recordShapes(self, shapes, seen)
+			}
 			if id, ok := carriedObject(v); ok {
 				if held, found := ctx.instances[id]; found {
 					ctx.recordShapes(held, shapes, seen)
@@ -624,6 +627,13 @@ func (a *adoption) planValue(owner string, val Value) error {
 			err = &AdoptError{Type: owner, Reason: "it holds an expression that was never evaluated"}
 			return
 		}
+		// A function value denotes its calc by name, so it is rebound as a variant is;
+		// the object it closes over is carried with it.
+		if v.Kind == ValFunction {
+			if err = a.planFunction(owner, v); err != nil {
+				return
+			}
+		}
 		if v.Kind == ValVariant {
 			if _, rebindErr := a.rebind(v.Variant(), "a variant it selected"); rebindErr != nil {
 				err = rebindErr
@@ -649,6 +659,25 @@ func (a *adoption) planValue(owner string, val Value) error {
 		}
 	})
 	return err
+}
+
+// planFunction rebinds the calc a function value is of to its declaration here,
+// refusing one that is no longer a calc that can be invoked.
+func (a *adoption) planFunction(owner string, v Value) error {
+	if v.FunctionClosesOverBody() {
+		return &AdoptError{Type: owner, Reason: "the function " + v.FunctionName() + " it holds closes over the bindings of a run that has ended"}
+	}
+	found, err := a.rebind(v.Function(), "the function "+v.FunctionName()+" it holds")
+	if err != nil {
+		return err
+	}
+	if _, err := a.ctx.calcShapeOf(found); err != nil {
+		return &AdoptError{Type: owner, Reason: "the function " + v.FunctionName() + " it holds cannot be invoked here: " + err.Error()}
+	}
+	if self := v.FunctionSelf(); self != nil {
+		return a.planHeld(owner, self.ID)
+	}
+	return nil
 }
 
 // unitsOf is the measurement units a quantity, reference or empty quantity
@@ -1000,6 +1029,18 @@ func (a *adoption) rewrite(val Value) Value {
 			return NewVariantValue(found, val.Instance)
 		}
 		return val
+	case ValFunction:
+		found, ok := a.rebound[val.Function()]
+		if !ok {
+			return val
+		}
+		shape, err := a.ctx.calcShapeOf(found)
+		if err != nil {
+			return val
+		}
+		fn := &functionValue{shape: shape, scope: found.OwnerScope, self: val.FunctionSelf()}
+		fn.library, _ = a.ctx.libraryFunctionFor(found)
+		return Value{Kind: ValFunction, ref: fn}
 	case ValSequence:
 		if val.Sequence() == nil {
 			return val

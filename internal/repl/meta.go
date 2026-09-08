@@ -775,6 +775,16 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 				fmt.Sprintf("  = %s", formatValue(ctx, val)),
 			}, nil
 		}
+		// A calc definition is the function it declares.
+		if val, isFunction, err := ctx.FunctionValue(sym); isFunction {
+			if err != nil {
+				return nil, fmt.Errorf("evaluation failed: %w", err)
+			}
+			return []string{
+				fmt.Sprintf("✓ %s", expr),
+				fmt.Sprintf("  = %s", formatValue(ctx, val)),
+			}, nil
+		}
 		// A valueless usage may still name a value its own features shape.
 		if _, isUsage := sym.Decl.(*ast.Usage); !isUsage && !declaresValue(sym) {
 			return nil, fmt.Errorf("%q has no value to evaluate", expr)

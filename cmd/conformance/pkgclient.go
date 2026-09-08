@@ -806,6 +806,11 @@ func valueToProto(value opensysml.Value) *pb.Value {
 			UnitTerm: unitTermToProto(v.Term),
 			UnitId:   v.UnitID,
 		}}}
+	case opensysml.Function:
+		return &pb.Value{Kind: &pb.Value_Function{Function: &pb.Function{
+			CalcId: v.CalcID,
+			SelfId: int64(v.Self),
+		}}}
 	default:
 		return nil
 	}
@@ -894,6 +899,11 @@ func valueFromProto(value *pb.Value) (opensysml.Value, bool) {
 			Unit:   kind.MeasurementRef.GetUnit(),
 			Term:   unitTermFromProto(kind.MeasurementRef.GetUnitTerm()),
 			UnitID: kind.MeasurementRef.GetUnitId(),
+		}, true
+	case *pb.Value_Function:
+		return opensysml.Function{
+			CalcID: kind.Function.GetCalcId(),
+			Self:   opensysml.InstanceID(kind.Function.GetSelfId()),
 		}, true
 	default:
 		return nil, true

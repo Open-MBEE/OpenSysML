@@ -104,6 +104,11 @@ const CapabilityStructuredValues = "structured_values"
 // unsupported null. Distinct from structured_values, which predates the arm.
 const CapabilityMeasurementRefs = "measurement_refs"
 
+// CapabilityFunctionValues names the capability of carrying a calc held as a
+// value as Value.function, named by its declaration, rather than reporting it
+// as an unsupported null.
+const CapabilityFunctionValues = "function_values"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -113,7 +118,7 @@ var capabilities = []string{
 	CapabilityApplyEdits, CapabilityAuthoring, CapabilityInlineLanguage,
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
-	CapabilityMeasurementRefs,
+	CapabilityMeasurementRefs, CapabilityFunctionValues,
 }
 
 type capabilityAvailability struct {
@@ -264,7 +269,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesMeasurementRef(pv) {
-		return s.requireCapability(CapabilityMeasurementRefs)
+		if err := s.requireCapability(CapabilityMeasurementRefs); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesFunction(pv) {
+		return s.requireCapability(CapabilityFunctionValues)
 	}
 	return nil
 }
@@ -717,7 +727,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, err
 			}
-			val, cerr := ProtoToValueIn(pv, cached.Index, semModel)
+			val, cerr := ProtoToRuntimeValue(runtimeCtx, pv, cached.Index, semModel)
 			if cerr != nil {
 				return &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),

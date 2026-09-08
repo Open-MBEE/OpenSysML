@@ -21,6 +21,7 @@ from opensysml.capabilities import (
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
+    CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
@@ -58,6 +59,7 @@ from opensysml.errors import (
 from opensysml.query import build_query, elements_of
 from opensysml.values import (
     Array,
+    Function,
     MeasurementRef,
     Quantity,
     Vector,
@@ -1156,7 +1158,8 @@ class Connection:
                 :class:`~opensysml.values.Vector` or :class:`~opensysml.values.VectorQuantity`
                 and the service predates ``structured_values``, or a
                 :class:`~opensysml.values.MeasurementRef` and the service predates
-                ``measurement_refs``; nothing is sent
+                ``measurement_refs``, or a :class:`~opensysml.values.Function`
+                and the service predates ``function_values``; nothing is sent
         """
         # Convert Python inputs to protobuf Values
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
@@ -1346,8 +1349,9 @@ class Connection:
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, an array, vector or vector quantity and
-                the service predates ``structured_values``, or a measurement
-                reference and the service predates ``measurement_refs``; nothing
+                the service predates ``structured_values``, a measurement
+                reference and the service predates ``measurement_refs``, or a
+                function and the service predates ``function_values``; nothing
                 is sent
             ModelNotFoundError: If the service no longer holds the model
         """
@@ -1363,6 +1367,7 @@ class Connection:
                 CAPABILITY_COMPLEX_VALUES,
                 CAPABILITY_STRUCTURED_VALUES,
                 CAPABILITY_MEASUREMENT_REFS,
+                CAPABILITY_FUNCTION_VALUES,
             ))
         ):
             response = self._stub.EvaluateCalc(request)
@@ -1518,6 +1523,14 @@ class Connection:
             upgrade_remedy(CAPABILITY_MEASUREMENT_REFS),
         )
 
+    def _require_function_values(self):
+        """Refuse to send a function a service without ``function_values`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_FUNCTION_VALUES,
+            upgrade_remedy(CAPABILITY_FUNCTION_VALUES),
+        )
+
     def _require_feature_values(self):
         """Refuse instances from a service that populates only the removed `slots` field."""
         require(
@@ -1565,6 +1578,9 @@ class Connection:
         elif isinstance(py_value, MeasurementRef):
             self._require_measurement_refs()
             return sysml_pb2.Value(measurement_ref=py_value.to_pb())
+        elif isinstance(py_value, Function):
+            self._require_function_values()
+            return sysml_pb2.Value(function=py_value.to_pb())
         elif isinstance(py_value, Array):
             self._require_structured_values()
             return sysml_pb2.Value(array=py_value.to_pb(self._python_to_value))

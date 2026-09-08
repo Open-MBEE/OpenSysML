@@ -9,8 +9,8 @@ import (
 
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
-// Quantity, EnumLiteral, Array, Vector, VectorQuantity and MeasurementRef, and
-// a type switch over them is exhaustive.
+// Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef and
+// Function, and a type switch over them is exhaustive.
 type Value interface {
 	isValue()
 }
@@ -95,6 +95,18 @@ type MeasurementRef struct {
 	// UnitID is the FQN of the one unit declaration the reference names
 	// ("SI::kilometre"); empty for a unit an operation composed, which names none.
 	UnitID string
+}
+
+// Function is a calc held as a value: a calc definition, a calc usage or an
+// `in calc` parameter read where a value is expected. It names the calc and, for
+// one read off an object, that object; sent as an argument it is invoked through
+// the calc-typed parameter it binds. Identity is the calc together with Self.
+type Function struct {
+	// CalcID is the FQN of the calc declaration ("M::Sq").
+	CalcID string
+	// Self is the object the calc computes over, an id of the answer that
+	// reported it; 0 for a calc bound to no object.
+	Self InstanceID
 }
 
 // EnumLiteral is one literal of an enumeration definition. A literal is its
@@ -214,6 +226,11 @@ func (t UnitTerm) String() string {
 	return strings.Join(parts, "·")
 }
 
+// String names the calc the function is a value of.
+func (f Function) String() string {
+	return f.CalcID
+}
+
 // String is the literal as a reader writes it, the Name the service reported.
 func (e EnumLiteral) String() string {
 	return e.Name
@@ -248,6 +265,7 @@ func (Array) isValue()          { /* marker: closed Value set */ }
 func (Vector) isValue()         { /* marker: closed Value set */ }
 func (VectorQuantity) isValue() { /* marker: closed Value set */ }
 func (MeasurementRef) isValue() { /* marker: closed Value set */ }
+func (Function) isValue()       { /* marker: closed Value set */ }
 
 func (Int) isNumber()  { /* marker: closed Number set */ }
 func (Real) isNumber() { /* marker: closed Number set */ }

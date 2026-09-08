@@ -275,6 +275,7 @@ var parameterKindKeywords = map[string]ast.UsageKind{
 	"attribute":  ast.UsageAttribute,
 	"occurrence": ast.UsageOccurrence,
 	"action":     ast.UsageAction,
+	"calc":       ast.UsageCalc,
 }
 
 // parameterKindKeyword reports whether parseDirectionParameter reads the token as

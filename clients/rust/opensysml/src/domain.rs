@@ -381,6 +381,24 @@ pub struct MeasurementRef {
     pub unit_id: Option<String>,
 }
 
+/// A calc held as a value: a calc definition, or a calc usage with an input no
+/// read could supply, as `Sq` in `Fn(Sq, 3.0)` or the `f` of `in calc f {...}`.
+///
+/// It is the declaration it is a value of, which is its identity: two functions
+/// are equal exactly when both fields are. A function closing over the bindings
+/// of the behavior body it is declared in has no wire form; the service sends
+/// it as an unsupported [`Value::Null`], as does a service without
+/// `function_values` for every function.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Function {
+    /// FQN of the calc declaration (`Analysis::Sq`).
+    pub calc_id: String,
+    /// ID of the object the calc's feature names resolve against, for a calc
+    /// usage read off a part (`holder.scale`); `None` for a function closing
+    /// over no object.
+    pub self_id: Option<i64>,
+}
+
 /// A runtime value returned by the service.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -410,6 +428,8 @@ pub enum Value {
     VectorQuantity(VectorQuantity),
     /// A bare measurement unit.
     MeasurementRef(MeasurementRef),
+    /// A calc held as a value.
+    Function(Function),
     /// Explicit null value.
     Null,
     /// A materialized feature with no value.
@@ -468,6 +488,15 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
         wire::value::Kind::MeasurementRef(v) => {
             Ok(Value::MeasurementRef(measurement_ref_from_wire(v)?))
         }
+        wire::value::Kind::Function(v) => {
+            if v.calc_id.is_empty() {
+                return Err(Error::Decode("a function names no calc".to_owned()));
+            }
+            Ok(Value::Function(Function {
+                calc_id: v.calc_id,
+                self_id: (v.self_id != 0).then_some(v.self_id),
+            }))
+        }
         wire::value::Kind::EnumLiteral(v) => Ok(Value::EnumLiteral(EnumLiteral {
             literal_id: v.literal_id,
             enumeration_id: v.enumeration_id,
@@ -495,6 +524,7 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
         wire::value::Kind::Vector(_) => "vector",
         wire::value::Kind::VectorQuantity(_) => "vector_quantity",
         wire::value::Kind::MeasurementRef(_) => "measurement_ref",
+        wire::value::Kind::Function(_) => "function",
     }
 }
 
@@ -1207,6 +1237,48 @@ mod tests {
                 })
                 .collect(),
         }
+    }
+
+    fn function(calc_id: &str, self_id: i64) -> wire::Value {
+        wire::Value {
+            kind: Some(wire::value::Kind::Function(wire::Function {
+                calc_id: calc_id.to_owned(),
+                self_id,
+            })),
+        }
+    }
+
+    #[test]
+    fn a_function_is_the_calc_it_names_read_against_an_object_or_none() {
+        assert_eq!(
+            value_from_wire(function("Demo::Sq", 0)).ok(),
+            Some(Value::Function(Function {
+                calc_id: "Demo::Sq".to_owned(),
+                self_id: None,
+            }))
+        );
+        assert_eq!(
+            value_from_wire(function("Demo::Scaler::scale", 7)).ok(),
+            Some(Value::Function(Function {
+                calc_id: "Demo::Scaler::scale".to_owned(),
+                self_id: Some(7),
+            }))
+        );
+
+        // Naming no calc is malformed at any depth.
+        assert!(matches!(
+            value_from_wire(function("", 0)),
+            Err(Error::Decode(message)) if message.contains("names no calc")
+        ));
+        let nested = wire::Value {
+            kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
+                elements: vec![function("", 3)],
+            })),
+        };
+        assert!(matches!(
+            value_from_wire(nested),
+            Err(Error::Decode(message)) if message.contains("names no calc")
+        ));
     }
 
     #[test]

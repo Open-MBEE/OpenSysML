@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Holder",
+  "libraries": true,
+  "slots": {
+    "root": {"type": "Real", "value": 4.0},
+    "floored": {"type": "Integer", "value": 2},
+    "fn": {"type": "Function", "value": "RealFunctions::sqrt"}
+  }
+}

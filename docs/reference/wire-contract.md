@@ -192,10 +192,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: fifteen arms, exactly one present
+## `Value`: sixteen arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of fifteen
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of sixteen
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -217,10 +217,12 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `vector` | object | `{"result":{"vector":{"components":[{"realValue":3},{"realValue":4}]}}}` | Numeric vector; each component an `intValue` or `realValue` |
 | `vectorQuantity` | object | `{"result":{"vectorQuantity":{"components":[{"realMagnitude":3,"unit":"m","unitTerm":{…}},…]}}}` | Vector of quantities; one `quantity` body per component |
 | `measurementRef` | object | `{"result":{"measurementRef":{"unit":"m","unitTerm":{…},"unitId":"SI::metre"}}}` | A measurement reference on its own: a unit, its reduction, and the declaration it names |
+| `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
-`conformance/fixtures/measurement_ref.sysml` (`M::u`); the rest against the model below, with requests of the form
+`conformance/fixtures/measurement_ref.sysml` (`M::u`), `function` against
+`conformance/fixtures/function.sysml` (`F::pick`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
@@ -281,6 +283,9 @@ decode(v):
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
                  require v.measurementRef.unitTerm when either is present, else an error;
                  require unit or id, else an error; id absent means a composed unit
+  function     → calc := v.function.calcId, require it non-empty, else an error;
+                 self := v.function.selfId when present and not "0", an opaque reference
+                 under the instanceId rule, else no object
   anything else → an error: a newer service than this decoder
 ```
 
@@ -449,6 +454,37 @@ $ … /Evaluate -d '{"modelHash":"5b0f…40d5","expression":"M::speed"}'
 - A `measurementRef` is not a `quantity` with magnitude one: `ConvertQuantity(q, ref)` takes
   one, `q * ref` does not.
 
+**`function`.** A calc held as a value — a calc definition or usage named where a value is
+expected, or bound to an `in calc` parameter — travels as the calc it names, not as what the
+calc would compute:
+
+```console
+$ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::pick"}'
+{"result":{"function":{"calcId":"F::Sq"}}}
+
+$ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::scaler"}'
+{"result":{"function":{"calcId":"F::Scaler::scale", "selfId":"1"}}}
+```
+
+- `calcId` is the fully qualified name of the calc declaration, and is the identity a client
+  keeps to send the same function back. It is never empty: a `function` with no `calcId` is
+  malformed, and a decoder refuses it rather than reading it as "no function".
+- `selfId` is present when the calc is a usage owned by an object and was read off that object
+  (`holder.scale` above reads `holder.k` when invoked). It is an `instanceId` under that arm's
+  rules: a 64-bit integer sent as a string, valid within the response it arrived in, and
+  indexing that response's `instances` where the method returns them. Absent (or `"0"`, the
+  proto default) means the calc computes over no object.
+- Two functions are the same function when their `calcId`s are equal and both name the same
+  object or neither names one; the engine's `==` says the same.
+- A calc that closes over the bindings of a behavior body — one returned by another calc, or
+  read inside an action step — has no wire form: the frames it captured belong to a run that
+  has ended and cannot be reconstructed remotely. It is sent as the unsupported null
+  `{"null":"unsupported: function <calcId> closing over a body's bindings"}`, under the `null`
+  arm's rule.
+- The arm is gated by the `function_values` capability (see [`GetServerInfo`](#getserverinfo)).
+  A service without it sends every function, at any depth, as
+  `{"null":"unsupported: function <calcId>"}` and refuses a request that carries one.
+
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
@@ -467,6 +503,10 @@ $ … /Evaluate -d '{"modelHash":"5b0f…40d5","expression":"M::speed"}'
 - **Do not index an `array` before checking `len(elements) == product(dimensions)`.**
 - **Do not invent a `unitId` for a `measurementRef` that has none.** A composed unit names no
   declaration; send it back as it came, with its `unit` and `unitTerm` only.
+- **Do not read a `function` as the value the calc computes, or invoke it locally.** It is a
+  reference: hand it back as an argument (`EvaluateCalc`) and let the service invoke it.
+- **Do not keep a `function`'s `selfId` past the response it arrived in.** It is an
+  `instanceId`, with that arm's lifetime.
 
 ## Three places a failure can be
 
@@ -777,9 +817,26 @@ $ … /EvaluateCalc -d '{"modelHash":"5b0f…40d5","symbolId":"M::toUnit","argum
 {"error":"calc argument could not be read: unit as written does not reduce to its unit_term: SI::metre reduces to metre, unit_term is 1000·metre", "failureReason":"FAILURE_REASON_EVALUATION"}
 ```
 
-A service without the `structured_values` capability refuses a structured argument, and one
-without `measurement_refs` a `measurementRef` argument, with the `unimplemented` Connect
-error instead, naming the capability; check `GetServerInfo` first.
+A `function` argument binds an `in calc` parameter to the calc it names, resolved against the
+model and, when it carries a `selfId`, against the objects of the runtime the model was
+instantiated into. A name that is empty, names nothing, names something that is not a calc,
+or a `selfId` that names no object, is an in-body failure, at any depth:
+
+```console
+$ … /EvaluateCalc -d '{"modelHash":"e587…f81e","symbolId":"F::apply","arguments":[{"function":{"calcId":"F::Sq"}},{"realValue":3.0}]}'
+{"result":{"realValue":9}}
+
+$ … /EvaluateCalc -d '{"modelHash":"e587…f81e","symbolId":"F::apply","arguments":[{"function":{"calcId":"F::holder"}},{"realValue":2.0}]}'
+{"error":"calc argument could not be read: function names no calc of this model: F::holder is not a calc", "failureReason":"FAILURE_REASON_EVALUATION"}
+
+$ … /EvaluateCalc -d '{"modelHash":"e587…f81e","symbolId":"F::apply","arguments":[{"function":{"calcId":"F::Scaler::scale","selfId":"3"}},{"realValue":2.0}]}'
+{"error":"calc argument could not be read: function names no calc of this model: F::Scaler::scale: self_id 3 names no object of this runtime", "failureReason":"FAILURE_REASON_EVALUATION"}
+```
+
+A service without the `structured_values` capability refuses a structured argument, one
+without `measurement_refs` a `measurementRef` argument, and one without `function_values` a
+`function` argument, with the `unimplemented` Connect error instead, naming the capability;
+check `GetServerInfo` first.
 
 A calc *usage* whose output features are evaluated from its own members (no `arguments`)
 answers them as `outputs`, a list of `{"name":…,"value":<Value>}` in declaration order, in

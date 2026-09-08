@@ -1,0 +1,7 @@
+{
+  "type": "calc",
+  "evaluate": "test::UseFn",
+  "libraries": true,
+  "result": {"type": "Real", "value": 9.0},
+  "trace": true
+}

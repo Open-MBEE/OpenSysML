@@ -229,6 +229,41 @@ class ApiIntegrationTest {
     }
   }
 
+  private static final String FUNCTIONS =
+      """
+      package Demo {
+        private import ScalarValues::*;
+        calc def Sq { in v : Real; return : Real = v * v; }
+        calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+        calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
+        attribute pick = Identity(Sq);
+        attribute nine = Fn(Sq, 3.0);
+        part def Scaler {
+          attribute k : Real = 2.0;
+          calc scale { in x : Real; return : Real = x * k; }
+        }
+        part holder : Scaler;
+        attribute scaler = holder.scale;
+      }
+      """;
+
+  @Test
+  void aCalcHeldAsAValueArrivesAsTheFunctionItNamesOverProtobufAndJson() {
+    assertTrue(connection.capabilities().has(Capabilities.FUNCTION_VALUES));
+    try (Connection json =
+        Connection.open(ServiceBinary.options().encoding(Encoding.JSON).build())) {
+      for (Connection each : List.of(connection, json)) {
+        Model model = each.parse(FUNCTIONS);
+        assertEquals(
+            new Value.FunctionValue("Demo::Sq", Optional.empty()), model.eval("Demo::pick"));
+        assertEquals(new Value.RealValue(9.0), model.eval("Demo::nine"));
+        Value.FunctionValue scale = (Value.FunctionValue) model.eval("Demo::scaler");
+        assertEquals("Demo::Scaler::scale", scale.calcId());
+        assertTrue(scale.selfId().orElseThrow() > 0);
+      }
+    }
+  }
+
   @Test
   void aModelTheServiceDoesNotHoldIsRefused() {
     Model absent = connection.model("sha256:0000000000000000");

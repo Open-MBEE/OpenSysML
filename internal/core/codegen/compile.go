@@ -139,6 +139,9 @@ func (c *Compiler) compileCalc(sym *symbols.Symbol) (*Func, error) {
 		if u.Value != nil {
 			return nil, fc.unsupported(fmt.Sprintf("parameter %s has a default value", name))
 		}
+		if u.Kind == ast.UsageCalc {
+			return nil, fc.unsupported(fmt.Sprintf("parameter %s binds a function value", name))
+		}
 		b, err := fc.declaredBinding(sym.Scope, u, name)
 		if err != nil {
 			return nil, err

@@ -68,6 +68,7 @@ private static final long serialVersionUID = 0L;
     VECTOR(13),
     VECTOR_QUANTITY(14),
     MEASUREMENT_REF(15),
+    FUNCTION(16),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -100,6 +101,7 @@ private static final long serialVersionUID = 0L;
         case 13: return VECTOR;
         case 14: return VECTOR_QUANTITY;
         case 15: return MEASUREMENT_REF;
+        case 16: return FUNCTION;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -674,6 +676,49 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.MeasurementRef.getDefaultInstance();
   }
 
+  public static final int FUNCTION_FIELD_NUMBER = 16;
+  /**
+   * <pre>
+   * a calc as a value, named by its declaration
+   * </pre>
+   *
+   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * @return Whether the function field is set.
+   */
+  @java.lang.Override
+  public boolean hasFunction() {
+    return kindCase_ == 16;
+  }
+  /**
+   * <pre>
+   * a calc as a value, named by its declaration
+   * </pre>
+   *
+   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * @return The function.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Function getFunction() {
+    if (kindCase_ == 16) {
+       return (org.openmbee.opensysml.proto.Function) kind_;
+    }
+    return org.openmbee.opensysml.proto.Function.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * a calc as a value, named by its declaration
+   * </pre>
+   *
+   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder() {
+    if (kindCase_ == 16) {
+       return (org.openmbee.opensysml.proto.Function) kind_;
+    }
+    return org.openmbee.opensysml.proto.Function.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -737,6 +782,9 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 15) {
       output.writeMessage(15, (org.openmbee.opensysml.proto.MeasurementRef) kind_);
+    }
+    if (kindCase_ == 16) {
+      output.writeMessage(16, (org.openmbee.opensysml.proto.Function) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -809,6 +857,10 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 15) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(15, (org.openmbee.opensysml.proto.MeasurementRef) kind_);
+    }
+    if (kindCase_ == 16) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(16, (org.openmbee.opensysml.proto.Function) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -887,6 +939,10 @@ private static final long serialVersionUID = 0L;
       case 15:
         if (!getMeasurementRef()
             .equals(other.getMeasurementRef())) return false;
+        break;
+      case 16:
+        if (!getFunction()
+            .equals(other.getFunction())) return false;
         break;
       case 0:
       default:
@@ -967,6 +1023,10 @@ private static final long serialVersionUID = 0L;
       case 15:
         hash = (37 * hash) + MEASUREMENT_REF_FIELD_NUMBER;
         hash = (53 * hash) + getMeasurementRef().hashCode();
+        break;
+      case 16:
+        hash = (37 * hash) + FUNCTION_FIELD_NUMBER;
+        hash = (53 * hash) + getFunction().hashCode();
         break;
       case 0:
       default:
@@ -1130,6 +1190,9 @@ private static final long serialVersionUID = 0L;
       if (measurementRefBuilder_ != null) {
         measurementRefBuilder_.clear();
       }
+      if (functionBuilder_ != null) {
+        functionBuilder_.clear();
+      }
       kindCase_ = 0;
       kind_ = null;
       return this;
@@ -1202,6 +1265,10 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 15 &&
           measurementRefBuilder_ != null) {
         result.kind_ = measurementRefBuilder_.build();
+      }
+      if (kindCase_ == 16 &&
+          functionBuilder_ != null) {
+        result.kind_ = functionBuilder_.build();
       }
     }
 
@@ -1280,6 +1347,10 @@ private static final long serialVersionUID = 0L;
         }
         case MEASUREMENT_REF: {
           mergeMeasurementRef(other.getMeasurementRef());
+          break;
+        }
+        case FUNCTION: {
+          mergeFunction(other.getFunction());
           break;
         }
         case KIND_NOT_SET: {
@@ -1405,6 +1476,13 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 15;
               break;
             } // case 122
+            case 130: {
+              input.readMessage(
+                  internalGetFunctionFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 16;
+              break;
+            } // case 130
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3243,6 +3321,184 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 15;
       onChanged();
       return measurementRefBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Function, org.openmbee.opensysml.proto.Function.Builder, org.openmbee.opensysml.proto.FunctionOrBuilder> functionBuilder_;
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * @return Whether the function field is set.
+     */
+    @java.lang.Override
+    public boolean hasFunction() {
+      return kindCase_ == 16;
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     * @return The function.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Function getFunction() {
+      if (functionBuilder_ == null) {
+        if (kindCase_ == 16) {
+          return (org.openmbee.opensysml.proto.Function) kind_;
+        }
+        return org.openmbee.opensysml.proto.Function.getDefaultInstance();
+      } else {
+        if (kindCase_ == 16) {
+          return functionBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Function.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    public Builder setFunction(org.openmbee.opensysml.proto.Function value) {
+      if (functionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        functionBuilder_.setMessage(value);
+      }
+      kindCase_ = 16;
+      return this;
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    public Builder setFunction(
+        org.openmbee.opensysml.proto.Function.Builder builderForValue) {
+      if (functionBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        functionBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 16;
+      return this;
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    public Builder mergeFunction(org.openmbee.opensysml.proto.Function value) {
+      if (functionBuilder_ == null) {
+        if (kindCase_ == 16 &&
+            kind_ != org.openmbee.opensysml.proto.Function.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.Function.newBuilder((org.openmbee.opensysml.proto.Function) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 16) {
+          functionBuilder_.mergeFrom(value);
+        } else {
+          functionBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 16;
+      return this;
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    public Builder clearFunction() {
+      if (functionBuilder_ == null) {
+        if (kindCase_ == 16) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 16) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        functionBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    public org.openmbee.opensysml.proto.Function.Builder getFunctionBuilder() {
+      return internalGetFunctionFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder() {
+      if ((kindCase_ == 16) && (functionBuilder_ != null)) {
+        return functionBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 16) {
+          return (org.openmbee.opensysml.proto.Function) kind_;
+        }
+        return org.openmbee.opensysml.proto.Function.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * a calc as a value, named by its declaration
+     * </pre>
+     *
+     * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Function, org.openmbee.opensysml.proto.Function.Builder, org.openmbee.opensysml.proto.FunctionOrBuilder> 
+        internalGetFunctionFieldBuilder() {
+      if (functionBuilder_ == null) {
+        if (!(kindCase_ == 16)) {
+          kind_ = org.openmbee.opensysml.proto.Function.getDefaultInstance();
+        }
+        functionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Function, org.openmbee.opensysml.proto.Function.Builder, org.openmbee.opensysml.proto.FunctionOrBuilder>(
+                (org.openmbee.opensysml.proto.Function) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 16;
+      onChanged();
+      return functionBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

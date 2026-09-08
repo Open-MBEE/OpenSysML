@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Holder",
+  "libraries": true,
+  "slots": {
+    "fn": {"type": "Function", "value": "test::Sq"},
+    "same": {"type": "Boolean", "value": true},
+    "other": {"type": "Boolean", "value": false}
+  }
+}

@@ -321,5 +321,32 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.MeasurementRefOrBuilder getMeasurementRefOrBuilder();
 
+  /**
+   * <pre>
+   * a calc as a value, named by its declaration
+   * </pre>
+   *
+   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * @return Whether the function field is set.
+   */
+  boolean hasFunction();
+  /**
+   * <pre>
+   * a calc as a value, named by its declaration
+   * </pre>
+   *
+   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   * @return The function.
+   */
+  org.openmbee.opensysml.proto.Function getFunction();
+  /**
+   * <pre>
+   * a calc as a value, named by its declaration
+   * </pre>
+   *
+   * <code>.sysml.Function function = 16 [json_name = "function"];</code>
+   */
+  org.openmbee.opensysml.proto.FunctionOrBuilder getFunctionOrBuilder();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

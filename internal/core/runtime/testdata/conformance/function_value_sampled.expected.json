@@ -1,0 +1,6 @@
+{
+  "type": "calc",
+  "evaluate": "test::SquaresOf",
+  "libraries": true,
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.0}, {"type": "Real", "value": 4.0}, {"type": "Real", "value": 9.0}]}
+}

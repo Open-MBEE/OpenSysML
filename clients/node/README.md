@@ -57,6 +57,7 @@ switch (value.kind) {
   case "string":   value.value;
   case "quantity": value.magnitude; value.unit;       // 1500.0 [kg]
   case "measurementRef": value.unit; value.unitTerm; value.unitId;  // a bare unit: km, reduced to 1000·metre
+  case "function": value.calcId; value.selfId;       // a calc as a value: Demo::Sq, or holder.scale read off an object
   case "array":    value.dimensions; value.elements;  // row-major, an element is any SysMLValue
   case "vector":   value.components;                   // { kind: "int" | "real" }[]
   case "vectorQuantity": value.components;             // QuantityValue[], a unit per component
@@ -185,9 +186,11 @@ The client checks the advertised list **before** making such a call so it can
 raise a `MissingCapabilityError` naming the service, its version and the way to
 get one that has it. A direct capability-gated request to a service without the
 capability is refused with `UNIMPLEMENTED`; response-population capabilities
-instead omit the fields they name. A service without `structured_values` or
-`measurement_refs` sends the value kinds those name (`array`, `vector`,
-`vectorQuantity`; `measurementRef`) as `null` with an `unsupported: …` reason.
+instead omit the fields they name. A service without `structured_values`,
+`measurement_refs` or `function_values` sends the value kinds those name (`array`,
+`vector`, `vectorQuantity`; `measurementRef`; `function`) as `null` with an
+`unsupported: …` reason. A function closing over the bindings of a behavior body
+has no wire form and is sent as `null` by every service.
 
 ## Failures are typed
 

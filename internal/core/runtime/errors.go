@@ -51,6 +51,10 @@ var (
 	// not a calc definition or usage.
 	ErrNotACalc = errors.New("not a calc")
 
+	// ErrNotAFunction is returned when a value that is no function is called,
+	// or is bound where a calc-typed feature needs one.
+	ErrNotAFunction = errors.New("not a function")
+
 	// ErrNotAConstraint is returned when a symbol asked to be evaluated as a
 	// constraint declares something else. It is a usage error about the request,
 	// not a verdict about the model, so callers can tell the two apart.
