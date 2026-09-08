@@ -741,25 +741,30 @@ func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, er
 
 // selectCandidates walks outward from every active leaf, asking enabled for the
 // transition that state offers and what selecting it noted, and collects one
-// candidate per leaf.
+// candidate per leaf. A state is asked once per dispatch, however many leaves
+// reach it: which transition it offers is one choice, made once.
 func (e *StateExecutor) selectCandidates(
 	enabled func(*ast.StateNode) (*lower.Transition, []RunNote, error),
 ) ([]dispatchCandidate, error) {
 	var candidates []dispatchCandidate
-	selected := make(map[*lower.Transition]bool)
+	offered := make(map[*ast.StateNode]*lower.Transition)
 	for _, leaf := range e.activeLeaves() {
 		for _, source := range e.getParentChain(leaf) {
+			if trans, asked := offered[source]; asked {
+				if trans != nil {
+					break
+				}
+				continue
+			}
 			trans, notes, err := enabled(source)
 			if err != nil {
 				return nil, fmt.Errorf("state %s: %w", source.Name, err)
 			}
+			offered[source] = trans
 			if trans == nil {
 				continue
 			}
-			if !selected[trans] {
-				selected[trans] = true
-				candidates = append(candidates, dispatchCandidate{leaf: leaf, source: source, trans: trans, notes: notes})
-			}
+			candidates = append(candidates, dispatchCandidate{leaf: leaf, source: source, trans: trans, notes: notes})
 			break
 		}
 	}
@@ -940,8 +945,7 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 // was: the caller binds the trigger's arguments again before firing.
 // Every transition is examined so that several enabled at once are a choice
 // point; the notes are the caller's to record if the transition fires, since a
-// state selected through several leaves, or outranked by a nested one, is not a
-// choice the run made.
+// state outranked by a nested one is not a choice the run made.
 func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, []RunNote, error) {
 	var enabled []int
 	var notes []RunNote

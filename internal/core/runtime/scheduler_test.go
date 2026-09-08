@@ -310,6 +310,81 @@ func TestDrivenRunKeepsItsSchedulerAcrossOtherRuns(t *testing.T) {
 	}
 }
 
+// A composite state reached from every leaf of its orthogonal regions offers one
+// transition per dispatch or change poll: the choice among its enabled
+// transitions draws once, so the run takes the seed's first draw and its next
+// choice takes the second.
+func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
+	const regions = `state busy parallel {
+				state left { entry; then l; state l; }
+				state right { entry; then r; state r; }
+			}
+			state low;
+			state high;
+			state calm;
+			state loud;
+			transition first low accept Next if level > 5 then calm;
+			transition first low accept Next if level > 7 then loud;
+			transition first high accept Next if level > 5 then calm;
+			transition first high accept Next if level > 7 then loud;`
+	cases := []struct {
+		name   string
+		src    string
+		events []string
+	}{
+		{"dispatch", `package test {
+			state Dispatcher {
+				attribute level : Integer = 8;
+				entry; then busy;
+				` + regions + `
+				transition first busy accept Go if level > 5 then low;
+				transition first busy accept Go if level > 7 then high;
+			}
+		}`, []string{"Go", "Next"}},
+		{"change poll", `package test {
+			state Dispatcher {
+				attribute level : Integer = 0;
+				entry; then start;
+				state start;
+				` + regions + `
+				transition first start do assign level := 8 then busy;
+				transition first busy accept when level > 5 then low;
+				transition first busy accept when level > 7 then high;
+			}
+		}`, []string{"Next"}},
+	}
+	for _, tc := range cases {
+		for seed := 0; seed < 16; seed++ {
+			idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, tc.src))
+			sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+			if sym == nil {
+				t.Fatal("state machine not found")
+			}
+			policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
+			ctx.SetSchedule(policy)
+			_, visited, err := ctx.ExecuteStateWithEvents(sym, tc.events)
+			if err != nil {
+				t.Fatalf("%s %s: %v", tc.name, policy, err)
+			}
+			choices := ctx.Choices()
+			if len(choices) != 2 {
+				t.Fatalf("%s %s: choices = %v, want one out of busy and one after it (visited %v)",
+					tc.name, policy, choices, visited)
+			}
+			draws := policy.start()
+			for i, choice := range choices {
+				if choice.Kind != ChoiceTransition {
+					t.Fatalf("%s %s: choice %d is %v, want a transition choice", tc.name, policy, i, choice)
+				}
+				if want := draws.pick(2); choice.Taken != want {
+					t.Errorf("%s %s: choice %d took %d, the seed's draw is %d (%v)",
+						tc.name, policy, i, choice.Taken, want, choice)
+				}
+			}
+		}
+	}
+}
+
 // A guard probe previews the run under the seed's generator and hands it back
 // untouched, so probing does not shift the choices the run goes on to make.
 func TestProbeLeavesTheSeededSequenceInPlace(t *testing.T) {
