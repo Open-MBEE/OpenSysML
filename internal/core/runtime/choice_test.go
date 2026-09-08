@@ -873,6 +873,55 @@ func TestChangeTransitionChoice(t *testing.T) {
 	}
 }
 
+// A change guard read once an earlier transition is enabled is a probe: one that
+// cannot be evaluated is not enabled and not an error, and stays armed.
+func TestLaterChangeGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
+	monitor := func(first, second string) string {
+		return `package test {
+			private import ScalarValues::*;
+			state Monitor {
+				attribute temp : Integer = 0;
+				entry; then start;
+				state start;
+				state watching;
+				state cool;
+				state hot;
+				transition first start do assign temp := 30 then watching;
+				transition first watching accept when temp > 20 if ` + first + ` then cool;
+				transition first watching accept when temp > 25 if ` + second + ` then hot;
+			}
+		}`
+	}
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, monitor("temp > 0", "1 / (temp - 30) > 0")))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Monitor", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine not found")
+	}
+	_, visited, err := ctx.ExecuteStateWithEvents(sym, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Join(visited, ",") != "start,watching,cool" {
+		t.Fatalf("visited %v, want the first enabled change transition to fire", visited)
+	}
+	if got := ctx.Choices(); len(got) != 0 {
+		t.Fatalf("an unevaluable guard was reported as a choice: %v", got)
+	}
+	want := "unevaluable guard state watching on change: transition 2->hot: eval change guard: eval guard of transition watching -> hot: division by zero (not selected)"
+	if got := ctx.UnevaluableGuards(); len(got) != 1 || got[0].String() != want {
+		t.Fatalf("unevaluable guards = %v, want [%s]", got, want)
+	}
+
+	idx, _, ctx = buildRuntime(t, "<test>", parseAndBuild(t, monitor("1 / (temp - 30) > 0", "temp > 0")))
+	sym = findSymbolByName(idx.DocumentRoot("<test>"), "Monitor", ast.DefState)
+	if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("first guard: err = %v, want its evaluation error to fail the run", err)
+	}
+	if got := ctx.Notes(); len(got) != 0 {
+		t.Fatalf("a first guard's failure was noted: %v", got)
+	}
+}
+
 // A composite state's change transition loses to a nested state's on the same rise
 // and parallel regions fire alongside: only a state with two enabled reports.
 func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {

@@ -26,11 +26,12 @@ func (w changeWait) String() string {
 // watches: a transition's condition and guard are evaluated once per poll,
 // however many active leaves the state watching it encloses.
 type changePoll struct {
-	condition map[*lower.Transition]bool
-	guard     map[*lower.Transition]bool
-	blocked   map[*lower.Transition]bool
-	waits     []changeWait
-	waited    map[*lower.Transition]bool
+	condition   map[*lower.Transition]bool
+	guard       map[*lower.Transition]bool
+	blocked     map[*lower.Transition]bool
+	unevaluable map[*lower.Transition]UnevaluableGuard
+	waits       []changeWait
+	waited      map[*lower.Transition]bool
 }
 
 // pollChangeEvents re-tests the ChangeEvent conditions the active configuration
@@ -42,10 +43,11 @@ type changePoll struct {
 // same edge again, and only a condition observed false re-arms it.
 func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	poll := &changePoll{
-		condition: make(map[*lower.Transition]bool),
-		guard:     make(map[*lower.Transition]bool),
-		blocked:   make(map[*lower.Transition]bool),
-		waited:    make(map[*lower.Transition]bool),
+		condition:   make(map[*lower.Transition]bool),
+		guard:       make(map[*lower.Transition]bool),
+		blocked:     make(map[*lower.Transition]bool),
+		unevaluable: make(map[*lower.Transition]UnevaluableGuard),
+		waited:      make(map[*lower.Transition]bool),
 	}
 	e.changeRearmed = make(map[*lower.Transition]bool)
 	defer func() { e.changeRearmed = nil }()
@@ -129,7 +131,9 @@ func (e *StateExecutor) consumeRise(poll *changePoll) {
 func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 	for _, leaf := range e.activeLeaves() {
 		for _, source := range e.getParentChain(leaf) {
-			for _, trans := range e.graph.Transitions[source] {
+			transitions := e.graph.Transitions[source]
+			decided := false
+			for i, trans := range transitions {
 				changeEvent, ok := trans.Trigger.(*ast.ChangeEvent)
 				if !ok {
 					continue
@@ -153,12 +157,14 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 				}
 				// The guard is read once per poll, alongside the condition, so which
 				// transitions this rise enables does not depend on selection order.
-				satisfied, err := e.passesGuard(trans)
-				if err != nil {
+				if decided {
+					poll.guard[trans] = e.probeChangeGuard(poll, source, transitions, i)
+				} else if poll.guard[trans], err = e.passesGuard(trans); err != nil {
 					return fmt.Errorf("state %s: eval change guard: %w", source.Name, err)
 				}
-				poll.guard[trans] = satisfied
-				if !satisfied {
+				if poll.guard[trans] {
+					decided = true
+				} else if _, unevaluable := poll.unevaluable[trans]; !unevaluable {
 					poll.blocked[trans] = true
 					poll.wait(trans, source.Name, "guard is false")
 				}
@@ -166,6 +172,21 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 		}
 	}
 	return nil
+}
+
+// probeChangeGuard reads the guard of the transition at position i out of state
+// once an earlier one is enabled, as a probe the context undoes whole. One that
+// cannot be evaluated is not enabled, consumes nothing and is noted on the poll.
+func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode, transitions []*lower.Transition, i int) bool {
+	var pass bool
+	var err error
+	e.preview(func() { pass, err = e.passesGuard(transitions[i]) })
+	if err != nil {
+		poll.unevaluable[transitions[i]] = e.unevaluableTransition(state, transitions, i, fmt.Errorf("eval change guard: %w", err))
+		poll.wait(transitions[i], state.Name, "guard is not evaluable")
+		return false
+	}
+	return pass
 }
 
 // changeConditionHolds evaluates one change condition in the scope the
@@ -186,6 +207,7 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 // once being a choice point. A blocked one stays armed for the next poll.
 func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *changePoll) (*lower.Transition, []RunNote) {
 	var enabled []int
+	var notes []RunNote
 	transitions := e.graph.Transitions[state]
 	for i, trans := range transitions {
 		if _, ok := trans.Trigger.(*ast.ChangeEvent); !ok {
@@ -194,13 +216,15 @@ func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *change
 		if poll.condition[trans] && !e.changeFired[trans] && poll.guard[trans] {
 			enabled = append(enabled, i)
 		}
+		if unevaluable, ok := poll.unevaluable[trans]; ok {
+			notes = append(notes, unevaluable)
+		}
 	}
 	if len(enabled) == 0 {
 		return nil, nil
 	}
-	var notes []RunNote
 	if choice, ok := e.transitionChoice(state, transitions, enabled); ok {
-		notes = []RunNote{choice}
+		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[enabled[0]], notes
 }
