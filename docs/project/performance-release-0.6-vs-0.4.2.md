@@ -201,6 +201,32 @@ decodes in 9 ms (finding 4). The `robot.sysml` example, which the
 0.5 record found failing to validate on the 0.5 line, validates clean on
 both binaries here.
 
+#### The Apollo 11 model
+
+The public [Apollo 11 SysML v2 model](https://github.com/airbus/apollo-11-sysml-v2)
+(commit `6e9c93f`, 28 files, 7 221 lines) is the real model behind the README's
+figures; see [performance](../internals/performance.md#a-real-model-apollo-11)
+for what its run reports. Medians over eight warm runs:
+
+| what | 0.4.2 | main | main+fix |
+| ---- | ----- | ---- | -------- |
+| parse all 28 files (`core/parser` ParseModel) | — | 8.2 ms, 4.9 MiB, 31 483 allocations | 8.2 ms, 4.9 MiB, 31 483 allocations |
+| `sysml -validate` all 28 files | 11.6 s, exit 2 | 0.45 s / 222 MiB allocated in 1.57 M allocations | 0.43 s / 196 MiB allocated in 1.39 M allocations |
+| what the run reports | 33 warnings and 16 syntax errors | 37 warnings, no error | 37 warnings, no error |
+
+0.4.2 does not get through this model: its parser did not yet accept the
+`->select { … }->collect { … }->sum()` collection chains in
+`Analysis/CalculationsPackage.sysml`, so the run reports 16 syntax errors and
+the higher validation tiers never run, and even that takes 27× longer — 43% of its CPU in
+`Resolver.matchImport`, the lookups made through the model's wildcard imports
+of the quantity libraries (`import ISQ::*`, `import SI::*`) that are now
+answered by name, and 8% computing did-you-mean suggestions for the names
+those failures left unresolved. The parser has not changed between `main`
+and the fix. The fix in finding 1 takes 11% of the allocations
+off the load and the wall time within noise; the 0.43 s here supersedes
+the 0.37 s recorded when the model's three calculation-arity findings were
+still errors, which stopped the run before the higher validation tiers.
+
 ## Findings
 
 Ordered by size. Each names the cause, the responsible change, the measured
