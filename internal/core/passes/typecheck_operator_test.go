@@ -104,7 +104,7 @@ const castFixture = `package P {
 	classifier Box { feature base : A; feature str : String; }
 	feature box : Box;
 	classifier Box2 :> Box { feature :>> base; %s }
-	function F { return r : A; }
+	function F { return r : A; } function Nothing { in x : A; return r : String[0]; } feature nothing : String[0];
 	classifier Q; classifier R :> Q; classifier CQ ~ Q; feature cq : CQ;
 	feature xs : A[*];
 	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype NI intersects I, B; datatype Diff differences A, C; feature u : U; feature dd : Diff;
@@ -149,6 +149,25 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 	castDiags(t, "", `feature two = (a as C) as String;`,
 		"16:16 cast argument is typed by C, unrelated to the target String",
 		"16:17 cast argument is typed by A, unrelated to the target C")
+}
+
+// A collection body's result types the cast argument element by element: a body
+// mapping to a String selects no C; one mapping each element to a Boolean and an
+// Integer selects no String, while it does select the Integers; an element the
+// body leaves untyped may be anything, so nothing is known.
+func TestCastConformanceCollectionBody(t *testing.T) {
+	castDiags(t, "", `feature bad = xs.{in x : A; s} as C;`, "16:16 cast argument is typed by String, unrelated to the target C")
+	castDiags(t, "", `feature bad = xs.{in x : A; (true, 1)} as String;`, "16:16 cast argument is typed by Boolean and Integer, unrelated to the target String")
+	castDiags(t, "", `feature bad = xs.{in x : A; (x, 1)} as String;`, "16:16 cast argument is typed by A and Integer, unrelated to the target String")
+	castDiags(t, "", `feature bad = xs->ControlFunctions::collect {in x : A; (true, 1)} as String;`, "16:16 cast argument is typed by Boolean and Integer, unrelated to the target String")
+	castDiags(t, "", `feature some = xs.{in x : A; (true, 1)} as Integer; feature other = xs.{in x : A; (x, 1)} as B;`)
+	castDiags(t, "", `feature open = xs.{in x; (x, 1)} as String; feature open2 = xs.{in x; (untyped, 1)} as String;`)
+	castDiags(t, "", `feature kept = xs->ControlFunctions::select {in x : A; true} as B;`)
+	castDiags(t, "", `feature kept = xs.?{in x : A; true} as B;`)
+	castDiags(t, "", `feature bad = xs.?{in x : A; true} as String;`, "16:16 cast argument is typed by A, unrelated to the target String")
+	castDiags(t, "", `feature none = ()->ControlFunctions::reduce {in x : A; in y : A; s} as C;`)
+	castDiags(t, "", `feature none = xs.{in x : A; nothing} as C; feature none2 = xs->ControlFunctions::collect Nothing as C;`)
+	castDiags(t, "", `feature none = (().{in x : A; x}).{in y : A; s} as C; feature none2 = (xs.{in x : A; nothing}).?{in y : String; true} as C;`)
 }
 
 // A cast up, down, or sideways through one of several types conforms; so does

@@ -1,10 +1,12 @@
 package passes
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -39,6 +41,14 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			// either direction suffices; only unrelated types are rejected. The
 			// feature is judged as a whole: a variant is typed by its variation too.
 			if !ec.boundTypesConform(feature, gots, wants) {
+				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
+			}
+			continue
+		}
+		if elements, collection := ec.model.CollectionElements(valueScope, value); collection {
+			// Every element a collection value may hold binds, not the Anything the
+			// library declares; a scalar one written out is the lattice rules' to report.
+			if gots := ec.unboundElementTypes(elements, wants, scalar); len(gots) > 0 {
 				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
 			}
 			continue
@@ -88,8 +98,8 @@ func literalPrimType(value ast.Node) semantics.PrimType {
 
 // checkValueCount checks a bound value's element count against the multiplicity
 // governing the feature.
-func (ec *exprChecker) checkValueCount(declScope *symbols.Scope, d featureDecl, value ast.Node) {
-	count, known := exactCount(value)
+func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
+	held, known := ec.heldCount(valueScope, value)
 	if !known {
 		return
 	}
@@ -97,7 +107,7 @@ func (ec *exprChecker) checkValueCount(declScope *symbols.Scope, d featureDecl, 
 	if !ok {
 		return
 	}
-	if msg := r.CountViolation(count); msg != "" {
+	if msg := r.HeldViolation(held); msg != "" {
 		ec.errorf(value.Span(), "%s", msg)
 	}
 }
@@ -135,35 +145,32 @@ func (ec *exprChecker) effectiveRange(scope *symbols.Scope, d featureDecl, depth
 	return semantics.Range{}, false
 }
 
-// exactCount returns how many values a bound expression produces, and whether
-// that is statically known. A literal contributes one value and a collection
-// literal the values of its elements; anything else (a feature reference, an
-// invocation) may itself be multi-valued, so its count is unknown — as is that
-// of a collection holding one.
-func exactCount(value ast.Node) (int64, bool) {
+// heldCount is how many values a bound expression produces, where statically bounded: one per
+// literal, the sum over a collection literal, what a collection operation holds; else unknown.
+func (ec *exprChecker) heldCount(scope *symbols.Scope, value ast.Node) (semantics.Range, bool) {
 	if value == nil {
-		return 0, false
+		return semantics.Range{}, false
 	}
 	if _, ok := value.(*ast.NullExpr); ok {
-		return 0, true
+		return semantics.CountRange(0), true
 	}
 	// Binding flattens a collection into the values its elements produce, so a
 	// nested literal contributes its own elements rather than one value.
 	if seq, ok := value.(*ast.SequenceExpr); ok {
-		var total int64
+		total := semantics.CountRange(0)
 		for _, element := range seq.Elements {
-			n, ok := exactCount(element)
+			held, ok := ec.heldCount(scope, element)
 			if !ok {
-				return 0, false
+				return semantics.Range{}, false
 			}
-			total += n
+			total = total.Plus(held)
 		}
 		return total, true
 	}
 	if literalPrimType(value) != semantics.PrimUnknown {
-		return 1, true
+		return semantics.CountRange(1), true
 	}
-	return 0, false
+	return ec.model.CollectionValues(scope, value)
 }
 
 // valueElements returns the values a bound expression contributes: the elements
@@ -183,6 +190,46 @@ func valueElements(value ast.Node) []ast.Node {
 		return elements
 	}
 	return []ast.Node{value}
+}
+
+// argumentElements is the values an argument binds: those written — the argument, or the elements
+// of a collection literal — and, apart, each element a collection value among them holds.
+func (ec *exprChecker) argumentElements(scope *symbols.Scope, value ast.Node) (written []ast.Node, held []semantics.CollectionElement) {
+	for _, element := range valueElements(value) {
+		if elements, collection := ec.model.CollectionElements(scope, element); collection {
+			held = append(held, elements...)
+			continue
+		}
+		written = append(written, element)
+	}
+	return written, held
+}
+
+// heldSpan is where a held element is written, or the argument when a result parameter produces it.
+func heldSpan(el semantics.CollectionElement, argument ast.Node) source.Span {
+	if el.Node != nil {
+		return el.Node.Span()
+	}
+	return argument.Span()
+}
+
+// heldPrim is the scalar type of a held element, read silently — the collection value has been
+// typed and reported once already; a result parameter's by its type.
+func (ec *exprChecker) heldPrim(el semantics.CollectionElement) semantics.PrimType {
+	if el.Node != nil {
+		return ec.silent().infer(el.Scope, el.Node)
+	}
+	for _, t := range el.Types {
+		if prim := ec.model.PrimTypeOf(t); prim != semantics.PrimUnknown {
+			return prim
+		}
+	}
+	return semantics.PrimUnknown
+}
+
+// silent is a checker typing as ec does, under the same chains and performances, reporting nothing.
+func (ec *exprChecker) silent() *exprChecker {
+	return &exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining, performed: ec.performed}
 }
 
 // declaredTypeSymbol returns the symbol a usage is typed by, or nil.
@@ -232,6 +279,28 @@ func (ec *exprChecker) boundTypesConform(feature *symbols.Symbol, gots, wants []
 		}
 	}
 	return false
+}
+
+// unboundElementTypes is the types of those elements of a collection value none of whose
+// types binds to a feature typed by wants; an untyped element binds, and a scalar expression
+// bound to a scalar feature is left to the lattice rules.
+func (ec *exprChecker) unboundElementTypes(elements []semantics.CollectionElement, wants []*symbols.Symbol, scalar bool) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, element := range elements {
+		gots := element.Types
+		if len(gots) == 0 || ec.boundTypesConform(nil, gots, wants) {
+			continue
+		}
+		if scalar && element.Node != nil && ec.anyScalar(gots) {
+			continue
+		}
+		for _, got := range gots {
+			if !slices.Contains(out, got) {
+				out = append(out, got)
+			}
+		}
+	}
+	return out
 }
 
 // typeNames joins the names of types as a declaration lists them.
@@ -310,8 +379,16 @@ func (ec *exprChecker) featureValueTypes(sym *symbols.Symbol) []*symbols.Symbol 
 }
 
 // invocationResultTypeSymbol returns the type of the result parameter of the
-// behavior an invocation names, which is the type of the value it produces.
+// behavior an invocation names, which is the type of the value it produces; for
+// a collection value (`xs.{…}`, a collection function call) the one type the elements it holds
+// have — none when it holds nothing.
 func (ec *exprChecker) invocationResultTypeSymbol(scope *symbols.Scope, value ast.Node) *symbols.Symbol {
+	if types, collection := ec.model.CollectionHeldTypes(scope, value); collection {
+		if len(types) == 1 {
+			return types[0]
+		}
+		return nil
+	}
 	result := ec.invocationResultParameter(scope, value)
 	if result == nil {
 		return nil
@@ -334,7 +411,10 @@ func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast
 	if chain := ChainCallee(inv); chain != nil {
 		sym, _ = ec.resolver.ResolveTarget(scope, chain)
 	} else if inv.Type != nil {
-		sym = SelectInvocation(ec.resolver, ec.model, scope, inv, ec.performs(inv)).Selected
+		// The arguments type silently, but under the chains being typed: one whose
+		// body reads the feature being valued would otherwise type it again.
+		silent := ec.silent()
+		sym = silent.selectInvocation(scope, inv, silent.argumentTypes(scope, inv), ec.performs(inv)).Selected
 	}
 	if sym == nil || !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {
 		return nil

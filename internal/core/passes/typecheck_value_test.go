@@ -1,6 +1,9 @@
 package passes
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // enumPrelude declares types outside the scalar lattice: an enumeration, a
 // structural hierarchy, and an unrelated definition.
@@ -289,4 +292,402 @@ func TestValueIndexedCollectionElementIsUnknown(t *testing.T) {
 		part bs : M::Boat[2];
 		part v : M::Vehicle = bs#(1);
 	}`, "cannot bind a value of type Boat to a feature typed by Vehicle")
+}
+
+// collectionValueDiags is the name-resolution and type diagnostics of a model of vehicles and
+// boats whose collection values, in members, are judged element by element against the library.
+func collectionValueDiags(t *testing.T, members string) []string {
+	t.Helper()
+	diags := libraryDiags(t, `package P {
+		private import ScalarValues::*;
+		private import ControlFunctions::*;
+		part def Vehicle; part def Truck :> Vehicle; part def Car :> Vehicle; part def Boat;
+		part vs : Vehicle[*];
+		part truck : Truck;
+		part car : Car;
+		part one : Vehicle[1];
+		part two : Vehicle[2..*];
+		part none : Vehicle[0];
+		part boat : Boat;
+		function Boats { in v : Vehicle; return r : Boat; }
+		function Sail { in b : Boat; return r : Boat; }
+		function Drive { in v : Vehicle; return r : Vehicle; }
+		function Half { in v : Vehicle; return r : Real; }
+		function Name { in v : Vehicle; return r : String; }
+		function Nobody { in v : Vehicle; return r : Vehicle[0]; }
+		function Nobody2 :> Nobody { in v : Vehicle; return r :>> r; }
+		function Nobody3 :> Nobody { in v : Vehicle; return r : Vehicle; }
+		alias noone for none;
+		attribute nothing : Integer[0];
+		part def Pair { part items : Vehicle[2]; part item : Vehicle[1]; }
+		part def Pairs :> Pair { part :>> items; part :>> item; }
+		part pair : Pairs[1];
+		part couple : Pairs[2];
+		part nobody : Pairs[0];
+		`+members+`
+	}`)
+	var got []string
+	for _, d := range diags {
+		got = append(got, d.Message)
+	}
+	return got
+}
+
+func wantCollectionValueDiags(t *testing.T, members string, want ...string) {
+	t.Helper()
+	if got := collectionValueDiags(t, members); !slices.Equal(got, want) {
+		t.Errorf("%s:\n got %q\nwant %q", members, got, want)
+	}
+}
+
+// A collection value binds by the elements it maps to or keeps, not by the Anything the
+// library declares its result: collect and `xs.{…}` by the body's result, select and
+// selectOne by the collection's elements, a sequence-valued body element by element.
+func TestValueCollectionResultIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->collect { in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->collect Drive;`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->select { in v : Vehicle; true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->selectOne { in v : Vehicle; true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs.?{ in v : Vehicle; true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; true };`,
+		"cannot bind Boolean value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (true, 1) };`,
+		"cannot bind Boolean value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect Name;`,
+		"cannot bind a value of type String to a feature typed by Integer")
+	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; (v, boat) };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `
+		part t : Truck = vs->collect { in v : Vehicle; v };
+		part v : Vehicle = vs->select { in v : Vehicle; true };
+		part v2 : Vehicle = vs.?{ in v : Vehicle; true };
+		part b : Boat = vs->collect { in v : Vehicle; boat };
+		part b2 : Boat = vs->collect Boats;
+		attribute i : Integer = vs->collect { in v : Vehicle; (1, 2) };
+		attribute b3 : Boolean = vs->forAll { in v : Vehicle; true };
+		part open : Boat = vs.{ in v; v };
+		part open2 : Boat = vs.{ in v; (v, boat) };`)
+}
+
+// A scalar element a collection value spells out is exact, as a literal bound directly is:
+// a decimal does not bind to an Integer feature because Integer values are Real. An
+// element a feature or function result types only bounds its values, so it binds either way.
+func TestValueCollectionElementLiteralIsExact(t *testing.T) {
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; 1.5 };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; 1.5 };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (1, 2.5) };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute n : Natural = vs.{ in v : Vehicle; -1 };`,
+		"cannot bind Integer value to a feature typed by Natural")
+	wantCollectionValueDiags(t, `attribute i : Integer = (1, 2)->reduce { in a : Integer; in b : Integer; 1.5 };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = (1.5, 2.5)->select { in a : Real; true };`,
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = (1.5, 2.5).?{ in a : Real; true };`,
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `
+		attribute r : Real;
+		attribute i : Integer = vs.{ in v : Vehicle; r };
+		attribute i2 : Integer = vs->collect { in v : Vehicle; r / 2 };
+		attribute i3 : Integer = vs->collect Half;
+		attribute i4 : Integer = vs.{ in v : Vehicle; 2 };
+		attribute r2 : Real = vs.{ in v : Vehicle; 2 };
+		attribute i5 : Integer = (1, 2)->select { in a : Integer; true };
+		attribute i6 : Integer = (1, 2).?{ in a : Integer; true };`)
+}
+
+// An element that is itself a collection value binds by the elements it holds: a scalar
+// literal nested in an inner collect, or kept by a selection, is judged as if written out.
+func TestValueNestedCollectionElementsAreJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; vs.{ in w : Vehicle; 1.5 } };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; vs->collect { in w : Vehicle; 1.5 } };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->select { in v : Vehicle; true }.{ in w : Vehicle; (1, 2.5) };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = (vs.{ in v : Vehicle; 1.5 }).?{ in r : Real; true };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = (vs.{ in v : Vehicle; 1.5 })->select { in r : Real; true };`,
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; vs->select { in w : Vehicle; true } };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `
+		attribute i : Integer = vs.{ in v : Vehicle; vs.{ in w : Vehicle; 2 } };
+		attribute r : Real = vs.{ in v : Vehicle; vs.{ in w : Vehicle; 1.5 } };
+		attribute i2 : Integer = vs.{ in v : Vehicle; ().{ in w : Integer; 1.5 } };`)
+}
+
+// A feature valued by `xs.?{…}` over a sequence written out takes the type its elements share,
+// as one valued by `xs->select {…}` does, so a result, a subject or a cast it is bound to is
+// judged by that type rather than by the Anything the sequence is.
+func TestValueSelectShorthandOfSequenceTypesFeature(t *testing.T) {
+	for _, keep := range []string{`.?{ in v : Vehicle; true }`, `->select { in v : Vehicle; true }`} {
+		wantCollectionValueDiags(t, `function F { return r : Boat; (one, one)`+keep+` }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part picked = (one, one)`+keep+`;
+			function F { return r : Boat; picked }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part picked = (one, one)`+keep+`;
+			requirement def R { subject s : Boat; }
+			requirement r : R { subject s = picked; }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part picked = (one, one)`+keep+`;
+			function F { return r : Vehicle; picked }
+			requirement def R { subject s : Vehicle; }
+			requirement r : R { subject s = picked; }`)
+	}
+	wantCollectionValueDiags(t, `
+		attribute picked = (1, 2).?{ in v : Integer; true };
+		part b = picked as Boat;`,
+		"cast argument is typed by Integer, unrelated to the target Boat: neither type specializes the other, so the cast selects no value")
+	wantCollectionValueDiags(t, `
+		part any = (one, boat).?{ in v; true };
+		function F { return r : Boat; any }`)
+}
+
+// Sibling elements kept or mapped to share their nearest supertype: a feature valued by a
+// selection of a Truck and a Car is a Vehicle, so it is judged as one where it is bound or cast.
+func TestValueSiblingElementsShareSupertype(t *testing.T) {
+	for _, keep := range []string{`.?{ in v : Vehicle; true }`, `->select { in v : Vehicle; true }`} {
+		wantCollectionValueDiags(t, `
+			part kin = (truck, car)`+keep+`;
+			function F { return r : Boat; kin }`,
+			"Bound features should have conforming types")
+		wantCollectionValueDiags(t, `
+			part kin = (truck, car)`+keep+`;
+			part b = kin as Boat;`,
+			"cast argument is typed by Vehicle, unrelated to the target Boat: neither type specializes the other, so the cast selects no value")
+		wantCollectionValueDiags(t, `
+			part kin = (truck, car)`+keep+`;
+			function F { return r : Vehicle; kin }
+			part t = kin as Truck;`)
+	}
+	wantCollectionValueDiags(t, `
+		part kin = vs.{ in v : Vehicle; (truck, car) };
+		function F { return r : Boat; kin }`,
+		"Bound features should have conforming types")
+}
+
+// A collection value's body is checked once, as inferring the value: reading the types of
+// the elements it produces to judge their binding reports nothing again.
+func TestValueCollectionBodyIsCheckedOnce(t *testing.T) {
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; 1 + true };`,
+		"operator '+' is not defined for Natural and Boolean")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; 1 + true };`,
+		"operator '+' is not defined for Natural and Boolean")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (1 + true, 2.5) };`,
+		"operator '+' is not defined for Natural and Boolean",
+		"cannot bind Rational value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = one->reduce { in a : Vehicle; in b : Vehicle; 1 + true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Integer",
+		"operator '+' is not defined for Natural and Boolean")
+}
+
+// reduce returns the reducer's result, or the collection's one element unreduced:
+// both bind unless the collection is known to hold two or more.
+func TestValueReduceResultIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b : Boat = vs->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = one->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Boat to a feature typed by Vehicle")
+	wantCollectionValueDiags(t, `attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; 3 };`,
+		"cannot bind Natural value to a feature typed by String")
+	wantCollectionValueDiags(t, `part b : Boat = pair.item->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `
+		part b : Boat = two->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part b2 : Boat = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part b3 : Boat = couple.item->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; a };
+		attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };
+		attribute s2 : String = (one, boat)->reduce { in a : Vehicle; in b : Vehicle; "s" };
+		attribute i : Integer = (two->collect Name)->reduce { in a : String; in b : String; 3 };`)
+}
+
+// A collection value binds as many values as it is known to hold: none over a collection
+// holding none, one per element a collect maps over a known count, from a reduce the one element
+// unreduced or as many as the reducer yields over two or more; one only bounded is reported where
+// even its fewest or its most cannot fit, else left to evaluation.
+func TestValueCollectionCountIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b : Boat[1] = none.{ in v : Vehicle; boat };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1..2] = ()->collect { in v : Vehicle; boat };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[2] = none->select { in v : Vehicle; true };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 2")
+	wantCollectionValueDiags(t, `part b : Boat[1] = ()->reduce { in a : Boat; in b : Boat; a };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1] = pair.items.{ in v : Vehicle; boat };`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[0..1] = pair.items->collect { in v : Vehicle; (boat, boat) };`,
+		"4 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `attribute s : String[3] = ("a", one.{ in v : Vehicle; "b" });`,
+		"2 value(s) bound to a feature with multiplicity lower bound 3")
+	wantCollectionValueDiags(t, `part b : Boat[3] = pair.items->collect Boats;`,
+		"2 value(s) bound to a feature with multiplicity lower bound 3")
+	wantCollectionValueDiags(t, `
+		part huge : Vehicle[9223372036854775807];
+		attribute s : String[9223372036854775807] = (huge.{ in v : Vehicle; "a" }, "b");`,
+		"more than 9223372036854775807 value(s) bound to a feature with multiplicity upper bound 9223372036854775807")
+	wantCollectionValueDiags(t, `part b : Boat[1] = two.{ in v : Vehicle; boat };`,
+		"at least 2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part v : Vehicle[3] = one->select { in v : Vehicle; true };`,
+		"at most 1 value(s) bound to a feature with multiplicity lower bound 3")
+	wantCollectionValueDiags(t, `part v : Vehicle[2] = pair.items->selectOne { in v : Vehicle; true };`,
+		"at most 1 value(s) bound to a feature with multiplicity lower bound 2")
+	wantCollectionValueDiags(t, `part b : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; (boat, boat) };`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; () };`,
+		"0 value(s) bound to a feature with multiplicity lower bound 1")
+	wantCollectionValueDiags(t, `part b : Boat[1] = two->reduce { in a : Vehicle; in b : Vehicle; (boat, boat) };`,
+		"2 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `part v : Vehicle[3] = vs->reduce { in a : Vehicle; in b : Vehicle; (a, b) };`,
+		"at most 2 value(s) bound to a feature with multiplicity lower bound 3")
+	wantCollectionValueDiags(t, `
+		part b : Boat[2] = pair.items.{ in v : Vehicle; boat };
+		part b2 : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part b5 : Boat[2] = pair.items->reduce { in a : Vehicle; in b : Vehicle; (boat, boat) };
+		part b6 : Boat[0..1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; () };
+		part v3 : Vehicle[1..2] = vs->reduce { in a : Vehicle; in b : Vehicle; (a, b) };
+		part v4 : Vehicle[1] = one->reduce { in a : Vehicle; in b : Vehicle; (a, b) };
+		part v5 : Vehicle[0..1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; a };
+		part v : Vehicle[0..1] = pair.items->selectOne { in v : Vehicle; true };
+		part b3 : Boat[1] = vs.{ in v : Vehicle; boat };
+		part v2 : Vehicle[0..2] = pair.items->select { in v : Vehicle; true };
+		part b4 : Boat[2] = pair.items->collect Boats;`)
+}
+
+// A collection operation over a collection known to hold nothing returns nothing, and never
+// applies the reducer or body: no element is bound, though the value is still typed by them.
+func TestValueReduceOfNothingIsJudgedByNeither(t *testing.T) {
+	wantCollectionValueDiags(t, `
+		attribute s : String = ()->reduce { in a : Integer; in b : Integer; 3 };
+		attribute s2 : String = none->reduce { in a : Vehicle; in b : Vehicle; 3 };
+		part b : Boat = none->reduce { in a : Vehicle; in b : Vehicle; a };
+		part b2 : Boat = nobody.item->reduce { in a : Vehicle; in b : Vehicle; a };
+		attribute s3 : String = ()->collect { in a : Integer; 3 };
+		attribute s4 : String = none.{ in a : Vehicle; 3 };
+		part b3 = Sail(none->reduce { in a : Vehicle; in b : Vehicle; a });`)
+}
+
+// A body mapping every element to nothing — a `[0]` feature or function result — holds nothing
+// either, as does any operation over such a collection: no element is judged.
+func TestValueMappingToNothingIsJudgedByNeither(t *testing.T) {
+	wantCollectionValueDiags(t, `
+		attribute s : String = vs.{ in v : Vehicle; nothing };
+		attribute s2 : String = vs->collect { in v : Vehicle; (nothing, nothing) };
+		part b : Boat = vs->collect Nobody;
+		part b2 : Boat = vs.{ in v : Vehicle; Nobody(v) };
+		attribute s3 : String = (vs.{ in v : Vehicle; nothing }).{ in n : Integer; 3 };
+		attribute s4 : String = (().{ in a : Integer; a }).{ in b : Integer; 3 };
+		part b3 : Boat = (none->select { in v : Vehicle; true })->reduce { in a : Vehicle; in b : Vehicle; a };
+		part b4 : Boat = (vs->collect Nobody).?{ in v : Vehicle; true };
+		part b5 : Boat = (vs->selectOne { in v : Vehicle; true }).{ in v : Vehicle; Nobody(v) }->collect { in v : Vehicle; v };
+		part b6 = Sail(vs.{ in v : Vehicle; Nobody(v) });
+		part b7 = Sail((vs->collect Nobody)->select { in v : Vehicle; true });
+		part b8 : Boat = vs->collect Nobody2;
+		part b11 : Boat = vs->collect Nobody3;
+		part b9 : Boat = noone.{ in v : Vehicle; v };
+		part b10 : Boat = noone->reduce { in a : Vehicle; in b : Vehicle; a };`)
+	wantCollectionValueDiags(t, `attribute s : String = vs.{ in v : Vehicle; (nothing, 3) };`,
+		"cannot bind Natural value to a feature typed by String")
+	wantCollectionValueDiags(t, `part b : Boat = (vs.{ in v : Vehicle; v }).{ in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+}
+
+// A collection value passed as an argument is typed by its elements, so the parameter
+// it binds is judged and the overload selected by them.
+func TestArgumentCollectionResultIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b = Sail(vs->collect { in v : Vehicle; v });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs->select { in v : Vehicle; true });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs->selectOne { in v : Vehicle; true });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs.{ in v : Vehicle; v });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs.?{ in v : Vehicle; true });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part v = Drive(two->reduce { in a : Vehicle; in b : Vehicle; boat });`,
+		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `part v = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; boat });`,
+		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `part b = Sail(one->reduce { in a : Vehicle; in b : Vehicle; boat });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `
+		part b = Sail(vs->collect { in v : Vehicle; boat });
+		part v = Drive(vs->select { in v : Vehicle; true });
+		part v4 = Drive(vs.?{ in v : Vehicle; true });
+		part v2 = Drive(two->reduce { in a : Vehicle; in b : Vehicle; one });
+		part v3 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; a });
+		part v5 = Drive(one->reduce { in a : Vehicle; in b : Vehicle; boat });
+		part v6 = Drive((none, one)->reduce { in a : Vehicle; in b : Vehicle; boat });`)
+}
+
+// Each element a collection value holds is judged on its own, so a collection whose elements
+// share no type does not pass unjudged, and a literal an element spells binds exactly.
+func TestArgumentCollectionElementsAreJudgedSeverally(t *testing.T) {
+	wantCollectionValueDiags(t, `part b = Sail(vs.{ in v : Vehicle; (v, boat) });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail((boat, vs.{ in v : Vehicle; v }));`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part v = Drive(vs->collect { in v : Vehicle; (boat, v) });`,
+		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `
+		function Count { in n : Integer; return r : Integer; }
+		part n = Count(vs.{ in v : Vehicle; 1.5 });`,
+		"argument 1 of Count expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		function Count { in n : Integer; return r : Integer; }
+		part n = Count(n = vs->collect { in v : Vehicle; (1, 1.5) });`,
+		"argument n of Count expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		function Count { in n : Integer; return r : Integer; }
+		attribute h : Real;
+		part n = Count(vs.{ in v : Vehicle; 1 });
+		part n2 = Count(vs.{ in v : Vehicle; h });
+		part b = Sail((boat, vs.{ in v : Vehicle; boat }));`)
+}
+
+// A constructor argument binds each element a collection value holds to the feature: a mixed
+// collection is refused by the element that does not conform, a collected literal by its exact type.
+func TestConstructorCollectionElementsAreJudgedSeverally(t *testing.T) {
+	wantCollectionValueDiags(t, `
+		part def Fleet { part b : Boat; }
+		part f = new Fleet(vs.{ in v : Vehicle; (v, boat) });`,
+		"b of Fleet is typed by Boat; cannot bind a value of type Vehicle")
+	wantCollectionValueDiags(t, `
+		part def Fleet { part b : Boat; }
+		part f = new Fleet(b = (boat, vs.{ in v : Vehicle; v }));`,
+		"b of Fleet is typed by Boat; cannot bind a value of type Vehicle")
+	wantCollectionValueDiags(t, `
+		part def Fleet { attribute n : Integer; }
+		part f = new Fleet(vs.{ in v : Vehicle; 1.5 });`,
+		"n of Fleet expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		part def Fleet { attribute n : Integer; }
+		part f = new Fleet(n = vs->collect { in v : Vehicle; (1, 1.5) });`,
+		"n of Fleet expects Integer, found Rational")
+	wantCollectionValueDiags(t, `
+		part def Fleet { part b : Boat; attribute n : Integer; }
+		attribute h : Real;
+		part f = new Fleet(vs.{ in v : Vehicle; boat }, vs.{ in v : Vehicle; 1 });
+		part f2 = new Fleet(n = vs.{ in v : Vehicle; h });
+		part f3 = new Fleet((boat, vs.{ in v : Vehicle; boat }));`)
 }
