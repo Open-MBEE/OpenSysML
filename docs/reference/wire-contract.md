@@ -481,7 +481,7 @@ $ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::scaler"}'
   has ended and cannot be reconstructed remotely. It is sent as the unsupported null
   `{"null":"unsupported: function <calcId> closing over a body's bindings"}`, under the `null`
   arm's rule.
-- The arm is gated by the `function_values` capability (see [`GetServerInfo`](#getserverinfo)).
+- The arm is gated by the `function_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
   A service without it sends every function, at any depth, as
   `{"null":"unsupported: function <calcId>"}` and refuses a request that carries one.
 
