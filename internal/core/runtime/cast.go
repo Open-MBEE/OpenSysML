@@ -96,7 +96,40 @@ func (ec *EvalContext) castTypes(value Value) ([]*symbols.Symbol, error) {
 		}
 		return []*symbols.Symbol{quantity}, nil
 	}
-	return ec.ctx.directValueTypes(ec.scope, value)
+	types, err := ec.ctx.directValueTypes(ec.scope, value)
+	if err != nil {
+		if scalar := ec.scalarLibraryType(value); scalar != nil {
+			return []*symbols.Symbol{scalar}, nil
+		}
+		return nil, err
+	}
+	return types, nil
+}
+
+// scalarLibraryType is the ScalarValues type a literal value is of, for a scope
+// that does not import the library under the name the value's type is written by.
+func (ec *EvalContext) scalarLibraryType(value Value) *symbols.Symbol {
+	var prim semantics.PrimType
+	switch value.Kind {
+	case ValString:
+		prim = semantics.PrimString
+	case ValComplex:
+		prim = semantics.PrimComplex
+	case ValConst:
+		switch value.Const.Kind {
+		case semantics.ValInt:
+			prim = semantics.PrimInteger
+		case semantics.ValReal:
+			prim = semantics.PrimReal
+		case semantics.ValBool:
+			prim = semantics.PrimBoolean
+		default:
+			return nil
+		}
+	default:
+		return nil
+	}
+	return ec.ctx.model.ScalarSymbol(prim)
 }
 
 // castNarrowerKeeps decides a target narrower than every type the value is of,
