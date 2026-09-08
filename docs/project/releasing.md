@@ -454,7 +454,8 @@ API. Without either variable the script fails immediately with
 ## The SonarCloud scan
 
 Not a release step — the `scan` job runs in the `build-test` workflow on every
-commit, after `build-and-test`, `python-test`, `java-test` and `node-test` —
+commit, after the four Go jobs (`go-static`, `go-race-test`, `go-coverage` and
+`go-gates`), `python-test`, `java-test` and `node-test` —
 but it is documented here with the other CircleCI credential plumbing.
 
 It waits on the three client jobs because each writes a coverage report the
@@ -466,7 +467,7 @@ The job references the organization context named exactly `SonarCloud`, which
 supplies `SONAR_TOKEN` (the same context `Open-MBEE/flexo-mms-layer1-service`
 uses, so no new credential is provisioned). It reads
 `sonar-project.properties` at the repository root and four coverage reports
-persisted to the workspace — `coverage.txt` from `build-and-test`,
+persisted to the workspace — `coverage.txt` from `go-coverage`,
 `coverage-python.xml` from `python-test`, `coverage-node.lcov` from
 `node-test`, and JaCoCo's `jacoco.xml` per Java module — and it un-shallows the
 clone because SonarCloud needs full history for blame and new-code detection.
