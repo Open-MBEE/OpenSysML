@@ -123,22 +123,23 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	return out
 }
 
-// MetadataBinding is one feature an annotation body binds and the expression it
-// is bound to, read in the scope the annotation is stated in.
+// MetadataBinding is one feature an annotation body binds: the value it is bound
+// to, if any, and the bindings its own body nests under it.
 type MetadataBinding struct {
 	Feature string
 	Value   ast.Node
+	// Scope is where the value resolves names: the body's own scope, which sees
+	// the metadata type's members before those around the annotated element.
+	Scope  *symbols.Scope
+	Nested []MetadataBinding
 }
 
 // ElementMetadata is one metadata annotation of an element as `.metadata` reads
 // it: the metadata type to materialize and the values its body binds. Values
 // the body leaves unbound come from the type's own declarations.
 type ElementMetadata struct {
-	Type *symbols.Symbol
-	Node ast.Node
-	// Scope is where the annotating node is declared, which its bound values
-	// resolve names against.
-	Scope    *symbols.Scope
+	Type     *symbols.Symbol
+	Node     ast.Node
 	About    bool
 	Bindings []MetadataBinding
 }
@@ -155,9 +156,8 @@ func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 		out = append(out, ElementMetadata{
 			Type:     a.typ,
 			Node:     a.node,
-			Scope:    a.scope,
 			About:    a.about,
-			Bindings: metadataBindings(metadataBody(a.node)),
+			Bindings: metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)),
 		})
 	}
 	return out
@@ -175,22 +175,29 @@ func metadataBody(node ast.Node) []ast.Node {
 	}
 }
 
-// metadataBindings is the features an annotation body binds, in declaration order.
-func metadataBindings(body []ast.Node) []MetadataBinding {
+// metadataBindings is the features an annotation body binds, in declaration
+// order, each with the bindings its own body states under it.
+func metadataBindings(scope *symbols.Scope, body []ast.Node) []MetadataBinding {
 	var out []MetadataBinding
 	for _, member := range body {
-		if mem, ok := member.(*ast.Membership); ok {
-			member = mem.Member
-		}
-		usage, ok := member.(*ast.Usage)
-		if !ok || usage.Value == nil {
+		usage := metadataBodyFeature(member)
+		if usage == nil {
 			continue
 		}
 		name := boundFeatureName(usage)
 		if name == "" {
 			continue
 		}
-		out = append(out, MetadataBinding{Feature: name, Value: usage.Value})
+		nested := metadataBindings(valueScope(scope, usage), usage.Members)
+		if usage.Value == nil && len(nested) == 0 {
+			continue
+		}
+		out = append(out, MetadataBinding{
+			Feature: name,
+			Value:   usage.Value,
+			Scope:   scope,
+			Nested:  nested,
+		})
 	}
 	return out
 }

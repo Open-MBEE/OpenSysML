@@ -232,3 +232,110 @@ package test {
 		t.Errorf("%d behavior(s) (%d pending) outlived the failed access, want none", attached, pending)
 	}
 }
+
+// TestMetadataAccessNestedBindings reads an annotation whose body binds a value
+// through a nested declaration: the object the outer feature holds carries it.
+func TestMetadataAccessNestedBindings(t *testing.T) {
+	src := `
+package test {
+	private import ScalarValues::*;
+
+	metadata def Cause {
+		attribute code : Integer = 0;
+	}
+
+	metadata def Risk {
+		attribute level : Integer = 0;
+		attribute note : String = "none";
+		attribute cause : Cause;
+	}
+
+	metadata def Safety {
+		attribute risk : Risk;
+	}
+
+	part def Vehicle;
+
+	part seatBelt : Vehicle {
+		@Safety {
+			risk {
+				level = 7;
+				cause {
+					code = 42;
+				}
+			}
+		}
+	}
+}
+`
+	ctx, got, err := evalDeclaredExpr(t, src, "test::seatBelt.metadata")
+	if err != nil {
+		t.Fatalf("seatBelt.metadata failed: %v", err)
+	}
+	safety, ok := ctx.getInstance(elementsOf(got)[0].Instance)
+	if !ok {
+		t.Fatal("the metadata value is no object")
+	}
+	id, isObject := featureValue(t, ctx, safety, "risk").Object()
+	if !isObject {
+		t.Fatal("risk holds no object")
+	}
+	risk, ok := ctx.getInstance(id)
+	if !ok {
+		t.Fatal("the object risk holds is not live")
+	}
+	if v := featureValue(t, ctx, risk, "level"); FormatValue(v) != "7" {
+		t.Errorf("risk.level = %s, want the nested binding 7", FormatValue(v))
+	}
+	if v := featureValue(t, ctx, risk, "note"); FormatValue(v) != `"none"` {
+		t.Errorf("risk.note = %s, want the declared default", FormatValue(v))
+	}
+	causeID, isObject := featureValue(t, ctx, risk, "cause").Object()
+	if !isObject {
+		t.Fatal("cause holds no object")
+	}
+	cause, ok := ctx.getInstance(causeID)
+	if !ok {
+		t.Fatal("the object cause holds is not live")
+	}
+	if v := featureValue(t, ctx, cause, "code"); FormatValue(v) != "42" {
+		t.Errorf("risk.cause.code = %s, want the nested binding 42", FormatValue(v))
+	}
+}
+
+// TestMetadataAccessBindingScope reads a body value naming a feature of the
+// metadata type that an element around the annotation also names: the body sees
+// the metadata type's own member.
+func TestMetadataAccessBindingScope(t *testing.T) {
+	src := `
+package test {
+	private import ScalarValues::*;
+
+	attribute limit = 1;
+
+	metadata def Safety {
+		attribute limit : Integer = 9;
+		attribute level : Integer = 0;
+	}
+
+	part def Vehicle;
+
+	part seatBelt : Vehicle {
+		@Safety {
+			level = limit;
+		}
+	}
+}
+`
+	ctx, got, err := evalDeclaredExpr(t, src, "test::seatBelt.metadata")
+	if err != nil {
+		t.Fatalf("seatBelt.metadata failed: %v", err)
+	}
+	safety, ok := ctx.getInstance(elementsOf(got)[0].Instance)
+	if !ok {
+		t.Fatal("the metadata value is no object")
+	}
+	if v := featureValue(t, ctx, safety, "level"); FormatValue(v) != "9" {
+		t.Errorf("level = %s, want 9, the limit the metadata type declares", FormatValue(v))
+	}
+}

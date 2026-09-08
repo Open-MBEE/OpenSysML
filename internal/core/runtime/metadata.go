@@ -87,20 +87,64 @@ func (ec *EvalContext) metadataInstance(annotation semantics.ElementMetadata) (V
 	if err != nil {
 		return Value{}, fmt.Errorf("metadata %s: %w", ctx.qualifiedSymbolName(annotation.Type), err)
 	}
-	body := NewEvalContext(ctx, annotation.Scope)
-	for _, binding := range annotation.Bindings {
-		if fv, held := inst.FeatureValues[binding.Feature]; !held || fv == nil {
-			return Value{}, fmt.Errorf("%w: metadata %s declares no feature %s",
-				ErrTypeMismatch, ctx.qualifiedSymbolName(annotation.Type), binding.Feature)
-		}
-		val, err := body.Eval(binding.Value)
-		if err != nil {
-			return Value{}, fmt.Errorf("metadata %s: %s: %w",
-				ctx.qualifiedSymbolName(annotation.Type), binding.Feature, err)
-		}
-		if err := inst.SetFeatureValue(ctx, binding.Feature, val); err != nil {
-			return Value{}, fmt.Errorf("metadata %s: %w", ctx.qualifiedSymbolName(annotation.Type), err)
-		}
+	if err := ec.bindMetadataFeatures(annotation.Type, inst, annotation.Bindings); err != nil {
+		return Value{}, err
 	}
 	return Value{Kind: ValInstance, Instance: inst.ID}, nil
+}
+
+// bindMetadataFeatures writes the values one body level binds to the object it
+// annotates, descending into the object a nested declaration writes through.
+func (ec *EvalContext) bindMetadataFeatures(typ *symbols.Symbol, inst *Instance, bindings []semantics.MetadataBinding) error {
+	ctx := ec.ctx
+	name := ctx.qualifiedSymbolName(typ)
+	for _, binding := range bindings {
+		if fv, held := inst.FeatureValues[binding.Feature]; !held || fv == nil {
+			return fmt.Errorf("%w: metadata %s declares no feature %s",
+				ErrTypeMismatch, name, binding.Feature)
+		}
+		if binding.Value != nil {
+			val, err := NewEvalContext(ctx, binding.Scope).Eval(binding.Value)
+			if err != nil {
+				return fmt.Errorf("metadata %s: %s: %w", name, binding.Feature, err)
+			}
+			if err := inst.SetFeatureValue(ctx, binding.Feature, val); err != nil {
+				return fmt.Errorf("metadata %s: %w", name, err)
+			}
+		}
+		if len(binding.Nested) == 0 {
+			continue
+		}
+		nested, err := ec.metadataNestedObject(typ, inst, binding.Feature)
+		if err != nil {
+			return err
+		}
+		if err := ec.bindMetadataFeatures(typ, nested, binding.Nested); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// metadataNestedObject is the object a nested body level writes through: the one
+// the named feature holds, which a feature holding a value rather than an object
+// has none of.
+func (ec *EvalContext) metadataNestedObject(typ *symbols.Symbol, inst *Instance, feature string) (*Instance, error) {
+	ctx := ec.ctx
+	name := ctx.qualifiedSymbolName(typ)
+	fv, err := inst.GetFeatureValue(ctx, feature)
+	if err != nil {
+		return nil, fmt.Errorf("metadata %s: %s: %w", name, feature, err)
+	}
+	id, isObject := fv.HeldValue().Object()
+	if !isObject {
+		return nil, fmt.Errorf("%w: metadata %s: feature %s holds no object to bind through",
+			ErrTypeMismatch, name, feature)
+	}
+	nested, live := ctx.instances[id]
+	if !live || nested == nil {
+		return nil, fmt.Errorf("%w: metadata %s: feature %s holds no object to bind through",
+			ErrTypeMismatch, name, feature)
+	}
+	return nested, nil
 }

@@ -460,3 +460,17 @@ test("every failure reason has a name", () => {
   assert.equal(failureCause(FailureReason.WRONG_KIND), "wrong_kind");
   assert.equal(failureCause(FailureReason.AMBIGUOUS_SUBJECT), "ambiguous_subject");
 });
+
+test("only an asserted infinity arm is the unbounded value", () => {
+  const asserted = create(ValueSchema, { kind: { case: "infinity", value: true } });
+  assert.deepEqual(decodeValue(asserted), { kind: "infinity" });
+  const denied = create(ValueSchema, { kind: { case: "infinity", value: false } });
+  assert.throws(() => decodeValue(denied), MalformedValueError);
+  const nested = create(ValueSchema, {
+    kind: {
+      case: "sequence",
+      value: create(ValueSequenceSchema, { elements: [denied] }),
+    },
+  });
+  assert.throws(() => decodeValue(nested), MalformedValueError);
+});

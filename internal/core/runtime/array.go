@@ -241,6 +241,7 @@ const (
 	cartesianThreeVectorTypeFQN = "VectorValues::CartesianThreeVectorValue"
 	vectorQuantityTypeFQN       = "Quantities::VectorQuantityValue"
 	scalarValueTypeFQN          = "ScalarValues::ScalarValue"
+	positiveTypeFQN             = "ScalarValues::Positive"
 )
 
 // structuredFeature reads a library feature of an array, vector, vector, tensor

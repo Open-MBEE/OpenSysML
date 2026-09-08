@@ -476,7 +476,15 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
             name: v.name,
         })),
         wire::value::Kind::Unset(_) => Ok(Value::Unset),
-        wire::value::Kind::Infinity(_) => Ok(Value::Infinity),
+        // Only an asserted arm carries the unbounded value.
+        wire::value::Kind::Infinity(asserted) => {
+            if !asserted {
+                return Err(Error::Decode(
+                    "the infinity arm states no value unless it is true".to_owned(),
+                ));
+            }
+            Ok(Value::Infinity)
+        }
     }
 }
 
@@ -916,6 +924,24 @@ mod tests {
             }),
             Value::Real(1.5)
         );
+    }
+
+    #[test]
+    fn only_an_asserted_infinity_arm_is_the_unbounded_value() {
+        let arm = |asserted| wire::Value {
+            kind: Some(wire::value::Kind::Infinity(asserted)),
+        };
+        assert_eq!(value_from_wire(arm(true)).ok(), Some(Value::Infinity));
+        assert!(matches!(
+            value_from_wire(arm(false)),
+            Err(Error::Decode(_))
+        ));
+        let nested = wire::Value {
+            kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
+                elements: vec![arm(false)],
+            })),
+        };
+        assert!(matches!(value_from_wire(nested), Err(Error::Decode(_))));
     }
 
     #[test]

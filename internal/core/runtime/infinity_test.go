@@ -122,3 +122,29 @@ func TestInfinityArithmeticRefused(t *testing.T) {
 		})
 	}
 }
+
+// TestInfinityDirectType classifies `*` as the Positive it is typed as in
+// expression position, and so as a Natural, but as nothing unrelated.
+func TestInfinityDirectType(t *testing.T) {
+	cases := map[string]string{
+		"* istype ScalarValues::Positive":  "true",
+		"* hastype ScalarValues::Positive": "true",
+		"* istype ScalarValues::Natural":   "true",
+		// hastype demands the direct type itself, which Natural is only above.
+		"* hastype ScalarValues::Natural": "false",
+		"* istype ScalarValues::String":   "false",
+		"* hastype ScalarValues::Boolean": "false",
+		"* @ ScalarValues::Positive":      "true",
+		"* @ ScalarValues::String":        "false",
+	}
+	for expr, want := range cases {
+		_, got, err := evalDeclaredExpr(t, "package test {}", expr)
+		if err != nil {
+			t.Errorf("%s failed: %v", expr, err)
+			continue
+		}
+		if text := FormatValue(got); text != want {
+			t.Errorf("%s = %s, want %s", expr, text, want)
+		}
+	}
+}

@@ -746,6 +746,10 @@ def value_to_python(pb_value, resolve_instance=None):
     if kind == 'unset':
         return UNSET
     if kind == 'infinity':
+        # Only an asserted arm carries the unbounded value.
+        if not pb_value.infinity:
+            raise UnsupportedValueError(
+                "the infinity arm states no value unless it is true")
         return INFINITY
     if kind == 'null':
         # A non-empty null carries the reason the value could not be sent.

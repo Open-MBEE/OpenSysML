@@ -1477,6 +1477,12 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 			name = "Real"
 		case semantics.ValBool:
 			name = "Boolean"
+		case semantics.ValInfinity:
+			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
+			if positive := ctx.librarySymbol(positiveTypeFQN); positive != nil {
+				return positive, nil
+			}
+			return nil, fmt.Errorf("%w: direct type %q", ErrUndeterminedValueType, positiveTypeFQN)
 		default:
 			return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
 		}
