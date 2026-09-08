@@ -24,8 +24,8 @@ from opensysml.typefacts import (
 )
 from opensysml.capabilities import MissingCapabilityError, ServerInfo
 from opensysml.values import (
-    UNSET, Array, Function, MeasurementRef, SetValue, TensorQuantity, UnsetType, Vector,
-    VectorQuantity,
+    UNSET, Array, Function, InstanceRef, MeasurementRef, SetValue, TensorQuantity, UnsetType,
+    Vector, VectorQuantity,
 )
 from opensysml.verdict import (
     AnalysisResult, CalcResult, SweepRow, SweepTable, Verdict, VerificationVerdict,
@@ -60,7 +60,7 @@ __all__ = [
     "ServerInfo",
     "UNSET", "UnsetType",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "SetValue",
-    "TensorQuantity",
+    "TensorQuantity", "InstanceRef",
     "Conversion", "FORMAT_SYSML", "FORMAT_TURTLE", "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
     "Editor", "EditResult", "AppliedEdit",

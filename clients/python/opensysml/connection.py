@@ -64,6 +64,7 @@ from opensysml.query import build_query, elements_of
 from opensysml.values import (
     Array,
     Function,
+    InstanceRef,
     MeasurementRef,
     Quantity,
     SetValue,
@@ -1786,6 +1787,8 @@ class Connection:
         
         if isinstance(py_value, bool):
             return sysml_pb2.Value(bool_value=py_value)
+        elif isinstance(py_value, InstanceRef):
+            return sysml_pb2.Value(instance_id=int(py_value))
         elif isinstance(py_value, int):
             return sysml_pb2.Value(int_value=py_value)
         elif isinstance(py_value, float):
@@ -1842,8 +1845,8 @@ class Connection:
     def _value_to_python(self, pb_value):
         """Convert protobuf Value to Python type.
 
-        Instance references outside an Instantiate response are returned as
-        their integer id; there is no instance graph to resolve them against.
+        Instance references outside an Instantiate response are returned as an
+        :class:`InstanceRef`; there is no instance graph to resolve them against.
         """
         return value_to_python(pb_value)
 

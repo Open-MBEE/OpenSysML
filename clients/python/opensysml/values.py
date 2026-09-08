@@ -521,7 +521,7 @@ def _format_number(value: Magnitude) -> str:
     return f"{value:g}" if isinstance(value, float) else str(value)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Array:
     """A multidimensional array: its shape and its elements in row-major order.
 
@@ -530,7 +530,8 @@ class Array:
     value a feature can hold, an :class:`Array` or a :class:`Quantity` included;
     ``elements`` holds them flattened as the model states them, with the last
     dimension varying fastest, and :meth:`nested` unfolds them. A rank-0 array
-    holds exactly one element.
+    holds exactly one element. Two arrays are equal when their shapes agree and
+    each element is the :func:`same_value` as its counterpart.
 
     Attributes:
         dimensions (tuple[int, ...]): Extent of each dimension, all positive
@@ -568,6 +569,16 @@ class Array:
 
     def __iter__(self) -> Iterator[Any]:
         return iter(self.elements)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Array):
+            return NotImplemented
+        return self.dimensions == other.dimensions and all(
+            same_value(x, y) for x, y in zip(self.elements, other.elements)
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.dimensions)
 
     def __getitem__(self, index: int | Tuple[int, ...]) -> Any:
         """The element at a row-major position, or at a full multi-index."""
@@ -818,13 +829,31 @@ def same_value(a: Any, b: Any) -> bool:
     """Whether two decoded values are the same value, as :class:`SetValue` membership judges it.
 
     ``==`` decides, except that a ``bool`` is never a number — ``True`` and ``1``
-    are distinct values in a model — in a nested ``list`` too.
+    are distinct values in a model — and an :class:`InstanceRef` is never an
+    Integer, in a nested ``list`` or :class:`Array` too.
     """
     if isinstance(a, bool) or isinstance(b, bool):
         return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, InstanceRef) or isinstance(b, InstanceRef):
+        return isinstance(a, InstanceRef) and isinstance(b, InstanceRef) and a == b
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(same_value(x, y) for x, y in zip(a, b))
     return a == b
+
+
+class InstanceRef(int):
+    """A reference to an instance the client has no instance graph to resolve.
+
+    It is the instance's integer id, so it reads and compares as one where an
+    ``int`` is expected; but it is not the Integer of that value in a model, so
+    :func:`same_value` keeps the two apart, and sent back it is again an
+    instance reference.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return f"InstanceRef({int(self)})"
 
 
 @dataclass(frozen=True)
@@ -983,7 +1012,8 @@ def value_to_python(pb_value, resolve_instance=None):
     Args:
         pb_value: sysml_pb2.Value message
         resolve_instance: optional callable mapping an instance id to an object;
-            when omitted, instance references are returned as their integer id.
+            when omitted, instance references are returned as an
+            :class:`InstanceRef`, an ``int`` holding the id.
 
     Returns:
         int, float, complex, bool, str, list, None, :data:`UNSET`,
@@ -991,7 +1021,7 @@ def value_to_python(pb_value, resolve_instance=None):
         :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, an
         :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, a :class:`SetValue`, a
         :class:`TensorQuantity`, an :class:`~opensysml.enumeration.EnumLiteral`,
-        or the resolved instance object. A Complex is one ``complex``, never two
+        an :class:`InstanceRef`, or the resolved instance object. A Complex is one ``complex``, never two
         floats; a Vector is one :class:`Vector`, never a list of numbers; a set
         is one :class:`SetValue`, never a list.
 
@@ -1018,7 +1048,7 @@ def value_to_python(pb_value, resolve_instance=None):
         return Function.from_pb(pb_value.function)
     if kind == 'instance_id':
         if resolve_instance is None:
-            return pb_value.instance_id
+            return InstanceRef(pb_value.instance_id)
         return resolve_instance(pb_value.instance_id)
     if kind == 'sequence':
         return [value_to_python(v, resolve_instance) for v in pb_value.sequence.elements]

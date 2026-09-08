@@ -27,6 +27,7 @@ from opensysml.errors import ExecutionError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
 from opensysml.values import (
     Array,
+    InstanceRef,
     MeasurementRef,
     Quantity,
     SetValue,
@@ -148,6 +149,14 @@ def pb_seq(*elements):
     return sysml_pb2.Value(sequence=sysml_pb2.ValueSequence(elements=list(elements)))
 
 
+def pb_array(dimensions, *elements):
+    return sysml_pb2.Value(array=sysml_pb2.Array(dimensions=list(dimensions), elements=list(elements)))
+
+
+def pb_instance(instance_id):
+    return sysml_pb2.Value(instance_id=instance_id)
+
+
 @pytest.mark.parametrize("elements", [
     (pb_int(1), pb_int(2), pb_int(1)),
     (pb_int(1), sysml_pb2.Value(real_value=1.0)),
@@ -159,6 +168,8 @@ def pb_seq(*elements):
     (pb_set(), pb_set()),
     (sysml_pb2.Value(quantity=pb_pascal(1.0)), sysml_pb2.Value(quantity=pb_pascal(1.0))),
     (sysml_pb2.Value(bool_value=True), pb_seq(), sysml_pb2.Value(bool_value=True)),
+    (pb_instance(1), pb_int(2), pb_instance(1)),
+    (pb_array((2,), pb_int(1), pb_int(2)), pb_array((2,), pb_int(1), sysml_pb2.Value(real_value=2.0))),
 ])
 def test_a_set_listing_a_member_twice_is_malformed(elements):
     with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
@@ -176,6 +187,8 @@ def test_a_set_listing_a_member_twice_is_malformed(elements):
     (Quantity(1.0, Unit("m", factors=(UnitFactor("SI::metre", 1.0),))),
      Quantity(1, Unit("m", factors=(UnitFactor("SI::metre", 1.0),)))),
     (True, [], True),
+    (InstanceRef(1), 2, InstanceRef(1)),
+    (Array((2,), (1, 2)), Array((2,), (1, 2.0))),
 ])
 def test_a_set_is_never_assembled_with_a_member_twice(elements):
     with pytest.raises(ValueError, match="set lists a member twice"):
@@ -289,12 +302,31 @@ def test_enumeration_literals_are_the_same_value_by_literal_id():
     ((pb_seq(pb_int(1)), pb_set(pb_int(1))), SetValue(([1], SetValue((1,))))),
     ((pb_seq(sysml_pb2.Value(bool_value=True)), pb_seq(pb_int(1))), SetValue(([True], [1]))),
     ((pb_set(), pb_set(pb_set())), SetValue((SetValue(), SetValue((SetValue(),))))),
+    ((pb_instance(1), pb_int(1)), SetValue((InstanceRef(1), 1))),
+    ((pb_array((1,), sysml_pb2.Value(bool_value=True)), pb_array((1,), pb_int(1))),
+     SetValue((Array((1,), (True,)), Array((1,), (1,))))),
+    ((pb_array((1,), pb_instance(1)), pb_array((1,), pb_int(1))),
+     SetValue((Array((1,), (InstanceRef(1),)), Array((1,), (1,))))),
 ])
 def test_members_that_only_look_alike_are_distinct(elements, expected):
     got = value_to_python(pb_set(*elements))
     assert len(got) == len(elements)
     assert got == expected
     assert 1 not in SetValue((True,)) and True not in SetValue((1,))
+
+
+def test_an_unresolved_instance_reference_is_its_id_but_not_an_integer():
+    ref = value_to_python(pb_instance(7))
+    assert isinstance(ref, InstanceRef) and ref == 7 and repr(ref) == "InstanceRef(7)"
+    assert ref in SetValue((InstanceRef(7),)) and ref not in SetValue((7,))
+    assert Array((1,), (ref,)) != Array((1,), (7,))
+    assert Array((2,), (True, 1)) != Array((2,), (1, 1))
+    assert Array((2,), (1, 2)) == Array((2,), (1, 2.0))
+
+    conn = make_connection(Mock(), CURRENT)
+    sent = conn._python_to_value(SetValue((ref, 7)))
+    assert [e.WhichOneof("kind") for e in sent.set.elements] == ["instance_id", "int_value"]
+    assert sent.set.elements[0].instance_id == 7
 
 
 def test_a_set_survives_the_wire_bytes():
