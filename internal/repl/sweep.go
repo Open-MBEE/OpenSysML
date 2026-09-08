@@ -562,9 +562,8 @@ func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
 	return append(lines, notes...)
 }
 
-// footnoteErrors moves each failed run's error text out of its cell, which a
-// typed error is far too long for, and returns the notes to print under the
-// table. The cell keeps the note's number.
+// footnoteErrors moves each failed run's error out of its cell, which a typed
+// error is far too long for; the cell keeps the note's number.
 func footnoteErrors(columns sweepColumns, cells [][]string) []string {
 	if !columns.failures {
 		return nil
