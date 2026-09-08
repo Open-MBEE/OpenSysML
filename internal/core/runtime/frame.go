@@ -19,6 +19,9 @@ type frame struct {
 	// performed is the action whose performance a snapshot copied its bindings from,
 	// so the copy still answers for a run of that action without the live perf.
 	performed *symbols.Symbol
+	// run numbers the behavior run the frame binds (Context.newRun), 0 for bindings
+	// that are no run's; a function closing over the run is identified by it.
+	run int64
 }
 
 // canonical is the name aliases bind name under: its redefinition's, else its own.
@@ -82,7 +85,7 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
@@ -138,7 +141,7 @@ func (f frame) snapshot() frame {
 	vars := make(map[string]Value, f.width())
 	f.each(func(name string, value Value) { vars[name] = value })
 	out := ownedFrame(f.owner, vars)
-	out.performed = f.performs()
+	out.performed, out.run = f.performs(), f.run
 	if len(f.aliases) > 0 {
 		out.aliases = make(map[string]string, len(f.aliases))
 		for name, alias := range f.aliases {

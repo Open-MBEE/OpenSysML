@@ -21,7 +21,7 @@ type valueKey struct {
 	variant *symbols.Symbol
 	literal *symbols.Symbol
 	calc    *symbols.Symbol
-	closure *functionValue
+	run     int64 // the body run a function closes over (Value.functionRun)
 }
 
 // valueKeyFunc extracts a comparable key from a Value. Values valueEqual holds
@@ -80,13 +80,9 @@ func valueKeyFunc(v Value) valueKey {
 	case ValCoordinateTransformation:
 		key.strVal = v.CoordinateTransformation().key()
 	case ValFunction:
-		key.calc = v.Function()
+		key.calc, key.run = v.Function(), v.functionRun()
 		if self := v.FunctionSelf(); self != nil {
 			key.instID = self.ID
-		}
-		// A function closing over a body's bindings is one only with itself.
-		if v.FunctionClosesOverBody() {
-			key.closure = v.function()
 		}
 	}
 	return key

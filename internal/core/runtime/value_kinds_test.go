@@ -75,25 +75,27 @@ func kindSamples() map[ValueKind][2]Value {
 }
 
 // A function read against the same object is one value however often it is
-// read; one closing over a body's bindings is equal only to the same read, since
-// two runs of the body bind the names it closes over differently.
+// read; one closing over a body's bindings is one value with every read within
+// the same run of the body, and another with a read in a different run, since
+// two runs bind the names it closes over differently.
 func TestFunctionValueIdentity(t *testing.T) {
 	sym := &symbols.Symbol{Name: "inner"}
 	shape := &calcShape{Sym: sym, Name: "inner"}
 	self := &Instance{ID: 7}
 	bare := func() Value { return Value{Kind: ValFunction, ref: &functionValue{shape: shape, self: self}} }
-	closing := func() Value {
-		return Value{Kind: ValFunction, ref: &functionValue{shape: shape, self: self, enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}}}}}
+	closing := func(run int64) Value {
+		enclosing := []frame{{vars: map[string]Value{"k": integerValue(1)}, run: run}}
+		return Value{Kind: ValFunction, ref: &functionValue{shape: shape, self: self, enclosing: enclosing}}
 	}
 	if a, b := bare(), bare(); !valueEqual(a, b) || valueKeyFunc(a) != valueKeyFunc(b) {
 		t.Errorf("two reads of %s against one object are not one value", FormatValue(a))
 	}
-	c := closing()
-	if first, again := valueKeyFunc(c), valueKeyFunc(c); !valueEqual(c, c) || first != again {
-		t.Errorf("a body-closing function is not equal to itself")
+	c := closing(1)
+	if again := closing(1); !valueEqual(c, again) || valueKeyFunc(c) != valueKeyFunc(again) {
+		t.Errorf("two reads of %s within one run are not one value", FormatValue(c))
 	}
-	if d := closing(); valueEqual(c, d) || valueKeyFunc(c) == valueKeyFunc(d) {
-		t.Errorf("two body-closing reads of %s compare equal", FormatValue(c))
+	if d := closing(2); valueEqual(c, d) || valueKeyFunc(c) == valueKeyFunc(d) {
+		t.Errorf("reads of %s in two runs compare equal", FormatValue(c))
 	}
 	if b := bare(); valueEqual(b, c) || valueEqual(c, b) || valueKeyFunc(b) == valueKeyFunc(c) {
 		t.Errorf("a body-closing read of %s equals a bare one", FormatValue(c))

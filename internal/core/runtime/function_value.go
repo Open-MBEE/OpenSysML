@@ -63,6 +63,16 @@ func (v Value) FunctionClosesOverBody() bool {
 	return fn != nil && len(fn.enclosing) > 0
 }
 
+// functionRun identifies the behavior run a ValFunction closes over (frame.run), so
+// every read of the calc within that run is one function; 0 for one closing over none.
+func (v Value) functionRun() int64 {
+	fn := v.function()
+	if fn == nil || len(fn.enclosing) == 0 {
+		return 0
+	}
+	return fn.enclosing[len(fn.enclosing)-1].run
+}
+
 // functionValueOf is the value of the calc sym denotes in this environment: its
 // lowered shape closed over the scope and object the read resolves against. A
 // library calc applied natively is the value of that implementation; one bound

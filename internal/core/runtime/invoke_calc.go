@@ -568,6 +568,7 @@ type invocationFrame struct {
 	bindings map[string]Value
 	aliases  map[string]string
 	owner    *calcShape // the calc invoked, whose members the locals bind
+	run      int64      // the run this invocation is (Context.newRun)
 	host     calcStmtHost
 	env      stmtEnv
 	engine   stmtEngine
@@ -575,7 +576,7 @@ type invocationFrame struct {
 
 // locals is the frame the invocation's parameters and body locals are bound in.
 func (f *invocationFrame) locals() frame {
-	return frame{slots: &f.slots, vars: f.bindings, aliases: f.aliases, owner: f.owner}
+	return frame{slots: &f.slots, vars: f.bindings, aliases: f.aliases, owner: f.owner, run: f.run}
 }
 
 // maxFreeInvocationFrames bounds the frames kept, so one deep recursion does not
@@ -659,7 +660,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	defer ctx.endActivation(activation)
 
 	frame.slots.reset(shape.ParamNames)
-	frame.aliases, frame.owner = shape.Aliases, shape
+	frame.aliases, frame.owner, frame.run = shape.Aliases, shape, ctx.newRun()
 	locals := frame.locals()
 	ec := &frame.ec
 	*ec = EvalContext{

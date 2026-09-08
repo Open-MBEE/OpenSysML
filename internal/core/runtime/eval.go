@@ -2620,12 +2620,10 @@ func valueEqual(a, b Value) bool {
 	case ValCoordinateTransformation:
 		return a.CoordinateTransformation().equal(b.CoordinateTransformation())
 	case ValFunction:
-		// A function is the calc it is a value of, read against the same object; one
-		// closing over a body's bindings is equal only to the same read.
-		if a.FunctionClosesOverBody() || b.FunctionClosesOverBody() {
-			return a.function() == b.function()
-		}
-		return a.Function() == b.Function() && a.FunctionSelf() == b.FunctionSelf()
+		// A function is the calc it is a value of, read against the same object and, for
+		// one closing over a body's bindings, within the same run of that body.
+		return a.Function() == b.Function() && a.FunctionSelf() == b.FunctionSelf() &&
+			a.functionRun() == b.functionRun()
 	default:
 		return false
 	}
