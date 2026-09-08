@@ -104,7 +104,7 @@ const castFixture = `package P {
 	classifier Box { feature base : A; feature str : String; }
 	feature box : Box;
 	classifier Box2 :> Box { feature :>> base; %s }
-	function F { return r : A; }
+	function F { return r : A; } function Nothing { in x : A; return r : String[0]; } feature nothing : String[0];
 	classifier Q; classifier R :> Q; classifier CQ ~ Q; feature cq : CQ;
 	feature xs : A[*];
 	feature d : D; feature b : B; datatype U unions B, C; datatype I intersects A, C; datatype NI intersects I, B; datatype Diff differences A, C; feature u : U; feature dd : Diff;
@@ -166,6 +166,8 @@ func TestCastConformanceCollectionBody(t *testing.T) {
 	castDiags(t, "", `feature kept = xs.?{in x : A; true} as B;`)
 	castDiags(t, "", `feature bad = xs.?{in x : A; true} as String;`, "16:16 cast argument is typed by A, unrelated to the target String")
 	castDiags(t, "", `feature none = ()->ControlFunctions::reduce {in x : A; in y : A; s} as C;`)
+	castDiags(t, "", `feature none = xs.{in x : A; nothing} as C; feature none2 = xs->ControlFunctions::collect Nothing as C;`)
+	castDiags(t, "", `feature none = (().{in x : A; x}).{in y : A; s} as C; feature none2 = (xs.{in x : A; nothing}).?{in y : String; true} as C;`)
 }
 
 // A cast up, down, or sideways through one of several types conforms; so does

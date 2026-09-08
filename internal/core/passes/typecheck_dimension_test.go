@@ -71,6 +71,20 @@ func TestBoundCollectionQuantityOfAnotherDimension(t *testing.T) {
 		attribute l : LengthValue = parts.{ in p : Part; 5 [m] };`)
 }
 
+// A body mapping every element to a quantity held by no value, or an operation over such a
+// collection, binds no quantity, so no dimension is measured against the target.
+func TestBoundCollectionQuantityOfNothing(t *testing.T) {
+	const parts = `private import ControlFunctions::*; part def Part { attribute none : LengthValue[0]; } part parts : Part[*];`
+	wantNoDimensionDiags(t, parts+`
+		attribute t : DurationValue = parts.{ in p : Part; p.none };
+		attribute t2 : DurationValue = parts->collect { in p : Part; (p.none, p.none) };
+		attribute t3 : DurationValue = (parts.{ in p : Part; p.none }).{ in l : LengthValue; 5 [m] };
+		attribute t4 : DurationValue = (parts.{ in p : Part; p.none }).?{ in l : LengthValue; true };
+		attribute t5 : DurationValue = (parts.{ in p : Part; p.none })->reduce { in a : LengthValue; in b : LengthValue; 1 [m] };`)
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts.{ in p : Part; (p.none, 5 [m]) };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+}
+
 // TestBoundQuantityOfTheSameDimensionAtAnotherScale: a dimension has no scale,
 // so any unit measuring in it conforms.
 func TestBoundQuantityOfTheSameDimensionAtAnotherScale(t *testing.T) {

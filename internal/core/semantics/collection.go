@@ -53,13 +53,30 @@ func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSour
 	return nil, false
 }
 
-// heldSourcesOf is the sources of the elements a collection value holds: none over a collection
-// known to hold nothing, which nothing is applied to; otherwise those typing it.
+// heldSourcesOf is the sources of the elements a collection value holds: those typing it, less
+// any known to yield nothing — all of them over a collection holding nothing.
 func (m *Model) heldSourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSource, bool) {
 	if collection, ok := m.collectionOf(scope, node); ok && m.holdsNothing(scope, collection) {
 		return nil, true
 	}
-	return m.sourcesOf(scope, node)
+	srcs, ok := m.sourcesOf(scope, node)
+	if !ok {
+		return nil, false
+	}
+	held := make([]collectionSource, 0, len(srcs))
+	for _, src := range srcs {
+		if src.result != nil && m.resultHoldsNothing(src.result) || src.result == nil && m.holdsNothing(src.scope, src.node) {
+			continue
+		}
+		held = append(held, src)
+	}
+	return held, true
+}
+
+// resultHoldsNothing reports a result parameter whose multiplicity admits no value.
+func (m *Model) resultHoldsNothing(result *symbols.Symbol) bool {
+	r, ok := m.MultiplicityOf(result)
+	return ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0
 }
 
 // collectionOf is the collection a collection value operates over: the operand of `xs.{…}` or
@@ -137,11 +154,18 @@ func (m *Model) holdsNothing(scope *symbols.Scope, collection ast.Node) bool {
 
 // valuesHeldBy is how many values a collection expression holds: `()` none, a literal one, a
 // sequence the sum over its elements, a feature or chain the multiplicity governing it, a chain
-// holding through each value of its operand the values of its last feature; not ok where unknown.
+// holding through each value of its operand the values of its last feature, a collection
+// operation what it maps to, keeps or reduces; not ok where unknown.
 func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	switch n := node.(type) {
 	case *ast.NullExpr:
 		return exactly(0), true
+	case *ast.CollectExpr:
+		return m.valuesMappedBy(scope, n.Operand, n.Body)
+	case *ast.SelectExpr:
+		return m.valuesKeptFrom(scope, n.Operand, Bound{Infinite: true, Known: true})
+	case *ast.InvocationExpr:
+		return m.valuesHeldByCall(scope, n)
 	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
 		return exactly(1), true
 	case *ast.SequenceExpr:
@@ -168,6 +192,76 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 		return Range{Lower: mulBounds(through.Lower, last.Lower), Upper: mulBounds(through.Upper, last.Upper)}, true
 	}
 	return Range{}, false
+}
+
+// valuesHeldByCall is how many values a call holds: collect what it maps to, select/reject up to
+// all, selectOne up to one, reduce one unless the collection holds none, any other function what
+// its result parameter declares.
+func (m *Model) valuesHeldByCall(scope *symbols.Scope, e *ast.InvocationExpr) (Range, bool) {
+	fn := m.invocationCallee(scope, e)
+	if fn == nil {
+		return Range{}, false
+	}
+	switch fn {
+	case m.libSymbol(fqnCollect):
+		return m.valuesMappedBy(scope, m.argumentTo(scope, e, fn, 0), m.argumentTo(scope, e, fn, 1))
+	case m.libSymbol(fqnSelect), m.libSymbol(fqnReject):
+		return m.valuesKeptFrom(scope, m.argumentTo(scope, e, fn, 0), Bound{Infinite: true, Known: true})
+	case m.libSymbol(fqnSelectOne):
+		return m.valuesKeptFrom(scope, m.argumentTo(scope, e, fn, 0), Bound{Value: 1, Known: true})
+	case m.libSymbol(fqnReduce):
+		through, ok := m.valuesHeldBy(scope, m.argumentTo(scope, e, fn, 0))
+		if !ok {
+			return Range{}, false
+		}
+		return Range{Lower: minBound(through.Lower, Bound{Value: 1, Known: true}), Upper: minBound(through.Upper, Bound{Value: 1, Known: true})}, true
+	}
+	if result := m.ResultParameterOf(fn); result != nil {
+		if r, ok := m.MultiplicityOf(result); ok && r.Lower.Known && r.Upper.Known {
+			return r, true
+		}
+	}
+	return Range{}, false
+}
+
+// valuesMappedBy is how many values mapping each of a collection's values through applied
+// yields: as many as the body's result or the function's result parameter holds per value.
+func (m *Model) valuesMappedBy(scope *symbols.Scope, collection, applied ast.Node) (Range, bool) {
+	if collection == nil {
+		return Range{}, false
+	}
+	through, ok := m.valuesHeldBy(scope, collection)
+	if !ok {
+		return Range{}, false
+	}
+	per := Range{Lower: Bound{Known: true}, Upper: Bound{Infinite: true, Known: true}}
+	switch a := applied.(type) {
+	case *ast.BodyExpr:
+		if a.Result != nil {
+			if r, ok := m.valuesHeldBy(symbols.BodyExprScope(scope, a), a.Result); ok {
+				per = r
+			}
+		}
+	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
+		if result := m.appliedResult(scope, a); result != nil {
+			if r, ok := m.MultiplicityOf(result); ok && r.Lower.Known && r.Upper.Known {
+				per = r
+			}
+		}
+	}
+	return Range{Lower: mulBounds(through.Lower, per.Lower), Upper: mulBounds(through.Upper, per.Upper)}, true
+}
+
+// valuesKeptFrom is how many values a selection keeps: none up to the collection's, capped at most.
+func (m *Model) valuesKeptFrom(scope *symbols.Scope, collection ast.Node, most Bound) (Range, bool) {
+	if collection == nil {
+		return Range{}, false
+	}
+	through, ok := m.valuesHeldBy(scope, collection)
+	if !ok {
+		return Range{}, false
+	}
+	return Range{Lower: Bound{Known: true}, Upper: minBound(through.Upper, most)}, true
 }
 
 // valuesHeldByFeature is the multiplicity governing the feature a name or chain resolves to:
@@ -201,6 +295,16 @@ func addBounds(a, b Bound) Bound {
 		return Bound{Infinite: true, Known: true}
 	}
 	return Bound{Value: a.Value + b.Value, Known: true}
+}
+
+func minBound(a, b Bound) Bound {
+	switch {
+	case a.Infinite:
+		return b
+	case b.Infinite || a.Value <= b.Value:
+		return a
+	}
+	return b
 }
 
 // mulBounds is the values held through a values, each holding b: none through none.
@@ -323,12 +427,29 @@ func (m *Model) CollectionElements(scope *symbols.Scope, node ast.Node) ([]Colle
 	return m.heldElements(srcs), true
 }
 
+// CollectionHeldTypes is the types every element a collection value holds has, and whether the
+// value's arguments decide it; nil types where it holds nothing or they are unknown.
+func (m *Model) CollectionHeldTypes(scope *symbols.Scope, node ast.Node) ([]*symbols.Symbol, bool) {
+	elements, ok := m.CollectionElements(scope, node)
+	if !ok {
+		return nil, false
+	}
+	lists := make([][]*symbols.Symbol, 0, len(elements))
+	for _, element := range elements {
+		lists = append(lists, element.Types)
+	}
+	return informativeTypes(m.sharedAmong(lists)), true
+}
+
 // heldElements is each element the sources hold, a collection-valued one by its elements in turn.
 func (m *Model) heldElements(srcs []collectionSource) []CollectionElement {
 	var out []CollectionElement
 	for _, element := range m.sourcesElements(srcs) {
 		if element.Node == nil {
 			out = append(out, element)
+			continue
+		}
+		if m.holdsNothing(element.Scope, element.Node) {
 			continue
 		}
 		inner, ok := m.heldSourcesOf(element.Scope, element.Node)
@@ -462,7 +583,7 @@ func (m *Model) collectionCastConformance(scope *symbols.Scope, operand ast.Node
 }
 
 // judgeSources judges each element of every source: a result parameter as the feature, an
-// expression by itself, a sequence `(a, b)` element by element.
+// expression by itself, a sequence `(a, b)` element by element, one holding nothing not at all.
 func (m *Model) judgeSources(srcs []collectionSource, byNode func(*symbols.Scope, ast.Node) Conformance, byResult func(*symbols.Symbol) Conformance) []Conformance {
 	var out []Conformance
 	for _, src := range srcs {
@@ -470,19 +591,22 @@ func (m *Model) judgeSources(srcs []collectionSource, byNode func(*symbols.Scope
 			out = append(out, byResult(src.result))
 			continue
 		}
-		out = append(out, elementJudgements(src.scope, src.node, byNode)...)
+		out = append(out, m.elementJudgements(src.scope, src.node, byNode)...)
 	}
 	return out
 }
 
-func elementJudgements(scope *symbols.Scope, node ast.Node, judge func(*symbols.Scope, ast.Node) Conformance) []Conformance {
+func (m *Model) elementJudgements(scope *symbols.Scope, node ast.Node, judge func(*symbols.Scope, ast.Node) Conformance) []Conformance {
+	if m.holdsNothing(scope, node) {
+		return nil
+	}
 	seq, ok := node.(*ast.SequenceExpr)
 	if !ok {
 		return []Conformance{judge(scope, node)}
 	}
 	var out []Conformance
 	for _, element := range seq.Elements {
-		out = append(out, elementJudgements(scope, element, judge)...)
+		out = append(out, m.elementJudgements(scope, element, judge)...)
 	}
 	return out
 }

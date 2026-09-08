@@ -19,7 +19,7 @@ func collectionModel(t *testing.T, attributes string) (*Model, *symbols.Scope) {
 		private import SI::*;
 		private import ControlFunctions::*;
 		private import ScalarFunctions::'+';
-		part def C { attribute mass :> ISQ::mass; attribute name : String; }
+		part def C { attribute mass :> ISQ::mass; attribute name : String; attribute nothing : String[0]; }
 		part def S {
 			part cs : C[*];
 			`+attributes+`
@@ -305,8 +305,8 @@ func TestCollectionReduceMayReturnTheElement(t *testing.T) {
 	}
 }
 
-// Over a collection known to hold nothing, reduce is typed by the reducer alone and collect by
-// its body; but the value holds no element, so nothing is judged and it casts to anything.
+// Over a collection known to hold nothing — or mapping each element to nothing — reduce is typed
+// by the reducer alone and collect by its body; but no element is held, judged or refused a cast.
 func TestCollectionReduceOfNothing(t *testing.T) {
 	m, s := collectionModel(t, `
 		part none : C[0];
@@ -319,14 +319,25 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 		attribute emptyCollect = ()->collect { in a : Integer; "s" };
 		attribute emptyCollect2 = none.{ in a : C; a.name };
 		attribute emptyCollect3 = holders.item->collect { in a : C; a.name };
+		attribute emptyBody = cs.{ in x : C; x.nothing };
+		attribute emptyBody2 = cs->collect { in x : C; (x.nothing, x.nothing) };
+		attribute emptyNested = (().{ in a : Integer; a }).{ in b : Integer; "s" };
+		attribute emptyNested2 = (none->select { in a : C; true })->reduce { in a : C; in b : C; "s" };
+		attribute emptyNested3 = (cs.{ in x : C; x.nothing }).?{ in s : String; true };
+		attribute emptyNested4 = (cs->selectOne { in x : C; true }).{ in x : C; x.nothing }->collect { in s : String; s };
 		attribute cast = none->reduce { in a : C; in b : C; a.name } as Integer;
+		attribute cast2 = cs.{ in x : C; x.nothing } as Integer;
 		attribute two = (none, one, one)->reduce { in a : C; in b : C; a.name };
 		attribute maybe = (none, one)->reduce { in a : C; in b : C; a.name };`)
-	for _, name := range []string{"empty", "empty2", "empty3", "emptyCollect", "emptyCollect2", "emptyCollect3"} {
+	for _, name := range []string{"empty", "empty2", "empty3", "emptyCollect", "emptyCollect2", "emptyCollect3",
+		"emptyBody", "emptyBody2", "emptyNested", "emptyNested2", "emptyNested3", "emptyNested4"} {
 		wantValueTypes(t, m, s, name, "String")
 		elements, ok := m.CollectionElements(s, valueOf(t, s, name))
 		if !ok || len(elements) != 0 {
 			t.Errorf("%s: elements %v, want none", name, elements)
+		}
+		if types, ok := m.CollectionHeldTypes(s, valueOf(t, s, name)); !ok || len(types) != 0 {
+			t.Errorf("%s: held types %v, want none", name, types)
 		}
 		for _, want := range []string{fqnString, fqnInteger} {
 			if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), want); c.Known && !c.Untyped {
@@ -334,11 +345,16 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 			}
 		}
 	}
-	if c := m.CastConformance(s, valueOf(t, s, "cast").(*ast.OperatorExpr)); c.Known && !c.Holds {
-		t.Errorf("cast of nothing to Integer: %+v, want it not to fail", c)
+	for _, name := range []string{"cast", "cast2"} {
+		if c := m.CastConformance(s, valueOf(t, s, name).(*ast.OperatorExpr)); c.Known && !c.Holds {
+			t.Errorf("%s of nothing to Integer: %+v, want it not to fail", name, c)
+		}
 	}
 	wantValueTypes(t, m, s, "two", "String")
 	wantValueTypes(t, m, s, "maybe", "Anything")
+	if types, ok := m.CollectionHeldTypes(s, valueOf(t, s, "two")); !ok || len(types) != 1 || leafName(types[0].Name) != "String" {
+		t.Errorf("two: held types %v, want String", types)
+	}
 }
 
 // `xs.?{…}` is select written out: its elements are the collection's, so a binding or an

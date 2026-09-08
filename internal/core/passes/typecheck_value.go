@@ -342,10 +342,14 @@ func (ec *exprChecker) featureValueTypes(sym *symbols.Symbol) []*symbols.Symbol 
 
 // invocationResultTypeSymbol returns the type of the result parameter of the
 // behavior an invocation names, which is the type of the value it produces; for
-// a collection value (`xs.{…}`, a collection function call) the one type its elements have.
+// a collection value (`xs.{…}`, a collection function call) the one type the elements it holds
+// have — none when it holds nothing.
 func (ec *exprChecker) invocationResultTypeSymbol(scope *symbols.Scope, value ast.Node) *symbols.Symbol {
-	if types, collection := ec.model.CollectionResultTypes(scope, value); collection && len(types) == 1 {
-		return types[0]
+	if types, collection := ec.model.CollectionHeldTypes(scope, value); collection {
+		if len(types) == 1 {
+			return types[0]
+		}
+		return nil
 	}
 	result := ec.invocationResultParameter(scope, value)
 	if result == nil {

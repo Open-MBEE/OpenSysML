@@ -294,11 +294,11 @@ func TestValueIndexedCollectionElementIsUnknown(t *testing.T) {
 	}`, "cannot bind a value of type Boat to a feature typed by Vehicle")
 }
 
-// collectionValueDiags is the type diagnostics of a model of vehicles and boats whose
-// collection values, in members, are judged element by element against the library.
+// collectionValueDiags is the name-resolution and type diagnostics of a model of vehicles and
+// boats whose collection values, in members, are judged element by element against the library.
 func collectionValueDiags(t *testing.T, members string) []string {
 	t.Helper()
-	diags := libraryTypeDiags(t, `package P {
+	diags := libraryDiags(t, `package P {
 		private import ScalarValues::*;
 		private import ControlFunctions::*;
 		part def Vehicle; part def Truck :> Vehicle; part def Boat;
@@ -312,10 +312,13 @@ func collectionValueDiags(t *testing.T, members string) []string {
 		function Drive { in v : Vehicle; return r : Vehicle; }
 		function Half { in v : Vehicle; return r : Real; }
 		function Name { in v : Vehicle; return r : String; }
+		function Nobody { in v : Vehicle; return r : Vehicle[0]; }
+		attribute nothing : Integer[0];
 		part def Pair { part items : Vehicle[2]; part item : Vehicle[1]; }
 		part def Pairs :> Pair { part :>> items; part :>> item; }
 		part pair : Pairs[1];
 		part couple : Pairs[2];
+		part nobody : Pairs[0];
 		`+members+`
 	}`)
 	var got []string
@@ -464,10 +467,31 @@ func TestValueReduceOfNothingIsJudgedByNeither(t *testing.T) {
 		attribute s : String = ()->reduce { in a : Integer; in b : Integer; 3 };
 		attribute s2 : String = none->reduce { in a : Vehicle; in b : Vehicle; 3 };
 		part b : Boat = none->reduce { in a : Vehicle; in b : Vehicle; a };
-		part b2 : Boat = none.item->reduce { in a : Vehicle; in b : Vehicle; a };
+		part b2 : Boat = nobody.item->reduce { in a : Vehicle; in b : Vehicle; a };
 		attribute s3 : String = ()->collect { in a : Integer; 3 };
 		attribute s4 : String = none.{ in a : Vehicle; 3 };
 		part b3 = Sail(none->reduce { in a : Vehicle; in b : Vehicle; a });`)
+}
+
+// A body mapping every element to nothing — a `[0]` feature or function result — holds nothing
+// either, as does any operation over such a collection: no element is judged.
+func TestValueMappingToNothingIsJudgedByNeither(t *testing.T) {
+	wantCollectionValueDiags(t, `
+		attribute s : String = vs.{ in v : Vehicle; nothing };
+		attribute s2 : String = vs->collect { in v : Vehicle; (nothing, nothing) };
+		part b : Boat = vs->collect Nobody;
+		part b2 : Boat = vs.{ in v : Vehicle; Nobody(v) };
+		attribute s3 : String = (vs.{ in v : Vehicle; nothing }).{ in n : Integer; 3 };
+		attribute s4 : String = (().{ in a : Integer; a }).{ in b : Integer; 3 };
+		part b3 : Boat = (none->select { in v : Vehicle; true })->reduce { in a : Vehicle; in b : Vehicle; a };
+		part b4 : Boat = (vs->collect Nobody).?{ in v : Vehicle; true };
+		part b5 : Boat = (vs->selectOne { in v : Vehicle; true }).{ in v : Vehicle; Nobody(v) }->collect { in v : Vehicle; v };
+		part b6 = Sail(vs.{ in v : Vehicle; Nobody(v) });
+		part b7 = Sail((vs->collect Nobody)->select { in v : Vehicle; true });`)
+	wantCollectionValueDiags(t, `attribute s : String = vs.{ in v : Vehicle; (nothing, 3) };`,
+		"cannot bind Natural value to a feature typed by String")
+	wantCollectionValueDiags(t, `part b : Boat = (vs.{ in v : Vehicle; v }).{ in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
 }
 
 // A collection value passed as an argument is typed by its elements, so the parameter

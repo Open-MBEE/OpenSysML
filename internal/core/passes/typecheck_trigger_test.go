@@ -71,6 +71,7 @@ const triggerFixture = `package P {
 		attribute pairWait = (5 [s], 6 [s]);
 		attribute flags : Boolean[2];
 		attribute counts : Integer[2];
+		attribute noCount : Integer[0];
 		attribute waits : DurationValue[2];
 		attribute times : TimeInstantValue[2];
 		attribute firstFlag = flags#(1);
@@ -526,6 +527,10 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 		{"when ()->ControlFunctions::reduce {in a : Integer; in b : Integer; 5}", "trigger-when-boolean", nothing},
 		{"when ()->ControlFunctions::collect {in a : Integer; 5}", "trigger-when-boolean", nothing},
 		{"when ().{in a : Integer; 5}", "trigger-when-boolean", nothing},
+		{"when counts.{in n : Integer; noCount}", "trigger-when-boolean", nothing},
+		{"when (counts.{in n : Integer; noCount}).{in n : Integer; 5}", "trigger-when-boolean", nothing},
+		{"when (().{in a : Integer; a}).?{in n : Integer; true}", "trigger-when-boolean", nothing},
+		{"when counts.{in n : Integer; (noCount, 5)}", "trigger-when-boolean", "found Natural"},
 	} {
 		wantTriggerDiag(t, "transition first a accept "+tc.trigger+" then b;", tc.code, tc.found)
 	}
@@ -547,6 +552,8 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 	}
 	wantTriggerSilent(t, "entry action { if ()->ControlFunctions::reduce {in a : Integer; in b : Integer; 5} { assign x := 1; } }")
 	wantTriggerSilent(t, "entry action { if ().{in a : Integer; 5} { assign x := 1; } }")
+	wantTriggerSilent(t, "entry action { if counts.{in n : Integer; noCount} { assign x := 1; } }")
+	wantTriggerSilent(t, "entry action { if (counts.{in n : Integer; noCount}).{in n : Integer; 5} { assign x := 1; } }")
 }
 
 // `{ … }` written as a trigger argument is the expression itself, an Evaluation,
