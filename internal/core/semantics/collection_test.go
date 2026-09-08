@@ -249,3 +249,43 @@ func TestCollectionResultConformance(t *testing.T) {
 		t.Errorf("unknown as String: %+v, want untyped Anything", c)
 	}
 }
+
+// reduce returns what its reducer does, or the collection's one element unreduced, so
+// the result is what both conform to — the library's Anything where they share nothing —
+// unless the collection holds two or more: a declared `[2..*]` or a sequence of two literals.
+func TestCollectionReduceMayReturnTheElement(t *testing.T) {
+	m, s := collectionModel(t, `
+		part two : C[2..*];
+		part one : C[1];
+		attribute names = cs->reduce { in a : C; in b : C; a.name };
+		attribute names1 = one->reduce { in a : C; in b : C; a.name };
+		attribute names2 = two->reduce { in a : C; in b : C; a.name };
+		attribute lits = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };
+		attribute same = cs->reduce { in a : C; in b : C; a };
+		attribute cast = cs->reduce { in a : C; in b : C; a.name } as String;
+		attribute cast2 = two->reduce { in a : C; in b : C; a.name } as C;`)
+	wantValueTypes(t, m, s, "names", "Anything")
+	wantValueTypes(t, m, s, "names1", "Anything")
+	wantValueTypes(t, m, s, "names2", "String")
+	wantValueTypes(t, m, s, "lits", "String")
+	wantValueTypes(t, m, s, "same", "C")
+	elements, ok := m.CollectionElementTypes(s, valueOf(t, s, "names"))
+	if !ok || len(elements) != 2 || len(elements[0]) != 1 || len(elements[1]) != 1 ||
+		leafName(elements[0][0].Name) != "String" || leafName(elements[1][0].Name) != "C" {
+		t.Errorf("names: element types %v, want String then C", elements)
+	}
+	for _, name := range []string{"names", "names1"} {
+		if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), fqnString); !c.Known || c.Holds || c.Untyped || c.Found != "C" {
+			t.Errorf("%s as String: %+v, want known, not holding, found C", name, c)
+		}
+	}
+	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "names2"), fqnString); !c.Known || !c.Holds {
+		t.Errorf("names2 as String: %+v, want it to hold", c)
+	}
+	if c := m.CastConformance(s, valueOf(t, s, "cast").(*ast.OperatorExpr)); !c.Known || !c.Holds {
+		t.Errorf("cast to String: %+v, want it to hold, the element may be one", c)
+	}
+	if c := m.CastConformance(s, valueOf(t, s, "cast2").(*ast.OperatorExpr)); !c.Known || c.Holds || c.Found != "String" {
+		t.Errorf("cast of two to C: %+v, want known, not holding, found String", c)
+	}
+}

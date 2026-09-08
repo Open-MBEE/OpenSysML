@@ -1,6 +1,9 @@
 package passes
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // enumPrelude declares types outside the scalar lattice: an enumeration, a
 // structural hierarchy, and an unrelated definition.
@@ -289,4 +292,103 @@ func TestValueIndexedCollectionElementIsUnknown(t *testing.T) {
 		part bs : M::Boat[2];
 		part v : M::Vehicle = bs#(1);
 	}`, "cannot bind a value of type Boat to a feature typed by Vehicle")
+}
+
+// collectionValueDiags is the type diagnostics of a model of vehicles and boats whose
+// collection values, in members, are judged element by element against the library.
+func collectionValueDiags(t *testing.T, members string) []string {
+	t.Helper()
+	diags := libraryTypeDiags(t, `package P {
+		private import ScalarValues::*;
+		private import ControlFunctions::*;
+		part def Vehicle; part def Truck :> Vehicle; part def Boat;
+		part vs : Vehicle[*];
+		part one : Vehicle[1];
+		part two : Vehicle[2..*];
+		part boat : Boat;
+		function Boats { in v : Vehicle; return r : Boat; }
+		function Sail { in b : Boat; return r : Boat; }
+		function Drive { in v : Vehicle; return r : Vehicle; }
+		`+members+`
+	}`)
+	var got []string
+	for _, d := range diags {
+		got = append(got, d.Message)
+	}
+	return got
+}
+
+func wantCollectionValueDiags(t *testing.T, members string, want ...string) {
+	t.Helper()
+	if got := collectionValueDiags(t, members); !slices.Equal(got, want) {
+		t.Errorf("%s:\n got %q\nwant %q", members, got, want)
+	}
+}
+
+// A collection value binds by the elements it maps to or keeps, not by the Anything the
+// library declares its result: collect and `xs.{…}` by the body's result, select and
+// selectOne by the collection's elements, a sequence-valued body element by element.
+func TestValueCollectionResultIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->collect { in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->collect Drive;`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->select { in v : Vehicle; true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->selectOne { in v : Vehicle; true };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; true };`,
+		"cannot bind a value of type Boolean to a feature typed by Integer")
+	wantCollectionValueDiags(t, `attribute i : Integer = vs->collect { in v : Vehicle; (true, 1) };`,
+		"cannot bind a value of type Boolean to a feature typed by Integer")
+	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; (v, boat) };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `
+		part t : Truck = vs->collect { in v : Vehicle; v };
+		part v : Vehicle = vs->select { in v : Vehicle; true };
+		part b : Boat = vs->collect { in v : Vehicle; boat };
+		part b2 : Boat = vs->collect Boats;
+		attribute i : Integer = vs->collect { in v : Vehicle; (1, 2) };
+		attribute b3 : Boolean = vs->forAll { in v : Vehicle; true };
+		part open : Boat = vs.{ in v; v };
+		part open2 : Boat = vs.{ in v; (v, boat) };`)
+}
+
+// reduce returns the reducer's result, or the collection's one element unreduced:
+// both bind unless the collection is known to hold two or more.
+func TestValueReduceResultIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b : Boat = vs->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = one->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; boat };`,
+		"cannot bind a value of type Boat to a feature typed by Vehicle")
+	wantCollectionValueDiags(t, `attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; 3 };`,
+		"cannot bind a value of type Integer to a feature typed by String")
+	wantCollectionValueDiags(t, `
+		part b : Boat = two->reduce { in a : Vehicle; in b : Vehicle; boat };
+		part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; a };
+		attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };`)
+}
+
+// A collection value passed as an argument is typed by its elements, so the parameter
+// it binds is judged and the overload selected by them.
+func TestArgumentCollectionResultIsJudged(t *testing.T) {
+	wantCollectionValueDiags(t, `part b = Sail(vs->collect { in v : Vehicle; v });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs->select { in v : Vehicle; true });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs->selectOne { in v : Vehicle; true });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part b = Sail(vs.{ in v : Vehicle; v });`,
+		"argument 1 of Sail expects Boat, found Vehicle")
+	wantCollectionValueDiags(t, `part v = Drive(two->reduce { in a : Vehicle; in b : Vehicle; boat });`,
+		"argument 1 of Drive expects Vehicle, found Boat")
+	wantCollectionValueDiags(t, `
+		part b = Sail(vs->collect { in v : Vehicle; boat });
+		part v = Drive(vs->select { in v : Vehicle; true });
+		part v2 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; boat });
+		part v3 = Drive(vs->reduce { in a : Vehicle; in b : Vehicle; a });`)
 }

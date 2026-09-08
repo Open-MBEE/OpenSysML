@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -39,6 +40,14 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			// either direction suffices; only unrelated types are rejected. The
 			// feature is judged as a whole: a variant is typed by its variation too.
 			if !ec.boundTypesConform(feature, gots, wants) {
+				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
+			}
+			continue
+		}
+		if elements, collection := ec.model.CollectionElementTypes(valueScope, value); collection {
+			// Every element a collection value may hold binds, not the Anything the
+			// library declares; the lattice does not type them.
+			if gots := ec.unboundElementTypes(elements, wants); len(gots) > 0 {
 				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
 			}
 			continue
@@ -234,6 +243,23 @@ func (ec *exprChecker) boundTypesConform(feature *symbols.Symbol, gots, wants []
 	return false
 }
 
+// unboundElementTypes is the types of those elements of a collection value, given element by
+// element, none of whose types binds to a feature typed by wants; an untyped element binds.
+func (ec *exprChecker) unboundElementTypes(elements [][]*symbols.Symbol, wants []*symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, gots := range elements {
+		if len(gots) == 0 || ec.boundTypesConform(nil, gots, wants) {
+			continue
+		}
+		for _, got := range gots {
+			if !slices.Contains(out, got) {
+				out = append(out, got)
+			}
+		}
+	}
+	return out
+}
+
 // typeNames joins the names of types as a declaration lists them.
 func typeNames(types []*symbols.Symbol) string {
 	names := make([]string, 0, len(types))
@@ -310,8 +336,12 @@ func (ec *exprChecker) featureValueTypes(sym *symbols.Symbol) []*symbols.Symbol 
 }
 
 // invocationResultTypeSymbol returns the type of the result parameter of the
-// behavior an invocation names, which is the type of the value it produces.
+// behavior an invocation names, which is the type of the value it produces; for
+// a collection value (`xs.{…}`, a collection function call) the one type its elements have.
 func (ec *exprChecker) invocationResultTypeSymbol(scope *symbols.Scope, value ast.Node) *symbols.Symbol {
+	if types, collection := ec.model.CollectionResultTypes(scope, value); collection && len(types) == 1 {
+		return types[0]
+	}
 	result := ec.invocationResultParameter(scope, value)
 	if result == nil {
 		return nil

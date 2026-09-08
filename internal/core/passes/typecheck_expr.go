@@ -234,7 +234,8 @@ func (ec *exprChecker) checkCondition(scope *symbols.Scope, n ast.Node, code, fo
 // redefined duration, a quantity.
 func (ec *exprChecker) checkNonScalarCondition(scope *symbols.Scope, n ast.Node, code, format string, mustType bool) {
 	typeSym := ec.valueTypeSymbol(scope, n)
-	if typeSym == nil {
+	// A collection value is judged element by element by the model below.
+	if _, collection := ec.model.CollectionResultTypes(scope, n); typeSym == nil && !collection {
 		typeSym = ec.invocationResultTypeSymbol(scope, n)
 	}
 	if typeSym == nil {

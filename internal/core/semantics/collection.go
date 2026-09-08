@@ -25,53 +25,116 @@ type collectionSource struct {
 	result *symbols.Symbol
 }
 
-// invocationSource is the source of a call of a ControlFunctions collection function: collect
-// and reduce the body or function applied, select/reject/selectOne the collection; not ok
-// where the arguments say nothing and the declaration alone decides.
-func (m *Model) invocationSource(scope *symbols.Scope, e *ast.InvocationExpr, fn *symbols.Symbol) (collectionSource, bool) {
+// CollectionResultTypes is the types every element of a collection value — `xs.{…}` or a call
+// of a ControlFunctions collection function — has, and whether its arguments decide the value
+// rather than the declared result alone; nil types where they are unknown or say nothing.
+func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*symbols.Symbol, bool) {
+	if m == nil || m.resolver == nil || node == nil {
+		return nil, false
+	}
+	srcs, ok := m.sourcesOf(scope, node)
+	if !ok {
+		return nil, false
+	}
+	return m.sourcesTypes(srcs), true
+}
+
+// sourcesOf is the sources of a collection value: `xs.{…}` by its body, a collection function
+// call by its arguments; not ok for any other value.
+func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSource, bool) {
+	switch n := node.(type) {
+	case *ast.CollectExpr:
+		return m.collectSources(scope, n)
+	case *ast.InvocationExpr:
+		return m.invocationSources(scope, n, m.invocationCallee(scope, n))
+	}
+	return nil, false
+}
+
+// invocationSources are the sources of a call of a ControlFunctions collection function: collect
+// the body or function applied, select/reject/selectOne the collection, reduce the reducer and,
+// unless the collection holds two or more, the one element it returns unreduced; not ok where
+// the arguments say nothing and the declaration alone decides.
+func (m *Model) invocationSources(scope *symbols.Scope, e *ast.InvocationExpr, fn *symbols.Symbol) ([]collectionSource, bool) {
 	if fn == nil || e == nil {
-		return collectionSource{}, false
+		return nil, false
 	}
 	switch fn {
-	case m.libSymbol(fqnCollect), m.libSymbol(fqnReduce):
-		return m.appliedSource(scope, m.argumentTo(scope, e, fn, 1))
+	case m.libSymbol(fqnCollect):
+		return m.appliedSources(scope, m.argumentTo(scope, e, fn, 1))
+	case m.libSymbol(fqnReduce):
+		srcs, ok := m.appliedSources(scope, m.argumentTo(scope, e, fn, 1))
+		if !ok {
+			return nil, false
+		}
+		if collection := m.argumentTo(scope, e, fn, 0); collection != nil && !m.holdsAtLeastTwo(scope, collection) {
+			srcs = append(srcs, collectionSource{scope: scope, node: collection})
+		}
+		return srcs, true
 	case m.libSymbol(fqnSelect), m.libSymbol(fqnReject), m.libSymbol(fqnSelectOne):
 		if collection := m.argumentTo(scope, e, fn, 0); collection != nil {
-			return collectionSource{scope: scope, node: collection}, true
+			return []collectionSource{{scope: scope, node: collection}}, true
 		}
 	}
-	return collectionSource{}, false
+	return nil, false
 }
 
-// collectSource is the source of `xs.{ in x; … }`: its body's result.
-func (m *Model) collectSource(scope *symbols.Scope, e *ast.CollectExpr) (collectionSource, bool) {
+// holdsAtLeastTwo reports a collection statically known to hold two elements or more: a
+// sequence of that many literals, or a feature whose multiplicity's lower bound says so.
+func (m *Model) holdsAtLeastTwo(scope *symbols.Scope, collection ast.Node) bool {
+	switch n := collection.(type) {
+	case *ast.SequenceExpr:
+		if len(n.Elements) < 2 {
+			return false
+		}
+		for _, element := range n.Elements {
+			switch element.(type) {
+			case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool:
+			default:
+				return false
+			}
+		}
+		return true
+	case *ast.FeatureReference, *ast.QualifiedName:
+		sym, ok := m.resolver.ResolveTarget(scope, n)
+		if !ok || sym == nil {
+			return false
+		}
+		lower := m.EffectiveMultiplicityOf(sym).Lower
+		return lower.Known && !lower.Infinite && lower.Value >= 2
+	}
+	return false
+}
+
+// collectSources is the source of `xs.{ in x; … }`: its body's result.
+func (m *Model) collectSources(scope *symbols.Scope, e *ast.CollectExpr) ([]collectionSource, bool) {
 	body, ok := e.Body.(*ast.BodyExpr)
 	if !ok {
-		return collectionSource{}, false
+		return nil, false
 	}
-	return m.bodySource(scope, body)
+	return m.bodySources(scope, body)
 }
 
-// appliedSource is the source of the expression applied to each element: a body
+// appliedSources is the source of the expression applied to each element: a body
 // `{ in x; … }` by its result, a function or expression named by its result parameter.
-func (m *Model) appliedSource(scope *symbols.Scope, applied ast.Node) (collectionSource, bool) {
+func (m *Model) appliedSources(scope *symbols.Scope, applied ast.Node) ([]collectionSource, bool) {
 	switch n := applied.(type) {
 	case *ast.BodyExpr:
-		return m.bodySource(scope, n)
+		return m.bodySources(scope, n)
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
 		if result := m.appliedResult(scope, n); result != nil {
-			return collectionSource{result: result}, true
+			return []collectionSource{{result: result}}, true
 		}
 	}
-	return collectionSource{}, false
+	return nil, false
 }
 
-// bodySource is the result of a body `{ in x; … }`, resolved among its parameters.
-func (m *Model) bodySource(scope *symbols.Scope, body *ast.BodyExpr) (collectionSource, bool) {
+// bodySources is the result of a body `{ in x; … }`, resolved among its parameters.
+func (m *Model) bodySources(scope *symbols.Scope, body *ast.BodyExpr) ([]collectionSource, bool) {
 	if body == nil || body.Result == nil || m.resolver == nil {
-		return collectionSource{}, false
+		return nil, false
 	}
-	return collectionSource{scope: symbols.BodyExprScope(scope, body), node: body.Result}, true
+	return []collectionSource{{scope: symbols.BodyExprScope(scope, body), node: body.Result}}, true
 }
 
 // appliedResult is the result parameter of the function or expression the name applied denotes.
@@ -115,42 +178,72 @@ func (m *Model) argumentTo(scope *symbols.Scope, e *ast.InvocationExpr, fn *symb
 // collectionResultTypes is the types every element of a collection function call's result
 // has; nil where they are unknown or say nothing.
 func (m *Model) collectionResultTypes(scope *symbols.Scope, e *ast.InvocationExpr, fn *symbols.Symbol) []*symbols.Symbol {
-	src, ok := m.invocationSource(scope, e, fn)
+	srcs, ok := m.invocationSources(scope, e, fn)
 	if !ok {
 		return nil
 	}
-	return m.sourceTypes(src)
+	return m.sourcesTypes(srcs)
 }
 
 // collectResultTypes is the types every element of `xs.{ in x; … }` has; nil when unknown.
 func (m *Model) collectResultTypes(scope *symbols.Scope, e *ast.CollectExpr) []*symbols.Symbol {
-	src, ok := m.collectSource(scope, e)
+	srcs, ok := m.collectSources(scope, e)
 	if !ok {
 		return nil
 	}
-	return m.sourceTypes(src)
+	return m.sourcesTypes(srcs)
 }
 
-func (m *Model) sourceTypes(src collectionSource) []*symbols.Symbol {
-	if src.result != nil {
-		return informativeTypes(m.featureResultTypes(src.result))
+// CollectionElementTypes is the types of each element a collection value may hold, nil where
+// unknown, and whether the value is one whose arguments decide it rather than its declared result.
+func (m *Model) CollectionElementTypes(scope *symbols.Scope, node ast.Node) ([][]*symbols.Symbol, bool) {
+	if m == nil || m.resolver == nil || node == nil {
+		return nil, false
 	}
-	return informativeTypes(m.elementResultTypes(src.scope, src.node))
+	srcs, ok := m.sourcesOf(scope, node)
+	if !ok {
+		return nil, false
+	}
+	return m.sourcesElementTypes(srcs), true
 }
 
-// elementResultTypes is the types every element a value contributes has: the expression's own,
-// or for a sequence `(a, b)` those each element conforms to; nil when any element is unknown.
-func (m *Model) elementResultTypes(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
+// sourcesTypes is the types every element of every source conforms to; nil when unknown or
+// when only Anything, which says nothing.
+func (m *Model) sourcesTypes(srcs []collectionSource) []*symbols.Symbol {
+	return informativeTypes(m.sharedAmong(m.sourcesElementTypes(srcs)))
+}
+
+// sourcesElementTypes is the types of each element of every source: a result parameter's
+// own, a sequence `(a, b)` those of each element in turn; nil where they say nothing.
+func (m *Model) sourcesElementTypes(srcs []collectionSource) [][]*symbols.Symbol {
+	var out [][]*symbols.Symbol
+	for _, src := range srcs {
+		if src.result != nil {
+			out = append(out, informativeTypes(m.featureResultTypes(src.result)))
+			continue
+		}
+		out = append(out, m.elementTypes(src.scope, src.node)...)
+	}
+	return out
+}
+
+func (m *Model) elementTypes(scope *symbols.Scope, node ast.Node) [][]*symbols.Symbol {
 	seq, ok := node.(*ast.SequenceExpr)
 	if !ok {
-		return m.resultTypes(scope, node)
+		return [][]*symbols.Symbol{informativeTypes(m.resultTypes(scope, node))}
 	}
+	var out [][]*symbols.Symbol
+	for _, element := range seq.Elements {
+		out = append(out, m.elementTypes(scope, element)...)
+	}
+	return out
+}
+
+// sharedAmong is the types a value of every list conforms to; nil when there is no list or
+// one is empty.
+func (m *Model) sharedAmong(lists [][]*symbols.Symbol) []*symbols.Symbol {
 	var common []*symbols.Symbol
-	for i, element := range seq.Elements {
-		types := m.elementResultTypes(scope, element)
-		if len(types) == 0 {
-			return nil
-		}
+	for i, types := range lists {
 		if i > 0 {
 			types = m.sharedTypes(common, types)
 		}
@@ -183,27 +276,27 @@ func (m *Model) anyConforms(types []*symbols.Symbol, want *symbols.Symbol) bool 
 	return false
 }
 
-// collectionConformance judges the value of a collection function call by its source: every
-// element must conform. Not ok where the source is unknown and the declaration decides.
+// collectionConformance judges the value of a collection function call by its sources: every
+// element must conform. Not ok where the sources are unknown and the declaration decides.
 func (m *Model) collectionConformance(scope *symbols.Scope, e *ast.InvocationExpr, fn *symbols.Symbol, want *symbols.Symbol, byUnit bool) (Conformance, bool) {
-	src, ok := m.invocationSource(scope, e, fn)
+	srcs, ok := m.invocationSources(scope, e, fn)
 	if !ok {
 		return conformanceUnknown(), false
 	}
-	return m.sourceConformance(src, want, byUnit)
+	return m.sourcesConformance(srcs, want, byUnit)
 }
 
 // collectConformance judges the value of `xs.{ in x; … }` by its body's result: every element must conform.
 func (m *Model) collectConformance(scope *symbols.Scope, e *ast.CollectExpr, want *symbols.Symbol, byUnit bool) (Conformance, bool) {
-	src, ok := m.collectSource(scope, e)
+	srcs, ok := m.collectSources(scope, e)
 	if !ok {
 		return conformanceUnknown(), false
 	}
-	return m.sourceConformance(src, want, byUnit)
+	return m.sourcesConformance(srcs, want, byUnit)
 }
 
-func (m *Model) sourceConformance(src collectionSource, want *symbols.Symbol, byUnit bool) (Conformance, bool) {
-	judged := m.judgeSource(src,
+func (m *Model) sourcesConformance(srcs []collectionSource, want *symbols.Symbol, byUnit bool) (Conformance, bool) {
+	judged := m.judgeSources(srcs,
 		func(scope *symbols.Scope, node ast.Node) Conformance {
 			return m.elementConformance(scope, node, want, byUnit)
 		},
@@ -212,21 +305,14 @@ func (m *Model) sourceConformance(src collectionSource, want *symbols.Symbol, by
 }
 
 // collectionCastConformance judges `xs.{…} as T` or a collection function call cast by its
-// source: the cast is sound when some element's types and T specialize one another. Not ok
-// where the source is unknown and the declaration decides.
+// sources: the cast is sound when some element's types and T specialize one another. Not ok
+// where the sources are unknown and the declaration decides.
 func (m *Model) collectionCastConformance(scope *symbols.Scope, operand ast.Node, target *symbols.Symbol) (Conformance, bool) {
-	var src collectionSource
-	var ok bool
-	switch n := operand.(type) {
-	case *ast.CollectExpr:
-		src, ok = m.collectSource(scope, n)
-	case *ast.InvocationExpr:
-		src, ok = m.invocationSource(scope, n, m.invocationCallee(scope, n))
-	}
+	srcs, ok := m.sourcesOf(scope, operand)
 	if !ok {
 		return conformanceUnknown(), false
 	}
-	judged := m.judgeSource(src,
+	judged := m.judgeSources(srcs,
 		func(scope *symbols.Scope, node ast.Node) Conformance { return m.castConformance(scope, node, target) },
 		func(result *symbols.Symbol) Conformance {
 			return m.castTypesConformance(m.featureResultTypes(result), target)
@@ -234,13 +320,18 @@ func (m *Model) collectionCastConformance(scope *symbols.Scope, operand ast.Node
 	return decided(anyHolds(judged))
 }
 
-// judgeSource judges each element of a source: a result parameter as the feature, an
+// judgeSources judges each element of every source: a result parameter as the feature, an
 // expression by itself, a sequence `(a, b)` element by element.
-func (m *Model) judgeSource(src collectionSource, byNode func(*symbols.Scope, ast.Node) Conformance, byResult func(*symbols.Symbol) Conformance) []Conformance {
-	if src.result != nil {
-		return []Conformance{byResult(src.result)}
+func (m *Model) judgeSources(srcs []collectionSource, byNode func(*symbols.Scope, ast.Node) Conformance, byResult func(*symbols.Symbol) Conformance) []Conformance {
+	var out []Conformance
+	for _, src := range srcs {
+		if src.result != nil {
+			out = append(out, byResult(src.result))
+			continue
+		}
+		out = append(out, elementJudgements(src.scope, src.node, byNode)...)
 	}
-	return elementJudgements(src.scope, src.node, byNode)
+	return out
 }
 
 func elementJudgements(scope *symbols.Scope, node ast.Node, judge func(*symbols.Scope, ast.Node) Conformance) []Conformance {
