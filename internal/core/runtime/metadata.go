@@ -101,8 +101,10 @@ func (ctx *Context) metadataAnnotationDigest(element *symbols.Symbol, index int)
 	if annotation.Node == nil {
 		return ""
 	}
-	return ctx.qualifiedSymbolName(annotation.Type) + " " +
-		ctx.declText(element, annotation.Node.Span())
+	// An `about` annotation states itself away from the element it annotates, so
+	// the text comes from the document stating it.
+	return ctx.qualifiedSymbolName(annotation.Type) + " " + annotation.Doc + " " +
+		ctx.textIn(annotation.Doc, annotation.Node.Span())
 }
 
 // metadataInstance is the object one annotation denotes, of its metadata type,

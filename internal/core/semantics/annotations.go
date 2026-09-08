@@ -138,8 +138,11 @@ type MetadataBinding struct {
 // it: the metadata type to materialize and the values its body binds. Values
 // the body leaves unbound come from the type's own declarations.
 type ElementMetadata struct {
-	Type     *symbols.Symbol
-	Node     ast.Node
+	Type *symbols.Symbol
+	Node ast.Node
+	// Doc is the document stating the annotation, which an `about` form states
+	// away from the element it annotates.
+	Doc      string
 	About    bool
 	Bindings []MetadataBinding
 }
@@ -156,6 +159,7 @@ func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 		out = append(out, ElementMetadata{
 			Type:     a.typ,
 			Node:     a.node,
+			Doc:      symbols.DocNameOf(a.scope),
 			About:    a.about,
 			Bindings: metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)),
 		})

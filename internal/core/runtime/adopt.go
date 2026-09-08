@@ -389,6 +389,12 @@ func (ctx *Context) declText(owner *symbols.Symbol, span source.Span) string {
 	if owner != nil {
 		file = owner.DocName
 	}
+	return ctx.textIn(file, span)
+}
+
+// textIn renders the text the named document wrote at the given span, falling
+// back to the span for a document whose text this context was not given.
+func (ctx *Context) textIn(file string, span source.Span) string {
 	if sf, ok := ctx.sources[file]; ok && span.End() <= sf.Len() {
 		return strings.Join(strings.Fields(sf.Text(span)), " ")
 	}

@@ -6,6 +6,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 const metadataSrc = `
@@ -597,5 +603,87 @@ func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	}
 	if got := fmt.Sprint(level.Value.Const); !strings.Contains(got, "9") {
 		t.Errorf("level = %s, want the 9 the annotation states now", got)
+	}
+}
+
+// contextOverDocs indexes each named document and gives the context every text,
+// so a digest over an annotation reads the document stating it.
+func contextOverDocs(t *testing.T, docs [][2]string) *Context {
+	t.Helper()
+	idx := symbols.NewIndex()
+	for _, doc := range docs {
+		idx.AddDocument(doc[0], parser.New(source.New(doc[0], []byte(doc[1]))).ParseFile())
+	}
+	resolver := resolve.New(idx)
+	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	for _, doc := range docs {
+		ctx.RegisterSource(source.New(doc[0], []byte(doc[1])))
+	}
+	return ctx
+}
+
+const adoptAboutModel = `package Demo {
+	metadata def Safety { attribute level = 3; }
+	part def Vehicle;
+	part seatBelt : Vehicle;
+	part def Holder { attribute mark; }
+	part def Reader { attribute seen = seatBelt.metadata; }
+}`
+
+const adoptAboutNotes = `package Notes {
+	metadata Demo::Safety about Demo::seatBelt {
+		level = 5;
+	}
+}`
+
+// TestAdoptReadsAChangedAboutAnnotationAgain states the annotation away from the
+// element it annotates: editing the annotating document is what makes the object
+// made for it stale, and editing the annotated element's document does not.
+func TestAdoptReadsAChangedAboutAnnotationAgain(t *testing.T) {
+	read := func(t *testing.T, ctx *Context, obj *Instance) Value {
+		t.Helper()
+		fv, err := obj.GetFeatureValue(ctx, "seen")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(seen): %v", err)
+		}
+		vals := elementsOf(fv.Value)
+		if len(vals) != 1 {
+			t.Fatalf("the annotation reads as %d metadata values, want one", len(vals))
+		}
+		return vals[0]
+	}
+	carry := func(t *testing.T, model, notes string) (int64, int64) {
+		t.Helper()
+		prev := contextOverDocs(t, [][2]string{{"model.sysml", adoptAboutModel}, {"notes.sysml", adoptAboutNotes}})
+		reader, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Reader"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		before := read(t, prev, reader)
+		holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Holder"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		if err := holder.SetFeatureValue(prev, "mark", before); err != nil {
+			t.Fatalf("SetFeatureValue(mark): %v", err)
+		}
+		ctx := contextOverDocs(t, [][2]string{{"model.sysml", model}, {"notes.sysml", notes}})
+		if _, err := ctx.Adopt(prev, prev.ShapesOf(holder), holder); err != nil {
+			t.Fatalf("Adopt: %v", err)
+		}
+		again, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Reader"))
+		if err != nil {
+			t.Fatalf("Instantiate after adoption: %v", err)
+		}
+		return before.Instance, read(t, ctx, again).Instance
+	}
+
+	before, after := carry(t, adoptAboutModel+"\npart def Widget;", adoptAboutNotes)
+	if before != after {
+		t.Errorf("an unedited annotation read as object %d, want the %d it denoted", after, before)
+	}
+	before, after = carry(t, adoptAboutModel, strings.Replace(adoptAboutNotes, "level = 5", "level = 9", 1))
+	if before == after {
+		t.Errorf("the edited annotation reused object %d, made for what it said before", before)
 	}
 }
