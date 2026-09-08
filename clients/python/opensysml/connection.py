@@ -1788,7 +1788,7 @@ class Connection:
         if isinstance(py_value, bool):
             return sysml_pb2.Value(bool_value=py_value)
         elif isinstance(py_value, InstanceRef):
-            return sysml_pb2.Value(instance_id=int(py_value))
+            return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
             return sysml_pb2.Value(int_value=py_value)
         elif isinstance(py_value, float):

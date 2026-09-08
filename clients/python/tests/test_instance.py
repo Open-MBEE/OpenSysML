@@ -3,6 +3,7 @@ import pytest
 from opensysml.errors import FeatureValueError
 from opensysml.proto import sysml_pb2
 from opensysml.instance import Instance
+from opensysml.values import InstanceRef
 
 
 def scalar_feature(name, **value_kwargs):
@@ -156,8 +157,8 @@ def test_nested_instance_resolution():
     assert inst.engine is engine
 
 
-def test_unresolvable_instance_id_falls_back_to_id():
-    """Without the child in the graph, the bare id is returned."""
+def test_unresolvable_instance_id_falls_back_to_a_reference():
+    """Without the child in the graph, a reference holding the id is returned."""
     pb_inst = sysml_pb2.Instance(
         id=1,
         type_symbol_id="Test::P",
@@ -165,7 +166,8 @@ def test_unresolvable_instance_id_falls_back_to_id():
     )
 
     inst = Instance(pb_inst)
-    assert inst.engine == 42
+    assert inst.engine == InstanceRef(42)
+    assert inst.engine != 42
 
 
 def test_error_slot_raises_slot_error():

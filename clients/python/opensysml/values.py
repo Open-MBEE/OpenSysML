@@ -829,31 +829,31 @@ def same_value(a: Any, b: Any) -> bool:
     """Whether two decoded values are the same value, as :class:`SetValue` membership judges it.
 
     ``==`` decides, except that a ``bool`` is never a number — ``True`` and ``1``
-    are distinct values in a model — and an :class:`InstanceRef` is never an
-    Integer, in a nested ``list`` or :class:`Array` too.
+    are distinct values in a model — in a nested ``list`` or :class:`Array` too.
     """
     if isinstance(a, bool) or isinstance(b, bool):
         return isinstance(a, bool) and isinstance(b, bool) and a == b
-    if isinstance(a, InstanceRef) or isinstance(b, InstanceRef):
-        return isinstance(a, InstanceRef) and isinstance(b, InstanceRef) and a == b
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(same_value(x, y) for x, y in zip(a, b))
     return a == b
 
 
-class InstanceRef(int):
+@dataclass(frozen=True)
+class InstanceRef:
     """A reference to an instance the client has no instance graph to resolve.
 
-    It is the instance's integer id, so it reads and compares as one where an
-    ``int`` is expected; but it is not the Integer of that value in a model, so
-    :func:`same_value` keeps the two apart, and sent back it is again an
-    instance reference.
+    It holds the instance's id and is nothing else: not the Integer of that
+    value, so it is never equal to one nor accepted where a number is, and sent
+    back it is again an instance reference.
+
+    Attributes:
+        id (int): The instance's id
     """
 
-    __slots__ = ()
+    id: int
 
-    def __repr__(self) -> str:
-        return f"InstanceRef({int(self)})"
+    def __str__(self) -> str:
+        return f"instance({self.id})"
 
 
 @dataclass(frozen=True)
@@ -1013,7 +1013,7 @@ def value_to_python(pb_value, resolve_instance=None):
         pb_value: sysml_pb2.Value message
         resolve_instance: optional callable mapping an instance id to an object;
             when omitted, instance references are returned as an
-            :class:`InstanceRef`, an ``int`` holding the id.
+            :class:`InstanceRef` holding the id.
 
     Returns:
         int, float, complex, bool, str, list, None, :data:`UNSET`,

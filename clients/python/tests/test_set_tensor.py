@@ -21,9 +21,10 @@ from opensysml.capabilities import (
     CAPABILITY_VERIFICATION,
     MissingCapabilityError,
 )
+from opensysml import typed
 from opensysml.connection import Connection
 from opensysml.enumeration import EnumLiteral
-from opensysml.errors import ExecutionError, UnsupportedValueError
+from opensysml.errors import ExecutionError, TypeMismatchError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
 from opensysml.values import (
     Array,
@@ -34,6 +35,7 @@ from opensysml.values import (
     TensorQuantity,
     Unit,
     UnitFactor,
+    Vector,
     VectorQuantity,
     value_to_python,
 )
@@ -315,9 +317,10 @@ def test_members_that_only_look_alike_are_distinct(elements, expected):
     assert 1 not in SetValue((True,)) and True not in SetValue((1,))
 
 
-def test_an_unresolved_instance_reference_is_its_id_but_not_an_integer():
+def test_an_unresolved_instance_reference_holds_its_id_but_is_not_an_integer():
     ref = value_to_python(pb_instance(7))
-    assert isinstance(ref, InstanceRef) and ref == 7 and repr(ref) == "InstanceRef(7)"
+    assert isinstance(ref, InstanceRef) and ref.id == 7 and ref == InstanceRef(7)
+    assert ref != 7 and not isinstance(ref, int) and str(ref) == "instance(7)"
     assert ref in SetValue((InstanceRef(7),)) and ref not in SetValue((7,))
     assert Array((1,), (ref,)) != Array((1,), (7,))
     assert Array((2,), (True, 1)) != Array((2,), (1, 1))
@@ -327,6 +330,25 @@ def test_an_unresolved_instance_reference_is_its_id_but_not_an_integer():
     sent = conn._python_to_value(SetValue((ref, 7)))
     assert [e.WhichOneof("kind") for e in sent.set.elements] == ["instance_id", "int_value"]
     assert sent.set.elements[0].instance_id == 7
+    assert value_to_python(sent) == SetValue((InstanceRef(7), 7))
+
+
+def test_an_instance_reference_is_refused_where_a_number_is_meant():
+    ref = InstanceRef(7)
+    with pytest.raises(ValueError, match="not a number"):
+        Vector((1, ref))
+    with pytest.raises(ValueError, match="not a positive integer"):
+        Array((ref,), (1,))
+    with pytest.raises(ValueError, match="not a positive integer"):
+        TensorQuantity((ref,), [Quantity(1.0, PASCAL)])
+    with pytest.raises(TypeError):
+        Quantity(1.0, PASCAL) * ref
+    with pytest.raises(TypeMismatchError):
+        typed.as_int("n", ref)
+    with pytest.raises(TypeMismatchError):
+        typed.as_float("x", ref)
+    with pytest.raises(TypeMismatchError):
+        typed.as_complex("z", ref)
 
 
 def test_a_set_survives_the_wire_bytes():
