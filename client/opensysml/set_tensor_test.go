@@ -120,12 +120,11 @@ func TestSetsAndTensorsCrossEveryTransport(t *testing.T) {
 			if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument || !strings.Contains(status.Message, "set lists a member twice") {
 				t.Errorf("sizeOf({1, 1.0}) err = %v, want an invalid-argument status naming the repeated element", err)
 			}
-			// A tensor its components do not fill is a failure.
+			// A tensor its components do not fill is refused before it is sent.
 			short := opensysml.TensorQuantity{Dimensions: []int64{2, 2, 2}, Components: tq.Components[:7]}
 			_, err = client.EvaluateCalc(ctx, model, "W::corner", short)
-			var failure *opensysml.FailureError
-			if !errors.As(err, &failure) || !strings.Contains(failure.Error(), "tensor components do not fill its dimensions") {
-				t.Errorf("corner(short) err = %v, want a failure naming the shape", err)
+			if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument || !strings.Contains(status.Message, "tensor components do not fill its dimensions") {
+				t.Errorf("corner(short) err = %v, want an invalid-argument status naming the shape", err)
 			}
 		})
 	}

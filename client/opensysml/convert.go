@@ -300,6 +300,9 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Set{Set: set}}, nil
 	case TensorQuantity:
+		if err := sysmlgrpc.CheckTensorShape(v.Dimensions, len(v.Components)); err != nil {
+			return nil, &StatusError{Code: CodeInvalidArgument, Message: err.Error()}
+		}
 		tq := &pb.TensorQuantity{
 			Dimensions: append([]int64(nil), v.Dimensions...),
 			Components: make([]*pb.Quantity, 0, len(v.Components)),

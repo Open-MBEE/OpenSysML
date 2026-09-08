@@ -225,7 +225,9 @@ across the whole `Int` range; a `Quantity` by magnitude through its `Term`, so
 `1 [m]` is `100 [cm]` (exactly, while the magnitude is an `Int` and the scale a
 whole ratio), and one without a `Term` in its unit as written. A
 `TensorQuantity` carries its dimensions and one `Quantity` per
-component in row-major order, at any rank.
+component in row-major order, at any rank; one whose dimensions are not all
+positive, or whose components do not fill them, is refused with
+`CodeInvalidArgument` before it is sent.
 
 ## Stability
 

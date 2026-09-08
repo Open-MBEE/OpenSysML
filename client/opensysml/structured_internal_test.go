@@ -501,6 +501,48 @@ func TestRepeatedSetMembersAreNotSent(t *testing.T) {
 	}
 }
 
+func TestMalformedTensorsAreNotSent(t *testing.T) {
+	pascal := Quantity{Magnitude: Real(1), Unit: "Pa"}
+	components := func(n int) []Quantity {
+		out := make([]Quantity, n)
+		for i := range out {
+			out[i] = pascal
+		}
+		return out
+	}
+	for name, tc := range map[string]struct {
+		tensor TensorQuantity
+		want   string
+	}{
+		"too few components":  {TensorQuantity{Dimensions: []int64{2, 2, 2}, Components: components(7)}, "tensor components do not fill its dimensions"},
+		"too many components": {TensorQuantity{Dimensions: []int64{2}, Components: components(3)}, "tensor components do not fill its dimensions"},
+		"zero dimension":      {TensorQuantity{Dimensions: []int64{2, 0}, Components: nil}, "tensor dimension is not positive"},
+		"negative dimension":  {TensorQuantity{Dimensions: []int64{-1}, Components: components(1)}, "tensor dimension is not positive"},
+		"overflowing shape":   {TensorQuantity{Dimensions: []int64{1 << 40, 1 << 40}, Components: components(1)}, "tensor components do not fill its dimensions"},
+		"nested in a set":     {TensorQuantity{Dimensions: []int64{2}, Components: components(1)}, "tensor components do not fill its dimensions"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var input Value = tc.tensor
+			if name == "nested in a set" {
+				input = Set{Int(1), tc.tensor}
+			}
+			_, err := valueToProto(input)
+			var status *StatusError
+			if !errors.As(err, &status) || status.Code != CodeInvalidArgument || !strings.HasPrefix(status.Message, tc.want) {
+				t.Fatalf("sent with err %v, want an invalid-argument StatusError starting %q", err, tc.want)
+			}
+		})
+	}
+	scalar := TensorQuantity{Dimensions: nil, Components: components(1)}
+	sent, err := valueToProto(scalar)
+	if err != nil {
+		t.Fatalf("rank-0 tensor refused: %v", err)
+	}
+	if got := valueFromProto(sent); !reflect.DeepEqual(got, scalar) {
+		t.Errorf("rank-0 tensor read back as %#v, want %#v", got, scalar)
+	}
+}
+
 // A malformed measurement reference in an answer reads as an unsupported null
 // naming the fault; a well-formed one reads as itself, reduction and identity
 // intact.
