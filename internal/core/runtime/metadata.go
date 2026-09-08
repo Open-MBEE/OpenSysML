@@ -85,6 +85,26 @@ type metadataAnnotation struct {
 	index   int
 }
 
+// metadataAnnotationDigest renders the annotation at that place as this context
+// reads it: its metadata type and the text it states, so an annotation edited,
+// reordered or retyped is not taken for the one an object was made for. The
+// empty string says this context has no annotation there.
+func (ctx *Context) metadataAnnotationDigest(element *symbols.Symbol, index int) string {
+	if ctx.model == nil || element == nil {
+		return ""
+	}
+	annotations := ctx.model.ElementMetadataOf(element)
+	if index < 0 || index >= len(annotations) {
+		return ""
+	}
+	annotation := annotations[index]
+	if annotation.Node == nil {
+		return ""
+	}
+	return ctx.qualifiedSymbolName(annotation.Type) + " " +
+		ctx.declText(element, annotation.Node.Span())
+}
+
 // metadataInstance is the object one annotation denotes, of its metadata type,
 // with the features its body binds set to the values they are bound to and the
 // remaining ones keeping the defaults the type declares. One annotation denotes

@@ -974,9 +974,17 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 		if !adopted[id] {
 			continue
 		}
-		if element, err := a.rebind(key.element, "the element it annotates"); err == nil {
-			a.ctx.metadataObjects[metadataAnnotation{element: element, index: key.index}] = id
+		element, err := a.rebind(key.element, "the element it annotates")
+		if err != nil {
+			continue
 		}
+		// An annotation denotes the object made for it only while it still reads
+		// as it read: an edited or reordered one is read again rather than reused.
+		stated := a.prev.metadataAnnotationDigest(key.element, key.index)
+		if stated == "" || stated != a.ctx.metadataAnnotationDigest(element, key.index) {
+			continue
+		}
+		a.ctx.metadataObjects[metadataAnnotation{element: element, index: key.index}] = id
 	}
 	for key, id := range a.prev.variantObjects {
 		if !adopted[key.owner] || !adopted[id] {

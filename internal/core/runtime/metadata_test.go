@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -537,5 +538,64 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 	if len(ctx.instances) != made+1 {
 		t.Errorf("reading the annotation again left %d objects, want the %d carried plus the reader",
 			len(ctx.instances), made)
+	}
+}
+
+// TestAdoptReadsAChangedAnnotationAgain edits the annotation body between the
+// two analyses: the object made for what it said before does not stand for what
+// it says now, so the annotation is read again and answers the new value.
+func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
+	prev := contextOver(t, adoptMetadataSrc)
+	reader, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Reader"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	fv, err := reader.GetFeatureValue(prev, "seen")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(seen): %v", err)
+	}
+	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Holder"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err := holder.SetFeatureValue(prev, "mark", fv.Value); err != nil {
+		t.Fatalf("SetFeatureValue(mark): %v", err)
+	}
+	carried := elementsOf(fv.Value)
+	if len(carried) != 1 {
+		t.Fatalf("the annotation reads as %d metadata values, want one", len(carried))
+	}
+	shapes := prev.ShapesOf(holder)
+
+	ctx := contextOver(t, strings.Replace(adoptMetadataSrc, "level = 5", "level = 9", 1))
+	if _, err := ctx.Adopt(prev, shapes, holder); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	again, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Reader"))
+	if err != nil {
+		t.Fatalf("Instantiate after adoption: %v", err)
+	}
+	seen, err := again.GetFeatureValue(ctx, "seen")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(seen) after adoption: %v", err)
+	}
+	read := elementsOf(seen.Value)
+	if len(read) != 1 {
+		t.Fatalf("the annotation reads as %d metadata values after adoption, want one", len(read))
+	}
+	if read[0].Instance == carried[0].Instance {
+		t.Fatalf("the edited annotation reused object %d, made for what it said before",
+			carried[0].Instance)
+	}
+	obj, found := ctx.Instance(read[0].Instance)
+	if !found {
+		t.Fatalf("the annotation reads as object %d, which the context does not hold", read[0].Instance)
+	}
+	level, err := obj.GetFeatureValue(ctx, "level")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(level): %v", err)
+	}
+	if got := fmt.Sprint(level.Value.Const); !strings.Contains(got, "9") {
+		t.Errorf("level = %s, want the 9 the annotation states now", got)
 	}
 }
