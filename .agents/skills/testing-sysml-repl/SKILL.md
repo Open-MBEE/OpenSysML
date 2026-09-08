@@ -3777,17 +3777,19 @@ Traps and recipes:
   with the A/B binary and report it as untested rather than a failure.
 
 - **A guard on the succession out of a `merge` needs a token-ordering fixture to be tested at all.**
-  First-token-wins must count the token that *traverses*, not the one that arrives, so the
-  discriminating shape is a fork with one short branch (`a -> mg`) and one longer branch
-  (`b1 -> b2 -> b3 -> mg`) where only the last node of the long branch writes the feature the guard
-  reads. `%step` steps every live token per step, so a guard reading a value written by a *sibling*
-  branch node in the same step is not discriminating — put at least one extra node after the write.
-  Expected on a correct build: `%tokens` shows the short branch's token at `mg` with the guard still
-  false, that token disappears (retired), then the long branch's token traverses `mg` and the node
-  after it runs. A build that closes the merge on arrival instead discards the second token, never
-  runs the node after the merge, and then spins to
-  `error: execution failed: execution exceeded max steps (1000000 steps; ...)` — so "hangs to the
-  step budget", not just a wrong value, is the pre-fix signature here.
+  A merge passes every arriving token (one `MergePerformance` per arrival), retiring only a token
+  whose outgoing succession is pruned, so the discriminating shape is a fork with one short branch
+  (`a -> mg`) and one longer branch (`b1 -> b2 -> b3 -> mg`) where only the last node of the long
+  branch writes the feature the guard reads. `%step` steps every live token per step, so a guard
+  reading a value written by a *sibling* branch node in the same step is not discriminating — put at
+  least one extra node after the write. Expected on a correct build: `%tokens` shows the short
+  branch's token at `mg` with the guard still false, that token disappears (retired), then the long
+  branch's token traverses `mg` and the node after it runs. A build that closes the merge after one
+  traversal instead discards every later arrival: a loop back into a merge (`action_merge_loop_reenters`
+  in the conformance corpus) ends after one pass without reaching its exit, and `%tokens` shows no
+  token where the loop should be. An unguarded loop through a merge (`start -> m -> a -> m`) is the
+  step budget's to stop, on every build: `%step` circles `m` and `a` one node at a time and
+  `%continue` ends in `error: execution failed: execution exceeded max steps (1000000 steps; ...)`.
 
 ### Typed failure classes for fork/join/merge/decision control nodes (PR #449 class)
 

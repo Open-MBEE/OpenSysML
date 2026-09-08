@@ -1,0 +1,76 @@
+step 1: token 1@split
+step 2: token 2@gate, token 3@prep
+stmt assign merged
+    eval feature merged -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 3: token 2@work, token 3@gate
+stmt assign merged
+    eval feature merged -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign worked
+    eval feature worked -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 4: token 2@more, token 3@work
+stmt assign worked
+    eval feature worked -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign passes
+    eval feature passes -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+  eval feature passes -> 1
+  eval literal 3 -> 3
+eval operator < -> true
+step 5: token 2@gate, token 3@more
+stmt assign passes
+    eval feature passes -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+  eval feature passes -> 2
+  eval literal 3 -> 3
+eval operator < -> true
+stmt assign merged
+    eval feature merged -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+step 6: token 2@work, token 3@gate
+stmt assign merged
+    eval feature merged -> 3
+    eval literal 1 -> 1
+  eval operator + -> 4
+stmt assign worked
+    eval feature worked -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+step 7: token 2@more, token 3@work
+stmt assign worked
+    eval feature worked -> 3
+    eval literal 1 -> 1
+  eval operator + -> 4
+stmt assign passes
+    eval feature passes -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+  eval feature passes -> 3
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature passes -> 3
+  eval literal 3 -> 3
+eval operator >= -> true
+step 8: token 2@done, token 3@more
+stmt assign passes
+    eval feature passes -> 3
+    eval literal 1 -> 1
+  eval operator + -> 4
+  eval feature passes -> 4
+  eval literal 3 -> 3
+eval operator < -> false
+  eval feature passes -> 4
+  eval literal 3 -> 3
+eval operator >= -> true
+step 9: token 3@done
+step 10: no active tokens

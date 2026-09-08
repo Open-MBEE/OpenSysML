@@ -18,7 +18,9 @@ executor meets the derived expectation, the case also carries a `.trace.golden` 
 regression-locks the executor's linearization. Where it does not, the derived expectation is kept
 in the `.expected.json`, the case is listed in `known_failures.txt` so the harness reports rather
 than runs it, and the gap is recorded in [What the executor gets wrong](#what-the-executor-gets-wrong).
-No executor code was changed to build this corpus; that is the point of it.
+No executor code was changed to build this corpus; that is the point of it. The one gap the
+corpus found — a merge closed after its first traversal — was fixed afterwards against the
+derivation, not the other way round.
 
 ## What the library fixes, and what a trace adds
 
@@ -207,8 +209,7 @@ conflict.
 
 ### A merge is re-entered on every traversal of a loop
 
-Fixture: `action_merge_loop_reenters` (**known failure**), after the specification's
-`ChargeBattery`.
+Fixture: `action_merge_loop_reenters` (golden), after the specification's `ChargeBattery`.
 
 ```
 start → continueCharging(merge) → monitor → decide ─ level < 100 ─→ addCharge ─┐
@@ -237,10 +238,76 @@ Fixed outcome: `monitor` runs with `level` at `0`, `50` and `100`; the third `de
 the pilot corpus's comment ("a merge node is necessary to prevent a loop of successions from
 being unsatisfiable") take for granted: the merge exists so the loop can be re-entered.
 
-Executor: `level = 50`, `passes = 1`, and `endCharging` is never performed. `stepMergeNode`
-records the merge in `mergeVisited` on its first traversal and retires every later token that
-reaches it, so the second arrival — the one carrying the loop — is discarded and the action
-completes, without error, having never reached `endCharging` or `done`.
+Executor: `level = 100`, `passes = 3`. `stepMergeNode` keeps no record of earlier traversals:
+each arriving token is one `MergePerformance`, its body runs and it is forwarded over the
+merge's one outgoing succession, so the token carrying the loop re-enters `continueCharging`
+as often as `decide` sends it back. The golden shows `monitor` reading `level -> 0`, `-> 50`
+and `-> 100`, the third `decide` evaluating `level >= 100 -> true`, then `endCharging` and
+`done`. A merge is the one node several successions reach that does *not* synchronize (the
+previous two cases): `ActionExecutor.synchronizes` exempts `MergeNode`, since
+`MergePerformance` follows *one* source performance while a plain node or join follows one per
+succession. Loop termination is the guard's and the step budget's job, not the merge's:
+`robustness_test.go:unguarded_loop_through_a_merge` runs `start → m(merge) → a → m` with no
+exit to `ErrActionStepLimitExceeded`, both under `RunToCompletion` and after stepping it.
+
+### A merge counts one performance per pass of a loop
+
+Fixture: `action_merge_loop_three_passes` (golden).
+
+```
+start → again(merge) → work → decide ─ count < 3 ─┐      again { merged := merged + 1 }
+          ↑                            └ count >= 3 → done   work  { count := count + 1 }
+          └───────────────────────────────────────┘
+```
+
+Derived constraints:
+
+- The same chain as above: each `decide` is followed by the one target whose guard holds
+  (DecisionPerformance); each `decide → again` succession is a `HappensBefore` link to a merge
+  performance, followed by a `work` performance and a `decide` performance.
+- A merge performance is one performance with its own steps (`MergeAction` is an `Action`;
+  `Actions.sysml` `Action::merges : MergeAction[0..*]`), so its body runs once per merge
+  performance, i.e. once per arrival.
+
+Open: nothing observable.
+
+Fixed outcome: `count = 3`, `merged = 3` — three passes of `work`, three merge performances.
+The executor agrees; the golden shows `again`'s body and `work`'s body alternating three times
+before `count >= 3 -> true`.
+
+### A merge fed by a fork branch and by a loop passes every arrival
+
+Fixture: `action_merge_fork_branch_and_loop` (golden).
+
+```
+start → split ⇉ gate(merge) → work → more(decide) ─ passes < 3 ─┐   gate { merged := merged + 1 }
+              ⇉ prep → ↑                            └ passes >= 3 → done   work { worked := worked + 1 }
+                       └────────────────────────────────────────┘   more { passes := passes + 1 }
+```
+
+Derived constraints:
+
+- `split` is followed by exactly one performance of `gate` and one of `prep` (ForkAction, target
+  multiplicity 1..1); `prep` is followed by a `gate` performance (HappensBefore). Each is its own
+  merge performance following its own one source (MergePerformance, source multiplicity 0..1),
+  and neither waits for the other: two tokens are downstream of `gate`.
+- Each `gate` performance is followed by a `work` performance and a `more` performance; each
+  `more` is followed by the one target whose guard holds (DecisionPerformance), and `more → gate`
+  is a `HappensBefore` link to a further merge performance.
+- `more`'s body is a step of the decision performance, so it ends before the guard on the
+  outgoing succession is read (HappensBefore orders the whole source performance before its
+  target). Each `more` performance therefore reads a `passes` it has itself just incremented.
+
+Open: the interleaving of the two tokens at every node; which token takes which exit.
+
+Fixed outcome: `passes = 4`, `merged = 4`, `worked = 4`. Whatever the interleaving, `passes`
+takes the values 1, 2, 3, 4 one `more` performance at a time, the two that read 1 and 2 select
+`gate` and the two that read 3 and 4 select `done`, so the merge is reached twice from the fork
+(once directly, once through `prep`) and twice from the loop, and `work` follows each of the
+four. The executor agrees; the golden shows the direct token at `gate` in step 2 while the
+other is still at `prep`, the two loop re-entries at steps 5 and 6, and `done` reached twice.
+Had `passes` been counted in `work` instead, the outcome would depend on the interleaving
+(one token's `more` may read the other's write), which is why the count is where it is.
 
 ### A transition's guard, the source's exit, the effect and the target's entry, in that order
 
@@ -271,16 +338,17 @@ the tool detail noted above, not a second reading the library asks for.
 
 ## What the executor gets wrong
 
-One of the six derivations is not met. It is listed in
-`internal/core/runtime/testdata/conformance/known_failures.txt`, its expected outcome is the
-derived one, and the compliance map cites it from the row it refutes.
+Nothing, at present: every derivation above is met and carries a golden. The table this section
+held is empty and so omitted; `internal/core/runtime/testdata/conformance/known_failures.txt` is
+kept with only its header comments, because the harness reads it and because it is where the
+next unmet derivation goes (see [Adding a case](#adding-a-case)).
 
-| Case | Derived | Executor | Root |
-|------|---------|----------|------|
-| `action_merge_loop_reenters` | every arrival traverses the merge | the first traversal closes the merge for the run | `stepMergeNode` keys `mergeVisited` on the merge node alone |
-
-When a fix lands, remove the entry from `known_failures.txt`, run `-update-traces` for the
-case, and review the new golden against the derivation above before committing it.
+The one entry it held, `action_merge_loop_reenters`, was met by removing the executor's
+first-traversal record from `stepMergeNode` so that a merge passes every arriving token; the
+case's expected outcome was not touched. When a new gap is found, list the case there, record it
+in a table here (case, derived, executor, root), and when the fix lands remove the entry, run
+`-update-traces` for the case, and review the new golden against its derivation before
+committing it.
 
 ## Adding a case
 

@@ -38,11 +38,8 @@ type ActionExecutor struct {
 	breakpoints map[string]bool
 	// firedBreakpoints records the token visits a breakpoint already stopped on.
 	firedBreakpoints map[breakpointVisit]bool
-	// mergeVisited tracks merge node visits, per activation of the flow the merge
-	// belongs to: a nested flow entered again merges again.
-	mergeVisited map[mergeVisit]bool
-	inputs       map[string]Value // Input parameter bindings, applied over attribute defaults
-	pausedAt     string           // Node name RunToCompletion stopped at, empty when it ran to the end
+	inputs           map[string]Value // Input parameter bindings, applied over attribute defaults
+	pausedAt         string           // Node name RunToCompletion stopped at, empty when it ran to the end
 	// pause is set while a token's work runs as a coroutine (action_body_run.go):
 	// called with a breakpoint's name, it pauses the run there until resumed.
 	pause func(string) bool
@@ -76,13 +73,6 @@ func (e *ActionExecutor) chargeActionStep() error {
 // breakpointVisit identifies one token's stay at one node.
 type breakpointVisit struct {
 	token int64
-	node  ast.Node
-}
-
-// mergeVisit identifies one merge node in one performance of the flow it
-// belongs to.
-type mergeVisit struct {
-	frame *actionFrame
 	node  ast.Node
 }
 
@@ -137,7 +127,6 @@ func newActionExecutorForOccurrence(
 		breakpoints:  make(map[string]bool),
 
 		firedBreakpoints: make(map[breakpointVisit]bool),
-		mergeVisited:     make(map[mergeVisit]bool),
 	}
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
@@ -907,7 +896,7 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 }
 
 // synchronizes reports whether a node waits for all its incoming successions: every node
-// does but a merge, which passes each arrival on (Actions::MergeAction).
+// does but a merge, the one multi-incoming node that fires per arrival (Actions::MergeAction).
 func synchronizes(node ast.Node) bool {
 	_, merge := node.(*ast.MergeNode)
 	return !merge
@@ -1196,7 +1185,8 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	return nil
 }
 
-// stepMergeNode implements OR-join semantics (first-token-wins).
+// stepMergeNode passes each arriving token on: a merge is one MergePerformance per
+// arrival (Actions::MergeAction), so a loop re-enters it and a fork's branches each traverse it.
 func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	mergeNode, ok := token.Location.(*ast.MergeNode)
@@ -1204,15 +1194,7 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return fmt.Errorf("expected MergeNode, got %T", token.Location)
 	}
 
-	visit := mergeVisit{frame: token.frame, node: mergeNode}
 	graph := e.graphOf(token.frame)
-
-	// Check if merge already visited
-	if e.mergeVisited[visit] {
-		// Discard token (first-wins)
-		return e.retireToken(tokenIdx)
-	}
-
 	declared := graph.Edges[mergeNode]
 	if len(declared) == 0 {
 		return fmt.Errorf("%w: merge node %s has no successors",
@@ -1230,13 +1212,10 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return e.retireToken(tokenIdx)
 	}
 
-	// First-wins counts the token that traverses, not the one that arrives: a
-	// token whose succession was pruned leaves the merge open for a later one,
-	// so the body runs with that traversal rather than on every arrival.
+	// The body runs with the traversal, not with an arrival whose succession was pruned.
 	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
 		return err
 	}
-	e.mergeVisited[visit] = true
 	token.travel(successors[0])
 	return nil
 }
