@@ -71,6 +71,9 @@ type Model struct {
 	filterTypes    map[string]*symbols.Symbol
 	annotations    map[*symbols.Symbol][]annotation
 	aboutAnnots    map[*symbols.Symbol][]annotation
+	// aboutByDecl keys the same annotations by the declaration of the element
+	// annotated, reaching them from a re-indexed twin of that symbol.
+	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
 
