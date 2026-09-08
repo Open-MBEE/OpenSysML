@@ -58,6 +58,15 @@ func (s *Service) filterInstanceCapabilities(instance *pb.Instance) {
 	}
 }
 
+func (s *Service) filterDiagnosticCapabilities(diags []*pb.Diagnostic) []*pb.Diagnostic {
+	if !s.capabilities.has(CapabilityDiagnosticCodes) {
+		for _, diag := range diags {
+			diag.Code = ""
+		}
+	}
+	return diags
+}
+
 func (s *Service) filterValueCapabilities(value *pb.Value) {
 	if value == nil {
 		return

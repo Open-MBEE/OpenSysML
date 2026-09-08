@@ -221,6 +221,7 @@ public final class Protos {
           new Diagnostic(
               Diagnostic.Severity.fromWireName(diagnostic.getSeverity()),
               diagnostic.getMessage(),
+              diagnostic.getCode(),
               diagnostic.hasSpan() ? Optional.of(span(diagnostic.getSpan())) : Optional.empty()));
     }
     return List.copyOf(read);

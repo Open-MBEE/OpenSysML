@@ -20,7 +20,7 @@ import java.util.Optional;
  */
 public class ModelException extends OpenSysMLException {
 
-  private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 2L;
   private static final int MAX_SERIALIZED_DIAGNOSTICS = 100_000;
 
   private transient List<Diagnostic> diagnostics;
@@ -55,6 +55,7 @@ public class ModelException extends OpenSysMLException {
     for (Diagnostic diagnostic : diagnostics) {
       stream.writeObject(diagnostic.severity());
       stream.writeObject(diagnostic.message());
+      stream.writeObject(diagnostic.code());
       stream.writeBoolean(diagnostic.span().isPresent());
       if (diagnostic.span().isPresent()) {
         Diagnostic.Span span = diagnostic.span().orElseThrow();
@@ -81,8 +82,10 @@ public class ModelException extends OpenSysMLException {
     for (int index = 0; index < count; index++) {
       Object severity = stream.readObject();
       Object message = stream.readObject();
+      Object code = stream.readObject();
       if (!(severity instanceof Diagnostic.Severity diagnosticSeverity)
-          || !(message instanceof String diagnosticMessage)) {
+          || !(message instanceof String diagnosticMessage)
+          || !(code instanceof String diagnosticCode)) {
         throw new InvalidObjectException("invalid diagnostic");
       }
       Optional<Diagnostic.Span> span = Optional.empty();
@@ -100,7 +103,7 @@ public class ModelException extends OpenSysMLException {
                     stream.readInt(),
                     stream.readInt()));
       }
-      restored.add(new Diagnostic(diagnosticSeverity, diagnosticMessage, span));
+      restored.add(new Diagnostic(diagnosticSeverity, diagnosticMessage, diagnosticCode, span));
     }
     diagnostics = List.copyOf(restored);
   }

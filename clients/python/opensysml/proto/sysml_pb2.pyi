@@ -816,14 +816,16 @@ class UnitFactor(_message.Message):
     def __init__(self, unit_id: _Optional[str] = ..., exponent: _Optional[float] = ...) -> None: ...
 
 class Diagnostic(_message.Message):
-    __slots__ = ("severity", "message", "span")
+    __slots__ = ("severity", "message", "span", "code")
     SEVERITY_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     SPAN_FIELD_NUMBER: _ClassVar[int]
+    CODE_FIELD_NUMBER: _ClassVar[int]
     severity: str
     message: str
     span: Span
-    def __init__(self, severity: _Optional[str] = ..., message: _Optional[str] = ..., span: _Optional[_Union[Span, _Mapping]] = ...) -> None: ...
+    code: str
+    def __init__(self, severity: _Optional[str] = ..., message: _Optional[str] = ..., span: _Optional[_Union[Span, _Mapping]] = ..., code: _Optional[str] = ...) -> None: ...
 
 class Span(_message.Message):
     __slots__ = ("file", "start_line", "start_col", "end_line", "end_col")

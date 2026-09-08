@@ -334,9 +334,11 @@ Higher tiers skip if lower tier fails.
   - `Model() *semantics.Model`
 
 - **`Diagnostic`** — Error/warning
-  - `Level DiagnosticLevel` — Error, Warning, Info
+  - `Severity Severity` — Error, Warning, Info
   - `Span source.Span`
   - `Message string`
+  - `Code string` — stable identifier of what was found (`syntax`, a pass or rule code,
+    `choice-point`, `guard-unevaluable`); carried as-is on the wire as `Diagnostic.code`
 
 **Usage:**
 ```go

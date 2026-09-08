@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 import {
   CAPABILITY_COMPLEX_VALUES,
+  CAPABILITY_DIAGNOSTIC_CODES,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
@@ -267,6 +268,18 @@ test("a file parses, and a syntax error is a diagnostic, not a thrown call", asy
   const broken = await connection.loads("package Broken { part def }");
   assert.ok(broken.hasErrors);
   assert.ok(broken.diagnostics.some((diagnostic) => diagnostic.severity === "error"));
+});
+
+test("a diagnostic carries the service's code for what it found", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_DIAGNOSTIC_CODES));
+  const broken = await connection.loads("package Broken { part def }");
+  assert.ok(broken.diagnostics.length > 0);
+  assert.ok(broken.diagnostics.every((diagnostic) => diagnostic.code === "syntax"));
+
+  const unresolved = await connection.loads("package P { part def W { part hub : Missing; } }");
+  assert.ok(unresolved.diagnostics.some((diagnostic) => diagnostic.code === "unresolved"));
+  assert.ok(unresolved.diagnostics.every((diagnostic) => diagnostic.code !== ""));
 });
 
 test("an evaluation that cannot be made is an error the caller can catch", async () => {

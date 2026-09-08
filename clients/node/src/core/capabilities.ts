@@ -26,6 +26,8 @@ export const CAPABILITY_MEASUREMENT_REFS = "measurement_refs";
 export const CAPABILITY_FUNCTION_VALUES = "function_values";
 /** The unbounded value `*` as `Value.infinity`, rather than an unsupported null. */
 export const CAPABILITY_INFINITY_VALUE = "infinity_value";
+/** `Diagnostic.code` is populated, so an empty code is a finding none was assigned. */
+export const CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

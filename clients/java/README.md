@@ -39,7 +39,12 @@ records (`IntegerValue`, `RealValue`, `ComplexValue`, `QuantityValue`, `ArrayVal
 `VectorValue`, `VectorQuantityValue`, `MeasurementRefValue`, `FunctionValue`, `EnumerationValue`,
 `InstanceReference`, `Sequence`, `NullValue`, `UnsetValue`, …), and `Symbol`,
 `Diagnostic`, `Instance` and `Instantiation` are records with copied collections.
-No generated protobuf message or builder appears in the public API.
+No generated protobuf message or builder appears in the public API. A `Diagnostic`
+is `(severity, message, code, span)`; `code()` is the identifier to branch on
+(`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
+`"guard-unevaluable"`; `""` when the service assigned none), `message()` is for reading. A
+service that populates `code` advertises `Capabilities.DIAGNOSTIC_CODES`; without it every
+code is `""`.
 
 ## Exceptions: unchecked, and the distinction that matters
 

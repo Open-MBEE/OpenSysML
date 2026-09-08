@@ -85,6 +85,9 @@ export class ParseError extends OpenSysMLError {
 export interface ModelDiagnostic {
   severity: string;
   message: string;
+  /** What was found, stable across message wording (`"syntax"`, a validation code,
+   * `"choice-point"`, `"guard-unevaluable"`); `""` when the service assigned none. */
+  code: string;
   file?: string;
   startLine?: number;
   startColumn?: number;

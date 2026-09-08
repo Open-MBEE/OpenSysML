@@ -732,7 +732,7 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 func diagnosticsToProto(diagnostics []opensysml.Diagnostic) []*pb.Diagnostic {
 	var out []*pb.Diagnostic
 	for _, diagnostic := range diagnostics {
-		converted := &pb.Diagnostic{Severity: diagnostic.Severity, Message: diagnostic.Message}
+		converted := &pb.Diagnostic{Severity: diagnostic.Severity, Message: diagnostic.Message, Code: diagnostic.Code}
 		if diagnostic.Span != nil {
 			// #nosec G115 -- line and column numbers fit in int32.
 			converted.Span = &pb.Span{

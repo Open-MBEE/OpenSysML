@@ -212,6 +212,14 @@ class TestRuntimeIntegration:
         assert self.conn.eval("D::Color::red", model.hash) == red
         assert self.conn.eval("D::Color::green", model.hash) != red
 
+    def test_service_reports_the_diagnostic_codes_capability(self):
+        """The service says it populates Diagnostic.code, and does."""
+        from opensysml.capabilities import CAPABILITY_DIAGNOSTIC_CODES
+
+        assert self.conn.server_info().has(CAPABILITY_DIAGNOSTIC_CODES)
+        model = self.conn.load_from_content("package P { part def W { part hub : Missing; } }")
+        assert "unresolved" in {d.code for d in model.diagnostics}
+
     def test_service_reports_the_enum_values_capability(self):
         """The wire form is a contract, so the service says it honours it."""
         from opensysml.capabilities import CAPABILITY_ENUM_VALUES

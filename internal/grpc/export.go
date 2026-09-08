@@ -48,12 +48,12 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 		resp.Error = err.Error()
 		var broken *export.SyntaxError
 		if errors.As(err, &broken) {
-			resp.Diagnostics = syntaxDiagnostics(broken)
+			resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(broken))
 		}
 		return resp, nil
 	}
 	resp.Content = string(out)
-	resp.Diagnostics = syntaxDiagnostics(syntax)
+	resp.Diagnostics = s.filterDiagnosticCapabilities(syntaxDiagnostics(syntax))
 	return resp, nil
 }
 
@@ -144,6 +144,7 @@ func syntaxDiagnostics(syntax *export.SyntaxError) []*pb.Diagnostic {
 		diags = append(diags, &pb.Diagnostic{
 			Severity: "error",
 			Message:  message,
+			Code:     SyntaxDiagnosticCode,
 			Span:     &pb.Span{File: syntax.Name},
 		})
 	}

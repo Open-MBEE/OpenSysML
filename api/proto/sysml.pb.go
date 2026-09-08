@@ -4881,10 +4881,13 @@ func (x *UnitFactor) GetExponent() float64 {
 
 // Diagnostic represents a parse/semantic error or warning
 type Diagnostic struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Severity      string                 `protobuf:"bytes,1,opt,name=severity,proto3" json:"severity,omitempty"` // "error", "warning", "info"
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Span          *Span                  `protobuf:"bytes,3,opt,name=span,proto3" json:"span,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Severity string                 `protobuf:"bytes,1,opt,name=severity,proto3" json:"severity,omitempty"` // "error", "warning", "info"
+	Message  string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Span     *Span                  `protobuf:"bytes,3,opt,name=span,proto3" json:"span,omitempty"`
+	// Stable identifier to branch on instead of the message: a pass or rule code,
+	// "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
+	Code          string `protobuf:"bytes,4,opt,name=code,proto3" json:"code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4938,6 +4941,13 @@ func (x *Diagnostic) GetSpan() *Span {
 		return x.Span
 	}
 	return nil
+}
+
+func (x *Diagnostic) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
 }
 
 // Span represents a source location
@@ -5117,6 +5127,8 @@ type ServerInfoResponse struct {
 	//	               and answers with typed rows.
 	//	"render_document" - the RenderDocument RPC renders a named document to
 	//	               Markdown.
+	//	"diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+	//	               finding none was assigned; without it every code is empty.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6984,12 +6996,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"UnitFactor\x12\x17\n" +
 	"\aunit_id\x18\x01 \x01(\tR\x06unitId\x12\x1a\n" +
-	"\bexponent\x18\x02 \x01(\x01R\bexponent\"c\n" +
+	"\bexponent\x18\x02 \x01(\x01R\bexponent\"w\n" +
 	"\n" +
 	"Diagnostic\x12\x1a\n" +
 	"\bseverity\x18\x01 \x01(\tR\bseverity\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1f\n" +
-	"\x04span\x18\x03 \x01(\v2\v.sysml.SpanR\x04span\"\x8a\x01\n" +
+	"\x04span\x18\x03 \x01(\v2\v.sysml.SpanR\x04span\x12\x12\n" +
+	"\x04code\x18\x04 \x01(\tR\x04code\"\x8a\x01\n" +
 	"\x04Span\x12\x12\n" +
 	"\x04file\x18\x01 \x01(\tR\x04file\x12\x1d\n" +
 	"\n" +

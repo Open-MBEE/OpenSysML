@@ -61,7 +61,7 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 	}
 	result, err := edit.Apply(model, ops)
 	if err != nil {
-		return editRefusal(err, doc.Source)
+		return s.editRefusal(err, doc.Source)
 	}
 	return &pb.ApplyEditsResponse{
 		Content: string(result.Content),
@@ -111,7 +111,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 
 // editRefusal reports a refused edit as a response rather than a call failure:
 // the request was well formed, and the answer is why the model was not edited.
-func editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsResponse, error) {
+func (s *Service) editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsResponse, error) {
 	var refusal *edit.Error
 	if !errors.As(err, &refusal) {
 		return nil, statusErrorf(connect.CodeInternal, "apply edits: %v", err)
@@ -130,6 +130,7 @@ func editRefusal(err error, sf *source.SourceFile) (*pb.ApplyEditsResponse, erro
 	for _, diag := range refusal.Diagnostics {
 		resp.Diagnostics = append(resp.Diagnostics, DiagnosticToProto(diag, diagnosed))
 	}
+	s.filterDiagnosticCapabilities(resp.Diagnostics)
 	return resp, nil
 }
 

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.openmbee.opensysml.internal.Protos;
 
 /** The public value types: immutable, comparable by value, and free of generated types. */
 class PublicTypesTest {
@@ -120,14 +121,36 @@ class PublicTypesTest {
   }
 
   @Test
+  void diagnosticCarriesTheWireCode() {
+    List<Diagnostic> read =
+        Protos.diagnostics(
+            List.of(
+                org.openmbee.opensysml.proto.Diagnostic.newBuilder()
+                    .setSeverity("info")
+                    .setMessage("choice point: 2 steppable tokens")
+                    .setCode("choice-point")
+                    .build(),
+                org.openmbee.opensysml.proto.Diagnostic.newBuilder()
+                    .setSeverity("error")
+                    .setMessage("uncoded")
+                    .build()));
+    assertEquals("choice-point", read.get(0).code());
+    assertEquals("", read.get(1).code());
+    assertThrows(
+        NullPointerException.class,
+        () -> new Diagnostic(Diagnostic.Severity.ERROR, "m", null, Optional.empty()));
+  }
+
+  @Test
   void aModelExceptionPreservesDiagnosticsWhenSerialized() throws Exception {
     List<Diagnostic> diagnostics =
         List.of(
             new Diagnostic(
                 Diagnostic.Severity.ERROR,
                 "invalid model",
+                "unresolved",
                 Optional.of(new Diagnostic.Span("model.sysml", 2, 3, 2, 8))),
-            new Diagnostic(Diagnostic.Severity.WARNING, "unlocated", Optional.empty()));
+            new Diagnostic(Diagnostic.Severity.WARNING, "unlocated", "", Optional.empty()));
     ModelException original = new ModelException("rejected", diagnostics);
 
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();

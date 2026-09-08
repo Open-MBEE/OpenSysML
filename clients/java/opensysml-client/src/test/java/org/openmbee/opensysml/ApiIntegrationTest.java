@@ -289,6 +289,13 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesTheDiagnosticCodesItPopulates() {
+    assertTrue(connection.capabilities().has(Capabilities.DIAGNOSTIC_CODES));
+    Model model = connection.parse("package P { part def W { part hub : Missing; } }");
+    assertTrue(model.diagnostics().stream().anyMatch(d -> "unresolved".equals(d.code())));
+  }
+
+  @Test
   void aJsonBodyAnswersWhatAProtobufBodyAnswers() {
     try (Connection json =
         Connection.open(ServiceBinary.options().encoding(Encoding.JSON).build())) {

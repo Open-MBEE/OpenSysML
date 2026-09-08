@@ -1046,6 +1046,10 @@ pub struct Diagnostic {
     pub message: ::prost::alloc::string::String,
     #[prost(message, optional, tag="3")]
     pub span: ::core::option::Option<Span>,
+    /// Stable identifier to branch on instead of the message: a pass or rule code,
+    /// "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
+    #[prost(string, tag="4")]
+    pub code: ::prost::alloc::string::String,
 }
 /// Span represents a source location
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1128,6 +1132,8 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+    ///                   finding none was assigned; without it every code is empty.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

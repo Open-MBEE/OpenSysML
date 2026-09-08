@@ -9,20 +9,25 @@ import java.util.Optional;
  *
  * @param severity how serious the finding is
  * @param message the finding, as the service words it
+ * @param code stable identifier of what was found, independent of the message wording: a
+ *     validation code, {@code "syntax"}, or {@code "choice-point"} / {@code "guard-unevaluable"}
+ *     on a run; empty when the service assigned none
  * @param span where in the source it is, absent when the service located none
  */
-public record Diagnostic(Severity severity, String message, Optional<Span> span) {
+public record Diagnostic(Severity severity, String message, String code, Optional<Span> span) {
 
   /**
    * Creates a diagnostic.
    *
    * @param severity the severity, never {@code null}
    * @param message the message, never {@code null}
+   * @param code the code, empty rather than {@code null} when there is none
    * @param span the source location, absent when unlocated
    */
   public Diagnostic {
     Objects.requireNonNull(severity, "severity");
     Objects.requireNonNull(message, "message");
+    Objects.requireNonNull(code, "code");
     Objects.requireNonNull(span, "span");
   }
 

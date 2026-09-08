@@ -7,6 +7,8 @@ class Diagnostic:
     Attributes:
         severity (str): Diagnostic severity (e.g., "error", "warning")
         message (str): Diagnostic message
+        code (str): Stable identifier of what was found (a validation code,
+            "syntax", "choice-point", "guard-unevaluable"); "" when none
         file (str): Source file name
         start_line (int): Starting line number (1-based)
         start_column (int): Starting column number (1-based)
@@ -32,6 +34,11 @@ class Diagnostic:
     def message(self):
         """Get diagnostic message."""
         return self._pb.message
+    
+    @property
+    def code(self):
+        """Get the diagnostic code, independent of the message wording."""
+        return self._pb.code
     
     @property
     def span(self):
@@ -75,6 +82,7 @@ class Diagnostic:
         return (
             f"Diagnostic(severity={self.severity!r}, "
             f"message={self.message!r}, "
+            f"code={self.code!r}, "
             f"file={self.file!r}, "
             f"line={self.start_line})"
         )

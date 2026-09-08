@@ -67,7 +67,7 @@ func diagnosticsFromProto(diags []*pb.Diagnostic) []Diagnostic {
 	}
 	out := make([]Diagnostic, 0, len(diags))
 	for _, diag := range diags {
-		converted := Diagnostic{Severity: diag.Severity, Message: diag.Message}
+		converted := Diagnostic{Severity: diag.Severity, Message: diag.Message, Code: diag.Code}
 		if diag.Span != nil {
 			converted.Span = &Span{
 				File:      diag.Span.File,
