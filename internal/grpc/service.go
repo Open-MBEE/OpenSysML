@@ -122,6 +122,12 @@ const CapabilityInfinityValue = "infinity_value"
 // so an empty code is a finding none was assigned rather than an older service.
 const CapabilityDiagnosticCodes = "diagnostic_codes"
 
+// CapabilitySchedule names the `schedule` field of ExecuteActionRequest,
+// ExecuteStateRequest and RunAnalysisRequest, which selects the scheduling
+// policy a run resolves its choice points under. A service without it runs
+// every request under the default, so a client must not send the field to one.
+const CapabilitySchedule = "schedule"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -132,7 +138,7 @@ var capabilities = []string{
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
-	CapabilityInfinityValue, CapabilityDiagnosticCodes,
+	CapabilityInfinityValue, CapabilityDiagnosticCodes, CapabilitySchedule,
 }
 
 type capabilityAvailability struct {
@@ -309,6 +315,22 @@ func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, *semantics.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
 	return ctx, rs.Model, release
+}
+
+// schedulePolicy reads a request's schedule field. Empty is the default policy;
+// anything else needs the schedule capability and must spell a policy.
+func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error) {
+	if spelling == "" {
+		return runtime.DefaultSchedulePolicy, nil
+	}
+	if err := s.requireCapability(CapabilitySchedule); err != nil {
+		return runtime.SchedulePolicy{}, err
+	}
+	policy, err := runtime.ParseSchedulePolicy(spelling)
+	if err != nil {
+		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	return policy, nil
 }
 
 // sourceInput is one document a parse request named, read and ready to parse.
@@ -718,6 +740,11 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 
 // ExecuteAction executes an action definition
 func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionRequest) (*pb.ExecuteActionResponse, error) {
+	schedule, err := s.schedulePolicy(req.Schedule)
+	if err != nil {
+		return nil, err
+	}
+
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -736,6 +763,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// Create runtime context
 	runtimeCtx, semModel, release := s.newRuntime(cached)
 	defer release()
+	runtimeCtx.SetSchedule(schedule)
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -782,6 +810,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 // ExecuteState executes a state machine
 func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest) (*pb.ExecuteStateResponse, error) {
+	schedule, err := s.schedulePolicy(req.Schedule)
+	if err != nil {
+		return nil, err
+	}
+
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -800,6 +833,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Create runtime context
 	runtimeCtx, _, release := s.newRuntime(cached)
 	defer release()
+	runtimeCtx.SetSchedule(schedule)
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.

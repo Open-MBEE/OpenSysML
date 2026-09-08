@@ -1,0 +1,17 @@
+step 1: token 1@split
+step 2: token 2@sendOne, token 3@left, token 4@right
+stmt send
+  eval literal 1 -> 1
+choice step 3: tokens 2@sendOne, 3@left (unordered; took 2@sendOne first)
+step 3: token 2@sendTwo, token 3@sync, token 4@right
+stmt send
+  eval literal 2 -> 2
+choice step 4: tokens 2@sendTwo, 4@right (unordered; took 2@sendTwo first)
+step 4: token 2@sync, token 3@sync, token 4@sync
+step 5: token 5@recorder
+stmt assign a
+  eval feature x -> 1
+stmt assign b
+  eval feature y -> 2
+step 6: token 5@done
+step 7: no active tokens

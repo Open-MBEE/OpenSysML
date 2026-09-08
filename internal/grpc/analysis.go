@@ -14,6 +14,10 @@ import (
 // the response carries every output with the verdict of each objective and
 // assertion (SysML 7.22).
 func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error) {
+	schedule, err := s.schedulePolicy(req.Schedule)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
@@ -22,6 +26,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return nil, err
 	}
 	defer release()
+	v.runtime.SetSchedule(schedule)
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error()}, nil

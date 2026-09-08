@@ -74,6 +74,9 @@ public final class Capabilities {
   /** An instance carries what it holds for each feature of its type. */
   public static final String FEATURE_VALUES = "feature_values";
 
+  /** The execution requests take a {@code schedule}, the scheduling policy a run resolves its choice points under. */
+  public static final String SCHEDULE = "schedule";
+
   private final String serviceVersion;
   private final Set<String> names;
 

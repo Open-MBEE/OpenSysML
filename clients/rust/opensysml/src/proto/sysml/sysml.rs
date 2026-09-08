@@ -232,6 +232,11 @@ pub struct RunAnalysisRequest {
     /// Arguments bound to input parameters by name.
     #[prost(map="string, message", tag="5")]
     pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Scheduling policy the run resolves its choice points under: "declared",
+    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="6")]
+    pub schedule: ::prost::alloc::string::String,
 }
 /// RunAnalysisResponse carries what the case computed and decided.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -480,6 +485,11 @@ pub struct ExecuteActionRequest {
     /// parameter name → value
     #[prost(map="string, message", tag="3")]
     pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Scheduling policy the run resolves its choice points under: "declared",
+    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="4")]
+    pub schedule: ::prost::alloc::string::String,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -502,6 +512,11 @@ pub struct ExecuteStateRequest {
     /// sequence of event names to process
     #[prost(string, repeated, tag="3")]
     pub events: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Scheduling policy the run resolves its choice points under: "declared",
+    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="4")]
+    pub schedule: ::prost::alloc::string::String,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1134,6 +1149,11 @@ pub struct ServerInfoResponse {
     ///                   Markdown.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
     ///                   finding none was assigned; without it every code is empty.
+    ///    "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+    ///                   RunAnalysisRequest take a schedule, the scheduling policy
+    ///                   the run resolves its choice points under; without it a
+    ///                   service drops the field and runs under the default, so a
+    ///                   client must not send one.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

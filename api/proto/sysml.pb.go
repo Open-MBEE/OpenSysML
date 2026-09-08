@@ -1146,8 +1146,12 @@ type RunAnalysisRequest struct {
 	Arguments []*Value `protobuf:"bytes,4,rep,name=arguments,proto3" json:"arguments,omitempty"`
 	// Arguments bound to input parameters by name.
 	NamedArguments map[string]*Value `protobuf:"bytes,5,rep,name=named_arguments,json=namedArguments,proto3" json:"named_arguments,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Scheduling policy the run resolves its choice points under: "declared",
+	// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+	// spelling is INVALID_ARGUMENT.
+	Schedule      string `protobuf:"bytes,6,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunAnalysisRequest) Reset() {
@@ -1213,6 +1217,13 @@ func (x *RunAnalysisRequest) GetNamedArguments() map[string]*Value {
 		return x.NamedArguments
 	}
 	return nil
+}
+
+func (x *RunAnalysisRequest) GetSchedule() string {
+	if x != nil {
+		return x.Schedule
+	}
+	return ""
 }
 
 // RunAnalysisResponse carries what the case computed and decided.
@@ -2342,8 +2353,12 @@ type ExecuteActionRequest struct {
 	ModelHash      string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
 	ActionSymbolId string                 `protobuf:"bytes,2,opt,name=action_symbol_id,json=actionSymbolId,proto3" json:"action_symbol_id,omitempty"`                                   // FQN of action def
 	Inputs         map[string]*Value      `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // parameter name → value
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Scheduling policy the run resolves its choice points under: "declared",
+	// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+	// spelling is INVALID_ARGUMENT.
+	Schedule      string `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ExecuteActionRequest) Reset() {
@@ -2395,6 +2410,13 @@ func (x *ExecuteActionRequest) GetInputs() map[string]*Value {
 		return x.Inputs
 	}
 	return nil
+}
+
+func (x *ExecuteActionRequest) GetSchedule() string {
+	if x != nil {
+		return x.Schedule
+	}
+	return ""
 }
 
 // ExecuteActionResponse contains action execution results
@@ -2464,8 +2486,12 @@ type ExecuteStateRequest struct {
 	ModelHash            string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
 	StateMachineSymbolId string                 `protobuf:"bytes,2,opt,name=state_machine_symbol_id,json=stateMachineSymbolId,proto3" json:"state_machine_symbol_id,omitempty"`
 	Events               []string               `protobuf:"bytes,3,rep,name=events,proto3" json:"events,omitempty"` // sequence of event names to process
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Scheduling policy the run resolves its choice points under: "declared",
+	// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+	// spelling is INVALID_ARGUMENT.
+	Schedule      string `protobuf:"bytes,4,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ExecuteStateRequest) Reset() {
@@ -2517,6 +2543,13 @@ func (x *ExecuteStateRequest) GetEvents() []string {
 		return x.Events
 	}
 	return nil
+}
+
+func (x *ExecuteStateRequest) GetSchedule() string {
+	if x != nil {
+		return x.Schedule
+	}
+	return ""
 }
 
 // ExecuteStateResponse contains state machine execution trace
@@ -5129,6 +5162,11 @@ type ServerInfoResponse struct {
 	//	               Markdown.
 	//	"diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
 	//	               finding none was assigned; without it every code is empty.
+	//	"schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+	//	               RunAnalysisRequest take a schedule, the scheduling policy
+	//	               the run resolves its choice points under; without it a
+	//	               service drops the field and runs under the default, so a
+	//	               client must not send one.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -6702,14 +6740,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"CalcOutput\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value\"\xd1\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value\"\xed\x02\n" +
 	"\x12RunAnalysisRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
 	"\tsymbol_id\x18\x02 \x01(\tR\bsymbolId\x12*\n" +
 	"\x11subject_symbol_id\x18\x03 \x01(\tR\x0fsubjectSymbolId\x12*\n" +
 	"\targuments\x18\x04 \x03(\v2\f.sysml.ValueR\targuments\x12V\n" +
-	"\x0fnamed_arguments\x18\x05 \x03(\v2-.sysml.RunAnalysisRequest.NamedArgumentsEntryR\x0enamedArguments\x1aO\n" +
+	"\x0fnamed_arguments\x18\x05 \x03(\v2-.sysml.RunAnalysisRequest.NamedArgumentsEntryR\x0enamedArguments\x12\x1a\n" +
+	"\bschedule\x18\x06 \x01(\tR\bschedule\x1aO\n" +
 	"\x13NamedArgumentsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xf6\x02\n" +
@@ -6795,12 +6834,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\binstance\x18\x01 \x01(\v2\x0f.sysml.InstanceR\binstance\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12-\n" +
-	"\tinstances\x18\x04 \x03(\v2\x0f.sysml.InstanceR\tinstances\"\xe9\x01\n" +
+	"\tinstances\x18\x04 \x03(\v2\x0f.sysml.InstanceR\tinstances\"\x85\x02\n" +
 	"\x14ExecuteActionRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12(\n" +
 	"\x10action_symbol_id\x18\x02 \x01(\tR\x0eactionSymbolId\x12?\n" +
-	"\x06inputs\x18\x03 \x03(\v2'.sysml.ExecuteActionRequest.InputsEntryR\x06inputs\x1aG\n" +
+	"\x06inputs\x18\x03 \x03(\v2'.sysml.ExecuteActionRequest.InputsEntryR\x06inputs\x12\x1a\n" +
+	"\bschedule\x18\x04 \x01(\tR\bschedule\x1aG\n" +
 	"\vInputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xf1\x01\n" +
@@ -6810,12 +6850,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x83\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x9f\x01\n" +
 	"\x13ExecuteStateRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x125\n" +
 	"\x17state_machine_symbol_id\x18\x02 \x01(\tR\x14stateMachineSymbolId\x12\x16\n" +
-	"\x06events\x18\x03 \x03(\tR\x06events\"\xab\x02\n" +
+	"\x06events\x18\x03 \x03(\tR\x06events\x12\x1a\n" +
+	"\bschedule\x18\x04 \x01(\tR\bschedule\"\xab\x02\n" +
 	"\x14ExecuteStateResponse\x12%\n" +
 	"\x0estates_visited\x18\x01 \x03(\tR\rstatesVisited\x12R\n" +
 	"\rfinal_context\x18\x02 \x03(\v2-.sysml.ExecuteStateResponse.FinalContextEntryR\ffinalContext\x12\x14\n" +

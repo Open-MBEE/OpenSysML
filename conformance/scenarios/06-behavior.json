@@ -68,6 +68,82 @@
       }
     },
     {
+      "id": "execute_action/the_default_schedule_takes_the_reverse_order",
+      "description": "Two branches write winner in one step; under the default the later-declared branch runs first, so the first-declared write stands.",
+      "rpc": "ExecuteAction",
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Test::race"
+      },
+      "expect": {
+        "response": {
+          "outputs": {
+            "winner": {
+              "int_value": 1
+            }
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "execute_action/a_schedule_selects_the_order_the_run_takes",
+      "description": "Under declared the first-declared branch runs first, so the later-declared write stands; a service without the capability refuses the field rather than running under the default.",
+      "rpc": "ExecuteAction",
+      "requires_capabilities": [
+        "schedule"
+      ],
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Test::race",
+        "schedule": "declared"
+      },
+      "expect": {
+        "response": {
+          "outputs": {
+            "winner": {
+              "int_value": 2
+            }
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "schedule"
+      }
+    },
+    {
+      "id": "execute_action/a_schedule_naming_no_policy_is_invalid",
+      "description": "The spelling is checked before anything runs: an unknown policy is refused, not run under the default.",
+      "rpc": "ExecuteAction",
+      "requires_capabilities": [
+        "schedule"
+      ],
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "action_symbol_id": "Test::race",
+        "schedule": "seed:abc"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "seed:abc"
+      }
+    },
+    {
       "id": "execute_state/a_machine_reports_the_states_it_visited",
       "description": "The trace is the states really visited, in order, not a placeholder.",
       "rpc": "ExecuteState",
@@ -89,6 +165,25 @@
         "absent": [
           "error"
         ]
+      }
+    },
+    {
+      "id": "execute_state/a_schedule_naming_no_policy_is_invalid",
+      "rpc": "ExecuteState",
+      "requires_capabilities": [
+        "schedule"
+      ],
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "state_machine_symbol_id": "Test::Machine",
+        "schedule": "random"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "random"
       }
     },
     {

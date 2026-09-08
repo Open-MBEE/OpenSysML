@@ -801,6 +801,31 @@ A run with no `diagnostics` had exactly one order to take. The order taken is th
 rule, the same on every call, so the outputs are reproducible; the diagnostics say where another
 rule would have been equally valid.
 
+`schedule` asks for another rule. It names the *scheduling policy* the run resolves every choice
+point under, spelled as `sysml -schedule` spells it: `"reverse"` is the fixed rule above and the
+default (an empty or absent field), `"declared"` takes tokens in the order they were spawned and
+guards and transitions in declaration order, and `"seed:<n>"` draws each pick from a pseudo-random
+sequence the non-negative integer `n` fixes, so the same seed replays the same run on every
+platform. The `took …` in each diagnostic is what the named policy took; the policy changes which
+linearization runs, never whether a choice point is reported (captured for `Test::tally` above):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"declared"}'
+{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2},"code":"choice-point"}]}
+
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"seed:abc"}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"invalid scheduling policy \"seed:abc\": seed \"abc\" is not a non-negative decimal integer"}
+```
+
+A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, a negative or
+non-decimal seed — is `INVALID_ARGUMENT` before the model is looked up, so a mistyped policy
+never runs anything under the default. The field is advertised as the `schedule` capability: a
+service withholding it refuses a non-empty `schedule` with `UNIMPLEMENTED`, and a service that
+predates the field would drop it and run under the default, which is why every client this
+repository ships checks the advertised list before sending one. `ExecuteState` and `RunAnalysis`
+carry the same field with the same spellings and the same refusals.
+
 To report a decision's choice the engine reads the guards after the first holding one in a
 preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
 not an alternative and not an error — a guard with no result is not true, so its branch is not
@@ -860,7 +885,14 @@ Idle accept Go then B; }` in the same document:
 ```console
 $ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"]}'
 {"statesVisited":["Idle","A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml","startLine":25,"startCol":3,"endLine":26,"endCol":3},"code":"choice-point"}]}
+
+$ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"],"schedule":"seed:1"}'
+{"statesVisited":["Idle","B"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 2->B)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}
 ```
+
+`schedule` names the policy the machine's transition picks — and the token order of any action
+its states perform — are resolved under, as `ExecuteAction`'s does; the diagnostic's span moves
+to the transition the policy took.
 
 ### `EvaluateCalc`
 
@@ -990,7 +1022,8 @@ $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdo
 A step that fails, a body that deadlocks or exhausts its step budget and a case that runs itself are
 `FAILURE_REASON_EVALUATION` failures naming the case. Structured and complex arguments are
 capability-gated as `EvaluateCalc`'s are. The choice points the case's steps made are its
-`diagnostics`, shaped as `ExecuteAction`'s.
+`diagnostics`, shaped as `ExecuteAction`'s, and `schedule` names the policy the actions the case
+performs resolve them under, with `ExecuteAction`'s spellings and refusals.
 
 ### `RunSweep`
 

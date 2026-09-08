@@ -92,6 +92,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -157,6 +162,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -221,6 +231,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -286,6 +301,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>

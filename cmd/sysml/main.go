@@ -110,6 +110,7 @@ var (
 	debugMode       bool
 	quietMode       bool
 	traceMode       bool
+	schedule        schedulePolicy
 	convertFormat   string
 	queryText       string
 	outputPath      string
@@ -148,6 +149,25 @@ var (
 
 // budgets holds the run bounds the environment resolves to, read once at startup.
 var budgets = runtime.DefaultBudgets()
+
+// schedulePolicy is -schedule as written: the policy every run resolves its
+// choice points under, rejected where it is parsed so a misspelling is reported
+// at startup rather than run under the default.
+type schedulePolicy struct {
+	value runtime.SchedulePolicy
+	text  string
+}
+
+func (s *schedulePolicy) String() string { return s.text }
+
+func (s *schedulePolicy) Set(value string) error {
+	policy, err := runtime.ParseSchedulePolicy(value)
+	if err != nil {
+		return err
+	}
+	s.value, s.text = policy, value
+	return nil
+}
 
 // stringSlice is a custom flag type for multiple values
 type stringSlice []string
@@ -519,6 +539,7 @@ func newSession() *repl.Session {
 		sess.SetVerbosity(repl.VerbosityQuiet)
 	}
 	sess.SetTracing(traceMode)
+	sess.SetSchedule(schedule.value)
 	sess.SetConformanceMode(conformance.ModeOf(strictMode))
 	sess.SetRenderWidth(terminalWidth())
 	return sess

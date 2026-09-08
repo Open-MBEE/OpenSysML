@@ -384,6 +384,29 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - **`ExecuteState(sym *symbols.Symbol) (map[string]Value, error)`** — Execute state machine until final/suspended
   - **`CreateActionExecutor(sym *symbols.Symbol) (*ActionExecutor, error)`** — Create action executor for debugging
   - **`CreateStateExecutor(sym *symbols.Symbol) (*StateExecutor, error)`** — Create state executor for debugging
+  - `SetSchedule(policy SchedulePolicy)` — Set the scheduling policy the runs started from now on
+    resolve their choice points under; a run already under way keeps the one it started with
+  - `Schedule() SchedulePolicy` — The policy the next run resolves its choice points under
+
+- **`SchedulePolicy`** — How the executors resolve a run's choice points (several steppable
+  tokens in one step, several holding guards at a decision, several enabled transitions for one
+  event; which same-step write to one feature stands follows from the token order). The zero
+  value and `DefaultSchedulePolicy` are `reverse`, what every run did before policies were
+  selectable; every `.expected.json` and `.trace.golden` recorded under it still holds
+  - `ParseSchedulePolicy(spelling string) (SchedulePolicy, error)` — Read `declared`, `reverse`
+    or `seed:<n>` (n a non-negative decimal integer); the empty spelling is the default. Any
+    other spelling — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc` —
+    is a `*SchedulePolicyError` (`Spelling`, `Reason`) matching `ErrInvalidSchedulePolicy` under
+    `errors.Is`, so every surface refuses it before anything runs
+  - `String() string` — The spelling `ParseSchedulePolicy` reads the policy back from
+  - `IsDefault() bool` — Whether the policy is `reverse`
+  - `SchedulePolicyNames` — The accepted spellings, for usage text
+  - `declared` steps tokens in the order they were spawned and takes the first holding guard
+    and first enabled transition in declaration order; `seed:<n>` draws every resolution from
+    a pseudo-random sequence the seed fixes, the same on every platform, so one seed replays
+    one run and two seeds may take two linearizations. A policy changes which alternative each
+    choice point takes, never whether it is reported: the `Taken` of each `ChoicePoint` is what
+    the policy took
 
 **Behavioral Execution (Tier 5):**
 
@@ -464,6 +487,12 @@ Tier 5 (Actions):
 results, err := ctx.ExecuteAction(myActionSym)
 if err != nil { /* handle error */ }
 result := results["result"]
+
+// Or under another scheduling policy, refusing a spelling that names none
+policy, err := runtime.ParseSchedulePolicy("seed:7")
+if err != nil { /* *runtime.SchedulePolicyError */ }
+ctx.SetSchedule(policy)
+results, err = ctx.ExecuteAction(myActionSym) // the same run on every call
 
 // Or debug step-by-step
 exec, _ := ctx.CreateActionExecutor(myActionSym)

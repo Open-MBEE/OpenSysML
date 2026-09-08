@@ -371,7 +371,7 @@ class TestModelRuntimeCalls:
         model = self._model(client)
         assert model.execute_action("Demo::add", inputs={"result": 10}) == {"result": 15}
         client.execute_action.assert_called_once_with(
-            "Demo::add", "hash1", inputs={"result": 10}
+            "Demo::add", "hash1", inputs={"result": 10}, schedule=None
         )
 
     def test_execute_state_passes_the_models_hash_and_events(self):
@@ -383,7 +383,7 @@ class TestModelRuntimeCalls:
             "states_visited": ["init"]
         }
         client.execute_state.assert_called_once_with(
-            "Demo::Machine", "hash1", events=["go"]
+            "Demo::Machine", "hash1", events=["go"], schedule=None
         )
 
     def test_instantiate_raises_what_the_connection_raises(self):

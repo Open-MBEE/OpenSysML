@@ -237,6 +237,11 @@ type Context struct {
 	// reset per run rather than accumulated over the context's whole life.
 	runDepth int
 
+	// schedule is the policy the next run resolves its choice points under, and
+	// scheduler the resolutions the run under way is drawing from it (scheduler.go).
+	schedule  SchedulePolicy
+	scheduler *scheduler
+
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
@@ -440,6 +445,26 @@ func (ctx *Context) SetTrace(tr *TraceRecorder) {
 	ctx.trace = tr
 }
 
+// SetSchedule sets the policy the runs started from now on resolve their choice
+// points under; a run already under way keeps the one it started with.
+func (ctx *Context) SetSchedule(policy SchedulePolicy) {
+	ctx.schedule = policy
+}
+
+// Schedule returns the policy the next run resolves its choice points under.
+func (ctx *Context) Schedule() SchedulePolicy {
+	return ctx.schedule
+}
+
+// scheduling returns the resolutions the run under way draws, starting them for
+// a run no bracket began.
+func (ctx *Context) scheduling() *scheduler {
+	if ctx.scheduler == nil {
+		ctx.scheduler = ctx.schedule.start()
+	}
+	return ctx.scheduler
+}
+
 // Model returns the semantic model this context operates over.
 func (ctx *Context) Model() *semantics.Model {
 	return ctx.model
@@ -539,27 +564,60 @@ func (ctx *Context) beginRun() func() {
 		ctx.steps = 0
 		ctx.elements = 0
 		ctx.notes = nil
+		ctx.scheduler = ctx.schedule.start()
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	ctx.runDepth++
 	return func() { ctx.runDepth-- }
 }
 
-// beginExecutorRun brackets one call into an executor a caller drives itself, step
-// by step - the REPL's %action and %state debuggers - whose run spans many calls
-// and so has no single scope beginRun could bracket. started, held by the
-// executor, marks its run as begun, so the counter is reset once, at its start,
-// and every call of it counts as a run under way.
-func (ctx *Context) beginExecutorRun(started *bool) func() {
-	if ctx.runDepth == 0 && !*started {
+// executorRun is a run driven call by call: begun or not, and the scheduler its
+// choices draw from over every call.
+type executorRun struct {
+	started   bool
+	scheduler *scheduler
+}
+
+// beginExecutorRun brackets one call into a call-by-call driven executor: the budget
+// resets once at the run's start, and each top-level call uses the run's own scheduler.
+func (ctx *Context) beginExecutorRun(run *executorRun) func() {
+	if ctx.runDepth == 0 && !run.started {
 		ctx.steps = 0
 		ctx.elements = 0
 		ctx.notes = nil
+		ctx.scheduler = ctx.schedule.start()
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
-	*started = true
+	if !run.started {
+		run.scheduler = ctx.scheduling()
+	}
+	run.started = true
+	if ctx.runDepth > 0 {
+		ctx.runDepth++
+		return func() { ctx.runDepth-- }
+	}
+	saved := ctx.scheduler
+	ctx.scheduler = run.scheduler
 	ctx.runDepth++
-	return func() { ctx.runDepth-- }
+	return func() {
+		ctx.runDepth--
+		ctx.scheduler = saved
+	}
+}
+
+// previewExecutorRun installs, for a preview of a call into a call-by-call driven
+// executor, the scheduler that call would draw from; nothing is begun.
+func (ctx *Context) previewExecutorRun(run *executorRun) func() {
+	if ctx.runDepth > 0 {
+		return func() { /* nested: the outer run's scheduler */ }
+	}
+	saved := ctx.scheduler
+	if run.started {
+		ctx.scheduler = run.scheduler
+	} else {
+		ctx.scheduler = ctx.schedule.start()
+	}
+	return func() { ctx.scheduler = saved }
 }
 
 // beginProbe brackets an evaluation previewing what a run would do, restoring the
@@ -575,12 +633,14 @@ func (ctx *Context) beginProbe() func() {
 		endBoundary = ctx.beginRunBoundary()
 	}
 	_, rollback := ctx.beginJournal()
+	restoreSchedule := ctx.scheduler.mark()
 	ctx.trace, ctx.stepWrites = nil, nil
 	ctx.runDepth++
 	ctx.probes++
 	return func() {
 		rollback()
 		endBoundary()
+		restoreSchedule()
 		if ctx.ids == ids && !ctx.holdsIdentityFrom(nextID) {
 			ids.release(nextID)
 		}

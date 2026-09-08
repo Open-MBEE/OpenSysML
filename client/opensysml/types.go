@@ -33,6 +33,7 @@ const (
 	CapabilityMeasurementRefs      = sysmlgrpc.CapabilityMeasurementRefs
 	CapabilityFunctionValues       = sysmlgrpc.CapabilityFunctionValues
 	CapabilityDiagnosticCodes      = sysmlgrpc.CapabilityDiagnosticCodes
+	CapabilitySchedule             = sysmlgrpc.CapabilitySchedule
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 )
 
