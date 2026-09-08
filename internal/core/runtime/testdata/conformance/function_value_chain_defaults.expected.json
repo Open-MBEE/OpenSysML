@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "instantiate": "test::Reads",
+  "libraries": true,
+  "slots": {
+    "bare": {"type": "Real", "value": 10.0},
+    "called": {"type": "Real", "value": 10.0},
+    "total": {"type": "Real", "value": 48.0}
+  }
+}

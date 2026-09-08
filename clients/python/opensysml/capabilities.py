@@ -100,6 +100,13 @@ CAPABILITY_STRUCTURED_VALUES = "structured_values"
 #: it with ``UNIMPLEMENTED``.
 CAPABILITY_MEASUREMENT_REFS = "measurement_refs"
 
+#: A calc held as a value — a calc definition, or a calc usage with an input no
+#: read could supply — as ``Value.function``, named by its declaration and read
+#: as :class:`~opensysml.values.Function`. Without it the service sends an
+#: unsupported null naming the calc, which is an error, and refuses one sent to
+#: it with ``UNIMPLEMENTED``.
+CAPABILITY_FUNCTION_VALUES = "function_values"
+
 #: What the body of a verification case answered, as the
 #: ``verification_verdicts`` of a requirement, satisfaction or analysis
 #: response, read as :class:`~opensysml.verdict.VerificationVerdict`. Without it

@@ -260,6 +260,10 @@ fn lookup_parts<'a>(value: &'a Value, parts: &[&str]) -> Option<&'a Value> {
     }
 }
 
+/// Fields other than `Instance.id` that carry a runtime instance id: a value's
+/// reference to an object and a function's bound object.
+pub const RUNTIME_ID_KEYS: [&str; 2] = ["instance_id", "self_id"];
+
 pub fn label_instance_ids(value: &mut Value) {
     let mut labels = HashMap::new();
     label_ids(value, &mut labels);
@@ -276,11 +280,15 @@ fn label_ids(value: &mut Value, labels: &mut HashMap<i64, String>) {
                     label_id(child, labels);
                 }
             }
-            if let Some(child) = object.get_mut("instance_id") {
-                label_id(child, labels);
+            for key in RUNTIME_ID_KEYS {
+                if let Some(child) = object.get_mut(key) {
+                    label_id(child, labels);
+                }
             }
             for (key, child) in object.iter_mut() {
-                if !(is_instance && key == "id") && key != "instance_id" {
+                let labeled =
+                    (is_instance && key == "id") || RUNTIME_ID_KEYS.contains(&key.as_str());
+                if !labeled {
                     label_ids(child, labels);
                 }
             }
@@ -354,13 +362,15 @@ mod tests {
             "instance": {"id": 9, "type_symbol_id": "T", "feature_values": {}},
             "instances": [{"id": 9, "type_symbol_id": "T", "feature_values": {}},
                           {"id": 12, "type_symbol_id": "T", "feature_values": {}}],
-            "value": {"instance_id": 12}
+            "value": {"instance_id": 12},
+            "function": {"calc_id": "T::f", "self_id": 9}
         });
         label_instance_ids(&mut actual);
         assert_eq!(actual["instance"]["id"], "@1");
         assert_eq!(actual["instances"][0]["id"], "@1");
         assert_eq!(actual["instances"][1]["id"], "@2");
         assert_eq!(actual["value"]["instance_id"], "@2");
+        assert_eq!(actual["function"]["self_id"], "@1");
     }
 
     #[test]

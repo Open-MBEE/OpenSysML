@@ -312,6 +312,29 @@ def test_a_measurement_reference_is_an_added_value_arm():
     assert older.SerializeToString() == payload
 
 
+def test_a_function_is_an_added_value_arm():
+    """The function arm is new field 17."""
+    fields = sysml_pb2.Value.DESCRIPTOR.fields_by_name
+    assert fields["function"].number == 17
+    fn_fields = sysml_pb2.Function.DESCRIPTOR.fields_by_name
+    assert {name: f.number for name, f in fn_fields.items()} == {
+        "calc_id": 1, "self_id": 2,
+    }
+
+    value = sysml_pb2.Value(function=sysml_pb2.Function(
+        calc_id="Demo::Scaler::scale", self_id=7,
+    ))
+    payload = value.SerializeToString()
+    again = sysml_pb2.Value()
+    again.ParseFromString(payload)
+    assert again == value
+
+    # A client whose schema predates the arm keeps the bytes intact.
+    older = sysml_pb2.ServerInfoRequest()
+    older.ParseFromString(payload)
+    assert older.SerializeToString() == payload
+
+
 def test_apply_edits_is_an_added_rpc():
     """The edit RPC is new, so it displaces nothing a client already calls."""
     service = sysml_pb2.DESCRIPTOR.services_by_name["SysMLService"]

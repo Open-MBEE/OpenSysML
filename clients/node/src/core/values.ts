@@ -5,6 +5,7 @@ import { create } from "@bufbuild/protobuf";
 import type {
   Array as ArrayMessage,
   EnumLiteral,
+  Function as FunctionMessage,
   MeasurementRef,
   Quantity,
   UnitTerm,
@@ -18,6 +19,7 @@ import {
   ComplexSchema,
   EnumLiteralSchema,
   FailureReason,
+  FunctionSchema,
   MeasurementRefSchema,
   QuantitySchema,
   UnitFactorSchema,
@@ -78,6 +80,17 @@ export interface MeasurementRefValue {
 }
 
 /**
+ * A calc held as a value — a calc definition, or a calc usage with an input no
+ * read could supply — named by the FQN of its declaration, which is its identity.
+ * `selfId` is the object its feature names resolve against, for a calc usage
+ * read off a part (`holder.scale`); absent for a function closing over no object.
+ */
+export interface FunctionValue {
+  calcId: string;
+  selfId?: bigint;
+}
+
+/**
  * A multidimensional array: `dimensions` gives the extent of each dimension and
  * `elements` the elements flattened row-major, the last dimension varying
  * fastest. A rank-0 array holds one element; an element may itself be an array.
@@ -103,6 +116,7 @@ export type SysMLValue =
   | { kind: "sequence"; elements: SysMLValue[] }
   | ({ kind: "quantity" } & QuantityValue)
   | ({ kind: "measurementRef" } & MeasurementRefValue)
+  | ({ kind: "function" } & FunctionValue)
   | { kind: "enum"; value: EnumValue }
   | ({ kind: "array" } & ArrayValue)
   | { kind: "vector"; components: Magnitude[] }
@@ -167,6 +181,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
       return { kind: "quantity", ...decodeQuantity(kind.value) };
     case "measurementRef":
       return { kind: "measurementRef", ...decodeMeasurementRef(kind.value) };
+    case "function":
+      return { kind: "function", ...decodeFunction(kind.value) };
     case "enumLiteral":
       return { kind: "enum", value: decodeEnumLiteral(kind.value) };
     case "array":
@@ -226,6 +242,8 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, {
         kind: { case: "measurementRef", value: encodeMeasurementRef(value) },
       });
+    case "function":
+      return create(ValueSchema, { kind: { case: "function", value: encodeFunction(value) } });
     case "enum":
       return create(ValueSchema, {
         kind: { case: "enumLiteral", value: create(EnumLiteralSchema, value.value) },
@@ -328,6 +346,8 @@ export function formatValue(value: SysMLValue): string {
     }
     case "measurementRef":
       return value.unit === "" ? formatUnitTerm(value.unitTerm) : value.unit;
+    case "function":
+      return value.calcId;
     case "enum":
       return value.value.name;
     case "array":
@@ -414,6 +434,20 @@ function encodeMeasurementRef(ref: MeasurementRefValue): MeasurementRef {
     unitTerm: encodeUnitTerm(ref.unitTerm),
     unitId: ref.unitId ?? "",
   });
+}
+
+function decodeFunction(fn: FunctionMessage): FunctionValue {
+  if (fn.calcId === "") {
+    throw new MalformedValueError("a function names no calc");
+  }
+  return { calcId: fn.calcId, ...(fn.selfId === 0n ? {} : { selfId: fn.selfId }) };
+}
+
+function encodeFunction(fn: FunctionValue): FunctionMessage {
+  if (fn.calcId === "") {
+    throw new MalformedValueError("a function names no calc");
+  }
+  return create(FunctionSchema, { calcId: fn.calcId, selfId: fn.selfId ?? 0n });
 }
 
 function encodeUnitTerm(term: UnitFactorization): UnitTerm {

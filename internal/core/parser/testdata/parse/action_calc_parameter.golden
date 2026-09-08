@@ -1,0 +1,44 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="calc" abstract=false variation=false name="Unary"
+      (Membership visibility="default"
+        (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Real
+            (*ast.QualifiedName))))
+      (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+        (Relationship kind="typing" target=Real
+          (*ast.QualifiedName)))))
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="Apply"
+      (Membership visibility="default"
+        (Usage kind="calc" name="f" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName)))))
+      (Membership visibility="default"
+        (Usage kind="calc" name="g" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Unary
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="a" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Real
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="y" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Real
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="action" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (*ast.AssignmentActionNode)))))
+  (Membership visibility="default"
+    (Usage kind="action" name="apply" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+      (Relationship kind="typing" target=Apply
+        (*ast.QualifiedName))
+      (Membership visibility="default"
+        (Usage kind="calc" name="h" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Unary
+            (*ast.QualifiedName)))))))

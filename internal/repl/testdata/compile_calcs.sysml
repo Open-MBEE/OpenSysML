@@ -380,6 +380,9 @@ package Refused {
 	calc def MixedEquality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
 	calc def MixedSame { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
 	calc def MixedUnion { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
+	calc def Sq { in v : Real; return : Real = v * v; }
+	calc def CalcParam { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+	calc def FunctionArgument { in a : Real; return : Real = CalcParam(Sq, a); }
 
 	calc def StringResult {
 		in s : String;

@@ -416,6 +416,77 @@
       }
     },
     {
+      "id": "evaluate/a_calc_definition_read_as_a_value_is_a_function_naming_it",
+      "description": "A calc used as a value travels as a function naming the calc by qualified name and no object, so a client can hand it back as an argument of another calc.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "function_values"
+      ],
+      "model": {
+        "fixture": "function.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "F::pick"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "function": {
+              "calc_id": "F::Sq"
+            }
+          }
+        },
+        "absent": [
+          "result.function.self_id"
+        ]
+      }
+    },
+    {
+      "id": "evaluate/a_calc_of_an_object_read_as_a_value_names_the_object_it_computes_over",
+      "description": "A calc usage owned by a part reads the part's features when invoked, so its function carries the object it is bound to beside the calc's name.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "function_values"
+      ],
+      "model": {
+        "fixture": "function.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "F::scaler"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "function": {
+              "calc_id": "F::Scaler::scale",
+              "self_id": "@1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "evaluate/a_calc_invoked_through_a_calc_parameter_answers_its_result",
+      "description": "A calc passed to another calc's calc-typed parameter is invoked through that parameter, so Apply(Sq, 3.0) is 9.",
+      "rpc": "Evaluate",
+      "model": {
+        "fixture": "function.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "F::nine"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "real_value": 9.0
+          }
+        }
+      }
+    },
+    {
       "id": "evaluate/an_unknown_model_is_not_found",
       "rpc": "Evaluate",
       "request": {

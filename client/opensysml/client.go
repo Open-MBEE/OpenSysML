@@ -62,8 +62,9 @@ type Client interface {
 	// ExecuteAction executes the named action with the inputs given, bound by
 	// parameter name, and reports the outputs it produced. A Complex input
 	// requires the complex_values capability, an Array, Vector or
-	// VectorQuantity input the structured_values one and a MeasurementRef
-	// input the measurement_refs one, checked before anything is sent.
+	// VectorQuantity input the structured_values one, a MeasurementRef input
+	// the measurement_refs one and a Function input the function_values one,
+	// checked before anything is sent.
 	ExecuteAction(ctx context.Context, model *Model, actionSymbolID string, inputs map[string]Value) (*ActionRun, error)
 
 	// ExecuteState runs the named state machine, feeding it the events in
@@ -85,9 +86,10 @@ type Client interface {
 
 	// EvaluateCalc invokes the named calculation with positional arguments, or,
 	// given none, evaluates a calc usage from its own members. Requires the
-	// verification capability, and the complex_values, structured_values or
-	// measurement_refs capability for a Complex, a structured or a
-	// MeasurementRef argument, checked before anything is sent.
+	// verification capability, and the complex_values, structured_values,
+	// measurement_refs or function_values capability for a Complex, a
+	// structured, a MeasurementRef or a Function argument, checked before
+	// anything is sent.
 	EvaluateCalc(ctx context.Context, model *Model, symbolID string, arguments ...Value) (*Calculation, error)
 
 	// RunAnalysis runs the named analysis case — a definition or a usage — and
@@ -505,7 +507,8 @@ func (c *client) call(model *Model) (string, error) {
 // requireValueCapabilities refuses to send a value of a kind whose capability
 // the service lacks — a Complex without complex_values, an Array, Vector or
 // VectorQuantity without structured_values, a MeasurementRef without
-// measurement_refs — which would read it as null rather than refuse it.
+// measurement_refs, a Function without function_values — which would read it
+// as null rather than refuse it.
 func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) error {
 	var needed []string
 	if slices.ContainsFunc(values, carriesComplex) {
@@ -516,6 +519,9 @@ func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) 
 	}
 	if slices.ContainsFunc(values, carriesMeasurementRef) {
 		needed = append(needed, CapabilityMeasurementRefs)
+	}
+	if slices.ContainsFunc(values, carriesFunction) {
+		needed = append(needed, CapabilityFunctionValues)
 	}
 	if len(needed) == 0 {
 		return nil
@@ -584,6 +590,15 @@ func carriesMeasurementRef(value Value) bool {
 		return true
 	}
 	return slices.ContainsFunc(nestedValues(value), carriesMeasurementRef)
+}
+
+// carriesFunction reports whether a value, or any value nested in it, is a
+// Function.
+func carriesFunction(value Value) bool {
+	if _, ok := value.(Function); ok {
+		return true
+	}
+	return slices.ContainsFunc(nestedValues(value), carriesFunction)
 }
 
 // nestedValues are the values a value holds: a sequence's elements, an array's.

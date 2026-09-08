@@ -368,6 +368,16 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("action_local_write_of_a_wrong_typed_value", testActionLocalWriteOfAWrongTypedValue)
 	t.Run("action_output_write_of_a_wrong_typed_value", testActionOutputWriteOfAWrongTypedValue)
 	t.Run("performance_occurrence_write_of_a_wrong_typed_value", testPerformanceOccurrenceWriteOfAWrongTypedValue)
+	t.Run("function_value_call_of_a_non_function", testFunctionValueCallOfANonFunction)
+	t.Run("function_value_bound_to_a_non_function", testFunctionValueBoundToANonFunction)
+	t.Run("function_value_arity_mismatch", testFunctionValueArityMismatch)
+	t.Run("function_value_unknown_named_argument", testFunctionValueUnknownNamedArgument)
+	t.Run("function_value_unbound_calc_parameter", testFunctionValueUnboundCalcParameter)
+	t.Run("function_value_of_a_wrong_typed_calc", testFunctionValueOfAWrongTypedCalc)
+	t.Run("function_value_of_a_built_in", testFunctionValueOfABuiltIn)
+	t.Run("function_value_applied_to_itself_forever", testFunctionValueAppliedToItselfForever)
+	t.Run("function_value_inherited_body_outside_the_closure", testFunctionValueInheritedBodyOutsideTheClosure)
+	t.Run("function_value_nested_calc_outside_its_run", testFunctionValueNestedCalcOutsideItsRun)
 	t.Run("verification_body_that_cannot_run", testVerificationBodyThatCannotRun)
 	t.Run("verification_body_step_that_fails", testVerificationBodyStepThatFails)
 	t.Run("verification_subcase_that_cannot_run", testVerificationSubcaseThatCannotRun)
@@ -11455,6 +11465,175 @@ func testNodeFlowIntoAPinTheTargetDoesNotDeclare(t *testing.T) {
 	err := runOuterAction(t, src)
 	if !errors.Is(err, ErrNodePin) {
 		t.Fatalf("error = %v, want ErrNodePin", err)
+	}
+}
+
+// functionValueFixture declares Fn, which applies its calc-typed parameter f to a.
+const functionValueFixture = `
+	private import ScalarValues::*;
+	calc def Sq { in v : Real; return : Real = v * v; }
+	calc def Add { in x : Real; in y : Real; return : Real = x + y; }
+	calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+`
+
+// invokeCalcExpecting evaluates the calc call expr against src with the standard library,
+// on its own goroutine so a body that never terminates fails the case instead of stalling it.
+func invokeCalcExpecting(t *testing.T, src, expr string) error {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	ctx.maxSteps = 100000
+	scope := idx.DocumentRoot("<test>")
+
+	done := make(chan error, 1)
+	go func() {
+		node := parser.New(source.New("<expr>", []byte(expr))).ParseExpression()
+		result, err := ctx.EvalWithScopeOn(node, scope, nil)
+		if err == nil {
+			err = fmt.Errorf("%s = %s, expected it to fail", expr, FormatTraceValue(result))
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatalf("%s did not terminate", expr)
+		return nil
+	}
+}
+
+// testFunctionValueCallOfANonFunction: a scalar passed where a calc-typed parameter
+// is declared is refused when it is bound, before the body calls it.
+func testFunctionValueCallOfANonFunction(t *testing.T) {
+	err := invokeCalcExpecting(t, `package test {`+functionValueFixture+`}`, "test::Fn(3.0, 3.0)")
+	if !errors.Is(err, ErrNotAFunction) || !strings.Contains(err.Error(), `parameter "f"`) {
+		t.Fatalf("error = %v, want ErrNotAFunction naming f", err)
+	}
+}
+
+// testFunctionValueBoundToANonFunction: a named argument binding a calc-typed
+// parameter to an object is refused the same way.
+func testFunctionValueBoundToANonFunction(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		part def Box;
+		part box : Box;
+	}`
+	err := invokeCalcExpecting(t, src, "test::Fn(a = 3.0, f = test::box)")
+	if !errors.Is(err, ErrNotAFunction) {
+		t.Fatalf("error = %v, want ErrNotAFunction", err)
+	}
+}
+
+// testFunctionValueArityMismatch: applying a function value to more arguments
+// than its calc declares is a calc arity error naming the calc the value is of.
+func testFunctionValueArityMismatch(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Two { in calc f { in v : Real; return : Real; } return : Real = f(1.0, 2.0); }
+	}`
+	err := invokeCalcExpecting(t, src, "test::Two(test::Sq)")
+	if !errors.Is(err, ErrCalcArity) || !strings.Contains(err.Error(), "test::Sq") {
+		t.Fatalf("error = %v, want ErrCalcArity for test::Sq", err)
+	}
+}
+
+// testFunctionValueUnknownNamedArgument: a named argument the applied calc does
+// not declare is reported against that calc, not the parameter it was passed through.
+func testFunctionValueUnknownNamedArgument(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Named { in calc f { in v : Real; return : Real; } return : Real = f(w = 1.0); }
+	}`
+	err := invokeCalcExpecting(t, src, "test::Named(test::Sq)")
+	if !errors.Is(err, ErrUnknownParameter) || !strings.Contains(err.Error(), "test::Sq") {
+		t.Fatalf("error = %v, want ErrUnknownParameter for test::Sq", err)
+	}
+}
+
+// testFunctionValueUnboundCalcParameter: a calc-typed parameter no argument binds
+// is reported as unbound when the calc is invoked, and applying a function value
+// to fewer arguments than its calc needs is reported the same way.
+func testFunctionValueUnboundCalcParameter(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Partial { in calc f { in x : Real; in y : Real; return : Real; } return : Real = f(1.0); }
+	}`
+	err := invokeCalcExpecting(t, src, "test::Fn(a = 3.0)")
+	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), `parameter "f"`) {
+		t.Fatalf("error = %v, want ErrUnboundParameter naming f", err)
+	}
+	err = invokeCalcExpecting(t, src, "test::Partial(test::Add)")
+	if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), `parameter "y"`) {
+		t.Fatalf("error = %v, want ErrUnboundParameter naming y", err)
+	}
+}
+
+// testFunctionValueOfAWrongTypedCalc: a calc-typed parameter typed by a calc def
+// refuses a function value of an unrelated calc.
+func testFunctionValueOfAWrongTypedCalc(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Typed { in calc f : Sq; return : Real = f(2.0); }
+	}`
+	err := invokeCalcExpecting(t, src, "test::Typed(test::Add)")
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("error = %v, want ErrTypeMismatch", err)
+	}
+}
+
+// testFunctionValueOfABuiltIn: a library function the runtime binds unevaluated
+// has no value to pass on, and says so.
+func testFunctionValueOfABuiltIn(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		private import ControlFunctions::*;
+		calc def PassIf { return : Real = Fn(ControlFunctions::'if', 3.0); }
+	}`
+	err := invokeCalcExpecting(t, src, "test::PassIf()")
+	if !errors.Is(err, ErrNotAFunction) {
+		t.Fatalf("error = %v, want ErrNotAFunction", err)
+	}
+}
+
+// testFunctionValueAppliedToItselfForever: a calc passing itself as a function
+// value to itself without end spends the recursion budget rather than hanging.
+func testFunctionValueAppliedToItselfForever(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Loop { in calc f { in v : Real; return : Real; } in v : Real; return : Real = Loop(f, f(v)); }
+	}`
+	err := invokeCalcExpecting(t, src, "test::Loop(test::Sq, 1.0)")
+	if !errors.Is(err, ErrCalcRecursionLimit) && !errors.Is(err, ErrStepLimitExceeded) {
+		t.Fatalf("error = %v, want the recursion or step budget spent", err)
+	}
+}
+
+// testFunctionValueInheritedBodyOutsideTheClosure: a usage nested in a calc body
+// closes over that body only for the code written there; the body it inherits from
+// a calc declared outside reads no binding of the enclosing run, however it is applied.
+func testFunctionValueInheritedBodyOutsideTheClosure(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Leaky { in v : Real; return : Real = v * k; }
+		calc def Bare { in k : Real; calc inner : Leaky { in v = 2.0; } return : Real = inner; }
+		calc def Called { in k : Real; calc inner : Leaky; return : Real = inner(2.0); }
+		calc def Passed { in k : Real; calc inner : Leaky; return : Real = Fn(inner, 2.0); }
+	}`
+	for _, expr := range []string{"test::Bare(3.0)", "test::Called(3.0)", "test::Passed(3.0)"} {
+		err := invokeCalcExpecting(t, src, expr)
+		if !errors.Is(err, ErrNoValue) && !errors.Is(err, ErrUnresolvedReference) {
+			t.Fatalf("%s: error = %v, want k unresolved in Leaky's body", expr, err)
+		}
+	}
+}
+
+// testFunctionValueNestedCalcOutsideItsRun: a calc nested in another calc's body
+// closes over a run of that calc alone; applied from a calc that binds the same
+// parameter name while no such run is active, it reads no binding of the caller's.
+func testFunctionValueNestedCalcOutsideItsRun(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Outer { in k : Real; calc inner { in v : Real; return : Real = v * k; } return : Real = inner(1.0); }
+		calc def Called { in k : Real; return : Real = Outer::inner(2.0); }
+		calc def Passed { in k : Real; return : Real = Fn(Outer::inner, 2.0); }
+	}`
+	for _, expr := range []string{"test::Called(3.0)", "test::Passed(3.0)"} {
+		err := invokeCalcExpecting(t, src, expr)
+		if !errors.Is(err, ErrNoValue) && !errors.Is(err, ErrUnresolvedReference) {
+			t.Fatalf("%s: error = %v, want k unresolved in inner's body", expr, err)
+		}
 	}
 }
 

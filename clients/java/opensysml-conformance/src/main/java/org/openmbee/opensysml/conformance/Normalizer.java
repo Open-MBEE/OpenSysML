@@ -27,7 +27,11 @@ final class Normalizer {
 
   /** The int64 fields carrying a runtime instance id, which is assigned per call. */
   private static final Set<String> NORMALIZED_IDS =
-      Set.of("sysml.Instance.id", "sysml.Value.instance_id", "sysml.Verdict.instance_id");
+      Set.of(
+          "sysml.Instance.id",
+          "sysml.Value.instance_id",
+          "sysml.Verdict.instance_id",
+          "sysml.Function.self_id");
 
   private final String modelHash;
   private final Map<Long, String> labels = new HashMap<>();

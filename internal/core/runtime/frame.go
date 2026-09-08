@@ -1,5 +1,7 @@
 package runtime
 
+import "github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+
 // frame is one level of local bindings an evaluation reads: a calc invocation's
 // parameter slots, a map of named values, or both.
 type frame struct {
@@ -14,6 +16,12 @@ type frame struct {
 	// owner is the calc whose parameters, locals and outputs the frame binds, so a
 	// qualified name of one of its members (`MassCase::result`) reads the binding.
 	owner *calcShape
+	// performed is the action whose performance a snapshot copied its bindings from,
+	// so the copy still answers for a run of that action without the live perf.
+	performed *symbols.Symbol
+	// run numbers the behavior run the frame binds (Context.newRun), 0 for bindings
+	// that are no run's; a function closing over the run is identified by it.
+	run int64
 }
 
 // canonical is the name aliases bind name under: its redefinition's, else its own.
@@ -53,10 +61,31 @@ func ownedFrame(owner *calcShape, vars map[string]Value) frame {
 	return frame{vars: vars, owner: owner}
 }
 
+// runs reports whether the frame holds a run of behavior: an invocation or usage of
+// that calc or one specializing it, or a performance of that action or one typed by it.
+func (f frame) runs(ctx *Context, behavior *symbols.Symbol) bool {
+	if f.owner != nil {
+		return f.owner.qualifiedBy(ctx, behavior)
+	}
+	if performed := f.performs(); performed != nil {
+		return ctx.isOrSpecializes(performed, behavior)
+	}
+	return false
+}
+
+// performs is the action the frame holds a performance of: the live one's, or
+// the one a snapshot copied; nil for a frame of a calc run or of plain bindings.
+func (f frame) performs() *symbols.Symbol {
+	if f.perf != nil && f.perf.scope != nil {
+		return f.perf.scope.Owner()
+	}
+	return f.performed
+}
+
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
@@ -105,12 +134,21 @@ func (f frame) each(fn func(name string, value Value)) {
 	}
 }
 
-// snapshot copies the frame's bindings into storage of its own, unchanged by
-// whatever later reuses the frame's.
+// snapshot copies the frame's bindings, and the aliases they are read through,
+// into storage of its own, unchanged by whatever later reuses the frame's. The
+// copy still answers for the run it was taken from, though not for its flow's nodes.
 func (f frame) snapshot() frame {
 	vars := make(map[string]Value, f.width())
 	f.each(func(name string, value Value) { vars[name] = value })
-	return ownedFrame(f.owner, vars)
+	out := ownedFrame(f.owner, vars)
+	out.performed, out.run = f.performs(), f.run
+	if len(f.aliases) > 0 {
+		out.aliases = make(map[string]string, len(f.aliases))
+		for name, alias := range f.aliases {
+			out.aliases[name] = alias
+		}
+	}
+	return out
 }
 
 // width is the number of names the frame binds.

@@ -104,6 +104,11 @@ const CapabilityStructuredValues = "structured_values"
 // unsupported null. Distinct from structured_values, which predates the arm.
 const CapabilityMeasurementRefs = "measurement_refs"
 
+// CapabilityFunctionValues names the capability of carrying a calc held as a
+// value as Value.function, named by its declaration, rather than reporting it
+// as an unsupported null.
+const CapabilityFunctionValues = "function_values"
+
 // CapabilityVerificationVerdicts names the capability of reporting what the body
 // of a verification case answered as VerificationVerdict, and of running a
 // verification case through RunAnalysis.
@@ -122,7 +127,7 @@ var capabilities = []string{
 	CapabilityApplyEdits, CapabilityAuthoring, CapabilityInlineLanguage,
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
-	CapabilityMeasurementRefs, CapabilityVerificationVerdicts,
+	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
 	CapabilityInfinityValue,
 }
 
@@ -275,6 +280,11 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 	}
 	if ValueCarriesMeasurementRef(pv) {
 		if err := s.requireCapability(CapabilityMeasurementRefs); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesFunction(pv) {
+		if err := s.requireCapability(CapabilityFunctionValues); err != nil {
 			return err
 		}
 	}
@@ -732,7 +742,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, err
 			}
-			val, cerr := ProtoToValueIn(pv, cached.Index, semModel)
+			val, cerr := ProtoToRuntimeValue(runtimeCtx, pv, cached.Index, semModel)
 			if cerr != nil {
 				return &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),

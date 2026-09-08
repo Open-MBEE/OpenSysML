@@ -150,6 +150,11 @@ private static final long serialVersionUID = 0L;
    * refused with UNIMPLEMENTED rather than read as another
    * value. Separate from structured_values, which a client
    * built before this arm existed may already claim.
+   * "function_values" - a Value carries a calc held as a value as function,
+   * named by its declaration, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -210,6 +215,11 @@ private static final long serialVersionUID = 0L;
    * refused with UNIMPLEMENTED rather than read as another
    * value. Separate from structured_values, which a client
    * built before this arm existed may already claim.
+   * "function_values" - a Value carries a calc held as a value as function,
+   * named by its declaration, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -269,6 +279,11 @@ private static final long serialVersionUID = 0L;
    * refused with UNIMPLEMENTED rather than read as another
    * value. Separate from structured_values, which a client
    * built before this arm existed may already claim.
+   * "function_values" - a Value carries a calc held as a value as function,
+   * named by its declaration, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -329,6 +344,11 @@ private static final long serialVersionUID = 0L;
    * refused with UNIMPLEMENTED rather than read as another
    * value. Separate from structured_values, which a client
    * built before this arm existed may already claim.
+   * "function_values" - a Value carries a calc held as a value as function,
+   * named by its declaration, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -838,6 +858,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -899,6 +924,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -958,6 +988,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1018,6 +1053,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1079,6 +1119,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1146,6 +1191,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1212,6 +1262,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1278,6 +1333,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1341,6 +1401,11 @@ private static final long serialVersionUID = 0L;
      * refused with UNIMPLEMENTED rather than read as another
      * value. Separate from structured_values, which a client
      * built before this arm existed may already claim.
+     * "function_values" - a Value carries a calc held as a value as function,
+     * named by its declaration, rather than reporting it as an
+     * unsupported null, and one is accepted as an action input
+     * or calc argument; without it, one is refused with
+     * UNIMPLEMENTED rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query

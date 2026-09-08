@@ -165,6 +165,11 @@ func valueFromProto(value *pb.Value) Value {
 			return Null("unsupported: measurement reference without its reduction")
 		}
 		return MeasurementRef{Unit: ref.GetUnit(), Term: unitTermFromProto(ref.GetUnitTerm()), UnitID: ref.GetUnitId()}
+	case *pb.Value_Function:
+		if kind.Function.GetCalcId() == "" {
+			return Null("unsupported: function naming no calc")
+		}
+		return Function{CalcID: kind.Function.GetCalcId(), Self: InstanceID(kind.Function.GetSelfId())}
 	default:
 		// A newer service's arm parses as an unknown field: no kind at all.
 		return Null("unsupported: a value arm this client does not know")
@@ -245,6 +250,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 			UnitTerm: unitTermToProto(v.Term),
 			UnitId:   v.UnitID,
 		}}}, nil
+	case Function:
+		if v.CalcID == "" {
+			return nil, &StatusError{Code: CodeInvalidArgument, Message: "a function names no calc"}
+		}
+		return &pb.Value{Kind: &pb.Value_Function{Function: &pb.Function{CalcId: v.CalcID, SelfId: int64(v.Self)}}}, nil
 	case Unset:
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,

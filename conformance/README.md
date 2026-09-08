@@ -108,7 +108,7 @@ These cannot be compared literally, so the runner replaces them before comparing
 | `ServerInfoResponse.version` | `${version}` | A build string; the contract is capabilities, not versions. |
 | Any string equal to the model hash of the scenario's model | `${model_hash}` | Content-addressed and free to change with the parser. |
 | Any absolute path (`Span.file`, echoed request paths) | `${path}` | Names the machine the service ran on. A relative name is kept. |
-| Runtime instance ids (`Instance.id`, `Value.instance_id`, `Verdict.instance_id`) | `@1`, `@2`, … | Assigned per call. Labelled in order of first appearance, so a scenario can still state that a feature value names the same object as an entry of `instances`. |
+| Runtime instance ids (`Instance.id`, `Value.instance_id`, `Verdict.instance_id`, `Function.self_id`) | `@1`, `@2`, … | Assigned per call. Labelled in order of first appearance, so a scenario can still state that a feature value names the same object as an entry of `instances`. |
 
 ### Ignored values
 
@@ -150,6 +150,7 @@ What a request asks for is fixed per capability:
 | `complex_values` | Response-population capability: encode complex numbers as unsupported nulls; no request asks for them. |
 | `structured_values` | Encode arrays, vectors and vector quantities as unsupported nulls; refuse a request carrying one, at any depth. |
 | `measurement_refs` | Encode bare measurement references as unsupported nulls; refuse a request carrying one, at any depth. |
+| `function_values` | Encode functions (a calc read as a value) as unsupported nulls; refuse a request carrying one, at any depth. |
 
 The default service reports and supports every capability above. `make conformance` also starts a
 second service with `strict_conformance` and `oslc_query` withheld, verifies that its advertisement

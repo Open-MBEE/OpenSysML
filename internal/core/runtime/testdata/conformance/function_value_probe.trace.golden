@@ -1,0 +1,20 @@
+enter calc test::UseFn
+  stmt return
+      eval feature Sq -> calc(test::Sq)
+      eval literal 3.0 -> 3.0
+      enter calc test::Fn
+        bind f = calc(test::Sq) [argument]
+        bind a = 3.0 [argument]
+        stmt return
+            eval feature a -> 3.0
+            enter calc test::Sq
+              bind v = 3.0 [argument]
+              stmt return
+                  eval feature v -> 3.0
+                  eval feature v -> 3.0
+                eval operator * -> 9.0
+            exit calc test::Sq -> 9.0
+          eval invoke f -> 9.0
+      exit calc test::Fn -> 9.0
+    eval invoke Fn -> 9.0
+exit calc test::UseFn -> 9.0

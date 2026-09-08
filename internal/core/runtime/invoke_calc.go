@@ -19,6 +19,8 @@ type calcParameter struct {
 	Decl    calcMemberDecl  // the declaration, closest to the invoked calc, a bound value answers to
 	// IsSubject marks a case's subject parameter, the object the case is about.
 	IsSubject bool
+	// IsCalc marks a calc usage parameter (`in calc f`), which a function value binds.
+	IsCalc bool
 }
 
 // calcMemberDecl is the type and multiplicity a calc's parameter or output
@@ -225,9 +227,11 @@ func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
 	// A calc computes nothing unless it returns or binds an output; a case also
-	// computes through its steps, or answers with its verdicts alone.
+	// computes through its steps, or answers with its verdicts alone, and a
+	// library function the runtime implements natively computes through that.
 	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
-	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs
+	_, native := ctx.libraryFunctionFor(sym)
+	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
 	if !computes {
 		if len(shape.Outputs) > 0 && shape.resultOutput() == nil {
 			return nil, fmt.Errorf("%w: %s binds none of its outputs (%s)",
@@ -303,7 +307,10 @@ func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]
 				continue
 			}
 			sym := memberSymbol(declScope(link), usage)
-			param := calcParameter{Name: name, Default: usage.Value, Owner: link, Decl: ctx.calcMemberDeclOf(link, sym, name)}
+			param := calcParameter{
+				Name: name, Default: usage.Value, Owner: link,
+				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
+			}
 			if at, seen := ctx.redeclaredIndex(index, sym, name); seen {
 				// A redeclaration binding no value keeps the inherited default,
 				// which is written in the scope of the calc that stated it.
@@ -561,6 +568,7 @@ type invocationFrame struct {
 	bindings map[string]Value
 	aliases  map[string]string
 	owner    *calcShape // the calc invoked, whose members the locals bind
+	run      int64      // the run this invocation is (Context.newRun)
 	host     calcStmtHost
 	env      stmtEnv
 	engine   stmtEngine
@@ -568,7 +576,7 @@ type invocationFrame struct {
 
 // locals is the frame the invocation's parameters and body locals are bound in.
 func (f *invocationFrame) locals() frame {
-	return frame{slots: &f.slots, vars: f.bindings, aliases: f.aliases, owner: f.owner}
+	return frame{slots: &f.slots, vars: f.bindings, aliases: f.aliases, owner: f.owner, run: f.run}
 }
 
 // maxFreeInvocationFrames bounds the frames kept, so one deep recursion does not
@@ -616,14 +624,21 @@ func (ctx *Context) releaseInvocationFrame(frame *invocationFrame) {
 // in the calc's own environment: defaults and the result expression see the
 // parameters and the calc's lexical scope, never the caller's frames.
 func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance) (Value, error) {
+	return ctx.invokeCalcShapeIn(shape, args, callerScope, self, nil)
+}
+
+// invokeCalcShapeIn is invokeCalcShape for a calc declared in a behavior body:
+// enclosing holds that body's bindings, outermost first, which the calc's own shadow.
+func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
 	if err := shape.checkArgs(args); err != nil {
 		return Value{}, err
 	}
 
 	// A pure body runs compiled unless the run is traced, which records every
-	// sub-expression, an argument is not a scalar, or a bound object may answer
-	// a library constant the body reads before the library does.
-	if ctx.compileCalcs && ctx.trace == nil {
+	// sub-expression, an argument is not a scalar, a bound object may answer
+	// a library constant the body reads before the library does, or the body
+	// reads the bindings enclosing it.
+	if ctx.compileCalcs && ctx.trace == nil && len(enclosing) == 0 {
 		if compiled := ctx.compiledCalcOf(shape); compiled != nil && (self == nil || !compiled.readsLibrary) {
 			if result, ran, err := compiled.invokeBoxed(ctx, args); ran {
 				return result, err
@@ -645,14 +660,14 @@ func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope
 	defer ctx.endActivation(activation)
 
 	frame.slots.reset(shape.ParamNames)
-	frame.aliases, frame.owner = shape.Aliases, shape
+	frame.aliases, frame.owner, frame.run = shape.Aliases, shape, ctx.newRun()
 	locals := frame.locals()
 	ec := &frame.ec
 	*ec = EvalContext{
 		ctx:        ctx,
 		scope:      ctx.calcScope(shape.BodyOwner, shape.Sym, callerScope),
 		self:       self,
-		frames:     append(frame.frames[:0], locals),
+		frames:     append(append(frame.frames[:0], enclosing...), locals),
 		trace:      ctx.trace,
 		activation: activation,
 	}
@@ -668,7 +683,7 @@ func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope
 		return Value{}, err
 	}
 
-	result, err := ctx.runCalcBody(shape, frame, callerScope, self, activation)
+	result, err := ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
 	if ec.trace != nil {
 		if err != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
@@ -735,9 +750,13 @@ func (ctx *Context) bindCalcParameters(
 		}
 		// The parameter holds the value bound to it, so that value answers to the
 		// parameter's declaration as a written one does.
-		if err := param.Decl.check(ctx, &value, func() string {
+		what := func() string {
 			return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
-		}); err != nil {
+		}
+		if err := param.Decl.check(ctx, &value, what); err != nil {
+			return err
+		}
+		if err := param.checkFunction(&value, what); err != nil {
 			return err
 		}
 		bindings.bindParam(i, param.Name, value)
@@ -753,9 +772,9 @@ func (ctx *Context) bindCalcParameters(
 // the invocation yields: what the body returned, or, for a body that returns
 // nothing, the calc's designated output feature, evaluated in the invocation's
 // activation, which the caller ends after it.
-func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64) (Value, error) {
+func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame) (Value, error) {
 	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self}
-	frame.env = stmtEnv{data: frame.locals()}
+	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
 	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
 	frame.host.attachPerformances(&frame.engine)
 	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape)
@@ -774,6 +793,9 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	// through the same run bookkeeping a calc usage's outputs use.
 	run := newCalcRun(shape, callerScope, self, frame.locals())
 	run.activation, run.perf = activation, frame.host.performance()
+	if len(enclosing) > 0 {
+		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
+	}
 	// The invocation already holds this evaluation's nesting feature value.
 	run.onStack = true
 	return run.value(ctx, out)
@@ -975,7 +997,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 // written, declared and defaulted by the nearest of its redefinitions the model
 // states — with the position of the library input it redefines, -1 for none.
 func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols.Symbol) (calcParameter, int) {
-	param := calcParameter{Name: sym.Name}
+	param := calcParameter{Name: sym.Name, IsCalc: isCalcUsageSymbol(sym)}
 	if effective, _ := ast.EffectiveName(sym.Decl.(*ast.Usage)); effective != "" {
 		param.Name = effective
 	}

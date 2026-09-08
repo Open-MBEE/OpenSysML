@@ -36,6 +36,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		nodes:      h.shape.Nodes,
 		label:      h.shape.Label,
 		outer:      append(append([]frame{}, engine.env.enclosing...), engine.env.data),
+		run:        h.ctx.newRun(),
 	}
 	h.flow = &ActionExecutor{
 		performances:     performances{ctx: h.ctx, self: h.self, root: root, owner: h},

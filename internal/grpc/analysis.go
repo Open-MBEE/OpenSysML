@@ -128,7 +128,7 @@ func (v *verifyContext) analysisArgument(arg *pb.Value) (runtime.Value, *pb.RunA
 	if err := v.service.requireValueCapabilities(arg); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	val, err := ProtoToValueIn(arg, v.cached.Index, v.sem)
+	val, err := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem)
 	if err != nil {
 		return runtime.Value{}, &pb.RunAnalysisResponse{
 			Error:         fmt.Sprintf("analysis argument could not be read: %v", err),

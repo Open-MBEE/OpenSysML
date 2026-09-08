@@ -47,6 +47,7 @@ func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
 		nodes:       h.behavior.Nodes,
 		label:       h.describe(),
 		outer:       []frame{mapFrame(h.exec.stateData)},
+		run:         h.exec.ctx.newRun(),
 	}
 	if root.scope == nil {
 		root.scope = h.exec.stateMachine.Scope

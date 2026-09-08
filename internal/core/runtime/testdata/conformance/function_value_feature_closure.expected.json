@@ -1,0 +1,6 @@
+{
+  "type": "calc",
+  "evaluate": "test::UseScalers",
+  "libraries": true,
+  "result": {"type": "Real", "value": 25.0}
+}

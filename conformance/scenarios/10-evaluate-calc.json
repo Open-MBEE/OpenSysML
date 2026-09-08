@@ -239,6 +239,118 @@
           "result"
         ]
       }
+    },
+    {
+      "id": "evaluate_calc/a_function_argument_is_the_calc_the_calc_invokes",
+      "description": "A function sent as an argument is bound to the calc it names and invoked through the calc-typed parameter, so applying Cube to 2 is 8.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "function_values"
+      ],
+      "model": {
+        "fixture": "function.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "F::apply",
+        "arguments": [
+          {
+            "function": {
+              "calc_id": "F::Cube"
+            }
+          },
+          {
+            "real_value": 2.0
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "real_value": 8.0
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "function_values"
+      }
+    },
+    {
+      "id": "evaluate_calc/a_function_argument_naming_no_calc_is_refused",
+      "description": "A function whose calc_id names nothing the model declares as a calc cannot be bound, so the answer reports the malformed argument in band rather than invoking anything.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "function_values"
+      ],
+      "model": {
+        "fixture": "function.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "F::apply",
+        "arguments": [
+          {
+            "function": {
+              "calc_id": "F::holder"
+            }
+          },
+          {
+            "real_value": 2.0
+          }
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "F::holder is not a calc"
+        },
+        "response": {
+          "failure_reason": "FAILURE_REASON_EVALUATION"
+        },
+        "absent": [
+          "result"
+        ]
+      }
+    },
+    {
+      "id": "evaluate_calc/a_function_argument_naming_no_object_is_refused",
+      "description": "Objects live only within the response that created them, so a function carrying a self_id, whatever object this call numbers the same, is refused in band.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "function_values"
+      ],
+      "model": {
+        "fixture": "function.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "F::apply",
+        "arguments": [
+          {
+            "function": {
+              "calc_id": "F::Scaler::scale",
+              "self_id": 3
+            }
+          },
+          {
+            "real_value": 2.0
+          }
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "self_id 3 names no object of this call"
+        },
+        "response": {
+          "failure_reason": "FAILURE_REASON_EVALUATION"
+        },
+        "absent": [
+          "result"
+        ]
+      }
     }
   ]
 }

@@ -1,0 +1,6 @@
+{
+  "type": "calc",
+  "evaluate": "test::UseChain",
+  "libraries": true,
+  "result": {"type": "Real", "value": 14.0}
+}

@@ -1,0 +1,6 @@
+{
+  "type": "calc",
+  "evaluate": "test::ScaledDomain",
+  "libraries": true,
+  "result": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.0}, {"type": "Real", "value": 2.0}, {"type": "Real", "value": 10.0}, {"type": "Real", "value": 20.0}]}
+}

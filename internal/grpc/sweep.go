@@ -189,13 +189,13 @@ func endpointName(r *pb.SweepRange) string {
 	return "end"
 }
 
-// sweepValue reads one value off the wire against the model's index, so a
-// quantity keeps the units it is commensurable with.
+// sweepValue reads one value off the wire against the model's index and the
+// run's runtime, so a quantity keeps its units and a function binds its calc.
 func (v *verifyContext) sweepValue(val *pb.Value, what string) (runtime.Value, *pb.RunSweepResponse, error) {
 	if err := v.service.requireValueCapabilities(val); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	out, err := ProtoToValueIn(val, v.cached.Index, v.sem)
+	out, err := ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem)
 	if err != nil {
 		return runtime.Value{}, &pb.RunSweepResponse{
 			Error:         fmt.Sprintf("sweep %s could not be read: %v", what, err),

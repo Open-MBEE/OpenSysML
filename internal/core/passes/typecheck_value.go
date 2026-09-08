@@ -327,10 +327,15 @@ func (ec *exprChecker) invocationResultTypeSymbol(scope *symbols.Scope, value as
 // invocation names; nil for any other value or an unresolved invocation.
 func (ec *exprChecker) invocationResultParameter(scope *symbols.Scope, value ast.Node) *symbols.Symbol {
 	inv, ok := value.(*ast.InvocationExpr)
-	if !ok || inv.Type == nil {
+	if !ok {
 		return nil
 	}
-	sym := SelectInvocation(ec.resolver, ec.model, scope, inv, ec.performs(inv)).Selected
+	var sym *symbols.Symbol
+	if chain := ChainCallee(inv); chain != nil {
+		sym, _ = ec.resolver.ResolveTarget(scope, chain)
+	} else if inv.Type != nil {
+		sym = SelectInvocation(ec.resolver, ec.model, scope, inv, ec.performs(inv)).Selected
+	}
 	if sym == nil || !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {
 		return nil
 	}

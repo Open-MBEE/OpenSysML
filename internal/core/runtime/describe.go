@@ -68,6 +68,8 @@ func describeOperand(val Value) string {
 		return "a coordinate frame"
 	case ValCoordinateTransformation:
 		return "a coordinate transformation"
+	case ValFunction:
+		return "the function " + val.FunctionName()
 	}
 	return "a value"
 }

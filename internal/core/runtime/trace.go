@@ -405,6 +405,8 @@ func FormatTraceValue(v Value) string {
 		return v.CoordinateTransformation().String()
 	case ValExpr:
 		return fmt.Sprintf("expr(%s)", TraceLabel(v.Expr()))
+	case ValFunction:
+		return fmt.Sprintf("calc(%s)", v.FunctionName())
 	default:
 		return v.Kind.String()
 	}

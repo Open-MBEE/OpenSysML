@@ -99,6 +99,7 @@ switch (value.kind) {
   case "array":    value.dimensions; value.elements;   // row-major SysMLValue[]
   case "vector":   value.components;             // Magnitude[]: int | real, kept apart
   case "vectorQuantity": value.components;       // QuantityValue[], one unit each
+  case "function": value.calcId; value.selfId;  // a calc held as a value; selfId when read off an object
   case "enum":     value.value.name;             // and its literal/enumeration ids
   case "instance": value.id;                     // an object in the same tree
   case "sequence": value.elements;               // SysMLValue[]

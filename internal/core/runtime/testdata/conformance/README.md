@@ -331,6 +331,8 @@ Supported types:
   string (`{"type": "Variant", "value": "cutIdeal"}`)
 - `EnumLiteral`: the enumeration literal a value is, written as the enumeration
   declaring it qualifies it (`{"type": "EnumLiteral", "value": "Color::red"}`)
+- `Function`: the qualified name of the calc a function value is a value of
+  (`{"type": "Function", "value": "test::Sq"}`)
 
 In place of a value, `error` states the text producing that value must fail with,
 for a slot or result whose contract is a diagnostic (`{"error": "not a

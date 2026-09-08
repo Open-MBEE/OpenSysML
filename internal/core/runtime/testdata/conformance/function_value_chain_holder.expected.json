@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rack",
+  "libraries": true,
+  "slots": {
+    "lead.tally": {"type": "Integer", "value": 7},
+    "trail.tally": {"error": "object has no such feature"}
+  },
+  "identical": [
+    ["tallied", "lead"]
+  ],
+  "distinct": [
+    ["tallied", "trail"]
+  ]
+}

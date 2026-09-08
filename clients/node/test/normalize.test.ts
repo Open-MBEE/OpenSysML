@@ -14,6 +14,7 @@ import {
   SymbolInfoSchema,
   ValueSchema,
   FeatureValueSchema,
+  FunctionSchema,
 } from "../src/generated/sysml_pb.js";
 import { Integer, Normalizer, MODEL_HASH_PLACEHOLDER, PATH_PLACEHOLDER, VERSION_PLACEHOLDER } from "../conformance/normalize.js";
 
@@ -91,6 +92,37 @@ test("instance ids are relabelled in the order they appear, consistently", () =>
   // The same id is the same label; a new one gets the next.
   assert.deepEqual(values, ["@2", "@1"]);
   assert.equal((tree["instances"] as Record<string, unknown>[])[0]?.["id"], "@2");
+});
+
+test("the object a function was read off is labelled with the instance it names", () => {
+  const response = create(InstantiateResponseSchema, {
+    instance: create(InstanceSchema, {
+      id: 41n,
+      typeSymbolId: "Sample::Scaler",
+      featureValues: {
+        scale: create(FeatureValueSchema, {
+          featureName: "scale",
+          values: [
+            create(ValueSchema, {
+              kind: { case: "function", value: create(FunctionSchema, { calcId: "Sample::Scaler::scale", selfId: 41n }) },
+            }),
+            create(ValueSchema, {
+              kind: { case: "function", value: create(FunctionSchema, { calcId: "Sample::Sq" }) },
+            }),
+          ],
+        }),
+      },
+    }),
+  });
+  const tree = new Normalizer(HASH).normalize(InstantiateResponseSchema, response);
+  const instance = tree["instance"] as Record<string, unknown>;
+  const values = (instance["feature_values"] as Record<string, Record<string, unknown>>)["scale"]["values"] as Record<
+    string,
+    Record<string, unknown>
+  >[];
+  assert.deepEqual(values[0]?.["function"], { calc_id: "Sample::Scaler::scale", self_id: "@1" });
+  // A function bound to no object leaves self_id unset, so it does not appear.
+  assert.deepEqual(values[1]?.["function"], { calc_id: "Sample::Sq" });
 });
 
 test("an integral field is an Integer, so it is never compared as a float", () => {

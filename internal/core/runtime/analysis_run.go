@@ -549,7 +549,7 @@ func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, con
 // bindingsFrame is the run's bindings as a frame the case owns, so a condition reads
 // its features by qualified name (`MassCase::result`) and its steps' pins (`step.out`).
 func (run *calcRun) bindingsFrame(ctx *Context) frame {
-	return frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape}
+	return frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape, run: run.env.run}
 }
 
 // bindings are the values a run bound, by name: its parameters and locals, and

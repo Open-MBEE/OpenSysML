@@ -11,27 +11,27 @@ import (
 // service so negotiating on them needs no other import. Capabilities are only
 // ever added, never renamed or removed with their behaviour intact.
 const (
-	CapabilityTypeFacts         = sysmlgrpc.CapabilityTypeFacts
-	CapabilityConvert           = sysmlgrpc.CapabilityConvert
-	CapabilityVerification      = sysmlgrpc.CapabilityVerification
-	CapabilityQuery             = sysmlgrpc.CapabilityQuery
-	CapabilityOSLCQuery         = sysmlgrpc.CapabilityOSLCQuery
-	CapabilityDocumentQuery     = sysmlgrpc.CapabilityDocumentQuery
-	CapabilityRenderDocument    = sysmlgrpc.CapabilityRenderDocument
-	CapabilityEnumValues        = sysmlgrpc.CapabilityEnumValues
-	CapabilityEvaluateSubject   = sysmlgrpc.CapabilityEvaluateSubject
-	CapabilitySymbolAttributes  = sysmlgrpc.CapabilitySymbolAttributes
-	CapabilityUnsetValue        = sysmlgrpc.CapabilityUnsetValue
-	CapabilityFeatureValues     = sysmlgrpc.CapabilityFeatureValues
-	CapabilityApplyEdits        = sysmlgrpc.CapabilityApplyEdits
-	CapabilityAuthoring         = sysmlgrpc.CapabilityAuthoring
-	CapabilityInlineLanguage    = sysmlgrpc.CapabilityInlineLanguage
-	CapabilityStrictConformance = sysmlgrpc.CapabilityStrictConformance
-	CapabilityParseSources      = sysmlgrpc.CapabilityParseSources
-	CapabilityComplexValues     = sysmlgrpc.CapabilityComplexValues
-	CapabilityStructuredValues  = sysmlgrpc.CapabilityStructuredValues
-	CapabilityMeasurementRefs   = sysmlgrpc.CapabilityMeasurementRefs
-
+	CapabilityTypeFacts            = sysmlgrpc.CapabilityTypeFacts
+	CapabilityConvert              = sysmlgrpc.CapabilityConvert
+	CapabilityVerification         = sysmlgrpc.CapabilityVerification
+	CapabilityQuery                = sysmlgrpc.CapabilityQuery
+	CapabilityOSLCQuery            = sysmlgrpc.CapabilityOSLCQuery
+	CapabilityDocumentQuery        = sysmlgrpc.CapabilityDocumentQuery
+	CapabilityRenderDocument       = sysmlgrpc.CapabilityRenderDocument
+	CapabilityEnumValues           = sysmlgrpc.CapabilityEnumValues
+	CapabilityEvaluateSubject      = sysmlgrpc.CapabilityEvaluateSubject
+	CapabilitySymbolAttributes     = sysmlgrpc.CapabilitySymbolAttributes
+	CapabilityUnsetValue           = sysmlgrpc.CapabilityUnsetValue
+	CapabilityFeatureValues        = sysmlgrpc.CapabilityFeatureValues
+	CapabilityApplyEdits           = sysmlgrpc.CapabilityApplyEdits
+	CapabilityAuthoring            = sysmlgrpc.CapabilityAuthoring
+	CapabilityInlineLanguage       = sysmlgrpc.CapabilityInlineLanguage
+	CapabilityStrictConformance    = sysmlgrpc.CapabilityStrictConformance
+	CapabilityParseSources         = sysmlgrpc.CapabilityParseSources
+	CapabilityComplexValues        = sysmlgrpc.CapabilityComplexValues
+	CapabilityStructuredValues     = sysmlgrpc.CapabilityStructuredValues
+	CapabilityMeasurementRefs      = sysmlgrpc.CapabilityMeasurementRefs
+	CapabilityFunctionValues       = sysmlgrpc.CapabilityFunctionValues
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 )
 

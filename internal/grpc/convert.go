@@ -322,6 +322,11 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		return &pb.Value{Kind: &pb.Value_VectorQuantity{VectorQuantity: pvq}}
 	case runtime.ValMeasurementRef:
 		return &pb.Value{Kind: &pb.Value_MeasurementRef{MeasurementRef: MeasurementRefToProto(val.MeasurementRef())}}
+	case runtime.ValFunction:
+		if val.FunctionClosesOverBody() {
+			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: function " + val.FunctionName() + " closing over a body's bindings"}}
+		}
+		return &pb.Value{Kind: &pb.Value_Function{Function: functionToProto(val, idx)}}
 	case runtime.ValTensorQuantity:
 		// No wire arm carries dimensions above one with a unit per component.
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + val.Kind.String() + " " + runtime.FormatValue(val)}}
@@ -331,6 +336,19 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 	default:
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported"}}
 	}
+}
+
+// functionToProto names a function by the calc declaration it is a value of and
+// the object it closes over, if any.
+func functionToProto(val runtime.Value, idx *symbols.Index) *pb.Function {
+	fn := &pb.Function{CalcId: val.FunctionName()}
+	if idx != nil && val.Function() != nil {
+		fn.CalcId = idx.GetFQN(val.Function())
+	}
+	if self := val.FunctionSelf(); self != nil {
+		fn.SelfId = self.ID
+	}
+	return fn
 }
 
 // enumLiteralToProto names a literal by the declaration it is, which is its
@@ -501,6 +519,14 @@ var (
 	// ErrUnitIDMismatch reports a unit_id whose declaration the unit text sent
 	// with it does not spell, so the two name different units.
 	ErrUnitIDMismatch = errors.New("unit as written does not spell unit_id")
+
+	// ErrFunctionNeedsRuntime reports a Function read with no runtime to bind
+	// its calc in: only a runtime can turn a calc's name into a callable value.
+	ErrFunctionNeedsRuntime = errors.New("function needs a runtime to bind its calc")
+
+	// ErrFunctionUnbound reports a Function naming no calc of the model read as
+	// a function, or an object the runtime does not hold.
+	ErrFunctionUnbound = errors.New("function names no calc of this model")
 )
 
 // ValueCarriesMeasurementRef reports whether a value, or any value nested in
@@ -508,6 +534,15 @@ var (
 func ValueCarriesMeasurementRef(pv *pb.Value) bool {
 	return valueCarries(pv, func(v *pb.Value) bool {
 		_, ok := v.GetKind().(*pb.Value_MeasurementRef)
+		return ok
+	})
+}
+
+// ValueCarriesFunction reports whether a value, or any value nested in it, is a
+// Function: the kind function_values governs.
+func ValueCarriesFunction(pv *pb.Value) bool {
+	return valueCarries(pv, func(v *pb.Value) bool {
+		_, ok := v.GetKind().(*pb.Value_Function)
 		return ok
 	})
 }
@@ -571,8 +606,16 @@ func nestedValues(pv *pb.Value) []*pb.Value {
 
 // ProtoToValueIn converts a protobuf Value to a runtime.Value in the model idx
 // and sem describe, resolving a quantity's base units against them. Inverse of
-// ValueToProto.
+// ValueToProto. A function, which only a runtime can bind, is refused: read
+// one with ProtoToRuntimeValue.
 func ProtoToValueIn(pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+	return ProtoToRuntimeValue(nil, pv, idx, sem)
+}
+
+// ProtoToRuntimeValue is ProtoToValueIn for a value bound for the runtime rt,
+// which is what a function's calc is bound in and its object looked up in;
+// rt may be nil for a value naming no function.
+func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	if pv == nil {
 		return runtime.Value{Kind: runtime.ValNull}, nil
 	}
@@ -583,11 +626,13 @@ func ProtoToValueIn(pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (run
 		return ProtoToQuantity(k.Quantity, idx, sem)
 	case *pb.Value_EnumLiteral:
 		return enumLiteralFromProto(k.EnumLiteral, idx)
+	case *pb.Value_Function:
+		return functionFromProto(rt, k.Function, idx)
 	case *pb.Value_Sequence:
 		seq := runtime.NewSequence()
 		if k.Sequence != nil {
 			for _, elem := range k.Sequence.Elements {
-				val, err := ProtoToValueIn(elem, idx, sem)
+				val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
 				if err != nil {
 					return runtime.Value{}, err
 				}
@@ -596,7 +641,7 @@ func ProtoToValueIn(pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (run
 		}
 		return runtime.NewSequenceValue(seq), nil
 	case *pb.Value_Array:
-		return protoToArray(k.Array, idx, sem)
+		return protoToArray(rt, k.Array, idx, sem)
 	case *pb.Value_Vector:
 		return protoToVector(k.Vector)
 	case *pb.Value_VectorQuantity:
@@ -613,16 +658,45 @@ func ProtoToValueIn(pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (run
 	}
 }
 
+// functionFromProto binds a function to the calc its calc_id names in rt's
+// model, read as a value in its own scope. Objects live only within the call that
+// created them, so a self_id names none of this call's: it is refused rather
+// than matched to whichever object this call happened to number the same.
+func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index) (runtime.Value, error) {
+	if fn == nil || fn.GetCalcId() == "" {
+		return runtime.Value{}, fmt.Errorf("%w: calc_id is empty", ErrFunctionUnbound)
+	}
+	if rt == nil || idx == nil {
+		return runtime.Value{}, fmt.Errorf("%w: function %s", ErrFunctionNeedsRuntime, fn.GetCalcId())
+	}
+	if fn.GetSelfId() != 0 {
+		return runtime.Value{}, fmt.Errorf(
+			"%w: %s: self_id %d names no object of this call: an object lives only within the response that created it",
+			ErrFunctionUnbound, fn.GetCalcId(), fn.GetSelfId())
+	}
+	for _, sym := range idx.LookupQualified(fn.GetCalcId()) {
+		val, isFunction, err := rt.FunctionValue(sym)
+		if !isFunction {
+			continue
+		}
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("%w: %s: %v", ErrFunctionUnbound, fn.GetCalcId(), err)
+		}
+		return val, nil
+	}
+	return runtime.Value{}, fmt.Errorf("%w: %s is not a calc", ErrFunctionUnbound, fn.GetCalcId())
+}
+
 // protoToArray rebuilds an array, refusing a shape its elements do not fill
 // rather than reading them under some other shape.
-func protoToArray(pa *pb.Array, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+func protoToArray(rt *runtime.Context, pa *pb.Array, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	dimensions := slices.Clone(pa.GetDimensions())
 	if err := CheckArrayShape(dimensions, len(pa.GetElements())); err != nil {
 		return runtime.Value{}, err
 	}
 	elements := make([]runtime.Value, 0, len(pa.GetElements()))
 	for _, elem := range pa.GetElements() {
-		val, err := ProtoToValueIn(elem, idx, sem)
+		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {
 			return runtime.Value{}, err
 		}

@@ -238,9 +238,10 @@ func TestEvalInDeclarationScopeChainOverValuelessOperandStillResolvesItsMembers(
 	wants(t, run(t, s, "%eval in car : wheels.radius"), "✓ wheels.radius (in car)", "= "+runtime.UnsetText)
 }
 
-// A KerML type declaration — a class, struct, behavior, datatype or function —
-// is a type, not a feature: reading one in declaration scope is the error a
-// definition gets, never unset.
+// A KerML type declaration — a class, struct, behavior or datatype — is a type,
+// not a feature: reading one in declaration scope is the error a definition
+// gets, never unset. A function is the one type that is a value: reading it
+// denotes the function itself.
 func TestEvalInDeclarationScopeDoesNotReadTypeDeclarationsAsUnset(t *testing.T) {
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(`private import ScalarValues::*;
@@ -255,11 +256,14 @@ package K {
 }`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
 	}
-	for _, name := range []string{"Vehicle", "Frame", "Drive", "Mass", "Twice", "Car"} {
+	for _, name := range []string{"Vehicle", "Frame", "Drive", "Mass", "Car"} {
 		got := run(t, s, "%eval in K::car : "+name)
 		wants(t, got, "error", "cannot evaluate definition "+name)
 		rejects(t, got, "✓", "= "+runtime.UnsetText, "unresolved reference", "no value")
 	}
+	got := run(t, s, "%eval in K::car : Twice")
+	wants(t, got, "✓ Twice (in K::car)", "= K::Twice")
+	rejects(t, got, "error", "= "+runtime.UnsetText)
 	wants(t, run(t, s, "%eval in K::car : unsetMass"), "✓ unsetMass (in K::car)", "= "+runtime.UnsetText)
 }
 

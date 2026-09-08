@@ -1564,6 +1564,8 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 		t.Fatalf("a measurement reference names a unit the model declares, so it cannot be built from a case value")
 	case "CoordinateFrame", "CoordinateTransformation":
 		t.Fatalf("a %s is declared by the model, so it cannot be built from a case value", ev.Type)
+	case "Function":
+		t.Fatalf("a function is a calc the model declares, so it cannot be built from a case value")
 	case "Complex":
 		v, ok := ev.Value.(float64)
 		if !ok || ev.Im == nil {
@@ -1754,6 +1756,14 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		}
 		if got := actual.MeasurementRef().Unit.String(); got != expected.Unit {
 			t.Errorf("%s: unit = %q, want %q", name, got, expected.Unit)
+		}
+	case "Function":
+		if actual.Kind != ValFunction || actual.Function() == nil {
+			t.Errorf("%s: type = %v, want Function", name, actual.Kind)
+			return
+		}
+		if want := expected.Value.(string); actual.FunctionName() != want {
+			t.Errorf("%s: function = %q, want %q", name, actual.FunctionName(), want)
 		}
 	case "CoordinateFrame":
 		actual = denotedObjectValue(t, ctx, name, actual)

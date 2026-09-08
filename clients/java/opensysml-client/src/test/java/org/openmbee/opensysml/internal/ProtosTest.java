@@ -13,6 +13,7 @@ import org.openmbee.opensysml.proto.Array;
 import org.openmbee.opensysml.proto.AttributeInfo;
 import org.openmbee.opensysml.proto.Complex;
 import org.openmbee.opensysml.proto.FeatureValue;
+import org.openmbee.opensysml.proto.Function;
 import org.openmbee.opensysml.proto.MeasurementRef;
 import org.openmbee.opensysml.proto.SymbolInfo;
 import org.openmbee.opensysml.proto.UnitFactor;
@@ -317,6 +318,39 @@ class ProtosTest {
                     .addElements(measurementRef(MeasurementRef.newBuilder().setUnitId("SI::kilometre"))))
             .build();
     assertThrows(TransportException.class, () -> Protos.value(nested));
+  }
+
+  private static org.openmbee.opensysml.proto.Value function(String calcId, long selfId) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setFunction(Function.newBuilder().setCalcId(calcId).setSelfId(selfId))
+        .build();
+  }
+
+  @Test
+  void aFunctionIsTheCalcItNamesReadAgainstAnObjectOrNone() {
+    assertEquals(
+        Optional.of(new Value.FunctionValue("Demo::Sq", Optional.empty())),
+        Protos.value(function("Demo::Sq", 0)));
+    assertEquals(
+        Optional.of(new Value.FunctionValue("Demo::Scaler::scale", Optional.of(7L))),
+        Protos.value(function("Demo::Scaler::scale", 7)));
+    // The object is part of the identity: another object's read is another value.
+    assertNotEquals(
+        Protos.value(function("Demo::Scaler::scale", 7)),
+        Protos.value(function("Demo::Scaler::scale", 8)));
+
+    // Naming no calc is malformed at any depth, on the wire and in the record.
+    org.openmbee.opensysml.proto.Value noCalc = function("", 0);
+    TransportException nothing =
+        assertThrows(TransportException.class, () -> Protos.value(noCalc));
+    assertTrue(nothing.getMessage().contains("names no calc"), nothing.getMessage());
+    org.openmbee.opensysml.proto.Value nested =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSequence(ValueSequence.newBuilder().addElements(function("", 3)))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(nested));
+    assertThrows(
+        IllegalArgumentException.class, () -> new Value.FunctionValue("", Optional.empty()));
   }
 
   @Test

@@ -72,6 +72,8 @@ type actionFrame struct {
 	result string
 	// began is the activation the performance began in, which orders performances.
 	began int64
+	// run is the identity of this performance among the context's runs (Context.newRun).
+	run int64
 	// performs is the flow of the action a typed or invoked node performed, whose
 	// subactions the node's performance adopted as its own. nil otherwise.
 	performs *lower.ActionGraph
@@ -131,6 +133,7 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
 		subactions:  make(map[ast.Node]*actionFrame),
+		run:         e.ctx.newRun(),
 	}
 	for _, attr := range e.graph.Attributes {
 		root.features[attr.Name] = ast.DirNone
@@ -212,6 +215,7 @@ func (e *performances) beginPerformance(
 		connections: parent.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
+		run:         e.ctx.newRun(),
 	}
 	if perf.scope == nil {
 		perf.scope = parent.scope
@@ -1119,5 +1123,5 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // performanceFrame is the frame an evaluation reads a performance's values
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
-	return frame{vars: f.data, aliases: f.aliases, perf: f}
+	return frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
 }

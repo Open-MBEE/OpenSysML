@@ -704,7 +704,25 @@ message Value {
     // every finite magnitude and refused by arithmetic. Always true when set,
     // as DocumentValue.infinity is.
     bool infinity = 16;
+    Function function = 17;     // a calc as a value, named by its declaration
   }
+}
+
+// Function is a calc held as a value: a calc definition, or a calc usage with
+// an input no read could supply, as `Sq` in `Fn(Sq, 3.0)` or the `f` of
+// `in calc f {...}`. It crosses as the declaration it is a value of, which is
+// its identity: two functions are the same exactly when calc_id and self_id
+// are. A function closing over the bindings of the behavior body it is
+// declared in has no wire form and crosses as the null arm.
+message Function {
+  // FQN of the calc declaration ("Analysis::Sq"). Its identity.
+  string calc_id = 1;
+  // ID of the object the calc's feature names resolve against, for a calc
+  // usage read off a part (`holder.scale`); 0 for a function closing over no
+  // object. An instance id, living only within the response that sent it: a
+  // request function with a non-zero self_id is rejected, since no later call
+  // holds that object.
+  int64 self_id = 2;
 }
 
 // Array is a Collections::Array: its elements flattened in row-major order
@@ -882,6 +900,11 @@ message ServerInfoResponse {
   //                  refused with UNIMPLEMENTED rather than read as another
   //                  value. Separate from structured_values, which a client
   //                  built before this arm existed may already claim.
+  //   "function_values" - a Value carries a calc held as a value as function,
+  //                  named by its declaration, rather than reporting it as an
+  //                  unsupported null, and one is accepted as an action input
+  //                  or calc argument; without it, one is refused with
+  //                  UNIMPLEMENTED rather than read as another value.
   //   "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
   //                  preserving everything the edit did not touch.
   //   "document_query" - the RunDocumentQuery RPC runs a named document query

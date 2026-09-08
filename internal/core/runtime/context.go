@@ -104,6 +104,9 @@ type Context struct {
 	// activations numbers the body activations begun in this context: a calc
 	// invocation, a block entry, a loop iteration, a body application.
 	activations int64
+	// runs numbers the behavior runs begun in this context — calc invocations, calc
+	// usage evaluations, action performances — which functions closing over one carry.
+	runs int64
 
 	// occurrences holds the object each usage carrying no value of its own
 	// denotes, so a feature chain through a part reads one occurrence of it.
@@ -665,6 +668,13 @@ func (ctx *Context) noteProbeUndo(undo func()) {
 func (ctx *Context) newActivation() int64 {
 	ctx.activations++
 	return ctx.activations
+}
+
+// newRun begins one behavior run: the identity a function closing over it carries,
+// which no other run of the same behavior shares.
+func (ctx *Context) newRun() int64 {
+	ctx.runs++
+	return ctx.runs
 }
 
 // endActivation forgets what an activation computed, once it has ended, and the

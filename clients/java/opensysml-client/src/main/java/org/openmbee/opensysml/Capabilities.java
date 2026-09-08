@@ -47,6 +47,9 @@ public final class Capabilities {
   /** A bare measurement unit ({@code SI::m}, {@code m / s}) travels as itself rather than as an unsupported null. */
   public static final String MEASUREMENT_REFS = "measurement_refs";
 
+  /** A calc held as a value travels as the {@code function} naming its declaration rather than as an unsupported null. */
+  public static final String FUNCTION_VALUES = "function_values";
+
   /** The unbounded value {@code *} travels as itself rather than as an unsupported null. */
   public static final String INFINITY_VALUE = "infinity_value";
 

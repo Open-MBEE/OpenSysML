@@ -7,7 +7,7 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use opensysml::{Complex, Connection, Error, EvalOptions, Magnitude, Value, Vector};
+use opensysml::{Complex, Connection, Error, EvalOptions, Function, Magnitude, Value, Vector};
 
 fn service_or_skip() -> Option<Connection> {
     match Connection::private() {
@@ -329,6 +329,52 @@ fn a_bare_measurement_reference_arrives_with_its_reduction_and_declaration() {
             .collect::<Vec<_>>(),
         [("SI::metre", 1.0), ("SI::second", -1.0)]
     );
+}
+
+#[test]
+fn a_calc_held_as_a_value_arrives_as_the_function_it_names() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("function_values"));
+    let model = match connection.parse_content(
+        "package Demo {
+            private import ScalarValues::*;
+            calc def Sq { in v : Real; return : Real = v * v; }
+            calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+            calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
+            attribute pick = Identity(Sq);
+            attribute nine = Fn(Sq, 3.0);
+            part def Scaler {
+                attribute k : Real = 2.0;
+                calc scale { in x : Real; return : Real = x * k; }
+            }
+            part holder : Scaler;
+            attribute scaler = holder.scale;
+        }",
+        &Default::default(),
+    ) {
+        Ok(model) => model,
+        Err(error) => panic!("parse failed: {error}"),
+    };
+    let eval = |expr: &str| match model.evaluate(expr, &EvalOptions::default()) {
+        Ok(evaluation) => evaluation.result,
+        Err(error) => panic!("evaluating {expr} failed: {error}"),
+    };
+
+    assert_eq!(
+        eval("Demo::pick"),
+        Value::Function(Function {
+            calc_id: "Demo::Sq".to_owned(),
+            self_id: None,
+        })
+    );
+    assert_eq!(eval("Demo::nine"), Value::Real(9.0));
+    let Value::Function(scale) = eval("Demo::scaler") else {
+        panic!("Demo::scaler should be a function");
+    };
+    assert_eq!(scale.calc_id, "Demo::Scaler::scale");
+    assert!(scale.self_id.is_some_and(|id| id > 0));
 }
 
 #[test]

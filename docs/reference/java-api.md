@@ -104,6 +104,7 @@ else if (value instanceof Value.ArrayValue v)           rendered = v.dimensions(
 else if (value instanceof Value.VectorValue v)          rendered = v.components().toString();   // IntegerValue | RealValue
 else if (value instanceof Value.VectorQuantityValue v)  rendered = v.components().toString();   // one Quantity each
 else if (value instanceof Value.MeasurementRefValue v)  rendered = v.unit();                    // a bare unit and its reduction
+else if (value instanceof Value.FunctionValue v)        rendered = v.calcId();                  // a calc held as a value; selfId() when read off an object
 else if (value instanceof Value.EnumerationValue v)     rendered = v.literal().name();
 else if (value instanceof Value.InstanceReference v)    rendered = "instance " + v.instanceId();
 else if (value instanceof Value.Sequence v)             rendered = v.elements().toString();

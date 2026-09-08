@@ -8,6 +8,7 @@ import {
   ComplexSchema,
   EnumLiteralSchema,
   FailureReason,
+  FunctionSchema,
   MeasurementRefSchema,
   QuantitySchema,
   UnitFactorSchema,
@@ -332,6 +333,28 @@ test("a measurement reference keeps its unit, its reduction and the declaration 
   assert.throws(() => decodeValue(nested), MalformedValueError);
 });
 
+test("a function is the calc it names, read against an object or none", () => {
+  const fn = (calcId: string, selfId: bigint) =>
+    create(ValueSchema, {
+      kind: { case: "function", value: create(FunctionSchema, { calcId, selfId }) },
+    });
+  assert.deepEqual(decodeValue(fn("Demo::Sq", 0n)), { kind: "function", calcId: "Demo::Sq" });
+  const scale = decodeValue(fn("Demo::Scaler::scale", 7n));
+  assert.deepEqual(scale, { kind: "function", calcId: "Demo::Scaler::scale", selfId: 7n });
+  assert.equal(formatValue(scale), "Demo::Scaler::scale");
+
+  // A function naming no calc is malformed, at any depth.
+  assert.throws(
+    () => decodeValue(fn("", 0n)),
+    (error: unknown) => error instanceof MalformedValueError && /names no calc/.test(error.message),
+  );
+  const nested = create(ValueSchema, {
+    kind: { case: "sequence", value: create(ValueSequenceSchema, { elements: [fn("", 3n)] }) },
+  });
+  assert.throws(() => decodeValue(nested), MalformedValueError);
+  assert.throws(() => encodeValue({ kind: "function", calcId: "" }), MalformedValueError);
+});
+
 test("encodeValue is the inverse of decodeValue, through the wire bytes", () => {
   const values: SysMLValue[] = [
     { kind: "int", value: 9007199254740993n },
@@ -356,6 +379,8 @@ test("encodeValue is the inverse of decodeValue, through the wire bytes", () => 
       },
     },
     { kind: "sequence", elements: [{ kind: "measurementRef", unit: "m", unitTerm: METRE, unitId: "SI::metre" }] },
+    { kind: "function", calcId: "Demo::Sq" },
+    { kind: "function", calcId: "Demo::Scaler::scale", selfId: 7n },
     { kind: "enum", value: { name: "red", literalId: "P::Color::red", enumerationId: "P::Color" } },
     { kind: "null", reason: "" },
     { kind: "unset" },

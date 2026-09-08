@@ -273,11 +273,19 @@ func (shape *calcShape) memberName(ctx *Context, sym *symbols.Symbol) (string, b
 // qualifiedBy reports whether a name qualified by qualifier (`MassCase::result`,
 // `Cases::Case::result`) denotes this calc's run: the calc itself or one it specializes.
 func (shape *calcShape) qualifiedBy(ctx *Context, qualifier *symbols.Symbol) bool {
-	if qualifier == shape.Sym {
+	return ctx.isOrSpecializes(shape.Sym, qualifier)
+}
+
+// isOrSpecializes reports sym being general, or inheriting its members from it.
+func (ctx *Context) isOrSpecializes(sym, general *symbols.Symbol) bool {
+	if sym == nil || general == nil {
+		return false
+	}
+	if sym == general {
 		return true
 	}
-	for _, general := range ctx.model.MemberSources(shape.Sym) {
-		if general == qualifier {
+	for _, source := range ctx.model.MemberSources(sym) {
+		if source == general {
 			return true
 		}
 	}
@@ -633,7 +641,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	env := frame{vars: make(map[string]Value, len(shape.Params)), aliases: shape.Aliases, owner: shape}
+	env := frame{vars: make(map[string]Value, len(shape.Params)), aliases: shape.Aliases, owner: shape, run: ctx.newRun()}
 	ec.pushFrame(env)
 
 	// A usage declared in a behavior's body is written in that body, so its own
@@ -661,8 +669,69 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 // members or in a body-local block of it, which declares no owner of its own —
 // rather than in a part or a package, whose members hold no running values.
 func enclosedByBehaviorBody(sym *symbols.Symbol) bool {
-	owner := enclosingBehavior(sym)
-	return isCalcSymbol(owner) || isActionSymbol(owner) || isStateSymbol(owner)
+	return holdsRunningValues(enclosingBehavior(sym))
+}
+
+// holdsRunningValues reports a behavior whose runs bind values: a calc, an action
+// or a state machine.
+func holdsRunningValues(sym *symbols.Symbol) bool {
+	return isCalcSymbol(sym) || isActionSymbol(sym) || isStateSymbol(sym)
+}
+
+// bodyEnclosing is the part of enclosing, the bindings of the behavior body the
+// calc is declared in, its body reads: all of it for a body written inside that
+// behavior, none for a body inherited from a calc declared elsewhere.
+func (shape *calcShape) bodyEnclosing(enclosing []frame) []frame {
+	if len(enclosing) == 0 || !declaredWithin(shape.BodyOwner, enclosingBehavior(shape.Sym)) {
+		return nil
+	}
+	return enclosing
+}
+
+// runOf is the environment of the innermost run of behavior among frames: the
+// frames through the one holding that run; nil when none of them does.
+func runOf(ctx *Context, frames []frame, behavior *symbols.Symbol) []frame {
+	if !holdsRunningValues(behavior) {
+		return nil
+	}
+	for i := len(frames) - 1; i >= 0; i-- {
+		if frames[i].runs(ctx, behavior) {
+			return frames[:i+1]
+		}
+	}
+	return nil
+}
+
+// closesOverBody reports the calc reading the bindings of the behavior body it is
+// declared in: through a body written there, or a default it declares there.
+func (shape *calcShape) closesOverBody() bool {
+	if !enclosedByBehaviorBody(shape.Sym) {
+		return false
+	}
+	behavior := enclosingBehavior(shape.Sym)
+	if declaredWithin(shape.BodyOwner, behavior) {
+		return true
+	}
+	for i := range shape.Params {
+		if param := &shape.Params[i]; param.Default != nil && declaredWithin(param.Owner, behavior) {
+			return true
+		}
+	}
+	return false
+}
+
+// declaredWithin reports sym declared in the body of behavior, directly or in a
+// behavior nested in it.
+func declaredWithin(sym, behavior *symbols.Symbol) bool {
+	if behavior == nil {
+		return false
+	}
+	for owner := enclosingBehavior(sym); owner != nil; owner = enclosingBehavior(owner) {
+		if owner == behavior {
+			return true
+		}
+	}
+	return false
 }
 
 // checkCalcTyping rejects a calc usage typed by something that is not a calc: it
@@ -688,7 +757,13 @@ func (ctx *Context) runCalcUsage(
 	shape *calcShape, ec, nested *EvalContext, env frame, reader *EvalContext,
 ) (*calcRun, error) {
 	host := &calcStmtHost{ctx: ctx, shape: shape, self: reader.self}
-	engine := newStmtEngineIn(ctx, host, env, nil)
+	// A usage nested in a behavior body computes over that body's bindings, as
+	// an invocation of it does.
+	var enclosing []frame
+	if nested != nil {
+		enclosing = shape.bodyEnclosing(nested.enclosingRun(shape))
+	}
+	engine := newStmtEngineIn(ctx, host, env, enclosing)
 	host.attachPerformances(engine)
 	result, returned, err := runCalcSteps(engine, host, shape)
 	if err != nil {
@@ -991,6 +1066,9 @@ func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, boo
 // against that object so its inputs read the object's feature values. Naming the usage
 // itself names no value: its outputs are what it computes.
 func (ec *EvalContext) calcUsageMemberValue(sym *symbols.Symbol, self *Instance, parts []ast.NameSegment) (Value, error) {
+	if len(parts) == 0 && ec.ctx.readsAsFunction(sym) {
+		return NewEvalContextIn(ec.ctx, sym.OwnerScope, self).functionValueOf(sym)
+	}
 	if len(parts) == 0 && ec.ctx.returnsResult(sym) {
 		parts = resultSegments
 	}

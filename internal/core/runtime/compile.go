@@ -248,6 +248,9 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 	cell.params = make([]compiledParam, len(shape.Params))
 	for i := range shape.Params {
 		param := &shape.Params[i]
+		if param.IsCalc {
+			return ineligible(fmt.Sprintf("parameter %q binds a function value", param.Name))
+		}
 		check, ok := c.scalarCheckFor(&param.Decl)
 		if !ok {
 			return ineligible(fmt.Sprintf("parameter %q declares a type outside the scalar lattice", param.Name))
@@ -454,6 +457,9 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 	sym, ok := c.ctx.resolver.LookupName(scope, name)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("name %q is not bound in the frame", name))
+	}
+	if c.ctx.readsAsFunction(sym) {
+		return nil, ineligible(fmt.Sprintf("name %q is a function value", name))
 	}
 	node, err := c.libraryConstant(sym, name)
 	if err != nil {

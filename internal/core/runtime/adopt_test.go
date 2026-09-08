@@ -1626,3 +1626,70 @@ func TestAdoptRebindsTheFramesAWrittenValueNames(t *testing.T) {
 		t.Errorf("Adopt refused for %q, want the missing frame named", err)
 	}
 }
+
+const adoptFunctionSrc = `package Demo {
+	private import ScalarValues::*;
+	calc def Sq { in v : Real; return : Real = v * v; }
+	calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+	part def Scaler {
+		attribute k : Real = 2.0;
+		calc scale { in x : Real; return : Real = x * k; }
+	}
+	part def Holder { attribute fn; attribute scaled; part scaler : Scaler; }
+	part holder : Holder;
+}`
+
+// A function value a run wrote is carried over as a function of the calc the
+// re-analysis declares, so applying it runs the calc as it is declared now; one
+// closing over an object keeps that object with it.
+func TestAdoptRebindsAFunctionValue(t *testing.T) {
+	prev := libraryContextOver(t, adoptFunctionSrc)
+	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
+	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::holder"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for feature, expr := range map[string]string{"fn": "Sq", "scaled": "holder.scaler.scale"} {
+		val, err := evalIn(t, prev, scope, expr)
+		if err != nil || val.Kind != ValFunction {
+			t.Fatalf("%s = %s, %v; want a function", expr, FormatValue(val), err)
+		}
+		if err := holder.SetFeatureValue(prev, feature, val); err != nil {
+			t.Fatalf("write %s: %v", feature, err)
+		}
+	}
+	shapes := prev.ShapesOf(holder)
+
+	ctx := libraryContextOver(t, strings.Replace(adoptFunctionSrc, "v * v", "v * v * v", 1))
+	if _, err := ctx.Adopt(prev, shapes, holder); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	fn, err := holder.GetFeatureValue(ctx, "fn")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(fn): %v", err)
+	}
+	if want := lookupOne(t, ctx.resolver.Index(), "Demo::Sq"); fn.Value.Function() != want {
+		t.Errorf("fn is of %p, want the Sq declared by the re-analysis %p", fn.Value.Function(), want)
+	}
+	newScope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	for expr, want := range map[string]string{
+		"holder.fn":                            "Demo::Sq",
+		"holder.fn == Sq":                      "true",
+		"Fn(holder.fn, 2.0)":                   "8.0",
+		"Fn(holder.scaled, 5.0)":               "10.0",
+		"holder.scaled == holder.scaler.scale": "true",
+	} {
+		got, err := evalIn(t, ctx, newScope, expr)
+		if err != nil || FormatValue(got) != want {
+			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
+		}
+	}
+
+	gone := libraryContextOver(t, strings.Replace(adoptFunctionSrc, "calc def Sq { in v : Real; return : Real = v * v; }", "", 1))
+	var adoptErr *AdoptError
+	if _, err := gone.Adopt(prev, shapes, holder); !errors.As(err, &adoptErr) {
+		t.Fatalf("Adopt into a re-analysis without the calc: %v, want an AdoptError", err)
+	} else if !strings.Contains(err.Error(), "the function Demo::Sq it holds is no longer declared") {
+		t.Errorf("Adopt refused for %q, want the missing calc named", err)
+	}
+}

@@ -45,6 +45,7 @@ func TestInstanceIDsAreLabelledInOrderOfAppearance(t *testing.T) {
 			Id: 41,
 			FeatureValues: map[string]*pb.FeatureValue{
 				"engine": {Value: &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: 77}}},
+				"scale":  {Value: &pb.Value{Kind: &pb.Value_Function{Function: &pb.Function{CalcId: "T::scale", SelfId: 41}}}},
 			},
 		},
 		Instances: []*pb.Instance{{Id: 41}, {Id: 77}},
@@ -55,6 +56,9 @@ func TestInstanceIDsAreLabelledInOrderOfAppearance(t *testing.T) {
 	}
 	if got, _ := lookup(tree, "instance.feature_values.engine.value.instance_id"); got != "@2" {
 		t.Errorf("nested instance_id = %v, want @2", got)
+	}
+	if got, _ := lookup(tree, "instance.feature_values.scale.value.function.self_id"); got != "@1" {
+		t.Errorf("function self_id = %v, want the owner's label @1", got)
 	}
 	if got, _ := lookup(tree, "instances.1.id"); got != "@2" {
 		t.Errorf("instances.1.id = %v, want the same label @2", got)
