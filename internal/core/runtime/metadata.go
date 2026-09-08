@@ -23,20 +23,20 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 	}
 	annotations := ec.ctx.model.ElementMetadataOf(sym)
 	// One access materializes every annotation or none: an annotation that fails
-	// leaves behind no object of the ones read before it.
-	mark := len(ec.ctx.created)
+	// leaves behind no object, and no behavior of one, of the ones read before it.
+	mark, attached := len(ec.ctx.created), len(ec.ctx.objectBehaviors)
 	values := make([]Value, 0, len(annotations))
 	for _, annotation := range annotations {
 		val, err := ec.metadataInstance(annotation)
 		if err != nil {
-			ec.ctx.abandonInstancesSince(mark)
+			ec.ctx.abandonCreationSince(mark, attached)
 			return Value{}, err
 		}
 		values = append(values, val)
 	}
 	seq, err := ec.newSequence(values)
 	if err != nil {
-		ec.ctx.abandonInstancesSince(mark)
+		ec.ctx.abandonCreationSince(mark, attached)
 		return Value{}, err
 	}
 	return seq, nil

@@ -166,20 +166,38 @@ package test {
 }
 
 // TestMetadataAccessFailureAbandonsInstances requires one access to materialize
-// every annotation or none: an annotation that fails leaves no object behind of
-// the annotations read before it.
+// every annotation or none: an annotation that fails leaves behind no object,
+// and no behavior of one, of the annotations read before it.
 func TestMetadataAccessFailureAbandonsInstances(t *testing.T) {
 	src := `
 package test {
+	part def Controller {
+		attribute count : ScalarValues::Integer = 0;
+		exhibit state modes {
+			entry; then running;
+			state running {
+				entry action bump { assign count := count + 1; }
+			}
+		}
+	}
+
+	part ctrl : Controller;
+
 	metadata def Safety {
 		attribute level : ScalarValues::Integer = 2;
 	}
 
 	part def Vehicle;
 
+	part reader : Vehicle {
+		@Safety {
+			level = ctrl.count;
+		}
+	}
+
 	part seatBelt : Vehicle {
 		@Safety {
-			level = 1;
+			level = ctrl.count;
 		}
 		@Safety {
 			severity = 3;
@@ -187,6 +205,16 @@ package test {
 	}
 }
 `
+	// The first annotation reads an object whose machine runs, so the failing
+	// access has behaviors as well as objects to abandon.
+	ok, _, err := evalDeclaredExpr(t, src, "test::reader.metadata")
+	if err != nil {
+		t.Fatalf("test::reader.metadata: %v", err)
+	}
+	if len(ok.objectBehaviors) == 0 {
+		t.Fatal("reading the annotation started no behavior, so the test proves nothing")
+	}
+
 	ctx, _, err := evalDeclaredExpr(t, src, "test::seatBelt.metadata")
 	if err == nil {
 		t.Fatal("the failing annotation succeeded, want a typed error")
@@ -199,5 +227,8 @@ package test {
 	}
 	if created := len(ctx.created); created != 0 {
 		t.Errorf("%d object(s) stay registered as created, want none", created)
+	}
+	if attached, pending := len(ctx.objectBehaviors), len(ctx.pendingBehaviors); attached != 0 || pending != 0 {
+		t.Errorf("%d behavior(s) (%d pending) outlived the failed access, want none", attached, pending)
 	}
 }
