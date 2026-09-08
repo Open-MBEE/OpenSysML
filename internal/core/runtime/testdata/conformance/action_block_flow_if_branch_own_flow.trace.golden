@@ -9,6 +9,7 @@ enter action node: split
       eval literal 20 -> 20
     stmt assign a
       eval literal 10 -> 10
+choice step 2: tokens 3@left, 4@right (unordered; took 4@right first)
     stmt assign sum
         eval chain a -> 10
         eval chain b -> 20

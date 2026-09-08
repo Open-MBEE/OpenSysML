@@ -12,6 +12,9 @@ step 3: token 1@decision
   eval feature count -> 1
   eval literal 3 -> 3
 eval operator < -> true
+  eval feature count -> 1
+  eval literal 3 -> 3
+eval operator >= -> false
 step 4: token 1@again
 stmt assign merged
     eval feature merged -> 1
@@ -26,6 +29,9 @@ step 6: token 1@decision
   eval feature count -> 2
   eval literal 3 -> 3
 eval operator < -> true
+  eval feature count -> 2
+  eval literal 3 -> 3
+eval operator >= -> false
 step 7: token 1@again
 stmt assign merged
     eval feature merged -> 2

@@ -1,0 +1,21 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"winner": {"type": "String", "value": "hare"},
+				"hareRan": {"type": "Boolean", "value": true},
+				"tortoiseRan": {"type": "Boolean", "value": true}
+			}
+		},
+		{
+			"outputs": {
+				"winner": {"type": "String", "value": "tortoise"},
+				"hareRan": {"type": "Boolean", "value": true},
+				"tortoiseRan": {"type": "Boolean", "value": true}
+			}
+		}
+	],
+	"admissible": "Concurrent branches writing one feature: the value is open, the writes are not"
+}

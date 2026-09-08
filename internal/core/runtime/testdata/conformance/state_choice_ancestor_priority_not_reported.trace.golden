@@ -1,0 +1,11 @@
+  eval feature temp -> 30
+  eval literal 20 -> 20
+eval operator > -> true
+  eval feature temp -> 30
+  eval literal 20 -> 20
+eval operator > -> true
+exit: fine
+enter: warm (entry action)
+stmt assign path
+  eval literal 1 -> 1
+transition: fine -> warm (event: accept Tick)

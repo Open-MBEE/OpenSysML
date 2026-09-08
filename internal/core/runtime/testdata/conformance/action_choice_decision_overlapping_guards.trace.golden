@@ -1,0 +1,13 @@
+step 1: token 1@select
+  eval feature level -> 75
+  eval literal 50 -> 50
+eval operator > -> true
+  eval feature level -> 75
+  eval literal 70 -> 70
+eval operator > -> true
+choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)
+step 2: token 1@warn
+stmt assign handler
+  eval literal 1 -> 1
+step 3: token 1@done
+step 4: no active tokens

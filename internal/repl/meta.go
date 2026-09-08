@@ -2305,6 +2305,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 	}
 
 	// Step
+	choices := s.actionExec.rtCtx.ChoiceCount()
 	err := exec.Step()
 	if err != nil {
 		return []string{fmt.Sprintf("error: step failed: %v", err)}, false, nil
@@ -2317,6 +2318,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 		fmt.Sprintf("  State: %s", exec.State()),
 		fmt.Sprintf("  Tokens: %d", len(tokens)),
 	}
+	out = append(out, s.choiceSummary(s.actionExec.rtCtx, choices)...)
 	if node := exec.PausedAt(); node != "" {
 		out = append(out, fmt.Sprintf("  ⏸ Paused at breakpoint %q", node))
 	}
@@ -2349,18 +2351,19 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 	}
 
 	// Run to completion, or to the first breakpoint hit
+	choices := s.actionExec.rtCtx.ChoiceCount()
 	if err := exec.RunToCompletion(); err != nil {
 		return nil, nil, fmt.Errorf("execution failed: %w", err)
 	}
 
 	if node := exec.PausedAt(); node != "" {
-		return []string{
+		out := []string{
 			fmt.Sprintf("⏸ Paused at breakpoint %q", node),
 			fmt.Sprintf("  State: %s", exec.State()),
 			fmt.Sprintf("  Tokens: %d", len(exec.Tokens())),
-			"",
-			"Use %tokens to inspect, %step or %continue to resume",
-		}, nil, nil
+		}
+		out = append(out, s.choiceSummary(s.actionExec.rtCtx, choices)...)
+		return append(out, "", "Use %tokens to inspect, %step or %continue to resume"), nil, nil
 	}
 
 	// Display results
@@ -2368,6 +2371,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 		"✓ Action completed",
 		fmt.Sprintf("  Final state: %s", exec.State()),
 	}
+	out = append(out, s.choiceSummary(s.actionExec.rtCtx, choices)...)
 	out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
 
 	return out, namedValues(s.actionExec.contextOf(), exec.Results()), nil
@@ -2862,16 +2866,18 @@ func (s *Session) stepState() ([]string, bool, error) {
 		return []string{fmt.Sprintf("✓ State machine %s (%s)", exec.State(), currentStateName(exec))}, false, nil
 	}
 
+	choices := s.stateExec.rtCtx.ChoiceCount()
 	step, err := s.stateStep(exec)
 	if err != nil {
 		return []string{errPrefix + err.Error()}, false, nil
 	}
-	return []string{
+	out := []string{
 		"✓ " + step,
 		fmt.Sprintf("  Current state: %s", currentStateName(exec)),
 		timeLabel + semantics.FormatReal(exec.CurrentTime()),
 		fmt.Sprintf("  Events: %d", exec.EventQueue().Len()),
-	}, false, nil
+	}
+	return append(out, s.choiceSummary(s.stateExec.rtCtx, choices)...), false, nil
 }
 
 // stateStep performs one step and reports what it was.
@@ -3163,6 +3169,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	// same one the executors report.
 	maxEvents, maxDoActions := s.budgets.MaxStateEvents, s.budgets.MaxDoSteps
 	startTime := exec.CurrentTime()
+	choices := s.stateExec.rtCtx.ChoiceCount()
 	var processed, doActions int64
 	var dropped []string
 	for exec.State() == runtime.StateRunning &&
@@ -3228,6 +3235,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		"  Last event at: " + semantics.FormatReal(exec.CurrentTime()),
 		fmt.Sprintf("  Remaining events: %d", exec.EventQueue().Len()),
 	}
+	out = append(out, s.choiceSummary(s.stateExec.rtCtx, choices)...)
 
 	if doActions > 0 {
 		out = append(out, fmt.Sprintf("  Do behavior actions run: %d", doActions))

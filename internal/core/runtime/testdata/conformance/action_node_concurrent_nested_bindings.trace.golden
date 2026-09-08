@@ -4,6 +4,7 @@ stmt assign v
   eval literal 2 -> 2
 stmt assign v
   eval literal 1 -> 1
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
 step 3: token 2@leg, token 3@leg
 enter action node: leg
 step 4: token 4@inner

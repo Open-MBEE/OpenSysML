@@ -7,6 +7,9 @@ step 2: token 1@again
   eval feature n -> 1
   eval literal 3 -> 3
 eval operator < -> true
+  eval feature n -> 1
+  eval literal 3 -> 3
+eval operator >= -> false
 step 3: token 1@bump
 stmt assign n
     eval feature n -> 1
@@ -16,6 +19,9 @@ step 4: token 1@again
   eval feature n -> 2
   eval literal 3 -> 3
 eval operator < -> true
+  eval feature n -> 2
+  eval literal 3 -> 3
+eval operator >= -> false
 step 5: token 1@bump
 stmt assign n
     eval feature n -> 2

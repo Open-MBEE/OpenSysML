@@ -93,6 +93,24 @@ func DiagnosticToProto(diag passes.Diagnostic, sf *source.SourceFile) *pb.Diagno
 	}
 }
 
+// ChoiceDiagnosticsToProto converts the choice points a run made to informational
+// diagnostics, located in their model document; one outside the model carries no span.
+func ChoiceDiagnosticsToProto(choices []runtime.ChoicePoint, model *CachedModel) []*pb.Diagnostic {
+	if len(choices) == 0 {
+		return nil
+	}
+	pbDiags := make([]*pb.Diagnostic, 0, len(choices))
+	for _, c := range choices {
+		diag := c.Diagnostic()
+		if sf := model.document(c.File); sf != nil {
+			pbDiags = append(pbDiags, DiagnosticToProto(diag, sf))
+			continue
+		}
+		pbDiags = append(pbDiags, &pb.Diagnostic{Severity: diag.Severity.String(), Message: diag.Message})
+	}
+	return pbDiags
+}
+
 // ParserDiagnosticToProto converts a parser.Diagnostic to protobuf.
 func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
 	li := sf.Lines()

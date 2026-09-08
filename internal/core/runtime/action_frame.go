@@ -21,6 +21,11 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// writer is the token whose step is running, 0 between steps, and stepWrites
+	// the writes the current step made so far by holder and feature (see noteWrite).
+	writer     int64
+	stepWrites map[stepWriteKey]stepWrite
+	writeStep  int
 }
 
 // performanceOwner is the behavior whose nodes perform — an action executor or a state
@@ -615,12 +620,17 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 // performance occurrence for the action's own features.
 func (e *performances) setFrameFeature(f *actionFrame, name string, value Value) error {
 	if f == e.root {
-		return e.owner.setFeature(name, value)
+		if err := e.owner.setFeature(name, value); err != nil {
+			return err
+		}
+		e.noteWrite(f, name, value)
+		return nil
 	}
 	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, value); err != nil {
 		return err
 	}
 	f.data[f.key(name)] = value
+	e.noteWrite(f, name, value)
 	return nil
 }
 

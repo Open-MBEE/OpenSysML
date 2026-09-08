@@ -4,11 +4,13 @@ stmt assign arrived
     eval feature arrived -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice step 3: tokens 2@a, 3@b1, 4@c1 (unordered; took 4@c1 first)
 step 3: token 2@sync, token 3@b2, token 4@c2
 stmt assign arrived
     eval feature arrived -> 1
     eval literal 1 -> 1
   eval operator + -> 2
+choice step 4: tokens 3@b2, 4@c2 (unordered; took 4@c2 first)
 step 4: token 2@sync, token 3@sync, token 4@c3
 stmt assign arrived
     eval feature arrived -> 2

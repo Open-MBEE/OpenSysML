@@ -920,8 +920,11 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 // transition whose guard is false does not consume the event, so a later one
 // still gets its chance. Selecting a transition leaves the machine's data as it
 // was: the caller binds the trigger's arguments again before firing.
+// Every transition is examined so that several enabled at once are a choice point.
 func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, error) {
-	for _, trans := range e.graph.Transitions[state] {
+	var enabled []int
+	transitions := e.graph.Transitions[state]
+	for i, trans := range transitions {
 		matches, err := e.matchesEvent(trans, event)
 		if err != nil {
 			return nil, err
@@ -952,10 +955,47 @@ func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*
 			return nil, err
 		}
 		if synchronized {
-			return trans, nil
+			enabled = append(enabled, i)
 		}
 	}
-	return nil, nil
+	if len(enabled) == 0 {
+		return nil, nil
+	}
+	e.noteTransitionChoice(state, transitions, enabled)
+	return transitions[enabled[0]], nil
+}
+
+// noteTransitionChoice records the transitions out of state enabled for one event,
+// at their declared positions, as a choice point when there are at least two.
+func (e *StateExecutor) noteTransitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) {
+	if len(enabled) < 2 {
+		return
+	}
+	alts := make([]string, len(enabled))
+	for i, pos := range enabled {
+		alts[i] = fmt.Sprintf("%d->%s", pos+1, getNodeName(transitions[pos].Target))
+	}
+	taken := transitions[enabled[0]]
+	where := "state " + state.Name
+	if name := triggerName(taken.Trigger); name != "" {
+		where += " on " + name
+	}
+	file := e.stateMachine.DocName
+	if taken.Scope != nil && taken.Scope.DocName() != "" {
+		file = taken.Scope.DocName()
+	}
+	span := state.Span()
+	if taken.Decl != nil {
+		span = taken.Decl.Span()
+	}
+	e.ctx.noteChoice(ChoicePoint{
+		Kind:         ChoiceTransition,
+		Where:        where,
+		Alternatives: alts,
+		Taken:        0,
+		File:         file,
+		Span:         span,
+	})
 }
 
 // bindTriggerArguments binds the parameters a call trigger declares to the

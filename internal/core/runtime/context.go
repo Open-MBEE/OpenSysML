@@ -167,6 +167,8 @@ type Context struct {
 
 	// trace records evaluation, nil when not tracing.
 	trace *TraceRecorder
+	// choices are the choice points the latest run made, in order; see noteChoice.
+	choices []ChoicePoint
 
 	// actionDepth is the number of action invocations currently on the stack,
 	// bounding recursion across nested action executors.
@@ -496,6 +498,7 @@ func (ctx *Context) beginRun() func() {
 	if ctx.runDepth == 0 {
 		ctx.steps = 0
 		ctx.elements = 0
+		ctx.choices = nil
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	ctx.runDepth++
@@ -511,6 +514,7 @@ func (ctx *Context) beginExecutorRun(started *bool) func() {
 	if ctx.runDepth == 0 && !*started {
 		ctx.steps = 0
 		ctx.elements = 0
+		ctx.choices = nil
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
 	*started = true

@@ -4,6 +4,7 @@ stmt assign merged
     eval feature merged -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice step 3: tokens 2@gate, 3@prep (unordered; took 3@prep first)
 step 3: token 2@work, token 3@gate
 stmt assign merged
     eval feature merged -> 1
@@ -13,6 +14,7 @@ stmt assign worked
     eval feature worked -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice step 4: tokens 2@work, 3@gate (unordered; took 3@gate first)
 step 4: token 2@more, token 3@work
 stmt assign worked
     eval feature worked -> 1
@@ -25,6 +27,10 @@ stmt assign passes
   eval feature passes -> 1
   eval literal 3 -> 3
 eval operator < -> true
+  eval feature passes -> 1
+  eval literal 3 -> 3
+eval operator >= -> false
+choice step 5: tokens 2@more, 3@work (unordered; took 3@work first)
 step 5: token 2@gate, token 3@more
 stmt assign passes
     eval feature passes -> 1
@@ -33,10 +39,14 @@ stmt assign passes
   eval feature passes -> 2
   eval literal 3 -> 3
 eval operator < -> true
+  eval feature passes -> 2
+  eval literal 3 -> 3
+eval operator >= -> false
 stmt assign merged
     eval feature merged -> 2
     eval literal 1 -> 1
   eval operator + -> 3
+choice step 6: tokens 2@gate, 3@more (unordered; took 3@more first)
 step 6: token 2@work, token 3@gate
 stmt assign merged
     eval feature merged -> 3
@@ -46,6 +56,7 @@ stmt assign worked
     eval feature worked -> 2
     eval literal 1 -> 1
   eval operator + -> 3
+choice step 7: tokens 2@work, 3@gate (unordered; took 3@gate first)
 step 7: token 2@more, token 3@work
 stmt assign worked
     eval feature worked -> 3
@@ -61,6 +72,7 @@ eval operator < -> false
   eval feature passes -> 3
   eval literal 3 -> 3
 eval operator >= -> true
+choice step 8: tokens 2@more, 3@work (unordered; took 3@work first)
 step 8: token 2@done, token 3@more
 stmt assign passes
     eval feature passes -> 3
@@ -72,5 +84,6 @@ eval operator < -> false
   eval feature passes -> 4
   eval literal 3 -> 3
 eval operator >= -> true
+choice step 9: tokens 2@done, 3@more (unordered; took 3@more first)
 step 9: token 3@done
 step 10: no active tokens

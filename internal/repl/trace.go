@@ -1,6 +1,27 @@
 package repl
 
-import "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+import (
+	"fmt"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+)
+
+// choiceSummary is the line a debugger command adds when the steps it ran made
+// choice points beyond the before it started with: how many, and how to see them.
+func (s *Session) choiceSummary(ctx *runtime.Context, before int) []string {
+	n := ctx.ChoiceCount() - before
+	if n <= 0 {
+		return nil
+	}
+	line := fmt.Sprintf("  %d choice point", n)
+	if n > 1 {
+		line += "s"
+	}
+	if s.trace == nil {
+		line += "; %trace on to see them"
+	}
+	return []string{line}
+}
 
 // tracePrefix marks a recorded execution step, so a trace is distinguishable
 // from a command's own output.

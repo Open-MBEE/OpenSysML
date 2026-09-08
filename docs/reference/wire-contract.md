@@ -710,7 +710,24 @@ $ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::noSt
 
 An action with no outputs answers `{}` (captured for `action nop { first start; done;
 succession first start then done; }`). The response carries no step trace; ordering-sensitive
-behavior is pinned by the engine's golden traces, not exposed on this call.
+behavior is pinned by the engine's golden traces, not exposed on this call. What it does carry
+is every *choice point* the run made — a step in which the executor picked among alternatives
+the library leaves unordered (several steppable tokens, several holding decision guards, two
+tokens writing one feature in one step; see [Choice points](../guide/06-behavior.md)) — as an
+`"info"` diagnostic located at the action, present beside `outputs` on success and beside
+`error` when the run failed after making one (captured for `action tally { attribute leftCount :
+Integer = 0; attribute rightCount : Integer = 0; first start; fork split; action left { assign
+leftCount := leftCount + 1; } action right { assign rightCount := rightCount + 10; } join sync;
+done; … }` with a succession from `split` to each branch and from each to `sync`, in `tally.sysml`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally"}'
+{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 3@right first)","span":{"file":"tally.sysml","startLine":2,"startCol":2,"endLine":20,"endCol":2}}]}
+```
+
+A run with no `diagnostics` had exactly one order to take. The order taken is the engine's fixed
+rule, the same on every call, so the outputs are reproducible; the diagnostics say where another
+rule would have been equally valid.
 
 ### `ExecuteState`
 
@@ -738,7 +755,17 @@ $ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test:
 ```
 
 `finalContext` is absent when the machine has no variables; `statesVisited` lists a state each
-time it is entered, so a state entered twice appears twice.
+time it is entered, so a state entered twice appears twice. `diagnostics` carries an `"info"`
+entry for each event that enabled several transitions out of one state, located at the
+transition taken, as `ExecuteAction`'s does for its steps; a transition on a substate beating one
+on the state enclosing it is spec-defined order and is not reported. For `state def Hub { entry;
+then Idle; state Idle; state A; state B; transition first Idle accept Go then A; transition first
+Idle accept Go then B; }` in the same document:
+
+```console
+$ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"]}'
+{"statesVisited":["Idle","A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml","startLine":25,"startCol":3,"endLine":26,"endCol":3}}]}
+```
 
 ### `EvaluateCalc`
 
@@ -850,7 +877,8 @@ $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdo
 
 A step that fails, a body that deadlocks or exhausts its step budget and a case that runs itself are
 `FAILURE_REASON_EVALUATION` failures naming the case. Structured and complex arguments are
-capability-gated as `EvaluateCalc`'s are.
+capability-gated as `EvaluateCalc`'s are. The choice points the case's steps made are its
+`diagnostics`, shaped as `ExecuteAction`'s.
 
 ### `RunSweep`
 

@@ -3,6 +3,7 @@ step 2: token 2@reader, token 3@gate
 step 3: token 2@reader, token 3@sender
 stmt send
   eval literal 7 -> 7
+choice step 4: tokens 2@reader, 3@sender (unordered; took 3@sender first)
 step 4: token 2@sync, token 3@sync
 step 5: token 4@recorder
 stmt assign received

@@ -4,17 +4,25 @@ stmt assign n
     eval feature n -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice step 3: tokens 2@tick, 3@s1 (unordered; took 3@s1 first)
 step 3: token 2@tee, token 3@s2
+choice step 4: tokens 2@tee, 3@s2 (unordered; took 3@s2 first)
 step 4: token 3@s3, token 4@sync, token 5@again
   eval feature n -> 1
   eval literal 2 -> 2
 eval operator < -> true
+  eval feature n -> 1
+  eval literal 2 -> 2
+eval operator >= -> false
+choice step 5: tokens 3@s3, 5@again (unordered; took 5@again first)
 step 5: token 3@s4, token 4@sync, token 5@tick
 stmt assign n
     eval feature n -> 1
     eval literal 1 -> 1
   eval operator + -> 2
+choice step 6: tokens 3@s4, 5@tick (unordered; took 5@tick first)
 step 6: token 3@s5, token 4@sync, token 5@tee
+choice step 7: tokens 3@s5, 5@tee (unordered; took 5@tee first)
 step 7: token 3@s6, token 4@sync, token 6@sync, token 7@again
   eval feature n -> 2
   eval literal 2 -> 2
@@ -22,6 +30,7 @@ eval operator < -> false
   eval feature n -> 2
   eval literal 2 -> 2
 eval operator >= -> true
+choice step 8: tokens 3@s6, 7@again (unordered; took 7@again first)
 step 8: token 3@right, token 4@sync, token 6@sync, token 7@tickEnd
 stmt assign m
     eval feature m -> 0
@@ -33,6 +42,7 @@ stmt assign log
     eval operator * -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+choice step 9: tokens 3@right, 7@tickEnd (unordered; took 7@tickEnd first)
 step 9: token 3@sync, token 4@sync, token 6@sync
 step 10: token 6@sync, token 8@after
 stmt assign log
@@ -45,6 +55,9 @@ step 11: token 6@sync, token 8@more
   eval feature m -> 1
   eval literal 2 -> 2
 eval operator < -> true
+  eval feature m -> 1
+  eval literal 2 -> 2
+eval operator >= -> false
 step 12: token 6@sync, token 8@s1
 step 13: token 6@sync, token 8@s2
 step 14: token 6@sync, token 8@s3

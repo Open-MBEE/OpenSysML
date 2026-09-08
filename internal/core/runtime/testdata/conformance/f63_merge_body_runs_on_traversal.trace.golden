@@ -5,6 +5,7 @@ stmt assign mergeRuns
     eval literal 1 -> 1
   eval operator + -> 1
 eval feature ready -> false
+choice step 3: tokens 2@gate, 3@slow (unordered; took 3@slow first)
 step 3: token 3@slower
 stmt assign ready
   eval literal true -> true

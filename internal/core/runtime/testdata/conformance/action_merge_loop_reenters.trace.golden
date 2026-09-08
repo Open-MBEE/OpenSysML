@@ -8,6 +8,9 @@ step 3: token 1@decision
   eval feature level -> 0
   eval literal 100 -> 100
 eval operator < -> true
+  eval feature level -> 0
+  eval literal 100 -> 100
+eval operator >= -> false
 step 4: token 1@addCharge
 stmt assign level
     eval feature level -> 0
@@ -23,6 +26,9 @@ step 7: token 1@decision
   eval feature level -> 50
   eval literal 100 -> 100
 eval operator < -> true
+  eval feature level -> 50
+  eval literal 100 -> 100
+eval operator >= -> false
 step 8: token 1@addCharge
 stmt assign level
     eval feature level -> 50

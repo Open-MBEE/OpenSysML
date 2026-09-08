@@ -2,6 +2,7 @@ step 1: token 1@split
 step 2: token 2@left, token 3@right
 enter action node: right
 enter action node: left
+choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
 step 3: token 2@leftStep, token 3@rightStep
 stmt assign rightValue
   eval literal 2 -> 2
@@ -9,6 +10,7 @@ leave action node: right
 stmt assign leftValue
   eval literal 1 -> 1
 leave action node: left
+choice step 4: tokens 2@leftStep, 3@rightStep (unordered; took 3@rightStep first)
 step 4: token 2@sync, token 3@sync
 step 5: token 4@tally
 stmt assign leftValue

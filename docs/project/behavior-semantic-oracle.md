@@ -50,6 +50,11 @@ scheduling detail the library says nothing about:
 - A state machine records a transition's guard evaluation, exit, effect and entry as they run, and
   evaluates a guard once to select the transition and once again to fire it; the second
   evaluation is a tool detail with no observable effect, since a guard is an expression.
+- A `choice` line marks a point where the executor picked among alternatives the library leaves
+  unordered — several steppable tokens in one step, several holding decision guards, several
+  enabled transitions out of one state for one event, or two tokens writing one feature in one
+  step — and names the alternative it took. Everything after a `choice` line is one linearization
+  among the ones that line admits.
 
 When a golden is reviewed against this record, the question is whether the golden's
 linearization is *one of* the linearizations the derivation admits and whether every outcome the
@@ -209,9 +214,65 @@ against — a run must match exactly one member. The partial order the library d
 as `.trace.order` constraints (`split < left`, `split < right`, `left < sync`, `right < sync`) the
 trace must satisfy. The exact trace golden stays: it records the executor's scheduling (`right`
 is the branch declared last, so its token is stepped first and `left` writes last, giving
-`x = 1`) and exists only so a change in that scheduling is noticed. The compliance row stays
-approximate because the runtime still picks an order the specification does not, and reports no
-conflict.
+`x = 1`) and exists only so a change in that scheduling is noticed. The executor reports the
+conflict as a choice point (`choice step 3: writes x := 1 by token 2, x := 2 by token 3
+(unordered; x := 1 by token 2 stood)`), so the trace and the diagnostics name the value that
+stood as a tool decision rather than passing it off as the model's answer. Companion fixture:
+`action_choice_same_step_write_conflict` (golden), the same shape over a `String` feature.
+
+### A decision with several holding guards: exactly one branch follows, which one is open
+
+Fixture: `action_choice_decision_overlapping_guards` (golden).
+
+```
+start → select ─ if level > 50 → warn  { handler := 1 } → done
+               ─ if level > 70 → alarm { handler := 2 } → done
+```
+
+Derived constraints:
+
+- `select` is followed by a performance of exactly one target (DecisionPerformance: "the
+  outgoingHBLink is an instance of exactly one of the Successions"), so `handler` ends `1` or
+  `2`, never `0`.
+- Each guard is a `TPCGuardConstraint` on its own link; a false guard leaves that link out. With
+  `level = 75` both guards are true, so neither link is excluded by its guard.
+
+Open: which of the two admissible links the decision performance takes. The library says only
+that it is exactly one of them; nothing ranks `warn` against `alarm`.
+
+Pinned outcome: the admissible set `{handler = 1, handler = 2}`, stated as `outcomes` citing this
+section. The executor evaluates every guard, takes the first declared, and records the choice
+(`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`);
+the golden pins that linearization. A decision whose guards are all false remains an execution
+error (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing
+link.
+
+### Two transitions out of one state enabled by one event: exactly one fires, which one is open
+
+Fixture: `state_choice_transition_conflict` (golden).
+
+```
+idle ─ accept Go if level > 5 → low  { route := 1 }
+     ─ accept Go if level > 7 → high { route := 2 }
+```
+
+Derived constraints:
+
+- A `StateTransitionPerformance` follows its trigger and its guard, and its
+  `transitionLinkSource.exit` follows the guard (`StatePerformances.kerml`); the source performance
+  `idle` ends once, so at most one transition out of it fires for one Go.
+- Both guards hold for `level = 8`, so both transitions are enabled by the one event; the
+  machine ends in `low` or `high`, never still in `idle`.
+
+Open: which enabled transition fires. UML orders a transition on a descendant state before one
+on its ancestor (the case `state_choice_ancestor_priority_not_reported` pins that rule, and the
+executor does not report it as a choice); between two transitions on the *same* state nothing
+in the library or the specification ranks them.
+
+Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
+citing this section. The executor examines every transition out of the state for the event,
+fires the first declared, and records the choice (`choice state idle on accept Go: transitions
+1->low, 2->high (unordered; took 1->low)`); the golden pins that linearization.
 
 ### A merge is re-entered on every traversal of a loop
 

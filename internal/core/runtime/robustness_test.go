@@ -80,6 +80,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("first_naming_a_final_node", testFirstNamingAFinalNode)
 	t.Run("fork_branches_assigning_the_same_feature", testForkBranchesAssigningTheSameFeature)
 	t.Run("decision_no_satisfied_guard", testDecisionNoSatisfiedGuard)
+	t.Run("decision_all_guards_false", testDecisionAllGuardsFalse)
 	t.Run("state_dangling_transition", testStateDanglingTransition)
 	t.Run("state_transition_endpoint_misspelled", testStateTransitionEndpointMisspelled)
 	t.Run("state_transition_endpoint_in_another_machine", testStateTransitionEndpointInAnotherMachine)
@@ -5373,6 +5374,54 @@ func testDecisionNoSatisfiedGuard(t *testing.T) {
 	err = exec.RunToCompletion()
 	if !errors.Is(err, ErrNoEnabledSuccession) {
 		t.Fatalf("error = %v, want ErrNoEnabledSuccession", err)
+	}
+}
+
+// testDecisionAllGuardsFalse: every guard of a decision is evaluated so that
+// several holding at once can be reported; none holding is still the same
+// error, recorded as no choice at all.
+func testDecisionAllGuardsFalse(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+
+			action pick {
+				attribute level : Integer = 5;
+
+				first start;
+				action low;
+				action high;
+				done;
+
+				succession first start then choose;
+				succession first low then done;
+				succession first high then done;
+
+				decide choose;
+				if level > 10 then low;
+				if level > 20 then high;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "pick", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action pick not found")
+	}
+
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("create action executor: %v", err)
+	}
+	err = exec.RunToCompletion()
+	if !errors.Is(err, ErrNoEnabledSuccession) {
+		t.Fatalf("error = %v, want ErrNoEnabledSuccession", err)
+	}
+	if !strings.Contains(err.Error(), "decision node choose has no true guard") {
+		t.Fatalf("error = %v, want the decision named", err)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Fatalf("choices = %v, want none when no guard holds", choices)
 	}
 }
 
