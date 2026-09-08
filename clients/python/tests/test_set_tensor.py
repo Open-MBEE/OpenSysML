@@ -333,6 +333,12 @@ def test_an_unresolved_instance_reference_holds_its_id_but_is_not_an_integer():
     assert value_to_python(sent) == SetValue((InstanceRef(7), 7))
 
 
+@pytest.mark.parametrize("instance_id", [True, 7.0, "7", None])
+def test_an_instance_reference_holds_only_an_integer_id(instance_id):
+    with pytest.raises(ValueError, match="is not an integer"):
+        InstanceRef(instance_id)
+
+
 def test_an_instance_reference_is_refused_where_a_number_is_meant():
     ref = InstanceRef(7)
     with pytest.raises(ValueError, match="not a number"):

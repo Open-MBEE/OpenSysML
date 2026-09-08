@@ -848,9 +848,16 @@ class InstanceRef:
 
     Attributes:
         id (int): The instance's id
+
+    Raises:
+        ValueError: If the id is not an integer.
     """
 
     id: int
+
+    def __post_init__(self) -> None:
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise ValueError(f"instance id {self.id!r} is not an integer")
 
     def __str__(self) -> str:
         return f"instance({self.id})"
