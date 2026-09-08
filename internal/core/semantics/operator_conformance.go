@@ -19,7 +19,19 @@ func (m *Model) CastConformance(scope *symbols.Scope, e *ast.OperatorExpr) Confo
 	if target == nil {
 		return conformanceUnknown()
 	}
-	types := m.resultTypes(scope, e.Operands[0])
+	if c, ok := m.collectionCastConformance(scope, e.Operands[0], target); ok {
+		return c
+	}
+	return m.castConformance(scope, e.Operands[0], target)
+}
+
+// castConformance judges casting the value of node to target by the node's types.
+func (m *Model) castConformance(scope *symbols.Scope, node ast.Node, target *symbols.Symbol) Conformance {
+	return m.castTypesConformance(m.resultTypes(scope, node), target)
+}
+
+// castTypesConformance is sound when one of types and target specialize one another.
+func (m *Model) castTypesConformance(types []*symbols.Symbol, target *symbols.Symbol) Conformance {
 	if len(types) == 0 {
 		return conformanceUnknown()
 	}

@@ -151,6 +151,20 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 		"16:17 cast argument is typed by A, unrelated to the target C")
 }
 
+// A collection body's result types the cast argument element by element: a body
+// mapping to a String selects no C; one mapping each element to a Boolean and an
+// Integer selects no String, while it does select the Integers; an element the
+// body leaves untyped may be anything, so nothing is known.
+func TestCastConformanceCollectionBody(t *testing.T) {
+	castDiags(t, "", `feature bad = xs.{in x : A; s} as C;`, "16:16 cast argument is typed by String, unrelated to the target C")
+	castDiags(t, "", `feature bad = xs.{in x : A; (true, 1)} as String;`, "16:16 cast argument is typed by Boolean and Integer, unrelated to the target String")
+	castDiags(t, "", `feature bad = xs.{in x : A; (x, 1)} as String;`, "16:16 cast argument is typed by A and Integer, unrelated to the target String")
+	castDiags(t, "", `feature bad = xs->ControlFunctions::collect {in x : A; (true, 1)} as String;`, "16:16 cast argument is typed by Boolean and Integer, unrelated to the target String")
+	castDiags(t, "", `feature some = xs.{in x : A; (true, 1)} as Integer; feature other = xs.{in x : A; (x, 1)} as B;`)
+	castDiags(t, "", `feature open = xs.{in x; (x, 1)} as String; feature open2 = xs.{in x; (untyped, 1)} as String;`)
+	castDiags(t, "", `feature kept = xs->ControlFunctions::select {in x : A; true} as B;`)
+}
+
 // A cast up, down, or sideways through one of several types conforms; so does
 // one whose argument's type is not statically known, or is Anything, and one
 // between a composed type and a type it is composed of.

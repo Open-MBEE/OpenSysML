@@ -124,7 +124,7 @@ func (m *Model) exprConformance(scope *symbols.Scope, node ast.Node, want *symbo
 	case *ast.OperatorExpr:
 		return m.operatorConformance(scope, n, want, byUnit)
 	case *ast.InvocationExpr:
-		return m.invocationConformance(scope, n, want)
+		return m.invocationConformance(scope, n, want, byUnit)
 	case *ast.NullExpr:
 		// `null` evaluates to nothing, typed Anything (KerML nullEvaluations).
 		c := m.typeConformance(m.libSymbol(fqnAnything), want)
@@ -143,8 +143,8 @@ func (m *Model) exprConformance(scope *symbols.Scope, node ast.Node, want *symbo
 		return c
 	case *ast.CollectExpr:
 		// `xs.{…}` is the result of ControlFunctions::collect: the body's results, else Anything.
-		if types := m.collectResultTypes(scope, n); len(types) > 0 {
-			return m.typesConformance(types, want)
+		if c, ok := m.collectConformance(scope, n, want, byUnit); ok {
+			return c
 		}
 		c := m.typeConformance(m.libSymbol(fqnAnything), want)
 		if c.Known && !c.Holds {
@@ -968,10 +968,10 @@ func (m *Model) incommensurableSum(scope *symbols.Scope, node ast.Node) (*ast.Op
 
 // invocationConformance judges an invocation's value by the declared type of the
 // result parameter of the overload it calls.
-func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExpr, want *symbols.Symbol) Conformance {
+func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExpr, want *symbols.Symbol, byUnit bool) Conformance {
 	called := m.invocationCallee(scope, e)
-	if types := m.collectionResultTypes(scope, e, called); len(types) > 0 {
-		return m.typesConformance(types, want)
+	if c, ok := m.collectionConformance(scope, e, called, want, byUnit); ok {
+		return c
 	}
 	result := m.ResultParameterOf(called)
 	if result == nil {

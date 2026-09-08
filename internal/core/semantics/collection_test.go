@@ -136,18 +136,23 @@ func TestCollectionResultMultiplicity(t *testing.T) {
 }
 
 // A nested collect types the outer body by the inner result; a body returning a
-// sequence contributes each element, so the result is typed by every element type.
+// sequence is typed by what every element conforms to — nothing, so Anything, where
+// the elements share no type.
 func TestCollectionNestedAndSequenceBodies(t *testing.T) {
 	m, s := collectionModel(t, `
 		attribute nested = cs->collect { in x : C; cs->collect { in y : C; y.name } };
 		attribute nested2 = cs.{ in x : C; cs.{ in y : C; y.mass } };
 		attribute pairs = cs->collect { in x : C; (x.mass, x.mass) };
+		attribute widened = cs->collect { in x : C; (1, 2.5) };
 		attribute mixed = cs->collect { in x : C; (x.mass, (x.name, x.mass)) };
+		attribute partly = cs->collect { in x; (x, 1) };
 		attribute chained = cs->collect { in x : C; x.name }->select { in n : String; n == "a" };`)
 	wantValueTypes(t, m, s, "nested", "String")
 	wantValueTypes(t, m, s, "nested2", "MassValue")
 	wantValueTypes(t, m, s, "pairs", "MassValue")
-	wantValueTypes(t, m, s, "mixed", "MassValue", "String")
+	wantValueTypes(t, m, s, "widened", "Real")
+	wantValueTypes(t, m, s, "mixed", "Anything")
+	wantValueTypes(t, m, s, "partly", "Anything")
 	wantValueTypes(t, m, s, "chained", "String")
 }
 
@@ -191,13 +196,40 @@ func TestCollectionSelfReferentialBodyTerminates(t *testing.T) {
 }
 
 // Conformance judges the specialized result: a collect of masses is a MassValue and
-// no String; a select keeps C, no ScalarValue; an untyped body stays untyped.
+// no String; a select keeps C, no ScalarValue; an untyped body stays untyped. A body
+// returning a sequence conforms when every element does, fails naming an element
+// known not to, and stays the untyped Anything while an element is untyped and none fails.
 func TestCollectionResultConformance(t *testing.T) {
 	m, s := collectionModel(t, `
 		attribute masses = cs->collect { in x : C; x.mass };
 		attribute masses2 = cs.{ in x : C; x.mass };
 		attribute heavy = cs->select { in x : C; x.mass > 1 [kg] };
-		attribute unknown = cs.{ in x; x.mass };`)
+		attribute unknown = cs.{ in x; x.mass };
+		attribute pairs = cs->collect { in x : C; (x.mass, x.mass) };
+		attribute mixed = cs.{ in x : C; (true, 1) };
+		attribute partly = cs.{ in x; (x, 1) };
+		attribute partly2 = cs->collect { in x; (x, 1) };`)
+	for name, want := range map[string]string{"pairs": "ISQ::MassValue", "mixed": "Base::Anything"} {
+		if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), want); !c.Known || !c.Holds {
+			t.Errorf("%s as %s: %+v, want it to hold", name, want, c)
+		}
+	}
+	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "pairs"), fqnString); !c.Known || c.Holds || c.Untyped || c.Found != "MassValue" {
+		t.Errorf("pairs as String: %+v, want known, not holding, found MassValue", c)
+	}
+	for _, want := range []string{FQNBoolean, fqnInteger} {
+		if c := m.ExprConformsToLibrary(s, valueOf(t, s, "mixed"), want); !c.Known || c.Holds || c.Untyped || c.Found == "" {
+			t.Errorf("mixed as %s: %+v, want known, not holding, naming the element", want, c)
+		}
+	}
+	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "partly"), fqnInteger); !c.Known || c.Holds || !c.Untyped || !strings.Contains(c.Found, "Anything") {
+		t.Errorf("partly as Integer: %+v, want untyped Anything", c)
+	}
+	for _, name := range []string{"partly", "partly2"} {
+		if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), FQNBoolean); !c.Known || c.Holds || c.Untyped || c.Found != "Natural" {
+			t.Errorf("%s as Boolean: %+v, want known, not holding, found Natural", name, c)
+		}
+	}
 	for _, name := range []string{"masses", "masses2"} {
 		c := m.ExprConformsToLibrary(s, valueOf(t, s, name), "ISQ::MassValue")
 		if !c.Known || !c.Holds {

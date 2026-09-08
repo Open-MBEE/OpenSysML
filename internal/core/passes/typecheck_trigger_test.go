@@ -516,12 +516,19 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 		{"after times.?{in i; true}", "trigger-after-duration", "found TimeInstantValue"},
 		{"at counts.?{in n; true}", "trigger-at-time-instant", "found Integer"},
 		{"at times.{in i; i}", "trigger-at-time-instant", collected},
+		{"when flags.{in f : Boolean; (f, 1)}", "trigger-when-boolean", "found Natural"},
+		{"when flags.{in f; (f, 1)}", "trigger-when-boolean", "found Natural"},
+		{"when flags.{in f : Boolean; (f, (1, label))}", "trigger-when-boolean", "found Natural and String"},
+		{"when flags.{in f; (f, label)}", "trigger-when-boolean", "found String"},
+		{"when counts.{in n : Integer; (n > 3, untyped)}", "trigger-when-boolean", collected},
 	} {
 		wantTriggerDiag(t, "transition first a accept "+tc.trigger+" then b;", tc.code, tc.found)
 	}
 	for _, trigger := range []string{
 		"when counts.{in n; n > 3}",
 		"when flags.{in f : Boolean; f}",
+		"when flags.{in f : Boolean; (f, true)}",
+		"when flags.{in f; (f > 3, true)}",
 		"after waits.{in w : DurationValue; w}",
 		"when flags.?{in f; f}",
 		"when flags.?{in f; f}#(1)",
