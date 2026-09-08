@@ -582,8 +582,9 @@ function uniqueMembers(members: SysMLValue[]): SysMLValue[] {
  * does a member it lists twice; a quantity is the same over its base units; a
  * `measurementRef` is one reduction at one scale however spelt, except that a
  * named unit of dimension one is only its own declaration (`rad` is not `sr`);
- * an `enum` is its `literalId`, whatever else describes it; a `null` is the
- * same whatever its reason.
+ * an `enum` is its `literalId`, whatever else describes it; a `function` is
+ * its `calcId` read against its `selfId`; a `null` is the same whatever its
+ * reason.
  */
 export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
   switch (a.kind) {
@@ -605,6 +606,12 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
       return b.kind === "measurementRef" && measurementRefsEqual(a, b);
     case "enum":
       return b.kind === "enum" && a.value.literalId === b.value.literalId;
+    case "function":
+      return (
+        b.kind === "function" &&
+        a.calcId === b.calcId &&
+        a.selfId === b.selfId
+      );
     case "array":
       return (
         b.kind === "array" &&

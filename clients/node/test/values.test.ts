@@ -568,6 +568,25 @@ test("valuesEqual judges enumeration literals by their literalId, as the service
   assert.equal(sent.elements.length, 2);
 });
 
+test("valuesEqual judges functions by the calc read against its object, as the service does", () => {
+  const sq: SysMLValue = { kind: "function", calcId: "M::Sq" };
+  const cube: SysMLValue = { kind: "function", calcId: "M::Cube" };
+  const scale: SysMLValue = { kind: "function", calcId: "M::scale", selfId: 7n };
+  assert.equal(valuesEqual(sq, { kind: "function", calcId: "M::Sq" }), true);
+  assert.equal(valuesEqual(sq, cube), false);
+  assert.equal(valuesEqual(scale, { kind: "function", calcId: "M::scale", selfId: 8n }), false);
+  assert.equal(valuesEqual(scale, { kind: "function", calcId: "M::scale" }), false);
+  assert.equal(valuesEqual(sq, { kind: "string", value: "M::Sq" }), false);
+  assert.equal(
+    valuesEqual({ kind: "set", elements: [sq, cube] }, { kind: "set", elements: [cube, sq] }),
+    true,
+  );
+  assert.throws(() => encodeValue({ kind: "set", elements: [sq, cube, { kind: "function", calcId: "M::Sq" }] }), {
+    name: "MalformedValueError",
+    message: /^a set lists a member twice: /,
+  });
+});
+
 test("a set assembled with a member listed twice is refused before it is sent", () => {
   const i = (value: bigint): SysMLValue => ({ kind: "int", value });
   const r = (value: number): SysMLValue => ({ kind: "real", value });
