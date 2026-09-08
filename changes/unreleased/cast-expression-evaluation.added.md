@@ -5,8 +5,11 @@
   dimension the target fixes, arrays, vectors, vector and tensor quantities, measurement
   references, frames and transformations by their shape, units and frame, and objects and
   enumeration literals by the types they carry.
-  A union classifies the values of every type it unions, however deeply nested, so a cast to one
-  keeps them and the feature it is written to holds them.
+  A type composed of others classifies as they do — the values of a union are those of any of the
+  types it unions, of an intersection those of every type it intersects, of a difference those of
+  the first that are none of the rest, however deeply nested — so a cast to one keeps them, the
+  feature it is written to holds them, and `istype` answers for them; casting a value of a union to
+  one of its members is not reported as unrelated either.
   Every type a value's feature is declared with counts among the types it is of, so a custom scalar
   subtype (`attribute e : Even = 4`) and a scalar-valued enumeration keep the values declared with
   them, and a quantity subtype narrowing its dimension by something a magnitude and a unit do not

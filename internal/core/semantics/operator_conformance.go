@@ -7,8 +7,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// CastConformance judges `x as T`: sound when a type of x and T specialize one
-// another in either direction (KerML validateOperatorExpressionCastConformance).
+// CastConformance judges `x as T`: sound when a type of x and T may share values
+// (KerML validateOperatorExpressionCastConformance), which they do when either
+// specializes the other or a type either is composed of does.
 func (m *Model) CastConformance(scope *symbols.Scope, e *ast.OperatorExpr) Conformance {
 	if m == nil || m.resolver == nil || e == nil || e.Operator != ast.OpAs || len(e.Operands) != 1 {
 		return conformanceUnknown()
@@ -22,7 +23,7 @@ func (m *Model) CastConformance(scope *symbols.Scope, e *ast.OperatorExpr) Confo
 		return conformanceUnknown()
 	}
 	for _, typ := range types {
-		if m.Classifies(target, typ) || m.Conforms(target, typ) {
+		if m.MayShareValues(target, typ) {
 			return Conformance{Known: true, Holds: true}
 		}
 	}

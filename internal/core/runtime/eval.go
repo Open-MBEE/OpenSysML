@@ -1396,7 +1396,9 @@ func (ec *EvalContext) valueHasType(value Value, target *symbols.Symbol, exact b
 		return false, err
 	}
 	for _, typ := range direct {
-		if (exact && typ == target) || (!exact && ec.ctx.model.Conforms(typ, target)) {
+		// istype reads a composed target too: every value of a unioned type is one
+		// of the union's, while hastype stays on the value's direct types.
+		if (exact && typ == target) || (!exact && ec.ctx.model.Classifies(target, typ)) {
 			return true, nil
 		}
 	}

@@ -14,6 +14,11 @@
     ]},
     "carAsUnion": {"type": "Instance"},
     "truckAsUnion": {"type": "Instance"},
-    "carAsNestedUnion": {"type": "Instance"}
+    "carAsNestedUnion": {"type": "Instance"},
+    "unionHeldAsCar": {"type": "Instance"},
+    "plugInAsIntersection": {"type": "Instance"},
+    "carAsIntersection": {"type": "Sequence", "elements": []},
+    "carAsDifference": {"type": "Instance"},
+    "plugInAsDifference": {"type": "Sequence", "elements": []}
   }
 }
