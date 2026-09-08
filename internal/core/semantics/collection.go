@@ -80,7 +80,7 @@ func (m *Model) resultHoldsNothing(result *symbols.Symbol) bool {
 }
 
 // governingMultiplicity is the multiplicity a feature declares, or inherits from a feature it
-// redefines, read through an alias; not ok where it declares and inherits none.
+// redefines by clause or position, read through an alias; not ok where it declares and inherits none.
 func (m *Model) governingMultiplicity(sym *symbols.Symbol) (Range, bool) {
 	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok && alias != nil {
 		sym = alias
@@ -88,7 +88,7 @@ func (m *Model) governingMultiplicity(sym *symbols.Symbol) (Range, bool) {
 	if declared, ok := m.MultiplicityOf(sym); ok {
 		return declared, true
 	}
-	for _, redefined := range m.redefinedTransitively(sym) {
+	for _, redefined := range m.AllRedefinedFeatures(sym) {
 		if inherited, ok := m.MultiplicityOf(redefined); ok {
 			return inherited, true
 		}

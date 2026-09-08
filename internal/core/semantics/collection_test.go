@@ -358,7 +358,7 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 }
 
 // How many values a feature or a mapper's result holds is read through an alias and, where
-// it declares no multiplicity, from the feature it redefines.
+// it declares no multiplicity, from the feature it redefines by clause or by position.
 func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
 	m, s := collectionModel(t, `
 		part none : C[0];
@@ -367,13 +367,16 @@ func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
 		alias pair for two;
 		function Nobody { in c : C; return r : C[0]; }
 		function Nobody2 :> Nobody { in c : C; return r :>> r; }
+		function Nobody3 :> Nobody { in c : C; return r : C; }
 		function Named { in c : C; return r : String; }
 		attribute viaAlias = nobody.{ in c : C; c.name };
 		attribute viaAlias2 = pair->reduce { in a : C; in b : C; a.name };
 		attribute inherited = cs->collect Nobody2;
 		attribute inherited2 = (cs->collect Nobody2)->reduce { in a : C; in b : C; a.name };
+		attribute implicit = cs->collect Nobody3;
+		attribute implicit2 = (cs->collect Nobody3)->reduce { in a : C; in b : C; a.name };
 		attribute named = cs->collect Named;`)
-	for _, name := range []string{"viaAlias", "inherited2"} {
+	for _, name := range []string{"viaAlias", "inherited2", "implicit2"} {
 		wantValueTypes(t, m, s, name, "String")
 		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 0 {
 			t.Errorf("%s: elements %v, want none", name, elements)
@@ -383,9 +386,11 @@ func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
 	if elements, ok := m.CollectionElements(s, valueOf(t, s, "viaAlias2")); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "String" {
 		t.Errorf("viaAlias2: elements %v, want the reducer's String alone", elements)
 	}
-	wantValueTypes(t, m, s, "inherited", "C")
-	if elements, ok := m.CollectionElements(s, valueOf(t, s, "inherited")); !ok || len(elements) != 0 {
-		t.Errorf("inherited: elements %v, want none", elements)
+	for _, name := range []string{"inherited", "implicit"} {
+		wantValueTypes(t, m, s, name, "C")
+		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 0 {
+			t.Errorf("%s: elements %v, want none", name, elements)
+		}
 	}
 	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 {
 		t.Errorf("named: elements %v, want the result parameter", elements)

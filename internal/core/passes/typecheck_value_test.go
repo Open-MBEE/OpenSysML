@@ -314,6 +314,7 @@ func collectionValueDiags(t *testing.T, members string) []string {
 		function Name { in v : Vehicle; return r : String; }
 		function Nobody { in v : Vehicle; return r : Vehicle[0]; }
 		function Nobody2 :> Nobody { in v : Vehicle; return r :>> r; }
+		function Nobody3 :> Nobody { in v : Vehicle; return r : Vehicle; }
 		alias noone for none;
 		attribute nothing : Integer[0];
 		part def Pair { part items : Vehicle[2]; part item : Vehicle[1]; }
@@ -491,6 +492,7 @@ func TestValueMappingToNothingIsJudgedByNeither(t *testing.T) {
 		part b6 = Sail(vs.{ in v : Vehicle; Nobody(v) });
 		part b7 = Sail((vs->collect Nobody)->select { in v : Vehicle; true });
 		part b8 : Boat = vs->collect Nobody2;
+		part b11 : Boat = vs->collect Nobody3;
 		part b9 : Boat = noone.{ in v : Vehicle; v };
 		part b10 : Boat = noone->reduce { in a : Vehicle; in b : Vehicle; a };`)
 	wantCollectionValueDiags(t, `attribute s : String = vs.{ in v : Vehicle; (nothing, 3) };`,
