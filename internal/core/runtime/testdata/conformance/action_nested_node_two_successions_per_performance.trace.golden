@@ -8,7 +8,8 @@ stmt assign hits
     eval feature hits -> 0
     eval literal 1 -> 1
   eval operator + -> 1
-step 4: no active tokens
+step 4: token 4@done
+step 5: no active tokens
 eval literal 0 -> 0
 step 1: token 1@split
 step 2: token 2@l1, token 3@l2
@@ -17,11 +18,13 @@ stmt assign hits
     eval feature hits -> 0
     eval literal 1 -> 1
   eval operator + -> 1
-step 4: no active tokens
+step 4: token 4@done
+step 5: no active tokens
 step 3: token 2@sync, token 3@sync
+step 4: token 4@tally
 stmt assign total
     eval chain hits -> 1
     eval chain hits -> 1
   eval operator + -> 2
-step 4: token 4@done
-step 5: no active tokens
+step 5: token 4@done
+step 6: no active tokens

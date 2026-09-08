@@ -523,6 +523,48 @@ func TestBreakpointOnABlockNodePausesEachIteration(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "✓ Action completed", "total = 6")
 }
 
+// %break on a node two fork branches converge on — a join, or a plain node reached over
+// two successions — pauses once, when both arrivals are in, and once resumed runs on.
+func TestBreakpointOnAConvergingNodePausesOnce(t *testing.T) {
+	cases := []struct{ node, decl, result string }{
+		{"sync", "join sync;", "hits = 2"},
+		{"scale", "action scale { assign hits := hits * 10; }", "hits = 20"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.node, func(t *testing.T) {
+			s := loadSource(t, `package test {
+				private import ScalarValues::*;
+				action meet {
+					out attribute hits : Integer = 0;
+					first start;
+					fork split;
+					action l { assign hits := hits + 1; }
+					action r { assign hits := hits + 1; }
+					`+tc.decl+`
+					done;
+					succession first start then split;
+					succession first split then l;
+					succession first split then r;
+					succession first l then `+tc.node+`;
+					succession first r then `+tc.node+`;
+					succession first `+tc.node+` then done;
+				}
+			}`)
+			run(t, s, "%action meet")
+			wants(t, run(t, s, "%break "+tc.node), `✓ Breakpoint set at node "`+tc.node+`"`)
+
+			paused := run(t, s, "%continue")
+			wants(t, paused, `⏸ Paused at breakpoint "`+tc.node+`"`, "Tokens: 2")
+			rejects(t, paused, "Action completed")
+			tokens := run(t, s, "%tokens")
+			wants(t, tokens, "Token 2 @ "+tc.node, "Token 3 @ "+tc.node, "hits = 2")
+			rejects(t, tokens, "awaiting")
+
+			wants(t, run(t, s, "%continue"), "✓ Action completed", tc.result)
+		})
+	}
+}
+
 // Ending a session paused in a block node — by %stop, by starting another, or
 // by redeclaring the action — releases its executor: the paused run ends and
 // the executor takes no further step.

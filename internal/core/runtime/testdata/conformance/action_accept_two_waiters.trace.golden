@@ -6,9 +6,10 @@ stmt send
 stmt send
   eval literal 5 -> 5
 step 4: token 2@sync, token 3@sync, token 4@sync
+step 5: token 5@recorder
 stmt assign number
   eval feature n -> 5
 stmt assign message
   eval feature t -> "go"
-step 5: token 5@done
-step 6: no active tokens
+step 6: token 5@done
+step 7: no active tokens

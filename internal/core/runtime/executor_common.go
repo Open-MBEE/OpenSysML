@@ -19,6 +19,10 @@ type Token struct {
 	// token no succession delivered (a flow's first, or the one a synchronized node performs with).
 	Via lower.ActionEdge
 
+	// moved is the sweep of its flow that last moved the token along a succession
+	// (ActionExecutor.sweep): until that sweep ends, it has not arrived.
+	moved uint64
+
 	// Wait records that this token is parked at an accept node: the accept
 	// found no message it could consume, so the action is suspended there
 	// until one arrives. It is nil for every token that is free to advance.
@@ -33,10 +37,11 @@ type Token struct {
 	body *bodyRun
 }
 
-// travel moves the token along a succession, recording the one it arrived over.
-func (t *Token) travel(edge lower.ActionEdge) {
+// travel moves the token along a succession in the given sweep, recording the one it arrived over.
+func (t *Token) travel(edge lower.ActionEdge, sweep uint64) {
 	t.Location = edge.Target
 	t.Via = edge
+	t.moved = sweep
 }
 
 // AcceptWait describes the message a parked token is waiting for. It is the

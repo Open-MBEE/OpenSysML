@@ -10,9 +10,10 @@ stmt assign leftValue
   eval literal 1 -> 1
 leave action node: left
 step 4: token 2@sync, token 3@sync
+step 5: token 4@tally
 stmt assign leftValue
     eval feature leftValue -> 1
     eval feature rightValue -> 2
   eval operator + -> 3
-step 5: token 4@done
-step 6: no active tokens
+step 6: token 4@done
+step 7: no active tokens

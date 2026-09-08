@@ -134,7 +134,7 @@ Executor: `log = 12`, no deadlock. Every token records the succession it travell
 (`Token.Via`, the lowered `ActionEdge`), and `ActionExecutor.synchronize` holds a token at a
 node until one token has arrived over *each* succession into it; the golden shows the two
 `left` arrivals collapse into one token at `sync` (step 4), which waits there for `right`
-(step 5) before `after` runs. The case is observable only because a node upstream is reached
+(step 6) before `after` runs (step 7). The case is observable only because a node upstream is reached
 over two successions, so it shares a mechanism with the next case; it stays a separate case
 because it pins a distinct rule — a join fires on *which* successions delivered, not on how
 many tokens arrived. `action_join_same_succession_twice` pins the converse: two tokens over
@@ -164,7 +164,8 @@ Fixed outcome: `hits = 1`.
 
 Executor: `hits = 1`. The same `synchronize` gate holds a token at a plain node until each
 succession into it has delivered, so `both` is performed once by the one token the two
-arrivals collapse into (golden, step 3). A join differs only in what it awaits: every incoming
+arrivals collapse into (golden: both arrivals held at `both` after step 3, its one
+performance in step 4). A join differs only in what it awaits: every incoming
 succession (source multiplicity 1..1), so a join one of whose sources no token can reach
 deadlocks (`robustness_test.go:deadlock_join_starvation`, `:deadlock_join_same_succession_twice`);
 a plain node awaits a succession only once it has delivered or while some token of the
