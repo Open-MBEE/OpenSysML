@@ -3777,8 +3777,9 @@ Traps and recipes:
   with the A/B binary and report it as untested rather than a failure.
 
 - **A guard on the succession out of a `merge` needs a token-ordering fixture to be tested at all.**
-  A merge passes every arriving token (one `MergePerformance` per arrival), retiring only a token
-  whose outgoing succession is pruned, so the discriminating shape is a fork with one short branch
+  A merge passes every arriving token (one `MergePerformance` per arrival), running its body before
+  the outgoing guard is read and retiring only a token whose outgoing succession is pruned (a merge
+  body write is therefore visible to its own guard), so the discriminating shape is a fork with one short branch
   (`a -> mg`) and one longer branch (`b1 -> b2 -> b3 -> mg`) where only the last node of the long
   branch writes the feature the guard reads. `%step` steps every live token per step, so a guard
   reading a value written by a *sibling* branch node in the same step is not discriminating — put at

@@ -3,7 +3,7 @@
 	"trace": true,
 	"outputs": {
 		"ready": {"type": "Boolean", "value": true},
-		"mergeRuns": {"type": "Integer", "value": 1},
-		"passed": {"type": "Integer", "value": 1}
+		"mergeRuns": {"type": "Integer", "value": 2},
+		"passed": {"type": "Integer", "value": 2}
 	}
 }

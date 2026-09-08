@@ -69,6 +69,7 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `StatePerformances.kerml` `StatePerformance` | `succession [1] entry then [*] middle; succession [*] middle then [1] exit` | Entry first, exit last, within a state performance |
 | `StatePerformances.kerml` `StateTransitionPerformance` | `succession all [*] acceptable then [*] guard; succession [*] guard then [1] transitionLinkSource.exit` | The guard is evaluated after the trigger and before the source state's exit |
 | `TransitionPerformances.kerml` `TransitionPerformance` | `binding transitionLink.earlierOccurrence = transitionLinkSource; succession [1] transitionLinkSource then [*] effect; succession [*] effect then [1] transitionLink.laterOccurrence; succession all [*] guard then [*] effect` | The effect runs after the source state performance has ended (its exit included) and before the target state performance starts (its entry included) |
+| `Actions.sysml` `DecisionTransitionAction`, `TransitionPerformances.kerml` `NonStateTransitionPerformance`, `TPCGuardConstraint` | "the base type of TransitionUsages used as conditional successions in action models"; `in feature transitionLinkSource: Performance[1]`, `feature transitionLink: HappensBefore[0..1]`, `succession [1] transitionLinkSource then [1] Performance::self`, `connector all guardConstraint: TPCGuardConstraint[*] from [0..1] transitionLink to [*] guard` (`constrainedHBLink` / `constrainedGuard`, `inv { allTrue(constrainedGuard()) }`) | A guarded succession in an action is a transition performance that happens after its complete source performance — a merge's body included — and whose guard constrains the `HappensBefore` link to the successor: a false guard leaves the link out, not the source performance |
 
 The SysML v2 specification's own control-node example (`ChargeBattery`, §7.17.3, reproduced in
 the training corpus as `17. Control/Decision Example.sysml`) and the pilot validation corpus
@@ -239,9 +240,9 @@ the pilot corpus's comment ("a merge node is necessary to prevent a loop of succ
 being unsatisfiable") take for granted: the merge exists so the loop can be re-entered.
 
 Executor: `level = 100`, `passes = 3`. `stepMergeNode` keeps no record of earlier traversals:
-each arriving token is one `MergePerformance`, its body runs and it is forwarded over the
-merge's one outgoing succession, so the token carrying the loop re-enters `continueCharging`
-as often as `decide` sends it back. The golden shows `monitor` reading `level -> 0`, `-> 50`
+each arriving token is one `MergePerformance`, its body runs, then the guard on the merge's one
+outgoing succession is read and the token is forwarded or retired, so the token carrying the loop
+re-enters `continueCharging` as often as `decide` sends it back. The golden shows `monitor` reading `level -> 0`, `-> 50`
 and `-> 100`, the third `decide` evaluating `level >= 100 -> true`, then `endCharging` and
 `done`. A merge is the one node several successions reach that does *not* synchronize (the
 previous two cases): `ActionExecutor.synchronizes` exempts `MergeNode`, since
@@ -309,6 +310,56 @@ other is still at `prep`, the two loop re-entries at steps 5 and 6, and `done` r
 Had `passes` been counted in `work` instead, the outcome would depend on the interleaving
 (one token's `more` may read the other's write), which is why the count is where it is.
 
+### A merge performs on every arrival; the guard prunes the outgoing link, not the merge
+
+Fixtures: `f63_merge_body_runs_on_traversal` (golden) and `action_merge_body_flips_own_guard`
+(golden).
+
+```
+start → split ⇉ gate(merge) ─ if ready ─→ tail → done   gate { mergeRuns := mergeRuns + 1 }
+              ⇉ slow → slower → ↑                        slower { ready := true }
+                                                         tail { passed := mergeRuns }
+
+start → count(merge) ─ if arrivals < 3 ─→ work ─┐        count { arrivals := arrivals + 1 }
+          ↑                                     │        work { continued := continued + 1 }
+          └─────────────────────────────────────┘
+```
+
+Derived constraints:
+
+- Each arrival at `gate` is its own merge performance (MergePerformance, `incomingHBLink[1]`),
+  and a merge performance is an `Action` with its own steps (`Action::merges : MergeAction[0..*]`),
+  so `gate`'s body runs once per arrival: `mergeRuns` reaches 2 in the first model, `arrivals`
+  counts every entry to `count` in the second.
+- `succession first gate if ready then tail` is a `DecisionTransitionAction` — "the base type of
+  TransitionUsages used as conditional successions in action models" (`Actions.sysml`) — hence a
+  `NonStateTransitionPerformance` whose `transitionLinkSource: Performance[1]` is the `gate`
+  performance (`binding transitionLink.earlierOccurrence = transitionLinkSource`) and which
+  happens after it: `succession [1] transitionLinkSource then [1] Performance::self`
+  (`TransitionPerformances.kerml`). The guard is a step of that later performance, so it reads
+  the state the complete merge performance left, the merge body's write included.
+- The guard constrains the link, not the source: `TPCGuardConstraint` ties `constrainedHBLink`
+  (`transitionLink: HappensBefore[0..1]`) to `constrainedGuard` with `allTrue(constrainedGuard())`,
+  so a false guard means the `HappensBefore` link to `tail` (or `work`) does not exist. The
+  merge performance it would have left exists regardless — nothing in the library makes a
+  performance conditional on its outgoing links.
+
+Open: in the first model, the interleaving of the direct arrival with `slow → slower`; the
+outcome does not depend on it, since `ready` is written before the second arrival either way.
+
+Fixed outcome, first model: `ready = true`, `mergeRuns = 2`, `passed = 2` — the direct arrival
+performs `gate` and reads `ready = false`, so no link to `tail` follows it; the second arrival
+performs `gate` again, reads `ready = true`, and `tail` reads the two merge performances.
+Second model: `arrivals = 3`, `continued = 2` — the third `count` performance's own increment is
+what its guard reads, so `work` does not follow it and the action ends with no token. Had the
+guard been read before the body, `work` would have followed the third arrival (`continued = 3`),
+which is the observable the second fixture pins.
+
+Executor: both agree. `stepMergeNode` runs the body, then evaluates the outgoing succession's
+guard and retires the token when it is false; the goldens show `assign mergeRuns` before each
+`eval feature ready`, `tail` reading `mergeRuns -> 2`, and in the second model `arrivals < 3 ->
+false` read straight after the increment that made it so, followed by `no active tokens`.
+
 ### A transition's guard, the source's exit, the effect and the target's entry, in that order
 
 Fixture: `state_transition_guard_exit_effect_entry_order` (golden).
@@ -345,7 +396,11 @@ next unmet derivation goes (see [Adding a case](#adding-a-case)).
 
 The one entry it held, `action_merge_loop_reenters`, was met by removing the executor's
 first-traversal record from `stepMergeNode` so that a merge passes every arriving token; the
-case's expected outcome was not touched. When a new gap is found, list the case there, record it
+case's expected outcome was not touched. The same change moved the merge's body ahead of its
+outgoing guard, as every other node kind already had it, which is the one existing expectation
+that moved: `f63_merge_body_runs_on_traversal` went from `mergeRuns = 1`, `passed = 1` (an
+arrival whose guard was false skipped the body) to `mergeRuns = 2`, `passed = 2`, per the
+derivation above. When a new gap is found, list the case there, record it
 in a table here (case, derived, executor, root), and when the fix lands remove the entry, run
 `-update-traces` for the case, and review the new golden against its derivation before
 committing it.

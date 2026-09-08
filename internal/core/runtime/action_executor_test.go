@@ -2553,8 +2553,8 @@ func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 	}
 }
 
-// A token whose succession out of a merge is pruned is retired without running the
-// merge's body, and a later token still traverses.
+// A token whose succession out of a merge is pruned is retired, and a later token
+// still traverses: the guard drops the link, not the merge.
 func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -2617,7 +2617,7 @@ func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
 	step(initial) // start → split
 	step(fork)    // split → low, high
 	step(low)     // result = 1, low → join
-	step(merge)   // guard 1 > 1 does not hold: pruned, merge left open
+	step(merge)   // guard 1 > 1 does not hold: this arrival is retired
 	step(high)    // result = 2, high → join
 	step(merge)   // guard 2 > 1 holds: join → after
 	step(after)

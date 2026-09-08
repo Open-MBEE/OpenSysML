@@ -1185,7 +1185,7 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	return nil
 }
 
-// stepMergeNode passes each arriving token on: a merge is one MergePerformance per
+// stepMergeNode performs a merge for each arriving token: a merge is one MergePerformance per
 // arrival (Actions::MergeAction), so a loop re-enters it and a fork's branches each traverse it.
 func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
@@ -1204,17 +1204,18 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 		return fmt.Errorf("%w: merge node %s has multiple successors (not yet supported)",
 			ErrInvalidActionFlow, mergeNode.Name)
 	}
+	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
+		return err
+	}
+
+	// The guard follows the performance (TransitionPerformances::NonStateTransitionPerformance)
+	// and prunes the outgoing link, not the merge: a false guard retires the token after its body ran.
 	successors, err := e.enabledSuccessions(token.frame, mergeNode)
 	if err != nil {
 		return err
 	}
 	if len(successors) == 0 {
 		return e.retireToken(tokenIdx)
-	}
-
-	// The body runs with the traversal, not with an arrival whose succession was pruned.
-	if err := e.runNodeBody(token.frame, mergeNode); err != nil {
-		return err
 	}
 	token.travel(successors[0])
 	return nil
