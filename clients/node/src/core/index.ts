@@ -72,7 +72,7 @@ export {
 export type { FailureCause, ModelDiagnostic } from "./errors.js";
 export { fromHandshakeError, fromRpcError, statusName } from "./status.js";
 export type { NotFoundSubject } from "./status.js";
-export { decodeValue, decodeVerdict, encodeValue, formatValue } from "./values.js";
+export { decodeValue, decodeVerdict, encodeValue, formatValue, valuesEqual } from "./values.js";
 export type {
   ArrayValue,
   ComplexValue,

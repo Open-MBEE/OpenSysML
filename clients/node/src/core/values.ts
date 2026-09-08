@@ -173,10 +173,10 @@ export type SysMLVerdict =
  *
  * @throws {MalformedValueError} for a value that contradicts itself: an array
  *   whose elements do not fill its dimensions, a vector with a component that
- *   is not a number, a vector quantity with no components, a tensor quantity
- *   whose components do not fill its dimensions, a quantity (alone or as a
- *   component) with no magnitude, or a measurement reference naming no unit
- *   or a unit without its reduction.
+ *   is not a number, a vector quantity with no components, a set listing a
+ *   member twice, a tensor quantity whose components do not fill its
+ *   dimensions, a quantity (alone or as a component) with no magnitude, or a
+ *   measurement reference naming no unit or a unit without its reduction.
  */
 export function decodeValue(value: Value | undefined): SysMLValue {
   if (value === undefined) {
@@ -557,7 +557,143 @@ function decodeArray(array: ArrayMessage): ArrayValue {
 }
 
 function decodeSet(set: ValueSet): SysMLValue[] {
-  return set.elements.map(decodeValue);
+  const elements: SysMLValue[] = [];
+  for (const element of set.elements) {
+    const member = decodeValue(element);
+    if (elements.some((held) => valuesEqual(held, member))) {
+      throw new MalformedValueError(
+        `a set lists a member twice: ${formatValue(member)}`,
+      );
+    }
+    elements.push(member);
+  }
+  return elements;
+}
+
+/**
+ * Whether two values are the same value: the same kind holding the same
+ * contents. An `int` is never a `real`, a `sequence`'s order counts and a
+ * `set`'s does not; a `null` is the same whatever its reason.
+ */
+export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
+  switch (a.kind) {
+    case "int":
+      return b.kind === "int" && a.value === b.value;
+    case "real":
+      return b.kind === "real" && a.value === b.value;
+    case "complex":
+      return (
+        b.kind === "complex" &&
+        a.value.real === b.value.real &&
+        a.value.imaginary === b.value.imaginary
+      );
+    case "boolean":
+      return b.kind === "boolean" && a.value === b.value;
+    case "string":
+      return b.kind === "string" && a.value === b.value;
+    case "instance":
+      return b.kind === "instance" && a.id === b.id;
+    case "sequence":
+      return b.kind === "sequence" && elementsEqual(a.elements, b.elements);
+    case "quantity":
+      return b.kind === "quantity" && quantitiesEqual(a, b);
+    case "measurementRef":
+      return (
+        b.kind === "measurementRef" &&
+        a.unit === b.unit &&
+        a.unitId === b.unitId &&
+        unitTermsEqual(a.unitTerm, b.unitTerm)
+      );
+    case "enum":
+      return (
+        b.kind === "enum" &&
+        a.value.literalId === b.value.literalId &&
+        a.value.enumerationId === b.value.enumerationId &&
+        a.value.name === b.value.name
+      );
+    case "array":
+      return (
+        b.kind === "array" &&
+        dimensionsEqual(a.dimensions, b.dimensions) &&
+        elementsEqual(a.elements, b.elements)
+      );
+    case "vector":
+      return b.kind === "vector" && magnitudesEqual(a.components, b.components);
+    case "vectorQuantity":
+      return (
+        b.kind === "vectorQuantity" &&
+        componentsEqual(a.components, b.components)
+      );
+    case "set":
+      return (
+        b.kind === "set" &&
+        a.elements.length === b.elements.length &&
+        a.elements.every((e) => b.elements.some((o) => valuesEqual(e, o)))
+      );
+    case "tensorQuantity":
+      return (
+        b.kind === "tensorQuantity" &&
+        dimensionsEqual(a.dimensions, b.dimensions) &&
+        componentsEqual(a.components, b.components)
+      );
+    case "null":
+    case "unset":
+    case "absent":
+      return b.kind === a.kind;
+  }
+}
+
+function elementsEqual(a: SysMLValue[], b: SysMLValue[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((e, i) => valuesEqual(e, b[i]))
+  );
+}
+
+function dimensionsEqual(a: bigint[], b: bigint[]): boolean {
+  return a.length === b.length && a.every((d, i) => d === b[i]);
+}
+
+function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((m, i) => m.kind === b[i]?.kind && m.value === b[i]?.value)
+  );
+}
+
+function componentsEqual(a: QuantityValue[], b: QuantityValue[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((q, i) => quantitiesEqual(q, b[i]))
+  );
+}
+
+function quantitiesEqual(a: QuantityValue, b: QuantityValue): boolean {
+  return (
+    a.magnitude.kind === b.magnitude.kind &&
+    a.magnitude.value === b.magnitude.value &&
+    a.unit === b.unit &&
+    unitTermsEqual(a.unitTerm, b.unitTerm)
+  );
+}
+
+function unitTermsEqual(
+  a: UnitFactorization | undefined,
+  b: UnitFactorization | undefined,
+): boolean {
+  if (a === undefined || b === undefined) {
+    return a === b;
+  }
+  return (
+    a.scaleNum === b.scaleNum &&
+    a.scaleDen === b.scaleDen &&
+    a.factors.length === b.factors.length &&
+    a.factors.every(
+      (f, i) =>
+        f.unitId === b.factors[i]?.unitId &&
+        f.exponent === b.factors[i]?.exponent,
+    )
+  );
 }
 
 function decodeTensorQuantity(tensor: TensorQuantity): TensorQuantityValue {

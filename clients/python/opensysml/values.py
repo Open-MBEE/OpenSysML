@@ -2,7 +2,7 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 from opensysml.enumeration import EnumLiteral
 from opensysml.errors import FeatureValueError, OpenSysMLError, UnsupportedValueError
@@ -707,7 +707,7 @@ class SetValue:
 
     elements: Tuple[Any, ...]
 
-    def __init__(self, elements: Sequence[Any] = ()) -> None:
+    def __init__(self, elements: Iterable[Any] = ()) -> None:
         object.__setattr__(self, "elements", tuple(elements))
 
     def __len__(self) -> int:
@@ -717,7 +717,7 @@ class SetValue:
         return iter(self.elements)
 
     def __contains__(self, item: Any) -> bool:
-        return any(element == item for element in self.elements)
+        return any(same_value(element, item) for element in self.elements)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, (set, frozenset)):
@@ -731,8 +731,18 @@ class SetValue:
 
     @classmethod
     def from_pb(cls, pb_set, resolve_instance=None) -> "SetValue":
-        """Build from a ``ValueSet`` protobuf message, elements in the order sent."""
-        return cls(value_to_python(v, resolve_instance) for v in pb_set.elements)
+        """Build from a ``ValueSet`` protobuf message, elements in the order sent.
+
+        Raises:
+            UnsupportedValueError: If the message lists a member twice.
+        """
+        elements: List[Any] = []
+        for pb_value in pb_set.elements:
+            element = value_to_python(pb_value, resolve_instance)
+            if any(same_value(element, held) for held in elements):
+                raise UnsupportedValueError(f"malformed set: member listed twice: {element}")
+            elements.append(element)
+        return cls(elements)
 
     def to_pb(self, encode: Callable[[Any], "sysml_pb2.Value"]) -> "sysml_pb2.ValueSet":
         """Encode as a ``ValueSet`` message, each element through ``encode``."""
@@ -740,6 +750,19 @@ class SetValue:
 
     def __str__(self) -> str:
         return "{" + ", ".join(str(e) for e in self.elements) + "}"
+
+
+def same_value(a: Any, b: Any) -> bool:
+    """Whether two decoded values are the same value, as :class:`SetValue` membership judges it.
+
+    ``==`` decides, except that a ``bool`` is never a number — ``True`` and ``1``
+    are distinct values in a model — in a nested ``list`` too.
+    """
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(same_value(x, y) for x, y in zip(a, b))
+    return a == b
 
 
 @dataclass(frozen=True)

@@ -179,6 +179,63 @@ func TestMalformedTensorAnswersAreNullsNamingTheFault(t *testing.T) {
 	}
 }
 
+// A set in an answer listing a member twice — by value, nested collections and
+// quantities included — reads as an unsupported null naming the member; one
+// whose members only look alike reads as its elements.
+func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
+	pbInt := func(n int64) *pb.Value { return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n}} }
+	pbReal := func(x float64) *pb.Value { return &pb.Value{Kind: &pb.Value_RealValue{RealValue: x}} }
+	pbSeq := func(elements ...*pb.Value) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: elements}}}
+	}
+	pbSet := func(elements ...*pb.Value) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_Set{Set: &pb.ValueSet{Elements: elements}}}
+	}
+	pbQty := func(n int64, unit string) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: &pb.Quantity{Magnitude: &pb.Quantity_IntMagnitude{IntMagnitude: n}, Unit: unit}}}
+	}
+	for name, value := range map[string]*pb.Value{
+		"integer twice":        pbSet(pbInt(1), pbInt(2), pbInt(1)),
+		"sequence twice":       pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(1), pbInt(2))),
+		"set twice, reordered": pbSet(pbSet(pbInt(1), pbInt(2)), pbSet(pbInt(2), pbInt(1))),
+		"quantity twice":       pbSet(pbQty(1, "m"), pbQty(1, "m")),
+		"empty set twice":      pbSet(pbSet(), pbSet()),
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := valueFromProto(value)
+			null, ok := got.(Null)
+			if !ok || !strings.HasPrefix(string(null), "unsupported: set lists a member twice: ") {
+				t.Fatalf("read as %#v, want an unsupported Null naming the repeated member", got)
+			}
+		})
+	}
+	for name, tc := range map[string]struct {
+		value *pb.Value
+		want  Set
+	}{
+		"integer and real":     {pbSet(pbInt(1), pbReal(1)), Set{Int(1), Real(1)}},
+		"sequence and set":     {pbSet(pbSeq(pbInt(1)), pbSet(pbInt(1))), Set{Sequence{Int(1)}, Set{Int(1)}}},
+		"sequences reordered":  {pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(2), pbInt(1))), Set{Sequence{Int(1), Int(2)}, Sequence{Int(2), Int(1)}}},
+		"quantities in a unit": {pbSet(pbQty(1, "m"), pbQty(1, "km")), Set{Quantity{Magnitude: Int(1), Unit: "m"}, Quantity{Magnitude: Int(1), Unit: "km"}}},
+		"empty and singleton":  {pbSet(pbSet(), pbSet(pbSet())), Set{Set{}, Set{Set{}}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := valueFromProto(tc.value); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("read as %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+	if !Equal(Set{Int(1), Sequence{Int(2), Int(3)}}, Set{Sequence{Int(2), Int(3)}, Int(1)}) {
+		t.Error("sets holding the same members in another order are not Equal")
+	}
+	if Equal(Set{Int(1)}, Sequence{Int(1)}) || Equal(Int(1), Real(1)) || Equal(nil, Null("")) {
+		t.Error("values of different kinds are Equal")
+	}
+	if !Equal(Null("a"), Null("b")) || !Equal(Unset{}, Unset{}) || Equal(Unset{}, Null("")) {
+		t.Error("a Null is not one whatever its reason, or an Unset is not one")
+	}
+}
+
 // A malformed measurement reference in an answer reads as an unsupported null
 // naming the fault; a well-formed one reads as itself, reduction and identity
 // intact.

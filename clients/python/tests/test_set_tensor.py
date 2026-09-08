@@ -142,6 +142,38 @@ def test_a_set_nests_and_is_nested_in_place():
     assert value_to_python(array) == Array((1,), (SetValue((1,)),))
 
 
+def pb_seq(*elements):
+    return sysml_pb2.Value(sequence=sysml_pb2.ValueSequence(elements=list(elements)))
+
+
+@pytest.mark.parametrize("elements", [
+    (pb_int(1), pb_int(2), pb_int(1)),
+    (pb_int(1), sysml_pb2.Value(real_value=1.0)),
+    (pb_seq(pb_int(1), pb_int(2)), pb_seq(pb_int(1), pb_int(2))),
+    (pb_set(pb_int(1), pb_int(2)), pb_set(pb_int(2), pb_int(1))),
+    (pb_set(), pb_set()),
+    (sysml_pb2.Value(quantity=pb_pascal(1.0)), sysml_pb2.Value(quantity=pb_pascal(1.0))),
+    (sysml_pb2.Value(bool_value=True), pb_seq(), sysml_pb2.Value(bool_value=True)),
+])
+def test_a_set_listing_a_member_twice_is_malformed(elements):
+    with pytest.raises(UnsupportedValueError, match="malformed set: member listed twice"):
+        value_to_python(pb_set(*elements))
+
+
+@pytest.mark.parametrize("elements, expected", [
+    ((sysml_pb2.Value(bool_value=True), pb_int(1)), SetValue((True, 1))),
+    ((pb_seq(pb_int(1), pb_int(2)), pb_seq(pb_int(2), pb_int(1))), SetValue(([1, 2], [2, 1]))),
+    ((pb_seq(pb_int(1)), pb_set(pb_int(1))), SetValue(([1], SetValue((1,))))),
+    ((pb_seq(sysml_pb2.Value(bool_value=True)), pb_seq(pb_int(1))), SetValue(([True], [1]))),
+    ((pb_set(), pb_set(pb_set())), SetValue((SetValue(), SetValue((SetValue(),))))),
+])
+def test_members_that_only_look_alike_are_distinct(elements, expected):
+    got = value_to_python(pb_set(*elements))
+    assert len(got) == len(elements)
+    assert got == expected
+    assert 1 not in SetValue((True,)) and True not in SetValue((1,))
+
+
 def test_a_set_survives_the_wire_bytes():
     value = pb_set(pb_int(1), sysml_pb2.Value(string_value="a"), pb_set())
     again = sysml_pb2.Value()

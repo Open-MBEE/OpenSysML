@@ -30,6 +30,10 @@ const setModel = `package test {
 	attribute arr : Array { :>> elements = (3, 1, 2, 2); :>> dimensions = (4); }
 	attribute nested : Set { :>> elements = (s, e, s); }
 	attribute mixed : Set { :>> elements = (2, "a", true, 1.5, 1, "a"); }
+	enum def Color { red; green; }
+	package Other { enum def Color { red; } }
+	attribute lits : Set { :>> elements = (Color::red, Other::Color::red, Color::green); }
+	attribute stil : Set { :>> elements = (Other::Color::red, Color::green, Color::red); }
 
 	attribute plain : Integer[*] = s.elements;
 	attribute ordered : Integer[*] ordered = s.elements;
@@ -252,5 +256,60 @@ func TestCanonicalOrderIsTotal(t *testing.T) {
 	}
 	if got := intsOf(t, sequenceOf(big.Elements())); !equalInts(got, []int64{1<<53 - 1, 1 << 53, 1<<53 + 1}) {
 		t.Errorf("large integers = %v, want them ascending", got)
+	}
+}
+
+// TestSameNamedLiteralsOrderByDeclaration pins that two distinct literals whose
+// enumerations share a name — rendered alike — still take one position each,
+// so equal sets enumerate alike whatever order they were written in.
+func TestSameNamedLiteralsOrderByDeclaration(t *testing.T) {
+	ctx, scope := setModelContext(t)
+	lits, stil := mustEvalIn(t, ctx, scope, "lits.elements"), mustEvalIn(t, ctx, scope, "stil.elements")
+	if lits.Set().Size() != 3 || !valueEqual(lits, stil) {
+		t.Fatalf("lits = %s, stil = %s, want three equal members", FormatValue(lits), FormatValue(stil))
+	}
+	if got, want := FormatTraceValue(lits), "{Color::green, Color::red, Color::red}"; got != want {
+		t.Errorf("trace = %s, want %s", got, want)
+	}
+	a, b := lits.Set().Elements(), stil.Set().Elements()
+	for i := range a {
+		if a[i].Literal() != b[i].Literal() {
+			t.Errorf("element %d differs between insertion orders: %s in %v, %s in %v", i, symbols.FQNOf(a[i].Literal()), a, symbols.FQNOf(b[i].Literal()), b)
+		}
+	}
+	if a[1].Literal() == a[2].Literal() || symbols.FQNOf(a[1].Literal()) != "test::Color::red" || symbols.FQNOf(a[2].Literal()) != "test::Other::Color::red" {
+		t.Errorf("same-named literals = %s, %s, want test::Color::red before test::Other::Color::red", symbols.FQNOf(a[1].Literal()), symbols.FQNOf(a[2].Literal()))
+	}
+}
+
+// TestSetMembersEqualAcrossCollectionKinds pins that a sequence and the set it
+// equals — valueEqual holds across the two kinds — share one key, so a set
+// admits only one of them and finds either.
+func TestSetMembersEqualAcrossCollectionKinds(t *testing.T) {
+	ints := func(ns ...int64) []Value {
+		vals := make([]Value, len(ns))
+		for i, n := range ns {
+			vals[i] = Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+		}
+		return vals
+	}
+	seq, set, other := sequenceOf(ints(1, 2)), setOf(ints(2, 1)), sequenceOf(ints(2, 1))
+	if valueKeyFunc(seq) != valueKeyFunc(set) {
+		t.Errorf("keys differ for %s and %s", FormatValue(seq), FormatValue(set))
+	}
+	for _, members := range [][]Value{{seq, set, other}, {set, seq, other}, {other, set, seq}} {
+		outer := setOf(members).Set()
+		if outer.Size() != 2 {
+			t.Errorf("set of %v has %d members, want 2", members, outer.Size())
+		}
+		for _, m := range []Value{seq, set, other} {
+			if !outer.Contains(m) {
+				t.Errorf("set of %v lacks %s", members, FormatValue(m))
+			}
+		}
+	}
+	nested := setOf([]Value{setOf(ints(1, 2)), setOf(ints(2, 1))}).Set()
+	if nested.Size() != 1 {
+		t.Errorf("set of two equal sets has %d members, want 1", nested.Size())
 	}
 }

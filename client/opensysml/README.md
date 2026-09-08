@@ -214,10 +214,13 @@ service without them would read the value as null, so the client refuses with
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class
-in its own order — so two equal sets arrive alike; a `Set` you send may list its
+in its own order — so two equal sets arrive alike, and one that lists a member
+twice reads as an unsupported `Null` naming it; a `Set` you send may list its
 elements in any order, but listing one twice is refused by the service rather
-than read as one element. A `TensorQuantity` carries its dimensions and one
-`Quantity` per component in row-major order, at any rank.
+than read as one element. `Set.Contains` tests membership and `Equal` compares
+any two values — sets by membership, sequences in order, an `Int` never a
+`Real`. A `TensorQuantity` carries its dimensions and one `Quantity` per
+component in row-major order, at any rank.
 
 ## Stability
 

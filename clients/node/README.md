@@ -195,9 +195,11 @@ value kinds those name (`array`, `vector`, `vectorQuantity`; `measurementRef`;
 A function closing over the bindings of a behavior body has no wire form and is
 sent as `null` by every service. A `set` arrives
 with its elements in the service's canonical order, so two equal sets arrive
-alike; one sent to the service may list them in any order, but not twice. A
-`tensorQuantity` carries its `dimensions` and one quantity per component,
-row-major.
+alike, and one listing a member twice is a `MalformedValueError`; one sent to
+the service may list them in any order, but not twice. `valuesEqual` is the
+membership test: sets by membership, sequences in order, an `int` never a
+`real`. A `tensorQuantity` carries its `dimensions` and one quantity per
+component, row-major.
 
 ## Failures are typed
 

@@ -28,6 +28,7 @@ import {
   encodeValue,
   failureCause,
   formatValue,
+  valuesEqual,
   type SysMLValue,
 } from "../src/core/values.js";
 
@@ -312,6 +313,55 @@ test("a set is its elements, each once, in the order the service sent them", () 
     sent.kind.value.elements.map((e) => e.kind.value),
     [3n, 1n, 2n],
   );
+});
+
+const seqOf = (...elements: ReturnType<typeof int>[]) =>
+  create(ValueSchema, { kind: { case: "sequence", value: create(ValueSequenceSchema, { elements }) } });
+const bool = (value: boolean) => create(ValueSchema, { kind: { case: "boolValue", value } });
+const quantity = (q: ReturnType<typeof metres>) => create(ValueSchema, { kind: { case: "quantity", value: q } });
+
+test("a set that lists a member twice is malformed, judged by value", () => {
+  const twice = [
+    setOf(int(1n), int(2n), int(1n)),
+    setOf(seqOf(int(1n), int(2n)), seqOf(int(1n), int(2n))),
+    setOf(setOf(int(1n), int(2n)), setOf(int(2n), int(1n))),
+    setOf(setOf(), setOf()),
+    setOf(quantity(metres(1)), quantity(metres(1))),
+    setOf(bool(true), seqOf(), bool(true)),
+    setOf(array([1n], int(1n)), array([1n], int(1n))),
+  ];
+  for (const set of twice) {
+    assert.throws(() => decodeValue(set), {
+      name: "MalformedValueError",
+      message: /^a set lists a member twice: /,
+    });
+  }
+
+  // Members that merely look alike are distinct: an int is never a real, a
+  // sequence's order counts, a sequence is never a set of the same elements.
+  const alike = [
+    setOf(int(1n), real(1)),
+    setOf(bool(true), int(1n)),
+    setOf(seqOf(int(1n), int(2n)), seqOf(int(2n), int(1n))),
+    setOf(seqOf(int(1n)), setOf(int(1n))),
+    setOf(setOf(), setOf(setOf())),
+    setOf(array([1n, 2n], int(1n), int(2n)), array([2n, 1n], int(1n), int(2n))),
+    setOf(quantity(metres(1)), quantity(metres(2))),
+  ];
+  for (const set of alike) {
+    const decoded = decodeValue(set);
+    assert.equal(decoded.kind, "set");
+    assert.equal(decoded.elements.length, 2);
+    assert.ok(!valuesEqual(decoded.elements[0], decoded.elements[1]));
+  }
+
+  // valuesEqual is the membership test itself: sets by membership, sequences in order.
+  const a = decodeValue(setOf(int(1n), setOf(int(2n), int(3n))));
+  const b = decodeValue(setOf(setOf(int(3n), int(2n)), int(1n)));
+  assert.ok(valuesEqual(a, b));
+  assert.ok(!valuesEqual(a, decodeValue(setOf(int(1n), setOf(int(2n))))));
+  assert.ok(valuesEqual({ kind: "null", reason: "x" }, { kind: "null", reason: "y" }));
+  assert.ok(!valuesEqual({ kind: "unset" }, { kind: "absent" }));
 });
 
 test("a tensor quantity keeps its rank, its shape and its row-major components", () => {

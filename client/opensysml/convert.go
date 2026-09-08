@@ -1,6 +1,8 @@
 package opensysml
 
 import (
+	"fmt"
+
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
 )
@@ -173,7 +175,11 @@ func valueFromProto(value *pb.Value) Value {
 	case *pb.Value_Set:
 		out := make(Set, 0, len(kind.Set.GetElements()))
 		for _, element := range kind.Set.GetElements() {
-			out = append(out, valueFromProto(element))
+			member := valueFromProto(element)
+			if out.Contains(member) {
+				return Null(fmt.Sprintf("unsupported: set lists a member twice: %v", member))
+			}
+			out = append(out, member)
 		}
 		return out
 	case *pb.Value_TensorQuantity:
