@@ -324,6 +324,7 @@ const complex = (real: number, imaginary: number) =>
   create(ValueSchema, { kind: { case: "complex", value: create(ComplexSchema, { real, imaginary }) } });
 const intMetres = (value: bigint) =>
   create(QuantitySchema, { ...metres(Number(value)), magnitude: { case: "intMagnitude", value } });
+const nul = () => create(ValueSchema, { kind: { case: "null", value: "" } });
 
 test("a set that lists a member twice is malformed, judged by value", () => {
   const twice = [
@@ -338,6 +339,10 @@ test("a set that lists a member twice is malformed, judged by value", () => {
     setOf(quantity(metres(1)), quantity(metres(1))),
     setOf(bool(true), seqOf(), bool(true)),
     setOf(array([1n], int(1n)), array([1n], int(1n))),
+    setOf(nul(), seqOf()),
+    setOf(int(1n), nul(), setOf()),
+    setOf(seqOf(), setOf()),
+    setOf(setOf(nul(), int(1n)), setOf(int(1n), seqOf())),
   ];
   for (const set of twice) {
     assert.throws(() => decodeValue(set), {
@@ -359,6 +364,8 @@ test("a set that lists a member twice is malformed, judged by value", () => {
     setOf(setOf(), setOf(setOf())),
     setOf(array([1n, 2n], int(1n), int(2n)), array([2n, 1n], int(1n), int(2n))),
     setOf(quantity(metres(1)), quantity(metres(2))),
+    setOf(nul(), seqOf(int(1n))),
+    setOf(nul(), int(0n)),
   ];
   for (const set of alike) {
     const decoded = decodeValue(set);
@@ -374,6 +381,29 @@ test("a set that lists a member twice is malformed, judged by value", () => {
   assert.ok(!valuesEqual(a, decodeValue(setOf(int(1n), setOf(int(2n))))));
   assert.ok(valuesEqual({ kind: "null", reason: "x" }, { kind: "null", reason: "y" }));
   assert.ok(!valuesEqual({ kind: "unset" }, { kind: "absent" }));
+
+  // A null and the empty collections are one value: the absent value however spelt.
+  const empties: SysMLValue[] = [
+    { kind: "null", reason: "" },
+    { kind: "null", reason: "unsupported: x" },
+    { kind: "sequence", elements: [] },
+    { kind: "set", elements: [] },
+  ];
+  for (const x of empties) {
+    for (const y of empties) {
+      assert.ok(valuesEqual(x, y), `${formatValue(x)} vs ${formatValue(y)}`);
+    }
+    assert.ok(!valuesEqual(x, { kind: "unset" }));
+    assert.ok(!valuesEqual(x, { kind: "absent" }));
+    assert.ok(!valuesEqual(x, { kind: "set", elements: [{ kind: "set", elements: [] }] }));
+    assert.ok(!valuesEqual(x, { kind: "boolean", value: false }));
+  }
+  for (const [x, y] of [[empties[0], empties[2]], [empties[0], empties[3]], [empties[2], empties[3]]]) {
+    assert.throws(() => encodeValue({ kind: "set", elements: [{ kind: "int", value: 1n }, x, y] }), {
+      name: "MalformedValueError",
+      message: /^a set lists a member twice: /,
+    });
+  }
 });
 
 test("valuesEqual judges numbers by value, as the service does", () => {

@@ -542,15 +542,19 @@ public sealed interface Value {
    * scale by whole factors — and one lacking a reduction is compared in its unit as written; a
    * {@link MeasurementRefValue} is one reduction at one scale however spelt, except that a named
    * unit of dimension one is only its own declaration ({@code rad} is not {@code sr}); an {@link
-   * EnumerationValue} is its {@link EnumLiteral#literalId()}, whatever else describes it.
-   * Every other arm compares as {@link Object#equals} does, which stays
-   * structural: {@code new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
+   * EnumerationValue} is its {@link EnumLiteral#literalId()}, whatever else describes it; a {@link
+   * NullValue}, an empty sequence and an empty set are one value, the model's absent value however
+   * spelt. Every other arm compares as {@link Object#equals} does, which stays structural: {@code
+   * new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
    *
    * @param other the value to compare with
    * @return {@code true} when the model would not tell the two apart
    */
   default boolean sameValue(Value other) {
     Objects.requireNonNull(other, "other");
+    if (isEmpty(this) || isEmpty(other)) {
+      return isEmpty(this) && isEmpty(other);
+    }
     if (this instanceof IntegerValue || this instanceof RealValue || this instanceof ComplexValue) {
       return numbersEqual(this, other);
     }
@@ -580,6 +584,13 @@ public sealed interface Value {
       return a.literal().literalId().equals(b.literal().literalId());
     }
     return equals(other);
+  }
+
+  /** The model's absent value: a null, or a collection with no members. */
+  private static boolean isEmpty(Value value) {
+    return value instanceof NullValue
+        || (value instanceof Sequence sequence && sequence.elements().isEmpty())
+        || (value instanceof SetValue set && set.elements().isEmpty());
   }
 
   // One reduction at one scale (SI::'m/s' is m/s, km/m is m/mm); a named unit

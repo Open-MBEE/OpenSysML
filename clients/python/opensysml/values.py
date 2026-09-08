@@ -829,13 +829,22 @@ def same_value(a: Any, b: Any) -> bool:
     """Whether two decoded values are the same value, as :class:`SetValue` membership judges it.
 
     ``==`` decides, except that a ``bool`` is never a number — ``True`` and ``1``
-    are distinct values in a model — in a nested ``list`` or :class:`Array` too.
+    are distinct values in a model — in a nested ``list`` or :class:`Array` too,
+    and that ``None``, an empty ``list`` and an empty set are one value, the
+    model's absent value however spelt.
     """
+    if _is_empty(a) or _is_empty(b):
+        return _is_empty(a) and _is_empty(b)
     if isinstance(a, bool) or isinstance(b, bool):
         return isinstance(a, bool) and isinstance(b, bool) and a == b
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(same_value(x, y) for x, y in zip(a, b))
     return a == b
+
+
+def _is_empty(value: Any) -> bool:
+    """The model's absent value: ``None`` or a collection with no members."""
+    return value is None or (isinstance(value, (list, set, frozenset, SetValue)) and len(value) == 0)
 
 
 @dataclass(frozen=True)

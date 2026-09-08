@@ -236,7 +236,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: sequence}}, nil
 	case Quantity:
-		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: quantityToProto(v)}}, nil
+		sent, err := quantityToProto(v)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: sent}}, nil
 	case EnumLiteral:
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,
@@ -269,7 +273,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 	case VectorQuantity:
 		vq := &pb.VectorQuantity{Components: make([]*pb.Quantity, 0, len(v))}
 		for _, component := range v {
-			vq.Components = append(vq.Components, quantityToProto(component))
+			sent, err := quantityToProto(component)
+			if err != nil {
+				return nil, err
+			}
+			vq.Components = append(vq.Components, sent)
 		}
 		return &pb.Value{Kind: &pb.Value_VectorQuantity{VectorQuantity: vq}}, nil
 	case MeasurementRef:
@@ -308,7 +316,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 			Components: make([]*pb.Quantity, 0, len(v.Components)),
 		}
 		for _, component := range v.Components {
-			tq.Components = append(tq.Components, quantityToProto(component))
+			sent, err := quantityToProto(component)
+			if err != nil {
+				return nil, err
+			}
+			tq.Components = append(tq.Components, sent)
 		}
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: tq}}, nil
 	case Unset:
@@ -321,16 +333,20 @@ func valueToProto(value Value) (*pb.Value, error) {
 	}
 }
 
-func quantityToProto(quantity Quantity) *pb.Quantity {
+// quantityToProto marshals a quantity, refusing one without a magnitude —
+// the zero Quantity — which the service would reject.
+func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
 	out := &pb.Quantity{Unit: quantity.Unit}
 	switch magnitude := quantity.Magnitude.(type) {
 	case Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
 	case Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
+	default:
+		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("quantity in %q carries no magnitude", quantity.Unit)}
 	}
 	out.UnitTerm = unitTermToProto(quantity.Term)
-	return out
+	return out, nil
 }
 
 func unitTermToProto(term *UnitTerm) *pb.UnitTerm {

@@ -187,6 +187,31 @@ class PublicTypesTest {
             .sameValue(new Value.TensorQuantityValue(List.of(1L), List.of(metres(1.0)))));
     assertFalse(new Value.NullValue().sameValue(new Value.UnsetValue()));
     assertTrue(new Value.NullValue().sameValue(new Value.NullValue()));
+
+    // A null and the empty collections are one value: the absent value however spelt.
+    Value nul = new Value.NullValue();
+    Value emptySequence = new Value.Sequence(List.of());
+    Value emptySet = new Value.SetValue(List.of());
+    for (Value x : List.of(nul, emptySequence, emptySet)) {
+      for (Value y : List.of(nul, emptySequence, emptySet)) {
+        assertTrue(x.sameValue(y), x + " vs " + y);
+        assertThrows(
+            IllegalArgumentException.class, () -> new Value.SetValue(List.of(one, x, y)), x + " " + y);
+      }
+      assertFalse(x.sameValue(new Value.UnsetValue()));
+      assertFalse(x.sameValue(new Value.SetValue(List.of(emptySet))));
+      assertFalse(x.sameValue(new Value.Sequence(List.of(one))));
+      assertFalse(x.sameValue(new Value.BooleanValue(false)));
+    }
+    assertEquals(1, new Value.SetValue(List.of(nul)).size());
+    assertTrue(new Value.SetValue(List.of(nul)).contains(emptySequence));
+    assertTrue(new Value.SetValue(List.of(emptySet)).contains(nul));
+    assertEquals(new Value.SetValue(List.of(one, nul)), new Value.SetValue(List.of(emptySet, one)));
+    assertTrue(
+        new Value.Sequence(List.of(one, nul))
+            .sameValue(new Value.Sequence(List.of(one, emptySequence))));
+    assertEquals(
+        2, new Value.SetValue(List.of(nul, new Value.Sequence(List.of(emptySequence)))).size());
   }
 
   private static Quantity metres(Number magnitude) {

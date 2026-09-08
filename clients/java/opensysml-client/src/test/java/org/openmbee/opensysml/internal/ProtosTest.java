@@ -324,6 +324,26 @@ class ProtosTest {
     org.openmbee.opensysml.proto.Value unknown =
         set(org.openmbee.opensysml.proto.Value.getDefaultInstance());
     assertThrows(TransportException.class, () -> Protos.value(unknown));
+
+    // A null and the empty collections are one member: the absent value however spelt.
+    org.openmbee.opensysml.proto.Value nul =
+        org.openmbee.opensysml.proto.Value.newBuilder().setNull("").build();
+    org.openmbee.opensysml.proto.Value emptySequence =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSequence(ValueSequence.newBuilder())
+            .build();
+    for (org.openmbee.opensysml.proto.Value spelt :
+        List.of(
+            set(nul, emptySequence),
+            set(integer(1), nul, set()),
+            set(emptySequence, set()),
+            set(set(nul, integer(1)), set(integer(1), emptySequence)))) {
+      TransportException absent = assertThrows(TransportException.class, () -> Protos.value(spelt));
+      assertTrue(absent.getMessage().contains("twice"), absent.getMessage());
+    }
+    assertEquals(2, ((Value.SetValue) Protos.value(set(nul, integer(0))).orElseThrow()).size());
+    assertEquals(
+        2, ((Value.SetValue) Protos.value(set(set(), set(set()))).orElseThrow()).size());
   }
 
   @Test

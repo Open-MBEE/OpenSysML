@@ -585,9 +585,13 @@ impl Value {
     /// compared in its unit as written; a measurement reference is one
     /// reduction at one scale however spelt, except that a named unit of
     /// dimension one is only its own declaration (`rad` is not `sr`); an
-    /// enumeration literal is its `literal_id`, whatever else describes it.
-    /// Every other arm compares as `==` does.
+    /// enumeration literal is its `literal_id`, whatever else describes it;
+    /// [`Value::Null`], an empty sequence and an empty set are one value, the
+    /// model's absent value however spelt. Every other arm compares as `==` does.
     pub fn same_value(&self, other: &Value) -> bool {
+        if self.is_absent() || other.is_absent() {
+            return self.is_absent() && other.is_absent();
+        }
         match (self, other) {
             (Value::Integer(_) | Value::Real(_) | Value::Complex(_), _) => {
                 numbers_equal(self, other)
@@ -613,6 +617,16 @@ impl Value {
             (Value::MeasurementRef(a), Value::MeasurementRef(b)) => measurement_refs_equal(a, b),
             (Value::EnumLiteral(a), Value::EnumLiteral(b)) => a.literal_id == b.literal_id,
             _ => self == other,
+        }
+    }
+
+    /// The model's absent value: a null, or a collection with no members.
+    fn is_absent(&self) -> bool {
+        match self {
+            Value::Null => true,
+            Value::Sequence(elements) => elements.is_empty(),
+            Value::Set(set) => set.is_empty(),
+            _ => false,
         }
     }
 }
@@ -1694,6 +1708,81 @@ mod tests {
             value_from_wire(set(vec![wire::Value { kind: None }])),
             Err(Error::Decode(message)) if message.contains("no kind")
         ));
+    }
+
+    /// A null and the empty collections are one member: the absent value
+    /// however spelt, on the wire and when a set is built locally.
+    #[test]
+    fn empty_members_are_one_value() {
+        let null = || wire::Value {
+            kind: Some(wire::value::Kind::Null(String::new())),
+        };
+        let sequence = |elements| wire::Value {
+            kind: Some(wire::value::Kind::Sequence(wire::ValueSequence {
+                elements,
+            })),
+        };
+        for twice in [
+            set(vec![null(), sequence(vec![])]),
+            set(vec![int(1), null(), set(vec![])]),
+            set(vec![sequence(vec![]), set(vec![])]),
+            set(vec![
+                set(vec![null(), int(1)]),
+                set(vec![int(1), sequence(vec![])]),
+            ]),
+        ] {
+            let twice = value_from_wire(twice);
+            assert!(
+                matches!(&twice, Err(Error::Decode(message)) if message.contains("twice")),
+                "{twice:?}"
+            );
+        }
+        for alike in [
+            set(vec![null(), sequence(vec![int(1)])]),
+            set(vec![null(), int(0)]),
+            set(vec![set(vec![]), set(vec![set(vec![])])]),
+        ] {
+            let Ok(Value::Set(two)) = value_from_wire(alike) else {
+                panic!("members that only look alike should decode");
+            };
+            assert_eq!(two.len(), 2);
+        }
+
+        let empties = [
+            Value::Null,
+            Value::Sequence(vec![]),
+            Value::Set(Set::new(vec![]).expect("empty set")),
+        ];
+        for x in &empties {
+            for y in &empties {
+                assert!(x.same_value(y), "{x:?} vs {y:?}");
+                assert!(
+                    Set::new(vec![Value::Integer(1), x.clone(), y.clone()]).is_err(),
+                    "{x:?} {y:?}"
+                );
+            }
+            assert!(!x.same_value(&Value::Unset));
+            assert!(!x.same_value(&Value::Boolean(false)));
+            assert!(!x.same_value(&Value::Sequence(vec![Value::Integer(1)])));
+            assert!(!x.same_value(&Value::Set(
+                Set::new(vec![Value::Sequence(vec![])]).expect("one member")
+            )));
+        }
+        let holding_null = Set::new(vec![Value::Integer(1), Value::Null]).expect("two members");
+        assert!(holding_null.contains(&Value::Sequence(vec![])));
+        assert_eq!(
+            holding_null,
+            Set::new(vec![
+                Value::Set(Set::new(vec![]).expect("empty set")),
+                Value::Integer(1),
+            ])
+            .expect("two members")
+        );
+        assert!(
+            Value::Sequence(vec![Value::Integer(1), Value::Null]).same_value(&Value::Sequence(
+                vec![Value::Integer(1), Value::Sequence(vec![])]
+            ))
+        );
     }
 
     fn complex(real: f64, imaginary: f64) -> wire::Value {

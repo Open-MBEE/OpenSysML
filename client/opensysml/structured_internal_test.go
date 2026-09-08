@@ -197,6 +197,7 @@ func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 	pbSet := func(elements ...*pb.Value) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_Set{Set: &pb.ValueSet{Elements: elements}}}
 	}
+	pbNull := &pb.Value{Kind: &pb.Value_Null{Null: ""}}
 	pbQty := func(n int64, unit string) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: &pb.Quantity{Magnitude: &pb.Quantity_IntMagnitude{IntMagnitude: n}, Unit: unit}}}
 	}
@@ -204,15 +205,19 @@ func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: &pb.Quantity{Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: x}, Unit: unit}}}
 	}
 	for name, value := range map[string]*pb.Value{
-		"integer twice":        pbSet(pbInt(1), pbInt(2), pbInt(1)),
-		"integer and real":     pbSet(pbInt(1), pbReal(1)),
-		"real and complex":     pbSet(pbReal(1.5), pbComplex(1.5, 0)),
-		"integer and complex":  pbSet(pbInt(2), pbComplex(2, 0)),
-		"sequence twice":       pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(1), pbInt(2))),
-		"set twice, reordered": pbSet(pbSet(pbInt(1), pbInt(2)), pbSet(pbInt(2), pbInt(1))),
-		"quantity twice":       pbSet(pbQty(1, "m"), pbQty(1, "m")),
-		"quantity by real":     pbSet(pbQty(1, "m"), pbRealQty(1, "m")),
-		"empty set twice":      pbSet(pbSet(), pbSet()),
+		"integer twice":           pbSet(pbInt(1), pbInt(2), pbInt(1)),
+		"integer and real":        pbSet(pbInt(1), pbReal(1)),
+		"real and complex":        pbSet(pbReal(1.5), pbComplex(1.5, 0)),
+		"integer and complex":     pbSet(pbInt(2), pbComplex(2, 0)),
+		"sequence twice":          pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(1), pbInt(2))),
+		"set twice, reordered":    pbSet(pbSet(pbInt(1), pbInt(2)), pbSet(pbInt(2), pbInt(1))),
+		"quantity twice":          pbSet(pbQty(1, "m"), pbQty(1, "m")),
+		"quantity by real":        pbSet(pbQty(1, "m"), pbRealQty(1, "m")),
+		"empty set twice":         pbSet(pbSet(), pbSet()),
+		"null and empty sequence": pbSet(pbNull, pbSeq()),
+		"null and empty set":      pbSet(pbInt(1), pbNull, pbSet()),
+		"empty sequence and set":  pbSet(pbSeq(), pbSet()),
+		"empties nested":          pbSet(pbSet(pbNull, pbInt(1)), pbSet(pbInt(1), pbSeq())),
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := valueFromProto(value)
@@ -249,6 +254,12 @@ func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 	}
 	if !Equal(Null("a"), Null("b")) || !Equal(Unset{}, Unset{}) || Equal(Unset{}, Null("")) {
 		t.Error("a Null is not one whatever its reason, or an Unset is not one")
+	}
+	if !Equal(Null(""), Sequence{}) || !Equal(Null("unsupported: x"), Set{}) || !Equal(Sequence{}, Set{}) || !Equal(Set(nil), Sequence{}) {
+		t.Error("a Null and the empty collections are not one value")
+	}
+	if Equal(Null(""), Sequence{Int(1)}) || Equal(Set{}, Set{Set{}}) || Equal(Sequence{}, Unset{}) || Equal(Set{}, nil) {
+		t.Error("an empty value equals one that is not")
 	}
 }
 
@@ -467,12 +478,16 @@ func TestEqualJudgesEnumLiteralsByID(t *testing.T) {
 // look alike is sent.
 func TestRepeatedSetMembersAreNotSent(t *testing.T) {
 	for name, set := range map[string]Set{
-		"integer twice":        {Int(1), Int(2), Int(1)},
-		"integer and real":     {Int(1), Real(1)},
-		"real and complex":     {Real(1.5), Complex(complex(1.5, 0))},
-		"sequence twice":       {Sequence{Int(1), Int(2)}, Sequence{Int(1), Int(2)}},
-		"set twice, reordered": {Set{Int(1), Int(2)}, Set{Int(2), Int(1)}},
-		"nested":               {Int(3), Set{Int(1), Int(1)}},
+		"integer twice":             {Int(1), Int(2), Int(1)},
+		"integer and real":          {Int(1), Real(1)},
+		"real and complex":          {Real(1.5), Complex(complex(1.5, 0))},
+		"sequence twice":            {Sequence{Int(1), Int(2)}, Sequence{Int(1), Int(2)}},
+		"set twice, reordered":      {Set{Int(1), Int(2)}, Set{Int(2), Int(1)}},
+		"nested":                    {Int(3), Set{Int(1), Int(1)}},
+		"null and empty sequence":   {Null(""), Sequence{}},
+		"null and empty set":        {Int(1), Null(""), Set{}},
+		"empty sequence and set":    {Sequence{}, Set{}},
+		"empty sequences reordered": {Set{Set{}, Int(1)}, Set{Int(1), Sequence{}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := valueToProto(set)
@@ -488,6 +503,7 @@ func TestRepeatedSetMembersAreNotSent(t *testing.T) {
 		"sequence and set":      {Sequence{Int(1)}, Set{Int(1)}},
 		"sequences reordered":   {Sequence{Int(1), Int(2)}, Sequence{Int(2), Int(1)}},
 		"empty and singleton":   {Set{}, Set{Set{}}},
+		"null and a singleton":  {Null(""), Sequence{Int(1)}, Set{Int(1)}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			sent, err := valueToProto(set)
@@ -520,6 +536,7 @@ func TestMalformedTensorsAreNotSent(t *testing.T) {
 		"negative dimension":  {TensorQuantity{Dimensions: []int64{-1}, Components: components(1)}, "tensor dimension is not positive"},
 		"overflowing shape":   {TensorQuantity{Dimensions: []int64{1 << 40, 1 << 40}, Components: components(1)}, "tensor components do not fill its dimensions"},
 		"nested in a set":     {TensorQuantity{Dimensions: []int64{2}, Components: components(1)}, "tensor components do not fill its dimensions"},
+		"no magnitude":        {TensorQuantity{Dimensions: []int64{2}, Components: []Quantity{pascal, {Unit: "Pa"}}}, `quantity in "Pa" carries no magnitude`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var input Value = tc.tensor
@@ -540,6 +557,19 @@ func TestMalformedTensorsAreNotSent(t *testing.T) {
 	}
 	if got := valueFromProto(sent); !reflect.DeepEqual(got, scalar) {
 		t.Errorf("rank-0 tensor read back as %#v, want %#v", got, scalar)
+	}
+	for name, input := range map[string]Value{
+		"quantity":        Quantity{Unit: "Pa"},
+		"vector quantity": VectorQuantity{pascal, {Unit: "Pa"}},
+		"in a sequence":   Sequence{Int(1), Quantity{Unit: "Pa"}},
+	} {
+		t.Run("no magnitude/"+name, func(t *testing.T) {
+			_, err := valueToProto(input)
+			var status *StatusError
+			if !errors.As(err, &status) || status.Code != CodeInvalidArgument || status.Message != `quantity in "Pa" carries no magnitude` {
+				t.Fatalf("sent with err %v, want an invalid-argument StatusError naming the magnitude", err)
+			}
+		})
 	}
 }
 

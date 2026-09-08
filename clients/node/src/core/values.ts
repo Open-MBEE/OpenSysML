@@ -584,9 +584,13 @@ function uniqueMembers(members: SysMLValue[]): SysMLValue[] {
  * named unit of dimension one is only its own declaration (`rad` is not `sr`);
  * an `enum` is its `literalId`, whatever else describes it; a `function` is
  * its `calcId` read against its `selfId`; a `null` is the same whatever its
- * reason.
+ * reason, and the same as an empty `sequence` or `set` — the model's absent
+ * value however spelt.
  */
 export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
+  if (isEmpty(a) || isEmpty(b)) {
+    return isEmpty(a) && isEmpty(b);
+  }
   switch (a.kind) {
     case "int":
     case "real":
@@ -642,6 +646,19 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
     case "unset":
     case "absent":
       return b.kind === a.kind;
+  }
+}
+
+/** The model's absent value: a `null`, or a collection with no members. */
+function isEmpty(value: SysMLValue): boolean {
+  switch (value.kind) {
+    case "null":
+      return true;
+    case "sequence":
+    case "set":
+      return value.elements.length === 0;
+    default:
+      return false;
   }
 }
 

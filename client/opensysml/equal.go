@@ -16,16 +16,17 @@ import (
 // MeasurementRef is one reduction at one scale however spelt, except that a
 // named unit of dimension one is only its own declaration (rad is not sr); an
 // EnumLiteral is its LiteralID, whatever else describes it; a Null is one
-// whatever its reason; and a nil Value equals only another nil.
+// whatever its reason, and one with an empty Sequence or Set, the model's
+// absent value however spelt; and a nil Value equals only another nil.
 func Equal(a, b Value) bool {
+	if empty(a) || empty(b) {
+		return empty(a) && empty(b)
+	}
 	switch x := a.(type) {
 	case nil:
 		return b == nil
 	case Int, Real, Complex:
 		return numbersEqual(a, b)
-	case Null:
-		_, ok := b.(Null)
-		return ok
 	case Sequence:
 		y, ok := b.(Sequence)
 		return ok && slices.EqualFunc(x, y, Equal)
@@ -56,6 +57,19 @@ func Equal(a, b Value) bool {
 	default:
 		return a == b
 	}
+}
+
+// empty reports the model's absent value: a Null, or a collection with no members.
+func empty(v Value) bool {
+	switch x := v.(type) {
+	case Null:
+		return true
+	case Sequence:
+		return len(x) == 0
+	case Set:
+		return len(x) == 0
+	}
+	return false
 }
 
 // Contains reports whether value is a member of the set.

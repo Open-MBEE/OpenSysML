@@ -31,12 +31,14 @@ from opensysml.values import (
     InstanceRef,
     MeasurementRef,
     Quantity,
+    UNSET,
     SetValue,
     TensorQuantity,
     Unit,
     UnitFactor,
     Vector,
     VectorQuantity,
+    same_value,
     value_to_python,
 )
 
@@ -172,6 +174,10 @@ def pb_instance(instance_id):
     (sysml_pb2.Value(bool_value=True), pb_seq(), sysml_pb2.Value(bool_value=True)),
     (pb_instance(1), pb_int(2), pb_instance(1)),
     (pb_array((2,), pb_int(1), pb_int(2)), pb_array((2,), pb_int(1), sysml_pb2.Value(real_value=2.0))),
+    (sysml_pb2.Value(null=""), pb_seq()),
+    (pb_int(1), sysml_pb2.Value(null=""), pb_set()),
+    (pb_seq(), pb_set()),
+    (pb_set(sysml_pb2.Value(null=""), pb_int(1)), pb_set(pb_int(1), pb_seq())),
 ])
 def test_a_set_listing_a_member_twice_is_malformed(elements):
     with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
@@ -191,11 +197,29 @@ def test_a_set_listing_a_member_twice_is_malformed(elements):
     (True, [], True),
     (InstanceRef(1), 2, InstanceRef(1)),
     (Array((2,), (1, 2)), Array((2,), (1, 2.0))),
+    (None, []),
+    (1, None, SetValue()),
+    ([], SetValue()),
+    (None, set()),
+    ([], frozenset()),
+    (SetValue((SetValue(), 1)), SetValue((1, []))),
 ])
 def test_a_set_is_never_assembled_with_a_member_twice(elements):
     with pytest.raises(ValueError, match="set lists a member twice"):
         SetValue(elements)
     assert len(SetValue((1, 2 ** 53 + 1, float(2 ** 53), True, [1, 2], [2, 1], [1], SetValue((1,))))) == 8
+
+
+def test_null_and_the_empty_collections_are_one_value():
+    """As the service judges them: the absent value, however spelt."""
+    for empty in ([], SetValue(), set(), frozenset()):
+        assert same_value(None, empty) and same_value(empty, None) and same_value(empty, [])
+        assert empty in SetValue((1, None)) and None in SetValue((empty,))
+    assert SetValue((None, 1)) == SetValue((1, [])) == SetValue((SetValue(), 1))
+    assert not same_value(None, [1]) and not same_value([], SetValue((SetValue(),)))
+    assert not same_value(None, 0) and not same_value([], False) and not same_value(None, UNSET)
+    assert len(SetValue((None, [1], SetValue((1,)), SetValue((SetValue(),))))) == 4
+    assert value_to_python(pb_set(sysml_pb2.Value(null=""), pb_seq(pb_int(1)))) == SetValue((None, [1]))
 
 
 def length(text, magnitude, scale_num=1.0, scale_den=1.0, factors=(("SI::metre", 1.0),)):
