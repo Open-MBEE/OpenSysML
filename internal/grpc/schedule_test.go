@@ -196,3 +196,19 @@ func TestAnUnknownScheduleIsInvalidArgument(t *testing.T) {
 		}
 	}
 }
+
+// The schedule field is read before the capability the rest of the request
+// needs, so a malformed spelling is INVALID_ARGUMENT on a service that withholds
+// verification too; a valid one there is still refused for verification.
+func TestAnUnknownScheduleIsInvalidArgumentWithoutVerification(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewServiceWithout(t, CapabilityVerification)
+	_, err := srv.RunAnalysis(ctx, &pb.RunAnalysisRequest{ModelHash: "missing", SymbolId: "Sched::forked", Schedule: "seed:abc"})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Errorf("RunAnalysis schedule seed:abc without verification: status %s, want INVALID_ARGUMENT: %v", connect.CodeOf(err), err)
+	}
+	_, err = srv.RunAnalysis(ctx, &pb.RunAnalysisRequest{ModelHash: "missing", SymbolId: "Sched::forked", Schedule: "seed:1"})
+	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityVerification) {
+		t.Errorf("RunAnalysis schedule seed:1 without verification: status %s, want UNIMPLEMENTED naming %s: %v", connect.CodeOf(err), CapabilityVerification, err)
+	}
+}

@@ -14,11 +14,11 @@ import (
 // the response carries every output with the verdict of each objective and
 // assertion (SysML 7.22).
 func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error) {
-	if err := s.requireCapability(CapabilityVerification); err != nil {
-		return nil, err
-	}
 	schedule, err := s.schedulePolicy(req.Schedule)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
 	v, release, err := s.newVerifyContext(req.ModelHash)
