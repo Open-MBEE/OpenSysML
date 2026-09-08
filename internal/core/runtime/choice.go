@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
@@ -193,7 +194,7 @@ func (ctx *Context) note(n RunNote) {
 	if ctx.probes > 0 {
 		return
 	}
-	ctx.notes = append(ctx.notes, n)
+	ctx.run.notes = append(ctx.run.notes, n)
 	if ctx.trace != nil {
 		ctx.trace.RecordNote(n)
 	}
@@ -202,21 +203,47 @@ func (ctx *Context) note(n RunNote) {
 // Notes returns what the latest run noted about itself, in order: its choice
 // points and the guards it could not evaluate.
 func (ctx *Context) Notes() []RunNote {
-	out := make([]RunNote, len(ctx.notes))
-	copy(out, ctx.notes)
-	return out
+	return ctx.run.Notes()
 }
 
-// NoteCount is how many notes the latest run has made so far, so a caller
-// stepping an executor can tell what one of its steps noted.
+// NoteCount is how many notes the latest run has made so far.
 func (ctx *Context) NoteCount() int {
-	return len(ctx.notes)
+	return ctx.run.NoteCount()
 }
+
+// Notes returns what the run noted so far, in order; nil for a run not begun.
+func (run *runState) Notes() []RunNote {
+	if run == nil {
+		return nil
+	}
+	return slices.Clone(run.notes)
+}
+
+// NoteCount is how many notes the run has made so far, so a caller driving it
+// call by call can tell what one call noted.
+func (run *runState) NoteCount() int {
+	if run == nil {
+		return 0
+	}
+	return len(run.notes)
+}
+
+// Notes returns what the executor's run noted so far, in order; see Context.Notes.
+func (e *ActionExecutor) Notes() []RunNote { return e.driven.state.Notes() }
+
+// NoteCount is how many notes the executor's run has made so far.
+func (e *ActionExecutor) NoteCount() int { return e.driven.state.NoteCount() }
+
+// Notes returns what the executor's run noted so far, in order; see Context.Notes.
+func (e *StateExecutor) Notes() []RunNote { return e.driven.state.Notes() }
+
+// NoteCount is how many notes the executor's run has made so far.
+func (e *StateExecutor) NoteCount() int { return e.driven.state.NoteCount() }
 
 // Choices returns the choice points made since the latest run began, in order.
 func (ctx *Context) Choices() []ChoicePoint {
 	var out []ChoicePoint
-	for _, n := range ctx.notes {
+	for _, n := range ctx.run.notes {
 		if c, ok := n.(ChoicePoint); ok {
 			out = append(out, c)
 		}
@@ -227,7 +254,7 @@ func (ctx *Context) Choices() []ChoicePoint {
 // UnevaluableGuards returns the guards the latest run could not evaluate, in order.
 func (ctx *Context) UnevaluableGuards() []UnevaluableGuard {
 	var out []UnevaluableGuard
-	for _, n := range ctx.notes {
+	for _, n := range ctx.run.notes {
 		if g, ok := n.(UnevaluableGuard); ok {
 			out = append(out, g)
 		}

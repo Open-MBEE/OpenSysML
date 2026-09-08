@@ -6978,7 +6978,7 @@ func testStepBudgetExceeded(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
 
 	ctx.maxSteps = 3
-	ctx.steps = 0
+	ctx.run.steps = 0
 
 	rootScope := idx.DocumentRoot("<test>")
 	sym := findSymbolByName(rootScope, "deep", ast.DefCalc)
@@ -7069,7 +7069,7 @@ func testNonTerminatingLoopExhaustsStepBudget(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
 
 	ctx.maxSteps = 20
-	ctx.steps = 0
+	ctx.run.steps = 0
 
 	rootScope := idx.DocumentRoot("<test>")
 	sym := findSymbolByName(rootScope, "spinner", ast.DefAction)
@@ -7251,7 +7251,7 @@ func testNonTerminatingLoopPerformingAnAction(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
 
 	ctx.maxSteps = 40
-	ctx.steps = 0
+	ctx.run.steps = 0
 
 	rootScope := idx.DocumentRoot("<test>")
 	sym := findSymbolByName(rootScope, "spinner", ast.DefAction)

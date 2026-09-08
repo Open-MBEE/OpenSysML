@@ -193,7 +193,7 @@ func TestTensorQuantityMRefOutlivesItsReferenceOnly(t *testing.T) {
 	if got := FormatValue(tq); !strings.HasPrefix(got, "Tensor(2, 2)[1.0 [m], 2.0 [s]") {
 		t.Errorf("a tensor of mixed units formats as %s", got)
 	}
-	ctx.maxElements = ctx.elements + 3
+	ctx.maxElements = ctx.run.elements + 3
 	if _, _, err := ctx.structuredFeature(tq, "mRef"); !errors.Is(err, ErrElementLimitExceeded) {
 		t.Errorf("mRef of four references over a budget of three = %v, want ErrElementLimitExceeded", err)
 	}
