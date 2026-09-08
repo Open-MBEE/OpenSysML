@@ -801,6 +801,9 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	args := invocationArgs(e)
 	// Typed once and reused by checkArguments, so nested errors report once.
 	argTypes := ec.argumentTypes(scope, e)
+	if chain := chainCallee(e); chain != nil {
+		return ec.inferChainInvocation(scope, e, chain, args, argTypes, node)
+	}
 	if e.Type == nil {
 		for _, arg := range e.NamedArgs {
 			ec.infer(scope, arg.Value)
@@ -865,6 +868,37 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	if considered != nil {
 		return semantics.PrimUnknown
 	}
+	return ec.model.PrimTypeOf(ec.model.ResultParameterOf(sym))
+}
+
+// inferChainInvocation is inferNodeInvocation for `x.f(a)`: the chain names the
+// calc feature applied, whose effective inputs the arguments bind.
+func (ec *exprChecker) inferChainInvocation(scope *symbols.Scope, e *ast.InvocationExpr, chain *ast.FeatureChainExpr, args []ast.Node, argTypes argumentTypes, node *symbols.Symbol) semantics.PrimType {
+	ec.infer(scope, chain)
+	sym, ok := ec.resolver.ResolveTarget(scope, chain)
+	if !ok || sym == nil {
+		return semantics.PrimUnknown
+	}
+	if !ec.isInvocationBehavior(sym, map[*symbols.Symbol]bool{}) {
+		if ec.isDefinitelyNonBehavior(sym) {
+			ec.diags = append(ec.diags, Diagnostic{
+				Severity: SeverityError,
+				Span:     chain.Span(),
+				Message:  "Must invoke a behavior or a behavioral feature",
+				Code:     "invocation-not-behavior",
+				Source:   "type",
+			})
+		}
+		return semantics.PrimUnknown
+	}
+	if isInvocationBehaviorKind(sym.Kind) && !isBehaviorKind(sym.Kind) {
+		return semantics.PrimUnknown
+	}
+	params, ok := ec.effectiveInParameters(sym, node)
+	if !ok {
+		return semantics.PrimUnknown
+	}
+	ec.checkArguments(scope, invocation{e, sym, args, argTypes, params}, nil)
 	return ec.model.PrimTypeOf(ec.model.ResultParameterOf(sym))
 }
 
@@ -1091,7 +1125,7 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 	e, sym, args, argTypes, params := call.e, call.sym, call.args, call.argTypes, call.params
 	// A receiver binds by position, which named arguments leave unstated; runtime/eval.go
 	// reports the same call.
-	if e.Operand != nil {
+	if e.Operand != nil && chainCallee(e) == nil {
 		report(e.Span(), "%s cannot be called with a receiver and named arguments", sym.Name)
 		return
 	}

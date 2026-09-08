@@ -58,12 +58,23 @@ func (ec *exprChecker) argumentTypes(scope *symbols.Scope, e *ast.InvocationExpr
 	return types
 }
 
-// invocationArgs returns e's positional arguments, the receiver first.
+// invocationArgs returns e's positional arguments, the receiver of `x->f(a)`
+// first; the operand of a chain call `x.f(a)` is the calc applied, not an argument.
 func invocationArgs(e *ast.InvocationExpr) []ast.Node {
-	if e.Operand == nil {
+	if e.Operand == nil || chainCallee(e) != nil {
 		return e.Args
 	}
 	return append([]ast.Node{e.Operand}, e.Args...)
+}
+
+// chainCallee is the feature chain a call `x.f(a)` applies (KerMLExpressions
+// InstantiatedTypeMember → OwnedFeatureChain), nil for `T(a)` and `x->T(a)`.
+func chainCallee(e *ast.InvocationExpr) *ast.FeatureChainExpr {
+	if e.Type != nil {
+		return nil
+	}
+	chain, _ := e.Operand.(*ast.FeatureChainExpr)
+	return chain
 }
 
 // selectInvocation records the declaration e calls given the types of its arguments.

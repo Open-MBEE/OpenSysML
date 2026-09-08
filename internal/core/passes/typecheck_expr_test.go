@@ -490,6 +490,38 @@ func TestExprInvocationReceiverWithNamedArguments(t *testing.T) {
 		"add cannot be called with a receiver and named arguments")
 }
 
+// calcHolder owns a calc feature reached through a feature chain, `holder.scale`.
+const calcHolder = `part def Holder {
+	calc scale { in x : ScalarValues::Real; in k : ScalarValues::Real = 2.0; return : ScalarValues::Real = x * k; }
+}
+part holder : Holder;
+`
+
+// A chain call `holder.scale(3.0)` applies the calc feature the chain names: its
+// arguments are held to that calc's inputs and the call is typed by its result.
+func TestExprChainInvocationChecked(t *testing.T) {
+	wantNoDiags(t, `package P { `+calcHolder+` attribute a : ScalarValues::Real = holder.scale(3.0); }`)
+	wantNoDiags(t, `package P { `+calcHolder+` attribute a : ScalarValues::Real = holder.scale(x = 3.0, k = 4.0); }`)
+	wantOneDiag(t,
+		`package P { `+calcHolder+` attribute a : ScalarValues::Real = holder.scale("three"); }`,
+		"argument 1 of scale expects Real, found String")
+	wantOneDiag(t,
+		`package P { `+calcHolder+` attribute a : ScalarValues::Real = holder.scale(x = 3.0, factor = 4.0); }`,
+		`scale has no parameter named "factor"`)
+	wantOneDiag(t,
+		`package P { `+calcHolder+` attribute a : ScalarValues::Real = holder.scale(1.0, 2.0, 3.0); }`,
+		"scale takes 2 argument(s), found 3")
+	wantOneWarning(t,
+		`package P { `+calcHolder+` attribute a : ScalarValues::Real = holder.scale(); }`,
+		CodeUnboundParameter, "scale leaves parameter x unbound, so the call cannot be evaluated")
+	wantOneDiag(t,
+		`package P { `+calcHolder+` attribute flag : ScalarValues::Boolean = holder.scale(3.0); }`,
+		"cannot bind Real value to a feature typed by Boolean")
+	wantOneDiag(t,
+		`package P { part def Box { attribute n : ScalarValues::Real; } part box : Box; attribute a : ScalarValues::Real = box.n(3.0); }`,
+		"Must invoke a behavior or a behavioral feature")
+}
+
 func TestExprInvocationNamedArgumentsOK(t *testing.T) {
 	wantNoDiags(t, `package P { `+calcAdd+` calc c { add(a = 1, b = 2) } }`)
 	wantNoDiags(t, `package P { `+calcAdd+` calc c { add(b = 2, a = 1) } }`)

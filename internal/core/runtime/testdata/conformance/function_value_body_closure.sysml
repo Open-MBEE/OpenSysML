@@ -31,5 +31,14 @@ package test {
 		calc wrap { in k : Real; return : Real = inner(1.0) + Fn(inner, 1.0) + k; }
 		return : Real = wrap(100.0);
 	}
-	calc def UseOuter { return : Real = Outer(3.0) + Outer(4.0) + Bare(5.0) + Fn(Maker(10.0), 2.0) + ApplyOne(Fixer(10.0), 4.0) + Shadowed(3.0); }
+	// A specialization renaming the enclosing parameter still answers the nested
+	// calc's read of the inherited name, whether it is returned or passed on.
+	calc def Tripler :> Maker { in m :>> k = 3.0; }
+	calc def PassOn {
+		in k : Real;
+		calc inner { in x : Real; return : Real = x * k; }
+		return : Real = Fn(inner, 5.0);
+	}
+	calc def PassOnRenamed :> PassOn { in m :>> k; }
+	calc def UseOuter { return : Real = Outer(3.0) + Outer(4.0) + Bare(5.0) + Fn(Maker(10.0), 2.0) + ApplyOne(Fixer(10.0), 4.0) + Shadowed(3.0) + Fn(Tripler(), 4.0) + PassOnRenamed(2.0); }
 }

@@ -119,12 +119,19 @@ func (f frame) each(fn func(name string, value Value)) {
 	}
 }
 
-// snapshot copies the frame's bindings into storage of its own, unchanged by
-// whatever later reuses the frame's.
+// snapshot copies the frame's bindings, and the aliases they are read through,
+// into storage of its own, unchanged by whatever later reuses the frame's.
 func (f frame) snapshot() frame {
 	vars := make(map[string]Value, f.width())
 	f.each(func(name string, value Value) { vars[name] = value })
-	return ownedFrame(f.owner, vars)
+	out := ownedFrame(f.owner, vars)
+	if len(f.aliases) > 0 {
+		out.aliases = make(map[string]string, len(f.aliases))
+		for name, alias := range f.aliases {
+			out.aliases[name] = alias
+		}
+	}
+	return out
 }
 
 // width is the number of names the frame binds.
