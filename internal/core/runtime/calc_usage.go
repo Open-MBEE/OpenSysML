@@ -665,6 +665,30 @@ func enclosedByBehaviorBody(sym *symbols.Symbol) bool {
 	return isCalcSymbol(owner) || isActionSymbol(owner) || isStateSymbol(owner)
 }
 
+// bodyEnclosing is the part of enclosing, the bindings of the behavior body the
+// calc is declared in, its body reads: all of it for a body written inside that
+// behavior, none for a body inherited from a calc declared elsewhere.
+func (shape *calcShape) bodyEnclosing(enclosing []frame) []frame {
+	if len(enclosing) == 0 || !declaredWithin(shape.BodyOwner, enclosingBehavior(shape.Sym)) {
+		return nil
+	}
+	return enclosing
+}
+
+// declaredWithin reports sym declared in the body of behavior, directly or in a
+// behavior nested in it.
+func declaredWithin(sym, behavior *symbols.Symbol) bool {
+	if behavior == nil {
+		return false
+	}
+	for owner := enclosingBehavior(sym); owner != nil; owner = enclosingBehavior(owner) {
+		if owner == behavior {
+			return true
+		}
+	}
+	return false
+}
+
 // checkCalcTyping rejects a calc usage typed by something that is not a calc: it
 // inherits no parameters, no outputs and no body from it, so reading an output
 // of it would report a missing feature rather than the specialization error.
@@ -692,7 +716,7 @@ func (ctx *Context) runCalcUsage(
 	// an invocation of it does.
 	var enclosing []frame
 	if nested != nil {
-		enclosing = nested.frames
+		enclosing = shape.bodyEnclosing(nested.frames)
 	}
 	engine := newStmtEngineIn(ctx, host, env, enclosing)
 	host.attachPerformances(engine)

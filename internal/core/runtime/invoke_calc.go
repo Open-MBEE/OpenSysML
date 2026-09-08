@@ -756,7 +756,7 @@ func (ctx *Context) bindCalcParameters(
 // activation, which the caller ends after it.
 func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame) (Value, error) {
 	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self}
-	frame.env = stmtEnv{data: frame.locals(), enclosing: enclosing}
+	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
 	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
 	frame.host.attachPerformances(&frame.engine)
 	result, returned, err := runCalcSteps(&frame.engine, &frame.host, shape)

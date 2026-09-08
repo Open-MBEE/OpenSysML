@@ -366,6 +366,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("function_value_of_a_wrong_typed_calc", testFunctionValueOfAWrongTypedCalc)
 	t.Run("function_value_of_a_built_in", testFunctionValueOfABuiltIn)
 	t.Run("function_value_applied_to_itself_forever", testFunctionValueAppliedToItselfForever)
+	t.Run("function_value_inherited_body_outside_the_closure", testFunctionValueInheritedBodyOutsideTheClosure)
 }
 
 func testBindingConflict(t *testing.T) {
@@ -11387,5 +11388,23 @@ func testFunctionValueAppliedToItselfForever(t *testing.T) {
 	err := invokeCalcExpecting(t, src, "test::Loop(test::Sq, 1.0)")
 	if !errors.Is(err, ErrCalcRecursionLimit) && !errors.Is(err, ErrStepLimitExceeded) {
 		t.Fatalf("error = %v, want the recursion or step budget spent", err)
+	}
+}
+
+// testFunctionValueInheritedBodyOutsideTheClosure: a usage nested in a calc body
+// closes over that body only for the code written there; the body it inherits from
+// a calc declared outside reads no binding of the enclosing run, however it is applied.
+func testFunctionValueInheritedBodyOutsideTheClosure(t *testing.T) {
+	src := `package test {` + functionValueFixture + `
+		calc def Leaky { in v : Real; return : Real = v * k; }
+		calc def Bare { in k : Real; calc inner : Leaky { in v = 2.0; } return : Real = inner; }
+		calc def Called { in k : Real; calc inner : Leaky; return : Real = inner(2.0); }
+		calc def Passed { in k : Real; calc inner : Leaky; return : Real = Fn(inner, 2.0); }
+	}`
+	for _, expr := range []string{"test::Bare(3.0)", "test::Called(3.0)", "test::Passed(3.0)"} {
+		err := invokeCalcExpecting(t, src, expr)
+		if !errors.Is(err, ErrNoValue) && !errors.Is(err, ErrUnresolvedReference) {
+			t.Fatalf("%s: error = %v, want k unresolved in Leaky's body", expr, err)
+		}
 	}
 }
