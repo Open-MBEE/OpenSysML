@@ -232,3 +232,104 @@ class AnalysisResult:
             f"AnalysisResult(outputs={self.outputs!r}, "
             f"verdicts={self.verdicts!r})"
         )
+
+
+class SweepRow:
+    """One run of a sweep: what it bound, what it produced, and how long it took.
+
+    A run that failed is a row like any other, carrying :attr:`error` in place
+    of outputs, so one failing run does not lose the rest of the table.
+
+    Attributes:
+        inputs (dict): The swept parameters as this run bound them, by name
+        outputs (dict): What the run produced, by name; a calc's returned value
+            is named "result"
+        verdicts (list[Verdict]): The objective and assertion verdicts of an
+            analysis case; empty for a calc
+        seconds (float): Wall time of this run
+        error (str): Why this run failed; empty when it did not
+    """
+
+    def __init__(self, inputs, outputs, verdicts, seconds, error=""):
+        self.inputs = dict(inputs or {})
+        self.outputs = dict(outputs or {})
+        self.verdicts = list(verdicts or [])
+        self.seconds = seconds
+        self.error = error
+
+    @property
+    def failed(self):
+        """Whether this run failed rather than producing outputs."""
+        return bool(self.error)
+
+    def __bool__(self):
+        """Truthy when the run succeeded and every verdict of it holds."""
+        return not self.failed and all(v.holds for v in self.verdicts)
+
+    def __str__(self):
+        inputs = ", ".join(f"{name}={val}" for name, val in self.inputs.items())
+        if self.failed:
+            return f"{inputs}: {self.error}"
+        outputs = ", ".join(f"{name} = {val}" for name, val in self.outputs.items())
+        return f"{inputs}: {outputs}"
+
+    def __repr__(self):
+        return (
+            f"SweepRow(inputs={self.inputs!r}, outputs={self.outputs!r}, "
+            f"error={self.error!r})"
+        )
+
+
+class SweepTable:
+    """Every run of one sweep, in the order the runs were made.
+
+    A swept table runs lexicographically over its parameters in the order their
+    ranges were given; a sampled one runs in draw order, and echoes the seed it
+    was drawn from so the table can be reproduced.
+
+    Attributes:
+        rows (list[SweepRow]): One row per run
+        parameters (list[str]): The swept parameters, in the order their ranges
+            were given
+        sampled (bool): Whether the rows were drawn rather than stepped through
+        seed (int): The seed the rows were drawn from; 0 for a swept table
+        instances (list[Instance]): The subjects the runs were about and the
+            objects reachable from them; empty when no run bound a subject
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+    """
+
+    def __init__(self, rows, parameters, sampled=False, seed=0,
+                 instances=None, diagnostics=None):
+        self.rows = list(rows or [])
+        self.parameters = list(parameters or [])
+        self.sampled = sampled
+        self.seed = seed
+        self.instances = list(instances or [])
+        self.diagnostics = list(diagnostics or [])
+
+    @property
+    def failures(self):
+        """The runs that failed."""
+        return [row for row in self.rows if row.failed]
+
+    def __len__(self):
+        return len(self.rows)
+
+    def __iter__(self):
+        return iter(self.rows)
+
+    def __getitem__(self, index):
+        return self.rows[index]
+
+    def __bool__(self):
+        """Truthy when every run succeeded and every verdict of them holds."""
+        return bool(self.rows) and all(bool(row) for row in self.rows)
+
+    def __str__(self):
+        return "\n".join(str(row) for row in self.rows)
+
+    def __repr__(self):
+        return (
+            f"SweepTable(rows={len(self.rows)}, parameters={self.parameters!r}, "
+            f"sampled={self.sampled!r}, seed={self.seed!r})"
+        )

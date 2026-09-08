@@ -1,0 +1,418 @@
+{
+  "scenarios": [
+    {
+      "id": "run_sweep/a_range_over_a_calc_input_runs_once_per_value",
+      "description": "The range steps 0, 2, 4 with the first input bound to 1, so each row reports the value it bound and the sum it returned, in the order the range enumerates.",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::Sum",
+        "arguments": [
+          {
+            "real_value": 1.0
+          }
+        ],
+        "ranges": [
+          {
+            "parameter": "b",
+            "start": {
+              "real_value": 0.0
+            },
+            "end": {
+              "real_value": 4.0
+            },
+            "step": {
+              "real_value": 2.0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "parameters": [
+            "b"
+          ],
+          "rows": [
+            {
+              "inputs": [
+                {
+                  "name": "b",
+                  "value": {
+                    "real_value": 0.0
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "result",
+                  "value": {
+                    "real_value": 1.0
+                  }
+                }
+              ]
+            },
+            {
+              "inputs": [
+                {
+                  "name": "b",
+                  "value": {
+                    "real_value": 2.0
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "result",
+                  "value": {
+                    "real_value": 3.0
+                  }
+                }
+              ]
+            },
+            {
+              "inputs": [
+                {
+                  "name": "b",
+                  "value": {
+                    "real_value": 4.0
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "result",
+                  "value": {
+                    "real_value": 5.0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "absent": [
+          "error",
+          "sampled"
+        ]
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "verification"
+      }
+    },
+    {
+      "id": "run_sweep/a_range_over_an_analysis_input_reports_each_runs_outputs_and_objective",
+      "description": "The barge costs 37, so the objective holds only for the row whose limit is 40; each row is one ordinary run of the case on the subject named.",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::CostAnalysis",
+        "subject_symbol_id": "Sw::barge",
+        "ranges": [
+          {
+            "parameter": "limit",
+            "start": {
+              "real_value": 20.0
+            },
+            "end": {
+              "real_value": 40.0
+            },
+            "step": {
+              "real_value": 20.0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "parameters": [
+            "limit"
+          ],
+          "rows": [
+            {
+              "inputs": [
+                {
+                  "name": "limit",
+                  "value": {
+                    "real_value": 20.0
+                  }
+                }
+              ],
+              "outputs": [
+                {
+                  "name": "total",
+                  "value": {
+                    "real_value": 37.0
+                  }
+                }
+              ],
+              "verdicts": [
+                {
+                  "kind": "objective",
+                  "element": "affordable",
+                  "holds": false,
+                  "instance_type_id": "Sw::barge"
+                }
+              ]
+            },
+            {
+              "inputs": [
+                {
+                  "name": "limit",
+                  "value": {
+                    "real_value": 40.0
+                  }
+                }
+              ],
+              "verdicts": [
+                {
+                  "kind": "objective",
+                  "element": "affordable",
+                  "holds": true
+                }
+              ]
+            }
+          ]
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "run_sweep/samples_draw_from_the_range_and_echo_the_seed",
+      "description": "Three draws from the range are three rows in draw order, the response marking the table sampled and echoing the seed it drew from.",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::Sum",
+        "arguments": [
+          {
+            "real_value": 1.0
+          }
+        ],
+        "samples": 3,
+        "seed": 42,
+        "ranges": [
+          {
+            "parameter": "b",
+            "start": {
+              "real_value": 0.0
+            },
+            "end": {
+              "real_value": 10.0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "sampled": true,
+          "seed": 42,
+          "parameters": [
+            "b"
+          ]
+        },
+        "counts": {
+          "rows": 3
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "run_sweep/a_run_that_fails_is_a_row_carrying_its_error",
+      "description": "Dividing by the swept value fails at zero alone: that row carries the typed error and its failure reason while the rows after it are still run.",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::Ratio",
+        "arguments": [
+          {
+            "real_value": 4.0
+          }
+        ],
+        "ranges": [
+          {
+            "parameter": "b",
+            "start": {
+              "int_value": -1
+            },
+            "end": {
+              "int_value": 1
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "rows": [
+            {
+              "outputs": [
+                {
+                  "name": "result",
+                  "value": {
+                    "real_value": -4.0
+                  }
+                }
+              ]
+            },
+            {
+              "failure_reason": "FAILURE_REASON_EVALUATION"
+            },
+            {
+              "outputs": [
+                {
+                  "name": "result",
+                  "value": {
+                    "real_value": 4.0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "contains": {
+          "rows.1.error": "division by zero"
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "run_sweep/a_range_naming_no_input_of_the_target_is_reported_in_band",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::Sum",
+        "arguments": [
+          {
+            "real_value": 1.0
+          }
+        ],
+        "ranges": [
+          {
+            "parameter": "missing",
+            "start": {
+              "real_value": 0.0
+            },
+            "end": {
+              "real_value": 4.0
+            },
+            "step": {
+              "real_value": 2.0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "rows"
+        ]
+      }
+    },
+    {
+      "id": "run_sweep/a_symbol_of_another_kind_is_the_wrong_kind",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::barge",
+        "ranges": [
+          {
+            "parameter": "limit",
+            "start": {
+              "real_value": 0.0
+            },
+            "end": {
+              "real_value": 4.0
+            },
+            "step": {
+              "real_value": 2.0
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "failure_reason": "FAILURE_REASON_WRONG_KIND"
+        },
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "rows"
+        ]
+      }
+    },
+    {
+      "id": "run_sweep/no_range_at_all_is_reported_in_band",
+      "rpc": "RunSweep",
+      "requires_capabilities": [
+        "verification"
+      ],
+      "model": {
+        "fixture": "sweep.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Sw::Sum",
+        "arguments": [
+          {
+            "real_value": 1.0
+          },
+          {
+            "real_value": 2.0
+          }
+        ]
+      },
+      "expect": {
+        "non_empty": [
+          "error"
+        ],
+        "absent": [
+          "rows"
+        ]
+      }
+    }
+  ]
+}

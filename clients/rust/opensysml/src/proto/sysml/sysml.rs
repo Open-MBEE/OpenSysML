@@ -1149,6 +1149,115 @@ pub struct QueryResultElement {
     #[prost(map="string, string", tag="3")]
     pub properties: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
+/// SweepRange is one parameter's range: the endpoints a swept run advances
+/// between and the step it advances by. A sampled range states no step; a swept
+/// range between Integers steps by one where it states none, and one between
+/// reals must state one.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SweepRange {
+    /// Name of the input parameter the range binds, which the target must declare
+    /// and the request's own arguments must not bind.
+    #[prost(string, tag="1")]
+    pub parameter: ::prost::alloc::string::String,
+    /// The endpoint the range's runs start at, and the one they run to, which is
+    /// inclusive where the step lands on it. Both are required.
+    #[prost(message, optional, tag="2")]
+    pub start: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="3")]
+    pub end: ::core::option::Option<Value>,
+    #[prost(message, optional, tag="4")]
+    pub step: ::core::option::Option<Value>,
+}
+/// RunSweepRequest runs one analysis case or calc once per row of a sweep. Every
+/// row is an ordinary run of that target with the swept parameters bound to the
+/// row's values and the request's other arguments as given: this is tool-defined
+/// orchestration, and changes nothing about how a run executes.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunSweepRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// FQN of the analysis case or calc, definition or usage.
+    #[prost(string, tag="2")]
+    pub symbol_id: ::prost::alloc::string::String,
+    /// Optional FQN of a part/usage to instantiate as an analysis case's subject.
+    #[prost(string, tag="3")]
+    pub subject_symbol_id: ::prost::alloc::string::String,
+    /// Positional arguments for the target's input parameters, in declaration
+    /// order, as every row binds them.
+    #[prost(message, repeated, tag="4")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    /// Arguments bound to input parameters by name, as every row binds them.
+    #[prost(map="string, message", tag="5")]
+    pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// The ranges swept, which several of make one row per point of their
+    /// cartesian product, the first varying slowest.
+    #[prost(message, repeated, tag="6")]
+    pub ranges: ::prost::alloc::vec::Vec<SweepRange>,
+    /// Rows to draw uniformly from each range instead of stepping through it. 0
+    /// steps through them; above 0 needs a seed and refuses a range with a step.
+    #[prost(int64, tag="7")]
+    pub samples: i64,
+    /// Seed the draws are taken from: the same seed draws the same table on every
+    /// platform. Required with `samples`, ignored without it.
+    #[prost(uint64, tag="8")]
+    pub seed: u64,
+}
+/// SweepRow is one run of a sweep: what it bound, what it produced, how long it
+/// took, and what stopped it where it failed. A failed row is reported as a row,
+/// so one failure does not end the table.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SweepRow {
+    /// The parameters this row bound, in the order their ranges were given.
+    #[prost(message, repeated, tag="1")]
+    pub inputs: ::prost::alloc::vec::Vec<CalcOutput>,
+    /// What the run produced: an analysis case's outputs, or a calc's returned
+    /// value named "result".
+    #[prost(message, repeated, tag="2")]
+    pub outputs: ::prost::alloc::vec::Vec<CalcOutput>,
+    /// What the case's objective and assertions decided; empty for a calc.
+    #[prost(message, repeated, tag="3")]
+    pub verdicts: ::prost::alloc::vec::Vec<Verdict>,
+    /// Wall time of this run, in microseconds.
+    #[prost(int64, tag="4")]
+    pub elapsed_micros: i64,
+    /// Set when this run failed rather than the table failing.
+    #[prost(string, tag="5")]
+    pub error: ::prost::alloc::string::String,
+    /// What kind of failure `error` reports.
+    #[prost(enumeration="FailureReason", tag="6")]
+    pub failure_reason: i32,
+}
+/// RunSweepResponse carries the table, one row per run, in the order the runs
+/// were made: lexicographically over the ranges as given for a swept table, and
+/// in draw order for a sampled one.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RunSweepResponse {
+    #[prost(message, repeated, tag="1")]
+    pub rows: ::prost::alloc::vec::Vec<SweepRow>,
+    /// The swept parameters, in the order their ranges were given, which is the
+    /// order each row's inputs are in.
+    #[prost(string, repeated, tag="2")]
+    pub parameters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the rows were drawn rather than stepped through.
+    #[prost(bool, tag="3")]
+    pub sampled: bool,
+    /// The seed the rows were drawn from, echoed so a table can be reproduced.
+    #[prost(uint64, tag="4")]
+    pub seed: u64,
+    /// Set when no run was made at all — an unknown symbol, a parameter the target
+    /// does not declare, a range no values follow from, a budget refusal.
+    #[prost(string, tag="5")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="6")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// What kind of failure `error` reports.
+    #[prost(enumeration="FailureReason", tag="7")]
+    pub failure_reason: i32,
+    /// Every object a row's verdict is about, from every run of the table, so each
+    /// verdict's `instance_id` resolves here.
+    #[prost(message, repeated, tag="8")]
+    pub instances: ::prost::alloc::vec::Vec<Instance>,
+}
 /// RunDocumentQueryRequest runs a named document query — a calc def
 /// specializing DocumentQueries::Query — against a model the service already
 /// parsed, binding its entry parameters. It answers as %run-query does, but with

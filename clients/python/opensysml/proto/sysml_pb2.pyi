@@ -888,6 +888,81 @@ class QueryResultElement(_message.Message):
     properties: _containers.ScalarMap[str, str]
     def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
+class SweepRange(_message.Message):
+    __slots__ = ("parameter", "start", "end", "step")
+    PARAMETER_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    parameter: str
+    start: Value
+    end: Value
+    step: Value
+    def __init__(self, parameter: _Optional[str] = ..., start: _Optional[_Union[Value, _Mapping]] = ..., end: _Optional[_Union[Value, _Mapping]] = ..., step: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+
+class RunSweepRequest(_message.Message):
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "arguments", "named_arguments", "ranges", "samples", "seed")
+    class NamedArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: Value
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    NAMED_ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    RANGES_FIELD_NUMBER: _ClassVar[int]
+    SAMPLES_FIELD_NUMBER: _ClassVar[int]
+    SEED_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    symbol_id: str
+    subject_symbol_id: str
+    arguments: _containers.RepeatedCompositeFieldContainer[Value]
+    named_arguments: _containers.MessageMap[str, Value]
+    ranges: _containers.RepeatedCompositeFieldContainer[SweepRange]
+    samples: int
+    seed: int
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ..., ranges: _Optional[_Iterable[_Union[SweepRange, _Mapping]]] = ..., samples: _Optional[int] = ..., seed: _Optional[int] = ...) -> None: ...
+
+class SweepRow(_message.Message):
+    __slots__ = ("inputs", "outputs", "verdicts", "elapsed_micros", "error", "failure_reason")
+    INPUTS_FIELD_NUMBER: _ClassVar[int]
+    OUTPUTS_FIELD_NUMBER: _ClassVar[int]
+    VERDICTS_FIELD_NUMBER: _ClassVar[int]
+    ELAPSED_MICROS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    inputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
+    outputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
+    verdicts: _containers.RepeatedCompositeFieldContainer[Verdict]
+    elapsed_micros: int
+    error: str
+    failure_reason: FailureReason
+    def __init__(self, inputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., elapsed_micros: _Optional[int] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
+
+class RunSweepResponse(_message.Message):
+    __slots__ = ("rows", "parameters", "sampled", "seed", "error", "diagnostics", "failure_reason", "instances")
+    ROWS_FIELD_NUMBER: _ClassVar[int]
+    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    SAMPLED_FIELD_NUMBER: _ClassVar[int]
+    SEED_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    INSTANCES_FIELD_NUMBER: _ClassVar[int]
+    rows: _containers.RepeatedCompositeFieldContainer[SweepRow]
+    parameters: _containers.RepeatedScalarFieldContainer[str]
+    sampled: bool
+    seed: int
+    error: str
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    failure_reason: FailureReason
+    instances: _containers.RepeatedCompositeFieldContainer[Instance]
+    def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., parameters: _Optional[_Iterable[str]] = ..., sampled: _Optional[bool] = ..., seed: _Optional[int] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
+
 class RunDocumentQueryRequest(_message.Message):
     __slots__ = ("model_hash", "query_id", "bindings")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]

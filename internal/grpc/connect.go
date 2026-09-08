@@ -131,6 +131,11 @@ func (a *ConnectAdapter) RunAnalysis(ctx context.Context, req *connect.Request[p
 	return connectCall(ctx, req, a.svc.RunAnalysis)
 }
 
+// RunSweep runs one analysis case or calc once per row of a parameter sweep.
+func (a *ConnectAdapter) RunSweep(ctx context.Context, req *connect.Request[pb.RunSweepRequest]) (*connect.Response[pb.RunSweepResponse], error) {
+	return connectCall(ctx, req, a.svc.RunSweep)
+}
+
 // Query evaluates a SysML v2 API & Services Query over a parsed model.
 func (a *ConnectAdapter) Query(ctx context.Context, req *connect.Request[pb.QueryRequest]) (*connect.Response[pb.QueryResponse], error) {
 	return connectCall(ctx, req, a.svc.Query)

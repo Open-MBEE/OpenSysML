@@ -76,6 +76,8 @@ const (
 	// SysMLServiceRunAnalysisProcedure is the fully-qualified name of the SysMLService's RunAnalysis
 	// RPC.
 	SysMLServiceRunAnalysisProcedure = "/sysml.SysMLService/RunAnalysis"
+	// SysMLServiceRunSweepProcedure is the fully-qualified name of the SysMLService's RunSweep RPC.
+	SysMLServiceRunSweepProcedure = "/sysml.SysMLService/RunSweep"
 	// SysMLServiceQueryProcedure is the fully-qualified name of the SysMLService's Query RPC.
 	SysMLServiceQueryProcedure = "/sysml.SysMLService/Query"
 	// SysMLServiceRunDocumentQueryProcedure is the fully-qualified name of the SysMLService's
@@ -127,6 +129,11 @@ type SysMLServiceClient interface {
 	VerifySatisfaction(context.Context, *connect.Request[proto.VerifySatisfactionRequest]) (*connect.Response[proto.VerifySatisfactionResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
+	// Run one analysis case or calc once per row of a parameter sweep, as the
+	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
+	// swept parameter bound to that row's value. Reported as the "verification"
+	// capability.
+	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -247,6 +254,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RunAnalysis")),
 			connect.WithClientOptions(opts...),
 		),
+		runSweep: connect.NewClient[proto.RunSweepRequest, proto.RunSweepResponse](
+			httpClient,
+			baseURL+SysMLServiceRunSweepProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
+			connect.WithClientOptions(opts...),
+		),
 		query: connect.NewClient[proto.QueryRequest, proto.QueryResponse](
 			httpClient,
 			baseURL+SysMLServiceQueryProcedure,
@@ -286,6 +299,7 @@ type sysMLServiceClient struct {
 	verifySatisfaction *connect.Client[proto.VerifySatisfactionRequest, proto.VerifySatisfactionResponse]
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
+	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
 	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
@@ -371,6 +385,11 @@ func (c *sysMLServiceClient) RunAnalysis(ctx context.Context, req *connect.Reque
 	return c.runAnalysis.CallUnary(ctx, req)
 }
 
+// RunSweep calls sysml.SysMLService.RunSweep.
+func (c *sysMLServiceClient) RunSweep(ctx context.Context, req *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
+	return c.runSweep.CallUnary(ctx, req)
+}
+
 // Query calls sysml.SysMLService.Query.
 func (c *sysMLServiceClient) Query(ctx context.Context, req *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error) {
 	return c.query.CallUnary(ctx, req)
@@ -427,6 +446,11 @@ type SysMLServiceHandler interface {
 	VerifySatisfaction(context.Context, *connect.Request[proto.VerifySatisfactionRequest]) (*connect.Response[proto.VerifySatisfactionResponse], error)
 	EvaluateCalc(context.Context, *connect.Request[proto.EvaluateCalcRequest]) (*connect.Response[proto.EvaluateCalcResponse], error)
 	RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error)
+	// Run one analysis case or calc once per row of a parameter sweep, as the
+	// CLI's -sweep and the REPL's %sweep do: each row is an ordinary run with the
+	// swept parameter bound to that row's value. Reported as the "verification"
+	// capability.
+	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -543,6 +567,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RunAnalysis")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceRunSweepHandler := connect.NewUnaryHandler(
+		SysMLServiceRunSweepProcedure,
+		svc.RunSweep,
+		connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceQueryHandler := connect.NewUnaryHandler(
 		SysMLServiceQueryProcedure,
 		svc.Query,
@@ -595,6 +625,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceEvaluateCalcHandler.ServeHTTP(w, r)
 		case SysMLServiceRunAnalysisProcedure:
 			sysMLServiceRunAnalysisHandler.ServeHTTP(w, r)
+		case SysMLServiceRunSweepProcedure:
+			sysMLServiceRunSweepHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
 			sysMLServiceQueryHandler.ServeHTTP(w, r)
 		case SysMLServiceRunDocumentQueryProcedure:
@@ -672,6 +704,10 @@ func (UnimplementedSysMLServiceHandler) EvaluateCalc(context.Context, *connect.R
 
 func (UnimplementedSysMLServiceHandler) RunAnalysis(context.Context, *connect.Request[proto.RunAnalysisRequest]) (*connect.Response[proto.RunAnalysisResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunAnalysis is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunSweep is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) Query(context.Context, *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error) {

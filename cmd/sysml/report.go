@@ -104,6 +104,39 @@ type checkResult struct {
 	Values []namedValue `json:"values"`
 	// Lines is the verdict as the prompt prints it.
 	Lines []string `json:"lines"`
+	// Rows are the runs a sweep made, one per row of its table; `null` for every
+	// other kind of check.
+	Rows []checkRow `json:"rows"`
+}
+
+// checkRow is one run of a sweep in the JSON report.
+type checkRow struct {
+	// Inputs are the parameters the row bound, in the order the ranges were given.
+	Inputs   []namedValue `json:"inputs"`
+	Outputs  []namedValue `json:"outputs"`
+	Verdicts []namedValue `json:"verdicts"`
+	// Milliseconds is the wall time of that run.
+	Milliseconds float64 `json:"milliseconds"`
+	// Error is what stopped the run, empty for one that completed.
+	Error string `json:"error"`
+}
+
+// checkRows converts the runs of a sweep into the reported form.
+func checkRows(rows []repl.VerdictRow) []checkRow {
+	if len(rows) == 0 {
+		return nil
+	}
+	out := make([]checkRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, checkRow{
+			Inputs:       namedValues(row.Inputs),
+			Outputs:      namedValues(row.Outputs),
+			Verdicts:     namedValues(row.Verdicts),
+			Milliseconds: row.Millis,
+			Error:        row.Error,
+		})
+	}
+	return out
 }
 
 func newReporter(asJSON bool) *reporter {
@@ -225,6 +258,7 @@ func (r *reporter) finish() int {
 			Status:  v.Status.String(),
 			Values:  namedValues(v.Values),
 			Lines:   v.Lines,
+			Rows:    checkRows(v.Rows),
 		})
 	}
 	out, err := json.MarshalIndent(r.report, "", "  ")

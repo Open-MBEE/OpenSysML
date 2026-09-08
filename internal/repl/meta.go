@@ -109,6 +109,8 @@ func opensName(sofar string, rest []rune) bool {
 const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
+	cmdSweep          = "%sweep"
+	cmdSamples        = "%samples"
 	cmdRunQuery       = "%run-query"
 	cmdRenderDocument = "%render-document"
 	argName           = "<name>"
@@ -159,6 +161,8 @@ var metaCommandTable = []metaCommand{
 
 	{group: groupBehavioral, name: "%calc", args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{group: groupBehavioral, name: cmdAnalysis, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{group: groupBehavioral, name: cmdSweep, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
+	{group: groupBehavioral, name: cmdSamples, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{group: groupBehavioral, name: cmdRunQuery, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
 	{group: groupBehavioral, name: cmdRenderDocument, args: argName, desc: "compile a document definition, run its queries and print the rendered Markdown"},
 	{group: groupBehavioral, name: "%constraint", args: argName, desc: "evaluate a constraint definition"},
@@ -382,6 +386,16 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{analysisUsage}, false, nil), true
 		}
 		return metaOut(s.doAnalysis(strings.TrimPrefix(strings.TrimSpace(line), cmdAnalysis))), true
+	case cmdSweep:
+		if len(fields) < 2 {
+			return metaOut([]string{sweepUsage}, false, nil), true
+		}
+		return metaOut(s.doSweep(strings.TrimPrefix(strings.TrimSpace(line), cmdSweep))), true
+	case cmdSamples:
+		if len(fields) < 2 {
+			return metaOut([]string{samplesUsage}, false, nil), true
+		}
+		return metaOut(s.doSamples(strings.TrimPrefix(strings.TrimSpace(line), cmdSamples))), true
 	case cmdRunQuery:
 		if len(fields) < 2 {
 			return metaOut([]string{runQueryUsage}, false, nil), true
@@ -1071,6 +1085,7 @@ func (s *Session) doBudget() []string {
 		fmt.Sprintf("  do action steps      %-10d %s", b.MaxDoSteps, runtime.MaxDoStepsEnvVar),
 		fmt.Sprintf("  collection elements  %-10d %s", b.MaxElements, runtime.MaxElementsEnvVar),
 		fmt.Sprintf("  nested calc depth    %-10d %s", b.MaxCalcDepth, runtime.MaxCalcDepthEnvVar),
+		fmt.Sprintf("  sweep runs           %-10d %s", b.MaxSweepRuns, runtime.MaxSweepRunsEnvVar),
 	}
 }
 
