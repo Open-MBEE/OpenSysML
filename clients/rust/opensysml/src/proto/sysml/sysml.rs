@@ -42,6 +42,11 @@ pub struct Verdict {
     /// verdict about the model.
     #[prost(enumeration="FailureReason", tag="9")]
     pub failure_reason: i32,
+    /// FQN of the requirement a "satisfy" verdict asserts satisfied, which is what
+    /// associates it with the verification_verdicts reported for that requirement.
+    /// Empty for every other kind, and for a requirement no FQN names.
+    #[prost(string, tag="10")]
+    pub requirement_id: ::prost::alloc::string::String,
 }
 /// VerifyConstraintRequest asks whether a constraint holds, as %constraint does.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -106,6 +111,11 @@ pub struct VerificationVerdict {
     /// states no roll-up for and which is therefore reported on its own.
     #[prost(bool, tag="4")]
     pub subcase: bool,
+    /// FQN of the requirement this verdict was reported for: the one the case's
+    /// objective verifies. Empty when the case was run for itself rather than for
+    /// a requirement, or when that requirement can be named by no FQN.
+    #[prost(string, tag="5")]
+    pub requirement_id: ::prost::alloc::string::String,
 }
 /// VerifyRequirementResponse carries the verdict.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -152,7 +162,9 @@ pub struct VerifySatisfactionResponse {
     #[prost(enumeration="FailureReason", tag="5")]
     pub failure_reason: i32,
     /// What the body of every verification case verifying a requirement asserted
-    /// as satisfied answered, in the order the assertions were evaluated.
+    /// as satisfied answered, in the order the assertions were evaluated. Each
+    /// names the requirement it was reported for, which the verdict of an
+    /// assertion of that requirement carries as its own requirement_id.
     #[prost(message, repeated, tag="6")]
     pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
 }

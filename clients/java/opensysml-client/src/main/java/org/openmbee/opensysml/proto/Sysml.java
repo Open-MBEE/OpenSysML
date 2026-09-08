@@ -460,376 +460,378 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\013sysml.proto\022\005sysml\"\250\002\n\007Verdict\022\022\n\004kind" +
+      "\n\013sysml.proto\022\005sysml\"\317\002\n\007Verdict\022\022\n\004kind" +
       "\030\001 \001(\tR\004kind\022\035\n\nelement_id\030\002 \001(\tR\telemen" +
       "tId\022\030\n\007element\030\003 \001(\tR\007element\022\024\n\005holds\030\004" +
       " \001(\010R\005holds\022\034\n\tcondition\030\005 \001(\tR\tconditio" +
       "n\022\037\n\013instance_id\030\006 \001(\003R\ninstanceId\022(\n\020in" +
       "stance_type_id\030\007 \001(\tR\016instanceTypeId\022\024\n\005" +
       "error\030\010 \001(\tR\005error\022;\n\016failure_reason\030\t \001" +
-      "(\0162\024.sysml.FailureReasonR\rfailureReason\"" +
-      "\201\001\n\027VerifyConstraintRequest\022\035\n\nmodel_has" +
-      "h\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010s" +
-      "ymbolId\022*\n\021subject_symbol_id\030\003 \001(\tR\017subj" +
-      "ectSymbolId\"\276\001\n\030VerifyConstraintResponse" +
-      "\022(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007verdi" +
-      "ct\022-\n\tinstances\030\002 \003(\0132\017.sysml.InstanceR\t" +
-      "instances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013diagn" +
-      "ostics\030\004 \003(\0132\021.sysml.DiagnosticR\013diagnos" +
-      "tics\"\202\001\n\030VerifyRequirementRequest\022\035\n\nmod" +
-      "el_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 " +
-      "\001(\tR\010symbolId\022*\n\021subject_symbol_id\030\003 \001(\t" +
-      "R\017subjectSymbolId\"t\n\023VerificationVerdict" +
+      "(\0162\024.sysml.FailureReasonR\rfailureReason\022" +
+      "%\n\016requirement_id\030\n \001(\tR\rrequirementId\"\201" +
+      "\001\n\027VerifyConstraintRequest\022\035\n\nmodel_hash" +
+      "\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010sy" +
+      "mbolId\022*\n\021subject_symbol_id\030\003 \001(\tR\017subje" +
+      "ctSymbolId\"\276\001\n\030VerifyConstraintResponse\022" +
+      "(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007verdic" +
+      "t\022-\n\tinstances\030\002 \003(\0132\017.sysml.InstanceR\ti" +
+      "nstances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013diagno" +
+      "stics\030\004 \003(\0132\021.sysml.DiagnosticR\013diagnost" +
+      "ics\"\202\001\n\030VerifyRequirementRequest\022\035\n\nmode" +
+      "l_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001" +
+      "(\tR\010symbolId\022*\n\021subject_symbol_id\030\003 \001(\tR" +
+      "\017subjectSymbolId\"\233\001\n\023VerificationVerdict" +
       "\022\027\n\007case_id\030\001 \001(\tR\006caseId\022\022\n\004kind\030\002 \001(\tR" +
       "\004kind\022\026\n\006detail\030\003 \001(\tR\006detail\022\030\n\007subcase" +
-      "\030\004 \001(\010R\007subcase\"\220\002\n\031VerifyRequirementRes" +
-      "ponse\022(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007" +
-      "verdict\022-\n\tinstances\030\002 \003(\0132\017.sysml.Insta" +
-      "nceR\tinstances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013" +
-      "diagnostics\030\004 \003(\0132\021.sysml.DiagnosticR\013di" +
-      "agnostics\022O\n\025verification_verdicts\030\005 \003(\013" +
-      "2\032.sysml.VerificationVerdictR\024verificati" +
-      "onVerdicts\"W\n\031VerifySatisfactionRequest\022" +
-      "\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol" +
-      "_id\030\002 \001(\tR\010symbolId\"\320\002\n\032VerifySatisfacti" +
-      "onResponse\022*\n\010verdicts\030\001 \003(\0132\016.sysml.Ver" +
-      "dictR\010verdicts\022-\n\tinstances\030\002 \003(\0132\017.sysm" +
-      "l.InstanceR\tinstances\022\024\n\005error\030\003 \001(\tR\005er" +
-      "ror\0223\n\013diagnostics\030\004 \003(\0132\021.sysml.Diagnos" +
-      "ticR\013diagnostics\022;\n\016failure_reason\030\005 \001(\016" +
-      "2\024.sysml.FailureReasonR\rfailureReason\022O\n" +
-      "\025verification_verdicts\030\006 \003(\0132\032.sysml.Ver" +
-      "ificationVerdictR\024verificationVerdicts\"}" +
-      "\n\023EvaluateCalcRequest\022\035\n\nmodel_hash\030\001 \001(" +
+      "\030\004 \001(\010R\007subcase\022%\n\016requirement_id\030\005 \001(\tR" +
+      "\rrequirementId\"\220\002\n\031VerifyRequirementResp" +
+      "onse\022(\n\007verdict\030\001 \001(\0132\016.sysml.VerdictR\007v" +
+      "erdict\022-\n\tinstances\030\002 \003(\0132\017.sysml.Instan" +
+      "ceR\tinstances\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013d" +
+      "iagnostics\030\004 \003(\0132\021.sysml.DiagnosticR\013dia" +
+      "gnostics\022O\n\025verification_verdicts\030\005 \003(\0132" +
+      "\032.sysml.VerificationVerdictR\024verificatio" +
+      "nVerdicts\"W\n\031VerifySatisfactionRequest\022\035" +
+      "\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_" +
+      "id\030\002 \001(\tR\010symbolId\"\320\002\n\032VerifySatisfactio" +
+      "nResponse\022*\n\010verdicts\030\001 \003(\0132\016.sysml.Verd" +
+      "ictR\010verdicts\022-\n\tinstances\030\002 \003(\0132\017.sysml" +
+      ".InstanceR\tinstances\022\024\n\005error\030\003 \001(\tR\005err" +
+      "or\0223\n\013diagnostics\030\004 \003(\0132\021.sysml.Diagnost" +
+      "icR\013diagnostics\022;\n\016failure_reason\030\005 \001(\0162" +
+      "\024.sysml.FailureReasonR\rfailureReason\022O\n\025" +
+      "verification_verdicts\030\006 \003(\0132\032.sysml.Veri" +
+      "ficationVerdictR\024verificationVerdicts\"}\n" +
+      "\023EvaluateCalcRequest\022\035\n\nmodel_hash\030\001 \001(\t" +
+      "R\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolId" +
+      "\022*\n\targuments\030\003 \003(\0132\014.sysml.ValueR\targum" +
+      "ents\"\361\001\n\024EvaluateCalcResponse\022$\n\006result\030" +
+      "\001 \001(\0132\014.sysml.ValueR\006result\022+\n\007outputs\030\002" +
+      " \003(\0132\021.sysml.CalcOutputR\007outputs\022\024\n\005erro" +
+      "r\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004 \003(\0132\021.sy" +
+      "sml.DiagnosticR\013diagnostics\022;\n\016failure_r" +
+      "eason\030\005 \001(\0162\024.sysml.FailureReasonR\rfailu" +
+      "reReason\"D\n\nCalcOutput\022\022\n\004name\030\001 \001(\tR\004na" +
+      "me\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005value\"\321" +
+      "\002\n\022RunAnalysisRequest\022\035\n\nmodel_hash\030\001 \001(" +
       "\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolI" +
-      "d\022*\n\targuments\030\003 \003(\0132\014.sysml.ValueR\targu" +
-      "ments\"\361\001\n\024EvaluateCalcResponse\022$\n\006result" +
-      "\030\001 \001(\0132\014.sysml.ValueR\006result\022+\n\007outputs\030" +
-      "\002 \003(\0132\021.sysml.CalcOutputR\007outputs\022\024\n\005err" +
-      "or\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004 \003(\0132\021.s" +
-      "ysml.DiagnosticR\013diagnostics\022;\n\016failure_" +
-      "reason\030\005 \001(\0162\024.sysml.FailureReasonR\rfail" +
-      "ureReason\"D\n\nCalcOutput\022\022\n\004name\030\001 \001(\tR\004n" +
-      "ame\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005value\"" +
-      "\321\002\n\022RunAnalysisRequest\022\035\n\nmodel_hash\030\001 \001" +
-      "(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbol" +
-      "Id\022*\n\021subject_symbol_id\030\003 \001(\tR\017subjectSy" +
-      "mbolId\022*\n\targuments\030\004 \003(\0132\014.sysml.ValueR" +
-      "\targuments\022V\n\017named_arguments\030\005 \003(\0132-.sy" +
-      "sml.RunAnalysisRequest.NamedArgumentsEnt" +
-      "ryR\016namedArguments\032O\n\023NamedArgumentsEntr" +
-      "y\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sys" +
-      "ml.ValueR\005value:\0028\001\"\366\002\n\023RunAnalysisRespo" +
-      "nse\022+\n\007outputs\030\001 \003(\0132\021.sysml.CalcOutputR" +
-      "\007outputs\022*\n\010verdicts\030\002 \003(\0132\016.sysml.Verdi" +
-      "ctR\010verdicts\022-\n\tinstances\030\003 \003(\0132\017.sysml." +
-      "InstanceR\tinstances\022\024\n\005error\030\004 \001(\tR\005erro" +
-      "r\0223\n\013diagnostics\030\005 \003(\0132\021.sysml.Diagnosti" +
-      "cR\013diagnostics\022;\n\016failure_reason\030\006 \001(\0162\024" +
-      ".sysml.FailureReasonR\rfailureReason\022O\n\025v" +
-      "erification_verdicts\030\007 \003(\0132\032.sysml.Verif" +
-      "icationVerdictR\024verificationVerdicts\"\311\001\n" +
-      "\020ParseFileRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010" +
-      "filePath\022\032\n\007content\030\002 \001(\tH\000R\007content\022%\n\014" +
-      "content_hash\030\003 \001(\tB\002\030\001R\013contentHash\022\032\n\010l" +
-      "anguage\030\004 \001(\tR\010language\022-\n\022strict_confor" +
-      "mance\030\005 \001(\010R\021strictConformanceB\010\n\006source" +
-      "\"\205\001\n\016SourceDocument\022\035\n\tfile_path\030\001 \001(\tH\000" +
-      "R\010filePath\022\032\n\007content\030\002 \001(\tH\000R\007content\022\032" +
-      "\n\010language\030\003 \001(\tR\010language\022\022\n\004name\030\004 \001(\t" +
-      "R\004nameB\010\n\006source\"y\n\023ParseSourcesRequest\022" +
-      "3\n\tdocuments\030\001 \003(\0132\025.sysml.SourceDocumen" +
-      "tR\tdocuments\022-\n\022strict_conformance\030\002 \001(\010" +
-      "R\021strictConformance\"\251\001\n\024ParseSourcesResp" +
-      "onse\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\'\n\005r" +
-      "oots\030\002 \003(\0132\021.sysml.SymbolInfoR\005roots\0223\n\013" +
-      "diagnostics\030\003 \003(\0132\021.sysml.DiagnosticR\013di" +
-      "agnostics\022\024\n\005error\030\004 \001(\tR\005error\"\244\001\n\021Pars" +
-      "eFileResponse\022\035\n\nmodel_hash\030\001 \001(\tR\tmodel" +
-      "Hash\022%\n\004root\030\002 \001(\0132\021.sysml.SymbolInfoR\004r" +
-      "oot\0223\n\013diagnostics\030\003 \003(\0132\021.sysml.Diagnos" +
-      "ticR\013diagnostics\022\024\n\005error\030\004 \001(\tR\005error\"N" +
-      "\n\020GetSymbolRequest\022\035\n\nmodel_hash\030\001 \001(\tR\t" +
-      "modelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolId\"Q" +
-      "\n\016SymbolResponse\022)\n\006symbol\030\001 \001(\0132\021.sysml" +
-      ".SymbolInfoR\006symbol\022\024\n\005error\030\002 \001(\tR\005erro" +
-      "r\"3\n\022DiagnosticsRequest\022\035\n\nmodel_hash\030\001 " +
-      "\001(\tR\tmodelHash\"`\n\023DiagnosticsResponse\0223\n" +
-      "\013diagnostics\030\001 \003(\0132\021.sysml.DiagnosticR\013d" +
-      "iagnostics\022\024\n\005error\030\002 \001(\tR\005error\"\250\001\n\017Eva" +
-      "luateRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelH" +
-      "ash\022\036\n\nexpression\030\002 \001(\tR\nexpression\022*\n\021c" +
-      "ontext_symbol_id\030\003 \001(\tR\017contextSymbolId\022" +
-      "*\n\021subject_symbol_id\030\004 \001(\tR\017subjectSymbo" +
-      "lId\"\203\001\n\020EvaluateResponse\022$\n\006result\030\001 \001(\013" +
-      "2\014.sysml.ValueR\006result\022\024\n\005error\030\002 \001(\tR\005e" +
-      "rror\0223\n\013diagnostics\030\003 \003(\0132\021.sysml.Diagno" +
-      "sticR\013diagnostics\"\357\001\n\010Instance\022\016\n\002id\030\001 \001" +
-      "(\003R\002id\022$\n\016type_symbol_id\030\002 \001(\tR\014typeSymb" +
-      "olId\022I\n\016feature_values\030\004 \003(\0132\".sysml.Ins" +
-      "tance.FeatureValuesEntryR\rfeatureValues\032" +
-      "U\n\022FeatureValuesEntry\022\020\n\003key\030\001 \001(\tR\003key\022" +
-      ")\n\005value\030\002 \001(\0132\023.sysml.FeatureValueR\005val" +
-      "ue:\0028\001J\004\010\003\020\004R\005slots\"\265\001\n\014FeatureValue\022!\n\014" +
-      "feature_name\030\001 \001(\tR\013featureName\022\"\n\005value" +
-      "\030\002 \001(\0132\014.sysml.ValueR\005value\022$\n\006values\030\003 " +
-      "\003(\0132\014.sysml.ValueR\006values\022\"\n\014materialize" +
-      "d\030\004 \001(\010R\014materialized\022\024\n\005error\030\005 \001(\tR\005er" +
-      "ror\"P\n\022InstantiateRequest\022\035\n\nmodel_hash\030" +
-      "\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010sym" +
-      "bolId\"\274\001\n\023InstantiateResponse\022+\n\010instanc" +
-      "e\030\001 \001(\0132\017.sysml.InstanceR\010instance\022\024\n\005er" +
-      "ror\030\002 \001(\tR\005error\0223\n\013diagnostics\030\003 \003(\0132\021." +
-      "sysml.DiagnosticR\013diagnostics\022-\n\tinstanc" +
-      "es\030\004 \003(\0132\017.sysml.InstanceR\tinstances\"\351\001\n" +
-      "\024ExecuteActionRequest\022\035\n\nmodel_hash\030\001 \001(" +
-      "\tR\tmodelHash\022(\n\020action_symbol_id\030\002 \001(\tR\016" +
-      "actionSymbolId\022?\n\006inputs\030\003 \003(\0132\'.sysml.E" +
-      "xecuteActionRequest.InputsEntryR\006inputs\032" +
-      "G\n\013InputsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005valu" +
-      "e\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\361\001\n\025Exe" +
-      "cuteActionResponse\022C\n\007outputs\030\001 \003(\0132).sy" +
-      "sml.ExecuteActionResponse.OutputsEntryR\007" +
-      "outputs\022\024\n\005error\030\002 \001(\tR\005error\0223\n\013diagnos" +
-      "tics\030\003 \003(\0132\021.sysml.DiagnosticR\013diagnosti" +
-      "cs\032H\n\014OutputsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005" +
-      "value\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\203\001\n" +
-      "\023ExecuteStateRequest\022\035\n\nmodel_hash\030\001 \001(\t" +
-      "R\tmodelHash\0225\n\027state_machine_symbol_id\030\002" +
-      " \001(\tR\024stateMachineSymbolId\022\026\n\006events\030\003 \003" +
-      "(\tR\006events\"\253\002\n\024ExecuteStateResponse\022%\n\016s" +
-      "tates_visited\030\001 \003(\tR\rstatesVisited\022R\n\rfi" +
-      "nal_context\030\002 \003(\0132-.sysml.ExecuteStateRe" +
-      "sponse.FinalContextEntryR\014finalContext\022\024" +
-      "\n\005error\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004 \003(" +
-      "\0132\021.sysml.DiagnosticR\013diagnostics\032M\n\021Fin" +
-      "alContextEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005valu" +
-      "e\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\352\001\n\016Con" +
-      "vertRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010filePa" +
-      "th\022\032\n\007content\030\002 \001(\tH\000R\007content\022\037\n\nmodel_" +
-      "hash\030\006 \001(\tH\000R\tmodelHash\022\037\n\013from_format\030\003" +
-      " \001(\tR\nfromFormat\022\033\n\tto_format\030\004 \001(\tR\010toF" +
-      "ormat\0224\n\026tolerate_syntax_errors\030\005 \001(\010R\024t" +
-      "olerateSyntaxErrorsB\010\n\006source\"\211\002\n\017Conver" +
-      "tResponse\022\030\n\007content\030\001 \001(\tR\007content\022\037\n\013f" +
-      "rom_format\030\002 \001(\tR\nfromFormat\022\033\n\tto_forma" +
-      "t\030\003 \001(\tR\010toFormat\022\024\n\005error\030\004 \001(\tR\005error\022" +
-      "3\n\013diagnostics\030\005 \003(\0132\021.sysml.DiagnosticR" +
-      "\013diagnostics\022\"\n\014experimental\030\006 \001(\010R\014expe" +
-      "rimental\022/\n\023experimental_notice\030\007 \001(\tR\022e" +
-      "xperimentalNotice\"h\n\021ApplyEditsRequest\022\035" +
-      "\n\nmodel_hash\030\001 \001(\tR\tmodelHash\0224\n\noperati" +
-      "ons\030\002 \003(\0132\024.sysml.EditOperationR\noperati" +
-      "ons\"\341\001\n\rEditOperation\0222\n\tset_value\030\001 \001(\013" +
-      "2\023.sysml.SetValueEditH\000R\010setValue\022+\n\006ren" +
-      "ame\030\002 \001(\0132\021.sysml.RenameEditH\000R\006rename\0225" +
-      "\n\nadd_member\030\003 \001(\0132\024.sysml.AddMemberEdit" +
-      "H\000R\taddMember\022+\n\006delete\030\004 \001(\0132\021.sysml.De" +
-      "leteEditH\000R\006deleteB\013\n\toperation\"\275\001\n\rAddM" +
-      "emberEdit\022\024\n\005owner\030\001 \001(\tR\005owner\022\022\n\004kind\030" +
-      "\002 \001(\tR\004kind\022\022\n\004name\030\003 \001(\tR\004name\022\022\n\004type\030" +
-      "\004 \001(\tR\004type\022\"\n\014multiplicity\030\005 \001(\tR\014multi" +
-      "plicity\022\024\n\005value\030\006 \001(\tR\005value\022 \n\013special" +
-      "izes\030\007 \003(\tR\013specializes\">\n\nDeleteEdit\022\026\n" +
-      "\006target\030\001 \001(\tR\006target\022\030\n\007cascade\030\002 \001(\010R\007" +
-      "cascade\"<\n\014SetValueEdit\022\026\n\006target\030\001 \001(\tR" +
-      "\006target\022\024\n\005value\030\002 \001(\tR\005value\"?\n\nRenameE" +
-      "dit\022\026\n\006target\030\001 \001(\tR\006target\022\031\n\010new_name\030" +
-      "\002 \001(\tR\007newName\"\204\002\n\022ApplyEditsResponse\022\030\n" +
-      "\007content\030\001 \001(\tR\007content\022,\n\007applied\030\002 \003(\013" +
-      "2\022.sysml.AppliedEditR\007applied\022\024\n\005error\030\003" +
-      " \001(\tR\005error\022,\n\007failure\030\004 \001(\0162\022.sysml.Edi" +
-      "tFailureR\007failure\0223\n\013diagnostics\030\005 \003(\0132\021" +
-      ".sysml.DiagnosticR\013diagnostics\022-\n\022referr" +
-      "ing_elements\030\006 \003(\tR\021referringElements\"\264\001" +
-      "\n\013AppliedEdit\022\'\n\017operation_index\030\001 \001(\005R\016" +
-      "operationIndex\022\026\n\006target\030\002 \001(\tR\006target\022\026" +
-      "\n\006offset\030\003 \001(\005R\006offset\022\026\n\006length\030\004 \001(\005R\006" +
-      "length\022\031\n\010old_text\030\005 \001(\tR\007oldText\022\031\n\010new" +
-      "_text\030\006 \001(\tR\007newText\"\375\003\n\nSymbolInfo\022\016\n\002i" +
-      "d\030\001 \001(\tR\002id\022\022\n\004name\030\002 \001(\tR\004name\022\022\n\004kind\030" +
-      "\003 \001(\tR\004kind\022;\n\010metadata\030\004 \003(\0132\037.sysml.Sy" +
-      "mbolInfo.MetadataEntryR\010metadata\022\033\n\tchil" +
-      "d_ids\030\005 \003(\tR\010childIds\0224\n\nattributes\030\006 \003(" +
-      "\0132\024.sysml.AttributeInfoR\nattributes\022,\n\tt" +
-      "ype_info\030\007 \001(\0132\017.sysml.TypeInfoR\010typeInf" +
-      "o\022;\n\014multiplicity\030\010 \001(\0132\027.sysml.Multipli" +
-      "cityInfoR\014multiplicity\022?\n\017specialization" +
-      "s\030\t \003(\0132\025.sysml.SpecializationR\017speciali" +
-      "zations\022>\n\033withheld_library_attributes\030\n" +
-      " \001(\005R\031withheldLibraryAttributes\032;\n\rMetad" +
-      "ataEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(" +
-      "\tR\005value:\0028\001\"~\n\016Specialization\022\022\n\004kind\030\001" +
-      " \001(\tR\004kind\022\032\n\010declared\030\002 \001(\tR\010declared\022\033" +
-      "\n\ttarget_id\030\003 \001(\tR\010targetId\022\037\n\013target_ki" +
-      "nd\030\004 \001(\tR\ntargetKind\"\345\001\n\010TypeInfo\022\032\n\010dec" +
-      "lared\030\001 \001(\tR\010declared\022\037\n\013resolved_id\030\002 \001" +
-      "(\tR\nresolvedId\022#\n\rresolved_kind\030\003 \001(\tR\014r" +
-      "esolvedKind\022\034\n\tprimitive\030\004 \001(\tR\tprimitiv" +
-      "e\022)\n\020primitive_source\030\005 \001(\tR\017primitiveSo" +
-      "urce\022\032\n\010quantity\030\006 \001(\010R\010quantity\022\022\n\004unit" +
-      "\030\007 \001(\tR\004unit\">\n\020MultiplicityInfo\022\024\n\005lowe" +
-      "r\030\001 \001(\tR\005lower\022\024\n\005upper\030\002 \001(\tR\005upper\"o\n\r" +
-      "AttributeInfo\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004typ" +
-      "e\030\002 \001(\tR\004type\022\"\n\005value\030\003 \001(\0132\014.sysml.Val" +
-      "ueR\005value\022\022\n\004unit\030\004 \001(\tR\004unit\"\201\005\n\005Value\022" +
-      "\035\n\tint_value\030\001 \001(\003H\000R\010intValue\022\037\n\nreal_v" +
-      "alue\030\002 \001(\001H\000R\trealValue\022\037\n\nbool_value\030\003 " +
-      "\001(\010H\000R\tboolValue\022#\n\014string_value\030\004 \001(\tH\000" +
-      "R\013stringValue\022!\n\013instance_id\030\005 \001(\003H\000R\nin" +
-      "stanceId\0222\n\010sequence\030\006 \001(\0132\024.sysml.Value" +
-      "SequenceH\000R\010sequence\022\024\n\004null\030\007 \001(\tH\000R\004nu" +
-      "ll\022-\n\010quantity\030\010 \001(\0132\017.sysml.QuantityH\000R" +
-      "\010quantity\0227\n\014enum_literal\030\t \001(\0132\022.sysml." +
-      "EnumLiteralH\000R\013enumLiteral\022\026\n\005unset\030\n \001(" +
-      "\010H\000R\005unset\022*\n\007complex\030\013 \001(\0132\016.sysml.Comp" +
-      "lexH\000R\007complex\022$\n\005array\030\014 \001(\0132\014.sysml.Ar" +
-      "rayH\000R\005array\022\'\n\006vector\030\r \001(\0132\r.sysml.Vec" +
-      "torH\000R\006vector\022@\n\017vector_quantity\030\016 \001(\0132\025" +
-      ".sysml.VectorQuantityH\000R\016vectorQuantity\022" +
-      "@\n\017measurement_ref\030\017 \001(\0132\025.sysml.Measure" +
-      "mentRefH\000R\016measurementRefB\006\n\004kind\"Q\n\005Arr" +
-      "ay\022\036\n\ndimensions\030\001 \003(\003R\ndimensions\022(\n\010el" +
-      "ements\030\002 \003(\0132\014.sysml.ValueR\010elements\"6\n\006" +
-      "Vector\022,\n\ncomponents\030\001 \003(\0132\014.sysml.Value" +
-      "R\ncomponents\"A\n\016VectorQuantity\022/\n\ncompon" +
-      "ents\030\001 \003(\0132\017.sysml.QuantityR\ncomponents\"" +
-      ";\n\007Complex\022\022\n\004real\030\001 \001(\001R\004real\022\034\n\timagin" +
-      "ary\030\002 \001(\001R\timaginary\"g\n\013EnumLiteral\022\035\n\nl" +
-      "iteral_id\030\001 \001(\tR\tliteralId\022%\n\016enumeratio" +
-      "n_id\030\002 \001(\tR\renumerationId\022\022\n\004name\030\003 \001(\tR" +
-      "\004name\"9\n\rValueSequence\022(\n\010elements\030\001 \003(\013" +
-      "2\014.sysml.ValueR\010elements\"\251\001\n\010Quantity\022%\n" +
-      "\rint_magnitude\030\001 \001(\003H\000R\014intMagnitude\022\'\n\016" +
-      "real_magnitude\030\002 \001(\001H\000R\rrealMagnitude\022\022\n" +
-      "\004unit\030\003 \001(\tR\004unit\022,\n\tunit_term\030\004 \001(\0132\017.s" +
-      "ysml.UnitTermR\010unitTermB\013\n\tmagnitude\"k\n\016" +
-      "MeasurementRef\022\022\n\004unit\030\001 \001(\tR\004unit\022,\n\tun" +
-      "it_term\030\002 \001(\0132\017.sysml.UnitTermR\010unitTerm" +
-      "\022\027\n\007unit_id\030\003 \001(\tR\006unitId\"q\n\010UnitTerm\022\033\n" +
-      "\tscale_num\030\001 \001(\001R\010scaleNum\022\033\n\tscale_den\030" +
-      "\002 \001(\001R\010scaleDen\022+\n\007factors\030\003 \003(\0132\021.sysml" +
-      ".UnitFactorR\007factors\"A\n\nUnitFactor\022\027\n\007un" +
-      "it_id\030\001 \001(\tR\006unitId\022\032\n\010exponent\030\002 \001(\001R\010e" +
-      "xponent\"c\n\nDiagnostic\022\032\n\010severity\030\001 \001(\tR" +
-      "\010severity\022\030\n\007message\030\002 \001(\tR\007message\022\037\n\004s" +
-      "pan\030\003 \001(\0132\013.sysml.SpanR\004span\"\212\001\n\004Span\022\022\n" +
-      "\004file\030\001 \001(\tR\004file\022\035\n\nstart_line\030\002 \001(\005R\ts" +
-      "tartLine\022\033\n\tstart_col\030\003 \001(\005R\010startCol\022\031\n" +
-      "\010end_line\030\004 \001(\005R\007endLine\022\027\n\007end_col\030\005 \001(" +
-      "\005R\006endCol\"\023\n\021ServerInfoRequest\"R\n\022Server" +
-      "InfoResponse\022\030\n\007version\030\001 \001(\tR\007version\022\"" +
-      "\n\014capabilities\030\002 \003(\tR\014capabilities\"p\n\014Qu" +
-      "eryRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHas" +
-      "h\022\"\n\005query\030\002 \001(\0132\014.sysml.QueryR\005query\022\035\n" +
-      "\noslc_query\030\003 \001(\tR\toslcQuery\"F\n\rQueryRes" +
-      "ponse\0225\n\010elements\030\001 \003(\0132\031.sysml.QueryRes" +
-      "ultElementR\010elements\"^\n\005Query\022\024\n\005scope\030\001" +
-      " \003(\tR\005scope\022\026\n\006select\030\002 \003(\tR\006select\022\'\n\005w" +
-      "here\030\003 \001(\0132\021.sysml.ConstraintR\005where\"\222\001\n" +
-      "\nConstraint\022:\n\tprimitive\030\001 \001(\0132\032.sysml.P" +
-      "rimitiveConstraintH\000R\tprimitive\022:\n\tcompo" +
-      "site\030\002 \001(\0132\032.sysml.CompositeConstraintH\000" +
-      "R\tcompositeB\014\n\nconstraint\"\227\001\n\023PrimitiveC" +
-      "onstraint\022\030\n\007inverse\030\001 \001(\010R\007inverse\022\032\n\010p" +
-      "roperty\030\002 \001(\tR\010property\0224\n\010operator\030\003 \001(" +
-      "\0162\030.sysml.PrimitiveOperatorR\010operator\022\024\n" +
-      "\005value\030\004 \003(\tR\005value\"~\n\023CompositeConstrai" +
-      "nt\0224\n\010operator\030\001 \001(\0162\030.sysml.CompositeOp" +
-      "eratorR\010operator\0221\n\nconstraint\030\002 \003(\0132\021.s" +
-      "ysml.ConstraintR\nconstraint\"\302\001\n\022QueryRes" +
-      "ultElement\022\016\n\002id\030\001 \001(\tR\002id\022\022\n\004type\030\002 \001(\t" +
-      "R\004type\022I\n\nproperties\030\003 \003(\0132).sysml.Query" +
-      "ResultElement.PropertiesEntryR\npropertie" +
-      "s\032=\n\017PropertiesEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024" +
-      "\n\005value\030\002 \001(\tR\005value:\0028\001\"\214\001\n\027RunDocument" +
-      "QueryRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelH" +
-      "ash\022\031\n\010query_id\030\002 \001(\tR\007queryId\0227\n\010bindin" +
-      "gs\030\003 \003(\0132\033.sysml.DocumentQueryBindingR\010b" +
-      "indings\"b\n\024DocumentQueryBinding\022\034\n\tparam" +
-      "eter\030\001 \001(\tR\tparameter\022,\n\006values\030\002 \003(\0132\024." +
-      "sysml.DocumentValueR\006values\"\256\002\n\rDocument" +
-      "Value\022\037\n\nelement_id\030\001 \001(\tH\000R\telementId\022#" +
-      "\n\014string_value\030\002 \001(\tH\000R\013stringValue\022\035\n\ti" +
-      "nt_value\030\003 \001(\003H\000R\010intValue\022\037\n\nreal_value" +
-      "\030\004 \001(\001H\000R\trealValue\022\037\n\nbool_value\030\005 \001(\010H" +
-      "\000R\tboolValue\022\034\n\010infinity\030\006 \001(\010H\000R\010infini" +
-      "ty\022-\n\010quantity\030\010 \001(\0132\017.sysml.QuantityH\000R" +
-      "\010quantity\022!\n\014element_type\030\007 \001(\tR\013element" +
-      "TypeB\006\n\004kind\")\n\023DocumentQueryColumn\022\022\n\004n" +
-      "ame\030\001 \001(\tR\004name\"A\n\021DocumentQueryCell\022,\n\006" +
-      "values\030\001 \003(\0132\024.sysml.DocumentValueR\006valu" +
-      "es\"r\n\020DocumentQueryRow\022.\n\007element\030\001 \001(\0132" +
-      "\024.sysml.DocumentValueR\007element\022.\n\005cells\030" +
-      "\002 \003(\0132\030.sysml.DocumentQueryCellR\005cells\"}" +
-      "\n\030RunDocumentQueryResponse\0224\n\007columns\030\001 " +
-      "\003(\0132\032.sysml.DocumentQueryColumnR\007columns" +
-      "\022+\n\004rows\030\002 \003(\0132\027.sysml.DocumentQueryRowR" +
-      "\004rows\"W\n\025RenderDocumentRequest\022\035\n\nmodel_" +
-      "hash\030\001 \001(\tR\tmodelHash\022\037\n\013document_id\030\002 \001" +
-      "(\tR\ndocumentId\"4\n\026RenderDocumentResponse" +
-      "\022\032\n\010markdown\030\001 \001(\tR\010markdown*\223\001\n\rFailure" +
-      "Reason\022\036\n\032FAILURE_REASON_UNSPECIFIED\020\000\022\035" +
-      "\n\031FAILURE_REASON_EVALUATION\020\001\022\035\n\031FAILURE" +
-      "_REASON_WRONG_KIND\020\002\022$\n FAILURE_REASON_A" +
-      "MBIGUOUS_SUBJECT\020\003*\235\004\n\013EditFailure\022\034\n\030ED" +
-      "IT_FAILURE_UNSPECIFIED\020\000\022\036\n\032EDIT_FAILURE" +
-      "_NO_OPERATIONS\020\001\022\037\n\033EDIT_FAILURE_UNKNOWN" +
-      "_TARGET\020\002\022!\n\035EDIT_FAILURE_AMBIGUOUS_TARG" +
-      "ET\020\003\022\033\n\027EDIT_FAILURE_NOT_VALUED\020\004\022\036\n\032EDI" +
-      "T_FAILURE_INVALID_VALUE\020\005\022\035\n\031EDIT_FAILUR" +
-      "E_INVALID_NAME\020\006\022\032\n\026EDIT_FAILURE_NOT_NAM" +
-      "ED\020\007\022\"\n\036EDIT_FAILURE_RENAME_REFERENCED\020\010" +
-      "\022\"\n\036EDIT_FAILURE_OVERLAPPING_EDITS\020\t\022\037\n\033" +
-      "EDIT_FAILURE_RESULT_INVALID\020\n\022\036\n\032EDIT_FA" +
-      "ILURE_OWNER_UNKNOWN\020\013\022$\n EDIT_FAILURE_OW" +
-      "NER_NOT_NAMESPACE\020\014\022\035\n\031EDIT_FAILURE_ILLE" +
-      "GAL_KIND\020\r\022\"\n\036EDIT_FAILURE_MEMBER_NAME_T" +
-      "AKEN\020\016\022\"\n\036EDIT_FAILURE_DELETE_REFERENCED" +
-      "\020\017*\222\001\n\021PrimitiveOperator\022\"\n\036PRIMITIVE_OP" +
-      "ERATOR_UNSPECIFIED\020\000\022\034\n\030PRIMITIVE_OPERAT" +
-      "OR_EQUAL\020\001\022\036\n\032PRIMITIVE_OPERATOR_GREATER" +
-      "\020\002\022\033\n\027PRIMITIVE_OPERATOR_LESS\020\003*n\n\021Compo" +
-      "siteOperator\022\"\n\036COMPOSITE_OPERATOR_UNSPE" +
-      "CIFIED\020\000\022\032\n\026COMPOSITE_OPERATOR_AND\020\001\022\031\n\025" +
-      "COMPOSITE_OPERATOR_OR\020\0022\347\n\n\014SysMLService" +
-      "\022D\n\rGetServerInfo\022\030.sysml.ServerInfoRequ" +
-      "est\032\031.sysml.ServerInfoResponse\022>\n\tParseF" +
-      "ile\022\027.sysml.ParseFileRequest\032\030.sysml.Par" +
-      "seFileResponse\022G\n\014ParseSources\022\032.sysml.P" +
-      "arseSourcesRequest\032\033.sysml.ParseSourcesR" +
-      "esponse\022;\n\tGetSymbol\022\027.sysml.GetSymbolRe" +
-      "quest\032\025.sysml.SymbolResponse\022G\n\016GetDiagn" +
-      "ostics\022\031.sysml.DiagnosticsRequest\032\032.sysm" +
-      "l.DiagnosticsResponse\022;\n\010Evaluate\022\026.sysm" +
-      "l.EvaluateRequest\032\027.sysml.EvaluateRespon" +
-      "se\022D\n\013Instantiate\022\031.sysml.InstantiateReq" +
-      "uest\032\032.sysml.InstantiateResponse\022J\n\rExec" +
-      "uteAction\022\033.sysml.ExecuteActionRequest\032\034" +
-      ".sysml.ExecuteActionResponse\022G\n\014ExecuteS" +
-      "tate\022\032.sysml.ExecuteStateRequest\032\033.sysml" +
-      ".ExecuteStateResponse\0228\n\007Convert\022\025.sysml" +
-      ".ConvertRequest\032\026.sysml.ConvertResponse\022" +
-      "A\n\nApplyEdits\022\030.sysml.ApplyEditsRequest\032" +
-      "\031.sysml.ApplyEditsResponse\022S\n\020VerifyCons" +
-      "traint\022\036.sysml.VerifyConstraintRequest\032\037" +
-      ".sysml.VerifyConstraintResponse\022V\n\021Verif" +
-      "yRequirement\022\037.sysml.VerifyRequirementRe" +
-      "quest\032 .sysml.VerifyRequirementResponse\022" +
-      "Y\n\022VerifySatisfaction\022 .sysml.VerifySati" +
-      "sfactionRequest\032!.sysml.VerifySatisfacti" +
-      "onResponse\022G\n\014EvaluateCalc\022\032.sysml.Evalu" +
-      "ateCalcRequest\032\033.sysml.EvaluateCalcRespo" +
-      "nse\022D\n\013RunAnalysis\022\031.sysml.RunAnalysisRe" +
-      "quest\032\032.sysml.RunAnalysisResponse\0222\n\005Que" +
-      "ry\022\023.sysml.QueryRequest\032\024.sysml.QueryRes" +
-      "ponse\022S\n\020RunDocumentQuery\022\036.sysml.RunDoc" +
-      "umentQueryRequest\032\037.sysml.RunDocumentQue" +
-      "ryResponse\022M\n\016RenderDocument\022\034.sysml.Ren" +
-      "derDocumentRequest\032\035.sysml.RenderDocumen" +
-      "tResponseBJ\n\034org.openmbee.opensysml.prot" +
-      "oP\001Z(github.com/Open-MBEE/OpenSysML/api/" +
-      "protob\006proto3"
+      "d\022*\n\021subject_symbol_id\030\003 \001(\tR\017subjectSym" +
+      "bolId\022*\n\targuments\030\004 \003(\0132\014.sysml.ValueR\t" +
+      "arguments\022V\n\017named_arguments\030\005 \003(\0132-.sys" +
+      "ml.RunAnalysisRequest.NamedArgumentsEntr" +
+      "yR\016namedArguments\032O\n\023NamedArgumentsEntry" +
+      "\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysm" +
+      "l.ValueR\005value:\0028\001\"\366\002\n\023RunAnalysisRespon" +
+      "se\022+\n\007outputs\030\001 \003(\0132\021.sysml.CalcOutputR\007" +
+      "outputs\022*\n\010verdicts\030\002 \003(\0132\016.sysml.Verdic" +
+      "tR\010verdicts\022-\n\tinstances\030\003 \003(\0132\017.sysml.I" +
+      "nstanceR\tinstances\022\024\n\005error\030\004 \001(\tR\005error" +
+      "\0223\n\013diagnostics\030\005 \003(\0132\021.sysml.Diagnostic" +
+      "R\013diagnostics\022;\n\016failure_reason\030\006 \001(\0162\024." +
+      "sysml.FailureReasonR\rfailureReason\022O\n\025ve" +
+      "rification_verdicts\030\007 \003(\0132\032.sysml.Verifi" +
+      "cationVerdictR\024verificationVerdicts\"\311\001\n\020" +
+      "ParseFileRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010f" +
+      "ilePath\022\032\n\007content\030\002 \001(\tH\000R\007content\022%\n\014c" +
+      "ontent_hash\030\003 \001(\tB\002\030\001R\013contentHash\022\032\n\010la" +
+      "nguage\030\004 \001(\tR\010language\022-\n\022strict_conform" +
+      "ance\030\005 \001(\010R\021strictConformanceB\010\n\006source\"" +
+      "\205\001\n\016SourceDocument\022\035\n\tfile_path\030\001 \001(\tH\000R" +
+      "\010filePath\022\032\n\007content\030\002 \001(\tH\000R\007content\022\032\n" +
+      "\010language\030\003 \001(\tR\010language\022\022\n\004name\030\004 \001(\tR" +
+      "\004nameB\010\n\006source\"y\n\023ParseSourcesRequest\0223" +
+      "\n\tdocuments\030\001 \003(\0132\025.sysml.SourceDocument" +
+      "R\tdocuments\022-\n\022strict_conformance\030\002 \001(\010R" +
+      "\021strictConformance\"\251\001\n\024ParseSourcesRespo" +
+      "nse\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\'\n\005ro" +
+      "ots\030\002 \003(\0132\021.sysml.SymbolInfoR\005roots\0223\n\013d" +
+      "iagnostics\030\003 \003(\0132\021.sysml.DiagnosticR\013dia" +
+      "gnostics\022\024\n\005error\030\004 \001(\tR\005error\"\244\001\n\021Parse" +
+      "FileResponse\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelH" +
+      "ash\022%\n\004root\030\002 \001(\0132\021.sysml.SymbolInfoR\004ro" +
+      "ot\0223\n\013diagnostics\030\003 \003(\0132\021.sysml.Diagnost" +
+      "icR\013diagnostics\022\024\n\005error\030\004 \001(\tR\005error\"N\n" +
+      "\020GetSymbolRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tm" +
+      "odelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolId\"Q\n" +
+      "\016SymbolResponse\022)\n\006symbol\030\001 \001(\0132\021.sysml." +
+      "SymbolInfoR\006symbol\022\024\n\005error\030\002 \001(\tR\005error" +
+      "\"3\n\022DiagnosticsRequest\022\035\n\nmodel_hash\030\001 \001" +
+      "(\tR\tmodelHash\"`\n\023DiagnosticsResponse\0223\n\013" +
+      "diagnostics\030\001 \003(\0132\021.sysml.DiagnosticR\013di" +
+      "agnostics\022\024\n\005error\030\002 \001(\tR\005error\"\250\001\n\017Eval" +
+      "uateRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHa" +
+      "sh\022\036\n\nexpression\030\002 \001(\tR\nexpression\022*\n\021co" +
+      "ntext_symbol_id\030\003 \001(\tR\017contextSymbolId\022*" +
+      "\n\021subject_symbol_id\030\004 \001(\tR\017subjectSymbol" +
+      "Id\"\203\001\n\020EvaluateResponse\022$\n\006result\030\001 \001(\0132" +
+      "\014.sysml.ValueR\006result\022\024\n\005error\030\002 \001(\tR\005er" +
+      "ror\0223\n\013diagnostics\030\003 \003(\0132\021.sysml.Diagnos" +
+      "ticR\013diagnostics\"\357\001\n\010Instance\022\016\n\002id\030\001 \001(" +
+      "\003R\002id\022$\n\016type_symbol_id\030\002 \001(\tR\014typeSymbo" +
+      "lId\022I\n\016feature_values\030\004 \003(\0132\".sysml.Inst" +
+      "ance.FeatureValuesEntryR\rfeatureValues\032U" +
+      "\n\022FeatureValuesEntry\022\020\n\003key\030\001 \001(\tR\003key\022)" +
+      "\n\005value\030\002 \001(\0132\023.sysml.FeatureValueR\005valu" +
+      "e:\0028\001J\004\010\003\020\004R\005slots\"\265\001\n\014FeatureValue\022!\n\014f" +
+      "eature_name\030\001 \001(\tR\013featureName\022\"\n\005value\030" +
+      "\002 \001(\0132\014.sysml.ValueR\005value\022$\n\006values\030\003 \003" +
+      "(\0132\014.sysml.ValueR\006values\022\"\n\014materialized" +
+      "\030\004 \001(\010R\014materialized\022\024\n\005error\030\005 \001(\tR\005err" +
+      "or\"P\n\022InstantiateRequest\022\035\n\nmodel_hash\030\001" +
+      " \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002 \001(\tR\010symb" +
+      "olId\"\274\001\n\023InstantiateResponse\022+\n\010instance" +
+      "\030\001 \001(\0132\017.sysml.InstanceR\010instance\022\024\n\005err" +
+      "or\030\002 \001(\tR\005error\0223\n\013diagnostics\030\003 \003(\0132\021.s" +
+      "ysml.DiagnosticR\013diagnostics\022-\n\tinstance" +
+      "s\030\004 \003(\0132\017.sysml.InstanceR\tinstances\"\351\001\n\024" +
+      "ExecuteActionRequest\022\035\n\nmodel_hash\030\001 \001(\t" +
+      "R\tmodelHash\022(\n\020action_symbol_id\030\002 \001(\tR\016a" +
+      "ctionSymbolId\022?\n\006inputs\030\003 \003(\0132\'.sysml.Ex" +
+      "ecuteActionRequest.InputsEntryR\006inputs\032G" +
+      "\n\013InputsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value" +
+      "\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\361\001\n\025Exec" +
+      "uteActionResponse\022C\n\007outputs\030\001 \003(\0132).sys" +
+      "ml.ExecuteActionResponse.OutputsEntryR\007o" +
+      "utputs\022\024\n\005error\030\002 \001(\tR\005error\0223\n\013diagnost" +
+      "ics\030\003 \003(\0132\021.sysml.DiagnosticR\013diagnostic" +
+      "s\032H\n\014OutputsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005v" +
+      "alue\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\203\001\n\023" +
+      "ExecuteStateRequest\022\035\n\nmodel_hash\030\001 \001(\tR" +
+      "\tmodelHash\0225\n\027state_machine_symbol_id\030\002 " +
+      "\001(\tR\024stateMachineSymbolId\022\026\n\006events\030\003 \003(" +
+      "\tR\006events\"\253\002\n\024ExecuteStateResponse\022%\n\016st" +
+      "ates_visited\030\001 \003(\tR\rstatesVisited\022R\n\rfin" +
+      "al_context\030\002 \003(\0132-.sysml.ExecuteStateRes" +
+      "ponse.FinalContextEntryR\014finalContext\022\024\n" +
+      "\005error\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004 \003(\013" +
+      "2\021.sysml.DiagnosticR\013diagnostics\032M\n\021Fina" +
+      "lContextEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value" +
+      "\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\352\001\n\016Conv" +
+      "ertRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010filePat" +
+      "h\022\032\n\007content\030\002 \001(\tH\000R\007content\022\037\n\nmodel_h" +
+      "ash\030\006 \001(\tH\000R\tmodelHash\022\037\n\013from_format\030\003 " +
+      "\001(\tR\nfromFormat\022\033\n\tto_format\030\004 \001(\tR\010toFo" +
+      "rmat\0224\n\026tolerate_syntax_errors\030\005 \001(\010R\024to" +
+      "lerateSyntaxErrorsB\010\n\006source\"\211\002\n\017Convert" +
+      "Response\022\030\n\007content\030\001 \001(\tR\007content\022\037\n\013fr" +
+      "om_format\030\002 \001(\tR\nfromFormat\022\033\n\tto_format" +
+      "\030\003 \001(\tR\010toFormat\022\024\n\005error\030\004 \001(\tR\005error\0223" +
+      "\n\013diagnostics\030\005 \003(\0132\021.sysml.DiagnosticR\013" +
+      "diagnostics\022\"\n\014experimental\030\006 \001(\010R\014exper" +
+      "imental\022/\n\023experimental_notice\030\007 \001(\tR\022ex" +
+      "perimentalNotice\"h\n\021ApplyEditsRequest\022\035\n" +
+      "\nmodel_hash\030\001 \001(\tR\tmodelHash\0224\n\noperatio" +
+      "ns\030\002 \003(\0132\024.sysml.EditOperationR\noperatio" +
+      "ns\"\341\001\n\rEditOperation\0222\n\tset_value\030\001 \001(\0132" +
+      "\023.sysml.SetValueEditH\000R\010setValue\022+\n\006rena" +
+      "me\030\002 \001(\0132\021.sysml.RenameEditH\000R\006rename\0225\n" +
+      "\nadd_member\030\003 \001(\0132\024.sysml.AddMemberEditH" +
+      "\000R\taddMember\022+\n\006delete\030\004 \001(\0132\021.sysml.Del" +
+      "eteEditH\000R\006deleteB\013\n\toperation\"\275\001\n\rAddMe" +
+      "mberEdit\022\024\n\005owner\030\001 \001(\tR\005owner\022\022\n\004kind\030\002" +
+      " \001(\tR\004kind\022\022\n\004name\030\003 \001(\tR\004name\022\022\n\004type\030\004" +
+      " \001(\tR\004type\022\"\n\014multiplicity\030\005 \001(\tR\014multip" +
+      "licity\022\024\n\005value\030\006 \001(\tR\005value\022 \n\013speciali" +
+      "zes\030\007 \003(\tR\013specializes\">\n\nDeleteEdit\022\026\n\006" +
+      "target\030\001 \001(\tR\006target\022\030\n\007cascade\030\002 \001(\010R\007c" +
+      "ascade\"<\n\014SetValueEdit\022\026\n\006target\030\001 \001(\tR\006" +
+      "target\022\024\n\005value\030\002 \001(\tR\005value\"?\n\nRenameEd" +
+      "it\022\026\n\006target\030\001 \001(\tR\006target\022\031\n\010new_name\030\002" +
+      " \001(\tR\007newName\"\204\002\n\022ApplyEditsResponse\022\030\n\007" +
+      "content\030\001 \001(\tR\007content\022,\n\007applied\030\002 \003(\0132" +
+      "\022.sysml.AppliedEditR\007applied\022\024\n\005error\030\003 " +
+      "\001(\tR\005error\022,\n\007failure\030\004 \001(\0162\022.sysml.Edit" +
+      "FailureR\007failure\0223\n\013diagnostics\030\005 \003(\0132\021." +
+      "sysml.DiagnosticR\013diagnostics\022-\n\022referri" +
+      "ng_elements\030\006 \003(\tR\021referringElements\"\264\001\n" +
+      "\013AppliedEdit\022\'\n\017operation_index\030\001 \001(\005R\016o" +
+      "perationIndex\022\026\n\006target\030\002 \001(\tR\006target\022\026\n" +
+      "\006offset\030\003 \001(\005R\006offset\022\026\n\006length\030\004 \001(\005R\006l" +
+      "ength\022\031\n\010old_text\030\005 \001(\tR\007oldText\022\031\n\010new_" +
+      "text\030\006 \001(\tR\007newText\"\375\003\n\nSymbolInfo\022\016\n\002id" +
+      "\030\001 \001(\tR\002id\022\022\n\004name\030\002 \001(\tR\004name\022\022\n\004kind\030\003" +
+      " \001(\tR\004kind\022;\n\010metadata\030\004 \003(\0132\037.sysml.Sym" +
+      "bolInfo.MetadataEntryR\010metadata\022\033\n\tchild" +
+      "_ids\030\005 \003(\tR\010childIds\0224\n\nattributes\030\006 \003(\013" +
+      "2\024.sysml.AttributeInfoR\nattributes\022,\n\tty" +
+      "pe_info\030\007 \001(\0132\017.sysml.TypeInfoR\010typeInfo" +
+      "\022;\n\014multiplicity\030\010 \001(\0132\027.sysml.Multiplic" +
+      "ityInfoR\014multiplicity\022?\n\017specializations" +
+      "\030\t \003(\0132\025.sysml.SpecializationR\017specializ" +
+      "ations\022>\n\033withheld_library_attributes\030\n " +
+      "\001(\005R\031withheldLibraryAttributes\032;\n\rMetada" +
+      "taEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\t" +
+      "R\005value:\0028\001\"~\n\016Specialization\022\022\n\004kind\030\001 " +
+      "\001(\tR\004kind\022\032\n\010declared\030\002 \001(\tR\010declared\022\033\n" +
+      "\ttarget_id\030\003 \001(\tR\010targetId\022\037\n\013target_kin" +
+      "d\030\004 \001(\tR\ntargetKind\"\345\001\n\010TypeInfo\022\032\n\010decl" +
+      "ared\030\001 \001(\tR\010declared\022\037\n\013resolved_id\030\002 \001(" +
+      "\tR\nresolvedId\022#\n\rresolved_kind\030\003 \001(\tR\014re" +
+      "solvedKind\022\034\n\tprimitive\030\004 \001(\tR\tprimitive" +
+      "\022)\n\020primitive_source\030\005 \001(\tR\017primitiveSou" +
+      "rce\022\032\n\010quantity\030\006 \001(\010R\010quantity\022\022\n\004unit\030" +
+      "\007 \001(\tR\004unit\">\n\020MultiplicityInfo\022\024\n\005lower" +
+      "\030\001 \001(\tR\005lower\022\024\n\005upper\030\002 \001(\tR\005upper\"o\n\rA" +
+      "ttributeInfo\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004type" +
+      "\030\002 \001(\tR\004type\022\"\n\005value\030\003 \001(\0132\014.sysml.Valu" +
+      "eR\005value\022\022\n\004unit\030\004 \001(\tR\004unit\"\201\005\n\005Value\022\035" +
+      "\n\tint_value\030\001 \001(\003H\000R\010intValue\022\037\n\nreal_va" +
+      "lue\030\002 \001(\001H\000R\trealValue\022\037\n\nbool_value\030\003 \001" +
+      "(\010H\000R\tboolValue\022#\n\014string_value\030\004 \001(\tH\000R" +
+      "\013stringValue\022!\n\013instance_id\030\005 \001(\003H\000R\nins" +
+      "tanceId\0222\n\010sequence\030\006 \001(\0132\024.sysml.ValueS" +
+      "equenceH\000R\010sequence\022\024\n\004null\030\007 \001(\tH\000R\004nul" +
+      "l\022-\n\010quantity\030\010 \001(\0132\017.sysml.QuantityH\000R\010" +
+      "quantity\0227\n\014enum_literal\030\t \001(\0132\022.sysml.E" +
+      "numLiteralH\000R\013enumLiteral\022\026\n\005unset\030\n \001(\010" +
+      "H\000R\005unset\022*\n\007complex\030\013 \001(\0132\016.sysml.Compl" +
+      "exH\000R\007complex\022$\n\005array\030\014 \001(\0132\014.sysml.Arr" +
+      "ayH\000R\005array\022\'\n\006vector\030\r \001(\0132\r.sysml.Vect" +
+      "orH\000R\006vector\022@\n\017vector_quantity\030\016 \001(\0132\025." +
+      "sysml.VectorQuantityH\000R\016vectorQuantity\022@" +
+      "\n\017measurement_ref\030\017 \001(\0132\025.sysml.Measurem" +
+      "entRefH\000R\016measurementRefB\006\n\004kind\"Q\n\005Arra" +
+      "y\022\036\n\ndimensions\030\001 \003(\003R\ndimensions\022(\n\010ele" +
+      "ments\030\002 \003(\0132\014.sysml.ValueR\010elements\"6\n\006V" +
+      "ector\022,\n\ncomponents\030\001 \003(\0132\014.sysml.ValueR" +
+      "\ncomponents\"A\n\016VectorQuantity\022/\n\ncompone" +
+      "nts\030\001 \003(\0132\017.sysml.QuantityR\ncomponents\";" +
+      "\n\007Complex\022\022\n\004real\030\001 \001(\001R\004real\022\034\n\timagina" +
+      "ry\030\002 \001(\001R\timaginary\"g\n\013EnumLiteral\022\035\n\nli" +
+      "teral_id\030\001 \001(\tR\tliteralId\022%\n\016enumeration" +
+      "_id\030\002 \001(\tR\renumerationId\022\022\n\004name\030\003 \001(\tR\004" +
+      "name\"9\n\rValueSequence\022(\n\010elements\030\001 \003(\0132" +
+      "\014.sysml.ValueR\010elements\"\251\001\n\010Quantity\022%\n\r" +
+      "int_magnitude\030\001 \001(\003H\000R\014intMagnitude\022\'\n\016r" +
+      "eal_magnitude\030\002 \001(\001H\000R\rrealMagnitude\022\022\n\004" +
+      "unit\030\003 \001(\tR\004unit\022,\n\tunit_term\030\004 \001(\0132\017.sy" +
+      "sml.UnitTermR\010unitTermB\013\n\tmagnitude\"k\n\016M" +
+      "easurementRef\022\022\n\004unit\030\001 \001(\tR\004unit\022,\n\tuni" +
+      "t_term\030\002 \001(\0132\017.sysml.UnitTermR\010unitTerm\022" +
+      "\027\n\007unit_id\030\003 \001(\tR\006unitId\"q\n\010UnitTerm\022\033\n\t" +
+      "scale_num\030\001 \001(\001R\010scaleNum\022\033\n\tscale_den\030\002" +
+      " \001(\001R\010scaleDen\022+\n\007factors\030\003 \003(\0132\021.sysml." +
+      "UnitFactorR\007factors\"A\n\nUnitFactor\022\027\n\007uni" +
+      "t_id\030\001 \001(\tR\006unitId\022\032\n\010exponent\030\002 \001(\001R\010ex" +
+      "ponent\"c\n\nDiagnostic\022\032\n\010severity\030\001 \001(\tR\010" +
+      "severity\022\030\n\007message\030\002 \001(\tR\007message\022\037\n\004sp" +
+      "an\030\003 \001(\0132\013.sysml.SpanR\004span\"\212\001\n\004Span\022\022\n\004" +
+      "file\030\001 \001(\tR\004file\022\035\n\nstart_line\030\002 \001(\005R\tst" +
+      "artLine\022\033\n\tstart_col\030\003 \001(\005R\010startCol\022\031\n\010" +
+      "end_line\030\004 \001(\005R\007endLine\022\027\n\007end_col\030\005 \001(\005" +
+      "R\006endCol\"\023\n\021ServerInfoRequest\"R\n\022ServerI" +
+      "nfoResponse\022\030\n\007version\030\001 \001(\tR\007version\022\"\n" +
+      "\014capabilities\030\002 \003(\tR\014capabilities\"p\n\014Que" +
+      "ryRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash" +
+      "\022\"\n\005query\030\002 \001(\0132\014.sysml.QueryR\005query\022\035\n\n" +
+      "oslc_query\030\003 \001(\tR\toslcQuery\"F\n\rQueryResp" +
+      "onse\0225\n\010elements\030\001 \003(\0132\031.sysml.QueryResu" +
+      "ltElementR\010elements\"^\n\005Query\022\024\n\005scope\030\001 " +
+      "\003(\tR\005scope\022\026\n\006select\030\002 \003(\tR\006select\022\'\n\005wh" +
+      "ere\030\003 \001(\0132\021.sysml.ConstraintR\005where\"\222\001\n\n" +
+      "Constraint\022:\n\tprimitive\030\001 \001(\0132\032.sysml.Pr" +
+      "imitiveConstraintH\000R\tprimitive\022:\n\tcompos" +
+      "ite\030\002 \001(\0132\032.sysml.CompositeConstraintH\000R" +
+      "\tcompositeB\014\n\nconstraint\"\227\001\n\023PrimitiveCo" +
+      "nstraint\022\030\n\007inverse\030\001 \001(\010R\007inverse\022\032\n\010pr" +
+      "operty\030\002 \001(\tR\010property\0224\n\010operator\030\003 \001(\016" +
+      "2\030.sysml.PrimitiveOperatorR\010operator\022\024\n\005" +
+      "value\030\004 \003(\tR\005value\"~\n\023CompositeConstrain" +
+      "t\0224\n\010operator\030\001 \001(\0162\030.sysml.CompositeOpe" +
+      "ratorR\010operator\0221\n\nconstraint\030\002 \003(\0132\021.sy" +
+      "sml.ConstraintR\nconstraint\"\302\001\n\022QueryResu" +
+      "ltElement\022\016\n\002id\030\001 \001(\tR\002id\022\022\n\004type\030\002 \001(\tR" +
+      "\004type\022I\n\nproperties\030\003 \003(\0132).sysml.QueryR" +
+      "esultElement.PropertiesEntryR\nproperties" +
+      "\032=\n\017PropertiesEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n" +
+      "\005value\030\002 \001(\tR\005value:\0028\001\"\214\001\n\027RunDocumentQ" +
+      "ueryRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHa" +
+      "sh\022\031\n\010query_id\030\002 \001(\tR\007queryId\0227\n\010binding" +
+      "s\030\003 \003(\0132\033.sysml.DocumentQueryBindingR\010bi" +
+      "ndings\"b\n\024DocumentQueryBinding\022\034\n\tparame" +
+      "ter\030\001 \001(\tR\tparameter\022,\n\006values\030\002 \003(\0132\024.s" +
+      "ysml.DocumentValueR\006values\"\256\002\n\rDocumentV" +
+      "alue\022\037\n\nelement_id\030\001 \001(\tH\000R\telementId\022#\n" +
+      "\014string_value\030\002 \001(\tH\000R\013stringValue\022\035\n\tin" +
+      "t_value\030\003 \001(\003H\000R\010intValue\022\037\n\nreal_value\030" +
+      "\004 \001(\001H\000R\trealValue\022\037\n\nbool_value\030\005 \001(\010H\000" +
+      "R\tboolValue\022\034\n\010infinity\030\006 \001(\010H\000R\010infinit" +
+      "y\022-\n\010quantity\030\010 \001(\0132\017.sysml.QuantityH\000R\010" +
+      "quantity\022!\n\014element_type\030\007 \001(\tR\013elementT" +
+      "ypeB\006\n\004kind\")\n\023DocumentQueryColumn\022\022\n\004na" +
+      "me\030\001 \001(\tR\004name\"A\n\021DocumentQueryCell\022,\n\006v" +
+      "alues\030\001 \003(\0132\024.sysml.DocumentValueR\006value" +
+      "s\"r\n\020DocumentQueryRow\022.\n\007element\030\001 \001(\0132\024" +
+      ".sysml.DocumentValueR\007element\022.\n\005cells\030\002" +
+      " \003(\0132\030.sysml.DocumentQueryCellR\005cells\"}\n" +
+      "\030RunDocumentQueryResponse\0224\n\007columns\030\001 \003" +
+      "(\0132\032.sysml.DocumentQueryColumnR\007columns\022" +
+      "+\n\004rows\030\002 \003(\0132\027.sysml.DocumentQueryRowR\004" +
+      "rows\"W\n\025RenderDocumentRequest\022\035\n\nmodel_h" +
+      "ash\030\001 \001(\tR\tmodelHash\022\037\n\013document_id\030\002 \001(" +
+      "\tR\ndocumentId\"4\n\026RenderDocumentResponse\022" +
+      "\032\n\010markdown\030\001 \001(\tR\010markdown*\223\001\n\rFailureR" +
+      "eason\022\036\n\032FAILURE_REASON_UNSPECIFIED\020\000\022\035\n" +
+      "\031FAILURE_REASON_EVALUATION\020\001\022\035\n\031FAILURE_" +
+      "REASON_WRONG_KIND\020\002\022$\n FAILURE_REASON_AM" +
+      "BIGUOUS_SUBJECT\020\003*\235\004\n\013EditFailure\022\034\n\030EDI" +
+      "T_FAILURE_UNSPECIFIED\020\000\022\036\n\032EDIT_FAILURE_" +
+      "NO_OPERATIONS\020\001\022\037\n\033EDIT_FAILURE_UNKNOWN_" +
+      "TARGET\020\002\022!\n\035EDIT_FAILURE_AMBIGUOUS_TARGE" +
+      "T\020\003\022\033\n\027EDIT_FAILURE_NOT_VALUED\020\004\022\036\n\032EDIT" +
+      "_FAILURE_INVALID_VALUE\020\005\022\035\n\031EDIT_FAILURE" +
+      "_INVALID_NAME\020\006\022\032\n\026EDIT_FAILURE_NOT_NAME" +
+      "D\020\007\022\"\n\036EDIT_FAILURE_RENAME_REFERENCED\020\010\022" +
+      "\"\n\036EDIT_FAILURE_OVERLAPPING_EDITS\020\t\022\037\n\033E" +
+      "DIT_FAILURE_RESULT_INVALID\020\n\022\036\n\032EDIT_FAI" +
+      "LURE_OWNER_UNKNOWN\020\013\022$\n EDIT_FAILURE_OWN" +
+      "ER_NOT_NAMESPACE\020\014\022\035\n\031EDIT_FAILURE_ILLEG" +
+      "AL_KIND\020\r\022\"\n\036EDIT_FAILURE_MEMBER_NAME_TA" +
+      "KEN\020\016\022\"\n\036EDIT_FAILURE_DELETE_REFERENCED\020" +
+      "\017*\222\001\n\021PrimitiveOperator\022\"\n\036PRIMITIVE_OPE" +
+      "RATOR_UNSPECIFIED\020\000\022\034\n\030PRIMITIVE_OPERATO" +
+      "R_EQUAL\020\001\022\036\n\032PRIMITIVE_OPERATOR_GREATER\020" +
+      "\002\022\033\n\027PRIMITIVE_OPERATOR_LESS\020\003*n\n\021Compos" +
+      "iteOperator\022\"\n\036COMPOSITE_OPERATOR_UNSPEC" +
+      "IFIED\020\000\022\032\n\026COMPOSITE_OPERATOR_AND\020\001\022\031\n\025C" +
+      "OMPOSITE_OPERATOR_OR\020\0022\347\n\n\014SysMLService\022" +
+      "D\n\rGetServerInfo\022\030.sysml.ServerInfoReque" +
+      "st\032\031.sysml.ServerInfoResponse\022>\n\tParseFi" +
+      "le\022\027.sysml.ParseFileRequest\032\030.sysml.Pars" +
+      "eFileResponse\022G\n\014ParseSources\022\032.sysml.Pa" +
+      "rseSourcesRequest\032\033.sysml.ParseSourcesRe" +
+      "sponse\022;\n\tGetSymbol\022\027.sysml.GetSymbolReq" +
+      "uest\032\025.sysml.SymbolResponse\022G\n\016GetDiagno" +
+      "stics\022\031.sysml.DiagnosticsRequest\032\032.sysml" +
+      ".DiagnosticsResponse\022;\n\010Evaluate\022\026.sysml" +
+      ".EvaluateRequest\032\027.sysml.EvaluateRespons" +
+      "e\022D\n\013Instantiate\022\031.sysml.InstantiateRequ" +
+      "est\032\032.sysml.InstantiateResponse\022J\n\rExecu" +
+      "teAction\022\033.sysml.ExecuteActionRequest\032\034." +
+      "sysml.ExecuteActionResponse\022G\n\014ExecuteSt" +
+      "ate\022\032.sysml.ExecuteStateRequest\032\033.sysml." +
+      "ExecuteStateResponse\0228\n\007Convert\022\025.sysml." +
+      "ConvertRequest\032\026.sysml.ConvertResponse\022A" +
+      "\n\nApplyEdits\022\030.sysml.ApplyEditsRequest\032\031" +
+      ".sysml.ApplyEditsResponse\022S\n\020VerifyConst" +
+      "raint\022\036.sysml.VerifyConstraintRequest\032\037." +
+      "sysml.VerifyConstraintResponse\022V\n\021Verify" +
+      "Requirement\022\037.sysml.VerifyRequirementReq" +
+      "uest\032 .sysml.VerifyRequirementResponse\022Y" +
+      "\n\022VerifySatisfaction\022 .sysml.VerifySatis" +
+      "factionRequest\032!.sysml.VerifySatisfactio" +
+      "nResponse\022G\n\014EvaluateCalc\022\032.sysml.Evalua" +
+      "teCalcRequest\032\033.sysml.EvaluateCalcRespon" +
+      "se\022D\n\013RunAnalysis\022\031.sysml.RunAnalysisReq" +
+      "uest\032\032.sysml.RunAnalysisResponse\0222\n\005Quer" +
+      "y\022\023.sysml.QueryRequest\032\024.sysml.QueryResp" +
+      "onse\022S\n\020RunDocumentQuery\022\036.sysml.RunDocu" +
+      "mentQueryRequest\032\037.sysml.RunDocumentQuer" +
+      "yResponse\022M\n\016RenderDocument\022\034.sysml.Rend" +
+      "erDocumentRequest\032\035.sysml.RenderDocument" +
+      "ResponseBJ\n\034org.openmbee.opensysml.proto" +
+      "P\001Z(github.com/Open-MBEE/OpenSysML/api/p" +
+      "rotob\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -840,7 +842,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     internal_static_sysml_Verdict_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Verdict_descriptor,
-        new java.lang.String[] { "Kind", "ElementId", "Element", "Holds", "Condition", "InstanceId", "InstanceTypeId", "Error", "FailureReason", });
+        new java.lang.String[] { "Kind", "ElementId", "Element", "Holds", "Condition", "InstanceId", "InstanceTypeId", "Error", "FailureReason", "RequirementId", });
     internal_static_sysml_VerifyConstraintRequest_descriptor =
       getDescriptor().getMessageType(1);
     internal_static_sysml_VerifyConstraintRequest_fieldAccessorTable = new
@@ -864,7 +866,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     internal_static_sysml_VerificationVerdict_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VerificationVerdict_descriptor,
-        new java.lang.String[] { "CaseId", "Kind", "Detail", "Subcase", });
+        new java.lang.String[] { "CaseId", "Kind", "Detail", "Subcase", "RequirementId", });
     internal_static_sysml_VerifyRequirementResponse_descriptor =
       getDescriptor().getMessageType(5);
     internal_static_sysml_VerifyRequirementResponse_fieldAccessorTable = new

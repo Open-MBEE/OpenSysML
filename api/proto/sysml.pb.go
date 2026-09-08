@@ -301,6 +301,10 @@ type Verdict struct {
 	// declares something else, which is a wrong request rather than an undecided
 	// verdict about the model.
 	FailureReason FailureReason `protobuf:"varint,9,opt,name=failure_reason,json=failureReason,proto3,enum=sysml.FailureReason" json:"failure_reason,omitempty"`
+	// FQN of the requirement a "satisfy" verdict asserts satisfied, which is what
+	// associates it with the verification_verdicts reported for that requirement.
+	// Empty for every other kind, and for a requirement no FQN names.
+	RequirementId string `protobuf:"bytes,10,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -396,6 +400,13 @@ func (x *Verdict) GetFailureReason() FailureReason {
 		return x.FailureReason
 	}
 	return FailureReason_FAILURE_REASON_UNSPECIFIED
+}
+
+func (x *Verdict) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
 }
 
 // VerifyConstraintRequest asks whether a constraint holds, as %constraint does.
@@ -615,7 +626,11 @@ type VerificationVerdict struct {
 	Detail string `protobuf:"bytes,3,opt,name=detail,proto3" json:"detail,omitempty"`
 	// Set for the verdict of a subcase the case performed, which the library
 	// states no roll-up for and which is therefore reported on its own.
-	Subcase       bool `protobuf:"varint,4,opt,name=subcase,proto3" json:"subcase,omitempty"`
+	Subcase bool `protobuf:"varint,4,opt,name=subcase,proto3" json:"subcase,omitempty"`
+	// FQN of the requirement this verdict was reported for: the one the case's
+	// objective verifies. Empty when the case was run for itself rather than for
+	// a requirement, or when that requirement can be named by no FQN.
+	RequirementId string `protobuf:"bytes,5,opt,name=requirement_id,json=requirementId,proto3" json:"requirement_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -676,6 +691,13 @@ func (x *VerificationVerdict) GetSubcase() bool {
 		return x.Subcase
 	}
 	return false
+}
+
+func (x *VerificationVerdict) GetRequirementId() string {
+	if x != nil {
+		return x.RequirementId
+	}
+	return ""
 }
 
 // VerifyRequirementResponse carries the verdict.
@@ -826,7 +848,9 @@ type VerifySatisfactionResponse struct {
 	// What kind of failure `error` reports.
 	FailureReason FailureReason `protobuf:"varint,5,opt,name=failure_reason,json=failureReason,proto3,enum=sysml.FailureReason" json:"failure_reason,omitempty"`
 	// What the body of every verification case verifying a requirement asserted
-	// as satisfied answered, in the order the assertions were evaluated.
+	// as satisfied answered, in the order the assertions were evaluated. Each
+	// names the requirement it was reported for, which the verdict of an
+	// assertion of that requirement carries as its own requirement_id.
 	VerificationVerdicts []*VerificationVerdict `protobuf:"bytes,6,rep,name=verification_verdicts,json=verificationVerdicts,proto3" json:"verification_verdicts,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -6098,7 +6122,7 @@ var File_sysml_proto protoreflect.FileDescriptor
 
 const file_sysml_proto_rawDesc = "" +
 	"\n" +
-	"\vsysml.proto\x12\x05sysml\"\xa8\x02\n" +
+	"\vsysml.proto\x12\x05sysml\"\xcf\x02\n" +
 	"\aVerdict\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1d\n" +
 	"\n" +
@@ -6110,7 +6134,9 @@ const file_sysml_proto_rawDesc = "" +
 	"instanceId\x12(\n" +
 	"\x10instance_type_id\x18\a \x01(\tR\x0einstanceTypeId\x12\x14\n" +
 	"\x05error\x18\b \x01(\tR\x05error\x12;\n" +
-	"\x0efailure_reason\x18\t \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\"\x81\x01\n" +
+	"\x0efailure_reason\x18\t \x01(\x0e2\x14.sysml.FailureReasonR\rfailureReason\x12%\n" +
+	"\x0erequirement_id\x18\n" +
+	" \x01(\tR\rrequirementId\"\x81\x01\n" +
 	"\x17VerifyConstraintRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
@@ -6125,12 +6151,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
 	"\tsymbol_id\x18\x02 \x01(\tR\bsymbolId\x12*\n" +
-	"\x11subject_symbol_id\x18\x03 \x01(\tR\x0fsubjectSymbolId\"t\n" +
+	"\x11subject_symbol_id\x18\x03 \x01(\tR\x0fsubjectSymbolId\"\x9b\x01\n" +
 	"\x13VerificationVerdict\x12\x17\n" +
 	"\acase_id\x18\x01 \x01(\tR\x06caseId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
 	"\x06detail\x18\x03 \x01(\tR\x06detail\x12\x18\n" +
-	"\asubcase\x18\x04 \x01(\bR\asubcase\"\x90\x02\n" +
+	"\asubcase\x18\x04 \x01(\bR\asubcase\x12%\n" +
+	"\x0erequirement_id\x18\x05 \x01(\tR\rrequirementId\"\x90\x02\n" +
 	"\x19VerifyRequirementResponse\x12(\n" +
 	"\averdict\x18\x01 \x01(\v2\x0e.sysml.VerdictR\averdict\x12-\n" +
 	"\tinstances\x18\x02 \x03(\v2\x0f.sysml.InstanceR\tinstances\x12\x14\n" +

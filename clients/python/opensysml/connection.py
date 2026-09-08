@@ -185,6 +185,19 @@ def _verifications_of(response):
     ]
 
 
+def _verifications_for(verifications, pb_verdict):
+    """The body verdicts of the requirement this verdict is about.
+
+    A response answering several assertions carries the cases of every
+    requirement it covers, so each verdict takes only its own; naming no
+    requirement takes none rather than all of them.
+    """
+    requirement = getattr(pb_verdict, "requirement_id", "")
+    if not requirement:
+        return []
+    return [v for v in verifications if v.requirement_id == requirement]
+
+
 def _raise_wrong_kind(pb_verdict, diagnostics):
     """Raise when a verdict reports the named element is of another kind.
 
@@ -1299,7 +1312,9 @@ class Connection:
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. A
-                model stating no assertion gives an empty list.
+                model stating no assertion gives an empty list. Each verdict's
+                ``verifications`` are the cases verifying its own requirement,
+                so a call covering several requirements does not mix them.
 
         Raises:
             WrongKindError: If symbol_id names an element that can state no
@@ -1326,15 +1341,13 @@ class Connection:
         for pb_verdict in response.verdicts:
             _raise_wrong_kind(pb_verdict, diagnostics)
         instances = self._instances_of(response)
-        # The bodies of the cases verifying the requirements asserted as
-        # satisfied answered for the call, not for one assertion of it.
         verifications = _verifications_of(response)
         return [
             Verdict(
                 pb_verdict,
                 instances=instances,
                 diagnostics=diagnostics,
-                verifications=verifications,
+                verifications=_verifications_for(verifications, pb_verdict),
             )
             for pb_verdict in response.verdicts
         ]

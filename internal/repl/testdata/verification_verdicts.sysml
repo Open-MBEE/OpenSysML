@@ -48,6 +48,18 @@ package Landing {
         subject lander = slowLander;
     }
 
+    verification def CheckedPlan {
+        subject lander : Lander;
+        verification checkOne : SpeedCheck {
+            subject lander = fastLander;
+        }
+        return verdict : VerificationCases::VerdictKind = VerificationCases::VerdictKind::pass;
+    }
+
+    verification checkedPlan : CheckedPlan {
+        subject lander = slowLander;
+    }
+
     part analysisContext {
         assert satisfy touchdown by slowLander;
     }

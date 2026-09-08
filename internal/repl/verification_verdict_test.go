@@ -53,6 +53,20 @@ func TestAnalysisRunsAVerificationCase(t *testing.T) {
 	wants(t, run(t, s, "%analysis Landing::SpeedCheck"), "subject")
 }
 
+// TestAnalysisKeepsACaseStatusApartFromItsSubcases checks that a case whose own
+// body passes holds even though a subcase it performed failed: the library
+// states no roll-up, so the subcase answers for itself alone.
+func TestAnalysisKeepsACaseStatusApartFromItsSubcases(t *testing.T) {
+	s := loadFixture(t, "testdata/verification_verdicts.sysml")
+	wants(t, run(t, s, "%analysis Landing::checkedPlan"),
+		"✓ Verification Landing::checkedPlan verdict: pass",
+		"✗ Verification Landing::CheckedPlan::checkOne verdict: fail (subcase)",
+	)
+	if got := s.RunAnalysis("Landing::checkedPlan"); got.Status != VerdictHolds {
+		t.Errorf("status = %v, want the case's own passing verdict", got.Status)
+	}
+}
+
 // join renders verdict names for one comparison.
 func join(parts []string) string {
 	out := ""

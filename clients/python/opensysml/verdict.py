@@ -45,6 +45,9 @@ class VerificationVerdict:
             stopped the run; empty for a pass and a fail
         subcase (bool): Whether this is the verdict of a case performed by
             another, which the library states no roll-up for
+        requirement_id (str): FQN of the requirement this verdict was reported
+            for; empty for a case run for itself, as by
+            :meth:`~opensysml.Connection.run_analysis`
     """
 
     def __init__(self, pb_verdict):
@@ -70,6 +73,11 @@ class VerificationVerdict:
         """Whether this verdict is of a case performed by another."""
         return self._pb.subcase
 
+    @property
+    def requirement_id(self):
+        """FQN of the requirement this verdict was reported for, if any."""
+        return getattr(self._pb, "requirement_id", "")
+
     def explain(self):
         """One line saying what the body answered and why."""
         marks = {VERDICT_PASS: "\u2713", VERDICT_FAIL: "\u2717"}
@@ -91,7 +99,8 @@ class VerificationVerdict:
     def __repr__(self):
         return (
             f"VerificationVerdict(case_id={self.case_id!r}, kind={self.kind!r}, "
-            f"detail={self.detail!r}, subcase={self.subcase!r})"
+            f"detail={self.detail!r}, subcase={self.subcase!r}, "
+            f"requirement_id={self.requirement_id!r})"
         )
 
 
@@ -123,10 +132,14 @@ class Verdict:
             call answering several assertions reports one graph for them all, so
             filter on ``instance_id`` to single out this verdict's own object
         diagnostics (list[Diagnostic]): Diagnostics the service reported
+        requirement_id (str): FQN of the requirement a 'satisfy' verdict asserts
+            satisfied; empty for every other kind and for an anonymous
+            requirement
         verifications (list[VerificationVerdict]): What the bodies of the
-            verification cases verifying this requirement answered, beside this
-            verdict rather than instead of it. Empty when the model states none,
-            or when the service predates ``verification_verdicts``
+            verification cases verifying this verdict's own requirement
+            answered, beside this verdict rather than instead of it. Empty when
+            the model states none, when the requirement is named by no FQN, or
+            when the service predates ``verification_verdicts``
     """
 
     def __init__(self, pb_verdict, instances=None, diagnostics=None, verifications=None):
@@ -169,6 +182,11 @@ class Verdict:
     def instance_type_id(self):
         """FQN of the type of the instance the verdict is about."""
         return self._pb.instance_type_id
+
+    @property
+    def requirement_id(self):
+        """FQN of the requirement a satisfaction verdict asserts satisfied."""
+        return getattr(self._pb, "requirement_id", "")
 
     @property
     def error(self):

@@ -82,4 +82,28 @@ public interface VerificationVerdictOrBuilder extends
    * @return The subcase.
    */
   boolean getSubcase();
+
+  /**
+   * <pre>
+   * FQN of the requirement this verdict was reported for: the one the case's
+   * objective verifies. Empty when the case was run for itself rather than for
+   * a requirement, or when that requirement can be named by no FQN.
+   * </pre>
+   *
+   * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+   * @return The requirementId.
+   */
+  java.lang.String getRequirementId();
+  /**
+   * <pre>
+   * FQN of the requirement this verdict was reported for: the one the case's
+   * objective verifies. Empty when the case was run for itself rather than for
+   * a requirement, or when that requirement can be named by no FQN.
+   * </pre>
+   *
+   * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+   * @return The bytes for requirementId.
+   */
+  com.google.protobuf.ByteString
+      getRequirementIdBytes();
 }

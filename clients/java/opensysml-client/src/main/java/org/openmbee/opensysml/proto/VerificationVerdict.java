@@ -37,6 +37,7 @@ private static final long serialVersionUID = 0L;
     caseId_ = "";
     kind_ = "";
     detail_ = "";
+    requirementId_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -211,6 +212,57 @@ private static final long serialVersionUID = 0L;
     return subcase_;
   }
 
+  public static final int REQUIREMENT_ID_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object requirementId_ = "";
+  /**
+   * <pre>
+   * FQN of the requirement this verdict was reported for: the one the case's
+   * objective verifies. Empty when the case was run for itself rather than for
+   * a requirement, or when that requirement can be named by no FQN.
+   * </pre>
+   *
+   * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+   * @return The requirementId.
+   */
+  @java.lang.Override
+  public java.lang.String getRequirementId() {
+    java.lang.Object ref = requirementId_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      requirementId_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * FQN of the requirement this verdict was reported for: the one the case's
+   * objective verifies. Empty when the case was run for itself rather than for
+   * a requirement, or when that requirement can be named by no FQN.
+   * </pre>
+   *
+   * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+   * @return The bytes for requirementId.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getRequirementIdBytes() {
+    java.lang.Object ref = requirementId_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      requirementId_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -237,6 +289,9 @@ private static final long serialVersionUID = 0L;
     if (subcase_ != false) {
       output.writeBool(4, subcase_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requirementId_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, requirementId_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -258,6 +313,9 @@ private static final long serialVersionUID = 0L;
     if (subcase_ != false) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(4, subcase_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requirementId_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, requirementId_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -282,6 +340,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getDetail())) return false;
     if (getSubcase()
         != other.getSubcase()) return false;
+    if (!getRequirementId()
+        .equals(other.getRequirementId())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -302,6 +362,8 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + SUBCASE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getSubcase());
+    hash = (37 * hash) + REQUIREMENT_ID_FIELD_NUMBER;
+    hash = (53 * hash) + getRequirementId().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -443,6 +505,7 @@ private static final long serialVersionUID = 0L;
       kind_ = "";
       detail_ = "";
       subcase_ = false;
+      requirementId_ = "";
       return this;
     }
 
@@ -488,6 +551,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.subcase_ = subcase_;
       }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        result.requirementId_ = requirementId_;
+      }
     }
 
     @java.lang.Override
@@ -519,6 +585,11 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getSubcase() != false) {
         setSubcase(other.getSubcase());
+      }
+      if (!other.getRequirementId().isEmpty()) {
+        requirementId_ = other.requirementId_;
+        bitField0_ |= 0x00000010;
+        onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -566,6 +637,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 32
+            case 42: {
+              requirementId_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000010;
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -907,6 +983,108 @@ private static final long serialVersionUID = 0L;
     public Builder clearSubcase() {
       bitField0_ = (bitField0_ & ~0x00000008);
       subcase_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object requirementId_ = "";
+    /**
+     * <pre>
+     * FQN of the requirement this verdict was reported for: the one the case's
+     * objective verifies. Empty when the case was run for itself rather than for
+     * a requirement, or when that requirement can be named by no FQN.
+     * </pre>
+     *
+     * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+     * @return The requirementId.
+     */
+    public java.lang.String getRequirementId() {
+      java.lang.Object ref = requirementId_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        requirementId_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * FQN of the requirement this verdict was reported for: the one the case's
+     * objective verifies. Empty when the case was run for itself rather than for
+     * a requirement, or when that requirement can be named by no FQN.
+     * </pre>
+     *
+     * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+     * @return The bytes for requirementId.
+     */
+    public com.google.protobuf.ByteString
+        getRequirementIdBytes() {
+      java.lang.Object ref = requirementId_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        requirementId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * FQN of the requirement this verdict was reported for: the one the case's
+     * objective verifies. Empty when the case was run for itself rather than for
+     * a requirement, or when that requirement can be named by no FQN.
+     * </pre>
+     *
+     * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+     * @param value The requirementId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequirementId(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      requirementId_ = value;
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * FQN of the requirement this verdict was reported for: the one the case's
+     * objective verifies. Empty when the case was run for itself rather than for
+     * a requirement, or when that requirement can be named by no FQN.
+     * </pre>
+     *
+     * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRequirementId() {
+      requirementId_ = getDefaultInstance().getRequirementId();
+      bitField0_ = (bitField0_ & ~0x00000010);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * FQN of the requirement this verdict was reported for: the one the case's
+     * objective verifies. Empty when the case was run for itself rather than for
+     * a requirement, or when that requirement can be named by no FQN.
+     * </pre>
+     *
+     * <code>string requirement_id = 5 [json_name = "requirementId"];</code>
+     * @param value The bytes for requirementId to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRequirementIdBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      requirementId_ = value;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }

@@ -188,4 +188,28 @@ public interface VerdictOrBuilder extends
    * @return The failureReason.
    */
   org.openmbee.opensysml.proto.FailureReason getFailureReason();
+
+  /**
+   * <pre>
+   * FQN of the requirement a "satisfy" verdict asserts satisfied, which is what
+   * associates it with the verification_verdicts reported for that requirement.
+   * Empty for every other kind, and for a requirement no FQN names.
+   * </pre>
+   *
+   * <code>string requirement_id = 10 [json_name = "requirementId"];</code>
+   * @return The requirementId.
+   */
+  java.lang.String getRequirementId();
+  /**
+   * <pre>
+   * FQN of the requirement a "satisfy" verdict asserts satisfied, which is what
+   * associates it with the verification_verdicts reported for that requirement.
+   * Empty for every other kind, and for a requirement no FQN names.
+   * </pre>
+   *
+   * <code>string requirement_id = 10 [json_name = "requirementId"];</code>
+   * @return The bytes for requirementId.
+   */
+  com.google.protobuf.ByteString
+      getRequirementIdBytes();
 }

@@ -119,8 +119,10 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 			status = VerdictUnresolved
 		}
 	}
+	// The case's own body decides its status; a subcase answers for itself,
+	// since the library states no roll-up into the case performing it.
 	for _, v := range run.verdicts {
-		if s := verificationStatus(v.Kind); s > status {
+		if s := verificationStatus(v.Kind); !v.Subcase && s > status {
 			status = s
 		}
 	}

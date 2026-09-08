@@ -110,6 +110,10 @@ message Verdict {
   // declares something else, which is a wrong request rather than an undecided
   // verdict about the model.
   FailureReason failure_reason = 9;
+  // FQN of the requirement a "satisfy" verdict asserts satisfied, which is what
+  // associates it with the verification_verdicts reported for that requirement.
+  // Empty for every other kind, and for a requirement no FQN names.
+  string requirement_id = 10;
 }
 
 // VerifyConstraintRequest asks whether a constraint holds, as %constraint does.
@@ -160,6 +164,10 @@ message VerificationVerdict {
   // Set for the verdict of a subcase the case performed, which the library
   // states no roll-up for and which is therefore reported on its own.
   bool subcase = 4;
+  // FQN of the requirement this verdict was reported for: the one the case's
+  // objective verifies. Empty when the case was run for itself rather than for
+  // a requirement, or when that requirement can be named by no FQN.
+  string requirement_id = 5;
 }
 
 // VerifyRequirementResponse carries the verdict.
@@ -194,7 +202,9 @@ message VerifySatisfactionResponse {
   // What kind of failure `error` reports.
   FailureReason failure_reason = 5;
   // What the body of every verification case verifying a requirement asserted
-  // as satisfied answered, in the order the assertions were evaluated.
+  // as satisfied answered, in the order the assertions were evaluated. Each
+  // names the requirement it was reported for, which the verdict of an
+  // assertion of that requirement carries as its own requirement_id.
   repeated VerificationVerdict verification_verdicts = 6;
 }
 

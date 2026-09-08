@@ -139,6 +139,88 @@ func TestVerifySatisfactionReportsTheBodyVerdicts(t *testing.T) {
 		"Demo::plan=inconclusive", "Demo::Plan::sub=fail(subcase)")
 }
 
+// twoRequirementModel asserts two requirements satisfied, each verified by a
+// case of its own, so one response reports the cases of both.
+const twoRequirementModel = `package Demo {
+	private import ScalarValues::*;
+
+	part def Widget {
+		attribute m : Integer default = 0;
+	}
+
+	part good : Widget;
+
+	requirement def Zeroed {
+		subject w : Widget;
+		require constraint { w.m == 0 }
+	}
+
+	requirement zeroed : Zeroed { subject w = good; }
+	requirement bounded : Zeroed { subject w = good; }
+
+	verification def ZeroCheck {
+		subject w : Widget;
+		objective { verify zeroed; }
+		VerificationCases::PassIf(w.m == 0)
+	}
+
+	verification def BoundCheck {
+		subject w : Widget;
+		objective { verify bounded; }
+		VerificationCases::PassIf(w.m == 1)
+	}
+
+	verification checkZero : ZeroCheck { subject w = good; }
+	verification checkBound : BoundCheck { subject w = good; }
+
+	part checks {
+		assert satisfy zeroed by good;
+		assert satisfy bounded by good;
+	}
+}
+`
+
+// TestVerifySatisfactionAssociatesBodyVerdictsWithTheirRequirement verifies a
+// response covering two requirements names the requirement each body verdict
+// was reported for, and that the verdict of an assertion names the same one, so
+// a client keeps them apart rather than reading one requirement's cases as
+// another's.
+func TestVerifySatisfactionAssociatesBodyVerdictsWithTheirRequirement(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, twoRequirementModel, "verification-verdicts-two")
+
+	resp, err := srv.VerifySatisfaction(context.Background(), &pb.VerifySatisfactionRequest{
+		ModelHash: hash,
+	})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("VerifySatisfaction reported %q", resp.Error)
+	}
+	byRequirement := map[string][]string{}
+	for _, verdict := range resp.VerificationVerdicts {
+		byRequirement[verdict.RequirementId] = append(
+			byRequirement[verdict.RequirementId], verdict.CaseId+"="+verdict.Kind)
+	}
+	for requirement, want := range map[string]string{
+		"Demo::zeroed": "Demo::checkZero=pass", "Demo::bounded": "Demo::checkBound=fail",
+	} {
+		if got := strings.Join(byRequirement[requirement], ","); got != want {
+			t.Errorf("verdicts of %s = %q, want %q", requirement, got, want)
+		}
+	}
+	if len(resp.Verdicts) == 0 {
+		t.Fatal("VerifySatisfaction reported no assertion verdict")
+	}
+	for _, verdict := range resp.Verdicts {
+		if _, ok := byRequirement[verdict.RequirementId]; !ok {
+			t.Errorf("%q names requirement %q, which no body verdict was reported for",
+				verdict.Element, verdict.RequirementId)
+		}
+	}
+}
+
 // TestRunAnalysisRunsAVerificationCase verifies a verification case is accepted
 // by the run RPC rather than refused, reporting its body verdict and the verdict
 // of each subcase it performs.

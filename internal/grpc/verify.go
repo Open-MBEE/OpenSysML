@@ -292,14 +292,25 @@ func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict
 		if err != nil {
 			// The assertion cannot be evaluated without the object it is about,
 			// which is a failure to evaluate rather than a verdict of false.
-			return v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err), nil
+			verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err)
+			v.associateRequirement(verdict, a)
+			return verdict, nil
 		}
 		subject = inst
 	}
 	result, err := v.runtime.CheckSatisfactionOn(a, subject)
 	subject = subjectOf(result, subject)
-	return v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err),
-		v.instanceGraph(subject)
+	verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err)
+	v.associateRequirement(verdict, a)
+	return verdict, v.instanceGraph(subject)
+}
+
+// associateRequirement names on a satisfaction verdict the requirement it
+// asserts satisfied, which the body verdicts of that requirement also name.
+func (v *verifyContext) associateRequirement(verdict *pb.Verdict, a *runtime.SatisfyAssertion) {
+	if a.Requirement != nil {
+		verdict.RequirementId = namedFQN(v.cached.Index, a.Requirement)
+	}
 }
 
 // subjectOf is the object a verdict is about: the one the runtime evaluated the
@@ -400,7 +411,8 @@ func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput,
 // written in the document the requirement is.
 func (v *verifyContext) requirementVerifications(req *symbols.Symbol) []*pb.VerificationVerdict {
 	return v.verificationVerdicts(
-		v.runtime.VerificationVerdictsIn(v.cached.DocumentRoots(), req))
+		v.runtime.VerificationVerdictsIn(v.cached.DocumentRoots(), req),
+		namedFQN(v.cached.Index, req))
 }
 
 // assertionVerifications are the body verdicts of the verification cases whose

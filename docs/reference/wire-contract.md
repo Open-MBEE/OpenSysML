@@ -837,6 +837,11 @@ what they meant before.
   run failed with. Omitted for `pass` and `fail`.
 - `subcase` — true for a verification case the run performed as a step of another. The library
   states no roll-up of a subcase's verdict into its parent's, so each is reported on its own.
+- `requirementId` — the qualified name of the requirement the case was reported for, the one its
+  objective verifies. A `VerifySatisfaction` response covering several requirements is kept apart
+  by it: a `"satisfy"` verdict carries the same `requirementId` for the requirement it asserts
+  satisfied, so a client reads a verdict's own cases rather than the whole response's. Empty for a
+  case run for itself by `RunAnalysis`, and for a requirement no qualified name reaches.
 
 ```console
 $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdown"}'
@@ -932,6 +937,9 @@ Reading a `Verdict`:
 - `instanceId` / `instanceTypeId` — the instance the condition was evaluated on, a key into
   `instances`, and its type. Absent when no subject was instantiated (the first two examples,
   which evaluated against the definition's own defaults).
+- `requirementId` — for a `"satisfy"` verdict, the qualified name of the requirement it asserts
+  satisfied, which is the key into the response's `verificationVerdicts`. Absent for every other
+  kind, and for a requirement no qualified name reaches.
 
 `VerifySatisfaction` over `Demo::analysis`, which asserts `massLimit` (max 2000) and `massTiny`
 (max 10) are satisfied by `sedan`:

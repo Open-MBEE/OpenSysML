@@ -74,7 +74,7 @@ COMPOSITE_OPERATOR_AND: CompositeOperator
 COMPOSITE_OPERATOR_OR: CompositeOperator
 
 class Verdict(_message.Message):
-    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason")
+    __slots__ = ("kind", "element_id", "element", "holds", "condition", "instance_id", "instance_type_id", "error", "failure_reason", "requirement_id")
     KIND_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
@@ -84,6 +84,7 @@ class Verdict(_message.Message):
     INSTANCE_TYPE_ID_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENT_ID_FIELD_NUMBER: _ClassVar[int]
     kind: str
     element_id: str
     element: str
@@ -93,7 +94,8 @@ class Verdict(_message.Message):
     instance_type_id: str
     error: str
     failure_reason: FailureReason
-    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
+    requirement_id: str
+    def __init__(self, kind: _Optional[str] = ..., element_id: _Optional[str] = ..., element: _Optional[str] = ..., holds: _Optional[bool] = ..., condition: _Optional[str] = ..., instance_id: _Optional[int] = ..., instance_type_id: _Optional[str] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., requirement_id: _Optional[str] = ...) -> None: ...
 
 class VerifyConstraintRequest(_message.Message):
     __slots__ = ("model_hash", "symbol_id", "subject_symbol_id")
@@ -128,16 +130,18 @@ class VerifyRequirementRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ...) -> None: ...
 
 class VerificationVerdict(_message.Message):
-    __slots__ = ("case_id", "kind", "detail", "subcase")
+    __slots__ = ("case_id", "kind", "detail", "subcase", "requirement_id")
     CASE_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     DETAIL_FIELD_NUMBER: _ClassVar[int]
     SUBCASE_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENT_ID_FIELD_NUMBER: _ClassVar[int]
     case_id: str
     kind: str
     detail: str
     subcase: bool
-    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ...) -> None: ...
+    requirement_id: str
+    def __init__(self, case_id: _Optional[str] = ..., kind: _Optional[str] = ..., detail: _Optional[str] = ..., subcase: _Optional[bool] = ..., requirement_id: _Optional[str] = ...) -> None: ...
 
 class VerifyRequirementResponse(_message.Message):
     __slots__ = ("verdict", "instances", "error", "diagnostics", "verification_verdicts")
