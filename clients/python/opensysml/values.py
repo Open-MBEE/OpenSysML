@@ -2,7 +2,8 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple, Union
+from fractions import Fraction
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple, Union
 
 from opensysml.enumeration import EnumLiteral
 from opensysml.errors import FeatureValueError, OpenSysMLError, UnsupportedValueError
@@ -116,6 +117,11 @@ class Unit:
         )
 
     @property
+    def zero_scale(self) -> bool:
+        """Whether the scale factor is zero or undefined, so no magnitude converts through it."""
+        return self.scale_num == 0 or self.scale_den == 0
+
+    @property
     def dimensionless(self) -> bool:
         """Whether the unit reduces to no base unit, as a count or a ratio does."""
         return not self.exponents()
@@ -131,6 +137,15 @@ class Unit:
     def commensurable(self, other: "Unit") -> bool:
         """Whether a magnitude in this unit converts into ``other``."""
         return self.exponents() == other.exponents()
+
+    def same_reduction(self, other: "Unit") -> bool:
+        """Whether both reduce to one thing at one scale, however the ratio is written."""
+        return (
+            self.commensurable(other)
+            and not self.zero_scale
+            and not other.zero_scale
+            and self.scale_num * other.scale_den == other.scale_num * self.scale_den
+        )
 
     def reduction(self) -> str:
         """The reduction as text ("1000/3600·SI::m·SI::s^-1"), for a diagnostic."""
@@ -262,14 +277,33 @@ class Quantity:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Quantity):
             return NotImplemented
-        if not self.unit.commensurable(other.unit):
+        if not (self.unit.reduced and other.unit.reduced):
+            # Nothing to convert over: the same quantity is one in the same unit as written.
+            return self.unit == other.unit and self.magnitude == other.magnitude
+        if not self.unit.commensurable(other.unit) or self.unit.zero_scale or other.unit.zero_scale:
             return False
+        mine, theirs = self._exact_base_magnitude(), other._exact_base_magnitude()
+        if mine is not None and theirs is not None:
+            return mine == theirs
         return self.base_magnitude() == other.base_magnitude()
+
+    def _exact_base_magnitude(self) -> Optional[Fraction]:
+        """The base magnitude as a Fraction while it can be exact: an int over a whole scale."""
+        if isinstance(self.magnitude, bool) or not isinstance(self.magnitude, int):
+            return None
+        num, den = self.unit.scale_num, self.unit.scale_den
+        if not (float(num).is_integer() and float(den).is_integer()):
+            return None
+        return Fraction(self.magnitude) * Fraction(int(num), int(den))
 
     def __hash__(self) -> int:
         # Keyed on the base-unit form, so commensurable equal quantities — `1
         # [km]` and `1000 [m]` — hash alike, as equality requires.
-        return hash((self.base_magnitude(), tuple(sorted(self.unit.exponents().items()))))
+        if not self.unit.reduced or self.unit.zero_scale:
+            return hash((self.magnitude, self.unit))
+        exact = self._exact_base_magnitude()
+        base = self.base_magnitude() if exact is None else exact
+        return hash((base, tuple(sorted(self.unit.exponents().items()))))
 
     def __lt__(self, other: "Quantity") -> bool:
         return self._compare(other, "order") < 0
@@ -342,7 +376,7 @@ class Quantity:
         return f"Quantity({self.magnitude!r}, {self.unit!r})"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MeasurementRef:
     """A measurement unit held as a value by itself, with no magnitude.
 
@@ -350,6 +384,11 @@ class MeasurementRef:
     ``MeasurementUnit``-typed attribute or a quantity's ``mRef`` evaluates to,
     and what ``ConvertQuantity`` takes as its target. It carries the unit as a
     :class:`Quantity` does — text and reduction — plus the declaration it names.
+
+    Two references are equal when they are one reduction at one scale, however
+    spelt: ``SI::'m/s'`` is ``m / s`` and ``km / m`` is ``m / mm``. A named unit
+    of dimension one reduces to nothing, so it is only its own declaration:
+    ``rad`` is not ``sr``.
 
     Attributes:
         unit (Unit): The unit as written and its reduction to base units
@@ -395,6 +434,23 @@ class MeasurementRef:
         return sysml_pb2.MeasurementRef(
             unit=self.unit.text, unit_term=self.unit.to_pb(), unit_id=self.unit_id
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, MeasurementRef):
+            return NotImplemented
+        if not (self.unit.reduced and other.unit.reduced):
+            return self.unit == other.unit and self.unit_id == other.unit_id
+        if not self.unit.same_reduction(other.unit):
+            return False
+        if self.unit.dimensionless and (self.unit_id or other.unit_id):
+            return self.unit_id == other.unit_id
+        return True
+
+    def __hash__(self) -> int:
+        if not self.unit.reduced:
+            return hash((self.unit, self.unit_id))
+        exponents = tuple(sorted(self.unit.exponents().items()))
+        return hash((exponents, self.unit_id if not exponents else ""))
 
     def __str__(self) -> str:
         return str(self.unit)
@@ -465,7 +521,7 @@ def _format_number(value: Magnitude) -> str:
     return f"{value:g}" if isinstance(value, float) else str(value)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Array:
     """A multidimensional array: its shape and its elements in row-major order.
 
@@ -474,7 +530,8 @@ class Array:
     value a feature can hold, an :class:`Array` or a :class:`Quantity` included;
     ``elements`` holds them flattened as the model states them, with the last
     dimension varying fastest, and :meth:`nested` unfolds them. A rank-0 array
-    holds exactly one element.
+    holds exactly one element. Two arrays are equal when their shapes agree and
+    each element is the :func:`same_value` as its counterpart.
 
     Attributes:
         dimensions (tuple[int, ...]): Extent of each dimension, all positive
@@ -512,6 +569,16 @@ class Array:
 
     def __iter__(self) -> Iterator[Any]:
         return iter(self.elements)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Array):
+            return NotImplemented
+        return self.dimensions == other.dimensions and all(
+            same_value(x, y) for x, y in zip(self.elements, other.elements)
+        )
+
+    def __hash__(self) -> int:
+        return hash(self.dimensions)
 
     def __getitem__(self, index: int | Tuple[int, ...]) -> Any:
         """The element at a row-major position, or at a full multi-index."""
@@ -689,6 +756,221 @@ class VectorQuantity:
         return "⟨" + ", ".join(str(c) for c in self.components) + "⟩"
 
 
+@dataclass(frozen=True)
+class SetValue:
+    """A unique, unordered collection: a ``Collections::Set``'s elements.
+
+    Distinct from a ``list``, whose order is part of its value. The service
+    sends the elements in its canonical order, so equal sets arrive alike, and
+    ``elements`` keeps that order for reading; equality ignores it. A set to
+    send may hold its elements in any order — a Python ``set`` or ``frozenset``
+    is accepted too — but one listing an element twice, by :func:`same_value`,
+    is refused rather than read as one element. Elements need not be hashable:
+    a nested list is one.
+
+    Attributes:
+        elements (tuple): The elements, each once, in the order held
+
+    Raises:
+        ValueError: If an element is listed twice.
+    """
+
+    elements: Tuple[Any, ...]
+
+    def __init__(self, elements: Iterable[Any] = ()) -> None:
+        held: List[Any] = []
+        for element in elements:
+            if any(same_value(element, other) for other in held):
+                raise ValueError(f"set lists a member twice: {element!r}")
+            held.append(element)
+        object.__setattr__(self, "elements", tuple(held))
+
+    def __len__(self) -> int:
+        return len(self.elements)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.elements)
+
+    def __contains__(self, item: Any) -> bool:
+        return any(same_value(element, item) for element in self.elements)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, (set, frozenset)):
+            other = SetValue(other)
+        if not isinstance(other, SetValue):
+            return NotImplemented
+        return len(self) == len(other) and all(e in other for e in self) and all(e in self for e in other)
+
+    def __hash__(self) -> int:
+        return hash(len(self.elements))
+
+    @classmethod
+    def from_pb(cls, pb_set, resolve_instance=None) -> "SetValue":
+        """Build from a ``ValueSet`` protobuf message, elements in the order sent.
+
+        Raises:
+            UnsupportedValueError: If the message lists a member twice.
+        """
+        elements = [value_to_python(pb_value, resolve_instance) for pb_value in pb_set.elements]
+        try:
+            return cls(elements)
+        except ValueError as exc:
+            raise UnsupportedValueError(f"malformed set: {exc}") from exc
+
+    def to_pb(self, encode: Callable[[Any], "sysml_pb2.Value"]) -> "sysml_pb2.ValueSet":
+        """Encode as a ``ValueSet`` message, each element through ``encode``."""
+        return sysml_pb2.ValueSet(elements=[encode(element) for element in self.elements])
+
+    def __str__(self) -> str:
+        return "{" + ", ".join(str(e) for e in self.elements) + "}"
+
+
+def same_value(a: Any, b: Any) -> bool:
+    """Whether two decoded values are the same value, as :class:`SetValue` membership judges it.
+
+    ``==`` decides, except that a ``bool`` is never a number — ``True`` and ``1``
+    are distinct values in a model — in a nested ``list`` or :class:`Array` too,
+    and that ``None``, an empty ``list`` and an empty set are one value, the
+    model's absent value however spelt.
+    """
+    if _is_empty(a) or _is_empty(b):
+        return _is_empty(a) and _is_empty(b)
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(same_value(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+def _is_empty(value: Any) -> bool:
+    """The model's absent value: ``None`` or a collection with no members."""
+    return value is None or (isinstance(value, (list, set, frozenset, SetValue)) and len(value) == 0)
+
+
+@dataclass(frozen=True)
+class InstanceRef:
+    """A reference to an instance the client has no instance graph to resolve.
+
+    It holds the instance's id and is nothing else: not the Integer of that
+    value, so it is never equal to one nor accepted where a number is, and sent
+    back it is again an instance reference.
+
+    Attributes:
+        id (int): The instance's id
+
+    Raises:
+        ValueError: If the id is not an integer.
+    """
+
+    id: int
+
+    def __post_init__(self) -> None:
+        if isinstance(self.id, bool) or not isinstance(self.id, int):
+            raise ValueError(f"instance id {self.id!r} is not an integer")
+
+    def __str__(self) -> str:
+        return f"instance({self.id})"
+
+
+@dataclass(frozen=True)
+class TensorQuantity:
+    """A tensor quantity of any rank: its shape and one quantity per component.
+
+    ``TensorCalculations::'['((1.0, ..., 8.0), cubeRef)`` over a
+    ``(2, 2, 2)`` reference is ``TensorQuantity((2, 2, 2), (Quantity(1.0, Pa),
+    ...))``, the components flattened row-major as an :class:`Array`'s are. A
+    tensor of rank one is not a :class:`VectorQuantity`, here as in the model.
+
+    Attributes:
+        dimensions (tuple[int, ...]): Extent of each dimension, all positive
+        components (tuple[Quantity, ...]): The components, row-major
+
+    Raises:
+        ValueError: If a dimension is not positive, a component is not a
+            :class:`Quantity`, or the components do not fill the dimensions.
+    """
+
+    dimensions: Tuple[int, ...]
+    components: Tuple[Quantity, ...]
+
+    def __init__(self, dimensions: Sequence[int], components: Sequence[Quantity]) -> None:
+        dims = tuple(dimensions)
+        comps = tuple(components)
+        for extent in dims:
+            if isinstance(extent, bool) or not isinstance(extent, int) or extent <= 0:
+                raise ValueError(f"tensor dimension {extent!r} is not a positive integer")
+        if len(comps) != math.prod(dims):
+            raise ValueError(
+                f"tensor of dimensions {dims} holds {len(comps)} component(s), "
+                f"want {math.prod(dims)}"
+            )
+        for component in comps:
+            if not isinstance(component, Quantity):
+                raise ValueError(f"tensor component {component!r} is not a Quantity")
+        object.__setattr__(self, "dimensions", dims)
+        object.__setattr__(self, "components", comps)
+
+    @property
+    def rank(self) -> int:
+        """Number of dimensions."""
+        return len(self.dimensions)
+
+    @property
+    def unit(self) -> Optional[Unit]:
+        """The one unit every component shares, or ``None`` when they differ."""
+        units = {component.unit for component in self.components}
+        return next(iter(units)) if len(units) == 1 else None
+
+    def __len__(self) -> int:
+        return len(self.components)
+
+    def __iter__(self) -> Iterator[Quantity]:
+        return iter(self.components)
+
+    def __getitem__(self, index: int | Tuple[int, ...]) -> Quantity:
+        """The component at a row-major position, or at a full multi-index."""
+        if isinstance(index, tuple):
+            if len(index) != self.rank:
+                raise IndexError(
+                    f"index {index} has {len(index)} coordinate(s), tensor has rank {self.rank}"
+                )
+            flat = 0
+            for extent, coordinate in zip(self.dimensions, index):
+                if not 0 <= coordinate < extent:
+                    raise IndexError(f"index {index} is outside dimensions {self.dimensions}")
+                flat = flat * extent + coordinate
+            return self.components[flat]
+        return self.components[index]
+
+    @classmethod
+    def from_pb(cls, pb_tensor) -> "TensorQuantity":
+        """Build from a ``TensorQuantity`` protobuf message.
+
+        Raises:
+            UnsupportedValueError: If the message's shape and components
+                disagree, or a component is a quantity the client cannot read.
+        """
+        try:
+            return cls(tuple(pb_tensor.dimensions), [Quantity.from_pb(c) for c in pb_tensor.components])
+        except ValueError as exc:
+            raise UnsupportedValueError(f"malformed tensor quantity: {exc}") from exc
+
+    def to_pb(self) -> "sysml_pb2.TensorQuantity":
+        """Encode as a ``TensorQuantity`` message, one ``Quantity`` per component."""
+        return sysml_pb2.TensorQuantity(
+            dimensions=list(self.dimensions),
+            components=[c.to_pb() for c in self.components],
+        )
+
+    def __str__(self) -> str:
+        dims = ", ".join(str(d) for d in self.dimensions)
+        unit = self.unit
+        if unit is not None:
+            body = ", ".join(_format_number(c.magnitude) for c in self.components)
+            return f"Tensor({dims})[{body}] [{unit}]"
+        return f"Tensor({dims})[{', '.join(str(c) for c in self.components)}]"
+
+
 class UnsetType:
     """A feature holding no value: a valueless feature of a value type.
 
@@ -746,16 +1028,18 @@ def value_to_python(pb_value, resolve_instance=None):
     Args:
         pb_value: sysml_pb2.Value message
         resolve_instance: optional callable mapping an instance id to an object;
-            when omitted, instance references are returned as their integer id.
+            when omitted, instance references are returned as an
+            :class:`InstanceRef` holding the id.
 
     Returns:
         int, float, complex, bool, str, list, None, :data:`UNSET`,
         :data:`INFINITY`, a
         :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, an
-        :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, an
-        :class:`~opensysml.enumeration.EnumLiteral`,
-        or the resolved instance object. A Complex is one ``complex``, never two
-        floats; a Vector is one :class:`Vector`, never a list of numbers.
+        :class:`Array`, a :class:`Vector`, a :class:`VectorQuantity`, a :class:`SetValue`, a
+        :class:`TensorQuantity`, an :class:`~opensysml.enumeration.EnumLiteral`,
+        an :class:`InstanceRef`, or the resolved instance object. A Complex is one ``complex``, never two
+        floats; a Vector is one :class:`Vector`, never a list of numbers; a set
+        is one :class:`SetValue`, never a list.
 
     Raises:
         UnsupportedValueError: If the service reported the value as unsupported,
@@ -780,7 +1064,7 @@ def value_to_python(pb_value, resolve_instance=None):
         return Function.from_pb(pb_value.function)
     if kind == 'instance_id':
         if resolve_instance is None:
-            return pb_value.instance_id
+            return InstanceRef(pb_value.instance_id)
         return resolve_instance(pb_value.instance_id)
     if kind == 'sequence':
         return [value_to_python(v, resolve_instance) for v in pb_value.sequence.elements]
@@ -790,6 +1074,10 @@ def value_to_python(pb_value, resolve_instance=None):
         return Vector.from_pb(pb_value.vector)
     if kind == 'vector_quantity':
         return VectorQuantity.from_pb(pb_value.vector_quantity)
+    if kind == 'set':
+        return SetValue.from_pb(pb_value.set, resolve_instance)
+    if kind == 'tensor_quantity':
+        return TensorQuantity.from_pb(pb_value.tensor_quantity)
     if kind == 'enum_literal':
         lit = pb_value.enum_literal
         return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name)

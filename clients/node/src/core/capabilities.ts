@@ -28,6 +28,10 @@ export const CAPABILITY_FUNCTION_VALUES = "function_values";
 export const CAPABILITY_INFINITY_VALUE = "infinity_value";
 /** `Diagnostic.code` is populated, so an empty code is a finding none was assigned. */
 export const CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes";
+/** A unique, unordered collection (a `Collections::Set`'s elements) as `Value.set`, rather than an unsupported null. */
+export const CAPABILITY_SET_VALUES = "set_values";
+/** A tensor quantity of any rank as `Value.tensor_quantity`, rather than an unsupported null. */
+export const CAPABILITY_TENSOR_VALUES = "tensor_values";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

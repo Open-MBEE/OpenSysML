@@ -109,6 +109,14 @@ const CapabilityMeasurementRefs = "measurement_refs"
 // as an unsupported null.
 const CapabilityFunctionValues = "function_values"
 
+// CapabilitySetValues names the capability of carrying a unique, unordered
+// collection as Value.set, rather than reporting it as an unsupported null.
+const CapabilitySetValues = "set_values"
+
+// CapabilityTensorValues names the capability of carrying a tensor quantity of
+// any rank as Value.tensor_quantity, rather than as an unsupported null.
+const CapabilityTensorValues = "tensor_values"
+
 // CapabilityVerificationVerdicts names the capability of reporting what the body
 // of a verification case answered as VerificationVerdict, and of running a
 // verification case through RunAnalysis.
@@ -137,8 +145,9 @@ var capabilities = []string{
 	CapabilityApplyEdits, CapabilityAuthoring, CapabilityInlineLanguage,
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
-	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
-	CapabilityInfinityValue, CapabilityDiagnosticCodes, CapabilitySchedule,
+	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
+	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
+	CapabilityDiagnosticCodes, CapabilitySchedule,
 }
 
 type capabilityAvailability struct {
@@ -299,7 +308,17 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesInfinity(pv) {
-		return s.requireCapability(CapabilityInfinityValue)
+		if err := s.requireCapability(CapabilityInfinityValue); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesSet(pv) {
+		if err := s.requireCapability(CapabilitySetValues); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesTensor(pv) {
+		return s.requireCapability(CapabilityTensorValues)
 	}
 	return nil
 }

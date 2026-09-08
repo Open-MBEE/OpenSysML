@@ -187,6 +187,58 @@ class ApiIntegrationTest {
     }
   }
 
+  private static final String SET_AND_TENSOR =
+      """
+      package T {
+        private import ScalarValues::*;
+        private import Collections::*;
+        private import Quantities::*;
+        private import MeasurementReferences::*;
+        private import SI::*;
+        attribute s : Set { :>> elements = (3, 1, 2, 2, 3); }
+        attribute none : Set { :>> elements = (); }
+        attribute cubeRef : TensorMeasurementReference {
+          :>> dimensions = (2, 2, 2);
+          :>> mRefs = (m, m, m, m, m, m, m, m);
+        }
+        attribute cube : TensorQuantityValue =
+          TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);
+      }
+      """;
+
+  @Test
+  void aSetAndARankThreeTensorArriveWholeOverProtobufAndJson() {
+    assertTrue(connection.capabilities().has(Capabilities.SET_VALUES));
+    assertTrue(connection.capabilities().has(Capabilities.TENSOR_VALUES));
+    try (Connection json =
+        Connection.open(ServiceBinary.options().encoding(Encoding.JSON).build())) {
+      for (Connection each : List.of(connection, json)) {
+        Model model = each.parse(SET_AND_TENSOR);
+        Value.SetValue s = (Value.SetValue) model.eval("T::s.elements");
+        assertEquals(
+            new Value.SetValue(
+                List.of(
+                    new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3))),
+            s);
+        assertEquals(List.of(1L, 2L, 3L), s.elements().stream().map(Value::asLong).toList());
+        assertEquals(new Value.SetValue(List.of()), model.eval("T::none.elements"));
+        Value.TensorQuantityValue cube = (Value.TensorQuantityValue) model.eval("T::cube");
+        assertEquals(List.of(2L, 2L, 2L), cube.dimensions());
+        assertEquals(Optional.of("m"), cube.unit());
+        assertEquals(
+            List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0),
+            cube.components().stream().map(Quantity::magnitude).toList());
+        assertEquals(6.0, cube.get(1, 0, 1).magnitude());
+        assertEquals(
+            List.of(new Quantity.UnitFactor("SI::metre", 1.0)),
+            cube.get(1, 0, 1).reduction().orElseThrow().factors());
+        Value.QuantityValue corner = (Value.QuantityValue) model.eval("T::cube#(2, 1, 2)");
+        assertEquals(6.0, corner.quantity().magnitude());
+        assertEquals(Optional.of("m"), corner.quantity().unit());
+      }
+    }
+  }
+
   private static final String MEASUREMENT_REFS =
       """
       package M {

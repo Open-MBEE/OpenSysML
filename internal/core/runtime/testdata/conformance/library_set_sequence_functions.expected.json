@@ -1,0 +1,35 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test",
+  "slots": {
+    "both": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 4}
+    ]},
+    "common": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 2}
+    ]},
+    "more": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 2}
+    ]},
+    "fewer": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 3}
+    ]},
+    "joined": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3}
+    ]}
+  }
+}

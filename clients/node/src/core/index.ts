@@ -35,10 +35,12 @@ export {
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
+  CAPABILITY_SET_VALUES,
   CAPABILITY_STRICT_CONFORMANCE,
   CAPABILITY_STRUCTURED_VALUES,
   CAPABILITY_VERIFICATION_VERDICTS,
   CAPABILITY_SYMBOL_ATTRIBUTES,
+  CAPABILITY_TENSOR_VALUES,
   CAPABILITY_TYPE_FACTS,
   CAPABILITY_UNSET_VALUE,
   CAPABILITY_VERIFICATION,
@@ -70,7 +72,7 @@ export {
 export type { FailureCause, ModelDiagnostic } from "./errors.js";
 export { fromHandshakeError, fromRpcError, statusName } from "./status.js";
 export type { NotFoundSubject } from "./status.js";
-export { decodeValue, decodeVerdict, encodeValue, formatValue } from "./values.js";
+export { decodeValue, decodeVerdict, encodeValue, formatValue, valuesEqual } from "./values.js";
 export type {
   ArrayValue,
   ComplexValue,
@@ -81,6 +83,7 @@ export type {
   QuantityValue,
   SysMLValue,
   SysMLVerdict,
+  TensorQuantityValue,
   UnitFactor,
   UnitFactorization,
   VerdictSubject,

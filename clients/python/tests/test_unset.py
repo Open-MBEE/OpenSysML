@@ -9,7 +9,7 @@ import opensysml
 from opensysml.errors import FeatureValueError
 from opensysml.instance import Instance
 from opensysml.proto import sysml_pb2
-from opensysml.values import UNSET, UnsetType, feature_value_to_python, value_to_python
+from opensysml.values import UNSET, InstanceRef, UnsetType, feature_value_to_python, value_to_python
 
 import pytest
 
@@ -57,7 +57,7 @@ def test_a_valued_slot_and_an_object_valued_one_are_unaffected():
     object_valued = sysml_pb2.FeatureValue(
         feature_name="engine", value=sysml_pb2.Value(instance_id=7), materialized=True
     )
-    assert feature_value_to_python("engine", object_valued) == 7
+    assert feature_value_to_python("engine", object_valued) == InstanceRef(7)
 
 
 def test_an_unmaterialized_slot_is_still_an_error():

@@ -1,6 +1,8 @@
 package opensysml
 
 import (
+	"fmt"
+
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
 )
@@ -170,6 +172,32 @@ func valueFromProto(value *pb.Value) Value {
 			return Null("unsupported: function naming no calc")
 		}
 		return Function{CalcID: kind.Function.GetCalcId(), Self: InstanceID(kind.Function.GetSelfId())}
+	case *pb.Value_Set:
+		out := make(Set, 0, len(kind.Set.GetElements()))
+		for _, element := range kind.Set.GetElements() {
+			member := valueFromProto(element)
+			if out.Contains(member) {
+				return Null(fmt.Sprintf("unsupported: set lists a member twice: %v", member))
+			}
+			out = append(out, member)
+		}
+		return out
+	case *pb.Value_TensorQuantity:
+		if err := sysmlgrpc.CheckTensorShape(kind.TensorQuantity.GetDimensions(), len(kind.TensorQuantity.GetComponents())); err != nil {
+			return Null("unsupported: " + err.Error())
+		}
+		out := TensorQuantity{
+			Dimensions: append([]int64(nil), kind.TensorQuantity.GetDimensions()...),
+			Components: make([]Quantity, 0, len(kind.TensorQuantity.GetComponents())),
+		}
+		for _, component := range kind.TensorQuantity.GetComponents() {
+			quantity, ok := quantityFromProto(component)
+			if !ok {
+				return Null("unsupported: tensor quantity with a component without a magnitude")
+			}
+			out.Components = append(out.Components, quantity)
+		}
+		return out
 	default:
 		// A newer service's arm parses as an unknown field: no kind at all.
 		return Null("unsupported: a value arm this client does not know")
@@ -208,7 +236,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 		}
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: sequence}}, nil
 	case Quantity:
-		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: quantityToProto(v)}}, nil
+		sent, err := quantityToProto(v)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: sent}}, nil
 	case EnumLiteral:
 		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: &pb.EnumLiteral{
 			LiteralId:     v.LiteralID,
@@ -241,7 +273,11 @@ func valueToProto(value Value) (*pb.Value, error) {
 	case VectorQuantity:
 		vq := &pb.VectorQuantity{Components: make([]*pb.Quantity, 0, len(v))}
 		for _, component := range v {
-			vq.Components = append(vq.Components, quantityToProto(component))
+			sent, err := quantityToProto(component)
+			if err != nil {
+				return nil, err
+			}
+			vq.Components = append(vq.Components, sent)
 		}
 		return &pb.Value{Kind: &pb.Value_VectorQuantity{VectorQuantity: vq}}, nil
 	case MeasurementRef:
@@ -255,6 +291,38 @@ func valueToProto(value Value) (*pb.Value, error) {
 			return nil, &StatusError{Code: CodeInvalidArgument, Message: "a function names no calc"}
 		}
 		return &pb.Value{Kind: &pb.Value_Function{Function: &pb.Function{CalcId: v.CalcID, SelfId: int64(v.Self)}}}, nil
+	case Set:
+		if twice, ok := v.repeated(); ok {
+			return nil, &StatusError{
+				Code:    CodeInvalidArgument,
+				Message: fmt.Sprintf("set lists a member twice: %v", twice),
+			}
+		}
+		set := &pb.ValueSet{Elements: make([]*pb.Value, 0, len(v))}
+		for _, element := range v {
+			sent, err := valueToProto(element)
+			if err != nil {
+				return nil, err
+			}
+			set.Elements = append(set.Elements, sent)
+		}
+		return &pb.Value{Kind: &pb.Value_Set{Set: set}}, nil
+	case TensorQuantity:
+		if err := sysmlgrpc.CheckTensorShape(v.Dimensions, len(v.Components)); err != nil {
+			return nil, &StatusError{Code: CodeInvalidArgument, Message: err.Error()}
+		}
+		tq := &pb.TensorQuantity{
+			Dimensions: append([]int64(nil), v.Dimensions...),
+			Components: make([]*pb.Quantity, 0, len(v.Components)),
+		}
+		for _, component := range v.Components {
+			sent, err := quantityToProto(component)
+			if err != nil {
+				return nil, err
+			}
+			tq.Components = append(tq.Components, sent)
+		}
+		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: tq}}, nil
 	case Unset:
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
@@ -265,16 +333,20 @@ func valueToProto(value Value) (*pb.Value, error) {
 	}
 }
 
-func quantityToProto(quantity Quantity) *pb.Quantity {
+// quantityToProto marshals a quantity, refusing one without a magnitude —
+// the zero Quantity — which the service would reject.
+func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
 	out := &pb.Quantity{Unit: quantity.Unit}
 	switch magnitude := quantity.Magnitude.(type) {
 	case Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
 	case Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
+	default:
+		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("quantity in %q carries no magnitude", quantity.Unit)}
 	}
 	out.UnitTerm = unitTermToProto(quantity.Term)
-	return out
+	return out, nil
 }
 
 func unitTermToProto(term *UnitTerm) *pb.UnitTerm {

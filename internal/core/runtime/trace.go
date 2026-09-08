@@ -350,7 +350,6 @@ func FormatTraceValue(v Value) string {
 		for _, elem := range v.Set().Elements() {
 			parts = append(parts, FormatTraceValue(elem))
 		}
-		sort.Strings(parts)
 		return "{" + strings.Join(parts, ", ") + "}"
 	case ValQuantity:
 		if v.Quantity() == nil {

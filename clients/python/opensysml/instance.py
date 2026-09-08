@@ -1,7 +1,7 @@
 """Instance class wrapping runtime-materialized objects."""
 
 from opensysml.errors import FeatureValueError
-from opensysml.values import UNSET, feature_value_to_python, value_to_python
+from opensysml.values import UNSET, InstanceRef, feature_value_to_python, value_to_python
 
 
 class Instance:
@@ -96,13 +96,13 @@ class Instance:
         return feature_value_to_python(feature_name, pb_value, self._resolve_instance)
 
     def _resolve_instance(self, instance_id):
-        """Resolve an instance id to an Instance, or the bare id if unreachable."""
+        """Resolve an instance id to an Instance, or an InstanceRef if unreachable."""
         wrapper = self._wrappers.get(instance_id)
         if wrapper is not None:
             return wrapper
         pb_child = self._graph.get(instance_id)
         if pb_child is None:
-            return instance_id
+            return InstanceRef(instance_id)
         return Instance(pb_child, self._graph, self._wrappers)
 
     def __getattr__(self, name):

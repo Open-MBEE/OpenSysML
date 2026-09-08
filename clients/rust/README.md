@@ -144,11 +144,29 @@ for:
 
 Decoding a response is never gated on capabilities: if a service sends an
 enum, unset value, complex number, array, vector, vector quantity, measurement
-reference, function, or feature-value arm, the client understands that answer. Consumers
-can inspect `Capabilities::has` or use `Capabilities::require` when they need to
-gate their own use of `enum_values`, `unset_value`, `complex_values`,
-`structured_values`, `measurement_refs`, `function_values`, `feature_values`, or another advertised
-operation.
+reference, function, set, tensor quantity, or feature-value arm, the client
+understands that answer. Consumers can inspect `Capabilities::has` or use
+`Capabilities::require` when they need to gate their own use of `enum_values`,
+`unset_value`, `complex_values`, `structured_values`, `measurement_refs`,
+`function_values`, `set_values`, `tensor_values`, `feature_values`, or another
+advertised operation.
+
+A `Value::Set` is a `Collections::Set`'s elements: each member once, sent in
+the service's canonical order (numbers ascending, then strings, and so on), and
+equal to another set holding the same members in any order. Membership is
+judged by `Value::same_value`, as the service judges it: `Integer(1)` and
+`Real(1.0)` are one member, `Real(1.5)` and a `Complex` of `1.5 + 0.0i` are one
+member, exactly across the whole `i64` range, and a `Quantity` is judged by
+magnitude through its `unit_term`, so `1 m` and `100 cm` are one member (one
+without a `unit_term` in its unit as written); `==` on `Value` stays
+structural. A
+`Value::TensorQuantity` is a `Quantities::TensorQuantityValue` of any rank:
+its `dimensions()` and its `components()` flattened row-major, each a
+`Quantity` with its own unit; `get(&[i, j, k])` takes one coordinate per
+dimension. A rank-one tensor stays a `TensorQuantity`, distinct from a
+`VectorQuantity`. A malformed set (a member listed twice) or tensor (a
+non-positive dimension, or components that do not fill the shape) is an
+`Error::Decode`, never a partial value.
 
 ## Conformance runner
 

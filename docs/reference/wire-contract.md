@@ -192,10 +192,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: sixteen arms, exactly one present
+## `Value`: eighteen arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of sixteen
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of eighteen
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -219,11 +219,14 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `measurementRef` | object | `{"result":{"measurementRef":{"unit":"m","unitTerm":{…},"unitId":"SI::metre"}}}` | A measurement reference on its own: a unit, its reduction, and the declaration it names |
 | `infinity` | boolean | `{"result":{"infinity":true}}` | The unbounded value `*`, which is no number and no string |
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
+| `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
+| `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
 `conformance/fixtures/measurement_ref.sysml` (`M::u`), `function` against
-`conformance/fixtures/function.sysml` (`F::pick`); the rest against the model below, with requests of the form
+`conformance/fixtures/function.sysml` (`F::pick`), `set` and `tensorQuantity` against
+`conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
 `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
@@ -292,6 +295,11 @@ decode(v):
   function     → calc := v.function.calcId, require it non-empty, else an error;
                  self := v.function.selfId when present and not "0", an opaque reference
                  under the instanceId rule (this response only), else no object
+  set          → map decode over v.set.elements (absent elements = the empty set); require
+                 no two equal, else an error; keep it a set, not a list
+  tensorQuantity → shape v.tensorQuantity.dimensions (parse each as int64, every one positive);
+                 components := map the quantity rule over v.tensorQuantity.components;
+                 require len(components) == product(dimensions), else an error
   anything else → an error: a newer service than this decoder
 ```
 
@@ -498,6 +506,71 @@ $ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::scaler"}'
   A service without it sends every function, at any depth, as
   `{"null":"unsupported: function <calcId>"}` and refuses a request that carries one.
 
+**`set`.** `elements` is a list of `Value`s with no two equal — what a `Collections::Set`'s
+`elements`, or any collection the library declares unique and not ordered, evaluates to:
+
+```console
+$ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::s.elements"}'
+{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}
+```
+
+- The model wrote `(3, 1, 2, 2, 3)`; the set has three members. The service lists them in the
+  engine's **canonical order** — the order `FormatTraceValue` prints and every ordered
+  operation on a set reads (nulls, then Booleans, numbers by value, complex numbers, strings,
+  quantities, enumeration literals, then objects by identity), each member placed by the value
+  it equals whichever arm carries it (`1.0 + 0.0i` among the numbers, an empty collection with
+  `null`) — so two equal sets are sent identically, but the order carries no meaning and a
+  client must not read one into it.
+- A `set` is not a `sequence`: `(1, 2) == (2, 1)` is false, the sets they populate are equal.
+  A client compares sets by membership and sends one back in any order it likes. As members
+  of a set, a `set` and the `sequence` of its members are two members, on both sides; only
+  `==` in the model, an ordered context, reads the set as its canonical sequence.
+- Membership is the engine's value equality: numbers by value, so `1` and `1.0` are one member
+  and so are `1.5` and the complex `1.5 + 0.0i`, exactly — an Integer past 2^53 is not the Real
+  it would round to; a Boolean is never a number; sequences in order; sets by membership;
+  quantities by magnitude, converting commensurable units, so `1 [m]` and `100 [cm]` are one
+  member; a `measurementRef` by its reduction at its scale, however it is spelt or which
+  declaration names it (`SI::'m/s'` and `m / s` are one member, `km / m` and `m / mm` too),
+  except that a named unit of dimension one reduces to nothing and so is only its own
+  declaration (`rad` is not `sr`); an `enumLiteral` by its `literalId` alone; a `null`, an
+  empty `sequence` and an empty `set` as one member, the model's absent value however spelt
+  (`unset` stays apart). The bundled clients' equality helpers judge the same way, converting
+  a quantity through its `unitTerm` (exactly, while the magnitude is an integer and the scale
+  a whole ratio); a quantity sent without a `unitTerm` they compare in its unit as written.
+- An empty set has no `elements` key (default omission). A `set` listing a member twice is
+  refused on both sides, as is a `set` where the model wants a sequence's order or a sequence
+  where it wants a set; a set flowing into an ordered parameter is read in canonical order.
+- Members nest: a set of sets, or of arrays, needs no second encoding.
+- A set holding a member that has no wire form — one the rule under `null` would send as a
+  non-empty `null`, whether because no arm carries it (a coordinate frame, a function closing
+  over a body) or because the service withholds its arm (a complex number without
+  `complex_values`) — is withheld **whole**, as `{"null":"unsupported: set Set{…} holding
+  <the member's reason>"}`. Two such members would otherwise cross as two equal nulls, which a
+  set may not hold; a `sequence` of the same members keeps each in its place, so a set nested
+  in one is the null in the set's place. This also applies to a set nesting such a set.
+
+**`tensorQuantity`.** `dimensions` is the shape, `components` the quantities flattened in
+row-major order, each a `quantity` body with its own magnitude, `unit` and `unitTerm`:
+
+```console
+$ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::cube"}'
+{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{"scaleNum":1,"scaleDen":1,"factors":[{"unitId":"SI::metre","exponent":1}]}},{"realMagnitude":2,"unit":"m","unitTerm":{…}},…,{"realMagnitude":8,"unit":"m","unitTerm":{…}}]}}}
+
+$ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::cube#(2, 1, 2)"}'
+{"result":{"quantity":{"realMagnitude":6,"unit":"m","unitTerm":{"scaleNum":1,"scaleDen":1,"factors":[{"unitId":"SI::metre","exponent":1}]}}}}
+```
+
+- `dimensions` follows the `array` rule: `int64` strings, every extent positive, the component
+  count their product, checked on both sides; the component at `(i, j, k)` of a `(2, 2, 2)`
+  tensor is `components[(i*2 + j)*2 + k]`. Indexing in the model is one-based and needs one
+  index per dimension — `T::cube#(2, 1, 2)` above is the sixth component — and the wrong
+  count or an index outside its dimension is an evaluation failure, not a value.
+- A rank-one tensor is a `tensorQuantity`, not a `vectorQuantity`: the model's
+  `TensorQuantityValue` and `VectorQuantityValue` are different types and stay apart on the
+  wire. A `vectorQuantity` never arrives with `dimensions`.
+- The unit is per component, as in `vectorQuantity`; a component without its `unitTerm` is
+  refused by the rule under `quantity`.
+
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
@@ -521,6 +594,11 @@ $ … /Evaluate -d '{"modelHash":"e587…f81e","expression":"F::scaler"}'
 - **Do not send back a `function` that carries a `selfId`.** It is an `instanceId`, with that
   arm's lifetime: no later call holds the object, and the service refuses the function rather
   than guess. Only a function over no object (`selfId` absent or `"0"`) is an argument.
+- **Do not read a `set` as a `sequence`, or its element order as meaning anything.** Two sets
+  are equal when their members are; the order the service lists them in is canonical, not
+  significant, and a `set` sent back may list them in any order — but never twice.
+- **Do not index a `tensorQuantity` before checking `len(components) == product(dimensions)`**,
+  and do not read a rank-one tensor as a `vectorQuantity`.
 
 ## Three places a failure can be
 
@@ -951,6 +1029,29 @@ A service without the `structured_values` capability refuses a structured argume
 without `measurement_refs` a `measurementRef` argument, and one without `function_values` a
 `function` argument, with the `unimplemented` Connect error instead, naming the capability;
 check `GetServerInfo` first.
+
+A `set` or a `tensorQuantity` argument goes back the same way; a set's members reach a
+multi-valued parameter in canonical order, and a repeated member or a tensor whose components
+do not fill its dimensions is the same kind of in-body failure:
+
+```console
+$ … /EvaluateCalc -d '{"modelHash":"c409…1a4a","symbolId":"T::members","arguments":[{"set":{"elements":[{"intValue":"7"},{"intValue":"5"},{"intValue":"9"}]}}]}'
+{"result":{"intValue":"3"}}
+
+$ … /EvaluateCalc -d '{"modelHash":"c409…1a4a","symbolId":"T::members","arguments":[{"set":{"elements":[{"intValue":"7"},{"intValue":"7"}]}}]}'
+{"error":"calc argument could not be read: set element is repeated: element 2, 7","failureReason":"FAILURE_REASON_EVALUATION"}
+
+$ … /EvaluateCalc -d '{"modelHash":"c409…1a4a","symbolId":"T::corner","arguments":[{"tensorQuantity":{"dimensions":["2","2","3"],"components":[…the eight above…]}}]}'
+{"error":"calc argument could not be read: tensor components do not fill its dimensions: 8 elements under dimensions [2 2 3] (flattenedSize 12)","failureReason":"FAILURE_REASON_EVALUATION"}
+
+$ … /EvaluateCalc -d '{"modelHash":"c409…1a4a","symbolId":"T::corner","arguments":[{"tensorQuantity":{"dimensions":["0"],"components":[]}}]}'
+{"error":"calc argument could not be read: tensor dimension is not positive: dimension 1 is 0","failureReason":"FAILURE_REASON_EVALUATION"}
+```
+
+A service without `set_values` refuses a `set` argument and one without `tensor_values` a
+`tensorQuantity` — nested anywhere in the argument — the same way, and answers a set or a
+tensor it cannot send as the non-empty `null` arm (`{"null":"unsupported: set Set{1, 2, 3}"}`),
+the rule under `null`.
 
 A calc *usage* whose output features are evaluated from its own members (no `arguments`)
 answers them as `outputs`, a list of `{"name":…,"value":<Value>}` in declaration order, in

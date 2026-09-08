@@ -111,7 +111,7 @@ func (s *FeatureValue) ReadValue(name string) (Value, error) {
 		return value, nil
 	}
 	if lower := s.Feature.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
-		return sequenceOf(nil), nil
+		return collectionOf(s.Feature, nil), nil
 	}
 	return Value{}, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, name)
 }
@@ -464,14 +464,14 @@ func (feat *EffectiveFeature) heldBy() *symbols.Symbol {
 // admitted is the value an admitted val is stored as: a collection for a multi-valued
 // feature, its elements charged, the objects a declared value holds classified by the feature.
 func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (Value, error) {
-	if !feat.Scalar() && val.Kind != ValSequence && val.Kind != ValSet {
+	if !feat.Scalar() && (val.Kind != ValSequence && val.Kind != ValSet || feat.HoldsSet != (val.Kind == ValSet)) {
 		// A multi-valued feature holds a collection however it was written, so a
 		// single value written to one is that collection's one element.
 		elements := elementsOf(val)
 		if err := ctx.chargeElements(int64(len(elements))); err != nil {
 			return Value{}, err
 		}
-		val = sequenceOf(elements)
+		val = collectionOf(feat, elements)
 	} else if feat.Scalar() && (val.Kind == ValSequence || val.Kind == ValSet) {
 		// A scalar feature holds the one element of a one-element collection.
 		if elements := elementsOf(val); len(elements) == 1 {
@@ -759,7 +759,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 				seq.Append(Value{Kind: ValInstance, Instance: childInst.ID})
 				children = append(children, childInst)
 			}
-			fv.Values = NewSequenceValue(seq)
+			fv.Values = collectionOf(fv.Feature, seq.Elements())
 			fv.Materialized = true
 			if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 				return fail(err)

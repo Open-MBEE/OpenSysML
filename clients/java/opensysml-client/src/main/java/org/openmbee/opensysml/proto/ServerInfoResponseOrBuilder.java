@@ -84,6 +84,18 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -151,6 +163,18 @@ public interface ServerInfoResponseOrBuilder extends
    * built before this arm existed may already claim.
    * "function_values" - a Value carries a calc held as a value as function,
    * named by its declaration, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
@@ -223,6 +247,18 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -290,6 +326,18 @@ public interface ServerInfoResponseOrBuilder extends
    * built before this arm existed may already claim.
    * "function_values" - a Value carries a calc held as a value as function,
    * named by its declaration, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.

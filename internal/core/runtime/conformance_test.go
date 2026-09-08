@@ -1665,6 +1665,12 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		for i, want := range expected.Elements {
 			validateValue(t, ctx, fmt.Sprintf("%s#(%d)", name, i+1), want, elements[i])
 		}
+	case "Set":
+		if actual.Kind != ValSet || actual.Set() == nil {
+			t.Errorf("%s: type = %v, want Set", name, actual.Kind)
+			return
+		}
+		validateElements(t, ctx, name, expected.Elements, actual.Set().Elements())
 	case "Vector":
 		if actual.Kind != ValVector || actual.Vector() == nil {
 			t.Errorf("%s: type = %v, want Vector", name, actual.Kind)

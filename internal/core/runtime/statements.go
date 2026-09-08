@@ -3,7 +3,6 @@ package runtime
 import (
 	"fmt"
 	"maps"
-	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -614,11 +613,11 @@ func stmtLabel(stmt lower.Statement) string {
 
 // forElements returns the elements a `for` loop visits, in visiting order: a
 // sequence in the order the expression built it (a range ascending, a filter as
-// the collection it filtered), and a set in the order its canonical rendering
-// sorts in since a set carries no order of its own. A `for` input that is not a
-// collection is reported rather than read as the one-element collection
-// elementsOf coerces it to: iterating a scalar is a modelling error, and a
-// single silent iteration hides it.
+// the collection it filtered), and a set in its canonical order since a set
+// carries no order of its own. A `for` input that is not a collection is
+// reported rather than read as the one-element collection elementsOf coerces
+// it to: iterating a scalar is a modelling error, and a single silent
+// iteration hides it.
 func forElements(value Value) ([]Value, error) {
 	switch value.Kind {
 	case ValSequence:
@@ -630,11 +629,7 @@ func forElements(value Value) ([]Value, error) {
 		if value.Set() == nil {
 			return nil, nil
 		}
-		elements := value.Set().Elements()
-		sort.Slice(elements, func(i, j int) bool {
-			return FormatTraceValue(elements[i]) < FormatTraceValue(elements[j])
-		})
-		return elements, nil
+		return value.Set().Elements(), nil
 	case ValNull:
 		// An absent value holds no elements, which is the empty collection: zero
 		// iterations, not an error.

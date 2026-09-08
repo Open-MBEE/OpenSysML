@@ -57,6 +57,8 @@ func positionBinding(property string) int {
 type operand struct {
 	text    string
 	binding int
+	// elements is the comma-separated list a sequence operand encloses.
+	elements string
 }
 
 // at writes the operand where it must bind at least as tightly as min.

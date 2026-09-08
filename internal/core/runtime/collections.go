@@ -66,21 +66,55 @@ func collectionElements(val Value) []Value {
 
 // overCollectionElements adapts a sequence operation to the CollectionFunctions
 // form that the library defines over `col.elements`: an array or vector is
-// passed as the charged sequence of its elements, any other value as itself.
+// passed as the charged sequence of its elements, a Collection object as what
+// its `elements` hold (a set for a Set), any other value as itself.
 func overCollectionElements(apply builtinFunc) builtinFunc {
 	return func(ec *EvalContext, args []Value) (Value, error) {
 		if len(args) > 0 {
-			switch args[0].Kind {
-			case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
-				elements, err := ec.newSequence(collectionElements(args[0]))
-				if err != nil {
-					return Value{}, err
-				}
-				args = append([]Value{elements}, args[1:]...)
+			col, err := ec.collectionElementsValue(args[0])
+			if err != nil {
+				return Value{}, err
 			}
+			args = append([]Value{col}, args[1:]...)
 		}
 		return apply(ec, args)
 	}
+}
+
+// collectionElementsValue is `col.elements` for a value passed as a Collection:
+// the charged sequence of an array's or vector's elements, the collection a
+// Collection object's `elements` feature holds, and any other value itself.
+func (ec *EvalContext) collectionElementsValue(col Value) (Value, error) {
+	switch col.Kind {
+	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
+		return ec.newSequence(collectionElements(col))
+	case ValInstance:
+		if elements, ok, err := ec.ctx.collectionObjectElements(col); ok || err != nil {
+			return elements, err
+		}
+	}
+	return col, nil
+}
+
+// collectionObjectElements is what a Collection object's `elements` feature
+// reads as; ok is false for a value that is no Collection object.
+func (ctx *Context) collectionObjectElements(val Value) (Value, bool, error) {
+	if val.Kind != ValInstance {
+		return Value{}, false, nil
+	}
+	inst, ok := ctx.Instance(val.Instance)
+	if !ok || !ctx.specializes(inst.Type, ctx.librarySymbol(collectionType)) {
+		return Value{}, false, nil
+	}
+	if _, ok := inst.FeatureValues[collectionElementsName]; !ok {
+		return Value{}, false, nil
+	}
+	fv, err := inst.GetFeatureValue(ctx, collectionElementsName)
+	if err != nil {
+		return Value{}, true, err
+	}
+	elements, err := ctx.readFeatureValue(fv, collectionElementsName)
+	return elements, true, err
 }
 
 // elementCount is len(elementsOf(val)) without materializing a scalar's
@@ -542,6 +576,9 @@ func builtinSequenceEquals(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::equals", args, 2); err != nil {
 		return Value{}, err
 	}
+	if args[0].Kind == ValSet && args[1].Kind == ValSet {
+		return boolValue(args[0].Set().Equal(args[1].Set())), nil
+	}
 	x, y := elementsOf(args[0]), elementsOf(args[1])
 	if len(x) != len(y) {
 		return boolValue(false), nil
@@ -552,6 +589,23 @@ func builtinSequenceEquals(ec *EvalContext, args []Value) (Value, error) {
 		}
 	}
 	return boolValue(true), nil
+}
+
+// builtinCollectionEquals is CollectionFunctions::'==', equals over the two
+// collections' elements (`col1.elements->equals(col2.elements)`).
+func builtinCollectionEquals(ec *EvalContext, args []Value) (Value, error) {
+	if err := checkArity("CollectionFunctions::'=='", args, 2); err != nil {
+		return Value{}, err
+	}
+	col1, err := ec.collectionElementsValue(args[0])
+	if err != nil {
+		return Value{}, err
+	}
+	col2, err := ec.collectionElementsValue(args[1])
+	if err != nil {
+		return Value{}, err
+	}
+	return builtinSequenceEquals(ec, []Value{col1, col2})
 }
 
 // builtinSequenceSame is SequenceFunctions::same: the sequences have the same
@@ -783,7 +837,11 @@ func builtinCollectionContainsAll(ec *EvalContext, args []Value) (Value, error) 
 	if err := checkArity("CollectionFunctions::containsAll", args, 2); err != nil {
 		return Value{}, err
 	}
-	return boolValue(includesAll(elementsOf(args[0]), collectionElements(args[1]))), nil
+	col2, err := ec.collectionElementsValue(args[1])
+	if err != nil {
+		return Value{}, err
+	}
+	return boolValue(includesAll(elementsOf(args[0]), collectionElements(col2))), nil
 }
 
 // builtinControlSelect is ControlFunctions::select, the elements the selector

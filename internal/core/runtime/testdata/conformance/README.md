@@ -368,6 +368,10 @@ Supported types:
   (`{"type": "Complex", "value": 0.0, "im": 1.0}`)
 - `Sequence`: the `elements` it holds, in order, instead of `value` — for a
   multi-valued feature, whose order is part of its contract
+- `Set`: the distinct `elements` it holds, in the canonical order a set
+  enumerates in (booleans, numbers, strings, quantities, enumeration literals,
+  objects; each class in its own order) — for a `Collections::Set`'s elements,
+  or any other feature the library declares unique and unordered
 - `Instance`: an object, whose identity a case does not pin (no `value`)
 - `Unset`: a valueless feature of a value type, holding no value (no `value`)
 - `Variant`: the name of the variant a variation feature is bound to, as a JSON

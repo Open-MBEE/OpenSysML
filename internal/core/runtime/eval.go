@@ -892,7 +892,7 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
 	}
-	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, val))
+	return ec.bindVariationOf(sym, ec.ctx.classifiedFrame(sym, ec.ctx.declaredCollection(sym, val)))
 }
 
 // occurrenceReference evaluates a name denoting one object — an occurrence or a
@@ -1947,7 +1947,18 @@ func (ctx *Context) equalityValues(op ast.OperatorKind, left, right Value) (Valu
 		return equalQuantities(op, lq, rq)
 	}
 
-	equal := valueEqual(left, right)
+	// Two Collection objects compare by their elements (CollectionFunctions::'==').
+	if lc, ok, err := ctx.collectionObjectElements(left); err != nil {
+		return Value{}, err
+	} else if ok {
+		if rc, ok, err := ctx.collectionObjectElements(right); err != nil {
+			return Value{}, err
+		} else if ok {
+			left, right = lc, rc
+		}
+	}
+
+	equal := equalValues(left, right)
 	if op == ast.OpNeq {
 		equal = !equal
 	}
@@ -2610,7 +2621,17 @@ func qualifiedNameToString(qn *ast.QualifiedName) string {
 	return strings.Join(parts, "::")
 }
 
-// valueEqual checks deep equality of two runtime values.
+// equalValues is `==` over two operands: a set meeting a sequence flows into the
+// ordered context and is compared as its canonical sequence; otherwise valueEqual.
+func equalValues(a, b Value) bool {
+	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
+		return sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
+	}
+	return valueEqual(a, b)
+}
+
+// valueEqual checks deep equality of two runtime values: whether they are one
+// value, as a set's membership judges. A set is never the sequence of its members.
 func valueEqual(a, b Value) bool {
 	if isEmptyValue(a) || isEmptyValue(b) {
 		return isEmptyValue(a) && isEmptyValue(b)
@@ -2636,7 +2657,7 @@ func valueEqual(a, b Value) bool {
 	case ValSequence:
 		return sequenceEqual(a.Sequence(), b.Sequence())
 	case ValSet:
-		return setEqual(a.Set(), b.Set())
+		return a.Set().Equal(b.Set())
 	case ValVariant:
 		// A variation compares equal to the variant it selected.
 		return a.Variant() == b.Variant()
@@ -2750,32 +2771,6 @@ func sequenceEqual(a, b *Sequence) bool {
 		aElem, _ := a.At(i)
 		bElem, _ := b.At(i)
 		if !valueEqual(aElem, bElem) {
-			return false
-		}
-	}
-	return true
-}
-
-// setEqual checks set equality as an unordered multiset of exact values.
-func setEqual(a, b *Set) bool {
-	if a == nil || b == nil {
-		return a == b
-	}
-	if a.Size() != b.Size() {
-		return false
-	}
-	used := make([]bool, b.Size())
-	rights := b.Elements()
-	for _, left := range a.Elements() {
-		found := false
-		for i, right := range rights {
-			if !used[i] && valueEqual(left, right) {
-				used[i] = true
-				found = true
-				break
-			}
-		}
-		if !found {
 			return false
 		}
 	}

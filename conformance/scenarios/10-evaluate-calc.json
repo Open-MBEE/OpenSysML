@@ -92,6 +92,219 @@
       }
     },
     {
+      "id": "evaluate_calc/a_set_argument_reaches_the_calc_as_its_members",
+      "description": "A set sent as an argument reaches the calc as its members, so size counts them however the client ordered them.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "set_values"
+      ],
+      "model": {
+        "fixture": "set_tensor.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "T::members",
+        "arguments": [
+          {
+            "set": {
+              "elements": [
+                {
+                  "int_value": 7
+                },
+                {
+                  "int_value": 5
+                },
+                {
+                  "int_value": 9
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "int_value": 3
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "set_values"
+      }
+    },
+    {
+      "id": "evaluate_calc/a_tensor_argument_is_indexed_by_its_shape",
+      "description": "A tensor sent as an argument reaches the calc with its rank-three shape, so one index per dimension selects the row-major component the shape puts there.",
+      "rpc": "EvaluateCalc",
+      "requires_capabilities": [
+        "tensor_values"
+      ],
+      "model": {
+        "fixture": "set_tensor.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "T::corner",
+        "arguments": [
+          {
+            "tensor_quantity": {
+              "dimensions": [
+                2,
+                2,
+                2
+              ],
+              "components": [
+                {
+                  "real_magnitude": 1.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 2.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 3.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 4.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 5.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 6.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 7.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                },
+                {
+                  "real_magnitude": 8.0,
+                  "unit": "m",
+                  "unit_term": {
+                    "factors": [
+                      {
+                        "unit_id": "SI::metre",
+                        "exponent": 1
+                      }
+                    ],
+                    "scale_num": 1,
+                    "scale_den": 1
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "quantity": {
+              "real_magnitude": 6.0,
+              "unit": "m",
+              "unit_term": {
+                "factors": [
+                  {
+                    "unit_id": "SI::metre",
+                    "exponent": 1
+                  }
+                ],
+                "scale_num": 1,
+                "scale_den": 1
+              }
+            }
+          }
+        },
+        "absent": [
+          "error"
+        ]
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "tensor_values"
+      }
+    },
+    {
       "id": "evaluate_calc/a_measurement_reference_argument_is_the_unit_the_calc_converts_to",
       "description": "A bare unit sent as an argument reaches the calc as a measurement reference ConvertQuantity accepts as its target, so 3 km converts to 3000 m.",
       "rpc": "EvaluateCalc",

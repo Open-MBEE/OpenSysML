@@ -26,7 +26,7 @@ type valueKey struct {
 
 // valueKeyFunc extracts a comparable key from a Value. Values valueEqual holds
 // equal share a key: a whole number has the Integer's whatever kind carries it,
-// and every empty value has null's.
+// every empty value has null's, and a set hashes its members in canonical order.
 func valueKeyFunc(v Value) valueKey {
 	if isEmptyValue(v) {
 		return valueKey{kind: ValNull}
@@ -58,10 +58,8 @@ func valueKeyFunc(v Value) valueKey {
 		key.strVal = v.Str()
 	case ValInstance:
 		key.instID = v.Instance
-	case ValSequence:
-		key.colHash = hashSequence(v.Sequence())
-	case ValSet:
-		key.colHash = hashSet(v.Set())
+	case ValSequence, ValSet:
+		key.colHash = hashElements(elementsOf(v))
 	case ValVariant:
 		key.variant = v.Variant()
 	case ValEnumLiteral:
@@ -88,13 +86,10 @@ func valueKeyFunc(v Value) valueKey {
 	return key
 }
 
-// hashSequence computes a content-based hash for a Sequence.
-func hashSequence(seq *Sequence) uint64 {
-	if seq == nil {
-		return 0
-	}
+// hashElements computes a content-based hash over elements in order.
+func hashElements(elements []Value) uint64 {
 	h := fnv.New64a()
-	for _, elem := range seq.elements {
+	for _, elem := range elements {
 		k := valueKeyFunc(elem)
 		// #nosec G115 G104 -- truncation is deliberate for a hash, and
 		// hash.Hash.Write is documented never to return an error.
@@ -105,20 +100,4 @@ func hashSequence(seq *Sequence) uint64 {
 		}
 	}
 	return h.Sum64()
-}
-
-// hashSet computes a content-based hash for a Set (order-invariant).
-func hashSet(set *Set) uint64 {
-	if set == nil {
-		return 0
-	}
-	var sum uint64
-	for _, bucket := range set.elements {
-		for _, elem := range bucket {
-			k := valueKeyFunc(elem)
-			// #nosec G115 -- wrapping is intended: this is a hash, not arithmetic.
-			sum += uint64(k.intVal)
-		}
-	}
-	return sum
 }

@@ -5766,3 +5766,32 @@ and use <kbd>Shift</kbd>+<kbd>PageUp</kbd>.
   expressions (`m.eval('3 * 4')`) as the service-survival check. A throwaway venv
   (`python3 -m venv ~/pr-venv && ~/pr-venv/bin/pip install -e clients/python`) is ~1 min; drive the
   freshly built `./bin/sysml-grpc -port 50123` with `auto_start=False`.
+
+## Sets, tensors, and capability refusal
+
+- Use `conformance/fixtures/set_tensor.sysml` for an m-based rank-three tensor and
+  a duplicate/out-of-order set. Evaluate `s.elements`, not `s`, to obtain the
+  `SetValue` rather than the Collection object. `TensorQuantity.dimensions` is
+  `(2, 2, 2)` and all eight `components` should retain unit text `m`.
+- If a qualified compound expression such as `T::cube#(2,1,2)` reports an
+  unresolved reference after importing quantity libraries, pin the scope with
+  `%eval in T : cube#(2,1,2)`. In noninteractive `-e`, use `cube#(2,1,2)`
+  in the file's package context; `-e 'in T : ...'` is not REPL-command syntax.
+  Python's corresponding option is `context_symbol_id="T"`.
+- SysML tensor indices are one-based, while Python `cube[(1,0,1)]` is zero-based;
+  both address the sixth component of shape `(2,2,2)`, expected `6.0 m`.
+- For a real capability-refusal check, run a second freshly built service with
+  `OPENSYSML_TEST_WITHHOLD_CAPABILITIES=set_values,tensor_values`
+  and `-port 50124 -health-port 0`. Confirm absent capabilities, a working scalar
+  evaluation, then `MissingCapabilityError` for direct and nested outbound values.
+  Count delegated `EvaluateCalc` calls to demonstrate refusal before sending;
+  `Connection._stub` is a read-only property, backed by `_service`.
+- Library-backed collection regression probes need valid declarations:
+  `Collections::Array` requires dimensions matching its elements, and Map /
+  OrderedMap elements must be `KeyValuePair` objects, not raw integers.
+- In Konsole, use `Ctrl++` (not Ctrl+Shift++) to enlarge the font. Display version
+  with shell `bin/sysml --version`; `%version` is not a REPL command.
+
+### Devin Secrets Needed
+
+None for these local REPL/gRPC checks.
