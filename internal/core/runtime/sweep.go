@@ -498,9 +498,25 @@ func (b sweepBounds) count() uint64 {
 		return 1
 	}
 	if count > math.MaxInt64 {
-		return math.MaxInt64
+		count = math.MaxInt64
 	}
-	return uint64(count)
+	n := uint64(count)
+	for n > 1 && b.overshoots(n-1) {
+		n--
+	}
+	return n
+}
+
+// overshoots reports whether the value the given number of steps from the
+// start lies past the range's end, the rounding error of the arithmetic that
+// reaches it allowed but no part of a step.
+func (b sweepBounds) overshoots(steps uint64) bool {
+	value := b.from + float64(steps)*b.step
+	slack := 1e-12 * math.Max(math.Abs(b.to), math.Abs(b.step))
+	if b.step > 0 {
+		return value > b.to+slack
+	}
+	return value < b.to-slack
 }
 
 // at is the range's value the given number of steps from its start. An Integer
@@ -557,7 +573,18 @@ func (b sweepBounds) draw(source *rand.Rand) Value {
 	if hi < lo {
 		lo, hi = hi, lo
 	}
-	return b.value(lo + source.Float64()*(hi-lo))
+	u := source.Float64()
+	if width := hi - lo; !math.IsInf(width, 0) {
+		return b.value(lo + u*width)
+	}
+	// A range whose width overflows is drawn from as the two endpoints weighted,
+	// which stays between them however wide they are; rounding up to the end is
+	// stepped back, since the end is not drawn.
+	drawn := lo*(1-u) + hi*u
+	if drawn >= hi {
+		drawn = math.Nextafter(hi, lo)
+	}
+	return b.value(drawn)
 }
 
 // drawOffset is a uniform offset from zero to width inclusive, drawn as an

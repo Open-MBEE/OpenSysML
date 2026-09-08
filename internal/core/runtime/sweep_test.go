@@ -850,3 +850,47 @@ func TestSweepNonFiniteRangeIsRefused(t *testing.T) {
 		})
 	}
 }
+
+// A range whose end lies just short of the next step stops at the end: the
+// rounding error a count of steps is allowed never buys a whole extra run.
+func TestSweepRealRangeStopsAtItsEnd(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges: []SweepRange{
+			steppedRange("a", realOf(0), realOf(2e9-0.5), realOf(1e9)),
+			steppedRange("b", realOf(1), realOf(1), realOf(1)),
+		},
+	})
+	want := []float64{0, 1e9}
+	if len(table.Rows) != len(want) {
+		t.Fatalf("the range took %d run(s); want %d, the end being short of the next step",
+			len(table.Rows), len(want))
+	}
+	for i, value := range want {
+		if got := table.Rows[i].Bindings[0].Value.Const.Real; got != value {
+			t.Errorf("row %d ran a = %v; want %v", i, got, value)
+		}
+	}
+}
+
+// A range as wide as the reals reach draws values inside it: the width of the
+// range overflows, which no drawn value may.
+func TestSamplesOverTheWidestRealRangeStayInIt(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges: []SweepRange{
+			rangeOf("a", realOf(-math.MaxFloat64), realOf(math.MaxFloat64)),
+			rangeOf("b", realOf(1), realOf(1)),
+		},
+		Sampled: true, Samples: 32, Seed: 5,
+	})
+	for i := range table.Rows {
+		drawn := table.Rows[i].Bindings[0].Value.Const.Real
+		if math.IsNaN(drawn) || math.IsInf(drawn, 0) {
+			t.Fatalf("row %d drew %v; want a finite value", i, drawn)
+		}
+		if drawn < -math.MaxFloat64 || drawn >= math.MaxFloat64 {
+			t.Errorf("row %d drew %v; want a value in [-MaxFloat64, MaxFloat64)", i, drawn)
+		}
+	}
+}
