@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::study",
+  "outputs": {
+    "result": {"type": "Real", "value": 4.0}
+  },
+  "evaluations": [
+    {"function": "test::Study::score", "arguments": [{"type": "Real", "value": 1.0}, {"type": "Real", "value": 2.0}], "result": {"type": "Real", "value": 3.0}},
+    {"function": "test::Study::score", "arguments": [{"type": "Real", "value": 1.0}, {"type": "Null"}, {"type": "Real", "value": 2.0}], "result": {"type": "Real", "value": -1.0}},
+    {"function": "test::Study::score", "arguments": [{"type": "Real", "value": 1.0}], "result": {"type": "Real", "value": 1.0}}
+  ]
+}

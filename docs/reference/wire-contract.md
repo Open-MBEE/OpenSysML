@@ -1132,8 +1132,9 @@ application is reported, in subject order, once per distinct argument. A service
 capability omits the field; the `outputs` and `verdicts` beside it mean what they meant before.
 
 - `functionId` — the qualified name of the calc applied, the case's `evaluationFunction`.
-- `arguments` — what it was applied to, as `Value`s; an alternative is an `instanceId`
-  resolving in the response's `instances`.
+- `arguments` — what it was applied to, as `Value`s in parameter order (a named argument at
+  its parameter's position, `null` for a parameter left to the calc before a later one); an
+  alternative is an `instanceId` resolving in the response's `instances`.
 - `result` — what it computed. Absent when `error` says why nothing was.
 - `error` — why the evaluation computed nothing (a division by zero, a feature with no value,
   a calc with no return expression). The objective is then `undecided` with the same reason and

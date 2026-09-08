@@ -38,20 +38,12 @@ func (ctx *Context) endEvaluationLog(log *evaluationLog) {
 }
 
 // record notes one application of fn to args, when fn is a calc of the case
-// being run and no application to the same arguments was noted before.
+// being run and no application binding the same arguments was noted before.
 func (log *evaluationLog) record(fn *functionValue, args calcArgs, result Value, err error) {
 	if log == nil || fn.shape == nil || !log.calcs[fn.shape.Sym] {
 		return
 	}
-	arguments := append([]Value(nil), args.positional...)
-	names := make([]string, 0, len(args.named))
-	for name := range args.named {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		arguments = append(arguments, args.named[name])
-	}
+	arguments := fn.shape.argumentsByPosition(args)
 	key := log.key(fn.shape.Name, arguments)
 	if _, seen := log.index[key]; seen {
 		return
@@ -60,6 +52,29 @@ func (log *evaluationLog) record(fn *functionValue, args calcArgs, result Value,
 	log.entries = append(log.entries, AnalysisEvaluation{
 		Function: fn.shape.Name, Arguments: arguments, Result: result, Error: err,
 	})
+}
+
+// argumentsByPosition lists an application's arguments by parameter position,
+// null where the application binds none before a later one; unknown names follow, sorted.
+func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
+	arguments := append(make([]Value, 0, len(shape.ParamNames)), args.positional...)
+	var unknown []string
+	for name := range args.named {
+		position := slices.Index(shape.ParamNames, name)
+		if position < 0 {
+			unknown = append(unknown, name)
+			continue
+		}
+		for len(arguments) <= position {
+			arguments = append(arguments, nullValue())
+		}
+		arguments[position] = args.named[name]
+	}
+	sort.Strings(unknown)
+	for _, name := range unknown {
+		arguments = append(arguments, args.named[name])
+	}
+	return arguments
 }
 
 // key identifies an application by the calc and the arguments as the trace

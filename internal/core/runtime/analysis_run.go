@@ -207,8 +207,8 @@ type AnalysisEvaluation struct {
 	// Function is the qualified name of the calc applied.
 	Function string
 
-	// Arguments are what the calc was applied to: positional ones in order, then
-	// named ones in name order.
+	// Arguments are what the calc was applied to, by parameter position, a named
+	// one at its parameter's; null where none was given before a later one.
 	Arguments []Value
 
 	// Result is what the calc computed; unset when Error says why it computed nothing.
@@ -288,14 +288,18 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 		return nil, result, err
 	}
 
+	// The outputs computed before one failed stay reported; the verdicts and the
+	// pick do not, since the case established neither.
 	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx)}
 	outputs, err := run.outputValues(ctx)
 	result.Outputs = outputs
-	result.Verdicts = ctx.analysisVerdicts(run, sym, scope)
-	result.Evaluations = log.evaluations(run.caseResult(run.bindingsFrame(ctx).vars))
 	if err != nil {
+		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
+		result.Evaluations = log.evaluations(Value{}, false)
 		return nil, result, err
 	}
+	result.Verdicts = ctx.analysisVerdicts(run, sym, scope)
+	result.Evaluations = log.evaluations(run.caseResult(run.bindingsFrame(ctx).vars))
 	return run, result, nil
 }
 
