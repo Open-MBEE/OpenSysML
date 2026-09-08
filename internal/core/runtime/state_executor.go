@@ -920,41 +920,21 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 // transition whose guard is false does not consume the event, so a later one
 // still gets its chance. Selecting a transition leaves the machine's data as it
 // was: the caller binds the trigger's arguments again before firing.
-// Every transition is examined so that several enabled at once are a choice point.
+// Every transition is examined so that several enabled at once are a choice point;
+// once one is enabled the rest are read only to report it, so one that fails to
+// evaluate is no alternative.
 func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*lower.Transition, error) {
 	var enabled []int
 	transitions := e.graph.Transitions[state]
 	for i, trans := range transitions {
-		matches, err := e.matchesEvent(trans, event)
+		ok, err := e.transitionEnabled(trans, event)
 		if err != nil {
+			if len(enabled) > 0 {
+				continue
+			}
 			return nil, err
 		}
-		if !matches {
-			continue
-		}
-		// A call trigger's arguments are bound before the guard runs: the guard is
-		// written against the parameters the trigger declares. A transition that
-		// does not fire must leave no trace of them in the machine's data.
-		unbind, err := e.bindTriggerArguments(trans, event)
-		if err != nil {
-			unbind()
-			return nil, err
-		}
-		pass, err := e.passesGuard(trans)
-		unbind()
-		if err != nil {
-			return nil, err
-		}
-		if !pass {
-			continue
-		}
-		// A transition into a join whose other branches have not arrived is not
-		// enabled either: firing it would move nothing.
-		synchronized, err := e.joinSynchronized(trans)
-		if err != nil {
-			return nil, err
-		}
-		if synchronized {
+		if ok {
 			enabled = append(enabled, i)
 		}
 	}
@@ -963,6 +943,31 @@ func (e *StateExecutor) enabledTransition(state *ast.StateNode, event *Event) (*
 	}
 	e.noteTransitionChoice(state, transitions, enabled)
 	return transitions[enabled[0]], nil
+}
+
+// transitionEnabled reports whether trans reacts to event: its trigger matches,
+// its guard holds and the join it may lead into is ready to fire.
+func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event) (bool, error) {
+	matches, err := e.matchesEvent(trans, event)
+	if err != nil || !matches {
+		return false, err
+	}
+	// A call trigger's arguments are bound before the guard runs: the guard is
+	// written against the parameters the trigger declares. A transition that
+	// does not fire must leave no trace of them in the machine's data.
+	unbind, err := e.bindTriggerArguments(trans, event)
+	if err != nil {
+		unbind()
+		return false, err
+	}
+	pass, err := e.passesGuard(trans)
+	unbind()
+	if err != nil || !pass {
+		return false, err
+	}
+	// A transition into a join whose other branches have not arrived is not
+	// enabled either: firing it would move nothing.
+	return e.joinSynchronized(trans)
 }
 
 // noteTransitionChoice records the transitions out of state enabled for one event,

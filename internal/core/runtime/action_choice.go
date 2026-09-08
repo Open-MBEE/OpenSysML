@@ -42,7 +42,7 @@ func (e *performances) beginTokenStep(id int64) func() {
 }
 
 // noteWrite records a write the running token made to a feature f holds; two
-// tokens writing one feature different values within one step are a choice point.
+// tokens writing one feature within one step are a choice point, whatever they wrote.
 func (e *performances) noteWrite(f *actionFrame, name string, value Value) {
 	if e.writer == 0 || e.stepWrites == nil {
 		return

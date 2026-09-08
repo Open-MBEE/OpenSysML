@@ -42,10 +42,10 @@ func namedValues(ctx *runtime.Context, results map[string]runtime.Value) []Named
 }
 
 // errorLines adapts a command that reports its failures as errors to the
-// prompt, which prints them as output.
+// prompt, which prints them as output ahead of any lines the failed run left.
 func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, error) {
 	if err != nil {
-		return []string{"error: " + err.Error()}, false, nil
+		return append([]string{"error: " + err.Error()}, lines...), false, nil
 	}
 	return lines, false, nil
 }

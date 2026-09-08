@@ -1306,7 +1306,8 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	var unguardedEdge *lower.ActionEdge
 	var holding []int
 
-	// Pass 1: Check guarded edges
+	// Pass 1: Check guarded edges. Once one holds the branch is decided; the rest
+	// are read only to report the choice, so one that fails to evaluate is no alternative.
 	for i := range successors {
 		edge := &successors[i]
 		// No guard = remember for fallback
@@ -1317,6 +1318,9 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 
 		holds, err := e.guardHolds(ec, decisionNode, edge.Guard)
 		if err != nil {
+			if len(holding) > 0 {
+				continue
+			}
 			return err
 		}
 		if holds {

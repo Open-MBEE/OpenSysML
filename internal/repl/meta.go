@@ -2308,7 +2308,8 @@ func (s *Session) doStep() ([]string, bool, error) {
 	choices := s.actionExec.rtCtx.ChoiceCount()
 	err := exec.Step()
 	if err != nil {
-		return []string{fmt.Sprintf("error: step failed: %v", err)}, false, nil
+		out := []string{fmt.Sprintf("error: step failed: %v", err)}
+		return append(out, s.choiceSummary(s.actionExec.rtCtx, choices)...), false, nil
 	}
 
 	// Display state
@@ -2353,7 +2354,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 	// Run to completion, or to the first breakpoint hit
 	choices := s.actionExec.rtCtx.ChoiceCount()
 	if err := exec.RunToCompletion(); err != nil {
-		return nil, nil, fmt.Errorf("execution failed: %w", err)
+		return s.choiceSummary(s.actionExec.rtCtx, choices), nil, fmt.Errorf("execution failed: %w", err)
 	}
 
 	if node := exec.PausedAt(); node != "" {
@@ -2869,7 +2870,8 @@ func (s *Session) stepState() ([]string, bool, error) {
 	choices := s.stateExec.rtCtx.ChoiceCount()
 	step, err := s.stateStep(exec)
 	if err != nil {
-		return []string{errPrefix + err.Error()}, false, nil
+		out := []string{errPrefix + err.Error()}
+		return append(out, s.choiceSummary(s.stateExec.rtCtx, choices)...), false, nil
 	}
 	out := []string{
 		"✓ " + step,
@@ -3146,13 +3148,13 @@ func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
 	}
 	lines, err := s.advanceBy(duration)
 	if err != nil {
-		return []string{errPrefix + err.Error()}, false, nil
+		return append([]string{errPrefix + err.Error()}, lines...), false, nil
 	}
 	return lines, false, nil
 }
 
 // advanceBy advances simulation time by duration, reporting a failed event or do
-// behavior as an error.
+// behavior as an error alongside the choice summary of the steps taken before it.
 func (s *Session) advanceBy(duration float64) ([]string, error) {
 	if s.stateExec == nil {
 		return nil, s.noStateSessionErr()
@@ -3177,7 +3179,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		// The poll comes first, and runs once more at quiescence, so a condition
 		// a do action has just made true is taken in this call.
 		if fired, err := exec.PollChangeEvents(); err != nil {
-			return nil, fmt.Errorf("change condition failed: %w", err)
+			return s.choiceSummary(s.stateExec.rtCtx, choices), fmt.Errorf("change condition failed: %w", err)
 		} else if fired {
 			processed++
 			continue
@@ -3189,7 +3191,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		// the step RunToCompletion would take here.
 		if exec.HasPendingSignal() {
 			if err := exec.ProcessNextEvent(); err != nil {
-				return nil, fmt.Errorf("event processing failed: %w", err)
+				return s.choiceSummary(s.stateExec.rtCtx, choices), fmt.Errorf("event processing failed: %w", err)
 			}
 			processed++
 			dropped = appendNote(dropped, droppedSignalNote(exec))
@@ -3203,7 +3205,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 			}
 			ran, err := exec.RunDoRound()
 			if err != nil {
-				return nil, fmt.Errorf("do behavior failed: %w", err)
+				return s.choiceSummary(s.stateExec.rtCtx, choices), fmt.Errorf("do behavior failed: %w", err)
 			}
 			if ran == 0 {
 				break
@@ -3212,7 +3214,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 			continue
 		}
 		if err := exec.ProcessNextEvent(); err != nil {
-			return nil, fmt.Errorf("event processing failed: %w", err)
+			return s.choiceSummary(s.stateExec.rtCtx, choices), fmt.Errorf("event processing failed: %w", err)
 		}
 		processed++
 		dropped = appendNote(dropped, droppedSignalNote(exec))

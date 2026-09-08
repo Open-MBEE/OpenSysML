@@ -243,9 +243,11 @@ that it is exactly one of them; nothing ranks `warn` against `alarm`.
 Pinned outcome: the admissible set `{handler = 1, handler = 2}`, stated as `outcomes` citing this
 section. The executor evaluates every guard, takes the first declared, and records the choice
 (`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`);
-the golden pins that linearization. A decision whose guards are all false remains an execution
-error (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing
-link.
+the golden pins that linearization. Reporting never changes the run: a guard after the first
+holding one that cannot be evaluated is not an alternative rather than an error the run never had
+(`TestLaterGuardErrorIsNotAChoiceNorAFailure`). A decision whose guards are all false remains an
+execution error (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no
+outgoing link.
 
 ### Two transitions out of one state enabled by one event: exactly one fires, which one is open
 
@@ -272,7 +274,9 @@ in the library or the specification ranks them.
 Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
 citing this section. The executor examines every transition out of the state for the event,
 fires the first declared, and records the choice (`choice state idle on accept Go: transitions
-1->low, 2->high (unordered; took 1->low)`); the golden pins that linearization.
+1->low, 2->high (unordered; took 1->low)`); the golden pins that linearization. As for a decision,
+a later transition whose guard cannot be evaluated is not an alternative and does not fail the
+dispatch (`TestLaterGuardErrorIsNotAChoiceNorAFailure`).
 
 ### A merge is re-entered on every traversal of a loop
 

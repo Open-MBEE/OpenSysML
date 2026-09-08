@@ -83,6 +83,36 @@ package Debug {
 	wants(t, run(t, s, "%continue"), "✓ Action completed", "  2 choice points; %trace on to see them")
 }
 
+// A run that fails still reports the choices it made before failing, so the
+// error can be told from a scheduling artefact.
+func TestContinueReportsChoicePointsBeforeFailure(t *testing.T) {
+	s := loadSource(t, `
+package Debug {
+	private import ScalarValues::*;
+	action crash {
+		attribute x : Integer = 0;
+		attribute zero : Integer = 0;
+		first start;
+		fork split;
+		action left { assign x := 1; }
+		action right { assign x := 2; }
+		join sync;
+		action divide { assign x := x / zero; }
+		done;
+		succession first start then split;
+		succession first split then left;
+		succession first split then right;
+		succession first left then sync;
+		succession first right then sync;
+		succession first sync then divide;
+		succession first divide then done;
+	}
+}
+`)
+	run(t, s, "%action crash")
+	wants(t, run(t, s, "%continue"), "error: execution failed:", "  2 choice points; %trace on to see them")
+}
+
 // %advance on a state machine reports a transition conflict it dispatched
 // through; an event with one enabled transition reports none.
 func TestAdvanceReportsChoicePoints(t *testing.T) {

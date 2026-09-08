@@ -127,6 +127,81 @@ func TestTransitionChoiceNamesStateAndEvent(t *testing.T) {
 	}
 }
 
+// Reporting a choice never changes the run: a guard after the first holding one
+// that cannot be evaluated is no alternative, not an error the run never had;
+// before any guard holds it still fails the run as it always did.
+func TestLaterGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		action route {
+			attribute level : Integer = 75;
+			attribute handler : Integer = 0;
+			first start;
+			then decide select;
+				if level > 50 then warn;
+				if 1 / (level - 75) > 0 then alarm;
+			action warn { assign handler := 1; }
+			then done;
+			action alarm { assign handler := 2; }
+			then done;
+		}
+		action broken {
+			attribute level : Integer = 75;
+			first start;
+			then decide select;
+				if 1 / (level - 75) > 0 then alarm;
+				if level > 50 then warn;
+			action warn;
+			then done;
+			action alarm;
+			then done;
+		}
+		state Dispatcher {
+			attribute level : Integer = 8;
+			entry; then idle;
+			state idle;
+			state low;
+			state high;
+			transition first idle accept Go if level > 5 then low;
+			transition first idle accept Go if 1 / (level - 8) > 0 then high;
+		}
+	}`
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+	root := idx.DocumentRoot("<test>")
+	route := findSymbolByName(root, "route", ast.DefAction)
+	broken := findSymbolByName(root, "broken", ast.DefAction)
+	dispatcher := findSymbolByName(root, "Dispatcher", ast.DefState)
+	if route == nil || broken == nil || dispatcher == nil {
+		t.Fatal("behaviors not found")
+	}
+
+	values, err := ctx.ExecuteAction(route)
+	if err != nil {
+		t.Fatalf("route: %v", err)
+	}
+	if got := FormatTraceValue(values["handler"]); got != "1" {
+		t.Fatalf("handler = %s, want the first holding guard's branch", got)
+	}
+	if got := ctx.Choices(); len(got) != 0 {
+		t.Fatalf("an unevaluable guard was reported as a choice: %v", got)
+	}
+
+	if _, err := ctx.ExecuteAction(broken); err == nil || !strings.Contains(err.Error(), "division by zero") {
+		t.Fatalf("broken: err = %v, want the first guard's evaluation error", err)
+	}
+
+	_, visited, err := ctx.ExecuteStateWithEvents(dispatcher, []string{"Go"})
+	if err != nil {
+		t.Fatalf("dispatcher: %v", err)
+	}
+	if strings.Join(visited, ",") != "idle,low" {
+		t.Fatalf("visited %v, want idle then low", visited)
+	}
+	if got := ctx.Choices(); len(got) != 0 {
+		t.Fatalf("an unevaluable transition guard was reported as a choice: %v", got)
+	}
+}
+
 // A transition on a substate and one on its enclosing state enabled by the same
 // event are ordered by UML (the substate's fires), so they are no choice point.
 func TestAncestorPriorityIsNotAChoice(t *testing.T) {
