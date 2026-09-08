@@ -162,6 +162,12 @@ func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (b
 		return !ec.ctx.model.PositiveScalar(target) || positiveValue(value), nil
 	case ValQuantity:
 		return ec.quantityCastKeeps(value, target)
+	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity,
+		ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
+		// A structured value's own shape, units and frame decide it, as they do
+		// for a value written to a feature of the target type.
+		keep, _, err := ec.ctx.valueConforms(ec.scope, &value, target, admitWritten)
+		return keep, err
 	case ValEnumLiteral, ValVariant:
 		return false, nil
 	}

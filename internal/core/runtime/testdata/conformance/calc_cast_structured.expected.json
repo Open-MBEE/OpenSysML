@@ -1,0 +1,19 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "asVectorQuantity": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 2.0, "unit": "m"},
+      {"type": "Quantity", "value": 4.0, "unit": "m"},
+      {"type": "Quantity", "value": 6.0, "unit": "m"}
+    ]},
+    "asTensorQuantity": {"type": "VectorQuantity", "elements": [
+      {"type": "Quantity", "value": 2.0, "unit": "m"},
+      {"type": "Quantity", "value": 4.0, "unit": "m"},
+      {"type": "Quantity", "value": 6.0, "unit": "m"}
+    ]},
+    "asScalarQuantity": {"type": "Sequence", "elements": []},
+    "asNumber": {"type": "Sequence", "elements": []}
+  }
+}
