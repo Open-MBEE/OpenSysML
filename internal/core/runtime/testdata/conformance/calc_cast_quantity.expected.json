@@ -1,0 +1,21 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "asLength": {"type": "Quantity", "value": 5, "unit": "m"},
+    "asScalarQuantity": {"type": "Quantity", "value": 5, "unit": "m"},
+    "asDuration": {"type": "Sequence", "elements": []},
+    "lengthsOfMixed": {"type": "Sequence", "elements": [
+      {"type": "Quantity", "value": 5, "unit": "m"},
+      {"type": "Quantity", "value": 2, "unit": "m"}
+    ]},
+    "sumOfNoDurations": {"type": "Quantity", "value": 0, "unit": "m"},
+    "declaredAsSubtype": {"type": "Quantity", "value": 4, "unit": "m"},
+    "declaredAsBaseQuantity": {"type": "Quantity", "value": 4, "unit": "m"},
+    "declaredAsDuration": {"type": "Sequence", "elements": []},
+    "bareAsUnion": {"type": "Quantity", "value": 5, "unit": "m"},
+    "bareSecondsAsUnion": {"type": "Quantity", "value": 3, "unit": "s"},
+    "bareMassAsUnion": {"type": "Sequence", "elements": []}
+  }
+}

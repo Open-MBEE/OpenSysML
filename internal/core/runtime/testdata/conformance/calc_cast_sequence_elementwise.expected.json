@@ -1,0 +1,24 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "integersOfMixed": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 3},
+      {"type": "Real", "value": 4.0}
+    ]},
+    "rationalsOfMixed": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Real", "value": 2.5},
+      {"type": "Integer", "value": 3},
+      {"type": "Real", "value": 4.0}
+    ]},
+    "naturalsOfSigned": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 4}
+    ]},
+    "noneConform": {"type": "Sequence", "elements": []},
+    "emptyStaysEmpty": {"type": "Sequence", "elements": []}
+  }
+}

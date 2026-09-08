@@ -1,0 +1,38 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "asDeclaredSubtype": {"type": "Integer", "value": 4},
+    "asScalarSupertype": {"type": "Integer", "value": 4},
+    "asOwnEnumeration": {"type": "Real", "value": 4.0},
+    "literalAsEnumeration": {"type": "Real", "value": 4.0},
+    "asEnumerationSupertype": {"type": "Real", "value": 4.0},
+    "asOtherScalar": {"type": "Sequence", "elements": []},
+    "asSecondDeclaredType": {"type": "Integer", "value": 6},
+    "selectedAsSubtype": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 4},
+      {"type": "Integer", "value": 6}
+    ]},
+    "literalsAsEnumeration": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 4.0},
+      {"type": "Real", "value": 3.0}
+    ]},
+    "mixedAsEnumeration": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 4.0}
+    ]},
+    "declaredWithLiteral": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 4}
+    ]},
+    "nestedAsEnumeration": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 4.0},
+      {"type": "Real", "value": 3.0},
+      {"type": "Real", "value": 4.0}
+    ]},
+    "multiValuedEntry": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 4},
+      {"type": "Integer", "value": 6}
+    ]}
+  }
+}

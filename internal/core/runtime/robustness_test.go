@@ -241,6 +241,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
+	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
+	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
+	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
+	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
 	t.Run("send_addressed_to_an_object_that_cannot_be_built", testSendAddressedToAnObjectThatCannotBeBuilt)
 	t.Run("send_addressed_to_a_part_no_sibling_takes", testSendAddressedToAPartNoSiblingTakes)
@@ -4326,6 +4330,93 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "null") {
 		t.Errorf("error = %v, want undecidable value description", err)
+	}
+}
+
+func testCastToAnUnresolvedType(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		item def Integer;
+		calc narrow { return : Integer = 1 as MissingType; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	calc := resolveSymbol(t, pkg.Scope, "narrow")
+	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected a cast to an unresolved type to fail")
+	}
+	if !errors.Is(err, ErrUnresolvedType) {
+		t.Fatalf("expected ErrUnresolvedType, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "MissingType") {
+		t.Errorf("error = %v, want unresolved type name", err)
+	}
+}
+
+// testCastUndecidedByTheValue: a target narrower than the value's own type that
+// the value does not settle — 5 states nothing about being an Even — fails
+// rather than dropping a value that may well be one of the target's.
+func testCastUndecidedByTheValue(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		attribute def Even :> Integer;
+		calc narrow { return : Even = 5 as Even; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	calc := resolveSymbol(t, pkg.Scope, "narrow")
+	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected an undecidable cast to fail")
+	}
+	if !errors.Is(err, ErrUndecidedClassification) {
+		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Even") {
+		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
+// testDifferenceTypedFeatureHoldingASubtractedObject: a feature typed by a
+// difference refuses an object one of the subtracted types classifies, whether
+// the object was declared by it or classified by it since.
+func testDifferenceTypedFeatureHoldingASubtractedObject(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `
+		part def Vehicle;
+		part def Car :> Vehicle;
+		part def Electric;
+		part def ElectricCar :> Car, Electric;
+		part def CombustionVehicle differences Vehicle, Electric;
+		part sedan : Car;
+		part def Shop { part retrofit : ElectricCar = sedan; }
+		part shop : Shop;
+		part def Depot { part burner : CombustionVehicle = shop.retrofit; }
+		part depot : Depot;
+		attribute held = depot.burner istype Vehicle;
+	`)
+	sym := resolveSymbol(t, root, "held")
+	_, err := NewContext(model, resolver, 10000).Eval(sym.Decl.(*ast.Usage).Value)
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "CombustionVehicle") {
+		t.Errorf("error = %v, want the feature's type named", err)
+	}
+}
+
+// testCastOfAQuantityToAConstrainedSubtype: a quantity subtype inheriting its
+// measurement reference narrows lengths by something a magnitude and a unit do
+// not state, so a bare length is undecided rather than kept by its dimension.
+func testCastOfAQuantityToAConstrainedSubtype(t *testing.T) {
+	err := calcErrorWithLibraries(t, `
+		package test {
+			private import SI::*;
+			attribute def RoomLength :> ISQBase::LengthValue;
+			calc narrow { return : RoomLength = 5 [m] as RoomLength; }
+		}`, "narrow", nil, 1000)
+	if !errors.Is(err, ErrUndecidedClassification) {
+		t.Fatalf("expected ErrUndecidedClassification, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "RoomLength") {
+		t.Errorf("error = %v, want the target type named", err)
 	}
 }
 

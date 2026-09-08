@@ -1,0 +1,11 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "asOwnEnumeration": {"type": "EnumLiteral", "value": "Signal::on"},
+    "asSupertype": {"type": "EnumLiteral", "value": "Signal::on"},
+    "asDataValue": {"type": "EnumLiteral", "value": "Signal::on"},
+    "asSibling": {"type": "Sequence", "elements": []}
+  }
+}

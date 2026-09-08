@@ -1,0 +1,25 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "wholeAsInteger": {"type": "Real", "value": 4.0},
+    "fractionAsInteger": {"type": "Sequence", "elements": []},
+    "fractionAsRational": {"type": "Real", "value": 2.5},
+    "integerAsReal": {"type": "Integer", "value": 7},
+    "integerAsNatural": {"type": "Integer", "value": 7},
+    "negativeAsNatural": {"type": "Sequence", "elements": []},
+    "zeroAsNatural": {"type": "Integer", "value": 0},
+    "oneAsPositive": {"type": "Integer", "value": 1},
+    "zeroAsPositive": {"type": "Sequence", "elements": []},
+    "negativeAsPositive": {"type": "Sequence", "elements": []},
+    "positivesOfMixed": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3}
+    ]},
+    "integerAsNumber": {"type": "Integer", "value": 7},
+    "realAsScalarValue": {"type": "Real", "value": 2.5},
+    "booleanAsBoolean": {"type": "Boolean", "value": true},
+    "stringAsString": {"type": "String", "value": "kept"}
+  }
+}

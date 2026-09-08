@@ -1,0 +1,26 @@
+{
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "carAsCar": {"type": "Instance"},
+    "carAsVehicle": {"type": "Instance"},
+    "carAsTruck": {"type": "Sequence", "elements": []},
+    "carsOfFleet": {"type": "Sequence", "elements": [
+      {"type": "Instance"}
+    ]},
+    "vehiclesOfFleet": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "carAsUnion": {"type": "Instance"},
+    "truckAsUnion": {"type": "Instance"},
+    "carAsNestedUnion": {"type": "Instance"},
+    "unionHeldAsCar": {"type": "Instance"},
+    "plugInAsIntersection": {"type": "Instance"},
+    "carAsIntersection": {"type": "Sequence", "elements": []},
+    "carAsDifference": {"type": "Instance"},
+    "plugInAsDifference": {"type": "Sequence", "elements": []},
+    "hybridAsDifference": {"type": "Sequence", "elements": []},
+    "hybridAsIntersection": {"type": "Instance"}
+  }
+}

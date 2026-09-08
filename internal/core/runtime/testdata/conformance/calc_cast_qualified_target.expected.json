@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "wholeAsInteger": {"type": "Real", "value": 4.0},
+    "fractionAsInteger": {"type": "Sequence", "elements": []},
+    "fractionAsReal": {"type": "Real", "value": 2.5},
+    "stringAsString": {"type": "String", "value": "kept"},
+    "shadowedInteger": {"type": "Integer", "value": 3},
+    "localInteger": {"type": "Sequence", "elements": []}
+  }
+}
