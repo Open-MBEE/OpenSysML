@@ -80,13 +80,17 @@ WiX v5 is a .NET tool but needs Windows: on Linux `wix build` rejects every
 (`wixnative.exe`), which the WiX maintainers confirm is by design
 ([wixtoolset/issues#7154](https://github.com/wixtoolset/issues/issues/7154)).
 That is why the MSI is not produced by the CircleCI release job. For a Linux
-dry run the script accepts `WIX` (the command that runs `wix`) and
+dry run the script accepts `WIX_CMD` (the command that runs `wix`) and
 `WIX_PATH_PREFIX` (the Wine drive mapped to `/`, normally `Z:`):
 
 ```bash
 # wix-wine.sh: exec wine dotnet.exe .../.store/wix/5.0.2/wix/5.0.2/tools/net6.0/any/wix.dll "$@"
-WIX=./wix-wine.sh WIX_PATH_PREFIX=Z: scripts/build-msi.sh v0.0.0-test ...
+WIX_CMD=./wix-wine.sh WIX_PATH_PREFIX=Z: scripts/build-msi.sh v0.0.0-test ...
 ```
+
+The override is not called `WIX` because the WiX v3 installer exports `WIX`
+as its installation directory (`C:\Program Files (x86)\WiX Toolset v3.14\`),
+and the GitHub `windows-latest` runners ship it preinstalled.
 
 This needs a Windows .NET 6 runtime and 32-bit Wine (`wixnative.exe` is
 x86) and works for `wix build`, but `wix msi validate` (ICE) does not run
