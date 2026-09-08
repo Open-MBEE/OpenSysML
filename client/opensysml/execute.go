@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -27,17 +28,59 @@ type StateRun struct {
 	Diagnostics []Diagnostic
 }
 
+// ExecuteOption configures ExecuteAction and ExecuteState.
+type ExecuteOption func(*executeOptions)
+
+type executeOptions struct {
+	schedule string
+}
+
+// WithSchedule names the scheduling policy the run resolves its choice points
+// under — "declared", "reverse" (the default) or "seed:<n>" — spelled as the
+// sysml -schedule flag spells it. Requires the schedule capability; a spelling
+// naming no policy is refused with CodeInvalidArgument.
+func WithSchedule(policy string) ExecuteOption {
+	return func(o *executeOptions) { o.schedule = policy }
+}
+
+// requireSchedule refuses to send a policy to a service without the schedule
+// capability, which would run under the default rather than refuse it.
+func (c *client) requireSchedule(ctx context.Context, policy string) error {
+	if policy == "" {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilitySchedule) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilitySchedule),
+		}
+	}
+	return nil
+}
+
 func (c *client) ExecuteAction(
 	ctx context.Context,
 	model *Model,
 	actionSymbolID string,
 	inputs map[string]Value,
+	opts ...ExecuteOption,
 ) (*ActionRun, error) {
+	var options executeOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID}
+	if err := c.requireSchedule(ctx, options.schedule); err != nil {
+		return nil, err
+	}
+	req := &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: actionSymbolID, Schedule: options.schedule}
 	if len(inputs) > 0 {
 		if err := c.requireValueCapabilities(ctx, slices.Collect(maps.Values(inputs))...); err != nil {
 			return nil, err
@@ -67,15 +110,24 @@ func (c *client) ExecuteState(
 	model *Model,
 	stateMachineSymbolID string,
 	events []string,
+	opts ...ExecuteOption,
 ) (*StateRun, error) {
+	var options executeOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	hash, err := c.call(model)
 	if err != nil {
+		return nil, err
+	}
+	if err := c.requireSchedule(ctx, options.schedule); err != nil {
 		return nil, err
 	}
 	resp, err := c.caller.executeState(ctx, &pb.ExecuteStateRequest{
 		ModelHash:            hash,
 		StateMachineSymbolId: stateMachineSymbolID,
 		Events:               append([]string(nil), events...),
+		Schedule:             options.schedule,
 	})
 	if err != nil {
 		return nil, err

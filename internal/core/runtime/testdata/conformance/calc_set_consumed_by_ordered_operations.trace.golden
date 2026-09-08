@@ -1,0 +1,80 @@
+enter calc test::walk
+  stmt declare scaled
+      enter calc ControlFunctions::collect
+materialize: s #1
+            eval literal 30 -> 30
+            eval literal 10 -> 10
+            eval literal 20 -> 20
+            eval literal 20 -> 20
+          eval sequence of 4 -> (30, 10, 20, 20)
+        eval chain elements -> {10, 20, 30}
+        eval body -> expr(body)
+        bind collection = {10, 20, 30} [argument]
+        bind mapper = expr(body) [argument]
+          eval feature x -> 10
+          eval literal 5 -> 5
+        eval operator - -> 5
+          eval feature x -> 20
+          eval literal 5 -> 5
+        eval operator - -> 15
+          eval feature x -> 30
+          eval literal 5 -> 5
+        eval operator - -> 25
+      exit calc ControlFunctions::collect -> (5, 15, 25)
+    eval invoke collect -> (5, 15, 25)
+  stmt declare least
+      enter calc SequenceFunctions::head
+        eval chain elements -> {10, 20, 30}
+        bind seq = {10, 20, 30} [argument]
+      exit calc SequenceFunctions::head -> 10
+    eval invoke head -> 10
+  stmt declare rest
+      enter calc SequenceFunctions::tail
+        eval chain elements -> {10, 20, 30}
+        bind seq = {10, 20, 30} [argument]
+      exit calc SequenceFunctions::tail -> (20, 30)
+    eval invoke tail -> (20, 30)
+  stmt declare second
+      eval chain elements -> {10, 20, 30}
+      eval literal 2 -> 2
+    eval index -> 20
+  stmt declare asWritten
+      eval chain elements -> {10, 20, 30}
+        eval literal 30 -> 30
+        eval literal 10 -> 10
+        eval literal 20 -> 20
+      eval sequence of 3 -> (30, 10, 20)
+    eval operator == -> false
+  stmt declare asEnumerated
+      eval chain elements -> {10, 20, 30}
+        eval literal 10 -> 10
+        eval literal 20 -> 20
+        eval literal 30 -> 30
+      eval sequence of 3 -> (10, 20, 30)
+    eval operator == -> true
+  stmt return
+        eval feature scaled -> (5, 15, 25)
+        eval literal 1 -> 1
+      eval index -> 5
+        eval feature scaled -> (5, 15, 25)
+        eval literal 2 -> 2
+      eval index -> 15
+        eval feature scaled -> (5, 15, 25)
+        eval literal 3 -> 3
+      eval index -> 25
+      eval feature least -> 10
+        eval feature rest -> (20, 30)
+        eval literal 1 -> 1
+      eval index -> 20
+        eval feature rest -> (20, 30)
+        eval literal 2 -> 2
+      eval index -> 30
+      eval feature second -> 20
+        eval feature asWritten -> false
+        eval literal 0 -> 0
+      eval operator if -> 0
+        eval feature asEnumerated -> true
+        eval literal 1 -> 1
+      eval operator if -> 1
+    eval sequence of 9 -> (5, 15, 25, 10, 20, 30, 20, 0, 1)
+exit calc test::walk -> (5, 15, 25, 10, 20, 30, 20, 0, 1)

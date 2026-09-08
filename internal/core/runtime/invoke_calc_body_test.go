@@ -176,7 +176,7 @@ func TestCalcStatementBodySpendsTheStepBudget(t *testing.T) {
 	if _, err := ctx.InvokeCalc(factorial, []Value{constInt(8)}, scope); err != nil {
 		t.Fatalf("first run: %v", err)
 	}
-	first := ctx.steps
+	first := ctx.run.steps
 	if first == 0 {
 		t.Fatalf("a looping calc spent no step of the budget")
 	}
@@ -184,8 +184,8 @@ func TestCalcStatementBodySpendsTheStepBudget(t *testing.T) {
 		if _, err := ctx.InvokeCalc(factorial, []Value{constInt(8)}, scope); err != nil {
 			t.Fatalf("run %d: %v", run, err)
 		}
-		if ctx.steps != first {
-			t.Fatalf("run %d spent %d steps, want %d: each run begins its own budget", run, ctx.steps, first)
+		if ctx.run.steps != first {
+			t.Fatalf("run %d spent %d steps, want %d: each run begins its own budget", run, ctx.run.steps, first)
 		}
 	}
 }

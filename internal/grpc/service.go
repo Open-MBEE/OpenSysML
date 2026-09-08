@@ -109,6 +109,14 @@ const CapabilityMeasurementRefs = "measurement_refs"
 // as an unsupported null.
 const CapabilityFunctionValues = "function_values"
 
+// CapabilitySetValues names the capability of carrying a unique, unordered
+// collection as Value.set, rather than reporting it as an unsupported null.
+const CapabilitySetValues = "set_values"
+
+// CapabilityTensorValues names the capability of carrying a tensor quantity of
+// any rank as Value.tensor_quantity, rather than as an unsupported null.
+const CapabilityTensorValues = "tensor_values"
+
 // CapabilityVerificationVerdicts names the capability of reporting what the body
 // of a verification case answered as VerificationVerdict, and of running a
 // verification case through RunAnalysis.
@@ -121,6 +129,12 @@ const CapabilityInfinityValue = "infinity_value"
 // CapabilityDiagnosticCodes names the capability of populating Diagnostic.code,
 // so an empty code is a finding none was assigned rather than an older service.
 const CapabilityDiagnosticCodes = "diagnostic_codes"
+
+// CapabilitySchedule names the `schedule` field of ExecuteActionRequest,
+// ExecuteStateRequest and RunAnalysisRequest, which selects the scheduling
+// policy a run resolves its choice points under. A service without it runs
+// every request under the default, so a client must not send the field to one.
+const CapabilitySchedule = "schedule"
 
 // CapabilityCaseEvaluations names the capability of reporting each application
 // an analysis run made of one of the case's calcs as a function value — a trade
@@ -137,8 +151,9 @@ var capabilities = []string{
 	CapabilityApplyEdits, CapabilityAuthoring, CapabilityInlineLanguage,
 	CapabilityStrictConformance, CapabilityDocumentQuery, CapabilityRenderDocument,
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
-	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilityVerificationVerdicts,
-	CapabilityInfinityValue, CapabilityDiagnosticCodes, CapabilityCaseEvaluations,
+	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
+	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
+	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 }
 
 type capabilityAvailability struct {
@@ -299,7 +314,17 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if ValueCarriesInfinity(pv) {
-		return s.requireCapability(CapabilityInfinityValue)
+		if err := s.requireCapability(CapabilityInfinityValue); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesSet(pv) {
+		if err := s.requireCapability(CapabilitySetValues); err != nil {
+			return err
+		}
+	}
+	if ValueCarriesTensor(pv) {
+		return s.requireCapability(CapabilityTensorValues)
 	}
 	return nil
 }
@@ -315,6 +340,22 @@ func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, *semantics.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
 	return ctx, rs.Model, release
+}
+
+// schedulePolicy reads a request's schedule field. Empty is the default policy;
+// anything else needs the schedule capability and must spell a policy.
+func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error) {
+	if spelling == "" {
+		return runtime.DefaultSchedulePolicy, nil
+	}
+	if err := s.requireCapability(CapabilitySchedule); err != nil {
+		return runtime.SchedulePolicy{}, err
+	}
+	policy, err := runtime.ParseSchedulePolicy(spelling)
+	if err != nil {
+		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	return policy, nil
 }
 
 // sourceInput is one document a parse request named, read and ready to parse.
@@ -724,6 +765,11 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 
 // ExecuteAction executes an action definition
 func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionRequest) (*pb.ExecuteActionResponse, error) {
+	schedule, err := s.schedulePolicy(req.Schedule)
+	if err != nil {
+		return nil, err
+	}
+
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -742,6 +788,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// Create runtime context
 	runtimeCtx, semModel, release := s.newRuntime(cached)
 	defer release()
+	runtimeCtx.SetSchedule(schedule)
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -788,6 +835,11 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 
 // ExecuteState executes a state machine
 func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest) (*pb.ExecuteStateResponse, error) {
+	schedule, err := s.schedulePolicy(req.Schedule)
+	if err != nil {
+		return nil, err
+	}
+
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -806,6 +858,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Create runtime context
 	runtimeCtx, _, release := s.newRuntime(cached)
 	defer release()
+	runtimeCtx.SetSchedule(schedule)
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.

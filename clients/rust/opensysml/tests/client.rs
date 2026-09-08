@@ -472,6 +472,14 @@ fn a_swept_trade_study_carries_each_rows_evaluations_a_failed_row_keeping_those_
 }
 
 #[test]
+fn the_service_advertises_the_schedule_of_its_execution_requests() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("schedule"));
+}
+
+#[test]
 fn a_bare_measurement_reference_arrives_with_its_reduction_and_declaration() {
     let Some(connection) = service_or_skip() else {
         return;
@@ -570,6 +578,75 @@ fn a_calc_held_as_a_value_arrives_as_the_function_it_names() {
     };
     assert_eq!(scale.calc_id, "Demo::Scaler::scale");
     assert!(scale.self_id.is_some_and(|id| id > 0));
+}
+
+#[test]
+fn a_set_arrives_once_per_member_and_a_tensor_with_its_rank() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("set_values"));
+    assert!(connection.capabilities().has("tensor_values"));
+    let model = match connection.parse_content(
+        "package W {
+            private import ScalarValues::*;
+            private import Collections::*;
+            private import Quantities::*;
+            private import MeasurementReferences::*;
+            private import SI::*;
+            private import TensorCalculations::*;
+            attribute s : Set { :>> elements = (3, 1, 2, 2, 3); }
+            attribute e : Set { :>> elements = (); }
+            attribute cubeRef : TensorMeasurementReference {
+                :>> dimensions = (2, 2, 2);
+                :>> mRefs = (Pa, Pa, Pa, Pa, Pa, Pa, Pa, Pa);
+            }
+            attribute cube : TensorQuantityValue =
+                TensorCalculations::'['((1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0), cubeRef);
+        }",
+        &Default::default(),
+    ) {
+        Ok(model) => model,
+        Err(error) => panic!("parse failed: {error}"),
+    };
+    let eval = |expr: &str| match model.evaluate(expr, &EvalOptions::default()) {
+        Ok(evaluation) => evaluation.result,
+        Err(error) => panic!("evaluating {expr} failed: {error}"),
+    };
+
+    let Value::Set(s) = eval("W::s.elements") else {
+        panic!("W::s.elements should be a set");
+    };
+    assert_eq!(s.len(), 3);
+    assert_eq!(
+        s.elements(),
+        [Value::Integer(1), Value::Integer(2), Value::Integer(3)]
+    );
+    assert!(s.contains(&Value::Integer(3)));
+    let Value::Set(e) = eval("W::e.elements") else {
+        panic!("W::e.elements should be a set");
+    };
+    assert!(e.is_empty());
+
+    let Value::TensorQuantity(cube) = eval("W::cube") else {
+        panic!("W::cube should be a tensor quantity");
+    };
+    assert_eq!(cube.rank(), 3);
+    assert_eq!(cube.dimensions(), [2, 2, 2]);
+    assert_eq!(cube.unit(), Some("Pa"));
+    assert_eq!(
+        cube.components()
+            .iter()
+            .map(|component| component.magnitude)
+            .collect::<Vec<_>>(),
+        (1..=8)
+            .map(|i| Magnitude::Real(f64::from(i)))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        cube.get(&[1, 0, 1]).map(|q| q.magnitude),
+        Some(Magnitude::Real(6.0))
+    );
 }
 
 #[test]

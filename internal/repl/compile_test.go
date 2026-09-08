@@ -426,6 +426,11 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"MixedUnion", "union over Integer and Real collections"},
 		{"CalcParam", "parameter f binds a function value"},
 		{"FunctionArgument", "parameter f binds a function value"},
+		{"SetParam", "type Collections::Set is not Integer, Real or Boolean"},
+		{"SetElements", "type Collections::Set is not Integer, Real or Boolean"},
+		{"SetLocal", "type Collections::Set is not Integer, Real or Boolean"},
+		{"TensorParam", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
+		{"TensorBuilt", "type Quantities::TensorQuantityValue is not Integer, Real or Boolean"},
 	} {
 		_, err := s.CompileCalc("Refused::" + tc.calc)
 		if err == nil {

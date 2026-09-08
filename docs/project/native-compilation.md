@@ -59,7 +59,9 @@ A calc compiles when everything it reaches is in this subset:
 | Scalar library functions: `RealFunctions`/`RationalFunctions`/`NumericalFunctions` `sqrt floor round abs max min isZero isUnit`, `IntegerFunctions`/`NaturalFunctions` `abs max min`, `TrigFunctions` (`sin cos tan cot arcsin arccos arctan deg rad pi`), `OpenSysMLMathFunctions` (`exp ln log atan2`) | `libm` / Go `math` with the interpreter's domain, overflow and `Natural` errors |
 
 Everything else refuses: String, record (`attribute def`) and enum parameters, results or
-attributes, parameter defaults, a calc that `:>`/`:>>`/`redefines` another *and* declares members
+attributes, a `Collections::Set` (or any collection object) and a `TensorQuantityValue` wherever
+they appear (`type Collections::Set is not Integer, Real or Boolean`; a set has no native layout
+and a tensor's components are quantities), parameter defaults, a calc that `:>`/`:>>`/`redefines` another *and* declares members
 (redefining inherited parameters or body is not compiled), sequences whose elements mix Integer
 and Real (`==`, `same`, `union` between an `Integer[0..*]` and a `Real[0..*]`, `Integer[0..*] ?? 5.5`),
 a `collect` body that yields null, a `select` body that is not Boolean, `===` between a Real and an

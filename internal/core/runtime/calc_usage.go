@@ -552,7 +552,7 @@ func (ctx *Context) calcUsageRun(reader *EvalContext, sym *symbols.Symbol) (*cal
 	if run := reader.calcRun; run != nil && run.shape.reads(sym) {
 		return run, nil
 	}
-	if run, ok := ctx.calcUsageRuns[reader.activation][key]; ok {
+	if run, ok := ctx.run.calcUsageRuns[reader.activation][key]; ok {
 		if ctx.trace != nil {
 			ctx.trace.RecordCalcUsageReuse(shape.Kind, shape.Name)
 		}
@@ -572,10 +572,10 @@ func (ctx *Context) calcUsageRun(reader *EvalContext, sym *symbols.Symbol) (*cal
 	if err != nil {
 		return nil, err
 	}
-	runs, ok := ctx.calcUsageRuns[reader.activation]
+	runs, ok := ctx.run.calcUsageRuns[reader.activation]
 	if !ok {
 		runs = make(map[calcUsageKey]*calcRun)
-		ctx.calcUsageRuns[reader.activation] = runs
+		ctx.run.calcUsageRuns[reader.activation] = runs
 	}
 	runs[key] = run
 	return run, nil
@@ -620,7 +620,7 @@ func (ctx *Context) bodyUsageSymbol(stmt lower.DeclareUsage) (*symbols.Symbol, e
 // forgetCalcUsage drops the evaluation of one calc usage an activation holds, so
 // the next read of it in that activation evaluates its body again.
 func (ctx *Context) forgetCalcUsage(activation int64, sym *symbols.Symbol) {
-	runs, ok := ctx.calcUsageRuns[activation]
+	runs, ok := ctx.run.calcUsageRuns[activation]
 	if !ok {
 		return
 	}

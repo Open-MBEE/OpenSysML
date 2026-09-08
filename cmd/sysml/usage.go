@@ -285,6 +285,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&quietMode, "quiet", false, "Report errors only, suppressing warnings")
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
+	fs.Var(&schedule, "schedule", "Scheduling policy every run resolves its choice points under (concurrent tokens, overlapping guards, competing transitions): declared, reverse (default) or seed:<n> for a reproducible pseudo-random order")
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")
 	fs.StringVar(&outputPath, "output", "", "Write conversion output to this file (default: stdout)")

@@ -142,10 +142,10 @@ func differentialFile(t *testing.T, path string, reasons map[string]int) (eligib
 		for _, args := range differentialVectors(len(body.params)) {
 			got := calcOutcome{steps: -1}
 			got.value, got.err = compiled.InvokeCalc(sym, args, root)
-			got.steps = compiled.steps
+			got.steps = compiled.run.steps
 			want := calcOutcome{}
 			want.value, want.err = reference.InvokeCalc(sym, args, root)
-			want.steps = reference.steps
+			want.steps = reference.run.steps
 			wantOutcomesEqual(t, name+describeArgs(args), got, want)
 			invocations++
 			if len(args) == 0 {
@@ -157,10 +157,10 @@ func differentialFile(t *testing.T, path string, reasons map[string]int) (eligib
 			}
 			got = calcOutcome{steps: -1}
 			got.value, got.err = compiled.InvokeCalcNamed(sym, named, root)
-			got.steps = compiled.steps
+			got.steps = compiled.run.steps
 			want = calcOutcome{}
 			want.value, want.err = reference.InvokeCalcNamed(sym, named, root)
-			want.steps = reference.steps
+			want.steps = reference.run.steps
 			wantOutcomesEqual(t, name+describeNamedArgs(named), got, want)
 			invocations++
 		}

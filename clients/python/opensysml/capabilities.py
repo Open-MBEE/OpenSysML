@@ -107,6 +107,19 @@ CAPABILITY_MEASUREMENT_REFS = "measurement_refs"
 #: it with ``UNIMPLEMENTED``.
 CAPABILITY_FUNCTION_VALUES = "function_values"
 
+#: A unique, unordered collection — a ``Collections::Set``'s elements — as
+#: ``Value.set``, read as :class:`~opensysml.values.SetValue` with each element
+#: once in canonical order. Without it the service sends an unsupported null
+#: naming the value, which is an error, and refuses one sent to it with
+#: ``UNIMPLEMENTED``.
+CAPABILITY_SET_VALUES = "set_values"
+
+#: A tensor quantity of any rank as ``Value.tensor_quantity``, read as
+#: :class:`~opensysml.values.TensorQuantity`. Without it the service sends an
+#: unsupported null naming the value, which is an error, and refuses one sent to
+#: it with ``UNIMPLEMENTED``.
+CAPABILITY_TENSOR_VALUES = "tensor_values"
+
 #: What the body of a verification case answered, as the
 #: ``verification_verdicts`` of a requirement, satisfaction or analysis
 #: response, read as :class:`~opensysml.verdict.VerificationVerdict`. Without it
@@ -123,6 +136,12 @@ CAPABILITY_INFINITY_VALUE = "infinity_value"
 #: ``Diagnostic.code`` populated, read as :attr:`~opensysml.diagnostic.Diagnostic.code`,
 #: so an empty code is a finding none was assigned. Without it every code is empty.
 CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
+
+#: The ``schedule`` field of an action, state or analysis run, naming the
+#: scheduling policy its choice points are resolved under: ``declared``,
+#: ``reverse`` (the default) or ``seed:<n>``. Without it the service would drop
+#: the field and run under the default, so the client refuses to send one.
+CAPABILITY_SCHEDULE = "schedule"
 
 #: Each application an analysis run made of one of the case's calcs as a value —
 #: a trade study's evaluation of each alternative — as ``RunAnalysisResponse.evaluations``,

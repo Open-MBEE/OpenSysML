@@ -8,10 +8,9 @@ import (
 )
 
 // noteSummary is the line a debugger command adds when the steps it ran noted
-// choice points or guards it could not evaluate beyond the before notes it
-// started with: how many of each, and how to see them.
-func (s *Session) noteSummary(ctx *runtime.Context, before int) []string {
-	notes := ctx.Notes()
+// choice points or guards it could not evaluate beyond the before notes the
+// executor's run started with: how many of each, and how to see them.
+func (s *Session) noteSummary(notes []runtime.RunNote, before int) []string {
 	if before >= len(notes) {
 		return nil
 	}

@@ -184,6 +184,11 @@ Evaluate every satisfaction assertion, or with \-satisfy=<name> those the
 named element states, reporting beside each verdict the verdict of every
 verification case verifying the requirement (repeatable). The default is [].
 .TP
+.BI \-schedule " value"
+Scheduling policy every run resolves its choice points under (concurrent
+tokens, overlapping guards, competing transitions): declared, reverse
+(default) or seed:<n> for a reproducible pseudo\-random order
+.TP
 .BI \-seed " value"
 Seed \-samples draws from, so the same seed draws the same table
 .TP

@@ -15,7 +15,7 @@ func registerNamedOperatorBuiltins() {
 	builtins["BaseFunctions::#"] = builtinBaseIndex
 	builtins["BaseFunctions::,"] = builtinSequenceConcat
 	// CollectionFunctions::'==' is `col1.elements->equals(col2.elements)`.
-	builtins["CollectionFunctions::=="] = builtinSequenceEquals
+	builtins["CollectionFunctions::=="] = builtinCollectionEquals
 
 	// The range, declared abstractly over DataValue and ScalarValue and
 	// concretely over Integer; every level yields the integer sequence.

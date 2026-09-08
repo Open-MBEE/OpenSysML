@@ -26,7 +26,10 @@ from opensysml.capabilities import (
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_SCHEDULE,
+    CAPABILITY_SET_VALUES,
     CAPABILITY_STRUCTURED_VALUES,
+    CAPABILITY_TENSOR_VALUES,
     CAPABILITY_VERIFICATION,
     MissingCapabilityError,
     ServerInfo,
@@ -62,8 +65,11 @@ from opensysml.query import build_query, elements_of
 from opensysml.values import (
     Array,
     Function,
+    InstanceRef,
     MeasurementRef,
     Quantity,
+    SetValue,
+    TensorQuantity,
     Vector,
     VectorQuantity,
     _Infinity,
@@ -1181,13 +1187,18 @@ class Connection:
         graph = {inst.id: inst for inst in response.instances}
         return Instance(response.instance, graph)
     
-    def execute_action(self, action_symbol_id, model_hash, inputs=None):
+    def execute_action(self, action_symbol_id, model_hash, inputs=None,
+                       schedule=None):
         """Execute an action definition.
         
         Args:
             action_symbol_id (str): FQN of action def
             model_hash (str): Hash from ParseFile response
             inputs (dict, optional): Input parameter name → value
+            schedule (str, optional): Scheduling policy the run resolves its
+                choice points under — ``"declared"``, ``"reverse"`` (the
+                default) or ``"seed:<n>"`` — spelled as ``sysml -schedule``
+                spells it
             
         Returns:
             dict: Output parameter name → value; an output the wire format cannot
@@ -1200,21 +1211,32 @@ class Connection:
             MissingCapabilityError: If an input holds a ``complex`` and the
                 service predates ``complex_values``, an :class:`~opensysml.values.Array`,
                 :class:`~opensysml.values.Vector` or :class:`~opensysml.values.VectorQuantity`
-                and the service predates ``structured_values``, or a
+                and the service predates ``structured_values``, a
                 :class:`~opensysml.values.MeasurementRef` and the service predates
-                ``measurement_refs``, or a :class:`~opensysml.values.Function`
-                and the service predates ``function_values``; nothing is sent
+                ``measurement_refs``, a :class:`~opensysml.values.Function`
+                and the service predates ``function_values``, a
+                :class:`~opensysml.values.SetValue` and the service predates
+                ``set_values``, a :class:`~opensysml.values.TensorQuantity`
+                and the service predates ``tensor_values``, or a schedule is
+                given and the service predates ``schedule``; nothing is sent
+            InvalidRequestError: If the schedule names no policy
         """
         # Convert Python inputs to protobuf Values
         pb_inputs = {name: self._python_to_value(val) for name, val in (inputs or {}).items()}
+        self._require_schedule(schedule)
         
         req = sysml_pb2.ExecuteActionRequest(
             model_hash=model_hash,
             action_symbol_id=action_symbol_id,
-            inputs=pb_inputs
+            inputs=pb_inputs,
+            schedule=schedule or "",
         )
         
-        with translate_rpc_errors():
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_SCHEDULE,) if schedule else ()
+            )
+        ):
             response = self._stub.ExecuteAction(req)
         
         if response.error:
@@ -1223,13 +1245,16 @@ class Connection:
         
         return self._values_to_python(response.outputs)
     
-    def execute_state(self, state_machine_symbol_id, model_hash, events=None):
+    def execute_state(self, state_machine_symbol_id, model_hash, events=None,
+                      schedule=None):
         """Execute a state machine.
         
         Args:
             state_machine_symbol_id (str): FQN of state machine def
             model_hash (str): Hash from ParseFile response
             events (list, optional): Event names to process
+            schedule (str, optional): Scheduling policy the run resolves its
+                choice points under, as for :meth:`execute_action`
             
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}}; a context value
@@ -1239,14 +1264,23 @@ class Connection:
         Raises:
             ExecutionError: If execution fails
             ModelNotFoundError: If the service no longer holds the model
+            MissingCapabilityError: If a schedule is given and the service
+                predates ``schedule``; nothing is sent
+            InvalidRequestError: If the schedule names no policy
         """
+        self._require_schedule(schedule)
         req = sysml_pb2.ExecuteStateRequest(
             model_hash=model_hash,
             state_machine_symbol_id=state_machine_symbol_id,
-            events=events or []
+            events=events or [],
+            schedule=schedule or "",
         )
         
-        with translate_rpc_errors():
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_SCHEDULE,) if schedule else ()
+            )
+        ):
             response = self._stub.ExecuteState(req)
         
         if response.error:
@@ -1402,9 +1436,10 @@ class Connection:
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, an array, vector or vector quantity and
                 the service predates ``structured_values``, a measurement
-                reference and the service predates ``measurement_refs``, or a
-                function and the service predates ``function_values``; nothing
-                is sent
+                reference and the service predates ``measurement_refs``, a
+                function and the service predates ``function_values``, a set
+                and the service predates ``set_values``, or a tensor quantity
+                and the service predates ``tensor_values``; nothing is sent
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
@@ -1420,6 +1455,8 @@ class Connection:
                 CAPABILITY_STRUCTURED_VALUES,
                 CAPABILITY_MEASUREMENT_REFS,
                 CAPABILITY_FUNCTION_VALUES,
+                CAPABILITY_SET_VALUES,
+                CAPABILITY_TENSOR_VALUES,
             ))
         ):
             response = self._stub.EvaluateCalc(request)
@@ -1442,7 +1479,7 @@ class Connection:
         return CalcResult(value, outputs, diagnostics=diagnostics)
 
     def run_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
-                     named_arguments=None):
+                     named_arguments=None, schedule=None):
         """Run an analysis case, as the REPL's ``%analysis`` does.
 
         The subject named is instantiated and bound as the case's subject; a
@@ -1459,6 +1496,9 @@ class Connection:
                 the case on
             arguments (list, optional): Positional arguments, as Python values
             named_arguments (dict, optional): Arguments by parameter name
+            schedule (str, optional): Scheduling policy the actions the case
+                performs resolve their choice points under, as for
+                :meth:`execute_action`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
@@ -1474,23 +1514,35 @@ class Connection:
                 failed as :attr:`~opensysml.errors.AnalysisRunError.result`
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
-                ``complex_values``, or an array, vector or vector quantity and
-                the service predates ``structured_values``; nothing is sent
+                ``complex_values``, an array, vector or vector quantity and
+                the service predates ``structured_values``, a set and the
+                service predates ``set_values``, a tensor quantity and the
+                service predates ``tensor_values``, or a schedule is given
+                and the service predates ``schedule``; nothing is sent
+            InvalidRequestError: If the schedule names no policy
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_schedule(schedule)
         request = sysml_pb2.RunAnalysisRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject or "",
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            schedule=schedule or "",
         )
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal(
-                (CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES, CAPABILITY_STRUCTURED_VALUES)
-            )
+            unimplemented=self._capability_refusal((
+                CAPABILITY_VERIFICATION,
+                CAPABILITY_COMPLEX_VALUES,
+                CAPABILITY_STRUCTURED_VALUES,
+                CAPABILITY_MEASUREMENT_REFS,
+                CAPABILITY_SET_VALUES,
+                CAPABILITY_TENSOR_VALUES,
+                CAPABILITY_SCHEDULE,
+            ))
         ):
             response = self._stub.RunAnalysis(request)
 
@@ -1713,6 +1765,31 @@ class Connection:
             upgrade_remedy(CAPABILITY_INFINITY_VALUE),
         )
 
+    def _require_schedule(self, schedule):
+        """Refuse to send a schedule a service without ``schedule`` would run under the default."""
+        if schedule:
+            require(
+                self.server_info(),
+                CAPABILITY_SCHEDULE,
+                upgrade_remedy(CAPABILITY_SCHEDULE),
+            )
+
+    def _require_set_values(self):
+        """Refuse to send a set a service without ``set_values`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_SET_VALUES,
+            upgrade_remedy(CAPABILITY_SET_VALUES),
+        )
+
+    def _require_tensor_values(self):
+        """Refuse to send a tensor quantity a service without ``tensor_values`` would read as null."""
+        require(
+            self.server_info(),
+            CAPABILITY_TENSOR_VALUES,
+            upgrade_remedy(CAPABILITY_TENSOR_VALUES),
+        )
+
     def _require_feature_values(self):
         """Refuse instances from a service that populates only the removed `slots` field."""
         require(
@@ -1740,6 +1817,8 @@ class Connection:
         
         if isinstance(py_value, bool):
             return sysml_pb2.Value(bool_value=py_value)
+        elif isinstance(py_value, InstanceRef):
+            return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
             return sysml_pb2.Value(int_value=py_value)
         elif isinstance(py_value, float):
@@ -1775,6 +1854,12 @@ class Connection:
         elif isinstance(py_value, VectorQuantity):
             self._require_structured_values()
             return sysml_pb2.Value(vector_quantity=py_value.to_pb())
+        elif isinstance(py_value, (SetValue, set, frozenset)):
+            self._require_set_values()
+            return sysml_pb2.Value(set=SetValue(py_value).to_pb(self._python_to_value))
+        elif isinstance(py_value, TensorQuantity):
+            self._require_tensor_values()
+            return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
         elif isinstance(py_value, EnumLiteral):
             return sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,
@@ -1790,8 +1875,8 @@ class Connection:
     def _value_to_python(self, pb_value):
         """Convert protobuf Value to Python type.
 
-        Instance references outside an Instantiate response are returned as
-        their integer id; there is no instance graph to resolve them against.
+        Instance references outside an Instantiate response are returned as an
+        :class:`InstanceRef`; there is no instance graph to resolve them against.
         """
         return value_to_python(pb_value)
 

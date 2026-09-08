@@ -474,7 +474,7 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 		if fill.fv.Feature.Scalar() {
 			fill.fv.Value = fill.held[0]
 		} else {
-			fill.fv.Values = sequenceOf(fill.held)
+			fill.fv.Values = collectionOf(fill.fv.Feature, fill.held)
 		}
 		fill.fv.Materialized = true
 		ctx.invalidateDependents(fill.fv)

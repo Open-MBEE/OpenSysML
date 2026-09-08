@@ -95,4 +95,28 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   org.openmbee.opensysml.proto.Value getInputsOrThrow(
       java.lang.String key);
+
+  /**
+   * <pre>
+   * Scheduling policy the run resolves its choice points under: "declared",
+   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string schedule = 4 [json_name = "schedule"];</code>
+   * @return The schedule.
+   */
+  java.lang.String getSchedule();
+  /**
+   * <pre>
+   * Scheduling policy the run resolves its choice points under: "declared",
+   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string schedule = 4 [json_name = "schedule"];</code>
+   * @return The bytes for schedule.
+   */
+  com.google.protobuf.ByteString
+      getScheduleBytes();
 }

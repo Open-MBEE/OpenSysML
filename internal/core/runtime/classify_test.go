@@ -1223,8 +1223,8 @@ func TestCollectionReadRefusedByTheBudgetFillsNothing(t *testing.T) {
 	if !errors.Is(err, ErrElementLimitExceeded) {
 		t.Fatalf("sides under a budget of 3: %v, want ErrElementLimitExceeded", err)
 	}
-	if ctx.elements != 0 {
-		t.Fatalf("a refused read left %d elements charged", ctx.elements)
+	if ctx.run.elements != 0 {
+		t.Fatalf("a refused read left %d elements charged", ctx.run.elements)
 	}
 	if got := len(ctx.instances); got != objects {
 		t.Fatalf("a refused read left %d objects behind", got-objects)
@@ -1238,7 +1238,7 @@ func TestCollectionReadRefusedByTheBudgetFillsNothing(t *testing.T) {
 	maxSteps, refused := ctx.maxSteps, 0
 	var sides *FeatureValue
 	for extra := int64(0); sides == nil; extra++ {
-		ctx.maxSteps = ctx.steps + extra
+		ctx.maxSteps = ctx.run.steps + extra
 		fv, err := panel.GetFeatureValue(ctx, "sides")
 		ctx.maxSteps = maxSteps
 		if err == nil {
@@ -1255,8 +1255,8 @@ func TestCollectionReadRefusedByTheBudgetFillsNothing(t *testing.T) {
 		if top := panel.FeatureValues["top"]; len(elementsOf(top.HeldValue())) != 0 {
 			t.Fatalf("a read refused after %d steps filled top with %s", extra, FormatValue(top.HeldValue()))
 		}
-		if ctx.elements != 0 {
-			t.Fatalf("a read refused after %d steps left %d elements charged", extra, ctx.elements)
+		if ctx.run.elements != 0 {
+			t.Fatalf("a read refused after %d steps left %d elements charged", extra, ctx.run.elements)
 		}
 	}
 	if refused < 3 {

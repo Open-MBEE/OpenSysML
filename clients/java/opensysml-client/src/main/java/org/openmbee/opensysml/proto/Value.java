@@ -70,6 +70,8 @@ private static final long serialVersionUID = 0L;
     MEASUREMENT_REF(15),
     INFINITY(16),
     FUNCTION(17),
+    SET(18),
+    TENSOR_QUANTITY(19),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -104,6 +106,8 @@ private static final long serialVersionUID = 0L;
         case 15: return MEASUREMENT_REF;
         case 16: return INFINITY;
         case 17: return FUNCTION;
+        case 18: return SET;
+        case 19: return TENSOR_QUANTITY;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -754,6 +758,92 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.Function.getDefaultInstance();
   }
 
+  public static final int SET_FIELD_NUMBER = 18;
+  /**
+   * <pre>
+   * distinct elements with no order of their own
+   * </pre>
+   *
+   * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+   * @return Whether the set field is set.
+   */
+  @java.lang.Override
+  public boolean hasSet() {
+    return kindCase_ == 18;
+  }
+  /**
+   * <pre>
+   * distinct elements with no order of their own
+   * </pre>
+   *
+   * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+   * @return The set.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ValueSet getSet() {
+    if (kindCase_ == 18) {
+       return (org.openmbee.opensysml.proto.ValueSet) kind_;
+    }
+    return org.openmbee.opensysml.proto.ValueSet.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * distinct elements with no order of their own
+   * </pre>
+   *
+   * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ValueSetOrBuilder getSetOrBuilder() {
+    if (kindCase_ == 18) {
+       return (org.openmbee.opensysml.proto.ValueSet) kind_;
+    }
+    return org.openmbee.opensysml.proto.ValueSet.getDefaultInstance();
+  }
+
+  public static final int TENSOR_QUANTITY_FIELD_NUMBER = 19;
+  /**
+   * <pre>
+   * shape and one Quantity per component
+   * </pre>
+   *
+   * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+   * @return Whether the tensorQuantity field is set.
+   */
+  @java.lang.Override
+  public boolean hasTensorQuantity() {
+    return kindCase_ == 19;
+  }
+  /**
+   * <pre>
+   * shape and one Quantity per component
+   * </pre>
+   *
+   * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+   * @return The tensorQuantity.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.TensorQuantity getTensorQuantity() {
+    if (kindCase_ == 19) {
+       return (org.openmbee.opensysml.proto.TensorQuantity) kind_;
+    }
+    return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * shape and one Quantity per component
+   * </pre>
+   *
+   * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.TensorQuantityOrBuilder getTensorQuantityOrBuilder() {
+    if (kindCase_ == 19) {
+       return (org.openmbee.opensysml.proto.TensorQuantity) kind_;
+    }
+    return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -824,6 +914,12 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 17) {
       output.writeMessage(17, (org.openmbee.opensysml.proto.Function) kind_);
+    }
+    if (kindCase_ == 18) {
+      output.writeMessage(18, (org.openmbee.opensysml.proto.ValueSet) kind_);
+    }
+    if (kindCase_ == 19) {
+      output.writeMessage(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -905,6 +1001,14 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 17) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(17, (org.openmbee.opensysml.proto.Function) kind_);
+    }
+    if (kindCase_ == 18) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(18, (org.openmbee.opensysml.proto.ValueSet) kind_);
+    }
+    if (kindCase_ == 19) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -991,6 +1095,14 @@ private static final long serialVersionUID = 0L;
       case 17:
         if (!getFunction()
             .equals(other.getFunction())) return false;
+        break;
+      case 18:
+        if (!getSet()
+            .equals(other.getSet())) return false;
+        break;
+      case 19:
+        if (!getTensorQuantity()
+            .equals(other.getTensorQuantity())) return false;
         break;
       case 0:
       default:
@@ -1080,6 +1192,14 @@ private static final long serialVersionUID = 0L;
       case 17:
         hash = (37 * hash) + FUNCTION_FIELD_NUMBER;
         hash = (53 * hash) + getFunction().hashCode();
+        break;
+      case 18:
+        hash = (37 * hash) + SET_FIELD_NUMBER;
+        hash = (53 * hash) + getSet().hashCode();
+        break;
+      case 19:
+        hash = (37 * hash) + TENSOR_QUANTITY_FIELD_NUMBER;
+        hash = (53 * hash) + getTensorQuantity().hashCode();
         break;
       case 0:
       default:
@@ -1246,6 +1366,12 @@ private static final long serialVersionUID = 0L;
       if (functionBuilder_ != null) {
         functionBuilder_.clear();
       }
+      if (setBuilder_ != null) {
+        setBuilder_.clear();
+      }
+      if (tensorQuantityBuilder_ != null) {
+        tensorQuantityBuilder_.clear();
+      }
       kindCase_ = 0;
       kind_ = null;
       return this;
@@ -1322,6 +1448,14 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 17 &&
           functionBuilder_ != null) {
         result.kind_ = functionBuilder_.build();
+      }
+      if (kindCase_ == 18 &&
+          setBuilder_ != null) {
+        result.kind_ = setBuilder_.build();
+      }
+      if (kindCase_ == 19 &&
+          tensorQuantityBuilder_ != null) {
+        result.kind_ = tensorQuantityBuilder_.build();
       }
     }
 
@@ -1408,6 +1542,14 @@ private static final long serialVersionUID = 0L;
         }
         case FUNCTION: {
           mergeFunction(other.getFunction());
+          break;
+        }
+        case SET: {
+          mergeSet(other.getSet());
+          break;
+        }
+        case TENSOR_QUANTITY: {
+          mergeTensorQuantity(other.getTensorQuantity());
           break;
         }
         case KIND_NOT_SET: {
@@ -1545,6 +1687,20 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 17;
               break;
             } // case 138
+            case 146: {
+              input.readMessage(
+                  internalGetSetFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 18;
+              break;
+            } // case 146
+            case 154: {
+              input.readMessage(
+                  internalGetTensorQuantityFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 19;
+              break;
+            } // case 154
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3627,6 +3783,362 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 17;
       onChanged();
       return functionBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ValueSet, org.openmbee.opensysml.proto.ValueSet.Builder, org.openmbee.opensysml.proto.ValueSetOrBuilder> setBuilder_;
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     * @return Whether the set field is set.
+     */
+    @java.lang.Override
+    public boolean hasSet() {
+      return kindCase_ == 18;
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     * @return The set.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.ValueSet getSet() {
+      if (setBuilder_ == null) {
+        if (kindCase_ == 18) {
+          return (org.openmbee.opensysml.proto.ValueSet) kind_;
+        }
+        return org.openmbee.opensysml.proto.ValueSet.getDefaultInstance();
+      } else {
+        if (kindCase_ == 18) {
+          return setBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.ValueSet.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    public Builder setSet(org.openmbee.opensysml.proto.ValueSet value) {
+      if (setBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        setBuilder_.setMessage(value);
+      }
+      kindCase_ = 18;
+      return this;
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    public Builder setSet(
+        org.openmbee.opensysml.proto.ValueSet.Builder builderForValue) {
+      if (setBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        setBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 18;
+      return this;
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    public Builder mergeSet(org.openmbee.opensysml.proto.ValueSet value) {
+      if (setBuilder_ == null) {
+        if (kindCase_ == 18 &&
+            kind_ != org.openmbee.opensysml.proto.ValueSet.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.ValueSet.newBuilder((org.openmbee.opensysml.proto.ValueSet) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 18) {
+          setBuilder_.mergeFrom(value);
+        } else {
+          setBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 18;
+      return this;
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    public Builder clearSet() {
+      if (setBuilder_ == null) {
+        if (kindCase_ == 18) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 18) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        setBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    public org.openmbee.opensysml.proto.ValueSet.Builder getSetBuilder() {
+      return internalGetSetFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.ValueSetOrBuilder getSetOrBuilder() {
+      if ((kindCase_ == 18) && (setBuilder_ != null)) {
+        return setBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 18) {
+          return (org.openmbee.opensysml.proto.ValueSet) kind_;
+        }
+        return org.openmbee.opensysml.proto.ValueSet.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * distinct elements with no order of their own
+     * </pre>
+     *
+     * <code>.sysml.ValueSet set = 18 [json_name = "set"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ValueSet, org.openmbee.opensysml.proto.ValueSet.Builder, org.openmbee.opensysml.proto.ValueSetOrBuilder> 
+        internalGetSetFieldBuilder() {
+      if (setBuilder_ == null) {
+        if (!(kindCase_ == 18)) {
+          kind_ = org.openmbee.opensysml.proto.ValueSet.getDefaultInstance();
+        }
+        setBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.ValueSet, org.openmbee.opensysml.proto.ValueSet.Builder, org.openmbee.opensysml.proto.ValueSetOrBuilder>(
+                (org.openmbee.opensysml.proto.ValueSet) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 18;
+      onChanged();
+      return setBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.TensorQuantity, org.openmbee.opensysml.proto.TensorQuantity.Builder, org.openmbee.opensysml.proto.TensorQuantityOrBuilder> tensorQuantityBuilder_;
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     * @return Whether the tensorQuantity field is set.
+     */
+    @java.lang.Override
+    public boolean hasTensorQuantity() {
+      return kindCase_ == 19;
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     * @return The tensorQuantity.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.TensorQuantity getTensorQuantity() {
+      if (tensorQuantityBuilder_ == null) {
+        if (kindCase_ == 19) {
+          return (org.openmbee.opensysml.proto.TensorQuantity) kind_;
+        }
+        return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
+      } else {
+        if (kindCase_ == 19) {
+          return tensorQuantityBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    public Builder setTensorQuantity(org.openmbee.opensysml.proto.TensorQuantity value) {
+      if (tensorQuantityBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        tensorQuantityBuilder_.setMessage(value);
+      }
+      kindCase_ = 19;
+      return this;
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    public Builder setTensorQuantity(
+        org.openmbee.opensysml.proto.TensorQuantity.Builder builderForValue) {
+      if (tensorQuantityBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        tensorQuantityBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 19;
+      return this;
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    public Builder mergeTensorQuantity(org.openmbee.opensysml.proto.TensorQuantity value) {
+      if (tensorQuantityBuilder_ == null) {
+        if (kindCase_ == 19 &&
+            kind_ != org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.TensorQuantity.newBuilder((org.openmbee.opensysml.proto.TensorQuantity) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 19) {
+          tensorQuantityBuilder_.mergeFrom(value);
+        } else {
+          tensorQuantityBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 19;
+      return this;
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    public Builder clearTensorQuantity() {
+      if (tensorQuantityBuilder_ == null) {
+        if (kindCase_ == 19) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 19) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        tensorQuantityBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    public org.openmbee.opensysml.proto.TensorQuantity.Builder getTensorQuantityBuilder() {
+      return internalGetTensorQuantityFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.TensorQuantityOrBuilder getTensorQuantityOrBuilder() {
+      if ((kindCase_ == 19) && (tensorQuantityBuilder_ != null)) {
+        return tensorQuantityBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 19) {
+          return (org.openmbee.opensysml.proto.TensorQuantity) kind_;
+        }
+        return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * shape and one Quantity per component
+     * </pre>
+     *
+     * <code>.sysml.TensorQuantity tensor_quantity = 19 [json_name = "tensorQuantity"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.TensorQuantity, org.openmbee.opensysml.proto.TensorQuantity.Builder, org.openmbee.opensysml.proto.TensorQuantityOrBuilder> 
+        internalGetTensorQuantityFieldBuilder() {
+      if (tensorQuantityBuilder_ == null) {
+        if (!(kindCase_ == 19)) {
+          kind_ = org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
+        }
+        tensorQuantityBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.TensorQuantity, org.openmbee.opensysml.proto.TensorQuantity.Builder, org.openmbee.opensysml.proto.TensorQuantityOrBuilder>(
+                (org.openmbee.opensysml.proto.TensorQuantity) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 19;
+      onChanged();
+      return tensorQuantityBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

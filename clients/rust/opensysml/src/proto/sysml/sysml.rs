@@ -258,6 +258,11 @@ pub struct RunAnalysisRequest {
     /// Arguments bound to input parameters by name.
     #[prost(map="string, message", tag="5")]
     pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Scheduling policy the run resolves its choice points under: "declared",
+    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="6")]
+    pub schedule: ::prost::alloc::string::String,
 }
 /// RunAnalysisResponse carries what the case computed and decided.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -513,6 +518,11 @@ pub struct ExecuteActionRequest {
     /// parameter name → value
     #[prost(map="string, message", tag="3")]
     pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// Scheduling policy the run resolves its choice points under: "declared",
+    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="4")]
+    pub schedule: ::prost::alloc::string::String,
 }
 /// ExecuteActionResponse contains action execution results
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -535,6 +545,11 @@ pub struct ExecuteStateRequest {
     /// sequence of event names to process
     #[prost(string, repeated, tag="3")]
     pub events: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Scheduling policy the run resolves its choice points under: "declared",
+    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
+    /// spelling is INVALID_ARGUMENT.
+    #[prost(string, tag="4")]
+    pub schedule: ::prost::alloc::string::String,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -858,7 +873,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -913,6 +928,12 @@ pub mod value {
         /// a calc as a value, named by its declaration
         #[prost(message, tag="17")]
         Function(super::Function),
+        /// distinct elements with no order of their own
+        #[prost(message, tag="18")]
+        Set(super::ValueSet),
+        /// shape and one Quantity per component
+        #[prost(message, tag="19")]
+        TensorQuantity(super::TensorQuantity),
     }
 }
 /// Function is a calc held as a value: a calc definition, or a calc usage with
@@ -933,6 +954,33 @@ pub struct Function {
     /// holds that object.
     #[prost(int64, tag="2")]
     pub self_id: i64,
+}
+/// ValueSet is a unique, unordered collection — a Collections::Set's elements —
+/// as distinct from a ValueSequence, whose order is part of its value. Two sets
+/// are equal when they hold the same elements in any order. The service sends
+/// the elements in the runtime's canonical order (Booleans, numbers, strings,
+/// quantities, enumeration literals, objects, each class in its own order), so
+/// equal sets cross alike; a client may send them in any order, but sending an
+/// element twice is rejected rather than read as one, since a repeated element
+/// is what a sequence carries.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ValueSet {
+    #[prost(message, repeated, tag="1")]
+    pub elements: ::prost::alloc::vec::Vec<Value>,
+}
+/// TensorQuantity is a Quantities::TensorQuantityValue of any rank: its
+/// dimensions and, flattened in row-major order under them, one Quantity per
+/// component, each with its unit and reduction as a scalar Quantity carries them.
+/// A tensor of rank one is not a VectorQuantity, on the wire as in the runtime.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TensorQuantity {
+    /// Positive extents, one per rank; their product (one for rank 0) is how many
+    /// components there are, and a tensor not filling them is rejected.
+    #[prost(int64, repeated, tag="1")]
+    pub dimensions: ::prost::alloc::vec::Vec<i64>,
+    /// A named unit sent without its unit_term is rejected as a Quantity's is.
+    #[prost(message, repeated, tag="2")]
+    pub components: ::prost::alloc::vec::Vec<Quantity>,
 }
 /// Array is a Collections::Array: its elements flattened in row-major order
 /// under its dimensions, compared by content rather than by the object read.
@@ -1159,6 +1207,18 @@ pub struct ServerInfoResponse {
     ///                   unsupported null, and one is accepted as an action input
     ///                   or calc argument; without it, one is refused with
     ///                   UNIMPLEMENTED rather than read as another value.
+    ///    "set_values" - a Value carries a unique, unordered collection (a
+    ///                   Collections::Set's elements) as set, each element once in
+    ///                   canonical order, rather than reporting it as an
+    ///                   unsupported null, and one is accepted as an action input
+    ///                   or calc argument in any order; without it, one is refused
+    ///                   with UNIMPLEMENTED rather than read as a sequence.
+    ///    "tensor_values" - a Value carries a tensor quantity of any rank as
+    ///                   tensor_quantity, its dimensions and one Quantity per
+    ///                   row-major component, rather than reporting it as an
+    ///                   unsupported null, and one is accepted as an action input
+    ///                   or calc argument; without it, one is refused with
+    ///                   UNIMPLEMENTED rather than read as another value.
     ///    "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
     ///                   preserving everything the edit did not touch.
     ///    "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1167,6 +1227,11 @@ pub struct ServerInfoResponse {
     ///                   Markdown.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
     ///                   finding none was assigned; without it every code is empty.
+    ///    "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+    ///                   RunAnalysisRequest take a schedule, the scheduling policy
+    ///                   the run resolves its choice points under; without it a
+    ///                   service drops the field and runs under the default, so a
+    ///                   client must not send one.
     ///    "case_evaluations" - RunAnalysis and each RunSweep row report each
     ///                   application the run made of one of the case's calcs as a
     ///                   function value — a trade study's evaluation of each

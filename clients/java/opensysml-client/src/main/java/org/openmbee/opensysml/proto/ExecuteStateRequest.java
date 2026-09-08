@@ -36,6 +36,7 @@ private static final long serialVersionUID = 0L;
     stateMachineSymbolId_ = "";
     events_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    schedule_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -182,6 +183,57 @@ private static final long serialVersionUID = 0L;
     return events_.getByteString(index);
   }
 
+  public static final int SCHEDULE_FIELD_NUMBER = 4;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object schedule_ = "";
+  /**
+   * <pre>
+   * Scheduling policy the run resolves its choice points under: "declared",
+   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string schedule = 4 [json_name = "schedule"];</code>
+   * @return The schedule.
+   */
+  @java.lang.Override
+  public java.lang.String getSchedule() {
+    java.lang.Object ref = schedule_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      schedule_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Scheduling policy the run resolves its choice points under: "declared",
+   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+   * spelling is INVALID_ARGUMENT.
+   * </pre>
+   *
+   * <code>string schedule = 4 [json_name = "schedule"];</code>
+   * @return The bytes for schedule.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getScheduleBytes() {
+    java.lang.Object ref = schedule_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      schedule_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -204,6 +256,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < events_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, events_.getRaw(i));
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(schedule_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 4, schedule_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -228,6 +283,9 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getEventsList().size();
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(schedule_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(4, schedule_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -249,6 +307,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getStateMachineSymbolId())) return false;
     if (!getEventsList()
         .equals(other.getEventsList())) return false;
+    if (!getSchedule()
+        .equals(other.getSchedule())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -268,6 +328,8 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + EVENTS_FIELD_NUMBER;
       hash = (53 * hash) + getEventsList().hashCode();
     }
+    hash = (37 * hash) + SCHEDULE_FIELD_NUMBER;
+    hash = (53 * hash) + getSchedule().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -407,6 +469,7 @@ private static final long serialVersionUID = 0L;
       stateMachineSymbolId_ = "";
       events_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      schedule_ = "";
       return this;
     }
 
@@ -450,6 +513,9 @@ private static final long serialVersionUID = 0L;
         events_.makeImmutable();
         result.events_ = events_;
       }
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.schedule_ = schedule_;
+      }
     }
 
     @java.lang.Override
@@ -482,6 +548,11 @@ private static final long serialVersionUID = 0L;
           ensureEventsIsMutable();
           events_.addAll(other.events_);
         }
+        onChanged();
+      }
+      if (!other.getSchedule().isEmpty()) {
+        schedule_ = other.schedule_;
+        bitField0_ |= 0x00000008;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -526,6 +597,11 @@ private static final long serialVersionUID = 0L;
               events_.add(s);
               break;
             } // case 26
+            case 34: {
+              schedule_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -830,6 +906,108 @@ private static final long serialVersionUID = 0L;
       ensureEventsIsMutable();
       events_.add(value);
       bitField0_ |= 0x00000004;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object schedule_ = "";
+    /**
+     * <pre>
+     * Scheduling policy the run resolves its choice points under: "declared",
+     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string schedule = 4 [json_name = "schedule"];</code>
+     * @return The schedule.
+     */
+    public java.lang.String getSchedule() {
+      java.lang.Object ref = schedule_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        schedule_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Scheduling policy the run resolves its choice points under: "declared",
+     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string schedule = 4 [json_name = "schedule"];</code>
+     * @return The bytes for schedule.
+     */
+    public com.google.protobuf.ByteString
+        getScheduleBytes() {
+      java.lang.Object ref = schedule_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        schedule_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Scheduling policy the run resolves its choice points under: "declared",
+     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string schedule = 4 [json_name = "schedule"];</code>
+     * @param value The schedule to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSchedule(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      schedule_ = value;
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Scheduling policy the run resolves its choice points under: "declared",
+     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string schedule = 4 [json_name = "schedule"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSchedule() {
+      schedule_ = getDefaultInstance().getSchedule();
+      bitField0_ = (bitField0_ & ~0x00000008);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Scheduling policy the run resolves its choice points under: "declared",
+     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
+     * spelling is INVALID_ARGUMENT.
+     * </pre>
+     *
+     * <code>string schedule = 4 [json_name = "schedule"];</code>
+     * @param value The bytes for schedule to set.
+     * @return This builder for chaining.
+     */
+    public Builder setScheduleBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      schedule_ = value;
+      bitField0_ |= 0x00000008;
       onChanged();
       return this;
     }

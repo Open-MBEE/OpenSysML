@@ -110,6 +110,25 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		if !s.capabilities.has(CapabilityInfinityValue) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: unbounded value *"}
 		}
+	case *pb.Value_Set:
+		if !s.capabilities.has(CapabilitySetValues) {
+			shown := displayValue(value)
+			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+			return
+		}
+		shown := displayValue(value)
+		for _, nested := range nestedValues(value) {
+			s.filterValueCapabilities(nested)
+			if reason, ok := unsupportedReason(nested); ok {
+				value.Kind = unsupportedSet(shown, reason).Kind
+				return
+			}
+		}
+	case *pb.Value_TensorQuantity:
+		if !s.capabilities.has(CapabilityTensorValues) {
+			shown := displayValue(value)
+			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+		}
 	}
 }
 
@@ -154,6 +173,21 @@ func displayValue(pv *pb.Value) runtime.Value {
 			text = describeUnitTerm(k.MeasurementRef.GetUnitTerm())
 		}
 		return runtime.NewMeasurementRefValue(runtime.Unit{Text: text, Product: semantics.NamedUnitProduct(nil, text, false)})
+	case *pb.Value_Set:
+		set := runtime.NewSet()
+		for _, elem := range k.Set.GetElements() {
+			set.Add(displayValue(elem))
+		}
+		return runtime.NewSetValue(set)
+	case *pb.Value_TensorQuantity:
+		num := make([]semantics.Value, 0, len(k.TensorQuantity.GetComponents()))
+		units := make([]runtime.Unit, 0, len(k.TensorQuantity.GetComponents()))
+		for _, comp := range k.TensorQuantity.GetComponents() {
+			q := displayQuantity(comp).Quantity()
+			num = append(num, q.Num)
+			units = append(units, q.Unit)
+		}
+		return runtime.NewTensorQuantityValue(k.TensorQuantity.GetDimensions(), num, units)
 	default:
 		return protoToScalar(pv)
 	}

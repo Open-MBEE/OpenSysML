@@ -47,6 +47,44 @@ func TestBoundNestedCollectionQuantityOfAnotherDimension(t *testing.T) {
 	wantNoDimensionDiags(t, `attribute ls : LengthValue[*] = (1 [m], (2 [m], 3 [mm]));`)
 }
 
+// TestBoundCollectionQuantityOfAnotherDimension: a collection value binds each element its
+// body produces, or keeps, so a unit written in the body is measured against the target too.
+func TestBoundCollectionQuantityOfAnotherDimension(t *testing.T) {
+	const parts = `private import ControlFunctions::*; part def Part; part parts : Part[*];`
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts.{ in p : Part; 5 [m] };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts->collect { in p : Part; 5 [m] };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts.{ in p : Part; (5 [s], 5 [m]) };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = (5 [m], 6 [s]).?{ in l : LengthValue; true };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = (5 [s], 6 [m])->select { in l : LengthValue; true };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = (5 [m])->reduce { in a : LengthValue; in b : LengthValue; 1 [s] };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+	wantNoDimensionDiags(t, parts+`
+		attribute t : DurationValue = parts.{ in p : Part; 5 [min] };
+		attribute t2 : DurationValue = parts->collect { in p : Part; (5 [s], 5 [min]) };
+		attribute t3 : DurationValue = (5 [s], 6 [min]).?{ in d : DurationValue; true };
+		attribute t4 : DurationValue = (5 [s], 6 [min])->reduce { in a : DurationValue; in b : DurationValue; 1 [min] };
+		attribute l : LengthValue = parts.{ in p : Part; 5 [m] };`)
+}
+
+// A body mapping every element to a quantity held by no value, or an operation over such a
+// collection, binds no quantity, so no dimension is measured against the target.
+func TestBoundCollectionQuantityOfNothing(t *testing.T) {
+	const parts = `private import ControlFunctions::*; part def Part { attribute none : LengthValue[0]; } part parts : Part[*];`
+	wantNoDimensionDiags(t, parts+`
+		attribute t : DurationValue = parts.{ in p : Part; p.none };
+		attribute t2 : DurationValue = parts->collect { in p : Part; (p.none, p.none) };
+		attribute t3 : DurationValue = (parts.{ in p : Part; p.none }).{ in l : LengthValue; 5 [m] };
+		attribute t4 : DurationValue = (parts.{ in p : Part; p.none }).?{ in l : LengthValue; true };
+		attribute t5 : DurationValue = (parts.{ in p : Part; p.none })->reduce { in a : LengthValue; in b : LengthValue; 1 [m] };`)
+	wantOneDimensionError(t, parts+`attribute t : DurationValue = parts.{ in p : Part; (p.none, 5 [m]) };`,
+		"cannot bind m (dimension L) to a feature typed by DurationValue (dimension T)")
+}
+
 // TestBoundQuantityOfTheSameDimensionAtAnotherScale: a dimension has no scale,
 // so any unit measuring in it conforms.
 func TestBoundQuantityOfTheSameDimensionAtAnotherScale(t *testing.T) {
@@ -125,6 +163,19 @@ func TestRecursiveRollupThroughACall(t *testing.T) {
 		part subcomponents : MassedComponent [*] default null;
 		attribute mass :> ISQ::mass;
 		attribute totalMass :> ISQ::mass = mass + sum(subcomponents.totalMass);
+	}`)
+}
+
+// TestRecursiveRollupThroughACollectBody: the rollup written with a collect whose
+// body names the feature being typed — its result type is the body's — terminates too.
+func TestRecursiveRollupThroughACollectBody(t *testing.T) {
+	wantNoDimensionDiags(t, `private import NumericalFunctions::*;
+	private import ControlFunctions::*;
+	part def MassedComponent {
+		part subcomponents : MassedComponent [*] default null;
+		attribute mass :> ISQ::mass;
+		attribute totalMass :> ISQ::mass = mass + sum(subcomponents->collect { in c : MassedComponent; c.totalMass });
+		attribute heaviest :> ISQ::mass = subcomponents->collect { in c : MassedComponent; c.heaviest }->reduce '+';
 	}`)
 }
 

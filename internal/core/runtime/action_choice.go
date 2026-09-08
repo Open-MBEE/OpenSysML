@@ -12,7 +12,7 @@ import (
 )
 
 // The choice points an action run makes; recording one never alters what the
-// executor does (reverse token order, first holding guard, later write stands).
+// executor does (the policy's token order and guard, later write stands).
 
 // writeDest identifies a feature a write reaches: one a performance holds under
 // its canonical name, or one an object holds under any of its names (FeatureValue).
@@ -190,16 +190,23 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 // offeredMessage reports whether one of the messages in flight answers the accept
 // the token sits at, so that stepping it first would have taken the message.
 func (e *ActionExecutor) offeredMessage(t Token, pending []Message) bool {
+	accept, ok := e.messageAccept(t)
+	if !ok {
+		return false
+	}
+	matches, _ := e.acceptMatch(t.frame, accept, t.Location.(*ast.Usage))
+	return slices.ContainsFunc(pending, matches)
+}
+
+// messageAccept returns the accept the token sits at when it is one a message,
+// not a trigger, answers.
+func (e *ActionExecutor) messageAccept(t Token) (lower.Accept, bool) {
 	usage, ok := t.Location.(*ast.Usage)
 	if !ok || t.body != nil {
-		return false
+		return lower.Accept{}, false
 	}
 	accept, isAccept := e.graphOf(t.frame).Accepts[usage]
-	if !isAccept || accept.Trigger != nil {
-		return false
-	}
-	matches, _ := e.acceptMatch(t.frame, accept, usage)
-	return slices.ContainsFunc(pending, matches)
+	return accept, isAccept && accept.Trigger == nil
 }
 
 // stepTokenNoting steps the token at index i and notes it in order when it did
@@ -273,8 +280,9 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder) {
 }
 
 // noteDecisionBranches records the holding guarded successions of a decision node,
-// at their declared positions, as a choice point when there are at least two.
-func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) {
+// at their declared positions, as a choice point when there are at least two;
+// pick is the position in holding of the one the token takes.
+func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int, pick int) {
 	if len(holding) < 2 {
 		return
 	}
@@ -287,7 +295,7 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 		Step:         e.stepCount + 1,
 		Where:        "decision " + nodeIdentifier(node),
 		Alternatives: alts,
-		Taken:        0,
+		Taken:        pick,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
 	})

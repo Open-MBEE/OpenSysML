@@ -59,6 +59,12 @@ public final class Capabilities {
   /** {@code Diagnostic.code} is populated, so an empty code is a finding none was assigned. */
   public static final String DIAGNOSTIC_CODES = "diagnostic_codes";
 
+  /** A unique, unordered collection travels as a set rather than as an unsupported null. */
+  public static final String SET_VALUES = "set_values";
+
+  /** A tensor of quantities of any rank travels as itself rather than as an unsupported null. */
+  public static final String TENSOR_VALUES = "tensor_values";
+
   /** The {@code ApplyEdits} RPC edits a parsed model's own source. */
   public static final String APPLY_EDITS = "apply_edits";
 
@@ -76,6 +82,9 @@ public final class Capabilities {
 
   /** An instance carries what it holds for each feature of its type. */
   public static final String FEATURE_VALUES = "feature_values";
+
+  /** The execution requests take a {@code schedule}, the scheduling policy a run resolves its choice points under. */
+  public static final String SCHEDULE = "schedule";
 
   private final String serviceVersion;
   private final Set<String> names;

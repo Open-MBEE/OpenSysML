@@ -52,6 +52,7 @@ type analysisOptions struct {
 	subjectSymbolID string
 	positional      []Value
 	named           []namedArgument
+	schedule        string
 }
 
 type namedArgument struct {
@@ -77,6 +78,13 @@ func Argument(name string, value Value) AnalysisOption {
 	return func(o *analysisOptions) { o.named = append(o.named, namedArgument{name, value}) }
 }
 
+// Schedule names the scheduling policy the actions the case performs resolve
+// their choice points under, as WithSchedule does for ExecuteAction. Requires
+// the schedule capability.
+func Schedule(policy string) AnalysisOption {
+	return func(o *analysisOptions) { o.schedule = policy }
+}
+
 func (c *client) RunAnalysis(
 	ctx context.Context,
 	model *Model,
@@ -98,10 +106,14 @@ func (c *client) RunAnalysis(
 	if err := c.requireValueCapabilities(ctx, values...); err != nil {
 		return nil, err
 	}
+	if err := c.requireSchedule(ctx, options.schedule); err != nil {
+		return nil, err
+	}
 	req := &pb.RunAnalysisRequest{
 		ModelHash:       hash,
 		SymbolId:        symbolID,
 		SubjectSymbolId: options.subjectSymbolID,
+		Schedule:        options.schedule,
 	}
 	for _, argument := range options.positional {
 		sent, err := valueToProto(argument)

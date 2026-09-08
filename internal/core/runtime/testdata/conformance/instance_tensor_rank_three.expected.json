@@ -1,0 +1,524 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Block",
+  "slots": {
+    "cube": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 1.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 2.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 3.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 4.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 5.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 6.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 7.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 8.0,
+          "unit": "Pa"
+        }
+      ]
+    },
+    "slab": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        3,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 1,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 2,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 3,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 4,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 5,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 6,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 7,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 8,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 9,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 10,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 11,
+          "unit": "m"
+        },
+        {
+          "type": "Quantity",
+          "value": 12,
+          "unit": "m"
+        }
+      ]
+    },
+    "hyper": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        1,
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 1,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 2,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 3,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 4,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 5,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 6,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 7,
+          "unit": "s"
+        },
+        {
+          "type": "Quantity",
+          "value": 8,
+          "unit": "s"
+        }
+      ]
+    },
+    "dims": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 2
+        },
+        {
+          "type": "Integer",
+          "value": 2
+        },
+        {
+          "type": "Integer",
+          "value": 2
+        }
+      ]
+    },
+    "order": {
+      "type": "Integer",
+      "value": 3
+    },
+    "flattenedSize": {
+      "type": "Integer",
+      "value": 8
+    },
+    "slabDims": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Integer",
+          "value": 2
+        },
+        {
+          "type": "Integer",
+          "value": 3
+        },
+        {
+          "type": "Integer",
+          "value": 2
+        }
+      ]
+    },
+    "hyperOrder": {
+      "type": "Integer",
+      "value": 4
+    },
+    "num": {
+      "type": "Sequence",
+      "elements": [
+        {
+          "type": "Real",
+          "value": 1.0
+        },
+        {
+          "type": "Real",
+          "value": 2.0
+        },
+        {
+          "type": "Real",
+          "value": 3.0
+        },
+        {
+          "type": "Real",
+          "value": 4.0
+        },
+        {
+          "type": "Real",
+          "value": 5.0
+        },
+        {
+          "type": "Real",
+          "value": 6.0
+        },
+        {
+          "type": "Real",
+          "value": 7.0
+        },
+        {
+          "type": "Real",
+          "value": 8.0
+        }
+      ]
+    },
+    "origin": {
+      "type": "Quantity",
+      "value": 1.0,
+      "unit": "Pa"
+    },
+    "lastVariesFastest": {
+      "type": "Quantity",
+      "value": 2.0,
+      "unit": "Pa"
+    },
+    "middleIndex": {
+      "type": "Quantity",
+      "value": 3.0,
+      "unit": "Pa"
+    },
+    "firstIndex": {
+      "type": "Quantity",
+      "value": 5.0,
+      "unit": "Pa"
+    },
+    "last": {
+      "type": "Quantity",
+      "value": 8.0,
+      "unit": "Pa"
+    },
+    "slabCell": {
+      "type": "Quantity",
+      "value": 11,
+      "unit": "m"
+    },
+    "hyperCell": {
+      "type": "Quantity",
+      "value": 6,
+      "unit": "s"
+    },
+    "sum": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 2.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 4.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 6.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 8.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 10.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 12.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 14.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 16.0,
+          "unit": "Pa"
+        }
+      ]
+    },
+    "difference": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 0.0,
+          "unit": "Pa"
+        }
+      ]
+    },
+    "doubled": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 2.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 4.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 6.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 8.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 10.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 12.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 14.0,
+          "unit": "Pa"
+        },
+        {
+          "type": "Quantity",
+          "value": 16.0,
+          "unit": "Pa"
+        }
+      ]
+    },
+    "stretched": {
+      "type": "TensorQuantity",
+      "dimensions": [
+        2,
+        3,
+        2
+      ],
+      "elements": [
+        {
+          "type": "Quantity",
+          "value": 3.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 6.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 9.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 12.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 15.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 18.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 21.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 24.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 27.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 30.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 33.0,
+          "unit": "m**2"
+        },
+        {
+          "type": "Quantity",
+          "value": 36.0,
+          "unit": "m**2"
+        }
+      ]
+    },
+    "zero": {
+      "type": "Boolean",
+      "value": false
+    },
+    "isZero": {
+      "type": "Boolean",
+      "value": true
+    }
+  }
+}

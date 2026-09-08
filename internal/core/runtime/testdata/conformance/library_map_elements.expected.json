@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::m",
+  "slots": {
+    "elements": {"type": "Set", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]}
+  }
+}

@@ -8,7 +8,7 @@ import (
 )
 
 // A `for` visits a sequence in the order the expression that built it produced,
-// and a set in the order its canonical rendering sorts in.
+// and a set in its canonical order, numbers ascending.
 func TestForElementsOrder(t *testing.T) {
 	set := NewSet()
 	for _, n := range []int64{30, 4, 100, 4} {
@@ -21,7 +21,7 @@ func TestForElementsOrder(t *testing.T) {
 	}{
 		"a sequence keeps its own order":   {sequenceOf([]Value{integerValue(3), integerValue(1), integerValue(2)}), []int64{3, 1, 2}},
 		"an empty sequence visits nothing": {sequenceOf(nil), nil},
-		"a set sorts by its rendering":     {NewSetValue(set), []int64{100, 30, 4}},
+		"a set visits canonically":         {NewSetValue(set), []int64{4, 30, 100}},
 		"an empty set visits nothing":      {NewSetValue(NewSet()), nil},
 		"null visits nothing":              {nullValue(), nil},
 	}

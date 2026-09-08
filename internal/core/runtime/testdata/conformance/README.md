@@ -58,6 +58,8 @@ top-level one is. `instantiate` names an instance case's type the same way.
   the step budget's error. Set it instead of `outputs`; a case without it must
   run to completion. Such a case has no golden trace, since the trace harness
   drives the same execution to the end.
+- `schedule`: the scheduling policy the case was recorded under (see
+  [Scheduling Policy](#scheduling-policy)); omitted means the default.
 
 ### For States (`ExecuteState`)
 
@@ -136,6 +138,45 @@ input and stay at the top level: every outcome is a result of the same run.
 The set admits what one run may produce; the harness does not yet check that
 every listed outcome is reachable. The default schedule is deterministic, so a
 case with an admissible set still keeps its exact golden trace.
+
+### Scheduling Policy
+
+The executor resolves the choice points a run reports — several steppable
+tokens in one step, several holding decision guards, several transitions out of
+one state enabled by one event — under a scheduling policy, spelled the same way
+everywhere (`sysml -schedule`, `%schedule`, the `schedule` request field):
+
+| Policy | Resolution |
+|--------|------------|
+| `reverse` | The default: tokens in reverse spawn order, the first holding guard, the first enabled transition |
+| `declared` | Tokens in spawn order, the first holding guard, the first enabled transition |
+| `seed:<n>` | Every resolution drawn from a pseudo-random sequence the non-negative integer `n` fixes; the same seed replays the same run |
+
+Which of two same-step writes to one feature stands follows from the token order
+the policy chose; a write conflict is reported, not resolved on its own.
+
+A case may pin the policy it was recorded under with `"schedule": "<policy>"`;
+the harness then runs it under that policy in every test, whatever policy the
+test asked for. Omitted or empty means the default. A pin that names no policy
+is a schema error the test reports.
+
+`TestExecutionConformanceUnderPolicies` runs every case under `declared` and
+under `seed:1`. A case pinning no policy was recorded under the default, so its
+stated result, or one of its `outcomes`, must hold under any policy; one that
+differs has been pinning a scheduling artefact as *the* result. Such a case is
+pinned to `reverse` — never removed from the sweep — until either the outcomes
+the library admits are derived in `docs/project/behavior-semantic-oracle.md` and
+the case restated as an admissible set (`action_choice_shared_message_accept`,
+two accepts racing for two sends, was), or the difference is found to be a bug
+and the pin stays until the fix lands (`send_identity_same_named_ports` was
+pinned while the via-less `accept Ping` over-matched a transfer addressed to
+`alpha.inPort`; with a via-less accept held to the receiver the transfer reaches,
+`waiting` has one enabled transition and the case runs unpinned).
+
+A case with an admissible set also owns a `<case>.<policy>.trace.golden` for
+each sweep policy (`declared`, `seed-1` — a colon is not a portable file-name
+character), recording the linearization that policy takes; `-update-traces`
+regenerates them beside the default golden.
 
 ### For Calculations (`InvokeCalc`)
 
@@ -327,6 +368,10 @@ Supported types:
   (`{"type": "Complex", "value": 0.0, "im": 1.0}`)
 - `Sequence`: the `elements` it holds, in order, instead of `value` — for a
   multi-valued feature, whose order is part of its contract
+- `Set`: the distinct `elements` it holds, in the canonical order a set
+  enumerates in (booleans, numbers, strings, quantities, enumeration literals,
+  objects; each class in its own order) — for a `Collections::Set`'s elements,
+  or any other feature the library declares unique and unordered
 - `Instance`: an object, whose identity a case does not pin (no `value`)
 - `Unset`: a valueless feature of a value type, holding no value (no `value`)
 - `Variant`: the name of the variant a variation feature is bound to, as a JSON

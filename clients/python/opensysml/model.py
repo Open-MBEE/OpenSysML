@@ -417,12 +417,15 @@ class Model:
         """
         return self._client.instantiate(symbol_id, self._hash)
 
-    def execute_action(self, action_symbol_id, inputs=None):
+    def execute_action(self, action_symbol_id, inputs=None, schedule=None):
         """Execute one of this model's actions.
 
         Args:
             action_symbol_id (str): FQN of the action definition or usage
             inputs (dict, optional): Input parameter name → Python value
+            schedule (str, optional): Scheduling policy the run resolves its
+                choice points under — ``"declared"``, ``"reverse"`` (the
+                default) or ``"seed:<n>"``
 
         Returns:
             dict: Output parameter name → value; an output the wire format
@@ -432,18 +435,23 @@ class Model:
         Raises:
             ExecutionError: If the action could not be executed
             ModelNotFoundError: If the service no longer holds this model
+            MissingCapabilityError: If a schedule is given and the service
+                predates ``schedule``
+            InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_action(
-            action_symbol_id, self._hash, inputs=inputs
+            action_symbol_id, self._hash, inputs=inputs, schedule=schedule
         )
 
-    def execute_state(self, state_machine_symbol_id, events=None):
+    def execute_state(self, state_machine_symbol_id, events=None, schedule=None):
         """Execute one of this model's state machines.
 
         Args:
             state_machine_symbol_id (str): FQN of the state machine definition
                 or usage
             events (list, optional): Event names to process, in order
+            schedule (str, optional): Scheduling policy the run resolves its
+                choice points under, as for :meth:`execute_action`
 
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}}; a context
@@ -453,9 +461,12 @@ class Model:
         Raises:
             ExecutionError: If the state machine could not be executed
             ModelNotFoundError: If the service no longer holds this model
+            MissingCapabilityError: If a schedule is given and the service
+                predates ``schedule``
+            InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_state(
-            state_machine_symbol_id, self._hash, events=events
+            state_machine_symbol_id, self._hash, events=events, schedule=schedule
         )
 
     def verify_constraint(self, symbol_id, subject=None):
@@ -554,7 +565,7 @@ class Model:
         return self._client.calc(symbol_id, self._hash, arguments=arguments)
 
     def run_analysis(self, symbol_id, subject=None, arguments=None,
-                     named_arguments=None):
+                     named_arguments=None, schedule=None):
         """Run one of this model's analysis cases.
 
         Args:
@@ -564,6 +575,9 @@ class Model:
             arguments (list, optional): Positional arguments for the case's
                 ``in`` parameters, as Python values
             named_arguments (dict, optional): Arguments by parameter name
+            schedule (str, optional): Scheduling policy the actions the case
+                performs resolve their choice points under, as for
+                :meth:`execute_action`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
@@ -573,10 +587,11 @@ class Model:
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
             ExecutionError: If the case could not run
+            InvalidRequestError: If the schedule names no policy
         """
         return self._client.run_analysis(
             symbol_id, self._hash, subject=subject, arguments=arguments,
-            named_arguments=named_arguments,
+            named_arguments=named_arguments, schedule=schedule,
         )
 
     def run_sweep(self, symbol_id, ranges, subject=None, arguments=None,

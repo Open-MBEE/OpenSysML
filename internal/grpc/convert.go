@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strings"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -295,6 +296,8 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 			}
 		}
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: pbElements}}}
+	case runtime.ValSet:
+		return setToProto(rt, val, idx)
 	case runtime.ValVariant:
 		// The wire Value has no variant form: the object a selected variant
 		// materialized is reported by identity, a valueless selection as unsupported.
@@ -334,8 +337,11 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		}
 		return &pb.Value{Kind: &pb.Value_Function{Function: functionToProto(val, idx)}}
 	case runtime.ValTensorQuantity:
-		// No wire arm carries dimensions above one with a unit per component.
-		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + val.Kind.String() + " " + runtime.FormatValue(val)}}
+		ptq := tensorQuantityToProto(val.TensorQuantity())
+		if ptq == nil {
+			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: tensor quantity with a non-numeric component"}}
+		}
+		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: ptq}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
 		// No wire arm carries a frame's axes or a transformation's placement.
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + val.Kind.String() + " " + runtime.FormatValue(val)}}
@@ -392,6 +398,55 @@ func arrayToProto(rt *runtime.Context, a *runtime.Array, idx *symbols.Index) *pb
 		pa.Elements = append(pa.Elements, ValueToProtoIn(rt, elem, idx))
 	}
 	return pa
+}
+
+// setToProto marshals a set's distinct elements in canonical order, each
+// converted as any value is. A member with no wire form withholds the whole
+// set: sent as nulls, two such members would read as one repeated.
+func setToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *pb.Value {
+	ps := &pb.ValueSet{}
+	if s := val.Set(); s != nil {
+		for _, elem := range s.Elements() {
+			pv := ValueToProtoIn(rt, elem, idx)
+			if reason, ok := unsupportedReason(pv); ok {
+				return unsupportedSet(val, reason)
+			}
+			ps.Elements = append(ps.Elements, pv)
+		}
+	}
+	return &pb.Value{Kind: &pb.Value_Set{Set: ps}}
+}
+
+// unsupportedReason reads the non-empty null arm a value without a wire form
+// crosses as; the SysML `null` is the empty one.
+func unsupportedReason(pv *pb.Value) (string, bool) {
+	if null, ok := pv.GetKind().(*pb.Value_Null); ok && null.Null != "" {
+		return strings.TrimPrefix(null.Null, "unsupported: "), true
+	}
+	return "", false
+}
+
+// unsupportedSet is the null arm a set holding a member without a wire form
+// crosses as, naming the set and the member's reason.
+func unsupportedSet(shown runtime.Value, reason string) *pb.Value {
+	return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + runtime.ValSet.String() + " " + runtime.FormatValue(shown) + " holding " + reason}}
+}
+
+// tensorQuantityToProto marshals a tensor as its dimensions and one Quantity
+// per row-major component; nil if a component's magnitude is not a number.
+func tensorQuantityToProto(tq *runtime.TensorQuantity) *pb.TensorQuantity {
+	if tq == nil {
+		return nil
+	}
+	ptq := &pb.TensorQuantity{Dimensions: slices.Clone(tq.Dimensions)}
+	for i := range tq.Num {
+		pq := QuantityToProto(&runtime.Quantity{Num: tq.Num[i], Unit: tq.Units[i]})
+		if pq == nil {
+			return nil
+		}
+		ptq.Components = append(ptq.Components, pq)
+	}
+	return ptq
 }
 
 // vectorToProto marshals a vector's components, Integer and Real kept apart.
@@ -533,7 +588,41 @@ var (
 	// ErrFunctionUnbound reports a Function naming no calc of the model read as
 	// a function, or an object the runtime does not hold.
 	ErrFunctionUnbound = errors.New("function names no calc of this model")
+
+	// ErrSetElementRepeated reports a set sent with an element twice, which a
+	// set holds once; a sender meaning both meant a sequence.
+	ErrSetElementRepeated = errors.New("set element is repeated")
+
+	// ErrTensorDimensionNotPositive reports a tensor sent with a dimension of no
+	// extent, which its TensorMeasurementReference declares as Positive.
+	ErrTensorDimensionNotPositive = errors.New("tensor dimension is not positive")
+
+	// ErrTensorShapeMismatch reports a tensor whose components do not fill its
+	// dimensions, so no row-major reading of them has that shape.
+	ErrTensorShapeMismatch = errors.New("tensor components do not fill its dimensions")
+
+	// ErrTensorComponentMissing reports a tensor component sent as an empty
+	// message, which carries no quantity.
+	ErrTensorComponentMissing = errors.New("tensor component carries no quantity")
 )
+
+// ValueCarriesSet reports whether a value, or any value nested in it, is a
+// ValueSet: the kind set_values governs.
+func ValueCarriesSet(pv *pb.Value) bool {
+	return valueCarries(pv, func(v *pb.Value) bool {
+		_, ok := v.GetKind().(*pb.Value_Set)
+		return ok
+	})
+}
+
+// ValueCarriesTensor reports whether a value, or any value nested in it, is a
+// TensorQuantity: the kind tensor_values governs.
+func ValueCarriesTensor(pv *pb.Value) bool {
+	return valueCarries(pv, func(v *pb.Value) bool {
+		_, ok := v.GetKind().(*pb.Value_TensorQuantity)
+		return ok
+	})
+}
 
 // ValueCarriesMeasurementRef reports whether a value, or any value nested in
 // it, is a MeasurementRef: the kind measurement_refs governs.
@@ -596,12 +685,14 @@ func valueCarries(pv *pb.Value, is func(*pb.Value) bool) bool {
 	return false
 }
 
-// nestedValues lists the Values a value holds directly: a sequence's elements,
-// an array's elements and a vector's components.
+// nestedValues lists the Values a value holds directly: a sequence's or a set's
+// elements, an array's elements and a vector's components.
 func nestedValues(pv *pb.Value) []*pb.Value {
 	switch k := pv.GetKind().(type) {
 	case *pb.Value_Sequence:
 		return k.Sequence.GetElements()
+	case *pb.Value_Set:
+		return k.Set.GetElements()
 	case *pb.Value_Array:
 		return k.Array.GetElements()
 	case *pb.Value_Vector:
@@ -646,6 +737,10 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 			}
 		}
 		return runtime.NewSequenceValue(seq), nil
+	case *pb.Value_Set:
+		return protoToSet(rt, k.Set, idx, sem)
+	case *pb.Value_TensorQuantity:
+		return protoToTensorQuantity(k.TensorQuantity, idx, sem)
 	case *pb.Value_Array:
 		return protoToArray(rt, k.Array, idx, sem)
 	case *pb.Value_Vector:
@@ -693,6 +788,47 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 	return runtime.Value{}, fmt.Errorf("%w: %s is not a calc", ErrFunctionUnbound, fn.GetCalcId())
 }
 
+// protoToSet rebuilds a set from elements sent in any order, refusing one sent
+// twice rather than reading the two as one.
+func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+	set := runtime.NewSet()
+	for i, elem := range ps.GetElements() {
+		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
+		if err != nil {
+			return runtime.Value{}, err
+		}
+		if set.Contains(val) {
+			return runtime.Value{}, fmt.Errorf("%w: element %d, %s", ErrSetElementRepeated, i+1, runtime.FormatValue(val))
+		}
+		set.Add(val)
+	}
+	return runtime.NewSetValue(set), nil
+}
+
+// protoToTensorQuantity rebuilds a tensor of any rank, refusing a shape its
+// components do not fill, each component read exactly as a scalar Quantity is.
+func protoToTensorQuantity(ptq *pb.TensorQuantity, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+	dimensions := slices.Clone(ptq.GetDimensions())
+	if err := CheckTensorShape(dimensions, len(ptq.GetComponents())); err != nil {
+		return runtime.Value{}, err
+	}
+	num := make([]semantics.Value, 0, len(ptq.GetComponents()))
+	units := make([]runtime.Unit, 0, len(ptq.GetComponents()))
+	for i, comp := range ptq.GetComponents() {
+		if comp == nil {
+			return runtime.Value{}, fmt.Errorf("%w: component %d", ErrTensorComponentMissing, i+1)
+		}
+		val, err := ProtoToQuantity(comp, idx, sem)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("component %d: %w", i+1, err)
+		}
+		q := val.Quantity()
+		num = append(num, q.Num)
+		units = append(units, q.Unit)
+	}
+	return runtime.NewTensorQuantityValue(dimensions, num, units), nil
+}
+
 // protoToArray rebuilds an array, refusing a shape its elements do not fill
 // rather than reading them under some other shape.
 func protoToArray(rt *runtime.Context, pa *pb.Array, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
@@ -714,19 +850,29 @@ func protoToArray(rt *runtime.Context, pa *pb.Array, idx *symbols.Index, sem *se
 // CheckArrayShape reports whether count elements fill dimensions in row-major
 // order: every dimension positive and their product (one for rank 0) count.
 func CheckArrayShape(dimensions []int64, count int) error {
+	return checkShape(dimensions, count, ErrArrayDimensionNotPositive, ErrArrayShapeMismatch)
+}
+
+// CheckTensorShape is CheckArrayShape for a tensor's components, reported as
+// the tensor errors.
+func CheckTensorShape(dimensions []int64, count int) error {
+	return checkShape(dimensions, count, ErrTensorDimensionNotPositive, ErrTensorShapeMismatch)
+}
+
+func checkShape(dimensions []int64, count int, notPositive, mismatch error) error {
 	size := int64(1)
 	for i, d := range dimensions {
 		if d < 1 {
-			return fmt.Errorf("%w: dimension %d is %d", ErrArrayDimensionNotPositive, i+1, d)
+			return fmt.Errorf("%w: dimension %d is %d", notPositive, i+1, d)
 		}
 		if size > math.MaxInt64/d {
-			return fmt.Errorf("%w: flattenedSize of dimensions %v exceeds the Integer range", ErrArrayShapeMismatch, dimensions)
+			return fmt.Errorf("%w: flattenedSize of dimensions %v exceeds the Integer range", mismatch, dimensions)
 		}
 		size *= d
 	}
 	if size != int64(count) {
 		return fmt.Errorf("%w: %d elements under dimensions %v (flattenedSize %d)",
-			ErrArrayShapeMismatch, count, dimensions, size)
+			mismatch, count, dimensions, size)
 	}
 	return nil
 }

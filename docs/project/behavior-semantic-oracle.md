@@ -74,6 +74,8 @@ derivation fixes is met — not whether the golden is the only correct trace.
 | `StatePerformances.kerml` `StatePerformance` | `succession [1] entry then [*] middle; succession [*] middle then [1] exit` | Entry first, exit last, within a state performance |
 | `StatePerformances.kerml` `StateTransitionPerformance` | `succession all [*] acceptable then [*] guard; succession [*] guard then [1] transitionLinkSource.exit` | The guard is evaluated after the trigger and before the source state's exit |
 | `TransitionPerformances.kerml` `TransitionPerformance` | `binding transitionLink.earlierOccurrence = transitionLinkSource; succession [1] transitionLinkSource then [*] effect; succession [*] effect then [1] transitionLink.laterOccurrence; succession all [*] guard then [*] effect` | The effect runs after the source state performance has ended (its exit included) and before the target state performance starts (its entry included) |
+| `Transfers.kerml` `SendPerformance` | `feature sentTransfer: MessageTransfer [1] subsets sender.outgoingTransfersFromSelf`; `succession self then sentTransfer` | A send is followed by exactly one transfer carrying its payload |
+| `Transfers.kerml` `AcceptPerformance` | `feature acceptedTransfer: MessageTransfer[1] subsets receiver.incomingTransfersToSelf`; `succession acceptedTransfer then self.endShot`; `binding payload = acceptedTransfer.payload` | An accept ends after exactly one transfer to its receiver and yields that transfer's payload; nothing pairs a particular accept with a particular transfer |
 | `Actions.sysml` `DecisionTransitionAction`, `TransitionPerformances.kerml` `NonStateTransitionPerformance`, `TPCGuardConstraint` | "the base type of TransitionUsages used as conditional successions in action models"; `in feature transitionLinkSource: Performance[1]`, `feature transitionLink: HappensBefore[0..1]`, `succession [1] transitionLinkSource then [1] Performance::self`, `connector all guardConstraint: TPCGuardConstraint[*] from [0..1] transitionLink to [*] guard` (`constrainedHBLink` / `constrainedGuard`, `inv { allTrue(constrainedGuard()) }`) | A guarded succession in an action is a transition performance that happens after its complete source performance — a merge's body included — and whose guard constrains the `HappensBefore` link to the successor: a false guard leaves the link out, not the source performance |
 
 The SysML v2 specification's own control-node example (`ChargeBattery`, §7.17.3, reproduced in
@@ -268,6 +270,55 @@ zero (not selected)`) so the tool's reading is visible without changing the run
 The first guard read is the run's own, not a preview, and its failure fails the run as it always
 has. A decision whose guards are all false remains an execution error
 (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
+
+### Two accepts of one type racing for two sends: each takes one message, which one is open
+
+Fixture: `action_choice_shared_message_accept` (golden).
+
+```
+start → split ⇉ sendOne { send 1 } → sendTwo { send 2 } ─┐
+              ⇉ left  accept x : Integer                 ─┤→ sync → recorder { a := x; b := y } → done
+              ⇉ right accept y : Integer                 ─┘
+```
+
+Derived constraints:
+
+- `sendOne`, `sendTwo`, `left` and `right` are each performed exactly once (ForkAction; a plain
+  step is one performance), and `sendOne` ends before `sendTwo` starts (`HappensBefore`).
+- Each send is followed by exactly one `MessageTransfer` carrying its payload
+  (`SendPerformance::sentTransfer`, `succession self then sentTransfer`), so two transfers exist,
+  one carrying `1` and one carrying `2`, and the first is sent before the second.
+- Each accept ends after exactly one transfer to `this` and yields that transfer's payload
+  (`AcceptPerformance::acceptedTransfer`, `succession acceptedTransfer then self.endShot`,
+  `binding payload = acceptedTransfer.payload`), so `x` and `y` each end as `1` or `2`, never `0`.
+- `sync` follows `sendTwo`, `left` and `right` (JoinAction), so both accepts have ended, and both
+  sends, before `recorder` reads `x` and `y`.
+
+Open: which transfer each accept takes. The transfers' `HappensBefore` links order each send
+before the accept that takes its transfer and nothing else: no link orders `left` against `right`,
+and `acceptedTransfer` names *a* transfer to the receiver, not the one a particular send made. A
+transfer is one link object with one `payload`; the reading this record relies on is that a
+transfer is accepted once — the two accepts take the two transfers, one each — which is the
+reading under which a second accept parked at a receiver waits for a second message rather than
+re-reading the first. Under it either pairing is admissible: `left` takes `1` and `right` `2`, or
+the reverse.
+
+Pinned outcome: the admissible set `{a = 2 ∧ b = 1, a = 1 ∧ b = 2}`, stated as `outcomes` citing
+this section. The partial order the library fixes among the nodes is stated as `.trace.order`
+constraints (`split < sendOne`, `split < left`, `split < right`, `sendOne < sendTwo`,
+`sync < recorder`, `recorder < done`); the join's predecessors are not stated as constraints on
+`sync` because a token parks at a join before the join performs, so the entry first mentioning
+`sync` may precede the last branch's arrival. The exact trace golden records the default
+scheduling: the accepts are stepped before the sender, both park, and when the first message is
+in flight the accept declared last is stepped first and takes it (`choice step 4: tokens
+2@sendTwo, 3@left, 4@right (unordered; took 4@right first)`), leaving `2` to `left` — `a = 2`,
+`b = 1`. Under `declared` and `seed:1` (`.declared.trace.golden`, `.seed-1.trace.golden`) the
+sender is stepped first and the accept declared first takes the message it just sent, in two
+successive steps (`choice step 3: tokens 2@sendOne, 3@left (unordered; took 2@sendOne first)`,
+then `2@sendTwo, 4@right`), so `left` takes `1` and `right` takes `2` — `a = 1`, `b = 2`. That
+linearization reaches two choice points where the default reaches one: the reporting rule (every
+choice point a run reaches is reported) applied to a different run, not a difference in what the
+model admits.
 
 ### Two transitions out of one state enabled by one event: exactly one fires, which one is open
 

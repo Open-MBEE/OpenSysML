@@ -813,15 +813,16 @@ func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 	infix, isInfix := infixBinding[operator]
 	switch {
 	case operator == opSequence:
-		return primary("(" + joinOperands(args, bindConditional) + ")")
+		elements := joinOperands(args, bindConditional)
+		return operand{text: "(" + elements + ")", binding: bindPrimary, elements: elements}, nil
 	case operator == opIf && len(args) == 3:
 		// The condition is read below the conditional form; either branch may be one.
 		text := "if " + args[0].at(bindNullCoalesce) + " ? " + args[1].at(bindConditional) + " else " + args[2].at(bindConditional)
 		return operand{text: text, binding: bindConditional}, nil
 	case operator == opIndex && len(args) == 2:
-		return primary(args[0].at(bindPrimary) + "[" + args[1].text + "]")
+		return primary(args[0].at(bindPrimary) + "[" + indexText(args[1]) + "]")
 	case operator == opAt && len(args) == 2:
-		return primary(args[0].at(bindPrimary) + "#(" + args[1].text + ")")
+		return primary(args[0].at(bindPrimary) + "#(" + indexText(args[1]) + ")")
 	case hasType && len(args) == 1 && isInfix:
 		return operand{text: args[0].at(infix) + " " + operator + " " + typeArgument, binding: infix}, nil
 	case hasType && len(args) == 0:
@@ -845,6 +846,15 @@ func (d *decoder) operatorForm(node rdf.Term, in *element) (operand, error) {
 		What: fmt.Sprintf("the expression <%s>", node.Value),
 		Note: fmt.Sprintf("the operator %q is written with %d operand(s), which has no notation", operator, len(args)),
 	}
+}
+
+// indexText writes an index: the brackets enclose a sequence, so a
+// multi-dimensional one is its bare elements.
+func indexText(index operand) string {
+	if index.elements != "" {
+		return index.elements
+	}
+	return index.text
 }
 
 func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {

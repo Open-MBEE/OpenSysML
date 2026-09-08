@@ -121,7 +121,7 @@ func (f *compiledFixture) outcomes(t *testing.T, name string, args calcArgs) (co
 		} else {
 			out.value, out.err = ctx.InvokeCalc(sym, args.positional, f.root)
 		}
-		out.steps = ctx.steps
+		out.steps = ctx.run.steps
 		return out
 	}
 	return invoke(f.compiled), invoke(f.reference)

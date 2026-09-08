@@ -277,7 +277,8 @@ func (c *pkgClient) executeAction(ctx context.Context, request protoreflect.Mess
 		}
 		inputs[name] = input
 	}
-	run, err := c.api.ExecuteAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, inputs)
+	run, err := c.api.ExecuteAction(ctx, c.model(req.ModelHash), req.ActionSymbolId, inputs,
+		opensysml.WithSchedule(req.Schedule))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.ExecuteActionResponse{
@@ -299,7 +300,8 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events)
+	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events,
+		opensysml.WithSchedule(req.Schedule))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.ExecuteStateResponse{
@@ -435,7 +437,7 @@ func (c *pkgClient) runAnalysis(ctx context.Context, request protoreflect.Messag
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	opts := []opensysml.AnalysisOption{opensysml.Subject(req.SubjectSymbolId)}
+	opts := []opensysml.AnalysisOption{opensysml.Subject(req.SubjectSymbolId), opensysml.Schedule(req.Schedule)}
 	for _, argument := range req.Arguments {
 		converted, ok := valueFromProto(argument)
 		if !ok {
@@ -800,6 +802,18 @@ func valueToProto(value opensysml.Value) *pb.Value {
 			vq.Components = append(vq.Components, quantityToProto(component))
 		}
 		return &pb.Value{Kind: &pb.Value_VectorQuantity{VectorQuantity: vq}}
+	case opensysml.Set:
+		set := &pb.ValueSet{}
+		for _, element := range v {
+			set.Elements = append(set.Elements, valueToProto(element))
+		}
+		return &pb.Value{Kind: &pb.Value_Set{Set: set}}
+	case opensysml.TensorQuantity:
+		tensor := &pb.TensorQuantity{Dimensions: append([]int64(nil), v.Dimensions...)}
+		for _, component := range v.Components {
+			tensor.Components = append(tensor.Components, quantityToProto(component))
+		}
+		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: tensor}}
 	case opensysml.MeasurementRef:
 		return &pb.Value{Kind: &pb.Value_MeasurementRef{MeasurementRef: &pb.MeasurementRef{
 			Unit:     v.Unit,
@@ -894,6 +908,22 @@ func valueFromProto(value *pb.Value) (opensysml.Value, bool) {
 			vq = append(vq, quantityFromProto(component))
 		}
 		return vq, true
+	case *pb.Value_Set:
+		set := make(opensysml.Set, 0, len(kind.Set.GetElements()))
+		for _, element := range kind.Set.GetElements() {
+			converted, ok := valueFromProto(element)
+			if !ok {
+				return nil, false
+			}
+			set = append(set, converted)
+		}
+		return set, true
+	case *pb.Value_TensorQuantity:
+		tensor := opensysml.TensorQuantity{Dimensions: append([]int64(nil), kind.TensorQuantity.GetDimensions()...)}
+		for _, component := range kind.TensorQuantity.GetComponents() {
+			tensor.Components = append(tensor.Components, quantityFromProto(component))
+		}
+		return tensor, true
 	case *pb.Value_MeasurementRef:
 		return opensysml.MeasurementRef{
 			Unit:   kind.MeasurementRef.GetUnit(),

@@ -1,0 +1,9 @@
+# The fork precedes the sender and both accepts; the sends are chained; the
+# recorder follows the join. A token parks at the join before it performs, so
+# "left < sync" is not a first-mention constraint and is not stated.
+split < sendOne
+split < left
+split < right
+sendOne < sendTwo
+sync < recorder
+recorder < done

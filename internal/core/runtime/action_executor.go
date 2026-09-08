@@ -51,9 +51,9 @@ type ActionExecutor struct {
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
 	pauses int64
 
-	// runStarted marks this executor's run as begun, so the step budget is reset
-	// once however many calls the run is driven over.
-	runStarted bool
+	// driven is this executor's run over however many calls drive it: begun once,
+	// so the step budget is reset once, and keeping its scheduler throughout.
+	driven executorRun
 	// steps of the action's token-flow budget the current call has spent, by the
 	// tokens of its flow and of the flows body statements run alike.
 	steps int64
@@ -205,7 +205,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 // Returns an error if a deadlock unrelated to accepts is detected (no progress
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -252,7 +252,9 @@ func (e *ActionExecutor) Step() error {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
-	err := e.stepTokens(len(e.tokens), paused, &order)
+	err := e.stepTokens(e.scheduleTokens(&order, func(t Token) bool {
+		return !t.drivenByBody() && t.body == nil
+	}), paused, &order)
 	// What the tokens wrote and the order they took are facts of the step whether
 	// or not it failed.
 	endWrites()
@@ -368,7 +370,7 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 // step that makes no progress. A parked action therefore cannot spend the step
 // budget spinning — the budget is only consumed by steps that move something.
 func (e *ActionExecutor) RunToCompletion() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -789,7 +791,7 @@ func (e *ActionExecutor) checkInputNames() error {
 
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	// Use initial node from graph
 	if e.graph.Initial == nil {
@@ -1099,13 +1101,44 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 	return result.Const.Bool
 }
 
-// stepTokens gives each of the first count tokens its step, highest index first
-// so a removal leaves the lower indices in place, then the tokens a breakpoint
-// left paused; a breakpoint reached on the way ends the sweep.
-func (e *ActionExecutor) stepTokens(count int, paused []int64, order *stepOrder) error {
-	for i := count - 1; i >= 0 && e.state != StateSuspended; i-- {
+// scheduleTokens returns the IDs of the tokens the step may move, those eligible
+// now, in the order the run's scheduling policy has the step try them; the policy
+// is told which of them are parked, as only the rest can act.
+func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) []int64 {
+	ids := make([]int64, 0, len(e.tokens))
+	parked := make(map[int64]bool)
+	for _, t := range e.tokens {
+		if !e.moving(t) && eligible(t) {
+			ids = append(ids, t.ID)
+			if e.parked(t, order) {
+				parked[t.ID] = true
+			}
+		}
+	}
+	e.ctx.scheduling().orderTokens(ids, parked)
+	return ids
+}
+
+// parked reports whether the token cannot act by itself this step: held at a join
+// or at an accept no message in flight answers. It still gets its turn.
+func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
+	if order.unready[t.ID] {
+		return true
+	}
+	_, waitsForMessage := e.messageAccept(t)
+	return waitsForMessage && !order.offered[t.ID]
+}
+
+// stepTokens gives each of the scheduled tokens its step, in the order given, then
+// the tokens a breakpoint left paused; a breakpoint reached on the way ends the sweep.
+func (e *ActionExecutor) stepTokens(scheduled []int64, paused []int64, order *stepOrder) error {
+	for _, id := range scheduled {
+		if e.state == StateSuspended {
+			break
+		}
 		// The token may have been removed by a join or final node.
-		if i >= len(e.tokens) || e.moving(e.tokens[i]) ||
+		i := e.tokenIndex(id)
+		if i < 0 || e.moving(e.tokens[i]) ||
 			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
 			continue
 		}
@@ -1360,8 +1393,21 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		}
 	}
 	if len(holding) > 0 {
-		e.noteDecisionBranches(token.frame, decisionNode, successors, holding)
-		token.travel(successors[holding[0]], e.sweep)
+		pick := e.ctx.scheduling().pick(len(holding))
+		// A branch picked past the first was only probed; its guard's final reading
+		// is the run's own, so the run holds what evaluating it did.
+		if pick > 0 {
+			holds, err := e.guardHolds(ec, decisionNode, successors[holding[pick]].Guard)
+			if err != nil {
+				return err
+			}
+			if !holds {
+				return fmt.Errorf("%w: decision node %s: guard of %s held when probed and not when read",
+					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
+			}
+		}
+		e.noteDecisionBranches(token.frame, decisionNode, successors, holding, pick)
+		token.travel(successors[holding[pick]], e.sweep)
 		return nil
 	}
 

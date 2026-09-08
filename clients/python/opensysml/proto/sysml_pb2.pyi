@@ -230,7 +230,7 @@ class CaseEvaluation(_message.Message):
     def __init__(self, function_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., result: _Optional[_Union[Value, _Mapping]] = ..., error: _Optional[str] = ..., selected: _Optional[bool] = ..., tied: _Optional[bool] = ...) -> None: ...
 
 class RunAnalysisRequest(_message.Message):
-    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "arguments", "named_arguments")
+    __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "arguments", "named_arguments", "schedule")
     class NamedArgumentsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -243,12 +243,14 @@ class RunAnalysisRequest(_message.Message):
     SUBJECT_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
     NAMED_ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     symbol_id: str
     subject_symbol_id: str
     arguments: _containers.RepeatedCompositeFieldContainer[Value]
     named_arguments: _containers.MessageMap[str, Value]
-    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ...) -> None: ...
+    schedule: str
+    def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
 class RunAnalysisResponse(_message.Message):
     __slots__ = ("outputs", "verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts", "evaluations")
@@ -432,7 +434,7 @@ class InstantiateResponse(_message.Message):
     def __init__(self, instance: _Optional[_Union[Instance, _Mapping]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
 
 class ExecuteActionRequest(_message.Message):
-    __slots__ = ("model_hash", "action_symbol_id", "inputs")
+    __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule")
     class InputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -443,10 +445,12 @@ class ExecuteActionRequest(_message.Message):
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     ACTION_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     INPUTS_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     action_symbol_id: str
     inputs: _containers.MessageMap[str, Value]
-    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ...) -> None: ...
+    schedule: str
+    def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
     __slots__ = ("outputs", "error", "diagnostics")
@@ -466,14 +470,16 @@ class ExecuteActionResponse(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
-    __slots__ = ("model_hash", "state_machine_symbol_id", "events")
+    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     STATE_MACHINE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     EVENTS_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     state_machine_symbol_id: str
     events: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ...) -> None: ...
+    schedule: str
+    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
 class ExecuteStateResponse(_message.Message):
     __slots__ = ("states_visited", "final_context", "error", "diagnostics")
@@ -704,7 +710,7 @@ class AttributeInfo(_message.Message):
     def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ...) -> None: ...
 
 class Value(_message.Message):
-    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function")
+    __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity")
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     REAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -722,6 +728,8 @@ class Value(_message.Message):
     MEASUREMENT_REF_FIELD_NUMBER: _ClassVar[int]
     INFINITY_FIELD_NUMBER: _ClassVar[int]
     FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    SET_FIELD_NUMBER: _ClassVar[int]
+    TENSOR_QUANTITY_FIELD_NUMBER: _ClassVar[int]
     int_value: int
     real_value: float
     bool_value: bool
@@ -739,7 +747,9 @@ class Value(_message.Message):
     measurement_ref: MeasurementRef
     infinity: bool
     function: Function
-    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ...) -> None: ...
+    set: ValueSet
+    tensor_quantity: TensorQuantity
+    def __init__(self, int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., bool_value: _Optional[bool] = ..., string_value: _Optional[str] = ..., instance_id: _Optional[int] = ..., sequence: _Optional[_Union[ValueSequence, _Mapping]] = ..., null: _Optional[str] = ..., quantity: _Optional[_Union[Quantity, _Mapping]] = ..., enum_literal: _Optional[_Union[EnumLiteral, _Mapping]] = ..., unset: _Optional[bool] = ..., complex: _Optional[_Union[Complex, _Mapping]] = ..., array: _Optional[_Union[Array, _Mapping]] = ..., vector: _Optional[_Union[Vector, _Mapping]] = ..., vector_quantity: _Optional[_Union[VectorQuantity, _Mapping]] = ..., measurement_ref: _Optional[_Union[MeasurementRef, _Mapping]] = ..., infinity: _Optional[bool] = ..., function: _Optional[_Union[Function, _Mapping]] = ..., set: _Optional[_Union[ValueSet, _Mapping]] = ..., tensor_quantity: _Optional[_Union[TensorQuantity, _Mapping]] = ...) -> None: ...
 
 class Function(_message.Message):
     __slots__ = ("calc_id", "self_id")
@@ -748,6 +758,20 @@ class Function(_message.Message):
     calc_id: str
     self_id: int
     def __init__(self, calc_id: _Optional[str] = ..., self_id: _Optional[int] = ...) -> None: ...
+
+class ValueSet(_message.Message):
+    __slots__ = ("elements",)
+    ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+    elements: _containers.RepeatedCompositeFieldContainer[Value]
+    def __init__(self, elements: _Optional[_Iterable[_Union[Value, _Mapping]]] = ...) -> None: ...
+
+class TensorQuantity(_message.Message):
+    __slots__ = ("dimensions", "components")
+    DIMENSIONS_FIELD_NUMBER: _ClassVar[int]
+    COMPONENTS_FIELD_NUMBER: _ClassVar[int]
+    dimensions: _containers.RepeatedScalarFieldContainer[int]
+    components: _containers.RepeatedCompositeFieldContainer[Quantity]
+    def __init__(self, dimensions: _Optional[_Iterable[int]] = ..., components: _Optional[_Iterable[_Union[Quantity, _Mapping]]] = ...) -> None: ...
 
 class Array(_message.Message):
     __slots__ = ("dimensions", "elements")

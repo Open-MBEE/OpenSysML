@@ -144,6 +144,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
 	{name: "%quit", desc: "exit the REPL"},
 	{name: "%exit", desc: "exit the REPL", alias: true},
@@ -317,6 +318,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut([]string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}, false, nil), true
 	case "%strict":
 		return metaOut(s.doStrict(fields[1:]), false, nil), true
+	case "%schedule":
+		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
 	case "%search":
@@ -2315,11 +2318,11 @@ func (s *Session) doStep() ([]string, bool, error) {
 	}
 
 	// Step
-	noted := s.actionExec.rtCtx.NoteCount()
+	noted := exec.NoteCount()
 	err := exec.Step()
 	if err != nil {
 		out := []string{fmt.Sprintf("error: step failed: %v", err)}
-		return append(out, s.noteSummary(s.actionExec.rtCtx, noted)...), false, nil
+		return append(out, s.noteSummary(exec.Notes(), noted)...), false, nil
 	}
 
 	// Display state
@@ -2329,7 +2332,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 		fmt.Sprintf("  State: %s", exec.State()),
 		fmt.Sprintf("  Tokens: %d", len(tokens)),
 	}
-	out = append(out, s.noteSummary(s.actionExec.rtCtx, noted)...)
+	out = append(out, s.noteSummary(exec.Notes(), noted)...)
 	if node := exec.PausedAt(); node != "" {
 		out = append(out, fmt.Sprintf("  ⏸ Paused at breakpoint %q", node))
 	}
@@ -2362,9 +2365,9 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 	}
 
 	// Run to completion, or to the first breakpoint hit
-	noted := s.actionExec.rtCtx.NoteCount()
+	noted := exec.NoteCount()
 	if err := exec.RunToCompletion(); err != nil {
-		return s.noteSummary(s.actionExec.rtCtx, noted), nil, fmt.Errorf("execution failed: %w", err)
+		return s.noteSummary(exec.Notes(), noted), nil, fmt.Errorf("execution failed: %w", err)
 	}
 
 	if node := exec.PausedAt(); node != "" {
@@ -2373,7 +2376,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 			fmt.Sprintf("  State: %s", exec.State()),
 			fmt.Sprintf("  Tokens: %d", len(exec.Tokens())),
 		}
-		out = append(out, s.noteSummary(s.actionExec.rtCtx, noted)...)
+		out = append(out, s.noteSummary(exec.Notes(), noted)...)
 		return append(out, "", "Use %tokens to inspect, %step or %continue to resume"), nil, nil
 	}
 
@@ -2382,7 +2385,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 		"✓ Action completed",
 		fmt.Sprintf("  Final state: %s", exec.State()),
 	}
-	out = append(out, s.noteSummary(s.actionExec.rtCtx, noted)...)
+	out = append(out, s.noteSummary(exec.Notes(), noted)...)
 	out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
 
 	return out, namedValues(s.actionExec.contextOf(), exec.Results()), nil
@@ -2877,11 +2880,11 @@ func (s *Session) stepState() ([]string, bool, error) {
 		return []string{fmt.Sprintf("✓ State machine %s (%s)", exec.State(), currentStateName(exec))}, false, nil
 	}
 
-	noted := s.stateExec.rtCtx.NoteCount()
+	noted := exec.NoteCount()
 	step, err := s.stateStep(exec)
 	if err != nil {
 		out := []string{errPrefix + err.Error()}
-		return append(out, s.noteSummary(s.stateExec.rtCtx, noted)...), false, nil
+		return append(out, s.noteSummary(exec.Notes(), noted)...), false, nil
 	}
 	out := []string{
 		"✓ " + step,
@@ -2889,7 +2892,7 @@ func (s *Session) stepState() ([]string, bool, error) {
 		timeLabel + semantics.FormatReal(exec.CurrentTime()),
 		fmt.Sprintf("  Events: %d", exec.EventQueue().Len()),
 	}
-	return append(out, s.noteSummary(s.stateExec.rtCtx, noted)...), false, nil
+	return append(out, s.noteSummary(exec.Notes(), noted)...), false, nil
 }
 
 // stateStep performs one step and reports what it was.
@@ -3181,7 +3184,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	// same one the executors report.
 	maxEvents, maxDoActions := s.budgets.MaxStateEvents, s.budgets.MaxDoSteps
 	startTime := exec.CurrentTime()
-	noted := s.stateExec.rtCtx.NoteCount()
+	noted := exec.NoteCount()
 	var processed, doActions int64
 	var dropped []string
 	for exec.State() == runtime.StateRunning &&
@@ -3189,7 +3192,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		// The poll comes first, and runs once more at quiescence, so a condition
 		// a do action has just made true is taken in this call.
 		if fired, err := exec.PollChangeEvents(); err != nil {
-			return s.noteSummary(s.stateExec.rtCtx, noted), fmt.Errorf("change condition failed: %w", err)
+			return s.noteSummary(exec.Notes(), noted), fmt.Errorf("change condition failed: %w", err)
 		} else if fired {
 			processed++
 			continue
@@ -3201,7 +3204,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		// the step RunToCompletion would take here.
 		if exec.HasPendingSignal() {
 			if err := exec.ProcessNextEvent(); err != nil {
-				return s.noteSummary(s.stateExec.rtCtx, noted), fmt.Errorf("event processing failed: %w", err)
+				return s.noteSummary(exec.Notes(), noted), fmt.Errorf("event processing failed: %w", err)
 			}
 			processed++
 			dropped = appendNote(dropped, droppedSignalNote(exec))
@@ -3215,7 +3218,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 			}
 			ran, err := exec.RunDoRound()
 			if err != nil {
-				return s.noteSummary(s.stateExec.rtCtx, noted), fmt.Errorf("do behavior failed: %w", err)
+				return s.noteSummary(exec.Notes(), noted), fmt.Errorf("do behavior failed: %w", err)
 			}
 			if ran == 0 {
 				break
@@ -3224,7 +3227,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 			continue
 		}
 		if err := exec.ProcessNextEvent(); err != nil {
-			return s.noteSummary(s.stateExec.rtCtx, noted), fmt.Errorf("event processing failed: %w", err)
+			return s.noteSummary(exec.Notes(), noted), fmt.Errorf("event processing failed: %w", err)
 		}
 		processed++
 		dropped = appendNote(dropped, droppedSignalNote(exec))
@@ -3247,7 +3250,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		"  Last event at: " + semantics.FormatReal(exec.CurrentTime()),
 		fmt.Sprintf("  Remaining events: %d", exec.EventQueue().Len()),
 	}
-	out = append(out, s.noteSummary(s.stateExec.rtCtx, noted)...)
+	out = append(out, s.noteSummary(exec.Notes(), noted)...)
 
 	if doActions > 0 {
 		out = append(out, fmt.Sprintf("  Do behavior actions run: %d", doActions))

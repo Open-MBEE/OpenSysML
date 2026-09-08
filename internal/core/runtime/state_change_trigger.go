@@ -60,9 +60,9 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, nil
 	}
 
-	candidates, err := e.selectCandidates(func(state *ast.StateNode) (*lower.Transition, []RunNote, error) {
-		trans, notes := e.risenChangeTransition(state, poll)
-		return trans, notes, nil
+	candidates, err := e.selectCandidates(func(state *ast.StateNode) ([]int, []RunNote, error) {
+		enabled, notes := e.risenChangeTransitions(state, poll)
+		return enabled, notes, nil
 	})
 	if err != nil {
 		e.changeWaits = poll.waits
@@ -74,25 +74,26 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		if e.losesToNestedTransition(candidates, candidate) || !e.isActive(candidate.leaf) {
 			continue
 		}
+		trans, notes := e.chooseTransition(candidate)
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
 		// the machine must stay armed rather than latch as fired.
-		pass, err := e.passesGuard(candidate.trans)
+		pass, err := e.passesGuard(trans)
 		if err != nil {
 			return fired, fmt.Errorf("eval change guard: %w", err)
 		}
 		if !pass {
-			poll.blocked[candidate.trans] = true
-			poll.wait(candidate.trans, candidate.source.Name, "guard is false")
+			poll.blocked[trans] = true
+			poll.wait(trans, candidate.source.Name, "guard is false")
 			continue
 		}
 		// The edge is latched before it is taken: an effect that leaves the
 		// condition true must not enable the same edge again, and the exit this
 		// firing causes must not re-arm the edge that caused it.
-		e.changeFired[candidate.trans] = true
-		e.firingChange = candidate.trans
+		e.changeFired[trans] = true
+		e.firingChange = trans
 		fired = true
-		_, err = e.fireFrom(candidate.source, candidate.trans, candidate.notes)
+		_, err = e.fireFrom(candidate.source, trans, notes)
 		e.firingChange = nil
 		if err != nil {
 			return fired, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
@@ -202,10 +203,11 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 	return condVal.Const.Bool, nil
 }
 
-// risenChangeTransition returns the state's first change-triggered transition
-// whose condition has risen and whose guard does not block it, several enabled at
-// once being a choice point. A blocked one stays armed for the next poll.
-func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *changePoll) (*lower.Transition, []RunNote) {
+// risenChangeTransitions returns the positions of the state's change-triggered
+// transitions whose condition has risen and whose guard does not block them,
+// several enabled at once being a choice point. A blocked one stays armed for the
+// next poll.
+func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *changePoll) ([]int, []RunNote) {
 	var enabled []int
 	var notes []RunNote
 	transitions := e.graph.Transitions[state]
@@ -223,10 +225,7 @@ func (e *StateExecutor) risenChangeTransition(state *ast.StateNode, poll *change
 	if len(enabled) == 0 {
 		return nil, nil
 	}
-	if choice, ok := e.transitionChoice(state, transitions, enabled); ok {
-		notes = append([]RunNote{choice}, notes...)
-	}
-	return transitions[enabled[0]], notes
+	return enabled, notes
 }
 
 // wait records, once per transition, a change condition the configuration is
@@ -243,7 +242,7 @@ func (p *changePoll) wait(trans *lower.Transition, state, reason string) {
 // watches and takes the transitions they enable, reporting whether any fired:
 // the step RunToCompletion takes, for a driver that steps the machine itself.
 func (e *StateExecutor) PollChangeEvents() (bool, error) {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	return e.pollChangeEvents()
 }

@@ -130,6 +130,9 @@ type Session struct {
 	// budgets bounds every runtime context this session creates.
 	budgets runtime.Budgets
 
+	// schedule is the policy runs started from here on resolve choice points under.
+	schedule runtime.SchedulePolicy
+
 	verbosity Verbosity
 
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
@@ -1135,6 +1138,7 @@ func (s *Session) getOrCreateRuntime() (*runtime.Context, error) {
 		ctx.RegisterScope(doc.Scope)
 	}
 	ctx.AdoptIdentities(s.replaced)
+	ctx.SetSchedule(s.schedule)
 	s.rtCtx = ctx
 	s.rtCtx.SetTrace(s.trace)
 	return s.rtCtx, nil

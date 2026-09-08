@@ -663,9 +663,10 @@ because the obvious ones cannot:
   bounded walk renders the nested feature as `child : Node (not expanded: contains its own kind)`
   after expanding one level. Don't grep for wording the binary never emits — capture the real line
   over a pipe first. Follow it with `%eval 1 + 1` → `= 2` to show the session survived the walk.
-- `%step` is **action-only**. In a state session it answers
-  `error: no active action session (use %action <name> first)`; drive a state machine with
-  `%advance <time>` instead. That message during a state sweep is expected, not a broken session.
+- `%step` drives a state session: it polls change conditions, dispatches the next event or
+  pending signal, or runs one do-behavior round. `%continue` remains action-only and answers
+  `error: no active action session (use %action <name> first)` in a state-only session.
+  Use repeated `%step` or `%advance <time>` and inspect `%current` for state-machine progress.
 - When comparing two variants of the same model (e.g. a `private import` version against a
   `public import` or bare-`Real` rewrite), load each in a **separate REPL process**. Loading both
   into one session makes the shared simple name ambiguous —
@@ -832,14 +833,17 @@ Limits worth knowing before writing fixtures:
 
 Testing this family end-to-end has a few traps that cost a whole run if hit late:
 
-- **A state machine cannot be handed a signal from the REPL** — there is no `%send`. To exercise
-  `accept <p> : <Item> [via <port>]` interactively, the model must post the message itself:
+- **Object-addressed signals can be injected with `%send <signal>[(p=expr)] to <object>`.**
+  Start `%state <machine> <object>` after `%instantiate <object>` when the object does not
+  already exhibit the machine. `%send` reports the transition it would enable; `%step` actually
+  dispatches it. Omitting `to` addresses the debugged performer. Use `%events` to distinguish
+  signals in flight from the timed-event queue. For a port-addressed signal, use a model sender:
   give the machine `port out : P; port in : P; connect out to in;` and a state whose
   `entry send Item(9) via out;` feeds the transition (the shape of
   `internal/core/runtime/testdata/conformance/state_transition_accept_via_port.sysml`). The shipped
   `state_transition_accept_payload.sysml` has **no** sender — its event comes from the
-  `.expected.json` `events` array, so in the REPL it just sits in `idle` forever. That is the
-  harness, not a bug.
+  `.expected.json` `events` array, so in the REPL it waits until a signal is injected.
+  The harness event array is not automatically replayed by `%load`.
 - **Always run a signal-driven state model on both the REPL and the gRPC/conformance path and
   diff them.** They disagreed until `ProcessNextEvent`/`%advance` learned to dispatch a pending
   context-bus signal: a port send produced by an entry action was delivered by `RunToCompletion`
@@ -3700,25 +3704,29 @@ Timers (`accept after N` + `%advance`) are the cheapest scheduling probe:
   *inside* the self-transitioning composite becomes an infinite event loop; post from a sibling
   region that is never re-entered.
 
-Change triggers (`accept when`) **cannot be driven from the REPL at all**: `pollChangeEvents` has
-no non-test caller (`grep -rn pollChangeEvents --include='*.go' .` → definition plus `*_test.go`),
-and no meta-command reaches it (`%advance`/`%step`/`%continue` are time and the *action* debugger).
-The REPL therefore parks in the source state with the condition already true — that is the
-documented ⚠️ Approximate row in `docs/project/spec-compliance.md`, not a defect. Show the grep on
-camera to justify covering the behavior with go tests instead:
+Change triggers (`accept when`) are reachable through state `%step`, which calls
+`PollChangeEvents`. A clean end-to-end example is:
 
-```go
-exec := stateExecutorForSource(t, "sm", `package test { state sm { … } }`)
-exec.RunToCompletion()
-exec.stateData["ready"] = boolValue(true)
-exec.pollChangeEvents()
-// read exec.ActiveStates() and exec.stateData["log"]
+```text
+%load internal/repl/testdata/change_condition_object.sysml
+%instantiate Watch::Sensor
+%state Watch::Sensor
+%step
+%invoke Watch::Sensor trip
+%step
+%current
 ```
 
-For an internal fix like this the strongest evidence is a worktree A/B:
-`git worktree add ~/wt<sha> <parent-sha>`, **copy the new test file (and any probe file) into the
-worktree** so `state_executor.go` is the only delta (`cmp -s` each file on camera to prove it),
-then run `go test -count=1 -run … -v ./internal/core/runtime` in both trees.
+Before `trip` the machine waits in `idle` with a false condition. After invocation,
+`%step` reports `Change event dispatched` and `idle → alerted`; `%features Watch::Sensor`
+shows `tripped = true`. The autonomous conformance fixture also works via repeated `%step`,
+but bare `Integer`/`Boolean` types can produce missing-import diagnostics during `%load`.
+Do not confuse runtime progression with a diagnostic-free model load.
+
+For a runtime routing fix, build a parent binary in an isolated worktree and load the same
+absolute model paths in both binaries. Enable `%trace on` before `%state`: the port-addressed
+fixture distinguishes an erroneous `choice`/`strayed` from `received` without a choice.
+Record the binary versions and full traces; final state alone can hide a wrong alternative.
 
 Designing discriminating probes here is genuinely tricky — always confirm a probe **FAILs on the
 parent** before trusting it:
@@ -5101,6 +5109,43 @@ then `server_info()`, `load_from_content(content)` → a `Model` whose hash is `
 
 ### Connect transport
 
+#### Diagnostic codes across Connect and Python gRPC
+
+For local wire checks, rebuild `make build-grpc`, run
+`bin/sysml-grpc -transport connect -port 50123 -health-port 0`, and attach the
+editable Python client with `opensysml.connect(port=50123, auto_start=False)`.
+Set `OPENSYSML_BINARY` to the absolute rebuilt binary; confirm the startup log's
+commit rather than trusting a cached auto-started service. This recipe disables
+the deprecated separate health listener.
+
+- POST `ParseSources` with `documents: [{name, content}]`, not `sources`. Feed its
+  `modelHash` to `ExecuteAction` (`actionSymbolId`) or `ExecuteState`
+  (`stateMachineSymbolId`, `events`). Check `diagnostics` is nonempty before
+  asserting exact `code`, severity, and span. Compare parsed Connect JSON with
+  `MessageToDict` of the real gRPC response.
+- Fixtures using Integer need `private import ScalarValues::*;`. Execution can
+  still run when parse diagnostics contain unresolved types, so explicitly assert
+  the runtime fixture parsed without errors before relying on its run.
+- Inspect public Python return shapes before claiming runtime notes are exposed:
+  successful `execute_action`/`execute_state` wrappers may return only outputs or
+  state data. For wire-specific coverage use the live `connection._stub` response,
+  wrap each protobuf diagnostic with `opensysml.diagnostic.Diagnostic`, and assert
+  `.code` and `repr`. Report this as raw-stub/wrapper coverage, not as successful
+  public execution methods exposing notes. Public `load_from_content` diagnostics
+  and strict `ModelError.diagnostics` can be tested without private APIs.
+- Keep empty-code compatibility distinct from live emissions: if no current
+  producer emits uncoded diagnostics, Go `protojson.Marshal` of an uncoded
+  generated Diagnostic plus Python JSON/binary decoding checks omission/defaults
+  only. Do not describe that as a real uncoded RPC response. Unknown future codes
+  should roundtrip unchanged.
+- A divide-by-zero guard after the selected branch is a preview note
+  (`guard-unevaluable`); the same failure in the first evaluated guard is a run
+  error, not that note. This is a useful negative control.
+
+##### Devin Secrets Needed
+
+None for these local service/client checks.
+
 `-transport connect -port P` puts gRPC, gRPC-Web, the Connect protocol, reflection and
 `/health` on port P. Note the separate `-health-port` server **still binds** in this mode, so
 `/health` answers on both ports; "the 8081 port stops being necessary" is a statement about
@@ -5180,11 +5225,11 @@ to diff against a document's table verbatim.
 
 ## Driving state-machine completion (`then done;`) and its surfaces
 
-There is **no `%send`/signal-injection meta-command**. A machine whose transitions are triggered by
-`accept <SignalName>` will sit `quiesced` forever in the REPL — the signal lists in
-`internal/core/runtime/testdata/conformance/*.expected.json` are the *conformance harness*, not the
-REPL. To drive a machine interactively, write fixtures with **timed triggers**
-(`state a { accept after 5 then done; }`) and step them with `%advance <t>`; each region can be given
+Use `%send <SignalName> [to <object>]` followed by `%step` to drive signal transitions.
+The signal lists in `internal/core/runtime/testdata/conformance/*.expected.json` belong to the
+conformance harness and are not automatically injected by the REPL. Alternatively, write
+fixtures with **timed triggers** (`state a { accept after 5 then done; }`)
+and step them with `%advance <t>`; each region can be given
 a different delay so a partial configuration is observable. `sysml <model> -state <name>` only
 *starts* the executor and prints the initial configuration — it does not run to completion, so use
 the REPL for completion claims.
@@ -5721,3 +5766,32 @@ and use <kbd>Shift</kbd>+<kbd>PageUp</kbd>.
   expressions (`m.eval('3 * 4')`) as the service-survival check. A throwaway venv
   (`python3 -m venv ~/pr-venv && ~/pr-venv/bin/pip install -e clients/python`) is ~1 min; drive the
   freshly built `./bin/sysml-grpc -port 50123` with `auto_start=False`.
+
+## Sets, tensors, and capability refusal
+
+- Use `conformance/fixtures/set_tensor.sysml` for an m-based rank-three tensor and
+  a duplicate/out-of-order set. Evaluate `s.elements`, not `s`, to obtain the
+  `SetValue` rather than the Collection object. `TensorQuantity.dimensions` is
+  `(2, 2, 2)` and all eight `components` should retain unit text `m`.
+- If a qualified compound expression such as `T::cube#(2,1,2)` reports an
+  unresolved reference after importing quantity libraries, pin the scope with
+  `%eval in T : cube#(2,1,2)`. In noninteractive `-e`, use `cube#(2,1,2)`
+  in the file's package context; `-e 'in T : ...'` is not REPL-command syntax.
+  Python's corresponding option is `context_symbol_id="T"`.
+- SysML tensor indices are one-based, while Python `cube[(1,0,1)]` is zero-based;
+  both address the sixth component of shape `(2,2,2)`, expected `6.0 m`.
+- For a real capability-refusal check, run a second freshly built service with
+  `OPENSYSML_TEST_WITHHOLD_CAPABILITIES=set_values,tensor_values`
+  and `-port 50124 -health-port 0`. Confirm absent capabilities, a working scalar
+  evaluation, then `MissingCapabilityError` for direct and nested outbound values.
+  Count delegated `EvaluateCalc` calls to demonstrate refusal before sending;
+  `Connection._stub` is a read-only property, backed by `_service`.
+- Library-backed collection regression probes need valid declarations:
+  `Collections::Array` requires dimensions matching its elements, and Map /
+  OrderedMap elements must be `KeyValuePair` objects, not raw integers.
+- In Konsole, use `Ctrl++` (not Ctrl+Shift++) to enlarge the font. Display version
+  with shell `bin/sysml --version`; `%version` is not a REPL command.
+
+### Devin Secrets Needed
+
+None for these local REPL/gRPC checks.

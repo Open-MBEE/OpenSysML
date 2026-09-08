@@ -55,24 +55,39 @@ func (ec *exprChecker) checkValueDimension(valueScope, declScope *symbols.Scope,
 	}
 	want, known := ec.model.DimensionOfType(declared)
 	for _, element := range valueElements(value) {
-		if ec.judgedByType(valueScope, element) {
-			// A named value is judged against the target by specialization,
-			// which reports the same mismatch as a clash of types.
+		// A collection value binds each element it may hold, which is measured on its own.
+		if elements, collection := ec.model.CollectionElements(valueScope, element); collection {
+			for _, produced := range elements {
+				if produced.Node != nil {
+					ec.checkElementDimension(produced.Scope, declared, want, known, produced.Node)
+				}
+			}
 			continue
 		}
-		if statesNoMeasurement(element) {
-			continue
-		}
-		if ec.judgedAsMeasurementRef(valueScope, declared, element) || ec.judgedAsFramedQuantity(valueScope, declared, element) || !known {
-			continue
-		}
-		got, ok := ec.model.DimensionOfExpr(valueScope, element)
-		if !ok || want.Term.Commensurable(got.Term) {
-			continue
-		}
-		ec.errorf(element.Span(), msgIncommensurableBinding,
-			describeDimension(got), describeDimension(want))
+		ec.checkElementDimension(valueScope, declared, want, known, element)
 	}
+}
+
+// checkElementDimension reports one bound element measured in a dimension the target's
+// declared type, of dimension want where known, does not measure in.
+func (ec *exprChecker) checkElementDimension(scope *symbols.Scope, declared *symbols.Symbol, want semantics.Dimension, known bool, element ast.Node) {
+	if ec.judgedByType(scope, element) {
+		// A named value is judged against the target by specialization,
+		// which reports the same mismatch as a clash of types.
+		return
+	}
+	if statesNoMeasurement(element) {
+		return
+	}
+	if ec.judgedAsMeasurementRef(scope, declared, element) || ec.judgedAsFramedQuantity(scope, declared, element) || !known {
+		return
+	}
+	got, ok := ec.model.DimensionOfExpr(scope, element)
+	if !ok || want.Term.Commensurable(got.Term) {
+		return
+	}
+	ec.errorf(element.Span(), msgIncommensurableBinding,
+		describeDimension(got), describeDimension(want))
 }
 
 // judgedAsMeasurementRef judges a unit composed by `*`, `/` or `**` as the DerivedUnit

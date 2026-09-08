@@ -84,6 +84,18 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -92,6 +104,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * "case_evaluations" - RunAnalysis and each RunSweep row report each
    * application the run made of one of the case's calcs as a
    * function value — a trade study's evaluation of each
@@ -154,6 +171,18 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -162,6 +191,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * "case_evaluations" - RunAnalysis and each RunSweep row report each
    * application the run made of one of the case's calcs as a
    * function value — a trade study's evaluation of each
@@ -223,6 +257,18 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -231,6 +277,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * "case_evaluations" - RunAnalysis and each RunSweep row report each
    * application the run made of one of the case's calcs as a
    * function value — a trade study's evaluation of each
@@ -293,6 +344,18 @@ public interface ServerInfoResponseOrBuilder extends
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "set_values" - a Value carries a unique, unordered collection (a
+   * Collections::Set's elements) as set, each element once in
+   * canonical order, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument in any order; without it, one is refused
+   * with UNIMPLEMENTED rather than read as a sequence.
+   * "tensor_values" - a Value carries a tensor quantity of any rank as
+   * tensor_quantity, its dimensions and one Quantity per
+   * row-major component, rather than reporting it as an
+   * unsupported null, and one is accepted as an action input
+   * or calc argument; without it, one is refused with
+   * UNIMPLEMENTED rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -301,6 +364,11 @@ public interface ServerInfoResponseOrBuilder extends
    * Markdown.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
+   * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+   * RunAnalysisRequest take a schedule, the scheduling policy
+   * the run resolves its choice points under; without it a
+   * service drops the field and runs under the default, so a
+   * client must not send one.
    * "case_evaluations" - RunAnalysis and each RunSweep row report each
    * application the run made of one of the case's calcs as a
    * function value — a trade study's evaluation of each

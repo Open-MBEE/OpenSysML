@@ -1,0 +1,45 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::h",
+  "slots": {
+    "s": {"type": "Instance"},
+    "t": {"type": "Instance"},
+    "e": {"type": "Instance"},
+    "b": {"type": "Instance"},
+    "os": {"type": "Instance"},
+    "count": {"type": "Integer", "value": 3},
+    "emptyCount": {"type": "Integer", "value": 0},
+    "bagCount": {"type": "Integer", "value": 4},
+    "ordered": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3}
+    ]},
+    "repeatable": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3}
+    ]},
+    "plain": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 3}
+    ]},
+    "inOrderedSet": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2}
+    ]}
+  },
+  "constraints": {
+    "equalRegardlessOfOrder": true,
+    "elementsEqualRegardlessOfOrder": true,
+    "distinctFromTheEmptySet": true,
+    "emptySetsAreEqual": true,
+    "membership": true,
+    "allMembers": true,
+    "emptiness": true,
+    "notASequence": true
+  }
+}

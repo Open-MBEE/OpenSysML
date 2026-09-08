@@ -18,11 +18,12 @@
 # Requires: the WiX 5 .NET tool (`dotnet tool install --global wix --version 5.0.2`),
 # curl, unzip (or 7z), sha256sum. No WiX extensions are used.
 # WiX only runs on Windows, so CI runs this on a windows runner (Git Bash). For a
-# Linux dry run set WIX to a command that runs it under Wine and WIX_PATH_PREFIX
-# to Wine's drive for `/` (usually Z:); see packaging/msi/README.md.
+# Linux dry run set WIX_CMD to a command that runs it under Wine and
+# WIX_PATH_PREFIX to Wine's drive for `/` (usually Z:); see packaging/msi/README.md.
+# (Not WIX: the WiX v3 installer on the GitHub Windows runners exports WIX as its install dir.)
 set -euo pipefail
 
-WIX_CMD="${WIX:-wix}"
+WIX_CMD="${WIX_CMD:-wix}"
 WIX_PATH_PREFIX="${WIX_PATH_PREFIX:-}"
 # Absolute host path -> the path as the (Windows) wix process sees it.
 if command -v cygpath >/dev/null 2>&1; then
@@ -128,7 +129,7 @@ done
 
 mkdir -p "$(dirname "$OUT")"
 echo "Building $OUT (ProductVersion $VERSION, tag $TAG, Z3 $Z3_VERSION)" >&2
-# shellcheck disable=SC2086  # WIX may be a multi-word command (e.g. wine ... wix.dll)
+# shellcheck disable=SC2086  # WIX_CMD may be a multi-word command (e.g. wine ... wix.dll)
 $WIX_CMD build -arch x64 \
   -d "Version=$VERSION" \
   -d "Tag=$TAG" \

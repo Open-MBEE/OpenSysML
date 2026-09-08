@@ -372,7 +372,7 @@ func TestFormatValue(t *testing.T) {
 		{"string", runtime.NewStringValue("hi"), `"hi"`},
 		{"instance", runtime.Value{Kind: runtime.ValInstance, Instance: 3}, "Instance(ID: 3)"},
 		{"sequence", runtime.NewSequenceValue(sequence), `[1, "hi"]`},
-		{"set", runtime.NewSetValue(set), `Set{"z", "a"}`},
+		{"set", runtime.NewSetValue(set), `Set{"a", "z"}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

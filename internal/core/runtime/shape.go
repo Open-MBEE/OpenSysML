@@ -16,6 +16,7 @@ type EffectiveFeature struct {
 	Multiplicity semantics.Range // declared or inherited (default 1..1)
 	DefaultValue ast.Node        // value-binding expression (nil if none)
 	DefaultDecl  *symbols.Symbol // feature the DefaultValue was written on (nil if none)
+	HoldsSet     bool            // values form a set: a Collection's unordered unique elements
 }
 
 // Scalar reports whether the feature holds at most one value. An unbounded
@@ -108,14 +109,16 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 	if defaultVal == nil {
 		defaultVal, defaultDecl = ctx.redefinedDefault(memberSym, typeSym)
 	}
+	mult := ctx.featureMultiplicity(memberSym, typeSym)
 	return EffectiveFeature{
 		Name:         name,
 		Symbol:       memberSym,
 		OwnerType:    ctx.findOwnerType(memberSym),
 		Type:         ctx.extractType(memberSym),
-		Multiplicity: ctx.featureMultiplicity(memberSym, typeSym),
+		Multiplicity: mult,
 		DefaultValue: defaultVal,
 		DefaultDecl:  defaultDecl,
+		HoldsSet:     ctx.holdsSet(memberSym, typeSym, mult),
 	}
 }
 

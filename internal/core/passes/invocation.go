@@ -108,19 +108,22 @@ func (t argumentTypes) arguments() []semantics.Argument {
 // of the feature it names, or of the result of the call it makes. A collection
 // literal binds its elements, so it is typed by the type they have in common.
 func (ec *exprChecker) argument(scope *symbols.Scope, value ast.Node, name *ast.QualifiedName) semantics.Argument {
+	elements := []ast.Node{value}
 	if seq, ok := value.(*ast.SequenceExpr); ok {
-		return semantics.Argument{
-			Prim:  ec.commonElementType(scope, seq),
-			Type:  ec.commonElementTypeSymbol(scope, seq),
-			Exact: len(seq.Elements) > 0 && allSpellOneValue(seq.Elements),
-			Name:  name,
-		}
+		elements = seq.Elements
 	}
+	arg := ec.argumentOf(scope, elements)
+	arg.Exact = len(elements) > 0 && allSpellOneValue(elements)
+	arg.Name = name
+	return arg
+}
+
+// argumentOf types the values an argument writes together: by the scalar type and the declared
+// type they share, unknown where they share none.
+func (ec *exprChecker) argumentOf(scope *symbols.Scope, elements []ast.Node) semantics.Argument {
 	return semantics.Argument{
-		Prim:  ec.infer(scope, value),
-		Type:  ec.declaredValueType(scope, value),
-		Exact: spellsOneValue(value),
-		Name:  name,
+		Prim: ec.commonElementType(scope, elements),
+		Type: ec.commonElementTypeSymbol(scope, elements),
 	}
 }
 
@@ -144,11 +147,11 @@ func (ec *exprChecker) declaredValueType(scope *symbols.Scope, value ast.Node) *
 	return ec.invocationResultTypeSymbol(scope, value)
 }
 
-// commonElementTypeSymbol is the declared type every element of seq conforms to,
-// nil when one has none or they share none.
-func (ec *exprChecker) commonElementTypeSymbol(scope *symbols.Scope, seq *ast.SequenceExpr) *symbols.Symbol {
+// commonElementTypeSymbol is the declared type every element conforms to, nil when one
+// has none or they share none.
+func (ec *exprChecker) commonElementTypeSymbol(scope *symbols.Scope, elements []ast.Node) *symbols.Symbol {
 	var common *symbols.Symbol
-	for _, el := range seq.Elements {
+	for _, el := range elements {
 		elem := ec.declaredValueType(scope, el)
 		switch {
 		case elem == nil:

@@ -147,7 +147,7 @@ func TestSetConstructionUsesBucketedLinearWork(t *testing.T) {
 	}
 }
 
-func TestSetElementsPreserveInsertionOrder(t *testing.T) {
+func TestSetElementsEnumerateInCanonicalOrder(t *testing.T) {
 	set := NewSet()
 	for _, value := range []int64{2, 1, 2, 3} {
 		set.Add(Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: value}})
@@ -156,7 +156,7 @@ func TestSetElementsPreserveInsertionOrder(t *testing.T) {
 	if len(elements) != 3 {
 		t.Fatalf("set has %d elements, want 3", len(elements))
 	}
-	for i, want := range []int64{2, 1, 3} {
+	for i, want := range []int64{1, 2, 3} {
 		if got := elements[i].Const.Int; got != want {
 			t.Errorf("element %d = %d, want %d", i, got, want)
 		}

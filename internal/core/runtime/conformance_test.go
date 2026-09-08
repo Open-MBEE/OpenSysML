@@ -103,6 +103,9 @@ type ExpectedOutcome struct {
 	// Admissible cites the section of docs/project/behavior-semantic-oracle.md
 	// deriving that every listed outcome is valid. Required beside Outcomes.
 	Admissible string `json:"admissible,omitempty"`
+	// Schedule pins the scheduling policy the case was recorded under, spelled as
+	// ParseSchedulePolicy reads it. Empty is the default policy.
+	Schedule string `json:"schedule,omitempty"`
 
 	// Action fields
 	Outputs    map[string]ExpectedValue `json:"outputs,omitempty"`
@@ -240,12 +243,52 @@ func TestExecutionConformance(t *testing.T) {
 		testCount++
 		t.Run(caseName, func(t *testing.T) {
 			t.Parallel()
-			runConformanceCase(t, conformanceDir, caseName)
+			runConformanceCase(t, conformanceDir, caseName, DefaultSchedulePolicy)
 		})
 	}
 
 	if testCount == 0 {
 		t.Fatalf("no runnable conformance cases in %s", conformanceDir)
+	}
+}
+
+// sweepPolicies are the non-default policies the whole suite runs under.
+var sweepPolicies = []string{"declared", "seed:1"}
+
+// TestExecutionConformanceUnderPolicies runs the whole suite under each
+// non-default policy. A case pinning no policy was recorded under the default,
+// so what it states must hold under any policy: one that differs has been
+// pinning a scheduling artefact and is reported, never skipped. A pinned case
+// runs under its own policy: pinning `reverse` says its result is one
+// linearization, kept until its admissible set is derived or the bug fixed.
+func TestExecutionConformanceUnderPolicies(t *testing.T) {
+	conformanceDir := filepath.Join("testdata", "conformance")
+	knownFailures := loadKnownFailures(t, conformanceDir)
+	entries, err := os.ReadDir(conformanceDir)
+	if err != nil {
+		t.Fatalf("failed to read conformance directory: %v", err)
+	}
+
+	for _, spelling := range sweepPolicies {
+		policy, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatalf("sweep policy: %v", err)
+		}
+		t.Run(spelling, func(t *testing.T) {
+			for _, entry := range entries {
+				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+					continue
+				}
+				caseName := strings.TrimSuffix(entry.Name(), ".expected.json")
+				if knownFailures[caseName] {
+					continue
+				}
+				t.Run(caseName, func(t *testing.T) {
+					t.Parallel()
+					runConformanceCase(t, conformanceDir, caseName, policy)
+				})
+			}
+		})
 	}
 }
 
@@ -273,8 +316,9 @@ func loadKnownFailures(t *testing.T, conformanceDir string) map[string]bool {
 	return failures
 }
 
-// runConformanceCase executes a single conformance test case
-func runConformanceCase(t *testing.T, conformanceDir, caseName string) {
+// runConformanceCase executes a single conformance test case under policy, or
+// under the policy the case pins if it pins one.
+func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy SchedulePolicy) {
 	// Load .sysml file
 	sysmlPath := filepath.Join(conformanceDir, caseName+".sysml")
 	sysmlData, err := os.ReadFile(sysmlPath)
@@ -316,6 +360,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string) {
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	ctx := NewContext(model, resolver, 10000)
+	ctx.SetSchedule(casePolicy(t, expected, policy))
 
 	// Dispatch based on type
 	switch expected.Type {
@@ -342,6 +387,23 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string) {
 	default:
 		t.Fatalf("unknown test type: %s", expected.Type)
 	}
+}
+
+// casePolicy is the policy a case runs under: the one it pins, else the one the
+// harness asked for. A pin that names no policy is a schema error.
+func casePolicy(t *testing.T, expected ExpectedOutcome, policy SchedulePolicy) SchedulePolicy {
+	t.Helper()
+	if expected.Schedule == "" {
+		return policy
+	}
+	pinned, err := ParseSchedulePolicy(expected.Schedule)
+	if err != nil {
+		t.Fatalf("schedule: %v", err)
+	}
+	if pinned != policy {
+		t.Logf("pinned to %s", pinned)
+	}
+	return pinned
 }
 
 // oraclePath is the semantic oracle an admissible set must cite a section of.
@@ -1660,6 +1722,12 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		for i, want := range expected.Elements {
 			validateValue(t, ctx, fmt.Sprintf("%s#(%d)", name, i+1), want, elements[i])
 		}
+	case "Set":
+		if actual.Kind != ValSet || actual.Set() == nil {
+			t.Errorf("%s: type = %v, want Set", name, actual.Kind)
+			return
+		}
+		validateElements(t, ctx, name, expected.Elements, actual.Set().Elements())
 	case "Vector":
 		if actual.Kind != ValVector || actual.Vector() == nil {
 			t.Errorf("%s: type = %v, want Vector", name, actual.Kind)
