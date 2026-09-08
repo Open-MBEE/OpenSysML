@@ -357,6 +357,41 @@ func TestCollectionReduceOfNothing(t *testing.T) {
 	}
 }
 
+// How many values a feature or a mapper's result holds is read through an alias and, where
+// it declares no multiplicity, from the feature it redefines.
+func TestCollectionSizeThroughAliasAndRedefinition(t *testing.T) {
+	m, s := collectionModel(t, `
+		part none : C[0];
+		part two : C[2];
+		alias nobody for none;
+		alias pair for two;
+		function Nobody { in c : C; return r : C[0]; }
+		function Nobody2 :> Nobody { in c : C; return r :>> r; }
+		function Named { in c : C; return r : String; }
+		attribute viaAlias = nobody.{ in c : C; c.name };
+		attribute viaAlias2 = pair->reduce { in a : C; in b : C; a.name };
+		attribute inherited = cs->collect Nobody2;
+		attribute inherited2 = (cs->collect Nobody2)->reduce { in a : C; in b : C; a.name };
+		attribute named = cs->collect Named;`)
+	for _, name := range []string{"viaAlias", "inherited2"} {
+		wantValueTypes(t, m, s, name, "String")
+		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 0 {
+			t.Errorf("%s: elements %v, want none", name, elements)
+		}
+	}
+	wantValueTypes(t, m, s, "viaAlias2", "String")
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "viaAlias2")); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "String" {
+		t.Errorf("viaAlias2: elements %v, want the reducer's String alone", elements)
+	}
+	wantValueTypes(t, m, s, "inherited", "C")
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "inherited")); !ok || len(elements) != 0 {
+		t.Errorf("inherited: elements %v, want none", elements)
+	}
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 {
+		t.Errorf("named: elements %v, want the result parameter", elements)
+	}
+}
+
 // `xs.?{…}` is select written out: its elements are the collection's, so a binding or an
 // argument is judged by them as `xs->select {…}` is.
 func TestCollectionSelectShorthandElements(t *testing.T) {

@@ -313,6 +313,8 @@ func collectionValueDiags(t *testing.T, members string) []string {
 		function Half { in v : Vehicle; return r : Real; }
 		function Name { in v : Vehicle; return r : String; }
 		function Nobody { in v : Vehicle; return r : Vehicle[0]; }
+		function Nobody2 :> Nobody { in v : Vehicle; return r :>> r; }
+		alias noone for none;
 		attribute nothing : Integer[0];
 		part def Pair { part items : Vehicle[2]; part item : Vehicle[1]; }
 		part def Pairs :> Pair { part :>> items; part :>> item; }
@@ -487,7 +489,10 @@ func TestValueMappingToNothingIsJudgedByNeither(t *testing.T) {
 		part b4 : Boat = (vs->collect Nobody).?{ in v : Vehicle; true };
 		part b5 : Boat = (vs->selectOne { in v : Vehicle; true }).{ in v : Vehicle; Nobody(v) }->collect { in v : Vehicle; v };
 		part b6 = Sail(vs.{ in v : Vehicle; Nobody(v) });
-		part b7 = Sail((vs->collect Nobody)->select { in v : Vehicle; true });`)
+		part b7 = Sail((vs->collect Nobody)->select { in v : Vehicle; true });
+		part b8 : Boat = vs->collect Nobody2;
+		part b9 : Boat = noone.{ in v : Vehicle; v };
+		part b10 : Boat = noone->reduce { in a : Vehicle; in b : Vehicle; a };`)
 	wantCollectionValueDiags(t, `attribute s : String = vs.{ in v : Vehicle; (nothing, 3) };`,
 		"cannot bind Natural value to a feature typed by String")
 	wantCollectionValueDiags(t, `part b : Boat = (vs.{ in v : Vehicle; v }).{ in v : Vehicle; v };`,

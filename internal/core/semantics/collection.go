@@ -75,8 +75,29 @@ func (m *Model) heldSourcesOf(scope *symbols.Scope, node ast.Node) ([]collection
 
 // resultHoldsNothing reports a result parameter whose multiplicity admits no value.
 func (m *Model) resultHoldsNothing(result *symbols.Symbol) bool {
-	r, ok := m.MultiplicityOf(result)
+	r, ok := m.governingMultiplicity(result)
 	return ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0
+}
+
+// governingMultiplicity is the multiplicity a feature declares, or inherits from a feature it
+// redefines, read through an alias; not ok where it declares and inherits none.
+func (m *Model) governingMultiplicity(sym *symbols.Symbol) (Range, bool) {
+	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok && alias != nil {
+		sym = alias
+	}
+	if declared, ok := m.MultiplicityOf(sym); ok {
+		return declared, true
+	}
+	for _, redefined := range m.redefinedTransitively(sym) {
+		if inherited, ok := m.MultiplicityOf(redefined); ok {
+			return inherited, true
+		}
+	}
+	return Range{}, false
+}
+
+func knownRange(r Range, ok bool) (Range, bool) {
+	return r, ok && r.Lower.Known && r.Upper.Known
 }
 
 // collectionOf is the collection a collection value operates over: the operand of `xs.{…}` or
@@ -217,9 +238,7 @@ func (m *Model) valuesHeldByCall(scope *symbols.Scope, e *ast.InvocationExpr) (R
 		return Range{Lower: minBound(through.Lower, Bound{Value: 1, Known: true}), Upper: minBound(through.Upper, Bound{Value: 1, Known: true})}, true
 	}
 	if result := m.ResultParameterOf(fn); result != nil {
-		if r, ok := m.MultiplicityOf(result); ok && r.Lower.Known && r.Upper.Known {
-			return r, true
-		}
+		return knownRange(m.governingMultiplicity(result))
 	}
 	return Range{}, false
 }
@@ -244,7 +263,7 @@ func (m *Model) valuesMappedBy(scope *symbols.Scope, collection, applied ast.Nod
 		}
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
 		if result := m.appliedResult(scope, a); result != nil {
-			if r, ok := m.MultiplicityOf(result); ok && r.Lower.Known && r.Upper.Known {
+			if r, ok := knownRange(m.governingMultiplicity(result)); ok {
 				per = r
 			}
 		}
@@ -264,25 +283,17 @@ func (m *Model) valuesKeptFrom(scope *symbols.Scope, collection ast.Node, most B
 	return Range{Lower: Bound{Known: true}, Upper: minBound(through.Upper, most)}, true
 }
 
-// valuesHeldByFeature is the multiplicity governing the feature a name or chain resolves to:
-// the one it declares, or inherits from a feature it redefines; one where it declares none.
+// valuesHeldByFeature is the multiplicity governing the feature a name or chain resolves to,
+// through an alias: the one it declares or inherits by redefinition; one where it has none.
 func (m *Model) valuesHeldByFeature(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	sym, ok := m.resolver.ResolveTarget(scope, node)
 	if !ok || sym == nil {
 		return Range{}, false
 	}
-	r := AssumedRange()
-	if declared, ok := m.MultiplicityOf(sym); ok {
-		r = declared
-	} else {
-		for _, redefined := range m.redefinedTransitively(sym) {
-			if inherited, ok := m.MultiplicityOf(redefined); ok {
-				r = inherited
-				break
-			}
-		}
+	if r, ok := m.governingMultiplicity(sym); ok {
+		return knownRange(r, true)
 	}
-	return r, r.Lower.Known && r.Upper.Known
+	return AssumedRange(), true
 }
 
 func exactly(n int64) Range {
