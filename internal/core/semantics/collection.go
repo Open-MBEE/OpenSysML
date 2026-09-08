@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"math"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -196,7 +197,7 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 			if !ok {
 				return Range{}, false
 			}
-			sum = Range{Lower: addBounds(sum.Lower, r.Lower), Upper: addBounds(sum.Upper, r.Upper)}
+			sum = addRanges(sum, r)
 		}
 		return sum, true
 	case *ast.FeatureReference, *ast.QualifiedName:
@@ -210,7 +211,7 @@ func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) 
 		if !ok {
 			return Range{}, false
 		}
-		return Range{Lower: mulBounds(through.Lower, last.Lower), Upper: mulBounds(through.Upper, last.Upper)}, true
+		return mulRanges(through, last), true
 	}
 	return Range{}, false
 }
@@ -238,7 +239,7 @@ func (m *Model) valuesHeldByCall(scope *symbols.Scope, e *ast.InvocationExpr) (R
 		return Range{Lower: minBound(through.Lower, Bound{Value: 1, Known: true}), Upper: minBound(through.Upper, Bound{Value: 1, Known: true})}, true
 	}
 	if result := m.ResultParameterOf(fn); result != nil {
-		return knownRange(m.governingMultiplicity(result))
+		return m.valuesGoverning(result)
 	}
 	return Range{}, false
 }
@@ -263,12 +264,12 @@ func (m *Model) valuesMappedBy(scope *symbols.Scope, collection, applied ast.Nod
 		}
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
 		if result := m.appliedResult(scope, a); result != nil {
-			if r, ok := knownRange(m.governingMultiplicity(result)); ok {
+			if r, ok := m.valuesGoverning(result); ok {
 				per = r
 			}
 		}
 	}
-	return Range{Lower: mulBounds(through.Lower, per.Lower), Upper: mulBounds(through.Upper, per.Upper)}, true
+	return mulRanges(through, per), true
 }
 
 // valuesKeptFrom is how many values a selection keeps: none up to the collection's, capped at most.
@@ -283,13 +284,19 @@ func (m *Model) valuesKeptFrom(scope *symbols.Scope, collection ast.Node, most B
 	return Range{Lower: Bound{Known: true}, Upper: minBound(through.Upper, most)}, true
 }
 
-// valuesHeldByFeature is the multiplicity governing the feature a name or chain resolves to,
-// through an alias: the one it declares or inherits by redefinition; one where it has none.
+// valuesHeldByFeature is how many values the feature a name or chain resolves to holds.
 func (m *Model) valuesHeldByFeature(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	sym, ok := m.resolver.ResolveTarget(scope, node)
 	if !ok || sym == nil {
 		return Range{}, false
 	}
+	return m.valuesGoverning(sym)
+}
+
+// valuesGoverning is how many values a feature holds: the multiplicity governing it, through an
+// alias, declared or inherited by redefinition — one where it has none; not ok while a bound
+// it declares is not evaluable.
+func (m *Model) valuesGoverning(sym *symbols.Symbol) (Range, bool) {
 	if r, ok := m.governingMultiplicity(sym); ok {
 		return knownRange(r, true)
 	}
@@ -301,9 +308,30 @@ func exactly(n int64) Range {
 	return Range{Lower: b, Upper: b}
 }
 
-func addBounds(a, b Bound) Bound {
+// addRanges is the values two collections hold together; a sum past int64 is unbounded above
+// and at least MaxInt64 below.
+func addRanges(a, b Range) Range {
+	return Range{Lower: addBounds(a.Lower, b.Lower, mostFinite), Upper: addBounds(a.Upper, b.Upper, unbounded)}
+}
+
+// mulRanges is the values held through each value of a, each holding b; a product past int64
+// is unbounded above and at least MaxInt64 below.
+func mulRanges(a, b Range) Range {
+	return Range{Lower: mulBounds(a.Lower, b.Lower, mostFinite), Upper: mulBounds(a.Upper, b.Upper, unbounded)}
+}
+
+var (
+	unbounded  = Bound{Infinite: true, Known: true}
+	mostFinite = Bound{Value: math.MaxInt64, Known: true}
+)
+
+// addBounds is a + b, or past where int64 reaches.
+func addBounds(a, b, past Bound) Bound {
 	if a.Infinite || b.Infinite {
-		return Bound{Infinite: true, Known: true}
+		return unbounded
+	}
+	if a.Value > math.MaxInt64-b.Value {
+		return past
 	}
 	return Bound{Value: a.Value + b.Value, Known: true}
 }
@@ -318,13 +346,16 @@ func minBound(a, b Bound) Bound {
 	return b
 }
 
-// mulBounds is the values held through a values, each holding b: none through none.
-func mulBounds(a, b Bound) Bound {
+// mulBounds is a × b, none through none, or past where int64 reaches.
+func mulBounds(a, b, past Bound) Bound {
 	if (!a.Infinite && a.Value == 0) || (!b.Infinite && b.Value == 0) {
 		return Bound{Known: true}
 	}
 	if a.Infinite || b.Infinite {
-		return Bound{Infinite: true, Known: true}
+		return unbounded
+	}
+	if a.Value > math.MaxInt64/b.Value {
+		return past
 	}
 	return Bound{Value: a.Value * b.Value, Known: true}
 }
@@ -669,14 +700,19 @@ func anyHolds(judged []Conformance) Conformance {
 		return conformanceUnknown()
 	}
 	var found []string
+	unknown := false
 	for _, c := range judged {
 		switch {
 		case c.Known && c.Holds:
 			return c
 		case !c.Known || c.Untyped:
-			return conformanceUnknown()
+			unknown = true
+		default:
+			found = appendUnique(found, c.Found)
 		}
-		found = appendUnique(found, c.Found)
+	}
+	if unknown {
+		return conformanceUnknown()
 	}
 	return Conformance{Known: true, Found: strings.Join(found, " and ")}
 }

@@ -460,7 +460,8 @@ func TestValueReduceResultIsJudged(t *testing.T) {
 		part b3 : Boat = couple.item->reduce { in a : Vehicle; in b : Vehicle; boat };
 		part v : Vehicle = vs->reduce { in a : Vehicle; in b : Vehicle; a };
 		attribute s : String = (1, 2)->reduce { in a : Integer; in b : Integer; "s" };
-		attribute s2 : String = (one, boat)->reduce { in a : Vehicle; in b : Vehicle; "s" };`)
+		attribute s2 : String = (one, boat)->reduce { in a : Vehicle; in b : Vehicle; "s" };
+		attribute i : Integer = (two->collect Name)->reduce { in a : String; in b : String; 3 };`)
 }
 
 // A collection operation over a collection known to hold nothing returns nothing, and never

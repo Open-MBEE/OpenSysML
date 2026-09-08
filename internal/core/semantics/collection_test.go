@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -459,5 +460,68 @@ func TestCollectionNestedElements(t *testing.T) {
 	wantValueTypes(t, m, s, "nestedEmpty", "Real")
 	if elements, ok := m.CollectionElements(s, valueOf(t, s, "nestedEmpty")); !ok || len(elements) != 0 {
 		t.Errorf("nestedEmpty: elements %v, want none", elements)
+	}
+}
+
+// A mapper named by function holds one value per element where its result declares no
+// multiplicity, as a feature does — not any number — while a result whose declared bound is not
+// evaluable holds an unknown number; a count past int64 stays at least as many as it is.
+func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
+	m, s := collectionModel(t, `
+		part two : C[2];
+		attribute n : Positive;
+		function Named { in c : C; return r : String; }
+		function Unsure { in c : C; return r : String[n]; }
+		part def H { part many : C[9223372036854775807]; }
+		part hs : H[2];
+		part huge : C[9223372036854775807];
+		attribute named = (two->collect Named)->reduce { in a : String; in b : String; 1 };
+		attribute unsure = (two->collect Unsure)->reduce { in a : String; in b : String; 1 };
+		attribute sum = (huge, huge)->reduce { in a : C; in b : C; a.name };
+		attribute product = hs.many->reduce { in a : C; in b : C; a.name };`)
+	wantValueTypes(t, m, s, "named", "Integer")
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "Integer" {
+		t.Errorf("named: elements %v, want the reducer's Integer alone", elements)
+	}
+	wantValueTypes(t, m, s, "unsure", "Anything")
+	if elements, ok := m.CollectionElements(s, valueOf(t, s, "unsure")); !ok || len(elements) != 2 {
+		t.Errorf("unsure: elements %v, want the reducer's Integer and the mapper's String", elements)
+	}
+	for _, name := range []string{"sum", "product"} {
+		wantValueTypes(t, m, s, name, "String")
+		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 1 || leafName(elements[0].Types[0].Name) != "String" {
+			t.Errorf("%s: elements %v, want the reducer's String alone", name, elements)
+		}
+		collection := valueOf(t, s, name).(*ast.InvocationExpr).Operand
+		r, ok := m.valuesHeldBy(s, collection)
+		if !ok || !r.Lower.Known || r.Lower.Infinite || r.Lower.Value != math.MaxInt64 || !r.Upper.Known || !r.Upper.Infinite {
+			t.Errorf("%s: values held %s, want [%d..*]", name, r.Text(), int64(math.MaxInt64))
+		}
+	}
+}
+
+// A cast holds once any element it may hold specializes the target, whichever comes first: an
+// untyped element before an Integer leaves the Integer to decide; one beside a String leaves the
+// cast undecided, and none at all names every element refused.
+func TestCollectionCastDecidedByAnyElement(t *testing.T) {
+	holds := Conformance{Known: true, Holds: true}
+	if c := anyHolds([]Conformance{conformanceUnknown(), holds}); !c.Known || !c.Holds {
+		t.Errorf("unknown then holding: %+v, want it to hold", c)
+	}
+	if c := anyHolds([]Conformance{{Known: true, Found: "String"}, conformanceUnknown()}); c.Known {
+		t.Errorf("refused then unknown: %+v, want unknown", c)
+	}
+	if c := anyHolds([]Conformance{{Known: true, Found: "String"}, {Known: true, Found: "C"}}); !c.Known || c.Holds || c.Found != "String and C" {
+		t.Errorf("refused twice: %+v, want known, not holding, found String and C", c)
+	}
+	m, s := collectionModel(t, `
+		attribute loose;
+		attribute cast = cs.{ in x : C; (loose, 1) } as Integer;
+		attribute cast2 = cs.{ in x : C; (x.name, "s") } as Integer;`)
+	if c := m.CastConformance(s, valueOf(t, s, "cast").(*ast.OperatorExpr)); !c.Known || !c.Holds {
+		t.Errorf("cast to Integer: %+v, want it to hold by the literal 1", c)
+	}
+	if c := m.CastConformance(s, valueOf(t, s, "cast2").(*ast.OperatorExpr)); !c.Known || c.Holds || c.Found != "String" {
+		t.Errorf("cast2 to Integer: %+v, want known, not holding, found String", c)
 	}
 }
