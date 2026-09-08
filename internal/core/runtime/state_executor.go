@@ -94,9 +94,9 @@ type StateExecutor struct {
 	// running more than once if completion is reported by multiple regions.
 	machineExited bool
 
-	// runStarted marks this executor's run as begun, so the step budget is reset
-	// once however many calls the run is driven over.
-	runStarted bool
+	// driven is this executor's run over however many calls drive it: begun once,
+	// so the step budget is reset once, and keeping its scheduler throughout.
+	driven executorRun
 
 	// timerScheduled holds the time-triggered transitions whose timer is already
 	// running, so a state's timer is not restarted while it stays active.
@@ -1916,7 +1916,7 @@ func (e *StateExecutor) RunToQuiescence() error {
 // run is the run-to-completion loop, holding simulation time where it is when
 // atCurrentTime is set.
 func (e *StateExecutor) run(atCurrentTime bool) error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	// Suspension is derived at quiescence, so re-running is allowed: a run that
 	// finds nothing to do suspends again.
@@ -2365,7 +2365,7 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 
 // initialize sets current state to initial state and enters it.
 func (e *StateExecutor) initialize() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
 	// Use initial state from graph
@@ -2849,7 +2849,7 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // behaviors is progress in itself, so a step that ran one and found no event to
 // dispatch succeeds — the completion transition it enables is queued next.
 func (e *StateExecutor) ProcessNextEvent() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	e.lastDispatch = nil
 	ran, err := e.runDoRound()
@@ -2901,7 +2901,7 @@ func (e *StateExecutor) HasPendingWork() bool {
 // RunDoRound advances every active state's do behavior by one action, without
 // dispatching any event, and reports how many actions ran.
 func (e *StateExecutor) RunDoRound() (int, error) {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	return e.runDoRound()
 }

@@ -237,6 +237,79 @@ func TestSeededTransitionChoiceMatchesTheRun(t *testing.T) {
 	}
 }
 
+// The guard of the branch a decision takes is read by the run itself: a branch
+// picked past the first was only previewed, so the run reads it again for real,
+// while a branch it did not take leaves nothing but its choice in the trace.
+func TestPickedGuardIsReadByTheRun(t *testing.T) {
+	const alarmGuard = "eval literal 70 -> 70"
+	took := make(map[string]bool)
+	for seed := 0; seed < 16; seed++ {
+		policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
+		trace, outputs, _ := runChoiceModel(t, policy)
+		handler := FormatTraceValue(outputs["handler"])
+		took[handler] = true
+		if read := strings.Contains(trace, alarmGuard); read != (handler == "2") {
+			t.Errorf("%s: handler = %s but the run's reading of the alarm guard in the trace is %v\n%s", policy, handler, read, trace)
+		}
+	}
+	if len(took) != 2 {
+		t.Fatalf("sixteen seeds took only handler %v; both guards hold", took)
+	}
+}
+
+// stepChoiceModel drives exec step by step to completion, calling between after
+// the first step, and returns the run's trace.
+func stepChoiceModel(t *testing.T, exec *ActionExecutor, between func()) string {
+	t.Helper()
+	trace := NewTraceRecorder()
+	exec.SetTrace(trace)
+	for i := 0; exec.State() != StateCompleted; i++ {
+		if i > 50 {
+			t.Fatal("the run did not complete in fifty steps")
+		}
+		if err := exec.Step(); err != nil {
+			t.Fatalf("step %d: %v", i, err)
+		}
+		if i == 0 {
+			between()
+			exec.SetTrace(trace)
+		}
+	}
+	return trace.String()
+}
+
+// A run a debugger drives step by step keeps drawing from its own seeded sequence
+// when another run, under another policy, is driven to completion in between.
+func TestDrivenRunKeepsItsSchedulerAcrossOtherRuns(t *testing.T) {
+	for seed := 0; seed < 16; seed++ {
+		policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, choiceModel))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "route", ast.DefAction)
+		if sym == nil {
+			t.Fatal("action not found")
+		}
+		newExecutor := func(policy SchedulePolicy) *ActionExecutor {
+			ctx.SetSchedule(policy)
+			exec, err := ctx.CreateActionExecutor(sym)
+			if err != nil {
+				t.Fatalf("create executor: %v", err)
+			}
+			return exec
+		}
+		alone := stepChoiceModel(t, newExecutor(policy), func() {})
+		interrupted := stepChoiceModel(t, newExecutor(policy), func() {
+			ctx.SetTrace(NewTraceRecorder())
+			other := newExecutor(mustPolicy(t, "declared"))
+			if err := other.RunToCompletion(); err != nil {
+				t.Fatalf("run in between: %v", err)
+			}
+		})
+		if alone != interrupted {
+			t.Errorf("%s: the run driven across another run differs from the same run driven alone\n=== ALONE ===\n%s\n=== INTERRUPTED ===\n%s", policy, alone, interrupted)
+		}
+	}
+}
+
 // A guard probe previews the run under the seed's generator and hands it back
 // untouched, so probing does not shift the choices the run goes on to make.
 func TestProbeLeavesTheSeededSequenceInPlace(t *testing.T) {

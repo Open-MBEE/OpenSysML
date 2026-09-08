@@ -51,9 +51,9 @@ type ActionExecutor struct {
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
 	pauses int64
 
-	// runStarted marks this executor's run as begun, so the step budget is reset
-	// once however many calls the run is driven over.
-	runStarted bool
+	// driven is this executor's run over however many calls drive it: begun once,
+	// so the step budget is reset once, and keeping its scheduler throughout.
+	driven executorRun
 	// steps of the action's token-flow budget the current call has spent, by the
 	// tokens of its flow and of the flows body statements run alike.
 	steps int64
@@ -205,7 +205,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 // Returns an error if a deadlock unrelated to accepts is detected (no progress
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -370,7 +370,7 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 // step that makes no progress. A parked action therefore cannot spend the step
 // budget spinning — the budget is only consumed by steps that move something.
 func (e *ActionExecutor) RunToCompletion() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -791,7 +791,7 @@ func (e *ActionExecutor) checkInputNames() error {
 
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	// Use initial node from graph
 	if e.graph.Initial == nil {
@@ -1379,6 +1379,18 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	}
 	if len(holding) > 0 {
 		pick := e.ctx.scheduling().pick(len(holding))
+		// A branch picked past the first was only probed; its guard's final reading
+		// is the run's own, so the run holds what evaluating it did.
+		if pick > 0 {
+			holds, err := e.guardHolds(ec, decisionNode, successors[holding[pick]].Guard)
+			if err != nil {
+				return err
+			}
+			if !holds {
+				return fmt.Errorf("%w: decision node %s: guard of %s held when probed and not when read",
+					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
+			}
+		}
 		e.noteDecisionBranches(token.frame, decisionNode, successors, holding, pick)
 		token.travel(successors[holding[pick]], e.sweep)
 		return nil

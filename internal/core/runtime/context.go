@@ -571,22 +571,39 @@ func (ctx *Context) beginRun() func() {
 	return func() { ctx.runDepth-- }
 }
 
-// beginExecutorRun brackets one call into an executor a caller drives itself, step
-// by step - the REPL's %action and %state debuggers - whose run spans many calls
-// and so has no single scope beginRun could bracket. started, held by the
-// executor, marks its run as begun, so the counter is reset once, at its start,
-// and every call of it counts as a run under way.
-func (ctx *Context) beginExecutorRun(started *bool) func() {
-	if ctx.runDepth == 0 && !*started {
+// executorRun is a run driven call by call: begun or not, and the scheduler its
+// choices draw from over every call.
+type executorRun struct {
+	started   bool
+	scheduler *scheduler
+}
+
+// beginExecutorRun brackets one call into an executor driven call by call (the
+// REPL debuggers): the budget is reset once, at the run's start, and a top-level
+// call resolves its choices with the run's own scheduler, whatever ran in between.
+func (ctx *Context) beginExecutorRun(run *executorRun) func() {
+	if ctx.runDepth == 0 && !run.started {
 		ctx.steps = 0
 		ctx.elements = 0
 		ctx.notes = nil
 		ctx.scheduler = ctx.schedule.start()
 		ctx.calcUsageRuns = make(map[int64]map[calcUsageKey]*calcRun)
 	}
-	*started = true
+	if !run.started {
+		run.scheduler = ctx.scheduling()
+	}
+	run.started = true
+	if ctx.runDepth > 0 {
+		ctx.runDepth++
+		return func() { ctx.runDepth-- }
+	}
+	saved := ctx.scheduler
+	ctx.scheduler = run.scheduler
 	ctx.runDepth++
-	return func() { ctx.runDepth-- }
+	return func() {
+		ctx.runDepth--
+		ctx.scheduler = saved
+	}
 }
 
 // beginProbe brackets an evaluation previewing what a run would do, restoring the

@@ -244,7 +244,7 @@ func (p *changePoll) wait(trans *lower.Transition, state, reason string) {
 // watches and takes the transitions they enable, reporting whether any fired:
 // the step RunToCompletion takes, for a driver that steps the machine itself.
 func (e *StateExecutor) PollChangeEvents() (bool, error) {
-	defer e.ctx.beginExecutorRun(&e.runStarted)()
+	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	return e.pollChangeEvents()
 }

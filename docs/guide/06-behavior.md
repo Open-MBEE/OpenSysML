@@ -219,7 +219,10 @@ REPL for the runs started after it (a debugging session under way keeps its own)
 field on the gRPC execution requests, and a `schedule` pin on a conformance case — and changes
 only which alternative each choice takes: every choice point the run reaches is reported, and
 each `took …` is what the named policy took, so running a model under two policies and comparing
-the outcomes is how a scheduling artefact is told from a bug. Another linearization can reach
+the outcomes is how a scheduling artefact is told from a bug. A guard the policy picks past the
+first was only previewed, so the run reads it once more for real before taking its branch (the
+trace shows that reading), as a transition's guard is always read again as it fires. Another
+linearization can reach
 other choice points — which tokens are steppable in a step depends on the order the earlier ones
 moved — so the count is not fixed across policies, only the reporting is. An unknown spelling —
 `random`, `seed` without a number, `seed:-1` — is refused before anything runs rather than falling
