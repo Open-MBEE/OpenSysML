@@ -571,22 +571,18 @@ function decodeSet(set: ValueSet): SysMLValue[] {
 }
 
 /**
- * Whether two values are the same value: the same kind holding the same
- * contents. An `int` is never a `real`, a `sequence`'s order counts and a
- * `set`'s does not; a `null` is the same whatever its reason.
+ * Whether two values are the same value to the model, as the service judges a
+ * set's membership: numbers by value, so a whole `real` is the `int` of its
+ * value and a `complex` on the real axis is its real part, exactly across the
+ * whole `int` range; a `sequence`'s order counts and a `set`'s does not; a
+ * `null` is the same whatever its reason.
  */
 export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
   switch (a.kind) {
     case "int":
-      return b.kind === "int" && a.value === b.value;
     case "real":
-      return b.kind === "real" && a.value === b.value;
     case "complex":
-      return (
-        b.kind === "complex" &&
-        a.value.real === b.value.real &&
-        a.value.imaginary === b.value.imaginary
-      );
+      return numbersEqual(a, b);
     case "boolean":
       return b.kind === "boolean" && a.value === b.value;
     case "string":
@@ -654,11 +650,40 @@ function dimensionsEqual(a: bigint[], b: bigint[]): boolean {
   return a.length === b.length && a.every((d, i) => d === b[i]);
 }
 
+type NumberValue = Magnitude | { kind: "complex"; value: ComplexValue };
+
+function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
+  if (a.kind === "complex") {
+    if (a.value.imaginary !== 0) {
+      return (
+        b.kind === "complex" &&
+        a.value.real === b.value.real &&
+        a.value.imaginary === b.value.imaginary
+      );
+    }
+    a = { kind: "real", value: a.value.real };
+  }
+  if (b.kind === "complex") {
+    if (b.value.imaginary !== 0) {
+      return false;
+    }
+    b = { kind: "real", value: b.value.real };
+  }
+  if (a.kind === "int") {
+    if (b.kind === "int") return a.value === b.value;
+    return b.kind === "real" && realIsInt(b.value, a.value);
+  }
+  if (b.kind === "int") return realIsInt(a.value, b.value);
+  return b.kind === "real" && a.value === b.value;
+}
+
+// Whether r is exactly the integer n, never rounding n.
+function realIsInt(r: number, n: bigint): boolean {
+  return Number.isInteger(r) && r >= -(2 ** 63) && r < 2 ** 63 && BigInt(r) === n;
+}
+
 function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
-  return (
-    a.length === b.length &&
-    a.every((m, i) => m.kind === b[i]?.kind && m.value === b[i]?.value)
-  );
+  return a.length === b.length && a.every((m, i) => numbersEqual(m, b[i]));
 }
 
 function componentsEqual(a: QuantityValue[], b: QuantityValue[]): boolean {
@@ -670,8 +695,7 @@ function componentsEqual(a: QuantityValue[], b: QuantityValue[]): boolean {
 
 function quantitiesEqual(a: QuantityValue, b: QuantityValue): boolean {
   return (
-    a.magnitude.kind === b.magnitude.kind &&
-    a.magnitude.value === b.magnitude.value &&
+    numbersEqual(a.magnitude, b.magnitude) &&
     a.unit === b.unit &&
     unitTermsEqual(a.unitTerm, b.unitTerm)
   );

@@ -1,9 +1,9 @@
 package org.openmbee.opensysml;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * A value the service evaluated: an immutable variant of {@code sysml.Value}.
@@ -356,6 +356,9 @@ public sealed interface Value {
    * Only a service advertising the {@code set_values} capability reports one as itself rather
    * than as an unsupported {@link NullValue}.
    *
+   * <p>Membership, and so equality and the refusal of a member listed twice, are judged by {@link
+   * Value#sameValue}, as the service judges them: {@code 1} and {@code 1.0} are one member.
+   *
    * @param elements the members, each once, in the order the service sent them
    */
   record SetValue(List<Value> elements) implements Value {
@@ -368,10 +371,19 @@ public sealed interface Value {
     public SetValue {
       elements = List.copyOf(elements);
       for (int i = 0; i < elements.size(); i++) {
-        if (elements.subList(0, i).contains(elements.get(i))) {
+        if (holds(elements.subList(0, i), elements.get(i))) {
           throw new IllegalArgumentException("set lists a member twice: " + elements.get(i));
         }
       }
+    }
+
+    private static boolean holds(List<Value> members, Value value) {
+      for (Value member : members) {
+        if (member.sameValue(value)) {
+          return true;
+        }
+      }
+      return false;
     }
 
     /**
@@ -399,20 +411,30 @@ public sealed interface Value {
      * @return {@code true} when the set holds it
      */
     public boolean contains(Value value) {
-      return elements.contains(value);
+      return holds(elements, value);
     }
 
     /** Order-insensitive: the same members in any order are the same set. */
     @Override
     public boolean equals(Object other) {
-      return other instanceof SetValue that
-          && elements.size() == that.elements.size()
-          && elements.containsAll(that.elements);
+      if (!(other instanceof SetValue that) || elements.size() != that.elements.size()) {
+        return false;
+      }
+      for (Value element : elements) {
+        if (!that.contains(element)) {
+          return false;
+        }
+      }
+      return true;
     }
 
     @Override
     public int hashCode() {
-      return Set.copyOf(elements).hashCode();
+      int hash = 0;
+      for (Value element : elements) {
+        hash += valueHash(element);
+      }
+      return hash;
     }
   }
 
@@ -433,8 +455,8 @@ public sealed interface Value {
      *
      * @param dimensions the extent of each dimension, never {@code null}
      * @param components the components, never {@code null}
-     * @throws IllegalArgumentException if a dimension is not positive, or the components do not
-     *     fill the dimensions exactly
+     * @throws IllegalArgumentException if a dimension is not positive, the dimensions overflow a
+     *     {@code long}, or the components do not fill the dimensions exactly
      */
     public TensorQuantityValue {
       dimensions = List.copyOf(dimensions);
@@ -444,7 +466,11 @@ public sealed interface Value {
         if (extent <= 0) {
           throw new IllegalArgumentException("tensor dimension is not positive: " + extent);
         }
-        size = Math.multiplyExact(size, extent);
+        try {
+          size = Math.multiplyExact(size, extent);
+        } catch (ArithmeticException overflow) {
+          throw new IllegalArgumentException("tensor dimensions overflow: " + dimensions, overflow);
+        }
       }
       if (size != components.size()) {
         throw new IllegalArgumentException(
@@ -501,6 +527,129 @@ public sealed interface Value {
       }
       return first;
     }
+  }
+
+  /**
+   * Whether this is the same value as another to the model, as the service judges a set's
+   * membership: numbers by value, so a whole {@link RealValue} is the {@link IntegerValue} of its
+   * value and a {@link ComplexValue} on the real axis is its real part, exactly across the whole
+   * {@code long} range; a sequence's order counts and a set's does not; a quantity is one in its
+   * unit as written. Every other arm compares as {@link Object#equals} does, which stays
+   * structural: {@code new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
+   *
+   * @param other the value to compare with
+   * @return {@code true} when the model would not tell the two apart
+   */
+  default boolean sameValue(Value other) {
+    Objects.requireNonNull(other, "other");
+    if (this instanceof IntegerValue || this instanceof RealValue || this instanceof ComplexValue) {
+      return numbersEqual(this, other);
+    }
+    if (this instanceof Sequence a && other instanceof Sequence b) {
+      return sameValues(a.elements(), b.elements());
+    }
+    if (this instanceof QuantityValue a && other instanceof QuantityValue b) {
+      return quantitiesEqual(a.quantity(), b.quantity());
+    }
+    if (this instanceof ArrayValue a && other instanceof ArrayValue b) {
+      return a.dimensions().equals(b.dimensions()) && sameValues(a.elements(), b.elements());
+    }
+    if (this instanceof VectorValue a && other instanceof VectorValue b) {
+      return sameValues(a.components(), b.components());
+    }
+    if (this instanceof VectorQuantityValue a && other instanceof VectorQuantityValue b) {
+      return sameQuantities(a.components(), b.components());
+    }
+    if (this instanceof TensorQuantityValue a && other instanceof TensorQuantityValue b) {
+      return a.dimensions().equals(b.dimensions())
+          && sameQuantities(a.components(), b.components());
+    }
+    return equals(other);
+  }
+
+  private static boolean numbersEqual(Value a, Value b) {
+    Number x = onRealAxis(a);
+    Number y = onRealAxis(b);
+    return x != null && y != null ? magnitudesEqual(x, y) : a.equals(b);
+  }
+
+  /** A number's magnitude as a {@link Long} or {@link Double}; {@code null} off the real axis. */
+  private static Number onRealAxis(Value value) {
+    if (value instanceof IntegerValue integer) {
+      return integer.value();
+    }
+    if (value instanceof RealValue real) {
+      return real.value();
+    }
+    if (value instanceof ComplexValue complex && complex.imaginary() == 0.0) {
+      return complex.real();
+    }
+    return null;
+  }
+
+  private static boolean magnitudesEqual(Number a, Number b) {
+    if (a instanceof Long x) {
+      return b instanceof Long y ? x.longValue() == y : realIsLong(b.doubleValue(), x);
+    }
+    return b instanceof Long y ? realIsLong(a.doubleValue(), y) : a.doubleValue() == b.doubleValue();
+  }
+
+  // Whether r is exactly the integer n, never rounding n.
+  private static boolean realIsLong(double r, long n) {
+    return r == Math.rint(r) && r >= -0x1p63 && r < 0x1p63 && (long) r == n;
+  }
+
+  private static boolean sameValues(List<Value> a, List<Value> b) {
+    if (a.size() != b.size()) {
+      return false;
+    }
+    Iterator<Value> others = b.iterator();
+    for (Value value : a) {
+      if (!value.sameValue(others.next())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static boolean quantitiesEqual(Quantity a, Quantity b) {
+    return magnitudesEqual(a.magnitude(), b.magnitude())
+        && a.unit().equals(b.unit())
+        && a.reduction().equals(b.reduction());
+  }
+
+  private static boolean sameQuantities(List<Quantity> a, List<Quantity> b) {
+    if (a.size() != b.size()) {
+      return false;
+    }
+    Iterator<Quantity> others = b.iterator();
+    for (Quantity quantity : a) {
+      if (!quantitiesEqual(quantity, others.next())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** A hash consistent with {@link #sameValue}: values the model equates hash alike. */
+  private static int valueHash(Value value) {
+    Number magnitude = onRealAxis(value);
+    if (magnitude != null) {
+      return Double.hashCode(magnitude.doubleValue() + 0.0);
+    }
+    if (value instanceof QuantityValue quantity) {
+      return Double.hashCode(quantity.quantity().magnitude().doubleValue() + 0.0)
+          ^ quantity.quantity().unit().hashCode();
+    }
+    if (value instanceof SetValue
+        || value instanceof Sequence
+        || value instanceof ArrayValue
+        || value instanceof VectorValue
+        || value instanceof VectorQuantityValue
+        || value instanceof TensorQuantityValue) {
+      return value.getClass().hashCode();
+    }
+    return value.hashCode();
   }
 
   /**

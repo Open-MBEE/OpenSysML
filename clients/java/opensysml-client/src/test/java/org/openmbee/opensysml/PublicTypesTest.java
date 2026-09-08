@@ -2,6 +2,7 @@ package org.openmbee.opensysml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -109,6 +110,90 @@ class PublicTypesTest {
   }
 
   @Test
+  void aSetJudgesItsMembersAsTheModelDoes() {
+    Value one = new Value.IntegerValue(1);
+    Value oneReal = new Value.RealValue(1.0);
+    Value oneComplex = new Value.ComplexValue(1.0, 0.0);
+    Value twoPointFive = new Value.RealValue(2.5);
+    Value.SetValue set = new Value.SetValue(List.of(one, twoPointFive));
+
+    // An Integer and the whole Real of its value are one member, as is a Complex on the real axis.
+    assertTrue(set.contains(oneReal));
+    assertTrue(set.contains(oneComplex));
+    assertTrue(set.contains(new Value.ComplexValue(2.5, 0.0)));
+    assertFalse(set.contains(new Value.RealValue(1.5)));
+    assertFalse(set.contains(new Value.BooleanValue(true)));
+    Value.SetValue byReals = new Value.SetValue(List.of(twoPointFive, oneReal));
+    assertEquals(byReals, set);
+    assertEquals(byReals.hashCode(), set.hashCode());
+    assertNotEquals(one, oneReal);
+    for (List<Value> twice :
+        List.<List<Value>>of(
+            List.of(one, oneReal),
+            List.of(oneReal, oneComplex),
+            List.of(one, oneComplex),
+            List.of(new Value.IntegerValue(0), new Value.RealValue(-0.0)),
+            List.of(new Value.QuantityValue(metres(1L)), new Value.QuantityValue(metres(1.0))))) {
+      assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(twice), twice::toString);
+    }
+
+    // Members that only look alike stay apart: nearby numbers beyond 2^53, a Complex off the
+    // axis, a Boolean, another unit, another order of a sequence, another shape of an array.
+    Value big = new Value.IntegerValue((1L << 53) + 1);
+    Value bigReal = new Value.RealValue(0x1p53);
+    for (List<Value> apart :
+        List.<List<Value>>of(
+            List.of(big, bigReal),
+            List.of(new Value.IntegerValue(Long.MAX_VALUE), new Value.RealValue(0x1p63)),
+            List.of(one, new Value.RealValue(1.5)),
+            List.of(oneReal, new Value.ComplexValue(1.0, 1.0)),
+            List.of(one, new Value.BooleanValue(true)),
+            List.of(one, new Value.StringValue("1")),
+            List.of(
+                new Value.QuantityValue(metres(1L)),
+                new Value.QuantityValue(new Quantity(1L, Optional.of("km"), Optional.empty()))),
+            List.of(
+                new Value.Sequence(List.of(one, twoPointFive)),
+                new Value.Sequence(List.of(twoPointFive, one))),
+            List.of(
+                new Value.ArrayValue(List.of(2L, 1L), List.of(one, one)),
+                new Value.ArrayValue(List.of(1L, 2L), List.of(one, one))),
+            List.of(new Value.Sequence(List.of(one)), new Value.SetValue(List.of(one))))) {
+      assertEquals(2, new Value.SetValue(apart).size(), apart::toString);
+    }
+    assertNotEquals(new Value.SetValue(List.of(big)), new Value.SetValue(List.of(bigReal)));
+    assertEquals(
+        new Value.SetValue(List.of(new Value.IntegerValue(Long.MIN_VALUE))),
+        new Value.SetValue(List.of(new Value.RealValue(-0x1p63))));
+
+    // Numbers nested in sequences, vectors, arrays and quantities are judged the same way.
+    assertTrue(
+        new Value.Sequence(List.of(one, twoPointFive))
+            .sameValue(new Value.Sequence(List.of(oneReal, twoPointFive))));
+    assertTrue(
+        new Value.VectorValue(List.of(one, new Value.RealValue(2.0)))
+            .sameValue(new Value.VectorValue(List.of(oneReal, new Value.IntegerValue(2)))));
+    assertTrue(
+        new Value.ArrayValue(List.of(1L), List.of(one))
+            .sameValue(new Value.ArrayValue(List.of(1L), List.of(oneComplex))));
+    assertTrue(
+        new Value.VectorQuantityValue(List.of(metres(1L)))
+            .sameValue(new Value.VectorQuantityValue(List.of(metres(1.0)))));
+    assertTrue(
+        new Value.TensorQuantityValue(List.of(1L, 1L), List.of(metres(1L)))
+            .sameValue(new Value.TensorQuantityValue(List.of(1L, 1L), List.of(metres(1.0)))));
+    assertFalse(
+        new Value.TensorQuantityValue(List.of(1L, 1L), List.of(metres(1L)))
+            .sameValue(new Value.TensorQuantityValue(List.of(1L), List.of(metres(1.0)))));
+    assertFalse(new Value.NullValue().sameValue(new Value.UnsetValue()));
+    assertTrue(new Value.NullValue().sameValue(new Value.NullValue()));
+  }
+
+  private static Quantity metres(Number magnitude) {
+    return new Quantity(magnitude, Optional.of("m"), Optional.empty());
+  }
+
+  @Test
   void aTensorQuantityIsShapedAndIndexedInRowMajorOrder() {
     List<Quantity> pascals = new ArrayList<>();
     for (int i = 1; i <= 8; i++) {
@@ -149,9 +234,11 @@ class PublicTypesTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> new Value.TensorQuantityValue(List.of(-2L, -4L), pascals));
-    assertThrows(
-        ArithmeticException.class,
-        () -> new Value.TensorQuantityValue(List.of(Long.MAX_VALUE, 2L), pascals));
+    IllegalArgumentException overflow =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new Value.TensorQuantityValue(List.of(Long.MAX_VALUE, 2L), pascals));
+    assertInstanceOf(ArithmeticException.class, overflow.getCause());
 
     List<Long> shape = new ArrayList<>(List.of(8L));
     Value.TensorQuantityValue copied = new Value.TensorQuantityValue(shape, pascals);

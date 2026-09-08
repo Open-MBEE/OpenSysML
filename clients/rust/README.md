@@ -153,7 +153,11 @@ advertised operation.
 
 A `Value::Set` is a `Collections::Set`'s elements: each member once, sent in
 the service's canonical order (numbers ascending, then strings, and so on), and
-equal to another set holding the same members in any order. A
+equal to another set holding the same members in any order. Membership is
+judged by `Value::same_value`, as the service judges it: `Integer(1)` and
+`Real(1.0)` are one member, `Real(1.5)` and a `Complex` of `1.5 + 0.0i` are one
+member, exactly across the whole `i64` range, while `==` on `Value` stays
+structural. A
 `Value::TensorQuantity` is a `Quantities::TensorQuantityValue` of any rank:
 its `dimensions()` and its `components()` flattened row-major, each a
 `Quantity` with its own unit; `get(&[i, j, k])` takes one coordinate per

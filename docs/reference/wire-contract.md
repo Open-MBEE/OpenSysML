@@ -521,6 +521,13 @@ $ … /Evaluate -d '{"modelHash":"c409…1a4a","expression":"T::s.elements"}'
   identically, but the order carries no meaning and a client must not read one into it.
 - A `set` is not a `sequence`: `(1, 2) == (2, 1)` is false, the sets they populate are equal.
   A client compares sets by membership and sends one back in any order it likes.
+- Membership is the engine's value equality: numbers by value, so `1` and `1.0` are one member
+  and so are `1.5` and the complex `1.5 + 0.0i`, exactly — an Integer past 2^53 is not the Real
+  it would round to; a Boolean is never a number; sequences in order; sets by membership;
+  quantities by magnitude, converting commensurable units, so `1 [m]` and `100 [cm]` are one
+  member. The bundled clients' equality helpers judge numbers, Booleans, sequences and sets the
+  same way; a quantity they compare in its unit as written, so a set holding `1 [m]` and
+  `100 [cm]` decodes as two members in a client where the service would hold one.
 - An empty set has no `elements` key (default omission). A `set` listing a member twice is
   refused on both sides, as is a `set` where the model wants a sequence's order or a sequence
   where it wants a set; a set flowing into an ordered parameter is read in canonical order.

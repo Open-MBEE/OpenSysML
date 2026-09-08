@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -179,12 +180,16 @@ func TestMalformedTensorAnswersAreNullsNamingTheFault(t *testing.T) {
 	}
 }
 
-// A set in an answer listing a member twice — by value, nested collections and
-// quantities included — reads as an unsupported null naming the member; one
-// whose members only look alike reads as its elements.
+// A set in an answer listing a member twice — by value as the model judges it,
+// so an Integer and the whole Real of its value are one member, nested
+// collections and quantities included — reads as an unsupported null naming
+// the member; one whose members only look alike reads as its elements.
 func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 	pbInt := func(n int64) *pb.Value { return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n}} }
 	pbReal := func(x float64) *pb.Value { return &pb.Value{Kind: &pb.Value_RealValue{RealValue: x}} }
+	pbComplex := func(re, im float64) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_Complex{Complex: &pb.Complex{Real: re, Imaginary: im}}}
+	}
 	pbSeq := func(elements ...*pb.Value) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: elements}}}
 	}
@@ -194,11 +199,18 @@ func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 	pbQty := func(n int64, unit string) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: &pb.Quantity{Magnitude: &pb.Quantity_IntMagnitude{IntMagnitude: n}, Unit: unit}}}
 	}
+	pbRealQty := func(x float64, unit string) *pb.Value {
+		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: &pb.Quantity{Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: x}, Unit: unit}}}
+	}
 	for name, value := range map[string]*pb.Value{
 		"integer twice":        pbSet(pbInt(1), pbInt(2), pbInt(1)),
+		"integer and real":     pbSet(pbInt(1), pbReal(1)),
+		"real and complex":     pbSet(pbReal(1.5), pbComplex(1.5, 0)),
+		"integer and complex":  pbSet(pbInt(2), pbComplex(2, 0)),
 		"sequence twice":       pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(1), pbInt(2))),
 		"set twice, reordered": pbSet(pbSet(pbInt(1), pbInt(2)), pbSet(pbInt(2), pbInt(1))),
 		"quantity twice":       pbSet(pbQty(1, "m"), pbQty(1, "m")),
+		"quantity by real":     pbSet(pbQty(1, "m"), pbRealQty(1, "m")),
 		"empty set twice":      pbSet(pbSet(), pbSet()),
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -213,11 +225,14 @@ func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 		value *pb.Value
 		want  Set
 	}{
-		"integer and real":     {pbSet(pbInt(1), pbReal(1)), Set{Int(1), Real(1)}},
-		"sequence and set":     {pbSet(pbSeq(pbInt(1)), pbSet(pbInt(1))), Set{Sequence{Int(1)}, Set{Int(1)}}},
-		"sequences reordered":  {pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(2), pbInt(1))), Set{Sequence{Int(1), Int(2)}, Sequence{Int(2), Int(1)}}},
-		"quantities in a unit": {pbSet(pbQty(1, "m"), pbQty(1, "km")), Set{Quantity{Magnitude: Int(1), Unit: "m"}, Quantity{Magnitude: Int(1), Unit: "km"}}},
-		"empty and singleton":  {pbSet(pbSet(), pbSet(pbSet())), Set{Set{}, Set{Set{}}}},
+		"integer and near real": {pbSet(pbInt(1<<53+1), pbReal(1<<53)), Set{Int(1<<53 + 1), Real(1 << 53)}},
+		"integer and fraction":  {pbSet(pbInt(1), pbReal(1.5)), Set{Int(1), Real(1.5)}},
+		"real and imaginary":    {pbSet(pbReal(1), pbComplex(1, 1)), Set{Real(1), Complex(complex(1, 1))}},
+		"integer and boolean":   {pbSet(pbInt(1), &pb.Value{Kind: &pb.Value_BoolValue{BoolValue: true}}), Set{Int(1), Bool(true)}},
+		"sequence and set":      {pbSet(pbSeq(pbInt(1)), pbSet(pbInt(1))), Set{Sequence{Int(1)}, Set{Int(1)}}},
+		"sequences reordered":   {pbSet(pbSeq(pbInt(1), pbInt(2)), pbSeq(pbInt(2), pbInt(1))), Set{Sequence{Int(1), Int(2)}, Sequence{Int(2), Int(1)}}},
+		"quantities in a unit":  {pbSet(pbQty(1, "m"), pbQty(1, "km")), Set{Quantity{Magnitude: Int(1), Unit: "m"}, Quantity{Magnitude: Int(1), Unit: "km"}}},
+		"empty and singleton":   {pbSet(pbSet(), pbSet(pbSet())), Set{Set{}, Set{Set{}}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := valueFromProto(tc.value); !reflect.DeepEqual(got, tc.want) {
@@ -228,11 +243,51 @@ func TestRepeatedSetMembersAreNullsNamingTheFault(t *testing.T) {
 	if !Equal(Set{Int(1), Sequence{Int(2), Int(3)}}, Set{Sequence{Int(2), Int(3)}, Int(1)}) {
 		t.Error("sets holding the same members in another order are not Equal")
 	}
-	if Equal(Set{Int(1)}, Sequence{Int(1)}) || Equal(Int(1), Real(1)) || Equal(nil, Null("")) {
+	if Equal(Set{Int(1)}, Sequence{Int(1)}) || Equal(Int(1), Bool(true)) || Equal(nil, Null("")) {
 		t.Error("values of different kinds are Equal")
 	}
 	if !Equal(Null("a"), Null("b")) || !Equal(Unset{}, Unset{}) || Equal(Unset{}, Null("")) {
 		t.Error("a Null is not one whatever its reason, or an Unset is not one")
+	}
+}
+
+// Equal judges numbers as the service does: by value across Int, Real and a
+// Complex on the real axis, exactly — an Int beyond a double's precision is
+// not the Real it would round to — and inside quantities, vectors and sets.
+func TestEqualJudgesNumbersByValue(t *testing.T) {
+	for name, tc := range map[string]struct {
+		a, b Value
+		want bool
+	}{
+		"int and whole real":         {Int(1), Real(1), true},
+		"int and fraction":           {Int(1), Real(1.5), false},
+		"int and real beyond 2^53":   {Int(1<<53 + 1), Real(1 << 53), false},
+		"int and real at 2^53":       {Int(1 << 53), Real(1 << 53), true},
+		"max int and 2^63":           {Int(math.MaxInt64), Real(-math.MinInt64), false},
+		"min int and -2^63":          {Int(math.MinInt64), Real(math.MinInt64), true},
+		"int and infinity":           {Int(0), Real(math.Inf(1)), false},
+		"zero and negative zero":     {Int(0), Real(math.Copysign(0, -1)), true},
+		"real and real-axis complex": {Real(2.5), Complex(complex(2.5, 0)), true},
+		"int and real-axis complex":  {Int(2), Complex(complex(2, 0)), true},
+		"int and imaginary":          {Int(2), Complex(complex(2, 1)), false},
+		"complex twice":              {Complex(complex(2, 1)), Complex(complex(2, 1)), true},
+		"int and bool":               {Int(1), Bool(true), false},
+		"int and string":             {Int(1), String("1"), false},
+		"quantity by int and real":   {Quantity{Magnitude: Int(1), Unit: "m"}, Quantity{Magnitude: Real(1), Unit: "m"}, true},
+		"quantity in another unit":   {Quantity{Magnitude: Int(1), Unit: "m"}, Quantity{Magnitude: Int(1), Unit: "km"}, false},
+		"vector by int and real":     {Vector{Int(1), Real(2)}, Vector{Real(1), Int(2)}, true},
+		"vector and sequence":        {Vector{Int(1)}, Sequence{Int(1)}, false},
+		"set by int and real":        {Set{Int(1), Real(2.5)}, Set{Real(2.5), Real(1)}, true},
+		"set and near real":          {Set{Int(1<<53 + 1)}, Set{Real(1 << 53)}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := Equal(tc.a, tc.b); got != tc.want {
+				t.Errorf("Equal(%#v, %#v) = %v, want %v", tc.a, tc.b, got, tc.want)
+			}
+			if got := Equal(tc.b, tc.a); got != tc.want {
+				t.Errorf("Equal(%#v, %#v) = %v, want %v", tc.b, tc.a, got, tc.want)
+			}
+		})
 	}
 }
 

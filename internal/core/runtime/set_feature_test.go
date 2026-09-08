@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"math"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -256,6 +257,63 @@ func TestCanonicalOrderIsTotal(t *testing.T) {
 	}
 	if got := intsOf(t, sequenceOf(big.Elements())); !equalInts(got, []int64{1<<53 - 1, 1 << 53, 1<<53 + 1}) {
 		t.Errorf("large integers = %v, want them ascending", got)
+	}
+}
+
+// TestMixedNumbersOrderExactly pins that an Integer is never rounded to a
+// double to place it among Reals: beyond 2^53 a nearby Real takes its own
+// position, and the same members added in either order enumerate alike.
+func TestMixedNumbersOrderExactly(t *testing.T) {
+	integer := func(n int64) Value {
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+	}
+	dbl := func(r float64) Value { return realConst(r) }
+	for _, tc := range []struct {
+		a, b Value
+		want int
+	}{
+		{integer(1<<53 + 1), dbl(1 << 53), 1},
+		{integer(1<<53 - 1), dbl(1 << 53), -1},
+		{integer(1 << 53), dbl(1 << 53), 0},
+		{integer(math.MaxInt64), dbl(1 << 62), 1},
+		{integer(math.MaxInt64), dbl(1 << 63), -1},
+		{integer(math.MinInt64), dbl(math.MinInt64), 0},
+		{integer(math.MinInt64), dbl(-(1 << 64)), 1},
+		{integer(2), dbl(2.5), -1},
+		{integer(3), dbl(2.5), 1},
+		{integer(-3), dbl(-2.5), -1},
+		{integer(-2), dbl(-2.5), 1},
+		{integer(0), dbl(math.Inf(1)), -1},
+		{integer(0), dbl(math.Inf(-1)), 1},
+	} {
+		if got := canonicalCompare(tc.a, tc.b); got != tc.want {
+			t.Errorf("compare(%s, %s) = %d, want %d", FormatValue(tc.a), FormatValue(tc.b), got, tc.want)
+		}
+		if got := canonicalCompare(tc.b, tc.a); got != -tc.want {
+			t.Errorf("compare(%s, %s) = %d, want %d", FormatValue(tc.b), FormatValue(tc.a), got, -tc.want)
+		}
+	}
+
+	members := []Value{integer(1<<53 + 1), dbl(1 << 53), integer(1<<53 - 1), dbl(1<<53 + 2)}
+	want := "{9007199254740991, 9007199254740992.0, 9007199254740993, 9007199254740994.0}"
+	var sets []*Set
+	for _, order := range [][]int{{0, 1, 2, 3}, {3, 2, 1, 0}, {1, 3, 0, 2}} {
+		set := NewSet()
+		for _, i := range order {
+			set.Add(members[i])
+		}
+		if set.Size() != len(members) {
+			t.Fatalf("added in %v: %d members, want %d", order, set.Size(), len(members))
+		}
+		if got := FormatTraceValue(NewSetValue(set)); got != want {
+			t.Errorf("added in %v: %s, want %s", order, got, want)
+		}
+		sets = append(sets, set)
+	}
+	for _, set := range sets[1:] {
+		if !sets[0].Equal(set) {
+			t.Errorf("sets of the same members differ: %s vs %s", FormatTraceValue(NewSetValue(sets[0])), FormatTraceValue(NewSetValue(set)))
+		}
 	}
 }
 

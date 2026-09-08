@@ -319,10 +319,18 @@ const seqOf = (...elements: ReturnType<typeof int>[]) =>
   create(ValueSchema, { kind: { case: "sequence", value: create(ValueSequenceSchema, { elements }) } });
 const bool = (value: boolean) => create(ValueSchema, { kind: { case: "boolValue", value } });
 const quantity = (q: ReturnType<typeof metres>) => create(ValueSchema, { kind: { case: "quantity", value: q } });
+const complex = (real: number, imaginary: number) =>
+  create(ValueSchema, { kind: { case: "complex", value: create(ComplexSchema, { real, imaginary }) } });
+const intMetres = (value: bigint) =>
+  create(QuantitySchema, { ...metres(Number(value)), magnitude: { case: "intMagnitude", value } });
 
 test("a set that lists a member twice is malformed, judged by value", () => {
   const twice = [
     setOf(int(1n), int(2n), int(1n)),
+    setOf(int(1n), real(1)),
+    setOf(real(1.5), complex(1.5, 0)),
+    setOf(int(2n), complex(2, 0)),
+    setOf(quantity(metres(1)), quantity(intMetres(1n))),
     setOf(seqOf(int(1n), int(2n)), seqOf(int(1n), int(2n))),
     setOf(setOf(int(1n), int(2n)), setOf(int(2n), int(1n))),
     setOf(setOf(), setOf()),
@@ -337,10 +345,13 @@ test("a set that lists a member twice is malformed, judged by value", () => {
     });
   }
 
-  // Members that merely look alike are distinct: an int is never a real, a
-  // sequence's order counts, a sequence is never a set of the same elements.
+  // Members that merely look alike are distinct: an int is not a real of another
+  // value, even one it would round to; a sequence's order counts; a sequence is
+  // never a set of the same elements.
   const alike = [
-    setOf(int(1n), real(1)),
+    setOf(int(1n), real(1.5)),
+    setOf(int(2n ** 53n + 1n), real(2 ** 53)),
+    setOf(real(1), complex(1, 1)),
     setOf(bool(true), int(1n)),
     setOf(seqOf(int(1n), int(2n)), seqOf(int(2n), int(1n))),
     setOf(seqOf(int(1n)), setOf(int(1n))),
@@ -362,6 +373,41 @@ test("a set that lists a member twice is malformed, judged by value", () => {
   assert.ok(!valuesEqual(a, decodeValue(setOf(int(1n), setOf(int(2n))))));
   assert.ok(valuesEqual({ kind: "null", reason: "x" }, { kind: "null", reason: "y" }));
   assert.ok(!valuesEqual({ kind: "unset" }, { kind: "absent" }));
+});
+
+test("valuesEqual judges numbers by value, as the service does", () => {
+  const i = (value: bigint): SysMLValue => ({ kind: "int", value });
+  const r = (value: number): SysMLValue => ({ kind: "real", value });
+  const c = (real: number, imaginary: number): SysMLValue => ({ kind: "complex", value: { real, imaginary } });
+  const cases: [SysMLValue, SysMLValue, boolean][] = [
+    [i(1n), r(1), true],
+    [i(1n), r(1.5), false],
+    [i(2n ** 53n + 1n), r(2 ** 53), false],
+    [i(2n ** 53n), r(2 ** 53), true],
+    [i(2n ** 63n - 1n), r(2 ** 63), false],
+    [i(-(2n ** 63n)), r(-(2 ** 63)), true],
+    [i(0n), r(Infinity), false],
+    [i(0n), r(-0), true],
+    [r(2.5), c(2.5, 0), true],
+    [i(2n), c(2, 0), true],
+    [i(2n), c(2, 1), false],
+    [c(2, 1), c(2, 1), true],
+    [i(1n), { kind: "boolean", value: true }, false],
+    [i(1n), { kind: "string", value: "1" }, false],
+    [decodeValue(quantity(intMetres(1n))), decodeValue(quantity(metres(1))), true],
+    [decodeValue(quantity(intMetres(1n))), decodeValue(quantity(metres(2))), false],
+    [
+      { kind: "vector", components: [{ kind: "int", value: 1n }, { kind: "real", value: 2 }] },
+      { kind: "vector", components: [{ kind: "real", value: 1 }, { kind: "int", value: 2n }] },
+      true,
+    ],
+    [{ kind: "set", elements: [i(1n), r(2.5)] }, { kind: "set", elements: [r(2.5), r(1)] }, true],
+    [{ kind: "set", elements: [i(2n ** 53n + 1n)] }, { kind: "set", elements: [r(2 ** 53)] }, false],
+  ];
+  for (const [a, b, want] of cases) {
+    assert.equal(valuesEqual(a, b), want, `${formatValue(a)} vs ${formatValue(b)}`);
+    assert.equal(valuesEqual(b, a), want, `${formatValue(b)} vs ${formatValue(a)}`);
+  }
 });
 
 test("a tensor quantity keeps its rank, its shape and its row-major components", () => {

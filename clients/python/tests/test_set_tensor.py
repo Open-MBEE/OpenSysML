@@ -149,6 +149,9 @@ def pb_seq(*elements):
 @pytest.mark.parametrize("elements", [
     (pb_int(1), pb_int(2), pb_int(1)),
     (pb_int(1), sysml_pb2.Value(real_value=1.0)),
+    (pb_int(2), sysml_pb2.Value(complex=sysml_pb2.Complex(real=2.0, imaginary=0.0))),
+    (sysml_pb2.Value(real_value=2.5), sysml_pb2.Value(complex=sysml_pb2.Complex(real=2.5))),
+    (pb_int(0), sysml_pb2.Value(real_value=-0.0)),
     (pb_seq(pb_int(1), pb_int(2)), pb_seq(pb_int(1), pb_int(2))),
     (pb_set(pb_int(1), pb_int(2)), pb_set(pb_int(2), pb_int(1))),
     (pb_set(), pb_set()),
@@ -162,6 +165,9 @@ def test_a_set_listing_a_member_twice_is_malformed(elements):
 
 @pytest.mark.parametrize("elements, expected", [
     ((sysml_pb2.Value(bool_value=True), pb_int(1)), SetValue((True, 1))),
+    ((pb_int(1), sysml_pb2.Value(real_value=1.5)), SetValue((1, 1.5))),
+    ((pb_int(2 ** 53 + 1), sysml_pb2.Value(real_value=float(2 ** 53))), SetValue((2 ** 53 + 1, float(2 ** 53)))),
+    ((pb_int(1), sysml_pb2.Value(complex=sysml_pb2.Complex(real=1.0, imaginary=1.0))), SetValue((1, 1 + 1j))),
     ((pb_seq(pb_int(1), pb_int(2)), pb_seq(pb_int(2), pb_int(1))), SetValue(([1, 2], [2, 1]))),
     ((pb_seq(pb_int(1)), pb_set(pb_int(1))), SetValue(([1], SetValue((1,))))),
     ((pb_seq(sysml_pb2.Value(bool_value=True)), pb_seq(pb_int(1))), SetValue(([True], [1]))),

@@ -353,19 +353,20 @@ impl VectorQuantity {
 ///
 /// The service sends the members in its canonical order (numbers ascending,
 /// then strings, and so on), each exactly once; two sets are equal when they
-/// hold the same members whatever the order. A service advertising
-/// `set_values` sends one as itself; an older one sends an unsupported
-/// [`Value::Null`] in its place.
+/// hold the same members whatever the order, judged by
+/// [`Value::same_value`]. A service advertising `set_values` sends one as
+/// itself; an older one sends an unsupported [`Value::Null`] in its place.
 #[derive(Clone, Debug)]
 pub struct Set {
     elements: Vec<Value>,
 }
 
 impl Set {
-    /// Builds a set, refusing one that lists a member twice.
+    /// Builds a set, refusing one that lists a member twice by
+    /// [`Value::same_value`].
     pub fn new(elements: Vec<Value>) -> Result<Self, Error> {
         for (i, element) in elements.iter().enumerate() {
-            if elements[..i].contains(element) {
+            if elements[..i].iter().any(|e| e.same_value(element)) {
                 return Err(Error::Decode(format!(
                     "set lists a member twice: {element:?}"
                 )));
@@ -389,9 +390,9 @@ impl Set {
         self.elements.is_empty()
     }
 
-    /// Whether `value` is a member.
+    /// Whether `value` is a member, by [`Value::same_value`].
     pub fn contains(&self, value: &Value) -> bool {
-        self.elements.contains(value)
+        self.elements.iter().any(|e| e.same_value(value))
     }
 }
 
@@ -571,6 +572,82 @@ pub enum Value {
     Unset,
     /// The unbounded value `*`, ordered above every finite magnitude.
     Infinity,
+}
+
+impl Value {
+    /// Whether two values are the same value to the model, as the service
+    /// judges a set's membership: numbers by value, so a whole [`Value::Real`]
+    /// is the [`Value::Integer`] of its value and a [`Value::Complex`] on the
+    /// real axis is its real part, exactly across the whole `i64` range; a
+    /// sequence's order counts and a set's does not; a quantity is one in its
+    /// unit as written. Every other arm compares as `==` does.
+    pub fn same_value(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Integer(_) | Value::Real(_) | Value::Complex(_), _) => {
+                numbers_equal(self, other)
+            }
+            (Value::Sequence(a), Value::Sequence(b)) => sequences_equal(a, b),
+            (Value::Quantity(a), Value::Quantity(b)) => quantities_equal(a, b),
+            (Value::Array(a), Value::Array(b)) => {
+                a.dimensions == b.dimensions && sequences_equal(&a.elements, &b.elements)
+            }
+            (Value::Vector(a), Value::Vector(b)) => {
+                a.components.len() == b.components.len()
+                    && a.components
+                        .iter()
+                        .zip(&b.components)
+                        .all(|(m, n)| magnitudes_equal(*m, *n))
+            }
+            (Value::VectorQuantity(a), Value::VectorQuantity(b)) => {
+                components_equal(&a.components, &b.components)
+            }
+            (Value::TensorQuantity(a), Value::TensorQuantity(b)) => {
+                a.dimensions == b.dimensions && components_equal(&a.components, &b.components)
+            }
+            _ => self == other,
+        }
+    }
+}
+
+fn numbers_equal(a: &Value, b: &Value) -> bool {
+    let on_axis = |v: &Value| match *v {
+        Value::Complex(z) if z.imaginary == 0.0 => Some(Magnitude::Real(z.real)),
+        Value::Integer(n) => Some(Magnitude::Integer(n)),
+        Value::Real(r) => Some(Magnitude::Real(r)),
+        _ => None,
+    };
+    match (on_axis(a), on_axis(b)) {
+        (Some(x), Some(y)) => magnitudes_equal(x, y),
+        _ => a == b,
+    }
+}
+
+fn magnitudes_equal(a: Magnitude, b: Magnitude) -> bool {
+    match (a, b) {
+        (Magnitude::Integer(x), Magnitude::Integer(y)) => x == y,
+        (Magnitude::Real(x), Magnitude::Real(y)) => x == y,
+        (Magnitude::Integer(n), Magnitude::Real(r))
+        | (Magnitude::Real(r), Magnitude::Integer(n)) => real_is_int(r, n),
+    }
+}
+
+// Whether `r` is exactly the integer `n`, never rounding `n`.
+fn real_is_int(r: f64, n: i64) -> bool {
+    r.fract() == 0.0
+        && (-9_223_372_036_854_775_808.0..9_223_372_036_854_775_808.0).contains(&r)
+        && r as i64 == n
+}
+
+fn sequences_equal(a: &[Value], b: &[Value]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| x.same_value(y))
+}
+
+fn quantities_equal(a: &Quantity, b: &Quantity) -> bool {
+    magnitudes_equal(a.magnitude, b.magnitude) && a.unit == b.unit && a.unit_term == b.unit_term
+}
+
+fn components_equal(a: &[Quantity], b: &[Quantity]) -> bool {
+    a.len() == b.len() && a.iter().zip(b).all(|(x, y)| quantities_equal(x, y))
 }
 
 pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
@@ -1435,7 +1512,8 @@ mod tests {
         );
         assert!(members.contains(&Value::Integer(2)));
         assert!(!members.contains(&Value::Integer(4)));
-        assert!(!members.contains(&Value::Real(2.0)));
+        assert!(members.contains(&Value::Real(2.0)));
+        assert!(!members.contains(&Value::Real(2.5)));
 
         // The same members in another order are the same set; a sequence is not.
         let reordered = Set::new(vec![
@@ -1478,16 +1556,145 @@ mod tests {
         };
         assert!(matches!(holding[0], Value::Set(_)));
 
-        // A member listed twice is not a set.
-        let twice = value_from_wire(set(vec![int(1), int(1)]));
-        assert!(
-            matches!(&twice, Err(Error::Decode(message)) if message.contains("twice")),
-            "{twice:?}"
-        );
+        // A member listed twice is not a set, judged as the model does: an
+        // Integer and the whole Real of its value are one member.
+        for twice in [
+            set(vec![int(1), int(1)]),
+            set(vec![int(1), real(1.0)]),
+            set(vec![real(1.5), complex(1.5, 0.0)]),
+            set(vec![int(2), complex(2.0, 0.0)]),
+        ] {
+            let twice = value_from_wire(twice);
+            assert!(
+                matches!(&twice, Err(Error::Decode(message)) if message.contains("twice")),
+                "{twice:?}"
+            );
+        }
+        for alike in [
+            set(vec![int(1), real(1.5)]),
+            set(vec![int((1 << 53) + 1), real(9_007_199_254_740_992.0)]),
+            set(vec![real(1.0), complex(1.0, 1.0)]),
+            set(vec![int(1), bool(true)]),
+        ] {
+            let Ok(Value::Set(two)) = value_from_wire(alike) else {
+                panic!("members that only look alike should decode");
+            };
+            assert_eq!(two.len(), 2);
+        }
         assert!(matches!(
             value_from_wire(set(vec![wire::Value { kind: None }])),
             Err(Error::Decode(message)) if message.contains("no kind")
         ));
+    }
+
+    fn complex(real: f64, imaginary: f64) -> wire::Value {
+        wire::Value {
+            kind: Some(wire::value::Kind::Complex(wire::Complex {
+                real,
+                imaginary,
+            })),
+        }
+    }
+
+    fn bool(value: bool) -> wire::Value {
+        wire::Value {
+            kind: Some(wire::value::Kind::BoolValue(value)),
+        }
+    }
+
+    /// `same_value` judges numbers as the service does: by value across
+    /// Integer, Real and a Complex on the real axis, exactly, inside
+    /// quantities, vectors and sets; `==` stays structural.
+    #[test]
+    fn same_value_judges_numbers_by_value() {
+        let z = |real, imaginary| Value::Complex(Complex { real, imaginary });
+        let metre = |magnitude| {
+            Value::Quantity(Quantity {
+                magnitude,
+                unit: "m".to_owned(),
+                unit_term: None,
+            })
+        };
+        let cases = [
+            (Value::Integer(1), Value::Real(1.0), true),
+            (Value::Integer(1), Value::Real(1.5), false),
+            (
+                Value::Integer((1 << 53) + 1),
+                Value::Real(9_007_199_254_740_992.0),
+                false,
+            ),
+            (
+                Value::Integer(1 << 53),
+                Value::Real(9_007_199_254_740_992.0),
+                true,
+            ),
+            (
+                Value::Integer(i64::MAX),
+                Value::Real(9_223_372_036_854_775_808.0),
+                false,
+            ),
+            (
+                Value::Integer(i64::MIN),
+                Value::Real(-9_223_372_036_854_775_808.0),
+                true,
+            ),
+            (Value::Integer(0), Value::Real(f64::INFINITY), false),
+            (Value::Integer(0), Value::Real(-0.0), true),
+            (Value::Real(2.5), z(2.5, 0.0), true),
+            (Value::Integer(2), z(2.0, 0.0), true),
+            (Value::Integer(2), z(2.0, 1.0), false),
+            (z(2.0, 1.0), z(2.0, 1.0), true),
+            (Value::Integer(1), Value::Boolean(true), false),
+            (Value::Integer(1), Value::Text("1".to_owned()), false),
+            (
+                metre(Magnitude::Integer(1)),
+                metre(Magnitude::Real(1.0)),
+                true,
+            ),
+            (
+                metre(Magnitude::Integer(1)),
+                metre(Magnitude::Real(2.0)),
+                false,
+            ),
+            (
+                Value::Vector(Vector {
+                    components: vec![Magnitude::Integer(1), Magnitude::Real(2.0)],
+                }),
+                Value::Vector(Vector {
+                    components: vec![Magnitude::Real(1.0), Magnitude::Integer(2)],
+                }),
+                true,
+            ),
+            (
+                Value::Sequence(vec![Value::Integer(1), Value::Integer(2)]),
+                Value::Sequence(vec![Value::Real(1.0), Value::Real(2.0)]),
+                true,
+            ),
+            (
+                Value::Sequence(vec![Value::Integer(1), Value::Integer(2)]),
+                Value::Sequence(vec![Value::Integer(2), Value::Integer(1)]),
+                false,
+            ),
+            (
+                Value::Set(Set::new(vec![Value::Integer(1), Value::Real(2.5)]).unwrap()),
+                Value::Set(Set::new(vec![Value::Real(2.5), Value::Real(1.0)]).unwrap()),
+                true,
+            ),
+            (
+                Value::Set(Set::new(vec![Value::Integer((1 << 53) + 1)]).unwrap()),
+                Value::Set(Set::new(vec![Value::Real(9_007_199_254_740_992.0)]).unwrap()),
+                false,
+            ),
+        ];
+        for (a, b, want) in cases {
+            assert_eq!(a.same_value(&b), want, "{a:?} vs {b:?}");
+            assert_eq!(b.same_value(&a), want, "{b:?} vs {a:?}");
+        }
+        assert_ne!(Value::Integer(1), Value::Real(1.0));
+        assert_eq!(
+            Set::new(vec![Value::Integer(1)]).unwrap(),
+            Set::new(vec![Value::Real(1.0)]).unwrap()
+        );
     }
 
     #[test]

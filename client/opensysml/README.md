@@ -218,8 +218,10 @@ in its own order — so two equal sets arrive alike, and one that lists a member
 twice reads as an unsupported `Null` naming it; a `Set` you send may list its
 elements in any order, but listing one twice is refused by the service rather
 than read as one element. `Set.Contains` tests membership and `Equal` compares
-any two values — sets by membership, sequences in order, an `Int` never a
-`Real`. A `TensorQuantity` carries its dimensions and one `Quantity` per
+any two values as the service does — sets by membership, sequences in order,
+numbers by value, so `Int(1)` is `Real(1)` and a `Complex` on the real axis is
+its real part, exactly across the whole `Int` range; a `Quantity` is one in its
+unit as written. A `TensorQuantity` carries its dimensions and one `Quantity` per
 component in row-major order, at any rank.
 
 ## Stability
