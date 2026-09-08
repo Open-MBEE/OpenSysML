@@ -302,9 +302,9 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 			delete(ctx.occurrences, sym)
 		}
 	}
-	for node, id := range ctx.metadataObjects {
+	for annotation, id := range ctx.metadataObjects {
 		if _, live := ctx.instances[id]; !live {
-			delete(ctx.metadataObjects, node)
+			delete(ctx.metadataObjects, annotation)
 		}
 	}
 	ctx.forgetLives(abandoned)

@@ -470,3 +470,72 @@ package test {
 		t.Errorf("the second read left %d objects, want the %d the first did", len(ctx.instances), made)
 	}
 }
+
+const adoptMetadataSrc = `package Demo {
+	metadata def Safety { attribute level = 3; }
+	part def Vehicle;
+	part seatBelt : Vehicle {
+		@Safety {
+			level = 5;
+		}
+	}
+	part def Holder { attribute mark; }
+	part def Reader { attribute seen = seatBelt.metadata; }
+}`
+
+// TestAdoptKeepsTheObjectAnAnnotationDenotes carries an object holding what an
+// annotation denotes into a re-analysis: the annotation still denotes that
+// object there, so reading it again answers it rather than making a second one.
+func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
+	prev := contextOver(t, adoptMetadataSrc)
+	reader, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Reader"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	fv, err := reader.GetFeatureValue(prev, "seen")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(seen): %v", err)
+	}
+	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Holder"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err := holder.SetFeatureValue(prev, "mark", fv.Value); err != nil {
+		t.Fatalf("SetFeatureValue(mark): %v", err)
+	}
+	carried := elementsOf(fv.Value)
+	if len(carried) != 1 {
+		t.Fatalf("mark holds %d metadata values, want one", len(carried))
+	}
+	shapes := prev.ShapesOf(holder)
+
+	ctx := contextOver(t, adoptMetadataSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, shapes, holder); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if _, found := ctx.Instance(carried[0].Instance); !found {
+		t.Fatalf("the metadata object %d was not carried over, so the test proves nothing",
+			carried[0].Instance)
+	}
+	made := len(ctx.instances)
+	again, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Reader"))
+	if err != nil {
+		t.Fatalf("Instantiate after adoption: %v", err)
+	}
+	seen, err := again.GetFeatureValue(ctx, "seen")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(seen) after adoption: %v", err)
+	}
+	read := elementsOf(seen.Value)
+	if len(read) != 1 {
+		t.Fatalf("the annotation reads as %d metadata values after adoption, want one", len(read))
+	}
+	if read[0].Instance != carried[0].Instance {
+		t.Errorf("the annotation denotes object %d after adoption, want the carried %d",
+			read[0].Instance, carried[0].Instance)
+	}
+	if len(ctx.instances) != made+1 {
+		t.Errorf("reading the annotation again left %d objects, want the %d carried plus the reader",
+			len(ctx.instances), made)
+	}
+}

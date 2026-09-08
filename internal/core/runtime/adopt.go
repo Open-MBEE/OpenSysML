@@ -953,9 +953,10 @@ func (a *adoption) abandon() {
 }
 
 // carryDerived takes over the state the previous context derived about the
-// objects carried over: which usage denotes which occurrence, and which variant
-// each of them selected. What a rebound declaration no longer has is dropped, so
-// it is derived again rather than kept wrong.
+// objects carried over: which usage denotes which occurrence, which annotation
+// denotes which object, and which variant each of them selected. What a rebound
+// declaration no longer has is dropped, so it is derived again rather than kept
+// wrong.
 func (a *adoption) carryDerived(adopted map[int64]bool) {
 	for sym, id := range a.prev.occurrences {
 		if !adopted[id] {
@@ -967,6 +968,14 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 		}
 		if found, err := a.rebind(sym, "a usage of it"); err == nil {
 			a.ctx.occurrences[found] = id
+		}
+	}
+	for key, id := range a.prev.metadataObjects {
+		if !adopted[id] {
+			continue
+		}
+		if element, err := a.rebind(key.element, "the element it annotates"); err == nil {
+			a.ctx.metadataObjects[metadataAnnotation{element: element, index: key.index}] = id
 		}
 	}
 	for key, id := range a.prev.variantObjects {

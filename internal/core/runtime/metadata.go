@@ -26,8 +26,8 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 	// or started, here or in a behavior it woke, is undone with it.
 	commit, rollback := ec.ctx.beginJournal()
 	values := make([]Value, 0, len(annotations))
-	for _, annotation := range annotations {
-		val, err := ec.metadataInstance(annotation)
+	for i, annotation := range annotations {
+		val, err := ec.metadataInstance(metadataAnnotation{element: sym, index: i}, annotation)
 		if err != nil {
 			rollback()
 			return Value{}, err
@@ -78,13 +78,20 @@ func metadataOfAValue(value Value, parts []ast.NameSegment) error {
 		ErrTypeMismatch, describeValue(value))
 }
 
+// metadataAnnotation names one annotation of one element: the element it
+// annotates and its place among that element's annotations.
+type metadataAnnotation struct {
+	element *symbols.Symbol
+	index   int
+}
+
 // metadataInstance is the object one annotation denotes, of its metadata type,
 // with the features its body binds set to the values they are bound to and the
 // remaining ones keeping the defaults the type declares. One annotation denotes
 // one object, so a second read of it answers the object the first made.
-func (ec *EvalContext) metadataInstance(annotation semantics.ElementMetadata) (Value, error) {
+func (ec *EvalContext) metadataInstance(key metadataAnnotation, annotation semantics.ElementMetadata) (Value, error) {
 	ctx := ec.ctx
-	if id, held := ctx.metadataObjects[annotation.Node]; held {
+	if id, held := ctx.metadataObjects[key]; held {
 		if _, live := ctx.instances[id]; live {
 			return Value{Kind: ValInstance, Instance: id}, nil
 		}
@@ -96,7 +103,7 @@ func (ec *EvalContext) metadataInstance(annotation semantics.ElementMetadata) (V
 	if err := ec.bindMetadataFeatures(annotation.Type, inst, annotation.Bindings); err != nil {
 		return Value{}, err
 	}
-	ctx.metadataObjects[annotation.Node] = inst.ID
+	ctx.metadataObjects[key] = inst.ID
 	return Value{Kind: ValInstance, Instance: inst.ID}, nil
 }
 
