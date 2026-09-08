@@ -243,7 +243,7 @@ var sweepPolicies = []string{"declared", "seed:1"}
 // so what it states must hold under any policy: one that differs has been
 // pinning a scheduling artefact and is reported, never skipped. A pinned case
 // runs under its own policy: pinning `reverse` says its result is one
-// linearization, kept until its admissible set is derived.
+// linearization, kept until its admissible set is derived or the bug fixed.
 func TestExecutionConformanceUnderPolicies(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 	knownFailures := loadKnownFailures(t, conformanceDir)

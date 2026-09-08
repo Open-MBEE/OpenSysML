@@ -164,14 +164,16 @@ is a schema error the test reports.
 under `seed:1`. A case pinning no policy was recorded under the default, so its
 stated result, or one of its `outcomes`, must hold under any policy; one that
 differs has been pinning a scheduling artefact as *the* result. Such a case is
-pinned to `reverse` — never removed from the sweep — until the outcomes the
-library admits are derived in `docs/project/behavior-semantic-oracle.md` and the
-case restated as an admissible set:
+pinned to `reverse` — never removed from the sweep — until either the outcomes
+the library admits are derived in `docs/project/behavior-semantic-oracle.md` and
+the case restated as an admissible set (`action_choice_shared_message_accept`,
+two accepts racing for two sends, was), or the difference is found to be a bug
+and the pin stays until the fix lands:
 
-- `action_choice_shared_message_accept`: two accepts parked on one message;
-  under `declared` and `seed:1` the other accept takes it (`a = 1, b = 2`).
 - `send_identity_same_named_ports`: `waiting` has two transitions enabled by
-  one `Ping`; under `seed:1` `alpha` takes the second (`strayed`).
+  one `Ping` because the via-less `accept` over-matches a transfer addressed to
+  `alpha.inPort`; under `seed:1` `alpha` takes the second (`strayed`). Pinned
+  until the accept's receiver is held to the destination the transfer names.
 
 A case with an admissible set also owns a `<case>.<policy>.trace.golden` for
 each sweep policy (`declared`, `seed-1` — a colon is not a portable file-name

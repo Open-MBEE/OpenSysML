@@ -19,6 +19,6 @@
   `seed:abc` — is refused before anything runs, as `INVALID_ARGUMENT` on the wire. `explore`, the
   bounded exhaustive replay, is reserved and refused by name until it exists. The conformance
   suite also runs whole under `declared` and `seed:1`, requiring every case that pins no policy
-  and lists no `outcomes` to produce its default outputs; the two cases whose default result is
-  one linearization of several — a message two accepts answer to, a send to a same-named port —
-  pin `reverse` until their admissible set is derived.
+  and lists no `outcomes` to produce its default outputs. Two accepts racing for two sends now
+  list both pairings as `outcomes`, with the derivation in the semantic oracle; a send to a
+  same-named port pins `reverse` until the via-less accept that over-matches it is fixed.

@@ -1,9 +1,19 @@
 {
 	"type": "action",
 	"trace": true,
-	"schedule": "reverse",
-	"outputs": {
-		"a": {"type": "Integer", "value": 2},
-		"b": {"type": "Integer", "value": 1}
-	}
+	"outcomes": [
+		{
+			"outputs": {
+				"a": {"type": "Integer", "value": 2},
+				"b": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"a": {"type": "Integer", "value": 1},
+				"b": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "Two accepts of one type racing for two sends: each takes one message, which one is open"
 }
