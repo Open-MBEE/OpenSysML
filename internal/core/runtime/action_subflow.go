@@ -38,6 +38,7 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token.frame = perf
 	token.Location = perf.graph.Initial
 	token.Via = lower.ActionEdge{}
+	token.moved = e.sweep
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(ActionNodeName(node))
 	}
