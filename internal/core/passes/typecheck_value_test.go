@@ -485,6 +485,10 @@ func TestValueCollectionCountIsJudged(t *testing.T) {
 	wantCollectionValueDiags(t, `part b : Boat[3] = pair.items->collect Boats;`,
 		"2 value(s) bound to a feature with multiplicity lower bound 3")
 	wantCollectionValueDiags(t, `
+		part huge : Vehicle[9223372036854775807];
+		attribute s : String[1] = (huge.{ in v : Vehicle; "a" }, "b");`,
+		"9223372036854775807 value(s) bound to a feature with multiplicity upper bound 1")
+	wantCollectionValueDiags(t, `
 		part b : Boat[2] = pair.items.{ in v : Vehicle; boat };
 		part b2 : Boat[1] = pair.items->reduce { in a : Vehicle; in b : Vehicle; boat };
 		part v : Vehicle[0..1] = pair.items->selectOne { in v : Vehicle; true };

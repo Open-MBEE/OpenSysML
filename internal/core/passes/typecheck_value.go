@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"math"
 	"slices"
 	"strings"
 
@@ -149,7 +150,8 @@ func (ec *exprChecker) effectiveRange(scope *symbols.Scope, d featureDecl, depth
 // literal the values of its elements, and a collection operation the values it
 // is known to hold — none over `()`, one per element mapped; anything else (a
 // feature reference, an invocation) may itself be multi-valued, so its count is
-// unknown — as is that of a collection holding one.
+// unknown — as is that of a collection holding one. A total past int64 stays
+// at its maximum, which still exceeds every finite bound.
 func (ec *exprChecker) exactCount(scope *symbols.Scope, value ast.Node) (int64, bool) {
 	if value == nil {
 		return 0, false
@@ -166,7 +168,11 @@ func (ec *exprChecker) exactCount(scope *symbols.Scope, value ast.Node) (int64, 
 			if !ok {
 				return 0, false
 			}
-			total += n
+			if total > math.MaxInt64-n {
+				total = math.MaxInt64
+			} else {
+				total += n
+			}
 		}
 		return total, true
 	}
