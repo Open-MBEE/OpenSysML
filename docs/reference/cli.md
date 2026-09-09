@@ -597,7 +597,10 @@ complete (6 runs)
 A run that fails — a guard that divides by zero on one path, say — is an outcome of its own,
 rendered as `error: <message>`, not the end of the exploration; a witness of `no choice points`
 marks the one outcome of a behavior with none. The rendering is canonical: the same model tables
-the same rows in the same order every time.
+the same rows in the same order every time. An object a run holds is spelled by its type and
+feature values — `lead = test::Rover#1{id = 2}`, a repeat of the same object `#1` — never by the
+id the run gave it, so two runs binding the same object are one outcome even when their ids differ,
+and two runs binding different objects under one id are two.
 
 **Budget.** `explore` alone runs at most 1024 runs and resolves at most 64 choice points per run;
 `explore:runs=N`, `explore:depth=D` and `explore:runs=N,depth=D` (in either order) set them. `N`

@@ -461,7 +461,7 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 			if err != nil {
 				return Outcome{}, err
 			}
-			return ActionOutcome(outputs), nil
+			return ctx.ActionOutcome(outputs), nil
 		}
 	case "state":
 		stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)

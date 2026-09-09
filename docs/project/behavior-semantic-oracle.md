@@ -472,6 +472,45 @@ fixture `state_choice_change_transition_conflict`, golden; `TestChangeTransition
 `TestChangeTransitionChoiceUnderHierarchyAndRegions` for the nested-wins and parallel-region
 shapes).
 
+### Transitions in sibling regions enabled by one event: each fires, in which order is open
+
+Fixture: `state_explore_region_order` (golden, explored).
+
+```
+work parallel { a: a1 ─ accept Go { last := 1 } → a2
+                b: b1 ─ accept Go { last := 2 } → b2 }
+```
+
+Derived constraints:
+
+- The regions of a parallel state are concurrent substate performances of it; the one Go is
+  offered to both, and each region's transition has its own source, so neither outranks the other
+  (the nested-wins rule of the previous section ranks a substate's transition against its
+  *enclosing* state's, never one region's against a sibling's) and both fire.
+- Each `StateTransitionPerformance` is ordered only against its own trigger, guard,
+  `transitionLinkSource.exit` and target entry (`StatePerformances.kerml`,
+  `TransitionPerformances.kerml`); no link joins one region's transition to the other's. UML says
+  the same of the set of transitions selected for one event: the order in which they fire is not
+  defined (UML 2.5.1 §14.2.3.9.4).
+- Both effects write `last`, so the value that stands is the last write: `last = 2` when `a`'s
+  transition fires first, `last = 1` when `b`'s does; the machine ends in `a2+b2` either way.
+
+Open: which region's transition fires first. The two orders reach two outcomes, told apart by
+`last` and by the order `a2` and `b2` are visited in.
+
+Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
+stated as `outcomes` citing this section. The executor fires the selected transitions in region
+declaration order under `declared`, `reverse` and `seed:<n>` alike — a tool-defined order it does
+not report as a choice, so the trace under those policies carries no `choice` line for it — and
+the golden pins that linearization (`a` first, `last = 2`). Only `explore` varies the order: it is
+a choice point of the exploring run (`choice on accept Go: states a1, b1 react (unordered; took
+b1 first)` in the witness of the second outcome), and exploration must reach both outcomes and no
+other, in two runs. The existing fixtures `state_call_trigger_regions`,
+`state_composite_region_depth_order`, `state_composite_region_deeper_first` and
+`state_parallel_broadcast` pin the declaration-order linearization of this same shape as their
+one expected outcome and, having no `outcomes`, are not explored by the harness; under `explore`
+each reaches a second outcome.
+
 ### A merge is re-entered on every traversal of a loop
 
 Fixture: `action_merge_loop_reenters` (golden), after the specification's `ChargeBattery`.

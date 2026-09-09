@@ -163,7 +163,7 @@ func explorationVerdict(subject string, x *runtime.Exploration, traces [][]strin
 	}
 }
 
-// outcomeValues lists an outcome's observables as the values a run reports: a
+// outcomeValues lists an outcome's observables as the outcome spells them: a
 // machine's final state and visits ahead of the values it holds, in name order.
 func outcomeValues(o runtime.Outcome) []NamedValue {
 	var values []NamedValue
@@ -173,7 +173,10 @@ func outcomeValues(o runtime.Outcome) []NamedValue {
 	if len(o.StateVisits) > 0 {
 		values = append(values, NamedValue{Name: "stateVisits", Value: strings.Join(o.StateVisits, ", ")})
 	}
-	return append(values, namedValues(nil, o.Outputs)...)
+	for _, out := range o.RenderedOutputs() {
+		values = append(values, NamedValue{Name: out.Name, Value: out.Text})
+	}
+	return values
 }
 
 // tableLines pads cells into columns under the first row's titles.
@@ -291,7 +294,7 @@ func (s *Session) exploreAction(name string, performer []string) Verdict {
 		if state := exec.State(); state != runtime.StateCompleted {
 			return runtime.Outcome{}, fmt.Errorf("action %s stopped at %s without completing", name, state)
 		}
-		return runtime.ActionOutcome(exec.Results()), nil
+		return ctx.ActionOutcome(exec.Results()), nil
 	})
 }
 
@@ -368,7 +371,7 @@ func (s *Session) exploreCalc(invocation string) Verdict {
 		for _, out := range results {
 			outputs[out.Name] = out.Value
 		}
-		return runtime.ActionOutcome(outputs), nil
+		return ctx.ActionOutcome(outputs), nil
 	})
 }
 
@@ -388,7 +391,7 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
-		return runtime.VerifiedOutcome(run.result, run.verdicts), nil
+		return ctx.VerifiedOutcome(run.result, run.verdicts), nil
 	})
 }
 

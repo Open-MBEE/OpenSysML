@@ -682,23 +682,36 @@ func (e *StateExecutor) recallDeferredEvents() {
 // look alike here.
 //
 // Dispatch selects the transitions to take against the configuration the event
-// was taken off the queue for, then fires them in region declaration order, so a
-// state this event entered never reacts to it and a deeper region does not
-// overtake one declared before it.
+// was taken off the queue for, so a state this event entered never reacts to it,
+// then fires them one at a time in region declaration order, so a deeper region
+// does not overtake one declared before it; an exploration varies that order.
 func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 	candidates, err := e.selectTransitions(event)
 	if err != nil {
 		return false, err
 	}
+	pending := make([]dispatchCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if !e.losesToNestedTransition(candidates, candidate) {
+			pending = append(pending, candidate)
+		}
+	}
 
 	consumed := false
-	for _, candidate := range candidates {
+	for len(pending) > 0 {
 		// A leaf may be left by another leaf's reaction to this event, which drops
 		// the transition it selected.
-		if e.losesToNestedTransition(candidates, candidate) || !e.isActive(candidate.leaf) {
-			continue
+		pending = slices.DeleteFunc(pending, func(c dispatchCandidate) bool { return !e.isActive(c.leaf) })
+		if len(pending) == 0 {
+			break
 		}
+		next, order := e.chooseRegion(pending)
+		candidate := pending[next]
+		pending = slices.Delete(pending, next, next+1)
 		trans, notes := e.chooseTransition(candidate)
+		if order != nil {
+			notes = append([]RunNote{order}, notes...)
+		}
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
 		unbind, err := e.bindTriggerArguments(trans, event)
@@ -787,6 +800,47 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
+}
+
+// chooseRegion resolves which of the candidates, all still able to fire, fires
+// next: the first in region declaration order, unless an exploration is varying
+// the order, in which case its pick is returned with the choice point it made.
+func (e *StateExecutor) chooseRegion(pending []dispatchCandidate) (int, RunNote) {
+	scheduling := e.ctx.scheduling()
+	pick, explored := scheduling.explorePick(len(pending))
+	if !explored {
+		return pick, nil
+	}
+	alts := e.candidateNames(pending)
+	taken := pending[pick]
+	trans := e.graph.Transitions[taken.source][taken.enabled[0]]
+	choice := ChoicePoint{
+		Kind:         ChoiceRegionOrder,
+		Where:        "on " + triggerName(trans.Trigger),
+		Alternatives: alts,
+		Taken:        pick,
+		File:         e.stateMachine.DocName,
+		Span:         taken.source.Span(),
+	}
+	scheduling.describe(choice)
+	return pick, choice
+}
+
+// candidateNames spells each candidate's source state, qualified by its region's
+// name where two candidates' sources share a name, as typed regions' states do.
+func (e *StateExecutor) candidateNames(pending []dispatchCandidate) []string {
+	shared := make(map[string]int, len(pending))
+	for _, candidate := range pending {
+		shared[candidate.source.Name]++
+	}
+	names := make([]string, len(pending))
+	for i, candidate := range pending {
+		names[i] = candidate.source.Name
+		if region := e.graph.RegionOf[candidate.source]; shared[names[i]] > 1 && region != nil && region.Name != "" {
+			names[i] = region.Name + "." + names[i]
+		}
+	}
+	return names
 }
 
 // losesToNestedTransition reports whether another leaf selected a transition out

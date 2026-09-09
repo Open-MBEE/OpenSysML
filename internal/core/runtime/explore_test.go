@@ -64,7 +64,7 @@ func (m *exploreModel) exploreAction(t *testing.T, spelling, name string) *Explo
 		if err != nil {
 			return Outcome{}, err
 		}
-		return ActionOutcome(outputs), nil
+		return ctx.ActionOutcome(outputs), nil
 	})
 	if err != nil {
 		t.Fatalf("explore %s: %v", name, err)
@@ -314,6 +314,84 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 	}
 }
 
+// One event enabling a transition in each of two regions: the library orders
+// neither first, so exploration fires them in both orders; the default and the
+// other fixed policies fire them in region declaration order and report no choice.
+func TestExploreSiblingRegionOrder(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		state def Machine {
+			attribute last : Integer = 0;
+			entry; then work;
+			state work parallel {
+				state a { entry; then a1; state a1; state a2; transition first a1 accept go do assign last := 1 then a2; }
+				state b { entry; then b1; state b1; state b2; transition first b1 accept go do assign last := 2 then b2; }
+			}
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	var notes []RunNote
+	run := func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		notes = exec.Notes()
+		return exec.Outcome(), nil
+	}
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := Explore(policy, m.fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	want := []string{
+		"finalState a2+b2; visits work, a1, b1, a2, b2; last = 2",
+		"finalState a2+b2; visits work, a1, b1, b2, a2; last = 1",
+	}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	if got := FormatChoices(x.Outcomes[1].Witness); got != "on accept go: b1 first of a1, b1" {
+		t.Fatalf("witness of last = 1 %q, want b1 chosen first", got)
+	}
+	for _, spelling := range []string{"reverse", "declared", "seed:1", "seed:2", "seed:3"} {
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(fixed); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		if got := outcome.String(); got != want[0] {
+			t.Fatalf("%s: outcome %q, want %q", spelling, got, want[0])
+		}
+		if len(notes) != 0 {
+			t.Fatalf("%s: notes %v, want none", spelling, notes)
+		}
+	}
+}
+
 func TestExploreRejectsOtherPolicies(t *testing.T) {
 	m := parseExploreModel(t, threeWritersModel)
 	_, err := Explore(DefaultSchedulePolicy, m.fresh, func(*Context) (Outcome, error) { return Outcome{}, nil })
@@ -407,15 +485,7 @@ func TestExploreRunsShareNoState(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
-		outcome := Outcome{Outputs: make(map[string]Value)}
-		for _, name := range []string{"lead", "pings"} {
-			fv, err := self.GetFeatureValue(ctx, name)
-			if err != nil {
-				return Outcome{}, err
-			}
-			outcome.Outputs[name] = fv.Value
-		}
-		return outcome, nil
+		return fleetOutcome(ctx, self, "lead", "pings")
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -426,8 +496,259 @@ func TestExploreRunsShareNoState(t *testing.T) {
 	if got := outcomeTexts(x); len(got) != 1 || x.Outcomes[0].Linearizations != 2 {
 		t.Fatalf("outcomes %v, want one reached by both orders", got)
 	}
-	if got := x.Outcomes[0].Outcome.String(); !strings.Contains(got, "lead = instance(") || !strings.Contains(got, "pings = 1") {
-		t.Fatalf("outcome %q, want lead bound to one instance and pings = 1", got)
+	if got := x.Outcomes[0].Outcome.String(); got != "lead = test::Rover#1{}; pings = 1" {
+		t.Fatalf("outcome %q, want lead bound to the scout and pings = 1", got)
+	}
+}
+
+// fleetOutcome is the outcome of a run on a Fleet: the values self holds under names.
+func fleetOutcome(ctx *Context, self *Instance, names ...string) (Outcome, error) {
+	outputs := make(map[string]Value, len(names))
+	for _, name := range names {
+		fv, err := self.GetFeatureValue(ctx, name)
+		if err != nil {
+			return Outcome{}, err
+		}
+		outputs[name] = fv.Value
+	}
+	return ctx.ActionOutcome(outputs), nil
+}
+
+// fleetModel is a Fleet whose machine takes one of two transitions on `go`, each
+// binding the fleet's lead and backup to its vehicles in the order it states.
+func fleetModel(t *testing.T, transitions string) *exploreModel {
+	t.Helper()
+	return parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		part def Vehicle;
+		part def Scout :> Vehicle { attribute id : Integer = 1; }
+		part def Rover :> Vehicle { attribute id : Integer = 2; }
+		part def Fleet {
+			part scout : Scout;
+			part rover : Rover;
+			ref part lead : Vehicle;
+			ref part backup : Vehicle;
+			attribute picks : Integer = 0;
+			exhibit state run {
+				entry; then idle;
+				state idle;
+				state done;
+				`+transitions+`
+			}
+		}
+	}`)
+}
+
+// exploreFleet drives the fleet's machine through `go` once per linearization,
+// reporting the id lead held in each run.
+func exploreFleet(t *testing.T, m *exploreModel) (*Exploration, []int64) {
+	t.Helper()
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fleet := oneSymbol(t, m.idx, "test::Fleet")
+	stateSym := oneSymbol(t, m.idx, "test::Fleet::run")
+	var leadIDs []int64
+	x, err := Explore(policy, m.fresh, func(ctx *Context) (Outcome, error) {
+		self, err := ctx.Instantiate(fleet)
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec, err := newStateExecutor(ctx, stateSym, self)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		outcome, err := fleetOutcome(ctx, self, "lead", "backup", "picks")
+		if err == nil {
+			leadIDs = append(leadIDs, outcome.Outputs["lead"].Instance)
+		}
+		return outcome, err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	return x, leadIDs
+}
+
+// Two runs binding lead to objects of two types are two outcomes even though each
+// run gives its object the same id, which is not the outcome's to compare.
+func TestExploreTellsObjectsApartByWhatTheyAre(t *testing.T) {
+	m := fleetModel(t, `
+		transition idle_scout first idle accept go do { assign lead := scout; assign backup := scout; assign picks := picks + 1; } then done;
+		transition idle_rover first idle accept go do { assign lead := rover; assign backup := scout; assign picks := picks + 1; } then done;`)
+	x, leadIDs := exploreFleet(t, m)
+	if leadIDs[0] != leadIDs[1] {
+		t.Fatalf("lead ids %v, want the same id in both runs (each run's first object)", leadIDs)
+	}
+	want := []string{
+		"backup = test::Scout#1{id = 1}; lead = #1; picks = 1",
+		"backup = test::Scout#1{id = 1}; lead = test::Rover#2{id = 2}; picks = 1",
+	}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	for _, o := range x.Outcomes {
+		if o.Linearizations != 1 {
+			t.Errorf("%s reached by %d linearizations, want 1", o.Outcome, o.Linearizations)
+		}
+	}
+}
+
+// Two runs binding lead and backup to the same two objects in either order give
+// those objects different ids, which does not make them two outcomes.
+func TestExploreEquatesObjectsByWhatTheyAre(t *testing.T) {
+	m := fleetModel(t, `
+		transition lead_first first idle accept go do { assign lead := scout; assign backup := rover; assign picks := picks + 1; } then done;
+		transition backup_first first idle accept go do { assign backup := rover; assign lead := scout; assign picks := picks + 1; } then done;`)
+	x, leadIDs := exploreFleet(t, m)
+	if leadIDs[0] == leadIDs[1] {
+		t.Fatalf("lead ids %v, want different ids (the scout is the first object of one run and the second of the other)", leadIDs)
+	}
+	want := []string{"backup = test::Rover#1{id = 2}; lead = test::Scout#2{id = 1}; picks = 1"}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	if x.Outcomes[0].Linearizations != 2 {
+		t.Fatalf("reached by %d linearizations, want 2", x.Outcomes[0].Linearizations)
+	}
+}
+
+// A name spelling the rendering's delimiters can make two outcomes render alike;
+// their identities still tell them apart.
+func TestOutcomeIdentityQuotesNames(t *testing.T) {
+	one := Outcome{Outputs: map[string]Value{`a = "1"; b`: NewStringValue("2")}}
+	two := Outcome{Outputs: map[string]Value{"a": NewStringValue("1"), "b": NewStringValue("2")}}
+	if one.String() != two.String() {
+		t.Fatalf("renderings %q and %q, want alike", one, two)
+	}
+	if one.identity() == two.identity() {
+		t.Fatalf("identity %q shared, want two", one.identity())
+	}
+	same := Outcome{Outputs: map[string]Value{"b": NewStringValue("2"), "a": NewStringValue("1")}}
+	if same.identity() != two.identity() {
+		t.Fatalf("identities %q and %q, want one", same.identity(), two.identity())
+	}
+}
+
+// Two typed regions' states share a name, so the region-order choice spells each
+// alternative with the region it sits in.
+func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		state def Region { entry; then r1; state r1; state r2; transition first r1 accept go then r2; }
+		state def Machine {
+			entry; then work;
+			state work parallel {
+				state a : Region;
+				state b : Region;
+			}
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := Explore(policy, m.fresh, func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 || len(x.Outcomes) != 1 || x.Outcomes[0].Linearizations != 2 {
+		t.Fatalf("status %q with %d outcomes, want complete (2 runs) reaching one outcome twice", x.Status(), len(x.Outcomes))
+	}
+	if got := FormatChoices(x.Outcomes[0].Witness); got != "on accept go: a.r1 first of a.r1, b.r1" {
+		t.Fatalf("witness %q, want the regions naming the alternatives", got)
+	}
+}
+
+// linkedNodes instantiates n nodes of one type chained by `next`, the last
+// pointing back at the first, and returns the head as an outcome.
+func linkedNodes(t *testing.T, m *exploreModel, ids ...int64) Outcome {
+	t.Helper()
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := oneSymbol(t, m.idx, "test::Node")
+	nodes := make([]*Instance, len(ids))
+	for i, id := range ids {
+		if nodes[i], err = ctx.Instantiate(node); err != nil {
+			t.Fatal(err)
+		}
+		value := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: id}}
+		if err := nodes[i].SetFeatureValue(ctx, "id", value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i, inst := range nodes {
+		next := nodes[(i+1)%len(nodes)]
+		if err := inst.SetFeatureValue(ctx, "next", Value{Kind: ValInstance, Instance: next.ID}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return ctx.ActionOutcome(map[string]Value{"head": {Kind: ValInstance, Instance: nodes[0].ID}})
+}
+
+// A cycle of objects is spelled once around, the object closing it named by its
+// number; nodes of one type nested past the rendering's depth still count toward
+// the identity, so two rings rendered alike are two outcomes when they differ.
+func TestOutcomeIdentityOpensEveryObject(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		part def Node { attribute id : Integer = 0; ref part next : Node; }
+	}`)
+	ring := linkedNodes(t, m, 1, 2)
+	if got, want := ring.String(), "head = test::Node#1{id = 1, next = test::Node#2{id = 2, next = #1}}"; got != want {
+		t.Fatalf("ring %q, want %q", got, want)
+	}
+	if got, want := ring.identity(), `finalState ""; "head" = "test::Node"#1{"id" = 1, "next" = "test::Node"#2{"id" = 2, "next" = #1}}`; got != want {
+		t.Fatalf("ring identity %q, want %q", got, want)
+	}
+	if again := linkedNodes(t, m, 1, 2); again.identity() != ring.identity() {
+		t.Fatalf("identities %q and %q, want one", again.identity(), ring.identity())
+	}
+	if loop := linkedNodes(t, m, 1, 1); loop.identity() == ring.identity() {
+		t.Fatalf("a self-loop and a ring share identity %q", loop.identity())
+	}
+	long := linkedNodes(t, m, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+	other := linkedNodes(t, m, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11)
+	if !strings.HasSuffix(long.String(), "{…}}}}}}}}}") || long.String() != other.String() {
+		t.Fatalf("renderings %q and %q, want alike and cut at depth", long, other)
+	}
+	if long.identity() == other.identity() {
+		t.Fatalf("identity %q shared by two rings differing past the rendering's depth", long.identity())
+	}
+}
+
+// An outcome built without a context spells an object by the id its run gave it.
+func TestOutcomeWithoutContextKeepsObjectIDs(t *testing.T) {
+	o := Outcome{Outputs: map[string]Value{"lead": {Kind: ValInstance, Instance: 7}}}
+	if got := o.String(); got != "lead = instance(7)" {
+		t.Fatalf("outcome %q, want lead = instance(7)", got)
 	}
 }
 

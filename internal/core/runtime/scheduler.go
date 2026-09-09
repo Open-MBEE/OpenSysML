@@ -285,6 +285,15 @@ func (s *scheduler) pick(n int) int {
 	return 0
 }
 
+// explorePick chooses one of n alternatives the tool otherwise takes in declaration
+// order: only an exploration varies it, and only then is there a choice to report.
+func (s *scheduler) explorePick(n int) (int, bool) {
+	if n < 2 || s.policy.kind != scheduleExplore || s.explore == nil {
+		return 0, false
+	}
+	return s.explore.pick(n), true
+}
+
 // describe tells the scheduler how the run reports the choice its last pick made,
 // so an exploration's witness names the alternative as the trace does.
 func (s *scheduler) describe(c ChoicePoint) {

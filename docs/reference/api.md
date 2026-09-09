@@ -450,10 +450,15 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   are then not a function of their choices
   - **`Outcome`** — What one run came to, in the observables a conformance case compares:
     `Outputs`, and for a state machine `FinalState` and `StateVisits`; `Err` for a run that
-    failed. `String()` renders it canonically, so two runs agreeing on their observables are one
-    outcome. `ActionOutcome(outputs)`, `(*StateExecutor).Outcome()`, `AnalysisResult.Outcome()`
-    and `VerifiedOutcome(result, verdicts)` build one; a case's verdicts are values named
-    `objective <name>`, `assertion <name>` and `verdict <case>`
+    failed. `String()` renders it in a fixed order; `Explore` tells outcomes apart by a stricter
+    identity that quotes every name, so two runs agreeing on their observables are one outcome
+    and no output name can spell another outcome's rendering. An object a run holds is spelled
+    by its type and feature values, not by the id the run gave it, so two runs building the same
+    object are one outcome whatever their ids.
+    `(*Context).ActionOutcome(outputs)`, `(*StateExecutor).Outcome()`,
+    `(*Context).AnalysisOutcome(result)` and `(*Context).VerifiedOutcome(result, verdicts)` build
+    one over the run's context; a case's verdicts are values named `objective <name>`,
+    `assertion <name>` and `verdict <case>`
   - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order and
     `BudgetsHit`, `runs` before `depth`, empty when `Complete()`. `Status()` renders
     `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`
@@ -554,7 +559,7 @@ exploration, err := runtime.Explore(explore,
     func() (*runtime.Context, error) { return runtime.NewContext(model, resolver, runtime.DefaultMaxSteps), nil },
     func(c *runtime.Context) (runtime.Outcome, error) {
         outputs, err := c.ExecuteAction(myActionSym)
-        return runtime.ActionOutcome(outputs), err
+        return c.ActionOutcome(outputs), err
     })
 for _, o := range exploration.Outcomes {
     fmt.Println(o.Outcome, o.Linearizations, runtime.FormatChoices(o.Witness))

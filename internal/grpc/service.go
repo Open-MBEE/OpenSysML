@@ -842,7 +842,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
-			return runtime.ActionOutcome(outputs), nil
+			return ctx.ActionOutcome(outputs), nil
 		})
 		if err != nil {
 			return nil, err

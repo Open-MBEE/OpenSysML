@@ -44,7 +44,8 @@ type ChoiceTaken struct {
 	Alternatives int
 	Taken        int
 	// Among names the alternatives as a trace does; Took is the one taken: the
-	// token tried next, a branch or a transition by declared position and target.
+	// token tried next, a branch or a transition by declared position and target,
+	// or the state whose transition fired first.
 	Among []string
 	Took  string
 }
@@ -58,6 +59,8 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s", c.Step, c.Where, c.Took)
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s", c.Where, c.Took)
+	case ChoiceRegionOrder:
+		return fmt.Sprintf("%s: %s first of %s", c.Where, c.Took, strings.Join(c.Among, ", "))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, c.Took)
 }
@@ -72,88 +75,6 @@ func FormatChoices(choices []ChoiceTaken) string {
 		parts[i] = c.String()
 	}
 	return strings.Join(parts, "; ")
-}
-
-// Outcome is what one run came to, in the observables a conformance case
-// compares; a run that failed is an outcome of its own, Err.
-type Outcome struct {
-	Outputs     map[string]Value
-	FinalState  string
-	StateVisits []string
-	Err         error
-}
-
-// String renders the outcome canonically: two runs agreeing on their observables
-// render alike, so the rendering is the outcome's identity.
-func (o Outcome) String() string {
-	if o.Err != nil {
-		return "error: " + o.Err.Error()
-	}
-	var parts []string
-	if o.FinalState != "" {
-		parts = append(parts, "finalState "+o.FinalState)
-	}
-	if len(o.StateVisits) > 0 {
-		parts = append(parts, "visits "+strings.Join(o.StateVisits, ", "))
-	}
-	names := make([]string, 0, len(o.Outputs))
-	for name := range o.Outputs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		parts = append(parts, name+" = "+FormatValue(o.Outputs[name]))
-	}
-	if len(parts) == 0 {
-		return "no outputs"
-	}
-	return strings.Join(parts, "; ")
-}
-
-// ActionOutcome is the outcome of an action run: the values its features hold.
-func ActionOutcome(outputs map[string]Value) Outcome {
-	return Outcome{Outputs: outputs}
-}
-
-// Outcome is the outcome of the performance so far: the configuration the
-// machine rests in, the states it entered and the values it holds.
-func (e *StateExecutor) Outcome() Outcome {
-	return Outcome{
-		FinalState:  e.FinalStateName(),
-		StateVisits: slices.Clone(e.stateVisits),
-		Outputs:     e.StateData(),
-	}
-}
-
-// Outcome is the outcome of the case's run: its outputs, and each verdict as a
-// value named by the objective or assertion it decided.
-func (r AnalysisResult) Outcome() Outcome {
-	outputs := make(map[string]Value, len(r.Outputs)+len(r.Verdicts))
-	for _, out := range r.Outputs {
-		outputs[out.Name] = out.Value
-	}
-	for _, v := range r.Verdicts {
-		text := v.Status.String()
-		if v.Detail != "" {
-			text += ": " + v.Detail
-		}
-		outputs[v.Kind+" "+v.Name] = NewStringValue(text)
-	}
-	return Outcome{Outputs: outputs}
-}
-
-// VerifiedOutcome is the outcome of a verification case's run: the case's
-// outcome, and what each body answered as a value named by the case that ran.
-func VerifiedOutcome(result AnalysisResult, verdicts []VerificationVerdict) Outcome {
-	outcome := result.Outcome()
-	for _, v := range verdicts {
-		text := string(v.Kind)
-		if v.Detail != "" {
-			text += ": " + v.Detail
-		}
-		outcome.Outputs["verdict "+v.Case] = NewStringValue(text)
-	}
-	return outcome
 }
 
 // ExploredOutcome is one distinct outcome an exploration reached: how many
@@ -228,7 +149,7 @@ func Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Co
 			return nil, fmt.Errorf("%w: run %d: %v", ErrExplorationDiverged, result.Runs, err)
 		}
 		depthHit = depthHit || replay.depthHit
-		key := outcome.String()
+		key := outcome.identity()
 		if i, seen := reached[key]; seen {
 			if !replay.duplicate {
 				result.Outcomes[i].Linearizations++
@@ -252,7 +173,11 @@ func Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Co
 		result.BudgetsHit = append(result.BudgetsHit, "depth")
 	}
 	sort.SliceStable(result.Outcomes, func(i, j int) bool {
-		return result.Outcomes[i].Outcome.String() < result.Outcomes[j].Outcome.String()
+		a, b := result.Outcomes[i].Outcome, result.Outcomes[j].Outcome
+		if as, bs := a.String(), b.String(); as != bs {
+			return as < bs
+		}
+		return a.identity() < b.identity()
 	})
 	return result, nil
 }

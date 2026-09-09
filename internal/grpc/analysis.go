@@ -143,7 +143,7 @@ func (s *Service) exploreAnalysis(schedule runtime.SchedulePolicy, v *verifyCont
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
-		return runtime.VerifiedOutcome(result, verdicts), nil
+		return ctx.VerifiedOutcome(result, verdicts), nil
 	})
 	if err != nil {
 		return nil, err

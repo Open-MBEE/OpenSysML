@@ -29,7 +29,10 @@
   budget is hit, telling the author to raise it with `"exploreBudget": {"runs": N, "depth": D}`.
   Three cases derive their outcome sets in the behavior semantic oracle: three concurrent writers
   of one feature (six linearizations, three outcomes), a decision with two overlapping guards
-  inside a loop, and a state machine with two transitions enabled by one event. Exploring the
+  inside a loop, and a state machine with two transitions enabled by one event; a fourth lists both
+  orders in which one event's transitions in two sibling regions fire, an order the library leaves
+  open, which `explore` varies as a `ChoiceRegionOrder` choice point while the fixed policies keep
+  region declaration order and report none. Exploring the
   whole suite found one case pinning a scheduling artefact — two accepts on one port, addressed
   by two sends, binding one `value` whose last writer is open — and it is restated as the two
   outcomes the oracle derives. Cases without `outcomes` are not explored, and nothing changes
