@@ -380,6 +380,48 @@ linearization reaches two choice points where the default reaches one: the repor
 choice point a run reaches is reported) applied to a different run, not a difference in what the
 model admits.
 
+### Two accepts addressed by two sends completing in either order: each payload is fixed, the one that stands is open
+
+Fixture: `w7d_send_via_port_to_receiver` (golden).
+
+```
+start → sender { send 42 via senderPort to receiver; send 7 via senderPort to sibling }
+      → split ⇉ receiver accept value : Integer via receiverPort { receiverGot := value } ─┐
+              ⇉ sibling  accept value : Integer via receiverPort { siblingGot := value  } ─┤→ sync → done
+```
+
+Derived constraints:
+
+- `sender`, `receiver` and `sibling` are each performed exactly once (a plain step is one
+  performance; ForkAction), and both sends end before `split` starts (`HappensBefore`).
+- Each send is followed by exactly one `MessageTransfer` carrying its payload to the receiver it
+  names (`SendPerformance::sentTransfer`, `succession self then sentTransfer`), so `receiver`'s
+  transfer carries `42` and `sibling`'s carries `7`; neither accept can take the other's, so
+  `receiverGot` ends `42` and `siblingGot` ends `7` in every run.
+- Each accept ends after its transfer and yields that transfer's payload
+  (`AcceptPerformance::acceptedTransfer`, `binding payload = acceptedTransfer.payload`). Both
+  declare `accept value : Integer`, and an accept's payload is bound in the enclosing action body
+  (the visibility the `accept_payload_*` cases pin), so the two accepts write one feature,
+  `route`'s `value`.
+- `sync` follows both accepts (JoinAction), so both writes of `value` have ended before the
+  action ends and `value` is `42` or `7`, never unset.
+
+Open: the order of `receiver` against `sibling`. Each transfer's `HappensBefore` link orders its
+own send before the accept that takes it and nothing else; no link orders the two accepts, and
+the library has no conflict rule for two performances writing one feature, so the write that
+stands is the one whose accept completes last — `value = 42` when `sibling` completes first,
+`value = 7` when `receiver` does.
+
+Pinned outcome: the admissible set `{value = 42, value = 7}`, with `receiverGot = 42` and
+`siblingGot = 7` in both, stated as `outcomes` citing this section; `.trace.order` states the
+partial order the library does fix (`sender < split`, `split < receiver`, `split < sibling`,
+`sync < done`). The exact golden records the default schedule: `sibling` is declared last, so its
+token is stepped first and `receiver`'s write stands (`choice step 4: writes value := 42 by token
+2, value := 7 by token 3 (unordered; value := 42 by token 2 stood)`), giving `value = 42`.
+Exploration reaches both outcomes in two runs. That the payload of a nested accept is reported
+as a feature of the enclosing action at all is the tool's reporting, not the library's; this
+record derives only that, given that reporting, both values are admissible.
+
 ### Two transitions out of one state enabled by one event: exactly one fires, which one is open
 
 Fixture: `state_choice_transition_conflict` (golden).
