@@ -1518,13 +1518,12 @@ class Connection:
         Raises:
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
-            AnalysisRunError: If the case failed after computing something — a
-                failing step, an alternative whose evaluation failed; carries
-                what the run computed before it failed as
-                :attr:`~opensysml.errors.AnalysisRunError.result`
-            ExecutionError: If the request failed before the run computed
-                anything — an unknown symbol, an unbound subject, an input with
-                no value
+            AnalysisRunError: If the case could not run to its end and left
+                something to inspect — the evaluations made before an
+                alternative failed, an objective the failure left undecided;
+                carries it as :attr:`~opensysml.errors.AnalysisRunError.result`
+            ExecutionError: If the request was refused before the run — an
+                unknown symbol — or the failure left nothing to report
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, an array, vector or vector quantity and
@@ -1560,7 +1559,7 @@ class Connection:
             response = self._stub.RunAnalysis(request)
 
         diagnostics = [Diagnostic(d) for d in response.diagnostics]
-        # A request refused before the run, or a run that computed nothing, has no partial result.
+        # A request refused before the run, or a failure leaving nothing to report, has no partial result.
         if response.error and not (
             response.outputs or response.verdicts or response.evaluations or response.instances
         ):

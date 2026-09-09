@@ -211,18 +211,20 @@ class WrongKindError(ExecutionError):
 
 
 class AnalysisRunError(ExecutionError):
-    """Raised when an analysis case could not run to its end.
+    """Raised when an analysis case could not run to its end and left something to inspect.
 
     An unbound subject, an input with no value, a failing step, or an alternative
-    a trade study could not evaluate. What the run computed before it failed is
-    kept, so the evaluations that did succeed and the objective it left
-    undecided stay inspectable. An :class:`ExecutionError`, since that is what
-    such a failure used to be.
+    a trade study could not evaluate. What the run established is kept, so the
+    evaluations that did succeed and the objectives the failure left undecided
+    stay inspectable; a failure leaving nothing — no outputs, evaluations,
+    verdicts or objects — is a plain :class:`ExecutionError`, as is a request
+    refused before the run. An :class:`ExecutionError` itself, since that is
+    what such a failure used to be.
 
     Attributes:
         message (str): Error description
         result (AnalysisResult): The outputs, verdicts and evaluations the run
-            made before it failed; each verdict is undecided
+            left; each verdict is undecided, the failure its reason
         diagnostics (list): List of Diagnostic objects (if available)
     """
 

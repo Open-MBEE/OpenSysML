@@ -96,16 +96,18 @@ func (a *Analysis) Instance(id InstanceID) *Instance {
 	return nil
 }
 
-// AnalysisError is a run of an analysis case that failed after computing
-// something — an alternative a trade study could not evaluate after scoring
-// others — and keeps what it computed. It is a VerifyError, so errors.As
-// recovers one and errors.Is(err, ErrFailure) matches. A request refused before
-// the run, or a run that failed before computing anything, is a *VerifyError
-// alone: its Reason says why, ReasonWrongKind for a symbol that is no case.
+// AnalysisError is a run of an analysis case that failed leaving something to
+// inspect: the evaluations a trade study made before an alternative failed, the
+// outputs computed before one failed, and each objective and required assertion
+// undecided with the failure as its reason — as an unbound subject leaves an
+// objective. It is a VerifyError, so errors.As recovers one and
+// errors.Is(err, ErrFailure) matches. A request refused before the run, or a
+// failure that left nothing to report, is a *VerifyError alone: its Reason says
+// why, ReasonWrongKind for a symbol that is no case.
 type AnalysisError struct {
 	VerifyError
-	// Partial is what the run computed before it failed: the outputs and
-	// evaluations made, the objects they name, each verdict undecided.
+	// Partial is what the run left: the outputs and evaluations made, the
+	// objects they name, each verdict undecided.
 	Partial *Analysis
 }
 
@@ -210,7 +212,7 @@ func (c *client) RunAnalysis(
 			FailureError: FailureError{Op: "RunAnalysis", Message: resp.Error, Diagnostics: diagnostics},
 			Reason:       Reason(resp.FailureReason),
 		}
-		// A request refused before the run, or a run that computed nothing, has no partial answer.
+		// A request refused before the run, or a failure that left nothing to report, has no partial answer.
 		if len(resp.Outputs) == 0 && len(resp.Verdicts) == 0 && len(resp.Evaluations) == 0 && len(resp.Instances) == 0 {
 			return nil, &failure
 		}

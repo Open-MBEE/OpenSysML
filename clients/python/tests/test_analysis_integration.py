@@ -99,11 +99,16 @@ class TestAnalysisIntegration:
         assert not positional.satisfied
         assert positional.outputs == {"total": 37.0}
 
-    def test_an_unbound_subject_raises(self):
-        with pytest.raises(ExecutionError) as exc_info:
+    def test_an_unbound_subject_leaves_the_objective_undecided(self):
+        with pytest.raises(AnalysisRunError) as exc_info:
             self.model.run_analysis("An::CostAnalysis")
         assert "subject" in str(exc_info.value)
         assert not isinstance(exc_info.value, WrongKindError)
+        result = exc_info.value.result
+        assert result.outputs == {} and result.evaluations == []
+        assert [v.element for v in result.verdicts] == ["affordable"]
+        assert not result.verdicts[0].evaluated
+        assert "subject" in result.verdicts[0].error
 
     def test_a_wrong_kind_raises(self):
         with pytest.raises(WrongKindError) as exc_info:
