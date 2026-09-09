@@ -160,17 +160,26 @@ At each state the checker enumerates the **enabled moves**:
   the selected transitions fire, so a reaction's effect cannot enable or disable another
   region's transition for the same event — that write is seen by the *next* dispatch's
   selection, which the captured state carries. The checker keeps this reading, and what it
-  explores inside a dispatch is the order in which the selected reactions' exits, effects and
-  entries run, which is tool-defined (declaration order today): two reactions that write shared
-  data, or one that writes what another's effect reads, reach different states in different
-  orders. The dispatch is therefore split by the independence relation below: the selected
-  reactions are partitioned into groups whose footprints intersect, each group of size `k`
-  contributes `k!` orders, and the dispatch has one move per combination; groups of size one
-  contribute nothing, so a machine whose regions keep to their own data has exactly one move,
-  as today. Every order fires the same selected set and runs to completion before the next
-  event is taken, so the run-to-completion boundary is kept. A witness records the region order
-  it took, and the replay scheduler honours it. Without this split the checker could not claim
-  to find a divergence two regions produce, and the verdict would have to exclude it.
+  explores inside a dispatch is the order in which the selected reactions run, which is
+  tool-defined (declaration order today). Order matters in two ways. Two reactions that write
+  shared data, or one that writes what another's effect reads, reach different states in
+  different orders. And a reaction that leaves a composite state deactivates every leaf under
+  it, so a sibling region's candidate whose leaf was left is dropped when its turn comes
+  (`broadcastEvent` checks `isActive` and `losesToNestedTransition` at fire time, not at
+  selection): a region-local transition out of a parallel composite fires alone in one order
+  and after its sibling's reaction in the other. The active configuration is therefore part of
+  a reaction's footprint — it reads the activity of its own leaf and writes the activity of
+  every state it exits or enters — and the dispatch is split by the independence relation
+  below: the selected reactions are partitioned into groups whose footprints intersect, each
+  group of size `k` contributes `k!` orders, and the dispatch has one move per combination;
+  groups of size one contribute nothing, so a machine whose regions keep to their own data and
+  their own states has exactly one move, as today. Each order applies the executor's fire-time
+  checks in that order, so a candidate an earlier reaction left is dropped exactly as the
+  executor drops it, and runs to completion before the next event is taken, so the
+  run-to-completion boundary is kept. A witness records the region order it took and the
+  candidates that order dropped, and the replay scheduler honours it. Without this split the
+  checker could not claim to find a divergence two regions produce, and the verdict would have
+  to exclude it.
 
 ### The properties
 
@@ -213,7 +222,8 @@ footprint(node) = {
   sends:    Send targets (port or receiver), by resolved feature
   accepts:  Accept.SignalType / ViaPort, and the features an accept's trigger
             condition reads
-  control:  the join/merge nodes the token's successions reach
+  control:  the join/merge nodes the token's successions reach; for a transition,
+            the states it exits and enters (written) and the leaf it fires from (read)
 }
 ```
 
@@ -223,7 +233,9 @@ trigger condition that answers its wait (`triggerHolds`), so a feature either of
 is a read of the move: a branch that writes `ready` and a branch whose succession is guarded
 `[ready]` are dependent, since their order decides which successor is taken. For a state
 machine the same rule covers a transition's guard and effect, a state's entry and exit
-actions, and the change condition a change trigger polls.
+actions, and the change condition a change trigger polls; its `control` entry makes a
+transition that leaves a composite dependent on every sibling candidate under it, since
+firing it decides whether they still fire.
 
 and declares `a` and `b` **dependent** when any of these hold:
 
@@ -381,9 +393,10 @@ Written before the code, as the behavioral four-layer contract asks:
    write, a write to a feature another branch's succession guard reads, a write to a feature
    a parked trigger's condition reads, send/accept pairing, join convergence, two orthogonal
    regions writing one feature on one event, one region's effect writing a feature another
-   region's guard on the same event reads (every order fires the same selected set and differs
-   only in the effects), and a dynamic target that must fall back to "dependent on
-   everything".
+   region's guard on the same event reads (every order selects the same set and differs only
+   in the effects), a region-local transition leaving a parallel composite while a sibling
+   region's candidate is selected for the same event (one order fires both, the other drops the
+   sibling), and a dynamic target that must fall back to "dependent on everything".
 5. **Reduction effectiveness.** Pin the state count for the corpus so a change that silently
    weakens the reduction is noticed; this is a ratchet like the corpus gates, adjudicated on
    every movement.
