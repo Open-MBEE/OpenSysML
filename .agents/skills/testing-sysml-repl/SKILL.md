@@ -5814,6 +5814,35 @@ and use <kbd>Shift</kbd>+<kbd>PageUp</kbd>.
 - In Konsole, use `Ctrl++` (not Ctrl+Shift++) to enlarge the font. Display version
   with shell `bin/sysml --version`; `%version` is not a REPL command.
 
+## The shared simulation clock: `%advance` across action and state debuggers, `-advance`, `final_time` (PR #136)
+
+- Build both CLI and service via Makefile; stop any older service before attaching
+  with `Connection(port=50051, auto_start=False)`. Check `server_info().version`
+  and capability `final_time` before trusting response values.
+- Use `internal/repl/testdata/timed_action.sysml`: start `Timed::pinger` and
+  `Timed::listener`, step twice, advance 2 then 3. The action's `%step` wait hint
+  reports its current clock; `%current` reports the state debugger only.
+  Expect action count 1, listener pinged, Last event at 5. The listener has no
+  transition to done and therefore settles rather than reporting Completed.
+- For load-bearing scheduling evidence, run
+  `clock_action_state_due_together.sysml` in fresh REPL sessions. Set `%trace on`
+  and `%schedule reverse` or `declared` before `%action test::watcher`, then
+  `%advance 5`. The action materializes beacon and its state machine itself:
+  do not pre-instantiate it, which changes executor creation order.
+  Reverse produces sawLit true; declared produces false, with a due-order trace
+  at t=5. Merely seeing a choice line does not prove the scheduling policy works.
+- Use `clock_action_accept_at.sysml` to test absolute waits: advance 3 reaches
+  count 11 and parks at 8 (the intervening past instant 1 must not rewind).
+  Advance 4.5 then 0.5 finishes with count 111. A single executor must not
+  generate a due-order choice.
+- High-level Python `execute_state` returns `final_time`; high-level
+  `execute_action` returns outputs only. Inspect the raw ExecuteAction response
+  for its final_time. Integer protobuf values use `int_value`, not integer_value.
+  Follow timed RPCs with an untimed fresh run whose final_time must be zero.
+- CLI exit matrix on `timed_action.sysml`: `-action Timed::pinger -state Timed::listener -advance 5`
+  exits 0; `-action Timed::pinger -advance 2` exits 2 and names the wait at t=5.0; `-action` alone
+  runs to completion (exit 0); `-advance` with no behavior, or a negative one, exits 2.
+
 ### Devin Secrets Needed
 
 None for these local REPL/gRPC checks.
