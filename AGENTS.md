@@ -13,7 +13,7 @@ It provides a hand-written lexer/parser, semantic engine, execution runtime, LSP
 1. **Correctness over expedience.** No shortcuts, no stubs left behind, no lossy conversions. If a proper fix is large, do it properly or stop and flag it.
    - **For features specifically: do not minimize code changes or dodge complexity.** Implement the feature fully and correctly even if it touches many files, adds new types, or requires refactoring. Completeness beats diff size. See §8.
 2. **Root-cause first.** Before editing, confirm *why* something fails (read the code, add a temporary debug print, write a focused test). Then make the minimal correct change.
-3. **Never regress.** `main` is green. Any test passing on `main` must still pass on your branch. Diff against `main` if unsure: `git stash && git checkout main && go test ./... ; git checkout - && git stash pop`.
+3. **Never regress.** `develop` is green. Any test passing on `develop` must still pass on your branch. Diff against `develop` if unsure: `git stash && git checkout develop && go test ./... ; git checkout - && git stash pop`.
 4. **Respect the architecture invariants** (see §4). The AST is immutable; semantics live in side tables; execution consumes lowered IR — do not bypass these.
 5. **Tests are the contract.** Existing tests encode intended behavior (including *when* and *where* errors surface). Make code satisfy tests, not the reverse — unless the test is provably wrong, in which case explain before changing it.
 6. **Leave no dead code.** Remove superseded helpers/structs. Run `go vet ./...` to catch it.
@@ -139,7 +139,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 
 ## 6. Development Workflow
 
-1. **Understand first.** Grep/read the relevant package and its tests. Diff the branch against `main` to see what changed and why.
+1. **Understand first.** Grep/read the relevant package and its tests. Diff the branch against `develop` to see what changed and why.
 2. **Reproduce.** Run the failing test(s) and read the exact error before changing anything.
 3. **Locate the root cause** in the correct layer (lexer vs parser vs lower vs runtime). Bugs in specialized layers are often upstream of where they surface.
 4. **Implement the correct fix.** For bug fixes, keep edits minimal and scoped. For features, implement completely (see §8) — "minimal" means *no unrelated changes*, never *under-built*. Match existing style; keep imports at the top.

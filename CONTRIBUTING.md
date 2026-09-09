@@ -55,7 +55,7 @@ make proto           # regenerate the Go, Java and Python stubs
 make proto-buf       # Go and Java stubs only
 make python-proto    # Python stubs only (needs grpcio-tools; PYTHON=... picks the interpreter)
 make proto-lint      # lint the schema, as CI does
-make proto-breaking  # reject wire-breaking changes against main, as CI does
+make proto-breaking  # reject wire-breaking changes against develop, as CI does
 
 # Python gRPC bindings
 make python-install  # install opensysml package
@@ -144,14 +144,26 @@ docs: update Quick Start guide with new commands
 test(semantics): add conformance checking test cases
 ```
 
+## Branches
+
+The repository follows git-flow with two long-lived branches:
+
+- `develop` is the integration branch and the default branch. Every `feature/`, `fix/`, `docs/`,
+  `ci/` and `test/` branch is cut from `develop`, and its pull request targets `develop`.
+- `main` is the release branch. It receives only `release/x.y.z` pull requests (cut from
+  `develop`, with the changelog fragments folded in) and `hotfix/` pull requests. Release tags —
+  `v*` and the client package tags — are created on `main`. After a release is tagged, `main`
+  is merged back into `develop` (a plain merge, no rebase) so hotfixes and the folded changelog
+  flow down. See [docs/project/releasing.md](docs/project/releasing.md).
+
 ## Pull Request Process
 
 1. **Fork** the repository
-2. **Create a branch** from `main`: `git checkout -b feat/my-feature`
+2. **Create a branch** from `develop`: `git checkout -b feat/my-feature`
 3. **Make changes** with clear commit messages
 4. **Run tests**: `go test ./...`
 5. **Push** to your fork
-6. **Open a Pull Request** targeting `main`
+6. **Open a Pull Request** targeting `develop`
 
 ### PR Guidelines
 
@@ -168,14 +180,17 @@ test(semantics): add conformance checking test cases
 ### Creating a Release
 
 1. **Update version** (if needed in code)
-2. **Tag the release:**
+2. **Merge the `release/x.y.z` pull request** into `main` (see
+   [docs/project/releasing.md](docs/project/releasing.md))
+3. **Tag the release** on `main`:
    ```bash
    git tag -a v0.1.0 -m "Release v0.1.0: Initial public release"
    git push origin v0.1.0
    ```
-3. **CI automatically:**
+4. **CI automatically:**
    - Builds binaries for all platforms
    - Publishes to GitHub Releases
+5. **Merge `main` back into `develop`**
 
 ### Release Checklist
 
@@ -200,7 +215,8 @@ A release is a **PATCH** when everything the previous release accepted still beh
   result into the one the Kernel Semantic Library derives; that is compatible and is listed under
   *Fixed*.
 - No CLI flag, REPL command, RPC or wire field is removed or renamed. The protobuf
-  wire-compatibility check, `make proto-breaking`, passes.
+  wire-compatibility check passes against the previous release's schema:
+  `make proto-breaking BUF_BREAKING_REF=origin/main` on the release branch.
 
 New features, new flags, new capabilities and new wire fields are all patch material.
 
@@ -243,7 +259,7 @@ is over-tested rather than untested — teach the script about it, and add a cas
 
 `.circleci/config.yml` runs after a merge and on tags, never on a pull request branch:
 
-**On every push to `main`:**
+**On every push to `main` or `develop`:**
 - The same suite, gates, client tests and conformance runs as the pull-request workflow, over
   the merged tree, plus the host binaries
 - SonarCloud scan, fed by the Go and client coverage reports
