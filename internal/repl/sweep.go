@@ -178,7 +178,8 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	for name := range named {
 		namedNames = append(namedNames, name)
 	}
-	if err := ctx.CheckSweepParameters(sym, plan, len(positional), namedNames); err != nil {
+	plan, err = ctx.ResolveSweepPlan(sym, plan, len(positional), namedNames)
+	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
 
@@ -612,7 +613,20 @@ func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
 	for _, row := range cells[1:] {
 		lines = append(lines, renderSweepRow(row, widths, " | "))
 	}
-	return append(lines, notes...)
+	lines = append(lines, notes...)
+	return append(lines, untypedNotes(table)...)
+}
+
+// untypedNotes says which parameters declare no type, since their ranges are
+// read as written rather than in a type of the parameter's.
+func untypedNotes(table runtime.SweepTable) []string {
+	var notes []string
+	for i, typ := range table.Types {
+		if typ.Untyped {
+			notes = append(notes, fmt.Sprintf("note: %s declares no type; its range is read as written", table.Params[i]))
+		}
+	}
+	return notes
 }
 
 // footnoteErrors moves each failed run's error out of its cell, which a typed

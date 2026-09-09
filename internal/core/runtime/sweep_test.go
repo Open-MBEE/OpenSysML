@@ -13,10 +13,13 @@ import (
 )
 
 // sweepModel is the model the sweep tests run over: calcs whose values follow
-// straight from their inputs, one of which fails on a particular input.
+// straight from their inputs, one of which fails on a particular input, and
+// one parameter of each type a range may or may not be swept over.
 const sweepModel = `
 	package test {
 		private import ScalarValues::*;
+		private import Quantities::ScalarQuantityValue;
+		private import ISQ::LengthValue;
 		calc def Twice {
 			in n : Integer;
 			return : Integer = n * 2;
@@ -31,8 +34,27 @@ const sweepModel = `
 			in b : Real;
 			return : Real = a / b;
 		}
+		calc def Count { in n : Natural; return : Natural = n; }
+		calc def Rank { in n : Positive; return : Positive = n; }
+		calc def Frac { in q : Rational; return : Rational = q; }
+		calc def Any { in v; return r = v; }
+		calc def Num { in n : Number; return : Number = n; }
+		calc def Flag { in b : Boolean; return : Boolean = b; }
+		calc def Label { in s : String; return : String = s; }
+		enum def Colour { red; green; }
+		calc def Paint { in c : Colour; return : Colour = c; }
+		attribute def Mass :> Real;
+		attribute def Tally :> Integer;
+		calc def Weigh { in m : Mass; return : Mass = m; }
+		calc def Score { in t : Tally; return : Tally = t; }
+		calc def Stretch { in l : LengthValue; return : LengthValue = l; }
+		attribute def CountValue :> ScalarQuantityValue { attribute :>> num : Integer; }
+		calc def Heap { in n : CountValue; return : CountValue = n; }
+		calc def Doubled :> Twice;
+		calc def Exact :> Ratio { in :>> a : Integer; }
 		part def Ship { attribute hullMass : Real; }
 		part ship : Ship { attribute :>> hullMass = 1000.0; }
+		calc def Hull { in s : Ship; return : Real = s.hullMass; }
 		analysis def Margin {
 			subject s : Ship;
 			in load : Real;
@@ -92,11 +114,23 @@ func sweepCalcRun(ctx *Context, sym *symbols.Symbol, scope *symbols.Scope) Sweep
 	}
 }
 
+// resolvedPlan is the plan as the named calc's parameters type it, failing the
+// test when a parameter was refused.
+func resolvedPlan(t *testing.T, ctx *Context, scope *symbols.Scope, name string, plan SweepPlan) SweepPlan {
+	t.Helper()
+	resolved, err := ctx.ResolveSweepPlan(calcNamed(t, scope, name), plan, 0, nil)
+	if err != nil {
+		t.Fatalf("resolving the sweep of %s: %v", name, err)
+	}
+	return resolved
+}
+
 // runSweepOver sweeps the named calc over the plan, failing the test when the
 // plan itself was refused.
 func runSweepOver(t *testing.T, ctx *Context, scope *symbols.Scope, name string, plan SweepPlan) SweepTable {
 	t.Helper()
 	sym := calcNamed(t, scope, name)
+	plan = resolvedPlan(t, ctx, scope, name, plan)
 	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, sweepCalcRun(ctx, sym, scope))
 	if err != nil {
 		t.Fatalf("sweep of %s: %v", name, err)
@@ -105,18 +139,41 @@ func runSweepOver(t *testing.T, ctx *Context, scope *symbols.Scope, name string,
 }
 
 // refuseSweep sweeps and reports the refusal, failing the test when the plan
-// ran anyway.
+// ran anyway or any row was run before it was refused.
 func refuseSweep(t *testing.T, ctx *Context, scope *symbols.Scope, name string, plan SweepPlan) error {
 	t.Helper()
 	sym := calcNamed(t, scope, name)
-	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, sweepCalcRun(ctx, sym, scope))
+	plan, err := ctx.ResolveSweepPlan(sym, plan, 0, nil)
+	if err != nil {
+		return err
+	}
+	runs := 0
+	run := sweepCalcRun(ctx, sym, scope)
+	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, func(bindings []SweepBinding) (SweepRunResult, error) {
+		runs++
+		return run(bindings)
+	})
 	if err == nil {
 		t.Fatalf("sweep of %s ran %d row(s); want a refusal", name, len(table.Rows))
 	}
-	if len(table.Rows) != 0 {
-		t.Fatalf("refused sweep reported %d row(s); want none", len(table.Rows))
+	if len(table.Rows) != 0 || runs != 0 {
+		t.Fatalf("refused sweep reported %d row(s) and made %d run(s); want none", len(table.Rows), runs)
 	}
 	return err
+}
+
+// refusedNaming checks a plan is refused as an ErrSweepRange whose message
+// names each of the given words.
+func refusedNaming(t *testing.T, err error, words ...string) {
+	t.Helper()
+	if !errors.Is(err, ErrSweepRange) {
+		t.Fatalf("err = %v; want an ErrSweepRange", err)
+	}
+	for _, word := range words {
+		if !strings.Contains(err.Error(), word) {
+			t.Errorf("err = %v; want it to name %q", err, word)
+		}
+	}
 }
 
 // tableText renders a table as one line per row — its inputs, its outputs and
@@ -283,15 +340,28 @@ func TestSweepFailedRunIsARowAndTheTableGoesOn(t *testing.T) {
 	}
 }
 
-// A real range states its step: no step is the obvious one between two reals,
-// so leaving it out is refused rather than guessed at.
-func TestSweepRealRangeWithoutAStepIsRefused(t *testing.T) {
+// A range with a fractional endpoint states its step: no step is the obvious
+// one there, so leaving it out is refused rather than guessed at. Between whole
+// numbers the step is one, however the parameter types them.
+func TestSweepFractionalRangeWithoutAStepIsRefused(t *testing.T) {
 	ctx, scope := sweepFixture(t)
-	err := refuseSweep(t, ctx, scope, "Ratio", SweepPlan{
-		Ranges: []SweepRange{rangeOf("a", realOf(0), realOf(1))},
-	})
-	if !errors.Is(err, ErrSweepRange) || !strings.Contains(err.Error(), "step") {
-		t.Errorf("err = %v; want an ErrSweepRange naming the step", err)
+	for _, r := range []SweepRange{
+		rangeOf("a", realOf(0.5), realOf(1)),
+		rangeOf("a", realOf(0), realOf(1.5)),
+	} {
+		err := refuseSweep(t, ctx, scope, "Ratio", SweepPlan{Ranges: []SweepRange{r}})
+		if !errors.Is(err, ErrSweepRange) || !strings.Contains(err.Error(), "step") {
+			t.Errorf("%s..%s: err = %v; want an ErrSweepRange naming the step", FormatValue(r.From), FormatValue(r.To), err)
+		}
+	}
+	for _, r := range []SweepRange{
+		rangeOf("a", intOf(0), intOf(2)),
+		rangeOf("a", realOf(0), realOf(2)),
+	} {
+		table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{Ranges: []SweepRange{r, rangeOf("b", intOf(1), intOf(1))}})
+		if got, want := inputsOf(table), []string{"a=0.0 b=1.0", "a=1.0 b=1.0", "a=2.0 b=1.0"}; !equalStrings(got, want) {
+			t.Errorf("%s..%s bound %v; want %v", FormatValue(r.From), FormatValue(r.To), got, want)
+		}
 	}
 }
 
@@ -398,25 +468,57 @@ func TestSweepBudgetBoundsTheProduct(t *testing.T) {
 
 // A parameter the target declares none of, and one the invocation already binds,
 // are both refused before anything runs.
-func TestCheckSweepParametersRefusesUnknownAndBoundParameters(t *testing.T) {
+func TestResolveSweepPlanRefusesUnknownAndBoundParameters(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	sym := calcNamed(t, scope, "Plus")
 	plan := SweepPlan{Ranges: []SweepRange{rangeOf("a", intOf(1), intOf(2))}}
 
-	if err := ctx.CheckSweepParameters(sym, plan, 0, []string{"b"}); err != nil {
+	if _, err := ctx.ResolveSweepPlan(sym, plan, 0, []string{"b"}); err != nil {
 		t.Fatalf("sweeping a while b is bound: %v", err)
 	}
-	err := ctx.CheckSweepParameters(sym, SweepPlan{
+	_, err := ctx.ResolveSweepPlan(sym, SweepPlan{
 		Ranges: []SweepRange{rangeOf("nope", intOf(1), intOf(2))},
 	}, 0, nil)
 	if !errors.Is(err, ErrSweepParameter) || !strings.Contains(err.Error(), "nope") {
 		t.Errorf("err = %v; want an ErrSweepParameter naming nope", err)
 	}
-	if err := ctx.CheckSweepParameters(sym, plan, 0, []string{"a"}); !errors.Is(err, ErrSweepParameter) {
+	if _, err := ctx.ResolveSweepPlan(sym, plan, 0, []string{"a"}); !errors.Is(err, ErrSweepParameter) {
 		t.Errorf("sweeping a parameter bound by name: err = %v; want ErrSweepParameter", err)
 	}
-	if err := ctx.CheckSweepParameters(sym, plan, 1, nil); !errors.Is(err, ErrSweepParameter) {
+	if _, err := ctx.ResolveSweepPlan(sym, plan, 1, nil); !errors.Is(err, ErrSweepParameter) {
 		t.Errorf("sweeping a parameter bound by position: err = %v; want ErrSweepParameter", err)
+	}
+}
+
+// Resolving a plan types each range by the parameter it sweeps, and the table
+// reports those types beside its parameters; a plan never resolved is untyped.
+func TestResolveSweepPlanTypesEachRangeByItsParameter(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	plan := SweepPlan{Ranges: []SweepRange{
+		rangeOf("a", intOf(1), intOf(2)),
+		rangeOf("b", intOf(1), intOf(2)),
+	}}
+	resolved := resolvedPlan(t, ctx, scope, "Exact", plan)
+	if got := resolved.Ranges[0].Type; got.Numbers != SweepIntegers || symbolText(got.Declared()) != "Integer" {
+		t.Errorf("a resolved as %+v; want Integers typed by Integer", got)
+	}
+	if got := resolved.Ranges[1].Type; got.Numbers != SweepReals || symbolText(got.Declared()) != "Real" {
+		t.Errorf("b resolved as %+v; want reals typed by Real", got)
+	}
+	if plan.Ranges[0].Type.Declared() != nil {
+		t.Error("resolving typed the plan given rather than the one returned")
+	}
+	table := runSweepOver(t, ctx, scope, "Exact", plan)
+	if len(table.Types) != 2 || table.Types[0].Numbers != SweepIntegers || table.Types[1].Numbers != SweepReals {
+		t.Errorf("table reports types %+v; want Integers then reals", table.Types)
+	}
+	if got, want := tableText(table), strings.Join([]string{
+		"a=1 b=1.0 result -> 1.0",
+		"a=1 b=2.0 result -> 0.5",
+		"a=2 b=1.0 result -> 2.0",
+		"a=2 b=2.0 result -> 1.0",
+	}, "\n"); got != want {
+		t.Errorf("table is\n%s\nwant\n%s", got, want)
 	}
 }
 
@@ -478,6 +580,280 @@ func TestSamplesDrawnValuesArePinned(t *testing.T) {
 	if got != want {
 		t.Errorf("seed 42 drew %s; want %s", got, want)
 	}
+	// The same range over a Real parameter draws reals over [0, 999), not the
+	// Integers its endpoints are written as.
+	table = runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges:  []SweepRange{rangeOf("a", intOf(0), intOf(999)), rangeOf("b", intOf(1), intOf(1))},
+		Sampled: true, Samples: 6, Seed: 42,
+	})
+	got = strings.Join(inputsOf(table), " ")
+	want = "a=824.6470344910468 b=1.0 a=775.2969766622421 b=1.0 a=978.9358272925347 b=1.0 " +
+		"a=574.0664359686494 b=1.0 a=903.0937975136397 b=1.0 a=422.5590152588013 b=1.0"
+	if got != want {
+		t.Errorf("seed 42 drew %s; want %s", got, want)
+	}
+}
+
+// An Integer parameter takes Integers however its range is written: whole
+// endpoints and step written as reals are the Integers they are, and the calc
+// runs on Integers.
+func TestSweepIntegerParameterTakesIntegersHoweverTheRangeIsWritten(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	for _, name := range []string{"Twice", "Doubled"} {
+		table := runSweepOver(t, ctx, scope, name, SweepPlan{
+			Ranges: []SweepRange{steppedRange("n", realOf(1), realOf(3), realOf(1))},
+		})
+		if got, want := tableText(table), "n=1 result -> 2\nn=2 result -> 4\nn=3 result -> 6"; got != want {
+			t.Errorf("%s over 1.0..3.0:1.0 is\n%s\nwant\n%s", name, got, want)
+		}
+	}
+	for name, param := range map[string]string{"Count": "n", "Rank": "n", "Score": "t"} {
+		table := runSweepOver(t, ctx, scope, name, SweepPlan{
+			Ranges: []SweepRange{rangeOf(param, realOf(1), realOf(3))},
+		})
+		want := []string{param + "=1", param + "=2", param + "=3"}
+		if got := inputsOf(table); !equalStrings(got, want) {
+			t.Errorf("%s over 1.0..3.0 bound %v; want %v", name, got, want)
+		}
+		for _, row := range table.Rows {
+			if row.Err != nil || row.Outputs[0].Value.Kind != ValConst || row.Outputs[0].Value.Const.Kind != semantics.ValInt {
+				t.Errorf("%s row %+v; want an Integer result and no error", name, row)
+			}
+		}
+	}
+}
+
+// A range over an Integer parameter is refused before any run when an endpoint
+// or the step is not an Integer, naming the parameter and its type.
+func TestSweepIntegerParameterRefusesFractionalEndpointsAndSteps(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	for _, tc := range []struct {
+		name, param, typ string
+		r                SweepRange
+	}{
+		{"Twice", "n", "Integer", steppedRange("n", realOf(1), realOf(3), realOf(0.5))},
+		{"Twice", "n", "Integer", rangeOf("n", realOf(1.5), intOf(3))},
+		{"Twice", "n", "Integer", rangeOf("n", intOf(1), realOf(3.5))},
+		{"Doubled", "n", "Integer", steppedRange("n", intOf(1), intOf(3), realOf(0.5))},
+		{"Count", "n", "Natural", rangeOf("n", realOf(0.5), intOf(3))},
+		{"Rank", "n", "Positive", steppedRange("n", intOf(1), intOf(3), realOf(0.25))},
+		{"Score", "t", "Tally", rangeOf("t", intOf(1), realOf(2.5))},
+		{"Exact", "a", "Integer", steppedRange("a", intOf(1), intOf(2), realOf(0.5))},
+	} {
+		plan := SweepPlan{Ranges: []SweepRange{tc.r}}
+		if tc.name == "Exact" {
+			plan.Ranges = append(plan.Ranges, rangeOf("b", intOf(1), intOf(1)))
+		}
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.name, plan), tc.param, tc.typ)
+		plan.Sampled, plan.Samples, plan.Seed = true, 3, 1
+		plan.Ranges[0].Step, plan.Ranges[0].HasStep = Value{}, false
+		if tc.r.HasStep {
+			continue
+		}
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.name, plan), tc.param, tc.typ)
+	}
+}
+
+// Natural and Positive parameters take only the Integers they can hold, so a
+// range reaching below them is refused before any run.
+func TestSweepNaturalAndPositiveParametersRefuseWhatTheyCannotHold(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	refusedNaming(t, refuseSweep(t, ctx, scope, "Count", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n", intOf(-1), intOf(1))},
+	}), "n", "Natural", "-1")
+	refusedNaming(t, refuseSweep(t, ctx, scope, "Rank", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n", intOf(0), intOf(2))},
+	}), "n", "Positive", "0")
+	table := runSweepOver(t, ctx, scope, "Rank", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(2))}})
+	if got, want := inputsOf(table), []string{"n=1", "n=2"}; !equalStrings(got, want) {
+		t.Errorf("Rank over 1..2 bound %v; want %v", got, want)
+	}
+}
+
+// A Real parameter takes reals however its range is written: Integer endpoints
+// and step produce the reals 1.0, 2.0, …, and the table shows them as bound.
+func TestSweepRealParameterTakesRealsHoweverTheRangeIsWritten(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges: []SweepRange{
+			steppedRange("a", intOf(1), intOf(4), intOf(1)),
+			rangeOf("b", intOf(2), intOf(2)),
+		},
+	})
+	want := strings.Join([]string{
+		"a=1.0 b=2.0 result -> 0.5",
+		"a=2.0 b=2.0 result -> 1.0",
+		"a=3.0 b=2.0 result -> 1.5",
+		"a=4.0 b=2.0 result -> 2.0",
+	}, "\n")
+	if got := tableText(table); got != want {
+		t.Errorf("Ratio over 1..4:1 is\n%s\nwant\n%s", got, want)
+	}
+	for name, param := range map[string]string{"Weigh": "m", "Frac": "q"} {
+		table := runSweepOver(t, ctx, scope, name, SweepPlan{
+			Ranges: []SweepRange{steppedRange(param, intOf(1), intOf(2), realOf(0.5))},
+		})
+		want := []string{param + "=1.0", param + "=1.5", param + "=2.0"}
+		if got := inputsOf(table); !equalStrings(got, want) {
+			t.Errorf("%s over 1..2:0.5 bound %v; want %v", name, got, want)
+		}
+		for _, row := range table.Rows {
+			if row.Err != nil {
+				t.Errorf("%s row %+v failed", name, row)
+			}
+		}
+	}
+}
+
+// A sampled range over an Integer parameter draws Integers inclusively however
+// its endpoints are written; over a Real parameter it draws reals in [from, to)
+// however they are written.
+func TestSamplesDrawInTheParameterTypeNotTheLiteralType(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+		Ranges:  []SweepRange{rangeOf("n", realOf(0), realOf(1))},
+		Sampled: true, Samples: 40, Seed: 3,
+	})
+	seen := map[string]int{}
+	for _, row := range table.Rows {
+		seen[FormatValue(row.Bindings[0].Value)]++
+	}
+	if len(seen) != 2 || seen["0"] == 0 || seen["1"] == 0 {
+		t.Errorf("Integer draws over 0.0..1.0 were %v; want both endpoints and nothing else", seen)
+	}
+
+	table = runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges:  []SweepRange{rangeOf("a", intOf(1), intOf(4)), rangeOf("b", intOf(1), intOf(1))},
+		Sampled: true, Samples: 25, Seed: 7,
+	})
+	reals := 0
+	for _, row := range table.Rows {
+		a := row.Bindings[0].Value
+		if a.Kind != ValConst || a.Const.Kind != semantics.ValReal {
+			t.Errorf("drew a=%s, not a Real", FormatValue(a))
+		}
+		if drawn := a.Const.AsReal(); drawn < 1 || drawn >= 4 {
+			t.Errorf("drew a=%v, which is outside [1.0, 4.0)", drawn)
+		}
+		if a.Const.AsReal() != math.Trunc(a.Const.AsReal()) {
+			reals++
+		}
+		if row.Err != nil {
+			t.Errorf("row %+v failed", row)
+		}
+	}
+	if reals == 0 {
+		t.Error("25 draws over a Real parameter were all whole numbers")
+	}
+}
+
+// A parameter typed by neither a scalar nor a quantity — Boolean, String, an
+// enumeration or a part — takes no numeric range: the plan is refused before
+// any run, naming the parameter's type.
+func TestSweepOverANonNumericParameterIsRefused(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	for _, tc := range []struct{ name, param, typ string }{
+		{"Flag", "b", "Boolean"},
+		{"Label", "s", "String"},
+		{"Paint", "c", "Colour"},
+		{"Hull", "s", "Ship"},
+	} {
+		plan := SweepPlan{Ranges: []SweepRange{rangeOf(tc.param, intOf(0), intOf(1))}}
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.name, plan), tc.param, tc.typ)
+		plan.Sampled, plan.Samples, plan.Seed = true, 2, 1
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.name, plan), tc.param, tc.typ)
+	}
+}
+
+// A parameter declaring no type takes the range as written: Integer endpoints
+// step by Integers and real ones by reals, as the literal-driven rule reads them.
+func TestSweepOverAnUntypedParameterFollowsTheLiterals(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	plan := resolvedPlan(t, ctx, scope, "Any", SweepPlan{Ranges: []SweepRange{rangeOf("v", intOf(1), intOf(3))}})
+	if typ := plan.Ranges[0].Type; !typ.Untyped || typ.Numbers != SweepAsWritten || typ.Declared() != nil {
+		t.Errorf("v resolved as %+v; want untyped, as written", typ)
+	}
+	table := runSweepOver(t, ctx, scope, "Any", SweepPlan{Ranges: []SweepRange{rangeOf("v", intOf(1), intOf(3))}})
+	if got, want := tableText(table), "v=1 result -> 1\nv=2 result -> 2\nv=3 result -> 3"; got != want {
+		t.Errorf("Any over 1..3 is\n%s\nwant\n%s", got, want)
+	}
+	table = runSweepOver(t, ctx, scope, "Any", SweepPlan{
+		Ranges: []SweepRange{steppedRange("v", realOf(1), realOf(2), realOf(0.5))},
+	})
+	if got, want := tableText(table), "v=1.0 result -> 1.0\nv=1.5 result -> 1.5\nv=2.0 result -> 2.0"; got != want {
+		t.Errorf("Any over 1.0..2.0:0.5 is\n%s\nwant\n%s", got, want)
+	}
+	table = runSweepOver(t, ctx, scope, "Any", SweepPlan{
+		Ranges:  []SweepRange{rangeOf("v", intOf(0), intOf(1))},
+		Sampled: true, Samples: 20, Seed: 3,
+	})
+	for _, row := range table.Rows {
+		if v := row.Bindings[0].Value; v.Kind != ValConst || v.Const.Kind != semantics.ValInt {
+			t.Errorf("drew v=%s over Integer literals; want an Integer", FormatValue(v))
+		}
+	}
+}
+
+// A parameter typed by Number, which Integers and reals both are, takes the
+// range as written too, but is typed rather than untyped.
+func TestSweepOverANumberParameterFollowsTheLiterals(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	plan := resolvedPlan(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(2))}})
+	if typ := plan.Ranges[0].Type; typ.Untyped || typ.Numbers != SweepAsWritten || symbolText(typ.Declared()) != "Number" {
+		t.Errorf("n resolved as %+v; want as written, typed by Number", typ)
+	}
+	table := runSweepOver(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(2))}})
+	if got, want := tableText(table), "n=1 result -> 1\nn=2 result -> 2"; got != want {
+		t.Errorf("Num over 1..2 is\n%s\nwant\n%s", got, want)
+	}
+	table = runSweepOver(t, ctx, scope, "Num", SweepPlan{Ranges: []SweepRange{steppedRange("n", realOf(1), realOf(2), realOf(1))}})
+	if got, want := tableText(table), "n=1.0 result -> 1.0\nn=2.0 result -> 2.0"; got != want {
+		t.Errorf("Num over 1.0..2.0:1.0 is\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A quantity-typed parameter takes a range of quantities expressed in the
+// first endpoint's unit, magnitudes typed by the quantity's `num`; a range of
+// bare numbers is refused before any run, naming the parameter's type.
+func TestSweepOverAQuantityParameterConvertsToTheFirstEndpointsUnit(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	metre := ctx.librarySymbol("SI::m")
+	if metre == nil {
+		t.Fatal("SI::m is not in the library")
+	}
+	length := func(num semantics.Value, text string, scale float64) Value {
+		return NewQuantityValue(&Quantity{Num: num, Unit: Unit{Text: text, Term: semantics.UnitTerm{
+			Scale: semantics.UnitScale(scale), Factors: []semantics.UnitFactor{{Unit: metre, Exponent: 1}},
+		}}})
+	}
+	integer := func(n int64) semantics.Value { return semantics.Value{Kind: semantics.ValInt, Int: n} }
+	table := runSweepOver(t, ctx, scope, "Stretch", SweepPlan{
+		Ranges: []SweepRange{steppedRange("l",
+			length(integer(1), "SI::km", 1000), length(integer(2000), "SI::m", 1), length(integer(500), "SI::m", 1))},
+	})
+	want := []float64{1, 1.5, 2}
+	if len(table.Rows) != len(want) {
+		t.Fatalf("rows = %d; want %d", len(table.Rows), len(want))
+	}
+	for i, m := range want {
+		q := table.Rows[i].Bindings[0].Value.Quantity()
+		if q == nil || q.Num.Kind != semantics.ValReal || q.Num.Real != m || q.Unit.Text != "SI::km" {
+			t.Errorf("row %d bound %s; want the Real %v [SI::km]", i, FormatValue(table.Rows[i].Bindings[0].Value), m)
+		}
+		if table.Rows[i].Err != nil {
+			t.Errorf("row %d failed: %v", i, table.Rows[i].Err)
+		}
+	}
+	refusedNaming(t, refuseSweep(t, ctx, scope, "Stretch", SweepPlan{
+		Ranges: []SweepRange{rangeOf("l", intOf(1), intOf(4))},
+	}), "l", "LengthValue")
+	refusedNaming(t, refuseSweep(t, ctx, scope, "Stretch", SweepPlan{
+		Ranges: []SweepRange{rangeOf("l", quantityInt(1, "SI::s", 1), quantityInt(4, "SI::s", 1))},
+	}), "l", "LengthValue")
+	refusedNaming(t, refuseSweep(t, ctx, scope, "Heap", SweepPlan{
+		Ranges: []SweepRange{steppedRange("n", length(integer(1), "SI::m", 1), length(integer(2), "SI::m", 1),
+			length(semantics.Value{Kind: semantics.ValReal, Real: 0.5}, "SI::m", 1))},
+	}), "n", "CountValue")
 }
 
 // A sampled Integer range draws over its endpoints inclusively, so both of a
@@ -705,7 +1081,7 @@ func quantityInt(n int64, unit string, scale float64) Value {
 func TestSweepQuantityIntegerRangeBeyondFloatPrecisionStepsExactly(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	base := int64(1) << 60
-	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+	table := runSweepOver(t, ctx, scope, "Heap", SweepPlan{
 		Ranges: []SweepRange{rangeOf("n",
 			quantityInt(base, "SI::m", 1), quantityInt(base+2, "SI::m", 1))},
 	})
@@ -727,7 +1103,7 @@ func TestSweepQuantityRangeConvertsIntegerEndpointsExactly(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	const kilometres = 1152921504606844
 	metres := int64(kilometres) * 1000
-	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+	table := runSweepOver(t, ctx, scope, "Heap", SweepPlan{
 		Ranges: []SweepRange{steppedRange("n",
 			quantityInt(metres, "SI::m", 1),
 			quantityInt(kilometres+2, "SI::km", 1000),
@@ -747,29 +1123,29 @@ func TestSweepQuantityRangeConvertsIntegerEndpointsExactly(t *testing.T) {
 
 // A case's positional arguments bind the inputs its run binds them to, the
 // subject skipped, so a parameter one of them binds cannot also be swept.
-func TestCheckSweepParametersFollowsAnalysisPositionalBinding(t *testing.T) {
+func TestResolveSweepPlanFollowsAnalysisPositionalBinding(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	sym := calcNamed(t, scope, "Margin")
 
 	load := SweepPlan{Ranges: []SweepRange{rangeOf("load", realOf(0), realOf(1))}}
-	if err := ctx.CheckSweepParameters(sym, load, 1, nil); !errors.Is(err, ErrSweepParameter) {
+	if _, err := ctx.ResolveSweepPlan(sym, load, 1, nil); !errors.Is(err, ErrSweepParameter) {
 		t.Errorf("sweeping the input the positional argument binds: err = %v; want ErrSweepParameter", err)
 	}
 	factor := SweepPlan{Ranges: []SweepRange{rangeOf("factor", realOf(1), realOf(2))}}
-	if err := ctx.CheckSweepParameters(sym, factor, 1, nil); err != nil {
+	if _, err := ctx.ResolveSweepPlan(sym, factor, 1, nil); err != nil {
 		t.Errorf("sweeping the input no argument binds: %v", err)
 	}
-	if err := ctx.CheckSweepParameters(sym, factor, 2, nil); !errors.Is(err, ErrSweepParameter) {
+	if _, err := ctx.ResolveSweepPlan(sym, factor, 2, nil); !errors.Is(err, ErrSweepParameter) {
 		t.Errorf("sweeping the second input two arguments bind: err = %v; want ErrSweepParameter", err)
 	}
 }
 
 // A case's subject is an object an instantiation binds, which no range of
 // values stands for, so sweeping it is refused rather than run.
-func TestCheckSweepParametersRefusesTheSubject(t *testing.T) {
+func TestResolveSweepPlanRefusesTheSubject(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	sym := calcNamed(t, scope, "Margin")
-	err := ctx.CheckSweepParameters(sym, SweepPlan{
+	_, err := ctx.ResolveSweepPlan(sym, SweepPlan{
 		Ranges: []SweepRange{rangeOf("s", intOf(1), intOf(2))},
 	}, 0, nil)
 	if !errors.Is(err, ErrSweepParameter) || !strings.Contains(err.Error(), "subject") {
@@ -782,7 +1158,7 @@ func TestCheckSweepParametersRefusesTheSubject(t *testing.T) {
 func TestSamplesOverAQuantityIntegerRangeStayIntegers(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	base := int64(1) << 60
-	table := runSweepOver(t, ctx, scope, "Twice", SweepPlan{
+	table := runSweepOver(t, ctx, scope, "Heap", SweepPlan{
 		Ranges: []SweepRange{rangeOf("n",
 			quantityInt(base, "SI::m", 1), quantityInt(base+1000, "SI::m", 1))},
 		Sampled: true, Samples: 16, Seed: 7,
@@ -905,7 +1281,8 @@ func TestSweepRefusesWideRealRangesPromptly(t *testing.T) {
 		steppedRange("a", realOf(0), realOf(1e18), realOf(1)),
 		steppedRange("a", realOf(-math.MaxFloat64), realOf(math.MaxFloat64), realOf(1e-3)),
 	} {
-		plan := SweepPlan{Ranges: []SweepRange{r, steppedRange("b", realOf(1), realOf(1), realOf(1))}}
+		plan := resolvedPlan(t, ctx, scope, "Ratio",
+			SweepPlan{Ranges: []SweepRange{r, steppedRange("b", realOf(1), realOf(1), realOf(1))}})
 		done := make(chan error, 1)
 		go func() {
 			_, err := ctx.RunSweep(context.Background(), "test::Ratio", plan, sweepCalcRun(ctx, sym, scope))
