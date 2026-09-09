@@ -499,7 +499,7 @@ jobs:
       - run:
           name: Show the reports and Java binaries the scan reads
           command: |
-            ls -l coverage.txt coverage-python.xml coverage-node.lcov \
+            ls -l coverage.txt coverage-python.xml coverage-scripts.xml coverage-node.lcov \
               clients/java/opensysml-client/target/site/jacoco/jacoco.xml \
               clients/java/opensysml-conformance/target/site/jacoco/jacoco.xml
             head -n 3 coverage.txt
@@ -633,12 +633,19 @@ jobs:
           name: Run Python client tests
           command: OPENSYSML_REQUIRE_SERVICE=1 make python-coverage
 
-      # The scan job reads this report; without it every Python line counts
+      # The repository scripts the Go static checks run are Python too; running
+      # them and their tests under coverage here credits what those checks execute.
+      - run:
+          name: Run the repository scripts with coverage
+          command: make scripts-coverage
+
+      # The scan job reads these reports; without them every Python line counts
       # as uncovered.
       - persist_to_workspace:
           root: .
           paths:
             - coverage-python.xml
+            - coverage-scripts.xml
 
       # This executor has no Go toolchain, so buf comes from the official release
       # rather than `go run`, pinned by digest so a substituted asset is not run.

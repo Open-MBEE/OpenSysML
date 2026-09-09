@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help python-test python-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-lsp build-grpc windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -50,6 +50,8 @@ SITE_DIR := site
 # Where make self-model writes the architecture self-model's rendered views.
 SELF_MODEL_DIR := examples/self-model
 SELF_MODEL_OUT ?= build/self-model
+# Where the commands the Go tests build and run write their coverage counters.
+GO_COUNTER_DIR := $(CURDIR)/build/gocoverdir
 LIBS_DIR := internal/core/libs
 
 # The commands whose manual pages are generated and shipped, in section 1.
@@ -151,7 +153,13 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# ast/dump.go measures 21% though the parser's golden tests run 90% of it.
 	@# Instrumenting every package is too slow to combine with -race, which
 	@# make test above runs instead. -pgo=off as in make test.
-	go test -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	@# Tests that run a built command (internal/testutil/gobuild) instrument it and point
+	@# it at this directory; go test does not fold a child process's counters in itself.
+	rm -rf $(GO_COUNTER_DIR)
+	mkdir -p $(GO_COUNTER_DIR)
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
+	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
 	@# -coverpkg repeats every block once per test binary; see the script's header.
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
@@ -179,7 +187,8 @@ stdlib-snapshot-check: ## Verify the committed library snapshot matches the bund
 clean: ## Remove build artifacts
 	@echo "Cleaning..."
 	rm -rf $(BIN_DIR)
-	rm -f coverage.txt coverage-python.xml coverage-node.lcov
+	rm -f coverage.txt coverage-python.xml coverage-scripts.xml .coverage-scripts coverage-node.lcov
+	rm -rf $(GO_COUNTER_DIR)
 	rm -f sysml sysml-lsp sysml-grpc
 	rm -f cmd/*/rsrc_windows_*.syso
 	rm -rf $(SITE_DIR)
@@ -265,6 +274,27 @@ python-coverage: ## Run Python client tests and write coverage-python.xml
 	@echo "Running Python client tests with coverage..."
 	pytest $(PYTHON_DIR)/tests --cov=opensysml --cov-report=xml:coverage-python.xml --cov-report=term
 	@echo "✓ Wrote coverage-python.xml"
+
+# The repository scripts the checks run, measured the same way. Each script runs
+# the way CI runs it, so the report credits what the checks execute. The release
+# scripts under clients/python/scripts are loaded by path, so their tests run here too.
+SCRIPTS_COVERAGE := $(PYTHON) -m coverage run --append --rcfile=scripts/coverage-scripts.ini
+
+scripts-coverage: ## Run the repository scripts and their tests under coverage and write coverage-scripts.xml
+	@echo "Running the repository scripts with coverage..."
+	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
+	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
+	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
+	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
+	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
+	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
+	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
+	$(SCRIPTS_COVERAGE) scripts/sync-release-digests.py --check
+	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py
+	$(PYTHON) -m coverage xml --rcfile=scripts/coverage-scripts.ini
+	$(PYTHON) -m coverage report --rcfile=scripts/coverage-scripts.ini
+	@echo "✓ Wrote coverage-scripts.xml"
 
 # c8 records paths relative to the client directory, so rewrite them to
 # repo-relative before the scan reads the report.

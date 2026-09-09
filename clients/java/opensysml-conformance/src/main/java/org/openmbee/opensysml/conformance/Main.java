@@ -36,7 +36,7 @@ public final class Main {
   private Main() {}
 
   /** What the runner was asked to do. */
-  private record Options(
+  record Options(
       Path directory,
       Optional<Path> binary,
       Optional<String> service,
@@ -80,7 +80,8 @@ public final class Main {
     System.exit(run(options, STDOUT));
   }
 
-  private static int run(Options options, PrintStream out) {
+  /** Runs the suite as the command line asked, returning the exit status. */
+  static int run(Options options, PrintStream out) {
     List<Scenario> scenarios = Scenarios.load(options.directory().resolve("scenarios"));
     Path fixtures = options.directory().resolve("fixtures");
     if (!Files.isDirectory(fixtures)) {
@@ -145,7 +146,8 @@ public final class Main {
     }
   }
 
-  private static Options parse(String[] args) {
+  /** Parses the command line; an {@link IllegalArgumentException} is a usage error. */
+  static Options parse(String[] args) {
     Path directory = null;
     Path binary = null;
     String service = null;

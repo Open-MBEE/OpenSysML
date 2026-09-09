@@ -33,3 +33,28 @@ for (const name of names) {
     assert.match(stdout, /\S/);
   });
 }
+
+// `npm run example <name>` goes through this script, so it is run the same way.
+const runExample = resolve(examples, "../../scripts/run-example.mjs");
+
+test("run-example.mjs runs the example named and reports which", async () => {
+  const name = names[0].replace(/\.js$/, "");
+  const { stdout } = await run(process.execPath, [runExample, name], { env: process.env, timeout: 120_000 });
+  assert.match(stdout, new RegExp(`=== ${name} ===`));
+  assert.doesNotMatch(stdout, /=== \d\d-.* ===[\s\S]*=== \d\d-.* ===/, "more than one example ran");
+});
+
+test("run-example.mjs refuses a name matching no example and no name at all", async () => {
+  await assert.rejects(run(process.execPath, [runExample, "99-nothing"], { env: process.env }), (error: unknown) => {
+    const failure = error as { code?: number; stderr?: string };
+    assert.equal(failure.code, 2);
+    assert.match(failure.stderr ?? "", /no example matches "99-nothing"/);
+    return true;
+  });
+  await assert.rejects(run(process.execPath, [runExample], { env: process.env }), (error: unknown) => {
+    const failure = error as { code?: number; stderr?: string };
+    assert.equal(failure.code, 2);
+    assert.match(failure.stderr ?? "", /usage: node scripts\/run-example.mjs/);
+    return true;
+  });
+});
