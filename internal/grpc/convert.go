@@ -344,7 +344,7 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: ptq}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
 		// No wire arm carries a frame's axes or a transformation's placement.
-		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + val.Kind.String() + " " + runtime.FormatValue(val)}}
+		return &pb.Value{Kind: unsupportedShown(val)}
 	default:
 		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported"}}
 	}
@@ -417,11 +417,21 @@ func setToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *pb.
 	return &pb.Value{Kind: &pb.Value_Set{Set: ps}}
 }
 
+// unsupportedNullPrefix opens the non-empty null arm a value without a wire
+// form crosses as; the reason follows it.
+const unsupportedNullPrefix = "unsupported: "
+
+// unsupportedShown is the null arm a value of a kind the wire has no arm for
+// crosses as, naming the kind and the value as the REPL shows it.
+func unsupportedShown(shown runtime.Value) *pb.Value_Null {
+	return &pb.Value_Null{Null: unsupportedNullPrefix + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+}
+
 // unsupportedReason reads the non-empty null arm a value without a wire form
 // crosses as; the SysML `null` is the empty one.
 func unsupportedReason(pv *pb.Value) (string, bool) {
 	if null, ok := pv.GetKind().(*pb.Value_Null); ok && null.Null != "" {
-		return strings.TrimPrefix(null.Null, "unsupported: "), true
+		return strings.TrimPrefix(null.Null, unsupportedNullPrefix), true
 	}
 	return "", false
 }
@@ -429,7 +439,7 @@ func unsupportedReason(pv *pb.Value) (string, bool) {
 // unsupportedSet is the null arm a set holding a member without a wire form
 // crosses as, naming the set and the member's reason.
 func unsupportedSet(shown runtime.Value, reason string) *pb.Value {
-	return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: " + runtime.ValSet.String() + " " + runtime.FormatValue(shown) + " holding " + reason}}
+	return &pb.Value{Kind: &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValSet.String() + " " + runtime.FormatValue(shown) + " holding " + reason}}
 }
 
 // tensorQuantityToProto marshals a tensor as its dimensions and one Quantity

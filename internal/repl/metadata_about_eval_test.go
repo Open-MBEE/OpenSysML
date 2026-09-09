@@ -30,7 +30,7 @@ func TestEvalMetadataReadsAboutAnnotations(t *testing.T) {
 	submitModel(t, s, aboutAnnotatedModel)
 
 	got := metaOK(t, s, "%eval Probe::seatBelt.metadata")
-	if n := strings.Count(got, "Instance("); n != 3 {
+	if strings.Count(got, "Instance(") != 3 {
 		t.Errorf("seatBelt.metadata = %q, want the two inline annotations and the `about` one", got)
 	}
 	if got := metaOK(t, s, "%eval Probe::seatBelt.metadata#(3).level"); !strings.Contains(got, "9") {

@@ -78,7 +78,7 @@ func bodyVerdicts(verdicts []*pb.VerificationVerdict) []string {
 
 func wantVerdicts(t *testing.T, surface string, got []*pb.VerificationVerdict, want ...string) {
 	t.Helper()
-	if lines := strings.Join(bodyVerdicts(got), ","); lines != strings.Join(want, ",") {
+	if strings.Join(bodyVerdicts(got), ",") != strings.Join(want, ",") {
 		t.Errorf("%s verification verdicts = %v, want %v", surface, bodyVerdicts(got), want)
 	}
 }

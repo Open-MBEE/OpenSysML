@@ -670,15 +670,16 @@ func (a *adoption) planValue(owner string, val Value) error {
 // planFunction rebinds the calc a function value is of to its declaration here,
 // refusing one that is no longer a calc that can be invoked.
 func (a *adoption) planFunction(owner string, v Value) error {
+	held := "the function " + v.FunctionName() + " it holds"
 	if v.FunctionClosesOverBody() {
-		return &AdoptError{Type: owner, Reason: "the function " + v.FunctionName() + " it holds closes over the bindings of a run that has ended"}
+		return &AdoptError{Type: owner, Reason: held + " closes over the bindings of a run that has ended"}
 	}
-	found, err := a.rebind(v.Function(), "the function "+v.FunctionName()+" it holds")
+	found, err := a.rebind(v.Function(), held)
 	if err != nil {
 		return err
 	}
 	if _, err := a.ctx.calcShapeOf(found); err != nil {
-		return &AdoptError{Type: owner, Reason: "the function " + v.FunctionName() + " it holds cannot be invoked here: " + err.Error()}
+		return &AdoptError{Type: owner, Reason: held + " cannot be invoked here: " + err.Error()}
 	}
 	if self := v.FunctionSelf(); self != nil {
 		return a.planHeld(owner, self.ID)

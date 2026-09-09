@@ -177,7 +177,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if err != nil || calc.Error != "" {
 		t.Fatalf("EvaluateCalc(apply): err = %v, error = %q", err, calc.GetError())
 	}
-	if got := calc.Result.GetRealValue(); got != 9 {
+	if calc.Result.GetRealValue() != 9 {
 		t.Errorf("apply(Sq, 3.0) = %v, want 9.0", calc.Result)
 	}
 	act, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
@@ -188,7 +188,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if err != nil || act.Error != "" {
 		t.Fatalf("ExecuteAction: err = %v, error = %q", err, act.GetError())
 	}
-	if y := act.Outputs["y"].GetRealValue(); y != 8 {
+	if act.Outputs["y"].GetRealValue() != 8 {
 		t.Errorf("output y = %v, want 8.0", act.Outputs["y"])
 	}
 	sweep, err := srv.RunSweep(ctx, &pb.RunSweepRequest{
@@ -227,7 +227,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 	if err != nil || applied.Error != "" {
 		t.Fatalf("EvaluateCalc(apply, fixed inner): %v %s", err, applied.GetError())
 	}
-	if got := applied.Result.GetRealValue(); got != 9 {
+	if applied.Result.GetRealValue() != 9 {
 		t.Errorf("apply(F::Fixed::inner, 3.0) = %v, want 9.0", applied.Result)
 	}
 }

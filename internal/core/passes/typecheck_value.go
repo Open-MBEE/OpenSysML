@@ -10,6 +10,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
+// msgBoundValueType reports a bound value whose types are unrelated to the
+// feature's; its arguments are the value's type names and the feature's.
+const msgBoundValueType = "cannot bind a value of type %s to a feature typed by %s"
+
 // checkValueConformance checks a bound value against the declaring feature's
 // type and multiplicity for the cases the scalar lattice does not cover: values
 // typed by a user-declared type, enumeration literals, and collections.
@@ -41,7 +45,7 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			// either direction suffices; only unrelated types are rejected. The
 			// feature is judged as a whole: a variant is typed by its variation too.
 			if !ec.boundTypesConform(feature, gots, wants) {
-				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
+				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 			}
 			continue
 		}
@@ -49,14 +53,14 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			// Every element a collection value may hold binds, not the Anything the
 			// library declares; a scalar one written out is the lattice rules' to report.
 			if gots := ec.unboundElementTypes(elements, wants, scalar); len(gots) > 0 {
-				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
+				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 			}
 			continue
 		}
 		if result := ec.invocationResultParameter(valueScope, value); result != nil {
 			gots := ec.featureValueTypes(result)
 			if len(gots) > 0 && !(scalar && ec.anyScalar(gots)) && !ec.boundTypesConform(result, gots, wants) {
-				ec.errorf(value.Span(), "cannot bind a value of type %s to a feature typed by %s", typeNames(gots), typeNames(wants))
+				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 			}
 			continue
 		}

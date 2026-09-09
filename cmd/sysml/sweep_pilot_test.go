@@ -119,7 +119,7 @@ func TestSamplesPilotDynamicsAnalysis(t *testing.T) {
 			t.Errorf("table is\n%s\nwant it to carry %q", first, want)
 		}
 	}
-	if drawn := draw("43"); drawn == first {
+	if draw("43") == first {
 		t.Errorf("seed 43 drew what seed 42 did:\n%s", first)
 	}
 }
