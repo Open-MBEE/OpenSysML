@@ -187,6 +187,10 @@ type Context struct {
 	// pausable is the body run on the stack a breakpoint or a wait on the clock
 	// pauses (action_body_run.go), nil while none is.
 	pausable *bodyRun
+	// idleBody is the body coroutine no step's work is on, kept for the next step
+	// until the outermost run leaves; bodyCoroutinesMade counts the ones made.
+	idleBody           *bodyCoroutine
+	bodyCoroutinesMade int
 
 	// calcDepth is the number of calc invocations currently on the stack, which
 	// maxCalcDepth bounds, so a recursion evaluates while it stays within it.
@@ -620,7 +624,16 @@ func (ctx *Context) enterRun(state *runState) func() {
 		ctx.run = state
 	}
 	ctx.runDepth++
-	return func() { ctx.runDepth-- }
+	return ctx.leaveRun
+}
+
+// leaveRun ends one call of the run under way; the outermost leaving ends the body
+// coroutine kept idle for its steps.
+func (ctx *Context) leaveRun() {
+	ctx.runDepth--
+	if ctx.runDepth == 0 {
+		ctx.endIdleBodyCoroutine()
+	}
 }
 
 // beginRun starts a run and returns the function that ends it: a top-level run
@@ -703,7 +716,7 @@ func (ctx *Context) beginProbe() func() {
 			ids.release(nextID)
 		}
 		ctx.probes--
-		ctx.runDepth--
+		ctx.leaveRun()
 		run.steps, run.elements, ctx.trace, ctx.stepWrites = steps, elements, trace, writes
 	}
 }
