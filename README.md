@@ -94,6 +94,19 @@ sysml> %features Wheel
 Instance: Wheel (ID: 1)
 Features:
   diameter = 16.0
+  ownedPorts = []
+  performedActions = []
+  ownedActions = []
+  exhibitedStates = []
+  ownedStates = []
+  shape = []
+  envelopingShapes = []
+  boundingShapes = []
+  voids = []
+  isSolid = true
+  subitems = []
+  subparts = []
+  checkedConstraints = []
 ```
 
 **Behavioral execution:**
@@ -163,6 +176,13 @@ sysml> %advance 30
   Current state: green
   Last event at: 0.0
   Remaining events: 0
+  Action state: Completed
+  Tokens: 0
+  The action runs in a context of its own, whose clock advanced from 0.0 to 30.0
+
+✓ Action completed
+  Results:
+    result = 42
 ```
 
 **Further demonstrations are available in
