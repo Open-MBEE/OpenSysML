@@ -39,3 +39,26 @@ func TestAScheduleIsNotSentWithoutTheCapability(t *testing.T) {
 		})
 	}
 }
+
+// An exploration is refused before it leaves the client when the service lacks
+// schedule_explore, since such a service would answer one run instead.
+func TestAnExplorationIsNotSentWithoutTheCapability(t *testing.T) {
+	ctx := context.Background()
+	model := &Model{Hash: "h"}
+	for name, old := range map[string]*oldCaller{
+		"predates schedule_explore": {t: t, capabilities: []string{CapabilityVerification, CapabilityFeatureValues, CapabilitySchedule}},
+		"predates schedule":         {t: t, capabilities: []string{CapabilityVerification, CapabilityFeatureValues}},
+		"predates GetServerInfo":    {t: t, infoErr: &StatusError{Code: CodeUnimplemented, Message: "unknown method"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			old.t = t
+			c := &client{caller: old}
+			_, err := c.ExploreAction(ctx, model, "A", nil)
+			wantUnimplemented(t, "ExploreAction", err)
+			_, err = c.ExploreState(ctx, model, "M", nil, WithSchedule("explore:runs=2"))
+			wantUnimplemented(t, "ExploreState", err)
+			_, err = c.ExploreAnalysis(ctx, model, "an")
+			wantUnimplemented(t, "ExploreAnalysis", err)
+		})
+	}
+}

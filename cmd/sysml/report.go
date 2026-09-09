@@ -110,6 +110,57 @@ type checkResult struct {
 	// Rows are the runs a sweep made, one per row of its table; `null` for every
 	// other kind of check.
 	Rows []checkRow `json:"rows"`
+	// Outcomes are the distinct outcomes an exploration reached, in canonical
+	// order, and Exploration how it ended; only a run under `explore` has them.
+	Outcomes    []checkOutcome    `json:"outcomes,omitempty"`
+	Exploration *checkExploration `json:"exploration,omitempty"`
+}
+
+// checkOutcome is one distinct outcome of an exploration in the JSON report.
+type checkOutcome struct {
+	Values []namedValue `json:"values"`
+	// Error is what stopped the runs reaching this outcome, empty for one they completed.
+	Error          string `json:"error,omitempty"`
+	Linearizations int    `json:"linearizations"`
+	// Witness is one run's choice sequence, a choice per entry in run order.
+	Witness []string `json:"witness"`
+}
+
+// checkExploration is how an exploration ended in the JSON report.
+type checkExploration struct {
+	Complete bool `json:"complete"`
+	Runs     int  `json:"runs"`
+	// BudgetsHit names the budgets hit, `runs` before `depth`; empty when complete.
+	BudgetsHit []string `json:"budgetsHit"`
+}
+
+// checkOutcomes converts the outcomes of an exploration into the reported form.
+func checkOutcomes(outcomes []repl.VerdictOutcome) []checkOutcome {
+	if len(outcomes) == 0 {
+		return nil
+	}
+	out := make([]checkOutcome, 0, len(outcomes))
+	for _, o := range outcomes {
+		out = append(out, checkOutcome{
+			Values:         namedValues(o.Values),
+			Error:          o.Error,
+			Linearizations: o.Linearizations,
+			Witness:        append([]string{}, o.Witness...),
+		})
+	}
+	return out
+}
+
+// checkExplorationOf converts how an exploration ended into the reported form.
+func checkExplorationOf(x *repl.VerdictExploration) *checkExploration {
+	if x == nil {
+		return nil
+	}
+	return &checkExploration{
+		Complete:   x.Complete,
+		Runs:       x.Runs,
+		BudgetsHit: append([]string{}, x.BudgetsHit...),
+	}
 }
 
 // verificationVerdict is one verdict a verification case body produced.
@@ -273,6 +324,8 @@ func (r *reporter) finish() int {
 			Lines:         v.Lines,
 			Verifications: verificationVerdicts(v.Verifications),
 			Rows:          checkRows(v.Rows),
+			Outcomes:      checkOutcomes(v.Outcomes),
+			Exploration:   checkExplorationOf(v.Exploration),
 		})
 	}
 	out, err := json.MarshalIndent(r.report, "", "  ")

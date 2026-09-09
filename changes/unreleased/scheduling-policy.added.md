@@ -16,8 +16,7 @@
   which alternative each choice takes: every choice point a run reaches is reported and each `took
   …` is what the policy took, though another linearization may reach other choice points. A
   spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`,
-  `seed:abc` — is refused before anything runs, as `INVALID_ARGUMENT` on the wire. `explore`, the
-  bounded exhaustive replay, is reserved and refused by name until it exists. The conformance
+  `seed:abc` — is refused before anything runs, as `INVALID_ARGUMENT` on the wire. The conformance
   suite also runs whole under `declared` and `seed:1`, requiring every case that pins no policy
   and lists no `outcomes` to produce its default outputs. Two accepts racing for two sends now
   list both pairings as `outcomes`, with the derivation in the semantic oracle; a send to a

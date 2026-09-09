@@ -1,0 +1,7 @@
+# The sender precedes the fork, the fork both accepts, and done follows the join.
+# A token parks at the join before it performs, so "receiver < sync" is not a
+# first-mention constraint and is not stated.
+sender < split
+split < receiver
+split < sibling
+sync < done

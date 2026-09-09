@@ -24,7 +24,10 @@
   (unordered; ran state machine blinking of object #1 first)`): the executor started last runs
   first under the default `reverse`, the first started under `declared`, a draw under `seed:<n>`;
   one executor alone due is no choice and is not reported, so every existing single-behavior
-  result and trace is unchanged. `ExecuteActionResponse` and `ExecuteStateResponse` report
+  result and trace is unchanged; `explore` enumerates every due order like every other choice
+  point, and `sysml -schedule explore -action … -state … -advance <time>` tables the joint outcome
+  of the behaviors run on one clock, each behavior's observables under its name, once per order the
+  due executors can run in. `ExecuteActionResponse` and `ExecuteStateResponse` report
   `final_time`, the clock's reading when the run ended, advertised as the `final_time` capability
   (`CAPABILITY_FINAL_TIME`, `Capabilities.FINAL_TIME`) and read by the Python client's
   `execute_state` result and by the generated response types of the Node, Java and Rust clients. The

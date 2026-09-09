@@ -371,8 +371,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
   /**
    * <pre>
    * Scheduling policy the run resolves its choice points under: "declared",
-   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-   * spelling is INVALID_ARGUMENT.
+   * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+   * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+   * the response answers with `outcomes` and `exploration` in place of one run's
+   * outputs, verdicts, instances and error (see ExecuteActionResponse).
    * </pre>
    *
    * <code>string schedule = 6 [json_name = "schedule"];</code>
@@ -394,8 +396,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
   /**
    * <pre>
    * Scheduling policy the run resolves its choice points under: "declared",
-   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-   * spelling is INVALID_ARGUMENT.
+   * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+   * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+   * the response answers with `outcomes` and `exploration` in place of one run's
+   * outputs, verdicts, instances and error (see ExecuteActionResponse).
    * </pre>
    *
    * <code>string schedule = 6 [json_name = "schedule"];</code>
@@ -1708,8 +1712,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+     * the response answers with `outcomes` and `exploration` in place of one run's
+     * outputs, verdicts, instances and error (see ExecuteActionResponse).
      * </pre>
      *
      * <code>string schedule = 6 [json_name = "schedule"];</code>
@@ -1730,8 +1736,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+     * the response answers with `outcomes` and `exploration` in place of one run's
+     * outputs, verdicts, instances and error (see ExecuteActionResponse).
      * </pre>
      *
      * <code>string schedule = 6 [json_name = "schedule"];</code>
@@ -1753,8 +1761,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+     * the response answers with `outcomes` and `exploration` in place of one run's
+     * outputs, verdicts, instances and error (see ExecuteActionResponse).
      * </pre>
      *
      * <code>string schedule = 6 [json_name = "schedule"];</code>
@@ -1772,8 +1782,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+     * the response answers with `outcomes` and `exploration` in place of one run's
+     * outputs, verdicts, instances and error (see ExecuteActionResponse).
      * </pre>
      *
      * <code>string schedule = 6 [json_name = "schedule"];</code>
@@ -1788,8 +1800,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+     * the response answers with `outcomes` and `exploration` in place of one run's
+     * outputs, verdicts, instances and error (see ExecuteActionResponse).
      * </pre>
      *
      * <code>string schedule = 6 [json_name = "schedule"];</code>

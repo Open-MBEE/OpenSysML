@@ -539,7 +539,10 @@ func newSession() *repl.Session {
 		sess.SetVerbosity(repl.VerbosityQuiet)
 	}
 	sess.SetTracing(traceMode)
-	sess.SetSchedule(schedule.value)
+	if err := sess.SetSchedule(schedule.value); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
 	sess.SetConformanceMode(conformance.ModeOf(strictMode))
 	sess.SetRenderWidth(terminalWidth())
 	return sess

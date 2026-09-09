@@ -24,6 +24,9 @@ const (
 	// ChoiceTransition: several transitions out of one state were enabled for
 	// one event.
 	ChoiceTransition
+	// ChoiceRegionOrder: one event enabled transitions in several regions, which
+	// fired in an order the library does not fix.
+	ChoiceRegionOrder
 	// ChoiceDueOrder: several executors had work due at one instant of the
 	// shared clock, and one of them ran first.
 	ChoiceDueOrder
@@ -40,6 +43,8 @@ func (k ChoiceKind) String() string {
 		return "write order"
 	case ChoiceTransition:
 		return "transition"
+	case ChoiceRegionOrder:
+		return "region order"
 	case ChoiceDueOrder:
 		return "due order"
 	}
@@ -76,8 +81,9 @@ type ChoicePoint struct {
 	// due order; empty for a token order.
 	Where string
 	// Alternatives are canonical: tokens by ID, branches and transitions by
-	// declaration position, writes by writing token, executors due at one instant
-	// in the order they were created. Taken indexes the one taken.
+	// declaration position, writes by writing token, reacting states by name in
+	// declaration order, executors due at one instant in the order they were
+	// created. Taken indexes the one taken.
 	Alternatives []string
 	Taken        int
 	// File and Span locate the declaration the choice was made at; File is ""
@@ -103,6 +109,8 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("step %d: writes %s (unordered; %s stood)", c.Step, alts, taken)
 	case ChoiceTransition:
 		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
+	case ChoiceRegionOrder:
+		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
 	case ChoiceDueOrder:
 		return fmt.Sprintf("at %s: due %s (unordered; ran %s first)", c.Where, alts, taken)
 	}

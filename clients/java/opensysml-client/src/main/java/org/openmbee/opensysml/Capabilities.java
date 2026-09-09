@@ -83,6 +83,9 @@ public final class Capabilities {
   /** The execution requests take a {@code schedule}, the scheduling policy a run resolves its choice points under. */
   public static final String SCHEDULE = "schedule";
 
+  /** The {@code explore} schedule answers with every {@code outcomes} entry and an {@code exploration} status. */
+  public static final String SCHEDULE_EXPLORE = "schedule_explore";
+
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";
 

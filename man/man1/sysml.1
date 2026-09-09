@@ -188,7 +188,9 @@ verification case verifying the requirement (repeatable). The default is [].
 .BI \-schedule " value"
 Scheduling policy every run resolves its choice points under (concurrent
 tokens, overlapping guards, competing transitions): declared, reverse
-(default) or seed:<n> for a reproducible pseudo\-random order
+(default), seed:<n> for a reproducible pseudo\-random order, or
+explore[:runs=N,depth=D] to run every linearization within the budget and
+table the distinct outcomes
 .TP
 .BI \-seed " value"
 Seed \-samples draws from, so the same seed draws the same table
@@ -301,6 +303,8 @@ sysml \-action Drive model.sysml
 sysml \-state Mission \-advance 10 model.sysml
 # \&...an action and a machine on one clock
 sysml \-action Ping \-state Sm \-advance 5 m.sysml
+# Run every linearization; table the outcomes
+sysml \-schedule explore \-action Drive m.sysml
 # Report the verdicts as JSON
 sysml \-satisfy \-json model.sysml
 .fi

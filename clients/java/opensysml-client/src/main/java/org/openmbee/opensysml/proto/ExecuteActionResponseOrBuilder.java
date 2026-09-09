@@ -102,12 +102,86 @@ org.openmbee.opensysml.proto.Value defaultValue);
 
   /**
    * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. `outputs`, `error` and
+   * `diagnostics` are then empty: a failed run is an outcome of its own, and
+   * each outcome carries its witness run's diagnostics.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 4 [json_name = "outcomes"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Outcome> 
+      getOutcomesList();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. `outputs`, `error` and
+   * `diagnostics` are then empty: a failed run is an outcome of its own, and
+   * each outcome carries its witness run's diagnostics.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 4 [json_name = "outcomes"];</code>
+   */
+  org.openmbee.opensysml.proto.Outcome getOutcomes(int index);
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. `outputs`, `error` and
+   * `diagnostics` are then empty: a failed run is an outcome of its own, and
+   * each outcome carries its witness run's diagnostics.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 4 [json_name = "outcomes"];</code>
+   */
+  int getOutcomesCount();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. `outputs`, `error` and
+   * `diagnostics` are then empty: a failed run is an outcome of its own, and
+   * each outcome carries its witness run's diagnostics.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 4 [json_name = "outcomes"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+      getOutcomesOrBuilderList();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. `outputs`, `error` and
+   * `diagnostics` are then empty: a failed run is an outcome of its own, and
+   * each outcome carries its witness run's diagnostics.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 4 [json_name = "outcomes"];</code>
+   */
+  org.openmbee.opensysml.proto.OutcomeOrBuilder getOutcomesOrBuilder(
+      int index);
+
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 5 [json_name = "exploration"];</code>
+   * @return Whether the exploration field is set.
+   */
+  boolean hasExploration();
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 5 [json_name = "exploration"];</code>
+   * @return The exploration.
+   */
+  org.openmbee.opensysml.proto.ExplorationStatus getExploration();
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 5 [json_name = "exploration"];</code>
+   */
+  org.openmbee.opensysml.proto.ExplorationStatusOrBuilder getExplorationOrBuilder();
+
+  /**
+   * <pre>
    * The run's simulation clock when it ended, in seconds (SI::s) from the 0
    * it started at: the clock advances through every `accept after`/`accept
    * at` the action waited on. Populated under the "final_time" capability.
    * </pre>
    *
-   * <code>double final_time = 4 [json_name = "finalTime"];</code>
+   * <code>double final_time = 6 [json_name = "finalTime"];</code>
    * @return The finalTime.
    */
   double getFinalTime();

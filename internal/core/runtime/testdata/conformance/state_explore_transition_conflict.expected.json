@@ -1,0 +1,22 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [{"signal": "Go"}, {"signal": "Go"}],
+	"outcomes": [
+		{
+			"finalState": "settled",
+			"stateVisits": ["idle", "left", "settled"],
+			"outputs": {
+				"side": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"finalState": "settled",
+			"stateVisits": ["idle", "right", "settled"],
+			"outputs": {
+				"side": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "Two transitions out of one state enabled by one event: exactly one fires, which one is open"
+}

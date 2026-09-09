@@ -36,6 +36,7 @@ const (
 	CapabilityTensorValues         = sysmlgrpc.CapabilityTensorValues
 	CapabilityDiagnosticCodes      = sysmlgrpc.CapabilityDiagnosticCodes
 	CapabilitySchedule             = sysmlgrpc.CapabilitySchedule
+	CapabilityScheduleExplore      = sysmlgrpc.CapabilityScheduleExplore
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 )
 

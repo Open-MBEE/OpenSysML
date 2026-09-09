@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -136,6 +137,10 @@ const CapabilityDiagnosticCodes = "diagnostic_codes"
 // every request under the default, so a client must not send the field to one.
 const CapabilitySchedule = "schedule"
 
+// CapabilityScheduleExplore names the capability of answering a request under
+// `explore[:runs=<n>,depth=<d>]` with `outcomes` and an `exploration` status.
+const CapabilityScheduleExplore = "schedule_explore"
+
 // CapabilityFinalTime names the capability of populating final_time on
 // ExecuteActionResponse and ExecuteStateResponse, the run's simulation clock
 // when it ended. Without it the field is 0 whatever the run waited on.
@@ -152,7 +157,8 @@ var capabilities = []string{
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
-	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityFinalTime,
+	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityScheduleExplore,
+	CapabilityFinalTime,
 }
 
 type capabilityAvailability struct {
@@ -333,16 +339,23 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 // The context itself is the request's own: the objects it creates are not shared.
 func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, *semantics.Model, func()) {
 	rs, release := cached.RuntimeSemantics()
+	return s.newRuntimeOver(rs), rs.Model, release
+}
+
+// newRuntimeOver builds a fresh runtime context under the service's budgets over
+// semantics the caller holds; every explored run gets one of its own.
+func (s *Service) newRuntimeOver(rs *runtimeSemantics) *runtime.Context {
 	ctx := runtime.NewContext(rs.Model, rs.Resolver, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
-	return ctx, rs.Model, release
+	return ctx
 }
 
 // schedulePolicy reads a request's schedule field. Empty is the default policy;
-// anything else needs the schedule capability and must spell a policy.
+// anything else needs the schedule capability and must spell a policy, and an
+// exploring one needs the schedule_explore capability too.
 func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error) {
 	if spelling == "" {
 		return runtime.DefaultSchedulePolicy, nil
@@ -353,6 +366,11 @@ func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error
 	policy, err := runtime.ParseSchedulePolicy(spelling)
 	if err != nil {
 		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	if _, explores := policy.Exploration(); explores {
+		if err := s.requireCapability(CapabilityScheduleExplore); err != nil {
+			return runtime.SchedulePolicy{}, err
+		}
 	}
 	return policy, nil
 }
@@ -785,27 +803,60 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	action := syms[0]
 
 	// Create runtime context
-	runtimeCtx, semModel, release := s.newRuntime(cached)
+	rs, release := cached.RuntimeSemantics()
 	defer release()
-	runtimeCtx.SetSchedule(schedule)
+	runtimeCtx := s.newRuntimeOver(rs)
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
-	var inputs map[string]runtime.Value
-	if len(req.Inputs) > 0 {
-		inputs = make(map[string]runtime.Value, len(req.Inputs))
+	readInputs := func(ctx *runtime.Context) (map[string]runtime.Value, *pb.ExecuteActionResponse, error) {
+		if len(req.Inputs) == 0 {
+			return nil, nil, nil
+		}
+		inputs := make(map[string]runtime.Value, len(req.Inputs))
 		for name, pv := range req.Inputs {
 			if err := s.requireValueCapabilities(pv); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			val, cerr := ProtoToRuntimeValue(runtimeCtx, pv, cached.Index, semModel)
+			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, rs.Model)
 			if cerr != nil {
-				return &pb.ExecuteActionResponse{
+				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
 				}, nil
 			}
 			inputs[name] = val
 		}
+		return inputs, nil, nil
+	}
+	inputs, resp, err := readInputs(runtimeCtx)
+	if resp != nil || err != nil {
+		return resp, err
+	}
+
+	if _, explores := schedule.Exploration(); explores {
+		// Inputs are read again on each run's own context, so an object among them
+		// belongs to the run that binds it.
+		outcomes, status, err := s.explore(schedule, cached, rs, func(ctx *runtime.Context) (runtime.Outcome, error) {
+			inputs, resp, err := readInputs(ctx)
+			if err != nil {
+				return runtime.Outcome{}, err
+			}
+			if resp != nil {
+				return runtime.Outcome{}, errors.New(resp.Error)
+			}
+			outputs, err := ctx.ExecuteActionWithInputs(action, inputs)
+			if err != nil {
+				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
+			}
+			return ctx.ActionOutcome(outputs), nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &pb.ExecuteActionResponse{Outcomes: outcomes, Exploration: status}, nil
+	}
+	if err := runtimeCtx.SetSchedule(schedule); err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	// Execute action with the supplied inputs
@@ -864,10 +915,24 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	stateMachine := syms[0]
 
+	if _, explores := schedule.Exploration(); explores {
+		rs, release := cached.RuntimeSemantics()
+		defer release()
+		outcomes, status, err := s.explore(schedule, cached, rs, func(ctx *runtime.Context) (runtime.Outcome, error) {
+			return ctx.StateOutcomeWithEvents(stateMachine, req.Events)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &pb.ExecuteStateResponse{Outcomes: outcomes, Exploration: status}, nil
+	}
+
 	// Create runtime context
 	runtimeCtx, _, release := s.newRuntime(cached)
 	defer release()
-	runtimeCtx.SetSchedule(schedule)
+	if err := runtimeCtx.SetSchedule(schedule); err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.

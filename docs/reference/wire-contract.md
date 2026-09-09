@@ -904,6 +904,59 @@ predates the field would drop it and run under the default, which is why every c
 repository ships checks the advertised list before sending one. `ExecuteState` and `RunAnalysis`
 carry the same field with the same spellings and the same refusals.
 
+`"explore"` is the fourth spelling, and it changes the shape of the answer: instead of one run's
+`outputs` the response carries `outcomes`, every distinct outcome any linearization reaches, and
+`exploration`, how the search ended. The service replays the run from the start, each replay a
+fresh executor over the same lowered model, following the recorded choices of an earlier run up
+to a frontier and taking the next untried alternative there, depth-first, until no alternative
+is untried or a budget is hit. Two runs that agree on the observables — an action's outputs — are
+one outcome, with `linearizations` counting how many reached it and `witness` the choice sequence
+of one that did, one entry per choice point spelling the alternatives and the one taken;
+`diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
+Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
+answers the same list on every call (captured for `Test::tally` above and for `action race` with
+three branches `a`, `b`, `c` each assigning `winner`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"explore"}'
+{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 3: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 3: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 3: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+```
+
+`tally`'s two orders write two different features, so its two linearizations are one outcome;
+`race`'s six linearizations end on whichever branch ran last, three outcomes of two each. A run
+with no choice point explores in exactly one run.
+
+`exploration.complete` is true when every linearization within the budget was run, so
+`outcomes` is the whole set. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
+in either order and either alone — `runs` bounds how many runs the search makes (default 1024),
+`depth` how many choice points one run may resolve before the rest take their first alternative
+(default 64). Hitting either ends the search with `complete` false and the budget named in
+`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed;
+`runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
+error and never silent:
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=2"}'
+{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64}}
+
+$ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=0"}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"invalid scheduling policy \"explore:runs=0\": explore runs \"0\" is not a decimal integer of at least 1"}
+```
+
+A run that fails under exploration is an outcome of its own — `error` set on the outcome, its
+`outputs` empty — beside the outcomes of the runs that completed, so a failure some orders reach
+and others do not is reported as exactly that. The response's own `error` is reserved for what
+stops exploring altogether, an unknown action or a model that will not build, and is then the
+only field set, as for a single run. `outputs` and `diagnostics` on the response are empty under
+`"explore"`; a client reading them would read an empty run, which is why every client this
+repository ships gives exploration a method of its own. The policy is advertised as the
+`schedule_explore` capability beside `schedule`: a service withholding it refuses an
+`"explore…"` spelling with `UNIMPLEMENTED`.
+
 An action that waits on time — `accept after 5 [SI::s]`, or `accept at` an instant — runs on
 the simulation clock of its own run, which starts at 0 and advances to each instant a token
 waits for; the call answers once the action completes, and `finalTime` is the clock when it
@@ -988,7 +1041,15 @@ $ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test:
 
 `schedule` names the policy the machine's transition picks — and the token order of any action
 its states perform — are resolved under, as `ExecuteAction`'s does; the diagnostic's span moves
-to the transition the policy took.
+to the transition the policy took. Under `"explore"` the response carries `outcomes` and
+`exploration` as `ExecuteAction`'s does, `statesVisited` and `finalContext` then empty; a state
+machine's outcome is its `finalState`, its `statesVisited` and, as `outputs`, its final context,
+so two runs resting in the same state by the same path with the same variables are one outcome:
+
+```console
+$ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"],"schedule":"explore"}'
+{"outcomes":[{"finalState":"A","statesVisited":["Idle","A"],"linearizations":1,"witness":["state Idle on accept Go -> 1->A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml",…},"code":"choice-point"}]},{"finalState":"B","statesVisited":["Idle","B"],"linearizations":1,"witness":["state Idle on accept Go -> 2->B"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 2->B)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+```
 
 `finalTime` is the machine's simulation clock when the run ended, in seconds from the 0 it
 started at: the clock advances to each time-triggered transition (`accept after`, `accept at`)
@@ -1154,7 +1215,20 @@ A step that fails, a body that deadlocks or exhausts its step budget and a case 
 `FAILURE_REASON_EVALUATION` failures naming the case. Structured and complex arguments are
 capability-gated as `EvaluateCalc`'s are. The choice points the case's steps made are its
 `diagnostics`, shaped as `ExecuteAction`'s, and `schedule` names the policy the actions the case
-performs resolve them under, with `ExecuteAction`'s spellings and refusals.
+performs resolve them under, with `ExecuteAction`'s spellings and refusals. Under `"explore"`
+the response carries `outcomes` and `exploration` as `ExecuteAction`'s does, `outputs`,
+`verdicts`, `instances` and `verificationVerdicts` then empty. A case's outcome is its outputs
+and its verdicts together, the verdicts as strings among the outcome's `outputs` named
+`"objective <name>"`, `"assertion <name>"` and `"verdict <case>"` — `"satisfied"`, `"not
+satisfied: <condition>"` or `"undecided: <error>"` — so an objective that holds under one order
+and not another is two outcomes, which is what exploring a case is for (for `analysis def Raced {
+out winner : Integer; perform action race : Race; objective obj { require constraint { winner > 1
+} } return : Integer = winner; }` where `Race` forks two branches assigning `winner`):
+
+```console
+$ … /RunAnalysis -d '{"modelHash":"9f2c…41aa","symbolId":"Test::Raced","schedule":"explore"}'
+{"outcomes":[{"outputs":{"objective obj":{"stringValue":"not satisfied: winner > 1"},"result":{"intValue":"1"},"winner":{"intValue":"1"}},"linearizations":1,"witness":["step 3: 3@b first of 2@a, 3@b"],"diagnostics":[…]},{"outputs":{"objective obj":{"stringValue":"satisfied"},"result":{"intValue":"2"},"winner":{"intValue":"2"}},"linearizations":1,"witness":["step 3: 2@a first of 2@a, 3@b"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+```
 
 ### `RunSweep`
 

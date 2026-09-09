@@ -1122,17 +1122,44 @@ func (s *Session) getOrCreateRuntime() (*runtime.Context, error) {
 	if s.rtCtx != nil {
 		return s.rtCtx, nil
 	}
+	ctx, err := s.newRuntime()
+	if err != nil {
+		return nil, err
+	}
+	ctx.AdoptIdentities(s.replaced)
+	s.rtCtx = ctx
+	s.rtCtx.SetTrace(s.trace)
+	return s.rtCtx, nil
+}
 
+// newRuntime builds a context over the session's declarations, under its budgets
+// and the policy its own runs are driven by. Nothing the session holds is in it.
+func (s *Session) newRuntime() (*runtime.Context, error) {
+	model, resolver, err := s.semanticModel()
+	if err != nil {
+		return nil, err
+	}
+	return s.newRuntimeOver(model, resolver)
+}
+
+// semanticModel is the model and resolver a context over the session's
+// declarations runs on; the model memoizes, so contexts of one exploration share it.
+func (s *Session) semanticModel() (*semantics.Model, *resolve.Resolver, error) {
 	// Falls back to the library index so a library symbol can be evaluated or
 	// instantiated before the session declares anything.
 	idx := s.browseIndex()
 	if idx == nil {
-		return nil, fmt.Errorf("no document loaded")
+		return nil, nil, fmt.Errorf("no document loaded")
 	}
-
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	model.SetSourceText(s.sessionSourceText())
+	return model, resolver, nil
+}
+
+// newRuntimeOver builds a context over model under the session's budgets and the
+// policy its own runs are driven by. Nothing the session holds is in it.
+func (s *Session) newRuntimeOver(model *semantics.Model, resolver *resolve.Resolver) (*runtime.Context, error) {
 	ctx := runtime.NewContext(model, resolver, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		return nil, err
@@ -1144,11 +1171,10 @@ func (s *Session) getOrCreateRuntime() (*runtime.Context, error) {
 		ctx.RegisterSource(source.New(doc.Name, doc.Content))
 		ctx.RegisterScope(doc.Scope)
 	}
-	ctx.AdoptIdentities(s.replaced)
-	ctx.SetSchedule(s.schedule)
-	s.rtCtx = ctx
-	s.rtCtx.SetTrace(s.trace)
-	return s.rtCtx, nil
+	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
+		return nil, err
+	}
+	return ctx, nil
 }
 
 // symbolIndex indexes the session document, returning nil when nothing is

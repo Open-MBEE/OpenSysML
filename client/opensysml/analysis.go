@@ -80,7 +80,8 @@ func Argument(name string, value Value) AnalysisOption {
 
 // Schedule names the scheduling policy the actions the case performs resolve
 // their choice points under, as WithSchedule does for ExecuteAction. Requires
-// the schedule capability.
+// the schedule capability. An exploring spelling belongs to ExploreAnalysis,
+// which requires schedule_explore too.
 func Schedule(policy string) AnalysisOption {
 	return func(o *analysisOptions) { o.schedule = policy }
 }
@@ -95,10 +96,45 @@ func (c *client) RunAnalysis(
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if err := refuseExploring("RunAnalysis", "ExploreAnalysis", options.schedule); err != nil {
+		return nil, err
+	}
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
+	resp, err := c.analysisRequest(ctx, hash, symbolID, &options, func() error {
+		return c.requireSchedule(ctx, options.schedule)
+	})
+	if err != nil {
+		return nil, err
+	}
+	diagnostics := diagnosticsFromProto(resp.Diagnostics)
+	if resp.Error != "" {
+		return nil, &VerifyError{
+			FailureError: FailureError{Op: "RunAnalysis", Message: resp.Error, Diagnostics: diagnostics},
+			Reason:       Reason(resp.FailureReason),
+		}
+	}
+	out := &Analysis{
+		Instances:     instancesFromProto(resp.Instances),
+		Diagnostics:   diagnostics,
+		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
+	}
+	for _, output := range resp.Outputs {
+		out.Outputs = append(out.Outputs, CalcOutput{Name: output.Name, Value: valueFromProto(output.Value)})
+	}
+	for _, verdict := range resp.Verdicts {
+		if converted := verdictFromProto(verdict); converted != nil {
+			out.Verdicts = append(out.Verdicts, *converted)
+		}
+	}
+	return out, nil
+}
+
+// analysisRequest sends the run once its arguments and, by requireSchedule,
+// its policy are checked against the capabilities they need.
+func (c *client) analysisRequest(ctx context.Context, hash, symbolID string, options *analysisOptions, requireSchedule func() error) (*pb.RunAnalysisResponse, error) {
 	values := append([]Value(nil), options.positional...)
 	for _, arg := range options.named {
 		values = append(values, arg.value)
@@ -106,7 +142,7 @@ func (c *client) RunAnalysis(
 	if err := c.requireValueCapabilities(ctx, values...); err != nil {
 		return nil, err
 	}
-	if err := c.requireSchedule(ctx, options.schedule); err != nil {
+	if err := requireSchedule(); err != nil {
 		return nil, err
 	}
 	req := &pb.RunAnalysisRequest{
@@ -132,29 +168,5 @@ func (c *client) RunAnalysis(
 			req.NamedArguments[argument.name] = sent
 		}
 	}
-	resp, err := c.caller.runAnalysis(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	diagnostics := diagnosticsFromProto(resp.Diagnostics)
-	if resp.Error != "" {
-		return nil, &VerifyError{
-			FailureError: FailureError{Op: "RunAnalysis", Message: resp.Error, Diagnostics: diagnostics},
-			Reason:       Reason(resp.FailureReason),
-		}
-	}
-	out := &Analysis{
-		Instances:     instancesFromProto(resp.Instances),
-		Diagnostics:   diagnostics,
-		Verifications: verificationVerdictsFromProto(resp.VerificationVerdicts),
-	}
-	for _, output := range resp.Outputs {
-		out.Outputs = append(out.Outputs, CalcOutput{Name: output.Name, Value: valueFromProto(output.Value)})
-	}
-	for _, verdict := range resp.Verdicts {
-		if converted := verdictFromProto(verdict); converted != nil {
-			out.Verdicts = append(out.Verdicts, *converted)
-		}
-	}
-	return out, nil
+	return c.caller.runAnalysis(ctx, req)
 }

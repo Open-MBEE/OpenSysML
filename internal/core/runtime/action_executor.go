@@ -1251,22 +1251,64 @@ func (e *ActionExecutor) probeGuard(frame *actionFrame, node *ast.DecisionNode, 
 	return result.Const.Bool
 }
 
-// scheduleTokens returns the IDs of the tokens the step may move, those eligible
-// now, in the order the run's scheduling policy has the step try them; the policy
-// is told which of them are parked, as only the rest can act.
-func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) []int64 {
-	ids := make([]int64, 0, len(e.tokens))
-	parked := make(map[int64]bool)
-	for _, t := range e.tokens {
+// scheduleTokens hands the step the tokens it may move, those eligible now, in
+// the order the run's scheduling policy has it try them.
+func (e *ActionExecutor) scheduleTokens(order *stepOrder, eligible func(Token) bool) *tokenSchedule {
+	tokens := stepTokens{
+		step:   e.stepCount + 1,
+		ids:    make([]int64, 0, len(e.tokens)),
+		parked: make(map[int64]bool),
+		held:   make(map[int64]bool),
+		label:  e.tokenLabel,
+	}
+	tokens.enabled = func(id int64) bool { return e.enabled(id, eligible) }
+	for i, t := range e.tokens {
 		if !e.moving(t) && eligible(t) {
-			ids = append(ids, t.ID)
+			tokens.ids = append(tokens.ids, t.ID)
 			if e.parked(t, order) {
-				parked[t.ID] = true
+				tokens.parked[t.ID] = true
+			}
+			if order.unready[t.ID] || e.fused(i) {
+				tokens.held[t.ID] = true
 			}
 		}
 	}
-	e.ctx.scheduling().orderTokens(ids, parked)
-	return ids
+	return e.ctx.scheduling().scheduleStep(tokens)
+}
+
+// fused reports whether the token at index i collapses into a synchronization
+// another held token performs, the earliest arrival standing for both.
+func (e *ActionExecutor) fused(i int) bool {
+	consumed, held := e.arrivals(e.tokens[i])
+	return held && consumed != nil && slices.Contains(consumed, i) && slices.Min(consumed) != i
+}
+
+// enabled reports whether the token would act were it stepped now: it is still
+// eligible, and an accept it sits at has a message in flight to take.
+func (e *ActionExecutor) enabled(id int64, eligible func(Token) bool) bool {
+	i := e.tokenIndex(id)
+	if i < 0 || e.moving(e.tokens[i]) || !eligible(e.tokens[i]) {
+		return false
+	}
+	t := e.tokens[i]
+	if _, waitsForMessage := e.messageAccept(t); !waitsForMessage {
+		return true
+	}
+	pending := e.ctx.PendingMessages()
+	if len(pending) == 0 {
+		return false
+	}
+	// Matching may materialize a port; as a probe, the check leaves the run as it was.
+	defer e.ctx.beginProbe()()
+	return e.offeredMessage(t, pending)
+}
+
+// tokenLabel names a token as the trace does, by ID and node.
+func (e *ActionExecutor) tokenLabel(id int64) string {
+	if loc, ok := e.tokenLocation(id); ok {
+		return fmt.Sprintf("%d@%s", id, nodeIdentifier(loc))
+	}
+	return fmt.Sprintf("%d", id)
 }
 
 // parked reports whether the token cannot act by itself this step: held at a join
@@ -1281,8 +1323,8 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 
 // stepTokens gives each of the scheduled tokens its step, in the order given, then
 // the tokens a breakpoint left paused; a breakpoint reached on the way ends the sweep.
-func (e *ActionExecutor) stepTokens(scheduled []int64, paused []int64, order *stepOrder) error {
-	for _, id := range scheduled {
+func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) error {
+	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
 			break
 		}
@@ -1290,9 +1332,12 @@ func (e *ActionExecutor) stepTokens(scheduled []int64, paused []int64, order *st
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) ||
 			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
+			schedule.Acted(id, false)
 			continue
 		}
-		if err := e.stepTokenNoting(i, order); err != nil {
+		acted, err := e.stepTokenNoting(i, order)
+		schedule.Acted(id, acted)
+		if err != nil {
 			return err
 		}
 	}
@@ -1301,7 +1346,7 @@ func (e *ActionExecutor) stepTokens(scheduled []int64, paused []int64, order *st
 			break
 		}
 		if i := e.tokenIndex(id); i >= 0 {
-			if err := e.stepTokenNoting(i, order); err != nil {
+			if _, err := e.stepTokenNoting(i, order); err != nil {
 				return err
 			}
 		}

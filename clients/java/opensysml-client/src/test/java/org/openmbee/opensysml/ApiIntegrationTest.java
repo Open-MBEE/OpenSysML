@@ -263,6 +263,11 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesTheExploreSchedule() {
+    assertTrue(connection.capabilities().has(Capabilities.SCHEDULE_EXPLORE));
+  }
+
+  @Test
   void theServiceAdvertisesTheFinalClockInstantOfItsExecutionResponses() {
     assertTrue(connection.capabilities().has(Capabilities.FINAL_TIME));
   }

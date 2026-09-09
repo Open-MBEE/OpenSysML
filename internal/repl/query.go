@@ -55,6 +55,10 @@ type Verdict struct {
 	// Rows are the runs a sweep made, one per row of its table; no other kind of
 	// verdict has any.
 	Rows []VerdictRow
+	// Outcomes are the distinct outcomes an exploration reached, in canonical
+	// order, and Exploration how it ended; only an explored run has them.
+	Outcomes    []VerdictOutcome
+	Exploration *VerdictExploration
 }
 
 // VerdictRow is one run of a sweep: what it was given, what it produced and

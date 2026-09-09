@@ -15,6 +15,7 @@ import {
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
+  CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_SET_VALUES,
   CAPABILITY_STRUCTURED_VALUES,
   CAPABILITY_TENSOR_VALUES,
@@ -204,6 +205,11 @@ test("the service advertises the verification body verdicts it reports", async (
 test("the service advertises the schedule field of its execution requests", async () => {
   await using connection = await connect();
   assert.ok((await connection.serverInfo()).has(CAPABILITY_SCHEDULE));
+});
+
+test("the service advertises the explore scheduling policy", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_SCHEDULE_EXPLORE));
 });
 
 test("the service advertises the final clock instant of its execution responses", async () => {

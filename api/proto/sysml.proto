@@ -263,8 +263,10 @@ message RunAnalysisRequest {
   // Arguments bound to input parameters by name.
   map<string, Value> named_arguments = 5;
   // Scheduling policy the run resolves its choice points under: "declared",
-  // "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
-  // spelling is INVALID_ARGUMENT.
+  // "reverse", "seed:<n>" or "explore[:runs=<n>,depth=<d>]". Empty is the
+  // default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+  // the response answers with `outcomes` and `exploration` in place of one run's
+  // outputs, verdicts, instances and error (see ExecuteActionResponse).
   string schedule = 6;
 }
 
@@ -289,6 +291,54 @@ message RunAnalysisResponse {
   // What the body answered when the case run was a verification case: its own
   // verdict first, then the verdict of each subcase it performed.
   repeated VerificationVerdict verification_verdicts = 7;
+  // Set only under an explore schedule: every distinct outcome reached, in
+  // canonical order, and how the exploration ended. An outcome's outputs carry
+  // the case's outputs and, named "objective <name>", "assertion <name>" and
+  // "verdict <case>", its verdicts as strings; `outputs`, `verdicts`, `instances`
+  // and `error` are then empty, a failed run being an outcome of its own.
+  repeated Outcome outcomes = 8;
+  ExplorationStatus exploration = 9;
+}
+
+// Outcome is one distinct outcome an exploration reached: the observables a
+// conformance case compares, how many linearizations reached it, and the choice
+// sequence of one run that did. Two runs agreeing on their observables are one
+// outcome.
+message Outcome {
+  // The values the run ended with: an action's outputs, a state machine's final
+  // context, or an analysis case's outputs and verdicts. Empty for a failed run.
+  map<string, Value> outputs = 1;
+  // The state a machine rests in and the states it entered, in order; both
+  // empty for an action or a case.
+  string final_state = 2;
+  repeated string states_visited = 3;
+  // What the runs reaching this outcome failed with; empty for one they completed.
+  string error = 4;
+  // How many linearizations within the budget reached this outcome.
+  int32 linearizations = 5;
+  // One run's choice sequence in run order, one entry per choice point it
+  // resolved, each spelling the alternatives and the one taken. Empty when the
+  // run faced no choice point.
+  repeated string witness = 6;
+  // What the witness run noted about itself: its choice points and the guards
+  // it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
+  // one run.
+  repeated Diagnostic diagnostics = 7;
+}
+
+// ExplorationStatus is how an exploration ended: whether every linearization
+// within the budget was run, and which budget stopped it when not.
+message ExplorationStatus {
+  // True when every linearization was run, so `outcomes` is the whole set.
+  bool complete = 1;
+  // How many runs were made.
+  int32 runs = 2;
+  // The budgets hit, "runs" before "depth"; empty when complete.
+  repeated string budgets_hit = 3;
+  // The budget the exploration ran under: runs it may make, and choice points
+  // one run may resolve before the rest take their first alternative.
+  int32 runs_budget = 4;
+  int32 depth_budget = 5;
 }
 
 // ParseFileRequest specifies the source to parse
@@ -432,8 +482,11 @@ message ExecuteActionRequest {
   string action_symbol_id = 2;   // FQN of action def
   map<string, Value> inputs = 3; // parameter name → value
   // Scheduling policy the run resolves its choice points under: "declared",
-  // "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
-  // spelling is INVALID_ARGUMENT.
+  // "reverse", "seed:<n>" or "explore[:runs=<n>,depth=<d>]". Empty is the
+  // default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+  // the action once per linearization the library admits, within a budget of
+  // runs (default 1024) and of choice points per run (default 64), each run on
+  // a fresh context, and answers with every distinct outcome reached.
   string schedule = 4;
 }
 
@@ -442,10 +495,16 @@ message ExecuteActionResponse {
   map<string, Value> outputs = 1; // output parameter name → value
   string error = 2;
   repeated Diagnostic diagnostics = 3;
+  // Set only under an explore schedule: every distinct outcome reached, in
+  // canonical order, and how the exploration ended. `outputs`, `error` and
+  // `diagnostics` are then empty: a failed run is an outcome of its own, and
+  // each outcome carries its witness run's diagnostics.
+  repeated Outcome outcomes = 4;
+  ExplorationStatus exploration = 5;
   // The run's simulation clock when it ended, in seconds (SI::s) from the 0
   // it started at: the clock advances through every `accept after`/`accept
   // at` the action waited on. Populated under the "final_time" capability.
-  double final_time = 4;
+  double final_time = 6;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -454,8 +513,10 @@ message ExecuteStateRequest {
   string state_machine_symbol_id = 2;
   repeated string events = 3;    // sequence of event names to process
   // Scheduling policy the run resolves its choice points under: "declared",
-  // "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
-  // spelling is INVALID_ARGUMENT.
+  // "reverse", "seed:<n>" or "explore[:runs=<n>,depth=<d>]". Empty is the
+  // default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+  // the response answers with `outcomes` and `exploration` in place of one run's
+  // states_visited, final_context and error (see ExecuteActionResponse).
   string schedule = 4;
 }
 
@@ -465,10 +526,16 @@ message ExecuteStateResponse {
   map<string, Value> final_context = 2;
   string error = 3;
   repeated Diagnostic diagnostics = 4;
+  // Set only under an explore schedule: every distinct outcome reached, in
+  // canonical order, and how the exploration ended. An outcome's outputs are
+  // the final context; `states_visited`, `final_context`, `error` and
+  // `diagnostics` are then empty.
+  repeated Outcome outcomes = 5;
+  ExplorationStatus exploration = 6;
   // The run's simulation clock when it ended, in seconds (SI::s) from the 0
   // it started at: the clock advances through every time-triggered transition
   // the machine took. Populated under the "final_time" capability.
-  double final_time = 5;
+  double final_time = 7;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -979,6 +1046,10 @@ message ServerInfoResponse {
   //                  the run resolves its choice points under; without it a
   //                  service drops the field and runs under the default, so a
   //                  client must not send one.
+  //   "schedule_explore" - the schedule "explore[:runs=<n>,depth=<d>]" is
+  //                  accepted, and the response carries every distinct outcome
+  //                  as `outcomes` with an `exploration` status; without it the
+  //                  spelling is INVALID_ARGUMENT.
   //   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
   //                  final_time, the run's simulation clock when it ended;
   //                  without it the field is 0 whatever the run waited on.

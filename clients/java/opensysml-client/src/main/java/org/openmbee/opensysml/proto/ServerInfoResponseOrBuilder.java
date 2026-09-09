@@ -109,6 +109,10 @@ public interface ServerInfoResponseOrBuilder extends
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
@@ -194,6 +198,10 @@ public interface ServerInfoResponseOrBuilder extends
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
@@ -278,6 +286,10 @@ public interface ServerInfoResponseOrBuilder extends
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
@@ -363,6 +375,10 @@ public interface ServerInfoResponseOrBuilder extends
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
