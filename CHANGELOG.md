@@ -213,27 +213,25 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ### Changed
 
-- **Compatibility.** 0.7.0 is a minor release under the rule CONTRIBUTING.md § Versioning states:
-  a model 0.6.0 accepted and ran correctly can run differently under the default schedule. Actions
-  and state machines now wait on one simulation clock owned by the runtime context — a nested
-  performance runs on the enclosing clock rather than a copy, and two machines materialized in
-  one context share time — so a model that mixes the two can take another interleaving than
-  0.6.0 took, one the library leaves equally open; a single behavior run alone is unchanged. The
-  golden execution traces changed too: they gained a `choice` line at every pick the library
-  leaves unordered and a step boundary at synchronized joins, which renumbers the steps after it,
-  so a 0.6.0 checkout re-running `-update-traces` sees those lines and boundaries and the
-  corrected traces of the fixes below; no `.expected.json` schema and no `-json` report shape
-  changed. Every wire change since v0.6.0 is additive — `make proto-breaking
-  BUF_BREAKING_REF=v0.6.0` passes — and no CLI flag, REPL command, RPC or wire field was removed
-  or renamed: `sysml` gains `-schedule`, `-sweep`, `-samples` and `-seed`, the REPL gains
-  `%schedule`, `%sweep` and `%samples`, and the service gains `RunSweep` and fields advertised
-  under new capabilities. The other results that change are corrections of results the Kernel
-  Semantic Library derives otherwise, listed under *Fixed*: a join, or a node several
-  successions reach, fires once per succession; a loop through a merge re-enters it; a breakpoint
-  on a synchronized node pauses once; and a via-less `accept` no longer takes a transfer addressed
-  to a port. A collection body whose result type does not fit the receiving feature (`accept when
-  counts.{in n : Integer; n}`, `attribute i : Integer = xs.{ in x : C; 1.5 }`) is now refused
-  where 0.6.0 let an ill-typed model through.
+- **What may differ from 0.6.0.** A model that mixes actions and state machines can take another
+  interleaving under the default schedule than 0.6.0 took, one the library leaves equally open:
+  actions and state machines now wait on one simulation clock owned by the runtime context — a
+  nested performance runs on the enclosing clock rather than a copy, and two machines materialized
+  in one context share time. A single behavior run alone is unchanged. The golden execution traces
+  changed too: they gained a `choice` line at every pick the library leaves unordered and a step
+  boundary at synchronized joins, which renumbers the steps after it, so a 0.6.0 checkout
+  re-running `-update-traces` sees those lines and boundaries and the corrected traces of the
+  fixes below; no `.expected.json` schema and no `-json` report shape changed. Every wire change
+  since v0.6.0 is additive — `make proto-breaking BUF_BREAKING_REF=v0.6.0` passes — and no CLI
+  flag, REPL command, RPC or wire field was removed or renamed: `sysml` gains `-schedule`,
+  `-sweep`, `-samples` and `-seed`, the REPL gains `%schedule`, `%sweep` and `%samples`, and the
+  service gains `RunSweep` and fields advertised under new capabilities. The other results that
+  change are corrections of results the Kernel Semantic Library derives otherwise, listed under
+  *Fixed*: a join, or a node several successions reach, fires once per succession; a loop through
+  a merge re-enters it; a breakpoint on a synchronized node pauses once; and a via-less `accept`
+  no longer takes a transfer addressed to a port. A collection body whose result type does not
+  fit the receiving feature (`accept when counts.{in n : Integer; n}`, `attribute i : Integer =
+  xs.{ in x : C; 1.5 }`) is now refused where 0.6.0 let an ill-typed model through.
 
 - **Pull requests run one CI, GitHub Actions; CircleCI runs on `main` and tags.** The CircleCI `build-test` workflow is filtered to `main`, so a pull request no longer runs the suite twice, and the checks that only CircleCI carried moved into the pull-request workflow: the protobuf lint and wire-compatibility check (against the branch the pull request merges into) join `Go static and integrity checks`, the documentation hygiene checks (`make docs-check`, `make man-check` and the census check) join `Documentation site`, the release-digest check and the check that the committed stubs are what buf generates join each client's job (the Python and Java stub checks were CircleCI-only), and `make conformance` with the `-transport grpc` run join the renamed `Conformance suite` job. Every stub check, in both configs, now also fails when a committed stub was deleted and regeneration brings it back.
 
