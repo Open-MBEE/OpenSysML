@@ -569,11 +569,12 @@ step of it that is no Integer (`1.0..3.0:0.5`, `1.5..3`) — or below what a `Na
 failing row by row. An `attribute def` specializing a scalar takes that scalar's values. A
 quantity-typed parameter (`ISQ::LengthValue`) is typed through its `num`: the library declares
 `Number`, which Integers and reals both are, so its magnitudes are read as written, while a
-quantity redefining `num : Integer` takes Integers; the range's unit is the one `<from>` carries,
-not one the parameter names. A `Number`-typed parameter, and one declaring no type, take the range
-as written — Integers between Integer literals, reals otherwise — and the table notes an untyped
-one under its rows. A range over a `Boolean`, `String`, enumeration or non-scalar parameter is
-refused naming that type.
+quantity redefining `num : Integer` takes Integers, one redefining it `Natural` or `Positive`
+refuses a magnitude below what that holds, and one whose `num` holds no number refuses the range;
+the range's unit is the one `<from>` carries, not one the parameter names. A `Number`-typed
+parameter, and one declaring no type, take the range as written — Integers between Integer
+literals, reals otherwise — and the table notes an untyped one under its rows. A range over a
+`Boolean`, `String`, enumeration or non-scalar parameter is refused naming that type.
 
 **Order.** Rows come out in the order the ranges are written: the first `-sweep` flag varies
 slowest, the last fastest, each range from `<from>` towards `<to>`. Two runs of one plan produce

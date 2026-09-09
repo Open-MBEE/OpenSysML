@@ -50,6 +50,12 @@ const sweepModel = `
 		calc def Stretch { in l : LengthValue; return : LengthValue = l; }
 		attribute def CountValue :> ScalarQuantityValue { attribute :>> num : Integer; }
 		calc def Heap { in n : CountValue; return : CountValue = n; }
+		attribute def HeadcountValue :> ScalarQuantityValue { attribute :>> num : Natural; }
+		calc def Crew { in n : HeadcountValue; return : HeadcountValue = n; }
+		attribute def RankValue :> ScalarQuantityValue { attribute :>> num : Positive; }
+		calc def Grade { in r : RankValue; return : RankValue = r; }
+		attribute def TagValue :> ScalarQuantityValue { attribute :>> num : String; }
+		calc def Tag { in t : TagValue; return : TagValue = t; }
 		calc def Doubled :> Twice;
 		calc def Exact :> Ratio { in :>> a : Integer; }
 		part def Ship { attribute hullMass : Real; }
@@ -854,6 +860,33 @@ func TestSweepOverAQuantityParameterConvertsToTheFirstEndpointsUnit(t *testing.T
 		Ranges: []SweepRange{steppedRange("n", length(integer(1), "SI::m", 1), length(integer(2), "SI::m", 1),
 			length(semantics.Value{Kind: semantics.ValReal, Real: 0.5}, "SI::m", 1))},
 	}), "n", "CountValue")
+}
+
+// A quantity's `num` bounds its magnitudes: Natural/Positive refuse below what they
+// hold, a num holding no number refuses every range, all before any run.
+func TestSweepOverAQuantityParameterIsBoundedByItsNum(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	metres := func(n int64) Value { return quantityInt(n, "SI::m", 1) }
+	table := runSweepOver(t, ctx, scope, "Crew", SweepPlan{
+		Ranges: []SweepRange{rangeOf("n", metres(0), metres(2))},
+	})
+	if got, want := tableText(table), "n=0 [SI::m] result -> 0 [SI::m]\nn=1 [SI::m] result -> 1 [SI::m]\nn=2 [SI::m] result -> 2 [SI::m]"; got != want {
+		t.Errorf("Crew over 0..2 [SI::m] is\n%s\nwant\n%s", got, want)
+	}
+	for _, tc := range []struct {
+		name, param, typ string
+		from, to         Value
+	}{
+		{"Crew", "n", "Natural", metres(-1), metres(1)},
+		{"Crew", "n", "Natural", metres(1), metres(-1)},
+		{"Grade", "r", "Positive", metres(0), metres(2)},
+		{"Tag", "t", "String", metres(0), metres(2)},
+	} {
+		plan := SweepPlan{Ranges: []SweepRange{rangeOf(tc.param, tc.from, tc.to)}}
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.name, plan), tc.param, tc.typ)
+		plan.Sampled, plan.Samples, plan.Seed = true, 2, 1
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.name, plan), tc.param, tc.typ)
+	}
 }
 
 // A sampled Integer range draws over its endpoints inclusively, so both of a

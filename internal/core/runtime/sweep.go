@@ -75,6 +75,8 @@ type SweepType struct {
 	// Positive excludes zero, which no scalar type's numbers alone rule out.
 	Positive bool
 	decl     calcMemberDecl
+	// num is the feature a quantity type's magnitude is bound to, nil for a scalar.
+	num *symbols.Symbol
 }
 
 // Declared is the type the parameter declares, nil where it declares none or
@@ -505,7 +507,34 @@ func (t SweepType) admit(ctx *Context, param, what string, value Value) error {
 	if err := t.decl.check(ctx, &value, func() string { return what + " of " + param }); err != nil {
 		return fmt.Errorf("%w: %w", ErrSweepRange, err)
 	}
-	return nil
+	return t.admitMagnitude(ctx, param, what, value)
+}
+
+// admitMagnitude refuses a quantity whose magnitude the quantity type's `num`
+// cannot hold, which its dimension alone does not judge.
+func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value) error {
+	q := value.Quantity()
+	if t.num == nil || q == nil {
+		return nil
+	}
+	magnitude := constValue(q.Num)
+	prim := ctx.model.PrimTypeOf(t.num)
+	if prim.IsNumeric() && semantics.PrimConforms(valuePrimType(&magnitude), prim) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s is %s, which num : %s of %s : %s cannot hold",
+		ErrSweepRange, what, describeValue(magnitude), ctx.numTypeText(t.num, prim), param, symbolText(t.Declared()))
+}
+
+// numTypeText names a quantity's `num` type as a refusal reads it.
+func (ctx *Context) numTypeText(num *symbols.Symbol, prim semantics.PrimType) string {
+	if prim != semantics.PrimUnknown {
+		return prim.String()
+	}
+	if types := ctx.model.FeatureTypes(num); len(types) > 0 {
+		return symbolText(types[0])
+	}
+	return unknownText
 }
 
 // sweepMagnitude is the number a produced value is, a quantity's magnitude included.
@@ -814,6 +843,7 @@ func (ctx *Context) sweepTypeOf(decl calcMemberDecl) SweepType {
 			return t
 		}
 		typ, prim = num, ctx.model.PrimTypeOf(num)
+		t.num = num
 	}
 	t.Numbers = sweepNumbersOf(prim)
 	t.Positive = ctx.positiveScalar(typ)
