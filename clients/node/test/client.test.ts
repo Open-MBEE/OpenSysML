@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 import {
+  CAPABILITY_CASE_EVALUATIONS,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_DIAGNOSTIC_CODES,
   CAPABILITY_FUNCTION_VALUES,
@@ -123,7 +124,11 @@ const COMPLEX_MODEL = `package C {
 `;
 
 test("a complex number is one value over gRPC, Connect protobuf and Connect JSON", async () => {
-  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+  for (const options of [
+    { protocol: "grpc" as const },
+    {},
+    { encoding: "json" as const },
+  ]) {
     await using connection = await connect(options);
     assert.ok((await connection.serverInfo()).has(CAPABILITY_COMPLEX_VALUES));
     await using model = await connection.loads(COMPLEX_MODEL);
@@ -135,7 +140,10 @@ test("a complex number is one value over gRPC, Connect protobuf and Connect JSON
     const signal = await model.instantiate("C::Signal");
     const z = signal.get("z");
     assert.ok(z?.kind === "single");
-    assert.deepEqual(z.value, { kind: "complex", value: { real: 1.5, imaginary: -2 } });
+    assert.deepEqual(z.value, {
+      kind: "complex",
+      value: { real: 1.5, imaginary: -2 },
+    });
     assert.equal(formatValue(z.value), "1.5 - 2.0i");
     const zs = signal.get("zs");
     assert.ok(zs?.kind === "many");
@@ -159,30 +167,50 @@ const STRUCTURED_MODEL = `package S {
 }`;
 
 test("an array, a vector and a vector quantity arrive whole over gRPC, Connect protobuf and Connect JSON", async () => {
-  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+  for (const options of [
+    { protocol: "grpc" as const },
+    {},
+    { encoding: "json" as const },
+  ]) {
     await using connection = await connect(options);
-    assert.ok((await connection.serverInfo()).has(CAPABILITY_STRUCTURED_VALUES));
+    assert.ok(
+      (await connection.serverInfo()).has(CAPABILITY_STRUCTURED_VALUES),
+    );
     await using model = await connection.loads(STRUCTURED_MODEL);
 
     assert.deepEqual(await model.eval("S::grid"), {
       kind: "array",
       dimensions: [2n, 3n],
-      elements: [1n, 2n, 3n, 4n, 5n, 6n].map((value) => ({ kind: "int", value })),
+      elements: [1n, 2n, 3n, 4n, 5n, 6n].map((value) => ({
+        kind: "int",
+        value,
+      })),
     });
     const v = await model.eval("S::v");
     assert.deepEqual(v, {
       kind: "vector",
-      components: [{ kind: "real", value: 3 }, { kind: "real", value: 4 }],
+      components: [
+        { kind: "real", value: 3 },
+        { kind: "real", value: 4 },
+      ],
     });
     assert.equal(formatValue(v), "⟨3.0, 4.0⟩");
     const d = await model.eval("S::d");
     assert.ok(d.kind === "vectorQuantity");
-    assert.deepEqual(d.components.map((c) => c.magnitude), [
-      { kind: "real", value: 3 },
-      { kind: "real", value: 4 },
+    assert.deepEqual(
+      d.components.map((c) => c.magnitude),
+      [
+        { kind: "real", value: 3 },
+        { kind: "real", value: 4 },
+      ],
+    );
+    assert.deepEqual(
+      d.components.map((c) => c.unit),
+      ["m", "m"],
+    );
+    assert.deepEqual(d.components[0]?.unitTerm?.factors, [
+      { unitId: "SI::metre", exponent: 1 },
     ]);
-    assert.deepEqual(d.components.map((c) => c.unit), ["m", "m"]);
-    assert.deepEqual(d.components[0]?.unitTerm?.factors, [{ unitId: "SI::metre", exponent: 1 }]);
   }
 });
 
@@ -198,7 +226,141 @@ const MEASUREMENT_REF_MODEL = `package M {
 
 test("the service advertises the verification body verdicts it reports", async () => {
   await using connection = await connect();
-  assert.ok((await connection.serverInfo()).has(CAPABILITY_VERIFICATION_VERDICTS));
+  assert.ok(
+    (await connection.serverInfo()).has(CAPABILITY_VERIFICATION_VERDICTS),
+  );
+});
+
+test("the service advertises the case evaluations it reports", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_CASE_EVALUATIONS));
+});
+
+const TRADE_STUDY_MODEL = `package Trade {
+    private import ScalarValues::*;
+    private import TradeStudies::*;
+    part def Engine { attribute mass : Real; attribute cylinders : Integer; }
+    part a : Engine { attribute :>> mass = 30.0; attribute :>> cylinders = 6; }
+    part b : Engine { attribute :>> mass = 10.0; attribute :>> cylinders = 4; }
+    part c : Engine { attribute :>> mass = 10.0; attribute :>> cylinders = 0; }
+    analysis lightest : TradeStudy {
+        subject : Engine[1..*] = (a, b, c);
+        objective : MinimizeObjective;
+        calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass;
+        }
+        return part :>> selectedAlternative : Engine;
+    }
+    analysis perOffset : TradeStudy {
+        subject : Engine[1..*] = (a, b);
+        in attribute offset : Integer;
+        objective : MinimizeObjective;
+        calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass / (e.cylinders - offset);
+        }
+        return part :>> selectedAlternative : Engine;
+    }
+}`;
+
+test("a trade study arrives with each alternative's evaluation, the selected one and the tie marked", async () => {
+  for (const options of [
+    { protocol: "grpc" as const },
+    {},
+    { encoding: "json" as const },
+  ]) {
+    await using connection = await connect(options);
+    await using model = await connection.loads(TRADE_STUDY_MODEL);
+
+    const response = await connection.rpc.runAnalysis(
+      { modelHash: model.hash, symbolId: "Trade::lightest" },
+      connection.callOptions(),
+    );
+    assert.equal(response.error, "");
+    assert.equal(response.outputs.length, 1);
+    const selected = response.outputs[0].value?.kind;
+    assert.ok(selected?.case === "instanceId");
+    assert.deepEqual(
+      response.verdicts.map((v) => [v.element, v.holds]),
+      [["tradeStudyObjective", true]],
+    );
+    const typeOf = (id: bigint) =>
+      response.instances.find((inst) => inst.id === id)?.typeSymbolId;
+    assert.deepEqual(
+      response.evaluations.map((e) => [
+        e.functionId,
+        e.arguments.map((arg) =>
+          arg.kind.case === "instanceId"
+            ? typeOf(arg.kind.value)
+            : arg.kind.case,
+        ),
+        e.result?.kind.case === "realValue" ? e.result.kind.value : e.error,
+        e.selected,
+        e.tied,
+      ]),
+      [
+        ["Trade::lightest::evaluationFunction", ["Trade::a"], 30, false, false],
+        ["Trade::lightest::evaluationFunction", ["Trade::b"], 10, true, false],
+        ["Trade::lightest::evaluationFunction", ["Trade::c"], 10, false, true],
+      ],
+    );
+    const pick = response.evaluations[1].arguments[0].kind;
+    assert.ok(pick.case === "instanceId" && pick.value === selected.value);
+  }
+});
+
+test("a swept trade study carries each row's evaluations, a failed row keeping those it made", async () => {
+  await using connection = await connect();
+  await using model = await connection.loads(TRADE_STUDY_MODEL);
+
+  const response = await connection.rpc.runSweep(
+    {
+      modelHash: model.hash,
+      symbolId: "Trade::perOffset",
+      ranges: [
+        {
+          parameter: "offset",
+          start: { kind: { case: "intValue", value: 3n } },
+          end: { kind: { case: "intValue", value: 4n } },
+        },
+      ],
+    },
+    connection.callOptions(),
+  );
+  assert.equal(response.error, "");
+  assert.equal(response.rows.length, 2);
+  const summary = (row: (typeof response.rows)[number]) =>
+    row.evaluations.map((e) => [
+      e.result?.kind.case === "realValue"
+        ? e.result.kind.value
+        : e.error.includes("division by zero"),
+      e.selected,
+      e.tied,
+    ]);
+
+  const [ok, failed] = response.rows;
+  assert.equal(ok.error, "");
+  assert.equal(ok.outputs.length, 1);
+  assert.deepEqual(summary(ok), [
+    [10, true, false],
+    [10, false, true],
+  ]);
+
+  assert.ok(failed.error.includes("division by zero"));
+  assert.equal(failed.outputs.length, 0);
+  assert.deepEqual(
+    failed.verdicts.map((v) => [
+      v.element,
+      v.holds,
+      v.error.includes("division by zero"),
+    ]),
+    [["tradeStudyObjective", false, true]],
+  );
+  assert.deepEqual(summary(failed), [
+    [15, false, false],
+    [true, false, false],
+  ]);
 });
 
 test("the service advertises the schedule field of its execution requests", async () => {
@@ -212,7 +374,11 @@ test("the service advertises the explore scheduling policy", async () => {
 });
 
 test("a bare measurement reference arrives as a unit with its reduction and declaration", async () => {
-  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+  for (const options of [
+    { protocol: "grpc" as const },
+    {},
+    { encoding: "json" as const },
+  ]) {
     await using connection = await connect(options);
     assert.ok((await connection.serverInfo()).has(CAPABILITY_MEASUREMENT_REFS));
     await using model = await connection.loads(MEASUREMENT_REF_MODEL);
@@ -221,7 +387,11 @@ test("a bare measurement reference arrives as a unit with its reduction and decl
     assert.deepEqual(metre, {
       kind: "measurementRef",
       unit: "m",
-      unitTerm: { scaleNum: 1, scaleDen: 1, factors: [{ unitId: "SI::metre", exponent: 1 }] },
+      unitTerm: {
+        scaleNum: 1,
+        scaleDen: 1,
+        factors: [{ unitId: "SI::metre", exponent: 1 }],
+      },
       unitId: "SI::metre",
     });
     const km = await model.eval("M::q.mRef");
@@ -256,13 +426,23 @@ const FUNCTION_MODEL = `package Demo {
 }`;
 
 test("a calc held as a value arrives as the function it names, with the object it was read off", async () => {
-  for (const options of [{ protocol: "grpc" as const }, {}, { encoding: "json" as const }]) {
+  for (const options of [
+    { protocol: "grpc" as const },
+    {},
+    { encoding: "json" as const },
+  ]) {
     await using connection = await connect(options);
     assert.ok((await connection.serverInfo()).has(CAPABILITY_FUNCTION_VALUES));
     await using model = await connection.loads(FUNCTION_MODEL);
 
-    assert.deepEqual(await model.eval("Demo::pick"), { kind: "function", calcId: "Demo::Sq" });
-    assert.deepEqual(await model.eval("Demo::nine"), { kind: "real", value: 9 });
+    assert.deepEqual(await model.eval("Demo::pick"), {
+      kind: "function",
+      calcId: "Demo::Sq",
+    });
+    assert.deepEqual(await model.eval("Demo::nine"), {
+      kind: "real",
+      value: 9,
+    });
     const scale = await model.eval("Demo::scaler");
     assert.ok(scale.kind === "function");
     assert.equal(scale.calcId, "Demo::Scaler::scale");
@@ -322,7 +502,9 @@ test("a file parses, and a syntax error is a diagnostic, not a thrown call", asy
 
   const broken = await connection.loads("package Broken { part def }");
   assert.ok(broken.hasErrors);
-  assert.ok(broken.diagnostics.some((diagnostic) => diagnostic.severity === "error"));
+  assert.ok(
+    broken.diagnostics.some((diagnostic) => diagnostic.severity === "error"),
+  );
 });
 
 test("a diagnostic carries the service's code for what it found", async () => {
@@ -330,11 +512,21 @@ test("a diagnostic carries the service's code for what it found", async () => {
   assert.ok((await connection.serverInfo()).has(CAPABILITY_DIAGNOSTIC_CODES));
   const broken = await connection.loads("package Broken { part def }");
   assert.ok(broken.diagnostics.length > 0);
-  assert.ok(broken.diagnostics.every((diagnostic) => diagnostic.code === "syntax"));
+  assert.ok(
+    broken.diagnostics.every((diagnostic) => diagnostic.code === "syntax"),
+  );
 
-  const unresolved = await connection.loads("package P { part def W { part hub : Missing; } }");
-  assert.ok(unresolved.diagnostics.some((diagnostic) => diagnostic.code === "unresolved"));
-  assert.ok(unresolved.diagnostics.every((diagnostic) => diagnostic.code !== ""));
+  const unresolved = await connection.loads(
+    "package P { part def W { part hub : Missing; } }",
+  );
+  assert.ok(
+    unresolved.diagnostics.some(
+      (diagnostic) => diagnostic.code === "unresolved",
+    ),
+  );
+  assert.ok(
+    unresolved.diagnostics.every((diagnostic) => diagnostic.code !== ""),
+  );
 });
 
 test("an evaluation that cannot be made is an error the caller can catch", async () => {
@@ -369,9 +561,13 @@ test("the gRPC protocol works and refuses a JSON body", async () => {
 });
 
 test("a service this client did not start is opt-in, and close leaves it running", async () => {
-  const external = spawn(serviceBinary(), ["-port", "0", "-health-port", "0", "-report-address"], {
-    stdio: ["pipe", "pipe", "inherit"],
-  });
+  const external = spawn(
+    serviceBinary(),
+    ["-port", "0", "-health-port", "0", "-report-address"],
+    {
+      stdio: ["pipe", "pipe", "inherit"],
+    },
+  );
   try {
     const address = await firstLine(external);
     // An explicit address, and then the same through $OPENSYSML_SERVICE.

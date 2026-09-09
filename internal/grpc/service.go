@@ -137,6 +137,12 @@ const CapabilityDiagnosticCodes = "diagnostic_codes"
 // every request under the default, so a client must not send the field to one.
 const CapabilitySchedule = "schedule"
 
+// CapabilityCaseEvaluations names the capability of reporting each application
+// an analysis run made of one of the case's calcs as a function value — a trade
+// study's evaluation of each alternative — and of keeping what a failed run
+// computed beside its error.
+const CapabilityCaseEvaluations = "case_evaluations"
+
 // CapabilityScheduleExplore names the capability of answering a request under
 // `explore[:runs=<n>,depth=<d>]` with `outcomes` and an `exploration` status.
 const CapabilityScheduleExplore = "schedule_explore"
@@ -152,7 +158,8 @@ var capabilities = []string{
 	CapabilityParseSources, CapabilityComplexValues, CapabilityStructuredValues,
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
-	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityScheduleExplore,
+	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
+	CapabilityScheduleExplore,
 }
 
 type capabilityAvailability struct {

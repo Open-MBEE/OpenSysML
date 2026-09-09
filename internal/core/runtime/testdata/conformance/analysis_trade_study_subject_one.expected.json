@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::single",
+  "error": "multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1",
+  "verdicts": {
+    "tradeStudyObjective": "undecided"
+  },
+  "evaluations": []
+}

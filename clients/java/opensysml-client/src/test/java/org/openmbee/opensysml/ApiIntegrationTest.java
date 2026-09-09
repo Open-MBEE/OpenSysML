@@ -14,6 +14,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.openmbee.opensysml.proto.CaseEvaluation;
+import org.openmbee.opensysml.proto.RunAnalysisRequest;
+import org.openmbee.opensysml.proto.RunAnalysisResponse;
+import org.openmbee.opensysml.proto.RunSweepRequest;
+import org.openmbee.opensysml.proto.RunSweepResponse;
+import org.openmbee.opensysml.proto.SweepRange;
+import org.openmbee.opensysml.proto.SweepRow;
 
 /** The v1 API against a real service this test starts. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -255,6 +262,142 @@ class ApiIntegrationTest {
   @Test
   void theServiceAdvertisesTheVerificationBodyVerdictsItReports() {
     assertTrue(connection.capabilities().has(Capabilities.VERIFICATION_VERDICTS));
+  }
+
+  private static final String TRADE_STUDY =
+      """
+      package Trade {
+        private import ScalarValues::*;
+        private import TradeStudies::*;
+        part def Engine { attribute mass : Real; attribute cylinders : Integer; }
+        part a : Engine { attribute :>> mass = 30.0; attribute :>> cylinders = 6; }
+        part b : Engine { attribute :>> mass = 10.0; attribute :>> cylinders = 4; }
+        part c : Engine { attribute :>> mass = 10.0; attribute :>> cylinders = 0; }
+        analysis lightest : TradeStudy {
+          subject : Engine[1..*] = (a, b, c);
+          objective : MinimizeObjective;
+          calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass;
+          }
+          return part :>> selectedAlternative : Engine;
+        }
+        analysis perOffset : TradeStudy {
+          subject : Engine[1..*] = (a, b);
+          in attribute offset : Integer;
+          objective : MinimizeObjective;
+          calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass / (e.cylinders - offset);
+          }
+          return part :>> selectedAlternative : Engine;
+        }
+      }
+      """;
+
+  @Test
+  void theServiceAdvertisesTheCaseEvaluationsItReports() {
+    assertTrue(connection.capabilities().has(Capabilities.CASE_EVALUATIONS));
+  }
+
+  @Test
+  void aTradeStudyArrivesWithEachAlternativesEvaluationTheSelectedOneAndTheTieMarked() {
+    try (Connection json =
+        Connection.open(ServiceBinary.options().encoding(Encoding.JSON).build())) {
+      for (Connection each : List.of(connection, json)) {
+        Model model = each.parse(TRADE_STUDY);
+        RunAnalysisResponse response =
+            each.call(
+                "RunAnalysis",
+                RunAnalysisRequest.newBuilder()
+                    .setModelHash(model.hash())
+                    .setSymbolId("Trade::lightest")
+                    .build(),
+                RunAnalysisResponse.getDefaultInstance());
+        assertEquals("", response.getError());
+        assertEquals(1, response.getOutputsCount());
+        long selected = response.getOutputs(0).getValue().getInstanceId();
+        assertEquals(1, response.getVerdictsCount());
+        assertEquals("tradeStudyObjective", response.getVerdicts(0).getElement());
+        assertTrue(response.getVerdicts(0).getHolds());
+
+        List<CaseEvaluation> evaluations = response.getEvaluationsList();
+        assertEquals(
+            List.of("Trade::a", "Trade::b", "Trade::c"),
+            evaluations.stream()
+                .map(e -> typeOf(response.getInstancesList(), e.getArguments(0).getInstanceId()))
+                .toList());
+        assertEquals(
+            List.of(30.0, 10.0, 10.0),
+            evaluations.stream().map(e -> e.getResult().getRealValue()).toList());
+        assertEquals(
+            List.of(false, true, false),
+            evaluations.stream().map(CaseEvaluation::getSelected).toList());
+        assertEquals(
+            List.of(false, false, true),
+            evaluations.stream().map(CaseEvaluation::getTied).toList());
+        assertEquals(selected, evaluations.get(1).getArguments(0).getInstanceId());
+        evaluations.forEach(
+            e -> assertEquals("Trade::lightest::evaluationFunction", e.getFunctionId()));
+      }
+    }
+  }
+
+  @Test
+  void aSweptTradeStudyCarriesEachRowsEvaluationsAFailedRowKeepingThoseItMade() {
+    Model model = connection.parse(TRADE_STUDY);
+    RunSweepResponse response =
+        connection.call(
+            "RunSweep",
+            RunSweepRequest.newBuilder()
+                .setModelHash(model.hash())
+                .setSymbolId("Trade::perOffset")
+                .addRanges(
+                    SweepRange.newBuilder()
+                        .setParameter("offset")
+                        .setStart(
+                            org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(3))
+                        .setEnd(org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(4)))
+                .build(),
+            RunSweepResponse.getDefaultInstance());
+    assertEquals("", response.getError());
+    assertEquals(2, response.getRowsCount());
+
+    SweepRow ok = response.getRows(0);
+    assertEquals("", ok.getError());
+    assertEquals(1, ok.getOutputsCount());
+    assertEquals(
+        List.of(10.0, 10.0),
+        ok.getEvaluationsList().stream().map(e -> e.getResult().getRealValue()).toList());
+    assertEquals(
+        List.of(true, false),
+        ok.getEvaluationsList().stream().map(CaseEvaluation::getSelected).toList());
+    assertEquals(
+        List.of(false, true),
+        ok.getEvaluationsList().stream().map(CaseEvaluation::getTied).toList());
+
+    SweepRow failed = response.getRows(1);
+    assertTrue(failed.getError().contains("division by zero"));
+    assertEquals(0, failed.getOutputsCount());
+    assertEquals(1, failed.getVerdictsCount());
+    assertFalse(failed.getVerdicts(0).getHolds());
+    assertTrue(failed.getVerdicts(0).getError().contains("division by zero"));
+    assertEquals(2, failed.getEvaluationsCount());
+    assertEquals(15.0, failed.getEvaluations(0).getResult().getRealValue());
+    assertEquals("", failed.getEvaluations(0).getError());
+    assertFalse(failed.getEvaluations(1).hasResult());
+    assertTrue(failed.getEvaluations(1).getError().contains("division by zero"));
+    long failedAlternative = failed.getEvaluations(1).getArguments(0).getInstanceId();
+    assertEquals("Trade::b", typeOf(response.getInstancesList(), failedAlternative));
+    assertFalse(failed.getEvaluationsList().stream().anyMatch(CaseEvaluation::getSelected));
+  }
+
+  private static String typeOf(List<org.openmbee.opensysml.proto.Instance> instances, long id) {
+    return instances.stream()
+        .filter(inst -> inst.getId() == id)
+        .map(org.openmbee.opensysml.proto.Instance::getTypeSymbolId)
+        .findFirst()
+        .orElseThrow();
   }
 
   @Test

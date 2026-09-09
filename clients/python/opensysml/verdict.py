@@ -288,6 +288,60 @@ class CalcResult:
         return f"CalcResult(value={self.value!r}, outputs={self.outputs!r})"
 
 
+class CaseEvaluation:
+    """One application an analysis case made of one of its own calcs as a value.
+
+    A trade study (``TradeStudies::TradeStudy``) evaluates its
+    ``evaluationFunction`` once per alternative to find the best; each such
+    evaluation is reported, in subject order, with the alternative it was of,
+    what it computed, and whether that alternative was the one selected.
+
+    Attributes:
+        function_id (str): FQN of the calc applied
+        arguments (list): What it was applied to, as Python values; an
+            alternative is the :class:`~opensysml.instance.Instance` it is
+        result: What it computed, or None when :attr:`error` says why nothing was
+        error (str): Why the evaluation computed nothing; empty when it did
+        selected (bool): Whether the case returned this evaluation's argument:
+            the alternative a trade study selected
+        tied (bool): Whether this evaluation computed what the selected one did
+            without being selected, ``selectOne`` having taken the first
+    """
+
+    def __init__(self, function_id, arguments, result=None, error="", selected=False, tied=False):
+        self.function_id = function_id
+        self.arguments = list(arguments or [])
+        self.result = result
+        self.error = error
+        self.selected = selected
+        self.tied = tied
+
+    @property
+    def evaluated(self):
+        """Whether the evaluation computed a result."""
+        return not self.error
+
+    def explain(self):
+        """One line saying what was evaluated, what it gave, and whether it was selected."""
+        call = f"{self.function_id}({', '.join(str(arg) for arg in self.arguments)})"
+        line = f"{call}: error: {self.error}" if self.error else f"{call} = {self.result}"
+        if self.selected:
+            line += " [selected]"
+        elif self.tied:
+            line += " [tied]"
+        return line
+
+    def __str__(self):
+        return self.explain()
+
+    def __repr__(self):
+        return (
+            f"CaseEvaluation(function_id={self.function_id!r}, arguments={self.arguments!r}, "
+            f"result={self.result!r}, error={self.error!r}, selected={self.selected!r}, "
+            f"tied={self.tied!r})"
+        )
+
+
 class AnalysisResult:
     """What an analysis case computed and decided.
 
@@ -303,19 +357,31 @@ class AnalysisResult:
         verdicts (list[Verdict]): The objective and assertion verdicts, in the
             order the case states them
         instances (list[Instance]): The subject the case ran on and the objects
-            reachable from it; empty when the case bound no subject
+            reachable from it, then every object an output or an evaluation
+            names; empty when the run named no object
         diagnostics (list[Diagnostic]): Diagnostics the service reported
         verifications (list[VerificationVerdict]): For a verification case, what
             its body answered, followed by the verdict of each subcase it
             performed; empty for an analysis case
+        evaluations (list[CaseEvaluation]): Each application the run made of one
+            of the case's calcs as a value — a trade study's evaluation of each
+            alternative, in subject order; empty for a case making none, or for
+            a service without the ``case_evaluations`` capability
     """
 
-    def __init__(self, outputs, verdicts, instances=None, diagnostics=None, verifications=None):
+    def __init__(self, outputs, verdicts, instances=None, diagnostics=None, verifications=None,
+                 evaluations=None):
         self.outputs = dict(outputs or {})
         self.verdicts = list(verdicts or [])
         self.instances = list(instances or [])
         self.diagnostics = list(diagnostics or [])
         self.verifications = list(verifications or [])
+        self.evaluations = list(evaluations or [])
+
+    @property
+    def selected(self):
+        """The evaluations of the alternatives the case selected; one for a trade study."""
+        return [e for e in self.evaluations if e.selected]
 
     @property
     def satisfied(self):
@@ -330,12 +396,13 @@ class AnalysisResult:
         lines = [f"{name} = {val}" for name, val in self.outputs.items()]
         lines.extend(v.explain() for v in self.verdicts)
         lines.extend(v.explain() for v in self.verifications)
+        lines.extend(e.explain() for e in self.evaluations)
         return "\n".join(lines)
 
     def __repr__(self):
         return (
             f"AnalysisResult(outputs={self.outputs!r}, "
-            f"verdicts={self.verdicts!r})"
+            f"verdicts={self.verdicts!r}, evaluations={self.evaluations!r})"
         )
 
 
@@ -348,19 +415,31 @@ class SweepRow:
     Attributes:
         inputs (dict): The swept parameters as this run bound them, by name
         outputs (dict): What the run produced, by name; a calc's returned value
-            is named "result"
+            is named "result", and an object is the
+            :class:`~opensysml.instance.Instance` the table carries for it
         verdicts (list[Verdict]): The objective and assertion verdicts of an
             analysis case; empty for a calc
         seconds (float): Wall time of this run
         error (str): Why this run failed; empty when it did not
+        evaluations (list[CaseEvaluation]): Each application this run made of
+            one of the case's calcs as a value — a trade study's evaluation of
+            each alternative, in subject order; a failed run keeps the ones it
+            made. Empty for a calc, or for a service without the
+            ``case_evaluations`` capability
     """
 
-    def __init__(self, inputs, outputs, verdicts, seconds, error=""):
+    def __init__(self, inputs, outputs, verdicts, seconds, error="", evaluations=None):
         self.inputs = dict(inputs or {})
         self.outputs = dict(outputs or {})
         self.verdicts = list(verdicts or [])
         self.seconds = seconds
         self.error = error
+        self.evaluations = list(evaluations or [])
+
+    @property
+    def selected(self):
+        """The evaluations of the alternatives this run selected; one for a trade study."""
+        return [e for e in self.evaluations if e.selected]
 
     @property
     def failed(self):

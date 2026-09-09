@@ -68,6 +68,17 @@ func (t LibraryTier) Frame() bool {
 	}
 }
 
+// Semantic reports a tier realized rather than executed as written: the Kernel
+// and Systems libraries, or library content of no stated tier.
+func (t LibraryTier) Semantic() bool {
+	switch t {
+	case TierDomain, TierOpenSysML:
+		return false
+	default:
+		return t.Library()
+	}
+}
+
 // LibraryDocument describes the bundled library content a document holds: the
 // tier of its bundle and a digest of its text, empty when the loader stated none.
 type LibraryDocument struct {

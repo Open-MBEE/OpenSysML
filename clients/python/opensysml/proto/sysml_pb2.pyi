@@ -213,6 +213,22 @@ class CalcOutput(_message.Message):
     value: Value
     def __init__(self, name: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
 
+class CaseEvaluation(_message.Message):
+    __slots__ = ("function_id", "arguments", "result", "error", "selected", "tied")
+    FUNCTION_ID_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    SELECTED_FIELD_NUMBER: _ClassVar[int]
+    TIED_FIELD_NUMBER: _ClassVar[int]
+    function_id: str
+    arguments: _containers.RepeatedCompositeFieldContainer[Value]
+    result: Value
+    error: str
+    selected: bool
+    tied: bool
+    def __init__(self, function_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., result: _Optional[_Union[Value, _Mapping]] = ..., error: _Optional[str] = ..., selected: _Optional[bool] = ..., tied: _Optional[bool] = ...) -> None: ...
+
 class RunAnalysisRequest(_message.Message):
     __slots__ = ("model_hash", "symbol_id", "subject_symbol_id", "arguments", "named_arguments", "schedule")
     class NamedArgumentsEntry(_message.Message):
@@ -237,7 +253,7 @@ class RunAnalysisRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
 class RunAnalysisResponse(_message.Message):
-    __slots__ = ("outputs", "verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts", "outcomes", "exploration")
+    __slots__ = ("outputs", "verdicts", "instances", "error", "diagnostics", "failure_reason", "verification_verdicts", "outcomes", "exploration", "evaluations")
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     VERDICTS_FIELD_NUMBER: _ClassVar[int]
     INSTANCES_FIELD_NUMBER: _ClassVar[int]
@@ -247,6 +263,7 @@ class RunAnalysisResponse(_message.Message):
     VERIFICATION_VERDICTS_FIELD_NUMBER: _ClassVar[int]
     OUTCOMES_FIELD_NUMBER: _ClassVar[int]
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
+    EVALUATIONS_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
     verdicts: _containers.RepeatedCompositeFieldContainer[Verdict]
     instances: _containers.RepeatedCompositeFieldContainer[Instance]
@@ -256,7 +273,8 @@ class RunAnalysisResponse(_message.Message):
     verification_verdicts: _containers.RepeatedCompositeFieldContainer[VerificationVerdict]
     outcomes: _containers.RepeatedCompositeFieldContainer[Outcome]
     exploration: ExplorationStatus
-    def __init__(self, outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ...) -> None: ...
+    evaluations: _containers.RepeatedCompositeFieldContainer[CaseEvaluation]
+    def __init__(self, outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., verification_verdicts: _Optional[_Iterable[_Union[VerificationVerdict, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., evaluations: _Optional[_Iterable[_Union[CaseEvaluation, _Mapping]]] = ...) -> None: ...
 
 class Outcome(_message.Message):
     __slots__ = ("outputs", "final_state", "states_visited", "error", "linearizations", "witness", "diagnostics")
@@ -1039,20 +1057,22 @@ class RunSweepRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., symbol_id: _Optional[str] = ..., subject_symbol_id: _Optional[str] = ..., arguments: _Optional[_Iterable[_Union[Value, _Mapping]]] = ..., named_arguments: _Optional[_Mapping[str, Value]] = ..., ranges: _Optional[_Iterable[_Union[SweepRange, _Mapping]]] = ..., samples: _Optional[int] = ..., seed: _Optional[int] = ...) -> None: ...
 
 class SweepRow(_message.Message):
-    __slots__ = ("inputs", "outputs", "verdicts", "elapsed_micros", "error", "failure_reason")
+    __slots__ = ("inputs", "outputs", "verdicts", "elapsed_micros", "error", "failure_reason", "evaluations")
     INPUTS_FIELD_NUMBER: _ClassVar[int]
     OUTPUTS_FIELD_NUMBER: _ClassVar[int]
     VERDICTS_FIELD_NUMBER: _ClassVar[int]
     ELAPSED_MICROS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     FAILURE_REASON_FIELD_NUMBER: _ClassVar[int]
+    EVALUATIONS_FIELD_NUMBER: _ClassVar[int]
     inputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
     outputs: _containers.RepeatedCompositeFieldContainer[CalcOutput]
     verdicts: _containers.RepeatedCompositeFieldContainer[Verdict]
     elapsed_micros: int
     error: str
     failure_reason: FailureReason
-    def __init__(self, inputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., elapsed_micros: _Optional[int] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ...) -> None: ...
+    evaluations: _containers.RepeatedCompositeFieldContainer[CaseEvaluation]
+    def __init__(self, inputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., elapsed_micros: _Optional[int] = ..., error: _Optional[str] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., evaluations: _Optional[_Iterable[_Union[CaseEvaluation, _Mapping]]] = ...) -> None: ...
 
 class RunSweepResponse(_message.Message):
     __slots__ = ("rows", "parameters", "sampled", "seed", "error", "diagnostics", "failure_reason", "instances")

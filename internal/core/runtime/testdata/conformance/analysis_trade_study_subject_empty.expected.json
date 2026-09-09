@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::none",
+  "error": "multiplicity violation: 0 value(s) bound to a feature with multiplicity lower bound 1",
+  "verdicts": {
+    "tradeStudyObjective": "undecided"
+  },
+  "evaluations": []
+}

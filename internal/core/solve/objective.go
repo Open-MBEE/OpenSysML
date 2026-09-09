@@ -104,6 +104,13 @@ func (t *translator) objective(obj runtime.Objective) (Objective, error) {
 	}
 	spelling := "`objective o : " + directionTypeName(direction) +
 		" { subject :>> selectedAlternative; in calc :>> eval { expression } }`"
+	if obj.Evaluates != nil {
+		return Objective{}, t.refuseObjective(obj,
+			"applies the calculation `"+obj.Evaluates.Name+"` to each alternative the case's subject lists, "+
+				"a choice among listed alternatives rather than an optimum over a continuous domain",
+			"run the trade study as an analysis (`-analysis`, `%analysis` or RunAnalysis), which evaluates "+
+				"every alternative and reports the one selected")
+	}
 	if obj.ReboundBest != nil {
 		return Objective{}, t.refuseObjective(obj,
 			"gives the library's bound `best` a value of its own (`attribute :>> best = expression;`), "+

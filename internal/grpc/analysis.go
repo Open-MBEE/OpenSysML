@@ -50,18 +50,20 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 
 	// The choices a run made are reported with its outcome, failed or not.
 	result, verdicts, err := v.runCase(sym, args)
+	resp = &pb.RunAnalysisResponse{}
 	if err != nil {
-		return &pb.RunAnalysisResponse{
-			Error:         err.Error(),
-			FailureReason: failureReason(err),
-			Diagnostics:   v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached)),
-		}, nil
+		resp.Error = err.Error()
+		resp.FailureReason = failureReason(err)
+		// A client predating case_evaluations reads a failed run as its error alone.
+		if !v.service.capabilities.has(CapabilityCaseEvaluations) {
+			resp.Diagnostics = v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
+			return resp, nil
+		}
 	}
-	diags := v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
+	resp.Diagnostics = v.service.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(v.runtime.Notes(), v.cached))
 	// The case reports the subject it ran on: the one supplied, or the one the
 	// usage or the enclosing case bound.
 	subject := result.Subject
-	resp = &pb.RunAnalysisResponse{Instances: v.instanceGraph(subject), Diagnostics: diags}
 	for _, out := range result.Outputs {
 		resp.Outputs = append(resp.Outputs, &pb.CalcOutput{
 			Name:  out.Name,
@@ -73,6 +75,13 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	}
 	// A case run for itself answers for no requirement, so nothing associates it.
 	resp.VerificationVerdicts = v.verificationVerdicts(verdicts, "")
+	// A client predating case_evaluations sees no evaluation, so no object only one names.
+	var evaluations []runtime.AnalysisEvaluation
+	if v.service.capabilities.has(CapabilityCaseEvaluations) {
+		evaluations = result.Evaluations
+		resp.Evaluations = v.caseEvaluations(evaluations)
+	}
+	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, evaluations))
 	return resp, nil
 }
 
@@ -110,8 +119,8 @@ func (v *verifyContext) analysisArgs(req *pb.RunAnalysisRequest) (runtime.Analys
 	return args, nil, nil
 }
 
-// runCase runs the case once on the context's runtime: a verification case runs
-// the same body and answers with the verdicts its body produced as well.
+// runCase runs the case once on the context's runtime: a verification case answers with
+// its verdicts as well; a run failing after computing something keeps that beside the error.
 func (v *verifyContext) runCase(sym *symbols.Symbol, args runtime.AnalysisArgs) (runtime.AnalysisResult, []runtime.VerificationVerdict, error) {
 	if runtime.IsVerificationCaseSymbol(sym) {
 		verified, err := v.runtime.RunVerification(sym, args, v.declaringScope(sym), nil)
@@ -122,7 +131,7 @@ func (v *verifyContext) runCase(sym *symbols.Symbol, args runtime.AnalysisArgs) 
 	}
 	result, err := v.runtime.RunAnalysis(sym, args, v.declaringScope(sym), nil)
 	if err != nil {
-		return runtime.AnalysisResult{}, nil, fmt.Errorf("analysis run failed: %w", err)
+		return result, nil, fmt.Errorf("analysis run failed: %w", err)
 	}
 	return result, nil, nil
 }
@@ -149,6 +158,101 @@ func (s *Service) exploreAnalysis(schedule runtime.SchedulePolicy, v *verifyCont
 		return nil, err
 	}
 	return &pb.RunAnalysisResponse{Outcomes: outcomes, Exploration: status}, nil
+}
+
+// runRoots are the objects a case run reports: its subject and every object an
+// output or a reported evaluation names — a trade study's alternatives.
+func (v *verifyContext) runRoots(subject *runtime.Instance, outputs []runtime.CalcOutputValue, evaluations []runtime.AnalysisEvaluation) []*runtime.Instance {
+	roots := []*runtime.Instance{subject}
+	for _, out := range outputs {
+		roots = append(roots, v.namedInstances(out.Value)...)
+	}
+	for _, e := range evaluations {
+		for _, arg := range e.Arguments {
+			roots = append(roots, v.namedInstances(arg)...)
+		}
+		roots = append(roots, v.namedInstances(e.Result)...)
+	}
+	return roots
+}
+
+// caseEvaluations spells for the wire each application the run made of one of
+// the case's calcs as a function value, in the order made.
+func (v *verifyContext) caseEvaluations(evaluations []runtime.AnalysisEvaluation) []*pb.CaseEvaluation {
+	if len(evaluations) == 0 {
+		return nil
+	}
+	out := make([]*pb.CaseEvaluation, 0, len(evaluations))
+	for _, e := range evaluations {
+		pe := &pb.CaseEvaluation{FunctionId: e.Function, Selected: e.Selected, Tied: e.Tied}
+		for _, arg := range e.Arguments {
+			pe.Arguments = append(pe.Arguments, v.service.valueToProto(v.runtime, arg, v.cached.Index))
+		}
+		if e.Error != nil {
+			pe.Error = e.Error.Error()
+		} else {
+			pe.Result = v.service.valueToProto(v.runtime, e.Result, v.cached.Index)
+		}
+		out = append(out, pe)
+	}
+	return out
+}
+
+// namedInstances are the objects a value's wire form refers to by identity: the
+// instance it is or a variant materialized, the object a function was read off,
+// and those named within a sequence's, a set's or an array's elements.
+func (v *verifyContext) namedInstances(val runtime.Value) []*runtime.Instance {
+	if id, ok := val.Object(); ok {
+		if inst, ok := v.runtime.Instance(id); ok {
+			return []*runtime.Instance{inst}
+		}
+		return nil
+	}
+	if val.Kind == runtime.ValFunction {
+		if self := val.FunctionSelf(); self != nil {
+			return []*runtime.Instance{self}
+		}
+		return nil
+	}
+	var elements []runtime.Value
+	switch val.Kind {
+	case runtime.ValSequence:
+		if seq := val.Sequence(); seq != nil {
+			elements = seq.Elements()
+		}
+	case runtime.ValSet:
+		if set := val.Set(); set != nil {
+			elements = set.Elements()
+		}
+	case runtime.ValArray:
+		if arr := val.Array(); arr != nil {
+			elements = arr.Elements
+		}
+	}
+	var out []*runtime.Instance
+	for _, elem := range elements {
+		out = append(out, v.namedInstances(elem)...)
+	}
+	return out
+}
+
+// instanceGraphs is the instance graph of every root, in root order, each
+// object reported once; a nil root contributes nothing.
+func (v *verifyContext) instanceGraphs(roots []*runtime.Instance) []*pb.Instance {
+	var all []*pb.Instance
+	seen := make(map[int64]bool)
+	for _, root := range roots {
+		if root == nil || seen[root.ID] {
+			continue
+		}
+		for _, inst := range v.instanceGraph(root) {
+			if !seen[inst.Id] {
+				seen[inst.Id] = true
+				all = append(all, inst)
+			}
+		}
+	}
+	return all
 }
 
 // verificationVerdicts spells for the wire what the bodies of verification cases

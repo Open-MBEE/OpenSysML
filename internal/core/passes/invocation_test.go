@@ -993,3 +993,55 @@ func TestInvocationPerformedActionOptionalInputs(t *testing.T) {
 		action def tag :> base { in x : Integer :>> x; in y : Integer; }
 	}`+outer, CodeUnboundParameter, "tag leaves parameter y unbound")
 }
+
+// A requirement's subject is its first parameter, and a call may omit it when its
+// declaration or a subject it redefines supplies a default or admits no value; a
+// subject with neither stays required, so the omission leaves the call ambiguous.
+func TestInvocationOverloadDefaultedSubjectIsOptional(t *testing.T) {
+	const model = `package P {
+		private import ScalarValues::*;
+		part def Widget { attribute m : Real; }
+		part light : Widget { attribute :>> m = 1.0; }
+		package A {
+			requirement def Light {
+				%s
+				in limit : Real;
+				require constraint { limit > 0.0 }
+			}
+		}
+		package B {
+			requirement def Light {
+				subject w : Widget;
+				in limit : Real;
+				in slack : Real;
+				require constraint { limit + slack > 0.0 }
+			}
+		}
+		package C {
+			private import A::*;
+			private import B::*;
+			attribute ok : Boolean = Light(limit = 2.0);
+		}
+	}`
+	wantLibraryClean(t, fmt.Sprintf(model, `subject w : Widget default = light;`))
+	wantLibraryClean(t, fmt.Sprintf(model, `subject w : Widget[0..1];`))
+	wantLibraryDiag(t, fmt.Sprintf(model, `subject w : Widget;`),
+		"invocation-ambiguous", "call of Light is ambiguous between P::A::Light, P::B::Light")
+}
+
+// A usage redefining a subject without restating a value inherits its default, so a
+// call of the usage may omit the subject as a call of its definition may.
+func TestInvocationRedefinedSubjectInheritsDefault(t *testing.T) {
+	wantLibraryClean(t, `package P {
+		private import ScalarValues::*;
+		part def Widget { attribute m : Real; }
+		part light : Widget { attribute :>> m = 1.0; }
+		requirement def Light {
+			subject w : Widget default = light;
+			in limit : Real default = 5.0;
+			require constraint { w.m < limit }
+		}
+		requirement lightEnough : Light { subject :>> w; in :>> limit = 0.5; }
+		attribute ok : Boolean = lightEnough();
+	}`)
+}

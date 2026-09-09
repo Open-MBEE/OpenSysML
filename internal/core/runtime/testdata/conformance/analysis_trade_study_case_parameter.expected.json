@@ -1,0 +1,18 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::weighted",
+  "bindings": {
+    "powerWeight": {"type": "Real", "value": 0.1}
+  },
+  "outputs": {
+    "selectedAlternative": {"type": "Instance", "value": "test::strong"}
+  },
+  "verdicts": {
+    "tradeStudyObjective": "satisfied"
+  },
+  "evaluations": [
+    {"function": "test::weighted::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::strong"}], "result": {"type": "Real", "value": 0.0}, "selected": true},
+    {"function": "test::weighted::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::light"}], "result": {"type": "Real", "value": -5.0}}
+  ]
+}

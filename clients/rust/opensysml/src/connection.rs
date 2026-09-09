@@ -198,6 +198,16 @@ impl Connection {
         self.inner.private.as_ref().map(|service| service.pid())
     }
 
+    /// Call one method of the service with [`crate::wire`] messages: the protocol layer, for
+    /// methods the ergonomic surface does not wrap. In-band `error` fields are left to the caller.
+    pub fn call<T, R>(&self, method: &str, request: T) -> Result<R, Error>
+    where
+        T: Message,
+        R: Message + Default,
+    {
+        self.rpc(method, request)
+    }
+
     pub(crate) fn get_symbol(&self, model_hash: &str, symbol_id: &str) -> Result<Symbol, Error> {
         let response: wire::SymbolResponse = self.rpc(
             "GetSymbol",

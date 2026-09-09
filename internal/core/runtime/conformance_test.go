@@ -48,6 +48,19 @@ type ExpectedValue struct {
 	Error string `json:"error,omitempty"`
 }
 
+// ExpectedEvaluation is one application of a case's calc as a function value:
+// the calc, its arguments, and what it computed or failed with.
+type ExpectedEvaluation struct {
+	Function  string          `json:"function"`
+	Arguments []ExpectedValue `json:"arguments"`
+	Result    *ExpectedValue  `json:"result,omitempty"`
+	Error     string          `json:"error,omitempty"`
+	// Selected marks the evaluation whose argument the case returned; Tied one
+	// computing the same result without being selected.
+	Selected bool `json:"selected,omitempty"`
+	Tied     bool `json:"tied,omitempty"`
+}
+
 // ExpectedEvent represents an event to inject during state machine execution:
 // either a signal (`signal`) or an operation invocation (`call`).
 type ExpectedEvent struct {
@@ -144,6 +157,10 @@ type ExpectedOutcome struct {
 	// "undecided") expected of each objective and assertion, by name.
 	Subject  string            `json:"subject,omitempty"`
 	Verdicts map[string]string `json:"verdicts,omitempty"`
+	// Evaluations are the applications of the case's own calcs as function values
+	// the run made, in order — a trade study's evaluation of each alternative.
+	// Stated, the run must have made exactly these.
+	Evaluations []ExpectedEvaluation `json:"evaluations,omitempty"`
 
 	// Verification fields: the VerdictKind the run of the case's body produced,
 	// the text an error or inconclusive verdict carries, and the verdict of each
@@ -1098,6 +1115,8 @@ func runAnalysisConformance(t *testing.T, ctx *Context, idx *symbols.Index, path
 	result, err := ctx.RunAnalysis(caseSym, analysisArgsOf(t, ctx, idx, expected), rootScope, nil)
 	if expected.Error != "" {
 		requireError(t, "RunAnalysis", err, expected.Error)
+		// A failed run still reports what it decided and evaluated before failing.
+		checkCaseRun(t, ctx, idx, result, expected)
 		return
 	}
 	if err != nil {
@@ -1152,9 +1171,47 @@ func checkCaseRun(t *testing.T, ctx *Context, idx *symbols.Index, result Analysi
 		t.Errorf("the case reported %d verdict(s) %v, the outcome states %d",
 			len(result.Verdicts), verdictNames(result.Verdicts), len(expected.Verdicts))
 	}
+	if expected.Evaluations != nil {
+		checkEvaluations(t, ctx, result.Evaluations, expected.Evaluations)
+	}
 
 	for name, expectedVal := range expected.Reads {
 		validateRead(t, ctx, idx, name, expectedVal)
+	}
+}
+
+// checkEvaluations validates the function-value applications a run made against
+// the ones the outcome states, in order.
+func checkEvaluations(t *testing.T, ctx *Context, got []AnalysisEvaluation, want []ExpectedEvaluation) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Errorf("the run made %d evaluation(s), the outcome states %d", len(got), len(want))
+	}
+	for i := 0; i < len(got) && i < len(want); i++ {
+		label := fmt.Sprintf("evaluation %d", i+1)
+		if got[i].Function != want[i].Function {
+			t.Errorf("%s: applied %s, want %s", label, got[i].Function, want[i].Function)
+		}
+		if len(got[i].Arguments) != len(want[i].Arguments) {
+			t.Errorf("%s: %d argument(s), want %d", label, len(got[i].Arguments), len(want[i].Arguments))
+		}
+		for j := 0; j < len(got[i].Arguments) && j < len(want[i].Arguments); j++ {
+			validateValue(t, ctx, fmt.Sprintf("%s argument %d", label, j+1), want[i].Arguments[j], got[i].Arguments[j])
+		}
+		switch {
+		case want[i].Error != "":
+			requireError(t, label, got[i].Error, want[i].Error)
+		case got[i].Error != nil:
+			t.Errorf("%s failed: %v", label, got[i].Error)
+		case want[i].Result != nil:
+			validateValue(t, ctx, label+" result", *want[i].Result, got[i].Result)
+		}
+		if got[i].Selected != want[i].Selected {
+			t.Errorf("%s: selected = %v, want %v", label, got[i].Selected, want[i].Selected)
+		}
+		if got[i].Tied != want[i].Tied {
+			t.Errorf("%s: tied = %v, want %v", label, got[i].Tied, want[i].Tied)
+		}
 	}
 }
 
@@ -1810,6 +1867,12 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		}
 		if ctx != nil && ctx.HoldsNoValue(actual) {
 			t.Errorf("%s: holds no value, want an instance holding one", name)
+		}
+		if usage, pinned := expected.Value.(string); pinned && ctx != nil {
+			inst, _ := ctx.Instance(actual.Instance)
+			if got := ctx.OccurrenceUsage(inst); got != usage {
+				t.Errorf("%s: the occurrence of %q, want %q", name, got, usage)
+			}
 		}
 	case "Unset":
 		// A valueless feature of a value type: materialized, holding no value.

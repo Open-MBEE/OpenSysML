@@ -84,6 +84,18 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return append(out, m.ImplicitRoleRedefinitions(sym)...)
 }
 
+// maskingRedefinedFeatures returns the features sym redefines by clause or by
+// case role, which its owner does not inherit.
+func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+	explicit := m.RedefinedFeatures(sym)
+	roles := m.ImplicitRoleRedefinitions(sym)
+	if len(roles) == 0 {
+		return explicit
+	}
+	out := make([]*symbols.Symbol, 0, len(explicit)+len(roles))
+	return append(append(out, explicit...), roles...)
+}
+
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
 // the feature an unnamed feature takes its identifiers from (KerML 1.1 §8.2.4).
 func (m *Model) EffectiveNameOf(sym *symbols.Symbol) string {
@@ -348,8 +360,9 @@ func redefinesSibling(redefining, target *symbols.Symbol) bool {
 	return target.OwnerScope != nil && target.OwnerScope == redefining.OwnerScope
 }
 
-// redefinitionClosure returns what candidate's redefinitions remove from a type
-// inheriting it, transitively; a sibling edge removes nothing but is followed.
+// redefinitionClosure returns what candidate's redefinitions, by clause or by
+// position, remove from a type inheriting it, transitively; a sibling edge
+// removes nothing but is followed.
 func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Symbol]bool, bool) {
 	if candidate == nil {
 		return nil, false
@@ -363,7 +376,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 	m.computingRedefClosure[candidate] = true
 	out := make(map[*symbols.Symbol]bool)
 	cyclic := false
-	for _, target := range m.RedefinedFeatures(candidate) {
+	for _, target := range m.maskingRedefinedFeatures(candidate) {
 		if !redefinesSibling(candidate, target) {
 			out[target] = true
 		}
@@ -461,7 +474,7 @@ func (m *Model) namingRedefiner(sym, masked *symbols.Symbol, declared bool) *sym
 	mask := m.redefinitionMask(sym, declared)
 	var found *symbols.Symbol
 	m.forEachMaskCandidate(sym, declared, func(candidate *symbols.Symbol) bool {
-		if candidate.Naming != symbols.NamedByRedefinition || m.maskedBy(mask, candidate) {
+		if declaresIdentifier(candidate) || m.maskedBy(mask, candidate) {
 			return true
 		}
 		if m.namedThrough(candidate, masked) {

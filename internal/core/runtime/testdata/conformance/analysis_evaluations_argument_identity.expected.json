@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::study",
+  "outputs": {
+    "result": {"type": "Real", "value": 29.0}
+  },
+  "evaluations": [
+    {"function": "test::Study::apply", "arguments": [{"type": "Function", "value": "test::Scaler::scale"}, {"type": "Real", "value": 5.0}], "result": {"type": "Real", "value": 10.0}},
+    {"function": "test::Study::apply", "arguments": [{"type": "Function", "value": "test::Scaler::scale"}, {"type": "Real", "value": 5.0}], "result": {"type": "Real", "value": 15.0}},
+    {"function": "test::Study::apply", "arguments": [{"type": "Function", "value": "test::Scaler::scale"}, {"type": "Integer", "value": 1}], "result": {"type": "Real", "value": 2.0}}
+  ]
+}

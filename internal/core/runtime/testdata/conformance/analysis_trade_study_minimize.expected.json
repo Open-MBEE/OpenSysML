@@ -1,0 +1,19 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::lightest",
+  "trace": true,
+  "outputs": {
+    "selectedAlternative": {"type": "Instance", "value": "test::light"}
+  },
+  "verdicts": {
+    "tradeStudyObjective": "satisfied"
+  },
+  "evaluations": [
+    {"function": "test::lightest::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::heavy"}], "result": {"type": "Real", "value": 20.0}},
+    {"function": "test::lightest::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::light"}], "result": {"type": "Real", "value": 10.0}, "selected": true}
+  ],
+  "reads": {
+    "test::pickedMass": {"type": "Real", "value": 10.0}
+  }
+}

@@ -222,6 +222,12 @@ beyond its existing domain objects, the edit API, RDF conversion, or
 verification helpers. The conformance runner consequently skips RPCs that the
 typed v1 API does not cover.
 
+`Connection::call` is the escape hatch: it sends one method's request message
+from `opensysml::wire` and decodes the response, without the ergonomic layer,
+so an RPC the typed API does not wrap — `RunAnalysis`, `RunSweep` — can still
+be made. In-band `error` fields are the caller's to read; `Capabilities::has`
+gates response fields such as `case_evaluations` the same way.
+
 ## Release procedure
 
 Before a release, `cargo package -p opensysml` must succeed cleanly. `cargo

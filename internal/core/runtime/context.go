@@ -78,6 +78,14 @@ type Context struct {
 	// defaults, result expression) per calc symbol.
 	calcShapes map[*symbols.Symbol]*calcShape
 
+	// predicateShapes memoizes the invocation interfaces of constraints and
+	// requirements applied as predicates.
+	predicateShapes map[*symbols.Symbol]*calcShape
+
+	// evaluations is the log of the case run under way (evaluation_log.go), nil
+	// outside one.
+	evaluations *evaluationLog
+
 	// libraryPerformances memoizes, per model calc, the inherited library function a
 	// call of it applies; nil for a calc that computes on its own.
 	libraryPerformances map[*symbols.Symbol]*libraryPerformance
@@ -314,6 +322,7 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 		holders:             make(map[*symbols.Symbol]map[string][]string),
 		returnedParams:      make(map[*calcShape]*returnedAnalysis),
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
+		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 
 		invocationTargets: make(map[invocationKey]*invocationTarget),
@@ -1187,13 +1196,14 @@ type scopedMember struct {
 
 // chainMembers returns the members of the types sym takes members from (its
 // supertypes and the feature it references), most general first, then sym's own.
-// A library supertype states the metamodel frame, not model conditions, and contributes none.
+// The library's frame states no model conditions and contributes none; a domain
+// library's supertype contributes as a model's does.
 func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []scopedMember {
 	var out []scopedMember
 	supers := ctx.model.MemberSources(sym)
 	for i := len(supers) - 1; i >= 0; i-- {
 		link := supers[i]
-		if link == nil || ctx.libraryDeclared(link) {
+		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
 		for _, node := range declMembers(link.Decl) {

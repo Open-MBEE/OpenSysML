@@ -143,6 +143,13 @@ CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
 #: would drop the field and run under the default, so the client refuses to send one.
 CAPABILITY_SCHEDULE = "schedule"
 
+#: Each application an analysis run made of one of the case's calcs as a value —
+#: a trade study's evaluation of each alternative — as ``RunAnalysisResponse.evaluations``,
+#: read as :class:`~opensysml.verdict.CaseEvaluation`, and what a failed run
+#: computed kept beside its error. Without it a run reports no evaluation and a
+#: failed run its error alone.
+CAPABILITY_CASE_EVALUATIONS = "case_evaluations"
+
 #: The ``explore[:runs=<n>,depth=<d>]`` schedule, under which a run answers with
 #: every distinct outcome as ``outcomes`` and an ``exploration`` status instead
 #: of one run's result. Without it the service refuses the schedule with

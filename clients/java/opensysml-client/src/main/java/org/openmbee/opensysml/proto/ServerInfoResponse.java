@@ -180,6 +180,11 @@ private static final long serialVersionUID = 0L;
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
@@ -268,6 +273,11 @@ private static final long serialVersionUID = 0L;
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
@@ -355,6 +365,11 @@ private static final long serialVersionUID = 0L;
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
@@ -443,6 +458,11 @@ private static final long serialVersionUID = 0L;
    * the run resolves its choice points under; without it a
    * service drops the field and runs under the default, so a
    * client must not send one.
+   * "case_evaluations" - RunAnalysis and each RunSweep row report each
+   * application the run made of one of the case's calcs as a
+   * function value — a trade study's evaluation of each
+   * alternative — as evaluations, and keep the outputs and
+   * evaluations a failed run made beside its error.
    * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
@@ -980,6 +1000,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1069,6 +1094,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1156,6 +1186,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1244,6 +1279,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1333,6 +1373,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1428,6 +1473,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1522,6 +1572,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1616,6 +1671,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the
@@ -1707,6 +1767,11 @@ private static final long serialVersionUID = 0L;
      * the run resolves its choice points under; without it a
      * service drops the field and runs under the default, so a
      * client must not send one.
+     * "case_evaluations" - RunAnalysis and each RunSweep row report each
+     * application the run made of one of the case's calcs as a
+     * function value — a trade study's evaluation of each
+     * alternative — as evaluations, and keep the outputs and
+     * evaluations a failed run made beside its error.
      * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
      * accepted, and the response carries every distinct outcome
      * as `outcomes` with an `exploration` status; without it the

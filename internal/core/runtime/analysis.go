@@ -81,6 +81,11 @@ type Objective struct {
 	// stating one expression, so no Value is read from it.
 	StepwiseEval bool
 
+	// Evaluates is the calc `eval` is bound to hold (`in calc :>> eval =
+	// evaluationFunction;`), applied to each alternative the case's subject
+	// lists; nil when `eval` states an expression or nothing.
+	Evaluates *symbols.Symbol
+
 	// Best is the objective's `best` feature, derived by the library from Eval;
 	// nil when the objective is no trade-study objective.
 	Best *symbols.Symbol
@@ -90,10 +95,15 @@ type Objective struct {
 	ReboundBest *symbols.Symbol
 
 	// Conditions are the conditions the objective states itself, its own body's
-	// and the ones it inherits from the model's own objective definitions: the
-	// trade-study library's own conditions are left out, being about choosing
-	// among alternatives rather than about which values are feasible.
+	// and the ones it inherits from the model's own objective definitions: what
+	// values are feasible, which a solver translates.
 	Conditions []Condition
+
+	// LibraryConditions are the conditions the objective inherits from the
+	// trade-study library (`eval(selectedAlternative) == best`): about the
+	// choice among the listed alternatives, which the analysis run checks and
+	// no solver translates.
+	LibraryConditions []Condition
 }
 
 // Text renders the expression stating the objective's value as written, empty
@@ -173,13 +183,13 @@ func (ctx *Context) redefines(obj, prev Objective) bool {
 func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
 	typ := ctx.extractType(objSym)
 	obj := Objective{
-		Name:       ctx.model.EffectiveNameOf(objSym),
-		Symbol:     objSym,
-		Type:       typ,
-		Direction:  ctx.objectiveDirection(typ),
-		Scope:      objSym.OwnerScope,
-		Conditions: ctx.objectiveConditionsOf(objSym),
+		Name:      ctx.model.EffectiveNameOf(objSym),
+		Symbol:    objSym,
+		Type:      typ,
+		Direction: ctx.objectiveDirection(typ),
+		Scope:     objSym.OwnerScope,
 	}
+	obj.Conditions, obj.LibraryConditions = ctx.objectiveConditionsOf(objSym)
 	tradeStudy := ctx.specializesLibraryType(typ, tradeStudyObjectiveFQN)
 	if tradeStudy {
 		obj.ReboundBest = ctx.reboundBestOf(objSym)
@@ -230,14 +240,19 @@ func (ctx *Context) restatedObjectives(objSym, owner *symbols.Symbol) []*symbols
 	return out
 }
 
-// readEvalValue reads the objective's value from the lowered body of its own
-// `eval`: one returned expression, or a stepwise mark. False when it states none.
+// readEvalValue reads the objective's value from its own `eval`: the calc it is
+// bound to hold, else its lowered body's one returned expression or a stepwise
+// mark. False when it states none.
 func (ctx *Context) readEvalValue(obj *Objective, objSym *symbols.Symbol) bool {
 	evalSym := ctx.objectiveMember(objSym, objectiveEvalName)
 	if evalSym == nil || evalSym.Kind != symbols.SymbolCalcUsage {
 		return false
 	}
 	obj.Eval = evalSym
+	if calc := ctx.calcHeldBy(evalSym); calc != nil {
+		obj.Evaluates = calc
+		return true
+	}
 	body := bodyScope(evalSym, evalSym.OwnerScope)
 	stmts := lower.CalcBody(evalSym.Decl, declMembers(evalSym.Decl), body)
 	if len(stmts) == 1 {
@@ -248,6 +263,24 @@ func (ctx *Context) readEvalValue(obj *Objective, objSym *symbols.Symbol) bool {
 	}
 	obj.StepwiseEval = len(stmts) > 0
 	return obj.StepwiseEval
+}
+
+// calcHeldBy returns the calc a calc-typed feature is bound to hold by naming
+// it as its value (`= evaluationFunction`), nil when its value is anything else.
+func (ctx *Context) calcHeldBy(featureSym *symbols.Symbol) *symbols.Symbol {
+	value := ctx.extractDefaultValue(featureSym)
+	if ref, ok := value.(*ast.FeatureReference); ok {
+		value = ref.Name
+	}
+	qn, ok := value.(*ast.QualifiedName)
+	if !ok {
+		return nil
+	}
+	sym := ctx.resolveTypeRef(featureSym.OwnerScope, qn)
+	if sym == nil || (sym.Kind != symbols.SymbolCalcDef && sym.Kind != symbols.SymbolCalcUsage) {
+		return nil
+	}
+	return sym
 }
 
 // reboundBestOf returns the member of objSym's own body giving the library's
@@ -357,32 +390,34 @@ func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 	return NoDirection
 }
 
-// objectiveConditionsOf returns the conditions an objective states in its own
-// body together with the ones it inherits from a model's own definitions, the
-// library's left out: a trade-study library condition is about choosing among
-// alternatives rather than about which values are feasible.
-func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) []Condition {
+// objectiveConditionsOf returns the conditions an objective states or inherits
+// from the model's definitions, and apart from them those the library states.
+func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library []Condition) {
 	if sym == nil {
-		return nil
+		return nil, nil
 	}
 	// An inherited condition is read where it is inherited: the objective's own
 	// body, where the `best` it inherits answers that name.
 	body := bodyScope(sym, sym.OwnerScope)
-	var members []scopedMember
+	var members, libraryMembers []scopedMember
 	supers := ctx.model.AllSupertypes(sym)
 	for i := len(supers) - 1; i >= 0; i-- {
 		link := supers[i]
-		if link == nil || ctx.libraryDeclared(link) {
+		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
 		for _, node := range declMembers(link.Decl) {
-			members = append(members, scopedMember{node: node, scope: body})
+			if ctx.libraryDeclared(link) {
+				libraryMembers = append(libraryMembers, scopedMember{node: node, scope: body})
+			} else {
+				members = append(members, scopedMember{node: node, scope: body})
+			}
 		}
 	}
 	for _, node := range declMembers(sym.Decl) {
 		members = append(members, scopedMember{node: node, scope: body})
 	}
-	return ctx.conditionsOf(sym, members)
+	return ctx.conditionsOf(sym, members), ctx.conditionsOf(sym, libraryMembers)
 }
 
 // CaseConditionsOf returns the conditions a case states as what it holds true of

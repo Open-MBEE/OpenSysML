@@ -327,6 +327,13 @@ naming the case. `-e` reads the results of a package-level usage or of one neste
 (`-e An::shipCost.total`, `-e An::holder.inner.total`) by running the case once and keeping
 what it computed until a value it depends on changes.
 
+A trade study (`TradeStudies::TradeStudy`) is an analysis case and runs the same way: the
+library's own expressions score each alternative the subject lists with the case's
+`evaluationFunction` and return the first that scores best. The report adds one line per
+evaluation, in subject order, marking the alternative selected and any that tied with it
+(`evaluationFunction(An::b (object #2)) = 10.0 [selected]`); `-json` carries them as each
+check's `evaluations`. See [Trade studies](06-behavior.md#trade-studies).
+
 A parameter can be swept rather than fixed. `-sweep <param>=<from>..<to>[:<step>]` runs the
 `-analysis` case or the `-calc` once per value of the range instead of once, each run an
 ordinary run with that value bound and every other argument as given, and reports the runs as

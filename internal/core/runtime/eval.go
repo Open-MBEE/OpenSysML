@@ -106,6 +106,22 @@ func (ec *EvalContext) valuedFeature(name string) (scopedExpr, bool) {
 	return bound, declared && bound.expr != nil && !ec.resolving[name]
 }
 
+// valuedFeatureValue evaluates the value the element being evaluated binds to
+// name; ok is false when it binds none or that value is the one being evaluated.
+func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err error) {
+	bound, ok := ec.valuedFeature(name)
+	if !ok {
+		return Value{}, false, nil
+	}
+	if ec.resolving == nil {
+		ec.resolving = map[string]bool{}
+	}
+	ec.resolving[name] = true
+	val, err = ec.evalIn(bound.scope).inEnv(bound.env).Eval(bound.expr)
+	delete(ec.resolving, name)
+	return val, true, err
+}
+
 // inEnv returns a context reading env instead of this one's features and
 // bindings. An enclosing environment holds other features than the ones being
 // resolved, so a same name there is a fresh read rather than a cycle.
@@ -566,13 +582,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// declaration it redefines.
 		// A feature whose own value is already being evaluated is skipped, so
 		// `in mass = mass` reads the outer mass rather than itself.
-		if bound, ok := ec.valuedFeature(name); ok {
-			if ec.resolving == nil {
-				ec.resolving = map[string]bool{}
-			}
-			ec.resolving[name] = true
-			val, err := ec.evalIn(bound.scope).inEnv(bound.env).Eval(bound.expr)
-			delete(ec.resolving, name)
+		if val, ok, err := ec.valuedFeatureValue(name); ok {
 			return val, err
 		}
 		// Then the bound instance: a feature value holds the value this object actually
@@ -605,6 +615,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// — rather than the ones in force here — answer the names it uses.
 		if ec.scope != nil && !ec.resolving[name] {
 			if sym, ok := ec.ctx.resolver.LookupName(ec.scope, name); ok && sym != nil {
+				// An inherited expression reads the feature as the running behavior
+				// inherits it: through the redefinition, when it states one.
+				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
 				// An enumerated value is the value of its enumeration it stands
 				// for; any other variant names a choice, not the value it declares.
 				if semantics.EnumerationOwning(sym) != nil {
@@ -2305,6 +2318,9 @@ func (ec *EvalContext) evalCollectionNotation(
 type invocationKey struct {
 	node  *ast.InvocationExpr
 	scope *symbols.Scope
+	// running is the behavior whose run evaluates the expression: it applies a
+	// callee it redefines through the redefining feature.
+	running *symbols.Symbol
 }
 
 // invocationTarget is what an invocation expression denotes, resolved once per
@@ -2317,6 +2333,7 @@ type invocationTarget struct {
 	builtinName string            // the built-in's registered name, keying its declared signature
 	library     *libraryFunction  // the library function the name denotes: the library declaration calc is
 	shape       *calcShape        // calc's invocation interface, nil when it has none
+	predicate   bool              // calc is a constraint or requirement, applied as a predicate
 	names       []string          // the parameter each named argument binds, as calc's signature spells it
 	unbound     []error           // per named argument, why calc has no parameter for it; nil when it binds
 }
@@ -2328,7 +2345,7 @@ type invocationTarget struct {
 // and a declaration of the model's own is invoked as written even under a name a
 // library built-in is registered by.
 func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget {
-	key := invocationKey{node: n, scope: ec.scope}
+	key := invocationKey{node: n, scope: ec.scope, running: ec.runningBehavior()}
 	if target, ok := ec.ctx.invocationTargets[key]; ok {
 		return target
 	}
@@ -2336,13 +2353,38 @@ func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget
 	if sel := passes.SelectInvocation(ec.ctx.resolver, ec.ctx.model, ec.scope, n, semantics.PerformsBehavior); sel.Ambiguous {
 		target.ambiguous = sel.Tied
 	} else if sym := sel.Called(); sym != nil {
-		ec.ctx.implementInvocation(target, sym)
+		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.running, sym))
 	}
 	if len(n.NamedArgs) > 0 {
 		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, target.calc, n.NamedArgs)
 	}
 	ec.ctx.invocationTargets[key] = target
 	return target
+}
+
+// runningBehavior is the behavior whose run the expression is evaluated in: the
+// owner of the innermost frame a run pushed, nil outside any run.
+func (ec *EvalContext) runningBehavior() *symbols.Symbol {
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		if owner := ec.frames[i].owner; owner != nil {
+			return owner.Sym
+		}
+	}
+	return nil
+}
+
+// inheritedFeature is sym as the running behavior, or one enclosing it, inherits
+// it: a feature redefined there answers to the redefinition (KerML §7.3.4.5).
+func (ctx *Context) inheritedFeature(running, sym *symbols.Symbol) *symbols.Symbol {
+	for b := running; b != nil && sym != nil; b = enclosingBehavior(b) {
+		if !ctx.model.InheritanceMasked(b, sym) {
+			continue
+		}
+		if redefiner := ctx.model.NamingRedefiner(b, sym); redefiner != nil {
+			return redefiner
+		}
+	}
+	return sym
 }
 
 // boundParameterNames is the parameter each named argument binds in callee, spelled as
@@ -2386,6 +2428,8 @@ func (ctx *Context) implementInvocation(target *invocationTarget, sym *symbols.S
 		target.library = fn
 	} else if shape, err := ctx.calcShapeOf(sym); err == nil {
 		target.shape = shape
+	} else if isPredicateDecl(sym.Decl) {
+		target.predicate = true
 	}
 }
 
@@ -2476,6 +2520,9 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	// direct InvokeCalc bind parameters and trace identically.
 	if target.library != nil {
 		return target.library.invoke(ec.ctx, callArgs)
+	}
+	if target.predicate {
+		return ec.invokePredicate(target.calc, callArgs)
 	}
 	if target.shape == nil {
 		return ec.ctx.invokeCalcWithSelf(target.calc, callArgs, ec.scope, ec.self)
