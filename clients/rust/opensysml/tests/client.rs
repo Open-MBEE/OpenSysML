@@ -7,7 +7,9 @@ use std::process::Command;
 use std::thread;
 use std::time::Duration;
 
-use opensysml::{Complex, Connection, Error, EvalOptions, Function, Magnitude, Value, Vector};
+use opensysml::{
+    wire, Complex, Connection, Error, EvalOptions, Function, Magnitude, Value, Vector,
+};
 
 fn service_or_skip() -> Option<Connection> {
     match Connection::private() {
@@ -274,6 +276,199 @@ fn the_service_advertises_the_verification_body_verdicts_it_reports() {
         return;
     };
     assert!(connection.capabilities().has("verification_verdicts"));
+}
+
+#[test]
+fn the_service_advertises_the_case_evaluations_it_reports() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("case_evaluations"));
+}
+
+const TRADE_STUDY: &str = "package Trade {
+    private import ScalarValues::*;
+    private import TradeStudies::*;
+    part def Engine { attribute mass : Real; attribute cylinders : Integer; }
+    part a : Engine { attribute :>> mass = 30.0; attribute :>> cylinders = 6; }
+    part b : Engine { attribute :>> mass = 10.0; attribute :>> cylinders = 4; }
+    part c : Engine { attribute :>> mass = 10.0; attribute :>> cylinders = 0; }
+    analysis lightest : TradeStudy {
+        subject : Engine[1..*] = (a, b, c);
+        objective : MinimizeObjective;
+        calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass;
+        }
+        return part :>> selectedAlternative : Engine;
+    }
+    analysis perOffset : TradeStudy {
+        subject : Engine[1..*] = (a, b);
+        in attribute offset : Integer;
+        objective : MinimizeObjective;
+        calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass / (e.cylinders - offset);
+        }
+        return part :>> selectedAlternative : Engine;
+    }
+}";
+
+fn instance_id(value: Option<&wire::Value>) -> i64 {
+    match value.and_then(|v| v.kind.as_ref()) {
+        Some(wire::value::Kind::InstanceId(id)) => *id,
+        other => panic!("expected an instance reference, got {other:?}"),
+    }
+}
+
+fn real(value: Option<&wire::Value>) -> f64 {
+    match value.and_then(|v| v.kind.as_ref()) {
+        Some(wire::value::Kind::RealValue(real)) => *real,
+        other => panic!("expected a real, got {other:?}"),
+    }
+}
+
+fn type_of(instances: &[wire::Instance], id: i64) -> &str {
+    instances
+        .iter()
+        .find(|instance| instance.id == id)
+        .map(|instance| instance.type_symbol_id.as_str())
+        .unwrap_or_else(|| panic!("instance {id} is not among the reported instances"))
+}
+
+#[test]
+fn a_trade_study_arrives_with_each_alternatives_evaluation_the_selected_one_and_the_tie_marked() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = connection
+        .parse_content(TRADE_STUDY, &Default::default())
+        .expect("parse");
+    let response: wire::RunAnalysisResponse = connection
+        .call(
+            "RunAnalysis",
+            wire::RunAnalysisRequest {
+                model_hash: model.hash().to_owned(),
+                symbol_id: "Trade::lightest".to_owned(),
+                ..Default::default()
+            },
+        )
+        .expect("RunAnalysis");
+    assert_eq!(response.error, "");
+    assert_eq!(response.outputs.len(), 1);
+    let selected = instance_id(response.outputs[0].value.as_ref());
+    assert_eq!(response.verdicts.len(), 1);
+    assert_eq!(response.verdicts[0].element, "tradeStudyObjective");
+    assert!(response.verdicts[0].holds);
+
+    let summary: Vec<_> = response
+        .evaluations
+        .iter()
+        .map(|e| {
+            (
+                e.function_id.as_str(),
+                type_of(&response.instances, instance_id(e.arguments.first())),
+                real(e.result.as_ref()),
+                e.selected,
+                e.tied,
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        vec![
+            (
+                "Trade::lightest::evaluationFunction",
+                "Trade::a",
+                30.0,
+                false,
+                false
+            ),
+            (
+                "Trade::lightest::evaluationFunction",
+                "Trade::b",
+                10.0,
+                true,
+                false
+            ),
+            (
+                "Trade::lightest::evaluationFunction",
+                "Trade::c",
+                10.0,
+                false,
+                true
+            ),
+        ]
+    );
+    assert_eq!(
+        instance_id(response.evaluations[1].arguments.first()),
+        selected
+    );
+}
+
+#[test]
+fn a_swept_trade_study_carries_each_rows_evaluations_a_failed_row_keeping_those_it_made() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = connection
+        .parse_content(TRADE_STUDY, &Default::default())
+        .expect("parse");
+    let int = |value: i64| wire::Value {
+        kind: Some(wire::value::Kind::IntValue(value)),
+    };
+    let response: wire::RunSweepResponse = connection
+        .call(
+            "RunSweep",
+            wire::RunSweepRequest {
+                model_hash: model.hash().to_owned(),
+                symbol_id: "Trade::perOffset".to_owned(),
+                ranges: vec![wire::SweepRange {
+                    parameter: "offset".to_owned(),
+                    start: Some(int(3)),
+                    end: Some(int(4)),
+                    step: None,
+                }],
+                ..Default::default()
+            },
+        )
+        .expect("RunSweep");
+    assert_eq!(response.error, "");
+    assert_eq!(response.rows.len(), 2);
+
+    let ok = &response.rows[0];
+    assert_eq!(ok.error, "");
+    assert_eq!(ok.outputs.len(), 1);
+    let summary: Vec<_> = ok
+        .evaluations
+        .iter()
+        .map(|e| (real(e.result.as_ref()), e.selected, e.tied))
+        .collect();
+    assert_eq!(summary, vec![(10.0, true, false), (10.0, false, true)]);
+
+    let failed = &response.rows[1];
+    assert!(
+        failed.error.contains("division by zero"),
+        "{}",
+        failed.error
+    );
+    assert!(failed.outputs.is_empty());
+    assert_eq!(failed.verdicts.len(), 1);
+    assert!(!failed.verdicts[0].holds);
+    assert!(failed.verdicts[0].error.contains("division by zero"));
+    assert_eq!(failed.evaluations.len(), 2);
+    assert_eq!(real(failed.evaluations[0].result.as_ref()), 15.0);
+    assert_eq!(failed.evaluations[0].error, "");
+    assert!(failed.evaluations[1].result.is_none());
+    assert!(failed.evaluations[1].error.contains("division by zero"));
+    assert_eq!(
+        type_of(
+            &response.instances,
+            instance_id(failed.evaluations[1].arguments.first())
+        ),
+        "Trade::b"
+    );
+    assert!(failed.evaluations.iter().all(|e| !e.selected));
 }
 
 #[test]

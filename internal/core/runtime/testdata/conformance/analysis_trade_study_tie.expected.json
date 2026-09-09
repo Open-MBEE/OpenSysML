@@ -1,0 +1,16 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::tied",
+  "outputs": {
+    "selectedAlternative": {"type": "Instance", "value": "test::b"}
+  },
+  "verdicts": {
+    "tradeStudyObjective": "satisfied"
+  },
+  "evaluations": [
+    {"function": "test::tied::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::a"}], "result": {"type": "Real", "value": 30.0}},
+    {"function": "test::tied::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::b"}], "result": {"type": "Real", "value": 10.0}, "selected": true},
+    {"function": "test::tied::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::c"}], "result": {"type": "Real", "value": 10.0}, "tied": true}
+  ]
+}

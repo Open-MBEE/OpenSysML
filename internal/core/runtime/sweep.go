@@ -71,10 +71,14 @@ type SweepRunResult struct {
 	Verdicts []AnalysisVerdict
 	// The object the run was about, where a case ran on one.
 	Subject *Instance
+	// Evaluations are the applications the run made of a calc held as a value,
+	// in the order made.
+	Evaluations []AnalysisEvaluation
 }
 
 // SweepRun makes one run of a sweep with the parameters bound as the row states.
-// An error is that row's failure, not the table's.
+// An error is that row's failure, not the table's; what the run produced before
+// failing may be returned beside it.
 type SweepRun func(bindings []SweepBinding) (SweepRunResult, error)
 
 // SweepRow is one run of a sweep: what it was given, what it produced, how long
@@ -84,9 +88,10 @@ type SweepRow struct {
 	Outputs  []CalcOutputValue
 	Verdicts []AnalysisVerdict
 	// The object this run's verdicts are about, where a case ran on one.
-	Subject *Instance
-	Elapsed time.Duration
-	Err     error
+	Subject     *Instance
+	Evaluations []AnalysisEvaluation
+	Elapsed     time.Duration
+	Err         error
 }
 
 // SweepTable is every run of one sweep, in the order they were made: a swept
@@ -139,12 +144,9 @@ func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan
 		started := time.Now()
 		result, err := run(bindings)
 		row.Elapsed = time.Since(started)
-		if err != nil {
-			row.Err = err
-		} else {
-			row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
-			row.Subject = result.Subject
-		}
+		row.Err = err
+		row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
+		row.Subject, row.Evaluations = result.Subject, result.Evaluations
 		table.Rows = append(table.Rows, row)
 	}
 	return table, nil

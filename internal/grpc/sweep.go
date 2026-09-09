@@ -91,16 +91,14 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		}
 		args := runtime.AnalysisArgs{Subject: subject, Positional: positional, Named: bound}
 		result, err := v.runtime.RunAnalysis(sym, args, scope, nil)
-		if err != nil {
-			return runtime.SweepRunResult{}, err
-		}
 		// The case reports the subject it ran on: the one supplied, or the one
 		// the usage or the enclosing case bound.
 		return runtime.SweepRunResult{
-			Outputs:  result.Outputs,
-			Verdicts: result.Verdicts,
-			Subject:  result.Subject,
-		}, nil
+			Outputs:     result.Outputs,
+			Verdicts:    result.Verdicts,
+			Subject:     result.Subject,
+			Evaluations: result.Evaluations,
+		}, err
 	}
 
 	table, err := v.runtime.RunSweep(ctx, req.SymbolId, plan, run)
@@ -220,6 +218,7 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResp
 		Rows:       make([]*pb.SweepRow, 0, len(table.Rows)),
 	}
 	seen := make(map[int64]bool)
+	evaluations := v.service.capabilities.has(CapabilityCaseEvaluations)
 	for i := range table.Rows {
 		row := &table.Rows[i]
 		out := &pb.SweepRow{ElapsedMicros: row.Elapsed.Microseconds()}
@@ -228,6 +227,15 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResp
 				Name:  binding.Param,
 				Value: v.service.valueToProto(v.runtime, binding.Value, v.cached.Index),
 			})
+		}
+		if row.Err != nil {
+			out.Error = row.Err.Error()
+			out.FailureReason = failureReason(row.Err)
+			// A client predating case_evaluations reads a failed row as its error alone.
+			if !evaluations {
+				resp.Rows = append(resp.Rows, out)
+				continue
+			}
 		}
 		for _, output := range row.Outputs {
 			out.Outputs = append(out.Outputs, &pb.CalcOutput{
@@ -238,11 +246,12 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResp
 		for j := range row.Verdicts {
 			out.Verdicts = append(out.Verdicts, v.analysisVerdict(&row.Verdicts[j], row.Subject))
 		}
-		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraph(row.Subject))
-		if row.Err != nil {
-			out.Error = row.Err.Error()
-			out.FailureReason = failureReason(row.Err)
+		var reported []runtime.AnalysisEvaluation
+		if evaluations {
+			reported = row.Evaluations
+			out.Evaluations = v.caseEvaluations(reported)
 		}
+		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraphs(v.runRoots(row.Subject, row.Outputs, reported)))
 		resp.Rows = append(resp.Rows, out)
 	}
 	return resp

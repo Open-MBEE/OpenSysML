@@ -1,0 +1,16 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::study",
+  "error": "output beta: division by zero",
+  "outputs": {
+    "alpha": {"type": "Real", "value": 5.0}
+  },
+  "verdicts": {
+    "cheap": "undecided",
+    "alphaPositive": "undecided"
+  },
+  "evaluations": [
+    {"function": "test::Study::rate", "arguments": [{"type": "Real", "value": 4.0}], "result": {"type": "Real", "value": 5.0}}
+  ]
+}

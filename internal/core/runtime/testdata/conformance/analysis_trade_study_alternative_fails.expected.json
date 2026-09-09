@@ -1,0 +1,13 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::perCylinder",
+  "error": "division by zero",
+  "verdicts": {
+    "tradeStudyObjective": "undecided"
+  },
+  "evaluations": [
+    {"function": "test::perCylinder::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::light"}], "result": {"type": "Real", "value": 5.0}},
+    {"function": "test::perCylinder::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::heavy"}], "error": "division by zero"}
+  ]
+}

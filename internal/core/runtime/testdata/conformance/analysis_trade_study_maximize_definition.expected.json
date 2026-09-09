@@ -1,0 +1,16 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::strongest",
+  "outputs": {
+    "selectedAlternative": {"type": "Instance", "value": "test::strong"}
+  },
+  "verdicts": {
+    "tradeStudyObjective": "satisfied"
+  },
+  "evaluations": [
+    {"function": "test::Strongest::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::weak"}], "result": {"type": "Real", "value": 100.0}},
+    {"function": "test::Strongest::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::strong"}], "result": {"type": "Real", "value": 250.0}, "selected": true},
+    {"function": "test::Strongest::evaluationFunction", "arguments": [{"type": "Instance", "value": "test::medium"}], "result": {"type": "Real", "value": 180.0}}
+  ]
+}

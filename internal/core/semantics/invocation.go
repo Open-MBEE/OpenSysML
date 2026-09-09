@@ -404,9 +404,14 @@ type signatureParameter struct {
 	optional bool // may go without an argument: a default, or a multiplicity admitting none
 }
 
-// signatureOf returns sym's effective input parameters, in signature order.
+// signatureOf returns sym's effective input parameters, in signature order: the
+// subject of a requirement or case first, being its first input parameter (SysML
+// v2 §7.19.1, §7.20.1), then its directed `in` and `inout` parameters.
 func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 	sig := invocationSignature{owner: sym}
+	if subject := m.SubjectParameterOf(sym); subject != nil {
+		sig.params = append(sig.params, m.signatureParameterOf(subject, m.EffectiveNameOf(subject)))
+	}
 	for _, p := range m.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
 			continue
@@ -418,24 +423,29 @@ func (m *Model) signatureOf(sym *symbols.Symbol) invocationSignature {
 				name = effective
 			}
 		}
-		param := signatureParameter{
-			sym:      p.Symbol,
-			name:     name,
-			typ:      m.featureType(p.Symbol),
-			prim:     m.PrimTypeOf(p.Symbol),
-			optional: m.OptionalParameter(p.Symbol),
-		}
-		switch {
-		case IsAnything(param.typ):
-			param.typ, param.untyped = nil, true
-		case param.typ == nil && param.prim == PrimUnknown && !m.declaresType(p.Symbol):
-			param.untyped = true
-		}
-		sig.params = append(sig.params, param)
+		sig.params = append(sig.params, m.signatureParameterOf(p.Symbol, name))
 	}
 	// A parameterless declaration with supertypes may inherit an unseen signature.
 	sig.known = len(sig.params) > 0 || (sym.Decl != nil && len(m.DirectSupertypes(sym)) == 0)
 	return sig
+}
+
+// signatureParameterOf describes the parameter sym as a call binds it under name.
+func (m *Model) signatureParameterOf(sym *symbols.Symbol, name string) signatureParameter {
+	param := signatureParameter{
+		sym:      sym,
+		name:     name,
+		typ:      m.featureType(sym),
+		prim:     m.PrimTypeOf(sym),
+		optional: m.OptionalParameter(sym),
+	}
+	switch {
+	case IsAnything(param.typ):
+		param.typ, param.untyped = nil, true
+	case param.typ == nil && param.prim == PrimUnknown && !m.declaresType(sym):
+		param.untyped = true
+	}
+	return param
 }
 
 // OptionalParameter reports whether a call may omit the parameter: it or a parameter it
@@ -445,8 +455,9 @@ func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 		return true
 	}
 	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if u := p.Decl.(*ast.Usage); u.Multiplicity != nil {
-			return m.IsOptionalParameter(u)
+		if _, mult, _ := parameterDeclaration(p); mult != nil {
+			r, ok := m.multiplicityRange(mult)
+			return ok && r.AllowsNone()
 		}
 	}
 	return false
@@ -456,21 +467,36 @@ func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 // declared along its redefinitions, with the scope it resolves in. Nil when none is.
 func (m *Model) ParameterDefault(sym *symbols.Symbol) (ast.Node, *symbols.Scope) {
 	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if u := p.Decl.(*ast.Usage); u.Value != nil {
-			return u.Value, p.OwnerScope
+		if value, _, _ := parameterDeclaration(p); value != nil {
+			return value, p.OwnerScope
 		}
 	}
 	return nil, nil
 }
 
+// parameterDeclaration is the value and multiplicity a parameter declares as its own,
+// whether written as a usage or as a requirement's or case's subject.
+func parameterDeclaration(sym *symbols.Symbol) (value ast.Node, mult *ast.Multiplicity, ok bool) {
+	if sym == nil {
+		return nil, nil, false
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		return decl.Value, decl.Multiplicity, true
+	case *ast.SubjectMember:
+		return decl.BindingExpr, decl.Multiplicity, true
+	}
+	return nil, nil, false
+}
+
 // ParameterRedefinitionChain is sym followed by the parameters it redefines, explicitly
-// or by position, nearest first; each declares a usage.
+// or by position, nearest first; each declares a usage or a subject.
 func (m *Model) ParameterRedefinitionChain(sym *symbols.Symbol) []*symbols.Symbol {
 	var chain []*symbols.Symbol
 	visited := map[*symbols.Symbol]bool{}
 	for sym != nil && !visited[sym] {
 		visited[sym] = true
-		if _, ok := sym.Decl.(*ast.Usage); !ok {
+		if _, _, ok := parameterDeclaration(sym); !ok {
 			break
 		}
 		chain = append(chain, sym)

@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -200,6 +201,26 @@ func (s VerdictStatus) String() string {
 	}
 }
 
+// AnalysisEvaluation is one application, during a case's run, of a calc held as
+// a function value: a trade study's evaluation of one alternative.
+type AnalysisEvaluation struct {
+	// Function is the qualified name of the calc applied.
+	Function string
+
+	// Arguments are what the calc was applied to, by parameter position, a named
+	// one at its parameter's; null where none was given before a later one.
+	Arguments []Value
+
+	// Result is what the calc computed; unset when Error says why it computed nothing.
+	Result Value
+	Error  error
+
+	// Selected marks the evaluation of the value `selectOne` picked and the case
+	// returned. Tied marks one computing what the selected did, passed over for it.
+	Selected bool
+	Tied     bool
+}
+
 // AnalysisResult is what one run of an analysis case produced: its output
 // values in declaration order, and the verdict of each objective and assertion.
 type AnalysisResult struct {
@@ -216,6 +237,10 @@ type AnalysisResult struct {
 
 	// Verdicts are the case's objectives, in order, then its assertions.
 	Verdicts []AnalysisVerdict
+
+	// Evaluations are the applications of the case's own calcs as function values
+	// the run made, in the order first made, once per distinct argument list.
+	Evaluations []AnalysisEvaluation
 }
 
 // RunAnalysis runs an analysis case — a definition or a usage — binding its
@@ -223,7 +248,9 @@ type AnalysisResult struct {
 // every output it declares together with the verdict of each objective and
 // assertion. self, when non-null, is the object a usage is a feature of.
 // A usage run with no arguments answers from the same evaluation a read of
-// its outputs does, so both report the same values.
+// its outputs does, so both report the same values. A run whose output could
+// not be evaluated fails, and reports beside the error what it did establish:
+// the evaluations it made and the verdicts, undecided where they read that output.
 func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (AnalysisResult, error) {
 	defer ctx.beginRun()()
 
@@ -245,39 +272,82 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	if err != nil {
 		return nil, AnalysisResult{}, err
 	}
+	// Arguments the case cannot take refuse the request before anything runs:
+	// the case established nothing, so there is no partial run to report.
+	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym)
+	var calcArgs calcArgs
+	if !asUsage {
+		if calcArgs, err = shape.analysisArgs(args); err != nil {
+			return nil, AnalysisResult{}, err
+		}
+	}
 	reader := NewEvalContextIn(ctx, scope, self)
+	log := ctx.beginEvaluationLog(sym)
+	defer ctx.endEvaluationLog(log)
 
 	var run *calcRun
-	if args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym) {
+	if asUsage {
 		run, err = ctx.calcUsageRun(reader, sym)
 	} else {
-		run, err = ctx.analysisRun(shape, reader, args)
+		run, err = ctx.analysisRun(shape, reader, calcArgs)
 	}
 	if err != nil {
-		return nil, AnalysisResult{}, err
+		result := AnalysisResult{Case: shape.Name, Evaluations: log.evaluations(Value{}, false)}
+		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
+		return nil, result, err
 	}
 
+	// The outputs computed before one failed stay reported; the verdicts and the
+	// pick do not, since the case established neither.
 	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx)}
-	if result.Outputs, err = run.outputValues(ctx); err != nil {
-		return nil, AnalysisResult{}, err
+	outputs, err := run.outputValues(ctx)
+	result.Outputs = outputs
+	if err != nil {
+		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
+		result.Evaluations = log.evaluations(Value{}, false)
+		return nil, result, err
 	}
 	result.Verdicts = ctx.analysisVerdicts(run, sym, scope)
+	result.Evaluations = log.evaluations(run.caseResult(run.bindingsFrame(ctx).vars))
 	return run, result, nil
 }
 
-// analysisRun binds a case's parameters from args and runs its body once,
-// unmemoized: arguments make it an invocation of its own, not the evaluation
-// the case's outputs answer from when read as features.
-func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, args AnalysisArgs) (*calcRun, error) {
+// undecidedVerdicts leaves every objective and required assertion of a case
+// whose body failed undecided, the failure as the reason.
+func (ctx *Context) undecidedVerdicts(sym *symbols.Symbol, scope *symbols.Scope, cause error) []AnalysisVerdict {
+	var verdicts []AnalysisVerdict
+	for _, obj := range ctx.ObjectivesOf(sym, scope) {
+		name := obj.Name
+		if name == "" {
+			name = "objective"
+		}
+		verdicts = append(verdicts, AnalysisVerdict{
+			Kind: "objective", Name: name, Symbol: obj.Symbol,
+			Status: VerdictUndecided, Detail: cause.Error(),
+		})
+	}
+	for _, cond := range ctx.CaseConditionsOf(sym, scope) {
+		if !cond.Required {
+			continue
+		}
+		name, named := assertionName(cond)
+		verdicts = append(verdicts, AnalysisVerdict{
+			Kind: "assertion", Name: name, Symbol: named,
+			Status: VerdictUndecided, Detail: cause.Error(),
+		})
+	}
+	return verdicts
+}
+
+// analysisRun binds a case's parameters from the shaped arguments and runs its
+// body once, unmemoized: arguments make it an invocation of its own, not the
+// evaluation the case's outputs answer from when read as features.
+func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs) (*calcRun, error) {
 	if err := ctx.enterCalc(shape.Name); err != nil {
 		return nil, err
 	}
 	defer ctx.leaveCalc()
 
-	calcArgs, err := shape.analysisArgs(args)
-	if err != nil {
-		return nil, err
-	}
 	key := calcUsageKey{sym: shape.Sym}
 	if reader.self != nil {
 		key.instance = reader.self.ID
@@ -351,7 +421,8 @@ func (run *calcRun) boundSubject(ctx *Context) *Instance {
 }
 
 // outputValues evaluates every output the case declares, in declaration order,
-// naming a value the body returned into an unnamed result "result".
+// naming a value the body returned into an unnamed result "result". An output
+// that cannot be evaluated fails the run; the ones before it are reported.
 func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 	values := make([]CalcOutputValue, 0, len(run.shape.Outputs)+1)
 	for _, out := range run.shape.Outputs {
@@ -363,7 +434,7 @@ func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 		}
 		value, err := run.output(ctx, out.Name)
 		if err != nil {
-			return nil, err
+			return values, err
 		}
 		values = append(values, CalcOutputValue{Name: out.Name, Value: value})
 	}
@@ -391,7 +462,8 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 				sym: obj.Symbol, kind: "objective", what: "require condition",
 				element: name, self: run.self, bindings: own,
 			}
-			verdict = ctx.analysisVerdict("objective", name, check, obj.Conditions)
+			conds := append(slices.Clone(obj.LibraryConditions), obj.Conditions...)
+			verdict = ctx.analysisVerdict("objective", name, check, conds)
 		}
 		verdict.Symbol = obj.Symbol
 		verdicts = append(verdicts, verdict)

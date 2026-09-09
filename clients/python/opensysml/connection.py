@@ -50,6 +50,7 @@ from opensysml.edit import error_for_failure, failure_name, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
 from opensysml.errors import (
+    AnalysisRunError,
     ConnectionError,
     ConversionError,
     ExecutionError,
@@ -77,7 +78,8 @@ from opensysml.values import (
     value_to_python,
 )
 from opensysml.verdict import (
-    AnalysisResult, CalcResult, SweepRow, SweepTable, Verdict, VerificationVerdict,
+    AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Verdict,
+    VerificationVerdict,
 )
 
 
@@ -190,6 +192,34 @@ def _failure_of(message, failure_reason, diagnostics):
     if failure_reason == sysml_pb2.FAILURE_REASON_WRONG_KIND:
         return WrongKindError(message, diagnostics=diagnostics)
     return ExecutionError(message, diagnostics=diagnostics)
+
+
+def _value_or_unsupported(pb_value, resolve_instance):
+    """Read a wire value, standing an UnsupportedValueError in for one with no form."""
+    try:
+        return value_to_python(pb_value, resolve_instance)
+    except UnsupportedValueError as exc:
+        return exc
+
+
+def _evaluations_of(response, resolve_instance):
+    """Read the case evaluations of a response, empty for a service without them.
+
+    An argument or result the wire format cannot represent is reported as an
+    UnsupportedValueError in its place, so one such value does not discard the
+    evaluation or the run it belongs to.
+    """
+    evaluations = []
+    for pb in getattr(response, "evaluations", ()):
+        arguments = [_value_or_unsupported(arg, resolve_instance) for arg in pb.arguments]
+        result = None
+        if not pb.error and pb.HasField("result"):
+            result = _value_or_unsupported(pb.result, resolve_instance)
+        evaluations.append(CaseEvaluation(
+            pb.function_id, arguments, result=result, error=pb.error,
+            selected=pb.selected, tied=pb.tied,
+        ))
+    return evaluations
 
 
 def _explores(schedule):
@@ -1609,14 +1639,19 @@ class Connection:
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
-                its objective and assertions
+                its objective and assertions, with each evaluation a trade
+                study made of an alternative
 
         Raises:
             ValueError: If the schedule explores
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
-            ExecutionError: If the case could not run — an unbound subject, an
-                input with no value, a failing step
+            AnalysisRunError: If the case could not run to its end and left
+                something to inspect — the evaluations made before an
+                alternative failed, an objective the failure left undecided;
+                carries it as :attr:`~opensysml.errors.AnalysisRunError.result`
+            ExecutionError: If the request was refused before the run — an
+                unknown symbol — or the failure left nothing to report
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, an array, vector or vector quantity and
@@ -1633,29 +1668,37 @@ class Connection:
         )
 
         diagnostics = [Diagnostic(d) for d in response.diagnostics]
-        if response.error:
-            raise _failure_of(
-                response.error, response.failure_reason, diagnostics
-            )
+        # A request refused before the run, or a failure leaving nothing to report, has no partial result.
+        if response.error and not (
+            response.outputs or response.verdicts or response.evaluations or response.instances
+        ):
+            raise _failure_of(response.error, response.failure_reason, diagnostics)
 
+        instances = self._instances_of(response)
+        by_id = {inst.id: inst for inst in instances}
+        # An object the response carries is read as it; one it does not stays an id.
+        resolve = lambda instance_id: by_id.get(instance_id, instance_id)  # noqa: E731
         outputs = {}
         for output in response.outputs:
             try:
-                outputs[output.name] = self._value_to_python(output.value)
+                outputs[output.name] = value_to_python(output.value, resolve)
             except UnsupportedValueError as exc:
                 outputs[output.name] = exc
-        instances = self._instances_of(response)
         verdicts = [
             Verdict(pb_verdict, instances=instances, diagnostics=diagnostics)
             for pb_verdict in response.verdicts
         ]
-        return AnalysisResult(
+        result = AnalysisResult(
             outputs,
             verdicts,
             instances=instances,
             diagnostics=diagnostics,
             verifications=_verifications_of(response),
+            evaluations=_evaluations_of(response, resolve),
         )
+        if response.error:
+            raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
+        return result
 
     def explore_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
                          named_arguments=None, schedule="explore"):
@@ -1815,12 +1858,14 @@ class Connection:
 
     def _sweep_row(self, row, instances, diagnostics):
         """One run of a sweep as Python values."""
+        by_id = {inst.id: inst for inst in instances}
+        resolve = lambda instance_id: by_id.get(instance_id, instance_id)  # noqa: E731
         inputs = {}
         outputs = {}
         for target, source in ((inputs, row.inputs), (outputs, row.outputs)):
             for entry in source:
                 try:
-                    target[entry.name] = self._value_to_python(entry.value)
+                    target[entry.name] = value_to_python(entry.value, resolve)
                 except UnsupportedValueError as exc:
                     target[entry.name] = exc
         verdicts = [
@@ -1829,7 +1874,7 @@ class Connection:
         ]
         return SweepRow(
             inputs, outputs, verdicts, row.elapsed_micros / 1e6,
-            error=row.error,
+            error=row.error, evaluations=_evaluations_of(row, resolve),
         )
 
     def _require_verification(self):

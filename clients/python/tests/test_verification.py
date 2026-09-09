@@ -15,7 +15,13 @@ from opensysml.capabilities import (
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
-from opensysml.errors import ExecutionError, ModelNotFoundError, WrongKindError
+from opensysml.errors import (
+    AnalysisRunError,
+    ExecutionError,
+    ModelNotFoundError,
+    UnsupportedValueError,
+    WrongKindError,
+)
 from opensysml.proto import sysml_pb2
 from opensysml.verdict import AnalysisResult, CalcResult, Verdict, VerificationVerdict
 
@@ -303,6 +309,67 @@ def test_run_analysis_of_a_verification_case_reports_its_body_verdict():
     assert [v.kind for v in result.verifications] == ["pass", "fail"]
     assert result.verifications[1].subcase
     assert "verification Demo::check verdict: pass" in str(result)
+
+
+def test_run_analysis_keeps_an_evaluation_whose_argument_has_no_wire_form():
+    """One argument the service could not send stands in for itself, not the run."""
+    stub = Mock()
+    stub.RunAnalysis.return_value = sysml_pb2.RunAnalysisResponse(
+        outputs=[sysml_pb2.CalcOutput(name="result", value=sysml_pb2.Value(real_value=10.0))],
+        evaluations=[
+            sysml_pb2.CaseEvaluation(
+                function_id="Demo::eval",
+                arguments=[sysml_pb2.Value(null="unsupported: quantity value")],
+                result=sysml_pb2.Value(real_value=30.0),
+            ),
+            sysml_pb2.CaseEvaluation(
+                function_id="Demo::eval",
+                arguments=[sysml_pb2.Value(int_value=2)],
+                result=sysml_pb2.Value(null="unsupported: quantity value"),
+                selected=True,
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    result = conn.run_analysis("Demo::study", "hash1")
+
+    assert result.outputs["result"] == 10.0
+    first, second = result.evaluations
+    assert isinstance(first.arguments[0], UnsupportedValueError)
+    assert first.result == 30.0
+    assert second.arguments == [2]
+    assert isinstance(second.result, UnsupportedValueError)
+    assert second.selected
+
+
+def test_run_sweep_keeps_an_evaluation_whose_argument_has_no_wire_form():
+    stub = Mock()
+    stub.RunSweep.return_value = sysml_pb2.RunSweepResponse(
+        parameters=["k"],
+        rows=[sysml_pb2.SweepRow(
+            inputs=[sysml_pb2.CalcOutput(name="k", value=sysml_pb2.Value(int_value=1))],
+            outputs=[sysml_pb2.CalcOutput(name="result", value=sysml_pb2.Value(real_value=10.0))],
+            evaluations=[sysml_pb2.CaseEvaluation(
+                function_id="Demo::eval",
+                arguments=[
+                    sysml_pb2.Value(null="unsupported: quantity value"),
+                    sysml_pb2.Value(int_value=1),
+                ],
+                result=sysml_pb2.Value(real_value=30.0),
+            )],
+        )],
+    )
+    conn = make_connection(stub)
+
+    table = conn.run_sweep("Demo::study", "hash1", {"k": (1, 1)})
+
+    row = table.rows[0]
+    assert row.outputs["result"] == 10.0
+    (evaluation,) = row.evaluations
+    assert isinstance(evaluation.arguments[0], UnsupportedValueError)
+    assert evaluation.arguments[1] == 1
+    assert evaluation.result == 30.0
 
 
 def test_a_service_without_body_verdicts_reports_none():
@@ -792,3 +859,116 @@ class TestWrongKind:
         verdict = conn.verify_constraint("Demo::Vehicle::massOK", "hash1")
         assert verdict.evaluated is False
         assert verdict.error == "unbound feature: mass"
+
+
+def test_run_analysis_reports_the_evaluations_of_a_trade_study():
+    stub = Mock()
+    stub.RunAnalysis.return_value = sysml_pb2.RunAnalysisResponse(
+        outputs=[
+            sysml_pb2.CalcOutput(name="selectedAlternative", value=sysml_pb2.Value(instance_id=2)),
+        ],
+        verdicts=[
+            sysml_pb2.Verdict(kind="objective", element="tradeStudyObjective", holds=True),
+        ],
+        instances=[
+            sysml_pb2.Instance(id=1, type_symbol_id="Trade::a"),
+            sysml_pb2.Instance(id=2, type_symbol_id="Trade::b"),
+            sysml_pb2.Instance(id=3, type_symbol_id="Trade::c"),
+        ],
+        evaluations=[
+            sysml_pb2.CaseEvaluation(
+                function_id="Trade::lightest::evaluationFunction",
+                arguments=[sysml_pb2.Value(instance_id=1)],
+                result=sysml_pb2.Value(real_value=30.0),
+            ),
+            sysml_pb2.CaseEvaluation(
+                function_id="Trade::lightest::evaluationFunction",
+                arguments=[sysml_pb2.Value(instance_id=2)],
+                result=sysml_pb2.Value(real_value=10.0), selected=True,
+            ),
+            sysml_pb2.CaseEvaluation(
+                function_id="Trade::lightest::evaluationFunction",
+                arguments=[sysml_pb2.Value(instance_id=3)],
+                result=sysml_pb2.Value(real_value=10.0), tied=True,
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    result = conn.run_analysis("Trade::lightest", "hash1")
+
+    assert result.satisfied
+    assert result.outputs["selectedAlternative"].id == 2
+    assert result.outputs["selectedAlternative"].type_symbol_id == "Trade::b"
+    assert [e.arguments[0].type_symbol_id for e in result.evaluations] == [
+        "Trade::a", "Trade::b", "Trade::c",
+    ]
+    assert [e.result for e in result.evaluations] == [30.0, 10.0, 10.0]
+    assert [e.selected for e in result.evaluations] == [False, True, False]
+    assert [e.tied for e in result.evaluations] == [False, False, True]
+    assert all(e.evaluated for e in result.evaluations)
+    assert [e.arguments[0].id for e in result.selected] == [2]
+    text = str(result)
+    assert "objective tradeStudyObjective holds" in text
+    assert "= 10.0 [selected]" in text
+    assert "= 10.0 [tied]" in text
+
+
+def test_run_analysis_failure_keeps_the_evaluations_made():
+    stub = Mock()
+    stub.RunAnalysis.return_value = sysml_pb2.RunAnalysisResponse(
+        error="analysis run failed: analysis Trade::perCylinder: division by zero",
+        failure_reason=sysml_pb2.FAILURE_REASON_EVALUATION,
+        verdicts=[
+            sysml_pb2.Verdict(
+                kind="objective", element="tradeStudyObjective", holds=False,
+                error="division by zero", failure_reason=sysml_pb2.FAILURE_REASON_EVALUATION,
+            ),
+        ],
+        instances=[
+            sysml_pb2.Instance(id=1, type_symbol_id="Trade::a"),
+            sysml_pb2.Instance(id=2, type_symbol_id="Trade::c"),
+        ],
+        evaluations=[
+            sysml_pb2.CaseEvaluation(
+                function_id="Trade::perCylinder::evaluationFunction",
+                arguments=[sysml_pb2.Value(instance_id=1)],
+                result=sysml_pb2.Value(real_value=5.0),
+            ),
+            sysml_pb2.CaseEvaluation(
+                function_id="Trade::perCylinder::evaluationFunction",
+                arguments=[sysml_pb2.Value(instance_id=2)],
+                error="division by zero",
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    with pytest.raises(AnalysisRunError) as exc_info:
+        conn.run_analysis("Trade::perCylinder", "hash1")
+    err = exc_info.value
+    assert isinstance(err, ExecutionError)
+    assert "division by zero" in str(err)
+    result = err.result
+    assert result.outputs == {}
+    assert not result.satisfied
+    assert not result.verdicts[0].evaluated
+    assert [e.evaluated for e in result.evaluations] == [True, False]
+    assert result.evaluations[0].result == 5.0
+    assert result.evaluations[1].result is None
+    assert result.evaluations[1].error == "division by zero"
+    assert result.selected == []
+    assert "error: division by zero" in str(result.evaluations[1])
+
+
+def test_run_analysis_of_a_service_without_evaluations_reports_none():
+    stub = Mock()
+    stub.RunAnalysis.return_value = sysml_pb2.RunAnalysisResponse(
+        outputs=[sysml_pb2.CalcOutput(name="x", value=sysml_pb2.Value(real_value=3.0))],
+    )
+    conn = make_connection(stub)
+
+    result = conn.run_analysis("An::plain", "hash1")
+
+    assert result.evaluations == []
+    assert result.selected == []

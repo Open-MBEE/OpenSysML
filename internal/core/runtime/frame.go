@@ -22,6 +22,9 @@ type frame struct {
 	// run numbers the behavior run the frame binds (Context.newRun), 0 for bindings
 	// that are no run's; a function closing over the run is identified by it.
 	run int64
+	// merged are the behaviors whose runs' bindings the frame flattened into its
+	// own (flattenFrames), which it still answers for.
+	merged []*symbols.Symbol
 }
 
 // canonical is the name aliases bind name under: its redefinition's, else its own.
@@ -64,13 +67,24 @@ func ownedFrame(owner *calcShape, vars map[string]Value) frame {
 // runs reports whether the frame holds a run of behavior: an invocation or usage of
 // that calc or one specializing it, or a performance of that action or one typed by it.
 func (f frame) runs(ctx *Context, behavior *symbols.Symbol) bool {
-	if f.owner != nil {
-		return f.owner.qualifiedBy(ctx, behavior)
+	if run := f.running(); run != nil && ctx.isOrSpecializes(run, behavior) {
+		return true
 	}
-	if performed := f.performs(); performed != nil {
-		return ctx.isOrSpecializes(performed, behavior)
+	for _, run := range f.merged {
+		if ctx.isOrSpecializes(run, behavior) {
+			return true
+		}
 	}
 	return false
+}
+
+// running is the behavior the frame holds a run of: its owning calc, else the
+// action it performs; nil for plain bindings.
+func (f frame) running() *symbols.Symbol {
+	if f.owner != nil {
+		return f.owner.Sym
+	}
+	return f.performs()
 }
 
 // performs is the action the frame holds a performance of: the live one's, or
@@ -85,7 +99,7 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, performed: f.performed, run: f.run, merged: f.merged}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
@@ -141,7 +155,7 @@ func (f frame) snapshot() frame {
 	vars := make(map[string]Value, f.width())
 	f.each(func(name string, value Value) { vars[name] = value })
 	out := ownedFrame(f.owner, vars)
-	out.performed, out.run = f.performs(), f.run
+	out.performed, out.run, out.merged = f.performs(), f.run, f.merged
 	if len(f.aliases) > 0 {
 		out.aliases = make(map[string]string, len(f.aliases))
 		for name, alias := range f.aliases {

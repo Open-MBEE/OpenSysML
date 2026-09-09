@@ -357,6 +357,18 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 	return inst, nil
 }
 
+// OccurrenceUsage is the qualified name of the declared usage inst is the
+// occurrence of, or "" for an object materialized any other way.
+func (ctx *Context) OccurrenceUsage(inst *Instance) string {
+	if inst == nil {
+		return ""
+	}
+	if id, ok := ctx.occurrences[inst.Type]; !ok || id != inst.ID {
+		return ""
+	}
+	return ctx.qualifiedSymbolName(inst.Type)
+}
+
 // isOccurrenceUsage reports whether sym declares a usage that is an occurrence:
 // a part, item or individual, which is a thing with features rather than a
 // value, so a chain through it reads the features of that thing.

@@ -1163,8 +1163,10 @@ with no name under `result`; `verdicts` is one `Verdict` per `objective` and per
 `assert constraint` in the body, in that order, with `kind` `objective` or `assertion`,
 `holds` for a satisfied one, `condition` for one that is not, and `error` for one that could
 not be decided; `verificationVerdicts` is the verdict the body of a verification case produced
-and the verdict of each verification case it performs (see below); `instances` is the subject's
-object graph when one was instantiated:
+and the verdict of each verification case it performs (see below); `evaluations` is each
+application the run made of one of the case's own calcs as a value — a trade study's scoring of
+each alternative (see [Case evaluations](#case-evaluations)); `instances` is the subject's
+object graph when one was instantiated, and every object an evaluation is of:
 
 ```console
 $ … /RunAnalysis -d '{"modelHash":"e43c…9a2a","symbolId":"An::shipCost"}'
@@ -1211,6 +1213,46 @@ $ … /VerifyRequirement -d '{"modelHash":"96c9…994d","symbolId":"Ver::touchdo
 {"verdict":{"kind":"requirement","elementId":"Ver::touchdown","element":"Ver::touchdown","holds":true},"verificationVerdicts":[{"caseId":"Ver::checkSlow","kind":"pass"},{"caseId":"Ver::checkFast","kind":"fail"}]}
 ```
 
+### Case evaluations
+
+`evaluations` is a repeated `CaseEvaluation` on `RunAnalysisResponse` and on each `RunSweep`
+`SweepRow`, advertised as the `case_evaluations` capability. A `TradeStudies::TradeStudy`
+evaluates its `evaluationFunction` once per alternative the subject lists — the library's
+`minimize`/`maximize` and `selectOne` bodies apply the calc held in `eval` — and each such
+application is reported, in subject order, once per distinct argument. A service withholding the
+capability omits the field; the `outputs` and `verdicts` beside it mean what they meant before.
+
+- `functionId` — the qualified name of the calc applied, the case's `evaluationFunction`.
+- `arguments` — what it was applied to, as `Value`s in parameter order (a named argument at
+  its parameter's position, `null` for a parameter left to the calc before a later one); an
+  alternative is an `instanceId` resolving in the response's `instances`.
+- `result` — what it computed. Absent when `error` says why nothing was.
+- `error` — why the evaluation computed nothing (a division by zero, a feature with no value,
+  a calc with no return expression). The objective is then `undecided` with the same reason and
+  nothing is `selected`.
+- `selected` — true for the evaluation whose argument the library's `selectOne` picked and the
+  case returned: the first alternative whose score is `best`. A case whose result merely equals
+  an argument of an evaluation, with no `selectOne` picking it, selects nothing.
+- `tied` — true for a later evaluation that computed what the selected one did without being
+  selected, so a tie is visible rather than a silent first-wins.
+
+```console
+$ … /RunAnalysis -d '{"modelHash":"3f1a…50c2","symbolId":"Trade::lightest"}'
+{"outputs":[{"name":"selectedAlternative","value":{"instanceId":"2"}}],
+ "verdicts":[{"kind":"objective","elementId":"Trade::lightest::tradeStudyObjective","element":"tradeStudyObjective","holds":true}],
+ "instances":[{"id":"1","typeSymbolId":"Trade::a",…},{"id":"2","typeSymbolId":"Trade::b",…},{"id":"3","typeSymbolId":"Trade::c",…}],
+ "evaluations":[{"functionId":"Trade::lightest::evaluationFunction","arguments":[{"instanceId":"1"}],"result":{"realValue":30}},
+                {"functionId":"Trade::lightest::evaluationFunction","arguments":[{"instanceId":"2"}],"result":{"realValue":10},"selected":true},
+                {"functionId":"Trade::lightest::evaluationFunction","arguments":[{"instanceId":"3"}],"result":{"realValue":10},"tied":true}]}
+```
+
+A run whose `evaluationFunction` fails for one alternative answers `error` with
+`FAILURE_REASON_EVALUATION` naming the case, as any failing step does — and, under this
+capability, beside it the `evaluations` the run made (the earlier ones with their results, the
+failing one with its `error`), the objective as a `Verdict` with `error`, and the `instances`
+they are of; `outputs` is empty, nothing having been selected. A service without the capability
+answers the error alone.
+
 A step that fails, a body that deadlocks or exhausts its step budget and a case that runs itself are
 `FAILURE_REASON_EVALUATION` failures naming the case. Structured and complex arguments are
 capability-gated as `EvaluateCalc`'s are. The choice points the case's steps made are its
@@ -1240,9 +1282,10 @@ a range between Integers with no step steps by one, and one between Reals with n
 refused. The response's `parameters` are the swept parameters in request order and `rows` is one
 run each, in lexicographic order over them (the first range varying slowest). A row carries the
 `inputs` bound for that run, its `outputs` (a calc's returned value under `result`, as
-`EvaluateCalc` reports it), its `verdicts` where the case has an objective, and `elapsedMicros`,
-the wall time of that run in microseconds — the one fixed unit, absent for a run that took
-under one:
+`EvaluateCalc` reports it), its `verdicts` where the case has an objective, its `evaluations`
+where the case applied one of its own calcs as a value ([Case evaluations](#case-evaluations), a
+trade study's scoring of each alternative), and `elapsedMicros`, the wall time of that run in
+microseconds — the one fixed unit, absent for a run that took under one:
 
 ```console
 $ … /RunSweep -d '{"modelHash":"a6dc…4849","symbolId":"An::Fall","ranges":[{"parameter":"t","start":{"realValue":0.0},"end":{"realValue":2.0},"step":{"realValue":1.0}}]}'
@@ -1263,12 +1306,15 @@ A row carries no `verificationVerdicts`, so a verification case is refused with
 `FAILURE_REASON_WRONG_KIND` rather than swept as an analysis case; run one through `RunAnalysis`,
 which reports the verdict of its body.
 
-`instances` carries every object a row's verdict is about, each once over the whole table, so a
-verdict's `instanceId` resolves there as it does in a `RunAnalysis` response — a client can read
-what made a row fail.
+`instances` carries every object a row's verdict or evaluation is about, each once over the whole
+table, so a verdict's `instanceId` and an evaluation's `arguments` resolve there as they do in a
+`RunAnalysis` response — a client can read what made a row fail.
 
 A run that fails is a row of its own, carrying `error` and `failureReason` in place of its
-`outputs`, and the runs after it are still made:
+`outputs`, and the runs after it are still made. The row keeps what the run decided before
+failing: a trade study whose `evaluationFunction` fails for one alternative carries the
+evaluations it made — the earlier ones with their results, the failing one with its `error` —
+and its objective as a `Verdict` with `error`, none `selected`:
 
 ```console
 $ … /RunSweep -d '{"modelHash":"ed8c…2ec4","symbolId":"An::Ratio","namedArguments":{"a":{"realValue":4.0}},"ranges":[{"parameter":"b","start":{"intValue":"-1"},"end":{"intValue":"1"}}]}'

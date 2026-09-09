@@ -101,6 +101,19 @@ package Trade {
 		attribute size : Integer;
 		assert constraint { size >= 1 }
 	}
+
+	part def Engine { attribute mass : Real; }
+	part light : Engine { attribute :>> mass = 10.0; }
+	part heavy : Engine { attribute :>> mass = 20.0; }
+	analysis listed : TradeStudy {
+		subject : Engine[1..*] = (light, heavy);
+		objective : MinimizeObjective;
+		calc :>> evaluationFunction {
+			in part e :>> alternative : Engine;
+			return :>> result : Real = e.mass;
+		}
+		return part :>> selectedAlternative : Engine;
+	}
 }
 `
 
@@ -236,6 +249,22 @@ func TestOptimizeRefusesAnObjectiveWithoutADirection(t *testing.T) {
 	if report.Status != SolveUnavailable {
 		t.Errorf("status is %s, want unavailable", report.Status)
 	}
+}
+
+// A trade study over listed alternatives is answered by running it, which
+// evaluates each alternative; %optimize refuses and points there, before any
+// solver is asked for.
+func TestOptimizeRefusesATradeStudyOverListedAlternatives(t *testing.T) {
+	s := checkSession(t, optimizeModel)
+	got, report := optimized(t, s, "listed")
+	wants(t, got, "error:", "not optimizable", "`evaluationFunction` to each alternative", "%analysis")
+	if report.Status != SolveUnavailable {
+		t.Errorf("status is %s, want unavailable", report.Status)
+	}
+	ran := run(t, s, "%analysis listed")
+	wants(t, ran, "✓ listed", "selectedAlternative = Trade::light (object #1)",
+		"evaluationFunction(Trade::light (object #1)) = 10.0 [selected]",
+		"evaluationFunction(Trade::heavy (object #2)) = 20.0")
 }
 
 func TestOptimizeReportsAnAnalysisStatingNoObjective(t *testing.T) {

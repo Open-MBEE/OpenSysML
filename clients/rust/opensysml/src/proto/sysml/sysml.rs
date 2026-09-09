@@ -209,6 +209,33 @@ pub struct CalcOutput {
     #[prost(message, optional, tag="2")]
     pub value: ::core::option::Option<Value>,
 }
+/// CaseEvaluation is one application an analysis case made of one of its own
+/// calcs held as a function value: a trade study's evaluationFunction applied
+/// to one alternative. Reported as the "case_evaluations" capability.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CaseEvaluation {
+    /// FQN of the calc applied.
+    #[prost(string, tag="1")]
+    pub function_id: ::prost::alloc::string::String,
+    /// What it was applied to, in parameter order; an alternative is an instance_id.
+    #[prost(message, repeated, tag="2")]
+    pub arguments: ::prost::alloc::vec::Vec<Value>,
+    /// What it computed; unset when `error` says why it computed nothing.
+    #[prost(message, optional, tag="3")]
+    pub result: ::core::option::Option<Value>,
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
+    /// Set on the evaluation whose argument `selectOne` picked and the case
+    /// returned: the alternative a trade study selected. A result that merely
+    /// equals an argument selects nothing.
+    #[prost(bool, tag="5")]
+    pub selected: bool,
+    /// Set on an evaluation computing what the selected one did without being
+    /// selected: an alternative `selectOne` passed over for an earlier one
+    /// evaluating alike.
+    #[prost(bool, tag="6")]
+    pub tied: bool,
+}
 /// RunAnalysisRequest runs an analysis case, as %analysis does: its subject and
 /// input parameters are bound from the request and from the case's own
 /// declarations, its body runs, and every output it declares is reported with
@@ -257,7 +284,9 @@ pub struct RunAnalysisResponse {
     #[prost(message, repeated, tag="3")]
     pub instances: ::prost::alloc::vec::Vec<Instance>,
     /// Set when the case could not be run — an unknown symbol, a subject that
-    /// could not be built or bound, an input with no value, a failed step.
+    /// could not be built or bound, an input with no value, a failed step. The
+    /// outputs computed and the evaluations made before the failure are still
+    /// reported beside it, each verdict undecided.
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="5")]
@@ -278,6 +307,11 @@ pub struct RunAnalysisResponse {
     pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
     #[prost(message, optional, tag="9")]
     pub exploration: ::core::option::Option<ExplorationStatus>,
+    /// Each application the run made of one of the case's own calcs as a function
+    /// value, in the order first made: a trade study's evaluation of each
+    /// alternative in subject order, the selected one marked.
+    #[prost(message, repeated, tag="10")]
+    pub evaluations: ::prost::alloc::vec::Vec<CaseEvaluation>,
 }
 /// Outcome is one distinct outcome an exploration reached: the observables a
 /// conformance case compares, how many linearizations reached it, and the choice
@@ -1294,6 +1328,11 @@ pub struct ServerInfoResponse {
     ///                   the run resolves its choice points under; without it a
     ///                   service drops the field and runs under the default, so a
     ///                   client must not send one.
+    ///    "case_evaluations" - RunAnalysis and each RunSweep row report each
+    ///                   application the run made of one of the case's calcs as a
+    ///                   function value — a trade study's evaluation of each
+    ///                   alternative — as evaluations, and keep the outputs and
+    ///                   evaluations a failed run made beside its error.
     ///    "schedule_explore" - the schedule "explore\[:runs=<n>,depth=<d>\]" is
     ///                   accepted, and the response carries every distinct outcome
     ///                   as `outcomes` with an `exploration` status; without it the
@@ -1473,12 +1512,17 @@ pub struct SweepRow {
     /// Wall time of this run, in microseconds.
     #[prost(int64, tag="4")]
     pub elapsed_micros: i64,
-    /// Set when this run failed rather than the table failing.
+    /// Set when this run failed rather than the table failing. The outputs and
+    /// evaluations the run made before failing are still reported beside it.
     #[prost(string, tag="5")]
     pub error: ::prost::alloc::string::String,
     /// What kind of failure `error` reports.
     #[prost(enumeration="FailureReason", tag="6")]
     pub failure_reason: i32,
+    /// Each application this run made of one of the case's own calcs as a
+    /// function value, as RunAnalysisResponse.evaluations reports them.
+    #[prost(message, repeated, tag="7")]
+    pub evaluations: ::prost::alloc::vec::Vec<CaseEvaluation>,
 }
 /// RunSweepResponse carries the table, one row per run, in the order the runs
 /// were made: lexicographically over the ranges as given for a swept table, and

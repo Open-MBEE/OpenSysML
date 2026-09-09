@@ -814,7 +814,7 @@ with the condition that failed, or `undecided` with the reason a condition could
 checked the same way, against the values the run bound once its steps have completed. `%optimize`
 still asks a solver which
 values would make the objectives best; `%analysis` reports what they are for the values the model
-has.
+has — and for a [trade study](#trade-studies), which of the listed alternatives the model selects.
 
 An objective typed by a requirement definition binds that definition's `subject` as a requirement
 usage does, in every spelling — `objective : MassLimit { subject = ship; }`, `subject s = ship;`
@@ -953,6 +953,104 @@ cartesian product, a failed run is a row of the table rather than the end of it,
 [reference/repl-commands.md](../reference/repl-commands.md) states each refusal. Sampling is
 uniform over the range — the bundled library defines no probability distribution, so a
 distribution asked for by name is refused naming what is missing.
+
+### Trade studies
+
+A trade study is an analysis case the library defines (`TradeStudies::TradeStudy`, SysML v2
+§7.22): its `subject studyAlternatives : Anything[1..*]` lists the alternatives, its
+`evaluationFunction` is a calc scoring one of them, and its `tradeStudyObjective` — a
+`MinimizeObjective` or `MaximizeObjective` — states which score is best. The library writes the
+rest itself: the objective's `best` is `alternatives->minimize {in x; eval(x)}` (or `maximize`),
+its requirement is `eval(selectedAlternative) == best`, and the case returns
+`studyAlternatives->selectOne {in ref a {} tradeStudyObjective(selectedAlternative = a)}`. A model
+supplies the alternatives, the scoring calc and the direction:
+
+```sysml
+package Trade {
+    private import ScalarValues::*;
+    private import TradeStudies::*;
+    part def Engine { attribute mass : Real; }
+    part a : Engine { attribute :>> mass = 30.0; }
+    part b : Engine { attribute :>> mass = 10.0; }
+    part c : Engine { attribute :>> mass = 10.0; }
+    analysis lightest : TradeStudy {
+        subject : Engine[1..*] = (a, b, c);
+        objective : MinimizeObjective;
+        calc :>> evaluationFunction {
+            in part e :>> alternative : Engine;
+            return :>> result : Real = e.mass;
+        }
+        return part :>> selectedAlternative : Engine;
+    }
+}
+```
+
+`%analysis` and `-analysis` run it as they run any case — nothing about the run is specific to
+trade studies. The `evaluationFunction` is a calc held as a value, bound into the objective's
+`in calc :>> eval` and applied by `eval(x)` inside the library's `minimize`/`maximize` and
+`selectOne` bodies; the objective's `require constraint` is inherited from the library and
+checked as any objective's is. What is new in the report is the evaluations the run made: each
+application of the case's own calc as a value, in subject order, with what it computed and
+whether its alternative is the one the case returned:
+
+```bash
+$ sysml -analysis Trade::lightest trade.sysml
+✓ package Trade
+✓ Trade::lightest
+  selectedAlternative = Trade::b (object #2)
+  objective tradeStudyObjective: satisfied
+  evaluationFunction(Trade::a (object #1)) = 30.0
+  evaluationFunction(Trade::b (object #2)) = 10.0 [selected]
+  evaluationFunction(Trade::c (object #3)) = 10.0 [tied]
+```
+
+`b` and `c` score the same. The library's `selectOne` is `select {…}#(1)`, the *first* element
+the predicate holds for, so `b` is the pick and the objective is satisfied — and `c` is marked
+`[tied]` so the tie is visible rather than a silent first-wins. `%trace on` shows the same order:
+the subject bound, `minimize` applying `evaluationFunction` to each alternative in turn, `best`
+read, then `selectOne` checking each alternative's `eval(selectedAlternative) == best`.
+
+An `evaluationFunction` that fails for one alternative — a division by zero, a feature with no
+value — is an evaluation reported with its error, the alternatives before it keep their values,
+nothing is selected, and the objective is `undecided` naming the failure; the run fails with the
+same message. One declared without a body (`abstract calc evaluationFunction`, or a redefinition
+whose nested rollup calcs bind no result) fails the same way at the first alternative, naming the
+calc that has no return expression, so a study that states no way to score its alternatives is
+never answered with a fabricated pick. A subject listing no alternative, or one redeclared as
+`Engine[1]` and bound to several, is a `multiplicity violation` against the library's `[1..*]`
+before any alternative is evaluated; a subject restating no multiplicity (`subject : Engine =
+(a, b);`) inherits `[1..*]` from `studyAlternatives` (KerML §7.3.4.5) and runs.
+
+Swept (`%sweep`, `-sweep`, `-samples`), each row carries that run's evaluations beside its
+outputs and verdict, so a table shows where the pick changes as a parameter moves — and a row
+whose run failed keeps the evaluations it made before failing:
+
+```
+%sweep Trade::weighted powerWeight=0.0..1.0:0.5
+sweep Trade::weighted — 3 run(s)
+powerWeight | selectedAlternative        | verdict                        | evaluations                                                                                                            | time
+------------+---------------------------+--------------------------------+------------------------------------------------------------------------------------------------------------------------+--------
+0.0         | Trade::light (object #2)  | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = -30.0; evaluationFunction(Trade::light (object #2)) = -10.0 [selected] | 3.053ms
+0.5         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 120.0 [selected]; evaluationFunction(Trade::light (object #2)) = 15.0  | 0.215ms
+1.0         | Trade::strong (object #1) | tradeStudyObjective: satisfied | evaluationFunction(Trade::strong (object #1)) = 270.0 [selected]; evaluationFunction(Trade::light (object #2)) = 40.0  | 0.153ms
+```
+
+The run and `%optimize` answer different questions. The run is the model's own answer: it
+evaluates every alternative the subject lists and reports the one the library's `selectOne`
+picks, with no solver. `%optimize` asks a solver for the best *values* a case's conditions admit
+over a continuous domain — it is for an objective whose `eval` states an expression over the
+case's parameters, not for choosing among listed alternatives — and on a trade study whose
+objective applies the case's `evaluationFunction` it refuses, pointing here:
+
+```
+%optimize Trade::lightest
+error: analysis lightest: objective tradeStudyObjective not optimizable: it applies the calculation `evaluationFunction` to each alternative the case's subject lists, a choice among listed alternatives rather than an optimum over a continuous domain (run the trade study as an analysis (`-analysis`, `%analysis` or RunAnalysis), which evaluates every alternative and reports the one selected) at trade.sysml:9:9
+```
+
+The evaluations cross `-json` as each check's `evaluations` and the gRPC API as
+`RunAnalysisResponse.evaluations` and each `SweepRow.evaluations` under the `case_evaluations`
+capability, so a client reads the same per-alternative table
+([reference/wire-contract.md](../reference/wire-contract.md#case-evaluations)).
 
 ## Token-flow patterns
 

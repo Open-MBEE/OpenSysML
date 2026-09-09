@@ -164,6 +164,9 @@ type calcShape struct {
 	BodyOutputs map[string]bool
 	Bindings    []lower.Binding
 	ResultExpr  ast.Node
+	// Uncomputed says why the calc computes nothing (no body, no bound output);
+	// the calc is still a function value, and invoking it reports this.
+	Uncomputed error
 	// compiled is the body in the compiled tier once compileState says it is
 	// eligible; a shape found ineligible keeps the evaluator for good.
 	compiled     *compiledCalc
@@ -176,8 +179,21 @@ type calcShape struct {
 
 // calcShapeOf resolves the invocation interface of a calc symbol: its
 // positional input parameters (own and inherited, with defaults) and its result
-// expression. The result is memoized per symbol.
+// expression. A calc computing nothing is an error. The result is memoized per symbol.
 func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
+	shape, err := ctx.calcInterfaceOf(sym)
+	if err != nil {
+		return nil, err
+	}
+	if shape.Uncomputed != nil {
+		return nil, shape.Uncomputed
+	}
+	return shape, nil
+}
+
+// calcInterfaceOf is calcShapeOf for a calc that may compute nothing — an
+// abstract calc, or one awaiting a body — whose shape records why in Uncomputed.
+func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	if sym == nil || sym.Decl == nil {
 		return nil, fmt.Errorf("%w: invalid symbol", ErrNotACalc)
 	}
@@ -232,12 +248,13 @@ func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
 	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
 	_, native := ctx.libraryFunctionFor(sym)
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
-	if !computes {
-		if len(shape.Outputs) > 0 && shape.resultOutput() == nil {
-			return nil, fmt.Errorf("%w: %s binds none of its outputs (%s)",
-				ErrNoResultExpression, label, shape.outputNames())
-		}
-		return nil, fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
+	switch {
+	case computes:
+	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
+		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
+			ErrNoResultExpression, label, shape.outputNames())
+	default:
+		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
 	}
 
 	ctx.calcShapes[sym] = shape
@@ -271,12 +288,13 @@ func resultBindingExpr(bindings []lower.Binding) ast.Node {
 }
 
 // calcChain returns the calcs sym takes members from (its supertypes and the calc
-// it references), most general first, then sym. Non-calc and library links contribute nothing.
+// it references), most general first, then sym. Non-calc links and the library's
+// frame contribute nothing; a domain library's calc contributes as a model's does.
 func (ctx *Context) calcChain(sym *symbols.Symbol) []*symbols.Symbol {
 	supers := ctx.model.MemberSources(sym)
 	chain := make([]*symbols.Symbol, 0, len(supers)+1)
 	for i := len(supers) - 1; i >= 0; i-- {
-		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.libraryDeclared(supers[i]) {
+		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
 			chain = append(chain, supers[i])
 		}
 	}
@@ -630,6 +648,9 @@ func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope
 // invokeCalcShapeIn is invokeCalcShape for a calc declared in a behavior body:
 // enclosing holds that body's bindings, outermost first, which the calc's own shadow.
 func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
+	if shape.Uncomputed != nil {
+		return Value{}, shape.Uncomputed
+	}
 	if err := shape.checkArgs(args); err != nil {
 		return Value{}, err
 	}
@@ -1010,8 +1031,8 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 		if ctx.libraryDeclared(link) {
 			break
 		}
-		if usage := link.Decl.(*ast.Usage); param.Default == nil && usage.Value != nil {
-			param.Default, param.Owner = usage.Value, owner
+		if value := ctx.extractDefaultValue(link); param.Default == nil && value != nil {
+			param.Default, param.Owner = value, owner
 		}
 	}
 	return param, -1

@@ -82,7 +82,7 @@ func (ec *EvalContext) functionValueOf(sym *symbols.Symbol) (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s binds its arguments unevaluated and cannot be read as a value",
 			ErrNotAFunction, ec.ctx.qualifiedSymbolName(sym))
 	}
-	shape, err := ec.ctx.calcShapeOf(sym)
+	shape, err := ec.ctx.calcInterfaceOf(sym)
 	if err != nil {
 		return Value{}, err
 	}
@@ -101,7 +101,7 @@ func isCalcDefSymbol(sym *symbols.Symbol) bool {
 
 // readsAsFunction reports a calc a bare read of its name denotes as a function: a
 // calc definition, or a calc usage with an input no read could supply, which
-// therefore computes no result to read.
+// therefore computes no result to read — whether or not it has a body yet.
 func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 	if isCalcDefSymbol(sym) {
 		return true
@@ -109,7 +109,7 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 	if !isCalcUsageSymbol(sym) {
 		return false
 	}
-	shape, err := ctx.calcShapeOf(sym)
+	shape, err := ctx.calcInterfaceOf(sym)
 	return err == nil && shape.hasUnsuppliedInput()
 }
 
@@ -163,6 +163,16 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 	if val, ok := ec.Lookup(name); ok {
 		return val, true, nil
 	}
+	// A calc-typed feature the element being evaluated binds (`in calc :>> f = g`)
+	// is called as the function it is bound to.
+	if val, ok, err := ec.valuedFeatureValue(name); ok {
+		if err != nil {
+			return Value{}, true, err
+		}
+		if val.Kind == ValFunction {
+			return val, true, nil
+		}
+	}
 	if ec.self != nil && ec.selfFeatureInScope(name) {
 		val, ok, err := ec.selfFeatureValue(name)
 		if err != nil {
@@ -203,8 +213,13 @@ func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (
 	if fn == nil || fn.shape == nil {
 		return Value{}, fmt.Errorf("%w: %s is %s, not a function", ErrNotAFunction, callee, describeValue(val))
 	}
+	var result Value
+	var err error
 	if fn.library != nil {
-		return fn.library.invoke(ec.ctx, args)
+		result, err = fn.library.invoke(ec.ctx, args)
+	} else {
+		result, err = ec.ctx.invokeCalcShapeIn(fn.shape, args, fn.scope, fn.self, fn.enclosing)
 	}
-	return ec.ctx.invokeCalcShapeIn(fn.shape, args, fn.scope, fn.self, fn.enclosing)
+	ec.ctx.evaluations.record(fn, args, result, err)
+	return result, err
 }

@@ -251,7 +251,10 @@ A call fails in exactly one of two ways, and the distinction comes from the wire
 refused call is a `*StatusError` (`errors.Is(err, opensysml.CodeNotFound)`), while an answer that
 reports a failure is a `*FailureError` (`errors.Is(err, opensysml.ErrFailure)`). Syntax errors are
 neither: parsing broken source succeeds, and the errors show up in `Model.Diagnostics`. Likewise, a
-false verdict is an answer about the model, not an error.
+false verdict is an answer about the model, not an error. A trade study's `RunAnalysis` reports
+each alternative's evaluation in `Analysis.Evaluations` (`Selected()` for the one picked, resolved
+to its object by `Analysis.Instance`), and a run that fails part way is an `*AnalysisError` whose
+`Partial` keeps what it computed.
 
 [The Go package reference](../reference/api.md) documents the surface type by type, and
 [client/opensysml/README.md](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/README.md)
@@ -660,6 +663,27 @@ an `ExecutionError`. A definition run with no subject, an `in` parameter left wi
 step that fails and a case that runs itself raise `ExecutionError` from the call; naming a symbol
 that is not an analysis raises `WrongKindError`, and so does asking `calc` to run an analysis.
 
+A trade study (`TradeStudies::TradeStudy`) runs the same way and reports in addition each
+evaluation the run made of its `evaluationFunction` — one per alternative the subject lists, in
+subject order, as a `CaseEvaluation` carrying the alternative it scored (an `Instance`), the
+result or the error, and whether it was the one selected (`selected`) or scored the same without
+being (`tied`); `run.selected` is the selected ones. A service that does not advertise
+`case_evaluations` (`opensysml.CAPABILITY_CASE_EVALUATIONS`) reports none:
+
+```python
+run = model.run_analysis("Trade::lightest")
+run.outputs["selectedAlternative"].type_symbol_id          # 'Trade::b'
+[(e.arguments[0].type_symbol_id, e.result, e.selected, e.tied) for e in run.evaluations]
+# [('Trade::a', 30.0, False, False), ('Trade::b', 10.0, True, False), ('Trade::c', 10.0, False, True)]
+run.selected[0].arguments[0].id == run.outputs["selectedAlternative"].id   # True
+```
+
+An `evaluationFunction` that fails for one alternative fails the run as any failing step does,
+with `AnalysisRunError` — an `ExecutionError` whose `result` keeps what the run computed before
+it failed: the evaluations made, the earlier ones with their results and the failing one with its
+`error`, and the objective undecided. Swept, that run is a row keeping the same beside its own
+`error`.
+
 A parameter can be swept rather than fixed: `run_sweep` runs the analysis case or calc once per
 value of each range and returns a `SweepTable`, whose rows carry the inputs bound for that run,
 its outputs and verdicts, and the seconds it took. Ranges are `{parameter: (from, to)}` or
@@ -683,7 +707,9 @@ naming what is wrong with it: a step of zero, a step whose sign never reaches it
 range with no step, incompatible units, a parameter the target declares none of, a case's
 subject, one the arguments already bind, a distribution asked for by name, and a plan asking for
 more runs than the service's budget allows. A row's verdicts resolve against `table.instances`,
-which carries the objects the runs were about, so a failing row's subject can be read.
+which carries the objects the runs were about, so a failing row's subject can be read. A row of
+a trade study carries that run's `evaluations` and `selected` as `run_analysis`'s result does,
+so a table shows where the pick changes as the parameter moves.
 
 Verification is capability-negotiated the same way as conversion: against a service that does
 not report the `verification` capability, these calls raise `MissingCapabilityError` naming the

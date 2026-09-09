@@ -200,7 +200,7 @@ written in, so the verdicts are about that object:
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
-| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
+| `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>` |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
@@ -265,6 +265,38 @@ $ sysml -requirement Landing::touchdown model.sysml
 
 With `-json` each check carries them as a `verifications` array of `case`, `kind`
 and, for a verdict that decided nothing, `detail`.
+
+### Trade studies
+
+A `TradeStudies::TradeStudy` runs through `-analysis` as any case does: the library's own
+expressions apply the case's `evaluationFunction` to each alternative the subject lists, in
+subject order, and `selectOne` returns the first whose score is the objective's `best`. Beside
+the outputs and the objective's verdict the report lists each evaluation the run made of the
+case's own calc as a value — the alternative, what it computed, `[selected]` on the one the case
+returned and `[tied]` on any later one that scored the same:
+
+```bash
+$ sysml -analysis Trade::lightest trade.sysml
+✓ package Trade
+✓ Trade::lightest
+  selectedAlternative = Trade::b (object #2)
+  objective tradeStudyObjective: satisfied
+  evaluationFunction(Trade::a (object #1)) = 30.0
+  evaluationFunction(Trade::b (object #2)) = 10.0 [selected]
+  evaluationFunction(Trade::c (object #3)) = 10.0 [tied]
+```
+
+An evaluation that fails for one alternative is listed with its error, the earlier ones keep
+their values, nothing is `[selected]`, the objective is `undecided` naming the failure and the
+run fails with status 2 — as does an `evaluationFunction` with no body, at the first alternative,
+naming the calc that has no return expression. A subject listing no alternative, or redeclared
+`[1]` and bound to several, is a `multiplicity violation` before any is evaluated.
+
+With `-json` each check carries them as an `evaluations` array of `function`, `arguments`,
+`result` or `error`, and `selected`/`tied` where true. A [swept](#sweeping-a-parameter) trade
+study carries the same per row: an `evaluations` column in the table, and an `evaluations` array
+in each JSON row, a failed row keeping the evaluations it made. See
+[Trade studies](../guide/06-behavior.md#trade-studies) in the guide.
 
 ## Examples
 
@@ -560,6 +592,9 @@ With `-json` the runs are the `rows` array of the check they belong to, inside t
             "outputs": [{"name": "result", "value": "1.0 [SI::'m/s']"}],
             "verdicts": [], "milliseconds": 0.412, "error": ""}]}]}
 ```
+
+A row of a [trade study](#trade-studies) carries in addition the `evaluations` the run made, as
+the check itself does.
 
 The REPL runs the same tables through [`%sweep` and `%samples`](repl-commands.md), and a service
 client through the [`RunSweep` RPC](api.md).

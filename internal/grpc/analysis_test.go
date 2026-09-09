@@ -234,8 +234,12 @@ func TestRunAnalysisFailures(t *testing.T) {
 	if !strings.Contains(unbound.Error, "subject") || unbound.FailureReason != pb.FailureReason_FAILURE_REASON_EVALUATION {
 		t.Errorf("unbound subject: error %q (%v), want an evaluation failure naming the subject", unbound.Error, unbound.FailureReason)
 	}
-	if len(unbound.Outputs) != 0 || len(unbound.Verdicts) != 0 {
-		t.Errorf("unbound subject answered %v %v, want nothing", unbound.Outputs, unbound.Verdicts)
+	if len(unbound.Outputs) != 0 || len(unbound.Evaluations) != 0 {
+		t.Errorf("unbound subject answered %v %v, want no output and no evaluation", unbound.Outputs, unbound.Evaluations)
+	}
+	// A run that never started decided nothing: its objective is reported undecided, not omitted.
+	if len(unbound.Verdicts) != 1 || unbound.Verdicts[0].Holds || !strings.Contains(unbound.Verdicts[0].Error, "subject") {
+		t.Errorf("unbound subject verdicts = %v, want the objective undecided by the unbound subject", unbound.Verdicts)
 	}
 
 	wrongKind := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "An::ship"})

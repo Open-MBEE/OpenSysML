@@ -159,7 +159,8 @@ public interface SweepRowOrBuilder extends
 
   /**
    * <pre>
-   * Set when this run failed rather than the table failing.
+   * Set when this run failed rather than the table failing. The outputs and
+   * evaluations the run made before failing are still reported beside it.
    * </pre>
    *
    * <code>string error = 5 [json_name = "error"];</code>
@@ -168,7 +169,8 @@ public interface SweepRowOrBuilder extends
   java.lang.String getError();
   /**
    * <pre>
-   * Set when this run failed rather than the table failing.
+   * Set when this run failed rather than the table failing. The outputs and
+   * evaluations the run made before failing are still reported beside it.
    * </pre>
    *
    * <code>string error = 5 [json_name = "error"];</code>
@@ -195,4 +197,53 @@ public interface SweepRowOrBuilder extends
    * @return The failureReason.
    */
   org.openmbee.opensysml.proto.FailureReason getFailureReason();
+
+  /**
+   * <pre>
+   * Each application this run made of one of the case's own calcs as a
+   * function value, as RunAnalysisResponse.evaluations reports them.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 7 [json_name = "evaluations"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> 
+      getEvaluationsList();
+  /**
+   * <pre>
+   * Each application this run made of one of the case's own calcs as a
+   * function value, as RunAnalysisResponse.evaluations reports them.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 7 [json_name = "evaluations"];</code>
+   */
+  org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index);
+  /**
+   * <pre>
+   * Each application this run made of one of the case's own calcs as a
+   * function value, as RunAnalysisResponse.evaluations reports them.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 7 [json_name = "evaluations"];</code>
+   */
+  int getEvaluationsCount();
+  /**
+   * <pre>
+   * Each application this run made of one of the case's own calcs as a
+   * function value, as RunAnalysisResponse.evaluations reports them.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 7 [json_name = "evaluations"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
+      getEvaluationsOrBuilderList();
+  /**
+   * <pre>
+   * Each application this run made of one of the case's own calcs as a
+   * function value, as RunAnalysisResponse.evaluations reports them.
+   * </pre>
+   *
+   * <code>repeated .sysml.CaseEvaluation evaluations = 7 [json_name = "evaluations"];</code>
+   */
+  org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
+      int index);
 }

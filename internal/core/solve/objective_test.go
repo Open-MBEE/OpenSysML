@@ -469,6 +469,10 @@ func TestObjectiveRefusals(t *testing.T) {
 		{"ReboundBest", ErrNotOptimizable, []string{"objective goal", "bound `best`", "validation rejects",
 			"in calc :>> eval { expression }"}},
 		{"StepwiseGoal", ErrNotOptimizable, []string{"objective goal", "in steps", "in calc :>> eval { expression }"}},
+		// A trade study over listed alternatives is the analysis run's question:
+		// the refusal points there rather than guessing a continuous domain.
+		{"ListedAlternatives", ErrNotOptimizable, []string{"objective tradeStudyObjective",
+			"`evaluationFunction` to each alternative", "listed alternatives", "%analysis"}},
 		{"NoGoal", ErrNoObjective, []string{"NoGoal", "no objective"}},
 	}
 	for _, tc := range cases {
