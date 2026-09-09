@@ -9,7 +9,7 @@ pin in `scripts/pilot-pin.sh`.
 
 | Root | Files |
 |---|---|
-| `committed` (everything under `examples/` outside the downloaded roots) | 33 |
+| `committed` (everything under `examples/` outside the downloaded roots) | 34 |
 | `sysml-v2-training` | 100 |
 | `pilot-corpora/kerml-examples` | 58 |
 | `pilot-corpora/sysml-examples` | 99 |
@@ -59,15 +59,15 @@ Recorded against the corpus above, reproduced byte-identically on a second run:
 
 | Verdict | Files |
 |---|---|
-| `stable` | 346 |
+| `stable` | 347 |
 | `whitespace-only` | 0 |
 | `graph-diff` | 0 |
 | `unwritable` | 0 |
 | `unparseable` | 0 |
 | `refused` | 0 |
-| **total** | **346** |
+| **total** | **347** |
 
-So every one of the 346 files converts to Turtle, and every one comes back as the same Turtle byte
+So every one of the 347 files converts to Turtle, and every one comes back as the same Turtle byte
 for byte. That is the source text at work: the decoder writes each file back from the
 `sysx:sourceText` it carries (see [What the gate does not do](#what-the-gate-does-not-do)), so the
 files that came back up to whitespace, as a different graph, or that could not be written back or
