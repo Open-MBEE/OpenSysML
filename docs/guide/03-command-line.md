@@ -388,10 +388,17 @@ REPL's [`%sweep` and `%samples`](04-repl.md#command-summary) do the same interac
 
 A state machine takes only its initial transition unless `-advance` says how much simulated
 time to run for. `-advance 0` runs the machine up to the present, dispatching whatever is already
-due. `-advance` without a matching `-state` is reported as a mistake rather than
-silently ignored. An action that stops before completing, whether through deadlock or by
-hitting the step budget, is reported as an undecided check (status 2), because it produced no
-outputs to evaluate.
+due. The `-action` and `-state` behaviors of one invocation run on one simulation clock, so
+`-advance` moves them together: an action that `accept after 5 [SI::s]` and a machine that
+accepts the signal it then sends both settle under `-advance 5`, and what comes due at the same
+instant in two behaviors runs in the order the scheduling policy `-schedule` names picks (the
+behavior started last first by default), reported as a choice point. Without `-advance`, an
+action runs to completion on its own, moving the clock to each wait as it reaches it; with it, the action runs only as far as that much time
+takes it, and one still parked on the clock when the time is up is reported as undecided with
+the instant it waits for. `-advance` without an `-action` or `-state` to run is reported as a
+mistake rather than silently ignored. An action that stops before completing, whether through
+deadlock or by hitting the step budget, is reported as an undecided check (status 2), because it
+produced no outputs to evaluate.
 
 The object after the name is one `-instantiate` created, written as `%state` takes it: the
 usage's name, a feature path to a part it holds (`-state "Fleet::driver.r"`, or

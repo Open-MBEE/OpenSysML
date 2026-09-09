@@ -151,7 +151,7 @@ sysml> %send Dim(level=3+4)
 sysml> %step
 ✓ Event dispatched
   Current state: dimmed
-  Time: 0.0
+  Time: 1.0
   Events: 0
 
 sysml> %send go
@@ -171,9 +171,98 @@ while `%send Dim(level=3)` is in flight. A guard that cannot be evaluated is a `
 the state or the data a guard reads changes between the send and the dispatch, the `%step` or
 `%advance` that drops the signal says so.
 
+**One clock.** Simulation time belongs to the runtime the session executes in, not to any one
+behavior: every action and state machine the session runs — the ones `%action` and `%state`
+debug, the ones instantiated objects exhibit, the ones a body performs — reads and waits on the
+same clock, which starts at `0.0` and counts in `SI::s`. An action body waits on it as a
+transition does: `accept after 5 [SI::s]` parks the token until the clock has moved five
+seconds past the moment the accept was reached, and `accept at t` (a `Time::TimeInstantValue`)
+until the clock reads `t` — an instant already passed is due at once. A duration or instant
+that is not a time (`accept after 5 [SI::m]`) is refused when the accept is reached, as it is in
+a transition. `%step` does not move the clock, so a token waiting only on time is reported as
+such, with what would move it; `%advance <time>` moves the clock of the session's runtime by
+`<time>` seconds, and everything due along the way runs, whichever debugger it belongs to:
+
+```sysml
+sysml> package Timed {
+  ...>     item def Ping;
+  ...>     action pinger {
+  ...>         attribute count = 0;
+  ...>         first start;
+  ...>         then action wait accept after 5 [SI::s];
+  ...>         then action tick assign count := count + 1;
+  ...>         then send new Ping() to listener;
+  ...>         then done;
+  ...>     }
+  ...>     state listener {
+  ...>         entry; then idle;
+  ...>         state idle;
+  ...>         transition idle_pinged first idle accept Ping then pinged;
+  ...>         state pinged;
+  ...>     }
+  ...> }
+✓ package Timed
+
+sysml> %action Timed::pinger
+✓ Started action executor for "Timed::pinger"
+  State: Running
+  Tokens: 1
+
+sysml> %step
+✓ Step complete
+  State: Running
+  Tokens: 1
+
+sysml> %step
+Nothing to step: the action waits on the clock, which %step does not move
+  Token 1: accept after waiting since step 2 for the clock to reach t=5.0
+  Use %advance 5.0 to move the clock from t=0.0 to the earliest wait
+
+sysml> %state Timed::listener
+✓ Started state machine executor for "Timed::listener"
+  Current state: idle
+  Time: 0.0
+  Events: 0
+
+sysml> %advance 2
+✓ Advanced to 2.0 (0 event(s) processed)
+  Current state: idle
+  Last event at: 0.0
+  Remaining events: 0
+  Action state: Waiting
+  Tokens: 1
+  Waiting on the clock:
+    t=5.0: action pinger, accept after waiting since step 2 for the clock to reach t=5.0
+
+sysml> %advance 3
+✓ Advanced to 5.0 (1 event(s) processed)
+  Current state: pinged
+  Last event at: 5.0
+  Remaining events: 0
+  Action state: Completed
+  Tokens: 0
+  Action steps taken: 4
+
+✓ Action completed
+  Results:
+    count = 1
+```
+
+An advance runs what comes due in the order it comes due; at one instant, each executor runs its
+own work in the order it always has (a machine dispatches its due event and runs its do behavior,
+an action moves its tokens), and which *executor* goes first when several are due at the same
+instant is a *choice point* (below). Once the definite work at an instant has
+settled, the change conditions state machines watch (`accept when`) are polled, so a condition a
+token's assignment has just made true fires in the same advance. The advance stops early, saying
+so and how to raise the bound, when it exhausts the event, do-step or step budget
+([environment](../reference/environment.md)); a wait due after the deadline stays queued and
+is listed under `Waiting on the clock`; an advance with nothing waiting just moves the clock.
+`%continue` runs an action to completion on its own, moving the clock to each of its waits as it
+reaches them, and moving with it every other behavior of the same runtime that comes due.
+
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
-- `%step` — Advance all tokens one step
+- `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it
 - `%continue` — Run to completion, or to the first breakpoint hit
 - `%tokens` — Show active tokens with data
 - `%break <node>` — Set breakpoint on a named node, one an `if` branch or a loop body declares included; `%continue` stops when a token reaches it, or before a body performs it
@@ -184,21 +273,27 @@ the state or the data a guard reads changes between the send and the dispatch, t
 - `%send <signal>[(<p>=<expr>, ...)] [to <object>]` — Send a signal to an object's machine over the runtime's message bus; by default to the object being debugged
 - `%events` — Show event queue and signals in flight
 - `%current` — Show current state, stack, data
-- `%advance <time>` — Advance simulation time by `<time>` units, processing every event due
+- `%advance <time>` — Advance the runtime's simulation clock by `<time>` seconds, running every state event, action token, change-condition poll and do behavior due along the way, in every debugging session of the runtime
 - `%stop` — Stop debugging
 
 **Choice points.** The library orders some things and leaves others open: a succession says
 which step comes first, but nothing says which of two fork branches steps first, which of two
 waiting accepts takes the one message both answer to, which of two holding guards a decision
-follows, which of two transitions out of one state fires on the same event, or whose write
-stands when several branches assign one feature in one step. Where the
+follows, which of two transitions out of one state fires on the same event, whose write
+stands when several branches assign one feature in one step, or which of two executors — an
+action token and a state transition, two state machines, two actions — due at the same instant
+of the clock runs first. Where the
 executor has to pick, it follows one fixed rule — reverse token order, first holding guard, first
-declared transition, so a run replays exactly — and records a *choice point* rather than passing
+declared transition, the executor created last first, so a run replays exactly — and records a
+*choice point* rather than passing
 the pick off as the only outcome. `%step`, `%continue` and `%advance` end with a count of the
 choices they made (`2 choice points; %trace on to see them`), `%trace on` shows each as a
 `choice` line naming the alternatives and the one taken (`choice step 3: tokens 2@left, 3@right
-(unordered; took 3@right first)`), and the gRPC responses carry each as an informational
-diagnostic. A run with no choice points has the one outcome the model states; one with choice
+(unordered; took 3@right first)`; `choice at t=5.0: due action watcher, state machine blinking
+of object #1 (unordered; ran state machine blinking of object #1 first)`), and the gRPC responses
+carry each as an informational diagnostic. One executor alone due at an instant is not a choice
+and is not reported, so a model with a single behavior runs and traces exactly as it did before
+the clock was shared. A run with no choice points has the one outcome the model states; one with choice
 points has the outcome this executor's rule produces, and the lines say where another rule would
 diverge. The innermost-transition-wins rule between a substate and the state enclosing it is
 spec-defined order, not a choice, and is not reported. Reporting never changes the run: once a
@@ -210,7 +305,8 @@ read is the run's own, and its failure fails the run as it always has.
 
 **Scheduling policies.** The fixed rule is one *scheduling policy*, named `reverse`, and the
 executor can be told to resolve every choice point under another: `declared` takes tokens in the
-order they were spawned and guards and transitions in declaration order, and `seed:<n>` draws each
+order they were spawned, guards and transitions in declaration order and executors due together
+in the order they were created, and `seed:<n>` draws each
 pick from a pseudo-random sequence the non-negative integer `n` fixes, so `seed:1` replays the same
 run every time and on every platform while `seed:2` may take another linearization. The policy is
 spelled the same everywhere — `sysml -schedule declared` for `-action`, `-state` and `-analysis`
