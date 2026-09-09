@@ -5,6 +5,28 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Exploration scheduling
+
+Use `internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml`
+with the qualified action `test::race`: `-schedule explore` should produce three
+outcomes (`x=1,2,3`), two linearizations each, and `complete (6 runs)`. Compare
+two outputs byte-for-byte, not just their counts. `explore:runs=2` exits 2;
+the incomplete table and status may be written to stderr, while `-json` must
+still produce parseable stdout with `checks[0].outcomes` and `.exploration`.
+Check `-help` for the default policy before choosing a regression comparator:
+at introduction of exploration it was `reverse`, not `declared`.
+
+For a real state-conflict test, load `state_explore_transition_conflict.sysml`
+through the Python client and call `explore_state("test::Switch",
+events=["Go", "Go"])`. The CLI without events only checks initialization,
+not competing transitions. Expect two paths, through `left` and `right`,
+both ending in `settled`, with `side=1,2`. The event sequence is pinned by the
+fixture's `.expected.json`.
+
+At the interactive prompt, set `%schedule reverse`, try `%schedule explore`,
+then query `%schedule` to prove the refusal preserved reverse. `%action`
+starts the executor; `%continue` is needed to see its final result.
+
 The REPL is the user-facing surface of `cmd/sysml`. Test it by actually running the binary, not
 just via `go test ./internal/repl`.
 
