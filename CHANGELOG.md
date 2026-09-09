@@ -154,11 +154,10 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   inside a loop, and a state machine with two transitions enabled by one event; a fourth lists both
   orders in which one event's transitions in two sibling regions fire, an order the library leaves
   open, which `explore` varies as a `ChoiceRegionOrder` choice point while the fixed policies keep
-  region declaration order and report none. Exploring the
-  whole suite found one case pinning a scheduling artefact — two accepts on one port, addressed
-  by two sends, binding one `value` whose last writer is open — and it is restated as the two
-  outcomes the oracle derives. Cases without `outcomes` are not explored, and nothing changes
-  under the default schedule.
+  region declaration order. Exploring the whole suite found one case pinning a scheduling
+  artefact — two accepts on one port, addressed by two sends, binding one `value` whose last
+  writer is open — and it is restated as the two outcomes the oracle derives. Cases without
+  `outcomes` are not explored, and nothing changes under the default schedule.
 
 - **A `Collections::Set` holds a set.** Where the Kernel Data Type Library declares a collection's `elements` unique and unordered — `Set`, `UniqueCollection`, `Map` — the runtime now holds them as a set value: each member once, `size` counting members, equality that ignores the order the members were written in, and `contains`/`containsAll` as membership. A set consumed by an ordered operation (`collect`, `head`, `#`, a comparison against a sequence, a trace, a write into an `ordered` or `nonunique` feature) enumerates in one canonical order — Booleans, then numbers ascending, strings, quantities, enumeration literals, objects — so equal sets behave alike. What the library declares ordered or nonunique (`Bag`, `List`, `Array`, `OrderedSet`, `OrderedMap`, every `SequenceFunctions` result) is unchanged.
 - **Tensor quantities of any rank.** A `TensorMeasurementReference` with three or more `dimensions` builds a rank-three-or-higher tensor whose `#` takes one index per dimension; the wrong number of indexes, an index out of its dimension's range, a non-Integer index, a component count off the flattened size and arithmetic between two shapes are each a typed error naming what was wrong, and the shape survives `+`, `-` and the scalar multiplications.
