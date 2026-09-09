@@ -94,6 +94,19 @@ sysml> %features Wheel
 Instance: Wheel (ID: 1)
 Features:
   diameter = 16.0
+  ownedPorts = []
+  performedActions = []
+  ownedActions = []
+  exhibitedStates = []
+  ownedStates = []
+  shape = []
+  envelopingShapes = []
+  boundingShapes = []
+  voids = []
+  isSolid = true
+  subitems = []
+  subparts = []
+  checkedConstraints = []
 ```
 
 **Behavioral execution:**
