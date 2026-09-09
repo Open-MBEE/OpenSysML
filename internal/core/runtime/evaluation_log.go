@@ -3,7 +3,6 @@ package runtime
 import (
 	"slices"
 	"sort"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -15,7 +14,7 @@ import (
 type evaluationLog struct {
 	calcs     map[*symbols.Symbol]bool
 	entries   []AnalysisEvaluation
-	index     map[string]int
+	calcOf    []*symbols.Symbol // the calc each entry applied
 	picks     []Value
 	enclosing *evaluationLog
 }
@@ -23,7 +22,7 @@ type evaluationLog struct {
 // beginEvaluationLog opens the log of caseSym's run, replacing the enclosing
 // run's log until endEvaluationLog restores it.
 func (ctx *Context) beginEvaluationLog(caseSym *symbols.Symbol) *evaluationLog {
-	log := &evaluationLog{calcs: map[*symbols.Symbol]bool{}, index: map[string]int{}, enclosing: ctx.evaluations}
+	log := &evaluationLog{calcs: map[*symbols.Symbol]bool{}, enclosing: ctx.evaluations}
 	for _, member := range ctx.model.MembersOfIncludingRedefined(caseSym) {
 		if isCalcSymbol(member) {
 			log.calcs[member] = true
@@ -45,11 +44,10 @@ func (log *evaluationLog) record(fn *functionValue, args calcArgs, result Value,
 		return
 	}
 	arguments := fn.shape.argumentsByPosition(args)
-	key := log.key(fn.shape.Name, arguments)
-	if _, seen := log.index[key]; seen {
+	if log.seen(fn.shape.Sym, arguments) {
 		return
 	}
-	log.index[key] = len(log.entries)
+	log.calcOf = append(log.calcOf, fn.shape.Sym)
 	log.entries = append(log.entries, AnalysisEvaluation{
 		Function: fn.shape.Name, Arguments: arguments, Result: result, Error: err,
 	})
@@ -87,15 +85,15 @@ func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
 	return arguments
 }
 
-// key identifies an application by the calc and the arguments as the trace
-// spells them, so one alternative evaluated twice is noted once.
-func (log *evaluationLog) key(function string, arguments []Value) string {
-	parts := make([]string, 0, len(arguments)+1)
-	parts = append(parts, function)
-	for _, arg := range arguments {
-		parts = append(parts, FormatTraceValue(arg))
+// seen reports whether calc was already applied to arguments equal, value by
+// value as `==` judges, to these, so one alternative evaluated twice is noted once.
+func (log *evaluationLog) seen(calc *symbols.Symbol, arguments []Value) bool {
+	for i, entry := range log.entries {
+		if log.calcOf[i] == calc && slices.EqualFunc(entry.Arguments, arguments, valueEqual) {
+			return true
+		}
 	}
-	return strings.Join(parts, "\x00")
+	return false
 }
 
 // evaluations reports the log with the evaluation of the returned value marked
@@ -111,14 +109,14 @@ func (log *evaluationLog) evaluations(returned Value, ok bool) []AnalysisEvaluat
 			return valueEqual(arg, returned)
 		})
 	}
-	for _, selected := range log.entries {
+	for s, selected := range log.entries {
 		if !selected.Selected || selected.Error != nil {
 			continue
 		}
 		for i := range log.entries {
 			other := &log.entries[i]
 			other.Tied = other.Tied || (!other.Selected && other.Error == nil &&
-				other.Function == selected.Function && valueEqual(other.Result, selected.Result))
+				log.calcOf[i] == log.calcOf[s] && valueEqual(other.Result, selected.Result))
 		}
 	}
 	return log.entries
