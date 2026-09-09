@@ -29,5 +29,9 @@
   `execute_state` result and by the generated response types of the Node, Java and Rust clients. The
   robustness case that pinned the old refusal of a time trigger in an action body
   (`action_accept_time_trigger`) is replaced by `action_accept_time_waits` and `clock_advance`,
-  which pin the waits firing, a negative duration, a duration of another dimension, an instant
-  already past, a wait beyond the advance, an advance of zero, and one with nothing waiting.
+  which pin the waits firing, a negative, infinite or not-a-number duration and one leading past
+  the last instant the clock can hold (each refused, the clock unmoved), a duration of another
+  dimension, an instant already past, a wait beyond the advance, an advance of zero, one with
+  nothing waiting, and a wait met in a flow a body runs or in an action a node performs, which
+  pauses the token's work until the clock reaches it rather than moving the clock past a bounded
+  advance's deadline.

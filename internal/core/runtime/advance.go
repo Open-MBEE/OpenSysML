@@ -60,14 +60,18 @@ type AdvanceReport struct {
 
 // Advance moves the clock by duration seconds, running everything due on the way
 // instant by instant; a wait due later stays queued and nothing waiting is no error.
+// The duration and the instant it leads to must be finite.
 func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
 	defer ctx.beginExecutorRun(&ctx.clockRun)()
 
 	report := AdvanceReport{From: ctx.clock.now, To: ctx.clock.now}
-	if math.IsNaN(duration) || duration < 0 {
+	if math.IsNaN(duration) || math.IsInf(duration, 0) || duration < 0 {
 		return report, fmt.Errorf("%w: cannot advance the clock by %s", ErrNegativeDuration, semantics.FormatReal(duration))
 	}
-	deadline := ctx.clock.now + duration
+	deadline, err := ctx.clock.instantAfter(duration, "an advance of")
+	if err != nil {
+		return report, err
+	}
 	noted := ctx.run.NoteCount()
 	var progress dueProgress
 	for {
@@ -106,18 +110,21 @@ func (ctx *Context) advanceToNextDue() bool {
 // runDue runs the executors due at the current instant until none is left; it
 // returns true instead of running the driver once the due-order choice falls on it.
 func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, error) {
+	// settled: executors a run got nowhere with, due again only once another progresses.
+	settled := make(map[clockWaiter]bool)
 	for rounds := int64(0); ; rounds++ {
 		if rounds >= ctx.maxStateEvents {
 			return false, budgetExceeded(ErrStateEventLimitExceeded,
 				fmt.Sprintf("exceeded max events (%d rounds at t=%s; raise %s to allow more), possible non-terminating exchange between executors",
 					ctx.maxStateEvents, semantics.FormatReal(ctx.clock.now), MaxStateEventsEnvVar))
 		}
-		due := ctx.dueWaiters(driver)
+		due := ctx.dueWaiters(driver, settled)
 		if len(due) == 0 {
 			polled, err := ctx.pollWatching(driver, progress)
 			if err != nil || !polled {
 				return false, err
 			}
+			clear(settled)
 			continue
 		}
 		pick := 0
@@ -138,8 +145,14 @@ func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, err
 		if w == driver {
 			return true, nil
 		}
-		if _, err := ctx.runWaiter(w, progress); err != nil {
+		moved, err := ctx.runWaiter(w, progress)
+		if err != nil {
 			return false, err
+		}
+		if moved {
+			clear(settled)
+		} else {
+			settled[w] = true
 		}
 	}
 }
@@ -162,12 +175,12 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 }
 
 // dueWaiters lists the executors with work due now, in creation order: those
-// not already mid-run, and the driver whatever its run.
-func (ctx *Context) dueWaiters(driver clockWaiter) []clockWaiter {
+// not already mid-run nor settled, and the driver whatever its run.
+func (ctx *Context) dueWaiters(driver clockWaiter, settled map[clockWaiter]bool) []clockWaiter {
 	ctx.clock.forgetFinished()
 	var due []clockWaiter
 	for _, w := range ctx.clock.waiters {
-		if (w == driver || !w.running()) && w.dueWork() {
+		if (w == driver || !w.running()) && !settled[w] && w.dueWork() {
 			due = append(due, w)
 		}
 	}

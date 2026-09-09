@@ -164,8 +164,9 @@ var (
 	ErrNoEnabledSuccession = errors.New("no enabled succession")
 
 	// ErrNegativeDuration is returned when a delay — an `accept after`, a time
-	// transition's or an advance of the clock — is negative or no number at all:
-	// the clock never runs backwards.
+	// transition's or an advance of the clock — is negative, infinite, no number
+	// at all, or leads past the last instant the clock can hold: the clock never
+	// runs backwards and always reads a finite instant.
 	ErrNegativeDuration = errors.New("negative duration")
 
 	// ErrNothingDue is returned when one step is asked of an executor whose only

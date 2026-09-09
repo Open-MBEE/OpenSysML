@@ -176,6 +176,10 @@ type Context struct {
 	// bounding recursion across nested action executors.
 	actionDepth int
 
+	// pausable is the body run on the stack a breakpoint or a wait on the clock
+	// pauses (action_body_run.go), nil while none is.
+	pausable *bodyRun
+
 	// calcDepth is the number of calc invocations currently on the stack, which
 	// maxCalcDepth bounds, so a recursion evaluates while it stays within it.
 	calcDepth    int

@@ -93,6 +93,7 @@ func (ctx *Context) Clock() *Clock {
 
 // dueInstant is when a time trigger comes due: `after d` counts from now (a
 // negative delay is refused); `at t` is taken as read, one already past due now.
+// Either must be finite, and so must the instant a delay leads to.
 func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float64, error) {
 	magnitude, err := ctx.timeMagnitude(val, what)
 	if err != nil {
@@ -101,13 +102,27 @@ func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float6
 	if math.IsNaN(magnitude) {
 		return 0, fmt.Errorf("%w: %s is not a number", ErrNegativeDuration, what)
 	}
+	if math.IsInf(magnitude, 0) {
+		return 0, fmt.Errorf("%w: %s is infinite", ErrNegativeDuration, what)
+	}
 	if t.Absolute {
 		return math.Max(magnitude, ctx.clock.now), nil
 	}
 	if magnitude < 0 {
 		return 0, fmt.Errorf("%w: %s %s is negative", ErrNegativeDuration, what, semantics.FormatReal(magnitude))
 	}
-	return ctx.clock.now + magnitude, nil
+	return ctx.clock.instantAfter(magnitude, what)
+}
+
+// instantAfter is the instant a finite, non-negative duration from now leads to;
+// one past the last instant a float64 holds is refused, so the clock stays finite.
+func (c *Clock) instantAfter(duration float64, what string) (float64, error) {
+	due := c.now + duration
+	if math.IsInf(due, 0) {
+		return 0, fmt.Errorf("%w: %s %s from t=%s leads past the last instant the clock can hold",
+			ErrNegativeDuration, what, semantics.FormatReal(duration), semantics.FormatReal(c.now))
+	}
+	return due, nil
 }
 
 // timeMagnitude reads a time trigger's duration or instant as a number of clock

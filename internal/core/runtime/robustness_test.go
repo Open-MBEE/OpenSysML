@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -7724,6 +7725,314 @@ func testClockAdvance(t *testing.T) {
 			t.Errorf("clock moved to %v on a refused advance", got)
 		}
 	})
+	t.Run("infinite", func(t *testing.T) {
+		ctx, exec, _ := newRun(t)
+		for _, duration := range []float64{math.Inf(1), math.Inf(-1), math.NaN()} {
+			_, err := ctx.Advance(duration)
+			if !errors.Is(err, ErrNegativeDuration) {
+				t.Errorf("Advance(%v) = %v; want ErrNegativeDuration", duration, err)
+			}
+		}
+		if got := ctx.Clock().Now(); got != 0 {
+			t.Errorf("clock moved to %v on a refused advance", got)
+		}
+		if exec.State() == StateCompleted {
+			t.Error("the action completed without the clock moving")
+		}
+	})
+	t.Run("past the last instant the clock can hold", func(t *testing.T) {
+		ctx, exec, _ := newRun(t)
+		ctx.clock.now = math.MaxFloat64
+		_, err := ctx.Advance(math.MaxFloat64)
+		if !errors.Is(err, ErrNegativeDuration) {
+			t.Fatalf("Advance(MaxFloat64) from MaxFloat64 = %v; want ErrNegativeDuration", err)
+		}
+		if got := ctx.Clock().Now(); got != math.MaxFloat64 {
+			t.Errorf("clock = %v on a refused advance; want it left at MaxFloat64", got)
+		}
+		if exec.State() == StateCompleted {
+			t.Error("the action completed on a refused advance")
+		}
+	})
+	t.Run("a wait past the last instant the clock can hold", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import SI::*;
+				action eon {
+					first start;
+					then action wait accept after 1.0e308 [s];
+					then done;
+				}
+			}
+		`))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "eon", ast.DefAction)
+		if action == nil {
+			t.Fatal("action eon not found")
+		}
+		ctx.clock.now = math.MaxFloat64
+		_, err := ctx.ExecuteAction(action)
+		if !errors.Is(err, ErrNegativeDuration) {
+			t.Fatalf("ExecuteAction = %v; want ErrNegativeDuration for a wait the clock cannot reach", err)
+		}
+		if got := ctx.Clock().Now(); got != math.MaxFloat64 {
+			t.Errorf("clock = %v; want it left where it was", got)
+		}
+		if got := len(ctx.Clock().Waits()); got != 0 {
+			t.Errorf("%d wait(s) left on the clock by the refused accept; want none", got)
+		}
+	})
+	t.Run("a nested flow's wait keeps to the advance", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, nestedWaitModel))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+		if action == nil {
+			t.Fatal("action outer not found")
+		}
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence: %v", err)
+		}
+		if got := ctx.Clock().Now(); got != 0 {
+			t.Fatalf("clock = %v after a run at the current instant; want 0", got)
+		}
+		if waits := ctx.Clock().Waits(); len(waits) != 1 || waits[0].Due != 5 {
+			t.Fatalf("waits = %+v; want the nested flow's wait due at 5", waits)
+		}
+		if err := exec.Step(); !errors.Is(err, ErrNothingDue) {
+			t.Errorf("Step = %v; want ErrNothingDue, the nested flow waits on the clock", err)
+		}
+		report, err := ctx.Advance(2)
+		if err != nil {
+			t.Fatalf("Advance(2): %v", err)
+		}
+		if got := ctx.Clock().Now(); got != 2 || report.To != 2 {
+			t.Errorf("clock = %v, report %+v; want the advance to stop at 2, short of the nested wait", got, report)
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 0 {
+			t.Errorf("n = %v at t=2; want 0, the nested flow has not gone on", got)
+		}
+		if exec.State() != StateWaiting {
+			t.Errorf("state = %v at t=2; want Waiting", exec.State())
+		}
+		if _, err := ctx.Advance(3); err != nil {
+			t.Fatalf("Advance(3): %v", err)
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("n = %v once the clock reached 5; want 1", got)
+		}
+		if exec.State() != StateCompleted || ctx.Clock().Now() != 5 {
+			t.Errorf("state = %v, clock = %v; want Completed at 5", exec.State(), ctx.Clock().Now())
+		}
+	})
+	t.Run("a nested flow's wait is advanced to by a run of its own", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, nestedWaitModel))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+		results, err := ctx.ExecuteAction(action)
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := results["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("n = %v; want 1", got)
+		}
+		if got := ctx.Clock().Now(); got != 5 {
+			t.Errorf("clock = %v; want 5, where the nested wait came due", got)
+		}
+	})
+	t.Run("a performed action's wait keeps to the advance", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedWaitModel))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+		if action == nil {
+			t.Fatal("action outer not found")
+		}
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence: %v", err)
+		}
+		if _, err := ctx.Advance(2); err != nil {
+			t.Fatalf("Advance(2): %v", err)
+		}
+		if got := ctx.Clock().Now(); got != 2 {
+			t.Errorf("clock = %v; want the advance to stop at 2, short of the performed action's wait", got)
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 0 {
+			t.Errorf("n = %v at t=2; want 0, the performed action has not gone on", got)
+		}
+		if waits := ctx.Clock().Waits(); len(waits) != 1 || waits[0].Due != 6 {
+			t.Errorf("waits = %+v; want the performed action's wait due at 6", waits)
+		}
+		if next, ok := exec.NextWait(); !ok || next != 6 {
+			t.Errorf("NextWait = %v, %v; want the performed action's wait at 6", next, ok)
+		}
+		if waits := exec.TimeWaits(); len(waits) != 1 || !strings.Contains(waits[0], "t=6.0") {
+			t.Errorf("TimeWaits = %v; want the performed action's wait", waits)
+		}
+		if err := exec.Step(); !errors.Is(err, ErrNothingDue) || !strings.Contains(err.Error(), "t=6.0") {
+			t.Errorf("Step = %v; want ErrNothingDue naming the performed action's wait", err)
+		}
+		if _, err := ctx.Advance(4); err != nil {
+			t.Fatalf("Advance(4): %v", err)
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("n = %v once the clock reached 6; want 1", got)
+		}
+		if exec.State() != StateCompleted || ctx.Clock().Now() != 6 {
+			t.Errorf("state = %v, clock = %v; want Completed at 6", exec.State(), ctx.Clock().Now())
+		}
+		if got := len(ctx.Clock().Waits()); got != 0 {
+			t.Errorf("%d wait(s) left after the action completed; want none", got)
+		}
+	})
+	t.Run("a performed action's wait is advanced to by a run of its own", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedWaitModel))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+		results, err := ctx.ExecuteAction(action)
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := results["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("n = %v; want 1", got)
+		}
+		if got := ctx.Clock().Now(); got != 6 {
+			t.Errorf("clock = %v; want 6, where the performed action's wait came due", got)
+		}
+	})
+	t.Run("a token held at a join beside a wait is not work due", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				action outer {
+					attribute n : Integer = 0;
+					first start;
+					then fork split;
+						then quick;
+						then nap;
+					action quick assign n := n + 1;
+					then meet;
+					action nap accept after 5 [s];
+					then meet;
+					join meet;
+					then done;
+				}
+			}
+		`))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+		if action == nil {
+			t.Fatal("action outer not found")
+		}
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence: %v", err)
+		}
+		report, err := ctx.Advance(2)
+		if err != nil {
+			t.Fatalf("Advance(2): %v", err)
+		}
+		if report.To != 2 || len(report.Notes) != 0 {
+			t.Errorf("report = %+v; want the clock at 2 and no choice drawn for one action", report)
+		}
+		if exec.State() != StateWaiting {
+			t.Errorf("state = %v at t=2; want Waiting", exec.State())
+		}
+		if _, err := ctx.Advance(3); err != nil {
+			t.Fatalf("Advance(3): %v", err)
+		}
+		if exec.State() != StateCompleted || ctx.Clock().Now() != 5 {
+			t.Errorf("state = %v, clock = %v; want Completed at 5", exec.State(), ctx.Clock().Now())
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("n = %v; want 1", got)
+		}
+	})
+	t.Run("a message for another flow does not wake a nested wait", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				action outer {
+					attribute n : Integer = 0;
+					attribute got : Integer = 0;
+					first start;
+					then fork split;
+						then reader;
+						then body;
+					action reader accept m : Integer;
+					then action record assign got := m;
+					then meet;
+					action body {
+						if true {
+							action inner {
+								first start;
+								then action nap accept after 5 [s];
+								then action mark assign n := 1;
+								then done;
+							}
+						}
+					}
+					then meet;
+					join meet;
+					then done;
+				}
+			}
+		`))
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+		if action == nil {
+			t.Fatal("action outer not found")
+		}
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence: %v", err)
+		}
+		var nested *actionFrame
+		for _, token := range exec.tokens {
+			if token.Wait != nil && token.Wait.Timed {
+				nested = token.frame
+			}
+		}
+		if nested == nil {
+			t.Fatalf("tokens = %+v; want one parked on the clock in the nested flow", exec.tokens)
+		}
+		seven := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 7}}
+		ctx.PostMessage(Message{SignalType: "Integer", Target: "reader", Value: &seven})
+		if !exec.HasPendingSignal() {
+			t.Error("HasPendingSignal = false; want the reader's message pending for the action")
+		}
+		if exec.hasPendingSignal(nested) || exec.dueNow(nested) {
+			t.Error("the nested flow counts the reader's message as its own")
+		}
+		if err := exec.RunToQuiescence(); err != nil {
+			t.Fatalf("RunToQuiescence after the message: %v", err)
+		}
+		if got := exec.Results()["got"]; got.Kind != ValConst || got.Const.Int != 7 {
+			t.Errorf("got = %v; want 7, the reader took its message", got)
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 0 {
+			t.Errorf("n = %v at t=0; want 0, the nested flow still waits on the clock", got)
+		}
+		if got := ctx.Clock().Now(); got != 0 {
+			t.Errorf("clock = %v after a run at the current instant; want 0", got)
+		}
+		if _, err := ctx.Advance(5); err != nil {
+			t.Fatalf("Advance(5): %v", err)
+		}
+		if got := exec.Results()["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("n = %v once the clock reached 5; want 1", got)
+		}
+		if exec.State() != StateCompleted {
+			t.Errorf("state = %v; want Completed", exec.State())
+		}
+	})
 	t.Run("event budget bounds a machine that never settles", func(t *testing.T) {
 		ctx, _, root := newRun(t)
 		budgets := ctx.Budgets()
@@ -7839,6 +8148,53 @@ func testClockAdvance(t *testing.T) {
 		}
 	})
 }
+
+// nestedWaitModel waits on the clock in the flow of a block a body statement runs.
+const nestedWaitModel = `
+	package test {
+		private import SI::*;
+		private import ScalarValues::*;
+		action outer {
+			attribute n : Integer = 0;
+			first start;
+			then action body {
+				if true {
+					action inner {
+						first start;
+						then action nap accept after 5 [s];
+						then action mark assign n := 1;
+						then done;
+					}
+				}
+			}
+			then done;
+		}
+	}
+`
+
+// performedWaitModel waits on the clock in an action a node of the flow performs,
+// after a wait of the flow's own.
+const performedWaitModel = `
+	package test {
+		private import SI::*;
+		private import ScalarValues::*;
+		action def Napper {
+			out attribute n : Integer = 0;
+			first start;
+			then action nap accept after 5 [s];
+			then action mark assign n := 1;
+			then done;
+		}
+		action outer {
+			attribute n : Integer = 0;
+			first start;
+			then action early accept after 1 [s];
+			then perform action call : Napper;
+			then action copy assign n := call.n;
+			then done;
+		}
+	}
+`
 
 // testActionAcceptNonBooleanChangeTrigger: a change trigger states a condition,
 // so one that evaluates to something else is reported rather than read as true.

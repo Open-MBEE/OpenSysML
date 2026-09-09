@@ -45,9 +45,6 @@ type ActionExecutor struct {
 	sweep, sweeps uint64
 	inputs        map[string]Value // Input parameter bindings, applied over attribute defaults
 	pausedAt      string           // Node name RunToCompletion stopped at, empty when it ran to the end
-	// pause is set while a token's work runs as a coroutine (action_body_run.go):
-	// called with a breakpoint's name, it pauses the run there until resumed.
-	pause func(string) bool
 	// released is set once Release has ended the run for good.
 	released bool
 	// pauses counts the body pauses so far, ordering the paused runs' resumption.
@@ -309,7 +306,7 @@ func (e *ActionExecutor) Step() error {
 		if e.waitsOnClockAlone() {
 			next, _ := e.NextWait()
 			return fmt.Errorf("%w: %d token(s) wait on the clock, the earliest until t=%s",
-				ErrNothingDue, len(e.timeWaits(nil)), semantics.FormatReal(next))
+				ErrNothingDue, len(e.visibleWaits()), semantics.FormatReal(next))
 		}
 	}
 
@@ -325,9 +322,15 @@ func (e *ActionExecutor) Step() error {
 }
 
 // waitsOnClockAlone reports whether every remaining token is parked on the clock
-// for an instant it has not reached, so only advancing it moves the action.
+// for an instant it has not reached (or paused for work that is), so only advancing it moves the action.
 func (e *ActionExecutor) waitsOnClockAlone() bool {
 	for _, token := range e.tokens {
+		if token.pausedOnClock() {
+			if held := token.heldWaiter(); held != nil && held.dueWork() {
+				return false
+			}
+			continue
+		}
 		if token.Wait == nil || !token.Wait.Timed || token.Wait.Due <= e.ctx.clock.now {
 			return false
 		}
@@ -335,10 +338,11 @@ func (e *ActionExecutor) waitsOnClockAlone() bool {
 	return len(e.tokens) > 0
 }
 
-// anyTokenWaiting reports whether some token is parked at an accept.
+// anyTokenWaiting reports whether some token is parked at an accept, or paused
+// for work of its own that waits on the clock.
 func (e *ActionExecutor) anyTokenWaiting() bool {
 	for _, token := range e.tokens {
-		if token.Wait != nil {
+		if token.Wait != nil || token.pausedOnClock() {
 			return true
 		}
 	}
@@ -420,10 +424,16 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	// suspension and then posted the awaited message resumes it here.
 	var progress dueProgress
 	for e.state == StateRunning || e.state == StateWaiting {
-		// Tokens parked on the clock alone: advancing it is what moves them.
-		if e.state == StateWaiting && len(e.timeWaits(nil)) > 0 && !e.dueNow(nil) {
+		// Tokens parked on the clock alone: advancing it is what moves them; a run
+		// performing this action for a body pauses that body's run instead.
+		if e.state == StateWaiting && e.waitsOnClock(nil) && !e.dueNow(nil) {
 			if atCurrentTime {
 				return nil
+			}
+			if paused, err := e.ctx.pauseForClock(e); err != nil {
+				return err
+			} else if paused {
+				continue
 			}
 			moved, err := e.awaitClock(nil, &progress)
 			if err != nil {
@@ -449,15 +459,13 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		if err := e.Step(); err != nil && !errors.Is(err, ErrNothingDue) {
 			return err
 		}
-		if e.state == StateWaiting && (atCurrentTime || len(e.timeWaits(nil)) == 0) {
+		if e.state == StateWaiting && (atCurrentTime || !e.waitsOnClock(nil)) {
 			break
 		}
 	}
-	if e.state == StateWaiting {
+	if e.state == StateWaiting && !atCurrentTime {
 		e.endPausedBodies()
-		if !atCurrentTime {
-			return e.deadlockError(nil)
-		}
+		return e.deadlockError(nil)
 	}
 	return nil
 }
@@ -481,10 +489,35 @@ func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (b
 	}
 }
 
-// dueNow reports whether a parked token of perf's flow (the action's for nil)
-// can proceed at this instant: its instant has come, or its message is in flight.
+// dueNow reports whether a parked token of perf's flow (the action's for nil) can
+// proceed now: its instant has come, its message is in flight, or its performed action has work due.
 func (e *ActionExecutor) dueNow(perf *actionFrame) bool {
-	return e.hasDueTimeWait(perf) || e.HasPendingSignal()
+	return e.hasDueTimeWait(perf) || e.hasPendingSignal(perf) || e.hasDueHeldRun(perf)
+}
+
+// hasDueHeldRun reports whether an action performed by the paused work of a token
+// of perf's flow (the action's for nil) has work due at this instant.
+func (e *ActionExecutor) hasDueHeldRun(perf *actionFrame) bool {
+	for _, token := range e.tokens {
+		if held := token.heldWaiter(); held != nil && token.inFlowOf(perf) && held.dueWork() {
+			return true
+		}
+	}
+	return false
+}
+
+// waitsOnClock reports whether a token of perf's flow (the action's for nil) is
+// parked on the clock, or paused for work of its own that is.
+func (e *ActionExecutor) waitsOnClock(perf *actionFrame) bool {
+	if len(e.timeWaits(perf)) > 0 {
+		return true
+	}
+	for _, token := range e.tokens {
+		if token.pausedOnClock() && token.inFlowOf(perf) {
+			return true
+		}
+	}
+	return false
 }
 
 // RunToQuiescence runs the action until it completes, stops at a breakpoint, or
@@ -500,8 +533,14 @@ func (e *ActionExecutor) RunToQuiescence() error {
 // HasPendingSignal reports whether a message in flight would let a parked token
 // proceed, without consuming it.
 func (e *ActionExecutor) HasPendingSignal() bool {
+	return e.hasPendingSignal(nil)
+}
+
+// hasPendingSignal reports whether a message in flight would let a parked token
+// of perf's flow (of the whole action for nil) proceed, without consuming it.
+func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 	for _, token := range e.tokens {
-		if token.Wait == nil || token.Wait.Timed {
+		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
 		}
 		usage, ok := token.Location.(*ast.Usage)
@@ -1648,13 +1687,21 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	}
 
 	// A usage that performs another action (perform X / action a : X / a = X(...))
-	// runs that action to completion before its own body.
+	// runs that action to completion before its own body, pausing the token
+	// while the action waits on the clock.
 	if inv, ok := nestedInvocation(usage); ok {
-		if err := e.performInvocation(perf, inv); err != nil {
-			return err
-		}
+		return e.runPausable(tokenIdx, func() error {
+			return e.performInvocation(perf, inv)
+		}, func(tokenIdx int) error {
+			return e.performNodeBody(tokenIdx, perf, graph, usage)
+		})
 	}
+	return e.performNodeBody(tokenIdx, perf, graph, usage)
+}
 
+// performNodeBody performs what a nested action node states of its own once the
+// action it performs, if any, has completed: the flow it owns, or its statements.
+func (e *ActionExecutor) performNodeBody(tokenIdx int, perf *actionFrame, graph *lower.ActionGraph, usage *ast.Usage) error {
 	// A node owning a flow performs it: its steps are subperformances of the
 	// node, so the node completes only once they have.
 	if perf.graph != nil {
@@ -1782,23 +1829,51 @@ func (e *ActionExecutor) hasDueTimeWait(perf *actionFrame) bool {
 // NextWait returns the instant the earliest token parked on the clock proceeds
 // at, false when none is; one already due is not a wait.
 func (e *ActionExecutor) NextWait() (float64, bool) {
-	due, found := 0.0, false
-	for _, token := range e.timeWaits(nil) {
-		if token.Wait.Due > e.ctx.clock.now && (!found || token.Wait.Due < due) {
-			due, found = token.Wait.Due, true
-		}
+	waits := e.visibleWaits()
+	if len(waits) == 0 {
+		return 0, false
 	}
-	return due, found
+	return waits[0].Due, true
 }
 
-// TimeWaits describes the tokens parked on the clock, in token-ID order.
+// TimeWaits describes the tokens parked on the clock, in token-ID order, then
+// those of the actions the paused work of its tokens performs.
 func (e *ActionExecutor) TimeWaits() []string {
 	waits := e.timeWaits(nil)
 	out := make([]string, 0, len(waits))
 	for _, token := range waits {
 		out = append(out, token.Wait.String())
 	}
+	for _, held := range e.heldWaiters() {
+		for _, wait := range held.clockWaits() {
+			out = append(out, wait.What)
+		}
+	}
 	return out
+}
+
+// visibleWaits lists, in due order, the waits on the clock that hold this
+// action: its own, and those of the actions the paused work of its tokens performs.
+func (e *ActionExecutor) visibleWaits() []ClockWait {
+	waits := e.clockWaits()
+	for _, held := range e.heldWaiters() {
+		waits = append(waits, held.clockWaits()...)
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	return waits
+}
+
+// heldWaiters lists the executors performing an action for the paused work of
+// this action's tokens, in token-ID order.
+func (e *ActionExecutor) heldWaiters() []clockWaiter {
+	tokens := slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) })
+	var held []clockWaiter
+	for _, token := range tokens {
+		if w := token.heldWaiter(); w != nil {
+			held = append(held, w)
+		}
+	}
+	return held
 }
 
 // dueLabel names the executor in a due-order choice.
@@ -1806,7 +1881,8 @@ func (e *ActionExecutor) dueLabel() string {
 	return "action " + symbolText(e.action) + performerSuffix(e.self)
 }
 
-// clockWaits lists the tokens parked on the clock for an instant it has not reached.
+// clockWaits lists the tokens parked on the clock for an instant it has not
+// reached; an action performed for a paused body lists its own.
 func (e *ActionExecutor) clockWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
@@ -1818,14 +1894,14 @@ func (e *ActionExecutor) clockWaits() []ClockWait {
 	return waits
 }
 
-// dueWork reports a token that can move at this instant (not parked, due, or
-// with a message in flight) in the flow awaiting the clock, else the whole action's.
+// dueWork reports a token that can move at this instant (not parked nor paused on
+// the clock, due, or with a message in flight) in the flow awaiting the clock, else the action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
 	}
 	for _, token := range e.tokens {
-		if token.Wait == nil && token.inFlowOf(e.awaiting) {
+		if token.Wait == nil && !token.pausedOnClock() && token.inFlowOf(e.awaiting) {
 			return true
 		}
 	}
