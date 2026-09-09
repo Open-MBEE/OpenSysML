@@ -685,6 +685,53 @@ func TestExploreSiblingRegionOrderNamesTypedRegions(t *testing.T) {
 	}
 }
 
+// Two active regions of one name are spelled in declaration order, so the final
+// state is the same on every run.
+func TestFinalStateNameOrdersRegionsOfOneNameByDeclaration(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		state def Machine {
+			entry; then work;
+			state work parallel {
+				state left {
+					entry; then inner;
+					state inner parallel {
+						state r { entry; then l1; state l1; }
+						state s { entry; then l2; state l2; }
+					}
+				}
+				state right {
+					entry; then inner;
+					state inner parallel {
+						state r { entry; then r1; state r1; }
+						state s { entry; then r2; state r2; }
+					}
+				}
+			}
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	for run := 0; run < 20; run++ {
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.initialize(); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatal(err)
+		}
+		if got := exec.FinalStateName(); got != "inner+l1+r1+inner+l2+r2" {
+			t.Fatalf("run %d: final state %q, want inner+l1+r1+inner+l2+r2", run, got)
+		}
+	}
+}
+
 // linkedNodes instantiates n nodes of one type chained by `next`, the last
 // pointing back at the first, and returns the head as an outcome.
 func linkedNodes(t *testing.T, m *exploreModel, ids ...int64) Outcome {

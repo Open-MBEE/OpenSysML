@@ -2809,19 +2809,15 @@ func (e *StateExecutor) GetStateVisits() []string {
 	return e.stateVisits
 }
 
-// FinalStateName is the active configuration as a conformance case writes it,
-// orthogonal regions joined by "+" in region order.
+// FinalStateName is the active configuration as a conformance case writes it:
+// the orthogonal regions' active states joined by "+" in region name order,
+// regions of one name in declaration order.
 func (e *StateExecutor) FinalStateName() string {
-	if len(e.activeConfig.regionStates) > 0 {
-		type regionState struct{ region, state string }
-		pairs := make([]regionState, 0, len(e.activeConfig.regionStates))
-		for region, state := range e.activeConfig.regionStates {
-			pairs = append(pairs, regionState{region.Name, state.Name})
-		}
-		sort.Slice(pairs, func(i, j int) bool { return pairs[i].region < pairs[j].region })
-		names := make([]string, len(pairs))
-		for i, pair := range pairs {
-			names[i] = pair.state
+	if regions := e.orderedActiveRegions(); len(regions) > 0 {
+		sort.SliceStable(regions, func(i, j int) bool { return regions[i].Name < regions[j].Name })
+		names := make([]string, len(regions))
+		for i, region := range regions {
+			names[i] = e.activeConfig.regionStates[region].Name
 		}
 		return strings.Join(names, "+")
 	}

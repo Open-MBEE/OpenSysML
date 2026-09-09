@@ -84,7 +84,9 @@ top-level one is. `instantiate` names an instance case's type the same way.
   driving `CallEvent`-triggered transitions), with `args` optional. Events are
   delivered in order. Optional; omit for autonomous (time/completion-driven)
   machines.
-- `finalState`: qualified name of final reached state
+- `finalState`: qualified name of final reached state; for a machine ending in
+  orthogonal regions, their active states joined by `+` in region name order
+  (`d2+deep+r2`)
 - `stateVisits`: ordered list of states visited (optional, for golden trace verification)
 - `evaluate`: qualified path of the state machine to execute (see
   [Entry Points](#entry-points))
