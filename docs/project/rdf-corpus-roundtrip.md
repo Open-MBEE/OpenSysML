@@ -9,7 +9,7 @@ pin in `scripts/pilot-pin.sh`.
 
 | Root | Files |
 |---|---|
-| `committed` (everything under `examples/` outside the downloaded roots) | 33 |
+| `committed` (everything under `examples/` outside the downloaded roots) | 34 |
 | `sysml-v2-training` | 100 |
 | `pilot-corpora/kerml-examples` | 58 |
 | `pilot-corpora/sysml-examples` | 99 |
