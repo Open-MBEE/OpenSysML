@@ -131,9 +131,12 @@ stop. A `do` round is one atomic unit per do behavior.
 
 At each state the checker enumerates the **enabled moves**:
 
-- **Action**: every token not in a paused body whose node can advance now. A token at a plain
-  node always can. A token at a join that has not collected cannot. A token parked at an
-  `accept` (`Wait != nil`) can when its wait is answered in the current state: for a message
+- **Action**: every token whose node can advance now. A token at a plain node always can. A
+  token at a join that has not collected cannot. A token whose body is paused can when the
+  body would go on if resumed (`Token.resumable`): at a breakpoint always, on the clock once
+  the performed action's wait has ended — so a performed action and a sibling accept due at
+  the same instant are two moves, either first. A token parked at an `accept` (`Wait != nil`)
+  can when its wait is answered in the current state: for a message
   accept, when `Context.messages` holds a message `acceptMatch` would take; for a time or change
   trigger, when `triggerHolds`. The executor already retries every parked token on every step
   and clears the wait only when the match succeeds (`stepNestedAction`), so the checker asks the

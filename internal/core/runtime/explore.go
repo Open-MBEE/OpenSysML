@@ -243,6 +243,7 @@ type exploreStep struct {
 	remaining []int64      // sorted by ID, not yet tried
 	held      []int64      // tried last, as they never act on their own
 	slot      int          // index in run.record of the slot open, -1 between picks
+	dupBefore bool         // run.duplicate when the slot opened, restored if the slot is dropped
 	moved     bool         // a token acted, so the step is over
 	choice    *exploreSlot // the pick the move resolved, nil when one token alone could act
 }
@@ -293,6 +294,7 @@ func (s *exploreStep) next() (int64, bool) {
 		return enabled[0], true
 	}
 	slot := exploreSlot{kind: slotTokens, alternatives: len(enabled), step: s.tokens.step, tokens: enabled}
+	s.dupBefore = s.run.duplicate
 	s.run.resolve(&slot, fmt.Sprintf("step %d: tokens %v able to act", s.tokens.step, enabled))
 	s.slot = len(s.run.record) - 1
 	slot = s.run.record[s.slot]
@@ -329,8 +331,10 @@ func (s *exploreStep) acted(id int64, acted bool) {
 		slot.alternatives--
 	}
 	if len(slot.tokens) == 0 {
+		// No token of the pick acted, so it was no choice point and repeated nothing.
 		s.run.record = s.run.record[:s.slot]
 		s.run.explored--
+		s.run.duplicate = s.dupBefore
 		s.slot = -1
 		return
 	}

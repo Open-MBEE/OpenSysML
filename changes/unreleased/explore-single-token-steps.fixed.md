@@ -8,3 +8,6 @@
   keep their sweep, so no default trace changed. Run counts grow with the finer granularity
   (`action_merge_fork_branch_and_loop` needs `explore:runs=10000` to complete) and the semantic
   oracle's figures are re-derived; `action_explore_write_between_branch_nodes` pins the case.
+  A performed action paused on the clock is among the tokens an exploring step picks from once
+  its wait has ended, so a sibling accept due at the same instant no longer always runs first:
+  `action_explore_performed_and_accept_due_together` reaches both writes, six linearizations.

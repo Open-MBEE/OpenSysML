@@ -1,0 +1,10 @@
+# The fork precedes both branches; each write follows its branch's accept; the
+# join waits for both. A token parked at the join is mentioned as soon as the
+# first branch arrives, so both writes are ordered against the join's successor.
+split < performed
+performed < writeOne
+split < direct
+direct < writeTwo
+writeOne < done
+writeTwo < done
+sync < done

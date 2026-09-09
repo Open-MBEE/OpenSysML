@@ -365,6 +365,49 @@ run before `right`, and the exploration would have reported two outcomes complet
 in one order or the other, before `left2` can run, so `declared` (and `seed:1`) give `x = 2, y = 2`
 and `reverse` gives `x = 1, y = 1`.
 
+### A performed action and a sibling accept due at one instant: which resumes first is open
+
+Fixture: `action_explore_performed_and_accept_due_together` (golden, explored).
+
+```
+action def Sleeper { start → nap accept after 2 [s] → rested }
+start → split ⇉ performed : Sleeper → writeOne { x := 1 } ─┐
+              ⇉ direct accept after 2 [s] → writeTwo { x := 2 } ┤→ sync → done
+```
+
+Derived constraints:
+
+- `performed` performs `Sleeper` as a suboccurrence, so `Sleeper`'s `localClock` is `wake`'s
+  (`Occurrences.kerml`, "The localClock of a suboccurrence defaults to the localClock of its
+  containing occurrence"): `nap` and `direct` are `TriggerAfter(2, …)` against one clock, each
+  fixed at `0 + 2` when reached (`Triggers.kerml`), and each ends when that clock reads 2
+  (`TimeSignal::signalCondition`).
+- `writeOne` follows `performed`, which ends after `nap` (HappensBefore, and a performed action
+  ends after its last step); `writeTwo` follows `direct`; `sync` follows both writes
+  (JoinAction). Each write is performed exactly once, so `x` is `1` or `2`, never `0`.
+
+Open: the order of `performed`'s resumption against `direct`'s, and so of `writeOne` against
+`writeTwo`. Both accepts end at the same reading of the one clock, no `HappensBefore` chain
+connects a step of one branch to a step of the other, and `timeOrderingConstraint`
+(`Clocks.kerml`, `TimeOf`) orders only occurrences already ordered by `HappensBefore`. Two chains of
+two moves each — resume `performed` then `writeOne`, take `direct` then `writeTwo` — interleave six
+ways; the three that end with `writeOne` give `x = 1`, the three that end with `writeTwo` give
+`x = 2`.
+
+Pinned outcome: the admissible set `{x = 1, x = 2}`, stated as `outcomes` citing this section;
+`.trace.order` states the partial order the library does fix (`split < performed`,
+`performed < writeOne`, `split < direct`, `direct < writeTwo`, both writes and `sync` before
+`done`). Exploration must reach both outcomes and no other, in six runs (6 runs, 2 outcomes,
+complete). The case is what distinguishes a paused body from a parked token in the explored
+move set: `performed`'s token is paused inside `Sleeper` when the clock reaches 2, and
+`direct`'s is parked at its accept. Had the executor resumed paused bodies only after every
+ordinary token of a step had acted, as the fixed policies sweep, then under `explore` — where a
+step ends with the first move — `direct` would always have run first, `writeOne` would always have
+been last, and the exploration would have reported `x = 1` alone, complete. The fixed policies
+sweep ordinary tokens before paused bodies, so each takes `direct` first, then steps the two
+writes in its own order in the next step: `reverse` (and `seed:1`) writes `x := 2` then `x := 1`,
+giving `x = 1`; `declared` writes them the other way round, giving `x = 2`.
+
 ### A decision inside a loop: every pass is its own open choice
 
 Fixture: `action_explore_decision_in_loop` (golden, explored).

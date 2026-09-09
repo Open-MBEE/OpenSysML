@@ -87,7 +87,8 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 			continue
 		}
 		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDueHeldRun(perf) {
-			if paused, err := e.ctx.pauseForClock(nil); err != nil {
+			waits := func() bool { return e.waitsOnClock(perf) && !e.canProceed(perf) }
+			if paused, err := e.ctx.pauseForClock(nil, waits); err != nil {
 				return err
 			} else if paused {
 				continue
@@ -120,7 +121,12 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 	var err error
-	schedule := e.scheduleTokens(&order, func(t Token) bool { return t.inFlowOf(perf) })
+	eligible := func(t Token) bool { return t.inFlowOf(perf) }
+	if e.ctx.scheduling().oneMove() {
+		// Paused work that would only pause again is no alternative to pick.
+		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+	}
+	schedule := e.scheduleTokens(&order, eligible)
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {

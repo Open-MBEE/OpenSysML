@@ -248,19 +248,23 @@ func (e *ActionExecutor) Step() error {
 		tokenLocationsBefore[i] = t.Location
 	}
 
-	// The tokens a breakpoint left paused resume last, the longest paused first,
-	// once every other token has had its step: one pausing again and again does
-	// not hold the rest back.
-	paused := e.pausedTokens()
+	// Under a sweep the tokens whose work paused resume last, the longest paused
+	// first, once every other token has had its step: one pausing again and again
+	// does not hold the rest back. An exploring step picks among every token able
+	// to act, paused work that can go on among them.
+	var paused []int64
+	eligible := func(t Token) bool { return !t.drivenByBody() && (t.body == nil || t.resumable()) }
+	if !e.ctx.scheduling().oneMove() {
+		paused = e.pausedTokens()
+		eligible = func(t Token) bool { return !t.drivenByBody() && t.body == nil }
+	}
 	defer e.beginSweep()()
 
 	// Several tokens advanced in one step are a choice point the library leaves open.
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
-	schedule := e.scheduleTokens(&order, func(t Token) bool {
-		return !t.drivenByBody() && t.body == nil
-	})
+	schedule := e.scheduleTokens(&order, eligible)
 	err := e.stepTokens(schedule, paused, &order)
 	// What the tokens wrote and the order they took are facts of the step whether
 	// or not it failed.
@@ -424,14 +428,15 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	// A run may start from StateWaiting: a caller that stepped an action into a
 	// suspension and then posted the awaited message resumes it here.
 	var progress dueProgress
+	waits := func() bool { return e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) }
 	for e.state == StateRunning || e.state == StateWaiting {
 		// Tokens parked on the clock alone: advancing it is what moves them; a run
 		// performing this action for a body pauses that body's run instead.
-		if e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) {
+		if waits() {
 			if atCurrentTime {
 				return nil
 			}
-			if paused, err := e.ctx.pauseForClock(e); err != nil {
+			if paused, err := e.ctx.pauseForClock(e, waits); err != nil {
 				return err
 			} else if paused {
 				continue
@@ -1322,8 +1327,8 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 	return waitsForMessage && !order.offered[t.ID]
 }
 
-// stepTokens gives each scheduled token its step, then the tokens a breakpoint
-// left paused; a breakpoint on the way or an exploring step's one move ends the sweep.
+// stepTokens gives each scheduled token its step, then the tokens whose paused
+// work a sweep resumes last; a breakpoint on the way ends the sweep.
 func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) error {
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
@@ -1331,8 +1336,7 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 		}
 		// The token may have been removed by a join or final node.
 		i := e.tokenIndex(id)
-		if i < 0 || e.moving(e.tokens[i]) ||
-			e.tokens[i].drivenByBody() || e.tokens[i].body != nil {
+		if i < 0 || e.moving(e.tokens[i]) || e.tokens[i].drivenByBody() {
 			schedule.Acted(id, false)
 			continue
 		}
@@ -1343,7 +1347,7 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 		}
 	}
 	for _, id := range paused {
-		if e.state == StateSuspended || schedule.Ended() {
+		if e.state == StateSuspended {
 			break
 		}
 		if i := e.tokenIndex(id); i >= 0 {
