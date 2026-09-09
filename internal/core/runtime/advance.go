@@ -58,12 +58,8 @@ type AdvanceReport struct {
 	Notes []RunNote
 }
 
-// Advance moves the clock forward by duration seconds, running everything that
-// comes due along the way: at each instant, every executor with due work, the
-// order among several being a scheduling choice; then, once the definite work
-// has settled, the change conditions the state machines watch. A wait due after
-// the advance stays queued; nothing waiting is not an error. The executors'
-// budgets bound the run.
+// Advance moves the clock by duration seconds, running everything due on the way
+// instant by instant; a wait due later stays queued and nothing waiting is no error.
 func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
 	defer ctx.beginExecutorRun(&ctx.clockRun)()
 
@@ -107,10 +103,8 @@ func (ctx *Context) advanceToNextDue() bool {
 	return true
 }
 
-// runDue runs the executors with work due at the current instant until none is
-// left, several due at once being a due-order choice. A driver — an executor
-// whose own run is driving the clock — is not run here: runDue returns true as
-// soon as the choice falls on it, leaving it its turn.
+// runDue runs the executors due at the current instant until none is left; it
+// returns true instead of running the driver once the due-order choice falls on it.
 func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, error) {
 	for rounds := int64(0); ; rounds++ {
 		if rounds >= ctx.maxStateEvents {

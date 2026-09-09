@@ -15,9 +15,8 @@ import (
 // is expressed in seconds before it is scheduled.
 const secondFQN = "SI::s"
 
-// Clock is the simulation time every executor of one context shares: the
-// current instant, in seconds, and the executors it drives, whose waits — a
-// transition's timer, a token's accept — it reads in due order.
+// Clock is the simulation time every executor of one context shares: the current
+// instant in seconds and the executors whose waits it reads in due order.
 type Clock struct {
 	now     float64
 	waiters []clockWaiter
@@ -92,9 +91,8 @@ func (ctx *Context) Clock() *Clock {
 	return &ctx.clock
 }
 
-// dueInstant is the instant a time trigger comes due at: `after d` counts from
-// now and refuses a negative delay; `at t` names an instant, one already past
-// coming due now, as TriggerAt fires once the clock has reached its instant.
+// dueInstant is when a time trigger comes due: `after d` counts from now (a
+// negative delay is refused); `at t` is taken as read, one already past due now.
 func (ctx *Context) dueInstant(t *ast.TimeEvent, val Value, what string) (float64, error) {
 	magnitude, err := ctx.timeMagnitude(val, what)
 	if err != nil {

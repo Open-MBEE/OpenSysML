@@ -161,9 +161,8 @@ func (s *scheduler) pick(n int) int {
 	return s.rng.IntN(n)
 }
 
-// pickDue chooses which of n executors due at one instant, given in creation
-// order, runs first: the last created by default, as the token order is reversed;
-// the first under declared; a draw under a seed.
+// pickDue chooses which of n executors due at one instant (in creation order)
+// runs first: the last by default, the first under declared, a draw under a seed.
 func (s *scheduler) pickDue(n int) int {
 	if n < 2 {
 		return 0

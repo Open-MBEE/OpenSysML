@@ -360,12 +360,8 @@ type Behavior struct {
 	Performer []string
 }
 
-// RunFor starts the actions and state machines named, in that order, then
-// advances the clock they share by duration once, which is `%action`/`%state`
-// for each followed by one `%advance`. One verdict is returned per behavior, in
-// the order named: an action holds when it completed within the time and is
-// unresolved otherwise; a state machine reports the configuration it settled in.
-// The last action and state machine named remain the session's debuggers.
+// RunFor starts the behaviors named, advances their shared clock by duration once
+// and returns one verdict per behavior (an action holds when it completed in time).
 func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict {
 	s.mu.Lock()
 	defer s.mu.Unlock()

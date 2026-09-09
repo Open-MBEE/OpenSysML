@@ -664,9 +664,8 @@ func dueOrderChoices(t *testing.T, policy SchedulePolicy, machines int) []Choice
 	return ctx.Choices()
 }
 
-// Executors due at one instant of the shared clock are a choice point: the
-// default runs the last created first, `declared` the first, and a seed draws;
-// a single executor due is no choice and is not reported.
+// Executors due at one instant are a choice point (last created first by default,
+// first under `declared`, a draw under a seed); one executor due is no choice.
 func TestDueOrderChoice(t *testing.T) {
 	if choices := dueOrderChoices(t, DefaultSchedulePolicy, 1); len(choices) != 0 {
 		t.Errorf("one machine due: choices = %v, want none", choices)

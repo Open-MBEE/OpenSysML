@@ -1934,10 +1934,8 @@ func (e *StateExecutor) RunToQuiescence() error {
 	return e.run(true)
 }
 
-// run is the run-to-completion loop. With atCurrentTime set, the clock is held
-// where it is; otherwise, once nothing is due, the clock is advanced to the
-// earliest wait — whoever holds it — and whatever else comes due there runs
-// too, the order among several being a scheduling choice.
+// run is the run-to-completion loop; atCurrentTime holds the clock, otherwise
+// once nothing is due it advances to the earliest wait, running whatever is due there.
 func (e *StateExecutor) run(atCurrentTime bool) error {
 	var progress dueProgress
 	return e.runCounting(atCurrentTime, &progress)
@@ -2034,10 +2032,8 @@ func (e *StateExecutor) runDue(progress *dueProgress) (bool, error) {
 func (e *StateExecutor) finished() bool { return e.state == StateCompleted }
 func (e *StateExecutor) running() bool  { return e.inRun }
 
-// runStep is one run-to-completion step: every active state's do behavior
-// advances by one action, a change condition risen is taken, else the next due
-// event is dispatched. It reports false when nothing was left to do at the
-// current instant, and counts what it did against the budgets.
+// runStep is one run-to-completion step (a do round, a risen change condition,
+// else the next due event); false when nothing was left to do at this instant.
 func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
 	maxStateEvents, maxDoSteps := e.ctx.maxStateEvents, e.ctx.maxDoSteps
 	ran, err := e.runDoRound()
@@ -2942,9 +2938,8 @@ func (e *StateExecutor) NextWait() (float64, bool) {
 	return e.eventQueue.Peek().Timestamp, true
 }
 
-// Release lets go of a machine its driver is done with: the clock drives it no
-// further, so its timers and the signals it would take are left to the others.
-// Safe to call more than once.
+// Release withdraws a machine its driver is done with from the clock; safe to
+// call more than once.
 func (e *StateExecutor) Release() {
 	e.ctx.clock.detach(e)
 }
@@ -2985,11 +2980,8 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // advances by one action, then the next event is dispatched. Advancing the do
 // behaviors is progress in itself, so a step that ran one and found no event to
 // dispatch succeeds — the completion transition it enables is queued next.
-//
-// When nothing is due at the current instant but a timer of this machine is
-// running, the shared clock is advanced to the earliest wait on it — whatever
-// else is due there, in another executor of the context, runs by the
-// scheduling policy — until this machine's next event is due.
+// With nothing due but a timer running, the shared clock advances to the earliest
+// wait (running whatever else is due there) until this machine's next event is due.
 func (e *StateExecutor) ProcessNextEvent() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
@@ -3026,9 +3018,8 @@ func (e *StateExecutor) ProcessNextEvent() error {
 	}
 }
 
-// awaitClock lets the executors due at this instant run, then moves the clock
-// to the earliest wait on it, until this machine has work due. It returns with
-// nothing due only when no wait is left on the clock.
+// awaitClock runs what is due, then moves the clock to the earliest wait, until
+// this machine has work due; nothing due only when no wait is left on the clock.
 func (e *StateExecutor) awaitClock(progress *dueProgress) error {
 	for {
 		if _, err := e.ctx.runDue(e, progress); err != nil {

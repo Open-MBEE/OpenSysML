@@ -7530,10 +7530,8 @@ func testFlowFromANodeThatProducedNothing(t *testing.T) {
 	}
 }
 
-// testActionAcceptTimeWaits: an action's `accept after`/`accept at` waits on
-// the context's clock. Run to completion, the clock advances to the instant;
-// an instant already past fires at once without the clock moving back; a
-// negative delay and an argument of another dimension are refused as typed errors.
+// testActionAcceptTimeWaits: an action's `accept after`/`accept at` waits on the
+// context's clock; a past instant fires at once, bad arguments are typed errors.
 func testActionAcceptTimeWaits(t *testing.T) {
 	run := func(t *testing.T, trigger string) (map[string]Value, *Context, error) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
@@ -7599,11 +7597,8 @@ func testActionAcceptTimeWaits(t *testing.T) {
 	})
 }
 
-// testClockAdvance: advancing the context's clock is bounded and total. Zero
-// moves nothing and fires nothing; nothing waiting is not an error; a wait due
-// after the advance stays queued and the executor holding it reports that it
-// waits on the clock rather than a deadlock; a negative advance is refused; a
-// machine that never settles is stopped by the event budget, which names itself.
+// testClockAdvance: advancing the context's clock is bounded and total — zero,
+// nothing waiting, a wait beyond the advance, a negative advance, a budget stop.
 func testClockAdvance(t *testing.T) {
 	newRun := func(t *testing.T) (*Context, *ActionExecutor, *symbols.Scope) {
 		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `

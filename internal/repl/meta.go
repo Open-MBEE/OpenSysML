@@ -3171,10 +3171,8 @@ func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
 	return lines, false, nil
 }
 
-// advanceBy advances the clock of the debugging sessions' runtime context by
-// duration, running everything due along the way, and reports a failed event,
-// do behavior or action step as an error alongside the choice summary of what
-// ran before it. A drain a budget cut short is reported, not an error.
+// advanceBy advances the debuggers' runtime clock by duration and reports what
+// ran; a failed step is an error, a budget stop part of the report.
 func (s *Session) advanceBy(duration float64) ([]string, error) {
 	if s.actionExec == nil && s.stateExec == nil {
 		return nil, errors.New(noSessionText("debugging session", s.mostRecentlyEnded(), ""))
@@ -3258,9 +3256,8 @@ func (o advanceOutcome) idle() bool {
 	return o.report.Events == 0 && o.report.DoSteps == 0 && o.report.Steps == 0
 }
 
-// advanceContexts advances each context's clock by duration. A failed event,
-// do behavior or action step is returned as the error, with the choice summary
-// of what ran before it; a budget stop is part of the outcome.
+// advanceContexts advances each context's clock by duration; a failed step is
+// the error, with the choice summary of what ran before it.
 func (s *Session) advanceContexts(contexts []*runtime.Context, duration float64) (advanceOutcome, []string, error) {
 	var moved advanceOutcome
 	for i, ctx := range contexts {
@@ -3311,9 +3308,8 @@ func actionStatusLines(action *runtime.ActionExecutor) []string {
 	return out
 }
 
-// advanceReportLines report what a drain ran across every executor of the
-// contexts moved: the choices drawn, the do and action steps taken, signals
-// dropped, the budget that stopped it and what is left waiting on the clock.
+// advanceReportLines report what the drain ran: choices, do and action steps,
+// dropped signals, the budget that stopped it and what still waits on the clock.
 func (s *Session) advanceReportLines(moved advanceOutcome, contexts []*runtime.Context) []string {
 	out := s.noteSummary(moved.report.Notes, 0)
 	if moved.report.DoSteps > 0 {

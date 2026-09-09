@@ -390,10 +390,7 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 // whose every remaining token is parked at an accept for a message can never be
 // resumed: the suspension is a deadlock and is reported as ErrAcceptDeadlock at
 // the first step that makes no progress. A token parked on the clock is resumed
-// by advancing it to the instant it waits for — whatever else is due there,
-// in another executor of the context, runs too. A parked action therefore
-// cannot spend the step budget spinning — the budget is only consumed by steps
-// that move something.
+// by advancing it to its instant, running whatever else is due there too.
 func (e *ActionExecutor) RunToCompletion() error {
 	return e.run(false)
 }
@@ -462,10 +459,8 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	return nil
 }
 
-// awaitClock lets the executors due at this instant run, then moves the clock
-// to the earliest wait, until a parked token of perf's flow (the action's for
-// nil) can proceed. It reports false when the clock cannot move, which leaves
-// the tokens where they are.
+// awaitClock runs what is due, then moves the clock to the earliest wait, until a
+// parked token of perf's flow (the action's for nil) can proceed; false if it cannot move.
 func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (bool, error) {
 	awaiting := e.awaiting
 	e.awaiting = perf
@@ -490,10 +485,8 @@ func (e *ActionExecutor) dueNow(perf *actionFrame) bool {
 }
 
 // RunToQuiescence runs the action until it completes, stops at a breakpoint, or
-// parks every remaining token at an accept, holding the clock where it is. A
-// parked action is quiescence rather than a deadlock: this is what an object
-// performing an action is run with, where a sibling object may still send the
-// awaited message, and advancing the clock ends a wait on it.
+// parks every remaining token at an accept, holding the clock where it is: for an
+// object's action a parked token is quiescence, not a deadlock.
 func (e *ActionExecutor) RunToQuiescence() error {
 	if err := e.run(true); err != nil && !errors.Is(err, ErrAcceptDeadlock) {
 		return err
@@ -1710,9 +1703,8 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 // triggerHolds reports whether the time or change event an accept waits for has
 // happened. A change event holds when its condition does, which every step
 // re-evaluates in the action's scope with its feature values over it — the same
-// polling a state machine's change transitions use. A time event holds once the
-// context's clock has reached its instant: reaching the accept sets the instant
-// (`after` counting from then) and parks the token on the clock until it comes.
+// polling a state machine's change transitions use. A time event parks the token
+// on the context's clock and holds once the clock has reached its instant.
 func (e *ActionExecutor) triggerHolds(token *Token, accept lower.Accept) (bool, error) {
 	frame := token.frame
 	switch t := accept.Trigger.(type) {
@@ -1823,9 +1815,8 @@ func (e *ActionExecutor) clockWaits() []ClockWait {
 	return waits
 }
 
-// dueWork reports a token that can move at this instant — one not parked, or one
-// parked whose instant has come or whose message is in flight — in the flow
-// awaiting the clock, the whole action's when none is.
+// dueWork reports a token that can move at this instant (not parked, due, or
+// with a message in flight) in the flow awaiting the clock, else the whole action's.
 func (e *ActionExecutor) dueWork() bool {
 	if e.released || (e.state != StateRunning && e.state != StateWaiting) {
 		return false
