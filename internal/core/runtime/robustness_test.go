@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
@@ -386,6 +387,9 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("verification_subcase_that_cannot_run", testVerificationSubcaseThatCannotRun)
 	t.Run("verification_of_a_symbol_that_is_not_a_case", testVerificationOfASymbolThatIsNotACase)
 	t.Run("verification_with_an_argument_the_case_does_not_take", testVerificationWithAnArgumentTheCaseDoesNotTake)
+	t.Run("verification_objective_subject_of_another_type", testVerificationObjectiveSubjectOfAnotherType)
+	t.Run("verification_objective_subject_left_unbound", testVerificationObjectiveSubjectLeftUnbound)
+	t.Run("verification_objective_subject_rebound", testVerificationObjectiveSubjectRebound)
 	t.Run("trade_study_with_an_abstract_evaluation_function", testTradeStudyWithAnAbstractEvaluationFunction)
 	t.Run("trade_study_whose_evaluation_fails_for_one_alternative", testTradeStudyWhoseEvaluationFailsForOneAlternative)
 	t.Run("trade_study_with_an_empty_subject", testTradeStudyWithAnEmptySubject)
@@ -12587,6 +12591,138 @@ func testVerificationWithAnArgumentTheCaseDoesNotTake(t *testing.T) {
 	_, err := ctx.RunVerification(lookupOne(t, idx, "test::stepping"), args, scope, nil)
 	if !errors.Is(err, ErrUnknownParameter) {
 		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	}
+}
+
+// verificationObjectiveModel states a verification case whose objective is a
+// requirement on a Rover while the case verifies a Lander, and one that
+// verifies nothing bound.
+const verificationObjectiveModel = `
+	package test {
+		private import ScalarValues::*;
+		part def Lander { attribute touchdownSpeed : Real; }
+		part def Rover { attribute touchdownSpeed : Real; }
+		part scout : Lander { attribute :>> touchdownSpeed = 1.2; }
+
+		requirement def SoftRoving {
+			subject rover : Rover;
+			in attribute limit : Real default = 1.5;
+			require constraint { rover.touchdownSpeed <= limit }
+		}
+
+		verification def RoverCheck {
+			subject lander : Lander;
+			in attribute limit : Real = 1.5;
+			objective : SoftRoving { in limit = limit; }
+			VerificationCases::PassIf(lander.touchdownSpeed <= limit)
+		}
+		verification checkRover : RoverCheck { subject lander = scout; }
+		verification checkNothing : RoverCheck;
+	}
+`
+
+// testVerificationObjectiveSubjectOfAnotherType: the case's subject, a Lander, is
+// what the library binds the objective's subject to, so a requirement wanting a
+// Rover leaves the objective undecided by a typed mismatch naming both types,
+// while the body still answers.
+func testVerificationObjectiveSubjectOfAnotherType(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationObjectiveModel))
+	scope := idx.DocumentRoot("<test>")
+	result, err := ctx.RunVerification(lookupOne(t, idx, "test::checkRover"), AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want the body's verdict", err)
+	}
+	if result.Verdict.Kind != VerdictPass {
+		t.Fatalf("verdict = %q (%s), want pass", result.Verdict.Kind, result.Verdict.Detail)
+	}
+	if len(result.Run.Verdicts) != 1 || result.Run.Verdicts[0].Status != VerdictUndecided {
+		t.Fatalf("verdicts = %+v, want the objective undecided", result.Run.Verdicts)
+	}
+	detail := result.Run.Verdicts[0].Detail
+	for _, want := range []string{"subject rover", "case's subject", "VerificationCases::VerificationCase::obj", ErrTypeMismatch.Error(), "Lander", "is not a Rover"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("detail %q does not say %q", detail, want)
+		}
+	}
+	if strings.Contains(detail, "Cases::Case::obj") || strings.Contains(detail, "result") {
+		t.Errorf("detail %q reports the analysis case's default, not the verification's binding", detail)
+	}
+}
+
+// testVerificationObjectiveSubjectLeftUnbound: a verification binding no subject
+// is refused by the typed error naming the verification's subject, not the
+// objective's, on the run surface as on the verdict surface.
+func testVerificationObjectiveSubjectLeftUnbound(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, verificationObjectiveModel))
+	scope := idx.DocumentRoot("<test>")
+	sym := lookupOne(t, idx, "test::checkNothing")
+	_, err := ctx.RunAnalysis(sym, AnalysisArgs{}, scope, nil)
+	var unbound *UnboundSubjectError
+	if !errors.As(err, &unbound) {
+		t.Fatalf("RunAnalysis error = %v, want an UnboundSubjectError", err)
+	}
+	if unbound.Kind != "verification" || unbound.Element != "test::checkNothing" || unbound.Subject != "lander" {
+		t.Errorf("error names %s %s: %s, want verification test::checkNothing: lander", unbound.Kind, unbound.Element, unbound.Subject)
+	}
+	result, err := ctx.RunVerification(sym, AnalysisArgs{}, scope, nil)
+	if err != nil {
+		t.Fatalf("RunVerification error = %v, want an error verdict", err)
+	}
+	if result.Verdict.Kind != VerdictError || result.Verdict.Detail != unbound.Error() {
+		t.Errorf("verdict = %q (%s), want error carrying %q", result.Verdict.Kind, result.Verdict.Detail, unbound.Error())
+	}
+}
+
+// testVerificationObjectiveSubjectRebound: the library binds a verification
+// objective's subject with `=`, so a usage binding it itself is refused by the
+// constraint tier, whichever way it names the subject.
+func testVerificationObjectiveSubjectRebound(t *testing.T) {
+	const src = `
+		package test {
+			private import ScalarValues::*;
+			part def Lander { attribute touchdownSpeed : Real; }
+			part scout : Lander { attribute :>> touchdownSpeed = 1.2; }
+			part other : Lander { attribute :>> touchdownSpeed = 1.3; }
+
+			requirement def SoftLanding {
+				subject lander : Lander;
+				require constraint { lander.touchdownSpeed <= 1.5 }
+			}
+
+			verification def Named {
+				subject lander : Lander;
+				objective : SoftLanding { subject lander = other; }
+				VerificationCases::PassIf(lander.touchdownSpeed <= 1.5)
+			}
+			verification def Anonymous {
+				subject lander : Lander;
+				objective : SoftLanding { subject = other; }
+				VerificationCases::PassIf(lander.touchdownSpeed <= 1.5)
+			}
+			verification def Redefining {
+				subject lander : Lander;
+				objective : SoftLanding { subject :>> subj = other; }
+				VerificationCases::PassIf(lander.touchdownSpeed <= 1.5)
+			}
+		}
+	`
+	file := parseAndBuild(t, src)
+	idx := libs.NewModelIndex()
+	idx.AddDocument("<test>", file)
+	idx.ExpandWildcardImports()
+	var refusals []string
+	for _, d := range passes.Analyze("<test>", file, nil, idx) {
+		if d.Code == "feature-value-overriding" && d.Severity == passes.SeverityError {
+			refusals = append(refusals, d.Message)
+		}
+	}
+	if len(refusals) != 3 {
+		t.Fatalf("got %d refusals, want one per rebinding: %v", len(refusals), refusals)
+	}
+	for _, msg := range refusals {
+		if !strings.Contains(msg, "cannot override the binding value of VerificationCases::VerificationCase::obj::subj") {
+			t.Errorf("refusal %q does not name the library's binding", msg)
+		}
 	}
 }
 

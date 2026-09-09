@@ -1,0 +1,9 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkScout",
+  "verdict": "fail",
+  "verdicts": {
+    "obj": "not satisfied"
+  }
+}
