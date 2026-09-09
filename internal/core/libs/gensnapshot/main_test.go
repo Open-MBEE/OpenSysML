@@ -72,6 +72,19 @@ func TestRunReportsAnUnwritableOutput(t *testing.T) {
 	}
 }
 
+func TestRunPrintsUsageForHelp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-h"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("run -h = %d, want 0", code)
+	}
+	if !strings.Contains(stderr.String(), "Usage of gensnapshot:") || !strings.Contains(stderr.String(), "-check") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("help should write nothing to stdout, got %q", stdout.String())
+	}
+}
+
 func TestRunRejectsAnUnknownFlag(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-bogus"}, &stdout, &stderr); code != 2 {

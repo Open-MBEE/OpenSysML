@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -22,7 +23,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	out := flags.String("out", "stdlib.snapshot", "file to write the snapshot to")
 	check := flags.Bool("check", false, "fail if the file differs from a fresh snapshot instead of writing it")
-	if err := flags.Parse(args); err != nil {
+	if err := flags.Parse(args); errors.Is(err, flag.ErrHelp) {
+		return 0
+	} else if err != nil {
 		return 2
 	}
 
