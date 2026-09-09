@@ -187,8 +187,8 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   compatibility breaks by the letter and are corrections: a collection body whose result type does
   not fit the receiving feature (`accept when counts.{in n : Integer; n}`, `attribute i : Integer =
   xs.{ in x : C; 1.5 }`) is now refused where 0.6.0 let an ill-typed model through, and the golden
-  execution traces gained choice-point lines and a step boundary at synchronized joins (one lost a
-  duplicated guard evaluation) — debug output only; no `.expected.json` schema and no `-json` report
+  execution traces gained choice-point lines and a step boundary at synchronized joins, which
+  renumbers the steps after it — debug output only; no `.expected.json` schema and no `-json` report
   shape changed, so a 0.6.0 checkout re-running `-update-traces` sees those lines and nothing else.
 
 - **Pull requests run one CI, GitHub Actions; CircleCI runs on `main` and tags.** The CircleCI `build-test` workflow is filtered to `main`, so a pull request no longer runs the suite twice, and the checks that only CircleCI carried moved into the pull-request workflow: the protobuf lint and wire-compatibility check (against the branch the pull request merges into) join `Go static and integrity checks`, the documentation hygiene checks (`make docs-check`, `make man-check` and the census check) join `Documentation site`, the release-digest check and the check that the committed stubs are what buf generates join each client's job (the Python and Java stub checks were CircleCI-only), and `make conformance` with the `-transport grpc` run join the renamed `Conformance suite` job. Every stub check, in both configs, now also fails when a committed stub was deleted and regeneration brings it back.
