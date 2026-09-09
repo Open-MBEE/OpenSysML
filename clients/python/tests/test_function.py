@@ -74,10 +74,11 @@ def test_a_function_nested_in_a_sequence_or_array_decodes_in_place():
 
 
 def test_a_function_naming_no_calc_is_reported():
+    unnamed, unnamed_with_self = pb_fn(""), pb_fn("", 3)
     with pytest.raises(UnsupportedValueError, match="naming no calc"):
-        value_to_python(pb_fn(""))
+        value_to_python(unnamed)
     with pytest.raises(UnsupportedValueError, match="naming no calc"):
-        value_to_python(pb_fn("", 3))
+        value_to_python(unnamed_with_self)
 
 
 def test_a_function_survives_the_wire_bytes():
@@ -120,8 +121,9 @@ def test_a_function_is_sent_as_its_own_arm():
 
 def test_a_function_naming_no_calc_is_refused_before_it_is_sent():
     conn = make_connection(Mock(), CURRENT)
+    unnamed = Function("")
     with pytest.raises(UnsupportedValueError, match="naming no calc"):
-        conn._python_to_value(Function(""))
+        conn._python_to_value(unnamed)
 
 
 def test_a_function_is_not_sent_to_a_service_without_the_capability():
@@ -240,7 +242,6 @@ class TestFunctionsAgainstTheService:
         assert got == 8.0
 
     def test_a_function_naming_no_calc_of_the_model_is_refused(self):
+        arguments = [Function("Demo::Missing"), 2.0]
         with pytest.raises(ExecutionError):
-            self.conn.calc(
-                "Demo::fn", self.model.hash, arguments=[Function("Demo::Missing"), 2.0]
-            )
+            self.conn.calc("Demo::fn", self.model.hash, arguments=arguments)

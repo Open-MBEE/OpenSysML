@@ -16,8 +16,9 @@ def test_an_asserted_infinity_arm_is_the_unbounded_value():
 
 
 def test_a_denied_infinity_arm_is_malformed():
+    denied = sysml_pb2.Value(infinity=False)
     with pytest.raises(UnsupportedValueError):
-        value_to_python(sysml_pb2.Value(infinity=False))
+        value_to_python(denied)
 
 
 def test_a_denied_infinity_arm_nested_in_a_sequence_is_malformed():
