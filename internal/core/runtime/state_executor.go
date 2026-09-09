@@ -1969,16 +1969,18 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) e
 		// clock moves to the earliest wait and the order at that instant is drawn.
 		// Only a machine with a timer of its own running moves the clock; one with
 		// nothing to wait for has quiesced.
-		if _, err := e.ctx.runDue(e, progress); err != nil {
-			return err
-		}
-		for !e.dueWork() {
+		for {
+			before := *progress
+			if _, err := e.ctx.runDue(e, progress); err != nil {
+				return err
+			}
+			// What ran may have raised a change condition this machine watches: poll again.
+			if e.dueWork() || (e.watchesChange() && progress.moved(before)) {
+				break
+			}
 			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue() {
 				e.state = StateSuspended
 				return nil
-			}
-			if _, err := e.ctx.runDue(e, progress); err != nil {
-				return err
 			}
 		}
 	}

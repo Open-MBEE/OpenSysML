@@ -426,7 +426,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	for e.state == StateRunning || e.state == StateWaiting {
 		// Tokens parked on the clock alone: advancing it is what moves them; a run
 		// performing this action for a body pauses that body's run instead.
-		if e.state == StateWaiting && e.waitsOnClock(nil) && !e.dueNow(nil) {
+		if e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) {
 			if atCurrentTime {
 				return nil
 			}
@@ -480,7 +480,7 @@ func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (b
 		if _, err := e.ctx.runDue(e, progress); err != nil {
 			return false, err
 		}
-		if e.dueNow(perf) {
+		if e.canProceed(perf) {
 			return true, nil
 		}
 		if !e.ctx.advanceToNextDue() {
@@ -493,6 +493,35 @@ func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (b
 // proceed now: its instant has come, its message is in flight, or its performed action has work due.
 func (e *ActionExecutor) dueNow(perf *actionFrame) bool {
 	return e.hasDueTimeWait(perf) || e.hasPendingSignal(perf) || e.hasDueHeldRun(perf)
+}
+
+// canProceed reports whether a parked token of perf's flow (the action's for nil)
+// can proceed now: it is due, or the condition its accept waits on holds.
+func (e *ActionExecutor) canProceed(perf *actionFrame) bool {
+	return e.dueNow(perf) || e.changeWaitHolds(perf)
+}
+
+// changeWaitHolds reports a token of perf's flow (the action's for nil) parked at
+// an accept whose condition holds now; one the step cannot evaluate counts, so the step reports it.
+func (e *ActionExecutor) changeWaitHolds(perf *actionFrame) bool {
+	for i := range e.tokens {
+		token := &e.tokens[i]
+		if token.Wait == nil || token.Wait.Timed || token.Wait.Trigger == "" || !token.inFlowOf(perf) {
+			continue
+		}
+		usage, ok := token.Location.(*ast.Usage)
+		if !ok {
+			continue
+		}
+		accept, ok := e.graphOf(token.frame).Accepts[usage]
+		if _, isChange := accept.Trigger.(*ast.ChangeEvent); !ok || !isChange {
+			continue
+		}
+		if holds, err := e.triggerHolds(token, accept); err != nil || holds {
+			return true
+		}
+	}
+	return false
 }
 
 // hasDueHeldRun reports whether an action performed by the paused work of a token

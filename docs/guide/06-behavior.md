@@ -252,8 +252,9 @@ An advance runs what comes due in the order it comes due; at one instant, each e
 own work in the order it always has (a machine dispatches its due event and runs its do behavior,
 an action moves its tokens), and which *executor* goes first when several are due at the same
 instant is a *choice point* (below). Once the definite work at an instant has
-settled, the change conditions state machines watch (`accept when`) are polled, so a condition a
-token's assignment has just made true fires in the same advance. The advance stops early, saying
+settled, the change conditions state machines and action tokens watch (`accept when`) are polled,
+so a condition another executor has just made true fires at that instant — also for the executor
+driving the clock itself, and whatever timer it has waiting beside the condition. The advance stops early, saying
 so and how to raise the bound, when it exhausts the event, do-step or step budget
 ([environment](../reference/environment.md)); a wait due after the deadline stays queued and
 is listed under `Waiting on the clock`; an advance with nothing waiting just moves the clock.

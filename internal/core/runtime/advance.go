@@ -36,6 +36,11 @@ type dueProgress struct {
 	dropped []Dispatch
 }
 
+// moved reports whether p counts more than before did.
+func (p dueProgress) moved(before dueProgress) bool {
+	return p.events > before.events || p.doSteps > before.doSteps || p.steps > before.steps
+}
+
 // noteDispatch records a dispatched signal that fired nothing.
 func (p *dueProgress) noteDispatch(d Dispatch) {
 	if _, isSignal := d.Event.Payload.(Message); isSignal && !d.Fired {
@@ -109,15 +114,12 @@ func (ctx *Context) advanceToNextDue() bool {
 
 // runDue runs the executors due at the current instant until none is left; it
 // returns true instead of running the driver once the due-order choice falls on it.
+// Every run that gets anywhere counts against a budget, and one that does not
+// settles its executor, so the rounds are bounded by the budgets.
 func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, error) {
 	// settled: executors a run got nowhere with, due again only once another progresses.
 	settled := make(map[clockWaiter]bool)
-	for rounds := int64(0); ; rounds++ {
-		if rounds >= ctx.maxStateEvents {
-			return false, budgetExceeded(ErrStateEventLimitExceeded,
-				fmt.Sprintf("exceeded max events (%d rounds at t=%s; raise %s to allow more), possible non-terminating exchange between executors",
-					ctx.maxStateEvents, semantics.FormatReal(ctx.clock.now), MaxStateEventsEnvVar))
-		}
+	for {
 		due := ctx.dueWaiters(driver, settled)
 		if len(due) == 0 {
 			polled, err := ctx.pollWatching(driver, progress)
@@ -187,8 +189,9 @@ func (ctx *Context) dueWaiters(driver clockWaiter, settled map[clockWaiter]bool)
 	return due
 }
 
-// pollWatching runs the state machines watching a change condition once, in
-// creation order, and reports whether any of them dispatched an event.
+// pollWatching runs the executors watching a change condition once, in creation
+// order, and reports whether any of them got anywhere. The driver polls itself
+// once this returns, as its run is on the stack.
 func (ctx *Context) pollWatching(driver clockWaiter, progress *dueProgress) (bool, error) {
 	polled := false
 	for _, w := range slices.Clone(ctx.clock.waiters) {

@@ -8102,6 +8102,139 @@ func testClockAdvance(t *testing.T) {
 			t.Errorf("ticks = %v; want fewer than the %d steps of the budget", got, budgets.MaxActionSteps)
 		}
 	})
+	t.Run("event budget of one lets a lone action wake", func(t *testing.T) {
+		ctx, exec, _ := newRun(t)
+		budgets := ctx.Budgets()
+		budgets.MaxStateEvents = 1
+		if err := ctx.SetBudgets(budgets); err != nil {
+			t.Fatal(err)
+		}
+		report, err := ctx.Advance(10)
+		if err != nil {
+			t.Fatalf("Advance = %v (report %+v); want the wake of one action, which dispatches no state event, within the budget", err, report)
+		}
+		if report.Events != 0 {
+			t.Errorf("report.Events = %d; want none, an action step is no state event", report.Events)
+		}
+		if exec.State() != StateCompleted {
+			t.Errorf("state = %v; want Completed", exec.State())
+		}
+		if got := exec.Results()["done"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Errorf("done = %v; want 1", got)
+		}
+		if got := ctx.Clock().Now(); got != 10 {
+			t.Errorf("clock = %v; want 10", got)
+		}
+	})
+	t.Run("accept when beside a timer fires when another executor changes the value", func(t *testing.T) {
+		const model = `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				part def Worker {
+					attribute stage : Integer = 0;
+					exhibit state shift {
+						entry; then working;
+						state working { accept after 2 [s] then armed; }
+						state armed { entry assign stage := 1; accept after 1 [s] then later; }
+						state later { entry assign stage := 2; }
+					}
+				}
+				part worker : Worker;
+				action watcher {
+					attribute seen : Integer = -1;
+					attribute timed : Integer = -1;
+					first start;
+					fork split;
+					action quick accept when worker.stage > 0;
+					action noteQuick assign seen := worker.stage;
+					action slow accept after 6 [s];
+					action noteSlow assign timed := worker.stage;
+					join meet;
+					done;
+					succession first start then split;
+					succession first split then quick;
+					succession first split then slow;
+					succession first quick then noteQuick;
+					succession first noteQuick then meet;
+					succession first slow then noteSlow;
+					succession first noteSlow then meet;
+					succession first meet then done;
+				}
+				state lookout {
+					attribute seen : Integer = -1;
+					entry; then waiting;
+					state waiting {
+						accept when worker.stage > 0 then noticed;
+						accept after 6 [s] then late;
+					}
+					state noticed { entry assign seen := worker.stage; }
+					state late { entry assign seen := 100 + worker.stage; }
+				}
+			}`
+		// The change branch sees stage 1 at t=2 while the timer holds the run to t=6;
+		// seeing 2 means it was only re-tested once the timer woke the executor.
+		wantSeen := func(t *testing.T, what string, got Value) {
+			t.Helper()
+			if got.Kind != ValConst || got.Const.Int != 1 {
+				t.Errorf("%s saw stage %v; want 1, the value at the instant the condition rose", what, got)
+			}
+		}
+		t.Run("action driving the clock", func(t *testing.T) {
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+			action := findSymbolByName(idx.DocumentRoot("<test>"), "watcher", ast.DefAction)
+			out, err := ctx.ExecuteAction(action)
+			if err != nil {
+				t.Fatalf("ExecuteAction: %v", err)
+			}
+			wantSeen(t, "the accept when branch", out["seen"])
+			if got := out["timed"]; got.Kind != ValConst || got.Const.Int != 2 {
+				t.Errorf("the accept after branch saw stage %v; want 2 at t=6", got)
+			}
+			if got := ctx.Clock().Now(); got != 6 {
+				t.Errorf("clock = %v; want 6, where the timer branch woke", got)
+			}
+		})
+		t.Run("action driven by an advance", func(t *testing.T) {
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+			action := findSymbolByName(idx.DocumentRoot("<test>"), "watcher", ast.DefAction)
+			exec, err := ctx.CreateActionExecutor(action)
+			if err != nil {
+				t.Fatalf("CreateActionExecutor: %v", err)
+			}
+			if err := exec.RunToQuiescence(); err != nil {
+				t.Fatalf("RunToQuiescence: %v", err)
+			}
+			if _, err := ctx.Advance(3); err != nil {
+				t.Fatalf("Advance(3): %v", err)
+			}
+			wantSeen(t, "the accept when branch", exec.Results()["seen"])
+			if exec.State() == StateCompleted {
+				t.Error("the action completed before its timer branch was due")
+			}
+			if _, err := ctx.Advance(3); err != nil {
+				t.Fatalf("Advance(3): %v", err)
+			}
+			if exec.State() != StateCompleted {
+				t.Errorf("state = %v; want Completed once the timer branch woke", exec.State())
+			}
+		})
+		t.Run("state machine driving the clock", func(t *testing.T) {
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+			machine := findSymbolByName(idx.DocumentRoot("<test>"), "lookout", ast.DefState)
+			exec, err := ctx.CreateStateExecutor(machine)
+			if err != nil {
+				t.Fatalf("CreateStateExecutor: %v", err)
+			}
+			if err := exec.RunToCompletion(); err != nil {
+				t.Fatalf("RunToCompletion: %v", err)
+			}
+			wantSeen(t, "the change transition", exec.StateData()["seen"])
+			if got := ctx.Clock().Now(); got != 2 {
+				t.Errorf("clock = %v; want 2, the instant the condition rose", got)
+			}
+		})
+	})
 	t.Run("behaviors of an object that failed to start leave the clock", func(t *testing.T) {
 		ctx, _, err := instantiateWithLibraries(t, `
 			package test {
