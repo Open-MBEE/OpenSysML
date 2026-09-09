@@ -153,11 +153,13 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# ast/dump.go measures 21% though the parser's golden tests run 90% of it.
 	@# Instrumenting every package is too slow to combine with -race, which
 	@# make test above runs instead. -pgo=off as in make test.
+	@# -count=1: a replayed result carries zero blocks for the -coverpkg packages it does
+	@# not link, keyed to the sources of its own run, so they go stale as those change.
 	@# Tests that run a built command (internal/testutil/gobuild) instrument it and point
-	@# it at this directory; go test does not fold a child process's counters in itself.
+	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
 	@# -coverpkg repeats every block once per test binary; see the script's header.
