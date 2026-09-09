@@ -407,8 +407,9 @@ class ProtosTest {
     TransportException unmeasured =
         assertThrows(TransportException.class, () -> Protos.value(noMagnitude));
     assertTrue(unmeasured.getMessage().contains("no magnitude"), unmeasured.getMessage());
+    List<Long> twoWide = List.of(2L);
     List<Quantity> none = List.of();
-    assertThrows(IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(2L), none));
+    assertThrows(IllegalArgumentException.class, () -> new Value.TensorQuantityValue(twoWide, none));
   }
 
   private static org.openmbee.opensysml.proto.Value measurementRef(MeasurementRef.Builder ref) {

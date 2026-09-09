@@ -439,6 +439,40 @@ public sealed interface Value {
       }
       return hash;
     }
+
+    /** A hash consistent with {@link Value#sameValue}: values the model equates hash alike. */
+    private static int valueHash(Value value) {
+      if (Value.isEmpty(value)) {
+        return 0;
+      }
+      Number magnitude = onRealAxis(value);
+      if (magnitude != null) {
+        return Double.hashCode(magnitude.doubleValue() + 0.0);
+      }
+      if (value instanceof QuantityValue quantity) {
+        Optional<Quantity.UnitTerm> reduction = quantity.quantity().reduction();
+        if (reduction.isPresent()) {
+          return exponents(reduction.get()).hashCode();
+        }
+        return Double.hashCode(quantity.quantity().magnitude().doubleValue() + 0.0)
+            ^ quantity.quantity().unit().hashCode();
+      }
+      if (value instanceof MeasurementRefValue ref) {
+        return exponents(ref.reduction()).hashCode();
+      }
+      if (value instanceof EnumerationValue literal) {
+        return literal.literal().literalId().hashCode();
+      }
+      if (value instanceof SetValue
+          || value instanceof Sequence
+          || value instanceof ArrayValue
+          || value instanceof VectorValue
+          || value instanceof VectorQuantityValue
+          || value instanceof TensorQuantityValue) {
+        return value.getClass().hashCode();
+      }
+      return value.hashCode();
+    }
   }
 
   /**
@@ -670,7 +704,7 @@ public sealed interface Value {
     }
     BigInteger[] m = exactBaseMagnitude(a);
     BigInteger[] n = exactBaseMagnitude(b);
-    if (m != null && n != null) {
+    if (m.length != 0 && n.length != 0) {
       return m[0].multiply(n[1]).equals(n[0].multiply(m[1]));
     }
     return baseMagnitude(a) == baseMagnitude(b);
@@ -695,13 +729,16 @@ public sealed interface Value {
     return quantity.magnitude().doubleValue() * term.scaleNumerator() / term.scaleDenominator();
   }
 
-  /** The base magnitude as an exact numerator/denominator while an integer scales by whole factors. */
+  /**
+   * The base magnitude as an exact numerator/denominator while an integer scales by whole factors;
+   * empty otherwise.
+   */
   private static BigInteger[] exactBaseMagnitude(Quantity quantity) {
     Quantity.UnitTerm term = quantity.reduction().get();
     if (!(quantity.magnitude() instanceof Long magnitude)
         || !isWhole(term.scaleNumerator())
         || !isWhole(term.scaleDenominator())) {
-      return null;
+      return new BigInteger[0];
     }
     return new BigInteger[] {
       BigInteger.valueOf(magnitude).multiply(wholeOf(term.scaleNumerator())),
@@ -735,40 +772,6 @@ public sealed interface Value {
       }
     }
     return true;
-  }
-
-  /** A hash consistent with {@link #sameValue}: values the model equates hash alike. */
-  private static int valueHash(Value value) {
-    if (isEmpty(value)) {
-      return 0;
-    }
-    Number magnitude = onRealAxis(value);
-    if (magnitude != null) {
-      return Double.hashCode(magnitude.doubleValue() + 0.0);
-    }
-    if (value instanceof QuantityValue quantity) {
-      Optional<Quantity.UnitTerm> reduction = quantity.quantity().reduction();
-      if (reduction.isPresent()) {
-        return exponents(reduction.get()).hashCode();
-      }
-      return Double.hashCode(quantity.quantity().magnitude().doubleValue() + 0.0)
-          ^ quantity.quantity().unit().hashCode();
-    }
-    if (value instanceof MeasurementRefValue ref) {
-      return exponents(ref.reduction()).hashCode();
-    }
-    if (value instanceof EnumerationValue literal) {
-      return literal.literal().literalId().hashCode();
-    }
-    if (value instanceof SetValue
-        || value instanceof Sequence
-        || value instanceof ArrayValue
-        || value instanceof VectorValue
-        || value instanceof VectorQuantityValue
-        || value instanceof TensorQuantityValue) {
-      return value.getClass().hashCode();
-    }
-    return value.hashCode();
   }
 
   /**

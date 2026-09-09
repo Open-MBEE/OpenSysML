@@ -99,15 +99,14 @@ public final class ConnectTransport implements AutoCloseable {
     HttpResponse<byte[]> response;
     try {
       response = http.send(httpRequest, HttpResponse.BodyHandlers.ofByteArray());
-    } catch (HttpConnectTimeoutException e) {
-      throw new TransportException(method + " could not be called at " + baseUrl, e);
-    } catch (HttpTimeoutException e) {
-      // The service was reached and may still be running the call, so this is not UNAVAILABLE.
-      throw new TransportException(
-          StatusCode.DEADLINE_EXCEEDED,
-          method + " did not answer within " + requestTimeout + " at " + baseUrl,
-          e);
     } catch (IOException e) {
+      if (e instanceof HttpTimeoutException && !(e instanceof HttpConnectTimeoutException)) {
+        // The service was reached and may still be running the call, so this is not UNAVAILABLE.
+        throw new TransportException(
+            StatusCode.DEADLINE_EXCEEDED,
+            method + " did not answer within " + requestTimeout + " at " + baseUrl,
+            e);
+      }
       throw new TransportException(method + " could not be called at " + baseUrl, e);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
