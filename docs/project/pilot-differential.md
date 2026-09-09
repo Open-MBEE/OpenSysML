@@ -208,7 +208,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 367 files)
+## Results (pilot `2026-07`, 368 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -217,9 +217,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 50 | 4 | 6 | 0 | 0 | 4 | 6 |
 | `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
-| `examples` | 33 | 25 | 2 | 571 | 0 | 1 | 1 | 570 |
+| `examples` | 34 | 26 | 2 | 571 | 0 | 1 | 1 | 570 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **367** | **337** | **57** | **632** | **34** | **2** | **21** | **596** |
+| **Total** | **368** | **338** | **57** | **632** | **34** | **2** | **21** | **596** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -587,7 +587,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 21 / 57** |
+| overall: fully agreeing / only ours / our diagnostics | **338 / 21 / 57** |
 | only pilot | **596** |
 | pilot diagnostics | **632** |
 | severity-only | **2** |
@@ -685,6 +685,15 @@ are we. `%optimize` reports the same optima it did (`examples_test.go` carries n
 any more), and the `Only one objective is allowed` rows on the two lexicographic demos stay the
 reference's, adjudicated above. `fully agreeing`, `only ours` and `only pilot` do not move: the
 retired rows were agreement.
+
+### Analysis walkthrough round
+
+`examples/analysis-demo/lander.sysml` is one file added to the `examples` root, and it draws no
+diagnostic from either side: files 33 → **34** and fully agreeing 25 → **26** on the root,
+367 → **368** and 337 → **338** overall, with every diagnostic count unmoved. The model writes its
+timed transition in the full form (`transition first coasting accept after 5 [SI::s] then decelerating;`)
+because the pinned reference does not parse a target transition inside the body of its source state,
+and this implementation does not lower a sourceless target transition at the state machine's top level.
 
 ## Adjudications
 
