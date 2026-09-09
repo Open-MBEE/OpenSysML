@@ -240,7 +240,10 @@ A call fails in exactly one of two ways, and the distinction comes from the wire
 refused call is a `*StatusError` (`errors.Is(err, opensysml.CodeNotFound)`), while an answer that
 reports a failure is a `*FailureError` (`errors.Is(err, opensysml.ErrFailure)`). Syntax errors are
 neither: parsing broken source succeeds, and the errors show up in `Model.Diagnostics`. Likewise, a
-false verdict is an answer about the model, not an error.
+false verdict is an answer about the model, not an error. A trade study's `RunAnalysis` reports
+each alternative's evaluation in `Analysis.Evaluations` (`Selected()` for the one picked, resolved
+to its object by `Analysis.Instance`), and a run that fails part way is an `*AnalysisError` whose
+`Partial` keeps what it computed.
 
 [The Go package reference](../reference/api.md) documents the surface type by type, and
 [client/opensysml/README.md](https://github.com/Open-MBEE/OpenSysML/blob/main/client/opensysml/README.md)

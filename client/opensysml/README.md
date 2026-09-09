@@ -65,6 +65,27 @@ advertising `CapabilityVerificationVerdicts`. `Verification.Verifications`,
 several requirements, each `Verdict` in it carries only the cases of its own
 `RequirementID`.
 
+A trade study run through `RunAnalysis` reports each application of its
+`evaluationFunction` as an `Evaluation` in `Analysis.Evaluations`, in subject
+order, the alternative it scored an `InstanceID` that `Analysis.Instance`
+resolves; `Analysis.Selected()` is the one `selectOne` picked, and `Tied` marks
+another scoring the same. Reported by a service advertising
+`CapabilityCaseEvaluations`. A run that fails part way — an alternative it
+could not score — is an `*AnalysisError` whose `Partial` keeps the outputs and
+evaluations it made, every verdict undecided:
+
+```go
+analysis, err := client.RunAnalysis(ctx, model, "Trade::lightest")
+var failed *opensysml.AnalysisError
+if errors.As(err, &failed) {
+	analysis = failed.Partial // what the run computed before it failed
+}
+for _, e := range analysis.Evaluations {
+	alternative := analysis.Instance(e.Arguments[0].(opensysml.InstanceID))
+	// alternative.TypeSymbolID, e.Result or e.Error, e.Selected, e.Tied
+}
+```
+
 Queries are built from typed conditions rather than a string dialect, so an
 unsupported operator is a compile error rather than a refused call:
 
