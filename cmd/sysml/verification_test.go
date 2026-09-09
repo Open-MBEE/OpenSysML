@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -152,4 +153,62 @@ func TestVerificationVerdictsBesideRequirements(t *testing.T) {
 			t.Errorf("%s reports verdict %q, want %q", name, kinds[name], want)
 		}
 	}
+}
+
+// objectiveSubjectModel declares a verification whose objective is a requirement
+// on a Lander named differently from the verification's subject; the library
+// binds that subject to the verification's, so the objective decides.
+const objectiveSubjectModel = `package Ver {
+    private import ScalarValues::*;
+    part def Lander { attribute touchdownSpeed : Real; }
+    part scout : Lander { attribute :>> touchdownSpeed = 1.2; }
+    part heavy : Lander { attribute :>> touchdownSpeed = 1.6; }
+    requirement def SoftLanding {
+        subject lander : Lander;
+        in attribute limit : Real default = 1.5;
+        require constraint { lander.touchdownSpeed <= limit }
+    }
+    requirement softLanding : SoftLanding { subject lander = scout; }
+    verification def TouchdownCheck {
+        subject lander : Lander;
+        in attribute limit : Real = 1.5;
+        objective : SoftLanding { in limit = limit; verify softLanding; }
+        VerificationCases::PassIf(lander.touchdownSpeed <= limit)
+    }
+    verification checkScout : TouchdownCheck { subject lander = scout; }
+    verification checkHeavy : TouchdownCheck { subject lander = heavy; }
+    part context { assert satisfy softLanding by scout; }
+}`
+
+// TestVerificationObjectiveDecidesOnEverySurface checks that the objective of
+// a verification case decides against the verification's subject, agreeing
+// with the body's verdict under -analysis, and that -requirement and -satisfy
+// report the same body verdicts for the cases verifying the requirement.
+func TestVerificationObjectiveDecidesOnEverySurface(t *testing.T) {
+	binary := buildCLI(t)
+
+	scout := check(t, binary, objectiveSubjectModel, "-analysis", "Ver::checkScout")
+	wantReport(t, scout, 0,
+		"✓ Ver::checkScout", "result = VerdictKind::pass",
+		"objective obj: satisfied",
+		"✓ Verification Ver::checkScout verdict: pass")
+	heavy := check(t, binary, objectiveSubjectModel, "-analysis", "Ver::checkHeavy")
+	wantReport(t, heavy, 1,
+		"✗ Ver::checkHeavy", "result = VerdictKind::fail",
+		"objective obj: not satisfied: lander.touchdownSpeed <= limit",
+		"✗ Verification Ver::checkHeavy verdict: fail")
+	for _, got := range []runOutcome{scout, heavy} {
+		if out := got.output(); strings.Contains(out, "undecided") || strings.Contains(out, "Cases::Case::obj") {
+			t.Errorf("the objective did not decide against the verification's subject:\n%s", out)
+		}
+	}
+
+	wantReport(t, check(t, binary, objectiveSubjectModel, "-requirement", "Ver::softLanding"), 0,
+		"✓ Requirement Ver::softLanding satisfied",
+		"✓ Verification Ver::checkScout verdict: pass",
+		"✗ Verification Ver::checkHeavy verdict: fail")
+	wantReport(t, check(t, binary, objectiveSubjectModel, "-satisfy"), 0,
+		"✓ satisfy softLanding by scout holds",
+		"✓ Verification Ver::checkScout verdict: pass",
+		"✗ Verification Ver::checkHeavy verdict: fail")
 }
