@@ -714,10 +714,8 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 	})
 }
 
-// dispatchInOrder fires the candidates that survive conflict resolution one at a
-// time through fire, the policy drawing which reacts next among those still
-// active, and reports whether any fired. A region's reaction may leave another
-// candidate's leaf, so the draw is redone among the remaining ones each time.
+// dispatchInOrder fires the surviving candidates one at a time through fire, the
+// policy re-drawing among those still active since a reaction may leave a leaf.
 func (e *StateExecutor) dispatchInOrder(
 	candidates []dispatchCandidate,
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
