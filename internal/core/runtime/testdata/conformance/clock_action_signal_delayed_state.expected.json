@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::commander",
+  "outputs": {
+    "before": {"type": "Integer", "value": 0},
+    "after": {"type": "Integer", "value": 1}
+  }
+}

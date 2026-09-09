@@ -153,6 +153,65 @@ func TestRunActionExploreInstantiatesThePerformer(t *testing.T) {
 	}
 }
 
+// exploreLampSource has a machine and an action of one part due at one instant of
+// the clock they share, so which runs first is a choice point.
+const exploreLampSource = `
+package Shared {
+	private import SI::*;
+	private import ScalarValues::*;
+	part def Lamp {
+		attribute lit : Boolean = false;
+		exhibit state glow {
+			entry; then off;
+			state off { accept after 3 [s] then on; }
+			state on { entry assign lit := true; }
+		}
+		action peek {
+			attribute saw : Boolean = false;
+			first start;
+			then action wait accept after 3 [s];
+			then action look assign saw := lit;
+			then done;
+		}
+	}
+}
+`
+
+// RunFor under explore runs the behaviors named on one clock in every run, the
+// executors due together drawn in every order, and tables the joint outcome; both
+// behaviors performed by one declared part are performed by one object of it.
+func TestRunForExploresEveryDueOrder(t *testing.T) {
+	s := loadSource(t, exploreLampSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	peek := Behavior{Name: "Shared::Lamp::peek", Performer: []string{"Shared::Lamp"}}
+	glow := Behavior{Name: "Shared::Lamp::glow", Performer: []string{"Shared::Lamp"}}
+	verdicts := s.RunFor([]Behavior{peek}, []Behavior{glow}, 3)
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictHolds {
+		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
+	}
+	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"),
+		"✓ explored Shared::Lamp::peek, Shared::Lamp::glow: 2 outcomes",
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false | 1              | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true  | 1              | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
+		"complete (2 runs)")
+
+	// One behavior explored with a duration is its own outcome, as RunStateMachine tables it.
+	verdicts = s.RunFor(nil, []Behavior{glow}, 3)
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictHolds {
+		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
+	}
+	wants(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Shared::Lamp::glow: 1 outcome",
+		"finalState on; visits off, on | 1              | no choice points", "complete (1 runs)")
+
+	// A behavior that does not resolve is reported and nothing is explored.
+	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)
+	if len(verdicts) != 1 || verdicts[0].Status != VerdictUnresolved {
+		t.Fatalf("verdicts = %+v, want one unresolved", verdicts)
+	}
+}
+
 // %schedule explore is a typed error at the prompt, leaving the policy in force,
 // and a session set to explore programmatically refuses to start a debugger
 // while still answering %schedule.

@@ -348,25 +348,22 @@ func acceptingMachines(machines []*runtime.StateExecutor, msg runtime.Message) (
 // transition fired on; "" when one did, or when the step dispatched no signal.
 func droppedSignalNote(exec *runtime.StateExecutor) string {
 	d, ok := exec.LastDispatch()
-	if !ok || d.Fired {
+	if !ok {
 		return ""
 	}
+	return droppedDispatchNote(d)
+}
+
+// droppedDispatchNote is droppedSignalNote for one dispatch.
+func droppedDispatchNote(d runtime.Dispatch) string {
 	msg, isSignal := d.Event.Payload.(runtime.Message)
-	if !isSignal {
+	if !isSignal || d.Fired {
 		return ""
 	}
 	if d.Deferred {
 		return msg.SignalType + " was deferred by the active state, to be dispatched again once it leaves"
 	}
 	return msg.SignalType + " was consumed by no transition: since it was sent, the state or the data its guards read had changed"
-}
-
-// appendNote adds a note unless it is empty.
-func appendNote(notes []string, note string) []string {
-	if note == "" {
-		return notes
-	}
-	return append(notes, note)
 }
 
 // machineStates names each machine with the state it is in.

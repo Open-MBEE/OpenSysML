@@ -2342,6 +2342,11 @@ func (s *Session) doStep() ([]string, bool, error) {
 	// Step
 	noted := exec.NoteCount()
 	err := exec.Step()
+	if errors.Is(err, runtime.ErrNothingDue) {
+		out := []string{"Nothing to step: the action waits on the clock, which %step does not move"}
+		out = append(out, actionWaitLines(exec, s.actionExec.rtCtx)...)
+		return append(out, s.noteSummary(exec.Notes(), noted)...), false, nil
+	}
 	if err != nil {
 		out := []string{fmt.Sprintf("error: step failed: %v", err)}
 		return append(out, s.noteSummary(exec.Notes(), noted)...), false, nil
@@ -2539,6 +2544,7 @@ func (s *Session) doStop() ([]string, bool, error) {
 		s.actionExec = nil
 	} else if s.stateExec != nil {
 		sessionName = s.stateExec.name
+		s.stateExec.release()
 		s.stateExec = nil
 	}
 
@@ -2651,7 +2657,8 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 	}
 	exec.SetTrace(s.trace)
 
-	// Store session
+	// Store session, letting go of the one it replaces
+	s.stateExec.release()
 	s.stateExec = &stateSession{
 		name:     name,
 		fqn:      qualifiedOr(fqn, name),
@@ -2659,7 +2666,6 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 		symbol:   sym,
 		executor: exec,
 		rtCtx:    ctx,
-		now:      exec.CurrentTime(),
 	}
 	s.endedState = nil
 
@@ -2709,6 +2715,7 @@ func (s *Session) attachExhibitedMachine(
 ) []string {
 	behavior.State.SetTrace(s.trace)
 
+	s.stateExec.release()
 	s.stateExec = &stateSession{
 		name:      name,
 		fqn:       label,
@@ -2718,7 +2725,6 @@ func (s *Session) attachExhibitedMachine(
 		machine:   behavior.Name,
 		machineAt: exhibitedPosition(behavior),
 		rtCtx:     ctx,
-		now:       behavior.State.CurrentTime(),
 	}
 	s.endedState = nil
 
@@ -2933,7 +2939,6 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return "", fmt.Errorf("event processing failed: %w", err)
 		}
-		s.stateExec.now = math.Max(s.stateExec.now, exec.CurrentTime())
 		if note := droppedSignalNote(exec); note != "" {
 			return "Event dispatched, but " + note, nil
 		}
@@ -3113,8 +3118,8 @@ func (s *Session) doCurrent() ([]string, bool, error) {
 
 	out := []string{
 		fmt.Sprintf("Current state: %s", currentStateName(exec)),
-		"Time: " + semantics.FormatReal(s.stateExec.now),
-		"Last event at: " + semantics.FormatReal(exec.CurrentTime()),
+		"Time: " + semantics.FormatReal(exec.CurrentTime()),
+		"Last event at: " + semantics.FormatReal(exec.LastEventAt()),
 		fmt.Sprintf("Execution state: %s", exec.State()),
 	}
 
@@ -3191,123 +3196,260 @@ func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
 	return lines, false, nil
 }
 
-// advanceBy advances the debugged machine's simulation time by duration.
+// advanceBy advances the debuggers' runtime clock by duration and reports what
+// ran; a failed step is an error, a budget stop part of the report.
 func (s *Session) advanceBy(duration float64) ([]string, error) {
-	if s.stateExec == nil {
-		return nil, s.noStateSessionErr()
+	if s.actionExec == nil && s.stateExec == nil {
+		return nil, errors.New(noSessionText("debugging session", s.mostRecentlyEnded(), ""))
 	}
-	return s.advanceSession(s.stateExec, duration)
-}
-
-// advanceSession advances a machine's time by duration, reporting a failed
-// event or do behavior alongside the choices taken before it.
-func (s *Session) advanceSession(ss *stateSession, duration float64) ([]string, error) {
-	exec := ss.executor
-	deadline := ss.now + duration
-	// A machine already at quiescence — an object's, run when it was materialized —
-	// steps again once time makes its next event due.
-	exec.Resume()
-
-	// Bound the drain by the session's own budgets, so a machine that keeps
-	// queueing work cannot hang the REPL and the way to raise the bound is the
-	// same one the executors report.
-	maxEvents, maxDoActions := s.budgets.MaxStateEvents, s.budgets.MaxDoSteps
-	startTime := exec.CurrentTime()
-	noted := exec.NoteCount()
-	var processed, doActions int64
-	var dropped []string
-	for exec.State() == runtime.StateRunning &&
-		processed < maxEvents && doActions < maxDoActions {
-		// The poll comes first, and runs once more at quiescence, so a condition
-		// a do action has just made true is taken in this call.
-		if fired, err := exec.PollChangeEvents(); err != nil {
-			return s.noteSummary(exec.Notes(), noted), fmt.Errorf("change condition failed: %w", err)
-		} else if fired {
-			processed++
-			continue
-		}
-		if !exec.HasPendingWork() {
-			break
-		}
-		// A signal in flight is due now, whatever the deadline: dispatching it is
-		// the step RunToCompletion would take here.
-		if exec.HasPendingSignal() {
-			if err := exec.ProcessNextEvent(); err != nil {
-				return s.noteSummary(exec.Notes(), noted), fmt.Errorf("event processing failed: %w", err)
-			}
-			processed++
-			dropped = appendNote(dropped, droppedSignalNote(exec))
-			continue
-		}
-		if queue := exec.EventQueue(); queue.Len() == 0 || queue.Peek().Timestamp > deadline {
-			// Nothing to dispatch within the deadline, but a do behavior with
-			// actions left is due now, so run it and count it as do work.
-			if !exec.HasPendingDoWork() {
-				break
-			}
-			ran, err := exec.RunDoRound()
-			if err != nil {
-				return s.noteSummary(exec.Notes(), noted), fmt.Errorf("do behavior failed: %w", err)
-			}
-			if ran == 0 {
-				break
-			}
-			doActions += int64(ran)
-			continue
-		}
-		if err := exec.ProcessNextEvent(); err != nil {
-			return s.noteSummary(exec.Notes(), noted), fmt.Errorf("event processing failed: %w", err)
-		}
-		processed++
-		dropped = appendNote(dropped, droppedSignalNote(exec))
+	var state *runtime.StateExecutor
+	if s.stateExec != nil {
+		state = s.stateExec.executor
 	}
-	ss.now = math.Max(deadline, exec.CurrentTime())
+	var action *runtime.ActionExecutor
+	if s.actionExec != nil {
+		action = s.actionExec.executor
+	}
 
-	// A machine that took no step and has nowhere to go says why; one whose work
-	// is only due past the deadline still reports the drain and what is left.
-	if processed == 0 && doActions == 0 && !exec.HasPendingWork() {
-		out := []string{"No pending work - simulation time is now " + semantics.FormatReal(ss.now)}
-		if reason := exec.SuspendReason(); reason != "" {
-			out = append(out, fmt.Sprintf("  %s", reason))
+	// The two debuggers share one context unless a submission rebuilt it between
+	// starting them; each context's clock is advanced by the duration, and the
+	// header reports the state machine's, the action's own clock a line of its own.
+	contexts := distinctContexts(s.stateExec.contextOf(), s.actionExec.contextOf())
+	moved, out, err := s.advanceContexts(contexts, duration)
+	if err != nil {
+		return out, err
+	}
+
+	// Sessions that took no step and have nowhere to go say why; ones whose work
+	// is only due past the deadline still report the drain and what is left.
+	if moved.idle() && !s.debuggersHavePendingWork(contexts) {
+		out := []string{"No pending work - simulation time is now " + semantics.FormatReal(moved.report.To)}
+		out = append(out, s.separateActionClockLines(contexts, moved)...)
+		if state != nil {
+			if reason := state.SuspendReason(); reason != "" {
+				out = append(out, "  "+reason)
+			}
+		}
+		if action != nil && action.State() == runtime.StateWaiting {
+			out = append(out, actionWaitLines(action, s.actionExec.rtCtx)...)
 		}
 		return out, nil
 	}
 
+	out = []string{advancedHeader(moved.report)}
+	if state != nil {
+		out = append(out, stateStatusLines(state)...)
+	}
+	if action != nil {
+		out = append(out, actionStatusLines(action)...)
+	}
+	out = append(out, s.separateActionClockLines(contexts, moved)...)
+	out = append(out, s.advanceReportLines(moved, contexts)...)
+
+	if state != nil && state.State() == runtime.StateCompleted {
+		out = append(out, "", stateCompletedText)
+	}
+	if action != nil && action.State() == runtime.StateCompleted {
+		out = append(out, "", "✓ Action completed")
+		out = append(out, renderResults(s.actionExec.contextOf(), action.Results())...)
+	}
+	return out, nil
+}
+
+const stateCompletedText = "✓ State machine completed (a transition reached `done`)"
+
+// distinctContexts returns the contexts given, dropping none and repeats.
+func distinctContexts(contexts ...*runtime.Context) []*runtime.Context {
+	var distinct []*runtime.Context
+	for _, ctx := range contexts {
+		if ctx != nil && !slices.Contains(distinct, ctx) {
+			distinct = append(distinct, ctx)
+		}
+	}
+	return distinct
+}
+
+// advanceOutcome is what advancing the clock did: the drain summed over the contexts
+// moved (its instants the first's), each context's own report, and the budget that cut it short.
+type advanceOutcome struct {
+	report    runtime.AdvanceReport
+	byContext []runtime.AdvanceReport
+	stopped   error
+}
+
+// idle reports a drain that ran nothing.
+func (o advanceOutcome) idle() bool {
+	return o.report.Events == 0 && o.report.DoSteps == 0 && o.report.Steps == 0
+}
+
+// advanceContexts advances each context's clock by duration; a failed step is
+// the error, with the choice summary of what ran before it.
+func (s *Session) advanceContexts(contexts []*runtime.Context, duration float64) (advanceOutcome, []string, error) {
+	var moved advanceOutcome
+	for i, ctx := range contexts {
+		report, err := ctx.Advance(duration)
+		moved.byContext = append(moved.byContext, report)
+		if i == 0 {
+			moved.report.From, moved.report.To = report.From, report.To
+		}
+		moved.report.Events += report.Events
+		moved.report.DoSteps += report.DoSteps
+		moved.report.Steps += report.Steps
+		moved.report.Dropped = append(moved.report.Dropped, report.Dropped...)
+		moved.report.Notes = append(moved.report.Notes, report.Notes...)
+		if err != nil {
+			if !isBudgetStop(err) {
+				return moved, s.noteSummary(moved.report.Notes, 0), fmt.Errorf("advance failed: %w", err)
+			}
+			moved.stopped = err
+			break
+		}
+	}
+	return moved, nil, nil
+}
+
+// separateActionClockLines say where the action debugger's own clock went when
+// it runs in a context other than the state debugger's, whose clock the header reports.
+func (s *Session) separateActionClockLines(contexts []*runtime.Context, moved advanceOutcome) []string {
+	if len(contexts) < 2 {
+		return nil
+	}
+	own := "  The action runs in a context of its own, whose clock "
+	if len(moved.byContext) < 2 {
+		return []string{own + "stays at " + semantics.FormatReal(s.actionExec.rtCtx.Clock().Now()) + ": the advance stopped before reaching it"}
+	}
+	report := moved.byContext[1]
+	return []string{own + "advanced from " + semantics.FormatReal(report.From) + " to " + semantics.FormatReal(report.To)}
+}
+
+// advancedHeader is the first line of an advance that ran something.
+func advancedHeader(report runtime.AdvanceReport) string {
+	return fmt.Sprintf("✓ Advanced to %s (%d event(s) processed)", semantics.FormatReal(report.To), report.Events)
+}
+
+// stateStatusLines report where a machine stands after an advance.
+func stateStatusLines(state *runtime.StateExecutor) []string {
+	return []string{
+		fmt.Sprintf("  Current state: %s", currentStateName(state)),
+		"  Last event at: " + semantics.FormatReal(state.LastEventAt()),
+		fmt.Sprintf("  Remaining events: %d", state.EventQueue().Len()),
+	}
+}
+
+// actionStatusLines report where an action stands after an advance.
+func actionStatusLines(action *runtime.ActionExecutor) []string {
 	out := []string{
-		fmt.Sprintf("✓ Advanced to %s (%d event(s) processed)", semantics.FormatReal(ss.now), processed),
-		fmt.Sprintf("  Current state: %s", currentStateName(exec)),
-		"  Last event at: " + semantics.FormatReal(exec.CurrentTime()),
-		fmt.Sprintf("  Remaining events: %d", exec.EventQueue().Len()),
+		fmt.Sprintf("  Action state: %s", action.State()),
+		fmt.Sprintf("  Tokens: %d", len(action.Tokens())),
 	}
-	out = append(out, s.noteSummary(exec.Notes(), noted)...)
+	if node := action.PausedAt(); node != "" {
+		out = append(out, fmt.Sprintf("  ⏸ Paused at breakpoint %q", node))
+	}
+	return out
+}
 
-	if doActions > 0 {
-		out = append(out, fmt.Sprintf("  Do behavior actions run: %d", doActions))
+// advanceReportLines report what the drain ran: choices, do and action steps,
+// dropped signals, the budget that stopped it and what still waits on the clock.
+func (s *Session) advanceReportLines(moved advanceOutcome, contexts []*runtime.Context) []string {
+	out := s.noteSummary(moved.report.Notes, 0)
+	if moved.report.DoSteps > 0 {
+		out = append(out, fmt.Sprintf("  Do behavior actions run: %d", moved.report.DoSteps))
 	}
-	for _, note := range dropped {
-		out = append(out, "  "+note)
+	if moved.report.Steps > 0 {
+		out = append(out, fmt.Sprintf("  Action steps taken: %d", moved.report.Steps))
 	}
+	for _, d := range moved.report.Dropped {
+		if note := droppedDispatchNote(d); note != "" {
+			out = append(out, "  "+note)
+		}
+	}
+	out = append(out, s.budgetStopLines(moved.stopped, moved.report)...)
+	for _, ctx := range contexts {
+		out = append(out, clockWaitLines(ctx)...)
+	}
+	return out
+}
 
-	// A drain the bound cut short has work left, so say so rather than let it
-	// read as a machine that settled.
+// isBudgetStop reports an advance a budget cut short, which is a stop to
+// report rather than a failed run.
+func isBudgetStop(err error) bool {
+	return errors.Is(err, runtime.ErrStateEventLimitExceeded) ||
+		errors.Is(err, runtime.ErrDoStepLimitExceeded) ||
+		errors.Is(err, runtime.ErrActionStepLimitExceeded)
+}
+
+// budgetStopLines say which budget cut a drain short, so it does not read as a
+// machine that settled, and how to raise it.
+func (s *Session) budgetStopLines(stopped error, report runtime.AdvanceReport) []string {
 	switch {
-	case processed >= maxEvents:
-		out = append(out, fmt.Sprintf("  Stopped at the event budget (%d events; raise %s to allow more)",
-			maxEvents, runtime.MaxStateEventsEnvVar))
+	case errors.Is(stopped, runtime.ErrStateEventLimitExceeded):
+		out := []string{fmt.Sprintf("  Stopped at the event budget (%d events; raise %s to allow more)",
+			s.budgets.MaxStateEvents, runtime.MaxStateEventsEnvVar)}
 		// A drain that never advanced time is all at one instant — often a cycle
 		// of untriggered (completion) transitions, which no budget can drain.
-		if exec.State() == runtime.StateRunning && exec.CurrentTime() == startTime {
+		if report.To == report.From {
 			out = append(out, fmt.Sprintf("  All %d event(s) were processed at simulation time %s without advancing it; if the machine cycles through untriggered (completion) transitions, which re-fire immediately, no budget is large enough",
-				processed, semantics.FormatReal(startTime)))
+				report.Events, semantics.FormatReal(report.From)))
 		}
-	case doActions >= maxDoActions:
-		out = append(out, fmt.Sprintf("  Stopped at the do action budget (%d steps; raise %s to allow more)",
-			maxDoActions, runtime.MaxDoStepsEnvVar))
+		return out
+	case errors.Is(stopped, runtime.ErrDoStepLimitExceeded):
+		return []string{fmt.Sprintf("  Stopped at the do action budget (%d steps; raise %s to allow more)",
+			s.budgets.MaxDoSteps, runtime.MaxDoStepsEnvVar)}
+	case errors.Is(stopped, runtime.ErrActionStepLimitExceeded):
+		return []string{"  Stopped at the action step budget: " + stopped.Error()}
 	}
+	return nil
+}
 
-	if exec.State() == runtime.StateCompleted {
-		out = append(out, "", "✓ State machine completed (a transition reached `done`)")
+// debuggersHavePendingWork reports work the debugged executors still have, now
+// or once the clock reaches a wait on it.
+func (s *Session) debuggersHavePendingWork(contexts []*runtime.Context) bool {
+	if s.stateExec != nil && s.stateExec.executor.HasPendingWork() {
+		return true
 	}
+	if s.actionExec != nil && s.actionExec.executor.State() == runtime.StateRunning {
+		return true
+	}
+	for _, ctx := range contexts {
+		if len(ctx.Clock().Waits()) > 0 {
+			return true
+		}
+	}
+	return false
+}
 
-	return out, nil
+// clockWaitLines list what is left waiting on a context's clock, earliest first.
+func clockWaitLines(ctx *runtime.Context) []string {
+	waits := ctx.Clock().Waits()
+	if len(waits) == 0 {
+		return nil
+	}
+	out := []string{"  Waiting on the clock:"}
+	for _, w := range waits {
+		out = append(out, fmt.Sprintf("    t=%s: %s, %s", semantics.FormatReal(w.Due), w.Holder, w.What))
+	}
+	return out
+}
+
+// actionWaitLines say what a parked action's tokens wait for, and that %advance
+// moves the clock for those waiting on it.
+func actionWaitLines(exec *runtime.ActionExecutor, ctx *runtime.Context) []string {
+	out := tokenWaitLines(exec)
+	if next, ok := exec.NextWait(); ok {
+		now := ctx.Clock().Now()
+		out = append(out, fmt.Sprintf("  Use %%advance %s to move the clock from t=%s to the earliest wait",
+			semantics.FormatReal(next-now), semantics.FormatReal(now)))
+	}
+	return out
+}
+
+// tokenWaitLines list what each parked token of an action waits for.
+func tokenWaitLines(exec *runtime.ActionExecutor) []string {
+	var out []string
+	for _, token := range exec.Tokens() {
+		if token.Wait != nil {
+			out = append(out, fmt.Sprintf("  Token %d: %s", token.ID, token.Wait))
+		}
+	}
+	return out
 }

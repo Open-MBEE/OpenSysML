@@ -32,6 +32,8 @@ export const CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes";
 export const CAPABILITY_SET_VALUES = "set_values";
 /** A tensor quantity of any rank as `Value.tensor_quantity`, rather than an unsupported null. */
 export const CAPABILITY_TENSOR_VALUES = "tensor_values";
+/** `finalTime` on an execution response: the run's simulation clock when it ended, in seconds. */
+export const CAPABILITY_FINAL_TIME = "final_time";
 /** `ParseFileRequest.language`, which declares the language of inline content. */
 export const CAPABILITY_INLINE_LANGUAGE = "inline_language";
 /** `ParseFileRequest.strict_conformance`. */

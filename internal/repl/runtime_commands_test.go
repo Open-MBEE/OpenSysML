@@ -1058,3 +1058,72 @@ func TestStateDebuggerStepsThroughInheritedContent(t *testing.T) {
 	wants(t, run(t, s, "%advance 5"), "Current state: i2")
 	wants(t, run(t, s, "%current"), "one.hits = 1", "two.hits = 0", "Time: 5.0")
 }
+
+// An action parked at `accept after` waits on the session's clock: %step says
+// so instead of failing, and %advance moves the action and a state debugger in
+// the same context together, delivering the signal the action then sends.
+func TestAdvanceMovesActionAndStateDebuggersTogether(t *testing.T) {
+	s := loadFixture(t, "testdata/timed_action.sysml")
+
+	run(t, s, "%action pinger")
+	wants(t, run(t, s, "%step"), "✓ Step complete")
+	wants(t, run(t, s, "%step"),
+		"Nothing to step: the action waits on the clock",
+		"for the clock to reach t=5.0",
+		"Use %advance 5.0 to move the clock from t=0.0")
+
+	wants(t, run(t, s, "%state listener"), "Current state: idle", "Time: 0.0")
+
+	wants(t, run(t, s, "%advance 2"),
+		"Advanced to 2.0 (0 event(s) processed)",
+		"Current state: idle",
+		"Action state: Waiting",
+		"t=5.0: action pinger, accept after waiting since step 2")
+	wants(t, run(t, s, "%step"), "Use %advance 3.0 to move the clock from t=2.0")
+
+	wants(t, run(t, s, "%advance 3"),
+		"Advanced to 5.0 (1 event(s) processed)",
+		"Current state: pinged",
+		"Last event at: 5.0",
+		"Action state: Completed",
+		"Action steps taken: 4",
+		"count = 1")
+	wants(t, run(t, s, "%current"), "Time: 5.0")
+	wants(t, run(t, s, "%advance 1"), "No pending work - simulation time is now 6.0")
+}
+
+// A submission between starting the two debuggers leaves them in different
+// contexts, with a clock each: %advance moves both and reports each clock as
+// its own, the action's never as the state machine's.
+func TestAdvanceReportsSeparateDebuggerClocks(t *testing.T) {
+	s := loadFixture(t, "testdata/timed_action.sysml")
+
+	wants(t, run(t, s, "%state listener"), "Current state: idle", "Time: 0.0")
+	wants(t, run(t, s, "%advance 3"), "No pending work - simulation time is now 3.0")
+	if errs := errorDiagnostics(s.Submit("package Aside { part def Spare; }").Diagnostics); len(errs) > 0 {
+		t.Fatalf("submission has errors: %v", errs)
+	}
+	run(t, s, "%action pinger")
+	wants(t, run(t, s, "%step"), "✓ Step complete")
+
+	// The state machine's clock stands at 3.0, the action's at 0.0.
+	wants(t, run(t, s, "%advance 2"),
+		"Advanced to 5.0 (0 event(s) processed)",
+		"Current state: idle",
+		"Action state: Waiting",
+		"The action runs in a context of its own, whose clock advanced from 0.0 to 2.0",
+		"t=5.0: action pinger, accept after waiting since step 2")
+	wants(t, run(t, s, "%current"), "Time: 5.0")
+
+	// The action's clock reaches its wait; the signal it sends goes to its own
+	// context, where no listener runs, so the state machine stays idle.
+	wants(t, run(t, s, "%advance 3"),
+		"Advanced to 8.0 (0 event(s) processed)",
+		"Current state: idle",
+		"Action state: Completed",
+		"The action runs in a context of its own, whose clock advanced from 2.0 to 5.0",
+		"Action steps taken: 4")
+	wants(t, run(t, s, "%advance 1"),
+		"No pending work - simulation time is now 9.0",
+		"The action runs in a context of its own, whose clock advanced from 5.0 to 6.0")
+}

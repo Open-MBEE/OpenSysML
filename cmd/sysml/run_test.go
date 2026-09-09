@@ -835,13 +835,118 @@ func TestJSONLocatesADiagnosticInItsOwnFile(t *testing.T) {
 	}
 }
 
-// TestAdvanceWithoutStateMachine checks that -advance with nothing to run it for
+// TestAdvanceWithoutBehavior checks that -advance with nothing to run it for
 // is a misuse reported as such, rather than silently having no effect.
-func TestAdvanceWithoutStateMachine(t *testing.T) {
+func TestAdvanceWithoutBehavior(t *testing.T) {
 	binary := buildCLI(t)
 
-	wantReport(t, check(t, binary, behaviorModel, "-advance", "10"), 2, "-advance is the time a state machine runs for")
-	wantReport(t, check(t, binary, behaviorModel, "-advance", "10", "-constraint", "Mission::Fall"), 2, "name one, as -state")
+	wantReport(t, check(t, binary, behaviorModel, "-advance", "10"), 2, "-advance is the time a behavior runs for")
+	wantReport(t, check(t, binary, behaviorModel, "-advance", "10", "-constraint", "Mission::Fall"), 2, "name one, as -action <name> or -state <name>")
+}
+
+// timedBehaviorModel states an action parked on the clock that then signals a
+// machine, so -action and -state have one clock to share.
+const timedBehaviorModel = `package Timed {
+    private import ScalarValues::*;
+
+    item def Ping;
+
+    action pinger {
+        attribute count : Integer = 0;
+        first start;
+        then action wait accept after 5 [SI::s];
+        then action tick assign count := count + 1;
+        then send new Ping() to listener;
+        then done;
+    }
+
+    state listener {
+        entry; then idle;
+        state idle;
+        transition idle_pinged first idle accept Ping then pinged;
+        state pinged;
+    }
+}
+`
+
+// TestAdvanceRunsActionsAndStatesOnOneClock checks that -advance runs an action
+// for the simulated time asked for, on its own or with a machine that accepts
+// what the action sends, and reports an action the time did not complete.
+func TestAdvanceRunsActionsAndStatesOnOneClock(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-advance", "5"),
+		0, "✓ Advanced to 5.0", "Action state: Completed", "✓ Action completed", "count = 1")
+
+	short := check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-advance", "2")
+	wantReport(t, short, 2, "✓ Advanced to 2.0", "Action state: Waiting",
+		"stopped at Waiting at simulation time 2.0 without completing", "for the clock to reach t=5.0", "run it with -advance 5.0 or more")
+
+	both := check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-state", "Timed::listener", "-advance", "10")
+	wantReport(t, both, 0, "Started action executor", "Started state machine executor",
+		"✓ Advanced to 10.0 (1 event(s) processed)", "✓ Action completed", "count = 1",
+		"Current state: pinged", "Last event at: 5.0")
+
+	// Without -advance the action runs to completion on its own, moving the clock
+	// to its wait, and the machine only takes its initial transition.
+	wantReport(t, check(t, binary, timedBehaviorModel, "-action", "Timed::pinger", "-state", "Timed::listener"),
+		0, "✓ Action completed", "count = 1", "Current state: idle")
+}
+
+// dueTogetherModel has an action token and a state transition due at one instant
+// of the clock they share, so which runs first is a choice point.
+const dueTogetherModel = `package Due {
+    private import SI::*;
+    private import ScalarValues::*;
+
+    part def Beacon {
+        attribute lit : Boolean = false;
+        exhibit state blinking {
+            entry; then dark;
+            state dark { accept after 5 [s] then shining; }
+            state shining { entry assign lit := true; }
+        }
+    }
+
+    part beacon : Beacon;
+
+    action watcher {
+        attribute sawLit : Boolean = false;
+        first start;
+        then action wait accept after 5 [s];
+        then action look assign sawLit := beacon.lit;
+        then done;
+    }
+}
+`
+
+// TestExploreAdvanceRunsBehaviorsOnOneClock checks that -schedule explore with
+// -advance explores the behaviors named as one run on one clock: every order of
+// the executors due at one instant is a linearization, and the outcome of the
+// run is the outcomes of every behavior under its name.
+func TestExploreAdvanceRunsBehaviorsOnOneClock(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, dueTogetherModel, "-schedule", "explore", "-instantiate", "Due::beacon",
+		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "5")
+	wantReport(t, got, 0, "✓ explored Due::watcher, Due::Beacon::blinking: 2 outcomes",
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = false | 1              | t=5.0: action watcher first of action watcher, state machine blinking of object #1`,
+		`Due::Beacon::blinking finalState = "shining"; Due::Beacon::blinking visits = "dark, shining"; Due::watcher.sawLit = true  | 1              | t=5.0: state machine blinking of object #1 first of action watcher, state machine blinking of object #1`,
+		"complete (2 runs)")
+
+	// Advanced short of the instant, neither is due: one outcome, no choice, and
+	// the action that did not complete is the run's error.
+	short := check(t, binary, dueTogetherModel, "-schedule", "explore", "-instantiate", "Due::beacon",
+		"-action", "Due::watcher", "-state", "Due::Beacon::blinking Due::beacon", "-advance", "2")
+	wantReport(t, short, 2, "? explored Due::watcher, Due::Beacon::blinking: 1 outcome",
+		"action Due::watcher stopped at Waiting at simulation time 2.0 without completing", "no choice points", "complete (1 runs)")
+
+	// One behavior explored with -advance is its own outcome, as without -advance.
+	one := check(t, binary, timedBehaviorModel, "-schedule", "explore", "-action", "Timed::pinger", "-advance", "5")
+	wantReport(t, one, 0, "✓ explored Timed::pinger: 1 outcome", "count = 1 | 1              | no choice points", "complete (1 runs)")
+	both := check(t, binary, timedBehaviorModel, "-schedule", "explore", "-action", "Timed::pinger", "-state", "Timed::listener", "-advance", "10")
+	wantReport(t, both, 0, "✓ explored Timed::pinger, Timed::listener: 1 outcome",
+		`Timed::listener finalState = "pinged"; Timed::listener visits = "idle, pinged"; Timed::pinger.count = 1 | 1              | no choice points`)
 }
 
 // TestJSONWithoutCheck checks that -json alone is a misuse reported as such,

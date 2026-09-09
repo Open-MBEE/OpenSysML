@@ -408,13 +408,23 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     with. `explore` is refused with `ErrExploreUndriven`: an exploration replays whole runs over
     fresh contexts, so `Explore` drives it rather than one context running under it
   - `Schedule() SchedulePolicy` — The policy the next run resolves its choice points under
+  - `Clock() *Clock` — The simulation clock every executor of the context reads and waits on:
+    `Now()` its current instant in `SI::s`, `Waits()` every state timer and action `accept
+    after`/`accept at` registered on it in due order, `NextDue()` the earliest
+  - **`Advance(duration float64) (AdvanceReport, error)`** — Move the clock by `duration` seconds,
+    running every state event, action token, change-condition poll and do round that comes due
+    on the way, instant by instant, within the run budgets; executors due at one instant are
+    ordered by the scheduling policy and recorded as a `ChoiceDueOrder` choice point. A negative
+    or NaN duration is `ErrNegativeDuration`; zero dispatches what is already due. The report
+    counts the events, do steps and action steps run, the signals dropped and the notes recorded
   - `StateOutcomeWithEvents(sym *symbols.Symbol, events []string) (Outcome, error)` — Run a
     state machine on the events and answer its `Outcome`: the state it rests in, the states it
     entered and the values it holds
 
 - **`SchedulePolicy`** — How the executors resolve a run's choice points (several steppable
   tokens in one step, several holding guards at a decision, several enabled transitions for one
-  event; which same-step write to one feature stands follows from the token order). The zero
+  event, several executors due at one instant of the clock; which same-step write to one feature
+  stands follows from the token order). The zero
   value and `DefaultSchedulePolicy` are `reverse`, what every run did before policies were
   selectable; every `.expected.json` and `.trace.golden` recorded under it still holds
   - `ParseSchedulePolicy(spelling string) (SchedulePolicy, error)` — Read `declared`, `reverse`,
@@ -502,7 +512,7 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   - `StateStack() []*ast.StateNode` — Get active configuration (hierarchical states)
   - `StateData() map[string]Value` — Get state machine variables
   - `EventQueue() *EventQueue` — Get event queue
-  - `CurrentTime() float64` — Get simulation time
+  - `CurrentTime() float64` — Read the context's shared simulation clock (`Context.Clock().Now()`)
   - `State() ExecutionState` — Get execution state
   - `StateMachineSymbol() *symbols.Symbol` — Get state machine symbol
 

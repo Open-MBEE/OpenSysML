@@ -9,10 +9,11 @@ import (
 )
 
 // A run's choice points — several steppable tokens in one step, several holding
-// guards at a decision, several enabled transitions for one event — are resolved
-// by a scheduling policy; which of two same-step writes to one feature stands
-// follows from the token order it chose. The default is what the executors
-// always did; the others let a driver ask for another linearization of the run.
+// guards at a decision, several enabled transitions for one event, several
+// executors due at one instant of the clock — are resolved by a scheduling
+// policy; which of two same-step writes to one feature stands follows from the
+// token order it chose. The default is what the executors always did; the others
+// let a driver ask for another linearization of the run.
 
 // ErrInvalidSchedulePolicy is the typed error every unparseable policy spelling wraps.
 var ErrInvalidSchedulePolicy = errors.New("invalid scheduling policy")
@@ -283,6 +284,28 @@ func (s *scheduler) pick(n int) int {
 		}
 	}
 	return 0
+}
+
+// pickDue chooses which of n executors due at one instant (in creation order)
+// runs first: the last by default, the first under declared, a draw under a
+// seed, and the exploration's turn under explore.
+func (s *scheduler) pickDue(n int) int {
+	if n < 2 {
+		return 0
+	}
+	switch s.policy.kind {
+	case scheduleDeclared:
+		return 0
+	case scheduleSeeded:
+		return s.rng.IntN(n)
+	case scheduleExplore:
+		if s.explore != nil {
+			return s.explore.pick(n)
+		}
+		return 0
+	default:
+		return n - 1
+	}
 }
 
 // explorePick chooses one of n alternatives the tool otherwise takes in declaration

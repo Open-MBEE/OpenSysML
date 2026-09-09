@@ -957,6 +957,24 @@ repository ships gives exploration a method of its own. The policy is advertised
 `schedule_explore` capability beside `schedule`: a service withholding it refuses an
 `"explore…"` spelling with `UNIMPLEMENTED`.
 
+An action that waits on time — `accept after 5 [SI::s]`, or `accept at` an instant — runs on
+the simulation clock of its own run, which starts at 0 and advances to each instant a token
+waits for; the call answers once the action completes, and `finalTime` is the clock when it
+did, in seconds. It is omitted when the run ended at 0, so an action that never waited on time
+answers as before (captured for `action delayed { attribute count : Integer = 0; first start;
+then action wait accept after 5 [SI::s]; then action tick assign count := count + 1; then
+done; }`):
+
+```console
+$ … /ExecuteAction -d '{"modelHash":"70ee…0c59","actionSymbolId":"Test::delayed"}'
+{"outputs":{"count":{"intValue":"1"}},"finalTime":5}
+```
+
+The field is advertised as the `final_time` capability; a service withholding it answers
+without the field whatever the run waited on. The response has no field to bound the clock: a
+run goes as far as its waits require, and a machine that re-arms a timer forever ends at the
+event budget, as it does on the CLI without `-advance`.
+
 To report a decision's choice the engine reads the guards after the first holding one in a
 preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
 not an alternative and not an error — a guard with no result is not true, so its branch is not
@@ -1031,6 +1049,18 @@ so two runs resting in the same state by the same path with the same variables a
 ```console
 $ … /ExecuteState -d '{"modelHash":"81b1…73fc","stateMachineSymbolId":"Test::Hub","events":["Go"],"schedule":"explore"}'
 {"outcomes":[{"finalState":"A","statesVisited":["Idle","A"],"linearizations":1,"witness":["state Idle on accept Go -> 1->A"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 1->A)","span":{"file":"tally.sysml",…},"code":"choice-point"}]},{"finalState":"B","statesVisited":["Idle","B"],"linearizations":1,"witness":["state Idle on accept Go -> 2->B"],"diagnostics":[{"severity":"info","message":"choice point: state Idle on accept Go: transitions 1->A, 2->B (unordered; took 2->B)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+```
+
+`finalTime` is the machine's simulation clock when the run ended, in seconds from the 0 it
+started at: the clock advances to each time-triggered transition (`accept after`, `accept at`)
+the machine takes, and the field is omitted when it never moved. It is advertised as the
+`final_time` capability, as `ExecuteAction`'s is (captured for `state Timer { attribute fired :
+Integer = 0; entry; then armed; state armed; transition armed then done accept after 3 [SI::s]
+do assign fired := fired + 1; }`):
+
+```console
+$ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test::Timer"}'
+{"statesVisited":["armed","done"],"finalContext":{"fired":{"intValue":"1"}},"finalTime":3}
 ```
 
 ### `EvaluateCalc`

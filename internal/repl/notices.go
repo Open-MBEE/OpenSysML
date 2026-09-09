@@ -315,9 +315,14 @@ func (s *Session) noStateSessionMsg() string {
 // noDebugSessionMsg answers a command that would drive either debugger,
 // explaining whichever session ended most recently.
 func (s *Session) noDebugSessionMsg() string {
+	return noSessionMsg("debugging session", s.mostRecentlyEnded(), "")
+}
+
+// mostRecentlyEnded is the debugger session that ended last, nil when none did.
+func (s *Session) mostRecentlyEnded() *endedSession {
 	ended := s.endedAction
 	if s.endedState != nil && (ended == nil || s.endedState.version >= ended.version) {
 		ended = s.endedState
 	}
-	return noSessionMsg("debugging session", ended, "")
+	return ended
 }

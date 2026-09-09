@@ -1,0 +1,11 @@
+{
+  "type": "action",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::watcher",
+  "outcomes": [
+    {"outputs": {"armed": {"type": "Boolean", "value": true}, "sawLit": {"type": "Boolean", "value": true}}},
+    {"outputs": {"armed": {"type": "Boolean", "value": true}, "sawLit": {"type": "Boolean", "value": false}}}
+  ],
+  "admissible": "An action token and a state transition due at one instant: which runs first is open"
+}

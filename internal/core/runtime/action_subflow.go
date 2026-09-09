@@ -49,7 +49,9 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 // not a token of the enclosing flow, performs its node: the tokens of that flow
 // alone are stepped until its last one retires, pausing where a breakpoint is
 // met as RunToCompletion does. Nothing outside can post a message meanwhile, so
-// a token parked at an accept is a deadlock, as under RunToCompletion.
+// a token parked at an accept for one is a deadlock, as under RunToCompletion;
+// one parked on the clock pauses the body's run until the clock is advanced to its
+// instant; a run not pausable (a case body's) advances the clock itself, as RunToCompletion does.
 func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 	node := perf.node
 	if perf.graph == nil || perf.graph.Initial == nil {
@@ -67,9 +69,10 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(name)
 	}
+	var progress dueProgress
 	for perf.live > 0 {
 		if name := e.breakpointHit(); name != "" {
-			if err := e.pauseRun(name); err != nil {
+			if err := e.ctx.pauseRun(bodyPause{breakpoint: name}); err != nil {
 				return err
 			}
 		}
@@ -82,6 +85,20 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 		}
 		if moved {
 			continue
+		}
+		if e.waitsOnClock(perf) && !e.hasDueTimeWait(perf) && !e.hasDueHeldRun(perf) {
+			if paused, err := e.ctx.pauseForClock(nil); err != nil {
+				return err
+			} else if paused {
+				continue
+			}
+			moved, err := e.awaitClock(perf, &progress)
+			if err != nil {
+				return err
+			}
+			if moved {
+				continue
+			}
 		}
 		if len(e.waitingTokens(perf)) > 0 {
 			return e.deadlockError(perf)

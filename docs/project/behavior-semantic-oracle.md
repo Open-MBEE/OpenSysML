@@ -722,6 +722,49 @@ shows the guard reading `x -> 5`, then `exit: active`, then `assign y` reading `
 `enter: finished` with `assign z` reading `y -> 0`. The guard appears twice in the golden; that is
 the tool detail noted above, not a second reading the library asks for.
 
+### An action token and a state transition due at one instant: which runs first is open
+
+Fixture: `clock_action_state_due_together` (golden).
+
+```
+part beacon : Beacon   exhibit state blinking { dark ─ accept after 5 [s] → shining { lit := true } }
+action watcher         start → arm { armed := beacon.lit == false } → wait accept after 5 [s]
+                             → look { sawLit := beacon.lit } → done
+```
+
+Derived constraints:
+
+- Every occurrence's `localClock` defaults to the `universalClock`, and a suboccurrence's to its
+  container's (`Occurrences.kerml`, `feature localClock : Clock[1] default universalClock`;
+  "The localClock of a suboccurrence defaults to the localClock of its containing occurrence"), so
+  the action and the machine time their accepts against one clock, whose `currentTime` "advances
+  monotonically" (`Clocks.kerml`, `Clock`).
+- `accept after d` is `TriggerAfter(d, receiver, clock)`, which "returns … TriggerAt(clock.currentTime
+  + delay, …)" (`Triggers.kerml`): the instant is fixed when the accept is reached, `0 + 5` for
+  both here, since `arm` reads `beacon.lit` at instant 0, materializing the beacon and starting
+  its machine before the action's own wait is set.
+- Each accept ends after its `TimeSignal`, whose condition is "the currentTime of the signalClock
+  being equal to the signalTime" (`Triggers.kerml`, `TimeSignal::signalCondition`;
+  `AcceptPerformance`, `succession acceptedTransfer then self.endShot`), so neither `look` nor the
+  entry of `shining` happens before the clock reads 5, and `arm` reads `lit` still `false`.
+
+Open: the order of `look` and the entry of `shining`. Each follows its own accept, and the two
+accepts end at the same reading of the one clock; no `HappensBefore` chain connects a step of the
+action to a step of the machine, and `timeOrderingConstraint` (`Clocks.kerml`, `TimeOf`) orders
+only occurrences already ordered by `HappensBefore`. `look` therefore reads `lit` either before or
+after `shining`'s entry writes it.
+
+Pinned outcome: the admissible set `{armed ∧ sawLit, armed ∧ ¬sawLit}`, stated as `outcomes`
+citing this section. The executor draws the order of executors due at one instant through the
+scheduling policy and records it as a `due order` choice naming the executors in the order they
+were created: under the default policy the last created runs first, as the token order is
+reversed — the beacon's machine, created when `arm` materialized the beacon, runs before the
+action, and `look` reads `lit = true` (`choice at t=5.0: due action watcher, state machine
+blinking of object #1 (unordered; ran state machine blinking of object #1 first)`); under
+`declared` the action, created first, runs first and reads `lit = false`; `seed:1` draws one of
+the two (`.declared.trace.golden`, `.seed-1.trace.golden`). One executor alone due at an instant
+is not a choice and is not reported.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section

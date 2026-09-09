@@ -194,4 +194,16 @@ org.openmbee.opensysml.proto.Value defaultValue);
    * <code>.sysml.ExplorationStatus exploration = 6 [json_name = "exploration"];</code>
    */
   org.openmbee.opensysml.proto.ExplorationStatusOrBuilder getExplorationOrBuilder();
+
+  /**
+   * <pre>
+   * The run's simulation clock when it ended, in seconds (SI::s) from the 0
+   * it started at: the clock advances through every time-triggered transition
+   * the machine took. Populated under the "final_time" capability.
+   * </pre>
+   *
+   * <code>double final_time = 7 [json_name = "finalTime"];</code>
+   * @return The finalTime.
+   */
+  double getFinalTime();
 }

@@ -528,6 +528,10 @@ message ExecuteActionResponse {
   // each outcome carries its witness run's diagnostics.
   repeated Outcome outcomes = 4;
   ExplorationStatus exploration = 5;
+  // The run's simulation clock when it ended, in seconds (SI::s) from the 0
+  // it started at: the clock advances through every `accept after`/`accept
+  // at` the action waited on. Populated under the "final_time" capability.
+  double final_time = 6;
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -555,6 +559,10 @@ message ExecuteStateResponse {
   // `diagnostics` are then empty.
   repeated Outcome outcomes = 5;
   ExplorationStatus exploration = 6;
+  // The run's simulation clock when it ended, in seconds (SI::s) from the 0
+  // it started at: the clock advances through every time-triggered transition
+  // the machine took. Populated under the "final_time" capability.
+  double final_time = 7;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -1074,6 +1082,9 @@ message ServerInfoResponse {
   //                  accepted, and the response carries every distinct outcome
   //                  as `outcomes` with an `exploration` status; without it the
   //                  spelling is INVALID_ARGUMENT.
+  //   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+  //                  final_time, the run's simulation clock when it ended;
+  //                  without it the field is 0 whatever the run waited on.
   repeated string capabilities = 2;
 }
 

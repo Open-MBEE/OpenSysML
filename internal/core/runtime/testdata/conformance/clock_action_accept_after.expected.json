@@ -1,0 +1,9 @@
+{
+  "type": "action",
+  "libraries": true,
+  "trace": true,
+  "evaluate": "test::timed",
+  "outputs": {
+    "count": {"type": "Integer", "value": 10}
+  }
+}

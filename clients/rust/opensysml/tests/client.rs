@@ -488,6 +488,14 @@ fn the_service_advertises_the_explore_schedule() {
 }
 
 #[test]
+fn the_service_advertises_the_final_clock_instant_of_its_execution_responses() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    assert!(connection.capabilities().has("final_time"));
+}
+
+#[test]
 fn a_bare_measurement_reference_arrives_with_its_reduction_and_declaration() {
     let Some(connection) = service_or_skip() else {
         return;

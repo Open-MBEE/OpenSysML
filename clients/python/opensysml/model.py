@@ -483,9 +483,10 @@ class Model:
                 ``"explore"`` belongs to :meth:`explore_state`
 
         Returns:
-            dict: {'states_visited': [...], 'final_context': {...}}; a context
-                value the wire format cannot represent is reported as an
-                UnsupportedValueError in its place
+            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
+                a context value the wire format cannot represent is reported as
+                an UnsupportedValueError in its place; ``final_time`` is the
+                run's simulation clock when it ended, in seconds
 
         Raises:
             ValueError: If the schedule explores

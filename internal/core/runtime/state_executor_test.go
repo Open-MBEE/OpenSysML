@@ -84,8 +84,8 @@ func TestStateExecutor_Initialize(t *testing.T) {
 		t.Errorf("expected StateRunning, got %v", exec.state)
 	}
 
-	if exec.currentTime != 0.0 {
-		t.Errorf("expected time 0.0, got %f", exec.currentTime)
+	if exec.CurrentTime() != 0.0 {
+		t.Errorf("expected time 0.0, got %f", exec.CurrentTime())
 	}
 }
 
@@ -280,8 +280,8 @@ func TestStateExecutor_TimeEvent(t *testing.T) {
 	}
 
 	// Time should advance
-	if exec.currentTime != 10.0 {
-		t.Errorf("expected time 10.0, got %f", exec.currentTime)
+	if exec.CurrentTime() != 10.0 {
+		t.Errorf("expected time 10.0, got %f", exec.CurrentTime())
 	}
 }
 
@@ -326,8 +326,8 @@ func TestStateExecutor_AbsoluteTimeEvent(t *testing.T) {
 	if err := exec.processNextEvent(); err != nil {
 		t.Fatalf("process relative event: %v", err)
 	}
-	if exec.currentTime != 10.0 {
-		t.Fatalf("expected time 10.0 after relative delay, got %f", exec.currentTime)
+	if exec.CurrentTime() != 10.0 {
+		t.Fatalf("expected time 10.0 after relative delay, got %f", exec.CurrentTime())
 	}
 
 	if exec.eventQueue.Len() != 1 {
@@ -473,7 +473,7 @@ func TestStateExecutor_GuardCondition(t *testing.T) {
 	exec.eventQueue.Push(Event{
 		ID:        2,
 		Type:      EventTime,
-		Timestamp: exec.currentTime + 1.0,
+		Timestamp: exec.CurrentTime() + 1.0,
 		Payload:   transition,
 	})
 
@@ -543,8 +543,8 @@ func TestStateExecutor_Integration_SimpleTransitions(t *testing.T) {
 	if exec.getCurrentState() != working {
 		t.Errorf("expected working, got %v", exec.getCurrentState())
 	}
-	if exec.currentTime != 5.0 {
-		t.Errorf("expected time 5.0, got %f", exec.currentTime)
+	if exec.CurrentTime() != 5.0 {
+		t.Errorf("expected time 5.0, got %f", exec.CurrentTime())
 	}
 
 	// Process second event (working → done at t=15)
@@ -556,8 +556,8 @@ func TestStateExecutor_Integration_SimpleTransitions(t *testing.T) {
 	if !exec.graph.Completes(exec.getCurrentState()) {
 		t.Errorf("expected the completion vertex, got %v", exec.getCurrentState())
 	}
-	if exec.currentTime != 15.0 {
-		t.Errorf("expected time 15.0, got %f", exec.currentTime)
+	if exec.CurrentTime() != 15.0 {
+		t.Errorf("expected time 15.0, got %f", exec.CurrentTime())
 	}
 	if exec.state != StateCompleted {
 		t.Errorf("expected StateCompleted, got %v", exec.state)
@@ -1208,8 +1208,8 @@ func TestStateExecutor_Integration_TrafficLight(t *testing.T) {
 		t.Errorf("expected red state, got %s", exec.getCurrentState().Name)
 	}
 
-	if exec.currentTime != 0.0 {
-		t.Errorf("expected time=0, got %f", exec.currentTime)
+	if exec.CurrentTime() != 0.0 {
+		t.Errorf("expected time=0, got %f", exec.CurrentTime())
 	}
 
 	// Verify red entry
@@ -1227,8 +1227,8 @@ func TestStateExecutor_Integration_TrafficLight(t *testing.T) {
 		t.Errorf("expected green, got %s", exec.getCurrentState().Name)
 	}
 
-	if exec.currentTime != 30.0 {
-		t.Errorf("expected time=30, got %f", exec.currentTime)
+	if exec.CurrentTime() != 30.0 {
+		t.Errorf("expected time=30, got %f", exec.CurrentTime())
 	}
 
 	// Event 2: green → yellow (25s)
@@ -1241,8 +1241,8 @@ func TestStateExecutor_Integration_TrafficLight(t *testing.T) {
 		t.Errorf("expected yellow, got %s", exec.getCurrentState().Name)
 	}
 
-	if exec.currentTime != 55.0 {
-		t.Errorf("expected time=55, got %f", exec.currentTime)
+	if exec.CurrentTime() != 55.0 {
+		t.Errorf("expected time=55, got %f", exec.CurrentTime())
 	}
 
 	// Event 3: yellow → off (5s)
@@ -1263,8 +1263,8 @@ func TestStateExecutor_Integration_TrafficLight(t *testing.T) {
 		t.Errorf("expected the completion vertex, got %s", exec.getCurrentState().Name)
 	}
 
-	if exec.currentTime != 60.0 {
-		t.Errorf("expected time=60, got %f", exec.currentTime)
+	if exec.CurrentTime() != 60.0 {
+		t.Errorf("expected time=60, got %f", exec.CurrentTime())
 	}
 
 	// Verify final state

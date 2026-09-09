@@ -352,3 +352,94 @@ package Test {
 		}
 	}
 }
+
+// TestExecuteAction_TimedAcceptRunsTheClock verifies that an action parked at
+// `accept after` completes over the RPC: the run moves the context's clock to
+// the instant the accept waits for rather than refusing the time trigger.
+func TestExecuteAction_TimedAcceptRunsTheClock(t *testing.T) {
+	srv := mustNewService(t, 10)
+
+	content := `
+package Test {
+  private import ScalarValues::*;
+  action delayed {
+    attribute count : Integer = 0;
+    first start;
+    then action wait accept after 5 [SI::s];
+    then action tick assign count := count + 1;
+    then done;
+  }
+}
+`
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: content},
+		ContentHash: "test-execute-action-timed",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+
+	execResp, err := srv.ExecuteAction(context.Background(), &pb.ExecuteActionRequest{
+		ModelHash:      parseResp.ModelHash,
+		ActionSymbolId: "Test::delayed",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction failed: %v", err)
+	}
+	if execResp.Error != "" {
+		t.Fatalf("execution error: %s", execResp.Error)
+	}
+	if got := execResp.Outputs["count"].GetIntValue(); got != 1 {
+		t.Errorf("expected count 1 after the timed accept fired, got %d", got)
+	}
+	if execResp.FinalTime != 5 {
+		t.Errorf("expected final_time 5 after the accept fired, got %g", execResp.FinalTime)
+	}
+}
+
+// TestExecuteState_FinalTime verifies that the state response reports the
+// clock the run ended at, the instant of its last time-triggered transition,
+// and that a service without "final_time" withholds it.
+func TestExecuteState_FinalTime(t *testing.T) {
+	content := `
+package Test {
+  private import ScalarValues::*;
+  state Timer {
+    attribute fired : Integer = 0;
+    entry; then armed;
+    state armed;
+    transition armed then done accept after 3 [SI::s] do assign fired := fired + 1;
+  }
+}
+`
+	run := func(t *testing.T, srv *Service) *pb.ExecuteStateResponse {
+		parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+			Source:      &pb.ParseFileRequest_Content{Content: content},
+			ContentHash: "test-execute-state-final-time",
+		})
+		if err != nil {
+			t.Fatalf("ParseFile failed: %v", err)
+		}
+		execResp, err := srv.ExecuteState(context.Background(), &pb.ExecuteStateRequest{
+			ModelHash:            parseResp.ModelHash,
+			StateMachineSymbolId: "Test::Timer",
+		})
+		if err != nil {
+			t.Fatalf("ExecuteState failed: %v", err)
+		}
+		if execResp.Error != "" {
+			t.Fatalf("execution error: %s", execResp.Error)
+		}
+		if got := execResp.FinalContext["fired"].GetIntValue(); got != 1 {
+			t.Fatalf("expected the timed transition to fire once, got fired=%d", got)
+		}
+		return execResp
+	}
+
+	if got := run(t, mustNewService(t, 10)).FinalTime; got != 3 {
+		t.Errorf("expected final_time 3, got %g", got)
+	}
+	if got := run(t, mustNewServiceWithout(t, CapabilityFinalTime)).FinalTime; got != 0 {
+		t.Errorf("without final_time the field must be withheld, got %g", got)
+	}
+}

@@ -118,6 +118,9 @@ public interface ServerInfoResponseOrBuilder extends
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
    * spelling is INVALID_ARGUMENT.
+   * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+   * final_time, the run's simulation clock when it ended;
+   * without it the field is 0 whatever the run waited on.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -209,6 +212,9 @@ public interface ServerInfoResponseOrBuilder extends
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
    * spelling is INVALID_ARGUMENT.
+   * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+   * final_time, the run's simulation clock when it ended;
+   * without it the field is 0 whatever the run waited on.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -299,6 +305,9 @@ public interface ServerInfoResponseOrBuilder extends
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
    * spelling is INVALID_ARGUMENT.
+   * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+   * final_time, the run's simulation clock when it ended;
+   * without it the field is 0 whatever the run waited on.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -390,6 +399,9 @@ public interface ServerInfoResponseOrBuilder extends
    * accepted, and the response carries every distinct outcome
    * as `outcomes` with an `exploration` status; without it the
    * spelling is INVALID_ARGUMENT.
+   * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+   * final_time, the run's simulation clock when it ended;
+   * without it the field is 0 whatever the run waited on.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>

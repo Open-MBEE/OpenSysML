@@ -1,0 +1,27 @@
+step 1: token 1@arm
+stmt assign armed
+materialize: beacon #1
+start: exhibited state machine blinking of #1
+materialize: blinking #2
+enter: dark
+        eval literal 5 -> 5
+      eval index -> 5 [s]
+run: exhibited state machine blinking of #1
+    eval chain lit -> false
+    eval literal false -> false
+  eval operator == -> true
+step 2: token 1@wait
+  eval literal 5 -> 5
+eval index -> 5 [s]
+choice at t=5.0: due action watcher, state machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)
+run: exhibited state machine blinking of #1
+exit: dark
+enter: shining (entry action)
+stmt assign lit
+  eval literal true -> true
+transition: dark -> shining (event: time)
+step 3: token 1@look
+stmt assign sawLit
+  eval chain lit -> true
+step 4: token 1@done
+step 5: no active tokens

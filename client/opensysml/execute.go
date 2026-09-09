@@ -14,6 +14,9 @@ type ActionRun struct {
 	// Outputs are the action's output parameters by name, empty for an action
 	// that produces none.
 	Outputs map[string]Value
+	// FinalTime is the run's simulation clock when it ended, in seconds from
+	// the 0 it started at; 0 from a service without CapabilityFinalTime.
+	FinalTime float64
 	// Diagnostics the execution reported.
 	Diagnostics []Diagnostic
 }
@@ -24,6 +27,9 @@ type StateRun struct {
 	Visited []string
 	// Context is the machine's context when execution stopped, by feature name.
 	Context map[string]Value
+	// FinalTime is the run's simulation clock when it ended, in seconds from
+	// the 0 it started at; 0 from a service without CapabilityFinalTime.
+	FinalTime float64
 	// Diagnostics the execution reported.
 	Diagnostics []Diagnostic
 }
@@ -103,7 +109,7 @@ func (c *client) ExecuteAction(
 	if resp.Error != "" {
 		return nil, &FailureError{Op: "ExecuteAction", Message: resp.Error, Diagnostics: diagnostics}
 	}
-	return &ActionRun{Outputs: valuesFromProto(resp.Outputs), Diagnostics: diagnostics}, nil
+	return &ActionRun{Outputs: valuesFromProto(resp.Outputs), FinalTime: resp.FinalTime, Diagnostics: diagnostics}, nil
 }
 
 func (c *client) ExecuteState(
@@ -143,6 +149,7 @@ func (c *client) ExecuteState(
 	return &StateRun{
 		Visited:     append([]string(nil), resp.StatesVisited...),
 		Context:     valuesFromProto(resp.FinalContext),
+		FinalTime:   resp.FinalTime,
 		Diagnostics: diagnostics,
 	}, nil
 }

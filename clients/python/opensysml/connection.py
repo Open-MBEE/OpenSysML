@@ -1330,9 +1330,12 @@ class Connection:
                 ``"explore"`` belongs to :meth:`explore_state`
             
         Returns:
-            dict: {'states_visited': [...], 'final_context': {...}}; a context value
-                the wire format cannot represent is reported as an
-                UnsupportedValueError in its place
+            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
+                a context value the wire format cannot represent is reported as
+                an UnsupportedValueError in its place; ``final_time`` is the
+                run's simulation clock when it ended, in seconds, the instant
+                of its last time-triggered transition — 0.0 from a service
+                that predates ``final_time``
             
         Raises:
             ValueError: If the schedule explores
@@ -1351,6 +1354,7 @@ class Connection:
         return {
             'states_visited': list(response.states_visited),
             'final_context': self._values_to_python(response.final_context),
+            'final_time': response.final_time,
         }
 
     def explore_state(self, state_machine_symbol_id, model_hash, events=None,

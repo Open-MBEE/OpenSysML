@@ -171,13 +171,14 @@ deterministic, so a case with an admissible set still keeps its exact golden tra
 
 The executor resolves the choice points a run reports — several steppable
 tokens in one step, several holding decision guards, several transitions out of
-one state enabled by one event — under a scheduling policy, spelled the same way
-everywhere (`sysml -schedule`, `%schedule`, the `schedule` request field):
+one state enabled by one event, several executors due at one instant of the
+clock — under a scheduling policy, spelled the same way everywhere
+(`sysml -schedule`, `%schedule`, the `schedule` request field):
 
 | Policy | Resolution |
 |--------|------------|
-| `reverse` | The default: tokens in reverse spawn order, the first holding guard, the first enabled transition |
-| `declared` | Tokens in spawn order, the first holding guard, the first enabled transition |
+| `reverse` | The default: tokens in reverse spawn order, the first holding guard, the first enabled transition, the executor started last first |
+| `declared` | Tokens in spawn order, the first holding guard, the first enabled transition, the executor started first first |
 | `seed:<n>` | Every resolution drawn from a pseudo-random sequence the non-negative integer `n` fixes; the same seed replays the same run |
 
 Which of two same-step writes to one feature stands follows from the token order

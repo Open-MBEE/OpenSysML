@@ -2755,8 +2755,12 @@ type ExecuteActionResponse struct {
 	// canonical order, and how the exploration ended. `outputs`, `error` and
 	// `diagnostics` are then empty: a failed run is an outcome of its own, and
 	// each outcome carries its witness run's diagnostics.
-	Outcomes      []*Outcome         `protobuf:"bytes,4,rep,name=outcomes,proto3" json:"outcomes,omitempty"`
-	Exploration   *ExplorationStatus `protobuf:"bytes,5,opt,name=exploration,proto3" json:"exploration,omitempty"`
+	Outcomes    []*Outcome         `protobuf:"bytes,4,rep,name=outcomes,proto3" json:"outcomes,omitempty"`
+	Exploration *ExplorationStatus `protobuf:"bytes,5,opt,name=exploration,proto3" json:"exploration,omitempty"`
+	// The run's simulation clock when it ended, in seconds (SI::s) from the 0
+	// it started at: the clock advances through every `accept after`/`accept
+	// at` the action waited on. Populated under the "final_time" capability.
+	FinalTime     float64 `protobuf:"fixed64,6,opt,name=final_time,json=finalTime,proto3" json:"final_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2824,6 +2828,13 @@ func (x *ExecuteActionResponse) GetExploration() *ExplorationStatus {
 		return x.Exploration
 	}
 	return nil
+}
+
+func (x *ExecuteActionResponse) GetFinalTime() float64 {
+	if x != nil {
+		return x.FinalTime
+	}
+	return 0
 }
 
 // ExecuteStateRequest requests state machine execution
@@ -2911,8 +2922,12 @@ type ExecuteStateResponse struct {
 	// canonical order, and how the exploration ended. An outcome's outputs are
 	// the final context; `states_visited`, `final_context`, `error` and
 	// `diagnostics` are then empty.
-	Outcomes      []*Outcome         `protobuf:"bytes,5,rep,name=outcomes,proto3" json:"outcomes,omitempty"`
-	Exploration   *ExplorationStatus `protobuf:"bytes,6,opt,name=exploration,proto3" json:"exploration,omitempty"`
+	Outcomes    []*Outcome         `protobuf:"bytes,5,rep,name=outcomes,proto3" json:"outcomes,omitempty"`
+	Exploration *ExplorationStatus `protobuf:"bytes,6,opt,name=exploration,proto3" json:"exploration,omitempty"`
+	// The run's simulation clock when it ended, in seconds (SI::s) from the 0
+	// it started at: the clock advances through every time-triggered transition
+	// the machine took. Populated under the "final_time" capability.
+	FinalTime     float64 `protobuf:"fixed64,7,opt,name=final_time,json=finalTime,proto3" json:"final_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2987,6 +3002,13 @@ func (x *ExecuteStateResponse) GetExploration() *ExplorationStatus {
 		return x.Exploration
 	}
 	return nil
+}
+
+func (x *ExecuteStateResponse) GetFinalTime() float64 {
+	if x != nil {
+		return x.FinalTime
+	}
+	return 0
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -5699,6 +5721,9 @@ type ServerInfoResponse struct {
 	//	               accepted, and the response carries every distinct outcome
 	//	               as `outcomes` with an `exploration` status; without it the
 	//	               spelling is INVALID_ARGUMENT.
+	//	"final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+	//	               final_time, the run's simulation clock when it ended;
+	//	               without it the field is 0 whatever the run waited on.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -7418,13 +7443,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\bschedule\x18\x04 \x01(\tR\bschedule\x1aG\n" +
 	"\vInputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xd9\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xf8\x02\n" +
 	"\x15ExecuteActionResponse\x12C\n" +
 	"\aoutputs\x18\x01 \x03(\v2).sysml.ExecuteActionResponse.OutputsEntryR\aoutputs\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12*\n" +
 	"\boutcomes\x18\x04 \x03(\v2\x0e.sysml.OutcomeR\boutcomes\x12:\n" +
-	"\vexploration\x18\x05 \x01(\v2\x18.sysml.ExplorationStatusR\vexploration\x1aH\n" +
+	"\vexploration\x18\x05 \x01(\v2\x18.sysml.ExplorationStatusR\vexploration\x12\x1d\n" +
+	"\n" +
+	"final_time\x18\x06 \x01(\x01R\tfinalTime\x1aH\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x9f\x01\n" +
@@ -7433,14 +7460,16 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x125\n" +
 	"\x17state_machine_symbol_id\x18\x02 \x01(\tR\x14stateMachineSymbolId\x12\x16\n" +
 	"\x06events\x18\x03 \x03(\tR\x06events\x12\x1a\n" +
-	"\bschedule\x18\x04 \x01(\tR\bschedule\"\x93\x03\n" +
+	"\bschedule\x18\x04 \x01(\tR\bschedule\"\xb2\x03\n" +
 	"\x14ExecuteStateResponse\x12%\n" +
 	"\x0estates_visited\x18\x01 \x03(\tR\rstatesVisited\x12R\n" +
 	"\rfinal_context\x18\x02 \x03(\v2-.sysml.ExecuteStateResponse.FinalContextEntryR\ffinalContext\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x123\n" +
 	"\vdiagnostics\x18\x04 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12*\n" +
 	"\boutcomes\x18\x05 \x03(\v2\x0e.sysml.OutcomeR\boutcomes\x12:\n" +
-	"\vexploration\x18\x06 \x01(\v2\x18.sysml.ExplorationStatusR\vexploration\x1aM\n" +
+	"\vexploration\x18\x06 \x01(\v2\x18.sysml.ExplorationStatusR\vexploration\x12\x1d\n" +
+	"\n" +
+	"final_time\x18\a \x01(\x01R\tfinalTime\x1aM\n" +
 	"\x11FinalContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
 	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xea\x01\n" +

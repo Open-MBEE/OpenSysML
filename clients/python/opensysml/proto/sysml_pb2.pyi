@@ -496,7 +496,7 @@ class ExecuteActionRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., action_symbol_id: _Optional[str] = ..., inputs: _Optional[_Mapping[str, Value]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
 class ExecuteActionResponse(_message.Message):
-    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration")
+    __slots__ = ("outputs", "error", "diagnostics", "outcomes", "exploration", "final_time")
     class OutputsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -509,12 +509,14 @@ class ExecuteActionResponse(_message.Message):
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     OUTCOMES_FIELD_NUMBER: _ClassVar[int]
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
+    FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
     outputs: _containers.MessageMap[str, Value]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     outcomes: _containers.RepeatedCompositeFieldContainer[Outcome]
     exploration: ExplorationStatus
-    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ...) -> None: ...
+    final_time: float
+    def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
     __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule")
@@ -529,7 +531,7 @@ class ExecuteStateRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ...) -> None: ...
 
 class ExecuteStateResponse(_message.Message):
-    __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration")
+    __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time")
     class FinalContextEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -543,13 +545,15 @@ class ExecuteStateResponse(_message.Message):
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     OUTCOMES_FIELD_NUMBER: _ClassVar[int]
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
+    FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
     states_visited: _containers.RepeatedScalarFieldContainer[str]
     final_context: _containers.MessageMap[str, Value]
     error: str
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     outcomes: _containers.RepeatedCompositeFieldContainer[Outcome]
     exploration: ExplorationStatus
-    def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ...) -> None: ...
+    final_time: float
+    def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
     __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors")

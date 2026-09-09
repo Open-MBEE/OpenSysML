@@ -289,7 +289,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 2. **StateExecutor** — Event-driven state machine execution
    - Initial/final state keywords (initial/final)
    - Entry/exit/do behaviors (`do` runs while its state is active, one action per round, interleaved with the do behaviors of the states active alongside it)
-   - TimeEvent scheduling with priority queue
+   - TimeEvent waits registered on the `Context`'s `Clock`, which every executor of the context shares (`clock.go`, `advance.go`: `Context.Advance` runs all due work instant by instant; executors due together are a scheduler choice)
    - ChangeEvent condition polling
    - Guard evaluation for transitions
    - Transition effect actions

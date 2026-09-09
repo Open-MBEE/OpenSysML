@@ -1,0 +1,23 @@
+step 1: token 1@waitLater
+eval feature later -> 3 [s]
+step 2: token 1@tick
+stmt assign count
+    eval feature count -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 3: token 1@waitEarlier
+eval feature earlier -> 1 [s]
+step 4: token 1@tock
+stmt assign count
+    eval feature count -> 1
+    eval literal 10 -> 10
+  eval operator + -> 11
+step 5: token 1@waitLatest
+eval feature latest -> 8 [s]
+step 6: token 1@tack
+stmt assign count
+    eval feature count -> 11
+    eval literal 100 -> 100
+  eval operator + -> 111
+step 7: token 1@done
+step 8: no active tokens

@@ -130,7 +130,7 @@ func TestBudgetsEndDebuggers(t *testing.T) {
 			t.Fatalf("the new context gave id %s, want %s reused", again, first)
 		}
 		wants(t, run(t, s, "%advance 10"),
-			`no active state machine session: the state machine session for "Obj::Monitor" ended when the run bounds were changed`)
+			`no active debugging session: the state machine session for "Obj::Monitor" ended when the run bounds were changed`)
 		wants(t, run(t, s, "%features #"+first), "count = 1")
 	})
 	t.Run("action performer", func(t *testing.T) {

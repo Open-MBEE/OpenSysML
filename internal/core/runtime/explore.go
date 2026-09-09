@@ -59,7 +59,7 @@ func (c ChoiceTaken) String() string {
 		return fmt.Sprintf("step %d: %s -> %s", c.Step, c.Where, c.Took)
 	case ChoiceTransition:
 		return fmt.Sprintf("%s -> %s", c.Where, c.Took)
-	case ChoiceRegionOrder:
+	case ChoiceRegionOrder, ChoiceDueOrder:
 		return fmt.Sprintf("%s: %s first of %s", c.Where, c.Took, strings.Join(c.Among, ", "))
 	}
 	return fmt.Sprintf("%s -> %s", c.Kind, c.Took)

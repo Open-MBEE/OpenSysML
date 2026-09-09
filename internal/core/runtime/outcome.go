@@ -108,6 +108,26 @@ func (e *StateExecutor) Outcome() Outcome {
 	}
 }
 
+// JointOutcome is the outcome of several behaviors run on one clock: each one's
+// observables under its name — a machine's `<name> finalState` and `<name> visits`,
+// the values it holds and an action's outputs as `<name>.<feature>`.
+func (ctx *Context) JointOutcome(names []string, outcomes []Outcome) Outcome {
+	outputs := make(map[string]Value)
+	for i, o := range outcomes {
+		name := names[i]
+		if o.FinalState != "" {
+			outputs[name+" finalState"] = NewStringValue(o.FinalState)
+		}
+		if len(o.StateVisits) > 0 {
+			outputs[name+" visits"] = NewStringValue(strings.Join(o.StateVisits, ", "))
+		}
+		for feature, value := range o.Outputs {
+			outputs[name+"."+feature] = value
+		}
+	}
+	return Outcome{Outputs: outputs, ctx: ctx}
+}
+
 // AnalysisOutcome is the outcome of a case's run: its outputs, and each verdict
 // as a value named by the objective or assertion it decided.
 func (ctx *Context) AnalysisOutcome(r AnalysisResult) Outcome {

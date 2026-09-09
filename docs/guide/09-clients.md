@@ -496,6 +496,10 @@ model.execute_state("Demo::Machine", events=["go"])            # {'states_visite
 `execute_action` and `execute_state` treat their result maps the same way:
 a value the wire format cannot represent is reported as an
 `UnsupportedValueError` in that entry, leaving the other entries intact.
+A run waits on time where its behavior does — an action's `accept after 5 [SI::s]`, a
+machine's time-triggered transition — on a simulation clock of its own that starts at 0, and
+`execute_state`'s `'final_time'` is that clock, in seconds, when the run ended (`0.0` from a
+service that predates the `final_time` capability).
 
 Both take a `schedule=` — `"declared"`, `"reverse"` (the default) or `"seed:<n>"`, the spellings
 `sysml -schedule` takes — for a run with [more than one valid

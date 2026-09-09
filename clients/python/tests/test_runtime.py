@@ -111,7 +111,8 @@ def test_execute_state_visits_states():
             mock_response = sysml_pb2.ExecuteStateResponse(
                 states_visited=['Initial', 'Active', 'Done'],
                 final_context={},
-                error=""
+                error="",
+                final_time=2.5,
             )
             mock_stub.ExecuteState.return_value = mock_response
             
@@ -121,6 +122,7 @@ def test_execute_state_visits_states():
             # execute_state returns dict with states_visited and final_context
             assert result['states_visited'] == ['Initial', 'Active', 'Done']
             assert result['final_context'] == {}
+            assert result['final_time'] == 2.5
             mock_stub.ExecuteState.assert_called_once()
 
 

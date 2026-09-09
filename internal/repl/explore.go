@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -197,10 +198,15 @@ func tableLines(cells [][]string) []string {
 }
 
 // freshObjects finds the objects an explored run names in the run's own context:
-// a declaration is instantiated there, and an object of the session is refused.
+// a declaration is instantiated there once, and an object of the session is refused.
 type freshObjects struct {
-	s   *Session
-	ctx *runtime.Context
+	s    *Session
+	ctx  *runtime.Context
+	made map[string]*runtime.Instance
+}
+
+func newFreshObjects(s *Session, ctx *runtime.Context) *freshObjects {
+	return &freshObjects{s: s, ctx: ctx, made: make(map[string]*runtime.Instance)}
 }
 
 // heldObjects finds the objects a run at the prompt names: the session's own.
@@ -223,7 +229,7 @@ func (h heldObjects) owner(fqn string) (*runtime.Instance, string) {
 	return h.s.owningInstance(fqn)
 }
 
-func (f freshObjects) object(text string) (*runtime.Instance, string, error) {
+func (f *freshObjects) object(text string) (*runtime.Instance, string, error) {
 	ref, err := parseObjectRef(text)
 	if err != nil {
 		return nil, "", err
@@ -240,16 +246,20 @@ func (f freshObjects) object(text string) (*runtime.Instance, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	if inst, ok := f.made[fqn]; ok {
+		return inst, f.s.declaredName(fqn), nil
+	}
 	inst, err := f.ctx.Instantiate(sym)
 	if err != nil {
 		return nil, "", fmt.Errorf("instantiation of %s failed: %w", f.s.declaredName(fqn), err)
 	}
+	f.made[fqn] = inst
 	return inst, f.s.declaredName(fqn), nil
 }
 
 // owner instantiates the type owning a nested usage when the session holds an
 // object of it, as the prompt's run would.
-func (f freshObjects) owner(fqn string) (*runtime.Instance, string) {
+func (f *freshObjects) owner(fqn string) (*runtime.Instance, string) {
 	if held, _ := f.s.owningInstance(fqn); held == nil {
 		return nil, ""
 	}
@@ -265,93 +275,219 @@ func (f freshObjects) owner(fqn string) (*runtime.Instance, string) {
 	return inst, f.s.declaredName(ownerFQN)
 }
 
+// exploredAction resolves the action an exploration runs.
+func (s *Session) exploredAction(name string) (*symbols.Symbol, error) {
+	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	if err != nil {
+		return nil, err
+	}
+	if sym.Kind != symbols.SymbolActionDef && sym.Kind != symbols.SymbolActionUsage {
+		return nil, fmt.Errorf("%q is not an action", name)
+	}
+	return sym, nil
+}
+
+// exploredMachine resolves the state machine an exploration runs, which names a
+// declaration: an object of the session is not run on.
+func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
+	if looksLikeObjectPath(name) {
+		return nil, &ExploredObjectError{Ref: name}
+	}
+	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolStateDef, symbols.SymbolStateUsage)
+	if err != nil {
+		return nil, err
+	}
+	if !isMachineSymbol(sym) {
+		return nil, fmt.Errorf("%q is not a state machine", name)
+	}
+	return sym, nil
+}
+
+// freshAction starts the action on an explored run's context, on an object of
+// what performer names when it names one.
+func (s *Session) freshAction(objects *freshObjects, sym *symbols.Symbol, performer []string) (*runtime.ActionExecutor, error) {
+	ctx := objects.ctx
+	var self *runtime.Instance
+	if len(performer) > 0 {
+		var err error
+		if self, _, err = objects.object(performer[0]); err != nil {
+			return nil, err
+		}
+	}
+	exec, err := ctx.CreateActionExecutorFor(sym, self)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create executor: %w", err)
+	}
+	exec.SetTrace(ctx.Trace())
+	return exec, nil
+}
+
+// freshMachine starts the machine on an explored run's context: the one an
+// object of performer exhibits when it names one, else a run of the declaration.
+func (s *Session) freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (*runtime.StateExecutor, error) {
+	ctx := objects.ctx
+	if len(performer) == 0 {
+		if types := s.exhibitingTypes(ctx, sym); len(types) > 0 {
+			return nil, s.exhibitorsError(name, types, nil)
+		}
+	}
+	var (
+		self  *runtime.Instance
+		label string
+	)
+	if len(performer) > 0 {
+		var err error
+		if self, label, err = objects.object(performer[0]); err != nil {
+			return nil, err
+		}
+	}
+	var exec *runtime.StateExecutor
+	if self != nil {
+		switch exhibited := self.ExhibitedStatesOf(sym); len(exhibited) {
+		case 0:
+		case 1:
+			exec = exhibited[0].State
+		default:
+			return nil, ambiguousMachine(name, self, label, exhibited)
+		}
+	}
+	if exec == nil {
+		var err error
+		if exec, err = ctx.CreateStateExecutorFor(sym, self); err != nil {
+			return nil, fmt.Errorf("failed to create executor: %w", err)
+		}
+	}
+	exec.SetTrace(ctx.Trace())
+	return exec, nil
+}
+
+// completedActionOutcome is the outcome of an action run that reached its end;
+// one that stopped short is an error, as the prompt's run reports it.
+func completedActionOutcome(ctx *runtime.Context, exec *runtime.ActionExecutor, name string) (runtime.Outcome, error) {
+	if state := exec.State(); state != runtime.StateCompleted {
+		return runtime.Outcome{}, fmt.Errorf("action %s stopped at %s at simulation time %s without completing",
+			name, state, semantics.FormatReal(ctx.Clock().Now()))
+	}
+	return ctx.ActionOutcome(exec.Results()), nil
+}
+
 // exploreAction explores an action run to completion, on an object of what
 // performer names when it names one.
 func (s *Session) exploreAction(name string, performer []string) Verdict {
-	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	sym, err := s.exploredAction(name)
 	if err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
-	if sym.Kind != symbols.SymbolActionDef && sym.Kind != symbols.SymbolActionUsage {
-		return unresolvedVerdict(name, fmt.Sprintf("%q is not an action", name))
-	}
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		var self *runtime.Instance
-		if len(performer) > 0 {
-			var err error
-			if self, _, err = (freshObjects{s, ctx}).object(performer[0]); err != nil {
-				return runtime.Outcome{}, err
-			}
-		}
-		exec, err := ctx.CreateActionExecutorFor(sym, self)
+		exec, err := s.freshAction(newFreshObjects(s, ctx), sym, performer)
 		if err != nil {
-			return runtime.Outcome{}, fmt.Errorf("failed to create executor: %w", err)
+			return runtime.Outcome{}, err
 		}
-		exec.SetTrace(ctx.Trace())
 		if err := exec.RunToCompletion(); err != nil {
 			return runtime.Outcome{}, err
 		}
-		if state := exec.State(); state != runtime.StateCompleted {
-			return runtime.Outcome{}, fmt.Errorf("action %s stopped at %s without completing", name, state)
-		}
-		return ctx.ActionOutcome(exec.Results()), nil
+		return completedActionOutcome(ctx, exec, name)
 	})
 }
 
 // exploreStateMachine explores a machine started and, when duration is given,
-// advanced, on an object of performer when one is named.
+// its clock advanced by it, on an object of performer when one is named.
 func (s *Session) exploreStateMachine(name string, duration *float64, performer []string) Verdict {
-	if looksLikeObjectPath(name) {
-		return unresolvedVerdict(name, (&ExploredObjectError{Ref: name}).Error())
-	}
-	sym, _, err := s.lookupSymbolOfKinds(name, symbols.SymbolStateDef, symbols.SymbolStateUsage)
+	sym, err := s.exploredMachine(name)
 	if err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
-	if !isMachineSymbol(sym) {
-		return unresolvedVerdict(name, fmt.Sprintf("%q is not a state machine", name))
-	}
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		if len(performer) == 0 {
-			if types := s.exhibitingTypes(ctx, sym); len(types) > 0 {
-				return runtime.Outcome{}, s.exhibitorsError(name, types, nil)
-			}
+		exec, err := s.freshMachine(newFreshObjects(s, ctx), sym, name, performer)
+		if err != nil {
+			return runtime.Outcome{}, err
 		}
-		var (
-			self  *runtime.Instance
-			label string
-		)
-		if len(performer) > 0 {
-			var err error
-			if self, label, err = (freshObjects{s, ctx}).object(performer[0]); err != nil {
-				return runtime.Outcome{}, err
-			}
-		}
-		var exec *runtime.StateExecutor
-		if self != nil {
-			switch exhibited := self.ExhibitedStatesOf(sym); len(exhibited) {
-			case 0:
-			case 1:
-				exec = exhibited[0].State
-			default:
-				return runtime.Outcome{}, ambiguousMachine(name, self, label, exhibited)
-			}
-		}
-		if exec == nil {
-			var err error
-			if exec, err = ctx.CreateStateExecutorFor(sym, self); err != nil {
-				return runtime.Outcome{}, fmt.Errorf("failed to create executor: %w", err)
-			}
-		}
-		exec.SetTrace(ctx.Trace())
 		if duration != nil {
-			ss := &stateSession{name: name, symbol: sym, executor: exec, rtCtx: ctx, now: exec.CurrentTime()}
-			if _, err := s.advanceSession(ss, *duration); err != nil {
+			if _, err := ctx.Advance(*duration); err != nil {
 				return runtime.Outcome{}, err
 			}
 		}
 		return exec.Outcome(), nil
 	})
+}
+
+// exploreRunFor explores the behaviors named started on one clock and advanced
+// by duration once, as RunFor runs them: one verdict, tabling the outcomes of the
+// whole run. Several behaviors come to a joint outcome, each one's observables
+// under its name; one behavior's outcome is its own.
+func (s *Session) exploreRunFor(actions, states []Behavior, duration float64) []Verdict {
+	type explored struct {
+		Behavior
+		sym    *symbols.Symbol
+		action bool
+	}
+	var (
+		runs       []explored
+		unresolved []Verdict
+		names      []string
+	)
+	for _, b := range actions {
+		sym, err := s.exploredAction(b.Name)
+		if err != nil {
+			unresolved = append(unresolved, unresolvedVerdict(b.Name, err.Error()))
+			continue
+		}
+		runs = append(runs, explored{Behavior: b, sym: sym, action: true})
+		names = append(names, b.Name)
+	}
+	for _, b := range states {
+		sym, err := s.exploredMachine(b.Name)
+		if err != nil {
+			unresolved = append(unresolved, unresolvedVerdict(b.Name, err.Error()))
+			continue
+		}
+		runs = append(runs, explored{Behavior: b, sym: sym})
+		names = append(names, b.Name)
+	}
+	if len(unresolved) > 0 || len(runs) == 0 {
+		return unresolved
+	}
+	subject := strings.Join(names, ", ")
+	verdict := s.exploreVerdict(subject, func(ctx *runtime.Context) (runtime.Outcome, error) {
+		objects := newFreshObjects(s, ctx)
+		actionExecs := make(map[int]*runtime.ActionExecutor)
+		stateExecs := make(map[int]*runtime.StateExecutor)
+		for i, r := range runs {
+			if r.action {
+				exec, err := s.freshAction(objects, r.sym, r.Performer)
+				if err != nil {
+					return runtime.Outcome{}, err
+				}
+				actionExecs[i] = exec
+				continue
+			}
+			exec, err := s.freshMachine(objects, r.sym, r.Name, r.Performer)
+			if err != nil {
+				return runtime.Outcome{}, err
+			}
+			stateExecs[i] = exec
+		}
+		if _, err := ctx.Advance(duration); err != nil {
+			return runtime.Outcome{}, err
+		}
+		outcomes := make([]runtime.Outcome, len(runs))
+		for i, r := range runs {
+			if exec, ok := actionExecs[i]; ok {
+				outcome, err := completedActionOutcome(ctx, exec, r.Name)
+				if err != nil {
+					return runtime.Outcome{}, err
+				}
+				outcomes[i] = outcome
+				continue
+			}
+			outcomes[i] = stateExecs[i].Outcome()
+		}
+		if len(outcomes) == 1 {
+			return outcomes[0], nil
+		}
+		return ctx.JointOutcome(names, outcomes), nil
+	})
+	return []Verdict{verdict}
 }
 
 // exploreCalc explores a calculation, which has choice points when it performs
@@ -387,7 +523,7 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 		return unresolvedVerdict(label, err.Error())
 	}
 	return s.exploreVerdict(label, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		run, err := s.runAnalysisIn(ctx, inv, sym, fqn, freshObjects{s, ctx})
+		run, err := s.runAnalysisIn(ctx, inv, sym, fqn, newFreshObjects(s, ctx))
 		if err != nil {
 			return runtime.Outcome{}, err
 		}

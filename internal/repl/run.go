@@ -362,6 +362,133 @@ func (s *Session) RunStateMachineFor(name string, duration float64, performer ..
 	return s.runStateMachine(name, &duration, performer)
 }
 
+// Behavior names a behavior to run and, after it, the object performing it, as
+// `-action`/`-state` take them: `Drive rover1`.
+type Behavior struct {
+	Name      string
+	Performer []string
+}
+
+// RunFor starts the behaviors named, advances their shared clock by duration once
+// and returns one verdict per behavior (an action holds when it completed in time).
+func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, explores := s.exploring(); explores {
+		return s.exploreRunFor(actions, states, duration)
+	}
+
+	type run struct {
+		at     int
+		name   string
+		lines  []string
+		action *actionSession
+		state  *stateSession
+	}
+	runs := make([]*run, 0, len(actions)+len(states))
+	verdicts := make([]Verdict, len(actions)+len(states))
+	var lastAction *actionSession
+	for i, b := range actions {
+		lines, err := s.startAction(b.Name, b.Performer)
+		if err != nil {
+			verdicts[i] = unresolvedVerdict(b.Name, err.Error())
+			continue
+		}
+		lastAction = s.actionExec
+		runs = append(runs, &run{at: i, name: b.Name, lines: lines, action: s.actionExec})
+		s.actionExec = nil
+	}
+	var lastState *stateSession
+	for i, b := range states {
+		lines, err := s.startStateMachine(b.Name, b.Performer)
+		if err != nil {
+			verdicts[len(actions)+i] = unresolvedVerdict(b.Name, err.Error())
+			continue
+		}
+		lastState = s.stateExec
+		runs = append(runs, &run{at: len(actions) + i, name: b.Name, lines: lines, state: s.stateExec})
+		s.stateExec = nil
+	}
+	if lastAction != nil {
+		s.actionExec = lastAction
+	}
+	if lastState != nil {
+		s.stateExec = lastState
+	}
+	defer func() {
+		for _, r := range runs {
+			if r.action != nil && r.action != lastAction {
+				r.action.release()
+			}
+			if r.state != nil && r.state != lastState {
+				r.state.release()
+			}
+		}
+	}()
+
+	var contexts []*runtime.Context
+	for _, r := range runs {
+		contexts = append(contexts, r.action.contextOf(), r.state.contextOf())
+	}
+	contexts = distinctContexts(contexts...)
+	moved, failed, err := s.advanceContexts(contexts, duration)
+
+	// The drain is one operation over every behavior, so what it did is reported
+	// once, with the first behavior that ran; each then reports where it stands.
+	for i, r := range runs {
+		v := Verdict{Subject: r.name, Status: VerdictHolds, Lines: r.lines}
+		if err != nil {
+			v.Status = VerdictUnresolved
+			v.Lines = append(v.Lines, failed...)
+			v.Lines = append(v.Lines, "error: "+err.Error())
+			verdicts[r.at] = v
+			continue
+		}
+		if i == 0 {
+			v.Lines = append(v.Lines, advancedHeader(moved.report))
+		}
+		var outcome []string
+		switch {
+		case r.state != nil:
+			exec := r.state.executor
+			v.Lines = append(v.Lines, stateStatusLines(exec)...)
+			if exec.State() == runtime.StateCompleted {
+				outcome = []string{stateCompletedText}
+			}
+			v.Values = []NamedValue{
+				{Name: "state", Value: currentStateName(exec)},
+				{Name: "time", Value: semantics.FormatReal(exec.CurrentTime())},
+			}
+			v.Values = append(v.Values, namedValues(r.state.contextOf(), exec.StateData())...)
+		case r.action != nil:
+			exec := r.action.executor
+			v.Lines = append(v.Lines, actionStatusLines(exec)...)
+			if exec.State() == runtime.StateCompleted {
+				outcome = append([]string{"✓ Action completed"}, renderResults(r.action.contextOf(), exec.Results())...)
+				v.Values = namedValues(r.action.contextOf(), exec.Results())
+			} else {
+				v.Status = VerdictUnresolved
+				outcome = []string{fmt.Sprintf("error: action %s stopped at %s at simulation time %s without completing",
+					r.name, exec.State(), semantics.FormatReal(r.action.rtCtx.Clock().Now()))}
+				outcome = append(outcome, tokenWaitLines(exec)...)
+				if next, ok := exec.NextWait(); ok {
+					outcome = append(outcome, fmt.Sprintf("  The clock must reach t=%s for it to go on; run it with -advance %s or more",
+						semantics.FormatReal(next), semantics.FormatReal(next-moved.report.From)))
+				}
+			}
+		}
+		if i == 0 {
+			v.Lines = append(v.Lines, s.advanceReportLines(moved, contexts)...)
+		}
+		v.Lines = append(v.Lines, outcome...)
+		verdicts[r.at] = v
+	}
+	if len(verdicts) > 0 {
+		verdicts[0] = s.withTrace(verdicts[0])
+	}
+	return verdicts
+}
+
 func (s *Session) runStateMachine(name string, duration *float64, performer []string) Verdict {
 	if _, explores := s.exploring(); explores {
 		return s.exploreStateMachine(name, duration, performer)
@@ -381,7 +508,7 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 	exec := s.stateExec.executor
 	values := []NamedValue{
 		{Name: "state", Value: currentStateName(exec)},
-		{Name: "time", Value: semantics.FormatReal(s.stateExec.now)},
+		{Name: "time", Value: semantics.FormatReal(exec.CurrentTime())},
 	}
 	values = append(values, namedValues(s.stateExec.contextOf(), exec.StateData())...)
 	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values})

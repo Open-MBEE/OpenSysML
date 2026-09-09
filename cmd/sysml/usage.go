@@ -51,6 +51,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -run-query "Heavy root=scope" model.sysml`, "Execute a document query"),
 				usage.Ex("sysml -action Drive model.sysml", "Run an action to completion"),
 				usage.Ex("sysml -state Mission -advance 10 model.sysml", "Run a state machine for 10 time units"),
+				usage.Ex("sysml -action Ping -state Sm -advance 5 m.sysml", "...an action and a machine on one clock"),
 				usage.Ex("sysml -schedule explore -action Drive m.sysml", "Run every linearization; table the outcomes"),
 				usage.Ex("sysml -satisfy -json model.sysml", "Report the verdicts as JSON"),
 			},
@@ -333,7 +334,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"HeavySubsystems root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")
 	fs.Var(&modelChecks.states, "state", "Run this state machine, as -state \"Mission rover1\" to run it on an object (repeatable)")
-	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run each -state machine for (default: only its initial transition)")
+	fs.Var(&modelChecks.advance, "advance", "Simulated time units to run the -action and -state behaviors for, on one shared clock (default: a state machine takes only its initial transition; an action runs to completion)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
 	fs.StringVar(&compileTarget, "target", "c", "Backend -compile generates code for: c (default) or go")

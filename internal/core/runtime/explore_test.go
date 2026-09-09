@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -388,6 +389,98 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 		}
 		if len(notes) != 0 {
 			t.Fatalf("%s: notes %v, want none", spelling, notes)
+		}
+	}
+}
+
+// Executors due at one instant are a due-order choice the exploration
+// enumerates: three machines waking at t=5 come to their 6 orders, each
+// witness naming the choice by kind, instant, alternatives and the one taken.
+func TestExploreDueOrder(t *testing.T) {
+	file := parseAndBuild(t, `
+		package test {
+			private import SI::*;
+			private import ScalarValues::*;
+			part def Cell { attribute mark : Integer = 0; }
+			part cell : Cell;
+			state def Ticker {
+				attribute seen : Integer = -1;
+				entry; then waiting;
+				state waiting { accept after 5 [s] then took; }
+				state took {
+					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
+				}
+			}
+			state a : Ticker;
+			state b : Ticker;
+			state c : Ticker;
+		}
+	`)
+	idx, model, _ := buildRuntimeWithLibraries(t, "<test>", file)
+	root := idx.DocumentRoot("<test>")
+	resolver := resolve.New(idx)
+	names := []string{"a", "b", "c"}
+	syms := make([]*symbols.Symbol, len(names))
+	for i, name := range names {
+		syms[i] = namedOrFoundSymbol(t, idx, "test::"+name, root, ast.DefState, ast.UsageState)
+	}
+	fresh := func() (*Context, error) { return NewContext(model, resolver, 10000), nil }
+	run := func(ctx *Context) (Outcome, error) {
+		execs := make([]*StateExecutor, len(syms))
+		for i, sym := range syms {
+			exec, err := ctx.CreateStateExecutor(sym)
+			if err != nil {
+				return Outcome{}, err
+			}
+			execs[i] = exec
+		}
+		if _, err := ctx.Advance(5); err != nil {
+			return Outcome{}, err
+		}
+		outputs := make(map[string]Value, len(execs))
+		for i, exec := range execs {
+			outputs[names[i]] = exec.StateData()["seen"]
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	x, err := Explore(mustPolicy(t, "explore"), fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 6 {
+		t.Fatalf("status %q, want complete after the 6 orders of three machines", x.Status())
+	}
+	want := []string{
+		"a = 0; b = 1; c = 2", "a = 0; b = 2; c = 1", "a = 1; b = 0; c = 2",
+		"a = 1; b = 2; c = 0", "a = 2; b = 0; c = 1", "a = 2; b = 1; c = 0",
+	}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	for _, o := range x.Outcomes {
+		if o.Linearizations != 1 {
+			t.Errorf("%s reached by %d linearizations, want 1", o.Outcome, o.Linearizations)
+		}
+		w := o.Witness
+		if len(w) != 2 || w[0].Kind != ChoiceDueOrder || w[0].Alternatives != 3 || w[1].Kind != ChoiceDueOrder || w[1].Alternatives != 2 {
+			t.Errorf("%s witness %v, want a due-order choice among 3 then one among the 2 left", o.Outcome, w)
+		}
+	}
+	const wantWitness = "t=5.0: state machine c first of state machine a, state machine b, state machine c; t=5.0: state machine b first of state machine a, state machine b"
+	if got := FormatChoices(x.Outcomes[5].Witness); got != wantWitness {
+		t.Fatalf("witness of a = 2; b = 1; c = 0:\n%s\nwant\n%s", got, wantWitness)
+	}
+	for _, spelling := range []string{"reverse", "declared", "seed:1"} {
+		ctx, _ := fresh()
+		if err := ctx.SetSchedule(mustPolicy(t, spelling)); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		if !slices.Contains(want, outcome.String()) {
+			t.Errorf("%s: outcome %q is not one the exploration reached", spelling, outcome.String())
 		}
 	}
 }

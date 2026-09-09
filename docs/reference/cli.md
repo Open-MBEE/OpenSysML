@@ -204,7 +204,7 @@ written in, so the verdicts are about that object:
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` projections evaluated per row. Each binding is written as `<parameter>=<expression>` |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
-| `-advance <time>` | Simulated time units each `-state` machine is run for |
+| `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order, and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind. Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
@@ -609,7 +609,14 @@ point, and every later run replays the recorded prefix and takes the next untrie
 the frontier, depth-first, until no alternative is left untried or a budget is hit. Every run
 starts from a fresh executor on the same loaded model: no object, message, clock, calc memo or
 note of one run is seen by the next. The policy applies to `-action`, `-state`, `-analysis` and
-`-calc` alike; a body with no choice point explores in exactly one run.
+`-calc` alike; a body with no choice point explores in exactly one run. With `-advance`, every
+`-action` and `-state` behavior named is started on one clock in each run and the clock advanced
+once, as it is under any policy, so the order of executors due at one instant is explored like any
+other choice point: several behaviors come to one *joint* outcome, each behavior's observables under
+its name (`Demo::Beacon::blinking finalState = "shining"; Demo::watcher.sawLit = true`), and the
+witness names which executor ran first (`t=5.0: state machine blinking of object #1 first of action
+watcher, state machine blinking of object #1`); an action still waiting on the clock when the time
+is up is the run's error, as it is undecided under one policy.
 
 Runs that agree on what the harness compares — an action's outputs; a state machine's final state,
 the states it visited and its context's values; an analysis case's outputs and verdicts — are one

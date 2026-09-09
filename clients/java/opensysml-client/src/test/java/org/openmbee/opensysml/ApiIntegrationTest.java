@@ -411,6 +411,11 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesTheFinalClockInstantOfItsExecutionResponses() {
+    assertTrue(connection.capabilities().has(Capabilities.FINAL_TIME));
+  }
+
+  @Test
   void aBareMeasurementReferenceArrivesWithItsReductionAndDeclarationOverProtobufAndJson() {
     assertTrue(connection.capabilities().has(Capabilities.MEASUREMENT_REFS));
     try (Connection json =

@@ -11,6 +11,7 @@ import {
   CAPABILITY_CASE_EVALUATIONS,
   CAPABILITY_COMPLEX_VALUES,
   CAPABILITY_DIAGNOSTIC_CODES,
+  CAPABILITY_FINAL_TIME,
   CAPABILITY_FUNCTION_VALUES,
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_QUERY,
@@ -371,6 +372,11 @@ test("the service advertises the schedule field of its execution requests", asyn
 test("the service advertises the explore scheduling policy", async () => {
   await using connection = await connect();
   assert.ok((await connection.serverInfo()).has(CAPABILITY_SCHEDULE_EXPLORE));
+});
+
+test("the service advertises the final clock instant of its execution responses", async () => {
+  await using connection = await connect();
+  assert.ok((await connection.serverInfo()).has(CAPABILITY_FINAL_TIME));
 });
 
 test("a bare measurement reference arrives as a unit with its reduction and declaration", async () => {
