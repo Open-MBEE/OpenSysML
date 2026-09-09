@@ -21,7 +21,7 @@ package test {
 	analysis def TouchdownMargin {
 		subject lander : Lander;
 		in attribute limit : Real = 1.5;
-		objective : SoftLanding { in limit = limit; }
+		objective : SoftLanding { subject :>> subj; in limit = limit; }
 		return margin : Real = limit - lander.touchdownSpeed;
 	}
 	analysis marginOfScout : TouchdownMargin {

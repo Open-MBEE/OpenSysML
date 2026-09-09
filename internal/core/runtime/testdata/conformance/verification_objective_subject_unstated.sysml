@@ -1,6 +1,6 @@
 // A requirement declaring no subject of its own still receives the verification
 // case's subject through the library's RequirementCheck::subj, and its
-// constraint, reading only its input, decides.
+// constraint, reading only its own attribute, decides.
 package test {
 	private import ScalarValues::*;
 
@@ -12,14 +12,14 @@ package test {
 	}
 
 	requirement def SafeLimit {
-		in attribute limit : Real default = 1.5;
+		attribute limit : Real = 1.5;
 		require constraint { limit > 1.0 }
 	}
 
 	verification def LimitCheck {
 		subject lander : Lander;
 		in attribute limit : Real = 1.5;
-		objective : SafeLimit { in limit = limit; }
+		objective : SafeLimit;
 		VerificationCases::PassIf(lander.touchdownSpeed <= limit)
 	}
 	verification checkScout : LimitCheck {

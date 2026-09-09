@@ -17,7 +17,7 @@ package test {
 	verification def TouchdownCheck {
 		subject lander : Lander;
 		in attribute limit : Real = 1.5;
-		objective : SoftLanding { in limit = limit; }
+		objective : SoftLanding { subject :>> subj; in limit = limit; }
 		VerificationCases::PassIf(lander.touchdownSpeed <= limit)
 	}
 	verification checkNothing : TouchdownCheck;
