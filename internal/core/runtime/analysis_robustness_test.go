@@ -156,25 +156,38 @@ func testAnalysisMissingInParameter(t *testing.T) {
 	}
 }
 
-// testAnalysisTooManyArguments: positional arguments beyond the parameters are refused.
+// testAnalysisTooManyArguments: positional arguments beyond the parameters are
+// refused before anything runs, so no partial run comes with the error.
 func testAnalysisTooManyArguments(t *testing.T) {
 	ctx, idx, sym := analysisRuntime(t, "test::Scaled")
 	ship := instanceOfUsage(t, ctx, idx, "test::ship")
 	args := AnalysisArgs{Subject: ship, Positional: []Value{constReal(2), constReal(3)}}
-	_, err := ctx.RunAnalysis(sym, args, nil, nil)
+	result, err := ctx.RunAnalysis(sym, args, nil, nil)
 	if !errors.Is(err, ErrCalcArity) {
 		t.Fatalf("error = %v, want ErrCalcArity", err)
 	}
+	assertNoPartialRun(t, result)
 }
 
-// testAnalysisUnknownNamedArgument: a named argument must name an input parameter.
+// testAnalysisUnknownNamedArgument: a named argument must name an input
+// parameter; one that does not is refused before anything runs.
 func testAnalysisUnknownNamedArgument(t *testing.T) {
 	ctx, idx, sym := analysisRuntime(t, "test::Scaled")
 	ship := instanceOfUsage(t, ctx, idx, "test::ship")
 	args := AnalysisArgs{Subject: ship, Named: map[string]Value{"nope": constReal(2)}}
-	_, err := ctx.RunAnalysis(sym, args, nil, nil)
+	result, err := ctx.RunAnalysis(sym, args, nil, nil)
 	if !errors.Is(err, ErrUnknownParameter) {
 		t.Fatalf("error = %v, want ErrUnknownParameter", err)
+	}
+	assertNoPartialRun(t, result)
+}
+
+// assertNoPartialRun checks a refused request left nothing of a run behind.
+func assertNoPartialRun(t *testing.T, result AnalysisResult) {
+	t.Helper()
+	if result.Case != "" || result.Subject != nil || len(result.Outputs) != 0 ||
+		len(result.Verdicts) != 0 || len(result.Evaluations) != 0 {
+		t.Errorf("result = %+v, want none for a request refused before running", result)
 	}
 }
 

@@ -272,15 +272,24 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	if err != nil {
 		return nil, AnalysisResult{}, err
 	}
+	// Arguments the case cannot take refuse the request before anything runs:
+	// the case established nothing, so there is no partial run to report.
+	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym)
+	var calcArgs calcArgs
+	if !asUsage {
+		if calcArgs, err = shape.analysisArgs(args); err != nil {
+			return nil, AnalysisResult{}, err
+		}
+	}
 	reader := NewEvalContextIn(ctx, scope, self)
 	log := ctx.beginEvaluationLog(sym)
 	defer ctx.endEvaluationLog(log)
 
 	var run *calcRun
-	if args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym) {
+	if asUsage {
 		run, err = ctx.calcUsageRun(reader, sym)
 	} else {
-		run, err = ctx.analysisRun(shape, reader, args)
+		run, err = ctx.analysisRun(shape, reader, calcArgs)
 	}
 	if err != nil {
 		result := AnalysisResult{Case: shape.Name, Evaluations: log.evaluations(Value{}, false)}
@@ -330,19 +339,15 @@ func (ctx *Context) undecidedVerdicts(sym *symbols.Symbol, scope *symbols.Scope,
 	return verdicts
 }
 
-// analysisRun binds a case's parameters from args and runs its body once,
-// unmemoized: arguments make it an invocation of its own, not the evaluation
-// the case's outputs answer from when read as features.
-func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, args AnalysisArgs) (*calcRun, error) {
+// analysisRun binds a case's parameters from the shaped arguments and runs its
+// body once, unmemoized: arguments make it an invocation of its own, not the
+// evaluation the case's outputs answer from when read as features.
+func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs) (*calcRun, error) {
 	if err := ctx.enterCalc(shape.Name); err != nil {
 		return nil, err
 	}
 	defer ctx.leaveCalc()
 
-	calcArgs, err := shape.analysisArgs(args)
-	if err != nil {
-		return nil, err
-	}
 	key := calcUsageKey{sym: shape.Sym}
 	if reader.self != nil {
 		key.instance = reader.self.ID
