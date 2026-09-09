@@ -106,12 +106,14 @@ class TestAnalysisIntegration:
         assert not isinstance(exc_info.value, WrongKindError)
 
     def test_a_wrong_kind_raises(self):
-        with pytest.raises(WrongKindError):
+        with pytest.raises(WrongKindError) as exc_info:
             self.model.run_analysis("An::ship")
+        assert not isinstance(exc_info.value, AnalysisRunError)
 
     def test_an_unknown_symbol_raises(self):
-        with pytest.raises(ExecutionError):
+        with pytest.raises(ExecutionError) as exc_info:
             self.model.run_analysis("An::Nope")
+        assert not isinstance(exc_info.value, AnalysisRunError)
 
 
 TRADE_STUDY_SOURCE = '''

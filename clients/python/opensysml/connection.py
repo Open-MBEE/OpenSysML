@@ -1518,10 +1518,13 @@ class Connection:
         Raises:
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
-            AnalysisRunError: If the case could not run — an unbound subject, an
-                input with no value, a failing step, an alternative whose
-                evaluation failed; carries what the run computed before it
-                failed as :attr:`~opensysml.errors.AnalysisRunError.result`
+            AnalysisRunError: If the case failed after computing something — a
+                failing step, an alternative whose evaluation failed; carries
+                what the run computed before it failed as
+                :attr:`~opensysml.errors.AnalysisRunError.result`
+            ExecutionError: If the request failed before the run computed
+                anything — an unknown symbol, an unbound subject, an input with
+                no value
             MissingCapabilityError: If the service cannot verify, or an
                 argument holds a ``complex`` and the service predates
                 ``complex_values``, an array, vector or vector quantity and
@@ -1557,8 +1560,11 @@ class Connection:
             response = self._stub.RunAnalysis(request)
 
         diagnostics = [Diagnostic(d) for d in response.diagnostics]
-        if response.error and response.failure_reason == sysml_pb2.FAILURE_REASON_WRONG_KIND:
-            raise WrongKindError(response.error, diagnostics=diagnostics)
+        # A request refused before the run, or a run that computed nothing, has no partial result.
+        if response.error and not (
+            response.outputs or response.verdicts or response.evaluations or response.instances
+        ):
+            raise _failure_of(response.error, response.failure_reason, diagnostics)
 
         instances = self._instances_of(response)
         by_id = {inst.id: inst for inst in instances}
