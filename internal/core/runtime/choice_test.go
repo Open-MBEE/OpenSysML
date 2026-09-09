@@ -1051,7 +1051,7 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if got := strings.Join(visited, ","); got != "start,work,a1,b1,a2,b2" {
+	if strings.Join(visited, ",") != "start,work,a1,b1,a2,b2" {
 		t.Fatalf("visited %v, want both regions to take their nested transitions and work to stay active", visited)
 	}
 	want := "choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)"

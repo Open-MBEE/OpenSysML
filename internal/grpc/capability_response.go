@@ -90,8 +90,7 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_Array, *pb.Value_Vector, *pb.Value_VectorQuantity:
 		if !s.capabilities.has(CapabilityStructuredValues) {
-			shown := displayValue(value)
-			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+			value.Kind = unsupportedShown(displayValue(value))
 			return
 		}
 		for _, nested := range nestedValues(value) {
@@ -99,24 +98,22 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_MeasurementRef:
 		if !s.capabilities.has(CapabilityMeasurementRefs) {
-			shown := displayValue(value)
-			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+			value.Kind = unsupportedShown(displayValue(value))
 		}
 	case *pb.Value_Function:
 		if !s.capabilities.has(CapabilityFunctionValues) {
-			value.Kind = &pb.Value_Null{Null: "unsupported: " + runtime.ValFunction.String() + " " + kind.Function.GetCalcId()}
+			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValFunction.String() + " " + kind.Function.GetCalcId()}
 		}
 	case *pb.Value_Infinity:
 		if !s.capabilities.has(CapabilityInfinityValue) {
 			value.Kind = &pb.Value_Null{Null: "unsupported: unbounded value *"}
 		}
 	case *pb.Value_Set:
+		shown := displayValue(value)
 		if !s.capabilities.has(CapabilitySetValues) {
-			shown := displayValue(value)
-			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+			value.Kind = unsupportedShown(shown)
 			return
 		}
-		shown := displayValue(value)
 		for _, nested := range nestedValues(value) {
 			s.filterValueCapabilities(nested)
 			if reason, ok := unsupportedReason(nested); ok {
@@ -126,8 +123,7 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		}
 	case *pb.Value_TensorQuantity:
 		if !s.capabilities.has(CapabilityTensorValues) {
-			shown := displayValue(value)
-			value.Kind = &pb.Value_Null{Null: "unsupported: " + shown.Kind.String() + " " + runtime.FormatValue(shown)}
+			value.Kind = unsupportedShown(displayValue(value))
 		}
 	}
 }

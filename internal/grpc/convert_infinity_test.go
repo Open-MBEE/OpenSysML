@@ -148,14 +148,14 @@ func TestInfinityCapability(t *testing.T) {
 // false, directly and nested: the arm is the unbounded value itself, so false
 // states no value and must not be read as one.
 func TestProtoToValueRefusesAFalseInfinityArm(t *testing.T) {
-	false_ := &pb.Value{Kind: &pb.Value_Infinity{Infinity: false}}
+	falseArm := &pb.Value{Kind: &pb.Value_Infinity{Infinity: false}}
 	for _, tc := range []struct {
 		name string
 		sent *pb.Value
 	}{
-		{"directly", false_},
-		{"in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{false_}}}}},
-		{"in an array", &pb.Value{Kind: &pb.Value_Array{Array: &pb.Array{Dimensions: []int64{1}, Elements: []*pb.Value{false_}}}}},
+		{"directly", falseArm},
+		{"in a sequence", &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: []*pb.Value{falseArm}}}}},
+		{"in an array", &pb.Value{Kind: &pb.Value_Array{Array: &pb.Array{Dimensions: []int64{1}, Elements: []*pb.Value{falseArm}}}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := ProtoToValueIn(tc.sent, nil, nil); !errors.Is(err, ErrInfinityNotAsserted) {

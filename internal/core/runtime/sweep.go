@@ -496,7 +496,7 @@ func (b sweepBounds) count() uint64 {
 	if steps >= math.MaxInt64 {
 		return math.MaxInt64
 	}
-	if !(steps > 0) {
+	if steps <= 0 {
 		return 1
 	}
 	// The quotient rounds either way, so the value the last step reaches decides.
