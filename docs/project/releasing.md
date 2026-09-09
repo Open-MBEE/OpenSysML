@@ -88,7 +88,11 @@ branch that moves the integration state onto `main`:
 2. Fold the changelog fragments on that branch — `python3 scripts/changelog.py release 0.0.5`,
    as [Before tagging](#before-tagging) describes — and commit `CHANGELOG.md` together with the
    deleted fragments. Anything else the release needs (a version string in code, a doc that
-   names the version) lands here too; a feature does not.
+   names the version) lands here too; a feature does not. Check the wire compatibility
+   against the released schema, not the branch's own source:
+   `make proto-breaking BUF_BREAKING_REF=origin/main` (the default baseline is
+   `origin/develop`; the pull-request workflow uses the base branch, so the PR to `main`
+   makes the same comparison).
 
 3. Open a pull request from `release/x.y.z` to `main` and merge it once the
    pull-request workflow is green. Merging into `main` runs CircleCI's
@@ -106,7 +110,8 @@ branch that moves the integration state onto `main`:
    ```
 
 A `hotfix/` branch follows the same path from `main`: cut from `main`, pull
-request to `main`, tag, merge back into `develop`.
+request to `main` (`make proto-breaking BUF_BREAKING_REF=origin/main` locally, as above),
+tag, merge back into `develop`.
 
 ## Tagging
 

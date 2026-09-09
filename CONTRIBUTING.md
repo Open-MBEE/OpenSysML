@@ -215,7 +215,8 @@ A release is a **PATCH** when everything the previous release accepted still beh
   result into the one the Kernel Semantic Library derives; that is compatible and is listed under
   *Fixed*.
 - No CLI flag, REPL command, RPC or wire field is removed or renamed. The protobuf
-  wire-compatibility check, `make proto-breaking`, passes.
+  wire-compatibility check passes against the previous release's schema:
+  `make proto-breaking BUF_BREAKING_REF=origin/main` on the release branch.
 
 New features, new flags, new capabilities and new wire fields are all patch material.
 
