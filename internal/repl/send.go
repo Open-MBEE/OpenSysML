@@ -366,14 +366,6 @@ func droppedDispatchNote(d runtime.Dispatch) string {
 	return msg.SignalType + " was consumed by no transition: since it was sent, the state or the data its guards read had changed"
 }
 
-// appendNote adds a note unless it is empty.
-func appendNote(notes []string, note string) []string {
-	if note == "" {
-		return notes
-	}
-	return append(notes, note)
-}
-
 // machineStates names each machine with the state it is in.
 func machineStates(machines []*runtime.StateExecutor) string {
 	parts := make([]string, 0, len(machines))
