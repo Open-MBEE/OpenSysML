@@ -150,24 +150,42 @@ func (v *verifyContext) caseEvaluations(evaluations []runtime.AnalysisEvaluation
 	return out
 }
 
-// namedInstances are the objects a value names: the instance it is, or the
-// instances among a sequence's elements.
+// namedInstances are the objects a value's wire form refers to by identity: the
+// instance it is or a variant materialized, the object a function was read off,
+// and those named within a sequence's, a set's or an array's elements.
 func (v *verifyContext) namedInstances(val runtime.Value) []*runtime.Instance {
-	switch val.Kind {
-	case runtime.ValInstance:
-		if inst, ok := v.runtime.Instance(val.Instance); ok {
+	if id, ok := val.Object(); ok {
+		if inst, ok := v.runtime.Instance(id); ok {
 			return []*runtime.Instance{inst}
 		}
-	case runtime.ValSequence:
-		var out []*runtime.Instance
-		if seq := val.Sequence(); seq != nil {
-			for _, elem := range seq.Elements() {
-				out = append(out, v.namedInstances(elem)...)
-			}
-		}
-		return out
+		return nil
 	}
-	return nil
+	if val.Kind == runtime.ValFunction {
+		if self := val.FunctionSelf(); self != nil {
+			return []*runtime.Instance{self}
+		}
+		return nil
+	}
+	var elements []runtime.Value
+	switch val.Kind {
+	case runtime.ValSequence:
+		if seq := val.Sequence(); seq != nil {
+			elements = seq.Elements()
+		}
+	case runtime.ValSet:
+		if set := val.Set(); set != nil {
+			elements = set.Elements()
+		}
+	case runtime.ValArray:
+		if arr := val.Array(); arr != nil {
+			elements = arr.Elements
+		}
+	}
+	var out []*runtime.Instance
+	for _, elem := range elements {
+		out = append(out, v.namedInstances(elem)...)
+	}
+	return out
 }
 
 // instanceGraphs is the instance graph of every root, in root order, each
