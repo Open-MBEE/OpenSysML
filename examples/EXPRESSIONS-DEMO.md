@@ -201,7 +201,7 @@ function:
 ```
 
 ```
-Instance: ExpressionsDemo::Amplifier (ID: 9)
+Instance: ExpressionsDemo::Amplifier (ID: 13)
 Features:
   gain = 1.5
   transfer = ExpressionsDemo::Amplifier::amplify
@@ -228,11 +228,11 @@ equal, and so are their `elements`.
 ```
 
 ```
-Instance: ExpressionsDemo::RadioBands (ID: 10)
+Instance: ExpressionsDemo::RadioBands (ID: 14)
 Features:
-  requested = Instance(ID: 11)
+  requested = Instance(ID: 15)
     elements = Set{"Ka", "S", "X"}
-  licensed = Instance(ID: 12)
+  licensed = Instance(ID: 16)
     elements = Set{"Ka", "S", "X"}
   distinctBands = 3
   sameBands = true
@@ -258,7 +258,7 @@ dimension, and the arithmetic keeps the shape component by component:
 ```
 
 ```
-Instance: ExpressionsDemo::MountStress (ID: 13)
+Instance: ExpressionsDemo::MountStress (ID: 17)
 Features:
   field = Tensor(2, 2, 2)[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0] [Pa]
   rank = 3
@@ -288,7 +288,7 @@ in i : Instrument; i.mass }` is a `MassValue[0..*]` and can be declared as one
 ```
 
 ```
-Instance: ExpressionsDemo::MassRollup (ID: 15)
+Instance: ExpressionsDemo::MassRollup (ID: 19)
 Features:
   instruments = [Instance(ID: 2), Instance(ID: 4), Instance(ID: 3)]
     mass = 4.0 [kg]

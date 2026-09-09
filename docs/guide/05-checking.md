@@ -372,6 +372,7 @@ sysml> package Rollup {
 1:35: error: cannot bind a value of type MassValue to a feature typed by String
 	attribute names : String[0..*] = (navCam, spectrometer)->collect { in i : Instrument; i.mass };
                                   ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+note: added to the existing package Rollup (its other members are kept)
 ```
 
 **Constraints:**
