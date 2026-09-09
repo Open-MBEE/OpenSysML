@@ -600,9 +600,21 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	}
 	for behavior := range dropped {
 		behavior.Object.behaviors = behaviorsExcept(behavior.Object.behaviors, dropped)
+		behavior.leaveClock()
 	}
 	ctx.objectBehaviors = behaviorsExcept(ctx.objectBehaviors, dropped)
 	ctx.pendingBehaviors = behaviorsExcept(ctx.pendingBehaviors, dropped)
+}
+
+// leaveClock withdraws the behavior's execution from the clock, so a behavior
+// dropped from its object is never driven again.
+func (b *ObjectBehavior) leaveClock() {
+	switch {
+	case b.State != nil:
+		b.State.ctx.clock.detach(b.State)
+	case b.Action != nil:
+		b.Action.ctx.clock.detach(b.Action)
+	}
 }
 
 // behaviorsExcept returns the behaviors none of which is one being dropped.
@@ -719,6 +731,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			exec.stateData[name] = value
 		}
 		if err := exec.initialize(); err != nil {
+			exec.Release()
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		behavior.State = exec
@@ -741,6 +754,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			start = exec.initialize
 		}
 		if err := start(); err != nil {
+			exec.Release()
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		behavior.Action = exec

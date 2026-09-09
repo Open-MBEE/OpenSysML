@@ -59,6 +59,9 @@ type ActionExecutor struct {
 	// steps of the action's token-flow budget the current call has spent, by the
 	// tokens of its flow and of the flows body statements run alike.
 	steps int64
+	// stepsSpent are the steps a drive of the clock took before waking this action,
+	// counted against the same budget.
+	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
@@ -69,7 +72,7 @@ type ActionExecutor struct {
 // chargeActionStep spends one step of the action's token-flow budget
 // (MaxActionStepsEnvVar), which the tokens of every flow of the run share.
 func (e *ActionExecutor) chargeActionStep() error {
-	if e.steps >= e.ctx.maxActionSteps {
+	if e.stepsSpent+e.steps >= e.ctx.maxActionSteps {
 		return budgetExceeded(ErrActionStepLimitExceeded,
 			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
 				e.ctx.maxActionSteps, MaxActionStepsEnvVar))
@@ -1843,11 +1846,13 @@ func (e *ActionExecutor) watchesChange() bool {
 	return false
 }
 
-// runDue runs the action to quiescence at the current instant, counting the
-// steps taken.
+// runDue runs the action to quiescence at the current instant; the steps it takes
+// count against the drive's budget together with those already taken.
 func (e *ActionExecutor) runDue(progress *dueProgress) (bool, error) {
 	before, positions := e.stepCount, e.tokenPositions()
+	e.stepsSpent = progress.steps
 	err := e.run(true)
+	e.stepsSpent = 0
 	progress.steps += int64(e.stepCount - before)
 	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()), err
 }

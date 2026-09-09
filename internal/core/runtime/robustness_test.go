@@ -7746,6 +7746,98 @@ func testClockAdvance(t *testing.T) {
 			t.Errorf("clock = %v; want it stopped where the budget ran out", got)
 		}
 	})
+	t.Run("step budget spans every instant of one advance", func(t *testing.T) {
+		idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				action ticker {
+					attribute ticks : Integer = 0;
+					first start;
+					then action tick assign ticks := ticks + 1;
+					then action rest accept after 1 [s];
+					then tick;
+				}
+			}
+		`))
+		budgets := ctx.Budgets()
+		budgets.MaxActionSteps = 40
+		if err := ctx.SetBudgets(budgets); err != nil {
+			t.Fatal(err)
+		}
+		action := findSymbolByName(idx.DocumentRoot("<test>"), "ticker", ast.DefAction)
+		if action == nil {
+			t.Fatal("action ticker not found")
+		}
+		exec, err := ctx.CreateActionExecutor(action)
+		if err != nil {
+			t.Fatalf("CreateActionExecutor: %v", err)
+		}
+		if err := exec.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+		report, err := ctx.Advance(1000)
+		if !errors.Is(err, ErrActionStepLimitExceeded) {
+			t.Fatalf("Advance = %v (report %+v); want ErrActionStepLimitExceeded once the steps of every wake add up", err, report)
+		}
+		if !strings.Contains(err.Error(), MaxActionStepsEnvVar) {
+			t.Errorf("err = %v; want it to say how to raise the budget", err)
+		}
+		if report.Steps > budgets.MaxActionSteps {
+			t.Errorf("report.Steps = %d; want at most the budget of %d", report.Steps, budgets.MaxActionSteps)
+		}
+		if got := ctx.Clock().Now(); got >= 1000 {
+			t.Errorf("clock = %v; want it stopped where the budget ran out", got)
+		}
+		if got := exec.Results()["ticks"]; got.Kind != ValConst || got.Const.Int >= budgets.MaxActionSteps {
+			t.Errorf("ticks = %v; want fewer than the %d steps of the budget", got, budgets.MaxActionSteps)
+		}
+	})
+	t.Run("behaviors of an object that failed to start leave the clock", func(t *testing.T) {
+		ctx, _, err := instantiateWithLibraries(t, `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				part def Rig {
+					attribute beats : Integer = 0;
+					exhibit state pulse {
+						entry; then idle;
+						state idle;
+						transition first idle accept after 1 [s] do assign beats := beats + 1 then idle;
+					}
+					perform action tick {
+						first start;
+						then action rest accept after 1 [s];
+						then done;
+					}
+					exhibit state broken {
+						state lonely;
+					}
+				}
+			}`, "test::Rig")
+		if !errors.Is(err, ErrNoInitialState) {
+			t.Fatalf("instantiate = %v; want ErrNoInitialState from the machine with no initial state", err)
+		}
+		if got := len(ctx.clock.waiters); got != 0 {
+			t.Errorf("clock drives %d executors after the failed start; want none", got)
+		}
+		if waits := ctx.Clock().Waits(); len(waits) != 0 {
+			t.Errorf("clock waits = %v after the failed start; want none", waits)
+		}
+		if _, ok := ctx.Clock().NextDue(); ok {
+			t.Error("clock has a next due instant after the failed start; want none")
+		}
+		report, err := ctx.Advance(10)
+		if err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		if report.Events != 0 || report.Steps != 0 || report.DoSteps != 0 {
+			t.Errorf("report = %+v; want nothing run for behaviors the failed start withdrew", report)
+		}
+		if got := ctx.Clock().Now(); got != 10 {
+			t.Errorf("clock = %v; want 10", got)
+		}
+	})
 }
 
 // testActionAcceptNonBooleanChangeTrigger: a change trigger states a condition,
