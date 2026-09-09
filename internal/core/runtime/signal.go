@@ -1345,9 +1345,14 @@ func triggerName(trigger ast.Node) string {
 
 // eventName names a dispatched occurrence as triggerName names the triggers it
 // matches, from the occurrence itself so the name is the same whichever took it.
+// A message sent from an event feature is that feature's occurrence, named as
+// the accept subsetting it is written, so same-typed events stay apart.
 func eventName(event *Event) string {
 	switch payload := event.Payload.(type) {
 	case Message:
+		if payload.EventName != "" {
+			return "accept :> " + payload.EventName
+		}
 		return "accept " + orAny(payload.SignalType)
 	case Call:
 		return "call " + orAny(payload.Operation)

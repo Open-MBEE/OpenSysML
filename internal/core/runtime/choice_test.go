@@ -973,6 +973,55 @@ func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
 	t.Fatal("no seed up to 32 took b1 first; the case does not exercise the alternate draw")
 }
 
+// A message sent from an event feature is named after that feature, as the
+// accept subsetting it is written: two event features of one type dispatched to
+// the same regions make choices a reader can tell apart.
+func TestRegionOrderChoiceNamesTheEventFeatureSent(t *testing.T) {
+	const src = `package test {
+		item def Ping;
+		state Machine {
+			item alert : Ping;
+			item alarm : Ping;
+			entry; then start;
+			state start;
+			transition first start do send %s then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept :> %[1]s then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					transition first b1 accept :> %[1]s then b2;
+				}
+			}
+		}
+	}`
+	for _, feature := range []string{"alert", "alarm"} {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, fmt.Sprintf(src, feature)))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
+			t.Fatalf("%s: execute: %v", feature, err)
+		}
+		got := ctx.Notes()
+		if len(got) != 1 {
+			t.Fatalf("%s: notes %v, want the region-order choice alone", feature, got)
+		}
+		choice, ok := got[0].(ChoicePoint)
+		want := "on accept :> " + feature
+		if !ok || choice.Kind != ChoiceRegionOrder || choice.Where != want {
+			t.Fatalf("%s: note %v, want a region-order choice %q", feature, got[0], want)
+		}
+	}
+}
+
 // A transition that fires and fails in its effect was the run's choice all the
 // same: the choice explains how the run got to the failure.
 func TestNotesOfATransitionFailingInItsEffectAreKept(t *testing.T) {
