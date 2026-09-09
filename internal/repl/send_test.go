@@ -345,7 +345,9 @@ func TestSendMatchesAnUndeclaredSignalByName(t *testing.T) {
 	wants(t, run(t, s, "%send Swop"), "error: unresolved reference: Swop")
 	wants(t, run(t, s, "%send Swap(x=1)"), "error: unresolved reference: Swap")
 	wants(t, run(t, s, "%send Swap"), `✓ Sent Swap to state machine "Machine"`, "No declaration types Swap, so the signal is matched by name alone")
-	wants(t, run(t, s, "%advance 1"), "Current state: two")
+	// Entering `two` starts it in the `i1` its definition's entry transition names.
+	wants(t, run(t, s, "%advance 1"), "Current state: i1")
+	wants(t, run(t, s, "%current"), "0. two", "1. i1")
 }
 
 // TestSendIsInHelpAndCompletion keeps the command discoverable.

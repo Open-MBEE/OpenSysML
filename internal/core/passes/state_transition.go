@@ -41,6 +41,15 @@ const CodeNoTransitionSource = "no-transition-source"
 // whose preceding member is not a vertex of the machine (SysML v2 §7.18.3).
 const CodeTransitionSourceNotVertex = "transition-source-not-vertex"
 
+// CodeEntryTransitionShape marks a transition out of the entry action written
+// with a trigger or an effect, which chooses a starting state by its guard alone
+// (SysML v2 §7.18.3, EntryTransitionMember).
+const CodeEntryTransitionShape = "entry-transition-shape"
+
+// CodeEntryTransitionTarget marks a transition out of the entry action whose
+// target is a vertex but not a state the body can start in (SysML v2 §7.18.3).
+const CodeEntryTransitionTarget = "entry-transition-target"
+
 // StateTransitionPass checks that every transition names one source and one
 // target vertex of its own machine (UML 2.5.1 §14.2.3.9), and that a routing
 // pseudostate is left by one (§15.7.18).
@@ -296,7 +305,7 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		switch n := decl.(type) {
 		case *ast.TransitionMember:
 			if n.Source == nil {
-				c.checkImplicitSource(m, members, n)
+				c.checkImplicitSource(m, scope, members, n)
 				c.checkEndpoint(m, scope, n.Target, true, nil)
 				continue
 			}
@@ -304,7 +313,7 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 				c.checkEndpoint(m, scope, n.Target, true, nil)
 				continue
 			}
-			bare := n.Trigger == nil && n.Guard == nil && len(n.Effect) == 0
+			bare := n.Trigger == nil && len(n.Effect) == 0
 			m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
 			c.checkEndpoint(m, scope, n.Target, true, nil)
 		case *ast.SuccessionEdge:
@@ -350,25 +359,41 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 }
 
 // checkImplicitSource checks that the member before a sourceless transition in its body,
-// the source it leaves (SysML v2 §7.18.3), is a vertex of the machine, as lowering requires.
-func (c *transitionChecker) checkImplicitSource(m *machine, members []ast.Node, n *ast.TransitionMember) {
+// the source it leaves (SysML v2 §7.18.3), is a state of the machine, as lowering requires.
+func (c *transitionChecker) checkImplicitSource(m *machine, scope *symbols.Scope, members []ast.Node, n *ast.TransitionMember) {
 	source, err := lower.ImplicitSource(members, n)
 	if err != nil {
 		c.report(n.Span(), CodeNoTransitionSource, err.Error())
 		return
 	}
-	if m.vertices[source] {
+	if m.vertices[source] && lower.IsStateSource(source) {
 		m.markLeft(source, nil)
 		return
 	}
-	// `entry; if c then s;` leaves the entry action: a guarded entry transition.
-	if lower.IsEntryTransition(source, n) {
+	if lower.IsEntryTransition(source) {
+		c.checkEntryTransition(m, scope, n)
 		return
 	}
 	// A state of the body that is no vertex is a region of a parallel state.
-	region := resolve.IsVertex(source) && !isMarker(source)
+	region := resolve.IsVertex(source) && !isMarker(source) && lower.IsStateSource(source)
 	c.report(n.Span(), CodeTransitionSourceNotVertex,
 		(&lower.TransitionSourceError{Source: source, Region: region}).Error())
+}
+
+// checkEntryTransition checks `entry; if c then s;`, a transition out of the body's
+// entry action: it carries a guard alone and starts the body in a state.
+func (c *transitionChecker) checkEntryTransition(m *machine, scope *symbols.Scope, n *ast.TransitionMember) {
+	if n.Trigger != nil || len(n.Effect) > 0 {
+		c.report(n.Span(), CodeEntryTransitionShape, (&lower.EntryTransitionShapeError{Transition: n}).Error())
+		return
+	}
+	if n.Target == nil {
+		return
+	}
+	sym, ok := c.resolver.EndpointSymbol(scope, n.Target)
+	if ok && m.vertices[sym.Decl] && !lower.IsStateSource(sym.Decl) {
+		c.report(n.Target.Span(), CodeEntryTransitionTarget, (&lower.EntryTransitionTargetError{Target: sym.Decl}).Error())
+	}
 }
 
 // startsOf returns the entry actions a transition of this shape may leave: only a

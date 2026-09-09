@@ -1,0 +1,80 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="GuardedEntry" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Thermostat"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="cold" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (LiteralBool value=true)))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="mode" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (EntryMember
+            (*ast.AssignmentActionNode))
+          (TransitionMember source="" target="heating"
+            (FeatureReference name="cold"))
+          (TransitionMember source="" target="idle"
+            (OperatorExpr operator="not"
+              (FeatureReference name="cold")))
+          (SuccessionEdge source="@entry" target="off")
+          (Membership visibility="default"
+            (Usage kind="state" name="heating" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="warm" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry")))
+              (TransitionMember source="" target="fast"
+                (OperatorExpr operator=">"
+                  (FeatureReference name="mode")
+                  (LiteralInteger value="1")))
+              (SuccessionEdge source="@entry" target="slow")
+              (SubstateMember name="fast")
+              (SubstateMember name="slow")))
+          (SubstateMember name="idle")
+          (SubstateMember name="off")))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Plant" parallel=true
+          (Membership visibility="default"
+            (Usage kind="attribute" name="cold" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (LiteralBool value=false)))
+          (Membership visibility="default"
+            (Usage kind="state" name="climate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember)
+              (TransitionMember source="" target="heating"
+                (FeatureReference name="cold"))
+              (SuccessionEdge source="@entry" target="idle")
+              (SubstateMember name="heating")
+              (SubstateMember name="idle")))
+          (Membership visibility="default"
+            (Usage kind="state" name="lights" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="boot" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry")))
+              (TransitionMember source="boot" target="dim"
+                (FeatureReference name="cold"))
+              (TransitionMember source="boot" target="bright")
+              (SubstateMember name="dim")
+              (SubstateMember name="bright")))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Lander"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="armed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Boolean
+                (*ast.QualifiedName))
+              (LiteralBool value=false)))
+          (Membership visibility="default"
+            (Usage kind="state" name="flight" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state"
+              (EntryMember)
+              (TransitionMember source="" target="descent"
+                (FeatureReference name="armed"))
+              (TransitionMember source="" target="coasting"
+                (OperatorExpr operator="not"
+                  (FeatureReference name="armed")))
+              (SubstateMember name="coasting")
+              (SubstateMember name="descent"))))))))

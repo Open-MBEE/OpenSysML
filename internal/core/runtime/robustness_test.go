@@ -107,7 +107,9 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_usage_inherits_unsupported_member", testStateUsageInheritsUnsupportedMember)
 	t.Run("sourceless_transition_with_nothing_before", testSourcelessTransitionWithNothingBefore)
 	t.Run("sourceless_transition_after_a_non_state", testSourcelessTransitionAfterANonState)
-	t.Run("guarded_entry_transition_is_not_lowered", testGuardedEntryTransitionIsNotLowered)
+	t.Run("no_entry_transition_guard_holds", testNoEntryTransitionGuardHolds)
+	t.Run("entry_transition_target_is_not_a_state", testEntryTransitionTargetIsNotAState)
+	t.Run("entry_transition_carries_a_trigger", testEntryTransitionCarriesATrigger)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
 	t.Run("calc_calls_an_unimported_extension_function", testCalcCallsAnUnimportedExtensionFunction)
 	t.Run("calc_calls_an_unimported_library_function", testCalcCallsAnUnimportedLibraryFunction)
@@ -6039,13 +6041,6 @@ func testSourcelessTransitionAfterANonState(t *testing.T) {
 		body string
 		want string
 	}{
-		"entry action": {
-			body: `entry; then init;
-				accept go then active;
-				state init;
-				state active;`,
-			want: "the entry action",
-		},
 		"do action": {
 			body: `entry; then init;
 				state init;
@@ -6062,6 +6057,15 @@ func testSourcelessTransitionAfterANonState(t *testing.T) {
 				state active;`,
 			want: "the attribute usage count",
 		},
+		"choice pseudostate": {
+			body: `entry; then init;
+				state init;
+				transition first init then pick;
+				choice pick;
+				accept go then active;
+				state active;`,
+			want: fmt.Sprintf(lower.TransitionSourcePseudostateFormat, "the choice pick", "pick"),
+		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -6077,6 +6081,9 @@ func testSourcelessTransitionAfterANonState(t *testing.T) {
 				t.Fatalf("expected TransitionSourceError, got %v", err)
 			}
 			want := "create state executor: lower state machine: " + fmt.Sprintf(lower.TransitionSourceNotVertexFormat, tc.want)
+			if _, ok := sourceErr.Source.(*ast.PseudostateNode); ok {
+				want = "create state executor: lower state machine: " + tc.want
+			}
 			if err.Error() != want {
 				t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 			}
@@ -6084,27 +6091,75 @@ func testSourcelessTransitionAfterANonState(t *testing.T) {
 	}
 }
 
-// testGuardedEntryTransitionIsNotLowered: `entry; if c then s;` is the guarded
-// entry transition of SysML v2 7.18.3, legal notation whose starting-state choice
-// the lowering does not make yet, and says so rather than picking a state.
-func testGuardedEntryTransitionIsNotLowered(t *testing.T) {
+// testNoEntryTransitionGuardHolds: `entry; if c then s;` chooses the starting
+// state by guard at initialize (SysML v2 7.18.3); when no guard holds the
+// machine has nowhere to start, a typed error rather than a silent stall.
+func testNoEntryTransitionGuardHolds(t *testing.T) {
+	src := `
+		package test {
+			part def Heater {
+				attribute cold : Boolean = true;
+				exhibit state control {
+					entry;
+					if not cold then ready;
+					if cold and not cold then warming;
+					state warming;
+					state ready;
+				}
+			}
+		}
+	`
+	_, _, err := instantiateWithLibraries(t, src, "test::Heater")
+	if !errors.Is(err, ErrNoEntryTransitionHolds) {
+		t.Fatalf("expected ErrNoEntryTransitionHolds, got %v", err)
+	}
+	want := "no entry transition holds: state machine control declares 2 transitions out of its entry action and the guard of none holds"
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("message:\n got %q\nwant it to contain %q", err.Error(), want)
+	}
+}
+
+// testEntryTransitionTargetIsNotAState: an entry transition starts its body in
+// a state; reaching a pseudostate instead is a typed lowering error.
+func testEntryTransitionTargetIsNotAState(t *testing.T) {
 	err := stateExecutorError(t, `
 		package test {
 			state Machine {
-				attribute cold : Boolean = true;
-				entry;
-				if cold then warming;
-				if not cold then ready;
-				state warming;
-				state ready;
+				entry; then pick;
+				choice pick;
+				transition first pick then idle;
+				state idle;
 			}
 		}
 	`, "Machine")
-	if !errors.Is(err, lower.ErrEntryTransitionUnsupported) {
-		t.Fatalf("expected ErrEntryTransitionUnsupported, got %v", err)
+	var targetErr *lower.EntryTransitionTargetError
+	if !errors.As(err, &targetErr) {
+		t.Fatalf("expected EntryTransitionTargetError, got %v", err)
 	}
-	if err.Error() != "create state executor: lower state machine: "+lower.EntryTransitionUnsupportedMessage {
-		t.Fatalf("unexpected message: %v", err)
+	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionTargetFormat, "the choice pick")
+	if err.Error() != want {
+		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
+	}
+}
+
+// testEntryTransitionCarriesATrigger: an entry transition chooses the start by
+// its guard alone; a trigger on it is a typed lowering error.
+func testEntryTransitionCarriesATrigger(t *testing.T) {
+	err := stateExecutorError(t, `
+		package test {
+			state Machine {
+				entry; accept go then idle;
+				state idle;
+			}
+		}
+	`, "Machine")
+	var shapeErr *lower.EntryTransitionShapeError
+	if !errors.As(err, &shapeErr) {
+		t.Fatalf("expected EntryTransitionShapeError, got %v", err)
+	}
+	want := "create state executor: lower state machine: " + fmt.Sprintf(lower.EntryTransitionShapeFormat, "a trigger")
+	if err.Error() != want {
+		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}
 }
 

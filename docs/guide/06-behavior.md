@@ -107,6 +107,29 @@ sysml> %advance 30
 ✓ State machine completed (a transition reached `done`)
 ```
 
+**Choosing the starting state.** Written right after the body's entry action, the shorthand
+is an *entry transition* instead: it names the state the body starts in. `entry; then start;`
+above always starts in `start`; with a guard, `entry; if cold then heating; if not cold then
+idle;`, the alternatives are tried in the order written each time the body is entered — when
+the machine starts, and again whenever a transition enters the composite state whose body it
+is — and the first whose guard holds is entered. An unguarded `then s;` among them is the
+alternative taken when it is reached. The entry action itself runs first, so a guard reads
+what it assigned. When alternatives are written and no guard holds, the machine has nowhere
+to start and reports it as an error (`no entry transition holds`). An entry transition
+chooses by its guard alone: one written with a trigger or an effect, or one reaching
+something other than a state, is reported.
+
+```sysml
+state def Heater {
+    attribute cold : Boolean = true;
+    entry;
+    if cold then heating;
+    if not cold then idle;
+    state heating;
+    state idle;
+}
+```
+
 **Sending a signal.** A transition that waits on an `accept` is driven from the prompt with
 `%send`, which puts the signal on the runtime's message bus exactly as a `send` from an action
 would, so nothing has to be written in the model just to fire it:

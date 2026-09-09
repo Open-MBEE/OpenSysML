@@ -1,0 +1,19 @@
+{
+  "type": "state",
+  "events": [
+    {
+      "signal": "Stop"
+    }
+  ],
+  "finalState": "done",
+  "stateVisits": [
+    "working",
+    "done"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "machine-in;in;out;machine-out;"
+    }
+  }
+}

@@ -2,6 +2,7 @@ package lower
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -137,21 +138,103 @@ func TestToStateGraph_SourcelessTransitionWithNothingBefore(t *testing.T) {
 	}
 }
 
-// `entry; if c then s;` is a guarded entry transition, whose starting-state
-// choice the lowering reports as unsupported rather than reading a wrong source.
-func TestToStateGraph_GuardedEntryTransitionIsUnsupported(t *testing.T) {
-	_, err := ToStateGraph(stateUsageIn(t, `
+// `entry; if c then s;` is a guarded entry transition: the body's alternatives
+// are lowered in declaration order, guards kept, and none is the static initial.
+func TestToStateGraph_GuardedEntryTransitionsKeepDeclarationOrder(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
 		package test {
 			state Machine {
 				attribute cold : Boolean = true;
 				entry;
 				if cold then warming;
+				if not cold then ready;
+				then idle;
 				state warming;
+				state ready;
+				state idle;
 			}
 		}
 	`), nil)
-	if !errors.Is(err, ErrEntryTransitionUnsupported) {
-		t.Fatalf("got %v, want ErrEntryTransitionUnsupported", err)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	if graph.Initial != nil {
+		t.Fatalf("Initial = %s, want none: the start is chosen by guard at initialize", graph.Initial.Name)
+	}
+	entries := graph.StartOf(nil)
+	want := []struct {
+		target  string
+		guarded bool
+	}{{"warming", true}, {"ready", true}, {"idle", false}}
+	if len(entries) != len(want) {
+		t.Fatalf("got %d entry transitions, want %d", len(entries), len(want))
+	}
+	for i, w := range want {
+		if entries[i].Target.Name != w.target || (entries[i].Guard != nil) != w.guarded {
+			t.Errorf("entry[%d] = %s (guarded %v), want %s (guarded %v)",
+				i, entries[i].Target.Name, entries[i].Guard != nil, w.target, w.guarded)
+		}
+	}
+}
+
+// An unguarded `entry; then s;` alone is the static initial state, as before.
+func TestToStateGraph_UnguardedEntryTransitionIsInitial(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			state Machine {
+				entry; then idle;
+				state idle;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	if graph.Initial == nil || graph.Initial.Name != "idle" {
+		t.Fatalf("Initial = %v, want idle", graph.Initial)
+	}
+}
+
+// An entry transition chooses the start by its guard alone: a trigger or an
+// effect on it, and a target that is no state, are typed lowering errors.
+func TestToStateGraph_EntryTransitionShape(t *testing.T) {
+	cases := map[string]struct {
+		body string
+		want string
+	}{
+		"trigger": {
+			body: `entry; accept Go then idle; state idle;`,
+			want: fmt.Sprintf(EntryTransitionShapeFormat, "a trigger"),
+		},
+		"effect": {
+			body: `entry; if true do action mark then idle; state idle;`,
+			want: fmt.Sprintf(EntryTransitionShapeFormat, "an effect"),
+		},
+		"trigger after an unguarded start": {
+			body: `entry; then init; accept Go then active; state init; state active;`,
+			want: fmt.Sprintf(EntryTransitionShapeFormat, "a trigger"),
+		},
+		"target is a pseudostate": {
+			body: `entry; then pick; choice pick; transition first pick then idle; state idle;`,
+			want: fmt.Sprintf(EntryTransitionTargetFormat, "the choice pick"),
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := ToStateGraph(stateUsageIn(t, `
+				package test {
+					state Machine {
+						`+tc.body+`
+					}
+				}
+			`), nil)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if err.Error() != tc.want {
+				t.Fatalf("message:\n got %q\nwant %q", err.Error(), tc.want)
+			}
+		})
 	}
 }
 
@@ -162,13 +245,6 @@ func TestToStateGraph_SourcelessTransitionAfterANonVertex(t *testing.T) {
 		body string
 		want string
 	}{
-		"entry action": {
-			body: `entry; then init;
-				accept Go then active;
-				state init;
-				state active;`,
-			want: "the entry action",
-		},
 		"start marker": {
 			body: `entry; then init;
 				state init;
@@ -193,6 +269,33 @@ func TestToStateGraph_SourcelessTransitionAfterANonVertex(t *testing.T) {
 				accept Go then done;`,
 			want: "an unnamed succession usage",
 		},
+		"choice pseudostate, triggered": {
+			body: `entry; then init;
+				state init;
+				transition first init then pick;
+				choice pick;
+				accept Go then active;
+				state active;`,
+			want: "the choice pick",
+		},
+		"choice pseudostate, guarded": {
+			body: `entry; then init;
+				state init;
+				transition first init then pick;
+				choice pick;
+				if true then active;
+				state active;`,
+			want: "the choice pick",
+		},
+		"join pseudostate, triggered": {
+			body: `entry; then init;
+				state init;
+				transition first init then sync;
+				join sync;
+				accept Go then active;
+				state active;`,
+			want: "the join sync",
+		},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -212,6 +315,9 @@ func TestToStateGraph_SourcelessTransitionAfterANonVertex(t *testing.T) {
 			}
 			if got := err.Error(); !strings.Contains(got, "transition without a source leaves "+tc.want+", the member declared before it") {
 				t.Errorf("got %q, want it to name %s", got, tc.want)
+			}
+			if _, ok := sourceErr.Source.(*ast.PseudostateNode); ok != strings.Contains(err.Error(), "is a pseudostate rather than a state") {
+				t.Errorf("got %q, want the pseudostate wording exactly for a pseudostate", err)
 			}
 		})
 	}

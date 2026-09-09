@@ -1,0 +1,23 @@
+exit: slow
+exit: running
+enter: paused
+transition: slow -> paused (event: accept Pause)
+exit: paused
+enter: running (entry action)
+stmt assign visits
+    eval feature visits -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+  eval feature visits -> 2
+  eval literal 1 -> 1
+eval operator == -> false
+enter: fast (entry action)
+stmt assign fastEntries
+    eval feature fastEntries -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+transition: paused -> running (event: accept Resume)
+exit: fast
+exit: running
+enter: finished
+transition: fast -> finished (event: accept Stop)

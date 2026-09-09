@@ -1463,26 +1463,27 @@ func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *a
 			return fmt.Errorf("enter state: %w", err)
 		}
 	}
+	// A composite target's own body starts in the state its entry transitions choose.
+	leaf, err := e.enterStartOf(targetState)
+	if err != nil {
+		return err
+	}
 
 	// Update current state and rebuild stateStack with full active configuration.
 	// A composite state with orthogonal regions is represented by its regions'
 	// active states, which entering it has just filled in, so taking it as the
 	// single active state would discard that configuration.
-	if _, hasRegions := e.graph.CompositeStates[targetState]; !hasRegions {
-		e.setCurrentState(targetState)
+	if _, hasRegions := e.graph.CompositeStates[leaf]; !hasRegions {
+		e.setCurrentState(leaf)
 	}
-	e.stateStack = e.getParentChain(targetState)
-	// Reverse to root→leaf order for stateStack
-	for i, j := 0, len(e.stateStack)-1; i < j; i, j = i+1, j-1 {
-		e.stateStack[i], e.stateStack[j] = e.stateStack[j], e.stateStack[i]
-	}
+	e.stateStack = e.rootToLeaf(leaf)
 
 	// Schedule new events
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
 	}
 
-	if err := e.completeIfDone(targetState); err != nil {
+	if err := e.completeIfDone(leaf); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 
@@ -2548,42 +2549,38 @@ func (e *StateExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
-	// Use initial state from graph
-	if e.graph.Initial != nil {
-		// Simple state machine with single initial state
-		initialState := e.graph.Initial
-
-		// Enter initial state hierarchy (parent to child)
-		e.setCurrentState(initialState)
-		e.state = StateRunning
-
-		// Build stateStack with full active configuration (root → leaf)
-		chain := e.getParentChain(initialState)
-		// Reverse to root→leaf order
-		for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
-			chain[i], chain[j] = chain[j], chain[i]
+	// A machine without orthogonal regions of its own starts in the state its
+	// body's entry transitions choose, then in that state's own start, and so on.
+	if len(e.graph.TopRegions) == 0 {
+		if len(e.graph.StartOf(nil)) == 0 {
+			return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
 		}
-		e.stateStack = chain
+		if err := e.enterMachine(); err != nil {
+			return fmt.Errorf("enter state machine: %w", err)
+		}
+		start, err := e.startIn(nil)
+		if err != nil {
+			return err
+		}
 
-		// Enter states from root to initial state
+		e.setCurrentState(start)
+		e.state = StateRunning
+		e.stateStack = e.rootToLeaf(start)
 		for _, state := range e.stateStack {
 			if err := e.enterState(state); err != nil {
 				return fmt.Errorf("enter state %s: %w", state.Name, err)
 			}
 		}
+		leaf, err := e.enterStartOf(start)
+		if err != nil {
+			return err
+		}
+		e.stateStack = e.rootToLeaf(leaf)
 
-		// Schedule events for outgoing transitions
 		if err := e.scheduleTransitionEvents(); err != nil {
 			return fmt.Errorf("schedule events: %w", err)
 		}
-
 		return nil
-	}
-
-	// State machine has orthogonal regions at top level
-	// Find regions from composite states map (graph has already extracted them)
-	if len(e.graph.RegionInitials) == 0 {
-		return fmt.Errorf("%w in state machine %s", ErrNoInitialState, e.stateMachine.Name)
 	}
 
 	if e.graph.Machine != nil {
@@ -2610,7 +2607,7 @@ func (e *StateExecutor) initialize() error {
 	return nil
 }
 
-// enterMachine runs the behaviors owned by a graph-only parallel-state root.
+// enterMachine runs the machine's own entry behaviors and starts its do behavior.
 func (e *StateExecutor) enterMachine() error {
 	behaviors := e.behaviorsOf(e.graph.Machine)
 	for _, behavior := range behaviors.Entry {
@@ -2622,8 +2619,98 @@ func (e *StateExecutor) enterMachine() error {
 	return nil
 }
 
-// exitMachine runs the exit behaviors owned by a graph-only parallel-state
-// root when the machine reaches a final state.
+// startIn chooses the state owner's body starts in: the target of the first
+// transition out of its entry action whose guard holds, in declaration order.
+// It is nil when the body declares none; when none holds, that is an error.
+func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
+	transitions := e.graph.StartOf(owner)
+	for _, entry := range transitions {
+		holds, err := e.entryGuardHolds(owner, entry)
+		if err != nil {
+			return nil, err
+		}
+		if holds {
+			return entry.Target, nil
+		}
+	}
+	if len(transitions) > 0 {
+		return nil, fmt.Errorf("%w: %s declares %d transitions out of its entry action and the guard of none holds",
+			ErrNoEntryTransitionHolds, e.describeBody(owner), len(transitions))
+	}
+	return nil, nil
+}
+
+// entryGuardHolds evaluates an entry transition's guard in the body it is
+// written in, reading the attributes of the state that owns that body.
+func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransition) (bool, error) {
+	if entry.Guard == nil {
+		return true, nil
+	}
+	val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
+	if err != nil {
+		return false, fmt.Errorf("eval guard of the entry transition into %s: %w", entry.Target.Name, err)
+	}
+	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+		return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", entry.Target.Name, val.Kind)
+	}
+	return val.Const.Bool, nil
+}
+
+// bodyState is the state whose attributes a body's entry transitions read: the
+// state itself, a region's owner, or nil for the machine's own body.
+func (e *StateExecutor) bodyState(owner ast.Node) ast.Node {
+	switch body := owner.(type) {
+	case *ast.StateNode:
+		return body
+	case *ast.StateRegion:
+		if state := e.graph.RegionOwner[body]; state != nil {
+			return state
+		}
+	}
+	return nil
+}
+
+// describeBody names the body an entry transition is written in for a diagnostic.
+func (e *StateExecutor) describeBody(owner ast.Node) string {
+	switch body := owner.(type) {
+	case *ast.StateNode:
+		return fmt.Sprintf("state %s", body.Name)
+	case *ast.StateRegion:
+		if state := e.graph.RegionOwner[body]; state != nil {
+			return fmt.Sprintf("region %s of state %s", body.Name, state.Name)
+		}
+		return fmt.Sprintf("region %s", body.Name)
+	}
+	return fmt.Sprintf("state machine %s", e.stateMachine.Name)
+}
+
+// enterStartOf enters the state a just-entered state's body starts in, and that
+// state's own start below it, returning the innermost state entered. A state
+// whose substates are orthogonal regions has entered them already.
+func (e *StateExecutor) enterStartOf(state *ast.StateNode) (*ast.StateNode, error) {
+	leaf := state
+	for {
+		if _, orthogonal := e.graph.CompositeStates[leaf]; orthogonal {
+			return leaf, nil
+		}
+		start, err := e.startIn(leaf)
+		if err != nil {
+			return nil, err
+		}
+		if start == nil {
+			return leaf, nil
+		}
+		for _, descendant := range e.descendantChain(leaf, start) {
+			if err := e.enterState(descendant); err != nil {
+				return nil, fmt.Errorf("enter state %s: %w", descendant.Name, err)
+			}
+		}
+		leaf = start
+	}
+}
+
+// exitMachine stops the machine's own do behavior and runs its exit behaviors
+// once, when the machine completes.
 func (e *StateExecutor) exitMachine() error {
 	if e.graph.Machine == nil || e.machineExited {
 		return nil
@@ -2742,7 +2829,10 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 	for _, region := range regions {
 		entry, targeted := branches[region]
 		if !targeted {
-			entry = e.graph.RegionInitials[region]
+			var err error
+			if entry, err = e.startIn(region); err != nil {
+				return err
+			}
 		}
 		if entry == nil {
 			return fmt.Errorf("region %s has no initial state", region.Name)

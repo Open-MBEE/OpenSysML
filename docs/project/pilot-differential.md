@@ -710,9 +710,23 @@ at input 'accept'`, `missing '}' at 'go'`) or by `A transition with an accepter 
 as its source`. Three placements were refereed by probe rather than by corpus, with the same
 verdict on both sides: a `doc` between the state and the shorthand makes the documentation the
 member before it (rejected), a guarded shorthand directly after `entry;` is the guarded entry
-transition (accepted by both; this implementation does not lower it yet, see
-`spec-compliance.md`), and a shorthand directly inside a `parallel` state is `A parallel state
-cannot have successions or transitions` on both sides.
+transition (accepted by both and lowered, see `spec-compliance.md`), and a shorthand directly
+inside a `parallel` state is `A parallel state cannot have successions or transitions` on both
+sides. The entry transition's own shapes were refereed the same way, all agreeing: `entry; if c
+then s;`, several guarded alternatives, an unguarded `then s;` among them, `entry assign x :=
+…; if c then s;`, `entry action boot { } if c then s;` and `transition boot if c then s;` after
+a named entry action, nested in a composite state, in an orthogonal region and in an exhibited
+state are accepted on both sides; an entry transition with a trigger (`entry; accept Go then
+s;`, `entry; accept after 5 [SI::s] then s;`) or an effect (`entry; if c do action a then s;`)
+is rejected on both sides — by the reference's grammar (`EntryTransitionMember` takes a guard
+and a target only) or by `A transition with an accepter must have a state as its source`, here
+by the constraint tier and `lower.ToStateGraph`; one reaching an attribute is rejected on both
+sides too (`A transition must own a succession to its target` there). Two target shapes could
+not be refereed: an entry transition reaching a `choice` or `junction` pseudostate, which the
+reference's grammar has no production for and this implementation reports as a target the body
+cannot start in, and one reaching an action usage, which the reference accepts and this
+implementation reports as `transition endpoint … is not a state or pseudostate` — the endpoint
+rule every transition is held to here, entry transitions included.
 
 ## Adjudications
 

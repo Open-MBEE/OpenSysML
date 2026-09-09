@@ -358,6 +358,9 @@ func (e *StateExecutor) moveBetweenRegions(
 			return fmt.Errorf("enter state: %w", err)
 		}
 	}
+	if _, err := e.enterStartOf(target); err != nil {
+		return err
+	}
 
 	if err := e.scheduleFromEntered(leaf); err != nil {
 		return err
@@ -462,6 +465,10 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 			return fmt.Errorf("enter state: %w", err)
 		}
 	}
+	deepest, err := e.enterStartOf(target)
+	if err != nil {
+		return err
+	}
 
 	// Record the entered path: the deepest entered state of every orthogonal
 	// region on it becomes that region's active state, and a target inside none
@@ -471,10 +478,10 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 		e.activeConfig.regionStates[region] = leaf
 	}
 	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
-		e.activeConfig.simpleState = target
+		e.activeConfig.simpleState = deepest
 	}
 
-	e.stateStack = e.rootToLeaf(target)
+	e.stateStack = e.rootToLeaf(deepest)
 	if err := e.scheduleFromEntered(enter); err != nil {
 		return err
 	}

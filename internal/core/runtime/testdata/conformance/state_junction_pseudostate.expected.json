@@ -1,5 +1,7 @@
 {
   "type": "state",
   "finalState": "done",
-  "outputs": {}
+  "outputs": {
+    "status": {"type": "String", "value": "normal"}
+  }
 }

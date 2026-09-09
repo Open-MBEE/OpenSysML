@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "finalState": "on",
+  "stateVisits": ["on"],
+  "outputs": {
+    "offEntries": {"type": "Integer", "value": 0},
+    "onEntries": {"type": "Integer", "value": 1}
+  }
+}

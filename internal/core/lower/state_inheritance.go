@@ -633,6 +633,8 @@ func DescribeMember(member ast.Node) string {
 		return fmt.Sprintf("the %s %s", n.Kind, n.Name)
 	case *ast.InitialNode:
 		return "the succession from " + n.Name
+	case *ast.FinalNode:
+		return "the `done` marker"
 	case *ast.Package:
 		return "the package " + n.Ident.Name
 	}
