@@ -9,13 +9,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
-// bodyRun is the work of one token's step run as a coroutine: a breakpoint met
+// bodyRun is the work of one token's step run on a body coroutine: a breakpoint met
 // inside it, or a wait on the clock, pauses the token there until stepped again.
 type bodyRun struct {
-	// next resumes the work, yielding why it paused next, or false once the work
-	// has ended with err; stop ends paused work for good.
-	next  func() (bodyPause, bool)
-	stop  func()
+	// co is the coroutine the work runs on, which a pause keeps until the work
+	// has ended with err or was stopped for good.
+	co    *bodyCoroutine
+	work  func() error
 	err   error
 	after func(tokenIdx int) error
 	// yield pauses the work from inside; runDepth and actionDepth are the nesting
@@ -28,15 +28,29 @@ type bodyRun struct {
 }
 
 // bodyPause is why a body run paused: at the named breakpoint, or on the clock
-// for a wait of a flow it runs or of the executor (held) it performs an action with.
+// for a wait of a flow it runs or of the executor (held) it performs an action with;
+// ended reports the work done instead.
 type bodyPause struct {
 	breakpoint string
 	onClock    bool
 	held       clockWaiter
+	ended      bool
 }
 
-// runPausable runs work for the token at tokenIdx, then after with the token's
-// index by then; the work is a coroutine unless a run on the stack is pausable already.
+// bodyCoroutine runs the work of token steps one after another, so the steps of a
+// run share one coroutine and only a pause, which keeps it, has the next step make another.
+type bodyCoroutine struct {
+	// next resumes the work, yielding why it paused or that it ended, or false once
+	// the coroutine was stopped; stop ends it, and any work paused on it, for good.
+	next func() (bodyPause, bool)
+	stop func()
+	// run is the work the coroutine is doing or has paused, nil while idle.
+	run *bodyRun
+}
+
+// runPausable runs work for the token at tokenIdx, then after with the token's index
+// by then, inline when a run on the stack is pausable already. The steps of a run
+// share one body coroutine, kept only by a pause, as the race detector never frees one.
 func (e *ActionExecutor) runPausable(tokenIdx int, work func() error, after func(tokenIdx int) error) error {
 	if e.ctx.pausable != nil {
 		if err := work(); err != nil {
@@ -44,15 +58,54 @@ func (e *ActionExecutor) runPausable(tokenIdx int, work func() error, after func
 		}
 		return after(tokenIdx)
 	}
-	run := &bodyRun{after: after}
-	run.next, run.stop = iter.Pull(func(yield func(bodyPause) bool) {
-		run.yield = yield
-		e.ctx.pausable = run
-		defer func() { e.ctx.pausable = nil }()
-		run.err = work()
-	})
+	run := &bodyRun{co: e.ctx.takeBodyCoroutine(), work: work, after: after}
 	e.tokens[tokenIdx].body = run
 	return e.resumeBody(tokenIdx)
+}
+
+// takeBodyCoroutine takes the idle body coroutine for a step's work, making one when none is.
+func (ctx *Context) takeBodyCoroutine() *bodyCoroutine {
+	if co := ctx.idleBody; co != nil {
+		ctx.idleBody = nil
+		return co
+	}
+	ctx.bodyCoroutinesMade++
+	co := &bodyCoroutine{}
+	co.next, co.stop = iter.Pull(func(yield func(bodyPause) bool) {
+		for {
+			co.run.perform(ctx, yield)
+			if !yield(bodyPause{ended: true}) {
+				return
+			}
+		}
+	})
+	return co
+}
+
+// perform does the run's work on the coroutine resuming it, pausable through yield meanwhile.
+func (run *bodyRun) perform(ctx *Context, yield func(bodyPause) bool) {
+	run.yield = yield
+	ctx.pausable = run
+	defer func() { ctx.pausable = nil }()
+	run.err = run.work()
+}
+
+// keepBodyCoroutine keeps co, whose work ended, idle for the next step; a second
+// idle one is ended instead.
+func (ctx *Context) keepBodyCoroutine(co *bodyCoroutine) {
+	if ctx.idleBody != nil {
+		co.stop()
+		return
+	}
+	ctx.idleBody = co
+}
+
+// endIdleBodyCoroutine ends the idle body coroutine, if any, as the outermost run leaves.
+func (ctx *Context) endIdleBodyCoroutine() {
+	if co := ctx.idleBody; co != nil {
+		ctx.idleBody = nil
+		co.stop()
+	}
 }
 
 // Release ends the run for good: the work of every token a breakpoint left
@@ -80,7 +133,7 @@ func (e *ActionExecutor) endPausedBodies() {
 // end ends the paused work for good, unwinding it on the nesting the context has now.
 func (run *bodyRun) end(ctx *Context) {
 	run.runDepth, run.actionDepth = ctx.runDepth, ctx.actionDepth
-	run.stop()
+	run.co.stop()
 }
 
 // pausedTokens returns the IDs of the tokens whose work a breakpoint paused, the
@@ -117,7 +170,10 @@ func (e *ActionExecutor) tokenIndex(id int64) int {
 func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	run := e.tokens[tokenIdx].body
 	run.runDepth, run.actionDepth = e.ctx.runDepth, e.ctx.actionDepth
-	if pause, paused := run.next(); paused {
+	co := run.co
+	co.run = run
+	pause, alive := co.next()
+	if alive && !pause.ended {
 		e.pauses++
 		run.pausedAt = e.pauses
 		run.paused = pause
@@ -128,6 +184,10 @@ func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 		return nil
 	}
 	e.tokens[tokenIdx].body = nil
+	co.run = nil
+	if alive {
+		e.ctx.keepBodyCoroutine(co)
+	}
 	if run.err != nil {
 		return run.err
 	}

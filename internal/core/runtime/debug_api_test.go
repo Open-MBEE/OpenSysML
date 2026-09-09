@@ -728,7 +728,7 @@ func TestReleaseEndsAPausedBody(t *testing.T) {
 	}
 
 	exec.Release()
-	if _, paused := run.next(); paused {
+	if _, paused := run.co.next(); paused {
 		t.Error("the paused work still yields after Release")
 	}
 	if !errors.Is(run.err, ErrActionDeadlock) {
@@ -767,7 +767,7 @@ func TestBudgetFailureEndsAPausedBody(t *testing.T) {
 	if err := exec.RunToCompletion(); !errors.Is(err, ErrActionStepLimitExceeded) {
 		t.Fatalf("resume = %v, want ErrActionStepLimitExceeded", err)
 	}
-	if _, paused := run.next(); paused {
+	if _, paused := run.co.next(); paused {
 		t.Error("the paused work still yields after the budget failure")
 	}
 	for _, token := range exec.tokens {
@@ -838,7 +838,7 @@ func TestFailedStepEndsPausedBodies(t *testing.T) {
 	if err := exec.RunToCompletion(); !errors.Is(err, ErrDivisionByZero) {
 		t.Fatalf("RunToCompletion = %v, want ErrDivisionByZero from the sibling", err)
 	}
-	if _, paused := run.next(); paused {
+	if _, paused := run.co.next(); paused {
 		t.Error("the paused work still yields after the run failed")
 	}
 }
