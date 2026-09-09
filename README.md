@@ -176,6 +176,13 @@ sysml> %advance 30
   Current state: green
   Last event at: 0.0
   Remaining events: 0
+  Action state: Completed
+  Tokens: 0
+  The action runs in a context of its own, whose clock advanced from 0.0 to 30.0
+
+✓ Action completed
+  Results:
+    result = 42
 ```
 
 **Further demonstrations are available in
