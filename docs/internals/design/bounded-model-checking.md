@@ -136,12 +136,17 @@ At each state the checker enumerates the **enabled moves**:
   and clears the wait only when the match succeeds (`stepNestedAction`), so the checker asks the
   same two questions without taking the message — a readiness probe that reads the bus and the
   guard and mutates nothing, evaluated under `beginProbe` where the guard could have effects.
-  A parked token whose wait is not answered is not a move; a state in which no token has a move
-  and some token is parked is a deadlock, as `ErrAcceptDeadlock` reports it today. A token at a
-  decision has one move per succession whose guard holds — the library fixes exactly one
-  (`DecisionPerformance::outgoingHBLink [1]`), so with guards evaluated against the current
-  state there is normally one; overlapping guards are a model defect and are reported rather
-  than branched on, as the executor takes the first in declaration order today.
+  A probe that fails — `acceptMatch` leaves a routing error in its error slot because the `via`
+  port does not resolve, or `triggerHolds` returns one — also makes the token a move, as
+  `HasPendingSignal` counts that case as pending today: taking the move raises the typed
+  runtime error, which the report lists as a violation with its witness, not as a deadlock. A
+  parked token whose wait is neither answered nor failed is not a move; a state in which no
+  token has a move and some token is parked is a deadlock, as `ErrAcceptDeadlock` reports it
+  today. A token at a decision has one move per succession whose guard holds — the library
+  fixes exactly one (`DecisionPerformance::outgoingHBLink [1]`), so with guards evaluated
+  against the current state there is normally one; overlapping guards are a model defect and
+  are reported rather than branched on, as the executor takes the first in declaration order
+  today.
 - **State machine**: with one event at the head of the queue there is one move. Several events
   due at the same instant are one move each; the executor dispatches them in arrival order,
   the checker explores every order, so a state that reacts differently to `A` then `B` than to
@@ -150,18 +155,22 @@ At each state the checker enumerates the **enabled moves**:
   (a state that has completed leaves before it reacts), not a tool choice.
 - **`do` behaviors**: one move per active do behavior with pending statements.
 - **Regions**: one event enabling transitions in several orthogonal regions is one dispatch
-  under run-to-completion, but the order in which those regions react within it is
-  tool-defined (declaration order today), and two reactions that write shared data, or one that
-  writes what another's guard or effect reads, reach different states in different orders. The
-  checker therefore splits the dispatch by the independence relation below: the reactions the
-  event enables are partitioned into groups whose footprints intersect, each group of size `k`
+  under run-to-completion. Selection happens once, against the state before any reaction fires:
+  `selectTransitions` evaluates every candidate's guards over the active configuration and then
+  the selected transitions fire, so a reaction's effect cannot enable or disable another
+  region's transition for the same event — that write is seen by the *next* dispatch's
+  selection, which the captured state carries. The checker keeps this reading, and what it
+  explores inside a dispatch is the order in which the selected reactions' exits, effects and
+  entries run, which is tool-defined (declaration order today): two reactions that write shared
+  data, or one that writes what another's effect reads, reach different states in different
+  orders. The dispatch is therefore split by the independence relation below: the selected
+  reactions are partitioned into groups whose footprints intersect, each group of size `k`
   contributes `k!` orders, and the dispatch has one move per combination; groups of size one
   contribute nothing, so a machine whose regions keep to their own data has exactly one move,
-  as today. Each such move still runs to completion before the next event is taken, so the
-  run-to-completion boundary is kept; only the order inside it is explored. A witness records
-  the region order it took, and the replay scheduler honours it. Without this split the
-  checker could not claim to find a divergence two regions produce, and the verdict would have
-  to exclude it.
+  as today. Every order fires the same selected set and runs to completion before the next
+  event is taken, so the run-to-completion boundary is kept. A witness records the region order
+  it took, and the replay scheduler honours it. Without this split the checker could not claim
+  to find a divergence two regions produce, and the verdict would have to exclude it.
 
 ### The properties
 
@@ -371,8 +380,10 @@ Written before the code, as the behavioral four-layer contract asks:
    test only). They must be equal. Include models exercising every dependence clause: shared
    write, a write to a feature another branch's succession guard reads, a write to a feature
    a parked trigger's condition reads, send/accept pairing, join convergence, two orthogonal
-   regions writing one feature on one event, and a dynamic target that must fall back to
-   "dependent on everything".
+   regions writing one feature on one event, one region's effect writing a feature another
+   region's guard on the same event reads (every order fires the same selected set and differs
+   only in the effects), and a dynamic target that must fall back to "dependent on
+   everything".
 5. **Reduction effectiveness.** Pin the state count for the corpus so a change that silently
    weakens the reduction is noticed; this is a ratchet like the corpus gates, adjudicated on
    every movement.
@@ -382,7 +393,9 @@ Written before the code, as the behavioral four-layer contract asks:
    claims, through the replay scheduler, and the replayed trace equals the witness.
 8. **Robustness.** The failure modes in `robustness_test.go` (deadlocks, unbound parameters,
    dangling successions) are reported by the checker as violations with a witness, not as
-   exploration errors.
+   exploration errors. An `accept` whose matching message needs a `via` port that does not
+   resolve is reported as that routing error, on the schedule that reaches it, not as a
+   deadlock.
 
 ## Stages
 
