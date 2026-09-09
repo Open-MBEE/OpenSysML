@@ -311,8 +311,27 @@ func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
 		state active;
 	}
 }`, CodeTransitionSourceNotVertex, "leaves the succession from init, the member declared before it, which is not a state")
-	// The pilot's grammar chains the shorthand straight off the usage it leaves:
-	// documentation between them is a member the shorthand leaves.
+	// The pilot's grammar chains the shorthand straight off the usage it leaves: a
+	// parameter, a written succession or documentation between them is what it leaves.
+	wantOneError(t, `package test {
+	part def V;
+	state def M {
+		entry; then init;
+		state init;
+		in v : V;
+		accept go then active;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves the in parameter v, the member declared before it")
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		state init;
+		succession first init then active;
+		accept go then done;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it")
 	wantOneError(t, `package test {
 	state def M {
 		entry; then init;

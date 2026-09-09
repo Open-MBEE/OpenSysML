@@ -619,6 +619,9 @@ func DescribeMember(member ast.Node) string {
 		if name == "" {
 			return fmt.Sprintf("an unnamed %s usage", n.Kind)
 		}
+		if n.Direction != ast.DirNone {
+			return fmt.Sprintf("the %s parameter %s", n.Direction, name)
+		}
 		return fmt.Sprintf("the %s usage %s", n.Kind, name)
 	case *ast.StateNode:
 		return "the state " + n.Name
