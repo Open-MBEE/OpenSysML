@@ -128,12 +128,20 @@ stop. A `do` round is one atomic unit per do behavior.
 
 At each state the checker enumerates the **enabled moves**:
 
-- **Action**: every token that is not parked (`Wait == nil`) and not in a paused body. A token
-  at a join that has not collected is not enabled. A token at a decision has one move per
-  succession whose guard holds — the library fixes exactly one (`DecisionPerformance::outgoingHBLink
-  [1]`), so with guards evaluated against the current state there is normally one; overlapping
-  guards are a model defect and are reported rather than branched on, as the executor takes
-  the first in declaration order today.
+- **Action**: every token not in a paused body whose node can advance now. A token at a plain
+  node always can. A token at a join that has not collected cannot. A token parked at an
+  `accept` (`Wait != nil`) can when its wait is answered in the current state: for a message
+  accept, when `Context.messages` holds a message `acceptMatch` would take; for a time or change
+  trigger, when `triggerHolds`. The executor already retries every parked token on every step
+  and clears the wait only when the match succeeds (`stepNestedAction`), so the checker asks the
+  same two questions without taking the message — a readiness probe that reads the bus and the
+  guard and mutates nothing, evaluated under `beginProbe` where the guard could have effects.
+  A parked token whose wait is not answered is not a move; a state in which no token has a move
+  and some token is parked is a deadlock, as `ErrAcceptDeadlock` reports it today. A token at a
+  decision has one move per succession whose guard holds — the library fixes exactly one
+  (`DecisionPerformance::outgoingHBLink [1]`), so with guards evaluated against the current
+  state there is normally one; overlapping guards are a model defect and are reported rather
+  than branched on, as the executor takes the first in declaration order today.
 - **State machine**: with one event at the head of the queue there is one move. Several events
   due at the same instant are one move each; the executor dispatches them in arrival order,
   the checker explores every order, so a state that reacts differently to `A` then `B` than to
@@ -141,11 +149,19 @@ At each state the checker enumerates the **enabled moves**:
   instant (`eventHeap.Less`), because that is a library-derived rule
   (a state that has completed leaves before it reacts), not a tool choice.
 - **`do` behaviors**: one move per active do behavior with pending statements.
-- **Regions**: firing the transitions one event enables in several regions is one move, in
-  declaration order, because the regions' reactions to one event are one dispatch under
-  run-to-completion; the *order* within it is tool-defined, but its effects are on disjoint
-  regions unless they write shared data, which the independence relation below detects and the
-  report names as a divergence of the feature written.
+- **Regions**: one event enabling transitions in several orthogonal regions is one dispatch
+  under run-to-completion, but the order in which those regions react within it is
+  tool-defined (declaration order today), and two reactions that write shared data, or one that
+  writes what another's guard or effect reads, reach different states in different orders. The
+  checker therefore splits the dispatch by the independence relation below: the reactions the
+  event enables are partitioned into groups whose footprints intersect, each group of size `k`
+  contributes `k!` orders, and the dispatch has one move per combination; groups of size one
+  contribute nothing, so a machine whose regions keep to their own data has exactly one move,
+  as today. Each such move still runs to completion before the next event is taken, so the
+  run-to-completion boundary is kept; only the order inside it is explored. A witness records
+  the region order it took, and the replay scheduler honours it. Without this split the
+  checker could not claim to find a divergence two regions produce, and the verdict would have
+  to exclude it.
 
 ### The properties
 
@@ -182,13 +198,23 @@ statically and conservatively from the lowered IR: it computes, per node, a **fo
 
 ```
 footprint(node) = {
-  reads:    features the body's expressions read, by resolved declaration
+  reads:    features the body's expressions read, by resolved declaration,
+            and features the guards of the node's outgoing successions read
   writes:   Assign.Target / AssignTarget.Steps[last], bind ends, out pins delivered
   sends:    Send targets (port or receiver), by resolved feature
-  accepts:  Accept.SignalType / ViaPort
+  accepts:  Accept.SignalType / ViaPort, and the features an accept's trigger
+            condition reads
   control:  the join/merge nodes the token's successions reach
 }
 ```
+
+The footprint covers the whole atomic move, not the body alone. Advancing a token evaluates
+the guards of its outgoing successions (`enabledSuccessions`) and, for a parked token, the
+trigger condition that answers its wait (`triggerHolds`), so a feature either of those reads
+is a read of the move: a branch that writes `ready` and a branch whose succession is guarded
+`[ready]` are dependent, since their order decides which successor is taken. For a state
+machine the same rule covers a transition's guard and effect, a state's entry and exit
+actions, and the change condition a change trigger polls.
 
 and declares `a` and `b` **dependent** when any of these hold:
 
@@ -343,7 +369,9 @@ Written before the code, as the behavioral four-layer contract asks:
 4. **Reduction soundness.** For a corpus of small models, compare the set of final states the
    reduced exploration reaches with the unreduced one (a `-check-no-por` flag exists for this
    test only). They must be equal. Include models exercising every dependence clause: shared
-   write, send/accept pairing, join convergence, and a dynamic target that must fall back to
+   write, a write to a feature another branch's succession guard reads, a write to a feature
+   a parked trigger's condition reads, send/accept pairing, join convergence, two orthogonal
+   regions writing one feature on one event, and a dynamic target that must fall back to
    "dependent on everything".
 5. **Reduction effectiveness.** Pin the state count for the corpus so a change that silently
    weakens the reduction is noticed; this is a ratchet like the corpus gates, adjudicated on
