@@ -192,17 +192,27 @@ def _failure_of(message, failure_reason, diagnostics):
     return ExecutionError(message, diagnostics=diagnostics)
 
 
+def _value_or_unsupported(pb_value, resolve_instance):
+    """Read a wire value, standing an UnsupportedValueError in for one with no form."""
+    try:
+        return value_to_python(pb_value, resolve_instance)
+    except UnsupportedValueError as exc:
+        return exc
+
+
 def _evaluations_of(response, resolve_instance):
-    """Read the case evaluations of a response, empty for a service without them."""
+    """Read the case evaluations of a response, empty for a service without them.
+
+    An argument or result the wire format cannot represent is reported as an
+    UnsupportedValueError in its place, so one such value does not discard the
+    evaluation or the run it belongs to.
+    """
     evaluations = []
     for pb in getattr(response, "evaluations", ()):
-        arguments = [value_to_python(arg, resolve_instance) for arg in pb.arguments]
+        arguments = [_value_or_unsupported(arg, resolve_instance) for arg in pb.arguments]
         result = None
         if not pb.error and pb.HasField("result"):
-            try:
-                result = value_to_python(pb.result, resolve_instance)
-            except UnsupportedValueError as exc:
-                result = exc
+            result = _value_or_unsupported(pb.result, resolve_instance)
         evaluations.append(CaseEvaluation(
             pb.function_id, arguments, result=result, error=pb.error,
             selected=pb.selected, tied=pb.tied,

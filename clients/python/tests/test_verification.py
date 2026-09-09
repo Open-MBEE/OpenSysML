@@ -15,7 +15,13 @@ from opensysml.capabilities import (
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
-from opensysml.errors import AnalysisRunError, ExecutionError, ModelNotFoundError, WrongKindError
+from opensysml.errors import (
+    AnalysisRunError,
+    ExecutionError,
+    ModelNotFoundError,
+    UnsupportedValueError,
+    WrongKindError,
+)
 from opensysml.proto import sysml_pb2
 from opensysml.verdict import AnalysisResult, CalcResult, Verdict, VerificationVerdict
 
@@ -303,6 +309,67 @@ def test_run_analysis_of_a_verification_case_reports_its_body_verdict():
     assert [v.kind for v in result.verifications] == ["pass", "fail"]
     assert result.verifications[1].subcase
     assert "verification Demo::check verdict: pass" in str(result)
+
+
+def test_run_analysis_keeps_an_evaluation_whose_argument_has_no_wire_form():
+    """One argument the service could not send stands in for itself, not the run."""
+    stub = Mock()
+    stub.RunAnalysis.return_value = sysml_pb2.RunAnalysisResponse(
+        outputs=[sysml_pb2.CalcOutput(name="result", value=sysml_pb2.Value(real_value=10.0))],
+        evaluations=[
+            sysml_pb2.CaseEvaluation(
+                function_id="Demo::eval",
+                arguments=[sysml_pb2.Value(null="unsupported: quantity value")],
+                result=sysml_pb2.Value(real_value=30.0),
+            ),
+            sysml_pb2.CaseEvaluation(
+                function_id="Demo::eval",
+                arguments=[sysml_pb2.Value(int_value=2)],
+                result=sysml_pb2.Value(null="unsupported: quantity value"),
+                selected=True,
+            ),
+        ],
+    )
+    conn = make_connection(stub)
+
+    result = conn.run_analysis("Demo::study", "hash1")
+
+    assert result.outputs["result"] == 10.0
+    first, second = result.evaluations
+    assert isinstance(first.arguments[0], UnsupportedValueError)
+    assert first.result == 30.0
+    assert second.arguments == [2]
+    assert isinstance(second.result, UnsupportedValueError)
+    assert second.selected
+
+
+def test_run_sweep_keeps_an_evaluation_whose_argument_has_no_wire_form():
+    stub = Mock()
+    stub.RunSweep.return_value = sysml_pb2.RunSweepResponse(
+        parameters=["k"],
+        rows=[sysml_pb2.SweepRow(
+            inputs=[sysml_pb2.CalcOutput(name="k", value=sysml_pb2.Value(int_value=1))],
+            outputs=[sysml_pb2.CalcOutput(name="result", value=sysml_pb2.Value(real_value=10.0))],
+            evaluations=[sysml_pb2.CaseEvaluation(
+                function_id="Demo::eval",
+                arguments=[
+                    sysml_pb2.Value(null="unsupported: quantity value"),
+                    sysml_pb2.Value(int_value=1),
+                ],
+                result=sysml_pb2.Value(real_value=30.0),
+            )],
+        )],
+    )
+    conn = make_connection(stub)
+
+    table = conn.run_sweep("Demo::study", "hash1", {"k": (1, 1)})
+
+    row = table.rows[0]
+    assert row.outputs["result"] == 10.0
+    (evaluation,) = row.evaluations
+    assert isinstance(evaluation.arguments[0], UnsupportedValueError)
+    assert evaluation.arguments[1] == 1
+    assert evaluation.result == 30.0
 
 
 def test_a_service_without_body_verdicts_reports_none():
