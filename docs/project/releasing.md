@@ -72,6 +72,42 @@ Then check the release-facing text:
   and no compliance row claims more than the implementation does. Count first-level subtests:
   a case that registers sub-subtests, like `variant_connection_per_owner`, otherwise counts twice.
 
+## The release branch
+
+Day-to-day work merges into `develop`; `main` carries releases only (see
+[CONTRIBUTING.md § Branches](../../CONTRIBUTING.md#branches)). A release is a
+branch that moves the integration state onto `main`:
+
+1. Cut `release/x.y.z` from `develop`:
+
+   ```bash
+   git checkout develop && git pull
+   git checkout -b release/0.0.5
+   ```
+
+2. Fold the changelog fragments on that branch — `python3 scripts/changelog.py release 0.0.5`,
+   as [Before tagging](#before-tagging) describes — and commit `CHANGELOG.md` together with the
+   deleted fragments. Anything else the release needs (a version string in code, a doc that
+   names the version) lands here too; a feature does not.
+
+3. Open a pull request from `release/x.y.z` to `main` and merge it once the
+   pull-request workflow is green. Merging into `main` runs CircleCI's
+   `build-test` workflow over the merged tree.
+
+4. Tag `main` as [Tagging](#tagging) describes.
+
+5. Merge `main` back into `develop` — a plain merge, no rebase — so the folded
+   changelog, and any hotfix that landed on `main` in the meantime, flow down:
+
+   ```bash
+   git checkout develop && git pull
+   git merge main
+   git push origin develop
+   ```
+
+A `hotfix/` branch follows the same path from `main`: cut from `main`, pull
+request to `main`, tag, merge back into `develop`.
+
 ## Tagging
 
 The tag is the version: CircleCI passes `CIRCLE_TAG` to the build as
@@ -83,12 +119,11 @@ git tag -a v0.0.5 -m "v0.0.5"
 git push origin v0.0.5
 ```
 
-The tag belongs on the repository the releases live on. v0.0.1–v0.0.7 are
-releases of `Open-MBEE/OpenSysML`, while development happens on
-`JPL-Devin/OpenSysML`, which has no tags at all — so cutting a release means
-promoting `main` upstream first (v0.0.4 came through Open-MBEE PR #47) and
-tagging there. Tagging the development repository would build a release nobody
-consumes.
+The tag belongs on `Open-MBEE/OpenSysML`, the repository the releases live on
+and where development happens: every release from v0.0.1 on is tagged on its
+`main`. The clients resolve releases from that repository
+(`DEFAULT_GITHUB_REPO` in `clients/python/opensysml/binary.py`), so a tag pushed
+to a fork builds a release nobody consumes.
 
 Tags are matched by `/^v.*/` in `.circleci/config.yml`. A tag on a commit that
 fails the suite fails the release workflow before anything is published.

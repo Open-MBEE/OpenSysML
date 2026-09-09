@@ -191,8 +191,8 @@ jobs:
           name: Lint the protobuf schema
           command: make proto-lint
 
-      # Baseline is an ancestor of HEAD, never live `origin/main` (a merge landing meanwhile
-      # would read as deletions): the first parent on main, the previous release on a `v*` tag.
+      # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
+      # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
       - run:
           name: Check the protobuf schema for breaking changes
           command: |
@@ -1510,26 +1510,26 @@ jobs:
 workflows:
   version: 2
 
-  # Build and test every merge into main; pull requests run .github/workflows/pr.yml instead.
+  # Build and test every merge into main or develop; pull requests run .github/workflows/pr.yml instead.
   # The Go suite is the four `Go …` jobs, and everything downstream requires all of them.
   build-test:
     jobs:
       - go-static:
           name: Go static checks
-          filters: &main-only
+          filters: &integration-branches
             branches:
-              only: main
+              only: [main, develop]
             tags:
               ignore: /.*/
       - go-race-test:
           name: Go race tests
-          filters: *main-only
+          filters: *integration-branches
       - go-coverage:
           name: Go coverage profile
-          filters: *main-only
+          filters: *integration-branches
       - go-gates:
           name: Go gates and binaries
-          filters: *main-only
+          filters: *integration-branches
       - python-test:
           name: Python client tests
           requires: &go-suite
@@ -1537,19 +1537,19 @@ workflows:
             - Go race tests
             - Go coverage profile
             - Go gates and binaries
-          filters: *main-only
+          filters: *integration-branches
       - rust-test:
           name: Rust client tests
           requires: *go-suite
-          filters: *main-only
+          filters: *integration-branches
       - java-test:
           name: Java client tests
           requires: *go-suite
-          filters: *main-only
+          filters: *integration-branches
       - node-test:
           name: Node client tests
           requires: *go-suite
-          filters: *main-only
+          filters: *integration-branches
       - scan:
           name: SonarCloud scan
           # Matched exactly, like PyPI below; this context holds SONAR_TOKEN.
@@ -1566,7 +1566,7 @@ workflows:
             - Python client tests
             - Java client tests
             - Node client tests
-          filters: *main-only
+          filters: *integration-branches
 
   # Build and release on tags. The suite runs here too: a tag can point at any
   # commit, so a release is only published from a revision proven green.
