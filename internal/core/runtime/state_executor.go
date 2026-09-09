@@ -1959,26 +1959,26 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) e
 			return err
 		}
 		if stepped {
+			progress.unsettle()
 			continue
 		}
 		if atCurrentTime {
 			e.state = StateSuspended
 			return nil
 		}
-		// Nothing left at this instant: the other executors due run, then the
-		// clock moves to the earliest wait and the order at that instant is drawn.
-		// Only a machine with a timer of its own running moves the clock; one with
-		// nothing to wait for has quiesced.
+		// Nothing left at this instant: the others due run, then the clock moves to the
+		// earliest wait. Only a machine with a timer of its own running moves the clock.
+		progress.settle(e)
 		for {
-			before := *progress
-			if _, err := e.ctx.runDue(e, progress); err != nil {
+			picked, err := e.ctx.runDue(e, progress)
+			if err != nil {
 				return err
 			}
-			// What ran may have raised a change condition this machine watches: poll again.
-			if e.dueWork() || (e.watchesChange() && progress.moved(before)) {
+			// Its turn: work is due, or a change condition it watches is to be polled.
+			if picked || e.dueWork() {
 				break
 			}
-			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue() {
+			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue(progress) {
 				e.state = StateSuspended
 				return nil
 			}
@@ -3014,20 +3014,23 @@ func (e *StateExecutor) ProcessNextEvent() error {
 		if _, waiting := e.NextWait(); delivered || !waiting {
 			return e.processNextEvent()
 		}
+		// Polled and found nothing: settled until another executor gets somewhere.
+		progress.settle(e)
 		if err := e.awaitClock(&progress); err != nil {
 			return err
 		}
 	}
 }
 
-// awaitClock runs what is due, then moves the clock to the earliest wait, until
-// this machine has work due; nothing due only when no wait is left on the clock.
+// awaitClock runs what is due, then moves the clock to the earliest wait, until this
+// machine's turn comes (work due, or its change condition to poll) or no wait is left.
 func (e *StateExecutor) awaitClock(progress *dueProgress) error {
 	for {
-		if _, err := e.ctx.runDue(e, progress); err != nil {
+		picked, err := e.ctx.runDue(e, progress)
+		if err != nil {
 			return err
 		}
-		if e.dueWork() || !e.ctx.advanceToNextDue() {
+		if picked || e.dueWork() || !e.ctx.advanceToNextDue(progress) {
 			return nil
 		}
 	}

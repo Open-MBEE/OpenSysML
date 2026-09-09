@@ -18,7 +18,8 @@
   `accept after 5 [SI::s]` and a `%state` debugger both move and the report covers each, and
   `%step` on a token waiting only on time says so and names the `%advance` that would move it.
   Which executor runs first when several are due at one instant — an action token and a state
-  transition, two machines, two actions — is a new choice point, `due order`, drawn by the
+  transition, two machines, two actions, two executors polling a change condition once the
+  definite work at the instant has settled — is a new choice point, `due order`, drawn by the
   scheduling policy (`choice at t=5.0: due action watcher, state machine blinking of object #1
   (unordered; ran state machine blinking of object #1 first)`): the executor started last runs
   first under the default `reverse`, the first started under `declared`, a draw under `seed:<n>`;

@@ -254,7 +254,8 @@ an action moves its tokens), and which *executor* goes first when several are du
 instant is a *choice point* (below). Once the definite work at an instant has
 settled, the change conditions state machines and action tokens watch (`accept when`) are polled,
 so a condition another executor has just made true fires at that instant — also for the executor
-driving the clock itself, and whatever timer it has waiting beside the condition. The advance stops early, saying
+driving the clock itself, and whatever timer it has waiting beside the condition. Which watcher
+polls first is the same choice point, as what one does on its condition is what the next sees. The advance stops early, saying
 so and how to raise the bound, when it exhausts the event, do-step or step budget
 ([environment](../reference/environment.md)); a wait due after the deadline stays queued and
 is listed under `Waiting on the clock`; an advance with nothing waiting just moves the clock.

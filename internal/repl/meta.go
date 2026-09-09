@@ -3187,7 +3187,8 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	}
 
 	// The two debuggers share one context unless a submission rebuilt it between
-	// starting them; each context's clock is advanced by the duration.
+	// starting them; each context's clock is advanced by the duration, and the
+	// header reports the state machine's, the action's own clock a line of its own.
 	contexts := distinctContexts(s.stateExec.contextOf(), s.actionExec.contextOf())
 	moved, out, err := s.advanceContexts(contexts, duration)
 	if err != nil {
@@ -3198,6 +3199,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	// is only due past the deadline still report the drain and what is left.
 	if moved.idle() && !s.debuggersHavePendingWork(contexts) {
 		out := []string{"No pending work - simulation time is now " + semantics.FormatReal(moved.report.To)}
+		out = append(out, s.separateActionClockLines(contexts, moved)...)
 		if state != nil {
 			if reason := state.SuspendReason(); reason != "" {
 				out = append(out, "  "+reason)
@@ -3216,9 +3218,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	if action != nil {
 		out = append(out, actionStatusLines(action)...)
 	}
-	if len(contexts) > 1 && s.actionExec.rtCtx.Clock().Now() != moved.report.To {
-		out = append(out, "  The action runs in a context of its own, whose clock is at "+semantics.FormatReal(s.actionExec.rtCtx.Clock().Now()))
-	}
+	out = append(out, s.separateActionClockLines(contexts, moved)...)
 	out = append(out, s.advanceReportLines(moved, contexts)...)
 
 	if state != nil && state.State() == runtime.StateCompleted {
@@ -3244,11 +3244,12 @@ func distinctContexts(contexts ...*runtime.Context) []*runtime.Context {
 	return distinct
 }
 
-// advanceOutcome is what advancing the clock did: the drain summed over the
-// contexts moved, its notes included, and the budget that cut it short, if one did.
+// advanceOutcome is what advancing the clock did: the drain summed over the contexts
+// moved (its instants the first's), each context's own report, and the budget that cut it short.
 type advanceOutcome struct {
-	report  runtime.AdvanceReport
-	stopped error
+	report    runtime.AdvanceReport
+	byContext []runtime.AdvanceReport
+	stopped   error
 }
 
 // idle reports a drain that ran nothing.
@@ -3262,10 +3263,10 @@ func (s *Session) advanceContexts(contexts []*runtime.Context, duration float64)
 	var moved advanceOutcome
 	for i, ctx := range contexts {
 		report, err := ctx.Advance(duration)
+		moved.byContext = append(moved.byContext, report)
 		if i == 0 {
-			moved.report.From = report.From
+			moved.report.From, moved.report.To = report.From, report.To
 		}
-		moved.report.To = report.To
 		moved.report.Events += report.Events
 		moved.report.DoSteps += report.DoSteps
 		moved.report.Steps += report.Steps
@@ -3280,6 +3281,20 @@ func (s *Session) advanceContexts(contexts []*runtime.Context, duration float64)
 		}
 	}
 	return moved, nil, nil
+}
+
+// separateActionClockLines say where the action debugger's own clock went when
+// it runs in a context other than the state debugger's, whose clock the header reports.
+func (s *Session) separateActionClockLines(contexts []*runtime.Context, moved advanceOutcome) []string {
+	if len(contexts) < 2 {
+		return nil
+	}
+	own := "  The action runs in a context of its own, whose clock "
+	if len(moved.byContext) < 2 {
+		return []string{own + "stays at " + semantics.FormatReal(s.actionExec.rtCtx.Clock().Now()) + ": the advance stopped before reaching it"}
+	}
+	report := moved.byContext[1]
+	return []string{own + "advanced from " + semantics.FormatReal(report.From) + " to " + semantics.FormatReal(report.To)}
 }
 
 // advancedHeader is the first line of an advance that ran something.

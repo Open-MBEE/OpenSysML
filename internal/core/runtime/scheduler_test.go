@@ -702,3 +702,103 @@ func TestDueOrderChoice(t *testing.T) {
 		t.Errorf("sixteen seeds took only %v; want both orders drawn", taken)
 	}
 }
+
+// changeWatchOrder advances a clock past the instant a raiser sets a value two
+// machines watch for, each taking the value it sees and bumping it, under policy;
+// it returns what each machine saw and the run's choices.
+func changeWatchOrder(t *testing.T, policy SchedulePolicy) ([]int64, []ChoicePoint) {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import SI::*;
+			private import ScalarValues::*;
+			part def Cell { attribute mark : Integer = 0; }
+			part cell : Cell;
+			state raiser {
+				entry; then holding;
+				state holding { accept after 2 [s] then raised; }
+				state raised { entry assign cell.mark := 1; }
+			}
+			state taker {
+				attribute seen : Integer = -1;
+				entry; then waiting;
+				state waiting { accept when cell.mark > 0 then took; }
+				state took {
+					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
+				}
+			}
+		}
+	`))
+	root := idx.DocumentRoot("<test>")
+	ctx.SetSchedule(policy)
+	if _, err := ctx.CreateStateExecutor(findSymbolByName(root, "raiser", ast.DefState)); err != nil {
+		t.Fatalf("create raiser: %v", err)
+	}
+	taker := findSymbolByName(root, "taker", ast.DefState)
+	takers := make([]*StateExecutor, 2)
+	for i := range takers {
+		exec, err := ctx.CreateStateExecutor(taker)
+		if err != nil {
+			t.Fatalf("create taker %d: %v", i, err)
+		}
+		takers[i] = exec
+	}
+	if _, err := ctx.Advance(2); err != nil {
+		t.Fatalf("%s: Advance: %v", policy, err)
+	}
+	seen := make([]int64, len(takers))
+	for i, exec := range takers {
+		if got := exec.CurrentState(); got == nil || getNodeName(got) != "took" {
+			t.Errorf("%s: taker %d in %v after the advance, want took", policy, i, got)
+		}
+		v := exec.StateData()["seen"]
+		if v.Kind != ValConst {
+			t.Fatalf("%s: taker %d seen = %v, want an integer", policy, i, v)
+		}
+		seen[i] = v.Const.Int
+	}
+	return seen, ctx.Choices()
+}
+
+// Machines polling a change condition at one instant are a due-order choice like
+// any other work due: the one drawn polls first and what it does is what the next sees.
+func TestChangeWatchOrderChoice(t *testing.T) {
+	// The taker drawn first sees the raised 1 and leaves 2 for the other.
+	wantSeen := func(t *testing.T, policy string, seen []int64, first int) {
+		t.Helper()
+		if seen[first] != 1 || seen[1-first] != 2 {
+			t.Errorf("%s: takers saw %v, want taker %d to see 1 and the other 2", policy, seen, first)
+		}
+	}
+	for _, tc := range []struct {
+		policy string
+		taken  int
+	}{{"reverse", 1}, {"declared", 0}} {
+		seen, choices := changeWatchOrder(t, mustPolicy(t, tc.policy))
+		if len(choices) != 2 {
+			t.Fatalf("%s: choices = %v, want the two polls of both takers, at t=0.0 and t=2.0", tc.policy, choices)
+		}
+		if c := choices[0]; c.Kind != ChoiceDueOrder || c.Where != "t=0.0" || len(c.Alternatives) != 2 {
+			t.Errorf("%s: choice = %+v, want a due order at t=0.0 over the two takers", tc.policy, c)
+		}
+		c := choices[1]
+		if c.Kind != ChoiceDueOrder || c.Where != "t=2.0" || len(c.Alternatives) != 2 || c.Taken != tc.taken {
+			t.Errorf("%s: choice = %+v, want a due order at t=2.0 over the two takers taking %d", tc.policy, c, tc.taken)
+		}
+		wantSeen(t, tc.policy, seen, tc.taken)
+	}
+
+	taken := map[int]bool{}
+	for seed := 0; seed < 16; seed++ {
+		policy := fmt.Sprintf("seed:%d", seed)
+		seen, choices := changeWatchOrder(t, mustPolicy(t, policy))
+		if len(choices) != 2 || choices[1].Kind != ChoiceDueOrder || choices[1].Where != "t=2.0" {
+			t.Fatalf("%s: choices = %v, want the due-order choice at t=2.0 after the one at t=0.0", policy, choices)
+		}
+		wantSeen(t, policy, seen, choices[1].Taken)
+		taken[choices[1].Taken] = true
+	}
+	if !taken[0] || !taken[1] {
+		t.Errorf("sixteen seeds took only %v; want both orders drawn", taken)
+	}
+}

@@ -34,11 +34,22 @@ type dueProgress struct {
 	events, doSteps, steps int64
 	// dropped are the signals dispatched that no transition consumed.
 	dropped []Dispatch
+	// settled are the executors a run at the current instant got nowhere with:
+	// due again only once another gets somewhere or the clock moves.
+	settled map[clockWaiter]bool
 }
 
-// moved reports whether p counts more than before did.
-func (p dueProgress) moved(before dueProgress) bool {
-	return p.events > before.events || p.doSteps > before.doSteps || p.steps > before.steps
+// settle records a run of w that got nowhere at this instant.
+func (p *dueProgress) settle(w clockWaiter) {
+	if p.settled == nil {
+		p.settled = make(map[clockWaiter]bool)
+	}
+	p.settled[w] = true
+}
+
+// unsettle makes every executor due again: something got somewhere, or the clock moved.
+func (p *dueProgress) unsettle() {
+	clear(p.settled)
 }
 
 // noteDispatch records a dispatched signal that fired nothing.
@@ -89,6 +100,7 @@ func (ctx *Context) Advance(duration float64) (AdvanceReport, error) {
 			break
 		}
 		ctx.clock.now = next
+		progress.unsettle()
 	}
 	ctx.clock.now = deadline
 	report.To = deadline
@@ -102,32 +114,28 @@ func (r AdvanceReport) counting(p dueProgress, notes []RunNote) AdvanceReport {
 }
 
 // advanceToNextDue moves the clock to the earliest wait still ahead, whoever
-// holds it, and reports false when none is.
-func (ctx *Context) advanceToNextDue() bool {
+// holds it, making every executor due again, and reports false when none is.
+func (ctx *Context) advanceToNextDue(progress *dueProgress) bool {
 	next, ok := ctx.clock.NextDue()
 	if !ok {
 		return false
 	}
 	ctx.clock.now = next
+	progress.unsettle()
 	return true
 }
 
-// runDue runs the executors due at the current instant until none is left; it
-// returns true instead of running the driver once the due-order choice falls on it.
-// Every run that gets anywhere counts against a budget, and one that does not
-// settles its executor, so the rounds are bounded by the budgets.
+// runDue runs the executors due at the current instant until none is left — definite
+// work first, then the change conditions watched, each round's order drawn by the
+// scheduler — returning true instead of running the driver once the draw falls on it.
 func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, error) {
-	// settled: executors a run got nowhere with, due again only once another progresses.
-	settled := make(map[clockWaiter]bool)
 	for {
-		due := ctx.dueWaiters(driver, settled)
+		due := ctx.dueWaiters(driver, progress, clockWaiter.dueWork)
 		if len(due) == 0 {
-			polled, err := ctx.pollWatching(driver, progress)
-			if err != nil || !polled {
-				return false, err
-			}
-			clear(settled)
-			continue
+			due = ctx.dueWaiters(driver, progress, clockWaiter.watchesChange)
+		}
+		if len(due) == 0 {
+			return false, nil
 		}
 		pick := 0
 		if len(due) > 1 {
@@ -152,9 +160,9 @@ func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, err
 			return false, err
 		}
 		if moved {
-			clear(settled)
+			progress.unsettle()
 		} else {
-			settled[w] = true
+			progress.settle(w)
 		}
 	}
 }
@@ -176,35 +184,17 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 	return moved, err
 }
 
-// dueWaiters lists the executors with work due now, in creation order: those
-// not already mid-run nor settled, and the driver whatever its run.
-func (ctx *Context) dueWaiters(driver clockWaiter, settled map[clockWaiter]bool) []clockWaiter {
+// dueWaiters lists the executors with work of the given kind due now, in creation
+// order: those not already mid-run nor settled, and the driver whatever its run.
+func (ctx *Context) dueWaiters(driver clockWaiter, progress *dueProgress, has func(clockWaiter) bool) []clockWaiter {
 	ctx.clock.forgetFinished()
 	var due []clockWaiter
 	for _, w := range ctx.clock.waiters {
-		if (w == driver || !w.running()) && !settled[w] && w.dueWork() {
+		if (w == driver || !w.running()) && !progress.settled[w] && has(w) {
 			due = append(due, w)
 		}
 	}
 	return due
-}
-
-// pollWatching runs the executors watching a change condition once, in creation
-// order, and reports whether any of them got anywhere. The driver polls itself
-// once this returns, as its run is on the stack.
-func (ctx *Context) pollWatching(driver clockWaiter, progress *dueProgress) (bool, error) {
-	polled := false
-	for _, w := range slices.Clone(ctx.clock.waiters) {
-		if w == driver || w.running() || w.finished() || !w.watchesChange() {
-			continue
-		}
-		moved, err := ctx.runWaiter(w, progress)
-		if err != nil {
-			return false, err
-		}
-		polled = polled || moved
-	}
-	return polled, nil
 }
 
 // behaviorOf finds the object behavior an executor runs as, nil for one a

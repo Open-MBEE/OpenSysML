@@ -472,18 +472,26 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 
 // awaitClock runs what is due, then moves the clock to the earliest wait, until a
 // parked token of perf's flow (the action's for nil) can proceed; false if it cannot move.
+// Its turn in the due order is a poll of its own waits; one finding them still waiting settles it.
 func (e *ActionExecutor) awaitClock(perf *actionFrame, progress *dueProgress) (bool, error) {
 	awaiting := e.awaiting
 	e.awaiting = perf
 	defer func() { e.awaiting = awaiting }()
+	// The step that parked the token got somewhere.
+	progress.unsettle()
 	for {
-		if _, err := e.ctx.runDue(e, progress); err != nil {
+		picked, err := e.ctx.runDue(e, progress)
+		if err != nil {
 			return false, err
 		}
 		if e.canProceed(perf) {
 			return true, nil
 		}
-		if !e.ctx.advanceToNextDue() {
+		if picked {
+			progress.settle(e)
+			continue
+		}
+		if !e.ctx.advanceToNextDue(progress) {
 			return false, nil
 		}
 	}

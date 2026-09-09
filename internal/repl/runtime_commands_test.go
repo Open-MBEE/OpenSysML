@@ -1091,3 +1091,39 @@ func TestAdvanceMovesActionAndStateDebuggersTogether(t *testing.T) {
 	wants(t, run(t, s, "%current"), "Time: 5.0")
 	wants(t, run(t, s, "%advance 1"), "No pending work - simulation time is now 6.0")
 }
+
+// A submission between starting the two debuggers leaves them in different
+// contexts, with a clock each: %advance moves both and reports each clock as
+// its own, the action's never as the state machine's.
+func TestAdvanceReportsSeparateDebuggerClocks(t *testing.T) {
+	s := loadFixture(t, "testdata/timed_action.sysml")
+
+	wants(t, run(t, s, "%state listener"), "Current state: idle", "Time: 0.0")
+	wants(t, run(t, s, "%advance 3"), "No pending work - simulation time is now 3.0")
+	if errs := errorDiagnostics(s.Submit("package Aside { part def Spare; }").Diagnostics); len(errs) > 0 {
+		t.Fatalf("submission has errors: %v", errs)
+	}
+	run(t, s, "%action pinger")
+	wants(t, run(t, s, "%step"), "✓ Step complete")
+
+	// The state machine's clock stands at 3.0, the action's at 0.0.
+	wants(t, run(t, s, "%advance 2"),
+		"Advanced to 5.0 (0 event(s) processed)",
+		"Current state: idle",
+		"Action state: Waiting",
+		"The action runs in a context of its own, whose clock advanced from 0.0 to 2.0",
+		"t=5.0: action pinger, accept after waiting since step 2")
+	wants(t, run(t, s, "%current"), "Time: 5.0")
+
+	// The action's clock reaches its wait; the signal it sends goes to its own
+	// context, where no listener runs, so the state machine stays idle.
+	wants(t, run(t, s, "%advance 3"),
+		"Advanced to 8.0 (0 event(s) processed)",
+		"Current state: idle",
+		"Action state: Completed",
+		"The action runs in a context of its own, whose clock advanced from 2.0 to 5.0",
+		"Action steps taken: 4")
+	wants(t, run(t, s, "%advance 1"),
+		"No pending work - simulation time is now 9.0",
+		"The action runs in a context of its own, whose clock advanced from 5.0 to 6.0")
+}
