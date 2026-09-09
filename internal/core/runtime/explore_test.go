@@ -319,18 +319,53 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 // neither first, so exploration fires them in both orders; every policy reports
 // the order it took as one region-order choice point, `reverse` and `declared`
 // taking region declaration order and a seed reaching the other order as well.
+// A change occurrence raising both regions' conditions at once is dispatched
+// the same way.
 func TestExploreSiblingRegionOrder(t *testing.T) {
-	m := parseExploreModel(t, `package test {
-		private import ScalarValues::*;
-		state def Machine {
-			attribute last : Integer = 0;
-			entry; then work;
-			state work parallel {
-				state a { entry; then a1; state a1; state a2; transition first a1 accept go do assign last := 1 then a2; }
-				state b { entry; then b1; state b1; state b2; transition first b1 accept go do assign last := 2 then b2; }
+	t.Run("event", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute last : Integer = 0;
+				entry; then work;
+				state work parallel {
+					state a { entry; then a1; state a1; state a2; transition first a1 accept go do assign last := 1 then a2; }
+					state b { entry; then b1; state b1; state b2; transition first b1 accept go do assign last := 2 then b2; }
+				}
 			}
-		}
-	}`)
+		}`)
+		checkSiblingRegionOrder(t, m, "go", "on accept go", []string{
+			"finalState a2+b2; visits work, a1, b1, a2, b2; last = 2",
+			"finalState a2+b2; visits work, a1, b1, b2, a2; last = 1",
+		})
+	})
+	t.Run("change", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute temp : Integer = 0;
+				attribute last : Integer = 0;
+				entry; then start;
+				state start;
+				state work parallel {
+					state a { entry; then a1; state a1; state a2; transition first a1 accept when temp > 20 do assign last := 1 then a2; }
+					state b { entry; then b1; state b1; state b2; transition first b1 accept when temp > 20 do assign last := 2 then b2; }
+				}
+				transition first start do assign temp := 30 then work;
+			}
+		}`)
+		checkSiblingRegionOrder(t, m, "", "on change", []string{
+			"finalState a2+b2; visits start, work, a1, b1, a2, b2; last = 2; temp = 30",
+			"finalState a2+b2; visits start, work, a1, b1, b2, a2; last = 1; temp = 30",
+		})
+	})
+}
+
+// checkSiblingRegionOrder runs Machine, sending signal if named, and checks that
+// exploration reaches the two outcomes, a first then b first, that the fixed
+// policies take the first and report it, and that seeds draw both; where spells
+// the choice's trigger.
+func checkSiblingRegionOrder(t *testing.T, m *exploreModel, signal, where string, want []string) {
 	sym := m.state(t, "Machine")
 	run := func(ctx *Context) (Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
@@ -340,7 +375,9 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 		if err := exec.initialize(); err != nil {
 			return Outcome{}, err
 		}
-		exec.SendSignal("go", nil)
+		if signal != "" {
+			exec.SendSignal(signal, nil)
+		}
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
@@ -357,14 +394,10 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 	if !x.Complete() || x.Runs != 2 {
 		t.Fatalf("status %q, want complete (2 runs)", x.Status())
 	}
-	want := []string{
-		"finalState a2+b2; visits work, a1, b1, a2, b2; last = 2",
-		"finalState a2+b2; visits work, a1, b1, b2, a2; last = 1",
-	}
 	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("outcomes %v, want %v", got, want)
 	}
-	if got := FormatChoices(x.Outcomes[1].Witness); got != "on accept go: b1 first of a1, b1" {
+	if got := FormatChoices(x.Outcomes[1].Witness); got != where+": b1 first of a1, b1" {
 		t.Fatalf("witness of last = 1 %q, want b1 chosen first", got)
 	}
 	under := func(spelling string) (Outcome, ChoicePoint) {

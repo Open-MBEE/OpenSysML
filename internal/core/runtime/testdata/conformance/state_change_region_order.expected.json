@@ -1,0 +1,23 @@
+{
+	"type": "state",
+	"trace": true,
+	"outcomes": [
+		{
+			"finalState": "a2+b2",
+			"stateVisits": ["start", "work", "a1", "b1", "a2", "b2"],
+			"outputs": {
+				"temp": {"type": "Integer", "value": 30},
+				"last": {"type": "Integer", "value": 2}
+			}
+		},
+		{
+			"finalState": "a2+b2",
+			"stateVisits": ["start", "work", "a1", "b1", "b2", "a2"],
+			"outputs": {
+				"temp": {"type": "Integer", "value": 30},
+				"last": {"type": "Integer", "value": 1}
+			}
+		}
+	],
+	"admissible": "Transitions in sibling regions enabled by one event: each fires, in which order is open"
+}

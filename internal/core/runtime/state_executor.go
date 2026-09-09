@@ -692,13 +692,36 @@ func (e *StateExecutor) recallDeferredEvents() {
 //
 // Dispatch selects the transitions to take against the configuration the event
 // was taken off the queue for, so a state this event entered never reacts to it,
-// then fires them one at a time in region declaration order, so a deeper region
-// does not overtake one declared before it; an exploration varies that order.
+// then fires them one at a time in the order the scheduling policy draws.
 func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 	candidates, err := e.selectTransitions(event)
 	if err != nil {
 		return false, err
 	}
+	return e.dispatchInOrder(candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+		// The guard ran against the pre-dispatch data, so the arguments it read were
+		// unbound again; the effect needs them bound.
+		unbind, err := e.bindTriggerArguments(trans, event)
+		if err != nil {
+			unbind()
+			return false, fmt.Errorf("state %s: %w", candidate.source.Name, err)
+		}
+		fired, err := e.fireFrom(candidate.source, trans, notes)
+		if err != nil {
+			return false, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
+		}
+		return fired, nil
+	})
+}
+
+// dispatchInOrder fires the candidates that survive conflict resolution one at a
+// time through fire, the policy drawing which reacts next among those still
+// active, and reports whether any fired. A region's reaction may leave another
+// candidate's leaf, so the draw is redone among the remaining ones each time.
+func (e *StateExecutor) dispatchInOrder(
+	candidates []dispatchCandidate,
+	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
+) (bool, error) {
 	pending := make([]dispatchCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !e.losesToNestedTransition(candidates, candidate) {
@@ -706,10 +729,8 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 		}
 	}
 
-	consumed := false
+	acted := false
 	for len(pending) > 0 {
-		// A leaf may be left by another leaf's reaction to this event, which drops
-		// the transition it selected.
 		pending = slices.DeleteFunc(pending, func(c dispatchCandidate) bool { return !e.isActive(c.leaf) })
 		if len(pending) == 0 {
 			break
@@ -721,23 +742,16 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 		if order != nil {
 			notes = append([]RunNote{order}, notes...)
 		}
-		// The guard ran against the pre-dispatch data, so the arguments it read were
-		// unbound again; the effect needs them bound.
-		unbind, err := e.bindTriggerArguments(trans, event)
+		fired, err := fire(candidate, trans, notes)
+		acted = acted || fired
 		if err != nil {
-			unbind()
-			return consumed, fmt.Errorf("state %s: %w", candidate.source.Name, err)
+			return acted, err
 		}
-		fired, err := e.fireFrom(candidate.source, trans, notes)
-		if err != nil {
-			return consumed, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
-		}
-		consumed = consumed || fired
 		if e.state == StateCompleted {
-			return consumed, nil
+			break
 		}
 	}
-	return consumed, nil
+	return acted, nil
 }
 
 // dispatchCandidate is the state one active leaf selected for an event, the leaf

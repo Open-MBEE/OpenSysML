@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1016,7 +1017,9 @@ func TestLaterChangeGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 }
 
 // A composite state's change transition loses to a nested state's on the same rise
-// and parallel regions fire alongside: only a state with two enabled reports.
+// and parallel regions fire alongside: the rise reports which region reacts first
+// and, in the one state with two enabled, which transition; the outranked
+// composite state draws nothing.
 func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -1059,8 +1062,15 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 	if strings.Join(visited, ",") != "start,work,a1,b1,a2,b2" {
 		t.Fatalf("visited %v, want both regions to take their nested transitions and work to stay active", visited)
 	}
-	want := "choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)"
-	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
-		t.Fatalf("choices = %v, want exactly [%s]", got, want)
+	want := []string{
+		"choice on change: states a1, b1 react (unordered; took a1 first)",
+		"choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)",
+	}
+	var got []string
+	for _, choice := range ctx.Choices() {
+		got = append(got, choice.String())
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
 }

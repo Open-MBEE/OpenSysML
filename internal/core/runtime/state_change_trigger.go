@@ -69,38 +69,33 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, err
 	}
 
-	fired := false
-	for _, candidate := range candidates {
-		if e.losesToNestedTransition(candidates, candidate) || !e.isActive(candidate.leaf) {
-			continue
-		}
-		trans, notes := e.chooseTransition(candidate)
+	fired, err := e.dispatchInOrder(candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
 		// the machine must stay armed rather than latch as fired.
 		pass, err := e.passesGuard(trans)
 		if err != nil {
-			return fired, fmt.Errorf("eval change guard: %w", err)
+			return false, fmt.Errorf("eval change guard: %w", err)
 		}
 		if !pass {
 			poll.blocked[trans] = true
 			poll.wait(trans, candidate.source.Name, "guard is false")
-			continue
+			return false, nil
 		}
 		// The edge is latched before it is taken: an effect that leaves the
 		// condition true must not enable the same edge again, and the exit this
 		// firing causes must not re-arm the edge that caused it.
 		e.changeFired[trans] = true
 		e.firingChange = trans
-		fired = true
 		_, err = e.fireFrom(candidate.source, trans, notes)
 		e.firingChange = nil
 		if err != nil {
-			return fired, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
+			return true, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
-		if e.state == StateCompleted {
-			break
-		}
+		return true, nil
+	})
+	if err != nil {
+		return fired, err
 	}
 	if fired {
 		// The configuration changed, so a state left by this step no longer holds

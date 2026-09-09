@@ -531,7 +531,12 @@ witness of the second outcome) and must reach both outcomes and no other, in two
 `state_call_trigger_regions`, `state_composite_region_depth_order`,
 `state_composite_region_deeper_first` and `state_parallel_broadcast` are this same shape and list
 both orders as `outcomes` citing this section, the default golden of each pinning the
-declaration-order linearization.
+declaration-order linearization. `state_change_region_order` is the shape with a change
+occurrence in place of the signal — one write of `temp` raises `temp > 20` in both regions at once
+— and lists the same two outcomes: a change occurrence is an event like any other, so the poll
+that dispatches it draws the region order the same way (`choice on change: states a1, b1 react
+(unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
+library either.
 
 ### A merge is re-entered on every traversal of a loop
 

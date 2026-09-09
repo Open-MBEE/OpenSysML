@@ -1,0 +1,24 @@
+exit: start
+stmt assign temp
+  eval literal 30 -> 30
+enter: work
+enter: a1
+enter: b1
+transition: start -> work
+  eval feature temp -> 30
+  eval literal 20 -> 20
+eval operator > -> true
+  eval feature temp -> 30
+  eval literal 20 -> 20
+eval operator > -> true
+choice on change: states a1, b1 react (unordered; took b1 first)
+exit: b1
+stmt assign last
+  eval literal 2 -> 2
+enter: b2
+transition: b1 -> b2 (event: change)
+exit: a1
+stmt assign last
+  eval literal 1 -> 1
+enter: a2
+transition: a1 -> a2 (event: change)
