@@ -1343,6 +1343,25 @@ func triggerName(trigger ast.Node) string {
 	}
 }
 
+// eventName names a dispatched occurrence as triggerName names the triggers it
+// matches, from the occurrence itself so the name is the same whichever took it.
+func eventName(event *Event) string {
+	switch payload := event.Payload.(type) {
+	case Message:
+		return "accept " + orAny(payload.SignalType)
+	case Call:
+		return "call " + orAny(payload.Operation)
+	}
+	switch event.Type {
+	case EventTime:
+		return "time"
+	case EventChange:
+		return "change"
+	default:
+		return event.Type.String()
+	}
+}
+
 // triggerDescription describes the event an accept waits for in the notation it
 // was written in, which is what an error about it, or a view of a suspended run,
 // has to name. The expression a trigger waits on is named when it is a name;

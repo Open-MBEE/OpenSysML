@@ -69,7 +69,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, err
 	}
 
-	fired, err := e.dispatchInOrder(candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+	fired, err := e.dispatchInOrder("on change", candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
 		// the machine must stay armed rather than latch as fired.

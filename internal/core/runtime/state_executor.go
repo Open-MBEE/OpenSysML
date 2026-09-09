@@ -698,7 +698,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return e.dispatchInOrder(candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+	return e.dispatchInOrder("on "+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
 		unbind, err := e.bindTriggerArguments(trans, event)
@@ -715,8 +715,10 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 }
 
 // dispatchInOrder fires the surviving candidates one at a time through fire, the
-// policy re-drawing among those still active since a reaction may leave a leaf.
+// policy re-drawing among those still active since a reaction may leave a leaf;
+// where names the occurrence dispatched, for the choice each draw reports.
 func (e *StateExecutor) dispatchInOrder(
+	where string,
 	candidates []dispatchCandidate,
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
 ) (bool, error) {
@@ -733,7 +735,7 @@ func (e *StateExecutor) dispatchInOrder(
 		if len(pending) == 0 {
 			break
 		}
-		next, order := e.chooseRegion(pending)
+		next, order := e.chooseRegion(where, pending)
 		candidate := pending[next]
 		pending = slices.Delete(pending, next, next+1)
 		trans, notes := e.chooseTransition(candidate)
@@ -825,7 +827,7 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 
 // chooseRegion resolves which of the candidates, all still able to fire, fires next:
 // the policy draws the pick and, with several candidates, the choice is reported.
-func (e *StateExecutor) chooseRegion(pending []dispatchCandidate) (int, RunNote) {
+func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
 	scheduling := e.ctx.scheduling()
 	pick := scheduling.pick(len(pending))
 	if len(pending) < 2 {
@@ -833,10 +835,9 @@ func (e *StateExecutor) chooseRegion(pending []dispatchCandidate) (int, RunNote)
 	}
 	alts := e.candidateNames(pending)
 	taken := pending[pick]
-	trans := e.graph.Transitions[taken.source][taken.enabled[0]]
 	choice := ChoicePoint{
 		Kind:         ChoiceRegionOrder,
-		Where:        "on " + triggerName(trans.Trigger),
+		Where:        where,
 		Alternatives: alts,
 		Taken:        pick,
 		File:         e.stateMachine.DocName,

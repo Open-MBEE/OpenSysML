@@ -902,6 +902,77 @@ func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	}
 }
 
+// A region-order choice names the occurrence dispatched, not the trigger of the
+// region drawn first: two regions may spell one message differently (its type
+// and a supertype), and the report must read the same whichever a seed draws.
+func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		attribute def Base;
+		attribute def Go :> Base;
+		state Machine {
+			entry; then start;
+			state start;
+			transition first start do send new Go() then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept Go then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					transition first b1 accept Base then b2;
+				}
+			}
+		}
+	}`
+	under := func(spelling string) ChoicePoint {
+		t.Helper()
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		policy, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(policy); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
+			t.Fatalf("%s: execute: %v", spelling, err)
+		}
+		got := ctx.Notes()
+		if len(got) != 1 {
+			t.Fatalf("%s: notes %v, want the region-order choice alone", spelling, got)
+		}
+		choice, ok := got[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
+			t.Fatalf("%s: note %v, want a region-order choice among a1, b1", spelling, got[0])
+		}
+		return choice
+	}
+	const want = "on accept Go"
+	if choice := under("reverse"); choice.Taken != 0 || choice.Where != want {
+		t.Fatalf("reverse: %s, want a1 first %q", choice.String(), want)
+	}
+	for seed := 1; seed <= 32; seed++ {
+		choice := under(fmt.Sprintf("seed:%d", seed))
+		if choice.Where != want {
+			t.Fatalf("seed:%d: choice %s, want it named %q whichever region it took first", seed, choice.String(), want)
+		}
+		if choice.Taken == 1 {
+			return
+		}
+	}
+	t.Fatal("no seed up to 32 took b1 first; the case does not exercise the alternate draw")
+}
+
 // A transition that fires and fails in its effect was the run's choice all the
 // same: the choice explains how the run got to the failure.
 func TestNotesOfATransitionFailingInItsEffectAreKept(t *testing.T) {
