@@ -110,6 +110,12 @@ for _, outcome := range exploration.Outcomes {
 fmt.Println(exploration.Status()) // complete (6 runs)
 ```
 
+An action or state machine runs on a simulation clock that starts at 0 and
+advances through every `accept after`/`accept at` its tokens and transitions
+wait on; `ActionRun.FinalTime` and `StateRun.FinalTime` are where it stood, in
+seconds, when the run ended, reported by a service advertising
+`CapabilityFinalTime`.
+
 Queries are built from typed conditions rather than a string dialect, so an
 unsupported operator is a compile error rather than a refused call:
 
