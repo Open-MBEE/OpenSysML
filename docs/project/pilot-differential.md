@@ -217,9 +217,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 50 | 4 | 6 | 0 | 0 | 4 | 6 |
 | `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
-| `examples` | 34 | 25 | 2 | 575 | 0 | 1 | 1 | 574 |
+| `examples` | 34 | 26 | 2 | 571 | 0 | 1 | 1 | 570 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **368** | **337** | **57** | **636** | **34** | **2** | **21** | **600** |
+| **Total** | **368** | **338** | **57** | **632** | **34** | **2** | **21** | **596** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -381,8 +381,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **600** |
-| pilot diagnostics | 123 | **636** |
+| only pilot | 82 | **596** |
+| pilot diagnostics | 123 | **632** |
 | severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -513,7 +513,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 [unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 2
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 15 `unmapped`, 262 `kind-mismatch`, 287 `unresolved-reference` — of which
+`examples` 10 syntax, 15 `unmapped`, 258 `kind-mismatch`, 287 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -556,16 +556,6 @@ cousins, 7 of them warnings). The `examples` only-pilot column moves 302 → 572
 stays at 20 and our diagnostics at 65: two files the reference has no library for, plus the 48
 rows the other files carry.
 
-**`expressions-demo.sysml` adds 4 pilot-only `kind-mismatch` rows, all one shape: a `calc def`
-passed as an argument.** The example passes `Square` and `Halve` to an `in calc` parameter
-(`Apply(Square, a)`, `Sample(Square, xs)`), and the reference reports each argument as `Must be a
-valid feature`: it has no function values, so a definition can appear only where a type is
-expected. Here a calculation named as an operand is a function value, so the argument is accepted
-and invoked. The example's other forms were written to what both accept — its metadata reads cast
-the `Metaobject` to its `metadata def` before reading a value, its metadata sequences are `ref`
-features rather than attributes, and the function held in a part is a `ref` to a calc usage — so
-these four rows are the whole of the disagreement, and each is a deliberate extension, not a gap.
-
 **`pilot-examples` is the row to read carefully: its total falls 68 → 63 and its mix barely
 resembles the old one.** All 31 syntax rows are gone, and `pilot-validation`'s 7 with them — the parser now
 parses notation we used to reject. But `unresolved-reference` rises 27 → 36, `unmapped` 5 → 17 and
@@ -597,14 +587,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 21 / 57** |
-| only pilot | **600** |
-| pilot diagnostics | **636** |
+| overall: fully agreeing / only ours / our diagnostics | **338 / 21 / 57** |
+| only pilot | **596** |
+| pilot diagnostics | **632** |
 | severity-only | **2** |
 | unmapped, our side | **19** |
 | kerml-examples: only ours | **4** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **574** |
+| examples: only pilot | **570** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **4** only-ours against 6
 only-pilot — the only root where the reference reports more than we do — with 50 of 58 files fully
@@ -695,6 +685,15 @@ are we. `%optimize` reports the same optima it did (`examples_test.go` carries n
 any more), and the `Only one objective is allowed` rows on the two lexicographic demos stay the
 reference's, adjudicated above. `fully agreeing`, `only ours` and `only pilot` do not move: the
 retired rows were agreement.
+
+### Analysis walkthrough round
+
+`examples/analysis-demo/lander.sysml` is one file added to the `examples` root, and it draws no
+diagnostic from either side: files 33 → **34** and fully agreeing 25 → **26** on the root,
+367 → **368** and 337 → **338** overall, with every diagnostic count unmoved. The model writes its
+timed transition in the full form (`transition first coasting accept after 5 [SI::s] then decelerating;`)
+because the pinned reference does not parse a target transition inside the body of its source state,
+and this implementation does not lower a sourceless target transition at the state machine's top level.
 
 ## Adjudications
 

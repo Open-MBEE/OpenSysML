@@ -14,6 +14,7 @@
 # files: pilot-corpora/sysml-examples 99
 # files: pilot-corpora/sysml-validation 56
 stable	action-executor-demo.sysml
+stable	analysis-demo/lander.sysml
 stable	combined-behavioral-demo.sysml
 stable	disposal-robot-demo/robot.sysml
 stable	disposal-team-demo/team.sysml

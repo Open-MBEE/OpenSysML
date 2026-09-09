@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 34,
-        "digest": "sha256:b4e18def4b6e2cc375578908bd2fe11f52895a48dcabc8427b911193d2015307"
+        "digest": "sha256:cb438013cc511395df7d9b5cd97a9d693d1d0bfe79abe5cd2176fe453a5508d4"
       },
       {
         "name": "probes",
@@ -75,13 +75,13 @@
   },
   "totals": {
     "files": 368,
-    "filesFullyAgreeing": 337,
+    "filesFullyAgreeing": 338,
     "agreement": 34,
     "severityMismatch": 2,
     "openSysMLOnly": 21,
-    "pilotOnly": 600,
+    "pilotOnly": 596,
     "openSysMLDiagnostics": 57,
-    "pilotDiagnostics": 636
+    "pilotDiagnostics": 632
   },
   "roots": [
     {
@@ -749,13 +749,13 @@
       "dir": "examples",
       "totals": {
         "files": 34,
-        "filesFullyAgreeing": 25,
+        "filesFullyAgreeing": 26,
         "agreement": 0,
         "severityMismatch": 1,
         "openSysMLOnly": 1,
-        "pilotOnly": 574,
+        "pilotOnly": 570,
         "openSysMLDiagnostics": 2,
-        "pilotDiagnostics": 575
+        "pilotDiagnostics": 571
       },
       "files": [
         {
@@ -805,38 +805,6 @@
             {
               "line": 117,
               "severity": "warning",
-              "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "expressions-demo.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 95,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 96,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 100,
-              "severity": "error",
-              "category": "kind-mismatch",
-              "count": 1
-            },
-            {
-              "line": 110,
-              "severity": "error",
               "category": "kind-mismatch",
               "count": 1
             }
@@ -3763,13 +3731,13 @@
     ],
     "totals": {
       "files": 368,
-      "filesFullyAgreeing": 338,
+      "filesFullyAgreeing": 339,
       "agreement": 34,
       "severityMismatch": 2,
       "openSysMLOnly": 20,
-      "pilotOnly": 600,
+      "pilotOnly": 596,
       "openSysMLDiagnostics": 56,
-      "pilotDiagnostics": 636
+      "pilotDiagnostics": 632
     },
     "findings": [
       {
