@@ -97,6 +97,21 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_sysml_RunAnalysisResponse_fieldAccessorTable;
   static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_Outcome_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_Outcome_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_Outcome_OutputsEntry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_Outcome_OutputsEntry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_ExplorationStatus_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_ExplorationStatus_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
     internal_static_sysml_ParseFileRequest_descriptor;
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -562,7 +577,7 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "yR\016namedArguments\022\032\n\010schedule\030\006 \001(\tR\010sch" +
       "edule\032O\n\023NamedArgumentsEntry\022\020\n\003key\030\001 \001(" +
       "\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005val" +
-      "ue:\0028\001\"\366\002\n\023RunAnalysisResponse\022+\n\007output" +
+      "ue:\0028\001\"\336\003\n\023RunAnalysisResponse\022+\n\007output" +
       "s\030\001 \003(\0132\021.sysml.CalcOutputR\007outputs\022*\n\010v" +
       "erdicts\030\002 \003(\0132\016.sysml.VerdictR\010verdicts\022" +
       "-\n\tinstances\030\003 \003(\0132\017.sysml.InstanceR\tins" +
@@ -571,350 +586,371 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "s\022;\n\016failure_reason\030\006 \001(\0162\024.sysml.Failur" +
       "eReasonR\rfailureReason\022O\n\025verification_v" +
       "erdicts\030\007 \003(\0132\032.sysml.VerificationVerdic" +
-      "tR\024verificationVerdicts\"\311\001\n\020ParseFileReq" +
-      "uest\022\035\n\tfile_path\030\001 \001(\tH\000R\010filePath\022\032\n\007c" +
-      "ontent\030\002 \001(\tH\000R\007content\022%\n\014content_hash\030" +
-      "\003 \001(\tB\002\030\001R\013contentHash\022\032\n\010language\030\004 \001(\t" +
-      "R\010language\022-\n\022strict_conformance\030\005 \001(\010R\021" +
-      "strictConformanceB\010\n\006source\"\205\001\n\016SourceDo" +
-      "cument\022\035\n\tfile_path\030\001 \001(\tH\000R\010filePath\022\032\n" +
-      "\007content\030\002 \001(\tH\000R\007content\022\032\n\010language\030\003 " +
-      "\001(\tR\010language\022\022\n\004name\030\004 \001(\tR\004nameB\010\n\006sou" +
-      "rce\"y\n\023ParseSourcesRequest\0223\n\tdocuments\030" +
-      "\001 \003(\0132\025.sysml.SourceDocumentR\tdocuments\022" +
-      "-\n\022strict_conformance\030\002 \001(\010R\021strictConfo" +
-      "rmance\"\251\001\n\024ParseSourcesResponse\022\035\n\nmodel" +
-      "_hash\030\001 \001(\tR\tmodelHash\022\'\n\005roots\030\002 \003(\0132\021." +
-      "sysml.SymbolInfoR\005roots\0223\n\013diagnostics\030\003" +
-      " \003(\0132\021.sysml.DiagnosticR\013diagnostics\022\024\n\005" +
-      "error\030\004 \001(\tR\005error\"\244\001\n\021ParseFileResponse" +
-      "\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022%\n\004root\030" +
-      "\002 \001(\0132\021.sysml.SymbolInfoR\004root\0223\n\013diagno" +
-      "stics\030\003 \003(\0132\021.sysml.DiagnosticR\013diagnost" +
-      "ics\022\024\n\005error\030\004 \001(\tR\005error\"N\n\020GetSymbolRe" +
-      "quest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n\t" +
-      "symbol_id\030\002 \001(\tR\010symbolId\"Q\n\016SymbolRespo" +
-      "nse\022)\n\006symbol\030\001 \001(\0132\021.sysml.SymbolInfoR\006" +
-      "symbol\022\024\n\005error\030\002 \001(\tR\005error\"3\n\022Diagnost" +
-      "icsRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHas" +
-      "h\"`\n\023DiagnosticsResponse\0223\n\013diagnostics\030" +
-      "\001 \003(\0132\021.sysml.DiagnosticR\013diagnostics\022\024\n" +
-      "\005error\030\002 \001(\tR\005error\"\250\001\n\017EvaluateRequest\022" +
-      "\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\036\n\nexpres" +
-      "sion\030\002 \001(\tR\nexpression\022*\n\021context_symbol" +
-      "_id\030\003 \001(\tR\017contextSymbolId\022*\n\021subject_sy" +
-      "mbol_id\030\004 \001(\tR\017subjectSymbolId\"\203\001\n\020Evalu" +
-      "ateResponse\022$\n\006result\030\001 \001(\0132\014.sysml.Valu" +
-      "eR\006result\022\024\n\005error\030\002 \001(\tR\005error\0223\n\013diagn" +
-      "ostics\030\003 \003(\0132\021.sysml.DiagnosticR\013diagnos" +
-      "tics\"\357\001\n\010Instance\022\016\n\002id\030\001 \001(\003R\002id\022$\n\016typ" +
-      "e_symbol_id\030\002 \001(\tR\014typeSymbolId\022I\n\016featu" +
-      "re_values\030\004 \003(\0132\".sysml.Instance.Feature" +
-      "ValuesEntryR\rfeatureValues\032U\n\022FeatureVal" +
-      "uesEntry\022\020\n\003key\030\001 \001(\tR\003key\022)\n\005value\030\002 \001(" +
-      "\0132\023.sysml.FeatureValueR\005value:\0028\001J\004\010\003\020\004R" +
-      "\005slots\"\265\001\n\014FeatureValue\022!\n\014feature_name\030" +
-      "\001 \001(\tR\013featureName\022\"\n\005value\030\002 \001(\0132\014.sysm" +
-      "l.ValueR\005value\022$\n\006values\030\003 \003(\0132\014.sysml.V" +
-      "alueR\006values\022\"\n\014materialized\030\004 \001(\010R\014mate" +
-      "rialized\022\024\n\005error\030\005 \001(\tR\005error\"P\n\022Instan" +
-      "tiateRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelH" +
-      "ash\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolId\"\274\001\n\023Ins" +
-      "tantiateResponse\022+\n\010instance\030\001 \001(\0132\017.sys" +
-      "ml.InstanceR\010instance\022\024\n\005error\030\002 \001(\tR\005er" +
-      "ror\0223\n\013diagnostics\030\003 \003(\0132\021.sysml.Diagnos" +
-      "ticR\013diagnostics\022-\n\tinstances\030\004 \003(\0132\017.sy" +
-      "sml.InstanceR\tinstances\"\205\002\n\024ExecuteActio" +
-      "nRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022" +
-      "(\n\020action_symbol_id\030\002 \001(\tR\016actionSymbolI" +
-      "d\022?\n\006inputs\030\003 \003(\0132\'.sysml.ExecuteActionR" +
-      "equest.InputsEntryR\006inputs\022\032\n\010schedule\030\004" +
-      " \001(\tR\010schedule\032G\n\013InputsEntry\022\020\n\003key\030\001 \001" +
-      "(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005va" +
-      "lue:\0028\001\"\361\001\n\025ExecuteActionResponse\022C\n\007out" +
-      "puts\030\001 \003(\0132).sysml.ExecuteActionResponse" +
-      ".OutputsEntryR\007outputs\022\024\n\005error\030\002 \001(\tR\005e" +
-      "rror\0223\n\013diagnostics\030\003 \003(\0132\021.sysml.Diagno" +
-      "sticR\013diagnostics\032H\n\014OutputsEntry\022\020\n\003key" +
-      "\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysml.Value" +
-      "R\005value:\0028\001\"\237\001\n\023ExecuteStateRequest\022\035\n\nm" +
-      "odel_hash\030\001 \001(\tR\tmodelHash\0225\n\027state_mach" +
-      "ine_symbol_id\030\002 \001(\tR\024stateMachineSymbolI" +
-      "d\022\026\n\006events\030\003 \003(\tR\006events\022\032\n\010schedule\030\004 " +
-      "\001(\tR\010schedule\"\253\002\n\024ExecuteStateResponse\022%" +
-      "\n\016states_visited\030\001 \003(\tR\rstatesVisited\022R\n" +
-      "\rfinal_context\030\002 \003(\0132-.sysml.ExecuteStat" +
-      "eResponse.FinalContextEntryR\014finalContex" +
-      "t\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013diagnostics\030\004" +
-      " \003(\0132\021.sysml.DiagnosticR\013diagnostics\032M\n\021" +
-      "FinalContextEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005v" +
-      "alue\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\352\001\n\016" +
-      "ConvertRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010fil" +
-      "ePath\022\032\n\007content\030\002 \001(\tH\000R\007content\022\037\n\nmod" +
-      "el_hash\030\006 \001(\tH\000R\tmodelHash\022\037\n\013from_forma" +
-      "t\030\003 \001(\tR\nfromFormat\022\033\n\tto_format\030\004 \001(\tR\010" +
-      "toFormat\0224\n\026tolerate_syntax_errors\030\005 \001(\010" +
-      "R\024tolerateSyntaxErrorsB\010\n\006source\"\211\002\n\017Con" +
-      "vertResponse\022\030\n\007content\030\001 \001(\tR\007content\022\037" +
-      "\n\013from_format\030\002 \001(\tR\nfromFormat\022\033\n\tto_fo" +
-      "rmat\030\003 \001(\tR\010toFormat\022\024\n\005error\030\004 \001(\tR\005err" +
-      "or\0223\n\013diagnostics\030\005 \003(\0132\021.sysml.Diagnost" +
-      "icR\013diagnostics\022\"\n\014experimental\030\006 \001(\010R\014e" +
-      "xperimental\022/\n\023experimental_notice\030\007 \001(\t" +
-      "R\022experimentalNotice\"h\n\021ApplyEditsReques" +
-      "t\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\0224\n\noper" +
-      "ations\030\002 \003(\0132\024.sysml.EditOperationR\noper" +
-      "ations\"\341\001\n\rEditOperation\0222\n\tset_value\030\001 " +
-      "\001(\0132\023.sysml.SetValueEditH\000R\010setValue\022+\n\006" +
-      "rename\030\002 \001(\0132\021.sysml.RenameEditH\000R\006renam" +
-      "e\0225\n\nadd_member\030\003 \001(\0132\024.sysml.AddMemberE" +
-      "ditH\000R\taddMember\022+\n\006delete\030\004 \001(\0132\021.sysml" +
-      ".DeleteEditH\000R\006deleteB\013\n\toperation\"\275\001\n\rA" +
-      "ddMemberEdit\022\024\n\005owner\030\001 \001(\tR\005owner\022\022\n\004ki" +
-      "nd\030\002 \001(\tR\004kind\022\022\n\004name\030\003 \001(\tR\004name\022\022\n\004ty" +
-      "pe\030\004 \001(\tR\004type\022\"\n\014multiplicity\030\005 \001(\tR\014mu" +
-      "ltiplicity\022\024\n\005value\030\006 \001(\tR\005value\022 \n\013spec" +
-      "ializes\030\007 \003(\tR\013specializes\">\n\nDeleteEdit" +
-      "\022\026\n\006target\030\001 \001(\tR\006target\022\030\n\007cascade\030\002 \001(" +
-      "\010R\007cascade\"<\n\014SetValueEdit\022\026\n\006target\030\001 \001" +
-      "(\tR\006target\022\024\n\005value\030\002 \001(\tR\005value\"?\n\nRena" +
-      "meEdit\022\026\n\006target\030\001 \001(\tR\006target\022\031\n\010new_na" +
-      "me\030\002 \001(\tR\007newName\"\204\002\n\022ApplyEditsResponse" +
-      "\022\030\n\007content\030\001 \001(\tR\007content\022,\n\007applied\030\002 " +
-      "\003(\0132\022.sysml.AppliedEditR\007applied\022\024\n\005erro" +
-      "r\030\003 \001(\tR\005error\022,\n\007failure\030\004 \001(\0162\022.sysml." +
-      "EditFailureR\007failure\0223\n\013diagnostics\030\005 \003(" +
-      "\0132\021.sysml.DiagnosticR\013diagnostics\022-\n\022ref" +
-      "erring_elements\030\006 \003(\tR\021referringElements" +
-      "\"\264\001\n\013AppliedEdit\022\'\n\017operation_index\030\001 \001(" +
-      "\005R\016operationIndex\022\026\n\006target\030\002 \001(\tR\006targe" +
-      "t\022\026\n\006offset\030\003 \001(\005R\006offset\022\026\n\006length\030\004 \001(" +
-      "\005R\006length\022\031\n\010old_text\030\005 \001(\tR\007oldText\022\031\n\010" +
-      "new_text\030\006 \001(\tR\007newText\"\375\003\n\nSymbolInfo\022\016" +
-      "\n\002id\030\001 \001(\tR\002id\022\022\n\004name\030\002 \001(\tR\004name\022\022\n\004ki" +
-      "nd\030\003 \001(\tR\004kind\022;\n\010metadata\030\004 \003(\0132\037.sysml" +
-      ".SymbolInfo.MetadataEntryR\010metadata\022\033\n\tc" +
-      "hild_ids\030\005 \003(\tR\010childIds\0224\n\nattributes\030\006" +
-      " \003(\0132\024.sysml.AttributeInfoR\nattributes\022," +
-      "\n\ttype_info\030\007 \001(\0132\017.sysml.TypeInfoR\010type" +
-      "Info\022;\n\014multiplicity\030\010 \001(\0132\027.sysml.Multi" +
-      "plicityInfoR\014multiplicity\022?\n\017specializat" +
-      "ions\030\t \003(\0132\025.sysml.SpecializationR\017speci" +
-      "alizations\022>\n\033withheld_library_attribute" +
-      "s\030\n \001(\005R\031withheldLibraryAttributes\032;\n\rMe" +
-      "tadataEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002" +
-      " \001(\tR\005value:\0028\001\"~\n\016Specialization\022\022\n\004kin" +
-      "d\030\001 \001(\tR\004kind\022\032\n\010declared\030\002 \001(\tR\010declare" +
-      "d\022\033\n\ttarget_id\030\003 \001(\tR\010targetId\022\037\n\013target" +
-      "_kind\030\004 \001(\tR\ntargetKind\"\345\001\n\010TypeInfo\022\032\n\010" +
-      "declared\030\001 \001(\tR\010declared\022\037\n\013resolved_id\030" +
-      "\002 \001(\tR\nresolvedId\022#\n\rresolved_kind\030\003 \001(\t" +
-      "R\014resolvedKind\022\034\n\tprimitive\030\004 \001(\tR\tprimi" +
-      "tive\022)\n\020primitive_source\030\005 \001(\tR\017primitiv" +
-      "eSource\022\032\n\010quantity\030\006 \001(\010R\010quantity\022\022\n\004u" +
-      "nit\030\007 \001(\tR\004unit\">\n\020MultiplicityInfo\022\024\n\005l" +
-      "ower\030\001 \001(\tR\005lower\022\024\n\005upper\030\002 \001(\tR\005upper\"" +
-      "o\n\rAttributeInfo\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004" +
-      "type\030\002 \001(\tR\004type\022\"\n\005value\030\003 \001(\0132\014.sysml." +
-      "ValueR\005value\022\022\n\004unit\030\004 \001(\tR\004unit\"\265\006\n\005Val" +
-      "ue\022\035\n\tint_value\030\001 \001(\003H\000R\010intValue\022\037\n\nrea" +
-      "l_value\030\002 \001(\001H\000R\trealValue\022\037\n\nbool_value" +
-      "\030\003 \001(\010H\000R\tboolValue\022#\n\014string_value\030\004 \001(" +
-      "\tH\000R\013stringValue\022!\n\013instance_id\030\005 \001(\003H\000R" +
-      "\ninstanceId\0222\n\010sequence\030\006 \001(\0132\024.sysml.Va" +
-      "lueSequenceH\000R\010sequence\022\024\n\004null\030\007 \001(\tH\000R" +
-      "\004null\022-\n\010quantity\030\010 \001(\0132\017.sysml.Quantity" +
-      "H\000R\010quantity\0227\n\014enum_literal\030\t \001(\0132\022.sys" +
-      "ml.EnumLiteralH\000R\013enumLiteral\022\026\n\005unset\030\n" +
-      " \001(\010H\000R\005unset\022*\n\007complex\030\013 \001(\0132\016.sysml.C" +
-      "omplexH\000R\007complex\022$\n\005array\030\014 \001(\0132\014.sysml" +
-      ".ArrayH\000R\005array\022\'\n\006vector\030\r \001(\0132\r.sysml." +
-      "VectorH\000R\006vector\022@\n\017vector_quantity\030\016 \001(" +
-      "\0132\025.sysml.VectorQuantityH\000R\016vectorQuanti" +
-      "ty\022@\n\017measurement_ref\030\017 \001(\0132\025.sysml.Meas" +
-      "urementRefH\000R\016measurementRef\022\034\n\010infinity" +
-      "\030\020 \001(\010H\000R\010infinity\022-\n\010function\030\021 \001(\0132\017.s" +
-      "ysml.FunctionH\000R\010function\022#\n\003set\030\022 \001(\0132\017" +
-      ".sysml.ValueSetH\000R\003set\022@\n\017tensor_quantit" +
-      "y\030\023 \001(\0132\025.sysml.TensorQuantityH\000R\016tensor" +
-      "QuantityB\006\n\004kind\"<\n\010Function\022\027\n\007calc_id\030" +
-      "\001 \001(\tR\006calcId\022\027\n\007self_id\030\002 \001(\003R\006selfId\"4" +
-      "\n\010ValueSet\022(\n\010elements\030\001 \003(\0132\014.sysml.Val" +
-      "ueR\010elements\"a\n\016TensorQuantity\022\036\n\ndimens" +
-      "ions\030\001 \003(\003R\ndimensions\022/\n\ncomponents\030\002 \003" +
-      "(\0132\017.sysml.QuantityR\ncomponents\"Q\n\005Array" +
-      "\022\036\n\ndimensions\030\001 \003(\003R\ndimensions\022(\n\010elem" +
-      "ents\030\002 \003(\0132\014.sysml.ValueR\010elements\"6\n\006Ve" +
-      "ctor\022,\n\ncomponents\030\001 \003(\0132\014.sysml.ValueR\n" +
-      "components\"A\n\016VectorQuantity\022/\n\ncomponen" +
-      "ts\030\001 \003(\0132\017.sysml.QuantityR\ncomponents\";\n" +
-      "\007Complex\022\022\n\004real\030\001 \001(\001R\004real\022\034\n\timaginar" +
-      "y\030\002 \001(\001R\timaginary\"g\n\013EnumLiteral\022\035\n\nlit" +
-      "eral_id\030\001 \001(\tR\tliteralId\022%\n\016enumeration_" +
-      "id\030\002 \001(\tR\renumerationId\022\022\n\004name\030\003 \001(\tR\004n" +
-      "ame\"9\n\rValueSequence\022(\n\010elements\030\001 \003(\0132\014" +
-      ".sysml.ValueR\010elements\"\251\001\n\010Quantity\022%\n\ri" +
-      "nt_magnitude\030\001 \001(\003H\000R\014intMagnitude\022\'\n\016re" +
-      "al_magnitude\030\002 \001(\001H\000R\rrealMagnitude\022\022\n\004u" +
-      "nit\030\003 \001(\tR\004unit\022,\n\tunit_term\030\004 \001(\0132\017.sys" +
-      "ml.UnitTermR\010unitTermB\013\n\tmagnitude\"k\n\016Me" +
-      "asurementRef\022\022\n\004unit\030\001 \001(\tR\004unit\022,\n\tunit" +
-      "_term\030\002 \001(\0132\017.sysml.UnitTermR\010unitTerm\022\027" +
-      "\n\007unit_id\030\003 \001(\tR\006unitId\"q\n\010UnitTerm\022\033\n\ts" +
-      "cale_num\030\001 \001(\001R\010scaleNum\022\033\n\tscale_den\030\002 " +
-      "\001(\001R\010scaleDen\022+\n\007factors\030\003 \003(\0132\021.sysml.U" +
-      "nitFactorR\007factors\"A\n\nUnitFactor\022\027\n\007unit" +
-      "_id\030\001 \001(\tR\006unitId\022\032\n\010exponent\030\002 \001(\001R\010exp" +
-      "onent\"w\n\nDiagnostic\022\032\n\010severity\030\001 \001(\tR\010s" +
-      "everity\022\030\n\007message\030\002 \001(\tR\007message\022\037\n\004spa" +
-      "n\030\003 \001(\0132\013.sysml.SpanR\004span\022\022\n\004code\030\004 \001(\t" +
-      "R\004code\"\212\001\n\004Span\022\022\n\004file\030\001 \001(\tR\004file\022\035\n\ns" +
-      "tart_line\030\002 \001(\005R\tstartLine\022\033\n\tstart_col\030" +
-      "\003 \001(\005R\010startCol\022\031\n\010end_line\030\004 \001(\005R\007endLi" +
-      "ne\022\027\n\007end_col\030\005 \001(\005R\006endCol\"\023\n\021ServerInf" +
-      "oRequest\"R\n\022ServerInfoResponse\022\030\n\007versio" +
-      "n\030\001 \001(\tR\007version\022\"\n\014capabilities\030\002 \003(\tR\014" +
-      "capabilities\"p\n\014QueryRequest\022\035\n\nmodel_ha" +
-      "sh\030\001 \001(\tR\tmodelHash\022\"\n\005query\030\002 \001(\0132\014.sys" +
-      "ml.QueryR\005query\022\035\n\noslc_query\030\003 \001(\tR\tosl" +
-      "cQuery\"F\n\rQueryResponse\0225\n\010elements\030\001 \003(" +
-      "\0132\031.sysml.QueryResultElementR\010elements\"^" +
-      "\n\005Query\022\024\n\005scope\030\001 \003(\tR\005scope\022\026\n\006select\030" +
-      "\002 \003(\tR\006select\022\'\n\005where\030\003 \001(\0132\021.sysml.Con" +
-      "straintR\005where\"\222\001\n\nConstraint\022:\n\tprimiti" +
-      "ve\030\001 \001(\0132\032.sysml.PrimitiveConstraintH\000R\t" +
-      "primitive\022:\n\tcomposite\030\002 \001(\0132\032.sysml.Com" +
-      "positeConstraintH\000R\tcompositeB\014\n\nconstra" +
-      "int\"\227\001\n\023PrimitiveConstraint\022\030\n\007inverse\030\001" +
-      " \001(\010R\007inverse\022\032\n\010property\030\002 \001(\tR\010propert" +
-      "y\0224\n\010operator\030\003 \001(\0162\030.sysml.PrimitiveOpe" +
-      "ratorR\010operator\022\024\n\005value\030\004 \003(\tR\005value\"~\n" +
-      "\023CompositeConstraint\0224\n\010operator\030\001 \001(\0162\030" +
-      ".sysml.CompositeOperatorR\010operator\0221\n\nco" +
-      "nstraint\030\002 \003(\0132\021.sysml.ConstraintR\nconst" +
-      "raint\"\302\001\n\022QueryResultElement\022\016\n\002id\030\001 \001(\t" +
-      "R\002id\022\022\n\004type\030\002 \001(\tR\004type\022I\n\nproperties\030\003" +
-      " \003(\0132).sysml.QueryResultElement.Properti" +
-      "esEntryR\nproperties\032=\n\017PropertiesEntry\022\020" +
-      "\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\002" +
-      "8\001\"\220\001\n\nSweepRange\022\034\n\tparameter\030\001 \001(\tR\tpa" +
-      "rameter\022\"\n\005start\030\002 \001(\0132\014.sysml.ValueR\005st" +
-      "art\022\036\n\003end\030\003 \001(\0132\014.sysml.ValueR\003end\022 \n\004s" +
-      "tep\030\004 \001(\0132\014.sysml.ValueR\004step\"\244\003\n\017RunSwe" +
-      "epRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash" +
-      "\022\033\n\tsymbol_id\030\002 \001(\tR\010symbolId\022*\n\021subject" +
-      "_symbol_id\030\003 \001(\tR\017subjectSymbolId\022*\n\targ" +
-      "uments\030\004 \003(\0132\014.sysml.ValueR\targuments\022S\n" +
-      "\017named_arguments\030\005 \003(\0132*.sysml.RunSweepR" +
-      "equest.NamedArgumentsEntryR\016namedArgumen" +
-      "ts\022)\n\006ranges\030\006 \003(\0132\021.sysml.SweepRangeR\006r" +
-      "anges\022\030\n\007samples\030\007 \001(\003R\007samples\022\022\n\004seed\030" +
-      "\010 \001(\004R\004seed\032O\n\023NamedArgumentsEntry\022\020\n\003ke" +
-      "y\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysml.Valu" +
-      "eR\005value:\0028\001\"\210\002\n\010SweepRow\022)\n\006inputs\030\001 \003(" +
-      "\0132\021.sysml.CalcOutputR\006inputs\022+\n\007outputs\030" +
-      "\002 \003(\0132\021.sysml.CalcOutputR\007outputs\022*\n\010ver" +
-      "dicts\030\003 \003(\0132\016.sysml.VerdictR\010verdicts\022%\n" +
-      "\016elapsed_micros\030\004 \001(\003R\relapsedMicros\022\024\n\005" +
-      "error\030\005 \001(\tR\005error\022;\n\016failure_reason\030\006 \001" +
-      "(\0162\024.sysml.FailureReasonR\rfailureReason\"" +
-      "\274\002\n\020RunSweepResponse\022#\n\004rows\030\001 \003(\0132\017.sys" +
-      "ml.SweepRowR\004rows\022\036\n\nparameters\030\002 \003(\tR\np" +
-      "arameters\022\030\n\007sampled\030\003 \001(\010R\007sampled\022\022\n\004s" +
-      "eed\030\004 \001(\004R\004seed\022\024\n\005error\030\005 \001(\tR\005error\0223\n" +
-      "\013diagnostics\030\006 \003(\0132\021.sysml.DiagnosticR\013d" +
-      "iagnostics\022;\n\016failure_reason\030\007 \001(\0162\024.sys" +
-      "ml.FailureReasonR\rfailureReason\022-\n\tinsta" +
-      "nces\030\010 \003(\0132\017.sysml.InstanceR\tinstances\"\214" +
-      "\001\n\027RunDocumentQueryRequest\022\035\n\nmodel_hash" +
-      "\030\001 \001(\tR\tmodelHash\022\031\n\010query_id\030\002 \001(\tR\007que" +
-      "ryId\0227\n\010bindings\030\003 \003(\0132\033.sysml.DocumentQ" +
-      "ueryBindingR\010bindings\"b\n\024DocumentQueryBi" +
-      "nding\022\034\n\tparameter\030\001 \001(\tR\tparameter\022,\n\006v" +
-      "alues\030\002 \003(\0132\024.sysml.DocumentValueR\006value" +
-      "s\"\256\002\n\rDocumentValue\022\037\n\nelement_id\030\001 \001(\tH" +
-      "\000R\telementId\022#\n\014string_value\030\002 \001(\tH\000R\013st" +
-      "ringValue\022\035\n\tint_value\030\003 \001(\003H\000R\010intValue" +
-      "\022\037\n\nreal_value\030\004 \001(\001H\000R\trealValue\022\037\n\nboo" +
-      "l_value\030\005 \001(\010H\000R\tboolValue\022\034\n\010infinity\030\006" +
-      " \001(\010H\000R\010infinity\022-\n\010quantity\030\010 \001(\0132\017.sys" +
-      "ml.QuantityH\000R\010quantity\022!\n\014element_type\030" +
-      "\007 \001(\tR\013elementTypeB\006\n\004kind\")\n\023DocumentQu" +
-      "eryColumn\022\022\n\004name\030\001 \001(\tR\004name\"A\n\021Documen" +
-      "tQueryCell\022,\n\006values\030\001 \003(\0132\024.sysml.Docum" +
-      "entValueR\006values\"r\n\020DocumentQueryRow\022.\n\007" +
-      "element\030\001 \001(\0132\024.sysml.DocumentValueR\007ele" +
-      "ment\022.\n\005cells\030\002 \003(\0132\030.sysml.DocumentQuer" +
-      "yCellR\005cells\"}\n\030RunDocumentQueryResponse" +
-      "\0224\n\007columns\030\001 \003(\0132\032.sysml.DocumentQueryC" +
-      "olumnR\007columns\022+\n\004rows\030\002 \003(\0132\027.sysml.Doc" +
-      "umentQueryRowR\004rows\"W\n\025RenderDocumentReq" +
-      "uest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\037\n\013d" +
-      "ocument_id\030\002 \001(\tR\ndocumentId\"4\n\026RenderDo" +
-      "cumentResponse\022\032\n\010markdown\030\001 \001(\tR\010markdo" +
-      "wn*\223\001\n\rFailureReason\022\036\n\032FAILURE_REASON_U" +
-      "NSPECIFIED\020\000\022\035\n\031FAILURE_REASON_EVALUATIO" +
-      "N\020\001\022\035\n\031FAILURE_REASON_WRONG_KIND\020\002\022$\n FA" +
-      "ILURE_REASON_AMBIGUOUS_SUBJECT\020\003*\235\004\n\013Edi" +
-      "tFailure\022\034\n\030EDIT_FAILURE_UNSPECIFIED\020\000\022\036" +
-      "\n\032EDIT_FAILURE_NO_OPERATIONS\020\001\022\037\n\033EDIT_F" +
-      "AILURE_UNKNOWN_TARGET\020\002\022!\n\035EDIT_FAILURE_" +
-      "AMBIGUOUS_TARGET\020\003\022\033\n\027EDIT_FAILURE_NOT_V" +
-      "ALUED\020\004\022\036\n\032EDIT_FAILURE_INVALID_VALUE\020\005\022" +
-      "\035\n\031EDIT_FAILURE_INVALID_NAME\020\006\022\032\n\026EDIT_F" +
-      "AILURE_NOT_NAMED\020\007\022\"\n\036EDIT_FAILURE_RENAM" +
-      "E_REFERENCED\020\010\022\"\n\036EDIT_FAILURE_OVERLAPPI" +
-      "NG_EDITS\020\t\022\037\n\033EDIT_FAILURE_RESULT_INVALI" +
-      "D\020\n\022\036\n\032EDIT_FAILURE_OWNER_UNKNOWN\020\013\022$\n E" +
-      "DIT_FAILURE_OWNER_NOT_NAMESPACE\020\014\022\035\n\031EDI" +
-      "T_FAILURE_ILLEGAL_KIND\020\r\022\"\n\036EDIT_FAILURE" +
-      "_MEMBER_NAME_TAKEN\020\016\022\"\n\036EDIT_FAILURE_DEL" +
-      "ETE_REFERENCED\020\017*\222\001\n\021PrimitiveOperator\022\"" +
-      "\n\036PRIMITIVE_OPERATOR_UNSPECIFIED\020\000\022\034\n\030PR" +
-      "IMITIVE_OPERATOR_EQUAL\020\001\022\036\n\032PRIMITIVE_OP" +
-      "ERATOR_GREATER\020\002\022\033\n\027PRIMITIVE_OPERATOR_L" +
-      "ESS\020\003*n\n\021CompositeOperator\022\"\n\036COMPOSITE_" +
-      "OPERATOR_UNSPECIFIED\020\000\022\032\n\026COMPOSITE_OPER" +
-      "ATOR_AND\020\001\022\031\n\025COMPOSITE_OPERATOR_OR\020\0022\244\013" +
-      "\n\014SysMLService\022D\n\rGetServerInfo\022\030.sysml." +
-      "ServerInfoRequest\032\031.sysml.ServerInfoResp" +
-      "onse\022>\n\tParseFile\022\027.sysml.ParseFileReque" +
-      "st\032\030.sysml.ParseFileResponse\022G\n\014ParseSou" +
-      "rces\022\032.sysml.ParseSourcesRequest\032\033.sysml" +
-      ".ParseSourcesResponse\022;\n\tGetSymbol\022\027.sys" +
-      "ml.GetSymbolRequest\032\025.sysml.SymbolRespon" +
-      "se\022G\n\016GetDiagnostics\022\031.sysml.Diagnostics" +
-      "Request\032\032.sysml.DiagnosticsResponse\022;\n\010E" +
-      "valuate\022\026.sysml.EvaluateRequest\032\027.sysml." +
-      "EvaluateResponse\022D\n\013Instantiate\022\031.sysml." +
-      "InstantiateRequest\032\032.sysml.InstantiateRe" +
-      "sponse\022J\n\rExecuteAction\022\033.sysml.ExecuteA" +
-      "ctionRequest\032\034.sysml.ExecuteActionRespon" +
-      "se\022G\n\014ExecuteState\022\032.sysml.ExecuteStateR" +
-      "equest\032\033.sysml.ExecuteStateResponse\0228\n\007C" +
-      "onvert\022\025.sysml.ConvertRequest\032\026.sysml.Co" +
-      "nvertResponse\022A\n\nApplyEdits\022\030.sysml.Appl" +
-      "yEditsRequest\032\031.sysml.ApplyEditsResponse" +
-      "\022S\n\020VerifyConstraint\022\036.sysml.VerifyConst" +
-      "raintRequest\032\037.sysml.VerifyConstraintRes" +
-      "ponse\022V\n\021VerifyRequirement\022\037.sysml.Verif" +
-      "yRequirementRequest\032 .sysml.VerifyRequir" +
-      "ementResponse\022Y\n\022VerifySatisfaction\022 .sy",
-      "sml.VerifySatisfactionRequest\032!.sysml.Ve" +
-      "rifySatisfactionResponse\022G\n\014EvaluateCalc" +
-      "\022\032.sysml.EvaluateCalcRequest\032\033.sysml.Eva" +
-      "luateCalcResponse\022D\n\013RunAnalysis\022\031.sysml" +
-      ".RunAnalysisRequest\032\032.sysml.RunAnalysisR" +
-      "esponse\022;\n\010RunSweep\022\026.sysml.RunSweepRequ" +
-      "est\032\027.sysml.RunSweepResponse\0222\n\005Query\022\023." +
-      "sysml.QueryRequest\032\024.sysml.QueryResponse" +
-      "\022S\n\020RunDocumentQuery\022\036.sysml.RunDocument" +
-      "QueryRequest\032\037.sysml.RunDocumentQueryRes" +
-      "ponse\022M\n\016RenderDocument\022\034.sysml.RenderDo" +
-      "cumentRequest\032\035.sysml.RenderDocumentResp" +
-      "onseBJ\n\034org.openmbee.opensysml.protoP\001Z(" +
-      "github.com/Open-MBEE/OpenSysML/api/proto" +
-      "b\006proto3"
+      "tR\024verificationVerdicts\022*\n\010outcomes\030\010 \003(" +
+      "\0132\016.sysml.OutcomeR\010outcomes\022:\n\013explorati" +
+      "on\030\t \001(\0132\030.sysml.ExplorationStatusR\013expl" +
+      "oration\"\337\002\n\007Outcome\0225\n\007outputs\030\001 \003(\0132\033.s" +
+      "ysml.Outcome.OutputsEntryR\007outputs\022\037\n\013fi" +
+      "nal_state\030\002 \001(\tR\nfinalState\022%\n\016states_vi" +
+      "sited\030\003 \003(\tR\rstatesVisited\022\024\n\005error\030\004 \001(" +
+      "\tR\005error\022&\n\016linearizations\030\005 \001(\005R\016linear" +
+      "izations\022\030\n\007witness\030\006 \003(\tR\007witness\0223\n\013di" +
+      "agnostics\030\007 \003(\0132\021.sysml.DiagnosticR\013diag" +
+      "nostics\032H\n\014OutputsEntry\022\020\n\003key\030\001 \001(\tR\003ke" +
+      "y\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005value:\0028" +
+      "\001\"\250\001\n\021ExplorationStatus\022\032\n\010complete\030\001 \001(" +
+      "\010R\010complete\022\022\n\004runs\030\002 \001(\005R\004runs\022\037\n\013budge" +
+      "ts_hit\030\003 \003(\tR\nbudgetsHit\022\037\n\013runs_budget\030" +
+      "\004 \001(\005R\nrunsBudget\022!\n\014depth_budget\030\005 \001(\005R" +
+      "\013depthBudget\"\311\001\n\020ParseFileRequest\022\035\n\tfil" +
+      "e_path\030\001 \001(\tH\000R\010filePath\022\032\n\007content\030\002 \001(" +
+      "\tH\000R\007content\022%\n\014content_hash\030\003 \001(\tB\002\030\001R\013" +
+      "contentHash\022\032\n\010language\030\004 \001(\tR\010language\022" +
+      "-\n\022strict_conformance\030\005 \001(\010R\021strictConfo" +
+      "rmanceB\010\n\006source\"\205\001\n\016SourceDocument\022\035\n\tf" +
+      "ile_path\030\001 \001(\tH\000R\010filePath\022\032\n\007content\030\002 " +
+      "\001(\tH\000R\007content\022\032\n\010language\030\003 \001(\tR\010langua" +
+      "ge\022\022\n\004name\030\004 \001(\tR\004nameB\010\n\006source\"y\n\023Pars" +
+      "eSourcesRequest\0223\n\tdocuments\030\001 \003(\0132\025.sys" +
+      "ml.SourceDocumentR\tdocuments\022-\n\022strict_c" +
+      "onformance\030\002 \001(\010R\021strictConformance\"\251\001\n\024" +
+      "ParseSourcesResponse\022\035\n\nmodel_hash\030\001 \001(\t" +
+      "R\tmodelHash\022\'\n\005roots\030\002 \003(\0132\021.sysml.Symbo" +
+      "lInfoR\005roots\0223\n\013diagnostics\030\003 \003(\0132\021.sysm" +
+      "l.DiagnosticR\013diagnostics\022\024\n\005error\030\004 \001(\t" +
+      "R\005error\"\244\001\n\021ParseFileResponse\022\035\n\nmodel_h" +
+      "ash\030\001 \001(\tR\tmodelHash\022%\n\004root\030\002 \001(\0132\021.sys" +
+      "ml.SymbolInfoR\004root\0223\n\013diagnostics\030\003 \003(\013" +
+      "2\021.sysml.DiagnosticR\013diagnostics\022\024\n\005erro" +
+      "r\030\004 \001(\tR\005error\"N\n\020GetSymbolRequest\022\035\n\nmo" +
+      "del_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymbol_id\030\002" +
+      " \001(\tR\010symbolId\"Q\n\016SymbolResponse\022)\n\006symb" +
+      "ol\030\001 \001(\0132\021.sysml.SymbolInfoR\006symbol\022\024\n\005e" +
+      "rror\030\002 \001(\tR\005error\"3\n\022DiagnosticsRequest\022" +
+      "\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\"`\n\023Diagno" +
+      "sticsResponse\0223\n\013diagnostics\030\001 \003(\0132\021.sys" +
+      "ml.DiagnosticR\013diagnostics\022\024\n\005error\030\002 \001(" +
+      "\tR\005error\"\250\001\n\017EvaluateRequest\022\035\n\nmodel_ha" +
+      "sh\030\001 \001(\tR\tmodelHash\022\036\n\nexpression\030\002 \001(\tR" +
+      "\nexpression\022*\n\021context_symbol_id\030\003 \001(\tR\017" +
+      "contextSymbolId\022*\n\021subject_symbol_id\030\004 \001" +
+      "(\tR\017subjectSymbolId\"\203\001\n\020EvaluateResponse" +
+      "\022$\n\006result\030\001 \001(\0132\014.sysml.ValueR\006result\022\024" +
+      "\n\005error\030\002 \001(\tR\005error\0223\n\013diagnostics\030\003 \003(" +
+      "\0132\021.sysml.DiagnosticR\013diagnostics\"\357\001\n\010In" +
+      "stance\022\016\n\002id\030\001 \001(\003R\002id\022$\n\016type_symbol_id" +
+      "\030\002 \001(\tR\014typeSymbolId\022I\n\016feature_values\030\004" +
+      " \003(\0132\".sysml.Instance.FeatureValuesEntry" +
+      "R\rfeatureValues\032U\n\022FeatureValuesEntry\022\020\n" +
+      "\003key\030\001 \001(\tR\003key\022)\n\005value\030\002 \001(\0132\023.sysml.F" +
+      "eatureValueR\005value:\0028\001J\004\010\003\020\004R\005slots\"\265\001\n\014" +
+      "FeatureValue\022!\n\014feature_name\030\001 \001(\tR\013feat" +
+      "ureName\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005va" +
+      "lue\022$\n\006values\030\003 \003(\0132\014.sysml.ValueR\006value" +
+      "s\022\"\n\014materialized\030\004 \001(\010R\014materialized\022\024\n" +
+      "\005error\030\005 \001(\tR\005error\"P\n\022InstantiateReques" +
+      "t\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n\tsymb" +
+      "ol_id\030\002 \001(\tR\010symbolId\"\274\001\n\023InstantiateRes" +
+      "ponse\022+\n\010instance\030\001 \001(\0132\017.sysml.Instance" +
+      "R\010instance\022\024\n\005error\030\002 \001(\tR\005error\0223\n\013diag" +
+      "nostics\030\003 \003(\0132\021.sysml.DiagnosticR\013diagno" +
+      "stics\022-\n\tinstances\030\004 \003(\0132\017.sysml.Instanc" +
+      "eR\tinstances\"\205\002\n\024ExecuteActionRequest\022\035\n" +
+      "\nmodel_hash\030\001 \001(\tR\tmodelHash\022(\n\020action_s" +
+      "ymbol_id\030\002 \001(\tR\016actionSymbolId\022?\n\006inputs" +
+      "\030\003 \003(\0132\'.sysml.ExecuteActionRequest.Inpu" +
+      "tsEntryR\006inputs\022\032\n\010schedule\030\004 \001(\tR\010sched" +
+      "ule\032G\n\013InputsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005" +
+      "value\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\331\002\n" +
+      "\025ExecuteActionResponse\022C\n\007outputs\030\001 \003(\0132" +
+      ").sysml.ExecuteActionResponse.OutputsEnt" +
+      "ryR\007outputs\022\024\n\005error\030\002 \001(\tR\005error\0223\n\013dia" +
+      "gnostics\030\003 \003(\0132\021.sysml.DiagnosticR\013diagn" +
+      "ostics\022*\n\010outcomes\030\004 \003(\0132\016.sysml.Outcome" +
+      "R\010outcomes\022:\n\013exploration\030\005 \001(\0132\030.sysml." +
+      "ExplorationStatusR\013exploration\032H\n\014Output" +
+      "sEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005value\030\002 \001(\0132" +
+      "\014.sysml.ValueR\005value:\0028\001\"\237\001\n\023ExecuteStat" +
+      "eRequest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022" +
+      "5\n\027state_machine_symbol_id\030\002 \001(\tR\024stateM" +
+      "achineSymbolId\022\026\n\006events\030\003 \003(\tR\006events\022\032" +
+      "\n\010schedule\030\004 \001(\tR\010schedule\"\223\003\n\024ExecuteSt" +
+      "ateResponse\022%\n\016states_visited\030\001 \003(\tR\rsta" +
+      "tesVisited\022R\n\rfinal_context\030\002 \003(\0132-.sysm" +
+      "l.ExecuteStateResponse.FinalContextEntry" +
+      "R\014finalContext\022\024\n\005error\030\003 \001(\tR\005error\0223\n\013" +
+      "diagnostics\030\004 \003(\0132\021.sysml.DiagnosticR\013di" +
+      "agnostics\022*\n\010outcomes\030\005 \003(\0132\016.sysml.Outc" +
+      "omeR\010outcomes\022:\n\013exploration\030\006 \001(\0132\030.sys" +
+      "ml.ExplorationStatusR\013exploration\032M\n\021Fin" +
+      "alContextEntry\022\020\n\003key\030\001 \001(\tR\003key\022\"\n\005valu" +
+      "e\030\002 \001(\0132\014.sysml.ValueR\005value:\0028\001\"\352\001\n\016Con" +
+      "vertRequest\022\035\n\tfile_path\030\001 \001(\tH\000R\010filePa" +
+      "th\022\032\n\007content\030\002 \001(\tH\000R\007content\022\037\n\nmodel_" +
+      "hash\030\006 \001(\tH\000R\tmodelHash\022\037\n\013from_format\030\003" +
+      " \001(\tR\nfromFormat\022\033\n\tto_format\030\004 \001(\tR\010toF" +
+      "ormat\0224\n\026tolerate_syntax_errors\030\005 \001(\010R\024t" +
+      "olerateSyntaxErrorsB\010\n\006source\"\211\002\n\017Conver" +
+      "tResponse\022\030\n\007content\030\001 \001(\tR\007content\022\037\n\013f" +
+      "rom_format\030\002 \001(\tR\nfromFormat\022\033\n\tto_forma" +
+      "t\030\003 \001(\tR\010toFormat\022\024\n\005error\030\004 \001(\tR\005error\022" +
+      "3\n\013diagnostics\030\005 \003(\0132\021.sysml.DiagnosticR" +
+      "\013diagnostics\022\"\n\014experimental\030\006 \001(\010R\014expe" +
+      "rimental\022/\n\023experimental_notice\030\007 \001(\tR\022e" +
+      "xperimentalNotice\"h\n\021ApplyEditsRequest\022\035" +
+      "\n\nmodel_hash\030\001 \001(\tR\tmodelHash\0224\n\noperati" +
+      "ons\030\002 \003(\0132\024.sysml.EditOperationR\noperati" +
+      "ons\"\341\001\n\rEditOperation\0222\n\tset_value\030\001 \001(\013" +
+      "2\023.sysml.SetValueEditH\000R\010setValue\022+\n\006ren" +
+      "ame\030\002 \001(\0132\021.sysml.RenameEditH\000R\006rename\0225" +
+      "\n\nadd_member\030\003 \001(\0132\024.sysml.AddMemberEdit" +
+      "H\000R\taddMember\022+\n\006delete\030\004 \001(\0132\021.sysml.De" +
+      "leteEditH\000R\006deleteB\013\n\toperation\"\275\001\n\rAddM" +
+      "emberEdit\022\024\n\005owner\030\001 \001(\tR\005owner\022\022\n\004kind\030" +
+      "\002 \001(\tR\004kind\022\022\n\004name\030\003 \001(\tR\004name\022\022\n\004type\030" +
+      "\004 \001(\tR\004type\022\"\n\014multiplicity\030\005 \001(\tR\014multi" +
+      "plicity\022\024\n\005value\030\006 \001(\tR\005value\022 \n\013special" +
+      "izes\030\007 \003(\tR\013specializes\">\n\nDeleteEdit\022\026\n" +
+      "\006target\030\001 \001(\tR\006target\022\030\n\007cascade\030\002 \001(\010R\007" +
+      "cascade\"<\n\014SetValueEdit\022\026\n\006target\030\001 \001(\tR" +
+      "\006target\022\024\n\005value\030\002 \001(\tR\005value\"?\n\nRenameE" +
+      "dit\022\026\n\006target\030\001 \001(\tR\006target\022\031\n\010new_name\030" +
+      "\002 \001(\tR\007newName\"\204\002\n\022ApplyEditsResponse\022\030\n" +
+      "\007content\030\001 \001(\tR\007content\022,\n\007applied\030\002 \003(\013" +
+      "2\022.sysml.AppliedEditR\007applied\022\024\n\005error\030\003" +
+      " \001(\tR\005error\022,\n\007failure\030\004 \001(\0162\022.sysml.Edi" +
+      "tFailureR\007failure\0223\n\013diagnostics\030\005 \003(\0132\021" +
+      ".sysml.DiagnosticR\013diagnostics\022-\n\022referr" +
+      "ing_elements\030\006 \003(\tR\021referringElements\"\264\001" +
+      "\n\013AppliedEdit\022\'\n\017operation_index\030\001 \001(\005R\016" +
+      "operationIndex\022\026\n\006target\030\002 \001(\tR\006target\022\026" +
+      "\n\006offset\030\003 \001(\005R\006offset\022\026\n\006length\030\004 \001(\005R\006" +
+      "length\022\031\n\010old_text\030\005 \001(\tR\007oldText\022\031\n\010new" +
+      "_text\030\006 \001(\tR\007newText\"\375\003\n\nSymbolInfo\022\016\n\002i" +
+      "d\030\001 \001(\tR\002id\022\022\n\004name\030\002 \001(\tR\004name\022\022\n\004kind\030" +
+      "\003 \001(\tR\004kind\022;\n\010metadata\030\004 \003(\0132\037.sysml.Sy" +
+      "mbolInfo.MetadataEntryR\010metadata\022\033\n\tchil" +
+      "d_ids\030\005 \003(\tR\010childIds\0224\n\nattributes\030\006 \003(" +
+      "\0132\024.sysml.AttributeInfoR\nattributes\022,\n\tt" +
+      "ype_info\030\007 \001(\0132\017.sysml.TypeInfoR\010typeInf" +
+      "o\022;\n\014multiplicity\030\010 \001(\0132\027.sysml.Multipli" +
+      "cityInfoR\014multiplicity\022?\n\017specialization" +
+      "s\030\t \003(\0132\025.sysml.SpecializationR\017speciali" +
+      "zations\022>\n\033withheld_library_attributes\030\n" +
+      " \001(\005R\031withheldLibraryAttributes\032;\n\rMetad" +
+      "ataEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(" +
+      "\tR\005value:\0028\001\"~\n\016Specialization\022\022\n\004kind\030\001" +
+      " \001(\tR\004kind\022\032\n\010declared\030\002 \001(\tR\010declared\022\033" +
+      "\n\ttarget_id\030\003 \001(\tR\010targetId\022\037\n\013target_ki" +
+      "nd\030\004 \001(\tR\ntargetKind\"\345\001\n\010TypeInfo\022\032\n\010dec" +
+      "lared\030\001 \001(\tR\010declared\022\037\n\013resolved_id\030\002 \001" +
+      "(\tR\nresolvedId\022#\n\rresolved_kind\030\003 \001(\tR\014r" +
+      "esolvedKind\022\034\n\tprimitive\030\004 \001(\tR\tprimitiv" +
+      "e\022)\n\020primitive_source\030\005 \001(\tR\017primitiveSo" +
+      "urce\022\032\n\010quantity\030\006 \001(\010R\010quantity\022\022\n\004unit" +
+      "\030\007 \001(\tR\004unit\">\n\020MultiplicityInfo\022\024\n\005lowe" +
+      "r\030\001 \001(\tR\005lower\022\024\n\005upper\030\002 \001(\tR\005upper\"o\n\r" +
+      "AttributeInfo\022\022\n\004name\030\001 \001(\tR\004name\022\022\n\004typ" +
+      "e\030\002 \001(\tR\004type\022\"\n\005value\030\003 \001(\0132\014.sysml.Val" +
+      "ueR\005value\022\022\n\004unit\030\004 \001(\tR\004unit\"\265\006\n\005Value\022" +
+      "\035\n\tint_value\030\001 \001(\003H\000R\010intValue\022\037\n\nreal_v" +
+      "alue\030\002 \001(\001H\000R\trealValue\022\037\n\nbool_value\030\003 " +
+      "\001(\010H\000R\tboolValue\022#\n\014string_value\030\004 \001(\tH\000" +
+      "R\013stringValue\022!\n\013instance_id\030\005 \001(\003H\000R\nin" +
+      "stanceId\0222\n\010sequence\030\006 \001(\0132\024.sysml.Value" +
+      "SequenceH\000R\010sequence\022\024\n\004null\030\007 \001(\tH\000R\004nu" +
+      "ll\022-\n\010quantity\030\010 \001(\0132\017.sysml.QuantityH\000R" +
+      "\010quantity\0227\n\014enum_literal\030\t \001(\0132\022.sysml." +
+      "EnumLiteralH\000R\013enumLiteral\022\026\n\005unset\030\n \001(" +
+      "\010H\000R\005unset\022*\n\007complex\030\013 \001(\0132\016.sysml.Comp" +
+      "lexH\000R\007complex\022$\n\005array\030\014 \001(\0132\014.sysml.Ar" +
+      "rayH\000R\005array\022\'\n\006vector\030\r \001(\0132\r.sysml.Vec" +
+      "torH\000R\006vector\022@\n\017vector_quantity\030\016 \001(\0132\025" +
+      ".sysml.VectorQuantityH\000R\016vectorQuantity\022" +
+      "@\n\017measurement_ref\030\017 \001(\0132\025.sysml.Measure" +
+      "mentRefH\000R\016measurementRef\022\034\n\010infinity\030\020 " +
+      "\001(\010H\000R\010infinity\022-\n\010function\030\021 \001(\0132\017.sysm" +
+      "l.FunctionH\000R\010function\022#\n\003set\030\022 \001(\0132\017.sy" +
+      "sml.ValueSetH\000R\003set\022@\n\017tensor_quantity\030\023" +
+      " \001(\0132\025.sysml.TensorQuantityH\000R\016tensorQua" +
+      "ntityB\006\n\004kind\"<\n\010Function\022\027\n\007calc_id\030\001 \001" +
+      "(\tR\006calcId\022\027\n\007self_id\030\002 \001(\003R\006selfId\"4\n\010V" +
+      "alueSet\022(\n\010elements\030\001 \003(\0132\014.sysml.ValueR" +
+      "\010elements\"a\n\016TensorQuantity\022\036\n\ndimension" +
+      "s\030\001 \003(\003R\ndimensions\022/\n\ncomponents\030\002 \003(\0132" +
+      "\017.sysml.QuantityR\ncomponents\"Q\n\005Array\022\036\n" +
+      "\ndimensions\030\001 \003(\003R\ndimensions\022(\n\010element" +
+      "s\030\002 \003(\0132\014.sysml.ValueR\010elements\"6\n\006Vecto" +
+      "r\022,\n\ncomponents\030\001 \003(\0132\014.sysml.ValueR\ncom" +
+      "ponents\"A\n\016VectorQuantity\022/\n\ncomponents\030" +
+      "\001 \003(\0132\017.sysml.QuantityR\ncomponents\";\n\007Co" +
+      "mplex\022\022\n\004real\030\001 \001(\001R\004real\022\034\n\timaginary\030\002" +
+      " \001(\001R\timaginary\"g\n\013EnumLiteral\022\035\n\nlitera" +
+      "l_id\030\001 \001(\tR\tliteralId\022%\n\016enumeration_id\030" +
+      "\002 \001(\tR\renumerationId\022\022\n\004name\030\003 \001(\tR\004name" +
+      "\"9\n\rValueSequence\022(\n\010elements\030\001 \003(\0132\014.sy" +
+      "sml.ValueR\010elements\"\251\001\n\010Quantity\022%\n\rint_" +
+      "magnitude\030\001 \001(\003H\000R\014intMagnitude\022\'\n\016real_" +
+      "magnitude\030\002 \001(\001H\000R\rrealMagnitude\022\022\n\004unit" +
+      "\030\003 \001(\tR\004unit\022,\n\tunit_term\030\004 \001(\0132\017.sysml." +
+      "UnitTermR\010unitTermB\013\n\tmagnitude\"k\n\016Measu" +
+      "rementRef\022\022\n\004unit\030\001 \001(\tR\004unit\022,\n\tunit_te" +
+      "rm\030\002 \001(\0132\017.sysml.UnitTermR\010unitTerm\022\027\n\007u" +
+      "nit_id\030\003 \001(\tR\006unitId\"q\n\010UnitTerm\022\033\n\tscal" +
+      "e_num\030\001 \001(\001R\010scaleNum\022\033\n\tscale_den\030\002 \001(\001" +
+      "R\010scaleDen\022+\n\007factors\030\003 \003(\0132\021.sysml.Unit" +
+      "FactorR\007factors\"A\n\nUnitFactor\022\027\n\007unit_id" +
+      "\030\001 \001(\tR\006unitId\022\032\n\010exponent\030\002 \001(\001R\010expone" +
+      "nt\"w\n\nDiagnostic\022\032\n\010severity\030\001 \001(\tR\010seve" +
+      "rity\022\030\n\007message\030\002 \001(\tR\007message\022\037\n\004span\030\003" +
+      " \001(\0132\013.sysml.SpanR\004span\022\022\n\004code\030\004 \001(\tR\004c" +
+      "ode\"\212\001\n\004Span\022\022\n\004file\030\001 \001(\tR\004file\022\035\n\nstar" +
+      "t_line\030\002 \001(\005R\tstartLine\022\033\n\tstart_col\030\003 \001" +
+      "(\005R\010startCol\022\031\n\010end_line\030\004 \001(\005R\007endLine\022" +
+      "\027\n\007end_col\030\005 \001(\005R\006endCol\"\023\n\021ServerInfoRe" +
+      "quest\"R\n\022ServerInfoResponse\022\030\n\007version\030\001" +
+      " \001(\tR\007version\022\"\n\014capabilities\030\002 \003(\tR\014cap" +
+      "abilities\"p\n\014QueryRequest\022\035\n\nmodel_hash\030" +
+      "\001 \001(\tR\tmodelHash\022\"\n\005query\030\002 \001(\0132\014.sysml." +
+      "QueryR\005query\022\035\n\noslc_query\030\003 \001(\tR\toslcQu" +
+      "ery\"F\n\rQueryResponse\0225\n\010elements\030\001 \003(\0132\031" +
+      ".sysml.QueryResultElementR\010elements\"^\n\005Q" +
+      "uery\022\024\n\005scope\030\001 \003(\tR\005scope\022\026\n\006select\030\002 \003" +
+      "(\tR\006select\022\'\n\005where\030\003 \001(\0132\021.sysml.Constr" +
+      "aintR\005where\"\222\001\n\nConstraint\022:\n\tprimitive\030" +
+      "\001 \001(\0132\032.sysml.PrimitiveConstraintH\000R\tpri" +
+      "mitive\022:\n\tcomposite\030\002 \001(\0132\032.sysml.Compos" +
+      "iteConstraintH\000R\tcompositeB\014\n\nconstraint" +
+      "\"\227\001\n\023PrimitiveConstraint\022\030\n\007inverse\030\001 \001(" +
+      "\010R\007inverse\022\032\n\010property\030\002 \001(\tR\010property\0224" +
+      "\n\010operator\030\003 \001(\0162\030.sysml.PrimitiveOperat" +
+      "orR\010operator\022\024\n\005value\030\004 \003(\tR\005value\"~\n\023Co" +
+      "mpositeConstraint\0224\n\010operator\030\001 \001(\0162\030.sy" +
+      "sml.CompositeOperatorR\010operator\0221\n\nconst" +
+      "raint\030\002 \003(\0132\021.sysml.ConstraintR\nconstrai" +
+      "nt\"\302\001\n\022QueryResultElement\022\016\n\002id\030\001 \001(\tR\002i" +
+      "d\022\022\n\004type\030\002 \001(\tR\004type\022I\n\nproperties\030\003 \003(" +
+      "\0132).sysml.QueryResultElement.PropertiesE" +
+      "ntryR\nproperties\032=\n\017PropertiesEntry\022\020\n\003k" +
+      "ey\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR\005value:\0028\001\"" +
+      "\220\001\n\nSweepRange\022\034\n\tparameter\030\001 \001(\tR\tparam" +
+      "eter\022\"\n\005start\030\002 \001(\0132\014.sysml.ValueR\005start" +
+      "\022\036\n\003end\030\003 \001(\0132\014.sysml.ValueR\003end\022 \n\004step" +
+      "\030\004 \001(\0132\014.sysml.ValueR\004step\"\244\003\n\017RunSweepR" +
+      "equest\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\033\n" +
+      "\tsymbol_id\030\002 \001(\tR\010symbolId\022*\n\021subject_sy" +
+      "mbol_id\030\003 \001(\tR\017subjectSymbolId\022*\n\targume" +
+      "nts\030\004 \003(\0132\014.sysml.ValueR\targuments\022S\n\017na" +
+      "med_arguments\030\005 \003(\0132*.sysml.RunSweepRequ" +
+      "est.NamedArgumentsEntryR\016namedArguments\022" +
+      ")\n\006ranges\030\006 \003(\0132\021.sysml.SweepRangeR\006rang" +
+      "es\022\030\n\007samples\030\007 \001(\003R\007samples\022\022\n\004seed\030\010 \001" +
+      "(\004R\004seed\032O\n\023NamedArgumentsEntry\022\020\n\003key\030\001" +
+      " \001(\tR\003key\022\"\n\005value\030\002 \001(\0132\014.sysml.ValueR\005" +
+      "value:\0028\001\"\210\002\n\010SweepRow\022)\n\006inputs\030\001 \003(\0132\021" +
+      ".sysml.CalcOutputR\006inputs\022+\n\007outputs\030\002 \003" +
+      "(\0132\021.sysml.CalcOutputR\007outputs\022*\n\010verdic" +
+      "ts\030\003 \003(\0132\016.sysml.VerdictR\010verdicts\022%\n\016el" +
+      "apsed_micros\030\004 \001(\003R\relapsedMicros\022\024\n\005err" +
+      "or\030\005 \001(\tR\005error\022;\n\016failure_reason\030\006 \001(\0162" +
+      "\024.sysml.FailureReasonR\rfailureReason\"\274\002\n" +
+      "\020RunSweepResponse\022#\n\004rows\030\001 \003(\0132\017.sysml." +
+      "SweepRowR\004rows\022\036\n\nparameters\030\002 \003(\tR\npara" +
+      "meters\022\030\n\007sampled\030\003 \001(\010R\007sampled\022\022\n\004seed" +
+      "\030\004 \001(\004R\004seed\022\024\n\005error\030\005 \001(\tR\005error\0223\n\013di" +
+      "agnostics\030\006 \003(\0132\021.sysml.DiagnosticR\013diag" +
+      "nostics\022;\n\016failure_reason\030\007 \001(\0162\024.sysml." +
+      "FailureReasonR\rfailureReason\022-\n\tinstance" +
+      "s\030\010 \003(\0132\017.sysml.InstanceR\tinstances\"\214\001\n\027" +
+      "RunDocumentQueryRequest\022\035\n\nmodel_hash\030\001 " +
+      "\001(\tR\tmodelHash\022\031\n\010query_id\030\002 \001(\tR\007queryI" +
+      "d\0227\n\010bindings\030\003 \003(\0132\033.sysml.DocumentQuer" +
+      "yBindingR\010bindings\"b\n\024DocumentQueryBindi" +
+      "ng\022\034\n\tparameter\030\001 \001(\tR\tparameter\022,\n\006valu" +
+      "es\030\002 \003(\0132\024.sysml.DocumentValueR\006values\"\256" +
+      "\002\n\rDocumentValue\022\037\n\nelement_id\030\001 \001(\tH\000R\t" +
+      "elementId\022#\n\014string_value\030\002 \001(\tH\000R\013strin" +
+      "gValue\022\035\n\tint_value\030\003 \001(\003H\000R\010intValue\022\037\n" +
+      "\nreal_value\030\004 \001(\001H\000R\trealValue\022\037\n\nbool_v" +
+      "alue\030\005 \001(\010H\000R\tboolValue\022\034\n\010infinity\030\006 \001(" +
+      "\010H\000R\010infinity\022-\n\010quantity\030\010 \001(\0132\017.sysml." +
+      "QuantityH\000R\010quantity\022!\n\014element_type\030\007 \001" +
+      "(\tR\013elementTypeB\006\n\004kind\")\n\023DocumentQuery" +
+      "Column\022\022\n\004name\030\001 \001(\tR\004name\"A\n\021DocumentQu" +
+      "eryCell\022,\n\006values\030\001 \003(\0132\024.sysml.Document" +
+      "ValueR\006values\"r\n\020DocumentQueryRow\022.\n\007ele" +
+      "ment\030\001 \001(\0132\024.sysml.DocumentValueR\007elemen" +
+      "t\022.\n\005cells\030\002 \003(\0132\030.sysml.DocumentQueryCe" +
+      "llR\005cells\"}\n\030RunDocumentQueryResponse\0224\n" +
+      "\007columns\030\001 \003(\0132\032.sysml.DocumentQueryColu" +
+      "mnR\007columns\022+\n\004rows\030\002 \003(\0132\027.sysml.Docume" +
+      "ntQueryRowR\004rows\"W\n\025RenderDocumentReques" +
+      "t\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\037\n\013docu" +
+      "ment_id\030\002 \001(\tR\ndocumentId\"4\n\026RenderDocum" +
+      "entResponse\022\032\n\010markdown\030\001 \001(\tR\010markdown*" +
+      "\223\001\n\rFailureReason\022\036\n\032FAILURE_REASON_UNSP" +
+      "ECIFIED\020\000\022\035\n\031FAILURE_REASON_EVALUATION\020\001" +
+      "\022\035\n\031FAILURE_REASON_WRONG_KIND\020\002\022$\n FAILU" +
+      "RE_REASON_AMBIGUOUS_SUBJECT\020\003*\235\004\n\013EditFa" +
+      "ilure\022\034\n\030EDIT_FAILURE_UNSPECIFIED\020\000\022\036\n\032E" +
+      "DIT_FAILURE_NO_OPERATIONS\020\001\022\037\n\033EDIT_FAIL" +
+      "URE_UNKNOWN_TARGET\020\002\022!\n\035EDIT_FAILURE_AMB" +
+      "IGUOUS_TARGET\020\003\022\033\n\027EDIT_FAILURE_NOT_VALU" +
+      "ED\020\004\022\036\n\032EDIT_FAILURE_INVALID_VALUE\020\005\022\035\n\031" +
+      "EDIT_FAILURE_INVALID_NAME\020\006\022\032\n\026EDIT_FAIL" +
+      "URE_NOT_NAMED\020\007\022\"\n\036EDIT_FAILURE_RENAME_R" +
+      "EFERENCED\020\010\022\"\n\036EDIT_FAILURE_OVERLAPPING_" +
+      "EDITS\020\t\022\037\n\033EDIT_FAILURE_RESULT_INVALID\020\n" +
+      "\022\036\n\032EDIT_FAILURE_OWNER_UNKNOWN\020\013\022$\n EDIT" +
+      "_FAILURE_OWNER_NOT_NAMESPACE\020\014\022\035\n\031EDIT_F" +
+      "AILURE_ILLEGAL_KIND\020\r\022\"\n\036EDIT_FAILURE_ME" +
+      "MBER_NAME_TAKEN\020\016\022\"\n\036EDIT_FAILURE_DELETE" +
+      "_REFERENCED\020\017*\222\001\n\021PrimitiveOperator\022\"\n\036P" +
+      "RIMITIVE_OPERATOR_UNSPECIFIED\020\000\022\034\n\030PRIMI" +
+      "TIVE_OPERATOR_EQUAL\020\001\022\036\n\032PRIMITIVE_OPERA" +
+      "TOR_GREATER\020\002\022\033\n\027PRIMITIVE_OPERATOR_LESS" +
+      "\020\003*n\n\021CompositeOperator\022\"\n\036COMPOSITE_OPE" +
+      "RATOR_UNSPECIFIED\020\000\022\032\n\026COMPOSITE_OPERATO" +
+      "R_AND\020\001\022\031\n\025COMPOSITE_OPERATOR_OR\020\0022\244\013\n\014S" +
+      "ysMLService\022D\n\rGetServerInfo\022\030.sysml.Ser" +
+      "verInfoRequest\032\031.sysml.ServerInfoRespons" +
+      "e\022>\n\tParseFile\022\027.sysml.ParseFileRequest\032",
+      "\030.sysml.ParseFileResponse\022G\n\014ParseSource" +
+      "s\022\032.sysml.ParseSourcesRequest\032\033.sysml.Pa" +
+      "rseSourcesResponse\022;\n\tGetSymbol\022\027.sysml." +
+      "GetSymbolRequest\032\025.sysml.SymbolResponse\022" +
+      "G\n\016GetDiagnostics\022\031.sysml.DiagnosticsReq" +
+      "uest\032\032.sysml.DiagnosticsResponse\022;\n\010Eval" +
+      "uate\022\026.sysml.EvaluateRequest\032\027.sysml.Eva" +
+      "luateResponse\022D\n\013Instantiate\022\031.sysml.Ins" +
+      "tantiateRequest\032\032.sysml.InstantiateRespo" +
+      "nse\022J\n\rExecuteAction\022\033.sysml.ExecuteActi" +
+      "onRequest\032\034.sysml.ExecuteActionResponse\022" +
+      "G\n\014ExecuteState\022\032.sysml.ExecuteStateRequ" +
+      "est\032\033.sysml.ExecuteStateResponse\0228\n\007Conv" +
+      "ert\022\025.sysml.ConvertRequest\032\026.sysml.Conve" +
+      "rtResponse\022A\n\nApplyEdits\022\030.sysml.ApplyEd" +
+      "itsRequest\032\031.sysml.ApplyEditsResponse\022S\n" +
+      "\020VerifyConstraint\022\036.sysml.VerifyConstrai" +
+      "ntRequest\032\037.sysml.VerifyConstraintRespon" +
+      "se\022V\n\021VerifyRequirement\022\037.sysml.VerifyRe" +
+      "quirementRequest\032 .sysml.VerifyRequireme" +
+      "ntResponse\022Y\n\022VerifySatisfaction\022 .sysml" +
+      ".VerifySatisfactionRequest\032!.sysml.Verif" +
+      "ySatisfactionResponse\022G\n\014EvaluateCalc\022\032." +
+      "sysml.EvaluateCalcRequest\032\033.sysml.Evalua" +
+      "teCalcResponse\022D\n\013RunAnalysis\022\031.sysml.Ru" +
+      "nAnalysisRequest\032\032.sysml.RunAnalysisResp" +
+      "onse\022;\n\010RunSweep\022\026.sysml.RunSweepRequest" +
+      "\032\027.sysml.RunSweepResponse\0222\n\005Query\022\023.sys" +
+      "ml.QueryRequest\032\024.sysml.QueryResponse\022S\n" +
+      "\020RunDocumentQuery\022\036.sysml.RunDocumentQue" +
+      "ryRequest\032\037.sysml.RunDocumentQueryRespon" +
+      "se\022M\n\016RenderDocument\022\034.sysml.RenderDocum" +
+      "entRequest\032\035.sysml.RenderDocumentRespons" +
+      "eBJ\n\034org.openmbee.opensysml.protoP\001Z(git" +
+      "hub.com/Open-MBEE/OpenSysML/api/protob\006p" +
+      "roto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -1003,75 +1039,93 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
     internal_static_sysml_RunAnalysisResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunAnalysisResponse_descriptor,
-        new java.lang.String[] { "Outputs", "Verdicts", "Instances", "Error", "Diagnostics", "FailureReason", "VerificationVerdicts", });
-    internal_static_sysml_ParseFileRequest_descriptor =
+        new java.lang.String[] { "Outputs", "Verdicts", "Instances", "Error", "Diagnostics", "FailureReason", "VerificationVerdicts", "Outcomes", "Exploration", });
+    internal_static_sysml_Outcome_descriptor =
       getDescriptor().getMessageType(13);
+    internal_static_sysml_Outcome_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_Outcome_descriptor,
+        new java.lang.String[] { "Outputs", "FinalState", "StatesVisited", "Error", "Linearizations", "Witness", "Diagnostics", });
+    internal_static_sysml_Outcome_OutputsEntry_descriptor =
+      internal_static_sysml_Outcome_descriptor.getNestedType(0);
+    internal_static_sysml_Outcome_OutputsEntry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_Outcome_OutputsEntry_descriptor,
+        new java.lang.String[] { "Key", "Value", });
+    internal_static_sysml_ExplorationStatus_descriptor =
+      getDescriptor().getMessageType(14);
+    internal_static_sysml_ExplorationStatus_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_ExplorationStatus_descriptor,
+        new java.lang.String[] { "Complete", "Runs", "BudgetsHit", "RunsBudget", "DepthBudget", });
+    internal_static_sysml_ParseFileRequest_descriptor =
+      getDescriptor().getMessageType(15);
     internal_static_sysml_ParseFileRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseFileRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "ContentHash", "Language", "StrictConformance", "Source", });
     internal_static_sysml_SourceDocument_descriptor =
-      getDescriptor().getMessageType(14);
+      getDescriptor().getMessageType(16);
     internal_static_sysml_SourceDocument_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SourceDocument_descriptor,
         new java.lang.String[] { "FilePath", "Content", "Language", "Name", "Source", });
     internal_static_sysml_ParseSourcesRequest_descriptor =
-      getDescriptor().getMessageType(15);
+      getDescriptor().getMessageType(17);
     internal_static_sysml_ParseSourcesRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseSourcesRequest_descriptor,
         new java.lang.String[] { "Documents", "StrictConformance", });
     internal_static_sysml_ParseSourcesResponse_descriptor =
-      getDescriptor().getMessageType(16);
+      getDescriptor().getMessageType(18);
     internal_static_sysml_ParseSourcesResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseSourcesResponse_descriptor,
         new java.lang.String[] { "ModelHash", "Roots", "Diagnostics", "Error", });
     internal_static_sysml_ParseFileResponse_descriptor =
-      getDescriptor().getMessageType(17);
+      getDescriptor().getMessageType(19);
     internal_static_sysml_ParseFileResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ParseFileResponse_descriptor,
         new java.lang.String[] { "ModelHash", "Root", "Diagnostics", "Error", });
     internal_static_sysml_GetSymbolRequest_descriptor =
-      getDescriptor().getMessageType(18);
+      getDescriptor().getMessageType(20);
     internal_static_sysml_GetSymbolRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_GetSymbolRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_SymbolResponse_descriptor =
-      getDescriptor().getMessageType(19);
+      getDescriptor().getMessageType(21);
     internal_static_sysml_SymbolResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SymbolResponse_descriptor,
         new java.lang.String[] { "Symbol", "Error", });
     internal_static_sysml_DiagnosticsRequest_descriptor =
-      getDescriptor().getMessageType(20);
+      getDescriptor().getMessageType(22);
     internal_static_sysml_DiagnosticsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DiagnosticsRequest_descriptor,
         new java.lang.String[] { "ModelHash", });
     internal_static_sysml_DiagnosticsResponse_descriptor =
-      getDescriptor().getMessageType(21);
+      getDescriptor().getMessageType(23);
     internal_static_sysml_DiagnosticsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DiagnosticsResponse_descriptor,
         new java.lang.String[] { "Diagnostics", "Error", });
     internal_static_sysml_EvaluateRequest_descriptor =
-      getDescriptor().getMessageType(22);
+      getDescriptor().getMessageType(24);
     internal_static_sysml_EvaluateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Expression", "ContextSymbolId", "SubjectSymbolId", });
     internal_static_sysml_EvaluateResponse_descriptor =
-      getDescriptor().getMessageType(23);
+      getDescriptor().getMessageType(25);
     internal_static_sysml_EvaluateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EvaluateResponse_descriptor,
         new java.lang.String[] { "Result", "Error", "Diagnostics", });
     internal_static_sysml_Instance_descriptor =
-      getDescriptor().getMessageType(24);
+      getDescriptor().getMessageType(26);
     internal_static_sysml_Instance_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Instance_descriptor,
@@ -1083,25 +1137,25 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_Instance_FeatureValuesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_FeatureValue_descriptor =
-      getDescriptor().getMessageType(25);
+      getDescriptor().getMessageType(27);
     internal_static_sysml_FeatureValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_FeatureValue_descriptor,
         new java.lang.String[] { "FeatureName", "Value", "Values", "Materialized", "Error", });
     internal_static_sysml_InstantiateRequest_descriptor =
-      getDescriptor().getMessageType(26);
+      getDescriptor().getMessageType(28);
     internal_static_sysml_InstantiateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_InstantiateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "SymbolId", });
     internal_static_sysml_InstantiateResponse_descriptor =
-      getDescriptor().getMessageType(27);
+      getDescriptor().getMessageType(29);
     internal_static_sysml_InstantiateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_InstantiateResponse_descriptor,
         new java.lang.String[] { "Instance", "Error", "Diagnostics", "Instances", });
     internal_static_sysml_ExecuteActionRequest_descriptor =
-      getDescriptor().getMessageType(28);
+      getDescriptor().getMessageType(30);
     internal_static_sysml_ExecuteActionRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteActionRequest_descriptor,
@@ -1113,11 +1167,11 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteActionRequest_InputsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ExecuteActionResponse_descriptor =
-      getDescriptor().getMessageType(29);
+      getDescriptor().getMessageType(31);
     internal_static_sysml_ExecuteActionResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteActionResponse_descriptor,
-        new java.lang.String[] { "Outputs", "Error", "Diagnostics", });
+        new java.lang.String[] { "Outputs", "Error", "Diagnostics", "Outcomes", "Exploration", });
     internal_static_sysml_ExecuteActionResponse_OutputsEntry_descriptor =
       internal_static_sysml_ExecuteActionResponse_descriptor.getNestedType(0);
     internal_static_sysml_ExecuteActionResponse_OutputsEntry_fieldAccessorTable = new
@@ -1125,17 +1179,17 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteActionResponse_OutputsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ExecuteStateRequest_descriptor =
-      getDescriptor().getMessageType(30);
+      getDescriptor().getMessageType(32);
     internal_static_sysml_ExecuteStateRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteStateRequest_descriptor,
         new java.lang.String[] { "ModelHash", "StateMachineSymbolId", "Events", "Schedule", });
     internal_static_sysml_ExecuteStateResponse_descriptor =
-      getDescriptor().getMessageType(31);
+      getDescriptor().getMessageType(33);
     internal_static_sysml_ExecuteStateResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ExecuteStateResponse_descriptor,
-        new java.lang.String[] { "StatesVisited", "FinalContext", "Error", "Diagnostics", });
+        new java.lang.String[] { "StatesVisited", "FinalContext", "Error", "Diagnostics", "Outcomes", "Exploration", });
     internal_static_sysml_ExecuteStateResponse_FinalContextEntry_descriptor =
       internal_static_sysml_ExecuteStateResponse_descriptor.getNestedType(0);
     internal_static_sysml_ExecuteStateResponse_FinalContextEntry_fieldAccessorTable = new
@@ -1143,67 +1197,67 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_ExecuteStateResponse_FinalContextEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_ConvertRequest_descriptor =
-      getDescriptor().getMessageType(32);
+      getDescriptor().getMessageType(34);
     internal_static_sysml_ConvertRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ConvertRequest_descriptor,
         new java.lang.String[] { "FilePath", "Content", "ModelHash", "FromFormat", "ToFormat", "TolerateSyntaxErrors", "Source", });
     internal_static_sysml_ConvertResponse_descriptor =
-      getDescriptor().getMessageType(33);
+      getDescriptor().getMessageType(35);
     internal_static_sysml_ConvertResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ConvertResponse_descriptor,
         new java.lang.String[] { "Content", "FromFormat", "ToFormat", "Error", "Diagnostics", "Experimental", "ExperimentalNotice", });
     internal_static_sysml_ApplyEditsRequest_descriptor =
-      getDescriptor().getMessageType(34);
+      getDescriptor().getMessageType(36);
     internal_static_sysml_ApplyEditsRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ApplyEditsRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Operations", });
     internal_static_sysml_EditOperation_descriptor =
-      getDescriptor().getMessageType(35);
+      getDescriptor().getMessageType(37);
     internal_static_sysml_EditOperation_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EditOperation_descriptor,
         new java.lang.String[] { "SetValue", "Rename", "AddMember", "Delete", "Operation", });
     internal_static_sysml_AddMemberEdit_descriptor =
-      getDescriptor().getMessageType(36);
+      getDescriptor().getMessageType(38);
     internal_static_sysml_AddMemberEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AddMemberEdit_descriptor,
         new java.lang.String[] { "Owner", "Kind", "Name", "Type", "Multiplicity", "Value", "Specializes", });
     internal_static_sysml_DeleteEdit_descriptor =
-      getDescriptor().getMessageType(37);
+      getDescriptor().getMessageType(39);
     internal_static_sysml_DeleteEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DeleteEdit_descriptor,
         new java.lang.String[] { "Target", "Cascade", });
     internal_static_sysml_SetValueEdit_descriptor =
-      getDescriptor().getMessageType(38);
+      getDescriptor().getMessageType(40);
     internal_static_sysml_SetValueEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SetValueEdit_descriptor,
         new java.lang.String[] { "Target", "Value", });
     internal_static_sysml_RenameEdit_descriptor =
-      getDescriptor().getMessageType(39);
+      getDescriptor().getMessageType(41);
     internal_static_sysml_RenameEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenameEdit_descriptor,
         new java.lang.String[] { "Target", "NewName", });
     internal_static_sysml_ApplyEditsResponse_descriptor =
-      getDescriptor().getMessageType(40);
+      getDescriptor().getMessageType(42);
     internal_static_sysml_ApplyEditsResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ApplyEditsResponse_descriptor,
         new java.lang.String[] { "Content", "Applied", "Error", "Failure", "Diagnostics", "ReferringElements", });
     internal_static_sysml_AppliedEdit_descriptor =
-      getDescriptor().getMessageType(41);
+      getDescriptor().getMessageType(43);
     internal_static_sysml_AppliedEdit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AppliedEdit_descriptor,
         new java.lang.String[] { "OperationIndex", "Target", "Offset", "Length", "OldText", "NewText", });
     internal_static_sysml_SymbolInfo_descriptor =
-      getDescriptor().getMessageType(42);
+      getDescriptor().getMessageType(44);
     internal_static_sysml_SymbolInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SymbolInfo_descriptor,
@@ -1215,175 +1269,175 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_SymbolInfo_MetadataEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_Specialization_descriptor =
-      getDescriptor().getMessageType(43);
+      getDescriptor().getMessageType(45);
     internal_static_sysml_Specialization_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Specialization_descriptor,
         new java.lang.String[] { "Kind", "Declared", "TargetId", "TargetKind", });
     internal_static_sysml_TypeInfo_descriptor =
-      getDescriptor().getMessageType(44);
+      getDescriptor().getMessageType(46);
     internal_static_sysml_TypeInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_TypeInfo_descriptor,
         new java.lang.String[] { "Declared", "ResolvedId", "ResolvedKind", "Primitive", "PrimitiveSource", "Quantity", "Unit", });
     internal_static_sysml_MultiplicityInfo_descriptor =
-      getDescriptor().getMessageType(45);
+      getDescriptor().getMessageType(47);
     internal_static_sysml_MultiplicityInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MultiplicityInfo_descriptor,
         new java.lang.String[] { "Lower", "Upper", });
     internal_static_sysml_AttributeInfo_descriptor =
-      getDescriptor().getMessageType(46);
+      getDescriptor().getMessageType(48);
     internal_static_sysml_AttributeInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_AttributeInfo_descriptor,
         new java.lang.String[] { "Name", "Type", "Value", "Unit", });
     internal_static_sysml_Value_descriptor =
-      getDescriptor().getMessageType(47);
+      getDescriptor().getMessageType(49);
     internal_static_sysml_Value_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Value_descriptor,
         new java.lang.String[] { "IntValue", "RealValue", "BoolValue", "StringValue", "InstanceId", "Sequence", "Null", "Quantity", "EnumLiteral", "Unset", "Complex", "Array", "Vector", "VectorQuantity", "MeasurementRef", "Infinity", "Function", "Set", "TensorQuantity", "Kind", });
     internal_static_sysml_Function_descriptor =
-      getDescriptor().getMessageType(48);
+      getDescriptor().getMessageType(50);
     internal_static_sysml_Function_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Function_descriptor,
         new java.lang.String[] { "CalcId", "SelfId", });
     internal_static_sysml_ValueSet_descriptor =
-      getDescriptor().getMessageType(49);
+      getDescriptor().getMessageType(51);
     internal_static_sysml_ValueSet_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ValueSet_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_TensorQuantity_descriptor =
-      getDescriptor().getMessageType(50);
+      getDescriptor().getMessageType(52);
     internal_static_sysml_TensorQuantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_TensorQuantity_descriptor,
         new java.lang.String[] { "Dimensions", "Components", });
     internal_static_sysml_Array_descriptor =
-      getDescriptor().getMessageType(51);
+      getDescriptor().getMessageType(53);
     internal_static_sysml_Array_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Array_descriptor,
         new java.lang.String[] { "Dimensions", "Elements", });
     internal_static_sysml_Vector_descriptor =
-      getDescriptor().getMessageType(52);
+      getDescriptor().getMessageType(54);
     internal_static_sysml_Vector_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Vector_descriptor,
         new java.lang.String[] { "Components", });
     internal_static_sysml_VectorQuantity_descriptor =
-      getDescriptor().getMessageType(53);
+      getDescriptor().getMessageType(55);
     internal_static_sysml_VectorQuantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_VectorQuantity_descriptor,
         new java.lang.String[] { "Components", });
     internal_static_sysml_Complex_descriptor =
-      getDescriptor().getMessageType(54);
+      getDescriptor().getMessageType(56);
     internal_static_sysml_Complex_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Complex_descriptor,
         new java.lang.String[] { "Real", "Imaginary", });
     internal_static_sysml_EnumLiteral_descriptor =
-      getDescriptor().getMessageType(55);
+      getDescriptor().getMessageType(57);
     internal_static_sysml_EnumLiteral_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_EnumLiteral_descriptor,
         new java.lang.String[] { "LiteralId", "EnumerationId", "Name", });
     internal_static_sysml_ValueSequence_descriptor =
-      getDescriptor().getMessageType(56);
+      getDescriptor().getMessageType(58);
     internal_static_sysml_ValueSequence_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ValueSequence_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_Quantity_descriptor =
-      getDescriptor().getMessageType(57);
+      getDescriptor().getMessageType(59);
     internal_static_sysml_Quantity_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Quantity_descriptor,
         new java.lang.String[] { "IntMagnitude", "RealMagnitude", "Unit", "UnitTerm", "Magnitude", });
     internal_static_sysml_MeasurementRef_descriptor =
-      getDescriptor().getMessageType(58);
+      getDescriptor().getMessageType(60);
     internal_static_sysml_MeasurementRef_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_MeasurementRef_descriptor,
         new java.lang.String[] { "Unit", "UnitTerm", "UnitId", });
     internal_static_sysml_UnitTerm_descriptor =
-      getDescriptor().getMessageType(59);
+      getDescriptor().getMessageType(61);
     internal_static_sysml_UnitTerm_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_UnitTerm_descriptor,
         new java.lang.String[] { "ScaleNum", "ScaleDen", "Factors", });
     internal_static_sysml_UnitFactor_descriptor =
-      getDescriptor().getMessageType(60);
+      getDescriptor().getMessageType(62);
     internal_static_sysml_UnitFactor_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_UnitFactor_descriptor,
         new java.lang.String[] { "UnitId", "Exponent", });
     internal_static_sysml_Diagnostic_descriptor =
-      getDescriptor().getMessageType(61);
+      getDescriptor().getMessageType(63);
     internal_static_sysml_Diagnostic_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Diagnostic_descriptor,
         new java.lang.String[] { "Severity", "Message", "Span", "Code", });
     internal_static_sysml_Span_descriptor =
-      getDescriptor().getMessageType(62);
+      getDescriptor().getMessageType(64);
     internal_static_sysml_Span_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Span_descriptor,
         new java.lang.String[] { "File", "StartLine", "StartCol", "EndLine", "EndCol", });
     internal_static_sysml_ServerInfoRequest_descriptor =
-      getDescriptor().getMessageType(63);
+      getDescriptor().getMessageType(65);
     internal_static_sysml_ServerInfoRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ServerInfoRequest_descriptor,
         new java.lang.String[] { });
     internal_static_sysml_ServerInfoResponse_descriptor =
-      getDescriptor().getMessageType(64);
+      getDescriptor().getMessageType(66);
     internal_static_sysml_ServerInfoResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_ServerInfoResponse_descriptor,
         new java.lang.String[] { "Version", "Capabilities", });
     internal_static_sysml_QueryRequest_descriptor =
-      getDescriptor().getMessageType(65);
+      getDescriptor().getMessageType(67);
     internal_static_sysml_QueryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryRequest_descriptor,
         new java.lang.String[] { "ModelHash", "Query", "OslcQuery", });
     internal_static_sysml_QueryResponse_descriptor =
-      getDescriptor().getMessageType(66);
+      getDescriptor().getMessageType(68);
     internal_static_sysml_QueryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryResponse_descriptor,
         new java.lang.String[] { "Elements", });
     internal_static_sysml_Query_descriptor =
-      getDescriptor().getMessageType(67);
+      getDescriptor().getMessageType(69);
     internal_static_sysml_Query_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Query_descriptor,
         new java.lang.String[] { "Scope", "Select", "Where", });
     internal_static_sysml_Constraint_descriptor =
-      getDescriptor().getMessageType(68);
+      getDescriptor().getMessageType(70);
     internal_static_sysml_Constraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_Constraint_descriptor,
         new java.lang.String[] { "Primitive", "Composite", "Constraint", });
     internal_static_sysml_PrimitiveConstraint_descriptor =
-      getDescriptor().getMessageType(69);
+      getDescriptor().getMessageType(71);
     internal_static_sysml_PrimitiveConstraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_PrimitiveConstraint_descriptor,
         new java.lang.String[] { "Inverse", "Property", "Operator", "Value", });
     internal_static_sysml_CompositeConstraint_descriptor =
-      getDescriptor().getMessageType(70);
+      getDescriptor().getMessageType(72);
     internal_static_sysml_CompositeConstraint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_CompositeConstraint_descriptor,
         new java.lang.String[] { "Operator", "Constraint", });
     internal_static_sysml_QueryResultElement_descriptor =
-      getDescriptor().getMessageType(71);
+      getDescriptor().getMessageType(73);
     internal_static_sysml_QueryResultElement_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_QueryResultElement_descriptor,
@@ -1395,13 +1449,13 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_QueryResultElement_PropertiesEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_SweepRange_descriptor =
-      getDescriptor().getMessageType(72);
+      getDescriptor().getMessageType(74);
     internal_static_sysml_SweepRange_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SweepRange_descriptor,
         new java.lang.String[] { "Parameter", "Start", "End", "Step", });
     internal_static_sysml_RunSweepRequest_descriptor =
-      getDescriptor().getMessageType(73);
+      getDescriptor().getMessageType(75);
     internal_static_sysml_RunSweepRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunSweepRequest_descriptor,
@@ -1413,67 +1467,67 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
         internal_static_sysml_RunSweepRequest_NamedArgumentsEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_sysml_SweepRow_descriptor =
-      getDescriptor().getMessageType(74);
+      getDescriptor().getMessageType(76);
     internal_static_sysml_SweepRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_SweepRow_descriptor,
         new java.lang.String[] { "Inputs", "Outputs", "Verdicts", "ElapsedMicros", "Error", "FailureReason", });
     internal_static_sysml_RunSweepResponse_descriptor =
-      getDescriptor().getMessageType(75);
+      getDescriptor().getMessageType(77);
     internal_static_sysml_RunSweepResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunSweepResponse_descriptor,
         new java.lang.String[] { "Rows", "Parameters", "Sampled", "Seed", "Error", "Diagnostics", "FailureReason", "Instances", });
     internal_static_sysml_RunDocumentQueryRequest_descriptor =
-      getDescriptor().getMessageType(76);
+      getDescriptor().getMessageType(78);
     internal_static_sysml_RunDocumentQueryRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunDocumentQueryRequest_descriptor,
         new java.lang.String[] { "ModelHash", "QueryId", "Bindings", });
     internal_static_sysml_DocumentQueryBinding_descriptor =
-      getDescriptor().getMessageType(77);
+      getDescriptor().getMessageType(79);
     internal_static_sysml_DocumentQueryBinding_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryBinding_descriptor,
         new java.lang.String[] { "Parameter", "Values", });
     internal_static_sysml_DocumentValue_descriptor =
-      getDescriptor().getMessageType(78);
+      getDescriptor().getMessageType(80);
     internal_static_sysml_DocumentValue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentValue_descriptor,
         new java.lang.String[] { "ElementId", "StringValue", "IntValue", "RealValue", "BoolValue", "Infinity", "Quantity", "ElementType", "Kind", });
     internal_static_sysml_DocumentQueryColumn_descriptor =
-      getDescriptor().getMessageType(79);
+      getDescriptor().getMessageType(81);
     internal_static_sysml_DocumentQueryColumn_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryColumn_descriptor,
         new java.lang.String[] { "Name", });
     internal_static_sysml_DocumentQueryCell_descriptor =
-      getDescriptor().getMessageType(80);
+      getDescriptor().getMessageType(82);
     internal_static_sysml_DocumentQueryCell_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryCell_descriptor,
         new java.lang.String[] { "Values", });
     internal_static_sysml_DocumentQueryRow_descriptor =
-      getDescriptor().getMessageType(81);
+      getDescriptor().getMessageType(83);
     internal_static_sysml_DocumentQueryRow_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_DocumentQueryRow_descriptor,
         new java.lang.String[] { "Element", "Cells", });
     internal_static_sysml_RunDocumentQueryResponse_descriptor =
-      getDescriptor().getMessageType(82);
+      getDescriptor().getMessageType(84);
     internal_static_sysml_RunDocumentQueryResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RunDocumentQueryResponse_descriptor,
         new java.lang.String[] { "Columns", "Rows", });
     internal_static_sysml_RenderDocumentRequest_descriptor =
-      getDescriptor().getMessageType(83);
+      getDescriptor().getMessageType(85);
     internal_static_sysml_RenderDocumentRequest_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentRequest_descriptor,
         new java.lang.String[] { "ModelHash", "DocumentId", });
     internal_static_sysml_RenderDocumentResponse_descriptor =
-      getDescriptor().getMessageType(84);
+      getDescriptor().getMessageType(86);
     internal_static_sysml_RenderDocumentResponse_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentResponse_descriptor,

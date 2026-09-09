@@ -1,8 +1,21 @@
 {
 	"type": "action",
 	"trace": true,
-	"outputs": {
-		"receiverGot": {"type": "Integer", "value": 42},
-		"siblingGot": {"type": "Integer", "value": 7}
-	}
+	"outcomes": [
+		{
+			"outputs": {
+				"receiverGot": {"type": "Integer", "value": 42},
+				"siblingGot": {"type": "Integer", "value": 7},
+				"value": {"type": "Integer", "value": 42}
+			}
+		},
+		{
+			"outputs": {
+				"receiverGot": {"type": "Integer", "value": 42},
+				"siblingGot": {"type": "Integer", "value": 7},
+				"value": {"type": "Integer", "value": 7}
+			}
+		}
+	],
+	"admissible": "Two accepts addressed by two sends completing in either order: each payload is fixed, the one that stands is open"
 }

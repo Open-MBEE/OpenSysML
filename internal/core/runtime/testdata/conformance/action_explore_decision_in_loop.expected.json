@@ -1,0 +1,28 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"passes": {"type": "Integer", "value": 2},
+				"lefts": {"type": "Integer", "value": 2},
+				"rights": {"type": "Integer", "value": 0}
+			}
+		},
+		{
+			"outputs": {
+				"passes": {"type": "Integer", "value": 2},
+				"lefts": {"type": "Integer", "value": 1},
+				"rights": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"passes": {"type": "Integer", "value": 2},
+				"lefts": {"type": "Integer", "value": 0},
+				"rights": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "A decision inside a loop: every pass is its own open choice"
+}

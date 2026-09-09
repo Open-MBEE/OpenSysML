@@ -425,7 +425,8 @@ class Model:
             inputs (dict, optional): Input parameter name → Python value
             schedule (str, optional): Scheduling policy the run resolves its
                 choice points under — ``"declared"``, ``"reverse"`` (the
-                default) or ``"seed:<n>"``
+                default) or ``"seed:<n>"``; ``"explore"`` belongs to
+                :meth:`explore_action`
 
         Returns:
             dict: Output parameter name → value; an output the wire format
@@ -433,6 +434,7 @@ class Model:
                 place, so one such output does not discard the rest
 
         Raises:
+            ValueError: If the schedule explores
             ExecutionError: If the action could not be executed
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
@@ -440,6 +442,32 @@ class Model:
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_action(
+            action_symbol_id, self._hash, inputs=inputs, schedule=schedule
+        )
+
+    def explore_action(self, action_symbol_id, inputs=None, schedule="explore"):
+        """Run one of this model's actions once per valid order of its choice points.
+
+        Args:
+            action_symbol_id (str): FQN of the action definition or usage
+            inputs (dict, optional): Input parameter name → Python value
+            schedule (str, optional): ``"explore"`` or
+                ``"explore:runs=<n>,depth=<d>"``, bounding the runs made and
+                the choice points one run resolves
+
+        Returns:
+            Exploration: Every distinct outcome reached, each with the number
+                of orders reaching it and the choices of one, and how the
+                exploration ended
+
+        Raises:
+            ValueError: If the schedule does not explore
+            ExecutionError: If the action could not be explored at all
+            ModelNotFoundError: If the service no longer holds this model
+            MissingCapabilityError: If the service predates ``schedule_explore``
+            InvalidRequestError: If the schedule's options are malformed
+        """
+        return self._client.explore_action(
             action_symbol_id, self._hash, inputs=inputs, schedule=schedule
         )
 
@@ -451,7 +479,8 @@ class Model:
                 or usage
             events (list, optional): Event names to process, in order
             schedule (str, optional): Scheduling policy the run resolves its
-                choice points under, as for :meth:`execute_action`
+                choice points under, as for :meth:`execute_action`;
+                ``"explore"`` belongs to :meth:`explore_state`
 
         Returns:
             dict: {'states_visited': [...], 'final_context': {...}}; a context
@@ -459,6 +488,7 @@ class Model:
                 UnsupportedValueError in its place
 
         Raises:
+            ValueError: If the schedule explores
             ExecutionError: If the state machine could not be executed
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
@@ -466,6 +496,32 @@ class Model:
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_state(
+            state_machine_symbol_id, self._hash, events=events, schedule=schedule
+        )
+
+    def explore_state(self, state_machine_symbol_id, events=None, schedule="explore"):
+        """Run one of this model's state machines once per valid order of its choice points.
+
+        Args:
+            state_machine_symbol_id (str): FQN of the state machine definition
+                or usage
+            events (list, optional): Event names to process, in order
+            schedule (str, optional): ``"explore"`` or
+                ``"explore:runs=<n>,depth=<d>"``
+
+        Returns:
+            Exploration: Every distinct outcome reached — the state rested in,
+                the states entered and the values held — and how the
+                exploration ended
+
+        Raises:
+            ValueError: If the schedule does not explore
+            ExecutionError: If the state machine could not be explored at all
+            ModelNotFoundError: If the service no longer holds this model
+            MissingCapabilityError: If the service predates ``schedule_explore``
+            InvalidRequestError: If the schedule's options are malformed
+        """
+        return self._client.explore_state(
             state_machine_symbol_id, self._hash, events=events, schedule=schedule
         )
 
@@ -577,19 +633,52 @@ class Model:
             named_arguments (dict, optional): Arguments by parameter name
             schedule (str, optional): Scheduling policy the actions the case
                 performs resolve their choice points under, as for
-                :meth:`execute_action`
+                :meth:`execute_action`; ``"explore"`` belongs to
+                :meth:`explore_analysis`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
                 its objective and assertions
 
         Raises:
+            ValueError: If the schedule explores
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
             ExecutionError: If the case could not run
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.run_analysis(
+            symbol_id, self._hash, subject=subject, arguments=arguments,
+            named_arguments=named_arguments, schedule=schedule,
+        )
+
+    def explore_analysis(self, symbol_id, subject=None, arguments=None,
+                         named_arguments=None, schedule="explore"):
+        """Run one of this model's analysis cases once per valid order of its actions' choice points.
+
+        Args:
+            symbol_id (str): FQN of the analysis case definition or usage
+            subject (str, optional): FQN of a part/usage to instantiate and run
+                the case on
+            arguments (list, optional): Positional arguments, as Python values
+            named_arguments (dict, optional): Arguments by parameter name
+            schedule (str, optional): ``"explore"`` or
+                ``"explore:runs=<n>,depth=<d>"``
+
+        Returns:
+            Exploration: Every distinct outcome reached — the case's outputs and
+                its objective and assertion verdicts — and how the exploration
+                ended
+
+        Raises:
+            ValueError: If the schedule does not explore
+            WrongKindError: If symbol_id names an element that is not an
+                analysis case
+            ExecutionError: If the case could not be explored at all
+            MissingCapabilityError: If the service predates ``schedule_explore``
+            InvalidRequestError: If the schedule's options are malformed
+        """
+        return self._client.explore_analysis(
             symbol_id, self._hash, subject=subject, arguments=arguments,
             named_arguments=named_arguments, schedule=schedule,
         )

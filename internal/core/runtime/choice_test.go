@@ -25,6 +25,8 @@ func TestChoicePointRendering(t *testing.T) {
 			"choice step 4: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 1 by token 2 stood)"},
 		{ChoicePoint{Kind: ChoiceTransition, Where: "state idle on accept Go", Alternatives: []string{"1->low", "2->high"}, Taken: 0},
 			"choice state idle on accept Go: transitions 1->low, 2->high (unordered; took 1->low)"},
+		{ChoicePoint{Kind: ChoiceRegionOrder, Where: "on accept Go", Alternatives: []string{"a1", "b1"}, Taken: 1},
+			"choice on accept Go: states a1, b1 react (unordered; took b1 first)"},
 	}
 	for _, c := range cases {
 		if got := c.choice.String(); got != c.want {

@@ -24,6 +24,9 @@ const (
 	// ChoiceTransition: several transitions out of one state were enabled for
 	// one event.
 	ChoiceTransition
+	// ChoiceRegionOrder: one event enabled transitions in several regions, which
+	// fired in an order the library does not fix.
+	ChoiceRegionOrder
 )
 
 // String is the kind as a trace or diagnostic names it.
@@ -37,6 +40,8 @@ func (k ChoiceKind) String() string {
 		return "write order"
 	case ChoiceTransition:
 		return "transition"
+	case ChoiceRegionOrder:
+		return "region order"
 	}
 	return fmt.Sprintf("ChoiceKind(%d)", int(k))
 }
@@ -70,7 +75,8 @@ type ChoicePoint struct {
 	// Where names the decision node or the state and event; empty for a token order.
 	Where string
 	// Alternatives are canonical: tokens by ID, branches and transitions by
-	// declaration position, writes by writing token. Taken indexes the one taken.
+	// declaration position, writes by writing token, reacting states by name in
+	// declaration order. Taken indexes the one taken.
 	Alternatives []string
 	Taken        int
 	// File and Span locate the declaration the choice was made at; File is ""
@@ -96,6 +102,8 @@ func (c ChoicePoint) Describe() string {
 		return fmt.Sprintf("step %d: writes %s (unordered; %s stood)", c.Step, alts, taken)
 	case ChoiceTransition:
 		return fmt.Sprintf("%s: transitions %s (unordered; took %s)", c.Where, alts, taken)
+	case ChoiceRegionOrder:
+		return fmt.Sprintf("%s: states %s react (unordered; took %s first)", c.Where, alts, taken)
 	}
 	return fmt.Sprintf("%s: %s (unordered; took %s)", c.Kind, alts, taken)
 }

@@ -1,0 +1,9 @@
+choice state idle on accept Go: transitions 1->left, 2->right (unordered; took 2->right)
+exit: idle
+enter: right (entry action)
+stmt assign side
+  eval literal 2 -> 2
+transition: idle -> right (event: accept Go)
+exit: right
+enter: settled
+transition: right -> settled (event: accept Go)

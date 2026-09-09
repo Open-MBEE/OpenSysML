@@ -120,4 +120,78 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   org.openmbee.opensysml.proto.DiagnosticOrBuilder getDiagnosticsOrBuilder(
       int index);
+
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs are
+   * the final context; `states_visited`, `final_context`, `error` and
+   * `diagnostics` are then empty.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Outcome> 
+      getOutcomesList();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs are
+   * the final context; `states_visited`, `final_context`, `error` and
+   * `diagnostics` are then empty.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
+   */
+  org.openmbee.opensysml.proto.Outcome getOutcomes(int index);
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs are
+   * the final context; `states_visited`, `final_context`, `error` and
+   * `diagnostics` are then empty.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
+   */
+  int getOutcomesCount();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs are
+   * the final context; `states_visited`, `final_context`, `error` and
+   * `diagnostics` are then empty.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+      getOutcomesOrBuilderList();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs are
+   * the final context; `states_visited`, `final_context`, `error` and
+   * `diagnostics` are then empty.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
+   */
+  org.openmbee.opensysml.proto.OutcomeOrBuilder getOutcomesOrBuilder(
+      int index);
+
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 6 [json_name = "exploration"];</code>
+   * @return Whether the exploration field is set.
+   */
+  boolean hasExploration();
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 6 [json_name = "exploration"];</code>
+   * @return The exploration.
+   */
+  org.openmbee.opensysml.proto.ExplorationStatus getExploration();
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 6 [json_name = "exploration"];</code>
+   */
+  org.openmbee.opensysml.proto.ExplorationStatusOrBuilder getExplorationOrBuilder();
 }

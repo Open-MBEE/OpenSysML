@@ -103,12 +103,17 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 	var err error
-	for _, id := range e.scheduleTokens(&order, func(t Token) bool { return t.inFlowOf(perf) }) {
+	schedule := e.scheduleTokens(&order, func(t Token) bool { return t.inFlowOf(perf) })
+	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
+			schedule.Acted(id, false)
 			continue
 		}
-		if err = e.stepTokenNoting(i, &order); err != nil {
+		var acted bool
+		acted, err = e.stepTokenNoting(i, &order)
+		schedule.Acted(id, acted)
+		if err != nil {
 			break
 		}
 	}

@@ -35,10 +35,8 @@ type executeOptions struct {
 	schedule string
 }
 
-// WithSchedule names the scheduling policy the run resolves its choice points
-// under — "declared", "reverse" (the default) or "seed:<n>" — spelled as the
-// sysml -schedule flag spells it. Requires the schedule capability; a spelling
-// naming no policy is refused with CodeInvalidArgument.
+// WithSchedule names the policy a run resolves its choice points under, as sysml
+// -schedule spells it; "explore[...]" belongs to ExploreAction and ExploreState.
 func WithSchedule(policy string) ExecuteOption {
 	return func(o *executeOptions) { o.schedule = policy }
 }
@@ -72,6 +70,9 @@ func (c *client) ExecuteAction(
 	var options executeOptions
 	for _, opt := range opts {
 		opt(&options)
+	}
+	if err := refuseExploring("ExecuteAction", "ExploreAction", options.schedule); err != nil {
+		return nil, err
 	}
 	hash, err := c.call(model)
 	if err != nil {
@@ -115,6 +116,9 @@ func (c *client) ExecuteState(
 	var options executeOptions
 	for _, opt := range opts {
 		opt(&options)
+	}
+	if err := refuseExploring("ExecuteState", "ExploreState", options.schedule); err != nil {
+		return nil, err
 	}
 	hash, err := c.call(model)
 	if err != nil {

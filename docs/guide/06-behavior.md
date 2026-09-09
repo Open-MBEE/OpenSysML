@@ -230,6 +230,28 @@ back to the default. Where the library orders the alternatives
 — the innermost transition over its enclosing state's — there is no choice, and every policy
 follows that order.
 
+**Exploring every linearization.** Comparing two policies shows two linearizations; the
+`explore` policy shows them all. `sysml -schedule explore -action Demo::race` runs the behavior
+once, recording the alternative taken at each choice point, then replays it from the start on a
+fresh executor of the same loaded model — no object, message, clock, calc memo or note carries
+over — following the recorded prefix and taking the next untried alternative at the frontier,
+depth-first, until every choice sequence is spent or a budget is hit. Runs that agree on what
+the conformance harness compares (an action's outputs; a state machine's final state, states
+visited and values) are one *outcome*, and the report is one sorted row per distinct outcome with
+the number of linearizations that reached it and the choice sequence of one witness, then
+`complete (6 runs)`: three branches writing one feature give six linearizations and three
+outcomes. A run that fails under some order is an outcome of its own (`error: …`), not the end of
+the exploration. The budget — 1024 runs and 64 choice points per run unless
+`explore:runs=N,depth=D` says otherwise — is never exceeded silently: hitting it reports
+`incomplete: runs budget 1024 hit after 1024 runs`, names the budget to raise, and leaves the
+check unresolved. The same spelling explores over the wire, where the response carries the
+outcomes and the exploration status ([wire contract](../reference/wire-contract.md)); the REPL
+refuses it, since its `%action` and `%state` debuggers step one run. A conformance case that
+lists several `outcomes` is explored by the harness, which requires every listed outcome to be
+reached and no other, so the list is exact rather than a lower bound (see the
+[conformance README](../../internal/core/runtime/testdata/conformance/README.md)). The details are
+in the [CLI reference](../reference/cli.md#exploring-every-linearization).
+
 For complete workflows, see
 [examples/action-executor-demo.sysml](../../examples/action-executor-demo.sysml),
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and

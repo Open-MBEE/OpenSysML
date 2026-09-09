@@ -233,8 +233,10 @@ pub struct RunAnalysisRequest {
     #[prost(map="string, message", tag="5")]
     pub named_arguments: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
     /// Scheduling policy the run resolves its choice points under: "declared",
-    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
-    /// spelling is INVALID_ARGUMENT.
+    /// "reverse", "seed:<n>" or "explore\[:runs=<n>,depth=<d>\]". Empty is the
+    /// default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+    /// the response answers with `outcomes` and `exploration` in place of one run's
+    /// outputs, verdicts, instances and error (see ExecuteActionResponse).
     #[prost(string, tag="6")]
     pub schedule: ::prost::alloc::string::String,
 }
@@ -267,6 +269,68 @@ pub struct RunAnalysisResponse {
     /// verdict first, then the verdict of each subcase it performed.
     #[prost(message, repeated, tag="7")]
     pub verification_verdicts: ::prost::alloc::vec::Vec<VerificationVerdict>,
+    /// Set only under an explore schedule: every distinct outcome reached, in
+    /// canonical order, and how the exploration ended. An outcome's outputs carry
+    /// the case's outputs and, named "objective <name>", "assertion <name>" and
+    /// "verdict <case>", its verdicts as strings; `outputs`, `verdicts`, `instances`
+    /// and `error` are then empty, a failed run being an outcome of its own.
+    #[prost(message, repeated, tag="8")]
+    pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
+    #[prost(message, optional, tag="9")]
+    pub exploration: ::core::option::Option<ExplorationStatus>,
+}
+/// Outcome is one distinct outcome an exploration reached: the observables a
+/// conformance case compares, how many linearizations reached it, and the choice
+/// sequence of one run that did. Two runs agreeing on their observables are one
+/// outcome.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Outcome {
+    /// The values the run ended with: an action's outputs, a state machine's final
+    /// context, or an analysis case's outputs and verdicts. Empty for a failed run.
+    #[prost(map="string, message", tag="1")]
+    pub outputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
+    /// The state a machine rests in and the states it entered, in order; both
+    /// empty for an action or a case.
+    #[prost(string, tag="2")]
+    pub final_state: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="3")]
+    pub states_visited: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What the runs reaching this outcome failed with; empty for one they completed.
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
+    /// How many linearizations within the budget reached this outcome.
+    #[prost(int32, tag="5")]
+    pub linearizations: i32,
+    /// One run's choice sequence in run order, one entry per choice point it
+    /// resolved, each spelling the alternatives and the one taken. Empty when the
+    /// run faced no choice point.
+    #[prost(string, repeated, tag="6")]
+    pub witness: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// What the witness run noted about itself: its choice points and the guards
+    /// it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
+    /// one run.
+    #[prost(message, repeated, tag="7")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
+/// ExplorationStatus is how an exploration ended: whether every linearization
+/// within the budget was run, and which budget stopped it when not.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExplorationStatus {
+    /// True when every linearization was run, so `outcomes` is the whole set.
+    #[prost(bool, tag="1")]
+    pub complete: bool,
+    /// How many runs were made.
+    #[prost(int32, tag="2")]
+    pub runs: i32,
+    /// The budgets hit, "runs" before "depth"; empty when complete.
+    #[prost(string, repeated, tag="3")]
+    pub budgets_hit: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The budget the exploration ran under: runs it may make, and choice points
+    /// one run may resolve before the rest take their first alternative.
+    #[prost(int32, tag="4")]
+    pub runs_budget: i32,
+    #[prost(int32, tag="5")]
+    pub depth_budget: i32,
 }
 /// ParseFileRequest specifies the source to parse
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -486,8 +550,11 @@ pub struct ExecuteActionRequest {
     #[prost(map="string, message", tag="3")]
     pub inputs: ::std::collections::HashMap<::prost::alloc::string::String, Value>,
     /// Scheduling policy the run resolves its choice points under: "declared",
-    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
-    /// spelling is INVALID_ARGUMENT.
+    /// "reverse", "seed:<n>" or "explore\[:runs=<n>,depth=<d>\]". Empty is the
+    /// default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+    /// the action once per linearization the library admits, within a budget of
+    /// runs (default 1024) and of choice points per run (default 64), each run on
+    /// a fresh context, and answers with every distinct outcome reached.
     #[prost(string, tag="4")]
     pub schedule: ::prost::alloc::string::String,
 }
@@ -501,6 +568,14 @@ pub struct ExecuteActionResponse {
     pub error: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="3")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Set only under an explore schedule: every distinct outcome reached, in
+    /// canonical order, and how the exploration ended. `outputs`, `error` and
+    /// `diagnostics` are then empty: a failed run is an outcome of its own, and
+    /// each outcome carries its witness run's diagnostics.
+    #[prost(message, repeated, tag="4")]
+    pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
+    #[prost(message, optional, tag="5")]
+    pub exploration: ::core::option::Option<ExplorationStatus>,
 }
 /// ExecuteStateRequest requests state machine execution
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -513,8 +588,10 @@ pub struct ExecuteStateRequest {
     #[prost(string, repeated, tag="3")]
     pub events: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Scheduling policy the run resolves its choice points under: "declared",
-    /// "reverse" or "seed:<n>". Empty is the default, "reverse"; any other
-    /// spelling is INVALID_ARGUMENT.
+    /// "reverse", "seed:<n>" or "explore\[:runs=<n>,depth=<d>\]". Empty is the
+    /// default, "reverse"; any other spelling is INVALID_ARGUMENT. Under explore
+    /// the response answers with `outcomes` and `exploration` in place of one run's
+    /// states_visited, final_context and error (see ExecuteActionResponse).
     #[prost(string, tag="4")]
     pub schedule: ::prost::alloc::string::String,
 }
@@ -530,6 +607,14 @@ pub struct ExecuteStateResponse {
     pub error: ::prost::alloc::string::String,
     #[prost(message, repeated, tag="4")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+    /// Set only under an explore schedule: every distinct outcome reached, in
+    /// canonical order, and how the exploration ended. An outcome's outputs are
+    /// the final context; `states_visited`, `final_context`, `error` and
+    /// `diagnostics` are then empty.
+    #[prost(message, repeated, tag="5")]
+    pub outcomes: ::prost::alloc::vec::Vec<Outcome>,
+    #[prost(message, optional, tag="6")]
+    pub exploration: ::core::option::Option<ExplorationStatus>,
 }
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
@@ -1199,6 +1284,10 @@ pub struct ServerInfoResponse {
     ///                   the run resolves its choice points under; without it a
     ///                   service drops the field and runs under the default, so a
     ///                   client must not send one.
+    ///    "schedule_explore" - the schedule "explore\[:runs=<n>,depth=<d>\]" is
+    ///                   accepted, and the response carries every distinct outcome
+    ///                   as `outcomes` with an `exploration` status; without it the
+    ///                   spelling is INVALID_ARGUMENT.
     #[prost(string, repeated, tag="2")]
     pub capabilities: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

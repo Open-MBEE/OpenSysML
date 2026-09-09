@@ -263,6 +263,11 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesTheExploreSchedule() {
+    assertTrue(connection.capabilities().has(Capabilities.SCHEDULE_EXPLORE));
+  }
+
+  @Test
   void aBareMeasurementReferenceArrivesWithItsReductionAndDeclarationOverProtobufAndJson() {
     assertTrue(connection.capabilities().has(Capabilities.MEASUREMENT_REFS));
     try (Connection json =

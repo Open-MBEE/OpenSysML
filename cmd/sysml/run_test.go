@@ -304,6 +304,116 @@ func TestRunActionUnderSchedule(t *testing.T) {
 	}
 }
 
+// monitorModel has two change-triggered transitions rising on one write, which
+// the library leaves unordered: two runs, two final states.
+const monitorModel = `package Watch {
+    private import ScalarValues::*;
+    state Monitor {
+        attribute temp : Integer = 0;
+        attribute route : Integer = 0;
+        entry; then armed;
+        state armed;
+        state watching;
+        state cool { entry { assign route := 1; } }
+        state hot { entry { assign route := 2; } }
+        transition first armed do assign temp := 30 then watching;
+        transition first watching accept when temp > 20 then cool;
+        transition first watching accept when temp > 25 then hot;
+    }
+}
+`
+
+// TestRunUnderExplore checks the sorted outcome table -schedule explore prints,
+// its status line, exit code 2 on a budget hit, and the witness traces under -trace.
+func TestRunUnderExplore(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, forkModel, "-schedule", "explore", "-action", "Mission::race")
+	wantReport(t, got, 0, "✓ explored Mission::race: 2 outcomes",
+		"outcome | linearizations | witness",
+		"x = 1   | 1              | step 3: 3@right first of 2@left, 3@right",
+		"x = 2   | 1              | step 3: 2@left first of 2@left, 3@right",
+		"complete (2 runs)")
+	if again := check(t, binary, forkModel, "-schedule", "explore", "-action", "Mission::race"); again.output() != got.output() {
+		t.Errorf("explore ran\n%s\nthen\n%s", got.output(), again.output())
+	}
+
+	traced := check(t, binary, forkModel, "-trace", "-schedule", "explore:runs=8,depth=4", "-action", "Mission::race")
+	wantReport(t, traced, 0, "complete (2 runs)", "trace of outcome 1's witness (run 2):", "took 3@right first",
+		"trace of outcome 2's witness (run 1):", "took 2@left first")
+	if before, _, _ := strings.Cut(traced.stdout, "complete (2 runs)"); strings.Contains(before, "[trace]") {
+		t.Errorf("trace lines printed ahead of the table:\n%s", traced.output())
+	}
+
+	got = check(t, binary, forkModel, "-schedule", "explore:runs=1", "-action", "Mission::race")
+	wantReport(t, got, 2, "? explored Mission::race: 1 outcome", "x = 2   | 1", "incomplete: runs budget 1 hit after 1 runs")
+	got = check(t, binary, forkModel, "-schedule", "depth=0", "-action", "Mission::race")
+	wantReport(t, got, 2, `invalid scheduling policy "depth=0"`)
+	got = check(t, binary, forkModel, "-schedule", "explore:depth=0", "-action", "Mission::race")
+	wantReport(t, got, 2, "incomplete: depth budget 0 hit after 1 runs")
+
+	got = check(t, binary, monitorModel, "-schedule", "explore", "-state", "Watch::Monitor", "-advance", "0")
+	wantReport(t, got, 0, "✓ explored Watch::Monitor: 2 outcomes",
+		"finalState cool; visits armed, watching, cool; route = 1; temp = 30 | 1              | state watching on change -> 1->cool",
+		"finalState hot; visits armed, watching, hot; route = 2; temp = 30   | 1              | state watching on change -> 2->hot",
+		"complete (2 runs)")
+
+	got = check(t, binary, behaviorModel, "-schedule", "explore", "-action", "Mission::tally")
+	wantReport(t, got, 0, "✓ explored Mission::tally: 1 outcome", "total = 5 | 1              | no choice points", "complete (1 runs)")
+	got = check(t, binary, behaviorModel, "-schedule", "explore", "-calc", "Mission::Fall(3, 2)")
+	wantReport(t, got, 0, "✓ explored Mission::Fall: 1 outcome", "no choice points", "complete (1 runs)")
+	got = check(t, binary, analysisModel, "-schedule", "explore", "-analysis", "An::shipCost")
+	wantReport(t, got, 0, "✓ explored An::shipCost: 1 outcome", `objective obj = "satisfied"; total = 12.0`, "complete (1 runs)")
+
+	for _, bad := range []string{"explore:", "explore:runs=0", "explore:depth=-1", "explore:bogus", "explore:runs=1,runs=2"} {
+		got := check(t, binary, forkModel, "-schedule", bad, "-action", "Mission::race")
+		wantReport(t, got, 2, `invalid scheduling policy "`+bad+`"`)
+		if strings.Contains(got.output(), "explored") {
+			t.Errorf("-schedule %s ran the action:\n%s", bad, got.output())
+		}
+	}
+}
+
+// TestJSONReportsExploration checks that the JSON report carries the outcomes
+// an exploration reached and how it ended.
+func TestJSONReportsExploration(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, forkModel, "-json", "-schedule", "explore:runs=1", "-action", "Mission::race")
+	var report struct {
+		Status string `json:"status"`
+		Checks []struct {
+			Status   string `json:"status"`
+			Outcomes []struct {
+				Values []struct {
+					Name  string `json:"name"`
+					Value string `json:"value"`
+				} `json:"values"`
+				Linearizations int      `json:"linearizations"`
+				Witness        []string `json:"witness"`
+			} `json:"outcomes"`
+			Exploration struct {
+				Complete   bool     `json:"complete"`
+				Runs       int      `json:"runs"`
+				BudgetsHit []string `json:"budgetsHit"`
+			} `json:"exploration"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	if got.status != 2 || report.Status != "unresolved" || len(report.Checks) != 1 {
+		t.Fatalf("status = %d %q, checks = %d\n%s", got.status, report.Status, len(report.Checks), got.output())
+	}
+	c := report.Checks[0]
+	if len(c.Outcomes) != 1 || c.Outcomes[0].Linearizations != 1 ||
+		len(c.Outcomes[0].Values) != 1 || c.Outcomes[0].Values[0].Name != "x" || c.Outcomes[0].Values[0].Value != "2" ||
+		strings.Join(c.Outcomes[0].Witness, ";") != "step 3: 2@left first of 2@left, 3@right" ||
+		c.Exploration.Complete || c.Exploration.Runs != 1 || strings.Join(c.Exploration.BudgetsHit, ",") != "runs" {
+		t.Errorf("report does not carry the exploration:\n%s", got.stdout)
+	}
+}
+
 // TestRunStateMachine checks that a machine runs for the simulated time asked
 // for, reporting the configuration it settled in.
 func TestRunStateMachine(t *testing.T) {

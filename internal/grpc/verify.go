@@ -46,6 +46,8 @@ type verifyContext struct {
 	cached  *CachedModel
 	runtime *runtime.Context
 	sem     *semantics.Model
+	// sems is the shared semantics runtime was built over, held for the request.
+	sems *runtimeSemantics
 }
 
 // newVerifyContext looks the model up and builds a runtime over it, the same way
@@ -55,8 +57,8 @@ func (s *Service) newVerifyContext(modelHash string) (*verifyContext, func(), er
 	if !ok {
 		return nil, nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
 	}
-	rt, sem, release := s.newRuntime(cached)
-	return &verifyContext{service: s, cached: cached, runtime: rt, sem: sem}, release, nil
+	rs, release := cached.RuntimeSemantics()
+	return &verifyContext{service: s, cached: cached, runtime: s.newRuntimeOver(rs), sem: rs.Model, sems: rs}, release, nil
 }
 
 // lookup resolves an FQN to the symbol it names.
