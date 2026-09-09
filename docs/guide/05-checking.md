@@ -153,24 +153,26 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 
 **Metadata:** `elem.metadata` is the sequence of metadata annotating `elem`, one object per
 annotation in the order written, each carrying the values its body binds over the defaults its
-`metadata def` declares. An element with no annotation answers the empty sequence.
+`metadata def` declares. An element with no annotation answers the empty sequence. The library
+types the sequence as `Metaobject`, so cast an annotation to its `metadata def` before reading
+the values it binds.
 
 ```sysml
 sysml> package Provenance {
   ...>     private import ScalarValues::*;
-  ...>     metadata def Heritage { attribute mission : String; attribute flown : Boolean = true; }
+  ...>     metadata def Heritage { attribute mission : String; attribute flown : Boolean default true; }
   ...>     part def Camera;
   ...>     part navCam : Camera { @Heritage { mission = "Cassini"; } }
   ...>     part sciCam : Camera;
   ...> }
 ✓ package Provenance
 
-sysml> %eval Provenance::navCam.metadata#(1).mission
-✓ Provenance::navCam.metadata#(1).mission
+sysml> %eval (Provenance::navCam.metadata#(1) as Provenance::Heritage).mission
+✓ (Provenance::navCam.metadata#(1) as Provenance::Heritage).mission
   = "Cassini"
 
-sysml> %eval Provenance::navCam.metadata#(1).flown
-✓ Provenance::navCam.metadata#(1).flown
+sysml> %eval (Provenance::navCam.metadata#(1) as Provenance::Heritage).flown
+✓ (Provenance::navCam.metadata#(1) as Provenance::Heritage).flown
   = true
 
 sysml> %eval Provenance::sciCam.metadata

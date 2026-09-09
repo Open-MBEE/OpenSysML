@@ -18,7 +18,7 @@ package ExpressionsDemo {
 
     metadata def Heritage {
         attribute mission : String;
-        attribute flown : Boolean = true;
+        attribute flown : Boolean default true;
     }
 
     part def Instrument {
@@ -71,11 +71,14 @@ package ExpressionsDemo {
     // --- `.metadata`: what annotates an element -------------------------------
 
     part def HeritageReport {
-        attribute navCamAnnotations [*] = navCam.metadata;
-        attribute navCamMission : String = navCam.metadata#(1).mission;
-        attribute navCamFlown : Boolean = navCam.metadata#(1).flown;
-        attribute spectrometerFlown : Boolean = spectrometer.metadata#(1).flown;
-        attribute sciCamAnnotations [*] = sciCam.metadata;
+        ref navCamAnnotations [*] = navCam.metadata;
+        attribute navCamMission : String =
+            (navCam.metadata#(1) as Heritage).mission;
+        attribute navCamFlown : Boolean =
+            (navCam.metadata#(1) as Heritage).flown;
+        attribute spectrometerFlown : Boolean =
+            (spectrometer.metadata#(1) as Heritage).flown;
+        ref sciCamAnnotations [*] = sciCam.metadata;
     }
 
     // --- Calculations as values -----------------------------------------------
@@ -101,7 +104,7 @@ package ExpressionsDemo {
     part def Amplifier {
         attribute gain : Real = 1.5;
         calc amplify { in v : Real; return : Real = v * gain; }
-        attribute transfer = amplify;
+        ref transfer = amplify;
         attribute sameTransfer : Boolean = transfer == amplify;
         attribute atThree : Real = Apply(transfer, 3.0);
         attribute squaredAtThree : Real = Apply(Square, 3.0);

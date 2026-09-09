@@ -150,7 +150,12 @@ Features:
 `navCamFlown` is `true` without `navCam` saying so: the annotation did not bind
 `flown`, so the object carries the default from `Heritage`. Indexing is
 one-based, as everywhere in SysML: `navCam.metadata#(1)` is the first
-annotation.
+annotation. The library types `.metadata` as `Metaobject`, which has no
+`mission` of its own, so the report casts the annotation to `Heritage` before
+reading it — `(navCam.metadata#(1) as Heritage).mission` — the same cast as
+the first section, selecting the object because it conforms. A sequence of
+metadata objects is held by a `ref`, not an `attribute`: an attribute holds
+data values, and an annotation is an object.
 
 ## A calculation as a value
 
@@ -210,10 +215,14 @@ Features:
   squaredAtThree = 9.0
 ```
 
-A definition is not a feature, so `attribute transfer = Square;` is refused by
-the checker ("Must be a valid feature") where `attribute transfer = amplify;`
-— a calc usage — is fine; a `calc def` is passed as an argument, as
-`Apply(Square, 3.0)` does, or held through a usage of it.
+A definition is not a feature, so `ref transfer = Square;` is refused by the
+checker ("Must be a valid feature") where `ref transfer = amplify;` — a calc
+usage — is fine; a `calc def` is passed as an argument, as `Apply(Square, 3.0)`
+does, or held through a usage of it. Passing a definition is the one place the
+reference implementation disagrees with this file: it reports `Apply(Square,
+3.0)` as "Must be a valid feature" too, because it has no function values to
+receive a `calc def`. To stay within what both accept, name a usage —
+`Apply(transfer, 3.0)` — instead.
 
 ## `Set` — no order, no repeats
 
