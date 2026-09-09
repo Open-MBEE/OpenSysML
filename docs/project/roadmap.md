@@ -12,9 +12,9 @@ Read `AGENTS.md` first; it governs everything below.
 > known failures, `S` the multiple-valid-executions work the executor needs before Track E,
 > `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
-> execution, `V` the validation census, `I` the language integrations, and `M` the embedded
-> target. Each is stated in full where it is introduced, and a reader who wants only the gap can
-> ignore the label.
+> execution, `V` the validation census, `I` the language integrations, `B` the bindings from
+> modeled elements to external data and services, and `M` the embedded target. Each is stated in
+> full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
 > **Status words.** *Landed* means merged to `main` at the baseline. *Open* names a pull request
 > that exists and is not merged; *conflicts* means it no longer merges cleanly onto `main` and
@@ -716,6 +716,25 @@ any write, and a re-run finds nothing to change. Depends on D9.1 (reading a bran
 which is how the view project materializes what it exposes) and sits after D9.2 in the track
 order; independent of D1/D2, since it moves whole elements by id and never inspects their
 vocabulary.
+
+## D11 — the SysML v2 API element form as a `Convert` format
+
+`Convert` writes notation, `text` and Turtle, and reads the same three. The OMG SysML v2 API's
+own element form — JSON objects with `@type`, `@id` and the metamodel's properties as keys — is
+read today only as a *measurement*: `flexo.Elements` and `flexo.ElementByID` fetch what the
+Flexo API serves after a Turtle load, so the harness can say what survived. Nothing produces
+that form from a parsed model, and nothing parses it into one. A framework that wants the
+normalized abstract syntax without an RDF store in the middle — a tool exchanging elements over
+the standard API, a client comparing two implementations element by element — has no format to
+ask for. Adding `api-json` to `Convert`, both directions, is the RDF mapping with a different
+serializer: the graph the `ttl` path builds already carries the metaclass and the properties, so
+the emitter walks it and the reader is `rdf_in.go`'s inverse over JSON. Reference-valued
+properties are `@id` objects, which is D7's question answered a second time, and the collection
+annotations D3.4 settled decide array-versus-object. Gate it as the RDF path is gated: a round-trip
+ratchet over `examples/`, and the live-stack harness posting the emitted elements to the Flexo API
+instead of a graph, reporting what that path keeps that the Turtle one loses or vice versa. After
+D1 and D2, since the element form inherits their vocabulary; before D9.2 if the branch read is to
+have a choice of representation.
 
 ---
 
@@ -1492,6 +1511,118 @@ with no service. The client depends only on I1/I2; the ABI depends on N2.4's des
 artifact as M4's host interface, so design it once and let the three consumers (host tools, the C
 client's optional in-process mode, the embedded target) restrict it. The client comes first.
 
+## I5 — the conformance suite as a kernel contract
+
+`conformance/` is written as the contract between `sysml-grpc` and its clients, and that is the
+only direction its runner exercises: `cmd/conformance` builds `./cmd/sysml-grpc` (or takes
+`-binary`), starts the process itself and drives it over the three protocols. Nothing runs it
+against a service that is *not* this repository's Go binary, so a second implementation of
+`sysml.proto` — a kernel in another language behind the same clients — has no way to state how
+conformant it is. Two changes make the suite that statement. First, an `-address` mode that
+speaks to a service already listening rather than spawning one, reporting the capabilities it
+advertised and skipping by `requires_capabilities` exactly as the client runs do (`-allow-skips`
+already decides whether a skip is a pass). Second, a wider corpus: the thirteen scenario files
+cover one or two calls per RPC, which is enough to prove a client decodes the answer and far too
+little to prove a kernel computes it. The execution conformance cases under
+`internal/core/runtime/testdata/conformance/` — a model, a call, an expected result — are the same
+shape as a scenario and are the deepest semantic oracle the repository has; generating scenarios
+from them (the `.expected.json` becomes the `response`) turns the wire suite into a kernel suite
+without writing a second corpus, and any implementation's report then reads as a fraction of the
+same cases the interpreter passes. Depends on I1 and I2; the generator is a session, and it is
+refereed by running the generated scenarios against `sysml-grpc` itself, which must pass them all.
+
+---
+
+# Track B — bindings from modeled elements to external data and services
+
+Every value the runtime produces comes from the model text and the bundled library. A calc
+evaluates from its own body; a bodiless library function reaches a Go implementation only through
+`builtinFor` (`internal/core/runtime/builtins.go`), which requires the symbol to be
+*library-declared* (`libraryDeclared` in `library_functions.go` asks the index) and then looks the
+qualified name up in a table compiled into the binary. A feature without a value expression is
+unset, and stays unset. An `accept` fires only for events the model itself sends, or that a host
+injects by hand through `StateExecutor.SendSignal`, the REPL's `%state` commands or the
+`ExecuteState` request's event list. The arguments to `Evaluate`, `EvaluateCalc`, `ExecuteAction`
+and `RunAnalysis` are the entire surface through which anything outside the model reaches inside
+it, and none of it survives the call. There is, in short, no way for a model to say *this function
+is computed elsewhere*, *this value is read from there*, or *these events arrive from that*, and
+no way for a host — the Go API, a service client, a REPL session — to supply the elsewhere.
+
+That is the gap between an execution engine and a digital-twin substrate. The identity metadata
+(`ElementId`, `ProjectRef`) says *where an element lives*; the Flexo interop says where a *graph*
+is stored; neither says where a value comes from or who computes a function. The track adds that:
+a notation for declaring an element externally bound, a provider contract the runtime consults at
+the points it already dispatches, and the same contract over the service boundary so a client in
+any language can be the provider. It deliberately does not add a scripting language, a plugin
+loader or a foreign-function interface to the interpreter: the model names the binding, the host
+supplies it, and the seam is the one the runtime already has.
+
+## B1 — the binding vocabulary in the notation
+
+A `Bindings` package under `OpenSysML Libraries/`, beside `IdentityMetadata`, as standard
+user-defined metadata so every conforming tool reads a bound model as an annotated one: an
+`@External` on a calc or function definition whose body is absent (the host computes it), an
+`@ExternalValue` on an attribute or item usage with no value expression (the host supplies it,
+once or on every read), and an `@ExternalEvent` on an event or signal definition (the host posts
+it). Each carries a `binding : String` the host resolves and nothing else — the notation says
+*that* and *which*, never *how*. A constraint-tier pass checks the annotated element is bindable:
+the function has no body, the feature has no value, every parameter and result type has a
+`Value` arm on the wire (I1), and an `@External` function is not also implemented by the library
+table. The RDF mapping carries the metadata as it carries `ElementId` today, so a bound model
+round-trips. Not started; the design record states the metadata, the pass and the refusals
+before any of it is written.
+
+## B2 — the provider contract in the runtime and the Go API
+
+One interface, consulted at the three points the runtime already dispatches. Before `builtinFor`,
+a function marked `@External` resolves to the host's `Call(binding, args)`; when a feature marked
+`@ExternalValue` is first read (its `Materialized` flag is the existing seam), the host's
+`Read(binding)` supplies it; a state executor whose machine accepts an `@ExternalEvent` drains the
+host's `Events(binding)` into its `EventQueue` under the clock it already runs on. The bundled
+builtin table becomes the first provider of that interface rather than a parallel path, so there
+is one dispatch and not two that drift. A bound element with no provider is a typed refusal
+naming the element and its binding, never an unset value; a provider's error is the calc's error,
+with the binding in the message; every host call is a traced step, and the trace records the
+value returned so a golden replays without the provider. On the Go API, `opensysml.WithProvider`
+on the model handle, and a `Provider` interface a Go host implements in a page of code. Depends on
+B1. Two sessions, refereed by conformance fixtures whose expected results only a fixture provider
+can produce.
+
+## B3 — providers over the service boundary
+
+A Python, Node, Java or Rust process must be able to be the provider, not only the caller, or the
+Go API is the only host that can bind anything. The direct shape is a bidirectional stream the
+client opens (`BindProvider`), on which the service sends `Call`/`Read` requests and the client
+answers; [service-transports.md](../reference/service-transports.md) records that bidirectional
+streaming needs HTTP/2 end to end and, in a browser, TLS, which is acceptable for a provider and
+not for a page. The alternative — the service dialling a Connect endpoint the client hosts — has
+no such constraint and no such streaming, at the cost of the client running a listener. Decide by
+prototyping both against the Python client; either way the request and answer messages are
+defined once in `sysml.proto`, the capability is `bindings`, `GetServerInfo` advertises it, and a
+service without it refuses `BindProvider` as `UNIMPLEMENTED` like every other capability. The
+conformance suite gains scenarios with a fixture provider the runner hosts, and the I2 fixtures
+gain the provider messages. Depends on B2 and I1; a session for the transport decision and a
+session for the clients.
+
+## B4 — data sources without code
+
+B2 and B3 make a program the provider. Most values a twin reads are in a table, a file or a
+service with a URL, and asking for a program to read them is asking for the same fifty lines in
+every host. A small set of built-in providers, selected by the `binding` string's scheme — a CSV
+or JSON file keyed by element, an HTTP endpoint returning JSON decoded by the I1 rules, and a
+Flexo project's element values once D9.2 reads one — configured on the `sysml` and `sysml-grpc`
+command lines and refused by name when the scheme is unknown. This is the item that makes a model
+with `@ExternalValue` runnable from the REPL against a spreadsheet with no host program at all.
+Depends on B2; each provider is small and independent, and the Flexo one waits for D9.2.
+
+## B5 — bindings as a query, and in the REPL
+
+`Query` answers *what is bound* — every annotated element, its binding string, whether a
+provider currently satisfies it and, from the trace, what it last returned — so a document or a
+client can report a twin's wiring rather than infer it. The REPL shows the same through a
+`%bindings` command and marks an unbound external element in `%instantiate` output instead of
+showing it unset. Small; after B2, and it belongs with Q1's page that says which query is which.
+
 ---
 
 # Track M — an embedded, RTOS-compatible target
@@ -1637,6 +1768,13 @@ are being taken, not abandoned. None had a pull request at this baseline.
    contract exists to design against rather than three.
 10. **Track E** — after F and S have landed and a release has shipped with them, in the track's
     own order below.
+11. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
+    API. Proposed after the steps above were agreed and not yet slotted among them; the two items
+    depend on nothing outstanding (the wire contract is landed, the dispatch and materialization
+    seams exist) and touch only the metadata library, one pass and the runtime's dispatch, so they
+    can run beside steps 5 and 6 — but not beside step 1, since B2's event drain edits the executor
+    loops F and S own. **B3** follows the transport decision, **I5** goes with step 5 since it is
+    built from the same fixtures, and **B4**/**B5** come whenever a model needs them.
 
 ## Track-local orders
 
@@ -1654,8 +1792,9 @@ are being taken, not abandoned. None had a pull request at this baseline.
   N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
 - **Track D.** The RDF ratchet is 346/346 with no refusal left; step 6 above is next; **D7** is
   mechanical now that identity is stable and fits anywhere; rebase and land #774, then **D8**'s
-  profile after it, since it only becomes conformant behind D1 and D2; **D10** (write-through from
-  a view-only project) after D9.1 and D9.2, which it reads and writes through.
+  profile after it, since it only becomes conformant behind D1 and D2; **D11** (the API element
+  form) likewise after D1 and D2, and before D9.2 if the branch read is to offer it; **D10**
+  (write-through from a view-only project) after D9.1 and D9.2, which it reads and writes through.
 - **Track F.** F1, F2, F3 in that order: F1 and F2 are the token-per-succession model that F3's
   per-traversal merge sits on. Each closes by deleting its `known_failures.txt` line.
 - **Track S.** S1 (the schema) before S2 (the trace), since a trace choice point names the
@@ -1672,4 +1811,6 @@ are being taken, not abandoned. None had a pull request at this baseline.
 - **Track V.** Everything queued has landed (#822, #900, #831, #817, the rule pull requests, #811
   reconciled with #907, #909); work the census's 1 *not implemented* and 53 *unknown* rows,
   negative case first, each change moving its row.
+- **Track B.** B1, B2, then B3, none before step 1 above has landed; B4's file and HTTP providers
+  whenever asked, its Flexo provider after D9.2; B5 with Q1.
 - **Track Q, I, M.** Entirely given by the cross-cutting order above.
