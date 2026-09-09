@@ -9,13 +9,14 @@ import (
 )
 
 // evaluationLog records, for the case run under way, each application of one of
-// the case's calc features as a function value, once per distinct argument list.
-// A trade study's `eval(x)` is one per alternative, however often the library's
-// `best` and `selectOne` re-ask it.
+// the case's calc features as a function value, once per distinct argument list,
+// and each element `selectOne` picked. A trade study's `eval(x)` is one per
+// alternative, however often the library's `best` and `selectOne` re-ask it.
 type evaluationLog struct {
 	calcs     map[*symbols.Symbol]bool
 	entries   []AnalysisEvaluation
 	index     map[string]int
+	picks     []Value
 	enclosing *evaluationLog
 }
 
@@ -54,6 +55,15 @@ func (log *evaluationLog) record(fn *functionValue, args calcArgs, result Value,
 	})
 }
 
+// pick notes an element `selectOne` picked, the only kind of value the run
+// can be said to have selected.
+func (log *evaluationLog) pick(element Value) {
+	if log == nil || element.Kind == ValNull {
+		return
+	}
+	log.picks = append(log.picks, element)
+}
+
 // argumentsByPosition lists an application's arguments by parameter position,
 // null where the application binds none before a later one; unknown names follow, sorted.
 func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
@@ -89,15 +99,15 @@ func (log *evaluationLog) key(function string, arguments []Value) string {
 }
 
 // evaluations reports the log with the evaluation of the returned value marked
-// selected, and every other evaluation by the same calc computing the same
-// result marked tied: `selectOne` took the first, the library ranks no further.
+// selected where `selectOne` picked it, and the same calc's equal results tied.
 func (log *evaluationLog) evaluations(returned Value, ok bool) []AnalysisEvaluation {
 	if !ok {
 		return log.entries
 	}
+	picked := slices.ContainsFunc(log.picks, func(pick Value) bool { return valueEqual(pick, returned) })
 	for i := range log.entries {
 		entry := &log.entries[i]
-		entry.Selected = slices.ContainsFunc(entry.Arguments, func(arg Value) bool {
+		entry.Selected = picked && slices.ContainsFunc(entry.Arguments, func(arg Value) bool {
 			return valueEqual(arg, returned)
 		})
 	}

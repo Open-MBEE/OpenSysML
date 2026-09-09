@@ -215,8 +215,8 @@ type AnalysisEvaluation struct {
 	Result Value
 	Error  error
 
-	// Selected marks the evaluation whose argument the case returned. Tied marks
-	// one computing what the selected did, which `selectOne` passed over for it.
+	// Selected marks the evaluation of the value `selectOne` picked and the case
+	// returned. Tied marks one computing what the selected did, passed over for it.
 	Selected bool
 	Tied     bool
 }

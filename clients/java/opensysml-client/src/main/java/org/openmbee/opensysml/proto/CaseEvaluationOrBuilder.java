@@ -115,8 +115,9 @@ public interface CaseEvaluationOrBuilder extends
 
   /**
    * <pre>
-   * Set on the evaluation whose argument the case returned: the alternative a
-   * trade study selected.
+   * Set on the evaluation whose argument `selectOne` picked and the case
+   * returned: the alternative a trade study selected. A result that merely
+   * equals an argument selects nothing.
    * </pre>
    *
    * <code>bool selected = 5 [json_name = "selected"];</code>

@@ -923,7 +923,9 @@ func builtinControlSelectOne(ec *EvalContext, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return elementAtOrEmpty(elementsOf(selected), 1), nil
+	pick := elementAtOrEmpty(elementsOf(selected), 1)
+	ec.ctx.evaluations.pick(pick)
+	return pick, nil
 }
 
 // builtinControlCollect is ControlFunctions::collect, the mapper's result for

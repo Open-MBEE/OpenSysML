@@ -256,8 +256,9 @@ message CaseEvaluation {
   // What it computed; unset when `error` says why it computed nothing.
   Value result = 3;
   string error = 4;
-  // Set on the evaluation whose argument the case returned: the alternative a
-  // trade study selected.
+  // Set on the evaluation whose argument `selectOne` picked and the case
+  // returned: the alternative a trade study selected. A result that merely
+  // equals an argument selects nothing.
   bool selected = 5;
   // Set on an evaluation computing what the selected one did without being
   // selected: an alternative `selectOne` passed over for an earlier one

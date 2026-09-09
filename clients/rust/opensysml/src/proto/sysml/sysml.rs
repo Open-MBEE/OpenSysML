@@ -225,8 +225,9 @@ pub struct CaseEvaluation {
     pub result: ::core::option::Option<Value>,
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
-    /// Set on the evaluation whose argument the case returned: the alternative a
-    /// trade study selected.
+    /// Set on the evaluation whose argument `selectOne` picked and the case
+    /// returned: the alternative a trade study selected. A result that merely
+    /// equals an argument selects nothing.
     #[prost(bool, tag="5")]
     pub selected: bool,
     /// Set on an evaluation computing what the selected one did without being

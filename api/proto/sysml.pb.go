@@ -1140,8 +1140,9 @@ type CaseEvaluation struct {
 	// What it computed; unset when `error` says why it computed nothing.
 	Result *Value `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
 	Error  string `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
-	// Set on the evaluation whose argument the case returned: the alternative a
-	// trade study selected.
+	// Set on the evaluation whose argument `selectOne` picked and the case
+	// returned: the alternative a trade study selected. A result that merely
+	// equals an argument selects nothing.
 	Selected bool `protobuf:"varint,5,opt,name=selected,proto3" json:"selected,omitempty"`
 	// Set on an evaluation computing what the selected one did without being
 	// selected: an alternative `selectOne` passed over for an earlier one

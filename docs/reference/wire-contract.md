@@ -1139,8 +1139,9 @@ capability omits the field; the `outputs` and `verdicts` beside it mean what the
 - `error` — why the evaluation computed nothing (a division by zero, a feature with no value,
   a calc with no return expression). The objective is then `undecided` with the same reason and
   nothing is `selected`.
-- `selected` — true for the evaluation whose argument the case returned: the alternative the
-  library's `selectOne` picked, the first whose score is `best`.
+- `selected` — true for the evaluation whose argument the library's `selectOne` picked and the
+  case returned: the first alternative whose score is `best`. A case whose result merely equals
+  an argument of an evaluation, with no `selectOne` picking it, selects nothing.
 - `tied` — true for a later evaluation that computed what the selected one did without being
   selected, so a tie is visible rather than a silent first-wins.
 

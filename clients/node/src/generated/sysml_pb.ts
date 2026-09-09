@@ -540,8 +540,9 @@ export type CaseEvaluation = Message<"sysml.CaseEvaluation"> & {
   error: string;
 
   /**
-   * Set on the evaluation whose argument the case returned: the alternative a
-   * trade study selected.
+   * Set on the evaluation whose argument `selectOne` picked and the case
+   * returned: the alternative a trade study selected. A result that merely
+   * equals an argument selects nothing.
    *
    * @generated from field: bool selected = 5;
    */
