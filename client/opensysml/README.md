@@ -72,7 +72,8 @@ resolves; `Analysis.Selected()` is the one `selectOne` picked, and `Tied` marks
 another scoring the same. Reported by a service advertising
 `CapabilityCaseEvaluations`. A run that fails part way — an alternative it
 could not score — is an `*AnalysisError` whose `Partial` keeps the outputs and
-evaluations it made, every verdict undecided:
+evaluations it made, every verdict undecided; a request refused before the run
+(`ReasonWrongKind` for a symbol that is no case) is a `*VerifyError` alone:
 
 ```go
 analysis, err := client.RunAnalysis(ctx, model, "Trade::lightest")

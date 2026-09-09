@@ -96,16 +96,16 @@ func (a *Analysis) Instance(id InstanceID) *Instance {
 	return nil
 }
 
-// AnalysisError is a run of an analysis case that did not reach its end: an
-// unbound subject, an input with no value, a failing step, an alternative a
-// trade study could not evaluate. It is a VerifyError, so errors.As recovers
-// one and errors.Is(err, ErrFailure) matches, and it keeps what the run
-// computed before it failed.
+// AnalysisError is a run of an analysis case that failed after computing
+// something — an alternative a trade study could not evaluate after scoring
+// others — and keeps what it computed. It is a VerifyError, so errors.As
+// recovers one and errors.Is(err, ErrFailure) matches. A request refused before
+// the run, or a run that failed before computing anything, is a *VerifyError
+// alone: its Reason says why, ReasonWrongKind for a symbol that is no case.
 type AnalysisError struct {
 	VerifyError
 	// Partial is what the run computed before it failed: the outputs and
-	// evaluations made, each verdict undecided. Empty of them for a run that
-	// never started, and for a service not advertising CapabilityCaseEvaluations.
+	// evaluations made, the objects they name, each verdict undecided.
 	Partial *Analysis
 }
 
@@ -205,6 +205,21 @@ func (c *client) RunAnalysis(
 		return nil, err
 	}
 	diagnostics := diagnosticsFromProto(resp.Diagnostics)
+	if resp.Error != "" {
+		failure := VerifyError{
+			FailureError: FailureError{Op: "RunAnalysis", Message: resp.Error, Diagnostics: diagnostics},
+			Reason:       Reason(resp.FailureReason),
+		}
+		// A request refused before the run, or a run that computed nothing, has no partial answer.
+		if len(resp.Outputs) == 0 && len(resp.Verdicts) == 0 && len(resp.Evaluations) == 0 && len(resp.Instances) == 0 {
+			return nil, &failure
+		}
+		return nil, &AnalysisError{VerifyError: failure, Partial: analysisFromProto(resp, diagnostics)}
+	}
+	return analysisFromProto(resp, diagnostics), nil
+}
+
+func analysisFromProto(resp *pb.RunAnalysisResponse, diagnostics []Diagnostic) *Analysis {
 	out := &Analysis{
 		Instances:     instancesFromProto(resp.Instances),
 		Diagnostics:   diagnostics,
@@ -219,16 +234,7 @@ func (c *client) RunAnalysis(
 			out.Verdicts = append(out.Verdicts, *converted)
 		}
 	}
-	if resp.Error != "" {
-		return nil, &AnalysisError{
-			VerifyError: VerifyError{
-				FailureError: FailureError{Op: "RunAnalysis", Message: resp.Error, Diagnostics: diagnostics},
-				Reason:       Reason(resp.FailureReason),
-			},
-			Partial: out,
-		}
-	}
-	return out, nil
+	return out
 }
 
 func evaluationsFromProto(evaluations []*pb.CaseEvaluation) []Evaluation {

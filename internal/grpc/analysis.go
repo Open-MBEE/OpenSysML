@@ -105,15 +105,18 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	}
 	// A case run for itself answers for no requirement, so nothing associates it.
 	resp.VerificationVerdicts = v.verificationVerdicts(verdicts, "")
+	// A client predating case_evaluations sees no evaluation, so no object only one names.
+	var evaluations []runtime.AnalysisEvaluation
 	if v.service.capabilities.has(CapabilityCaseEvaluations) {
-		resp.Evaluations = v.caseEvaluations(result.Evaluations)
+		evaluations = result.Evaluations
+		resp.Evaluations = v.caseEvaluations(evaluations)
 	}
-	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, result.Evaluations))
+	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, evaluations))
 	return resp, nil
 }
 
 // runRoots are the objects a case run reports: its subject and every object an
-// output or an evaluation names — a trade study's alternatives.
+// output or a reported evaluation names — a trade study's alternatives.
 func (v *verifyContext) runRoots(subject *runtime.Instance, outputs []runtime.CalcOutputValue, evaluations []runtime.AnalysisEvaluation) []*runtime.Instance {
 	roots := []*runtime.Instance{subject}
 	for _, out := range outputs {

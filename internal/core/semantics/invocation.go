@@ -455,8 +455,9 @@ func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 		return true
 	}
 	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if u := p.Decl.(*ast.Usage); u.Multiplicity != nil {
-			return m.IsOptionalParameter(u)
+		if _, mult, _ := parameterDeclaration(p); mult != nil {
+			r, ok := m.multiplicityRange(mult)
+			return ok && r.AllowsNone()
 		}
 	}
 	return false
@@ -466,21 +467,36 @@ func (m *Model) OptionalParameter(sym *symbols.Symbol) bool {
 // declared along its redefinitions, with the scope it resolves in. Nil when none is.
 func (m *Model) ParameterDefault(sym *symbols.Symbol) (ast.Node, *symbols.Scope) {
 	for _, p := range m.ParameterRedefinitionChain(sym) {
-		if u := p.Decl.(*ast.Usage); u.Value != nil {
-			return u.Value, p.OwnerScope
+		if value, _, _ := parameterDeclaration(p); value != nil {
+			return value, p.OwnerScope
 		}
 	}
 	return nil, nil
 }
 
+// parameterDeclaration is the value and multiplicity a parameter declares as its own,
+// whether written as a usage or as a requirement's or case's subject.
+func parameterDeclaration(sym *symbols.Symbol) (value ast.Node, mult *ast.Multiplicity, ok bool) {
+	if sym == nil {
+		return nil, nil, false
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		return decl.Value, decl.Multiplicity, true
+	case *ast.SubjectMember:
+		return decl.BindingExpr, decl.Multiplicity, true
+	}
+	return nil, nil, false
+}
+
 // ParameterRedefinitionChain is sym followed by the parameters it redefines, explicitly
-// or by position, nearest first; each declares a usage.
+// or by position, nearest first; each declares a usage or a subject.
 func (m *Model) ParameterRedefinitionChain(sym *symbols.Symbol) []*symbols.Symbol {
 	var chain []*symbols.Symbol
 	visited := map[*symbols.Symbol]bool{}
 	for sym != nil && !visited[sym] {
 		visited[sym] = true
-		if _, ok := sym.Decl.(*ast.Usage); !ok {
+		if _, _, ok := parameterDeclaration(sym); !ok {
 			break
 		}
 		chain = append(chain, sym)

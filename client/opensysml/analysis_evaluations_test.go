@@ -184,6 +184,36 @@ func TestAFailedRunKeepsWhatItComputed(t *testing.T) {
 	}
 }
 
+// A request the service refuses before running — a symbol that is no case — is
+// the classified refusal alone, not a run that failed part way.
+func TestARefusedRequestIsNoPartialRun(t *testing.T) {
+	for name, connect := range analysisCallers(t) {
+		t.Run(name, func(t *testing.T) {
+			client := connect(t)
+			model := parse(t, client, tradeStudySource)
+
+			analysis, err := client.RunAnalysis(context.Background(), model, "Trade::Engine")
+			if analysis != nil {
+				t.Errorf("analysis = %+v, want none beside the error", analysis)
+			}
+			var failed *opensysml.AnalysisError
+			if errors.As(err, &failed) {
+				t.Errorf("err = %T (%v) with partial %+v, want a refusal without a partial run", err, err, failed.Partial)
+			}
+			var refused *opensysml.VerifyError
+			if !errors.As(err, &refused) || !errors.Is(err, opensysml.ErrFailure) {
+				t.Fatalf("err = %T (%v), want *VerifyError matching ErrFailure", err, err)
+			}
+			if refused.Reason != opensysml.ReasonWrongKind {
+				t.Errorf("reason = %v, want %v", refused.Reason, opensysml.ReasonWrongKind)
+			}
+			if !strings.Contains(refused.Message, "Trade::Engine") {
+				t.Errorf("message = %q, want it to name the symbol refused", refused.Message)
+			}
+		})
+	}
+}
+
 func TestTheClientNamesTheCaseEvaluationCapability(t *testing.T) {
 	client := newClient(t)
 	info, err := client.ServerInfo(context.Background())

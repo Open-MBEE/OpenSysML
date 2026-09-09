@@ -1031,8 +1031,8 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 		if ctx.libraryDeclared(link) {
 			break
 		}
-		if usage := link.Decl.(*ast.Usage); param.Default == nil && usage.Value != nil {
-			param.Default, param.Owner = usage.Value, owner
+		if value := ctx.extractDefaultValue(link); param.Default == nil && value != nil {
+			param.Default, param.Owner = value, owner
 		}
 	}
 	return param, -1

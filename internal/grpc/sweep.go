@@ -246,10 +246,12 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResp
 		for j := range row.Verdicts {
 			out.Verdicts = append(out.Verdicts, v.analysisVerdict(&row.Verdicts[j], row.Subject))
 		}
+		var reported []runtime.AnalysisEvaluation
 		if evaluations {
-			out.Evaluations = v.caseEvaluations(row.Evaluations)
+			reported = row.Evaluations
+			out.Evaluations = v.caseEvaluations(reported)
 		}
-		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraphs(v.runRoots(row.Subject, row.Outputs, row.Evaluations)))
+		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraphs(v.runRoots(row.Subject, row.Outputs, reported)))
 		resp.Rows = append(resp.Rows, out)
 	}
 	return resp

@@ -159,8 +159,8 @@ func TestRunAnalysisKeepsEvaluationsOfFailedRun(t *testing.T) {
 }
 
 // TestRunAnalysisWithoutCaseEvaluations verifies a service without the
-// capability answers as before it: no evaluations, and a failed run as its
-// error alone.
+// capability answers as before it: no evaluations, instances only the output
+// names, and a failed run as its error alone.
 func TestRunAnalysisWithoutCaseEvaluations(t *testing.T) {
 	srv := mustNewServiceWithout(t, CapabilityCaseEvaluations)
 	hash := mustVerifyModel(t, srv, tradeStudyModelSource, "trade-study-legacy")
@@ -169,6 +169,7 @@ func TestRunAnalysisWithoutCaseEvaluations(t *testing.T) {
 	if resp.Error != "" || len(resp.Outputs) != 1 || len(resp.Evaluations) != 0 {
 		t.Errorf("response = %v, want the output alone without evaluations", resp)
 	}
+	wantInstanceTypes(t, resp.Instances, "Trade::b")
 	failed := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: "Trade::perCylinder"})
 	if failed.Error == "" || len(failed.Verdicts) != 0 || len(failed.Evaluations) != 0 || len(failed.Instances) != 0 {
 		t.Errorf("failed response = %v, want its error alone", failed)
@@ -272,5 +273,21 @@ func TestRunSweepKeepsEvaluationsOfFailedRow(t *testing.T) {
 	}
 	if failed := resp.Rows[1]; failed.Error == "" || len(failed.Verdicts) != 0 || len(failed.Evaluations) != 0 || len(failed.Outputs) != 0 {
 		t.Errorf("legacy failed row = %v; want its error alone", failed)
+	}
+	wantInstanceTypes(t, resp.Instances, "Trade::a")
+}
+
+// wantInstanceTypes fails unless the instances are exactly one of each type named:
+// what a client predating case_evaluations was sent, the objects its outputs name.
+func wantInstanceTypes(t *testing.T, instances []*pb.Instance, want ...string) {
+	t.Helper()
+	var got []string
+	for _, inst := range instances {
+		got = append(got, inst.TypeSymbolId)
+	}
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("instances are of %v; want exactly %v", got, want)
 	}
 }
