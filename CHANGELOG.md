@@ -96,6 +96,30 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   the annotation body binds and the metadata type's own defaults where it binds none. An element
   with no metadata yields the empty sequence, and reading metadata off a value is a typed error.
 
+- **The scheduling policy a run resolves its choice points under is selectable.** Where the
+  library orders nothing — several steppable tokens in one step, several holding guards at a
+  decision, several enabled transitions out of one state for one event, and so whose same-step
+  write to one feature stands — the executors follow a named policy: `reverse` (the default:
+  reverse token order, first holding guard, first enabled transition, so every existing result and
+  trace is unchanged), `declared` (tokens in spawn order, guards and transitions in declaration
+  order) or `seed:<n>` (a pseudo-random order the seed fixes, so one seed replays one run on every
+  platform and two seeds may take two linearizations). The spelling is the same everywhere: `sysml
+  -schedule <policy>` for `-action`, `-state` and `-analysis` (a calc's body performs nothing, so
+  `-calc` has no choice to make); `%schedule [<policy>]` in the REPL, shown with no argument and
+  applied to the runs started after it while a debugging session under way keeps its own; a
+  `schedule` field on `ExecuteActionRequest`, `ExecuteStateRequest` and `RunAnalysisRequest`,
+  empty for the default and advertised as the `schedule` capability, with the Go and Python
+  clients taking it as an option (`opensysml.WithSchedule`, `opensysml.Schedule`, `schedule=`);
+  and a `schedule` pin on a conformance case, which the harness runs under. A policy changes only
+  which alternative each choice takes: every choice point a run reaches is reported and each `took
+  …` is what the policy took, though another linearization may reach other choice points. A
+  spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`,
+  `seed:abc` — is refused before anything runs, as `INVALID_ARGUMENT` on the wire. The conformance
+  suite also runs whole under `declared` and `seed:1`, requiring every case that pins no policy
+  and lists no `outcomes` to produce its default outputs. Two accepts racing for two sends now
+  list both pairings as `outcomes`, with the derivation in the semantic oracle; a send to a
+  same-named port pins `reverse` until the via-less accept that over-matches it is fixed.
+
 - **The `explore` scheduling policy runs every linearization of a behavior and tables its
   distinct outcomes.** `sysml -schedule explore[:runs=N,depth=D]` with `-action`, `-state`,
   `-analysis` or `-calc` runs the behavior once, recording the alternative taken at each choice
@@ -135,30 +159,6 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   by two sends, binding one `value` whose last writer is open — and it is restated as the two
   outcomes the oracle derives. Cases without `outcomes` are not explored, and nothing changes
   under the default schedule.
-
-- **The scheduling policy a run resolves its choice points under is selectable.** Where the
-  library orders nothing — several steppable tokens in one step, several holding guards at a
-  decision, several enabled transitions out of one state for one event, and so whose same-step
-  write to one feature stands — the executors follow a named policy: `reverse` (the default:
-  reverse token order, first holding guard, first enabled transition, so every existing result and
-  trace is unchanged), `declared` (tokens in spawn order, guards and transitions in declaration
-  order) or `seed:<n>` (a pseudo-random order the seed fixes, so one seed replays one run on every
-  platform and two seeds may take two linearizations). The spelling is the same everywhere: `sysml
-  -schedule <policy>` for `-action`, `-state` and `-analysis` (a calc's body performs nothing, so
-  `-calc` has no choice to make); `%schedule [<policy>]` in the REPL, shown with no argument and
-  applied to the runs started after it while a debugging session under way keeps its own; a
-  `schedule` field on `ExecuteActionRequest`, `ExecuteStateRequest` and `RunAnalysisRequest`,
-  empty for the default and advertised as the `schedule` capability, with the Go and Python
-  clients taking it as an option (`opensysml.WithSchedule`, `opensysml.Schedule`, `schedule=`);
-  and a `schedule` pin on a conformance case, which the harness runs under. A policy changes only
-  which alternative each choice takes: every choice point a run reaches is reported and each `took
-  …` is what the policy took, though another linearization may reach other choice points. A
-  spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`,
-  `seed:abc` — is refused before anything runs, as `INVALID_ARGUMENT` on the wire. The conformance
-  suite also runs whole under `declared` and `seed:1`, requiring every case that pins no policy
-  and lists no `outcomes` to produce its default outputs. Two accepts racing for two sends now
-  list both pairings as `outcomes`, with the derivation in the semantic oracle; a send to a
-  same-named port pins `reverse` until the via-less accept that over-matches it is fixed.
 
 - **A `Collections::Set` holds a set.** Where the Kernel Data Type Library declares a collection's `elements` unique and unordered — `Set`, `UniqueCollection`, `Map` — the runtime now holds them as a set value: each member once, `size` counting members, equality that ignores the order the members were written in, and `contains`/`containsAll` as membership. A set consumed by an ordered operation (`collect`, `head`, `#`, a comparison against a sequence, a trace, a write into an `ordered` or `nonunique` feature) enumerates in one canonical order — Booleans, then numbers ascending, strings, quantities, enumeration literals, objects — so equal sets behave alike. What the library declares ordered or nonunique (`Bag`, `List`, `Array`, `OrderedSet`, `OrderedMap`, every `SequenceFunctions` result) is unchanged.
 - **Tensor quantities of any rank.** A `TensorMeasurementReference` with three or more `dimensions` builds a rank-three-or-higher tensor whose `#` takes one index per dimension; the wrong number of indexes, an index out of its dimension's range, a non-Integer index, a component count off the flattened size and arithmetic between two shapes are each a typed error naming what was wrong, and the shape survives `+`, `-` and the scalar multiplications.
@@ -214,6 +214,28 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ### Changed
 
+- **Compatibility.** 0.7.0 is a minor release under the rule CONTRIBUTING.md § Versioning states:
+  a model 0.6.0 accepted and ran correctly can run differently under the default schedule. Actions
+  and state machines now wait on one simulation clock owned by the runtime context — a nested
+  performance runs on the enclosing clock rather than a copy, and two machines materialized in
+  one context share time — so a model that mixes the two can take another interleaving than
+  0.6.0 took, one the library leaves equally open; a single behavior run alone is unchanged. The
+  golden execution traces changed too: they gained a `choice` line at every pick the library
+  leaves unordered and a step boundary at synchronized joins, which renumbers the steps after it,
+  so a 0.6.0 checkout re-running `-update-traces` sees those lines and boundaries and the
+  corrected traces of the fixes below; no `.expected.json` schema and no `-json` report shape
+  changed. Every wire change since v0.6.0 is additive — `make proto-breaking
+  BUF_BREAKING_REF=v0.6.0` passes — and no CLI flag, REPL command, RPC or wire field was removed
+  or renamed: `sysml` gains `-schedule`, `-sweep`, `-samples` and `-seed`, the REPL gains
+  `%schedule`, `%sweep` and `%samples`, and the service gains `RunSweep` and fields advertised
+  under new capabilities. The other results that change are corrections of results the Kernel
+  Semantic Library derives otherwise, listed under *Fixed*: a join, or a node several
+  successions reach, fires once per succession; a loop through a merge re-enters it; a breakpoint
+  on a synchronized node pauses once; and a via-less `accept` no longer takes a transfer addressed
+  to a port. A collection body whose result type does not fit the receiving feature (`accept when
+  counts.{in n : Integer; n}`, `attribute i : Integer = xs.{ in x : C; 1.5 }`) is now refused
+  where 0.6.0 let an ill-typed model through.
+
 - **Pull requests run one CI, GitHub Actions; CircleCI runs on `main` and tags.** The CircleCI `build-test` workflow is filtered to `main`, so a pull request no longer runs the suite twice, and the checks that only CircleCI carried moved into the pull-request workflow: the protobuf lint and wire-compatibility check (against the branch the pull request merges into) join `Go static and integrity checks`, the documentation hygiene checks (`make docs-check`, `make man-check` and the census check) join `Documentation site`, the release-digest check and the check that the committed stubs are what buf generates join each client's job (the Python and Java stub checks were CircleCI-only), and `make conformance` with the `-transport grpc` run join the renamed `Conformance suite` job. Every stub check, in both configs, now also fails when a committed stub was deleted and regeneration brings it back.
 
 - **The coverage the SonarCloud scan reads now measures every test suite the checks already run.** The command-line binaries the tests build and run (`sysml`, `sysml-grpc`, `sysml-lsp`) are built instrumented under `make coverage`, and the counters each run writes are folded into `coverage.txt`; the conformance suite runs in-process under `go test` as well as over the wire; the repository scripts and the Python release scripts run under coverage (`make scripts-coverage`, read as a second Python report); the Node conformance runner and the example runner are tested under c8; the Java conformance runner's command line is tested in-process under JaCoCo; and the ontology-table and stdlib-snapshot generators have tests over their `run` functions. The `sysml -compile -source` path is tested for each target. Build tooling no test suite executes (mkdocs hooks, the buf plugin, benchmarks, the release-fixture recorder, the VS Code extension host glue and its build steps) is excluded from coverage only, each with its justification in `sonar-project.properties`. No product behavior changes.
@@ -237,6 +259,11 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 - **A node several successions reach is performed once, after one token has arrived over each of them.** A token now records the succession it travelled (`Token.Via`, the lowered `ActionEdge` with its `Source`), and a join — or a plain action node two or more successions reach — fires when every incoming succession has delivered one token, the arrivals collapsing into the one token that performs it; a second token over an already-delivered succession waits for the next firing instead of standing in for another succession, and a join one of whose successions no token can travel deadlocks (`ErrActionDeadlock`) rather than firing on a token count. A plain node in a loop or behind a decision still re-performs once per pass: it awaits a succession only while some token can still reach its source before the node performs. `action_join_one_token_per_incoming_succession` (`log = 12`) and `action_node_with_two_incoming_successions_runs_once` (`hits = 1`) leave the known failures; the REPL's `%tokens` says which succession a held token arrived over and which it awaits.
 
+- **The order orthogonal regions react to one event in is reported as a choice point under every scheduling policy, and `seed:<n>` varies it.** When one event enables transitions in two or more regions the library leaves their order open, but only `explore` recorded the choice; `reverse`, `declared` and `seed:<n>` took declaration order and said nothing, so a seed could not reproduce a region order `explore` found. Every dispatch among two or more regions is now drawn from the run's scheduler like every other pick and reported as `choice on <trigger>: states <a>, <b> react (unordered; took <a> first)` — a trace line, a `choice-point` diagnostic of kind `region order` over gRPC and Connect, and one more choice in the REPL summary. `reverse` and `declared` still take declaration order, so no output, state visit or final state moves under the default; `seed:<n>` now draws the order and replays it, and `explore` is unchanged. A change occurrence that raises the conditions of transitions in several regions at once is dispatched through the same draw, so its region order is reported and varied too, where before every policy took declaration order silently. The conformance cases whose regions react to one event list both orders as admissible outcomes.
+
+- **`make proto-breaking` works from a blobless checkout.** The wire-compatibility check now compares against a `git archive` of `api/proto` at the baseline ref (`BUF_BREAKING_REF`, `origin/main` by default) instead of pointing buf at the `.git` directory, which buf clones; a partial clone cannot serve that clone every object it needs, so from CircleCI's checkout the check failed with `could not fetch … from promisor remote` on any branch other than `main`.
+- **The CircleCI jobs carry readable names.** The status checks now read `ci/circleci: Build and test`, `Python client tests`, `Rust client tests`, `Java client tests`, `Node client tests` and `SonarCloud scan`, with the release-workflow jobs named the same way, rather than the job keys.
+
 - **The CircleCI suite on `main` and on tags finishes within the plan's 60-minute job limit.** The single `Build and test` job, which had grown to about an hour and timed out on most merges, is now four parallel jobs — `Go static checks`, `Go race tests`, `Go coverage profile` and `Go gates and binaries` — each well under the limit, so the status checks now read `ci/circleci: Go static checks` and so on. The client tests, the SonarCloud scan and every release workflow wait on all four, so nothing is scanned or published unless the whole suite passed.
 - **The wire-compatibility check on `main` compares against the merge's own parent, and a release tag against the previous release.** The check used to fetch `origin/main` at run time, so a merge landing while the build ran made its own added fields read as deletions in an unrelated build; the baseline is now an ancestor of the commit being built, so the verdict cannot change with what merged afterwards. `make proto-breaking` still defaults to `origin/main` locally and honours `BUF_BREAKING_REF`.
 
@@ -248,11 +275,6 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   (`C:\Program Files (x86)\WiX Toolset v3.14\`), so the `msi` job of the v0.6.0 release failed
   with `error: C:\Program is required` and no `opensysml-0.6.0-windows-amd64.msi` was published.
   The override is now `WIX_CMD`.
-
-- **`make proto-breaking` works from a blobless checkout.** The wire-compatibility check now compares against a `git archive` of `api/proto` at the baseline ref (`BUF_BREAKING_REF`, `origin/main` by default) instead of pointing buf at the `.git` directory, which buf clones; a partial clone cannot serve that clone every object it needs, so from CircleCI's checkout the check failed with `could not fetch … from promisor remote` on any branch other than `main`.
-- **The CircleCI jobs carry readable names.** The status checks now read `ci/circleci: Build and test`, `Python client tests`, `Rust client tests`, `Java client tests`, `Node client tests` and `SonarCloud scan`, with the release-workflow jobs named the same way, rather than the job keys.
-
-- **The order orthogonal regions react to one event in is reported as a choice point under every scheduling policy, and `seed:<n>` varies it.** When one event enables transitions in two or more regions the library leaves their order open, but only `explore` recorded the choice; `reverse`, `declared` and `seed:<n>` took declaration order and said nothing, so a seed could not reproduce a region order `explore` found. Every dispatch among two or more regions is now drawn from the run's scheduler like every other pick and reported as `choice on <trigger>: states <a>, <b> react (unordered; took <a> first)` — a trace line, a `choice-point` diagnostic of kind `region order` over gRPC and Connect, and one more choice in the REPL summary. `reverse` and `declared` still take declaration order, so no output, state visit or final state moves under the default; `seed:<n>` now draws the order and replays it, and `explore` is unchanged. A change occurrence that raises the conditions of transitions in several regions at once is dispatched through the same draw, so its region order is reported and varied too, where before every policy took declaration order silently. The conformance cases whose regions react to one event list both orders as admissible outcomes.
 
 - **The test-suite figures the documentation repeats agree again and match a real run.** `README.md`, `docs/project/spec-compliance.md`, `docs/project/roadmap.md` and `docs/project/training-examples.md` now all state the same counts from one `go test -v ./...` run: 671 execution conformance cases, 140 golden execution traces, 336 runtime robustness cases, 195 golden AST fixtures, 249 first-level `TestNegative` cases, 15 gRPC conformance and 8 gRPC robustness cases, and 15,139 tests and subtests, with the environment each skip depends on named. The roadmap's gate table reads the same commit and its census, rejection-oracle and RDF round-trip rows follow the committed baselines.
 - **The saving-and-RDF guide shows what the binary prints.** Every model under `examples/` now converts, so the guide no longer presents `parser_features_demo_declarations.kerml` as refused; the refusal example is a name shared by two members of one namespace, which is what the mapping still refuses, and the byte counts in the transcripts are the current output. The `README.md` conversion row states the round-trip figure rather than a stale fraction.
