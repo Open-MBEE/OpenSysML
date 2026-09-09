@@ -608,8 +608,12 @@ event, two tokens writing one feature in one step — one run shows one lineariz
 point, and every later run replays the recorded prefix and takes the next untried alternative at
 the frontier, depth-first, until no alternative is left untried or a budget is hit. Every run
 starts from a fresh executor on the same loaded model: no object, message, clock, calc memo or
-note of one run is seen by the next. The policy applies to `-action`, `-state`, `-analysis` and
-`-calc` alike; a body with no choice point explores in exactly one run. With `-advance`, every
+note of one run is seen by the next. Under `explore` an action step is one token advancing one
+node, where the fixed policies move every steppable token once per step, so the tokens able to act
+are picked among afresh after each move and every interleaving of the nodes the library leaves
+unordered is a distinct linearization; a body's statements still run without interruption. The
+policy applies to `-action`, `-state`, `-analysis` and `-calc` alike; a body with no choice point
+explores in exactly one run. With `-advance`, every
 `-action` and `-state` behavior named is started on one clock in each run and the clock advanced
 once, as it is under any policy, so the order of executors due at one instant is explored like any
 other choice point: several behaviors come to one *joint* outcome, each behavior's observables under
@@ -630,9 +634,9 @@ $ sysml -schedule explore -action test::race three-writers.sysml
 ✓ explored test::race: 3 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 3: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 

@@ -60,9 +60,9 @@ func TestRunActionExploresEveryLinearization(t *testing.T) {
 	wantsInOrder(t, strings.Join(v.Lines, "\n"),
 		"✓ explored Race::race: 3 outcomes",
 		"outcome | linearizations | witness",
-		"x = 1   | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 3: 4@c first of 2@a, 4@c",
-		"x = 2   | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c",
-		"x = 3   | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c",
+		"x = 1   | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c",
+		"x = 2   | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c",
+		"x = 3   | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c",
 		"complete (6 runs)")
 	if len(v.Outcomes) != 3 || v.Exploration == nil || !v.Exploration.Complete || v.Exploration.Runs != 6 {
 		t.Errorf("verdict outcomes = %+v, exploration = %+v", v.Outcomes, v.Exploration)
@@ -110,7 +110,8 @@ func TestRunActionExploreReportsTheBudgetHit(t *testing.T) {
 	wants(t, strings.Join(v.Lines, "\n"), "incomplete: depth budget 1 hit after 3 runs")
 }
 
-// With tracing on, the trace shown per outcome is its witness run's.
+// With tracing on, the trace shown per outcome is its witness run's: one token
+// moves per explored step, so the last write to x is the witness's last move.
 func TestRunActionExploreTracesTheWitnessOfEachOutcome(t *testing.T) {
 	s := loadSource(t, exploreRaceSource)
 	run(t, s, "%trace on")
@@ -121,12 +122,17 @@ func TestRunActionExploreTracesTheWitnessOfEachOutcome(t *testing.T) {
 	wantsInOrder(t, out,
 		"complete (6 runs)",
 		"trace of outcome 1's witness (run 4):",
-		"x := 1 by token 2 stood",
 		"took 3@b first",
+		"took 4@c first",
+		"eval literal 1 -> 1",
 		"trace of outcome 2's witness (run 2):",
-		"x := 2 by token 3 stood",
+		"took 2@a first",
+		"took 4@c first",
+		"eval literal 2 -> 2",
 		"trace of outcome 3's witness (run 1):",
-		"x := 3 by token 4 stood")
+		"took 2@a first",
+		"took 3@b first",
+		"eval literal 3 -> 3")
 	if strings.Count(out, "trace of outcome") != 3 {
 		t.Errorf("want one trace per outcome:\n%s", out)
 	}

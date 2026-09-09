@@ -135,7 +135,7 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (bool, error) {
 		}
 	}
 	endWrites()
-	e.noteTokenOrder(e.stepCount+1, order)
+	e.noteTokenOrder(e.stepCount+1, order, schedule)
 	if err != nil {
 		return false, err
 	}

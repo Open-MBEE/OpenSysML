@@ -47,6 +47,12 @@ scheduling detail the library says nothing about:
   to the token list once every succession has delivered, and the step that fired it may go on to
   step that token (and tokens the removal shifted) again; a `step N:` line is therefore the
   executor's step boundary, not a unit the library defines.
+- Under the `explore` policy a step is one token advancing one node, so a `choice` line is one
+  pick among the tokens able to act at that moment and the next step picks again among those left
+  and any the move enabled; a linearization is the sequence of those picks, and a branch of
+  several nodes may be overtaken by a concurrent one between any two of them. The fixed policies
+  move every steppable token once per step, so their `step N:` lines group moves that `explore`
+  spreads over consecutive steps; a body's statements run without interruption under both.
 - A state machine records a transition's guard evaluation, exit, effect and entry as they run, and
   evaluates a guard once to select the transition and once again to fire it; the second
   evaluation is a tool detail with no observable effect, since a guard is an expression.
@@ -123,9 +129,10 @@ Open: the relative order of `a`, `b2` and `c3` — and of every node on one bran
 node on another. The golden's order (the `c` branch stepped first within each step, `a` finishing
 first because its branch is shortest) is one admissible linearization. Nothing observable depends
 on it: every interleaving increments `arrived` three times before `after` reads it, so the fixture
-pins the one outcome and has no `outcomes`. Under `explore` the interleavings are twelve
-linearizations reaching that one outcome (12 runs, 1 outcome, complete), each a sequence of token
-choices (`step 3: 2@a first of 2@a, 3@b1, 4@c1; …`).
+pins the one outcome and has no `outcomes`. Under `explore` the interleavings of one, two and
+three nodes on three branches are `6! / (1! 2! 3!) = 60` linearizations reaching that one outcome
+(60 runs, 1 outcome, complete), each a sequence of token choices (`step 3: 2@a first of 2@a, 3@b1,
+4@c1; step 4: 3@b1 first of 3@b1, 4@c1; …`).
 
 Fixed outcome: `arrived = 3`, `seen = 3`. The executor agrees; the golden shows `after` reading
 `arrived -> 3` and every branch's write preceding it.
@@ -149,8 +156,9 @@ Derived constraints:
 - `right` writes `log := log * 10 + 1`; `after` follows `sync` and writes `log := log * 10 + 2`.
 
 Open: the order of `left` against any node of the `r` branch. Nothing observable depends on it,
-so the fixture pins the one outcome without `outcomes`; under `explore` the twelve interleavings
-all reach it (12 runs, 1 outcome, complete).
+so the fixture pins the one outcome without `outcomes`; under `explore` the seventy
+interleavings — `l1` and `l2` in either order then `left`, three events woven into the four of
+the `r` branch, `2 × C(7, 3)` — all reach it (70 runs, 1 outcome, complete).
 
 Fixed outcome: `log = 12` — `right` writes before `after`, whatever the interleaving, because
 `after` cannot start before `sync`, and `sync` cannot start before `right` has ended.
@@ -318,8 +326,44 @@ as `outcomes` citing this section; `.trace.order` states the partial order the l
 records the default schedule (`c` is declared last, so its token is stepped first and `a` writes
 last, giving `x = 1`). Exploration is what makes the set checkable: `explore` replays the run
 along every choice sequence and must reach each of the three outcomes and no other, in six runs.
-The first pick among three tokens and the next among the two left are two choice points of one
-step, so a linearization is a sequence of two choices, not one choice among six.
+The first pick among three tokens and the next among the two left are two choice points in
+consecutive steps, so a linearization is a sequence of two choices, not one choice among six.
+
+### A write between two nodes of a concurrent branch: three orders, three outcomes
+
+Fixture: `action_explore_write_between_branch_nodes` (golden, explored).
+
+```
+start → split ⇉ left1 { x := 1 } → left2 { y := x } ─┐
+              ⇉ right { x := 2 } ────────────────────┤→ sync → done
+```
+
+Derived constraints:
+
+- `left1`, `left2` and `right` are each performed exactly once (ForkAction, and `left2` follows
+  `left1` by HappensBefore), and `sync` follows `left2` and `right` (JoinAction), so every write
+  has ended before the action ends.
+- `left2` reads `x` after `left1`'s write has ended, so `y` is `1` or `2`, never `0`.
+
+Open: the order of `right` against `left1` and against `left2`. The library gives no `HappensBefore`
+link from either to `right`, so `right` may end before `left1` starts, start after `left1` ends and
+end before `left2` starts, or start after `left2` ends: three linearizations, no more, since
+`left2` cannot precede `left1`. Each leaves a different pair of values: `right, left1, left2`
+gives `x = 1, y = 1`; `left1, right, left2` gives `x = 2, y = 2`; `left1, left2, right` gives
+`x = 2, y = 1`.
+
+Pinned outcome: that admissible set of three, stated as `outcomes` citing this section;
+`.trace.order` states the partial order the library does fix (`split < left1`, `left1 < left2`,
+`split < right`, `left2 < sync`, `right < sync`). The exact golden records the default schedule
+(`right` is declared last, so its token is stepped first: `right, left1, left2`, giving `x = 1,
+y = 1`). Exploration must reach each of the three outcomes and no other, in three runs (3 runs,
+3 outcomes, complete). The case is what distinguishes exploring one move at a time from exploring
+the order of one lockstep step: had every steppable token moved once per step, `left1` and `right`
+would both have moved in the step after the fork whichever went first, `left2` could never have
+run before `right`, and the exploration would have reported two outcomes complete, missing
+`x = 2, y = 1`. No fixed policy takes it: each moves `left1` and `right` in the step after the fork,
+in one order or the other, before `left2` can run, so `declared` (and `seed:1`) give `x = 2, y = 2`
+and `reverse` gives `x = 1, y = 1`.
 
 ### A decision inside a loop: every pass is its own open choice
 
@@ -383,7 +427,11 @@ re-reading the first. Under it either pairing is admissible: `left` takes `1` an
 the reverse.
 
 Pinned outcome: the admissible set `{a = 2 ∧ b = 1, a = 1 ∧ b = 2}`, stated as `outcomes` citing
-this section; exploration reaches each once (2 runs, 2 outcomes, complete). The partial order the library fixes among the nodes is stated as `.trace.order`
+this section; exploration reaches each twice (4 runs, 2 outcomes, complete): once the first
+message is in flight, `sendTwo` and both accepts are able to act, and an accept picked first takes
+the message while the other must wait for `sendTwo`, whereas `sendTwo` picked first leaves both
+messages to the two accepts and the accept picked next takes the older. The partial order the
+library fixes among the nodes is stated as `.trace.order`
 constraints (`split < sendOne`, `split < left`, `split < right`, `sendOne < sendTwo`,
 `sync < recorder`, `recorder < done`); the join's predecessors are not stated as constraints on
 `sync` because a token parks at a join before the join performs, so the entry first mentioning
@@ -633,8 +681,11 @@ Derived constraints:
 
 Open: the interleaving of the two tokens at every node; which token takes which exit. The outcome
 does not depend on it, so the fixture pins the one outcome without `outcomes`; under `explore`
-every interleaving — a choice between the two tokens at each of seven steps — reaches it
-(128 runs, 1 outcome, complete).
+every interleaving — a choice between the two tokens at each step until one of them is done, the
+two threads dividing the four passes as `3 + 1`, `2 + 2` or `1 + 3` — reaches it. There are
+8526 of them, more than the default budget of 1024 runs, so `explore` alone reports
+`incomplete: runs budget 1024 hit after 1024 runs` with the one outcome tabled, and
+`explore:runs=10000` completes (8526 runs, 1 outcome, complete).
 
 Fixed outcome: `passes = 4`, `merged = 4`, `worked = 4`. Whatever the interleaving, `passes`
 takes the values 1, 2, 3, 4 one `more` performance at a time, the two that read 1 and 2 select
@@ -681,9 +732,11 @@ Derived constraints:
 
 Open: in the first model, the interleaving of the direct arrival with `slow → slower`; the
 outcome does not depend on it, since `ready` is written before the second arrival either way.
-Both fixtures pin one outcome without `outcomes`; under `explore` the first reaches it by both
-interleavings (2 runs, 1 outcome, complete) and the second, a chain, reaches no choice point
-(1 run, 1 outcome, complete).
+Both fixtures pin one outcome without `outcomes`; under `explore` the first reaches it by every
+interleaving of the direct arrival with the `slow → slower` branch (22 runs, 1 outcome, complete) —
+when `slower` runs before the direct arrival reaches `gate`, that arrival reads `ready = true` and
+goes on to `tail` too, and the two tokens' moves through `gate`, `tail` and `done` interleave — and
+the second, a chain, reaches no choice point (1 run, 1 outcome, complete).
 
 Fixed outcome, first model: `ready = true`, `mergeRuns = 2`, `passed = 2` — the direct arrival
 performs `gate` and reads `ready = false`, so no link to `tail` follows it; the second arrival

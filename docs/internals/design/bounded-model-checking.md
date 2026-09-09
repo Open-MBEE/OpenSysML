@@ -97,11 +97,14 @@ move's writes — and avoids copying the object graph at every choice point.
 
 ### The atomic step
 
-The executor's `Step()` is a tool artifact: it steps every token once, in a fixed order, and the
+The executor's `Step()` under a fixed policy is a tool artifact: it steps every token once, in a
+fixed order, and the
 [oracle](../../project/behavior-semantic-oracle.md#what-the-library-fixes-and-what-a-trace-adds)
 already warns that a `step N:` line is a boundary the library does not define. The checker must
 not explore interleavings *inside* that artifact, nor interleavings finer than the library
-admits.
+admits. The `explore` policy already takes the unit below for actions: one of its steps is one
+token advancing one node, so a branch of several nodes can be overtaken between any two of them
+(`action_explore_write_between_branch_nodes` is the case a lockstep step would have missed).
 
 The unit the library defines is a **performance**: a node's body runs "completely before" its
 successors start (`HappensBefore`), and two unordered performances may overlap arbitrarily in

@@ -1,0 +1,9 @@
+# The fork precedes both branches; left2 follows left1; the join waits for both.
+# A token parked at the join is mentioned as soon as the first branch arrives, so
+# the branch arriving second is ordered against the join's successor instead.
+split < left1
+left1 < left2
+split < right
+left2 < done
+right < done
+sync < done

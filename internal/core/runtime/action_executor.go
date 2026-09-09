@@ -258,13 +258,14 @@ func (e *ActionExecutor) Step() error {
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
 
-	err := e.stepTokens(e.scheduleTokens(&order, func(t Token) bool {
+	schedule := e.scheduleTokens(&order, func(t Token) bool {
 		return !t.drivenByBody() && t.body == nil
-	}), paused, &order)
+	})
+	err := e.stepTokens(schedule, paused, &order)
 	// What the tokens wrote and the order they took are facts of the step whether
 	// or not it failed.
 	endWrites()
-	e.noteTokenOrder(e.stepCount+1, order)
+	e.noteTokenOrder(e.stepCount+1, order, schedule)
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -1321,8 +1322,8 @@ func (e *ActionExecutor) parked(t Token, order *stepOrder) bool {
 	return waitsForMessage && !order.offered[t.ID]
 }
 
-// stepTokens gives each of the scheduled tokens its step, in the order given, then
-// the tokens a breakpoint left paused; a breakpoint reached on the way ends the sweep.
+// stepTokens gives each scheduled token its step, then the tokens a breakpoint
+// left paused; a breakpoint on the way or an exploring step's one move ends the sweep.
 func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, order *stepOrder) error {
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		if e.state == StateSuspended {
@@ -1342,7 +1343,7 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 		}
 	}
 	for _, id := range paused {
-		if e.state == StateSuspended {
+		if e.state == StateSuspended || schedule.Ended() {
 			break
 		}
 		if i := e.tokenIndex(id); i >= 0 {

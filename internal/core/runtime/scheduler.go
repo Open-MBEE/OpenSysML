@@ -237,6 +237,21 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 	}
 }
 
+// Ended reports whether the step is over before every token had its turn: an
+// exploring step is one token's move.
+func (ts *tokenSchedule) Ended() bool {
+	return ts.explore != nil && ts.explore.moved
+}
+
+// Choice is the token-order pick an exploring step resolved, as the trace names
+// the tokens able to act and the index of the one moved; false when it made none.
+func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
+	if ts.explore == nil || ts.explore.choice == nil {
+		return nil, 0, false
+	}
+	return ts.explore.choice.labels, ts.explore.choice.taken, true
+}
+
 // scheduleStep fixes how the step tries its tokens: reversed, declared,
 // seeded shuffle, or one at a time as the exploration picks them.
 func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
