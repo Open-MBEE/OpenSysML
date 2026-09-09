@@ -345,8 +345,8 @@ func TestChangeConditionTakesTheInnermostTransitionOnly(t *testing.T) {
 					state r1;
 					transition first rstart then r1;
 				}
-				accept when ready then Done;
 			}
+			accept when ready then Done;
 			state Done;
 			succession first start then Working;
 		}

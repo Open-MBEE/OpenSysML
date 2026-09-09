@@ -4,9 +4,8 @@ package CallTriggerNestedTest {
     state Lamp {
         entry; then start;
         state start;
-        state standby {
-            accept turnOn(level) then lit;
-        }
+        state standby;
+        accept turnOn(level) then lit;
         state lit;
 
         succession first start then standby;

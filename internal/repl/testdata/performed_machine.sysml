@@ -16,9 +16,8 @@ package Two {
 
 	state def Check {
 		entry; then checking;
-		state checking {
-			accept after 5 [SI::s] then checked;
-		}
+		state checking;
+		accept after 5 [SI::s] then checked;
 		state checked;
 	}
 

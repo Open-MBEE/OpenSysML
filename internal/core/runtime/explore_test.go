@@ -462,7 +462,8 @@ func TestExploreDueOrder(t *testing.T) {
 			state def Ticker {
 				attribute seen : Integer = -1;
 				entry; then waiting;
-				state waiting { accept after 5 [s] then took; }
+				state waiting;
+				accept after 5 [s] then took;
 				state took {
 					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
 				}

@@ -38,9 +38,8 @@ package 'My Pkg' {
 	state 'spin up' {
 		entry; then init;
 		state init;
-		state waiting {
-			accept after 10 [SI::s] then done;
-		}
+		state waiting;
+		accept after 10 [SI::s] then done;
 
 		succession first init then waiting;
 	}

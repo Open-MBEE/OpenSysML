@@ -105,7 +105,9 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("exhibited_state_typed_by_the_library_state_action_with_a_body", testExhibitedStateTypedByTheLibraryStateActionWithABody)
 	t.Run("exhibited_state_typed_by_a_state_action_specialization", testExhibitedStateTypedByAStateActionSpecialization)
 	t.Run("state_usage_inherits_unsupported_member", testStateUsageInheritsUnsupportedMember)
-	t.Run("sourceless_accept_at_top_level", testSourcelessAcceptAtTopLevel)
+	t.Run("sourceless_transition_with_nothing_before", testSourcelessTransitionWithNothingBefore)
+	t.Run("sourceless_transition_after_a_non_state", testSourcelessTransitionAfterANonState)
+	t.Run("guarded_entry_transition_is_not_lowered", testGuardedEntryTransitionIsNotLowered)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
 	t.Run("calc_calls_an_unimported_extension_function", testCalcCallsAnUnimportedExtensionFunction)
 	t.Run("calc_calls_an_unimported_library_function", testCalcCallsAnUnimportedLibraryFunction)
@@ -4067,7 +4069,8 @@ func testAcceptViaAPortThatFailsToMaterialize(t *testing.T) {
 			port in : ~Chan = 1 / 0;
 			exhibit state sm {
 				entry; then Idle;
-				state Idle { accept v : Integer via in then Got; }
+				state Idle;
+				accept v : Integer via in then Got;
 				state Got;
 			}
 		}
@@ -4728,9 +4731,8 @@ func testNonNumericTimeTrigger(t *testing.T) {
 		state Machine {
 			entry; then init;
 			state init;
-			state waiting {
-				accept at "noon" then done;
-			}
+			state waiting;
+			accept at "noon" then done;
 			succession first init then waiting;
 		}
 	}`)
@@ -4753,9 +4755,8 @@ func testTimeTriggerOfANonTimeDimension(t *testing.T) {
 				attribute load : Nowhere::Mass = 5 [kg];
 				entry; then init;
 				state init;
-				state waiting {
-					accept after load then done;
-				}
+				state waiting;
+				accept after load then done;
 				state done;
 				succession first init then waiting;
 			}
@@ -4792,9 +4793,8 @@ func testTimeTriggerOfTheTypeValidationRefuses(t *testing.T) {
 					state Machine {
 						entry; then init;
 						state init;
-						state waiting {
-							accept `+tc.trigger+` then done;
-						}
+						state waiting;
+						accept `+tc.trigger+` then done;
 						state done;
 						succession first init then waiting;
 					}
@@ -4876,9 +4876,8 @@ func testChangeConditionThatNeverHolds(t *testing.T) {
 			attribute ready : Boolean = false;
 			entry; then init;
 			state init;
-			state waiting {
-				accept when ready then done;
-			}
+			state waiting;
+			accept when ready then done;
 			state done;
 			succession first init then waiting;
 		}
@@ -6010,47 +6009,102 @@ func stateExecutorError(t *testing.T, src, name string) error {
 	return err
 }
 
-// testSourcelessAcceptAtTopLevel: sourceless accept...then at top level should error
-func testSourcelessAcceptAtTopLevel(t *testing.T) {
-	src := `
+// testSourcelessTransitionWithNothingBefore: a transition written without a
+// source leaves the state declared before it (SysML v2 7.18.3); as the first
+// member of its body it has none, which lowering reports.
+func testSourcelessTransitionWithNothingBefore(t *testing.T) {
+	err := stateExecutorError(t, `
 		package test {
 			state Machine {
+				accept go then active;
 				entry; then init;
 				state init;
-				state waiting;
 				state active;
-				succession first init then waiting;
-				accept go then active; // ERROR: sourceless at top level
 			}
 		}
-	`
-	file := parseAndBuild(t, src)
-	if file == nil {
-		t.Fatal("parse failed")
+	`, "Machine")
+	if !errors.Is(err, lower.ErrNoTransitionSource) {
+		t.Fatalf("expected ErrNoTransitionSource, got %v", err)
 	}
-
-	idx, model, ctx := buildRuntime(t, "<test>", file)
-
-	_ = model // silence unused
-
-	rootScope := idx.DocumentRoot("<test>")
-	sym := findSymbolByName(rootScope, "Machine", ast.DefState)
-	if sym == nil {
-		t.Fatal("Machine state not found")
+	if err.Error() != "create state executor: lower state machine: "+lower.NoTransitionSourceMessage {
+		t.Fatalf("unexpected message: %v", err)
 	}
+}
 
-	// Should fail at CreateStateExecutor (lowering time) with clear error
-	exec, err := ctx.CreateStateExecutor(sym)
-	if err != nil {
-		if strings.Contains(err.Error(), "sourceless") && strings.Contains(err.Error(), "containing state") {
-			t.Logf("CreateStateExecutor error (expected): %v", err)
-			return
+// testSourcelessTransitionAfterANonState: the member before the shorthand is an
+// entry action, a do action or an attribute rather than a state, which is not
+// something a transition with a trigger can leave.
+func testSourcelessTransitionAfterANonState(t *testing.T) {
+	cases := map[string]struct {
+		body string
+		want string
+	}{
+		"entry action": {
+			body: `entry; then init;
+				accept go then active;
+				state init;
+				state active;`,
+			want: "the entry action",
+		},
+		"do action": {
+			body: `entry; then init;
+				state init;
+				do action watch { }
+				accept go then active;
+				state active;`,
+			want: "the do action",
+		},
+		"attribute": {
+			body: `entry; then init;
+				state init;
+				attribute count : Integer = 0;
+				accept go then active;
+				state active;`,
+			want: "the attribute usage count",
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := stateExecutorError(t, `
+				package test {
+					state Machine {
+						`+tc.body+`
+					}
+				}
+			`, "Machine")
+			var sourceErr *lower.TransitionSourceError
+			if !errors.As(err, &sourceErr) {
+				t.Fatalf("expected TransitionSourceError, got %v", err)
+			}
+			want := "create state executor: lower state machine: " + fmt.Sprintf(lower.TransitionSourceNotVertexFormat, tc.want)
+			if err.Error() != want {
+				t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
+			}
+		})
+	}
+}
+
+// testGuardedEntryTransitionIsNotLowered: `entry; if c then s;` is the guarded
+// entry transition of SysML v2 7.18.3, legal notation whose starting-state choice
+// the lowering does not make yet, and says so rather than picking a state.
+func testGuardedEntryTransitionIsNotLowered(t *testing.T) {
+	err := stateExecutorError(t, `
+		package test {
+			state Machine {
+				attribute cold : Boolean = true;
+				entry;
+				if cold then warming;
+				if not cold then ready;
+				state warming;
+				state ready;
+			}
 		}
-		t.Fatalf("Unexpected error message: %v", err)
+	`, "Machine")
+	if !errors.Is(err, lower.ErrEntryTransitionUnsupported) {
+		t.Fatalf("expected ErrEntryTransitionUnsupported, got %v", err)
 	}
-
-	if exec != nil {
-		t.Error("Expected error for sourceless accept...then at top level, but CreateStateExecutor succeeded")
+	if err.Error() != "create state executor: lower state machine: "+lower.EntryTransitionUnsupportedMessage {
+		t.Fatalf("unexpected message: %v", err)
 	}
 }
 
@@ -8188,8 +8242,10 @@ func testClockAdvance(t *testing.T) {
 					attribute stage : Integer = 0;
 					exhibit state shift {
 						entry; then working;
-						state working { accept after 2 [s] then armed; }
-						state armed { entry assign stage := 1; accept after 1 [s] then later; }
+						state working;
+						accept after 2 [s] then armed;
+						state armed { entry assign stage := 1; }
+						accept after 1 [s] then later;
 						state later { entry assign stage := 2; }
 					}
 				}
@@ -8217,10 +8273,9 @@ func testClockAdvance(t *testing.T) {
 				state lookout {
 					attribute seen : Integer = -1;
 					entry; then waiting;
-					state waiting {
-						accept when worker.stage > 0 then noticed;
-						accept after 6 [s] then late;
-					}
+					state waiting;
+					accept when worker.stage > 0 then noticed;
+					accept after 6 [s] then late;
 					state noticed { entry assign seen := worker.stage; }
 					state late { entry assign seen := 100 + worker.stage; }
 				}

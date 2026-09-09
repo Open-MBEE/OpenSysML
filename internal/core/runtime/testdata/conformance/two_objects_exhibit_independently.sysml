@@ -10,9 +10,8 @@ package test {
 		exhibit state counting {
 			entry; then idle;
 
-			state idle {
-				accept tick then ticked;
-			}
+			state idle;
+			accept tick then ticked;
 
 			state ticked {
 				entry action bump {

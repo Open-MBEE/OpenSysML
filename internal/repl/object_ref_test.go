@@ -814,9 +814,8 @@ func TestQuotedNestedPerformerSurvivesUnrelatedDeclaration(t *testing.T) {
 	}
 	state def Check {
 		entry; then checking;
-		state checking {
-			accept after 5 [SI::s] then checked;
-		}
+		state checking;
+		accept after 5 [SI::s] then checked;
 		state checked;
 	}
 	part 'the rack' : Rack;
@@ -878,9 +877,8 @@ func TestStateMachineObjectsByReference(t *testing.T) {
 	s := submitted(t, `package Plant {
 	state def Modes {
 		entry; then off;
-		state off {
-			accept after 2 [SI::s] then on;
-		}
+		state off;
+		accept after 2 [SI::s] then on;
 		state on;
 	}
 	part def Monitor {
@@ -1024,9 +1022,8 @@ func TestReservedLookingNamesStayNames(t *testing.T) {
 	part def Cart { part 'wheel[2]' : Wheel[1..3]; }
 	state def Check {
 		entry; then checking;
-		state checking {
-			accept after 5 [SI::s] then checked;
-		}
+		state checking;
+		accept after 5 [SI::s] then checked;
 		state checked;
 	}
 	part '#3' : Wheel;
@@ -1125,9 +1122,8 @@ func TestQuotedNamesHoldingSeparatorsStayOneSegment(t *testing.T) {
 	part def Wheel { part 'in::ner' : Hub; }
 	state def Check {
 		entry; then checking;
-		state checking {
-			accept after 5 [SI::s] then checked;
-		}
+		state checking;
+		accept after 5 [SI::s] then checked;
 		state checked;
 	}
 	part 'left::right' : Wheel;

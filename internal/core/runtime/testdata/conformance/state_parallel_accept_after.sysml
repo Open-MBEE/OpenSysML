@@ -4,9 +4,8 @@ package ParallelTimed {
 	state def Machine parallel {
 		state left {
 			entry; then waiting;
-			state waiting {
-				accept after 5 [s] then ldone;
-			}
+			state waiting;
+			accept after 5 [s] then ldone;
 			state ldone;
 		}
 		state right {

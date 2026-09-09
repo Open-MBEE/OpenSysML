@@ -65,7 +65,7 @@ func inheritedVertex(body *symbols.Scope, name string, seen map[*symbols.Symbol]
 		if superBody == nil {
 			continue
 		}
-		if member, found := superBody.LookupLocal(name); found && isVertex(member.Decl) {
+		if member, found := superBody.LookupLocal(name); found && IsVertex(member.Decl) {
 			return member, true
 		}
 		if member, found := inheritedVertex(superBody, name, seen); found {

@@ -10,8 +10,8 @@ package test {
 		state start;
 		state waiting {
 			do action arm { assign ready := true; }
-			accept when ready then done;
 		}
+		accept when ready then done;
 		state done {
 			entry { assign log := log * 10 + 1; }
 		}

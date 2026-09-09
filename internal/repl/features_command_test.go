@@ -97,7 +97,8 @@ func TestFeaturesInHelpAndCompletion(t *testing.T) {
 const behaviorsModel = `private import ScalarValues::*;
 state def LampModes {
     entry; then off;
-    state off { accept after 10 [SI::s] then on; }
+    state off;
+    accept after 10 [SI::s] then on;
     state on;
 }
 part def Lamp {

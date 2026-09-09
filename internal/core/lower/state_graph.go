@@ -950,7 +950,7 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 		if !isParallelRegionMember(actual) {
 			if !parallelOwnedMember(actual) {
 				return nil, fmt.Errorf("%w: parallel state body contains unsupported member %s; a parallel state's direct substates are its orthogonal regions",
-					ErrUnsupportedStateContent, describeMember(actual))
+					ErrUnsupportedStateContent, DescribeMember(actual))
 			}
 			continue
 		}
@@ -1281,19 +1281,22 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 }
 
 // lowerTransitionMember converts a TransitionMember (parser output) to a Transition.
-// containingState is used as the source when member.Source is nil (`accept … then`, `if … then`).
+// body is the ordered body it was written in; a sourceless one leaves the member before it.
 // scope is the scope the transition was declared in.
-func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, containingState, owner ast.Node, scope *symbols.Scope) (*Transition, error) {
-	// A sourceless transition leaves the state it is written in, so the state
-	// declaring it is the source; anywhere else it names no source at all.
+func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body []ast.Node, owner ast.Node, scope *symbols.Scope) (*Transition, error) {
 	var source ast.Node
 	if member.Source == nil {
-		if containingState == nil {
-			return nil, fmt.Errorf("sourceless transition at top level has no containing state")
+		decl, err := ImplicitSource(body, member)
+		if err != nil {
+			return nil, err
 		}
-		vertex, ok := graph.findVertex(containingState)
+		if IsEntryTransition(decl, member) {
+			return nil, ErrEntryTransitionUnsupported
+		}
+		vertex, ok := graph.findVertex(decl)
 		if !ok {
-			return nil, fmt.Errorf("sourceless transition is declared in a %T that is not a state of the machine", containingState)
+			state := graph.findStateDecl(decl)
+			return nil, &TransitionSourceError{Source: decl, Region: state != nil && graph.HiddenRegionOf[state] != nil}
 		}
 		source = vertex
 	} else {
@@ -1473,7 +1476,8 @@ func collectStateTransitions(graph *StateGraph, usage *ast.Usage, owner ast.Node
 
 // collectTransitions recursively processes member lists to collect transitions.
 // Handles top-level members and region members.
-// containingState is the enclosing state for sourceless transitions (nil at top level).
+// memberList is one body in declaration order (a sourceless transition leaves the member
+// before it); containingState is the state whose body it is, nil at the top level.
 // scope is the scope the members were declared in, in which their endpoints name
 // the vertices they reach.
 // owner is the region whose body memberList belongs to, which a transition
@@ -1589,8 +1593,7 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 				graph.startsAt(memberList, containingState, scope, n.Source, n.Target) {
 				continue
 			}
-			// New: TransitionMember from parser (declarative)
-			trans, err := lowerTransitionMember(graph, n, containingState, owner, scope)
+			trans, err := lowerTransitionMember(graph, n, memberList, owner, scope)
 			if err != nil {
 				return err
 			}
@@ -1600,8 +1603,7 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 			}
 			graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
 		case *ast.StateNode:
-			// Recurse into state substates to collect transitions within the state
-			// Transitions inside this state have this state as their containing state
+			// Recurse into state substates to collect transitions within the state.
 			stateScope := graph.StateScopes[n]
 			if stateScope == nil {
 				stateScope = graph.stateScope(scope, n)
@@ -1617,8 +1619,8 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 				}
 			}
 		case *ast.StateRegion:
-			// Regions are orthogonal: a transition in one inherits no containing
-			// state, and names its vertices from the region's own scope.
+			// Regions are orthogonal: a transition in one names its vertices from
+			// the region's own scope.
 			if err := collectTransitions(graph, n.States, nil, n, childScope(scope, n)); err != nil {
 				return err
 			}

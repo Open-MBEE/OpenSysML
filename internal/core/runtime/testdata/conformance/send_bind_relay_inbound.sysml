@@ -30,9 +30,8 @@ package BindRelayInbound {
 		exhibit state sm {
 			entry; then Idle;
 
-			state Idle {
-				accept Ping via i then Got;
-			}
+			state Idle;
+			accept Ping via i then Got;
 
 			state Got {
 				entry assign got := got + 1;

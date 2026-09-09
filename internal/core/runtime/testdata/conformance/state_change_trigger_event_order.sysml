@@ -11,9 +11,8 @@ package test {
 
 		entry; then start;
 		state start;
-		state A {
-			accept after 5 [s] then late;
-		}
+		state A;
+		accept after 5 [s] then late;
 		state B;
 		state late {
 			entry { assign log := log * 10 + 8; }

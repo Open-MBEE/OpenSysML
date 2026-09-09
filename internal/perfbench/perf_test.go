@@ -696,14 +696,13 @@ func tinyModel(loop, count int) []byte {
     state def SM {
         attribute count : Integer = 0;
         entry; then s0;
-        state s0 {
-            accept after 1 [SI::s] if count < %d then s1;
-            accept after 1 [SI::s] if count >= %d then done;
-        }
+        state s0;
+        accept after 1 [SI::s] if count < %d then s1;
+        accept after 1 [SI::s] if count >= %d then done;
         state s1 {
             entry assign count := count + 1;
-            accept after 1 [SI::s] then s0;
         }
+        accept after 1 [SI::s] then s0;
     }
 }
 `, loop, chainActions(loop), chainSuccessions(loop), loop-1, count, count))

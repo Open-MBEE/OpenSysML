@@ -1,0 +1,96 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Placements" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="SI" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Go"))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Stop"))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="Bus"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Log"))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Flight"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="alt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Real
+                (*ast.QualifiedName))
+              (LiteralReal value="10.0")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="t" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Time::TimeInstantValue
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="port" name="bus" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Bus
+                (*ast.QualifiedName))))
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="coasting")
+          (SubstateMember name="coasting")
+          (TransitionMember source="" target="descent.braking"
+            (TimeEvent absolute=false
+              (IndexExpr bracket=true
+                (LiteralInteger value="5")
+                (FeatureReference name="s"))))
+          (TransitionMember source="" target="descent" via="bus" trigger="Go"
+            (OperatorExpr operator="<"
+              (FeatureReference name="alt")
+              (LiteralReal value="20.0"))
+            (Membership visibility="default"
+              (Usage kind="action" name="note" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=Log
+                  (*ast.QualifiedName)))))
+          (TransitionMember source="" target="landed"
+            (TimeEvent absolute=true
+              (FeatureReference name="t")))
+          (Membership visibility="default"
+            (Usage kind="state" name="descent" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember)
+              (SuccessionEdge source="@entry" target="gliding")
+              (SubstateMember name="gliding")
+              (TransitionMember source="" target="braking"
+                (OperatorExpr operator="<"
+                  (FeatureReference name="alt")
+                  (LiteralReal value="5.0")))
+              (TransitionMember source="" target="gliding"
+                (OperatorExpr operator=">="
+                  (FeatureReference name="alt")
+                  (LiteralReal value="5.0"))
+                (Membership visibility="default"
+                  (Usage kind="action" name="log" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=Log
+                      (*ast.QualifiedName)))))
+              (SubstateMember name="braking")
+              (TransitionMember source="" target="gliding")))
+          (SubstateMember name="landed")
+          (TransitionMember source="" target="landed"
+            (ChangeEvent
+              (OperatorExpr operator="<="
+                (FeatureReference name="alt")
+                (LiteralReal value="0.0"))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Lander"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="ready" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Boolean
+                (*ast.QualifiedName))
+              (LiteralBool value=false)))
+          (Membership visibility="default"
+            (Usage kind="state" name="modes" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="exhibit state" parallel=true
+              (Membership visibility="default"
+                (Usage kind="state" name="motion" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember)
+                  (SuccessionEdge source="@entry" target="still")
+                  (SubstateMember name="still")
+                  (TransitionMember source="" target="moving" trigger="Go")
+                  (TransitionMember source="" target="still" trigger="Stop")
+                  (SubstateMember name="moving")))
+              (Membership visibility="default"
+                (Usage kind="state" name="power" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember)
+                  (SuccessionEdge source="@entry" target="off")
+                  (SubstateMember name="off")
+                  (TransitionMember source="" target="on"
+                    (FeatureReference name="ready"))
+                  (SubstateMember name="on"))))))))))

@@ -2,9 +2,8 @@ package CallTriggers {
     state Controller {
         entry; then start;
         state start;
-        state idle {
-            accept brake() then stopping;
-        }
+        state idle;
+        accept brake() then stopping;
         state stopping;
         state cruising;
 

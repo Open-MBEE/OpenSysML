@@ -163,7 +163,8 @@ package Shared {
 		attribute lit : Boolean = false;
 		exhibit state glow {
 			entry; then off;
-			state off { accept after 3 [s] then on; }
+			state off;
+			accept after 3 [s] then on;
 			state on { entry assign lit := true; }
 		}
 		action peek {

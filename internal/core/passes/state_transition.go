@@ -33,6 +33,14 @@ const CodeAccepterSourceNotState = "accepter-source-not-state"
 // msgAccepterSourceNotState is the pilot's wording of the same rule.
 const msgAccepterSourceNotState = "A transition with an accepter must have a state as its source."
 
+// CodeNoTransitionSource marks a transition written without a source that no
+// member precedes in its body (SysML v2 §7.18.3, TargetTransitionUsage).
+const CodeNoTransitionSource = "no-transition-source"
+
+// CodeTransitionSourceNotVertex marks a transition written without a source
+// whose preceding member is not a vertex of the machine (SysML v2 §7.18.3).
+const CodeTransitionSourceNotVertex = "transition-source-not-vertex"
+
 // StateTransitionPass checks that every transition names one source and one
 // target vertex of its own machine (UML 2.5.1 §14.2.3.9), and that a routing
 // pseudostate is left by one (§15.7.18).
@@ -287,16 +295,17 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		}
 		switch n := decl.(type) {
 		case *ast.TransitionMember:
-			// A sourceless `accept … then` takes the state it is written in as its
-			// source (SysML 7.19.3), which names a vertex by construction.
-			if n.Source != nil {
-				if c.checkAccepterSource(scope, n) {
-					c.checkEndpoint(m, scope, n.Target, true, nil)
-					continue
-				}
-				bare := n.Trigger == nil && n.Guard == nil && len(n.Effect) == 0
-				m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
+			if n.Source == nil {
+				c.checkImplicitSource(m, members, n)
+				c.checkEndpoint(m, scope, n.Target, true, nil)
+				continue
 			}
+			if c.checkAccepterSource(scope, n) {
+				c.checkEndpoint(m, scope, n.Target, true, nil)
+				continue
+			}
+			bare := n.Trigger == nil && n.Guard == nil && len(n.Effect) == 0
+			m.markLeft(c.checkEndpoint(m, scope, n.Source, false, c.startsOf(m, scope, n.Target, bare, starts)), n.Source)
 			c.checkEndpoint(m, scope, n.Target, true, nil)
 		case *ast.SuccessionEdge:
 			// `succession first off then busy;`, whose source is elided by the `entry; then off;` form.
@@ -338,6 +347,28 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 			}
 		}
 	}
+}
+
+// checkImplicitSource checks that the member before a sourceless transition in its body,
+// the source it leaves (SysML v2 §7.18.3), is a vertex of the machine, as lowering requires.
+func (c *transitionChecker) checkImplicitSource(m *machine, members []ast.Node, n *ast.TransitionMember) {
+	source, err := lower.ImplicitSource(members, n)
+	if err != nil {
+		c.report(n.Span(), CodeNoTransitionSource, err.Error())
+		return
+	}
+	if m.vertices[source] {
+		m.markLeft(source, nil)
+		return
+	}
+	// `entry; if c then s;` leaves the entry action: a guarded entry transition.
+	if lower.IsEntryTransition(source, n) {
+		return
+	}
+	// A state of the body that is no vertex is a region of a parallel state.
+	region := resolve.IsVertex(source) && !isMarker(source)
+	c.report(n.Span(), CodeTransitionSourceNotVertex,
+		(&lower.TransitionSourceError{Source: source, Region: region}).Error())
 }
 
 // startsOf returns the entry actions a transition of this shape may leave: only a

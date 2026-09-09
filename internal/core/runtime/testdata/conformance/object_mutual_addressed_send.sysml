@@ -15,8 +15,8 @@ package test {
 
 				state sending {
 					entry send new Ping() to b;
-					accept Pong then answered;
 				}
+				accept Pong then answered;
 				state answered;
 			}
 		}
@@ -25,9 +25,8 @@ package test {
 			exhibit state replying {
 				entry; then waiting;
 
-				state waiting {
-					accept Ping then replied;
-				}
+				state waiting;
+				accept Ping then replied;
 				state replied {
 					entry send new Pong() to a;
 				}

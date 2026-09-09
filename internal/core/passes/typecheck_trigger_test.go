@@ -661,20 +661,19 @@ func TestTriggerBareWhenTransition(t *testing.T) {
 // A trigger written on an accept action — in a state body, as an action node,
 // or with a named payload parameter — is checked like a transition's.
 func TestTriggerOnAcceptActions(t *testing.T) {
-	wantTriggerSilent(t, `state c {
-		accept after 5 [s] then b;
-		accept at t then b;
-		accept when x > 3 then b;
-	}
+	wantTriggerSilent(t, `state c;
+	accept after 5 [s] then b;
+	accept at t then b;
+	accept when x > 3 then b;
 	do action body {
 		action w1 accept after 5 [s];
 		action w2 accept at t;
 		action w3 accept when flag;
 		action w4 accept p after Twice(d);
 	}`)
-	wantTriggerDiag(t, "state c { accept after 5 then b; }", "trigger-after-duration", "found Natural")
-	wantTriggerDiag(t, "state c { accept at d then b; }", "trigger-at-time-instant", "found DurationValue")
-	wantTriggerDiag(t, "state c { accept when x then b; }", "trigger-when-boolean", "found Integer")
+	wantTriggerDiag(t, "state c; accept after 5 then b;", "trigger-after-duration", "found Natural")
+	wantTriggerDiag(t, "state c; accept at d then b;", "trigger-at-time-instant", "found DurationValue")
+	wantTriggerDiag(t, "state c; accept when x then b;", "trigger-when-boolean", "found Integer")
 	wantTriggerDiag(t, "do action body { action w accept p after 5 [m]; }", "trigger-after-duration",
 		"found a quantity in metre (a LengthUnit)")
 }

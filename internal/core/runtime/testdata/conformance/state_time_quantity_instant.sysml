@@ -10,9 +10,8 @@ package test {
 
 		entry; then start;
 		state start;
-		state waiting {
-			accept at due then done;
-		}
+		state waiting;
+		accept at due then done;
 		state done {
 			entry { assign log := log * 10 + 1; }
 		}

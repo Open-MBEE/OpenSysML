@@ -51,13 +51,27 @@ and the machine completes only once every region has reached it.
 sysml> state TrafficLight {
   ...>     entry; then start;
   ...>     state start;
-  ...>     state green { accept after 25 [SI::s] then yellow; }
-  ...>     state yellow { accept after 5 [SI::s] then red; }
-  ...>     state red { accept after 30 [SI::s] then done; }
+  ...>     state green;
+  ...>     accept after 25 [SI::s] then yellow;
+  ...>     state yellow;
+  ...>     accept after 5 [SI::s] then red;
+  ...>     state red;
+  ...>     accept after 30 [SI::s] then done;
   ...>     succession first start then green;
   ...> }
 ✓ state TrafficLight
+```
 
+A transition written without `transition … first`, as the three `accept after … then …`
+lines above are, leaves the state declared right before it in the same body (SysML v2
+§7.18.3): `accept after 25 [SI::s] then yellow;` leaves `green` because `state green;`
+precedes it. Several such transitions in a row all leave the same state, and the shorthand
+takes the same triggers (`accept Signal`, `accept after`, `accept at`, `accept when`), guards
+(`if …`) and effects (`do …`) as the full form. It has to follow the state it leaves
+directly, so write it in the body that declares that state, not inside the state's own body;
+written first in a body, or after a member that is not a state, it is reported.
+
+```sysml
 sysml> %state TrafficLight
 ✓ Started state machine executor for "TrafficLight"
   Current state: start
@@ -621,10 +635,8 @@ sysml> part def Monitor {
   ...>     attribute count = 0;
   ...>     exhibit state modes {
   ...>         entry; then idle;
-  ...>         state idle {
-  ...>             entry action bump { assign count := count + 1; }
-  ...>             accept after 10 [SI::s] then awake;
-  ...>         }
+  ...>         state idle { entry action bump { assign count := count + 1; } }
+  ...>         accept after 10 [SI::s] then awake;
   ...>         state awake { entry action mark { assign count := count + 10; } }
   ...>     }
   ...>     action bumpBy { in n; action apply { assign count := count + n; } first apply; then done; }

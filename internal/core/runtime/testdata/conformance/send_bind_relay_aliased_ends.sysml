@@ -29,14 +29,13 @@ package BindRelayAliasedEnds {
 		exhibit state sm {
 			entry; then Idle;
 
-			state Idle {
-				accept Ping via i then Got;
-			}
+			state Idle;
+			accept Ping via i then Got;
 
 			state Got {
 				entry assign got := got + 1;
-				accept Ping via i then Twice;
 			}
+			accept Ping via i then Twice;
 
 			state Twice {
 				entry assign got := got + 1;

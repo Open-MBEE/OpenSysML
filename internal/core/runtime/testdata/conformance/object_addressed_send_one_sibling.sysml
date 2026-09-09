@@ -21,9 +21,8 @@ package test {
 			exhibit state listening {
 				entry; then waiting;
 
-				state waiting {
-					accept Ping then heard;
-				}
+				state waiting;
+				accept Ping then heard;
 				state heard;
 			}
 		}
@@ -32,9 +31,8 @@ package test {
 			exhibit state listening {
 				entry; then waiting;
 
-				state waiting {
-					accept Ping then heard;
-				}
+				state waiting;
+				accept Ping then heard;
 				state heard;
 			}
 		}
