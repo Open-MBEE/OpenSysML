@@ -3301,9 +3301,10 @@ export const QueryResultElementSchema: GenMessage<QueryResultElement> = /*@__PUR
 
 /**
  * SweepRange is one parameter's range: the endpoints a swept run advances
- * between and the step it advances by. A sampled range states no step; a swept
- * range between Integers steps by one where it states none, and one between
- * reals must state one.
+ * between and the step it advances by, typed by the parameter it binds rather
+ * than by how they are written. A sampled range states no step; a swept range
+ * between whole numbers steps by one where it states none, and one with a
+ * fractional endpoint must state one.
  *
  * @generated from message sysml.SweepRange
  */

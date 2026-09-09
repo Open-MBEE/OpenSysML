@@ -1278,9 +1278,13 @@ The same request as `RunAnalysis` — `symbolId` naming an analysis case **or** 
 `subjectSymbolId`, `arguments`, `namedArguments` — plus `ranges`, and `samples` with `seed`.
 Each `SweepRange` names a `parameter` the target declares and the arguments do not bind, with
 `start`, `end` and an optional `step` as `Value`s; `end` is included where the step lands on it,
-a range between Integers with no step steps by one, and one between Reals with no step is
-refused. The response's `parameters` are the swept parameters in request order and `rows` is one
-run each, in lexicographic order over them (the first range varying slowest). A row carries the
+a range between whole numbers with no step steps by one, and one with a fractional endpoint and
+no step is refused. The row values are typed by the parameter each range binds, not by the
+`Value`s the range is written with: a `Real` parameter swept over Integer `start`/`end` binds
+and reports Reals, an `Integer` one over integral Reals binds Integers, and a range the
+parameter's type cannot take is refused before any row runs. The response's `parameters` are
+the swept parameters in request order and `rows` is one run each, in lexicographic order over
+them (the first range varying slowest). A row carries the
 `inputs` bound for that run, its `outputs` (a calc's returned value under `result`, as
 `EvaluateCalc` reports it), its `verdicts` where the case has an objective, its `evaluations`
 where the case applied one of its own calcs as a value ([Case evaluations](#case-evaluations), a
