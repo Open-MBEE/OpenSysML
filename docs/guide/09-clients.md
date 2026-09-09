@@ -232,6 +232,17 @@ several documents, `ExecuteAction` and `ExecuteState`, `VerifyConstraint`, `Veri
 `Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
 an unsupported operator is a compile error rather than a refused call.
 
+A run with [more than one valid order](06-behavior.md#when-a-model-has-more-than-one-valid-run)
+is scheduled by the same spellings `sysml -schedule` takes: `ExecuteAction` and `ExecuteState` take
+`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`), `RunAnalysis`
+takes `opensysml.Schedule(...)`, and `ExploreAction`, `ExploreState` and `ExploreAnalysis` run
+every linearization under `"explore"` — the default when no policy is given — or
+`"explore:runs=N,depth=D"`, answering an `*Exploration` (`Outcomes`, each with `Linearizations`,
+`Witness` and `Failed()`; `Complete`, `Runs`, `BudgetsHit`, `Status()`). Handing `explore` to
+`ExecuteAction`, or a one-run policy to `ExploreAction`, is refused with `CodeInvalidArgument`
+before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
+refuses with `CodeUnimplemented`.
+
 `Dial("host:50051")` is the other constructor, for a shared `sysml-grpc` that someone else runs.
 This package never spawns a service of its own, because a private child would only be serving the
 same code `New` already calls directly.
@@ -482,6 +493,25 @@ model.execute_state("Demo::Machine", events=["go"])            # {'states_visite
 `execute_action` and `execute_state` treat their result maps the same way:
 a value the wire format cannot represent is reported as an
 `UnsupportedValueError` in that entry, leaving the other entries intact.
+
+Both take a `schedule=` — `"declared"`, `"reverse"` (the default) or `"seed:<n>"`, the spellings
+`sysml -schedule` takes — for a run with [more than one valid
+order](06-behavior.md#when-a-model-has-more-than-one-valid-run); `run_analysis` takes the same.
+The `explore` policy answers every outcome rather than one run's, so it has methods of its own:
+
+```python
+exploration = model.explore_action("Demo::race")          # schedule="explore" by default
+for outcome in exploration:                               # canonical order, the same every time
+    print(outcome.outputs, outcome.linearizations, outcome.witness)
+exploration.complete, exploration.runs, exploration.budgets_hit   # (True, 6, [])
+model.explore_action("Demo::race", schedule="explore:runs=2").budgets_hit   # ['runs']
+```
+
+`explore_state` and `explore_analysis` are the state-machine and analysis-case forms; an outcome
+of a machine carries `final_state` and `states_visited`, and a run that failed under some order is
+an outcome with `error` set. Passing `"explore"` to `execute_action` (or a one-run policy to
+`explore_action`) raises `ValueError` before anything is sent; a service predating the
+`schedule` or `schedule_explore` capability raises `MissingCapabilityError`.
 
 Every call about a loaded model is a `Model` method. The module-level
 `opensysml.instantiate`, `opensysml.evaluate` and `opensysml.convert` are still available for
@@ -997,7 +1027,10 @@ That needs a service that allows the page's exact origin (`sysml-grpc -cors-allo
 https://app.example.com`, never `*`), and TLS if an HTTPS page is to reach it at all.
 
 The ergonomic layer covers `GetServerInfo`, `ParseFile`, `GetSymbol`, `Evaluate` and `Instantiate`;
-`connection.rpc` is the generated Connect client and reaches everything else.
+`connection.rpc` is the generated Connect client and reaches everything else — the `schedule`
+field of `ExecuteActionRequest`, `ExecuteStateRequest` and `RunAnalysisRequest` and the `outcomes`
+and `exploration` an `"explore"` schedule answers with are read there, as the [wire
+contract](../reference/wire-contract.md) spells them; the ergonomic layer has no method for them.
 [The Node API reference](../reference/node-api.md) documents the exports, the errors and the binary
 resolution.
 
@@ -1032,6 +1065,11 @@ each own one and share nothing, while every connection made through one copy of 
 child and therefore its parse cache. Call `Connection.stopSharedServices()` from a plugin's `stop()`
 or a `ServletContextListener`, since unloading a classloader does not by itself stop the child.
 
+The typed surface stops short of execution (`ExecuteAction`, `ExecuteState` and `RunAnalysis` are
+among what v1 does not do), so nothing here takes a `schedule` or reads `outcomes`;
+`Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` only name the two capabilities a
+service advertising scheduling policies reports.
+
 [The Java API reference](../reference/java-api.md) documents the surface, the exceptions and the
 options.
 
@@ -1058,7 +1096,10 @@ port)` and `Connection::connect()` (which honours `$OPENSYSML_SERVICE`) are the 
 `Drop` releases a private child deterministically, and the stdin pipe the client holds is what
 makes cleanup survive a `SIGKILL`. `Error` is one enum over every failure, keeping `Error::Service`
 (refused) apart from `Error::Model` (answered, and the answer reports a model failure), and every
-domain type exposes `wire()` for any field the typed surface does not carry yet.
+domain type exposes `wire()` for any field the typed surface does not carry yet. Execution is not
+covered by v1 at all, so there is no `schedule` to set: the `opensysml::wire` module carries the
+generated `ExecuteActionRequest` with its `schedule` field and the `Outcome` and
+`ExplorationStatus` messages, but no method sends them.
 
 [The Rust API reference](../reference/rust-api.md) documents the API, the error variants and the one
 gap in its release verification.
