@@ -7,6 +7,265 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+## 0.7.0 — 2026-09-09
+
+### Added
+
+- **A conformance case can admit several outcomes and constrain the order of its trace.** Where
+  the Kernel Semantic Library leaves more than one result open, `.expected.json` lists every
+  admissible result under `outcomes` and must cite, in `admissible`, the section of the behavior
+  semantic oracle deriving them; the run must match exactly one, and a missing or unresolvable
+  citation fails the case. A `<case>.trace.order` file of `a < b` lines states the partial order
+  the recorded trace must satisfy, beside or instead of an exact golden. The fork case that writes
+  one feature from two branches now admits both `x = 1` and `x = 2`; the default schedule and every
+  exact golden are unchanged.
+
+- **A parameter of an analysis case or a calc can be swept or sampled, and each run is reported as a row.** `sysml -sweep "<param>=<from>..<to>[:<step>]"` runs the `-analysis` case or the `-calc` once per value of the range instead of once — several `-sweep` flags run their cartesian product, the first flag varying slowest — and prints the inputs bound for each run, what it computed, the objective's verdict and how long it took, as a text table or inside the existing `-json` report. `-samples <n> -seed <s>` draws `n` uniform values from each range instead of enumerating it, deterministically from the seed and in draw order, and echoes the seed with the table. `%sweep` and `%samples` do the same in the REPL, the `RunSweep` RPC over gRPC, and `Model.run_sweep` in the Python client. Each row is an ordinary run of the case with that value bound and every other argument as given, so a run that fails is a row carrying its error rather than the end of the table, and `OPENSYSML_MAX_SWEEP_RUNS` bounds how many runs one table may make. An endpoint carries the units an argument carries, a range between Integers with no step steps by one, and a range between Reals with no step, a step of zero, a step whose sign never reaches the end, a parameter the target does not declare or the arguments already bind, and a distribution asked for by name are refused as typed errors.
+
+- **`x as T` is evaluated.** A cast selects the values of `x` that `T` classifies, in order, and
+  answers the empty sequence when none does, so `4.0 as Integer` is `4.0`, `2.5 as Integer` is
+  `()` and `(1, 2.5, 3) as Integer` is `(1, 3)`. Scalars are judged by their magnitude against
+  the `ScalarValues` hierarchy, quantities by whether their unit is commensurable with the
+  dimension the target fixes, arrays, vectors, vector and tensor quantities, measurement
+  references, frames and transformations by their shape, units and frame, and objects and
+  enumeration literals by the types they carry.
+  A type composed of others classifies as they do — the values of a union are those of any of the
+  types it unions, of an intersection those of every type it intersects, of a difference those of
+  the first that are none of the rest, however deeply nested — so a cast to one keeps them, the
+  feature it is written to holds them, and `istype` answers for them; casting a value of a union to
+  one of its members is not reported as unrelated either, nor is casting a value to a type composed
+  of one it relates to.
+  A composed target a value's types leave open is read through its operands, so a bare quantity
+  cast to a union of quantity types is kept by the operand whose reference its unit matches, and an
+  operand the value settles nothing about is reported as undecided only where no other operand
+  excludes the value outright.
+  A composed type weighs all the types a value is of at once, whether they are the types a runtime
+  value carries or those its feature is declared with, so an object held as a type a
+  difference subtracts is none of its values, whether the difference is the target, one it
+  specializes, or one an intersection of it reaches.
+  Every type a value's feature is declared with counts among the types it is of, so a custom scalar
+  subtype (`attribute e : Even = 4`) and a scalar-valued enumeration keep the values declared with
+  them — a written sequence entry by entry, each judged by its own declaration however many values
+  it holds and however deeply nested, so `(GradePoints::a, GradePoints::b) as GradePoints` keeps
+  both and no entry is judged by another's type — and a quantity subtype narrowing its dimension by something a magnitude and a unit do not
+  state keeps a value declared with it. An expression written as a value is kept by the evaluation
+  type it is read as, a boolean body by `BooleanEvaluation`.
+  A cast converts nothing: `ToInteger` and its siblings remain the library functions that do.
+  A target that neither a value's types nor its content settles is reported rather than silently
+  dropping the value.
+- **Classifying a value is model-level evaluable.** `as`, `istype` and `hastype` read the type they
+  name rather than folding their operand, so a metadata body may bind `x = 1 as Integer`.
+
+- **A wire `Diagnostic` carries its `code`.** The gRPC/Connect `Diagnostic` message gains
+  `string code = 4`, the stable identifier the runtime already assigns: `syntax` for a parse
+  error, the pass or rule code for a validation finding, `choice-point` and `guard-unevaluable`
+  for a run's notes. Every response that carries diagnostics carries it, so a client branches on
+  `code` instead of a message prefix; a diagnostic whose producer assigned no code sends it empty.
+  A service that populates it advertises the `diagnostic_codes` capability. The Go, Python,
+  Node, Rust and Java clients expose it as `Diagnostic.code` and name the capability.
+
+- **The executors report every choice point: a pick among alternatives the library leaves
+  unordered.** Several steppable tokens in one action step, several holding guards at a decision
+  node, several enabled transitions out of one state for one event or one change, and several
+  tokens writing one feature in one step are each recorded as a `choice` trace line naming the alternatives and the
+  one taken (`choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)`), as an
+  informational diagnostic on `ExecuteAction`, `ExecuteState` and `RunAnalysis` responses, and as
+  one summary line after `%step`, `%continue` and `%advance` (`2 choice points; %trace on to see
+  them`). What the executor does is unchanged — reverse token order, first holding guard, first
+  declared transition — so every existing result and trace is the same: the guards and
+  transitions after the first that holds are read in a preview that is undone, and one that
+  cannot be evaluated there is not an alternative and not an error but an informational
+  `guard-unevaluable` diagnostic, an `unevaluable guard` trace line and a count in the summary
+  (`1 guard not evaluable`). Writes to the performing part and through a feature chain count as
+  the object's, so two chains reaching one object in one step are one conflict, as are a feature
+  and one redefining it; a step's writes to one feature are one choice listing every token's last
+  write, recorded once the step is complete. The
+  innermost-transition-wins rule between a substate and the state enclosing it is spec-defined
+  order and is not reported.
+
+- **A calc is a value.** A calc definition, a calc usage awaiting an input, or an `in calc` parameter named where a value is expected is a function value: the calc together with the scope and object it was read in, invoked through a calc-typed parameter (`calc def Fn { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }` makes `Fn(Sq, 3.0)` `9.0`), passed positionally or by name, read off a part, returned from a calc, compared and adopted. `SampledFunctions::Sample` now samples a user calc, and a library function the runtime implements (`RealFunctions::sqrt`) is a value too. A calc declared in a behavior body closes over the innermost active run of that behavior alone — never a caller's parameters, and nothing when no such run is active. Calling a non-function, an arity mismatch and an unbound calc parameter are typed errors; `in calc` parameters parse in action bodies as they do in calc bodies. A call through a feature chain (`holder.scale(3.0)`) is now checked statically as a direct call is — arguments against the calc feature's inputs, the result against the declared type it binds to — applies the calc even when defaults supply every input or it has none (`holder.scaled()`, where the bare read `holder.scaled` computes its result), and a typed feature valued by such a call (`item t : Tallied = picker.pick(lead, trail)`) classifies the argument the calc returns as one valued by a direct call does.
+- **Function values cross the API.** `Value.function` carries the calc's qualified name and the id of the object it was read off, under the new `function_values` capability, which the Go, Python, Node, Rust and Java clients expose as a typed value and refuse to send to a service without the capability. A function closing over a behavior body's bindings crosses as an unsupported null, since no name reconstructs it; one read off an object is refused as an argument to a later call, since that object lived only within the response that sent it. Native compilation refuses a calc that binds or applies a function value with a typed error.
+
+- **`*` is a value.** In an expression position `*` evaluates to the unbounded value: it exceeds
+  every finite Integer, Real and Natural, equals itself, prints as `*` in the REPL and in traces,
+  and crosses gRPC on its own `Value.infinity` arm under the `infinity_value` capability — never
+  as the ordinary string `"*"`. Arithmetic over it is refused with a typed error naming the
+  operation rather than an infinity or a NaN.
+- **`elem.metadata` reads an element's metadata.** `ref.metadata` yields the metadata annotating
+  the element as a sequence of metadata instances, in declaration order, with the feature values
+  the annotation body binds and the metadata type's own defaults where it binds none. An element
+  with no metadata yields the empty sequence, and reading metadata off a value is a typed error.
+
+- **The `explore` scheduling policy runs every linearization of a behavior and tables its
+  distinct outcomes.** `sysml -schedule explore[:runs=N,depth=D]` with `-action`, `-state`,
+  `-analysis` or `-calc` runs the behavior once, recording the alternative taken at each choice
+  point, then replays it from the start on a fresh executor of the same loaded model — no object,
+  message, clock, calc memo or note of one run is seen by the next — following the recorded prefix
+  and taking the next untried alternative at the frontier, depth-first, until every choice
+  sequence is spent or a budget is hit. Runs that agree on the observables the conformance
+  harness compares (an action's outputs; a state machine's final state, states visited and values;
+  an analysis case's outputs and verdicts) are one outcome; the report is one sorted row per
+  distinct outcome with the number of linearizations reaching it and the choice sequence of one
+  witness, then `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`
+  (1024 runs and 64 choice points per run by default; hitting either is exit status `2`, never a
+  silent truncation). A run that fails under some order is an outcome of its own (`error: …`), a
+  behavior with no choice point explores in exactly one run, and `-trace` prints the witness run's
+  trace under each outcome. `-json` carries the rows as `outcomes` and the status as `exploration`.
+  The REPL refuses `%schedule explore` with a typed error naming the CLI and the wire, since its
+  `%action` and `%state` debuggers step one run. On the wire, `ExecuteActionResponse`,
+  `ExecuteStateResponse` and `RunAnalysisResponse` gain repeated `outcomes` (observables,
+  `linearizations`, `witness`, `diagnostics`, `error`) and an `exploration` status (`complete`,
+  `runs`, `budgets_hit`, `runs_budget`, `depth_budget`), advertised as the `schedule_explore`
+  capability beside `schedule`; the Go client adds `ExploreAction`, `ExploreState` and
+  `ExploreAnalysis`, the Python client `explore_action`, `explore_state` and `explore_analysis`,
+  and the Node, Java and Rust clients the capability name. A malformed spelling — `explore:`,
+  `explore:runs=0`, `explore:depth=-1`, an unknown or repeated option — is refused before anything
+  runs on every surface.
+- **A conformance case that lists `outcomes` is now explored, and the list is exact.** The
+  harness runs every such case under `explore`, failing when a listed outcome is unreachable or
+  an unlisted one is reached (naming the outcome and a witness choice sequence), and when the
+  budget is hit, telling the author to raise it with `"exploreBudget": {"runs": N, "depth": D}`.
+  Three cases derive their outcome sets in the behavior semantic oracle: three concurrent writers
+  of one feature (six linearizations, three outcomes), a decision with two overlapping guards
+  inside a loop, and a state machine with two transitions enabled by one event; a fourth lists both
+  orders in which one event's transitions in two sibling regions fire, an order the library leaves
+  open, which `explore` varies as a `ChoiceRegionOrder` choice point while the fixed policies keep
+  region declaration order and report none. Exploring the
+  whole suite found one case pinning a scheduling artefact — two accepts on one port, addressed
+  by two sends, binding one `value` whose last writer is open — and it is restated as the two
+  outcomes the oracle derives. Cases without `outcomes` are not explored, and nothing changes
+  under the default schedule.
+
+- **The scheduling policy a run resolves its choice points under is selectable.** Where the
+  library orders nothing — several steppable tokens in one step, several holding guards at a
+  decision, several enabled transitions out of one state for one event, and so whose same-step
+  write to one feature stands — the executors follow a named policy: `reverse` (the default:
+  reverse token order, first holding guard, first enabled transition, so every existing result and
+  trace is unchanged), `declared` (tokens in spawn order, guards and transitions in declaration
+  order) or `seed:<n>` (a pseudo-random order the seed fixes, so one seed replays one run on every
+  platform and two seeds may take two linearizations). The spelling is the same everywhere: `sysml
+  -schedule <policy>` for `-action`, `-state` and `-analysis` (a calc's body performs nothing, so
+  `-calc` has no choice to make); `%schedule [<policy>]` in the REPL, shown with no argument and
+  applied to the runs started after it while a debugging session under way keeps its own; a
+  `schedule` field on `ExecuteActionRequest`, `ExecuteStateRequest` and `RunAnalysisRequest`,
+  empty for the default and advertised as the `schedule` capability, with the Go and Python
+  clients taking it as an option (`opensysml.WithSchedule`, `opensysml.Schedule`, `schedule=`);
+  and a `schedule` pin on a conformance case, which the harness runs under. A policy changes only
+  which alternative each choice takes: every choice point a run reaches is reported and each `took
+  …` is what the policy took, though another linearization may reach other choice points. A
+  spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`,
+  `seed:abc` — is refused before anything runs, as `INVALID_ARGUMENT` on the wire. The conformance
+  suite also runs whole under `declared` and `seed:1`, requiring every case that pins no policy
+  and lists no `outcomes` to produce its default outputs. Two accepts racing for two sends now
+  list both pairings as `outcomes`, with the derivation in the semantic oracle; a send to a
+  same-named port pins `reverse` until the via-less accept that over-matches it is fixed.
+
+- **A `Collections::Set` holds a set.** Where the Kernel Data Type Library declares a collection's `elements` unique and unordered — `Set`, `UniqueCollection`, `Map` — the runtime now holds them as a set value: each member once, `size` counting members, equality that ignores the order the members were written in, and `contains`/`containsAll` as membership. A set consumed by an ordered operation (`collect`, `head`, `#`, a comparison against a sequence, a trace, a write into an `ordered` or `nonunique` feature) enumerates in one canonical order — Booleans, then numbers ascending, strings, quantities, enumeration literals, objects — so equal sets behave alike. What the library declares ordered or nonunique (`Bag`, `List`, `Array`, `OrderedSet`, `OrderedMap`, every `SequenceFunctions` result) is unchanged.
+- **Tensor quantities of any rank.** A `TensorMeasurementReference` with three or more `dimensions` builds a rank-three-or-higher tensor whose `#` takes one index per dimension; the wrong number of indexes, an index out of its dimension's range, a non-Integer index, a component count off the flattened size and arithmetic between two shapes are each a typed error naming what was wrong, and the shape survives `+`, `-` and the scalar multiplications.
+- **Sets and tensor quantities cross gRPC whole.** `Value` gains a `set` arm (the members as `Value`s, in canonical order, readable in any order, a repeated member refused by the service and by every client) and a `tensor_quantity` arm (`dimensions` and one `Quantity` per row-major component, at any rank), advertised as the `set_values` and `tensor_values` capabilities. The Go, Python, Node, Rust and Java clients decode both to native types that check their own invariants, send them as calc arguments and refuse them to a service that does not advertise the capability; a service withholding one reports the unsupported null it always did. Neither value has an RDF literal form — the mapping writes the model's expressions, which round trip exactly — and neither compiles natively: `sysml -compile` refuses a calc that uses one with a typed error naming the type.
+
+- **One simulation clock, owned by the runtime context, that actions and state machines wait
+  on together.** Simulation time is a property of the runtime a behavior runs in, no longer of
+  one state machine's executor: every state machine and action a context runs — the ones
+  `%action`/`%state` debug, the ones an object exhibits, the ones a body performs — reads the same
+  clock (`Context.Clock()`, in `SI::s`), so two machines materialized in one context share time,
+  and a nested performance runs on the enclosing clock rather than a copy. An action body now
+  waits on it: `accept after <duration>` parks the token until the clock has moved that far from
+  the moment the accept was reached, `accept at <instant>` until the clock reads the instant (one
+  already passed is due at once), with the unit conversion and the `DurationValue`/`TimeInstantValue`
+  refusal a transition's trigger gets; an action running on its own moves the clock to each wait
+  as it reaches it. Advancing moves everything: `Context.Advance(duration)` runs every state
+  event, action token, change-condition poll and do round due up to the new instant, instant by
+  instant, within the event, do-step and step budgets, and returns what it moved. `-advance` no
+  longer needs `-state`: it runs the invocation's `-action` and `-state` behaviors together on the
+  one clock (an action sending a signal a machine accepts after a delay), and an action still
+  parked on the clock when the time is up is reported as undecided with the instant it waits for;
+  `%advance` moves the clock of the session's runtime, so an `%action` debugger parked at
+  `accept after 5 [SI::s]` and a `%state` debugger both move and the report covers each, and
+  `%step` on a token waiting only on time says so and names the `%advance` that would move it.
+  Which executor runs first when several are due at one instant — an action token and a state
+  transition, two machines, two actions, two executors polling a change condition once the
+  definite work at the instant has settled — is a new choice point, `due order`, drawn by the
+  scheduling policy (`choice at t=5.0: due action watcher, state machine blinking of object #1
+  (unordered; ran state machine blinking of object #1 first)`): the executor started last runs
+  first under the default `reverse`, the first started under `declared`, a draw under `seed:<n>`;
+  one executor alone due is no choice and is not reported, so every existing single-behavior
+  result and trace is unchanged; `explore` enumerates every due order like every other choice
+  point, and `sysml -schedule explore -action … -state … -advance <time>` tables the joint outcome
+  of the behaviors run on one clock, each behavior's observables under its name, once per order the
+  due executors can run in. `ExecuteActionResponse` and `ExecuteStateResponse` report
+  `final_time`, the clock's reading when the run ended, advertised as the `final_time` capability
+  (`CAPABILITY_FINAL_TIME`, `Capabilities.FINAL_TIME`) and read by the Python client's
+  `execute_state` result and by the generated response types of the Node, Java and Rust clients. The
+  robustness case that pinned the old refusal of a time trigger in an action body
+  (`action_accept_time_trigger`) is replaced by `action_accept_time_waits` and `clock_advance`,
+  which pin the waits firing, a negative, infinite or not-a-number duration and one leading past
+  the last instant the clock can hold (each refused, the clock unmoved), a duration of another
+  dimension, an instant already past, a wait beyond the advance, an advance of zero, one with
+  nothing waiting, and a wait met in a flow a body runs or in an action a node performs, which
+  pauses the token's work until the clock reaches it rather than moving the clock past a bounded
+  advance's deadline.
+
+- **A trade study runs as the library writes it.** Running a `TradeStudies::TradeStudy` definition or usage through `-analysis`, `%analysis`, `RunAnalysis` or a sweep over them executes the library's own expressions rather than a special case: the subject binds `studyAlternatives`, the case's `evaluationFunction` binds `tradeStudyObjective.eval` as a function value, `MinimizeObjective`/`MaximizeObjective` compute `best` with `->minimize {in x; eval(x)}`/`->maximize`, the inherited `require constraint { eval(selectedAlternative) == best }` is checked as the objective's own condition, and `selectedAlternative` is the first alternative `->selectOne` finds it holding for. The general rules this needed: a domain library's calc executes from its text as a model's does; an inherited expression reads a feature through the running case's redefinition of it (`studyAlternatives` is the case's `subject`); a requirement usage applies as a predicate with its subject as its first parameter (`tradeStudyObjective(selectedAlternative = a)`); and a redefinition stating no multiplicity inherits the redefined feature's, so `subject : Engine = (a, b);` is `[1..*]`. Every application of the case's calc is reported with the run, in subject order, with its result or error and marked `[selected]` for the one `selectOne` picked and the case returned (never for a result that merely equals an argument) and `[tied]` for a later one scoring the same; an alternative whose evaluation fails, an `evaluationFunction` left without a body and a subject listing no alternative or redeclared `[1]` are typed errors that leave the objective undecided, never a fabricated pick. A run one of whose outputs fails keeps the outputs and evaluations it reached but leaves every objective and assertion undecided for the failure, and each evaluation is reported once per distinct binding of the calc's parameters, its arguments spelled by parameter position. The trace shows each alternative scored and the pick in that order.
+- **Case evaluations cross the API.** `RunAnalysisResponse.evaluations` and each `SweepRow.evaluations` carry one `CaseEvaluation` per application — the calc's id, its arguments (an alternative as an `instance_id` resolving in `instances`), the result or an `error`, `selected` and `tied` — under the new `case_evaluations` capability, kept on a failed run beside the outputs and verdicts it reached; `-json` writes the same `evaluations` on each check and sweep row. The Go package exposes them as `Analysis.Evaluations`/`Selected()` (`Evaluation`, its alternatives resolved by `Analysis.Instance`) and a failed run as `*AnalysisError`, whose `Partial` keeps what the run computed; the Python client as `AnalysisResult.evaluations`/`.selected` and `SweepRow.evaluations` (`CaseEvaluation` with `explain()`, and `AnalysisRunError.result` on a failed run); the Node, Java and Rust clients read them from the wire messages, the Rust client through the new `Connection::call`. `%optimize` refuses an objective whose `eval` is bound to the case's own calc — a choice among listed alternatives, not an optimum over a continuous domain — and points at the analysis run.
+
+- **A verification case runs and reports the verdict of its body.** `sysml -analysis`, `%analysis` and the `RunAnalysis` RPC accept a `verification def` or `verification` usage and run it the way they run an analysis case — the same lowering, subject and input binding, and step execution. The `VerdictKind` the body produced is reported: `pass` or `fail` as the library's own `VerificationCases::PassIf` calculation computes it, a `VerdictKind` literal the body binds as it stands, `inconclusive` for a body that produced no verdict value, and `error`, carrying the message, for a body whose run failed.
+- **The body verdict is reported beside requirement satisfaction, not instead of it.** `-requirement`, `-satisfy`, `%requirement`, `%satisfy` and the `VerifyRequirement`/`VerifySatisfaction` RPCs add one line per verification case verifying the requirement; what the requirement engine decided, and the exit status, are unchanged. A case performed as a step of another is reported on its own, marked as a subcase, since the library states no roll-up. Over gRPC the verdicts are added fields (`verification_verdicts` on `VerifyRequirementResponse`, `VerifySatisfactionResponse` and `RunAnalysisResponse`), advertised as the `verification_verdicts` capability, and `sysml -json` reports them under `verifications`. Each carries the `requirement_id` it was reported for, matching the `requirement_id` a `satisfy` verdict carries, so a satisfaction response covering several requirements is read per requirement. The Go and Python clients report the verdicts as `Verifications`/`verifications`, giving each satisfaction verdict the cases of its own requirement.
+
+### Changed
+
+- **Pull requests run one CI, GitHub Actions; CircleCI runs on `main` and tags.** The CircleCI `build-test` workflow is filtered to `main`, so a pull request no longer runs the suite twice, and the checks that only CircleCI carried moved into the pull-request workflow: the protobuf lint and wire-compatibility check (against the branch the pull request merges into) join `Go static and integrity checks`, the documentation hygiene checks (`make docs-check`, `make man-check` and the census check) join `Documentation site`, the release-digest check and the check that the committed stubs are what buf generates join each client's job (the Python and Java stub checks were CircleCI-only), and `make conformance` with the `-transport grpc` run join the renamed `Conformance suite` job. Every stub check, in both configs, now also fails when a committed stub was deleted and regeneration brings it back.
+
+- **The coverage the SonarCloud scan reads now measures every test suite the checks already run.** The command-line binaries the tests build and run (`sysml`, `sysml-grpc`, `sysml-lsp`) are built instrumented under `make coverage`, and the counters each run writes are folded into `coverage.txt`; the conformance suite runs in-process under `go test` as well as over the wire; the repository scripts and the Python release scripts run under coverage (`make scripts-coverage`, read as a second Python report); the Node conformance runner and the example runner are tested under c8; the Java conformance runner's command line is tested in-process under JaCoCo; and the ontology-table and stdlib-snapshot generators have tests over their `run` functions. The `sysml -compile -source` path is tested for each target. Build tooling no test suite executes (mkdocs hooks, the buf plugin, benchmarks, the release-fixture recorder, the VS Code extension host glue and its build steps) is excluded from coverage only, each with its justification in `sonar-project.properties`. No product behavior changes.
+
+- **Before 1.0, the version segment a release bumps is decided by model compatibility.** A release that still accepts every model the previous one accepted, with the same diagnostics and results, and removes or renames no flag, command, RPC or wire field, is a patch release even when it adds features; a release that refuses a previously accepted construct, changes a correctly derived result, removes or renames an interface, or changes a fixture or output format so that existing artifacts fail, is a minor release. CONTRIBUTING.md § Versioning states the rule and the Release Checklist asks for the chosen segment to be justified against it.
+
+- **The documentation now states which orders a behavior leaves open and how each is checked.** Every open ordering in `docs/project/behavior-semantic-oracle.md` names the `outcomes` or `.trace.order` file that encodes it and the run and outcome counts `sysml -schedule explore` reaches — or the single-outcome fixture that pins an ordering nothing observable depends on — and `docs/project/spec-compliance.md` grades choice-point reporting of every kind, `guard-unevaluable` tolerance, the harness's unreachable- and unlisted-outcome checks, the exploration budget and per-driven-run state, with the scheduling-policy row now faithful rather than approximate.
+- **The behavior guide has a section on models with more than one valid run.** It walks the three-writers fixture through `%trace on`, `seed:<n>`, `explore` and its `incomplete` status, and writing `outcomes`, `admissible` and `.trace.order` for a conformance case, with the output each command prints; the client chapter spells `schedule=`, `WithSchedule`, `explore_action` and `ExploreAction` per client and says which clients carry no execution surface at all.
+
+- **The SonarCloud findings outside cognitive complexity are cleared again.** Duplicated literals are named constants, same-typed parameters share a declaration, `encodeMember` takes its member head as a struct, marker methods state their contract, unnecessary locals are inlined, the release-gate script reports errors on stderr, the MSI script names its positional parameters, the Java transport catches connect timeouts in their own block, and the Java and Python tests hold one call per exception assertion. The exhaustive switches of the AST codec and the planners' error kinds, and the sealed code-generation IR, are documented exclusions. No behavior changes.
+
+### Fixed
+
+- **A transition's `accept` with no `via` no longer takes a transfer addressed to a port.** An accept naming no port receives as the performer of the machine (SysML v2 §7.16.7), and a port is a sub-occurrence of its part, not the part, so `send new Ping() to alpha.inPort` — or a send routed to `inPort` over a connector — is now taken only by `accept Ping via inPort`; a via-less `accept Ping` on the same state is not enabled by it and no choice point is reported between the two. A transfer addressed to the part itself, `send new Ping() to alpha`, is still taken by the via-less accept and not by the `via` one. The state executor now judges every message by the same rule its dispatch check and the action executor already applied, so the two agree on what a machine can react to; call and change triggers are unaffected.
+
+- **A breakpoint on a node several successions reach pauses once, before its one performance.** A join, or a plain action node two fork branches converge on, stopped a `%continue` once per arriving token and let a resumed run pause at it again. The run now stops there once, when every arrival is in, and resumes past the node; a node a loop re-enters still stops before each pass. A step of the executor now moves each token at most once — a token a step created or moved, a fork's branch, the one a synchronized node performs with or one sent into a nested flow, takes its first step in the next — so traces of forks and joins gain a step boundary between the last arrival and the node's performance, with the same statements in the same order.
+
+- **A collection operation's static type follows what its declaration hands through, not the element type of the collection.** `xs->collect { in x : C; x.mass }` and `xs.{ in x : C; x.mass }` are typed by the body's result (`MassValue`), a nested collect by its innermost body, a body answering a sequence by every element type and `xs->collect f` by the named function's result; `select`, `reject` and `selectOne` keep the elements of `xs`, `reduce` follows its reducer's result — and the element a one-element collection hands back unreduced, unless the collection is known to hold two or more, by its own multiplicity, one it inherits by redefinition, or a chain through such features; a collection holding one at most is never reduced, so its element alone is the result — and `forAll`/`exists` stay `Boolean`, each with the multiplicity the Kernel Function Library declares. A body whose result cannot be typed keeps the library's `Anything`. Value conformance, a feature's bound value, invocation arguments, trigger arguments and enumerated values are judged by the specialized type, so `accept when counts.{in n : Integer; n}` is refused where it was silent, and `when counts.{in n; n > 3}` is accepted where it was refused. A scalar literal a body writes out is as exact as one bound directly: `attribute i : Integer = xs.{ in x : C; 1.5 }` is refused, and a quantity it writes out is measured against the target's dimension: `attribute t : DurationValue = xs.{ in x : C; 5 [m] }` is refused. `xs.?{…}` binds and is typed as `xs->select {…}` is — `(v1, v2).?{ in v : Vehicle; true }` is a `Vehicle` collection, not the `Anything` the sequence is; elements of sibling types share their nearest common supertype, so `(truck, car).?{ in v : Vehicle; true }` is a `Vehicle` collection too — and an element that is itself a collection value binds by the elements it holds, so `attribute i : Integer = xs.{ in x : C; xs.{ in y : C; 1.5 } }` is refused. A collection over `()` or a feature admitting no value keeps its declared type — `()->collect { in a : Integer; "s" }` is a `String` collection — but holds no element, so none is judged and its `reduce` takes nothing from an element it would hand back unreduced; so does one mapping every element to a `[0]` feature or function result — the multiplicity read through an alias, or from the feature or result a redefinition inherits it from — or any operation over such a collection, and an argument holding nothing is judged against no parameter type. An argument or constructor value that is a collection binds each element it holds on its own, so `Sail(vs.{ in v : Vehicle; (v, boat) })` and `new Fleet(vs.{ in v : Vehicle; 1.5 })` are refused by the element that does not bind where they were silent. A collection value binds as many values as it is known to hold, counted against the feature's multiplicity — `part b : Boat[1] = pair.items.{ in v : Vehicle; boat }` binds two — a `reduce` counting the one element it hands back unreduced or what its reducer yields over two or more, so `pair.items->reduce { in a : Vehicle; in b : Vehicle; (a, b) }` binds two and one over `()` none. A body reading the feature it values terminates as a self-referential argument does.
+
+- **A paused debugger run resumes with its own state, not another run's.** An `%action` or `%state` session paused between steps while another run happened on the same session — an `%eval`, a `%calc`, an `%invoke`, a run to completion — resumed with what that run left behind: its step and element budget replaced the paused run's (so a step that fit the budget before could fail with the other run's spending, or a run could spend past its bound), its choice points and unevaluable guards stood in for the paused run's, and the calc usage evaluations of an activation paused at a breakpoint were dropped, so the next read ran the body again. Each run now keeps a state of its own — budget spent, notes, scheduler and calc usage memo — that every call into a driven executor installs, so the paused run continues where it left off and the run in between spends and notes on its own; the executor reports its own notes and the REPL's choice summary counts from them. The scheduler was already the run's own; the other three fields join it.
+
+- **A node several successions reach is performed once, after one token has arrived over each of them.** A token now records the succession it travelled (`Token.Via`, the lowered `ActionEdge` with its `Source`), and a join — or a plain action node two or more successions reach — fires when every incoming succession has delivered one token, the arrivals collapsing into the one token that performs it; a second token over an already-delivered succession waits for the next firing instead of standing in for another succession, and a join one of whose successions no token can travel deadlocks (`ErrActionDeadlock`) rather than firing on a token count. A plain node in a loop or behind a decision still re-performs once per pass: it awaits a succession only while some token can still reach its source before the node performs. `action_join_one_token_per_incoming_succession` (`log = 12`) and `action_node_with_two_incoming_successions_runs_once` (`hits = 1`) leave the known failures; the REPL's `%tokens` says which succession a held token arrived over and which it awaits.
+
+- **The CircleCI suite on `main` and on tags finishes within the plan's 60-minute job limit.** The single `Build and test` job, which had grown to about an hour and timed out on most merges, is now four parallel jobs — `Go static checks`, `Go race tests`, `Go coverage profile` and `Go gates and binaries` — each well under the limit, so the status checks now read `ci/circleci: Go static checks` and so on. The client tests, the SonarCloud scan and every release workflow wait on all four, so nothing is scanned or published unless the whole suite passed.
+- **The wire-compatibility check on `main` compares against the merge's own parent, and a release tag against the previous release.** The check used to fetch `origin/main` at run time, so a merge landing while the build ran made its own added fields read as deletions in an unrelated build; the baseline is now an ancestor of the commit being built, so the verdict cannot change with what merged afterwards. `make proto-breaking` still defaults to `origin/main` locally and honours `BUF_BREAKING_REF`.
+
+- **A merge node passes every token that reaches it, so a loop through a merge runs to its exit.** The action executor used to record one traversal per merge for the whole run and retire every later arrival, so the specification's `ChargeBattery` loop stopped after one pass (`level = 50`, `passes = 1`) without ever performing `endCharging`. A merge is now one `MergePerformance` per arrival, as `Actions::MergeAction` declares: its body runs and the token is forwarded on every traversal, a loop re-enters it as often as its guard sends the token back (`action_merge_loop_reenters` leaves the known failures with `level = 100`, `passes = 3`), and a fork whose branches both reach a merge yields one downstream token per branch, as two merge performances do — collapsing them is a join's job. A merge's body now runs before the guard on its outgoing succession is read, as every other node's does, so a write in the merge's body decides its own guard and an arrival the guard turns away still performs the merge (`f63_merge_body_runs_on_traversal` counts both arrivals: `mergeRuns = 2`, `passed = 2`). A merge is also the one multi-incoming node the join synchronization does not wait at. Termination of a loop with no exit is the action step budget's job as before: `ErrActionStepLimitExceeded`, under `RunToCompletion` and under the REPL's `%continue` alike.
+
+- **The Windows MSI builds again on the GitHub runners.** `scripts/build-msi.sh` read the
+  command that runs `wix` from the `WIX` environment variable, which the preinstalled WiX v3
+  on `windows-latest` already exports as its installation directory
+  (`C:\Program Files (x86)\WiX Toolset v3.14\`), so the `msi` job of the v0.6.0 release failed
+  with `error: C:\Program is required` and no `opensysml-0.6.0-windows-amd64.msi` was published.
+  The override is now `WIX_CMD`.
+
+- **`make proto-breaking` works from a blobless checkout.** The wire-compatibility check now compares against a `git archive` of `api/proto` at the baseline ref (`BUF_BREAKING_REF`, `origin/main` by default) instead of pointing buf at the `.git` directory, which buf clones; a partial clone cannot serve that clone every object it needs, so from CircleCI's checkout the check failed with `could not fetch … from promisor remote` on any branch other than `main`.
+- **The CircleCI jobs carry readable names.** The status checks now read `ci/circleci: Build and test`, `Python client tests`, `Rust client tests`, `Java client tests`, `Node client tests` and `SonarCloud scan`, with the release-workflow jobs named the same way, rather than the job keys.
+
+- **The order orthogonal regions react to one event in is reported as a choice point under every scheduling policy, and `seed:<n>` varies it.** When one event enables transitions in two or more regions the library leaves their order open, but only `explore` recorded the choice; `reverse`, `declared` and `seed:<n>` took declaration order and said nothing, so a seed could not reproduce a region order `explore` found. Every dispatch among two or more regions is now drawn from the run's scheduler like every other pick and reported as `choice on <trigger>: states <a>, <b> react (unordered; took <a> first)` — a trace line, a `choice-point` diagnostic of kind `region order` over gRPC and Connect, and one more choice in the REPL summary. `reverse` and `declared` still take declaration order, so no output, state visit or final state moves under the default; `seed:<n>` now draws the order and replays it, and `explore` is unchanged. A change occurrence that raises the conditions of transitions in several regions at once is dispatched through the same draw, so its region order is reported and varied too, where before every policy took declaration order silently. The conformance cases whose regions react to one event list both orders as admissible outcomes.
+
+- **The test-suite figures the documentation repeats agree again and match a real run.** `README.md`, `docs/project/spec-compliance.md`, `docs/project/roadmap.md` and `docs/project/training-examples.md` now all state the same counts from one `go test -v ./...` run: 671 execution conformance cases, 140 golden execution traces, 336 runtime robustness cases, 195 golden AST fixtures, 249 first-level `TestNegative` cases, 15 gRPC conformance and 8 gRPC robustness cases, and 15,139 tests and subtests, with the environment each skip depends on named. The roadmap's gate table reads the same commit and its census, rejection-oracle and RDF round-trip rows follow the committed baselines.
+- **The saving-and-RDF guide shows what the binary prints.** Every model under `examples/` now converts, so the guide no longer presents `parser_features_demo_declarations.kerml` as refused; the refusal example is a name shared by two members of one namespace, which is what the mapping still refuses, and the byte counts in the transcripts are the current output. The `README.md` conversion row states the round-trip figure rather than a stale fraction.
+- **The Python client test snippet in the release procedure installs `psutil`.** The lifecycle tests import it, and it is a development extra rather than a dependency of the client, so `pip install pytest pytest-mock` alone left the suite unable to import.
+
+- **The Java client reads a whole unit scale without going through `BigDecimal`.** `Value.sameValue` compares quantities exactly over integer magnitudes and whole scales; the scale double is now converted to its integer directly instead of through `new BigDecimal(double)`. The integer is the one the double is, the same value the service and the other clients compute, so no comparison, membership or set-equality result changes.
+- **Tests that could not fail now test what they name.** A Java test that compared a `SetValue` with a `Sequence` through `assertNotEquals`, which no two such values could ever satisfy, now asserts that the order of a sequence tells it apart from a set through `sameValue`; two Python assertions that compared an expression with itself now compare independently built measurement references. The Java exactness test also pins whole scales beyond a `long`.
+- **The SonarCloud findings outside cognitive complexity are cleared again.** Duplicated Go literals are named constants, intentional no-op closures state their contract, a negated comparison is written directly, an underscore-suffixed local is renamed, unnecessary locals are inlined, the Java transport tells a connect timeout from a read timeout in one catch block, `exactBaseMagnitude` returns an empty array instead of `null`, `valueHash` lives in `SetValue`, and the Java and Python tests hold one call per exception assertion, one property per assertion, fewer than 25 assertions per method and a single argument order. No behavior changes.
+
+### Performance
+
+- **Loading a model no longer merges the library's visible member set once per declaration.** The inherited-name conflict rule looks each name up in the memoized member maps of a declaration's library bases and passed-through types instead of copying them into a fresh map per part, attribute, action and state; its diagnostics are unchanged. The OOSEM method rule memoizes a type's classification, so an attribute type shared by many features is conformance-checked once. Loading and validating a 4 000-element model is 15% faster and allocates a third fewer bytes than before; `sysml -validate` on 3 000–12 000-element models is now at or ahead of release 0.4.2. `docs/project/performance-release-0.6-vs-0.4.2.md` records the comparison, the remaining costs of the validation rules added since 0.4.2, and how to repeat it. The Apollo 11 load figure on the landing page and in `docs/internals/performance.md` is re-measured at 0.43 s: the earlier 0.37 s was taken while the model's three calculation-arity findings were still errors, before the higher validation tiers ran.
+
 ## 0.6.0 — 2026-09-07
 
 ### Added
