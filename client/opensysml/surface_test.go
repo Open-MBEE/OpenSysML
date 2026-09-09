@@ -598,6 +598,18 @@ func TestEveryOperationIsRefusedAfterClose(t *testing.T) {
 			_, err := client.ExecuteState(ctx, model, "Demo::Machine", nil)
 			return err
 		},
+		"ExploreAction": func() error {
+			_, err := client.ExploreAction(ctx, model, "Demo::add", nil)
+			return err
+		},
+		"ExploreState": func() error {
+			_, err := client.ExploreState(ctx, model, "Demo::Machine", nil)
+			return err
+		},
+		"ExploreAnalysis": func() error {
+			_, err := client.ExploreAnalysis(ctx, model, "Demo::analysis")
+			return err
+		},
 		"VerifyConstraint": func() error {
 			_, err := client.VerifyConstraint(ctx, model, "Demo::Vehicle::massLight")
 			return err

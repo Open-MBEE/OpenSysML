@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -227,24 +226,36 @@ type caseRun struct {
 }
 
 // runAnalysis resolves the case an invocation names, evaluates its arguments
-// and the object named as its subject, and runs it. A usage nested in a type is
-// run as a feature of the object the session holds for that type, as a
-// constraint is checked on the object carrying it.
+// and the object named as its subject, and runs it in the session's context. A
+// usage nested in a type is run as a feature of the object the session holds for
+// that type, as a constraint is checked on the object carrying it.
 func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
-		return caseRun{}, errors.New("no declarations loaded")
-	}
-	sym, fqn, lerr := s.lookupSymbolOfKinds(inv.name,
-		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
-		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage)
-	if lerr != nil {
-		return caseRun{}, lerr
+	sym, fqn, err := s.analysisSymbol(inv)
+	if err != nil {
+		return caseRun{}, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return caseRun{}, err
 	}
+	return s.runAnalysisIn(ctx, inv, sym, fqn, heldObjects{s})
+}
+
+// analysisSymbol resolves the case an invocation names. It is resolved before the
+// runtime is built, so a misspelling is reported as one whatever the session holds.
+func (s *Session) analysisSymbol(inv analysisInvocation) (*symbols.Symbol, string, error) {
+	doc := s.ws.Document(docName)
+	if doc == nil || doc.Scope == nil {
+		return nil, "", errors.New("no declarations loaded")
+	}
+	return s.lookupSymbolOfKinds(inv.name,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage)
+}
+
+// runAnalysisIn runs a case in ctx, finding the object named as its subject, and
+// the one owning a usage nested in a type, where objects finds them.
+func (s *Session) runAnalysisIn(ctx *runtime.Context, inv analysisInvocation, sym *symbols.Symbol, fqn string, objects runObjects) (caseRun, error) {
 	if err := ctx.RequireAnalysisCase(sym); err != nil {
 		return caseRun{}, err
 	}
@@ -268,7 +279,7 @@ func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 
 	run := caseRun{}
 	if inv.object != "" {
-		if run.subject, run.label, err = s.resolveObject(inv.object); err != nil {
+		if run.subject, run.label, err = objects.object(inv.object); err != nil {
 			return caseRun{}, err
 		}
 		args.Subject = run.subject
@@ -276,12 +287,8 @@ func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 
 	// A usage owned by a type is a feature of an object of that type, which the
 	// session holds when one was created; a package-level case has no such owner.
-	var self *runtime.Instance
-	if usage, ok := sym.Decl.(*ast.Usage); ok &&
-		(usage.Kind == ast.UsageAnalysisCase || usage.Kind == ast.UsageVerificationCase) {
-		self, _ = s.owningInstance(fqn)
-	}
-	runScope := declaringScope(sym, doc.Scope)
+	self := nestedCaseOwner(sym, fqn, objects)
+	runScope := declaringScope(sym, s.ws.Document(docName).Scope)
 
 	// A verification case runs the same body; asking the run for its verdict too
 	// reports it beside what the run computed.

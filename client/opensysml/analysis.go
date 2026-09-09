@@ -150,7 +150,8 @@ func Argument(name string, value Value) AnalysisOption {
 
 // Schedule names the scheduling policy the actions the case performs resolve
 // their choice points under, as WithSchedule does for ExecuteAction. Requires
-// the schedule capability.
+// the schedule capability. An exploring spelling belongs to ExploreAnalysis,
+// which requires schedule_explore too.
 func Schedule(policy string) AnalysisOption {
 	return func(o *analysisOptions) { o.schedule = policy }
 }
@@ -165,44 +166,16 @@ func (c *client) RunAnalysis(
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if err := refuseExploring("RunAnalysis", "ExploreAnalysis", options.schedule); err != nil {
+		return nil, err
+	}
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	values := append([]Value(nil), options.positional...)
-	for _, arg := range options.named {
-		values = append(values, arg.value)
-	}
-	if err := c.requireValueCapabilities(ctx, values...); err != nil {
-		return nil, err
-	}
-	if err := c.requireSchedule(ctx, options.schedule); err != nil {
-		return nil, err
-	}
-	req := &pb.RunAnalysisRequest{
-		ModelHash:       hash,
-		SymbolId:        symbolID,
-		SubjectSymbolId: options.subjectSymbolID,
-		Schedule:        options.schedule,
-	}
-	for _, argument := range options.positional {
-		sent, err := valueToProto(argument)
-		if err != nil {
-			return nil, err
-		}
-		req.Arguments = append(req.Arguments, sent)
-	}
-	if len(options.named) > 0 {
-		req.NamedArguments = make(map[string]*pb.Value, len(options.named))
-		for _, argument := range options.named {
-			sent, err := valueToProto(argument.value)
-			if err != nil {
-				return nil, err
-			}
-			req.NamedArguments[argument.name] = sent
-		}
-	}
-	resp, err := c.caller.runAnalysis(ctx, req)
+	resp, err := c.analysisRequest(ctx, hash, symbolID, &options, func() error {
+		return c.requireSchedule(ctx, options.schedule)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -264,4 +237,43 @@ func evaluationsFromProto(evaluations []*pb.CaseEvaluation) []Evaluation {
 		out = append(out, converted)
 	}
 	return out
+}
+
+// analysisRequest sends the run once its arguments and, by requireSchedule,
+// its policy are checked against the capabilities they need.
+func (c *client) analysisRequest(ctx context.Context, hash, symbolID string, options *analysisOptions, requireSchedule func() error) (*pb.RunAnalysisResponse, error) {
+	values := append([]Value(nil), options.positional...)
+	for _, arg := range options.named {
+		values = append(values, arg.value)
+	}
+	if err := c.requireValueCapabilities(ctx, values...); err != nil {
+		return nil, err
+	}
+	if err := requireSchedule(); err != nil {
+		return nil, err
+	}
+	req := &pb.RunAnalysisRequest{
+		ModelHash:       hash,
+		SymbolId:        symbolID,
+		SubjectSymbolId: options.subjectSymbolID,
+		Schedule:        options.schedule,
+	}
+	for _, argument := range options.positional {
+		sent, err := valueToProto(argument)
+		if err != nil {
+			return nil, err
+		}
+		req.Arguments = append(req.Arguments, sent)
+	}
+	if len(options.named) > 0 {
+		req.NamedArguments = make(map[string]*pb.Value, len(options.named))
+		for _, argument := range options.named {
+			sent, err := valueToProto(argument.value)
+			if err != nil {
+				return nil, err
+			}
+			req.NamedArguments[argument.name] = sent
+		}
+	}
+	return c.caller.runAnalysis(ctx, req)
 }

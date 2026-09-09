@@ -86,6 +86,9 @@ public final class Capabilities {
   /** The execution requests take a {@code schedule}, the scheduling policy a run resolves its choice points under. */
   public static final String SCHEDULE = "schedule";
 
+  /** The {@code explore} schedule answers with every {@code outcomes} entry and an {@code exploration} status. */
+  public static final String SCHEDULE_EXPLORE = "schedule_explore";
+
   private final String serviceVersion;
   private final Set<String> names;
 

@@ -282,12 +282,91 @@ public interface RunAnalysisResponseOrBuilder extends
 
   /**
    * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.Outcome> 
+      getOutcomesList();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  org.openmbee.opensysml.proto.Outcome getOutcomes(int index);
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  int getOutcomesCount();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+      getOutcomesOrBuilderList();
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  org.openmbee.opensysml.proto.OutcomeOrBuilder getOutcomesOrBuilder(
+      int index);
+
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+   * @return Whether the exploration field is set.
+   */
+  boolean hasExploration();
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+   * @return The exploration.
+   */
+  org.openmbee.opensysml.proto.ExplorationStatus getExploration();
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+   */
+  org.openmbee.opensysml.proto.ExplorationStatusOrBuilder getExplorationOrBuilder();
+
+  /**
+   * <pre>
    * Each application the run made of one of the case's own calcs as a function
    * value, in the order first made: a trade study's evaluation of each
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> 
       getEvaluationsList();
@@ -298,7 +377,7 @@ public interface RunAnalysisResponseOrBuilder extends
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index);
   /**
@@ -308,7 +387,7 @@ public interface RunAnalysisResponseOrBuilder extends
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   int getEvaluationsCount();
   /**
@@ -318,7 +397,7 @@ public interface RunAnalysisResponseOrBuilder extends
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
       getEvaluationsOrBuilderList();
@@ -329,7 +408,7 @@ public interface RunAnalysisResponseOrBuilder extends
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
       int index);

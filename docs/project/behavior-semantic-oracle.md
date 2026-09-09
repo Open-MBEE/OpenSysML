@@ -271,6 +271,66 @@ The first guard read is the run's own, not a preview, and its failure fails the 
 has. A decision whose guards are all false remains an execution error
 (`TestRuntimeRobustness/decision_all_guards_false`), as the library then admits no outgoing link.
 
+### Three concurrent writers of one feature: six orders, three values
+
+Fixture: `action_explore_three_writers` (golden, explored).
+
+```
+start → split ⇉ a { x := 1; aRan := true } ─┐
+              ⇉ b { x := 2; bRan := true } ─┤→ sync → done
+              ⇉ c { x := 3; cRan := true } ─┘
+```
+
+Derived constraints:
+
+- `a`, `b` and `c` are each performed exactly once (ForkAction), so `aRan`, `bRan` and `cRan`
+  all end `true`.
+- `sync` follows all three (JoinAction), so every write of `x` has ended before the action ends
+  and `x` is `1`, `2` or `3`, never `0`.
+
+Open: the order of the three branches. The library gives no `HappensBefore` link among them, so
+every one of the `3! = 6` orders is a valid linearization. The value of `x` is the last write, and
+each branch is last in exactly two of the six orders, so the six linearizations reach exactly
+three outcomes, `{x = 1, x = 2, x = 3}`, two linearizations each.
+
+Pinned outcome: that admissible set, with the three `…Ran` flags `true` in every member, stated
+as `outcomes` citing this section; `.trace.order` states the partial order the library does fix
+(`split < a`, `split < b`, `split < c`, `a < sync`, `b < sync`, `c < sync`). The exact golden
+records the default schedule (`c` is declared last, so its token is stepped first and `a` writes
+last, giving `x = 1`). Exploration is what makes the set checkable: `explore` replays the run
+along every choice sequence and must reach each of the three outcomes and no other, in six runs.
+The first pick among three tokens and the next among the two left are two choice points of one
+step, so a linearization is a sequence of two choices, not one choice among six.
+
+### A decision inside a loop: every pass is its own open choice
+
+Fixture: `action_explore_decision_in_loop` (golden, explored).
+
+```
+start → again → pick ─ if passes < 2  → left  { lefts++;  passes++ } → again
+                     ─ if passes < 2  → right { rights++; passes++ } → again
+                     ─ if passes >= 2 → done
+```
+
+Derived constraints:
+
+- `pick` is followed by a performance of exactly one target on each pass (DecisionPerformance), so
+  each pass adds one to `passes` and one to exactly one of `lefts` and `rights`.
+- On the first two passes `passes < 2` holds and `passes >= 2` does not, so `done` is not
+  selectable and one of `left`, `right` is; on the third `passes = 2`, only `done` is
+  selectable, and the loop ends. Every run ends with `passes = 2` and `lefts + rights = 2`.
+
+Open: which of `left` and `right` follows `pick` on each of the two passes. Each pass is its own
+decision performance, constrained by nothing the earlier pass did, so the four sequences
+`left,left`, `left,right`, `right,left`, `right,right` are all valid linearizations. Two of them
+agree on the tallies, so they reach three outcomes: `{lefts = 2, lefts = 1 ∧ rights = 1,
+rights = 2}`.
+
+Pinned outcome: that admissible set, stated as `outcomes` citing this section. The default takes
+the first declared branch on every pass, so the golden records `left` twice. Exploration must
+reach all three outcomes and no other in four runs, the third pass never being a choice point:
+a decision whose guards leave one link selectable is not a choice, however many links it has.
+
 ### Two accepts of one type racing for two sends: each takes one message, which one is open
 
 Fixture: `action_choice_shared_message_accept` (golden).
@@ -319,6 +379,48 @@ then `2@sendTwo, 4@right`), so `left` takes `1` and `right` takes `2` — `a = 1
 linearization reaches two choice points where the default reaches one: the reporting rule (every
 choice point a run reaches is reported) applied to a different run, not a difference in what the
 model admits.
+
+### Two accepts addressed by two sends completing in either order: each payload is fixed, the one that stands is open
+
+Fixture: `w7d_send_via_port_to_receiver` (golden).
+
+```
+start → sender { send 42 via senderPort to receiver; send 7 via senderPort to sibling }
+      → split ⇉ receiver accept value : Integer via receiverPort { receiverGot := value } ─┐
+              ⇉ sibling  accept value : Integer via receiverPort { siblingGot := value  } ─┤→ sync → done
+```
+
+Derived constraints:
+
+- `sender`, `receiver` and `sibling` are each performed exactly once (a plain step is one
+  performance; ForkAction), and both sends end before `split` starts (`HappensBefore`).
+- Each send is followed by exactly one `MessageTransfer` carrying its payload to the receiver it
+  names (`SendPerformance::sentTransfer`, `succession self then sentTransfer`), so `receiver`'s
+  transfer carries `42` and `sibling`'s carries `7`; neither accept can take the other's, so
+  `receiverGot` ends `42` and `siblingGot` ends `7` in every run.
+- Each accept ends after its transfer and yields that transfer's payload
+  (`AcceptPerformance::acceptedTransfer`, `binding payload = acceptedTransfer.payload`). Both
+  declare `accept value : Integer`, and an accept's payload is bound in the enclosing action body
+  (the visibility the `accept_payload_*` cases pin), so the two accepts write one feature,
+  `route`'s `value`.
+- `sync` follows both accepts (JoinAction), so both writes of `value` have ended before the
+  action ends and `value` is `42` or `7`, never unset.
+
+Open: the order of `receiver` against `sibling`. Each transfer's `HappensBefore` link orders its
+own send before the accept that takes it and nothing else; no link orders the two accepts, and
+the library has no conflict rule for two performances writing one feature, so the write that
+stands is the one whose accept completes last — `value = 42` when `sibling` completes first,
+`value = 7` when `receiver` does.
+
+Pinned outcome: the admissible set `{value = 42, value = 7}`, with `receiverGot = 42` and
+`siblingGot = 7` in both, stated as `outcomes` citing this section; `.trace.order` states the
+partial order the library does fix (`sender < split`, `split < receiver`, `split < sibling`,
+`sync < done`). The exact golden records the default schedule: `sibling` is declared last, so its
+token is stepped first and `receiver`'s write stands (`choice step 4: writes value := 42 by token
+2, value := 7 by token 3 (unordered; value := 42 by token 2 stood)`), giving `value = 42`.
+Exploration reaches both outcomes in two runs. That the payload of a nested accept is reported
+as a feature of the enclosing action at all is the tool's reporting, not the library's; this
+record derives only that, given that reporting, both values are admissible.
 
 ### Two transitions out of one state enabled by one event: exactly one fires, which one is open
 
@@ -369,6 +471,45 @@ first declared fires, the rise is consumed for the others, and the choice is rec
 fixture `state_choice_change_transition_conflict`, golden; `TestChangeTransitionChoice`,
 `TestChangeTransitionChoiceUnderHierarchyAndRegions` for the nested-wins and parallel-region
 shapes).
+
+### Transitions in sibling regions enabled by one event: each fires, in which order is open
+
+Fixture: `state_explore_region_order` (golden, explored).
+
+```
+work parallel { a: a1 ─ accept Go { last := 1 } → a2
+                b: b1 ─ accept Go { last := 2 } → b2 }
+```
+
+Derived constraints:
+
+- The regions of a parallel state are concurrent substate performances of it; the one Go is
+  offered to both, and each region's transition has its own source, so neither outranks the other
+  (the nested-wins rule of the previous section ranks a substate's transition against its
+  *enclosing* state's, never one region's against a sibling's) and both fire.
+- Each `StateTransitionPerformance` is ordered only against its own trigger, guard,
+  `transitionLinkSource.exit` and target entry (`StatePerformances.kerml`,
+  `TransitionPerformances.kerml`); no link joins one region's transition to the other's. UML says
+  the same of the set of transitions selected for one event: the order in which they fire is not
+  defined (UML 2.5.1 §14.2.3.9.4).
+- Both effects write `last`, so the value that stands is the last write: `last = 2` when `a`'s
+  transition fires first, `last = 1` when `b`'s does; the machine ends in `a2+b2` either way.
+
+Open: which region's transition fires first. The two orders reach two outcomes, told apart by
+`last` and by the order `a2` and `b2` are visited in.
+
+Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
+stated as `outcomes` citing this section. The executor fires the selected transitions in region
+declaration order under `declared`, `reverse` and `seed:<n>` alike — a tool-defined order it does
+not report as a choice, so the trace under those policies carries no `choice` line for it — and
+the golden pins that linearization (`a` first, `last = 2`). Only `explore` varies the order: it is
+a choice point of the exploring run (`choice on accept Go: states a1, b1 react (unordered; took
+b1 first)` in the witness of the second outcome), and exploration must reach both outcomes and no
+other, in two runs. The existing fixtures `state_call_trigger_regions`,
+`state_composite_region_depth_order`, `state_composite_region_deeper_first` and
+`state_parallel_broadcast` pin the declaration-order linearization of this same shape as their
+one expected outcome and, having no `outcomes`, are not explored by the harness; under `explore`
+each reaches a second outcome.
 
 ### A merge is re-entered on every traversal of a loop
 

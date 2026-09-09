@@ -1,0 +1,10 @@
+exit: a1
+stmt assign last
+  eval literal 1 -> 1
+enter: a2
+transition: a1 -> a2 (event: accept Go)
+exit: b1
+stmt assign last
+  eval literal 2 -> 2
+enter: b2
+transition: b1 -> b2 (event: accept Go)

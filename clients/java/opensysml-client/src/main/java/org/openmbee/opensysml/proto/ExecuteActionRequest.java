@@ -249,8 +249,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
   /**
    * <pre>
    * Scheduling policy the run resolves its choice points under: "declared",
-   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-   * spelling is INVALID_ARGUMENT.
+   * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+   * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+   * the action once per linearization the library admits, within a budget of
+   * runs (default 1024) and of choice points per run (default 64), each run on
+   * a fresh context, and answers with every distinct outcome reached.
    * </pre>
    *
    * <code>string schedule = 4 [json_name = "schedule"];</code>
@@ -272,8 +275,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
   /**
    * <pre>
    * Scheduling policy the run resolves its choice points under: "declared",
-   * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-   * spelling is INVALID_ARGUMENT.
+   * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+   * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+   * the action once per linearization the library admits, within a budget of
+   * runs (default 1024) and of choice points per run (default 64), each run on
+   * a fresh context, and answers with every distinct outcome reached.
    * </pre>
    *
    * <code>string schedule = 4 [json_name = "schedule"];</code>
@@ -1055,8 +1061,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+     * the action once per linearization the library admits, within a budget of
+     * runs (default 1024) and of choice points per run (default 64), each run on
+     * a fresh context, and answers with every distinct outcome reached.
      * </pre>
      *
      * <code>string schedule = 4 [json_name = "schedule"];</code>
@@ -1077,8 +1086,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+     * the action once per linearization the library admits, within a budget of
+     * runs (default 1024) and of choice points per run (default 64), each run on
+     * a fresh context, and answers with every distinct outcome reached.
      * </pre>
      *
      * <code>string schedule = 4 [json_name = "schedule"];</code>
@@ -1100,8 +1112,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+     * the action once per linearization the library admits, within a budget of
+     * runs (default 1024) and of choice points per run (default 64), each run on
+     * a fresh context, and answers with every distinct outcome reached.
      * </pre>
      *
      * <code>string schedule = 4 [json_name = "schedule"];</code>
@@ -1119,8 +1134,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+     * the action once per linearization the library admits, within a budget of
+     * runs (default 1024) and of choice points per run (default 64), each run on
+     * a fresh context, and answers with every distinct outcome reached.
      * </pre>
      *
      * <code>string schedule = 4 [json_name = "schedule"];</code>
@@ -1135,8 +1153,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <pre>
      * Scheduling policy the run resolves its choice points under: "declared",
-     * "reverse" or "seed:&lt;n&gt;". Empty is the default, "reverse"; any other
-     * spelling is INVALID_ARGUMENT.
+     * "reverse", "seed:&lt;n&gt;" or "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]". Empty is the
+     * default, "reverse"; any other spelling is INVALID_ARGUMENT. Explore runs
+     * the action once per linearization the library admits, within a budget of
+     * runs (default 1024) and of choice points per run (default 64), each run on
+     * a fresh context, and answers with every distinct outcome reached.
      * </pre>
      *
      * <code>string schedule = 4 [json_name = "schedule"];</code>

@@ -1,0 +1,7 @@
+# The fork precedes every branch; the join waits for all three.
+split < a
+split < b
+split < c
+a < sync
+b < sync
+c < sync

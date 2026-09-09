@@ -1705,24 +1705,45 @@ func (s *Session) doCalc(calcName, argText string) ([]string, bool, error) {
 // rather than as a line of output, so a caller outside the prompt — the command
 // line — can tell an evaluated calculation from one that could not be run.
 func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
-		return nil, nil, errors.New("no declarations loaded")
+	sym, err := s.calcSymbol(calcName)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	sym, _, lerr := s.lookupSymbolOfKinds(calcName, symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
-	if lerr != nil {
-		return nil, nil, lerr
-	}
-
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return nil, nil, err
 	}
+	lines, outputs, err := s.evalCalcIn(ctx, sym, calcName, argText)
+	if err != nil {
+		return nil, nil, err
+	}
+	values := make([]NamedValue, 0, len(outputs))
+	for _, out := range outputs {
+		values = append(values, NamedValue{Name: out.Name, Value: formatValue(ctx, out.Value)})
+	}
+	return lines, values, nil
+}
 
+// calcSymbol resolves the calc %calc names. It is resolved before the runtime is
+// built, so a misspelling is reported as one whatever the session holds.
+func (s *Session) calcSymbol(calcName string) (*symbols.Symbol, error) {
+	doc := s.ws.Document(docName)
+	if doc == nil || doc.Scope == nil {
+		return nil, errors.New("no declarations loaded")
+	}
+	sym, _, lerr := s.lookupSymbolOfKinds(calcName, symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
+	if lerr != nil {
+		return nil, lerr
+	}
+	return sym, nil
+}
+
+// evalCalcIn evaluates a calc in ctx: a calc usage's outputs from its own member
+// values when it is called without arguments, else the value it returns for them.
+func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName, argText string) ([]string, []runtime.CalcOutputValue, error) {
 	if strings.TrimSpace(argText) == "" {
-		if lines, values, handled, err := s.calcUsageOutputs(ctx, sym, calcName); handled {
-			return lines, values, err
+		if lines, outputs, handled, err := s.calcUsageOutputs(ctx, sym, calcName); handled {
+			return lines, outputs, err
 		}
 	}
 
@@ -1758,14 +1779,14 @@ func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, er
 	return []string{
 		fmt.Sprintf("✓ %s(%s)", calcName, strings.Join(argTexts, ", ")),
 		fmt.Sprintf("  = %s", formatValue(ctx, result)),
-	}, []NamedValue{{Name: "result", Value: formatValue(ctx, result)}}, nil
+	}, []runtime.CalcOutputValue{{Name: calcResultName, Value: result}}, nil
 }
 
 // calcUsageOutputs lists the outputs of a calc usage evaluated from its own
 // member values. It reports handled=false when the name is not a calc usage, or
 // is one that computes no output features, so those keep being invoked as
 // calculations with an empty argument list.
-func (s *Session) calcUsageOutputs(ctx *runtime.Context, sym *symbols.Symbol, calcName string) ([]string, []NamedValue, bool, error) {
+func (s *Session) calcUsageOutputs(ctx *runtime.Context, sym *symbols.Symbol, calcName string) ([]string, []runtime.CalcOutputValue, bool, error) {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.Kind != ast.UsageCalc {
 		return nil, nil, false, nil
@@ -1779,12 +1800,10 @@ func (s *Session) calcUsageOutputs(ctx *runtime.Context, sym *symbols.Symbol, ca
 	}
 	lines := make([]string, 0, len(outputs)+1)
 	lines = append(lines, fmt.Sprintf("✓ %s", calcName))
-	values := make([]NamedValue, 0, len(outputs))
 	for _, out := range outputs {
 		lines = append(lines, fmt.Sprintf("  %s = %s", out.Name, formatValue(ctx, out.Value)))
-		values = append(values, NamedValue{Name: out.Name, Value: formatValue(ctx, out.Value)})
 	}
-	return lines, values, true, nil
+	return lines, outputs, true, nil
 }
 
 // splitCalcArgs splits `%calc`'s tail into the calc's name and its argument
@@ -2253,6 +2272,9 @@ func (s *Session) doAction(name string, performer []string) ([]string, bool, err
 // startAction creates the action executor a debugging session runs, reporting
 // what prevented it as an error so a caller outside the prompt can act on it.
 func (s *Session) startAction(name string, performer []string) ([]string, error) {
+	if err := s.refuseExplore(); err != nil {
+		return nil, err
+	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
@@ -2542,6 +2564,9 @@ func (s *Session) doStateMachine(name string, performer []string) ([]string, boo
 // startStateMachine creates the state executor a debugging session runs,
 // reporting what prevented it as an error.
 func (s *Session) startStateMachine(name string, performer []string) ([]string, error) {
+	if err := s.refuseExplore(); err != nil {
+		return nil, err
+	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
@@ -3166,15 +3191,19 @@ func (s *Session) doAdvance(timeStr string) ([]string, bool, error) {
 	return lines, false, nil
 }
 
-// advanceBy advances simulation time by duration, reporting a failed event or do
-// behavior as an error alongside the choice summary of the steps taken before it.
+// advanceBy advances the debugged machine's simulation time by duration.
 func (s *Session) advanceBy(duration float64) ([]string, error) {
 	if s.stateExec == nil {
 		return nil, s.noStateSessionErr()
 	}
+	return s.advanceSession(s.stateExec, duration)
+}
 
-	exec := s.stateExec.executor
-	deadline := s.stateExec.now + duration
+// advanceSession advances a machine's time by duration, reporting a failed
+// event or do behavior alongside the choices taken before it.
+func (s *Session) advanceSession(ss *stateSession, duration float64) ([]string, error) {
+	exec := ss.executor
+	deadline := ss.now + duration
 	// A machine already at quiescence — an object's, run when it was materialized —
 	// steps again once time makes its next event due.
 	exec.Resume()
@@ -3232,12 +3261,12 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		processed++
 		dropped = appendNote(dropped, droppedSignalNote(exec))
 	}
-	s.stateExec.now = math.Max(deadline, exec.CurrentTime())
+	ss.now = math.Max(deadline, exec.CurrentTime())
 
 	// A machine that took no step and has nowhere to go says why; one whose work
 	// is only due past the deadline still reports the drain and what is left.
 	if processed == 0 && doActions == 0 && !exec.HasPendingWork() {
-		out := []string{"No pending work - simulation time is now " + semantics.FormatReal(s.stateExec.now)}
+		out := []string{"No pending work - simulation time is now " + semantics.FormatReal(ss.now)}
 		if reason := exec.SuspendReason(); reason != "" {
 			out = append(out, fmt.Sprintf("  %s", reason))
 		}
@@ -3245,7 +3274,7 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 	}
 
 	out := []string{
-		fmt.Sprintf("✓ Advanced to %s (%d event(s) processed)", semantics.FormatReal(s.stateExec.now), processed),
+		fmt.Sprintf("✓ Advanced to %s (%d event(s) processed)", semantics.FormatReal(ss.now), processed),
 		fmt.Sprintf("  Current state: %s", currentStateName(exec)),
 		"  Last event at: " + semantics.FormatReal(exec.CurrentTime()),
 		fmt.Sprintf("  Remaining events: %d", exec.EventQueue().Len()),

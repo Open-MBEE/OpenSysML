@@ -241,6 +241,9 @@ type Context struct {
 
 	// schedule is the policy the next run resolves its choice points under.
 	schedule SchedulePolicy
+	// exploring is the exploration run this context's runs take part in, nil
+	// outside Explore (explore.go).
+	exploring *exploreRun
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
@@ -445,10 +448,35 @@ func (ctx *Context) SetTrace(tr *TraceRecorder) {
 	ctx.trace = tr
 }
 
+// Trace is the recorder attached to this context, nil when not tracing.
+func (ctx *Context) Trace() *TraceRecorder {
+	return ctx.trace
+}
+
 // SetSchedule sets the policy the runs started from now on resolve their choice
-// points under; a run already under way keeps the one it started with.
-func (ctx *Context) SetSchedule(policy SchedulePolicy) {
+// points under; a run already under way keeps the one it started with. An
+// `explore` policy is ErrExploreUndriven: it is driven by Explore.
+func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
+	if _, explores := policy.Exploration(); explores {
+		return fmt.Errorf("%w: %s replays whole runs from the start, so it is driven by Explore", ErrExploreUndriven, policy)
+	}
 	ctx.schedule = policy
+	return nil
+}
+
+// beginExploration makes the context's runs the given run of an exploration; the
+// state installed for a run no bracket began starts over, drawing from it.
+func (ctx *Context) beginExploration(policy SchedulePolicy, run *exploreRun) {
+	ctx.schedule = policy
+	ctx.exploring = run
+	ctx.run = ctx.newRunState()
+}
+
+// newScheduler starts the resolutions of one run under the context's policy.
+func (ctx *Context) newScheduler() *scheduler {
+	s := ctx.schedule.start()
+	s.explore = ctx.exploring
+	return s
 }
 
 // Schedule returns the policy the next run resolves its choice points under.
@@ -460,7 +488,7 @@ func (ctx *Context) Schedule() SchedulePolicy {
 // a run no bracket began.
 func (ctx *Context) scheduling() *scheduler {
 	if ctx.run.scheduler == nil {
-		ctx.run.scheduler = ctx.schedule.start()
+		ctx.run.scheduler = ctx.newScheduler()
 	}
 	return ctx.run.scheduler
 }
@@ -571,7 +599,7 @@ type runState struct {
 // newRunState is the state a run starts with, under the schedule policy set now.
 func (ctx *Context) newRunState() *runState {
 	return &runState{
-		scheduler:     ctx.schedule.start(),
+		scheduler:     ctx.newScheduler(),
 		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 	}
 }
@@ -1385,17 +1413,38 @@ func (ctx *Context) ExecuteStateWithEvents(stateMachine *symbols.Symbol, events 
 // connections route what the machine sends and whose variant selections decide
 // which of them are realized. A nil self performs it outside any object.
 func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (map[string]Value, []string, error) {
+	exec, err := ctx.performState(stateMachine, self, events)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Return state machine data and the real ordered visit trace
+	return exec.StateData(), exec.GetStateVisits(), nil
+}
+
+// StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
+// reports where it came to as the outcome an exploration compares.
+func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events []string) (Outcome, error) {
+	exec, err := ctx.performState(stateMachine, nil, events)
+	if err != nil {
+		return Outcome{}, err
+	}
+	return exec.Outcome(), nil
+}
+
+// performState runs a state machine performed by self to completion or
+// suspension, the events injected before it runs, and returns its executor.
+func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, events []string) (*StateExecutor, error) {
 	defer ctx.beginRun()()
 
 	// Create executor
 	exec, err := newStateExecutor(ctx, stateMachine, self)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create state executor: %w", err)
+		return nil, fmt.Errorf("create state executor: %w", err)
 	}
 
 	// Initialize execution (enters initial state)
 	if err := exec.initialize(); err != nil {
-		return nil, nil, fmt.Errorf("initialize state machine: %w", err)
+		return nil, fmt.Errorf("initialize state machine: %w", err)
 	}
 
 	// Inject external signal events. Each event name is treated as a signal type
@@ -1405,11 +1454,9 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 	}
 
 	if err := exec.RunToCompletion(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	// Return state machine data and the real ordered visit trace
-	return exec.StateData(), exec.GetStateVisits(), nil
+	return exec, nil
 }
 
 // CreateActionExecutor creates an action executor without starting execution.

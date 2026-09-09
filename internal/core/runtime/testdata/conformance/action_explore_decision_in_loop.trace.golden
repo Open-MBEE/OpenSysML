@@ -1,0 +1,43 @@
+step 1: token 1@again
+step 2: token 1@pick
+  eval feature passes -> 0
+  eval literal 2 -> 2
+eval operator < -> true
+choice step 3: decision pick branches 1->left, 2->right hold (unordered; took 1->left)
+step 3: token 1@left
+stmt assign lefts
+    eval feature lefts -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign passes
+    eval feature passes -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 4: token 1@again
+step 5: token 1@pick
+  eval feature passes -> 1
+  eval literal 2 -> 2
+eval operator < -> true
+choice step 6: decision pick branches 1->left, 2->right hold (unordered; took 1->left)
+step 6: token 1@left
+stmt assign lefts
+    eval feature lefts -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+stmt assign passes
+    eval feature passes -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 7: token 1@again
+step 8: token 1@pick
+  eval feature passes -> 2
+  eval literal 2 -> 2
+eval operator < -> false
+  eval feature passes -> 2
+  eval literal 2 -> 2
+eval operator < -> false
+  eval feature passes -> 2
+  eval literal 2 -> 2
+eval operator >= -> true
+step 9: token 1@done
+step 10: no active tokens

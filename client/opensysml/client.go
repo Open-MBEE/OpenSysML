@@ -75,6 +75,18 @@ type Client interface {
 	// capability, checked before anything is sent.
 	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*StateRun, error)
 
+	// ExploreAction runs the action once per linearization of its choice points,
+	// within the budget WithSchedule spells; needs schedule and schedule_explore.
+	ExploreAction(ctx context.Context, model *Model, actionSymbolID string, inputs map[string]Value, opts ...ExecuteOption) (*Exploration, error)
+
+	// ExploreState runs the state machine on the events once per linearization
+	// of its choice points; an outcome is its final state, visits and values.
+	ExploreState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*Exploration, error)
+
+	// ExploreAnalysis runs the case once per linearization of its actions' choice
+	// points, under the budget Schedule spells; an outcome is outputs plus verdicts.
+	ExploreAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Exploration, error)
+
 	// VerifyConstraint evaluates the named constraint, optionally Against a
 	// part to instantiate and check. Requires the verification capability.
 	VerifyConstraint(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Verification, error)

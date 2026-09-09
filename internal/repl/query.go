@@ -59,6 +59,10 @@ type Verdict struct {
 	// function values — a trade study's evaluation of each alternative — in the
 	// order made.
 	Evaluations []Evaluation
+	// Outcomes are the distinct outcomes an exploration reached, in canonical
+	// order, and Exploration how it ended; only an explored run has them.
+	Outcomes    []VerdictOutcome
+	Exploration *VerdictExploration
 }
 
 // Evaluation is one application of a case's calc as a function value: what it

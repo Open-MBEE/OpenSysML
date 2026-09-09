@@ -139,8 +139,8 @@ CAPABILITY_DIAGNOSTIC_CODES = "diagnostic_codes"
 
 #: The ``schedule`` field of an action, state or analysis run, naming the
 #: scheduling policy its choice points are resolved under: ``declared``,
-#: ``reverse`` (the default) or ``seed:<n>``. Without it the service would drop
-#: the field and run under the default, so the client refuses to send one.
+#: ``reverse`` (the default), ``seed:<n>`` or ``explore``. Without it the service
+#: would drop the field and run under the default, so the client refuses to send one.
 CAPABILITY_SCHEDULE = "schedule"
 
 #: Each application an analysis run made of one of the case's calcs as a value —
@@ -149,6 +149,12 @@ CAPABILITY_SCHEDULE = "schedule"
 #: computed kept beside its error. Without it a run reports no evaluation and a
 #: failed run its error alone.
 CAPABILITY_CASE_EVALUATIONS = "case_evaluations"
+
+#: The ``explore[:runs=<n>,depth=<d>]`` schedule, under which a run answers with
+#: every distinct outcome as ``outcomes`` and an ``exploration`` status instead
+#: of one run's result. Without it the service refuses the schedule with
+#: ``UNIMPLEMENTED``, so the client refuses to send one.
+CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 
 
 @dataclass(frozen=True)

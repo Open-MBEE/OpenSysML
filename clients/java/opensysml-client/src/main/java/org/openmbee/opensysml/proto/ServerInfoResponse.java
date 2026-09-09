@@ -185,6 +185,10 @@ private static final long serialVersionUID = 0L;
    * function value — a trade study's evaluation of each
    * alternative — as evaluations, and keep the outputs and
    * evaluations a failed run made beside its error.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -274,6 +278,10 @@ private static final long serialVersionUID = 0L;
    * function value — a trade study's evaluation of each
    * alternative — as evaluations, and keep the outputs and
    * evaluations a failed run made beside its error.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -362,6 +370,10 @@ private static final long serialVersionUID = 0L;
    * function value — a trade study's evaluation of each
    * alternative — as evaluations, and keep the outputs and
    * evaluations a failed run made beside its error.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -451,6 +463,10 @@ private static final long serialVersionUID = 0L;
    * function value — a trade study's evaluation of each
    * alternative — as evaluations, and keep the outputs and
    * evaluations a failed run made beside its error.
+   * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+   * accepted, and the response carries every distinct outcome
+   * as `outcomes` with an `exploration` status; without it the
+   * spelling is INVALID_ARGUMENT.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -989,6 +1005,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1079,6 +1099,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1167,6 +1191,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1256,6 +1284,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1346,6 +1378,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1442,6 +1478,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1537,6 +1577,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1632,6 +1676,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -1724,6 +1772,10 @@ private static final long serialVersionUID = 0L;
      * function value — a trade study's evaluation of each
      * alternative — as evaluations, and keep the outputs and
      * evaluations a failed run made beside its error.
+     * "schedule_explore" - the schedule "explore[:runs=&lt;n&gt;,depth=&lt;d&gt;]" is
+     * accepted, and the response carries every distinct outcome
+     * as `outcomes` with an `exploration` status; without it the
+     * spelling is INVALID_ARGUMENT.
      * </pre>
      *
      * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>

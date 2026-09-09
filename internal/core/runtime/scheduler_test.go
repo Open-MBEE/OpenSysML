@@ -38,7 +38,7 @@ func TestParseSchedulePolicy(t *testing.T) {
 
 // A spelling that names no policy is a typed error saying which spelling and why.
 func TestParseSchedulePolicyRejectsUnknownSpellings(t *testing.T) {
-	for _, spelling := range []string{"seed", "seed:", "seed:-1", "seed:abc", "seed:1.5", "seed: 1", "explore", "random", "Reverse", "declared "} {
+	for _, spelling := range []string{"seed", "seed:", "seed:-1", "seed:abc", "seed:1.5", "seed: 1", "explore:", "explore:width=3", "random", "Reverse", "declared "} {
 		_, err := ParseSchedulePolicy(spelling)
 		if err == nil {
 			t.Errorf("%q: accepted", spelling)
@@ -96,7 +96,7 @@ func runChoiceModel(t *testing.T, policy SchedulePolicy) (string, map[string]Val
 	if sym == nil {
 		t.Fatal("action not found")
 	}
-	ctx.SetSchedule(policy)
+	mustSchedule(t, ctx, policy)
 	exec, err := ctx.CreateActionExecutor(sym)
 	if err != nil {
 		t.Fatalf("create executor: %v", err)
@@ -219,7 +219,7 @@ func TestSeededTransitionChoiceMatchesTheRun(t *testing.T) {
 			t.Fatal("state machine not found")
 		}
 		policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
-		ctx.SetSchedule(policy)
+		mustSchedule(t, ctx, policy)
 		_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
 		if err != nil {
 			t.Fatalf("%s: %v", policy, err)
@@ -291,7 +291,7 @@ func TestDrivenRunKeepsItsSchedulerAcrossOtherRuns(t *testing.T) {
 			t.Fatal("action not found")
 		}
 		newExecutor := func(policy SchedulePolicy) *ActionExecutor {
-			ctx.SetSchedule(policy)
+			mustSchedule(t, ctx, policy)
 			exec, err := ctx.CreateActionExecutor(sym)
 			if err != nil {
 				t.Fatalf("create executor: %v", err)
@@ -335,7 +335,7 @@ func TestDecidePredictsTheDrivenRunsTransition(t *testing.T) {
 		if sym == nil {
 			t.Fatal("state machine not found")
 		}
-		ctx.SetSchedule(policy)
+		mustSchedule(t, ctx, policy)
 		exec, err := ctx.CreateStateExecutor(sym)
 		if err != nil {
 			t.Fatalf("%s: create executor: %v", policy, err)
@@ -401,7 +401,7 @@ func TestParkedTokensDrawNothing(t *testing.T) {
 		if sym == nil {
 			t.Fatal("action not found")
 		}
-		ctx.SetSchedule(policy)
+		mustSchedule(t, ctx, policy)
 		exec, err := ctx.CreateActionExecutor(sym)
 		if err != nil {
 			t.Fatalf("%s: create executor: %v", policy, err)
@@ -497,7 +497,7 @@ func TestSharedAncestorChoiceDrawsOnce(t *testing.T) {
 				t.Fatal("state machine not found")
 			}
 			policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
-			ctx.SetSchedule(policy)
+			mustSchedule(t, ctx, policy)
 			_, visited, err := ctx.ExecuteStateWithEvents(sym, tc.events)
 			if err != nil {
 				t.Fatalf("%s %s: %v", tc.name, policy, err)
@@ -577,7 +577,7 @@ func TestOutrankedChoiceDrawsNothing(t *testing.T) {
 				t.Fatal("state machine not found")
 			}
 			policy := mustPolicy(t, fmt.Sprintf("seed:%d", seed))
-			ctx.SetSchedule(policy)
+			mustSchedule(t, ctx, policy)
 			_, visited, err := ctx.ExecuteStateWithEvents(sym, tc.events)
 			if err != nil {
 				t.Fatalf("%s %s: %v", tc.name, policy, err)

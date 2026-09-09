@@ -31,6 +31,7 @@ from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Verdict,
     VerificationVerdict,
 )
+from opensysml.exploration import Exploration, Outcome
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
     DocumentQueryError, DocumentQueryResult, DocumentRow, ElementRef, INFINITY,
@@ -67,6 +68,7 @@ __all__ = [
     "Editor", "EditResult", "AppliedEdit",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "VerificationVerdict",
+    "Exploration", "Outcome",
     "QueryElement", "QueryError",
     "DocumentQueryError", "DocumentQueryResult", "DocumentRow", "ElementRef",
     "INFINITY",

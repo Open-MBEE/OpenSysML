@@ -167,7 +167,7 @@ func TestAnUnknownScheduleIsInvalidArgument(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, scheduleModel, "schedule-invalid")
 
-	for _, spelling := range []string{"random", "seed", "seed:", "seed:-1", "seed:abc", "Declared", " declared", "explore"} {
+	for _, spelling := range []string{"random", "seed", "seed:", "seed:-1", "seed:abc", "Declared", " declared", "explore:", "explore:runs=x"} {
 		calls := map[string]func(hash string) error{
 			"ExecuteAction": func(hash string) error {
 				_, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: "Sched::tally", Schedule: spelling})

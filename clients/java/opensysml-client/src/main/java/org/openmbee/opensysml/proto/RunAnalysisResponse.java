@@ -39,6 +39,7 @@ private static final long serialVersionUID = 0L;
     diagnostics_ = java.util.Collections.emptyList();
     failureReason_ = 0;
     verificationVerdicts_ = java.util.Collections.emptyList();
+    outcomes_ = java.util.Collections.emptyList();
     evaluations_ = java.util.Collections.emptyList();
   }
 
@@ -55,6 +56,7 @@ private static final long serialVersionUID = 0L;
             org.openmbee.opensysml.proto.RunAnalysisResponse.class, org.openmbee.opensysml.proto.RunAnalysisResponse.Builder.class);
   }
 
+  private int bitField0_;
   public static final int OUTPUTS_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private java.util.List<org.openmbee.opensysml.proto.CalcOutput> outputs_;
@@ -444,7 +446,114 @@ private static final long serialVersionUID = 0L;
     return verificationVerdicts_.get(index);
   }
 
-  public static final int EVALUATIONS_FIELD_NUMBER = 8;
+  public static final int OUTCOMES_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.Outcome> outcomes_;
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.Outcome> getOutcomesList() {
+    return outcomes_;
+  }
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+      getOutcomesOrBuilderList() {
+    return outcomes_;
+  }
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  @java.lang.Override
+  public int getOutcomesCount() {
+    return outcomes_.size();
+  }
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Outcome getOutcomes(int index) {
+    return outcomes_.get(index);
+  }
+  /**
+   * <pre>
+   * Set only under an explore schedule: every distinct outcome reached, in
+   * canonical order, and how the exploration ended. An outcome's outputs carry
+   * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+   * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+   * and `error` are then empty, a failed run being an outcome of its own.
+   * </pre>
+   *
+   * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.OutcomeOrBuilder getOutcomesOrBuilder(
+      int index) {
+    return outcomes_.get(index);
+  }
+
+  public static final int EXPLORATION_FIELD_NUMBER = 9;
+  private org.openmbee.opensysml.proto.ExplorationStatus exploration_;
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+   * @return Whether the exploration field is set.
+   */
+  @java.lang.Override
+  public boolean hasExploration() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+   * @return The exploration.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ExplorationStatus getExploration() {
+    return exploration_ == null ? org.openmbee.opensysml.proto.ExplorationStatus.getDefaultInstance() : exploration_;
+  }
+  /**
+   * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ExplorationStatusOrBuilder getExplorationOrBuilder() {
+    return exploration_ == null ? org.openmbee.opensysml.proto.ExplorationStatus.getDefaultInstance() : exploration_;
+  }
+
+  public static final int EVALUATIONS_FIELD_NUMBER = 10;
   @SuppressWarnings("serial")
   private java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> evaluations_;
   /**
@@ -454,7 +563,7 @@ private static final long serialVersionUID = 0L;
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   @java.lang.Override
   public java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> getEvaluationsList() {
@@ -467,7 +576,7 @@ private static final long serialVersionUID = 0L;
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   @java.lang.Override
   public java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
@@ -481,7 +590,7 @@ private static final long serialVersionUID = 0L;
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   @java.lang.Override
   public int getEvaluationsCount() {
@@ -494,7 +603,7 @@ private static final long serialVersionUID = 0L;
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   @java.lang.Override
   public org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index) {
@@ -507,7 +616,7 @@ private static final long serialVersionUID = 0L;
    * alternative in subject order, the selected one marked.
    * </pre>
    *
-   * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+   * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
    */
   @java.lang.Override
   public org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
@@ -550,8 +659,14 @@ private static final long serialVersionUID = 0L;
     for (int i = 0; i < verificationVerdicts_.size(); i++) {
       output.writeMessage(7, verificationVerdicts_.get(i));
     }
+    for (int i = 0; i < outcomes_.size(); i++) {
+      output.writeMessage(8, outcomes_.get(i));
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(9, getExploration());
+    }
     for (int i = 0; i < evaluations_.size(); i++) {
-      output.writeMessage(8, evaluations_.get(i));
+      output.writeMessage(10, evaluations_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -589,9 +704,17 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(7, verificationVerdicts_.get(i));
     }
+    for (int i = 0; i < outcomes_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, outcomes_.get(i));
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(9, getExploration());
+    }
     for (int i = 0; i < evaluations_.size(); i++) {
       size += com.google.protobuf.CodedOutputStream
-        .computeMessageSize(8, evaluations_.get(i));
+        .computeMessageSize(10, evaluations_.get(i));
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -621,6 +744,13 @@ private static final long serialVersionUID = 0L;
     if (failureReason_ != other.failureReason_) return false;
     if (!getVerificationVerdictsList()
         .equals(other.getVerificationVerdictsList())) return false;
+    if (!getOutcomesList()
+        .equals(other.getOutcomesList())) return false;
+    if (hasExploration() != other.hasExploration()) return false;
+    if (hasExploration()) {
+      if (!getExploration()
+          .equals(other.getExploration())) return false;
+    }
     if (!getEvaluationsList()
         .equals(other.getEvaluationsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
@@ -657,6 +787,14 @@ private static final long serialVersionUID = 0L;
     if (getVerificationVerdictsCount() > 0) {
       hash = (37 * hash) + VERIFICATION_VERDICTS_FIELD_NUMBER;
       hash = (53 * hash) + getVerificationVerdictsList().hashCode();
+    }
+    if (getOutcomesCount() > 0) {
+      hash = (37 * hash) + OUTCOMES_FIELD_NUMBER;
+      hash = (53 * hash) + getOutcomesList().hashCode();
+    }
+    if (hasExploration()) {
+      hash = (37 * hash) + EXPLORATION_FIELD_NUMBER;
+      hash = (53 * hash) + getExploration().hashCode();
     }
     if (getEvaluationsCount() > 0) {
       hash = (37 * hash) + EVALUATIONS_FIELD_NUMBER;
@@ -785,13 +923,26 @@ private static final long serialVersionUID = 0L;
 
     // Construct using org.openmbee.opensysml.proto.RunAnalysisResponse.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetOutputsFieldBuilder();
+        internalGetVerdictsFieldBuilder();
+        internalGetInstancesFieldBuilder();
+        internalGetDiagnosticsFieldBuilder();
+        internalGetVerificationVerdictsFieldBuilder();
+        internalGetOutcomesFieldBuilder();
+        internalGetExplorationFieldBuilder();
+        internalGetEvaluationsFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -834,13 +985,25 @@ private static final long serialVersionUID = 0L;
         verificationVerdictsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00000040);
+      if (outcomesBuilder_ == null) {
+        outcomes_ = java.util.Collections.emptyList();
+      } else {
+        outcomes_ = null;
+        outcomesBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000080);
+      exploration_ = null;
+      if (explorationBuilder_ != null) {
+        explorationBuilder_.dispose();
+        explorationBuilder_ = null;
+      }
       if (evaluationsBuilder_ == null) {
         evaluations_ = java.util.Collections.emptyList();
       } else {
         evaluations_ = null;
         evaluationsBuilder_.clear();
       }
-      bitField0_ = (bitField0_ & ~0x00000080);
+      bitField0_ = (bitField0_ & ~0x00000200);
       return this;
     }
 
@@ -919,10 +1082,19 @@ private static final long serialVersionUID = 0L;
       } else {
         result.verificationVerdicts_ = verificationVerdictsBuilder_.build();
       }
-      if (evaluationsBuilder_ == null) {
+      if (outcomesBuilder_ == null) {
         if (((bitField0_ & 0x00000080) != 0)) {
-          evaluations_ = java.util.Collections.unmodifiableList(evaluations_);
+          outcomes_ = java.util.Collections.unmodifiableList(outcomes_);
           bitField0_ = (bitField0_ & ~0x00000080);
+        }
+        result.outcomes_ = outcomes_;
+      } else {
+        result.outcomes_ = outcomesBuilder_.build();
+      }
+      if (evaluationsBuilder_ == null) {
+        if (((bitField0_ & 0x00000200) != 0)) {
+          evaluations_ = java.util.Collections.unmodifiableList(evaluations_);
+          bitField0_ = (bitField0_ & ~0x00000200);
         }
         result.evaluations_ = evaluations_;
       } else {
@@ -938,6 +1110,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.failureReason_ = failureReason_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.exploration_ = explorationBuilder_ == null
+            ? exploration_
+            : explorationBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -1090,11 +1270,40 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (outcomesBuilder_ == null) {
+        if (!other.outcomes_.isEmpty()) {
+          if (outcomes_.isEmpty()) {
+            outcomes_ = other.outcomes_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+          } else {
+            ensureOutcomesIsMutable();
+            outcomes_.addAll(other.outcomes_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.outcomes_.isEmpty()) {
+          if (outcomesBuilder_.isEmpty()) {
+            outcomesBuilder_.dispose();
+            outcomesBuilder_ = null;
+            outcomes_ = other.outcomes_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+            outcomesBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetOutcomesFieldBuilder() : null;
+          } else {
+            outcomesBuilder_.addAllMessages(other.outcomes_);
+          }
+        }
+      }
+      if (other.hasExploration()) {
+        mergeExploration(other.getExploration());
+      }
       if (evaluationsBuilder_ == null) {
         if (!other.evaluations_.isEmpty()) {
           if (evaluations_.isEmpty()) {
             evaluations_ = other.evaluations_;
-            bitField0_ = (bitField0_ & ~0x00000080);
+            bitField0_ = (bitField0_ & ~0x00000200);
           } else {
             ensureEvaluationsIsMutable();
             evaluations_.addAll(other.evaluations_);
@@ -1107,7 +1316,7 @@ private static final long serialVersionUID = 0L;
             evaluationsBuilder_.dispose();
             evaluationsBuilder_ = null;
             evaluations_ = other.evaluations_;
-            bitField0_ = (bitField0_ & ~0x00000080);
+            bitField0_ = (bitField0_ & ~0x00000200);
             evaluationsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetEvaluationsFieldBuilder() : null;
@@ -1218,6 +1427,26 @@ private static final long serialVersionUID = 0L;
               break;
             } // case 58
             case 66: {
+              org.openmbee.opensysml.proto.Outcome m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.Outcome.parser(),
+                      extensionRegistry);
+              if (outcomesBuilder_ == null) {
+                ensureOutcomesIsMutable();
+                outcomes_.add(m);
+              } else {
+                outcomesBuilder_.addMessage(m);
+              }
+              break;
+            } // case 66
+            case 74: {
+              input.readMessage(
+                  internalGetExplorationFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 82: {
               org.openmbee.opensysml.proto.CaseEvaluation m =
                   input.readMessage(
                       org.openmbee.opensysml.proto.CaseEvaluation.parser(),
@@ -1229,7 +1458,7 @@ private static final long serialVersionUID = 0L;
                 evaluationsBuilder_.addMessage(m);
               }
               break;
-            } // case 66
+            } // case 82
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3003,12 +3232,517 @@ private static final long serialVersionUID = 0L;
       return verificationVerdictsBuilder_;
     }
 
+    private java.util.List<org.openmbee.opensysml.proto.Outcome> outcomes_ =
+      java.util.Collections.emptyList();
+    private void ensureOutcomesIsMutable() {
+      if (!((bitField0_ & 0x00000080) != 0)) {
+        outcomes_ = new java.util.ArrayList<org.openmbee.opensysml.proto.Outcome>(outcomes_);
+        bitField0_ |= 0x00000080;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Outcome, org.openmbee.opensysml.proto.Outcome.Builder, org.openmbee.opensysml.proto.OutcomeOrBuilder> outcomesBuilder_;
+
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Outcome> getOutcomesList() {
+      if (outcomesBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(outcomes_);
+      } else {
+        return outcomesBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public int getOutcomesCount() {
+      if (outcomesBuilder_ == null) {
+        return outcomes_.size();
+      } else {
+        return outcomesBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public org.openmbee.opensysml.proto.Outcome getOutcomes(int index) {
+      if (outcomesBuilder_ == null) {
+        return outcomes_.get(index);
+      } else {
+        return outcomesBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder setOutcomes(
+        int index, org.openmbee.opensysml.proto.Outcome value) {
+      if (outcomesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureOutcomesIsMutable();
+        outcomes_.set(index, value);
+        onChanged();
+      } else {
+        outcomesBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder setOutcomes(
+        int index, org.openmbee.opensysml.proto.Outcome.Builder builderForValue) {
+      if (outcomesBuilder_ == null) {
+        ensureOutcomesIsMutable();
+        outcomes_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        outcomesBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder addOutcomes(org.openmbee.opensysml.proto.Outcome value) {
+      if (outcomesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureOutcomesIsMutable();
+        outcomes_.add(value);
+        onChanged();
+      } else {
+        outcomesBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder addOutcomes(
+        int index, org.openmbee.opensysml.proto.Outcome value) {
+      if (outcomesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureOutcomesIsMutable();
+        outcomes_.add(index, value);
+        onChanged();
+      } else {
+        outcomesBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder addOutcomes(
+        org.openmbee.opensysml.proto.Outcome.Builder builderForValue) {
+      if (outcomesBuilder_ == null) {
+        ensureOutcomesIsMutable();
+        outcomes_.add(builderForValue.build());
+        onChanged();
+      } else {
+        outcomesBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder addOutcomes(
+        int index, org.openmbee.opensysml.proto.Outcome.Builder builderForValue) {
+      if (outcomesBuilder_ == null) {
+        ensureOutcomesIsMutable();
+        outcomes_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        outcomesBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder addAllOutcomes(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.Outcome> values) {
+      if (outcomesBuilder_ == null) {
+        ensureOutcomesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, outcomes_);
+        onChanged();
+      } else {
+        outcomesBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder clearOutcomes() {
+      if (outcomesBuilder_ == null) {
+        outcomes_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+      } else {
+        outcomesBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public Builder removeOutcomes(int index) {
+      if (outcomesBuilder_ == null) {
+        ensureOutcomesIsMutable();
+        outcomes_.remove(index);
+        onChanged();
+      } else {
+        outcomesBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public org.openmbee.opensysml.proto.Outcome.Builder getOutcomesBuilder(
+        int index) {
+      return internalGetOutcomesFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public org.openmbee.opensysml.proto.OutcomeOrBuilder getOutcomesOrBuilder(
+        int index) {
+      if (outcomesBuilder_ == null) {
+        return outcomes_.get(index);  } else {
+        return outcomesBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+         getOutcomesOrBuilderList() {
+      if (outcomesBuilder_ != null) {
+        return outcomesBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(outcomes_);
+      }
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public org.openmbee.opensysml.proto.Outcome.Builder addOutcomesBuilder() {
+      return internalGetOutcomesFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.Outcome.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public org.openmbee.opensysml.proto.Outcome.Builder addOutcomesBuilder(
+        int index) {
+      return internalGetOutcomesFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.Outcome.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * Set only under an explore schedule: every distinct outcome reached, in
+     * canonical order, and how the exploration ended. An outcome's outputs carry
+     * the case's outputs and, named "objective &lt;name&gt;", "assertion &lt;name&gt;" and
+     * "verdict &lt;case&gt;", its verdicts as strings; `outputs`, `verdicts`, `instances`
+     * and `error` are then empty, a failed run being an outcome of its own.
+     * </pre>
+     *
+     * <code>repeated .sysml.Outcome outcomes = 8 [json_name = "outcomes"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Outcome.Builder> 
+         getOutcomesBuilderList() {
+      return internalGetOutcomesFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Outcome, org.openmbee.opensysml.proto.Outcome.Builder, org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+        internalGetOutcomesFieldBuilder() {
+      if (outcomesBuilder_ == null) {
+        outcomesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.Outcome, org.openmbee.opensysml.proto.Outcome.Builder, org.openmbee.opensysml.proto.OutcomeOrBuilder>(
+                outcomes_,
+                ((bitField0_ & 0x00000080) != 0),
+                getParentForChildren(),
+                isClean());
+        outcomes_ = null;
+      }
+      return outcomesBuilder_;
+    }
+
+    private org.openmbee.opensysml.proto.ExplorationStatus exploration_;
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ExplorationStatus, org.openmbee.opensysml.proto.ExplorationStatus.Builder, org.openmbee.opensysml.proto.ExplorationStatusOrBuilder> explorationBuilder_;
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     * @return Whether the exploration field is set.
+     */
+    public boolean hasExploration() {
+      return ((bitField0_ & 0x00000100) != 0);
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     * @return The exploration.
+     */
+    public org.openmbee.opensysml.proto.ExplorationStatus getExploration() {
+      if (explorationBuilder_ == null) {
+        return exploration_ == null ? org.openmbee.opensysml.proto.ExplorationStatus.getDefaultInstance() : exploration_;
+      } else {
+        return explorationBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    public Builder setExploration(org.openmbee.opensysml.proto.ExplorationStatus value) {
+      if (explorationBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        exploration_ = value;
+      } else {
+        explorationBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    public Builder setExploration(
+        org.openmbee.opensysml.proto.ExplorationStatus.Builder builderForValue) {
+      if (explorationBuilder_ == null) {
+        exploration_ = builderForValue.build();
+      } else {
+        explorationBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    public Builder mergeExploration(org.openmbee.opensysml.proto.ExplorationStatus value) {
+      if (explorationBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0) &&
+          exploration_ != null &&
+          exploration_ != org.openmbee.opensysml.proto.ExplorationStatus.getDefaultInstance()) {
+          getExplorationBuilder().mergeFrom(value);
+        } else {
+          exploration_ = value;
+        }
+      } else {
+        explorationBuilder_.mergeFrom(value);
+      }
+      if (exploration_ != null) {
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    public Builder clearExploration() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      exploration_ = null;
+      if (explorationBuilder_ != null) {
+        explorationBuilder_.dispose();
+        explorationBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    public org.openmbee.opensysml.proto.ExplorationStatus.Builder getExplorationBuilder() {
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return internalGetExplorationFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    public org.openmbee.opensysml.proto.ExplorationStatusOrBuilder getExplorationOrBuilder() {
+      if (explorationBuilder_ != null) {
+        return explorationBuilder_.getMessageOrBuilder();
+      } else {
+        return exploration_ == null ?
+            org.openmbee.opensysml.proto.ExplorationStatus.getDefaultInstance() : exploration_;
+      }
+    }
+    /**
+     * <code>.sysml.ExplorationStatus exploration = 9 [json_name = "exploration"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.ExplorationStatus, org.openmbee.opensysml.proto.ExplorationStatus.Builder, org.openmbee.opensysml.proto.ExplorationStatusOrBuilder> 
+        internalGetExplorationFieldBuilder() {
+      if (explorationBuilder_ == null) {
+        explorationBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.ExplorationStatus, org.openmbee.opensysml.proto.ExplorationStatus.Builder, org.openmbee.opensysml.proto.ExplorationStatusOrBuilder>(
+                getExploration(),
+                getParentForChildren(),
+                isClean());
+        exploration_ = null;
+      }
+      return explorationBuilder_;
+    }
+
     private java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> evaluations_ =
       java.util.Collections.emptyList();
     private void ensureEvaluationsIsMutable() {
-      if (!((bitField0_ & 0x00000080) != 0)) {
+      if (!((bitField0_ & 0x00000200) != 0)) {
         evaluations_ = new java.util.ArrayList<org.openmbee.opensysml.proto.CaseEvaluation>(evaluations_);
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000200;
        }
     }
 
@@ -3022,7 +3756,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public java.util.List<org.openmbee.opensysml.proto.CaseEvaluation> getEvaluationsList() {
       if (evaluationsBuilder_ == null) {
@@ -3038,7 +3772,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public int getEvaluationsCount() {
       if (evaluationsBuilder_ == null) {
@@ -3054,7 +3788,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public org.openmbee.opensysml.proto.CaseEvaluation getEvaluations(int index) {
       if (evaluationsBuilder_ == null) {
@@ -3070,7 +3804,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder setEvaluations(
         int index, org.openmbee.opensysml.proto.CaseEvaluation value) {
@@ -3093,7 +3827,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder setEvaluations(
         int index, org.openmbee.opensysml.proto.CaseEvaluation.Builder builderForValue) {
@@ -3113,7 +3847,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder addEvaluations(org.openmbee.opensysml.proto.CaseEvaluation value) {
       if (evaluationsBuilder_ == null) {
@@ -3135,7 +3869,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder addEvaluations(
         int index, org.openmbee.opensysml.proto.CaseEvaluation value) {
@@ -3158,7 +3892,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder addEvaluations(
         org.openmbee.opensysml.proto.CaseEvaluation.Builder builderForValue) {
@@ -3178,7 +3912,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder addEvaluations(
         int index, org.openmbee.opensysml.proto.CaseEvaluation.Builder builderForValue) {
@@ -3198,7 +3932,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder addAllEvaluations(
         java.lang.Iterable<? extends org.openmbee.opensysml.proto.CaseEvaluation> values) {
@@ -3219,12 +3953,12 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder clearEvaluations() {
       if (evaluationsBuilder_ == null) {
         evaluations_ = java.util.Collections.emptyList();
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000200);
         onChanged();
       } else {
         evaluationsBuilder_.clear();
@@ -3238,7 +3972,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public Builder removeEvaluations(int index) {
       if (evaluationsBuilder_ == null) {
@@ -3257,7 +3991,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public org.openmbee.opensysml.proto.CaseEvaluation.Builder getEvaluationsBuilder(
         int index) {
@@ -3270,7 +4004,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public org.openmbee.opensysml.proto.CaseEvaluationOrBuilder getEvaluationsOrBuilder(
         int index) {
@@ -3286,7 +4020,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public java.util.List<? extends org.openmbee.opensysml.proto.CaseEvaluationOrBuilder> 
          getEvaluationsOrBuilderList() {
@@ -3303,7 +4037,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public org.openmbee.opensysml.proto.CaseEvaluation.Builder addEvaluationsBuilder() {
       return internalGetEvaluationsFieldBuilder().addBuilder(
@@ -3316,7 +4050,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public org.openmbee.opensysml.proto.CaseEvaluation.Builder addEvaluationsBuilder(
         int index) {
@@ -3330,7 +4064,7 @@ private static final long serialVersionUID = 0L;
      * alternative in subject order, the selected one marked.
      * </pre>
      *
-     * <code>repeated .sysml.CaseEvaluation evaluations = 8 [json_name = "evaluations"];</code>
+     * <code>repeated .sysml.CaseEvaluation evaluations = 10 [json_name = "evaluations"];</code>
      */
     public java.util.List<org.openmbee.opensysml.proto.CaseEvaluation.Builder> 
          getEvaluationsBuilderList() {
@@ -3343,7 +4077,7 @@ private static final long serialVersionUID = 0L;
         evaluationsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
             org.openmbee.opensysml.proto.CaseEvaluation, org.openmbee.opensysml.proto.CaseEvaluation.Builder, org.openmbee.opensysml.proto.CaseEvaluationOrBuilder>(
                 evaluations_,
-                ((bitField0_ & 0x00000080) != 0),
+                ((bitField0_ & 0x00000200) != 0),
                 getParentForChildren(),
                 isClean());
         evaluations_ = null;

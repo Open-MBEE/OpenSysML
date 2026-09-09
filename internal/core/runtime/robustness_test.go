@@ -95,6 +95,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_cross_region_transitions_ping_pong", testStateCrossRegionTransitionsPingPong)
 	t.Run("parallel_state_body_unsupported_member", testParallelStateBodyUnsupportedMember)
 	t.Run("parallel_state_region_without_initial", testParallelStateRegionWithoutInitial)
+	t.Run("parallel_state_region_itself_parallel", testParallelStateRegionItselfParallel)
 	t.Run("state_usage_typed_by_itself", testStateUsageTypedByItself)
 	t.Run("state_usage_mutually_recursive_typing", testStateUsageMutuallyRecursiveTyping)
 	t.Run("state_def_specializing_the_library_state_action", testStateDefSpecializingTheLibraryStateAction)
@@ -3328,7 +3329,7 @@ func testStateNestedRegionCompletionKeepsSiblingsRunning(t *testing.T) {
 	if exec.State() == StateCompleted {
 		t.Errorf("the machine completed while the sibling region rests outside `done`")
 	}
-	if got := finalStateName(t, exec); got != "done+rbusy" {
+	if got := exec.FinalStateName(); got != "done+rbusy" {
 		t.Errorf("expected the regions in done+rbusy, got %q", got)
 	}
 }
@@ -5650,6 +5651,53 @@ func testParallelStateRegionWithoutInitial(t *testing.T) {
 	}
 }
 
+// testParallelStateRegionItselfParallel: a region is a direct substate of a
+// parallel body and starts in one of its own states, so a direct substate that
+// is itself parallel has no state to start in and is refused, written inline or
+// typed; the active configuration therefore never holds a region owned by a
+// region's wrapper state.
+func testParallelStateRegionItselfParallel(t *testing.T) {
+	for name, src := range map[string]string{
+		"inline": `
+		package test {
+			state def Machine {
+				entry; then work;
+				state work parallel {
+					state left parallel {
+						state r { entry; then r1; state r1; }
+						state s { entry; then s1; state s1; }
+					}
+					state right { entry; then b1; state b1; }
+				}
+			}
+		}
+	`,
+		"typed": `
+		package test {
+			state def Nested parallel {
+				state r { entry; then r1; state r1; }
+				state s { entry; then s1; state s1; }
+			}
+			state def Machine {
+				entry; then work;
+				state work parallel {
+					state left : Nested;
+					state right { entry; then b1; state b1; }
+				}
+			}
+		}
+	`,
+	} {
+		err := stateExecutorError(t, src, "Machine")
+		if err == nil {
+			t.Fatalf("%s: a parallel region of a parallel state succeeded", name)
+		}
+		if !strings.Contains(err.Error(), "region left has no initial state") {
+			t.Fatalf("%s: error = %v, want missing region initial", name, err)
+		}
+	}
+}
+
 // testStateUsageTypedByItself: a definition whose substate is typed by it has no
 // finite materialization and must report that, not recurse.
 func testStateUsageTypedByItself(t *testing.T) {
@@ -5774,7 +5822,7 @@ func testStateDefSpecializingALibraryStateKeepsItsContent(t *testing.T) {
 	if err := exec.RunToQuiescence(); err != nil {
 		t.Fatalf("RunToQuiescence: %v", err)
 	}
-	if got := finalStateName(t, exec); got != "hot" {
+	if got := exec.FinalStateName(); got != "hot" {
 		t.Fatalf("final state = %q, want hot", got)
 	}
 	seen, ok := exec.StateData()["burn.seen"]
@@ -5909,7 +5957,7 @@ func assertExhibitedMachineIn(t *testing.T, ctx *Context, inst *Instance, attr s
 	if !ok || machine.State == nil {
 		t.Fatal("the object exhibits no machine")
 	}
-	if got := finalStateName(t, machine.State); got != state {
+	if got := machine.State.FinalStateName(); got != state {
 		t.Errorf("final state = %q, want %q", got, state)
 	}
 }
