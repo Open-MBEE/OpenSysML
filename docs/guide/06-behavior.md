@@ -1057,6 +1057,11 @@ The evaluations cross `-json` as each check's `evaluations` and the gRPC API as
 capability, so a client reads the same per-alternative table
 ([reference/wire-contract.md](../reference/wire-contract.md#case-evaluations)).
 
+For all of this section run end to end on one model — an analysis with its objective, a
+verification case with its body verdict, a sweep and a sample, two trade studies and an action
+waiting on the clock a state machine also runs on, from the command line, the REPL and Python —
+see [examples/analysis-demo](../../examples/analysis-demo/README.md).
+
 ## Token-flow patterns
 
 Each model below is in

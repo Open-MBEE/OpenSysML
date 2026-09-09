@@ -5814,6 +5814,33 @@ and use <kbd>Shift</kbd>+<kbd>PageUp</kbd>.
 - In Konsole, use `Ctrl++` (not Ctrl+Shift++) to enlarge the font. Display version
   with shell `bin/sysml --version`; `%version` is not a REPL command.
 
+## Region-order choice points through CLI and REPL
+
+For an externally driven state fixture, use the unchanged model in the REPL:
+`%state test::Machine`, `%send Go`, `%advance 1`, `%current`. An undeclared
+signal can be matched by name; the REPL explicitly reports that fallback.
+Turn `%trace on` before advancing to see the chosen order. Set `%schedule
+seed:1` before restarting `%state` to replay from a fresh executor.
+
+The CLI has no external event injection flag. For CLI coverage, create a
+scratch analogue outside the repository, declaring `item def Go;` and adding
+`entry { send new Go() to Machine; }` to one initial leaf. Preserve both
+original accepting transitions. Bare `Go` and `Go()` may be rejected by
+analysis; use standard constructor syntax `new Go()`.
+
+Run `sysml -state test::Machine -advance 1 -trace <scratch.sysml>`.
+`-schedule declared` and default/reverse should select declaration order;
+`-schedule seed:1` should select the other order for the two-region fixture.
+Compare two seed runs byte-for-byte. `-schedule explore -trace` should expose
+both final writes and each witness's order, not merely report two runs.
+Replace the second region's trigger with another signal for a load-bearing
+negative control: one transition still fires, but no choice is reported.
+
+CLI `-json` places runtime notes in `checks[].lines`, not `diagnostics`
+(which is for model-analysis findings). Without `-trace`, assert the choice
+count; with `-trace -json`, assert the full choice line. Do not expect the
+gRPC `choice-point` diagnostic encoding on the CLI surface.
+
 ## The shared simulation clock: `%advance` across action and state debuggers, `-advance`, `final_time` (PR #136)
 
 - Build both CLI and service via Makefile; stop any older service before attaching

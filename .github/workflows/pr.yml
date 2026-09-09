@@ -1,7 +1,7 @@
 name: PR
 
-# The only CI a pull request runs. Pushes to main and tags are covered by the
-# CircleCI config; this workflow mirrors its build-test workflow, not release.
+# The only CI a pull request runs. Pushes to main and develop, and tags, are covered
+# by the CircleCI config; this workflow mirrors its build-test workflow, not release.
 on:
   pull_request:
 
