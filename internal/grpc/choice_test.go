@@ -254,6 +254,60 @@ package Test {
 	}
 }
 
+// One event enabling a transition in each of two orthogonal regions is a
+// region-order choice on the state response under the default policy, and
+// `seed:1` takes the other order.
+func TestExecuteState_RegionOrderChoiceDiagnostics(t *testing.T) {
+	srv := mustNewService(t, 10)
+
+	content := `
+package Test {
+  state Machine {
+    attribute last : Integer = 0;
+    entry; then work;
+    state work parallel {
+      state a { entry; then a1; state a1; state a2; transition first a1 accept Go do assign last := 1 then a2; }
+      state b { entry; then b1; state b1; state b2; transition first b1 accept Go do assign last := 2 then b2; }
+    }
+  }
+}
+`
+	parseResp, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:      &pb.ParseFileRequest_Content{Content: content},
+		ContentHash: "test-execute-state-region-order",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	execute := func(schedule, wantVisited, wantChoice string) {
+		t.Helper()
+		resp, err := srv.ExecuteState(context.Background(), &pb.ExecuteStateRequest{
+			ModelHash:            parseResp.ModelHash,
+			StateMachineSymbolId: "Test::Machine",
+			Events:               []string{"Go"},
+			Schedule:             schedule,
+		})
+		if err != nil {
+			t.Fatalf("ExecuteState failed: %v", err)
+		}
+		if resp.Error != "" {
+			t.Fatalf("execution error: %s", resp.Error)
+		}
+		if got := strings.Join(resp.StatesVisited, ","); got != wantVisited {
+			t.Fatalf("%q: states visited %q, want %s", schedule, got, wantVisited)
+		}
+		choices := choiceDiagnostics(resp.Diagnostics)
+		if len(choices) != 1 {
+			t.Fatalf("%q: choice diagnostics = %v, want one", schedule, resp.Diagnostics)
+		}
+		if choices[0].Message != wantChoice || choices[0].Severity != "info" {
+			t.Errorf("%q: diagnostic = %s %q, want info %q", schedule, choices[0].Severity, choices[0].Message, wantChoice)
+		}
+	}
+	execute("", "work,a1,b1,a2,b2", "choice point: on accept Go: states a1, b1 react (unordered; took a1 first)")
+	execute("seed:1", "work,a1,b1,b2,a2", "choice point: on accept Go: states a1, b1 react (unordered; took b1 first)")
+}
+
 // A guard the run read only to report a choice and could not evaluate is an
 // informational diagnostic naming the decision, the branch and the failure; the
 // run itself is unchanged, and a first guard's failure still fails it.

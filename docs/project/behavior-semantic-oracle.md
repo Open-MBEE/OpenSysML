@@ -522,17 +522,16 @@ Open: which region's transition fires first. The two orders reach two outcomes, 
 `last` and by the order `a2` and `b2` are visited in.
 
 Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
-stated as `outcomes` citing this section. The executor fires the selected transitions in region
-declaration order under `declared`, `reverse` and `seed:<n>` alike — a tool-defined order it does
-not report as a choice, so the trace under those policies carries no `choice` line for it — and
-the golden pins that linearization (`a` first, `last = 2`). Only `explore` varies the order: it is
-a choice point of the exploring run (`choice on accept Go: states a1, b1 react (unordered; took
-b1 first)` in the witness of the second outcome), and exploration must reach both outcomes and no
-other, in two runs. The existing fixtures `state_call_trigger_regions`,
-`state_composite_region_depth_order`, `state_composite_region_deeper_first` and
-`state_parallel_broadcast` pin the declaration-order linearization of this same shape as their
-one expected outcome and, having no `outcomes`, are not explored by the harness; under `explore`
-each reaches a second outcome.
+stated as `outcomes` citing this section. The order is a choice point under every policy, reported
+as `choice on accept Go: states a1, b1 react (unordered; took a1 first)`: `declared` and `reverse`
+fire the selected transitions in region declaration order — a tool-defined order — and the default
+golden pins that linearization (`a` first, `last = 2`); `seed:<n>` draws the order, and the `seed:1`
+golden pins the other one (`b` first, `last = 1`); `explore` varies it (`took b1 first` in the
+witness of the second outcome) and must reach both outcomes and no other, in two runs. The fixtures
+`state_call_trigger_regions`, `state_composite_region_depth_order`,
+`state_composite_region_deeper_first` and `state_parallel_broadcast` are this same shape and list
+both orders as `outcomes` citing this section, the default golden of each pinning the
+declaration-order linearization.
 
 ### A merge is re-entered on every traversal of a loop
 

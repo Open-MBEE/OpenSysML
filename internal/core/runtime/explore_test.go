@@ -316,8 +316,9 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 }
 
 // One event enabling a transition in each of two regions: the library orders
-// neither first, so exploration fires them in both orders; the default and the
-// other fixed policies fire them in region declaration order and report no choice.
+// neither first, so exploration fires them in both orders; every policy reports
+// the order it took as one region-order choice point, `reverse` and `declared`
+// taking region declaration order and a seed reaching the other order as well.
 func TestExploreSiblingRegionOrder(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
@@ -331,7 +332,6 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 		}
 	}`)
 	sym := m.state(t, "Machine")
-	var notes []RunNote
 	run := func(ctx *Context) (Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
@@ -344,7 +344,6 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			return Outcome{}, err
 		}
-		notes = exec.Notes()
 		return exec.Outcome(), nil
 	}
 	policy, err := ParseSchedulePolicy("explore")
@@ -368,7 +367,8 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 	if got := FormatChoices(x.Outcomes[1].Witness); got != "on accept go: b1 first of a1, b1" {
 		t.Fatalf("witness of last = 1 %q, want b1 chosen first", got)
 	}
-	for _, spelling := range []string{"reverse", "declared", "seed:1", "seed:2", "seed:3"} {
+	under := func(spelling string) (Outcome, ChoicePoint) {
+		t.Helper()
 		fixed, err := ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatal(err)
@@ -384,12 +384,35 @@ func TestExploreSiblingRegionOrder(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", spelling, err)
 		}
-		if got := outcome.String(); got != want[0] {
-			t.Fatalf("%s: outcome %q, want %q", spelling, got, want[0])
+		notes := ctx.Notes()
+		if len(notes) != 1 {
+			t.Fatalf("%s: notes %v, want the one region-order choice", spelling, notes)
 		}
-		if len(notes) != 0 {
-			t.Fatalf("%s: notes %v, want none", spelling, notes)
+		choice, ok := notes[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
+			t.Fatalf("%s: note %v, want a region-order choice among a1, b1", spelling, notes[0])
 		}
+		return outcome, choice
+	}
+	for _, spelling := range []string{"reverse", "declared"} {
+		outcome, choice := under(spelling)
+		if got := outcome.String(); got != want[0] || choice.Taken != 0 {
+			t.Fatalf("%s: outcome %q taking %d, want %q taking a1 first", spelling, got, choice.Taken, want[0])
+		}
+	}
+	reached := make(map[int]string)
+	for _, spelling := range []string{"seed:1", "seed:6"} {
+		outcome, choice := under(spelling)
+		if got := outcome.String(); got != want[choice.Taken] {
+			t.Fatalf("%s: outcome %q after taking %s first, want %q", spelling, got, choice.Alternatives[choice.Taken], want[choice.Taken])
+		}
+		if again, _ := under(spelling); again.String() != outcome.String() {
+			t.Fatalf("%s: outcome %q, then %q; want the seed to replay its run", spelling, outcome, again)
+		}
+		reached[choice.Taken] = spelling
+	}
+	if len(reached) != 2 {
+		t.Fatalf("seeds reached only %v, want both region orders", reached)
 	}
 }
 

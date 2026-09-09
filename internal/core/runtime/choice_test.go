@@ -854,7 +854,8 @@ func TestProbedGuardLeavesObjectIdentitiesUntouched(t *testing.T) {
 }
 
 // A selected transition whose guard another region's reaction falsified before
-// its turn does not fire, so nothing about selecting it is reported.
+// its turn does not fire, so nothing about selecting it is reported; the
+// region order that let the other reaction go first is the run's one choice.
 func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -891,8 +892,12 @@ func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,b1,a2" {
 		t.Fatalf("visited %v, want region a to fire and region b, its guards blocked by a's effect, to stay", visited)
 	}
-	if got := ctx.Notes(); len(got) != 0 {
-		t.Fatalf("a transition that did not fire was reported: %v", got)
+	got := ctx.Notes()
+	if len(got) != 1 {
+		t.Fatalf("notes %v, want the region-order choice alone", got)
+	}
+	if choice, ok := got[0].(ChoicePoint); !ok || choice.Kind != ChoiceRegionOrder || choice.Taken != 0 {
+		t.Fatalf("a transition that did not fire was reported: %v", got[0])
 	}
 }
 

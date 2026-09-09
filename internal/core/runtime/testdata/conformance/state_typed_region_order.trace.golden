@@ -3,6 +3,7 @@ enter: running
 enter: r1
 enter: r1
 transition: start -> running
+choice on accept Step: states a.r1, b.r1 react (unordered; took a.r1 first)
 exit: r1
 enter: r2
 transition: r1 -> r2 (event: accept Step)

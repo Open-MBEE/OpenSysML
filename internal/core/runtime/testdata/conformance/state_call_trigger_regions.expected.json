@@ -3,5 +3,15 @@
   "events": [
     {"call": "wake"}
   ],
-  "finalState": "Chiming+Lit"
+  "outcomes": [
+    {
+      "finalState": "Chiming+Lit",
+      "stateVisits": ["start", "start", "Dimmed", "Muted", "Chiming", "Lit"]
+    },
+    {
+      "finalState": "Chiming+Lit",
+      "stateVisits": ["start", "start", "Dimmed", "Muted", "Lit", "Chiming"]
+    }
+  ],
+  "admissible": "Transitions in sibling regions enabled by one event: each fires, in which order is open"
 }

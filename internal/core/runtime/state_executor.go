@@ -811,13 +811,12 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 	return transitions[candidate.enabled[pick]], notes
 }
 
-// chooseRegion resolves which of the candidates, all still able to fire, fires
-// next: the first in region declaration order, unless an exploration is varying
-// the order, in which case its pick is returned with the choice point it made.
+// chooseRegion resolves which of the candidates, all still able to fire, fires next:
+// the policy draws the pick and, with several candidates, the choice is reported.
 func (e *StateExecutor) chooseRegion(pending []dispatchCandidate) (int, RunNote) {
 	scheduling := e.ctx.scheduling()
-	pick, explored := scheduling.explorePick(len(pending))
-	if !explored {
+	pick := scheduling.pick(len(pending))
+	if len(pending) < 2 {
 		return pick, nil
 	}
 	alts := e.candidateNames(pending)
