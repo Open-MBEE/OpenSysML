@@ -64,7 +64,9 @@ func (e *performances) beginStepWrites(step int) func() {
 func (e *performances) beginTokenStep(id int64) func() {
 	ledger := e.ctx.stepWrites
 	if ledger == nil {
-		return func() {}
+		return func() {
+			// No ledger was open, so no writer was marked and none is restored.
+		}
 	}
 	saved := ledger.writer
 	ledger.writer = id

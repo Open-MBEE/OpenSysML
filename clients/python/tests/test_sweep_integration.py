@@ -130,7 +130,8 @@ class TestSweepIntegration:
         drawn = [row.inputs["n"] for row in first]
         assert drawn == [row.inputs["n"] for row in again]
         assert drawn != [row.inputs["n"] for row in other]
-        assert first.sampled and first.seed == 7
+        assert first.sampled
+        assert first.seed == 7
         assert len(drawn) == 8
 
     def test_a_parameter_the_target_does_not_declare_raises(self):

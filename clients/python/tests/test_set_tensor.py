@@ -113,7 +113,8 @@ def test_a_set_decodes_as_its_elements_in_the_order_sent():
     assert isinstance(got, SetValue)
     assert got.elements == (1, 2, 3)
     assert len(got) == 3
-    assert 2 in got and 4 not in got
+    assert 2 in got
+    assert 4 not in got
     assert list(got) == [1, 2, 3]
     assert str(got) == "{1, 2, 3}"
 
@@ -129,7 +130,8 @@ def test_an_empty_set_is_a_set_of_nothing():
 def test_set_equality_ignores_order_and_a_python_set_compares_equal():
     assert SetValue((1, 2, 3)) == SetValue((3, 1, 2))
     assert SetValue((1, 2, 3)) == {3, 1, 2}
-    assert {3, 1, 2} == SetValue((1, 2, 3))
+    python_set = {3, 1, 2}
+    assert python_set == SetValue((1, 2, 3))
     assert SetValue((1, 2, 3)) == frozenset((3, 1, 2))
     assert SetValue((1, 2)) != SetValue((1, 2, 3))
     assert SetValue((1, 2)) != [1, 2]
@@ -180,8 +182,9 @@ def pb_instance(instance_id):
     (pb_set(sysml_pb2.Value(null=""), pb_int(1)), pb_set(pb_int(1), pb_seq())),
 ])
 def test_a_set_listing_a_member_twice_is_malformed(elements):
+    malformed = pb_set(*elements)
     with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
-        value_to_python(pb_set(*elements))
+        value_to_python(malformed)
 
 
 @pytest.mark.parametrize("elements", [
@@ -213,11 +216,17 @@ def test_a_set_is_never_assembled_with_a_member_twice(elements):
 def test_null_and_the_empty_collections_are_one_value():
     """As the service judges them: the absent value, however spelt."""
     for empty in ([], SetValue(), set(), frozenset()):
-        assert same_value(None, empty) and same_value(empty, None) and same_value(empty, [])
-        assert empty in SetValue((1, None)) and None in SetValue((empty,))
+        assert same_value(None, empty)
+        assert same_value(empty, None)
+        assert same_value(empty, [])
+        assert empty in SetValue((1, None))
+        assert None in SetValue((empty,))
     assert SetValue((None, 1)) == SetValue((1, [])) == SetValue((SetValue(), 1))
-    assert not same_value(None, [1]) and not same_value([], SetValue((SetValue(),)))
-    assert not same_value(None, 0) and not same_value([], False) and not same_value(None, UNSET)
+    assert not same_value(None, [1])
+    assert not same_value([], SetValue((SetValue(),)))
+    assert not same_value(None, 0)
+    assert not same_value([], False)
+    assert not same_value(None, UNSET)
     assert len(SetValue((None, [1], SetValue((1,)), SetValue((SetValue(),))))) == 4
     assert value_to_python(pb_set(sysml_pb2.Value(null=""), pb_seq(pb_int(1)))) == SetValue((None, [1]))
 
@@ -232,7 +241,8 @@ def test_quantities_are_the_same_value_over_their_base_units():
     assert m == cm == length("cm", 100, 0.01)
     assert length("m", 1.0) == length("cm", 100.0, 1.0, 100.0) == cm
     assert m != length("cm", 1, 1.0, 100.0)
-    assert length("m", 1000) == km and length("m", 1001) != km
+    assert length("m", 1000) == km
+    assert length("m", 1001) != km
     huge = 2 ** 53 + 1
     assert length("m", 1000 * huge) == length("km", huge, 1000.0)
     assert length("m", 1000 * huge + 1) != length("km", huge, 1000.0)
@@ -242,7 +252,9 @@ def test_quantities_are_the_same_value_over_their_base_units():
     assert length("km/h", 36, 1000.0, 3600.0, speed) == length("m/s", 10, factors=speed)
     assert length("km/h", 36, 1000.0, 3600.0, speed) != length("m/s", 11, factors=speed)
     assert m == length("m", 1, factors=(("SI::metre", 1.0), ("SI::second", -1.0), ("SI::second", 1.0)))
-    assert m != length("x", 0, 0.0) and length("x", 0, 0.0) != length("x", 0, 0.0)
+    zero_scaled, zero_scaled_again = length("x", 0, 0.0), length("x", 0, 0.0)
+    assert m != zero_scaled
+    assert zero_scaled != zero_scaled_again
     # A unit named without its reduction compares as written.
     assert Quantity(1, Unit("m")) == Quantity(1.0, Unit("m"))
     assert Quantity(1, Unit("m")) != Quantity(100, Unit("cm"))
@@ -252,11 +264,13 @@ def test_quantities_are_the_same_value_over_their_base_units():
 
     # Membership, duplicate detection and set equality follow.
     lengths = SetValue((m, length("s", 1, factors=(("SI::second", 1.0),))))
-    assert cm in lengths and length("cm", 1, 1.0, 100.0) not in lengths
+    assert cm in lengths
+    assert length("cm", 1, 1.0, 100.0) not in lengths
     with pytest.raises(ValueError, match="set lists a member twice"):
         SetValue((m, cm))
+    sent_twice = pb_set(sysml_pb2.Value(quantity=m.to_pb()), sysml_pb2.Value(quantity=cm.to_pb()))
     with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
-        value_to_python(pb_set(sysml_pb2.Value(quantity=m.to_pb()), sysml_pb2.Value(quantity=cm.to_pb())))
+        value_to_python(sent_twice)
     assert len(SetValue((m, length("cm", 1, 1.0, 100.0)))) == 2
     assert SetValue((m, length("km", 2, 1000.0))) == SetValue((length("m", 2000), cm))
     assert SetValue((m, length("km", 2, 1000.0))) != SetValue((length("m", 2000), length("cm", 1, 1.0, 100.0)))
@@ -274,31 +288,41 @@ def test_measurement_refs_are_the_same_value_over_one_reduction():
     speed = (("SI::metre", 1.0), ("SI::second", -1.0))
     named = ref("SI::'m/s'", "SI::'m/s'", factors=speed)
     composed = ref("m / s", factors=reversed(speed))
-    assert named == composed and hash(named) == hash(composed)
+    assert named == composed
+    assert hash(named) == hash(composed)
     assert ref("km/m", scale_num=1000.0) == ref("m/mm", scale_num=1.0, scale_den=0.001)
     assert ref("km", "SI::kilometre", 1000.0) == ref("km", "SI::km", 2000.0, 2.0)
     assert ref("km", "SI::kilometre", 1000.0) != ref("m", "SI::metre")
     assert ref("m", "SI::metre") != ref("s", "SI::second", factors=(("SI::second", 1.0),))
-    assert ref("x", scale_num=0.0) != ref("x", scale_num=0.0)
+    # A scale nothing converts through is no one's reduction, not even its own copy's.
+    zero_scaled, zero_scaled_again = ref("x", scale_num=0.0), ref("x", scale_num=0.0)
+    assert zero_scaled != zero_scaled_again
+    assert len(SetValue((zero_scaled, zero_scaled_again))) == 2
     # A named unit of dimension one reduces to nothing, so it is only itself.
     rad, sr = ref("rad", "SI::radian", factors=()), ref("sr", "SI::steradian", factors=())
-    assert rad != sr and rad == ref("SI::rad", "SI::radian", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
+    assert rad != sr
+    assert rad == ref("SI::rad", "SI::radian", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
     assert ref("m/m", factors=(("SI::metre", 1.0), ("SI::metre", -1.0))) == ref("", factors=())
     assert rad != ref("m/m", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
     # One named without its reduction compares as written.
-    assert MeasurementRef(Unit("m"), "SI::metre") == MeasurementRef(Unit("m"), "SI::metre")
-    assert MeasurementRef(Unit("m"), "SI::metre") != ref("m", "SI::metre")
+    unreduced = MeasurementRef(Unit("m"), "SI::metre")
+    assert unreduced == MeasurementRef(Unit("m"), "SI::metre")
+    assert unreduced != MeasurementRef(Unit("metre"), "SI::metre")
+    assert unreduced != MeasurementRef(Unit("m"), "SI::m")
+    assert unreduced != ref("m", "SI::metre")
 
     # Membership, duplicate detection and set equality follow.
-    assert composed in SetValue((named,)) and sr not in SetValue((rad,))
+    assert composed in SetValue((named,))
+    assert sr not in SetValue((rad,))
     for twice in ((named, composed), (rad, ref("SI::rad", "SI::radian", factors=()))):
         with pytest.raises(ValueError, match="set lists a member twice"):
             SetValue(twice)
+    sent_twice = pb_set(
+        sysml_pb2.Value(measurement_ref=named.to_pb()),
+        sysml_pb2.Value(measurement_ref=composed.to_pb()),
+    )
     with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
-        value_to_python(pb_set(
-            sysml_pb2.Value(measurement_ref=named.to_pb()),
-            sysml_pb2.Value(measurement_ref=composed.to_pb()),
-        ))
+        value_to_python(sent_twice)
     assert len(SetValue((rad, sr))) == 2
     assert SetValue((named, rad)) == SetValue((rad, composed))
 
@@ -306,16 +330,18 @@ def test_measurement_refs_are_the_same_value_over_one_reduction():
 def test_enumeration_literals_are_the_same_value_by_literal_id():
     red = EnumLiteral("D::Color::red", "D::Color", "Color::red")
     same = EnumLiteral("D::Color::red", "E::Palette", "red")
-    assert red == same and EnumLiteral("D::Color::red") in SetValue((red,))
+    assert red == same
+    assert EnumLiteral("D::Color::red") in SetValue((red,))
     assert red != EnumLiteral("D::Color::green", "D::Color", "Color::red")
     with pytest.raises(ValueError, match="set lists a member twice"):
         SetValue((red, same))
+    sent_twice = pb_set(
+        sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
+            literal_id="D::Color::red", enumeration_id="D::Color", name="Color::red")),
+        sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(literal_id="D::Color::red")),
+    )
     with pytest.raises(UnsupportedValueError, match="malformed set: set lists a member twice"):
-        value_to_python(pb_set(
-            sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
-                literal_id="D::Color::red", enumeration_id="D::Color", name="Color::red")),
-            sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(literal_id="D::Color::red")),
-        ))
+        value_to_python(sent_twice)
     assert SetValue((red, EnumLiteral("D::Color::green"))) == SetValue((EnumLiteral("D::Color::green", name="g"), same))
 
 
@@ -338,14 +364,20 @@ def test_members_that_only_look_alike_are_distinct(elements, expected):
     got = value_to_python(pb_set(*elements))
     assert len(got) == len(elements)
     assert got == expected
-    assert 1 not in SetValue((True,)) and True not in SetValue((1,))
+    assert 1 not in SetValue((True,))
+    assert True not in SetValue((1,))
 
 
 def test_an_unresolved_instance_reference_holds_its_id_but_is_not_an_integer():
     ref = value_to_python(pb_instance(7))
-    assert isinstance(ref, InstanceRef) and ref.id == 7 and ref == InstanceRef(7)
-    assert ref != 7 and not isinstance(ref, int) and str(ref) == "instance(7)"
-    assert ref in SetValue((InstanceRef(7),)) and ref not in SetValue((7,))
+    assert isinstance(ref, InstanceRef)
+    assert ref.id == 7
+    assert ref == InstanceRef(7)
+    assert ref != 7
+    assert not isinstance(ref, int)
+    assert str(ref) == "instance(7)"
+    assert ref in SetValue((InstanceRef(7),))
+    assert ref not in SetValue((7,))
     assert Array((1,), (ref,)) != Array((1,), (7,))
     assert Array((2,), (True, 1)) != Array((2,), (1, 1))
     assert Array((2,), (1, 2)) == Array((2,), (1, 2.0))
@@ -369,10 +401,11 @@ def test_an_instance_reference_is_refused_where_a_number_is_meant():
         Vector((1, ref))
     with pytest.raises(ValueError, match="not a positive integer"):
         Array((ref,), (1,))
+    pascal = Quantity(1.0, PASCAL)
     with pytest.raises(ValueError, match="not a positive integer"):
-        TensorQuantity((ref,), [Quantity(1.0, PASCAL)])
+        TensorQuantity((ref,), [pascal])
     with pytest.raises(TypeError):
-        Quantity(1.0, PASCAL) * ref
+        pascal * ref
     with pytest.raises(TypeMismatchError):
         typed.as_int("n", ref)
     with pytest.raises(TypeMismatchError):
@@ -495,18 +528,21 @@ def test_tensor_indexing_is_shape_checked():
     ((), [], "holds 0 component"),
 ])
 def test_a_malformed_tensor_is_reported(dimensions, components, message):
+    malformed = pb_tensor(dimensions, *components)
     with pytest.raises(UnsupportedValueError, match=message):
-        value_to_python(pb_tensor(dimensions, *components))
+        value_to_python(malformed)
 
 
 def test_a_tensor_component_without_a_magnitude_is_reported():
+    unmeasured = pb_tensor((1,), sysml_pb2.Quantity(unit="Pa", unit_term=PB_PASCAL))
     with pytest.raises(UnsupportedValueError):
-        value_to_python(pb_tensor((1,), sysml_pb2.Quantity(unit="Pa", unit_term=PB_PASCAL)))
+        value_to_python(unmeasured)
 
 
 def test_a_tensor_built_by_hand_is_shape_checked():
+    one_component = [Quantity(1.0, PASCAL)]
     with pytest.raises(ValueError, match="holds 1 component"):
-        TensorQuantity((2,), [Quantity(1.0, PASCAL)])
+        TensorQuantity((2,), one_component)
     with pytest.raises(ValueError, match="not a positive integer"):
         TensorQuantity((0,), [])
     with pytest.raises(ValueError, match="not a Quantity"):

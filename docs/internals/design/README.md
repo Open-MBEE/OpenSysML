@@ -5,6 +5,9 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 
 - **[The action executor](action-executor.md)** — how a token moves through a lowered
   `ActionGraph`
+- **[Bounded model checking of behaviors](bounded-model-checking.md)** — a proposal: explore
+  every admissible interleaving up to a bound with partial-order reduction, and report the
+  requirement violations, deadlocks and schedule-dependent outcomes it finds
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, an OpenSysML
   extension against UML 2.5.1 semantics
 - **[Pseudostates](pseudostates.md)** — choice, junction, fork, join, entry/exit points

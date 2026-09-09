@@ -111,7 +111,7 @@ class PublicTypesTest {
   }
 
   @Test
-  void aSetJudgesItsMembersAsTheModelDoes() {
+  void aSetEquatesNumbersAsTheModelDoes() {
     Value one = new Value.IntegerValue(1);
     Value oneReal = new Value.RealValue(1.0);
     Value oneComplex = new Value.ComplexValue(1.0, 0.0);
@@ -137,9 +137,16 @@ class PublicTypesTest {
             List.of(new Value.QuantityValue(metres(1L)), new Value.QuantityValue(metres(1.0))))) {
       assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(twice), twice::toString);
     }
+  }
 
-    // Members that only look alike stay apart: nearby numbers beyond 2^53, a Complex off the
-    // axis, a Boolean, another unit, another order of a sequence, another shape of an array.
+  @Test
+  void aSetKeepsMembersThatOnlyLookAlikeApart() {
+    Value one = new Value.IntegerValue(1);
+    Value oneReal = new Value.RealValue(1.0);
+    Value twoPointFive = new Value.RealValue(2.5);
+
+    // Nearby numbers beyond 2^53, a Complex off the axis, a Boolean, another unit, another order
+    // of a sequence, another shape of an array.
     Value big = new Value.IntegerValue((1L << 53) + 1);
     Value bigReal = new Value.RealValue(0x1p53);
     for (List<Value> apart :
@@ -166,6 +173,14 @@ class PublicTypesTest {
     assertEquals(
         new Value.SetValue(List.of(new Value.IntegerValue(Long.MIN_VALUE))),
         new Value.SetValue(List.of(new Value.RealValue(-0x1p63))));
+  }
+
+  @Test
+  void numbersNestedInCollectionsAreJudgedAsTheModelDoes() {
+    Value one = new Value.IntegerValue(1);
+    Value oneReal = new Value.RealValue(1.0);
+    Value oneComplex = new Value.ComplexValue(1.0, 0.0);
+    Value twoPointFive = new Value.RealValue(2.5);
 
     // Numbers nested in sequences, vectors, arrays and quantities are judged the same way.
     assertTrue(
@@ -188,6 +203,11 @@ class PublicTypesTest {
             .sameValue(new Value.TensorQuantityValue(List.of(1L), List.of(metres(1.0)))));
     assertFalse(new Value.NullValue().sameValue(new Value.UnsetValue()));
     assertTrue(new Value.NullValue().sameValue(new Value.NullValue()));
+  }
+
+  @Test
+  void aNullAndTheEmptyCollectionsAreOneMember() {
+    Value one = new Value.IntegerValue(1);
 
     // A null and the empty collections are one value: the absent value however spelt.
     Value nul = new Value.NullValue();
@@ -196,8 +216,8 @@ class PublicTypesTest {
     for (Value x : List.of(nul, emptySequence, emptySet)) {
       for (Value y : List.of(nul, emptySequence, emptySet)) {
         assertTrue(x.sameValue(y), x + " vs " + y);
-        assertThrows(
-            IllegalArgumentException.class, () -> new Value.SetValue(List.of(one, x, y)), x + " " + y);
+        List<Value> twice = List.of(one, x, y);
+        assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(twice), x + " " + y);
       }
       assertFalse(x.sameValue(new Value.UnsetValue()));
       assertFalse(x.sameValue(new Value.SetValue(List.of(emptySet))));
@@ -260,6 +280,13 @@ class PublicTypesTest {
     assertFalse(
         new Value.QuantityValue(reduced(1000 * huge + 1, "m", 1.0, 1.0, metre))
             .sameValue(new Value.QuantityValue(reduced(huge, "km", 1000.0, 1.0, metre))));
+    // A whole scale beyond a long is read exactly too, so 1e24 is the double it is, not 10^24.
+    assertTrue(
+        new Value.QuantityValue(reduced(3L, "x", 0x1p63, 1.0, metre))
+            .sameValue(new Value.QuantityValue(reduced(1L, "y", 3 * 0x1p63, 1.0, metre))));
+    assertFalse(
+        new Value.QuantityValue(reduced(1L, "Ym", 1e24, 1.0, metre))
+            .sameValue(new Value.QuantityValue(reduced(1000L, "Zm", 1e21, 1.0, metre))));
 
     // Different dimensions, or a scale nothing converts through, are never the same value.
     assertFalse(m.sameValue(new Value.QuantityValue(reduced(1L, "s", 1.0, 1.0, second))));
@@ -278,19 +305,32 @@ class PublicTypesTest {
         new Value.QuantityValue(reduced(36L, "km/h", 1000.0, 3600.0, metre, perSecond))
             .sameValue(new Value.QuantityValue(reduced(11L, "m/s", 1.0, 1.0, metre, perSecond))));
     assertTrue(m.sameValue(new Value.QuantityValue(reduced(1L, "m·s/s", 1.0, 1.0, metre, perSecond, second))));
+  }
 
-    // Without a reduction, the unit as written is all there is to compare.
+  @Test
+  void quantitiesWithoutAReductionCompareByTheUnitAsWritten() {
+    Quantity.UnitFactor metre = new Quantity.UnitFactor("SI::metre", 1.0);
+    Value m = new Value.QuantityValue(reduced(1L, "m", 1.0, 1.0, metre));
     assertTrue(new Value.QuantityValue(metres(1L)).sameValue(new Value.QuantityValue(metres(1.0))));
     assertFalse(
         new Value.QuantityValue(metres(1L))
             .sameValue(new Value.QuantityValue(new Quantity(100L, Optional.of("cm"), Optional.empty()))));
     assertFalse(new Value.QuantityValue(metres(1L)).sameValue(m));
+  }
+
+  @Test
+  void collectionsOfQuantitiesFollowTheirSameValue() {
+    Quantity.UnitFactor metre = new Quantity.UnitFactor("SI::metre", 1.0);
+    Value m = new Value.QuantityValue(reduced(1L, "m", 1.0, 1.0, metre));
+    Value cm = new Value.QuantityValue(reduced(100L, "cm", 1.0, 100.0, metre));
+    Value km = new Value.QuantityValue(reduced(1L, "km", 1000.0, 1.0, metre));
 
     // Membership, duplicate detection and set equality follow.
     Value.SetValue lengths = new Value.SetValue(List.of(m, km));
     assertTrue(lengths.contains(cm));
     assertFalse(lengths.contains(new Value.QuantityValue(reduced(1L, "cm", 1.0, 100.0, metre))));
-    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(m, cm)));
+    List<Value> twice = List.of(m, cm);
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(twice));
     assertEquals(
         2, new Value.SetValue(List.of(m, new Value.QuantityValue(reduced(1L, "cm", 1.0, 100.0, metre)))).size());
     Value.SetValue rewritten =
@@ -356,9 +396,10 @@ class PublicTypesTest {
     // Membership, duplicate detection and set equality follow.
     assertTrue(new Value.SetValue(List.of(namedSpeed)).contains(composedSpeed));
     assertFalse(new Value.SetValue(List.of(rad)).contains(sr));
-    assertThrows(
-        IllegalArgumentException.class, () -> new Value.SetValue(List.of(namedSpeed, composedSpeed)));
-    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(km, kmAlias)));
+    List<Value> speedTwice = List.of(namedSpeed, composedSpeed);
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(speedTwice));
+    List<Value> kmTwice = List.of(km, kmAlias);
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(kmTwice));
     assertEquals(2, new Value.SetValue(List.of(rad, sr)).size());
     Value.SetValue references = new Value.SetValue(List.of(namedSpeed, rad));
     Value.SetValue rewritten = new Value.SetValue(List.of(rad, composedSpeed));
@@ -375,7 +416,8 @@ class PublicTypesTest {
     assertTrue(red.sameValue(same));
     assertFalse(red.sameValue(green));
     assertTrue(new Value.SetValue(List.of(red)).contains(new Value.EnumerationValue(new EnumLiteral("D::Color::red", "", ""))));
-    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(red, same)));
+    List<Value> twice = List.of(red, same);
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(twice));
     assertEquals(2, new Value.SetValue(List.of(red, green)).size());
     Value.SetValue colours = new Value.SetValue(List.of(red, green));
     Value.SetValue rewritten =
@@ -418,17 +460,21 @@ class PublicTypesTest {
     assertEquals(Optional.empty(), mixed.unit());
 
     List<Quantity> seven = pascals.subList(0, 7);
+    List<Long> cubeShape = List.of(2L, 2L, 2L);
     assertThrows(
-        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(2L, 2L, 2L), seven));
+        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(cubeShape, seven));
+    List<Long> emptyShape = List.of(0L);
+    List<Quantity> none = List.of();
     assertThrows(
-        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(0L), List.of()));
+        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(emptyShape, none));
+    List<Long> negativeShape = List.of(-2L, -4L);
     assertThrows(
-        IllegalArgumentException.class,
-        () -> new Value.TensorQuantityValue(List.of(-2L, -4L), pascals));
+        IllegalArgumentException.class, () -> new Value.TensorQuantityValue(negativeShape, pascals));
+    List<Long> overflowingShape = List.of(Long.MAX_VALUE, 2L);
     IllegalArgumentException overflow =
         assertThrows(
             IllegalArgumentException.class,
-            () -> new Value.TensorQuantityValue(List.of(Long.MAX_VALUE, 2L), pascals));
+            () -> new Value.TensorQuantityValue(overflowingShape, pascals));
     assertInstanceOf(ArithmeticException.class, overflow.getCause());
 
     List<Long> shape = new ArrayList<>(List.of(8L));

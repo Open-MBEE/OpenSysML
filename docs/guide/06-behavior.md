@@ -278,87 +278,335 @@ reaches them, and moving with it every other behavior of the same runtime that c
 - `%advance <time>` — Advance the runtime's simulation clock by `<time>` seconds, running every state event, action token, change-condition poll and do behavior due along the way, in every debugging session of the runtime
 - `%stop` — Stop debugging
 
-**Choice points.** The library orders some things and leaves others open: a succession says
-which step comes first, but nothing says which of two fork branches steps first, which of two
-waiting accepts takes the one message both answer to, which of two holding guards a decision
-follows, which of two transitions out of one state fires on the same event, whose write
-stands when several branches assign one feature in one step, or which of two executors — an
-action token and a state transition, two state machines, two actions — due at the same instant
-of the clock runs first. Where the
-executor has to pick, it follows one fixed rule — reverse token order, first holding guard, first
-declared transition, the executor created last first, so a run replays exactly — and records a
-*choice point* rather than passing
-the pick off as the only outcome. `%step`, `%continue` and `%advance` end with a count of the
-choices they made (`2 choice points; %trace on to see them`), `%trace on` shows each as a
-`choice` line naming the alternatives and the one taken (`choice step 3: tokens 2@left, 3@right
-(unordered; took 3@right first)`; `choice at t=5.0: due action watcher, state machine blinking
-of object #1 (unordered; ran state machine blinking of object #1 first)`), and the gRPC responses
-carry each as an informational diagnostic. One executor alone due at an instant is not a choice
-and is not reported, so a model with a single behavior runs and traces exactly as it did before
-the clock was shared. A run with no choice points has the one outcome the model states; one with choice
-points has the outcome this executor's rule produces, and the lines say where another rule would
-diverge. The innermost-transition-wins rule between a substate and the state enclosing it is
-spec-defined order, not a choice, and is not reported. Reporting never changes the run: once a
-guard or transition holds, the ones after it are read in a preview that is undone, and one that
-cannot be evaluated there — a division by zero, say — is not an alternative and not an error (a
-guard with no result is not true, so its branch is not taken); it is counted beside the choices
-(`1 guard not evaluable`) and shown in the trace as an `unevaluable guard` line. The first guard
-read is the run's own, and its failure fails the run as it always has.
-
-**Scheduling policies.** The fixed rule is one *scheduling policy*, named `reverse`, and the
-executor can be told to resolve every choice point under another: `declared` takes tokens in the
-order they were spawned, guards and transitions in declaration order and executors due together
-in the order they were created, and `seed:<n>` draws each
-pick from a pseudo-random sequence the non-negative integer `n` fixes, so `seed:1` replays the same
-run every time and on every platform while `seed:2` may take another linearization. The policy is
-spelled the same everywhere — `sysml -schedule declared` for `-action`, `-state` and `-analysis`
-(a calc's body performs nothing, so `-calc` has no choice to make), `%schedule seed:7` in the
-REPL for the runs started after it (a debugging session under way keeps its own), a `schedule`
-field on the gRPC execution requests, and a `schedule` pin on a conformance case — and changes
-only which alternative each choice takes: every choice point the run reaches is reported, and
-each `took …` is what the named policy took, so running a model under two policies and comparing
-the outcomes is how a scheduling artefact is told from a bug. A guard the policy picks past the
-first was only previewed, so the run reads it once more for real before taking its branch (the
-trace shows that reading), as a transition's guard is always read again as it fires. Another
-linearization can reach
-other choice points — which tokens are steppable in a step depends on the order the earlier ones
-moved — so the count is not fixed across policies, only the reporting is. An unknown spelling —
-`random`, `seed` without a number, `seed:-1` — is refused before anything runs rather than falling
-back to the default. Where the library orders the alternatives
-— the innermost transition over its enclosing state's — there is no choice, and every policy
-follows that order.
-
-**Exploring every linearization.** Comparing two policies shows two linearizations; the
-`explore` policy shows them all. `sysml -schedule explore -action Demo::race` runs the behavior
-once, recording the alternative taken at each choice point, then replays it from the start on a
-fresh executor of the same loaded model — no object, message, clock, calc memo or note carries
-over — following the recorded prefix and taking the next untried alternative at the frontier,
-depth-first, until every choice sequence is spent or a budget is hit. Runs that agree on what
-the conformance harness compares (an action's outputs; a state machine's final state, states
-visited and values) are one *outcome*, and the report is one sorted row per distinct outcome with
-the number of linearizations that reached it and the choice sequence of one witness, then
-`complete (6 runs)`: three branches writing one feature give six linearizations and three
-outcomes. The order of executors due at one instant of the clock is explored like any other
-choice: `sysml -schedule explore -action Demo::watcher -state "Demo::Beacon::blinking Demo::beacon"
--advance 5` starts every behavior named on one clock in each run, advances it, and tables the
-joint outcome — each behavior's observables under its name — once per order the due executors
-can run in, the witness naming which ran first (`t=5.0: action watcher first of action watcher,
-state machine blinking of object #1`). A run that fails under some order is an outcome of its own
-(`error: …`), not the end of the exploration. The budget — 1024 runs and 64 choice points per run unless
-`explore:runs=N,depth=D` says otherwise — is never exceeded silently: hitting it reports
-`incomplete: runs budget 1024 hit after 1024 runs`, names the budget to raise, and leaves the
-check unresolved. The same spelling explores over the wire, where the response carries the
-outcomes and the exploration status ([wire contract](../reference/wire-contract.md)); the REPL
-refuses it, since its `%action` and `%state` debuggers step one run. A conformance case that
-lists several `outcomes` is explored by the harness, which requires every listed outcome to be
-reached and no other, so the list is exact rather than a lower bound (see the
-[conformance README](../../internal/core/runtime/testdata/conformance/README.md)). The details are
-in the [CLI reference](../reference/cli.md#exploring-every-linearization).
-
 For complete workflows, see
 [examples/action-executor-demo.sysml](../../examples/action-executor-demo.sysml),
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and
 [examples/pseudostates-demo.sysml](../../examples/pseudostates-demo.sysml).
+
+## When a model has more than one valid run
+
+A behavior is a set of performances under a *partial* order, not a program with one next
+instruction. The KerML Kernel Semantic Library orders three things and nothing else:
+
+- **Successions.** `succession first a then b` is a `HappensBefore` link: `a` completes before `b`
+  begins. A fork's branches all follow the fork; a join follows every branch into it.
+- **Send before accept.** A message is accepted after it was sent, so an `accept` that waits for a
+  `send` in another branch follows that send.
+- **Ancestor priority.** When a substate's transition and its enclosing state's are both enabled
+  by one event, the innermost fires — UML/SysML order, not a pick.
+
+Everything else two performances could do in either order, they may: which of two fork branches
+steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
+guards*), which of two transitions out of one state fires on one event (*competing transitions*),
+which of two orthogonal regions reacts first to an event both accept (*region order*), whose
+value stands when two branches assign one feature in one step (*same-step writes*), and which of
+two executors due at one instant of the shared clock — an action token and a state transition,
+two state machines, two actions — runs first (*due order*). A model with
+any of these has several valid runs, and a run that took one of them is not wrong for it — but a
+tool that showed only that run, and called its result *the* outcome, would be. The rest of this
+section is how the executor keeps that honest: it reports every such pick as a *choice point*,
+lets you take another one (`seed:<n>`), lets you see them all (`explore`), and lets a test state
+the whole set of outcomes it admits.
+
+The examples below are one fixture from the conformance suite, three branches writing one feature
+between a fork and a join,
+[`action_explore_three_writers.sysml`](../../internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml):
+
+```sysml
+package test {
+	private import ScalarValues::*;
+
+	action race {
+		attribute x : Integer = 0;
+		attribute aRan : Boolean = false;
+		attribute bRan : Boolean = false;
+		attribute cRan : Boolean = false;
+
+		first start;
+		fork split;
+		action a { assign x := 1; assign aRan := true; }
+		action b { assign x := 2; assign bRan := true; }
+		action c { assign x := 3; assign cRan := true; }
+		join sync;
+		done;
+
+		succession first start then split;
+		succession first split then a;
+		succession first split then b;
+		succession first split then c;
+		succession first a then sync;
+		succession first b then sync;
+		succession first c then sync;
+		succession first sync then done;
+	}
+}
+```
+
+The library fixes that `split` precedes each branch, that `sync` follows all three, and that each
+branch runs once; it does not fix the order of the three writes to `x`. Six orders, three
+values, all valid.
+
+### Reading a choice point
+
+Where the executor has to pick, it follows one fixed rule — reverse token order, first holding
+guard, first declared transition, the executor started last first, so a run replays exactly — and
+records the pick rather than passing it off as the only outcome. A plain run ends with a count:
+
+```console
+$ sysml -action test::race action_explore_three_writers.sysml
+✓ package test
+✓ Started action executor for "test::race"
+  State: Running
+  Tokens: 1
+✓ Action completed
+  Final state: Completed
+  2 choice points; %trace on to see them
+  Results:
+    aRan = true
+    bRan = true
+    cRan = true
+    x = 1
+```
+
+The same line closes `%step`, `%continue` and `%advance` in the REPL, and reads `2 choice points`
+without the hint once `%trace on` is showing them. Under `-trace` (or `%trace on`) each choice
+is a `choice` line naming what was open, every alternative, and the one taken:
+
+```console
+$ sysml -trace -action test::race action_explore_three_writers.sysml
+…
+[trace] step 2: token 2@a, token 3@b, token 4@c
+…
+[trace] choice step 3: writes x := 1 by token 2, x := 2 by token 3, x := 3 by token 4 (unordered; x := 1 by token 2 stood)
+[trace] choice step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)
+[trace] step 3: token 2@sync, token 3@sync, token 4@sync
+[trace] step 4: token 5@done
+[trace] step 5: no active tokens
+```
+
+`tokens 2@a, 3@b, 4@c` names the tokens by id and node; `took 4@c first` is the reverse-order
+rule. The write line lists each token's last write to `x` and which one stood — `x = 1`, because
+token 2 stepped last. The other kinds read the same way: a decision with two holding guards is
+`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
+transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
+1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
+`choice on accept Go: states a1, b1 react (unordered; took b1 first)` — that last kind only under
+`explore`, since the fixed policies all take declaration order — and two executors due at one
+instant of the clock are `choice at t=5.0: due action watcher, state machine blinking of object #1
+(unordered; ran state machine blinking of object #1 first)`. One executor alone due at an instant
+is not a choice and is not reported, so a model with a single behavior runs and traces exactly as
+it did before the clock was shared. Over gRPC and
+Connect the same choice is an informational diagnostic with code `choice-point` and the message
+`choice point: step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)`, placed at the node,
+decision, feature or state that made it — a finding about the run, never an error.
+
+Reporting never changes the run. Once a guard or transition holds, the ones after it are read in
+a preview that is undone, and one that cannot be evaluated there — a division by zero, say — is
+not an alternative and not an error: a guard with no result is not true, so its branch is not
+taken. It is counted beside the choices (`1 guard not evaluable`), traced as
+`unevaluable guard step 2: decision select branch 2->alarm: division by zero (not selected)`, and
+carried as a diagnostic with code `guard-unevaluable`. The first guard read is the run's own, and
+its failure fails the run as it always has. And the case the library does order is not reported:
+a substate's transition outranking its enclosing state's makes no `choice` line under any policy.
+
+### Taking another linearization: `seed:<n>`
+
+The fixed rule is one *scheduling policy*, named `reverse`, and the executor can be told to
+resolve every choice point under another. `declared` takes tokens in the order they were spawned,
+guards and transitions in declaration order and executors due together in the order they were
+started; `seed:<n>` draws each pick from a pseudo-random
+sequence the non-negative integer `n` fixes, so `seed:1` replays the same run every time and on
+every platform while `seed:2` may take another linearization:
+
+```console
+$ sysml -schedule seed:1 -action test::race action_explore_three_writers.sysml
+✓ package test
+✓ Started action executor for "test::race"
+  State: Running
+  Tokens: 1
+✓ Action completed
+  Final state: Completed
+  2 choice points; %trace on to see them
+  Results:
+    aRan = true
+    bRan = true
+    cRan = true
+    x = 2
+```
+
+The policy is spelled the same everywhere — `sysml -schedule` for `-action`, `-state` and
+`-analysis` (a calc's body performs nothing, so `-calc` has no choice to make), `%schedule seed:7`
+in the REPL for the runs started after it (a debugging session under way keeps the policy it
+started with, and its own notes, budget and calc memo, while another run is driven in between), a
+`schedule` field on the gRPC execution requests, and a `schedule` pin on a conformance case — and
+it changes only which alternative each choice takes. Every choice point the run reaches is still
+reported, and each `took …` is what the named policy took. Another linearization can reach other
+choice points — which tokens are steppable in a step depends on the order the earlier ones moved —
+so the count is not fixed across policies, only the reporting is. A guard the policy picks past
+the first was only previewed, so the run reads it once more for real before taking its branch (the
+trace shows that reading), as a transition's guard is always read again as it fires. An unknown
+spelling — `random`, `seed` without a number, `seed:-1` — is refused before anything runs rather
+than falling back to the default.
+
+Use a seed when one other linearization is what you want: to reproduce a run a colleague saw,
+to check a fix against the order that exposed the bug, or to pin a conformance case to a
+linearization other than the default's. It shows one run per seed, and says nothing about the
+runs no seed you tried happened to take.
+
+### Seeing the whole outcome set: `explore`
+
+`explore` replays the behavior once per linearization. The first run records the alternative
+taken at each choice point; each later run is a fresh executor of the same loaded model — no
+object, message, clock, calc memo or note carries over — that follows the recorded prefix and
+takes the next untried alternative at the frontier, depth-first, until every choice sequence is
+spent or a budget is hit:
+
+```console
+$ sysml -schedule explore -action test::race action_explore_three_writers.sysml
+✓ package test
+✓ explored test::race: 3 outcomes
+outcome                                      | linearizations | witness
+---------------------------------------------+----------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 3: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+complete (6 runs)
+```
+
+Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
+final state, states visited and values; an analysis case's outputs and verdicts — are one
+*outcome*, and the table has one sorted row per distinct outcome: the outcome, how many
+linearizations reached it, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
+4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). Six
+linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
+tried. A run that fails under some order is an outcome of its own (`error: …`), not the end of
+the exploration; a behavior with no choice point explores in exactly one run (`no choice points`
+in the witness column); the same model explores to the same table every time. With `-trace`, the
+table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
+(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
+`exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
+
+The order of executors due at one instant of the clock is explored like any other choice:
+`sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
+"Demo::Beacon::blinking Demo::beacon" -advance 5` starts every behavior named on one clock in each run, advances it, and tables the
+joint outcome — each behavior's observables under its name — once per order the due executors
+can run in, the witness naming which ran first (`t=5.0: action watcher first of action watcher,
+state machine blinking of object #1`).
+
+The budget is 1024 runs and 64 choice points per run unless `explore:runs=N,depth=D` says
+otherwise, and hitting it is never silent:
+
+```console
+$ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers.sysml
+✓ package test
+? explored test::race: 2 outcomes
+outcome                                      | linearizations | witness
+---------------------------------------------+----------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+incomplete: runs budget 2 hit after 2 runs
+$ echo $?
+2
+```
+
+`incomplete` names each budget hit (`runs` before `depth`), the table is what was reached so
+far and no more, the check is unresolved (`?`) and the exit status is `2` — the status of a run
+that decided nothing, as for an unevaluable verdict. Raise the budget it names
+(`explore:runs=4096`, `explore:depth=128`, or both) and run again; a model whose exploration stays
+incomplete at any budget you can afford has more linearizations than a table can carry, and a
+seed is the way to look at some of them.
+
+The same spelling explores over the wire, where the response carries `outcomes` and an
+`exploration` status ([wire contract](../reference/wire-contract.md)), and from every client
+([clients](09-clients.md)). The REPL refuses it, because its `%action` and `%state` debuggers
+step one run and an exploration replays from the start:
+
+```console
+sysml> %schedule explore
+error: explore replays a behavior from the start once per linearization, which %action and %state, stepping one run, cannot do: run `sysml -schedule explore -action <name>` (or -state, -analysis, -calc), or a request with schedule "explore"
+```
+
+### Writing a test that admits several outcomes
+
+A conformance case (see the
+[conformance README](../../internal/core/runtime/testdata/conformance/README.md)) that pins one
+outcome of a model with choice points pins the default policy's linearization, which is fine when
+that is what you mean. When the model admits several, say so with three things beside the
+`.sysml`:
+
+**`outcomes` + `admissible` in the `.expected.json`** — the complete set of admissible outcomes,
+each written in full (an outcome is never "anything"), and the title of the section of
+[the semantic oracle](../project/behavior-semantic-oracle.md) that derives the set from the
+library. This is the fixture's own `action_explore_three_writers.expected.json`:
+
+```json
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"aRan": {"type": "Boolean", "value": true},
+				"bRan": {"type": "Boolean", "value": true},
+				"cRan": {"type": "Boolean", "value": true}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"aRan": {"type": "Boolean", "value": true},
+				"bRan": {"type": "Boolean", "value": true},
+				"cRan": {"type": "Boolean", "value": true}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 3},
+				"aRan": {"type": "Boolean", "value": true},
+				"bRan": {"type": "Boolean", "value": true},
+				"cRan": {"type": "Boolean", "value": true}
+			}
+		}
+	],
+	"admissible": "Three concurrent writers of one feature: six orders, three values"
+}
+```
+
+`outcomes` replaces `outputs` (or `finalState`, `stateVisits`, `performers` for a state case); a
+case may not have both, may not list one outcome, and must cite a section the oracle has. The
+harness checks the default run's outcome is exactly one listed member, then explores the case and
+fails on a listed outcome no linearization reached (`admissible outcome 2 of 3 is unreachable`),
+on a reached outcome the list omits, and on a budget hit — telling you to raise it with
+`"exploreBudget": {"runs": N, "depth": D}` in the same file. So the list is exact, not a lower
+bound: the three outcomes above are exactly what the six runs of the table reach.
+
+**A `.trace.order` file** — the partial order the library does fix, as `earlier < later`
+constraints over trace labels: the first trace entry mentioning `a` comes strictly before the
+first mentioning `b` (blank lines and `#` comments are skipped). The harness checks the trace
+against them beside the exact golden, so a fixture states what must hold without pinning what may
+vary. `action_explore_three_writers.trace.order`:
+
+```text
+# The fork precedes every branch; the join waits for all three.
+split < a
+split < b
+split < c
+a < sync
+b < sync
+c < sync
+```
+
+**A `.trace.golden`** — with `"trace": true`, the default policy's trace is recorded as usual, so
+the linearization the default takes is still pinned exactly (deterministic replay is a feature)
+while the `outcomes` say it is one of three. The suite also runs every case under `declared` and
+`seed:1`, and a case with `outcomes` gets a `.declared.trace.golden` and a `.seed-1.trace.golden`
+of its own.
+
+Which openness a fixture makes observable, and which it leaves to a single-outcome case, is
+recorded per fixture in [the semantic oracle](../project/behavior-semantic-oracle.md); the
+[compliance table](../project/spec-compliance.md) names the code and tests behind each surface
+above.
 
 ## An object runs the behaviors its type exhibits
 

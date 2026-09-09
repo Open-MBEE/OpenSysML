@@ -329,13 +329,17 @@ func (s *scheduler) describe(c ChoicePoint) {
 // the seeded generator or the exploration's position.
 func (s *scheduler) mark() func() {
 	if s == nil {
-		return func() {}
+		return func() {
+			// No scheduler drove the run, so there is no state to restore.
+		}
 	}
 	if s.explore != nil {
 		return s.explore.mark()
 	}
 	if s.pcg == nil {
-		return func() {}
+		return func() {
+			// An unseeded schedule draws nothing, so there is no state to restore.
+		}
 	}
 	saved := *s.pcg
 	return func() { *s.pcg = saved }

@@ -718,7 +718,7 @@ the one place it is written down; [the guide](../guide/) links here.
 |--------|-------|
 | `0` | What was asked for was done: every file loaded and analysed cleanly, every `-e` expression produced a value, every check held, a conversion was written. Warnings leave the status `0`. |
 | `1` | The model answered false: a constraint, requirement or satisfaction assertion the model decided did not hold. Only a verdict reports this status. |
-| `2` | What was asked for could not be done, so the model answered nothing: a file that could not be read, a model that did not analyse cleanly, an object whose feature values did not materialize, an unresolved name, a check that could not be made, a conversion that could not be written because the RDF graph cannot rebuild a source construct, a misused flag or an invalid `OPENSYSML_MAX_*` value. |
+| `2` | What was asked for could not be done, so the model answered nothing: a file that could not be read, a model that did not analyse cleanly, an object whose feature values did not materialize, an unresolved name, a check that could not be made, an exploration that hit its budget before every linearization was tried, a conversion that could not be written because the RDF graph cannot rebuild a source construct, a misused flag or an invalid `OPENSYSML_MAX_*` value. |
 
 ```bash
 $ printf '%s\n' 'constraint MassBudget { 1 > 2 }' > model.sysml

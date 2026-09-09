@@ -89,7 +89,16 @@ readings above are the ones the specification's authors rely on, not as library 
 
 Each case names its fixture (the `.sysml` and `.expected.json`, plus a `.trace.golden` where the
 executor meets the derivation), the constraints derived, the orderings left open, and the
-outcome the derivation fixes.
+outcome the derivation fixes. An openness that is observable is encoded in the fixture: the
+`.expected.json` lists the admissible set as `outcomes` and cites the section below as
+`admissible`, and a `.trace.order` file states the partial order the library does fix as
+`earlier < later` constraints on the trace. The harness checks a run against exactly one member,
+then explores the case (`exploreConformanceCase`, budget `exploreBudget`, default 1024 runs and 64
+choice points) and fails on a listed outcome no linearization reaches, on a reached outcome the
+list omits, and on a budget hit. An openness that is not observable is pinned by a fixture with one
+expected outcome; such a fixture has no `outcomes` and the harness does not explore it, so the
+`explore` figures quoted for it below come from running the fixture under the `explore` policy,
+not from the suite.
 
 ### A join follows one performance of every source, however long each branch takes
 
@@ -112,7 +121,11 @@ Derived constraints:
 
 Open: the relative order of `a`, `b2` and `c3` — and of every node on one branch against every
 node on another. The golden's order (the `c` branch stepped first within each step, `a` finishing
-first because its branch is shortest) is one admissible linearization.
+first because its branch is shortest) is one admissible linearization. Nothing observable depends
+on it: every interleaving increments `arrived` three times before `after` reads it, so the fixture
+pins the one outcome and has no `outcomes`. Under `explore` the interleavings are twelve
+linearizations reaching that one outcome (12 runs, 1 outcome, complete), each a sequence of token
+choices (`step 3: 2@a first of 2@a, 3@b1, 4@c1; …`).
 
 Fixed outcome: `arrived = 3`, `seen = 3`. The executor agrees; the golden shows `after` reading
 `arrived -> 3` and every branch's write preceding it.
@@ -135,7 +148,9 @@ Derived constraints:
   multiplicity 1..1 on each of its two incoming successions).
 - `right` writes `log := log * 10 + 1`; `after` follows `sync` and writes `log := log * 10 + 2`.
 
-Open: the order of `left` against any node of the `r` branch.
+Open: the order of `left` against any node of the `r` branch. Nothing observable depends on it,
+so the fixture pins the one outcome without `outcomes`; under `explore` the twelve interleavings
+all reach it (12 runs, 1 outcome, complete).
 
 Fixed outcome: `log = 12` — `right` writes before `after`, whatever the interleaving, because
 `after` cannot start before `sync`, and `sync` cannot start before `right` has ended.
@@ -168,7 +183,9 @@ Derived constraints:
   This is the reading the pilot corpus states in prose for `engineStopped`, which five
   successions reach.
 
-Open: the order of `l1` against `l2`.
+Open: the order of `l1` against `l2`. It is not observable — `both` performs once either way —
+so the fixture pins the one outcome without `outcomes`; under `explore` the two orders both reach
+it (2 runs, 1 outcome, complete).
 
 Fixed outcome: `hits = 1`.
 
@@ -214,7 +231,8 @@ Pinned outcome: the admissible set `{x = 1, x = 2}`, with `leftRan = true` and `
 in both, which the case states as `outcomes` citing this section and the harness checks the run
 against — a run must match exactly one member. The partial order the library does fix is stated
 as `.trace.order` constraints (`split < left`, `split < right`, `left < sync`, `right < sync`) the
-trace must satisfy. The exact trace golden stays: it records the executor's scheduling (`right`
+trace must satisfy. Exploration reaches both outcomes and no other, one linearization each
+(2 runs, 2 outcomes, complete). The exact trace golden stays: it records the executor's scheduling (`right`
 is the branch declared last, so its token is stepped first and `left` writes last, giving
 `x = 1`) and exists only so a change in that scheduling is noticed. The executor reports the
 conflict as a choice point (`choice step 3: writes x := 1 by token 2, x := 2 by token 3
@@ -255,7 +273,8 @@ Open: which of the two admissible links the decision performance takes. The libr
 that it is exactly one of them; nothing ranks `warn` against `alarm`.
 
 Pinned outcome: the admissible set `{handler = 1, handler = 2}`, stated as `outcomes` citing this
-section. The executor evaluates every guard, takes the first declared, and records the choice
+section; exploration reaches each once (2 runs, 2 outcomes, complete). The executor evaluates
+every guard, takes the first declared, and records the choice
 (`choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`);
 the golden pins that linearization. Reporting never changes the run: the guards after the first
 holding one are read in a preview that is undone — what evaluating them costs, writes or starts
@@ -364,7 +383,7 @@ re-reading the first. Under it either pairing is admissible: `left` takes `1` an
 the reverse.
 
 Pinned outcome: the admissible set `{a = 2 ∧ b = 1, a = 1 ∧ b = 2}`, stated as `outcomes` citing
-this section. The partial order the library fixes among the nodes is stated as `.trace.order`
+this section; exploration reaches each once (2 runs, 2 outcomes, complete). The partial order the library fixes among the nodes is stated as `.trace.order`
 constraints (`split < sendOne`, `split < left`, `split < right`, `sendOne < sendTwo`,
 `sync < recorder`, `recorder < done`); the join's predecessors are not stated as constraints on
 `sync` because a token parks at a join before the join performs, so the entry first mentioning
@@ -449,7 +468,11 @@ nested one were never chosen among, so nothing about them is reported
 (`state_choice_ancestor_outranked_not_reported`).
 
 Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
-citing this section. The executor examines every transition out of the state for the event,
+citing this section; exploration reaches each once (2 runs, 2 outcomes, complete), as it does for
+the companion fixtures `state_choice_shared_ancestor_regions` and
+`state_choice_change_transition_conflict` (2 runs, 2 outcomes each); `state_explore_transition_conflict`
+states the same set for two transitions converging on one target, told apart by `side` and the
+visit list. The executor examines every transition out of the state for the event,
 fires the first declared, and records the choice (`choice state idle on accept Go: transitions
 1->low, 2->high (unordered; took 1->low)`); the golden pins that linearization. As for a decision,
 the transitions after the first enabled one are read in a preview that is undone, and one whose
@@ -535,7 +558,8 @@ Derived constraints:
   MergePerformance).
 - `monitor` increments `passes`; `addCharge` adds `50` to `level`, which starts at `0`.
 
-Open: nothing that is observable; the loop is a chain.
+Open: nothing that is observable; the loop is a chain. The fixture pins the one outcome without
+`outcomes`; under `explore` the run reaches no choice point (1 run, 1 outcome, complete).
 
 Fixed outcome: `monitor` runs with `level` at `0`, `50` and `100`; the third `decide` selects
 `endCharging`; `level = 100`, `passes = 3`. This is the reading the specification's example and
@@ -573,7 +597,8 @@ Derived constraints:
   `Actions.sysml` `Action::merges : MergeAction[0..*]`), so its body runs once per merge
   performance, i.e. once per arrival.
 
-Open: nothing observable.
+Open: nothing observable. The fixture pins the one outcome without `outcomes`; under `explore`
+the run reaches no choice point (1 run, 1 outcome, complete).
 
 Fixed outcome: `count = 3`, `merged = 3` — three passes of `work`, three merge performances.
 The executor agrees; the golden shows `again`'s body and `work`'s body alternating three times
@@ -602,7 +627,10 @@ Derived constraints:
   outgoing succession is read (HappensBefore orders the whole source performance before its
   target). Each `more` performance therefore reads a `passes` it has itself just incremented.
 
-Open: the interleaving of the two tokens at every node; which token takes which exit.
+Open: the interleaving of the two tokens at every node; which token takes which exit. The outcome
+does not depend on it, so the fixture pins the one outcome without `outcomes`; under `explore`
+every interleaving — a choice between the two tokens at each of seven steps — reaches it
+(128 runs, 1 outcome, complete).
 
 Fixed outcome: `passes = 4`, `merged = 4`, `worked = 4`. Whatever the interleaving, `passes`
 takes the values 1, 2, 3, 4 one `more` performance at a time, the two that read 1 and 2 select
@@ -649,6 +677,9 @@ Derived constraints:
 
 Open: in the first model, the interleaving of the direct arrival with `slow → slower`; the
 outcome does not depend on it, since `ready` is written before the second arrival either way.
+Both fixtures pin one outcome without `outcomes`; under `explore` the first reaches it by both
+interleavings (2 runs, 1 outcome, complete) and the second, a chain, reaches no choice point
+(1 run, 1 outcome, complete).
 
 Fixed outcome, first model: `ready = true`, `mergeRuns = 2`, `passed = 2` — the direct arrival
 performs `gate` and reads `ready = false`, so no link to `tail` follows it; the second arrival
@@ -683,7 +714,8 @@ Derived constraints:
 - The target state performance follows the effect (`effect then transitionLink.laterOccurrence`),
   and its entry is its first step (`entry then middle`), so the entry reads the effect's `y = 0`.
 
-Open: nothing observable; the transition is a chain.
+Open: nothing observable; the transition is a chain. The fixture pins the one outcome without
+`outcomes`; under `explore` the run reaches no choice point (1 run, 1 outcome, complete).
 
 Fixed outcome: `x = 0`, `y = 0`, `z = 1`, final state `finished`. The executor agrees; the golden
 shows the guard reading `x -> 5`, then `exit: active`, then `assign y` reading `x -> 0`, then

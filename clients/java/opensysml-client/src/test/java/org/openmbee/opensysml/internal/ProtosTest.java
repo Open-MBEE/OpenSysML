@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -291,10 +292,11 @@ class ProtosTest {
             List.of(new Value.IntegerValue(3), new Value.IntegerValue(1), new Value.IntegerValue(2)));
     assertEquals(members, reordered);
     assertEquals(members.hashCode(), reordered.hashCode());
-    assertNotEquals(
-        members,
+    Value inOrder =
         new Value.Sequence(
-            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3))));
+            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3)));
+    assertFalse(members.sameValue(inOrder));
+    assertFalse(inOrder.sameValue(members));
     assertNotEquals(
         members, new Value.SetValue(List.of(new Value.IntegerValue(1), new Value.IntegerValue(2))));
 
@@ -405,8 +407,9 @@ class ProtosTest {
     TransportException unmeasured =
         assertThrows(TransportException.class, () -> Protos.value(noMagnitude));
     assertTrue(unmeasured.getMessage().contains("no magnitude"), unmeasured.getMessage());
+    List<Long> twoWide = List.of(2L);
     List<Quantity> none = List.of();
-    assertThrows(IllegalArgumentException.class, () -> new Value.TensorQuantityValue(List.of(2L), none));
+    assertThrows(IllegalArgumentException.class, () -> new Value.TensorQuantityValue(twoWide, none));
   }
 
   private static org.openmbee.opensysml.proto.Value measurementRef(MeasurementRef.Builder ref) {
