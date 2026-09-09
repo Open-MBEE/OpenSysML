@@ -1,6 +1,7 @@
 package org.openmbee.opensysml.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -291,10 +292,11 @@ class ProtosTest {
             List.of(new Value.IntegerValue(3), new Value.IntegerValue(1), new Value.IntegerValue(2)));
     assertEquals(members, reordered);
     assertEquals(members.hashCode(), reordered.hashCode());
-    assertNotEquals(
-        members,
+    Value inOrder =
         new Value.Sequence(
-            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3))));
+            List.of(new Value.IntegerValue(1), new Value.IntegerValue(2), new Value.IntegerValue(3)));
+    assertFalse(members.sameValue(inOrder));
+    assertFalse(inOrder.sameValue(members));
     assertNotEquals(
         members, new Value.SetValue(List.of(new Value.IntegerValue(1), new Value.IntegerValue(2))));
 

@@ -260,6 +260,13 @@ class PublicTypesTest {
     assertFalse(
         new Value.QuantityValue(reduced(1000 * huge + 1, "m", 1.0, 1.0, metre))
             .sameValue(new Value.QuantityValue(reduced(huge, "km", 1000.0, 1.0, metre))));
+    // A whole scale beyond a long is read exactly too, so 1e24 is the double it is, not 10^24.
+    assertTrue(
+        new Value.QuantityValue(reduced(3L, "x", 0x1p63, 1.0, metre))
+            .sameValue(new Value.QuantityValue(reduced(1L, "y", 3 * 0x1p63, 1.0, metre))));
+    assertFalse(
+        new Value.QuantityValue(reduced(1L, "Ym", 1e24, 1.0, metre))
+            .sameValue(new Value.QuantityValue(reduced(1000L, "Zm", 1e21, 1.0, metre))));
 
     // Different dimensions, or a scale nothing converts through, are never the same value.
     assertFalse(m.sameValue(new Value.QuantityValue(reduced(1L, "s", 1.0, 1.0, second))));

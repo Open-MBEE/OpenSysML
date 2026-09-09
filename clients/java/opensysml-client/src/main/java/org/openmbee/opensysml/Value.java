@@ -1,6 +1,5 @@
 package org.openmbee.opensysml;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -714,8 +713,15 @@ public sealed interface Value {
     return scale == Math.rint(scale) && !Double.isInfinite(scale);
   }
 
+  // The integer a whole double is, exactly as the service reads it: beyond a long, its
+  // significand shifted by its exponent rather than its shortest decimal rendering.
   private static BigInteger wholeOf(double scale) {
-    return new BigDecimal(scale).toBigIntegerExact();
+    if (Math.abs(scale) < 0x1p63) {
+      return BigInteger.valueOf((long) scale);
+    }
+    long significand = (Double.doubleToLongBits(scale) & ((1L << 52) - 1)) | (1L << 52);
+    BigInteger whole = BigInteger.valueOf(significand).shiftLeft(Math.getExponent(scale) - 52);
+    return scale < 0 ? whole.negate() : whole;
   }
 
   private static boolean sameQuantities(List<Quantity> a, List<Quantity> b) {

@@ -279,15 +279,21 @@ def test_measurement_refs_are_the_same_value_over_one_reduction():
     assert ref("km", "SI::kilometre", 1000.0) == ref("km", "SI::km", 2000.0, 2.0)
     assert ref("km", "SI::kilometre", 1000.0) != ref("m", "SI::metre")
     assert ref("m", "SI::metre") != ref("s", "SI::second", factors=(("SI::second", 1.0),))
-    assert ref("x", scale_num=0.0) != ref("x", scale_num=0.0)
+    # A scale nothing converts through is no one's reduction, not even its own copy's.
+    zero_scaled, zero_scaled_again = ref("x", scale_num=0.0), ref("x", scale_num=0.0)
+    assert zero_scaled != zero_scaled_again
+    assert len(SetValue((zero_scaled, zero_scaled_again))) == 2
     # A named unit of dimension one reduces to nothing, so it is only itself.
     rad, sr = ref("rad", "SI::radian", factors=()), ref("sr", "SI::steradian", factors=())
     assert rad != sr and rad == ref("SI::rad", "SI::radian", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
     assert ref("m/m", factors=(("SI::metre", 1.0), ("SI::metre", -1.0))) == ref("", factors=())
     assert rad != ref("m/m", factors=(("SI::metre", 1.0), ("SI::metre", -1.0)))
     # One named without its reduction compares as written.
-    assert MeasurementRef(Unit("m"), "SI::metre") == MeasurementRef(Unit("m"), "SI::metre")
-    assert MeasurementRef(Unit("m"), "SI::metre") != ref("m", "SI::metre")
+    unreduced = MeasurementRef(Unit("m"), "SI::metre")
+    assert unreduced == MeasurementRef(Unit("m"), "SI::metre")
+    assert unreduced != MeasurementRef(Unit("metre"), "SI::metre")
+    assert unreduced != MeasurementRef(Unit("m"), "SI::m")
+    assert unreduced != ref("m", "SI::metre")
 
     # Membership, duplicate detection and set equality follow.
     assert composed in SetValue((named,)) and sr not in SetValue((rad,))
