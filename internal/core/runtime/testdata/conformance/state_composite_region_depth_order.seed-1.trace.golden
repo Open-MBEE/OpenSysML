@@ -13,22 +13,22 @@ transition: rstart -> deep
 exit: dstart
 enter: d1
 transition: dstart -> d1
-choice on accept Tick: states l1, d1 react (unordered; took l1 first)
-exit: l1
+choice on accept Tick: states l1, d1 react (unordered; took d1 first)
+exit: d1
 stmt assign log
       eval feature log -> 0
       eval literal 10 -> 10
     eval operator * -> 0
-    eval literal 1 -> 1
-  eval operator + -> 1
-enter: l2
-transition: l1 -> l2 (event: accept Tick)
-exit: d1
-stmt assign log
-      eval feature log -> 1
-      eval literal 10 -> 10
-    eval operator * -> 10
     eval literal 2 -> 2
-  eval operator + -> 12
+  eval operator + -> 2
 enter: d2
 transition: d1 -> d2 (event: accept Tick)
+exit: l1
+stmt assign log
+      eval feature log -> 2
+      eval literal 10 -> 10
+    eval operator * -> 20
+    eval literal 1 -> 1
+  eval operator + -> 21
+enter: l2
+transition: l1 -> l2 (event: accept Tick)

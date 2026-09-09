@@ -1,6 +1,15 @@
 {
 	"type": "state",
 	"events": [{"signal": "Tick"}],
-	"finalState": "ldone+rdone",
-	"stateVisits": ["lidle", "ridle", "ldone", "rdone"]
+	"outcomes": [
+		{
+			"finalState": "ldone+rdone",
+			"stateVisits": ["lidle", "ridle", "ldone", "rdone"]
+		},
+		{
+			"finalState": "ldone+rdone",
+			"stateVisits": ["lidle", "ridle", "rdone", "ldone"]
+		}
+	],
+	"admissible": "Transitions in sibling regions enabled by one event: each fires, in which order is open"
 }

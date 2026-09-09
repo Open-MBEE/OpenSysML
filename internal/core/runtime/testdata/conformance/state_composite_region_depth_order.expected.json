@@ -3,9 +3,21 @@
   "events": [
     {"signal": "Tick", "args": null}
   ],
-  "finalState": "d2+l2+deep",
-  "stateVisits": ["start", "Working", "lstart", "rstart", "l1", "deep", "dstart", "d1", "l2", "d2"],
-  "outputs": {
-    "log": {"type": "Integer", "value": 12}
-  }
+  "outcomes": [
+    {
+      "finalState": "d2+l2+deep",
+      "stateVisits": ["start", "Working", "lstart", "rstart", "l1", "deep", "dstart", "d1", "l2", "d2"],
+      "outputs": {
+        "log": {"type": "Integer", "value": 12}
+      }
+    },
+    {
+      "finalState": "d2+l2+deep",
+      "stateVisits": ["start", "Working", "lstart", "rstart", "l1", "deep", "dstart", "d1", "d2", "l2"],
+      "outputs": {
+        "log": {"type": "Integer", "value": 21}
+      }
+    }
+  ],
+  "admissible": "Transitions in sibling regions enabled by one event: each fires, in which order is open"
 }

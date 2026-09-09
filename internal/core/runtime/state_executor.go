@@ -692,13 +692,36 @@ func (e *StateExecutor) recallDeferredEvents() {
 //
 // Dispatch selects the transitions to take against the configuration the event
 // was taken off the queue for, so a state this event entered never reacts to it,
-// then fires them one at a time in region declaration order, so a deeper region
-// does not overtake one declared before it; an exploration varies that order.
+// then fires them one at a time in the order the scheduling policy draws.
 func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 	candidates, err := e.selectTransitions(event)
 	if err != nil {
 		return false, err
 	}
+	return e.dispatchInOrder("on "+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+		// The guard ran against the pre-dispatch data, so the arguments it read were
+		// unbound again; the effect needs them bound.
+		unbind, err := e.bindTriggerArguments(trans, event)
+		if err != nil {
+			unbind()
+			return false, fmt.Errorf("state %s: %w", candidate.source.Name, err)
+		}
+		fired, err := e.fireFrom(candidate.source, trans, notes)
+		if err != nil {
+			return false, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
+		}
+		return fired, nil
+	})
+}
+
+// dispatchInOrder fires the surviving candidates one at a time through fire, the
+// policy re-drawing among those still active since a reaction may leave a leaf;
+// where names the occurrence dispatched, for the choice each draw reports.
+func (e *StateExecutor) dispatchInOrder(
+	where string,
+	candidates []dispatchCandidate,
+	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
+) (bool, error) {
 	pending := make([]dispatchCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !e.losesToNestedTransition(candidates, candidate) {
@@ -706,38 +729,29 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 		}
 	}
 
-	consumed := false
+	acted := false
 	for len(pending) > 0 {
-		// A leaf may be left by another leaf's reaction to this event, which drops
-		// the transition it selected.
 		pending = slices.DeleteFunc(pending, func(c dispatchCandidate) bool { return !e.isActive(c.leaf) })
 		if len(pending) == 0 {
 			break
 		}
-		next, order := e.chooseRegion(pending)
+		next, order := e.chooseRegion(where, pending)
 		candidate := pending[next]
 		pending = slices.Delete(pending, next, next+1)
 		trans, notes := e.chooseTransition(candidate)
 		if order != nil {
 			notes = append([]RunNote{order}, notes...)
 		}
-		// The guard ran against the pre-dispatch data, so the arguments it read were
-		// unbound again; the effect needs them bound.
-		unbind, err := e.bindTriggerArguments(trans, event)
+		fired, err := fire(candidate, trans, notes)
+		acted = acted || fired
 		if err != nil {
-			unbind()
-			return consumed, fmt.Errorf("state %s: %w", candidate.source.Name, err)
+			return acted, err
 		}
-		fired, err := e.fireFrom(candidate.source, trans, notes)
-		if err != nil {
-			return consumed, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
-		}
-		consumed = consumed || fired
 		if e.state == StateCompleted {
-			return consumed, nil
+			break
 		}
 	}
-	return consumed, nil
+	return acted, nil
 }
 
 // dispatchCandidate is the state one active leaf selected for an event, the leaf
@@ -811,21 +825,19 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 	return transitions[candidate.enabled[pick]], notes
 }
 
-// chooseRegion resolves which of the candidates, all still able to fire, fires
-// next: the first in region declaration order, unless an exploration is varying
-// the order, in which case its pick is returned with the choice point it made.
-func (e *StateExecutor) chooseRegion(pending []dispatchCandidate) (int, RunNote) {
+// chooseRegion resolves which of the candidates, all still able to fire, fires next:
+// the policy draws the pick and, with several candidates, the choice is reported.
+func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
 	scheduling := e.ctx.scheduling()
-	pick, explored := scheduling.explorePick(len(pending))
-	if !explored {
+	pick := scheduling.pick(len(pending))
+	if len(pending) < 2 {
 		return pick, nil
 	}
 	alts := e.candidateNames(pending)
 	taken := pending[pick]
-	trans := e.graph.Transitions[taken.source][taken.enabled[0]]
 	choice := ChoicePoint{
 		Kind:         ChoiceRegionOrder,
-		Where:        "on " + triggerName(trans.Trigger),
+		Where:        where,
 		Alternatives: alts,
 		Taken:        pick,
 		File:         e.stateMachine.DocName,

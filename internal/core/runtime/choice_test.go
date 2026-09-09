@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -854,7 +855,8 @@ func TestProbedGuardLeavesObjectIdentitiesUntouched(t *testing.T) {
 }
 
 // A selected transition whose guard another region's reaction falsified before
-// its turn does not fire, so nothing about selecting it is reported.
+// its turn does not fire, so nothing about selecting it is reported; the
+// region order that let the other reaction go first is the run's one choice.
 func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -891,8 +893,132 @@ func TestNotesOfATransitionBlockedBeforeFiringAreDropped(t *testing.T) {
 	if strings.Join(visited, ",") != "work,a1,b1,a2" {
 		t.Fatalf("visited %v, want region a to fire and region b, its guards blocked by a's effect, to stay", visited)
 	}
-	if got := ctx.Notes(); len(got) != 0 {
-		t.Fatalf("a transition that did not fire was reported: %v", got)
+	got := ctx.Notes()
+	if len(got) != 1 {
+		t.Fatalf("notes %v, want the region-order choice alone", got)
+	}
+	if choice, ok := got[0].(ChoicePoint); !ok || choice.Kind != ChoiceRegionOrder || choice.Taken != 0 {
+		t.Fatalf("a transition that did not fire was reported: %v", got[0])
+	}
+}
+
+// A region-order choice names the occurrence dispatched, not the trigger of the
+// region drawn first: two regions may spell one message differently (its type
+// and a supertype), and the report must read the same whichever a seed draws.
+func TestRegionOrderChoiceNamesTheOccurrenceNotTheTakenTrigger(t *testing.T) {
+	src := `package test {
+		private import ScalarValues::*;
+		attribute def Base;
+		attribute def Go :> Base;
+		state Machine {
+			entry; then start;
+			state start;
+			transition first start do send new Go() then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept Go then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					transition first b1 accept Base then b2;
+				}
+			}
+		}
+	}`
+	under := func(spelling string) ChoicePoint {
+		t.Helper()
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		policy, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(policy); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
+			t.Fatalf("%s: execute: %v", spelling, err)
+		}
+		got := ctx.Notes()
+		if len(got) != 1 {
+			t.Fatalf("%s: notes %v, want the region-order choice alone", spelling, got)
+		}
+		choice, ok := got[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceRegionOrder || strings.Join(choice.Alternatives, ", ") != "a1, b1" {
+			t.Fatalf("%s: note %v, want a region-order choice among a1, b1", spelling, got[0])
+		}
+		return choice
+	}
+	const want = "on accept Go"
+	if choice := under("reverse"); choice.Taken != 0 || choice.Where != want {
+		t.Fatalf("reverse: %s, want a1 first %q", choice.String(), want)
+	}
+	for seed := 1; seed <= 32; seed++ {
+		choice := under(fmt.Sprintf("seed:%d", seed))
+		if choice.Where != want {
+			t.Fatalf("seed:%d: choice %s, want it named %q whichever region it took first", seed, choice.String(), want)
+		}
+		if choice.Taken == 1 {
+			return
+		}
+	}
+	t.Fatal("no seed up to 32 took b1 first; the case does not exercise the alternate draw")
+}
+
+// A message sent from an event feature is named after that feature, as the
+// accept subsetting it is written: two event features of one type dispatched to
+// the same regions make choices a reader can tell apart.
+func TestRegionOrderChoiceNamesTheEventFeatureSent(t *testing.T) {
+	const src = `package test {
+		item def Ping;
+		state Machine {
+			item alert : Ping;
+			item alarm : Ping;
+			entry; then start;
+			state start;
+			transition first start do send %s then work;
+			state work parallel {
+				state a {
+					entry; then a1;
+					state a1;
+					state a2;
+					transition first a1 accept :> %[1]s then a2;
+				}
+				state b {
+					entry; then b1;
+					state b1;
+					state b2;
+					transition first b1 accept :> %[1]s then b2;
+				}
+			}
+		}
+	}`
+	for _, feature := range []string{"alert", "alarm"} {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, fmt.Sprintf(src, feature)))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		if _, _, err := ctx.ExecuteStateWithEvents(sym, nil); err != nil {
+			t.Fatalf("%s: execute: %v", feature, err)
+		}
+		got := ctx.Notes()
+		if len(got) != 1 {
+			t.Fatalf("%s: notes %v, want the region-order choice alone", feature, got)
+		}
+		choice, ok := got[0].(ChoicePoint)
+		want := "on accept :> " + feature
+		if !ok || choice.Kind != ChoiceRegionOrder || choice.Where != want {
+			t.Fatalf("%s: note %v, want a region-order choice %q", feature, got[0], want)
+		}
 	}
 }
 
@@ -1011,7 +1137,9 @@ func TestLaterChangeGuardErrorIsNotAChoiceNorAFailure(t *testing.T) {
 }
 
 // A composite state's change transition loses to a nested state's on the same rise
-// and parallel regions fire alongside: only a state with two enabled reports.
+// and parallel regions fire alongside: the rise reports which region reacts first
+// and, in the one state with two enabled, which transition; the outranked
+// composite state draws nothing.
 func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 	src := `package test {
 		private import ScalarValues::*;
@@ -1054,8 +1182,15 @@ func TestChangeTransitionChoiceUnderHierarchyAndRegions(t *testing.T) {
 	if strings.Join(visited, ",") != "start,work,a1,b1,a2,b2" {
 		t.Fatalf("visited %v, want both regions to take their nested transitions and work to stay active", visited)
 	}
-	want := "choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)"
-	if got := ctx.Choices(); len(got) != 1 || got[0].String() != want {
-		t.Fatalf("choices = %v, want exactly [%s]", got, want)
+	want := []string{
+		"choice on change: states a1, b1 react (unordered; took a1 first)",
+		"choice state a1 on change: transitions 1->a2, 2->a3 (unordered; took 1->a2)",
+	}
+	var got []string
+	for _, choice := range ctx.Choices() {
+		got = append(got, choice.String())
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want exactly %v", got, want)
 	}
 }

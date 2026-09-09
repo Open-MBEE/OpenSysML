@@ -148,6 +148,48 @@ package Debug {
 	rejects(t, out, "choice point")
 }
 
+// One event enabling a transition in each of two orthogonal regions is a
+// region-order choice under the default policy: counted in the summary line,
+// and shown in the trace when it is on.
+func TestAdvanceReportsRegionOrderChoice(t *testing.T) {
+	src := `
+package Debug {
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Machine {
+		attribute last : Integer = 0;
+		entry; then work;
+		state work parallel {
+			state a { entry; then a1; state a1; state a2; transition first a1 accept Go do assign last := 1 then a2; }
+			state b { entry; then b1; state b1; state b2; transition first b1 accept Go do assign last := 2 then b2; }
+		}
+	}
+	part def Rig {
+		exhibit state run : Machine;
+	}
+	part rig : Rig;
+}
+`
+	s := loadSource(t, src)
+	wants(t, run(t, s, "%instantiate rig"), "✓ Created instance")
+	wants(t, run(t, s, "%state rig"), "Current state: a1 | b1")
+	run(t, s, "%send Go")
+	out := run(t, s, "%advance 1")
+	wants(t, out, "Current state: a2 | b2", "  1 choice point; %trace on to see them")
+	rejects(t, out, "region order")
+
+	s = loadSource(t, src)
+	run(t, s, "%trace on")
+	run(t, s, "%instantiate rig")
+	run(t, s, "%state rig")
+	run(t, s, "%send Go")
+	out = run(t, s, "%advance 1")
+	wants(t, out,
+		"choice on accept Go: states a1, b1 react (unordered; took a1 first)",
+		"  1 choice point")
+	rejects(t, out, "%trace on to see them")
+}
+
 // A guard read only to report a choice that could not be evaluated is counted in
 // the summary line beside the choices, and shown in the trace when it is on.
 func TestStepReportsUnevaluableGuards(t *testing.T) {

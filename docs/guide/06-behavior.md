@@ -390,12 +390,12 @@ token 2 stepped last. The other kinds read the same way: a decision with two hol
 `choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
 transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
 1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
-`choice on accept Go: states a1, b1 react (unordered; took b1 first)` — that last kind only under
-`explore`, since the fixed policies all take declaration order — and two executors due at one
-instant of the clock are `choice at t=5.0: due action watcher, state machine blinking of object #1
-(unordered; ran state machine blinking of object #1 first)`. One executor alone due at an instant
-is not a choice and is not reported, so a model with a single behavior runs and traces exactly as
-it did before the clock was shared. Over gRPC and
+`choice on accept Go: states a1, b1 react (unordered; took a1 first)` — `reverse` and `declared`
+take the regions in declaration order and report the pick, and `seed:<n>` may take `b1` first —
+and two executors due at one instant of the clock are `choice at t=5.0: due action watcher, state
+machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)`. One
+executor alone due at an instant is not a choice and is not reported, so a model with a single
+behavior runs and traces exactly as it did before the clock was shared. Over gRPC and
 Connect the same choice is an informational diagnostic with code `choice-point` and the message
 `choice point: step 3: tokens 2@a, 3@b, 4@c (unordered; took 4@c first)`, placed at the node,
 decision, feature or state that made it — a finding about the run, never an error.
