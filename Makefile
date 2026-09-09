@@ -20,8 +20,8 @@ GO_WINRES_VERSION := v0.3.3
 
 # buf drives all protobuf codegen; override BUF to use an already-installed binary.
 BUF ?= go run github.com/bufbuild/buf/cmd/buf@$(BUF_VERSION)
-# Wire-compatibility baseline: the schema as it stands on the main branch.
-BUF_BREAKING_REF ?= origin/main
+# Wire-compatibility baseline: the schema as it stands on the develop branch.
+BUF_BREAKING_REF ?= origin/develop
 
 # go-winres embeds a VERSIONINFO resource into the Windows binaries (a build
 # tool only; nothing of it ships). The .syso it writes carries a _windows_amd64
@@ -253,7 +253,7 @@ proto-lint: ## Lint the protobuf schema
 	$(BUF) lint
 	@echo "✓ Proto lint passed"
 
-proto-breaking: ## Check the protobuf schema for wire-breaking changes against main
+proto-breaking: ## Check the protobuf schema for wire-breaking changes against develop
 	@# An archive, not the .git directory: buf would clone that, which a blobless (CI) checkout cannot serve.
 	baseline=$$(mktemp -t proto-baseline.XXXXXX) && trap 'rm -f "$$baseline"' EXIT && \
 	git archive --format=tar -o "$$baseline" '$(BUF_BREAKING_REF)' api/proto && \
