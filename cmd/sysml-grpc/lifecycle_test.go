@@ -19,6 +19,7 @@ import (
 	"time"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -41,7 +42,7 @@ func serviceBinary(t *testing.T) string {
 			return
 		}
 		builtServer = filepath.Join(dir, "sysml-grpc")
-		build := exec.Command("go", "build", "-o", builtServer, ".")
+		build := exec.Command("go", gobuild.Args(builtServer)...)
 		if out, err := build.CombinedOutput(); err != nil {
 			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}

@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
 )
 
 // The binary is what an editor starts, so the lifecycle is tested through it:
@@ -35,7 +37,7 @@ func serverBinary(t *testing.T) string {
 			return
 		}
 		builtServer = filepath.Join(dir, "sysml-lsp")
-		build := exec.Command("go", "build", "-o", builtServer, ".")
+		build := exec.Command("go", gobuild.Args(builtServer)...)
 		if out, err := build.CombinedOutput(); err != nil {
 			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}

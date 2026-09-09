@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
 )
 
 // Builds with the Makefile's -X flag names, so renaming the metadata variables
@@ -12,7 +14,7 @@ import (
 func TestVersionReportsWhatTheLinkerSet(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "sysml-grpc")
 	ldflags := "-X main.Version=v9.9.9 -X main.Commit=abc1234 -X main.BuildTime=2026-01-02_03:04:05"
-	if out, err := exec.Command("go", "build", "-ldflags", ldflags, "-o", binary, ".").CombinedOutput(); err != nil {
+	if out, err := exec.Command("go", gobuild.Args(binary, "-ldflags", ldflags)...).CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
 

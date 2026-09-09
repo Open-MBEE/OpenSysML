@@ -33,6 +33,8 @@ build/
 .pytest_cache/
 coverage.txt
 coverage-python.xml
+coverage-scripts.xml
+.coverage-scripts
 coverage-node.lcov
 /clients/node/coverage/
 .coverage

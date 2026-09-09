@@ -3,25 +3,44 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
 )
 
-// buildCLI builds the sysml binary once so the conversion tests exercise the
+var (
+	buildOnce sync.Once
+	builtCLI  string
+	buildErr  error
+)
+
+// buildCLI builds the sysml binary once per test binary so the tests exercise the
 // real command line, flag parsing included.
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	binary := filepath.Join(t.TempDir(), "sysml")
-	build := exec.Command("go", "build", "-o", binary, ".")
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v\n%s", err, out)
+	buildOnce.Do(func() {
+		dir, err := os.MkdirTemp("", "sysml-build")
+		if err != nil {
+			buildErr = err
+			return
+		}
+		builtCLI = filepath.Join(dir, "sysml")
+		build := exec.Command("go", gobuild.Args(builtCLI)...)
+		if out, err := build.CombinedOutput(); err != nil {
+			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
+		}
+	})
+	if buildErr != nil {
+		t.Fatalf("building sysml: %v", buildErr)
 	}
-	return binary
+	return builtCLI
 }
 
 const sampleModel = `package Demo {
