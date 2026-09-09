@@ -294,14 +294,21 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - Guard evaluation for transitions
    - Transition effect actions
    - Hierarchical states with LCA-based entry/exit propagation
-   - Orthogonal regions with multi-region event broadcasting
+   - Orthogonal regions with multi-region event broadcasting; the order sibling regions react in is a scheduler choice, drawn per firing among the regions still active (`dispatchInOrder`), for change triggers as for queued events
    - Choice + Junction pseudostates
    - Golden trace recording for transitions/entry/exit
    - APIs: `ProcessNextEvent()`, `CurrentState()`, `EventQueue()`, `StateData()`, `SetTrace()`
    - Deferred events: an event no active transition handles is retained while a state deferring it is active, and delivered afterwards in arrival order
    - CallEvent matches the operation named by the trigger (`signal.go`, `state_executor.go`; `signal_test.go:TestCallEventMatchesOperationName`)
 
-3. **Context Integration** — Public runtime APIs
+3. **Scheduler and choice points** — one resolution rule for what the library leaves unordered ([design note](design/scheduling.md))
+   - Six `ChoiceKind`s (`choice.go`): token order within a step, decision branch, same-step write order, transition, region order, due order; each site resolves through the run's `scheduler` and then records a `ChoicePoint`, an informational `RunNote` (diagnostic code `choice-point`) that never alters the run
+   - Every decision guard is evaluated so a second holding one is seen; a later guard that cannot be evaluated is an `UnevaluableGuard` note (`guard-unevaluable`), not a failure
+   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `explore[:runs=N,depth=D]`
+   - `Explore` (`explore.go`) replays whole runs from a fresh `Context` each, a recorded choice prefix then the first untried alternative, depth-first within `ExploreBudget` (default 1024 runs, 64 choice points); reports distinct outcomes by `Outcome.identity` with linearization counts and a witness, and `incomplete` when a bound stopped it
+   - The scheduler lives in the run's `runState` beside the budget and notes; a run driven call by call (`beginExecutorRun`) keeps its own across interleaved runs, and a probe (`beginProbe`) restores the scheduler's position and notes nothing
+
+4. **Context Integration** — Public runtime APIs
    - `InvokeCalc(symbol, args)` — Invoke calculation with arguments, return result
    - `EvaluateConstraint(symbol)` — Evaluate constraint, return satisfaction boolean (assert/assume)
    - `EvaluateRequirement(symbol)` — Evaluate requirement, return satisfaction boolean (require/subject/actor/assume/nested)
@@ -309,12 +316,15 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - `ExecuteState(symbol)` — Run state machine until final/suspended
    - `CreateActionExecutor(symbol)` — Create executor for debugging
    - `CreateStateExecutor(symbol)` — Create executor for debugging
+   - `SetSchedule(policy)`, `Schedule()` — the policy runs started from now on resolve their choice points under (`explore` is refused: `Explore` drives it)
+   - `Notes()`, `Choices()`, `UnevaluableGuards()` — what the last run recorded
 
 **Implementation:**
 - `context.go` (460 lines) — Public Execute/Invoke/Evaluate APIs, step budget enforcement
 - `action_executor.go` (729 lines) — Token-flow engine with nested actions, send statement
 - `state_executor.go` (1149 lines) — Event-driven state machine with do behaviors
 - `executor_common.go` — Token, Event, EventQueue, ExecutionState
+- `scheduler.go`, `choice.go`, `action_choice.go`, `explore.go` — scheduling policies, choice-point notes, bounded exploration
 - `trace.go` (154 lines) — Deterministic execution trace recorder
 - `eval.go` — Expression evaluation (binary/unary operators, literals, feature references, qualified names, type coercion)
 - Lowering to execution IR lives in `internal/core/lower/` (`ToActionGraph`, `ToStateGraph`)
@@ -323,8 +333,9 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - **Golden ASTs**: `internal/core/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
 - **Negative tests**: `internal/core/parser/negative_test.go` — count in [the measured counts](../project/spec-compliance.md)
 - **Unit tests**: `action_executor_test.go`, `state_executor_test.go` (action, state)
-- **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md)
-- **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md)
+- **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
+- **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
+- **Exploration**: `explore_test.go` — every linearization reached once, determinism, each budget's incompleteness, an error as an outcome, transition, region and due order
 - **Robustness**: failure-mode cases (deadlock, unbound params, missing features, dangling transitions, sourceless accept, step budget, pseudostate dead ends and cycles, history and defer misuse, send/accept misrouting, calc arity/recursion, `perform` reference failures) - `robustness_test.go`
 - **Coverage**: All behavioral types fully functional. Action: 14/14 features ✅. State: 13/13 features ✅. Calc: 8/8 ✅. Constraint: 5/5 ✅. Requirement: 5/5 ✅. Evaluation: 7/7 ✅.
 
@@ -482,6 +493,7 @@ See [the guide](../guide/) for VS Code configuration.
 - `%constraint <name>` — Evaluate constraint, check assert/assume satisfaction
 - `%requirement <name>` — Evaluate requirement, validate subject/require/actor conditions
 - `%satisfy [name]` — Evaluate satisfaction assertions, with the requirement's subject bound to the object `by` names
+- `%schedule [policy]` — Show or set the policy the next run resolves its choice points under (`reverse`, `declared`, `seed:<n>`); `explore` is refused, since a debugging session steps one run
 
 **Action debugging:**
 - `%action <name> [<object>]` — Start debugging action execution, optionally performed by an instantiated object
@@ -645,10 +657,10 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 #### 2. Execution Conformance Gate
 - **Purpose:** Verify behavioral execution produces expected outcomes
 - **Location:** `internal/core/runtime/conformance_test.go`
-- **Test:** `TestExecutionConformance` runs `.sysml` + `.expected.json` pairs
-- **Schema:** `internal/core/runtime/testdata/conformance/README.md` (outcome format for each behavioral type)
+- **Test:** `TestExecutionConformance` runs `.sysml` + `.expected.json` pairs; `TestExecutionConformanceUnderPolicies` runs them again under `declared` and `seed:1`
+- **Schema:** `internal/core/runtime/testdata/conformance/README.md` (outcome format for each behavioral type; `outcomes` with an `admissible` citation when the model admits several)
 - **Allowlist:** `known_failures.txt` (currently empty — all cases pass)
-- **Acceptance:** Expected outputs/satisfaction match actual execution results
+- **Acceptance:** Expected outputs/satisfaction match actual execution results under every policy; a case listing `outcomes` is explored, and every listed outcome must be reached and no other ([design note](design/scheduling.md#the-conformance-contract))
 
 **Coverage (by fixture prefix, all passing; counts in [the measured counts](../project/spec-compliance.md)):**
 - Calc: parameter binding, return values, defaults, inherited parameters, unary operators, type coercion, qualified names, body-local usages, statement bodies, nested and from-constraint invocation
@@ -668,8 +680,8 @@ go test -v -run TestExecutionConformance ./internal/core/runtime
 #### 3. Golden Execution Traces
 - **Purpose:** verify *how* execution proceeds (ordering, scheduling), not only the final result
 - **Location:** `internal/core/runtime/trace_test.go`
-- **Test:** `TestExecutionTrace` compares executor traces against `.trace.golden`
-- **Determinism:** Token sorting by ID, fixed event queue tie-breaking
+- **Test:** `TestExecutionTrace` compares executor traces against `.trace.golden`, and against the partial order a `.trace.order` states (`a < b` per line)
+- **Determinism:** Token sorting by ID, fixed event queue tie-breaking; each `choice` the run made is a trace line, so a golden pins one linearization and a case with `outcomes` owns one golden per sweep policy (`<case>.<policy>.trace.golden`)
 - **Acceptance:** Trace output matches golden file
 - **Update flag:** `go test -run TestExecutionTrace -update-traces`
 - **Coverage:** `.trace.golden` files for action, calc, state, constraint, accept and string execution

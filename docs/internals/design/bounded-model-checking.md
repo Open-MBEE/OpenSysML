@@ -2,9 +2,17 @@
 
 A design for exploring every admissible interleaving of an action or state machine, up to a
 bound, and reporting the outcomes the specification leaves open, the deadlocks a run can reach,
-and the requirements an interleaving can violate. Nothing here is implemented; this note fixes
-the data shapes, the reduction rule, the bounds and the user surface so the work can be reviewed
-before code is written, and so each stage can be judged complete on its own.
+and the requirements an interleaving can violate. This note fixes the data shapes, the reduction
+rule, the bounds and the user surface so the work can be reviewed before code is written, and so
+each stage can be judged complete on its own.
+
+What is implemented of it is the `explore` scheduling policy
+([scheduling](scheduling.md#exploration-explorego)): every linearization within a budget of runs
+and choice points, each replayed from a fresh context, with the distinct outcomes, their
+linearization counts and one witness per outcome reported, and an honest `incomplete` when the
+budget stopped it. It runs every linearization rather than one per equivalence class, and it
+reports outcomes, not deadlocks or requirement violations; the snapshots, the partial-order
+reduction and those analyses remain this proposal's.
 
 ## The problem this answers
 
@@ -21,10 +29,12 @@ descending index order within a step, a fork appends its branch tokens in succes
 order, a state machine fires transitions and exits regions in region declaration order — and
 [the semantic oracle](../../project/behavior-semantic-oracle.md) separates what the library fixes
 from what that scheduling chose. The compliance map marks the rows where the runtime picks an
-order the specification does not as approximate. What no surface offers today is the question a
-safety case asks: *does any admissible execution violate this requirement, deadlock, or end in a
-state the model did not intend?* A single run cannot answer it, and a race the scheduling happens
-to resolve the intended way is invisible.
+order the specification does not as approximate. The `explore` policy answers which outcomes the
+admissible executions reach, by running each of them within a budget; what no surface offers is
+the question a safety case asks at scale: *does any admissible execution violate this
+requirement, deadlock, or end in a state the model did not intend?* Enumerating every
+linearization answers it only for behaviors small enough to enumerate, and a race the scheduling
+happens to resolve the intended way is invisible to a single run.
 
 The pinned OMG pilot evaluates expressions and executes neither actions nor state machines
 ([pilot execution referee](../../project/pilot-execution-referee.md)), so there is no reference

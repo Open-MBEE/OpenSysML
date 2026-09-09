@@ -10,10 +10,11 @@ import (
 
 // A run's choice points — several steppable tokens in one step, several holding
 // guards at a decision, several enabled transitions for one event, several
-// executors due at one instant of the clock — are resolved by a scheduling
-// policy; which of two same-step writes to one feature stands follows from the
-// token order it chose. The default is what the executors always did; the others
-// let a driver ask for another linearization of the run.
+// regions reacting to one event, several executors due at one instant of the
+// clock — are resolved by a scheduling policy; which of two same-step writes to
+// one feature stands follows from the token order it chose. The default is what
+// the executors always did; the others let a driver ask for another
+// linearization of the run.
 
 // ErrInvalidSchedulePolicy is the typed error every unparseable policy spelling wraps.
 var ErrInvalidSchedulePolicy = errors.New("invalid scheduling policy")

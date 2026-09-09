@@ -603,7 +603,9 @@ client through the [`RunSweep` RPC](api.md).
 
 Where a behavior has [choice points](../guide/06-behavior.md) — several steppable tokens in one
 step, several holding guards at a decision, several enabled transitions out of one state for one
-event, two tokens writing one feature in one step — one run shows one linearization.
+event, several regions of one parallel state reacting to one event, two tokens writing one
+feature in one step, two executors due at one instant of the clock — one run shows one
+linearization.
 `-schedule explore` runs them all: the first run records the alternative taken at each choice
 point, and every later run replays the recorded prefix and takes the next untried alternative at
 the frontier, depth-first, until no alternative is left untried or a budget is hit. Every run
