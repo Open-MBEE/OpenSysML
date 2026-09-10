@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::outer",
+	"outputs": {
+		"same": {"type": "Boolean", "value": true},
+		"leg.inner.moment": {"type": "Quantity", "value": 12, "unit": "SI::'N⋅m'"},
+		"leg.inner.heat": {"type": "Quantity", "value": 12, "unit": "J"},
+		"leg.inner.equal": {"type": "Boolean", "value": true}
+	}
+}

@@ -854,7 +854,7 @@ func (ctx *Context) assignBindingEndpoint(endpoint bindingEndpoint, val Value, b
 }
 
 func (ctx *Context) assignBindingValue(inst *Instance, fv *FeatureValue, name string, val Value) error {
-	if err := ctx.checkDefault(inst, fv, name, val, admitDeclared); err != nil {
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return err
 	}
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)

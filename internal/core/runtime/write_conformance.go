@@ -63,11 +63,11 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 // values of that feature and answer to its type and its multiplicity — the rule
 // binding an initial value (passes.checkBoundValue, Context.checkDefaultCount),
 // applied where a write replaces them.
-func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeTarget, value Value) error {
+func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeTarget, value *Value) error {
 	if target == nil {
 		return nil
 	}
-	if msg := ctx.writeCountRefusal(target, &value); msg != "" {
+	if msg := ctx.writeCountRefusal(target, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
 	return ctx.checkWriteType(scope, what, target.typ, value, admitWritten)
@@ -82,20 +82,20 @@ func (ctx *Context) writeCountRefusal(target *writeTarget, value *Value) string 
 // checkBodyWrite checks a write of a value a behavior body itself holds - a
 // block-local, a parameter, an output - against the declaration of the name it
 // writes, before that value is stored.
-func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value Value) error {
+func (ctx *Context) checkBodyWrite(host stmtHost, s lower.Assign, value *Value) error {
 	return ctx.checkNamedWrite(s.Scope, host.describe(), s.Target, value)
 }
 
 // checkNamedWrite checks a write of a name resolved in scope, for a path that
 // stores the value itself rather than reaching Instance.SetFeatureValue.
-func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, value Value) error {
+func (ctx *Context) checkNamedWrite(scope *symbols.Scope, where, name string, value *Value) error {
 	return ctx.checkBoundName(scope, fmt.Sprintf("%s: assignment to %s", where, name), name, value)
 }
 
 // checkBoundName checks a value bound to the feature name declares in scope,
 // described by what: an assignment, or a binding that gives a value to an
 // output the run time computes.
-func (ctx *Context) checkBoundName(scope *symbols.Scope, what, name string, value Value) error {
+func (ctx *Context) checkBoundName(scope *symbols.Scope, what, name string, value *Value) error {
 	target, ok := ctx.writeTargetIn(scope, name)
 	if !ok {
 		return nil
@@ -106,7 +106,7 @@ func (ctx *Context) checkBoundName(scope *symbols.Scope, what, name string, valu
 // storeBodyValue writes a value into the behavior's own data once it conforms
 // to the declaration of the name written.
 func storeBodyValue(ctx *Context, host stmtHost, env *stmtEnv, name string, value Value, s lower.Assign) error {
-	if err := ctx.checkBodyWrite(host, s, value); err != nil {
+	if err := ctx.checkBodyWrite(host, s, &value); err != nil {
 		return err
 	}
 	env.data.set(name, value)
@@ -115,12 +115,46 @@ func storeBodyValue(ctx *Context, host stmtHost, env *stmtEnv, name string, valu
 
 // checkWriteType reports an element of a written value that no feature of the
 // declared type could hold. A target declaring no type holds anything, and a
-// value whose type the run time cannot name is not judged here.
-func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *symbols.Symbol, value Value, how admission) error {
-	if refusal, refused := ctx.writeTypeRefusal(scope, declared, &value, how); refused {
+// value whose type the run time cannot name is not judged here. A quantity the
+// feature holds is spelt in the coherent unit its declared type prefers.
+func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *symbols.Symbol, value *Value, how admission) error {
+	if refusal, refused := ctx.writeTypeRefusal(scope, declared, value, how); refused {
 		return fmt.Errorf("%s: %w: %s", what, ErrTypeMismatch, refusal)
 	}
+	ctx.spellForDeclared(value, declared)
 	return nil
+}
+
+// spellForDeclared re-spells the quantities a value holds by the coherent unit
+// the declared type's measurement reference prefers, leaving the magnitude as is.
+func (ctx *Context) spellForDeclared(value *Value, declared *symbols.Symbol) {
+	if declared == nil || ctx.model == nil {
+		return
+	}
+	switch value.Kind {
+	case ValQuantity:
+		if q := value.Quantity(); q != nil {
+			if spelt := ctx.model.CoherentSpelling(*q, declared); spelt.Unit.Text != q.Unit.Text {
+				*value = NewQuantityValue(&spelt)
+			}
+		}
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		spelt := false
+		for i := range elements {
+			before := elements[i].Quantity()
+			ctx.spellForDeclared(&elements[i], declared)
+			spelt = spelt || elements[i].Quantity() != before
+		}
+		if !spelt {
+			return
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return
+		}
+		*value = setOf(elements)
+	}
 }
 
 // writeTypeRefusal says why the first element no feature of the declared type

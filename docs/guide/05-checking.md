@@ -180,6 +180,63 @@ sysml> %eval Provenance::sciCam.metadata
   = []
 ```
 
+## Quantities and units
+
+A quantity is a magnitude with a unit, `3 [SI::km]`, and arithmetic over quantities composes
+units: a product multiplies them, a quotient divides them, a power raises them. The result is
+reported in the coherent unit the library declares for its dimension rather than the expression
+it was composed by, and a prefix on an input folds into the magnitude — `3 [km] / 2 [s]` is
+`1500.0 [SI::'m/s']`, not `1.5 [km/s]`. The reduction reads the library's `MeasurementReferences`
+data and nothing else: a unit's `unitPowerFactors`, its `unitConversion`, and the prefixes of
+`SIPrefixes`, so a `DerivedUnit` a model declares reduces the same way as one of `SI`'s.
+
+```sysml
+sysml> package Orbit {
+  ...>     private import SI::*;
+  ...>     private import ISQ::*;
+  ...>     private import MeasurementReferences::*;
+  ...>     attribute def GravParam :> Quantities::ScalarQuantityValue;
+  ...>     attribute 'm³⋅s⁻²' : DerivedUnit {
+  ...>         private attribute m3 : UnitPowerFactor[1] { :>> unit = SI::m; :>> exponent = 3; }
+  ...>         private attribute s_2 : UnitPowerFactor[1] { :>> unit = SI::s; :>> exponent = -2; }
+  ...>         attribute :>> unitPowerFactors = (m3, s_2);
+  ...>     }
+  ...>     calc def velocity { in a :> ISQ::acceleration; in t :> ISQ::time; return v :> ISQ::speed = a * t; }
+  ...>     calc def orbital { in mu : GravParam; in r :> ISQ::length; return v :> ISQ::speed = (mu / r)^(1/2); }
+  ...>     calc def perMass { in f :> ISQ::force; in m :> ISQ::mass; return a :> ISQ::acceleration = f / m; }
+  ...> }
+✓ package Orbit
+
+sysml> %calc Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
+✓ Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])
+  = 3049.86815 [SI::'m/s']
+
+sysml> %calc Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
+✓ Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])
+  = 7793.229127559948 [SI::'m/s']
+
+sysml> %calc Orbit::perMass(10 [SI::N], 2 [SI::kg])
+✓ Orbit::perMass(10 [SI::N], 2 [SI::kg])
+  = 5.0 [SI::'m⋅s⁻²']
+```
+
+The unit chosen is the one the library declares for the dimension, `SI::'m/s'` over a synonym a
+model declares. Where the library declares several units of one dimension that measure
+different kinds of quantity — `J` for energy and `N⋅m` for torque — the type of the feature
+the value is bound to decides: `attribute work : EnergyValue = 3 [N] * 2 [m]` reads
+`6 [SI::J]`, `attribute torque : TorqueValue = 3 [N] * 2 [m]` reads `6 [SI::'N⋅m']`, and the
+same product bound to no quantity kind reads over the base units, `6 [SI::'kg⋅m²⋅s⁻²']`. A
+value that reduces to dimension one is a plain number (`6 [km] / 3 [km]` is `2.0`); a product
+the library declares no unit for stays over its base units (`2 [kg] * 3 [K]` is `6 [K*kg]`); one
+over a dimension-one unit such as `rad` keeps that unit, since the reduction would lose it; and a
+unit written as one name (`3 [km]`, `400 [cm]`) is kept as written. The magnitude changes only
+by the exact scale factor of the reduction — never by the choice of spelling.
+
+Writing a quantity to a feature typed by a quantity kind checks its reduced dimension, not its
+spelling: `10 [N] / 2 [kg]` is admitted to an `AccelerationValue`, and an `L·T^-1` value written
+to one is refused as a `type mismatch` naming both dimensions. See
+[Behavior](06-behavior.md) for the same rule over `assign`.
+
 ## Sets and tensors
 
 **Sets:** the library declares the elements of a `Collections::Set` unique and unordered, so a

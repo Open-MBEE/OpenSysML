@@ -43,6 +43,7 @@ const (
 	memberReferenceUnit    = "referenceUnit"
 	memberConversionFactor = "conversionFactor"
 	memberPrefix           = "prefix"
+	memberUnitPowerFactors = "unitPowerFactors"
 )
 
 // Scale is a unit's scale factor as a ratio kept unevaluated, so a conversion
@@ -331,9 +332,9 @@ func (m *Model) IsAngularMeasureUnit(sym *symbols.Symbol) bool {
 
 // UnitTermOf reduces a measurement unit to base units. A unit declared with a
 // conversion to a reference unit contributes that conversion's factor; a unit
-// declared as an expression of other units reduces through that expression; a
-// unit of dimension one reduces to no base unit at all; and a unit that is
-// declared in terms of nothing else is itself a base unit.
+// declared as an expression of other units, or by the power factors it lists,
+// reduces through them; a unit of dimension one reduces to no base unit at all;
+// and a unit that is declared in terms of nothing else is itself a base unit.
 //
 // The reduction is memoized per symbol, and read from the facts installed for a
 // library symbol rather than derived again.
@@ -372,10 +373,80 @@ func (m *Model) reduceUnit(sym *symbols.Symbol) (UnitTerm, error) {
 	if dimOne := m.libSymbol(fqnDimensionOneUnit); dimOne != nil && m.Conforms(sym, dimOne) {
 		return UnitTerm{Scale: UnitScale(1)}, nil
 	}
+	if term, declared, err := m.powerFactorsUnitTerm(sym); declared || err != nil {
+		return term, err
+	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Value != nil {
 		return m.UnitTermOfExpr(sym.OwnerScope, usage.Value)
 	}
 	return UnitTerm{Scale: UnitScale(1), Factors: []UnitFactor{{Unit: sym, Exponent: 1}}}, nil
+}
+
+// powerFactorsUnitTerm reduces a derived unit through the `unitPowerFactors` it
+// lists, each unit raised to its exponent; declared is false for a unit listing none.
+func (m *Model) powerFactorsUnitTerm(sym *symbols.Symbol) (UnitTerm, bool, error) {
+	factors, declared := m.unitPowerFactorSymbols(sym)
+	if !declared {
+		return UnitTerm{}, false, nil
+	}
+	term := UnitTerm{Scale: UnitScale(1)}
+	for _, factor := range factors {
+		if factor == nil {
+			return UnitTerm{}, true, fmt.Errorf("%w: %s lists an unresolvable unit power factor", ErrUnitExpr, sym.Name)
+		}
+		reduced, err := m.unitPowerFactor(sym, factor)
+		if err != nil {
+			return UnitTerm{}, true, err
+		}
+		term = term.Times(reduced)
+	}
+	return term, true, nil
+}
+
+// unitPowerFactorSymbols resolves the `unitPowerFactors` a derived unit lists, in
+// order, nil for one resolving to nothing; declared is false for a unit listing none.
+func (m *Model) unitPowerFactorSymbols(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
+	factors, ok := m.LookupMember(sym, memberUnitPowerFactors)
+	if !ok {
+		return nil, false
+	}
+	listed := usageValue(factors)
+	if listed == nil {
+		return nil, false
+	}
+	var out []*symbols.Symbol
+	for _, ref := range sequenceElements(listed) {
+		var factor *symbols.Symbol
+		if m.resolver != nil {
+			if resolved, ok := m.resolver.ResolveTarget(scopeOf(factors), ref); ok {
+				factor = resolved
+			}
+		}
+		out = append(out, factor)
+	}
+	return out, true
+}
+
+// unitPowerFactor reduces one listed UnitPowerFactor: its `unit` raised to its
+// `exponent`. unit names the derived unit listing it, for errors.
+func (m *Model) unitPowerFactor(unit, factor *symbols.Symbol) (UnitTerm, error) {
+	named, ok := m.LookupMember(factor, memberUnit)
+	if !ok || usageValue(named) == nil {
+		return UnitTerm{}, fmt.Errorf("%w: %s lists a unit power factor naming no unit", ErrUnitExpr, unit.Name)
+	}
+	term, err := m.UnitTermOfExpr(scopeOf(named), usageValue(named))
+	if err != nil {
+		return UnitTerm{}, err
+	}
+	exponent, ok := m.LookupMember(factor, memberExponent)
+	if !ok || usageValue(exponent) == nil {
+		return UnitTerm{}, fmt.Errorf("%w: %s lists a unit power factor stating no exponent", ErrUnitExpr, unit.Name)
+	}
+	value, ok := m.Eval(usageValue(exponent))
+	if !ok || !value.IsNumeric() {
+		return UnitTerm{}, fmt.Errorf("%w: %s lists a unit power factor with a non-numeric exponent", ErrUnitExpr, unit.Name)
+	}
+	return term.Pow(value.AsReal()), nil
 }
 
 // recordedUnitTerm rebuilds a reduction recorded for a library symbol, resolving

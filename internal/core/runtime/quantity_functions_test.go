@@ -169,7 +169,7 @@ func TestQuantityCalculations(t *testing.T) {
 		{"sqrt(area)", "3.0 [m]"},
 		{"sqrt(9 [m**2])", "3.0 [m]"},
 		{"sqrt(16 [m*m])", "4.0 [m]"},
-		{"sqrt(4 [m**2/s**2])", "2.0 [m/s]"},
+		{"sqrt(4 [m**2/s**2])", "2.0 [SI::'m/s']"},
 		{"sqrt(2.25 [km**2])", "1.5 [km]"},
 		{"sqrt(4 [N**2])", "2.0 [N]"},
 		{"sqrt(9 [rad**2])", "3.0 [rad]"},
@@ -208,7 +208,7 @@ func TestQuantityCalculations(t *testing.T) {
 		{"(1 [km], 500 [m])->sum()", "1.5 [km]"},
 		{"(side, side, side)->sum()", "9 [m]"},
 		{"sum((2 [m], 3 [m]))", "5 [m]"},
-		{"(2 [m], 3 [m])->product()", "6 [m**2]"},
+		{"(2 [m], 3 [m])->product()", "6 [SI::'m²']"},
 		{"(2 [m], 3 [s])->product()", "6 [m*s]"},
 		{"(2 [m])->sum()", "2 [m]"},
 		{"none->sum()", "0 [m]"},
@@ -217,11 +217,11 @@ func TestQuantityCalculations(t *testing.T) {
 		{"QuantityCalculations::'+'(2 [m])", "2 [m]"},
 		{"QuantityCalculations::'-'(5 [m], 2 [m])", "3 [m]"},
 		{"QuantityCalculations::'-'(2 [m])", "-2 [m]"},
-		{"QuantityCalculations::'*'(2 [m], 3 [m])", "6 [m**2]"},
-		{"QuantityCalculations::'/'(6 [m], 3 [s])", "2.0 [m/s]"},
+		{"QuantityCalculations::'*'(2 [m], 3 [m])", "6 [SI::'m²']"},
+		{"QuantityCalculations::'/'(6 [m], 3 [s])", "2.0 [SI::'m/s']"},
 		{"QuantityCalculations::'/'(6 [m], 3 [m])", "2.0"},
-		{"QuantityCalculations::'**'(3 [m], 2)", "9 [m**2]"},
-		{"QuantityCalculations::'^'(2 [m], 3)", "8 [m**3]"},
+		{"QuantityCalculations::'**'(3 [m], 2)", "9 [SI::'m²']"},
+		{"QuantityCalculations::'^'(2 [m], 3)", "8 [SI::'m³']"},
 		{"QuantityCalculations::'<'(1 [m], 200 [cm])", "true"},
 		{"QuantityCalculations::'>'(1 [m], 200 [cm])", "false"},
 		{"QuantityCalculations::'<='(1 [m], 100 [cm])", "true"},
@@ -237,7 +237,7 @@ func TestQuantityCalculations(t *testing.T) {
 		{"isUnit(1 [m])", "true"},
 		{"isUnit(2 [m])", "false"},
 		{"ToString(1.5 [m/s])", `"1.5 [m/s]"`},
-		{"ToString(2 [m] * 3 [m])", `"6 [m**2]"`},
+		{"ToString(2 [m] * 3 [m])", `"6 [SI::'m²']"`},
 		{"ToInteger(3 [m])", "3"},
 		{"ToInteger(3.0 [m])", "3"},
 		{"ToInteger(2.5 [m])", "2"},
@@ -455,8 +455,8 @@ func TestVectorCalculations(t *testing.T) {
 		{"VectorCalculations::norm((3.0, 4.0))", "5.0"},
 		{"VectorCalculations::angle((1.0, 0.0), (0.0, 1.0)) > 1.5707", "true"},
 		{"VectorCalculations::scalarQuantityVectorMult(2 [m], (1.0, 2.0))", "⟨2.0, 4.0⟩ [m]"},
-		{"VectorCalculations::vectorScalarQuantityMult(VectorFunctions::VectorOf((1.0, 2.0)) [m], 2 [m])", "⟨2.0, 4.0⟩ [m**2]"},
-		{"VectorCalculations::vectorScalarQuantityDiv(VectorFunctions::VectorOf((2.0, 4.0)) [m], 2 [s])", "⟨1.0, 2.0⟩ [m/s]"},
+		{"VectorCalculations::vectorScalarQuantityMult(VectorFunctions::VectorOf((1.0, 2.0)) [m], 2 [m])", "⟨2.0, 4.0⟩ [SI::'m²']"},
+		{"VectorCalculations::vectorScalarQuantityDiv(VectorFunctions::VectorOf((2.0, 4.0)) [m], 2 [s])", "⟨1.0, 2.0⟩ [SI::'m/s']"},
 		{"VectorCalculations::'+'(VectorFunctions::VectorOf((1.0, 2.0)) [m], VectorFunctions::VectorOf((100.0, 200.0)) [cm])", "⟨2.0, 4.0⟩ [m]"},
 		// inner and norm are declared `return : Number[1]`: the magnitude in the
 		// unit the axes compose ([m**2], [cm*m], [m]), the unit itself not carried.
@@ -466,7 +466,7 @@ func TestVectorCalculations(t *testing.T) {
 		{"VectorCalculations::norm(VectorFunctions::VectorOf((300.0, 400.0)) [cm])", "500.0"},
 		{"VectorCalculations::isZeroVectorQuantity(VectorFunctions::VectorOf((0.0, 0.0)) [m])", "true"},
 		{"2 [m] * VectorFunctions::VectorOf((1.0, 2.0))", "⟨2.0, 4.0⟩ [m]"},
-		{"VectorFunctions::VectorOf((2.0, 4.0)) [m] / 2 [s]", "⟨1.0, 2.0⟩ [m/s]"},
+		{"VectorFunctions::VectorOf((2.0, 4.0)) [m] / 2 [s]", "⟨1.0, 2.0⟩ [SI::'m/s']"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -520,10 +520,10 @@ func TestQuantityPowerAndProductAgree(t *testing.T) {
 	ctx, scope := quantityCalculationsContext(t)
 
 	cases := []struct{ product, power, want string }{
-		{"side * side", "side ** 2", "9 [m**2]"},
-		{"side * side / side", "side ** 2 / side", "3.0 [m]"},
-		{"2.5 [m] * 2.5 [m]", "2.5 [m] ** 2", "6.25 [m**2]"},
-		{"2 [km/h] * 2 [km/h]", "2 [km/h] ** 2", "4 [km**2/h**2]"},
+		{"side * side", "side ** 2", "9 [SI::'m²']"},
+		{"side * side / side", "side ** 2 / side", "3.0 [SI::m]"},
+		{"2.5 [m] * 2.5 [m]", "2.5 [m] ** 2", "6.25 [SI::'m²']"},
+		{"2 [km/h] * 2 [km/h]", "2 [km/h] ** 2", "0.30864197530864196 [SI::'m²⋅s⁻²']"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.power, func(t *testing.T) {

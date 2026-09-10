@@ -4,10 +4,10 @@ stmt assign speed
     eval index -> 10.0 [SI::m]
       eval literal 2.0 -> 2.0
     eval index -> 2.0 [SI::s]
-  eval operator / -> 5.0 [SI::m/SI::s]
+  eval operator / -> 5.0 [SI::'m/s']
 step 2: token 1@check
 stmt assign quick
-    eval feature speed -> 5.0 [SI::m/SI::s]
+    eval feature speed -> 5.0 [SI::'m/s']
       eval literal 18.0 -> 18.0
     eval index -> 18.0 [SI::km/SI::h]
   eval operator >= -> true

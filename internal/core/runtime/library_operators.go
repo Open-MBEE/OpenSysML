@@ -160,7 +160,7 @@ func arithmeticForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 			val, err := unaryValue(unary, args[0])
 			return operatorResult(name, val, err)
 		}
-		val, err := arithmeticValues(op, args[0], args[1], source.Span{})
+		val, err := ctx.arithmeticValues(op, args[0], args[1], source.Span{})
 		return operatorResult(name, val, err)
 	}
 }

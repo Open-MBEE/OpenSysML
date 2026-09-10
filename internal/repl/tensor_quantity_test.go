@@ -43,7 +43,7 @@ func TestEvalTensorQuantities(t *testing.T) {
 	wants(t, run(t, s, "%eval plate.stress#(2, 1)"), "= 3.0 [Pa]")
 	wants(t, run(t, s, "%eval plate.stress + plate.stress"), "= Tensor(2, 2)[2.0, 4.0, 6.0, 8.0] [Pa]")
 	wants(t, run(t, s, "%eval TensorCalculations::scalarTensorMult(2, plate.stress)"), "= Tensor(2, 2)[2.0, 4.0, 6.0, 8.0] [Pa]")
-	wants(t, run(t, s, "%eval TensorCalculations::TensorScalarQuantityMult(plate.stress, 2 [m])"), "= Tensor(2, 2)[2.0, 4.0, 6.0, 8.0] [Pa*m]")
+	wants(t, run(t, s, "%eval TensorCalculations::TensorScalarQuantityMult(plate.stress, 2 [m])"), "= Tensor(2, 2)[2.0, 4.0, 6.0, 8.0] [SI::'kg⋅s⁻²']")
 	wants(t, run(t, s, "%eval TensorCalculations::isZeroTensorQuantity(plate.stress - plate.stress)"), "= true")
 	wants(t, run(t, s, "%eval TensorCalculations::isZeroTensorQuantity(plate.pressure)"), "= false")
 }

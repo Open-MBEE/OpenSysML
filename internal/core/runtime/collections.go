@@ -1118,33 +1118,33 @@ func truthOf(op string, args []Value, universal bool) (Value, error) {
 // kind: Integer elements sum to an Integer (IntegerFunctions::sum returns
 // `Integer[1]`), a Real anywhere makes the sum a Real.
 func builtinNumericalSum(ec *EvalContext, args []Value) (Value, error) {
-	return aggregate("NumericalFunctions::sum", args, ast.OpAdd, false)
+	return ec.ctx.aggregate("NumericalFunctions::sum", args, ast.OpAdd, false)
 }
 
 // builtinNumericalProduct is NumericalFunctions::product, with the
 // multiplicative identity for an empty collection (`product1(collection, 1)`).
 func builtinNumericalProduct(ec *EvalContext, args []Value) (Value, error) {
-	return aggregate("NumericalFunctions::product", args, ast.OpMul, false)
+	return ec.ctx.aggregate("NumericalFunctions::product", args, ast.OpMul, false)
 }
 
 // builtinRealSum is RealFunctions::sum and RationalFunctions::sum, whose
 // identity the library declares Real (`sum0(collection, 0.0)`): an empty
 // collection sums to 0.0, not 0.
 func builtinRealSum(ec *EvalContext, args []Value) (Value, error) {
-	return aggregate("RealFunctions::sum", args, ast.OpAdd, true)
+	return ec.ctx.aggregate("RealFunctions::sum", args, ast.OpAdd, true)
 }
 
 // builtinRealProduct is RealFunctions::product and RationalFunctions::product
 // (`product1(collection, 1.0)`).
 func builtinRealProduct(ec *EvalContext, args []Value) (Value, error) {
-	return aggregate("RealFunctions::product", args, ast.OpMul, true)
+	return ec.ctx.aggregate("RealFunctions::product", args, ast.OpMul, true)
 }
 
 // aggregate folds the collection's numeric elements with op, starting from its
 // identity element: 0 for a sum, 1 for a product, a Real where real says so.
 // A non-numeric element is reported rather than skipped or coerced. The sum of
 // no elements read from a quantity-typed declaration is that quantity's zero.
-func aggregate(op string, args []Value, operator ast.OperatorKind, real bool) (Value, error) {
+func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind, real bool) (Value, error) {
 	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
@@ -1158,12 +1158,12 @@ func aggregate(op string, args []Value, operator ast.OperatorKind, real bool) (V
 	// operator, so a collection of measured values aggregates to one.
 	for _, elem := range elements {
 		if elem.Kind == ValQuantity {
-			return aggregateQuantities(op, elements, operator)
+			return ctx.aggregateQuantities(op, elements, operator)
 		}
 	}
 	// A Complex is a Number, so a collection holding one folds as ComplexFunctions'.
 	if holdsComplex(elements) {
-		return aggregateComplex(op, args[0], operator)
+		return ctx.aggregateComplex(op, args[0], operator)
 	}
 	identity := int64(0)
 	if operator == ast.OpMul {
@@ -1199,7 +1199,7 @@ func typedZero(unit Unit, real bool) Value {
 // aggregateQuantities folds a collection holding a quantity in the unit of its
 // first element, as the binary operator does. A bare number is a magnitude of
 // dimension one, so mixing one in reports incommensurable units.
-func aggregateQuantities(op string, elements []Value, operator ast.OperatorKind) (Value, error) {
+func (ctx *Context) aggregateQuantities(op string, elements []Value, operator ast.OperatorKind) (Value, error) {
 	var acc Value
 	for i, elem := range elements {
 		q, ok := asQuantity(elem)
@@ -1218,7 +1218,7 @@ func aggregateQuantities(op string, elements []Value, operator ast.OperatorKind)
 		if operator == ast.OpAdd {
 			next, err = addQuantities(operator, accQ, q)
 		} else {
-			next, err = scaleQuantities(operator, accQ, q)
+			next, err = ctx.scaleQuantities(operator, accQ, q)
 		}
 		if err != nil {
 			return Value{}, fmt.Errorf("%s: %w", op, err)

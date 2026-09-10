@@ -317,7 +317,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		if err != nil {
 			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
 		}
-		if err := e.ctx.checkNamedWrite(feature.Scope, perf.describe(), feature.Name, value); err != nil {
+		if err := e.ctx.checkNamedWrite(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
 			return err
 		}
 		perf.data[perf.key(feature.Name)] = value
@@ -552,7 +552,7 @@ func (f *actionFrame) resultValue() (Value, error) {
 // waits for its next one to forward it.
 func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value Value) error {
 	if len(path) > 0 {
-		if err := e.checkNestedDelivery(flow, node, path, pin, value); err != nil {
+		if err := e.checkNestedDelivery(flow, node, path, pin, &value); err != nil {
 			return err
 		}
 		if sub, performed := f.subactions[node]; performed && !sub.ended {
@@ -571,7 +571,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 	if !pins.declares(pin) {
 		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
 	}
-	if err := e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, value); err != nil {
+	if err := e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, &value); err != nil {
 		return err
 	}
 	pin = canonical(pins.aliases, pin)
@@ -587,7 +587,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 
 // checkNestedDelivery checks that path leads from node through the flows under it to a
 // node declaring pin, so a delivery waiting for a performance is known to have somewhere to go.
-func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value Value) error {
+func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value *Value) error {
 	for _, next := range path {
 		flow = lower.NestedFlow(flow, node, next)
 		if flow == nil {
@@ -641,7 +641,7 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 		e.noteFrameWrite(f, name, value)
 		return nil
 	}
-	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, value); err != nil {
+	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, &value); err != nil {
 		return err
 	}
 	f.data[f.key(name)] = value

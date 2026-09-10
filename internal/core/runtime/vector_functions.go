@@ -578,7 +578,7 @@ func (ctx *Context) scaleVectorQuantity(name string, op ast.OperatorKind, x *Qua
 		if op == ast.OpDiv {
 			left, right = v.axis(i), x
 		}
-		axis, err := scaleQuantities(op, left, right)
+		axis, err := ctx.scaleQuantities(op, left, right)
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}
@@ -658,7 +658,7 @@ func vectorScalarQuantityDiv(name string, ctx *Context, args []Value) (Value, er
 // elements' kind: two Integer vectors have an Integer inner product. Vector
 // quantities give the magnitude the library declares (Number), in the product of
 // their first axes' units.
-func vectorInner(name string, _ *Context, args []Value) (Value, error) {
+func vectorInner(name string, ctx *Context, args []Value) (Value, error) {
 	v, err := readVector(name, `"v"`, args[0])
 	if err != nil {
 		return Value{}, err
@@ -668,7 +668,7 @@ func vectorInner(name string, _ *Context, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if v.hasUnits() || w.hasUnits() {
-		return innerQuantity(name, v, w)
+		return ctx.innerQuantity(name, v, w)
 	}
 	products, err := combineElements(name, ast.OpMul, v.num, w.num)
 	if err != nil {
@@ -692,7 +692,7 @@ func vectorInner(name string, _ *Context, args []Value) (Value, error) {
 // innerQuantity is the inner product over quantity axes: the axis products summed
 // in the unit the first composes, and that sum's magnitude, as the library declares
 // the result a Number.
-func innerQuantity(name string, v, w vectorOperand) (Value, error) {
+func (ctx *Context) innerQuantity(name string, v, w vectorOperand) (Value, error) {
 	if v.dimension() != w.dimension() {
 		return Value{}, dimensionMismatch(name, v, w)
 	}
@@ -704,7 +704,8 @@ func innerQuantity(name string, v, w vectorOperand) (Value, error) {
 	}
 	var sum *Quantity
 	for i := 0; i < v.dimension(); i++ {
-		product, err := scaleQuantities(ast.OpMul, v.axis(i), w.axis(i))
+		// The unit is dropped, so the products stay in the unit the axes compose.
+		product, err := quantityResult(semantics.ScaleQuantities(ast.OpMul, *v.axis(i), *w.axis(i)))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}

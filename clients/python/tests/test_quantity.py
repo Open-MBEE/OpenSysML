@@ -449,12 +449,12 @@ class TestQuantityAgainstTheService:
             self.conn.close()
 
     def test_written_derived_and_compound_unit_slots_read_as_quantities(self):
-        """Every shape of quantity slot reads back in the unit it was written in."""
+        """Written slots read back in their unit; computed ones in the coherent unit."""
         car = self.conn.instantiate("Q::Car", self.model.hash)
 
         assert car.mass == Quantity(1200.0, unit("SI::kg", GRAM, scale_num=1000.0))
         assert car.plainMass == 2.0
-        assert str(car.derivedSpeed) == "5 [SI::m/SI::s]"
+        assert str(car.derivedSpeed) == "5 [SI::'m/s']"
         assert str(car.writtenSpeed) == "5.4 [SI::km/SI::h]"
         assert car.length.magnitude == 3
         assert isinstance(car.length.magnitude, int)
@@ -476,11 +476,11 @@ class TestQuantityAgainstTheService:
         }
 
     def test_an_evaluated_quantity_expression_reads_as_a_quantity(self):
-        """eval() of a quantity expression answers with the unit it composed."""
+        """eval() of a quantity expression answers in the coherent unit of its dimension."""
         speed = self.conn.eval("10.0 [SI::m] / 4.0 [SI::s]", self.model.hash)
 
         assert speed == Quantity(2.5, speed.unit)
-        assert speed.unit.text == "SI::m/SI::s"
+        assert speed.unit.text == "SI::'m/s'"
 
     def test_a_quantity_sent_as_a_calc_argument_round_trips(self):
         """Send → evaluate → read back: the magnitude and the unit as written."""

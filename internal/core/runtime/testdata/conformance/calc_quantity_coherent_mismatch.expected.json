@@ -1,0 +1,5 @@
+{
+  "type": "calc",
+  "libraries": true,
+  "error": "type mismatch: cannot write 5.0 [SI::'m/s'] (dimension L·T^-1) to a feature typed by AccelerationValue (dimension L·T^-2)"
+}

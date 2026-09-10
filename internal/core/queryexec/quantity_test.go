@@ -408,9 +408,50 @@ calc def Derived :> Query {
 		{1, []string{"4580000 [kg]", "238000 [kg]"}},
 		{2, []string{"2290.0 [kg]", "119.0 [kg]"}},
 		{3, []string{"1145000.0 [kg]", "59500.0 [kg]"}},
-		{4, []string{"54523.80952380953 [kg/m]", "6611.111111111111 [kg/m]"}},
+		{4, []string{"54523.80952380953 [SI::'kg⋅m⁻¹']", "6611.111111111111 [SI::'kg⋅m⁻¹']"}},
 		{5, []string{"1.0", "1.0"}},
 		{6, []string{"4580000 [kg]", "238000 [kg]"}},
+	}
+	for _, tc := range cases {
+		if got := cellTexts(t, result, tc.column); !slices.Equal(got, tc.want) {
+			t.Errorf("column %s = %v, want %v", result.Columns()[tc.column].Name(), got, tc.want)
+		}
+	}
+}
+
+// TestExecuteKeepsWrittenUnitsThroughSignsAndSums: only products and quotients
+// compose a unit, so a sign or a sum over `km/h` still reads in `km/h`.
+func TestExecuteKeepsWrittenUnitsThroughSignsAndSums(t *testing.T) {
+	fixture := quantityFixture(t, `
+part def Cruiser :> Stage {
+	attribute speed :> ISQ::speed = 36 [km/h];
+}
+part convoy {
+	part lead : Cruiser;
+}
+calc def Signed :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+		properties = ("name"),
+		columns = (
+			Column(name = "reverse", expression = -Cruiser::speed),
+			Column(name = "same", expression = +Cruiser::speed),
+			Column(name = "twice", expression = Cruiser::speed + Cruiser::speed),
+			Column(name = "half", expression = Cruiser::speed / 2)
+		)
+	)
+}
+`)
+	result := quantityRows(t, fixture, "Signed", "convoy")
+	cases := []struct {
+		column int
+		want   []string
+	}{
+		{1, []string{"-36 [km/h]"}},
+		{2, []string{"36 [km/h]"}},
+		{3, []string{"72 [km/h]"}},
+		{4, []string{"5.0 [SI::'m/s']"}},
 	}
 	for _, tc := range cases {
 		if got := cellTexts(t, result, tc.column); !slices.Equal(got, tc.want) {

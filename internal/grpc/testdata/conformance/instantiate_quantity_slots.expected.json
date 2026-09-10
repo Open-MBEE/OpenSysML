@@ -15,7 +15,7 @@
 		"derivedSpeed": {
 			"materialized": true,
 			"value_kind": "quantity",
-			"value": "5 [SI::m/SI::s] = SI::metre·SI::second^-1"
+			"value": "5 [SI::'m/s'] = SI::metre·SI::second^-1"
 		},
 		"writtenSpeed": {
 			"materialized": true,
