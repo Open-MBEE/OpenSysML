@@ -210,7 +210,12 @@ triples come); a set of classes with no such member is refused, naming the subje
   `timeslice` states (`OccurrenceUsage::portionKind` implies it), so it is
   written back by the portion kind and refused without one, SysML having no
   `portion` prefix and `composite` dropping the fact. The other flags are
-  spelled alike in both grammars
+  spelled alike in both grammars. `isIndividual` is written for a definition as
+  for a usage (`OccurrenceDefinition::isIndividual`, SysML v2 §8.3.9.11): an
+  `individual part def`, `individual item def`, `individual occurrence def`, …
+  carries it and reads back with its `individual` modifier, and so does an
+  `individual def`, whose kind keyword states the fact and is written back
+  alone rather than doubled as a modifier
 - `sysml:portionKind`, `"snapshot"` or `"timeslice"`, for a usage declared as a
   portion (`snapshot :>> start`, `timeslice occurrence t`); the two are the
   metamodel's `OccurrenceUsage::portionKind`, so no flag spells them. Such a

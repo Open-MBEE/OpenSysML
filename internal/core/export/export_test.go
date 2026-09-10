@@ -638,6 +638,7 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 		"end_prefix_metadata.sysml",
 		"nested_namespace_import.sysml",
 		"quoted_succession_ends.sysml",
+		"individual_definitions.sysml",
 	}
 	for _, fixture := range fixtures {
 		path := filepath.Join("testdata", "convert", fixture)

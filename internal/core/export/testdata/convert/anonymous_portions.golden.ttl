@@ -111,6 +111,7 @@ elmt:AnonymousPortions__Car
     sysml:owningRelationship elmt:AnonymousPortions__Car_om ;
     sysml:owningMembership elmt:AnonymousPortions__Car_om ;
     sysml:declaredName "Car" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:AnonymousPortions__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual def Car :> Vehicle;\n" .
