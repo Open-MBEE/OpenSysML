@@ -2333,10 +2333,10 @@ func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandid
 }
 
 // leftByChosen reports whether the transition chosen for a candidate leaves the
-// state, to any state its target may lead on to.
+// state, going to the states firing it would enter.
 func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
 	for _, candidate := range candidates {
-		targets, ok := e.statesReached(candidate.chosen.Target, make(map[*ast.PseudostateNode]bool))
+		targets, ok := e.statesEntered(candidate.chosen)
 		if !ok {
 			return true
 		}
@@ -2362,37 +2362,61 @@ func (e *StateExecutor) leaves(source, target, state *ast.StateNode) bool {
 	return e.isBelowOrEqual(state, outermost)
 }
 
-// statesReached lists the states a transition target may enter: the state itself,
-// every state the transitions out of a pseudostate lead on to, or the owner a
-// history pseudostate restores; false when a route reaches no state.
-func (e *StateExecutor) statesReached(target ast.Node, visited map[*ast.PseudostateNode]bool) ([]*ast.StateNode, bool) {
-	switch t := target.(type) {
-	case *ast.StateNode:
-		return []*ast.StateNode{t}, true
-	case *ast.PseudostateNode:
-		if t.Kind == ast.PseudostateShallowHistory || t.Kind == ast.PseudostateDeepHistory {
-			owner := e.graph.PseudostateOwner[t]
-			return []*ast.StateNode{owner}, owner != nil
-		}
-		if visited[t] {
-			return nil, true
-		}
-		visited[t] = true
-		outgoing := e.graph.Transitions[t]
-		if len(outgoing) == 0 {
-			return nil, false
-		}
-		var states []*ast.StateNode
-		for _, trans := range outgoing {
-			reached, ok := e.statesReached(trans.Target, visited)
-			if !ok {
+// statesEntered lists the states firing the transition enters, as fireTransition
+// resolves its target against the data as it stands: the state itself; the one
+// the branch a choice, junction, entry or exit point routes along reaches
+// (pseudostateTarget), or a join leads on to; a fork's every branch; the state a
+// history restores (fireHistoryTransition). False where firing would fail.
+func (e *StateExecutor) statesEntered(trans *lower.Transition) ([]*ast.StateNode, bool) {
+	ps, ok := trans.Target.(*ast.PseudostateNode)
+	if !ok {
+		state, isState := trans.Target.(*ast.StateNode)
+		return []*ast.StateNode{state}, isState
+	}
+	switch ps.Kind {
+	case ast.PseudostateFork:
+		branches := e.graph.Transitions[ps]
+		states := make([]*ast.StateNode, 0, len(branches))
+		for _, branch := range branches {
+			state, isState := branch.Target.(*ast.StateNode)
+			if !isState {
 				return nil, false
 			}
-			states = append(states, reached...)
+			states = append(states, state)
 		}
-		return states, true
+		return states, len(states) > 0
+	case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
+		return e.stateRestored(ps)
 	}
-	return nil, false
+	state, err := e.pseudostateTarget(ps)
+	return []*ast.StateNode{state}, err == nil
+}
+
+// stateRestored is the state a transition into a history pseudostate enters, as
+// fireHistoryTransition enters it: the default the history's own transition
+// names before its owner was ever left, the owner itself when its configuration
+// lives in regions, else the substate recorded, the innermost for a deep history.
+func (e *StateExecutor) stateRestored(hist *ast.PseudostateNode) ([]*ast.StateNode, bool) {
+	owner := e.graph.PseudostateOwner[hist]
+	if owner == nil {
+		return nil, false
+	}
+	record := e.history[owner]
+	if record == nil {
+		state, err := e.pseudostateTarget(hist)
+		return []*ast.StateNode{state}, err == nil
+	}
+	if len(record.regions) > 0 {
+		return []*ast.StateNode{owner}, true
+	}
+	state := record.child
+	if state == nil {
+		return nil, false
+	}
+	if hist.Kind == ast.PseudostateDeepHistory {
+		state = e.deepestRecorded(state, make(map[*ast.StateRegion]*ast.StateNode))
+	}
+	return []*ast.StateNode{state}, true
 }
 
 // resumeDoBehaviors lets the do behaviors taking the message being dispatched go

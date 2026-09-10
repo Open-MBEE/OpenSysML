@@ -70,6 +70,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_goes_on_across_a_substate_transition", testStateDoBodyAcceptGoesOnAcrossASubstateTransition)
 	t.Run("state_do_body_accept_yields_to_a_substate_transition_leaving_it", testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt)
 	t.Run("state_do_body_accept_follows_the_transition_chosen", testStateDoBodyAcceptFollowsTheTransitionChosen)
+	t.Run("state_do_body_accept_follows_the_choice_branch_taken", testStateDoBodyAcceptFollowsTheChoiceBranchTaken)
 	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
@@ -12877,6 +12878,75 @@ func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
 		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
+	}
+}
+
+// testStateDoBodyAcceptFollowsTheChoiceBranchTaken: the transition chosen targets a
+// choice with a guarded branch to another substate and a default branch out of the
+// enclosing state. The branch the guard selects, as it stands when the signal is
+// dispatched, decides whether the enclosing do behavior goes on: inside, it does,
+// the leaving branch notwithstanding; outside, the transition takes the signal alone.
+func testStateDoBodyAcceptFollowsTheChoiceBranchTaken(t *testing.T) {
+	model := func(stay string) string {
+		return `
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Waiter {
+			attribute total : Integer = 0;
+			attribute stay : Boolean = ` + stay + `;
+			entry; then active;
+			state active {
+				do action work {
+					first start;
+					then action reader accept Go;
+					then action count assign total := total + 10;
+					then done;
+				}
+				entry; then left;
+				state left;
+				choice pick;
+				transition route first left accept Go then pick;
+				transition first pick if stay then right;
+				transition first pick then stopped;
+				state right { entry assign total := total + 1; }
+			}
+			state stopped { entry assign total := total + 100; }
+		}
+		part def Box { exhibit state w : Waiter; }
+		`
+	}
+	cases := []struct {
+		stay  string
+		want  Decision
+		leaf  string
+		total int64
+	}{
+		{"true", Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state active"}}, "right", 11},
+		{"false", Decision{Fires: []string{"transition route"}}, "stopped", 100},
+	}
+	for _, tc := range cases {
+		exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, model(tc.stay))
+		decision, err := exec.Decide(goMsg)
+		if err != nil {
+			t.Fatalf("stay = %s: Decide(Go): %v", tc.stay, err)
+		}
+		if !reflect.DeepEqual(decision, tc.want) {
+			t.Errorf("stay = %s: Decide(Go) = %+v, want %+v: the branch the choice takes decides whether the do behavior goes on", tc.stay, decision, tc.want)
+		}
+		ctx.PostMessage(goMsg)
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("stay = %s: dispatch the message: %v", tc.stay, err)
+		}
+		dispatch, ok := exec.LastDispatch()
+		if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
+			t.Errorf("stay = %s: dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", tc.stay, dispatch, ok)
+		}
+		if activeLeaf(exec) != tc.leaf || len(ctx.PendingMessages()) != 0 {
+			t.Errorf("stay = %s: state %s with %d messages in flight, want %s with the one message consumed", tc.stay, activeLeaf(exec), len(ctx.PendingMessages()), tc.leaf)
+		}
+		if total := exec.StateData()["total"]; !valueEqual(total, integerValue(tc.total)) {
+			t.Errorf("stay = %s: total = %v, want %d", tc.stay, total, tc.total)
+		}
 	}
 }
 
