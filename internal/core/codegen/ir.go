@@ -125,13 +125,14 @@ type Func struct {
 	Body        []Stmt
 }
 
-// Param is one input parameter; Range and, for a collection, Mult are
-// checked on entry.
+// Param is one input parameter; Range and, for a collection, Mult and Unique
+// are checked on entry.
 type Param struct {
-	Name  string
-	Type  Type
-	Range Range
-	Mult  Mult
+	Name   string
+	Type   Type
+	Range  Range
+	Mult   Mult
+	Unique bool
 }
 
 // Expr is a typed expression.
@@ -220,12 +221,14 @@ type ToOne struct {
 }
 
 // Checked binds a collection to a feature of multiplicity M and range R at
-// Where, failing as the interpreter's binding does.
+// Where, refusing a repeated element when Unique, failing as the interpreter's
+// binding does.
 type Checked struct {
-	X     Expr
-	M     Mult
-	R     Range
-	Where string
+	X      Expr
+	M      Mult
+	R      Range
+	Unique bool
+	Where  string
 }
 
 // Let evaluates Value into the temporary Name, then In, which reads it as a Var.
@@ -327,9 +330,9 @@ func (s Sampled) Type() Type  { return s.In.Type() }
 type Stmt interface{ stmt() }
 
 // Declare introduces a body-local variable with its initial value, null (a
-// collection) when Init is nil. The interpreter does not judge an
-// initializer against the variable's range or multiplicity, so neither does
-// generated code; later assignments are checked.
+// collection) when Init is nil. The interpreter judges an initializer's
+// uniqueness but not its range or multiplicity, so neither does generated
+// code; later assignments are checked in full.
 type Declare struct {
 	Name string
 	T    Type

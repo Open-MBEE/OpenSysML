@@ -111,8 +111,8 @@ answers `nat istype Natural` `true` where the pilot reads the literal's type alo
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`369 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 23 only ours, 600 only the pilot's` after the collection-body element typing round — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`370 file(s), 337 fully agreeing; 34 agreed
+  diagnostic(s), 28 only ours, 600 only the pilot's` after the value uniqueness round — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

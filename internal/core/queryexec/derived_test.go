@@ -466,7 +466,7 @@ part def MassedComponent {
 	part subcomponents : MassedComponent [*];
 	attribute mass :> ISQ::mass;
 	attribute totalMass :> ISQ::mass default = mass + sum(subcomponents.totalMass);
-	attribute childMasses :> ISQ::mass [*] = subcomponents->collect { in c : MassedComponent; c.mass };
+	attribute childMasses :> ISQ::mass [*] nonunique = subcomponents->collect { in c : MassedComponent; c.mass };
 	attribute children : Natural = size(subcomponents);
 }
 part def Bolt :> MassedComponent {
@@ -535,7 +535,7 @@ part def MassedComponent {
 	part subcomponents : MassedComponent [*] default null;
 	attribute mass :> ISQ::mass;
 	attribute totalMass :> ISQ::mass = mass + sum(subcomponents.totalMass);
-	attribute childMasses :> ISQ::mass [*] = subcomponents.totalMass;
+	attribute childMasses :> ISQ::mass [*] nonunique = subcomponents.totalMass;
 }
 part def Leaf :> MassedComponent {
 	attribute :>> mass = 100 [kg];

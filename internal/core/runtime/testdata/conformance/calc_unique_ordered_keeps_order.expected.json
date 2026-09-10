@@ -1,0 +1,17 @@
+{
+  "type": "calc",
+  "libraries": true,
+  "trace": true,
+  "inputs": [],
+  "result": {"type": "Sequence", "elements": [
+    {"type": "Integer", "value": 30},
+    {"type": "Integer", "value": 10},
+    {"type": "Integer", "value": 20},
+    {"type": "Integer", "value": 20},
+    {"type": "Integer", "value": 30},
+    {"type": "Integer", "value": 10},
+    {"type": "Integer", "value": 25},
+    {"type": "Integer", "value": 15},
+    {"type": "Integer", "value": 30}
+  ]}
+}

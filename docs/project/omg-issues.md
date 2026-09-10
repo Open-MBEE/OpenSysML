@@ -17,7 +17,92 @@ divergence is also a row in [spec-compliance.md](spec-compliance.md).
 | `Domain Libraries/Quantities and Units/VectorCalculations.sysml` | `calc def outer` | `calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }` — a vector, where the outer product of two vectors of orders one is a tensor of order two (`TensorCalculations::'['` returns `TensorQuantityValue[1]` for exactly that shape) | nothing: `outer` is `ErrUnevaluableLibraryFunction` naming the declaration and its return type (`runtime/quantity_functions.go` `registerVectorCalculations`); the checker types a call by the declared `VectorQuantityValue` | No `VectorQuantityValue` holds an outer product, and answering a `TensorQuantityValue` would disagree with the checker and the declaration; the draft below asks for `return : TensorQuantityValue[1]` |
 | `Domain Libraries/Quantities and Units/TensorCalculations.sysml` | `calc def isUnitTensorQuantity` | `calc def isUnitTensorQuantity { in x : TensorQuantityValue[1]; return : Boolean[1]; }` — no body, and no statement of which tensor is the unit one beside `isUnitVectorQuantity` (a vector of norm one) | the identity of a square order-two tensor: `true` when every diagonal component is one and every other zero; a tensor of any other shape (a vector, a 2×3, an order three) is `ErrUnevaluableLibraryFunction` naming the shape it needs (`runtime/tensor_functions.go` `tensorIsUnit`) | The library names no unit tensor; the identity matrix is the one tensor with an established claim to the name, and it exists for square order two alone, so a reading over other shapes would be invented. Recorded so the reading can be checked against a future release that gives the calculation a body |
 | `Domain Libraries/Geometry/ShapeItems.sysml` | `item def CuboidOrTriangularPrism` (`Cuboid`, `RectangularCuboid`, `Box`) | `item tfe [2] :> edges;` … `binding [1] bind [0..1] tf.edges = [0..1] tfe;` `binding [1] bind [0..1] ff.edges = [0..1] tfe;` — every named edge group and vertex group (`tfe`…`urre`, `tflv`…`brrv`) is valued only by bindings whose ends link *one unspecified* value each; and `item :>> vertices; assert constraint { size(vertices) == size(edges) }` beside `Quadrilateral`'s `item :>> vertices [8];` and `StructuredSpaceObject`'s `faces.vertices subsets vertices` | the groups and everything read through them (`box.tfe`, `box.tflv`, `box.tfe.length`, `box.vertices`) are the typed `ErrBindingEnd` naming the binding; the runtime never picks a member (`runtime/binding.go` `UndeterminedBindingError`) | No conjunction of the bindings, the `MatesWith` connections and the `size(...)` assertions identifies which of a face's four edges a group holds, so no evaluator can name `tfe`; and a `Cuboid`'s `vertices` cannot be both a superset of its six faces' 48 vertex objects and 24 long. The draft below records both |
+| `Kernel Libraries/Kernel Data Type Library/Collections.kerml` | `UniqueCollection::elements`, `OrderedSet::elements`, `Map::elements`, `OrderedMap::elements` | `feature elements[0..*] :>> Collection::elements { doc /* Note: Redefinition of 'elements' is unique by default. */ }` over `feature elements[0..*] nonunique` — a redefinition stating neither `nonunique` nor `ordered`, whose only claim to uniqueness is the note | the four redefinitions are unique, as their notes say, and every collection under them (`Set`, `OrderedSet`, `Map`, `OrderedMap`, a model's `:>> elements` in one) inherits that; a redefinition anywhere else that states neither keyword takes the uniqueness of what it redefines (`semantics.Model.IsUnique`) | KerML 1.0 §7.3.4.4 gives the *default* only to a fresh or subsetting feature; a redefinition has "the same" values as the feature it redefines (§7.3.4.5), and the pinned pilot models it so — `'3dVectorQuantityValue'::num :>> num` and `CartesianSpatial3dCoordinateFrame::mRefs :>> mRefs` restate no keyword and the validator refuses to redefine either `nonunique` (`validateSubsettingUniquenessConformance`), while the library's own `mRefs default (SI::m, SI::m, SI::m)` and every `(0, 0, 1)` direction vector hold repeats it accepts. Reading every unstated redefinition as unique would make those defaults and vectors violations; reading it as inheriting makes `Set` and `Map` nonunique against the note. The note is the library's statement of intent, so it wins for these four declarations only |
 | `Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml` | `function includingAt` | `(seq->subsequence(1, index - 1), values, seq->subsequence(index + 1))` — the prefix before `index`, then the values, then the tail from `index + 1`, so the element **at** `index` is dropped from the result | insertion: the values are inserted before the 1-based `index`, the tail from that position shifts right, and the result is longer than `seq` by the values inserted. `index == size + 1` appends; any other index outside `1..size + 1` is `ErrIndexOutOfRange` (`runtime.builtinSequenceIncludingAt`) | The body contradicts the declarations around it in the same file. `excludingAt` is the operation that removes at an index, and the behavior pairs are additive/subtractive: `add` calls `including` as `remove` calls `excluding`, and `addAt` calls `includingAt` (`seq->includingAt(values, index)`) as `removeAt` calls `excludingAt`. A removing `includingAt` would leave the library with two ways to delete at an index and none to insert at one, and would make `addAt` remove. The vendored expression is an off-by-one slip in the tail: the insertion body is `(seq->subsequence(1, index - 1), values, seq->subsequence(index))` |
+
+## `Collections::UniqueCollection::elements` and its kin — unique by a note, over a `nonunique` root
+
+Quoted verbatim from
+`internal/core/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
+
+```kerml
+abstract datatype Collection {
+    feature elements[0..*] nonunique { … }
+}
+abstract datatype UniqueCollection :> Collection {
+    feature elements[0..*] :>> Collection::elements {
+        doc
+        /* Note: Redefinition of 'elements' is unique by default. */
+    }
+}
+datatype OrderedSet :> OrderedCollection, UniqueCollection {
+    feature elements[0..*] ordered :>> OrderedCollection::elements, UniqueCollection::elements {
+        doc
+        /* Note: Redefinition of elements is unique by default. */
+    }
+}
+datatype Map :> Collection {
+    feature elements: KeyValuePair[0..*] :>> Collection::elements {
+        doc
+        /* Note: Redefinition of elements is unique by default.*/
+    }
+}
+datatype OrderedMap :> Map, OrderedCollection {
+    feature elements: KeyValuePair[0..*] ordered :>> Map::elements, OrderedCollection::elements {
+        doc
+        /* Note: Redefinition of elements is unique by default. */
+    }
+}
+```
+
+KerML 1.0 §7.3.4.2 makes `isUnique` default to true ("the default is that the feature is unique";
+`+isUnique : Boolean = true` in the §8.3.3.3.1 overview), and `nonunique` is the one piece of concrete syntax that sets it false
+(`MultiplicityPart`, §8.2.4.3.1). §7.3.4.4 says what that default means under specialization —
+"if the subsetted feature is non-unique, then the subsetting feature will still be unique by
+default, unless specifically flagged as nonunique" — and the four notes above read that sentence
+as applying to a redefinition too. The library is not consistent with that reading elsewhere:
+
+- `Quantities::'3dVectorQuantityValue'` declares `:>> num : Real[3]` over
+  `TensorQuantityValue::num : Number[1..*] ordered nonunique`, and every direction vector in the
+  domain library and the geometry examples, `(0, 0, 1)` and the like, repeats a value.
+- `MeasurementReferences::CartesianSpatial3dCoordinateFrame` declares `:>> mRefs : LengthUnit[3]`
+  over `TensorMeasurementReference::mRefs : ScalarMeasurementReference[1..*] nonunique`, and the
+  library's own `default (SI::m, SI::m, SI::m)` repeats one.
+
+The pinned pilot (`jupyter-sysml-kernel` 0.61.0, release 2026-07) models both redefinitions as
+**unique**: a model redefining either `nonunique` (`:>> mRefs nonunique = (m, m, m)`,
+`:>> num nonunique = (0, 0, 1)`) is refused with `validateSubsettingUniquenessConformance`
+("Subsetting/redefining feature cannot be nonunique if subsetted/redefined feature is unique"),
+so no model author can opt out. The pilot never checks values against `isUnique` — its census
+names no value-level constraint and its evaluator answers `1, 1, 2` for
+`OrderedSet { :>> elements = (1, 1, 2); }` — which is why the contradiction never surfaces there.
+
+OpenSysML enforces `isUnique` on values (KerML §8.4.3.4 item 6, "if a Feature is unique, there
+are no values with the same markings"), so it has to pick a reading under which the library's
+own declarations and defaults are conforming:
+
+- A **fresh or subsetting** multi-valued feature is unique unless declared `nonunique`
+  (§7.3.4.4 as written).
+- A **redefinition** stating neither keyword takes the uniqueness of the features it redefines,
+  all of them (§7.3.4.5: the redefining feature's values are the redefined feature's values, so a
+  restriction the redefined feature does not impose is not imposed by restating it — the same way
+  type, multiplicity and ordering already reach a redefinition here). `3dVectorQuantityValue::num`
+  and `CartesianSpatial3dCoordinateFrame::mRefs` are then nonunique, as their defaults require.
+- The **four `Collections` redefinitions above** are read as unique, as their notes say, against
+  what the inheritance reading would give them. This is the erratum: the library states its
+  intent in a comment where the notation has a keyword for it, and the keyword — restating
+  nothing — points the other way. `Set`, `OrderedSet`, `Map`, `OrderedMap`, and a model's
+  `:>> elements` under any of them, inherit uniqueness from these four.
+
+Implementation: `internal/core/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
+Evidence: `semantics/uniqueness_test.go:TestIsUniqueLibraryCollections` pins all six library
+collections; the conformance fixtures under `internal/core/runtime/testdata/conformance/`
+for ISQ vectors, coordinate frames and geometry run unchanged, and
+`library_ordered_set_elements_repeated` / `library_ordered_map_elements_repeated` refuse the repeat.
+The row is in [spec-compliance.md](spec-compliance.md) under *Uniqueness through redefinition
+and subsetting*. Recorded for review against a future KerML release: either the four
+redefinitions should say `unique` in notation the grammar does not yet have, or `§7.3.4.4`
+should say which of the two readings a redefinition takes.
 
 ## `includingAt` — the vendored declaration
 

@@ -35,6 +35,9 @@ var (
 	// ErrMultiplicityViolation is returned when a feature value access/assignment violates multiplicity bounds.
 	ErrMultiplicityViolation = errors.New("multiplicity violation")
 
+	// ErrUniquenessViolation is returned when a value written to a unique feature repeats one of its values.
+	ErrUniquenessViolation = errors.New("uniqueness violation")
+
 	// ErrUninitializedFeatureValue is returned when accessing a feature value that has no value and no default.
 	ErrUninitializedFeatureValue = errors.New("uninitialized feature value")
 

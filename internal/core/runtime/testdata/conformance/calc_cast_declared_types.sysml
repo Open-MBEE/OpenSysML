@@ -30,7 +30,7 @@ package test {
 		out literalsAsEnumeration : GradePoints[0..*] = (GradePoints::a, GradePoints::b) as GradePoints;
 		out mixedAsEnumeration : GradePoints[0..*] = (GradePoints::a, true) as GradePoints;
 		out declaredWithLiteral : Even[0..*] = (e, false) as Even;
-		out nestedAsEnumeration : GradePoints[0..*] =
+		out nestedAsEnumeration : GradePoints[0..*] nonunique =
 			((GradePoints::a, GradePoints::b), GradePoints::a) as GradePoints;
 		out multiValuedEntry : Even[0..*] = (evens, false) as Even;
 	}

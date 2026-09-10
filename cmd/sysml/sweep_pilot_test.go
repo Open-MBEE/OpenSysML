@@ -26,9 +26,9 @@ const pilotDynamicsSubject = `package Subject10d {
 `
 
 // pilotDynamicsCase is the analysis run, with every argument but the swept one
-// bound as a command line binds them.
+// bound as a command line binds them; powerProfile is `ISQ::power[*]`, so distinct.
 const pilotDynamicsCase = `'10d-Dynamics Analysis'::AnalysisModel::DynamicsAnalysis(` +
-	`powerProfile=(1000.0 [SI::W], 1000.0 [SI::W], 1000.0 [SI::W]), ` +
+	`powerProfile=(1000.0 [SI::W], 1300.0 [SI::W], 1700.0 [SI::W]), ` +
 	`initialPosition=0.0 [SI::m], %s) Subject10d::car`
 
 // runPilotDynamics sweeps or samples the pilot's dynamics analysis over the
@@ -81,8 +81,8 @@ func TestSweepPilotDynamicsAnalysis(t *testing.T) {
 		"accelerationProfile",
 		"0.0 [SI::'m/s']",
 		"division by zero",
-		"[1.0 [SI::W/(SI::'m/s'*SI::kg)], 0.5 [SI::W/(SI::'m/s'*SI::kg)]]",
-		"[0.5 [SI::W/(SI::'m/s'*SI::kg)], 0.4 [SI::W/(SI::'m/s'*SI::kg)]]",
+		"[1.0 [SI::W/(SI::'m/s'*SI::kg)], 0.65 [SI::W/(SI::'m/s'*SI::kg)]]",
+		"[0.5 [SI::W/(SI::'m/s'*SI::kg)], 0.52 [SI::W/(SI::'m/s'*SI::kg)]]",
 	} {
 		if !strings.Contains(table, want) {
 			t.Errorf("table is\n%s\nwant it to carry %q", table, want)

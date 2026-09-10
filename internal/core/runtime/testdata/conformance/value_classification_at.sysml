@@ -16,7 +16,7 @@ package test {
 	// `x @ T` on a value is `x istype T`: it holds for T and every type the value's
 	// type specializes. `x @ Metadata` still tests x's annotations, `@@` its metaclass.
 	calc classify {
-		return : Boolean[*] = (
+		return : Boolean[*] nonunique = (
 			n3 @ Integer,
 			n3 @ Real,
 			n3 @ String,

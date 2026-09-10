@@ -13,9 +13,11 @@ import (
 // feature written was declared with, and the multiplicity governing how many
 // values it holds.
 type writeTarget struct {
-	name string
-	typ  *symbols.Symbol
-	mult semantics.Range
+	name     string
+	typ      *symbols.Symbol
+	mult     semantics.Range
+	unique   bool // holds no two equal values (KerML isUnique, the default)
+	holdsSet bool // values form a set, which drops repeats itself
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
@@ -48,13 +50,24 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	var target *writeTarget
 	if sym, ok := ctx.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
 		mult, _ := ctx.extractMultiplicity(sym)
-		target = &writeTarget{name: name, typ: ctx.extractType(sym), mult: mult}
+		target = ctx.newWriteTarget(sym, name, mult)
 	}
 	if ctx.writeTargets == nil {
 		ctx.writeTargets = make(map[writeTargetKey]*writeTarget)
 	}
 	ctx.writeTargets[key] = target
 	return target, target != nil
+}
+
+// newWriteTarget is what the feature sym, written as name, declares of its values.
+func (ctx *Context) newWriteTarget(sym *symbols.Symbol, name string, mult semantics.Range) *writeTarget {
+	return &writeTarget{
+		name:     name,
+		typ:      ctx.extractType(sym),
+		mult:     mult,
+		unique:   ctx.model.IsUnique(sym),
+		holdsSet: ctx.holdsSet(sym, ctx.findOwnerType(sym), mult),
+	}
 }
 
 // checkWrite reports a value that does not conform to the declaration of the
@@ -70,7 +83,13 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 	if msg := ctx.writeCountRefusal(target, &value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
-	return ctx.checkWriteType(scope, what, target.typ, value, admitWritten)
+	if err := ctx.checkWriteType(scope, what, target.typ, value, admitWritten); err != nil {
+		return err
+	}
+	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, &value); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	}
+	return nil
 }
 
 // writeCountRefusal says why the number of values written is outside the

@@ -18,7 +18,7 @@ package W7D {
 	part sys : Sys;
 
 	calc classify {
-		return : Boolean[*] = (
+		return : Boolean[*] nonunique = (
 			n7 istype Integer,
 			n7 hastype Integer,
 			n7 istype Real,

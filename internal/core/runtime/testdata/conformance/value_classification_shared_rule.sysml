@@ -29,7 +29,7 @@ package test {
 	attribute e : Even = 4;
 
 	calc classify {
-		return : Boolean[*] = (
+		return : Boolean[*] nonunique = (
 			n istype Integer, n hastype Integer, n @ Integer,
 			n istype Rational, n hastype Rational, n istype Real, n istype Natural,
 			r istype Integer, r hastype Integer, r @ Integer,
