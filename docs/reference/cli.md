@@ -222,6 +222,24 @@ sysml [options] [file...]
 Flags may be written before or after the files. `--` ends the flags, so a file whose
 name looks like a flag can be given after it: `sysml -trace -- -m.sysml`.
 
+A `<name>` is written as the notation writes it, quotes included where the declaration
+needs them: `-instantiate "T::'SA-506'"`, `-requirement "Reqs::'HLR-R001'"` (the shell's
+double quotes keep the single quotes). A flag that reads its argument as a name alone also
+finds the declaration under the bare spelling, but wherever the text is an expression — `-e`,
+the arguments of `-calc` and `-analysis`, a `-sweep` endpoint — `T::SA-506` reads as the
+subtraction `T::SA - 506`. When the identifier that was read names nothing but starts a declared
+name that does need quotes, the failure offers that name and states the rule; the offer is drawn
+from the declarations in scope, never from the rest of the text:
+
+```
+$ sysml -e T::SA-506 model.sysml
+✓ package T
+sysml: evaluation failed: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
+$ sysml -instantiate T::SA model.sysml
+✓ package T
+sysml: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
+```
+
 ### Verification case verdicts
 
 A `verification def` or `verification` usage runs the way an analysis case does —
@@ -764,6 +782,15 @@ $ sysml -e "Demo::Vehicle::nope" model.sysml
 sysml: unresolved reference: Demo::Vehicle::nope
 $ echo $?
 2
+```
+
+A name that needs quoting and was written without them is such an expression, and its
+failure names the quoted declaration ([writing names](#command-reference)):
+
+```bash
+$ sysml -e "T::SA-506" model.sysml
+✓ package T
+sysml: evaluation failed: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
 ```
 
 So `2> errors.log` collects everything a script would otherwise have to pick out

@@ -692,6 +692,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		if _, declared := ec.features[name]; declared {
 			return Value{}, &NoValueError{Feature: name, Ref: qn}
 		}
+		if ec.ctx.resolver != nil && ec.scope != nil {
+			return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedName(ec.scope, name, qn))
+		}
 		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
 
@@ -885,6 +888,9 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 		if ec.ctx.model.IsVariationFeature(owner) {
 			return fmt.Errorf("%w: %s is not a variant of %s (%s)",
 				ErrNotAVariant, memberName, owner.Name, ec.ctx.variantSummary(owner))
+		}
+		if ec.ctx.resolver != nil {
+			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedMember(qn, owner, i+1))
 		}
 		break
 	}

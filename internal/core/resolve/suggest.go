@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -15,23 +16,27 @@ type suggestKey struct {
 	name  string
 }
 
-// suggestFor returns the spellings an unresolvable unqualified name written in
-// scope may have meant: the qualified names the index declares that very name
-// under — an unimported library name — and the near spellings a typo justifies,
-// each scored by how the user would reach it. Memoized per scope and name for
-// as long as at, the reference written so, is (see Scratch).
-func (r *Resolver) suggestFor(scope *symbols.Scope, name string, at ast.Node) []string {
+// suggestion is what an unresolvable name may have meant, as registered: near
+// spellings, and the declared names it is the unquoted start of ('SA-506' for SA).
+type suggestion struct {
+	spellings []string
+	unquoted  []string
+}
+
+// suggestionFor returns the suggestion for an unresolvable unqualified name written
+// in scope, memoized per scope and name for as long as at is (see Scratch).
+func (r *Resolver) suggestionFor(scope *symbols.Scope, name string, at ast.Node) suggestion {
 	if r.idx == nil || name == "" {
-		return nil
+		return suggestion{}
 	}
 	key := suggestKey{scope: scope, name: name}
-	if cands, ok := r.suggestions[key]; ok {
-		return cands
+	if s, ok := r.suggestions[key]; ok {
+		return s
 	}
 	// Scoring resolves names, which may report one unresolved in turn: another
 	// name is still worth suggesting for, this one is not.
 	if r.suggesting[key] {
-		return nil
+		return suggestion{}
 	}
 	r.suggesting[key] = true
 	defer delete(r.suggesting, key)
@@ -39,21 +44,80 @@ func (r *Resolver) suggestFor(scope *symbols.Scope, name string, at ast.Node) []
 	table := r.suggestTable()
 	var cands []suggest.Candidate
 	for _, fqn := range table.Qualified(name) {
-		// An alias that names nothing, or a member that binds no name, is no
-		// spelling of anything.
-		if decl := r.idx.Declaring(fqn); r.AliasNamesNothing(decl) || !r.BindsName(decl) {
-			continue
+		if r.namesSomething(fqn) {
+			cands = append(cands, suggest.Candidate{Spelling: fqn, Library: r.libraryFQN(fqn)})
 		}
-		cands = append(cands, suggest.Candidate{Spelling: fqn, Library: r.libraryFQN(fqn)})
 	}
 	for _, near := range table.Neighbours(name) {
 		if c, ok := r.candidateFor(scope, near); ok {
 			cands = append(cands, c)
 		}
 	}
-	out := suggest.Rank(cands)
+	out := suggestion{spellings: suggest.Rank(cands), unquoted: r.unquotedFor(scope, name)}
 	journalNew(r, r.suggestions, key, at)
 	r.suggestions[key] = out
+	return out
+}
+
+// namesSomething reports whether the declaration registered under fqn is a spelling
+// of anything: an alias naming nothing, or a member binding no name, is not.
+func (r *Resolver) namesSomething(fqn string) bool {
+	decl := r.idx.Declaring(fqn)
+	return !r.AliasNamesNothing(decl) && r.BindsName(decl)
+}
+
+// unquotedFor returns the declared names name is the unquoted start of, as they
+// read from scope: bare when they resolve there, else by the path declaring them.
+func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
+	table := r.suggestTable()
+	var cands []suggest.Candidate
+	for _, full := range table.Unquoted(name) {
+		if res := r.walkUnqualified(scope, full); res.ok {
+			cands = append(cands, suggest.Candidate{Spelling: full, InScope: true, Library: r.idx.Library(res.sym)})
+			continue
+		}
+		for _, fqn := range table.Declared(full) {
+			if r.importable(fqn) && r.namesSomething(fqn) {
+				cands = append(cands, suggest.Candidate{Spelling: fqn, Library: r.libraryFQN(fqn)})
+				break
+			}
+		}
+	}
+	return suggest.Rank(cands)
+}
+
+// unquotedMembers returns the members of owner, as registered and qualified by
+// prefix, that the segment written under it is the unquoted start of.
+func (r *Resolver) unquotedMembers(owner *symbols.Symbol, prefix, segment string) []string {
+	if owner == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var names []string
+	if owner.Scope != nil {
+		for _, name := range owner.Scope.MemberNames() {
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	if r.idx != nil {
+		for _, sym := range r.idx.LookupDirectChildren(r.registeredFQN(owner)) {
+			if !seen[sym.Name] {
+				seen[sym.Name] = true
+				names = append(names, sym.Name)
+			}
+		}
+	}
+	sort.Strings(names)
+	var out []string
+	for _, name := range suggest.Unquoted(segment, names) {
+		out = append(out, prefix+"::"+name)
+		if len(out) == suggest.Limit {
+			break
+		}
+	}
 	return out
 }
 
@@ -123,7 +187,23 @@ func (r *Resolver) unresolvedMessage(scope *symbols.Scope, name string, at ast.N
 // name written at in scope that resolves to nothing: the name and the spellings
 // it may mean.
 func (r *Resolver) UnresolvedName(scope *symbols.Scope, name string, at ast.Node) string {
-	return suggest.With(name, name, r.suggestFor(scope, name, at))
+	s := r.suggestionFor(scope, name, at)
+	spellings := make([]string, len(s.spellings))
+	for i, spelling := range s.spellings {
+		spellings[i] = suggest.Notation(spelling)
+	}
+	return suggest.Hint(name, name, spellings, s.unquoted)
+}
+
+// UnresolvedMember is the text after "unresolved reference: " for a qualified name
+// whose segment i names no member of owner: as written, plus `T::'SA-506'` for `T::SA`.
+func (r *Resolver) UnresolvedMember(qn *ast.QualifiedName, owner *symbols.Symbol, i int) string {
+	written := qnText(qn)
+	if i <= 0 || i >= len(qn.Parts) {
+		return written
+	}
+	prefix := qnText(&ast.QualifiedName{Parts: qn.Parts[:i]})
+	return suggest.Hint(written, written, nil, r.unquotedMembers(owner, prefix, qn.Parts[i].Text))
 }
 
 // unresolvedReferencePrefix is how a reference that resolves to nothing reads.

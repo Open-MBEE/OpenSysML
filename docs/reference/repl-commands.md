@@ -5,7 +5,23 @@ replaces, what it drops) is explained in [guide chapter 4](../guide/04-repl.md).
 
 Every command that takes a `<name>` accepts the quoted spelling the notation uses, including a
 quoted segment containing a space and a quoted segment in the middle of a chain:
-`%instantiate 'My Pkg'::Car`, `%features Top::'My Pkg'::Car`.
+`%instantiate 'My Pkg'::Car`, `%features Top::'My Pkg'::Car`. A name holding a character no
+basic name can — `'SA-506'`, `'HLR-R001'`, `'My Pkg'` — is typed with its quotes. A command
+reading a `<name>` alone also finds the declaration under the bare spelling, but an `<object>`
+reference and an expression read only the identifier it starts with: `T::SA-506` is `T::SA`
+followed by `-506`, and where an expression is expected, the subtraction `T::SA - 506`. When
+that identifier names nothing but is the start of a declared name that does need quotes, every
+command's failure says so, offering the quoted spelling:
+
+```
+sysml> %instantiate T::SA
+error: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
+```
+
+The offer is drawn from what is declared — a name in scope, or one of the kinds the command acts
+on, whose unquoted spelling starts with what was typed — never from the rest of the text; the
+characters named are the ones those declarations hold (`Names containing ' ' or '-' must be
+quoted.`), and a plain misspelling is still offered its nearest declared name.
 
 Every command that takes an `<object>` — `%features`, `%invoke`, `%eval in`, and the object
 `%action` and `%state` are performed by or attached to — reads one
@@ -115,11 +131,16 @@ sysml> %features Wheel
 error: no instance of "Demo::Wheel" (use %instantiate first)
 sysml> %features car.spare
 error: spare of Demo::car could not be materialized: multiplicity violation …
+sysml> %features T::SA-506
+error: "T::SA-506" is not an object reference: "-506" cannot follow SA: segments are separated by . or :: — did you mean T::'SA-506'? Names containing '-' must be quoted.
 ```
 
-The last two are typed errors: a name nothing was instantiated under, and a segment whose feature
-value the runtime could not materialize, which keeps the runtime's reason as its cause and is
-recorded among the session's materialization failures like any other command's.
+The `Wheel` and `car.spare` failures are typed errors: a name nothing was instantiated under, and a
+segment whose feature value the runtime could not materialize, which keeps the runtime's reason as
+its cause and is recorded among the session's materialization failures like any other command's.
+The last is a reference the notation could not read to its end — a segment is an identifier or a
+quoted name, so a bare `SA-506` stops at `SA` — and, as for a `<name>`, the failure offers the quoted
+declaration the segments read so far are the start of, when there is one.
 
 A name nothing was instantiated under says what to instantiate when related objects exist. A usage
 whose definition alone has an object (`%instantiate Rover` when `%state … rover` wanted the usage) is

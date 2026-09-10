@@ -6,8 +6,9 @@ package suggest
 import (
 	"sort"
 	"strings"
-	"unicode"
+	"unicode/utf8"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -153,17 +154,72 @@ func Qualified(idx *symbols.Index, name string) []string {
 // `BaseFunctions::#::index` is no use as a suggestion.
 func typable(fqn string) bool {
 	for _, seg := range strings.Split(fqn, "::") {
-		if seg == "" {
-			return false
-		}
-		for i, r := range seg {
-			if unicode.IsLetter(r) || r == '_' || i > 0 && unicode.IsDigit(r) {
-				continue
-			}
+		if !lexer.IsIdentifier(seg) {
 			return false
 		}
 	}
 	return true
+}
+
+// Notation writes a registered qualified name as it is typed back: a segment no
+// basic name spells is quoted, one the library writes bare (`when`) is left so.
+func Notation(fqn string) string {
+	if fqn == "" {
+		return fqn
+	}
+	segments := strings.Split(fqn, "::")
+	for i, seg := range segments {
+		if !lexer.IsIdentifier(seg) {
+			segments[i] = "'" + seg + "'"
+		}
+	}
+	return strings.Join(segments, "::")
+}
+
+// identifierRune reports whether r can appear in a basic name as the lexer
+// scans one; a name holding any other character is written quoted.
+func identifierRune(r rune) bool {
+	return r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
+}
+
+// Unquoted returns the names, in the order given, that the identifier word starts
+// and that go on with a character no basic name holds: `SA` starts 'SA-506'.
+func Unquoted(word string, names []string) []string {
+	if !lexer.IsIdentifier(word) {
+		return nil
+	}
+	var out []string
+	for _, name := range names {
+		if len(name) <= len(word) || !strings.HasPrefix(name, word) {
+			continue
+		}
+		if r, _ := utf8.DecodeRuneInString(name[len(word):]); !identifierRune(r) {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// QuotingRule states why the names must be quoted, naming the characters (in the
+// order met) no basic name holds; a leading digit is one such character.
+func QuotingRule(names []string) string {
+	var chars []string
+	seen := map[rune]bool{}
+	for _, name := range names {
+		for _, seg := range strings.Split(name, "::") {
+			for i, r := range seg {
+				if seen[r] || identifierRune(r) && !(i == 0 && r >= '0' && r <= '9') {
+					continue
+				}
+				seen[r] = true
+				chars = append(chars, "'"+string(r)+"'")
+			}
+		}
+	}
+	if len(chars) == 0 {
+		return ""
+	}
+	return "Names containing " + OrList(chars) + " must be quoted."
 }
 
 // SimpleNames returns every simple name the index registers, sorted.
@@ -316,14 +372,32 @@ func OrList(items []string) string {
 // With appends "— did you mean …?" to a message about word, ignoring a
 // candidate equal to word.
 func With(msg, word string, candidates []string) string {
-	offer := make([]string, 0, len(candidates))
-	for _, c := range candidates {
-		if c != word {
-			offer = append(offer, c)
+	return Hint(msg, word, candidates, nil)
+}
+
+// Hint is With, offering first the registered names word is the unquoted start of,
+// each in Notation, and stating the QuotingRule after the question.
+func Hint(msg, word string, candidates, unquoted []string) string {
+	seen := map[string]bool{word: true}
+	var offer []string
+	add := func(spelling string) {
+		if !seen[spelling] && len(offer) < Limit {
+			seen[spelling] = true
+			offer = append(offer, spelling)
 		}
+	}
+	for _, name := range unquoted {
+		add(Notation(name))
+	}
+	for _, c := range candidates {
+		add(c)
 	}
 	if len(offer) == 0 {
 		return msg
 	}
-	return msg + " — did you mean " + OrList(offer) + "?"
+	msg += " — did you mean " + OrList(offer) + "?"
+	if rule := QuotingRule(unquoted); rule != "" {
+		msg += " " + rule
+	}
+	return msg
 }

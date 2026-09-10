@@ -164,15 +164,84 @@ func (s *Session) notFoundError(name string, want ...symbols.SymbolKind) error {
 	}
 	err := unresolvedError(shown)
 	msg := err.Error()
+	unquoted := s.unquotedNames(name, want)
 	if strings.Contains(name, "::") {
-		return suggestionError(err, msg, suggest.With(msg, name, s.qualifiedMissSuggestions(name, want)))
+		return suggestionError(err, msg, suggest.Hint(msg, name, s.qualifiedMissSuggestions(name, want), unquoted))
 	}
 	if idx := s.browseIndex(); idx != nil {
-		if qualified := suggest.With(msg, name, s.matchingKinds(s.qualifiedSuggestions(idx, name), want)); qualified != msg {
+		if qualified := suggest.Hint(msg, name, s.matchingKinds(s.qualifiedSuggestions(idx, name), want), unquoted); qualified != msg {
 			return suggestionError(err, msg, qualified)
 		}
 	}
-	return suggestionError(err, msg, suggest.With(msg, name, s.matchingKinds(s.suggestSymbol(name), want)))
+	// Quoted last, so kind lookups see the raw indexed names.
+	near := notationNames(s.matchingKinds(s.suggestSymbol(name), want))
+	return suggestionError(err, msg, suggest.Hint(msg, name, near, unquoted))
+}
+
+// unquotedNames returns the registered names of the wanted kinds that the typed
+// name is the unquoted start of: `T::SA` for a 'SA-506' declared under T.
+func (s *Session) unquotedNames(name string, want []symbols.SymbolKind) []string {
+	idx := s.browseIndex()
+	if idx == nil {
+		return nil
+	}
+	var out []string
+	if cut := strings.LastIndex(name, "::"); cut >= 0 {
+		prefix, ok := s.qualifierFQN(idx, name[:cut])
+		if !ok {
+			return nil
+		}
+		for _, member := range suggest.Unquoted(name[cut+2:], s.memberNames(idx, prefix)) {
+			out = append(out, prefix+"::"+member)
+		}
+		return s.matchingKinds(out, want)
+	}
+	for _, full := range suggest.Unquoted(name, s.knownSimpleNames(idx)) {
+		for _, sym := range s.nameTable().lookup(full) {
+			if fqn := knownAs(idx.GetFQN(sym), full); fqn != "" && !slices.Contains(out, fqn) {
+				out = append(out, fqn)
+			}
+		}
+		if cands := s.qualifiedNamesOf(idx, full, func(string) bool { return true }); len(cands) > 0 {
+			if !slices.Contains(out, cands[0]) {
+				out = append(out, cands[0])
+			}
+		}
+	}
+	return s.matchingKinds(out, want)
+}
+
+// knownAs respells fqn to end in the name it was found under: its short name,
+// where that is what was matched, rather than the declared one.
+func knownAs(fqn, name string) string {
+	if fqn == "" || suggest.LastSegment(fqn) == name {
+		return fqn
+	}
+	if cut := strings.LastIndex(fqn, "::"); cut >= 0 {
+		return fqn[:cut+2] + name
+	}
+	return name
+}
+
+// qualifierFQN is the registered name of the one declaration a qualifier
+// denotes; a qualifier that resolves nowhere, or to several, qualifies nothing.
+func (s *Session) qualifierFQN(idx *symbols.Index, qualifier string) (string, bool) {
+	matches := idx.LookupQualified(qualifier)
+	if len(matches) != 1 {
+		return "", false
+	}
+	if fqn := idx.GetFQN(matches[0]); fqn != "" {
+		return fqn, true
+	}
+	return qualifier, true
+}
+
+// knownSimpleNames returns every simple name the session or the index declares,
+// sorted.
+func (s *Session) knownSimpleNames(idx *symbols.Index) []string {
+	names := append(s.declaredSymbolNames(), suggest.SimpleNames(idx)...)
+	sort.Strings(names)
+	return slices.Compact(names)
 }
 
 // qualifiedMissSuggestions offers the members of a qualified name's own
@@ -185,13 +254,9 @@ func (s *Session) qualifiedMissSuggestions(name string, want []symbols.SymbolKin
 	}
 	cut := strings.LastIndex(name, "::")
 	qualifier, last := name[:cut], name[cut+2:]
-	matches := idx.LookupQualified(qualifier)
-	if len(matches) != 1 {
+	prefix, ok := s.qualifierFQN(idx, qualifier)
+	if !ok {
 		return nil
-	}
-	prefix := idx.GetFQN(matches[0])
-	if prefix == "" {
-		prefix = qualifier
 	}
 	var out []string
 	for _, member := range suggest.Nearest(last, s.memberNames(idx, prefix)) {

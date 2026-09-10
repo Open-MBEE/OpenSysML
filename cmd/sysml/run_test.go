@@ -955,3 +955,28 @@ func TestJSONWithoutCheck(t *testing.T) {
 	binary := buildCLI(t)
 	wantReport(t, check(t, binary, checkModel, "-json"), 2, "-json reports a check")
 }
+
+// quotedNameModel declares a name only the quoted spelling `'SA-506'` can type.
+const quotedNameModel = `package T {
+    part def Rocket;
+    individual part def 'SA-506' :> Rocket;
+}
+`
+
+// TestInstantiateOfAnUnquotedNamePointsAtTheQuotedOne checks that a name typed
+// without the quotes its declaration carries is answered with that declaration
+// and the quoting rule, wherever the argument is read as a name or an
+// expression; the quoted spelling itself works, and a subtraction is still one.
+func TestInstantiateOfAnUnquotedNamePointsAtTheQuotedOne(t *testing.T) {
+	binary := buildCLI(t)
+	const hint = "unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted."
+
+	wantReport(t, check(t, binary, quotedNameModel, "-instantiate", "T::SA"), 2, "sysml: "+hint)
+	wantReport(t, check(t, binary, quotedNameModel, "-e", "T::SA-506"), 2, "evaluation failed: "+hint)
+	wantReport(t, check(t, binary, quotedNameModel, "-instantiate", "T::SA-506", "-e", "T::SA-506"), 2,
+		"Use %features T::'SA-506' to inspect", "evaluation failed: "+hint)
+
+	quoted := check(t, binary, quotedNameModel, "-instantiate", "T::'SA-506'", "-e", "506-6")
+	wantReport(t, quoted, 0, "✓ Created instance of T::'SA-506'", "Use %features T::'SA-506' to inspect", "= 500")
+	rejectReport(t, quoted, "must be quoted")
+}

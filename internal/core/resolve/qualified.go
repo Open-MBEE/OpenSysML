@@ -134,7 +134,7 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 			// Every candidate the name reaches is filtered out, so it is not a
 			// member of the namespace it appears under (KerML 8.2.4) and no
 			// other route may recover it.
-			r.unresolved(scope, qn)
+			r.unresolvedMember(qn, cur, i)
 			return nil, false
 		}
 	}
@@ -143,7 +143,7 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 	// there: it is invisible from here (KerML 8.2.3.3), and the member search
 	// below reaches cached symbols by a route that does not know that.
 	if len(all) == 0 && r.idx != nil && r.idx.HiddenFrom(memberFQN, from) {
-		r.unresolved(scope, qn)
+		r.unresolvedMember(qn, cur, i)
 		return nil, false
 	}
 
@@ -159,7 +159,7 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 	}
 
 	if len(all) == 0 {
-		r.unresolved(scope, qn)
+		r.unresolvedMember(qn, cur, i)
 		return nil, false
 	}
 	return all, true
@@ -266,6 +266,17 @@ func (r *Resolver) unresolved(scope *symbols.Scope, qn *ast.QualifiedName) {
 		Span:    qn.Span(),
 		Message: msg,
 		Fixes:   fixes,
+	})
+}
+
+// unresolvedMember records an unresolved-reference diagnostic for a qualified
+// name whose segment i names no member of cur, offering the members it is the
+// unquoted start of: `T::SA` may mean `T::'SA-506'`.
+func (r *Resolver) unresolvedMember(qn *ast.QualifiedName, cur *symbols.Symbol, i int) {
+	delete(r.ambiguities, qn)
+	r.reportQualified(qn, Diagnostic{
+		Span:    qn.Span(),
+		Message: unresolvedReferencePrefix + r.UnresolvedMember(qn, cur, i),
 	})
 }
 
