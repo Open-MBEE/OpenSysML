@@ -71,16 +71,14 @@ type sweepDraws struct {
 // table. invocation is what `%analysis` and `%calc` take; each range is written
 // `<parameter>=<from>..<to>[:<step>]`.
 func (s *Session) RunSweep(invocation string, ranges []string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.sweepFromText(invocation, ranges, sweepDraws{})
 }
 
 // RunSamples runs one invocation once per drawn row, drawing count values for
 // each range from seed. The same seed draws the same table.
 func (s *Session) RunSamples(invocation string, ranges []string, count int64, seed uint64) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.sweepFromText(invocation, ranges, sweepDraws{sampled: true, count: count, seed: seed})
 }
 

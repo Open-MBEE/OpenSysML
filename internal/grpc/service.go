@@ -17,7 +17,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -344,23 +343,30 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 	return nil
 }
 
-// newRuntime returns a runtime context under the service's budgets over the
-// model's shared semantics, held for the request; the caller defers release.
-// The context itself is the request's own: the objects it creates are not shared.
-func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, *semantics.Model, func()) {
-	rs, release := cached.RuntimeSemantics()
-	return s.newRuntimeOver(rs), rs.Model, release
+// newRuntime returns a runtime context under the service's budgets on a worker of the
+// request's own, so requests on one model run beside each other and share nothing mutable.
+func (s *Service) newRuntime(cached *CachedModel) *runtime.Context {
+	return s.newRuntimeOver(cached.worker())
 }
 
-// newRuntimeOver builds a fresh runtime context under the service's budgets over
-// semantics the caller holds; every explored run gets one of its own.
-func (s *Service) newRuntimeOver(rs *runtimeSemantics) *runtime.Context {
-	ctx := runtime.NewContext(rs.Model, rs.Resolver, s.budgets.MaxSteps)
+// newRuntimeOver builds a runtime context under the service's budgets on a worker;
+// every explored run gets one of its own.
+func (s *Service) newRuntimeOver(w *analysis.Worker) *runtime.Context {
+	ctx := runtime.NewContext(w.Model, w.Resolver, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
 	return ctx
+}
+
+// model is the cached model as the engines reach it: a worker per plan over the shared
+// index, a context per run under the service's budgets.
+func (s *Service) model(cached *CachedModel) *analysis.Model {
+	return &analysis.Model{
+		Semantics: cached.Semantics,
+		Fresh:     func(w *analysis.Worker) (*runtime.Context, error) { return s.newRuntimeOver(w), nil },
+	}
 }
 
 // schedulePolicy reads a request's schedule field. Empty is the default policy;
@@ -706,9 +712,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 		scope = cached.PrimaryRoot()
 	}
 
-	// Create runtime context
-	runtimeCtx, _, release := s.newRuntime(cached)
-	defer release()
+	runtimeCtx := s.newRuntime(cached)
 
 	var self *runtime.Instance
 	if subject != nil {
@@ -721,8 +725,8 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 		self = inst
 	}
 
-	// The expression is the request's, not the model's: the shared resolver
-	// must not keep what it memoizes about its nodes.
+	// The expression is the request's, not the model's: the worker keeps what it
+	// resolved of the model, not what it memoized about the expression's nodes.
 	evalCtx := runtime.NewEvalContextIn(runtimeCtx, scope, self)
 	var result runtime.Value
 	var err error
@@ -771,9 +775,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 	sym := syms[0]
 
-	// Create runtime context
-	runtimeCtx, _, release := s.newRuntime(cached)
-	defer release()
+	runtimeCtx := s.newRuntime(cached)
 
 	// Instantiate
 	inst, err := runtimeCtx.Instantiate(sym)
@@ -812,10 +814,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	action := syms[0]
 
-	// Create runtime context
-	rs, release := cached.RuntimeSemantics()
-	defer release()
-	runtimeCtx := s.newRuntimeOver(rs)
+	runtimeCtx := s.newRuntime(cached)
 
 	// Converted against the model's index, so a quantity input keeps the base
 	// units it is commensurable with instead of binding an unusable value.
@@ -828,7 +827,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, rs.Model)
+			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Model())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -846,7 +845,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if _, explores := schedule.Exploration(); explores {
 		// Inputs are read again on each run's own context, so an object among them
 		// belongs to the run that binds it.
-		x, err := s.explore(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, rs, func(rt *runtime.Context) (runtime.Outcome, error) {
+		x, err := s.explore(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			inputs, resp, err := readInputs(rt)
 			if err != nil {
 				return runtime.Outcome{}, err
@@ -931,9 +930,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	stateMachine := syms[0]
 
 	if _, explores := schedule.Exploration(); explores {
-		rs, release := cached.RuntimeSemantics()
-		defer release()
-		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, rs, func(rt *runtime.Context) (runtime.Outcome, error) {
+		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			return rt.StateOutcomeWithEvents(stateMachine, req.Events)
 		})
 		if err != nil {
@@ -942,9 +939,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 
-	// Create runtime context
-	runtimeCtx, _, release := s.newRuntime(cached)
-	defer release()
+	runtimeCtx := s.newRuntime(cached)
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}

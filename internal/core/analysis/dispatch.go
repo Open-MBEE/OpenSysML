@@ -135,7 +135,8 @@ func (e *OverclaimError) Is(target error) bool { return target == ErrOverclaim }
 // Answer answers q under `auto`: engines of q's kind strongest first, a refusal or a
 // not-covered result advancing (and kept in the plan), an error from Run stopping the plan.
 // A Deadline in the budget bounds the plan through ctx; meeting it is an error like any other,
-// checked before each engine is consulted and before an answer is taken from it.
+// checked before each engine is consulted and before an answer is taken from it. The plan
+// works on a copy of model, so its worker is its own and model is never written.
 func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget Budget) (Plan, error) {
 	return r.AnswerWith(ctx, model, q, budget, Auto())
 }
@@ -145,7 +146,8 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 // and under all to every covering engine one after another in name order, composing what
 // they answered. Under all a deadline met cancels the engine that met it and every one
 // behind it, each named in the plan with the bound it reached, and the finished engines'
-// results stand composed; only a plan no engine finished fails with the deadline.
+// results stand composed; only a plan no engine finished fails with the deadline. The plan
+// works on a copy of model, so its worker is its own and model is never written.
 func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, budget Budget, selection Selection) (Plan, error) {
 	plan := Plan{Question: q, Selection: selection}
 	candidates, err := r.candidates(q.Kind, selection)
@@ -157,8 +159,9 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 		ctx, cancel = context.WithDeadline(ctx, budget.Deadline)
 		defer cancel()
 	}
+	held := model.plan()
 	if selection.Mode == SelectAll {
-		return r.answerAll(ctx, model, q, budget, plan, candidates)
+		return r.answerAll(ctx, held, q, budget, plan, candidates)
 	}
 	var last *Result
 	for _, e := range candidates {
@@ -166,12 +169,12 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
 			return plan, err
 		}
-		coverage := e.Covers(model, q)
+		coverage := e.Covers(held, q)
 		if !coverage.Covered {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Refusal: coverage.Refusal})
 			continue
 		}
-		result, err := run(ctx, e, model, q, budget)
+		result, err := run(ctx, e, held, q, budget)
 		if err != nil {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
 			return plan, err
@@ -187,7 +190,8 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 	return plan, nil
 }
 
-// answerAll runs every candidate in turn and composes the finished results.
+// answerAll runs every candidate in turn on the plan's copy of the model and
+// composes the finished results.
 func (r *Registry) answerAll(ctx context.Context, model *Model, q Question, budget Budget, plan Plan, candidates []Engine) (Plan, error) {
 	started := time.Now()
 	var finished []Result
@@ -245,7 +249,8 @@ func (p *Plan) demote(d Disagreement) {
 
 // run takes one engine's answer, checked against the context and the scale: the
 // claim and strength must agree, and a universal claim may not exceed the
-// engine's authority, so no engine promotes what it earned.
+// engine's authority, so no engine promotes what it earned. The plan's workers
+// and their warming so far are recorded on the result.
 func run(ctx context.Context, e Engine, model *Model, q Question, budget Budget) (Result, error) {
 	result, err := e.Run(ctx, model, q, budget)
 	if err == nil {
@@ -257,6 +262,7 @@ func run(ctx context.Context, e Engine, model *Model, q Question, budget Budget)
 	if result.Engine == "" {
 		result.Engine = e.Name()
 	}
+	result.Workers, result.Warming = model.warmed()
 	if Consistent(result.Claim, result.Strength) != nil {
 		return Result{}, &InconsistentResultError{Engine: e.Name(), Claim: result.Claim, Strength: result.Strength}
 	}

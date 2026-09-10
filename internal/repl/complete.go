@@ -29,10 +29,9 @@ type Completion struct {
 // commands where a command is being typed, file paths where %load and %save
 // take one, and otherwise the names the session and the library declare.
 func (s *Session) Complete(line string, pos int) Completion {
-	// Held because completing builds the library index, and readline asks from
-	// its input goroutine while the loop may be evaluating the previous line.
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Reads beside a running command: readline asks from its input goroutine
+	// while the loop may be evaluating the previous line.
+	defer s.reading()()
 
 	if pos < 0 || pos > len(line) {
 		pos = len(line)

@@ -16,16 +16,14 @@ func (s *Session) budgetFor(policy runtime.SchedulePolicy, kind analysis.Kind) a
 
 // Engine returns the engine selection every question the session asks is made under.
 func (s *Session) Engine() analysis.Selection {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.engine
 }
 
 // SetEngine selects the engine questions asked from here on are put to: `auto`,
 // `all`, or one engine by name. A name no engine is registered under is a typed error.
 func (s *Session) SetEngine(text string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	selection, err := s.engines.Select(text)
 	if err != nil {
 		return err
@@ -46,8 +44,7 @@ func (s *Session) setEngine(selection analysis.Selection) error {
 // Engines lists the registered engines with their authority, the questions each
 // answers and the state of its process, as `%engines` prints them.
 func (s *Session) Engines() []analysis.Listing {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.engines.Listings()
 }
 
@@ -109,7 +106,7 @@ func evaluate[T any](x execution, subject string, ctx *runtime.Context, call fun
 	}
 	s := x.s
 	schedule := s.drivenSchedule()
-	out, plan, err := analysis.Perform(context.Background(), s.engines, analysis.Held(ctx, nil), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), s.engine, call, answer)
+	out, plan, err := analysis.Perform(context.Background(), s.engines, analysis.Held(ctx), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), s.engine, call, answer)
 	return out, &plan, err
 }
 
@@ -165,17 +162,17 @@ func (x execution) runVerification(subject string, ctx *runtime.Context, call fu
 	return evaluate(x, subject, ctx, call, analysis.VerificationAnswer)
 }
 
-// explore puts a behavior's outcomes to the engines under the session's selection:
-// run performs it once per linearization, each in a context fresh makes.
-func (s *Session) explore(subject string, policy runtime.SchedulePolicy, fresh func() (*runtime.Context, error), run analysis.Linearization) (analysis.Plan, error) {
-	return s.engines.Explore(context.Background(), &analysis.Model{Fresh: fresh}, subject, policy, run, s.budgetFor(policy, analysis.Outcomes), s.engine)
+// explore puts a behavior's outcomes to the engines under selection: run performs
+// it once per linearization, each in a context of the plan's own over model.
+func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selection analysis.Selection, model *analysis.Model, run analysis.Linearization) (analysis.Plan, error) {
+	return s.engines.Explore(context.Background(), model, subject, policy, run, s.budgetFor(policy, analysis.Outcomes), selection)
 }
 
 // sweep puts a domain to the engines under the session's selection: row runs the
 // target once per row of the plan in ctx.
 func (s *Session) sweep(target string, ctx *runtime.Context, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), analysis.Held(ctx, nil), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep), s.engine)
+	return s.engines.Sweep(context.Background(), analysis.Held(ctx), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep), s.engine)
 }
 
 // solveWith puts an element's condition sets to the engines under the session's

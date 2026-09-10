@@ -5,16 +5,24 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // Model is the model a question is about, reached through the runtime contexts a surface
-// builds over it: an evaluation runs in the surface's own, every other run in a fresh one.
+// builds over it: an evaluation runs in the surface's own where it holds one, every other run
+// in a context of the run's own, on the worker the plan builds (see Worker).
 type Model struct {
-	// Context is the surface's runtime over the model.
+	// Context is the surface's own runtime over the model; nil when the surface holds none.
 	Context func() (*runtime.Context, error)
-	// Fresh builds a runtime of a run's own over the same declarations.
-	Fresh func() (*runtime.Context, error)
+	// Semantics builds a worker's own resolver and semantic model over the shared frozen index.
+	Semantics func() (*resolve.Resolver, *semantics.Model, error)
+	// Fresh builds a run's own context on a worker, under the surface's limits.
+	Fresh func(*Worker) (*runtime.Context, error)
+
+	// worker is the plan's, built on first use; a plan's copy of the model owns its own.
+	worker *Worker
 }
 
 // Engine is one registered way of answering questions about a model.

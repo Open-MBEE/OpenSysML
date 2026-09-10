@@ -21,16 +21,14 @@ const renderDocumentUsage = "usage: %render-document <name>"
 // document binds its queries' parameters in the model, so the invocation is
 // the document's name alone.
 func (s *Session) RenderDocumentMarkdown(invocation string) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.renderDocumentMarkdown(invocation)
 }
 
 // RenderDocumentHTML compiles the named document definition, evaluates its
 // queries against the session's model, and renders the result as HTML.
 func (s *Session) RenderDocumentHTML(invocation string, opts docrender.HTMLOptions) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	document, err := s.evaluateDocument(invocation)
 	if err != nil {
 		return "", err
@@ -109,8 +107,7 @@ func (s *Session) renderDocumentSet(
 	fileName func(string) string,
 	render func(*docir.Document) (string, error),
 ) ([]RenderedDocument, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
 		return nil, fmt.Errorf("runtime init: %w", err)

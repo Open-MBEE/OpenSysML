@@ -44,8 +44,7 @@ func TestNewServiceResolvesBudgets(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewService: %v", err)
 		}
-		ctx, _, release := svc.newRuntime(&CachedModel{Index: symbols.NewIndex()})
-		defer release()
+		ctx := svc.newRuntime(&CachedModel{Index: symbols.NewIndex()})
 		if got := ctx.Budgets(); got != svc.budgets {
 			t.Errorf("context bounds = %+v, want the service's %+v", got, svc.budgets)
 		}

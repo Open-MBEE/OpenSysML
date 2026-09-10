@@ -11,8 +11,8 @@ import (
 // RunEngineName is the name of the engine that runs the interpreter once.
 const RunEngineName = "run"
 
-// runEngine answers Evaluate questions with one execution of the interpreter
-// under the question's scheduling policy, in the surface's own context.
+// runEngine answers Evaluate questions with one execution of the interpreter under the
+// question's scheduling policy, in the surface's own context or one of the run's own.
 type runEngine struct{}
 
 // NewRun returns the run engine.
@@ -46,14 +46,14 @@ func (e runEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run performs the question once in the model's context: a violation is witnessed, any
-// other claim observed, and a failed execution claims nothing, naming the budget it hit.
-// The one execution is the unit of work, so a ctx already done is its error unperformed.
-func (e runEngine) Run(ctx context.Context, model *Model, q Question, _ Budget) (Result, error) {
+// Run performs the question once, in the surface's context or one of the run's own under the
+// budget: violated is witnessed, else observed; a failed execution claims nothing, naming the bound.
+// A model with neither context is the typed fault NoRuntimeError.
+func (e runEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	rctx, err := model.Context()
+	rctx, err := model.running(e.Name(), budget)
 	if err != nil {
 		return Result{}, err
 	}

@@ -69,19 +69,29 @@ func parseFixture(t *testing.T) *fixture {
 	return &fixture{idx: idx, model: semantics.NewModel(resolver), resolver: resolver, pkg: pkg.Scope}
 }
 
-// fresh is a runtime of a run's own over the model.
-func (f *fixture) fresh() (*runtime.Context, error) {
-	return runtime.NewContext(f.model, f.resolver, 10000), nil
+// fixtureSteps is the step limit every runtime over the fixture is built with.
+const fixtureSteps = 10000
+
+// semantics is a worker's own resolver and semantic model over the shared index.
+func (f *fixture) semantics() (*resolve.Resolver, *semantics.Model, error) {
+	resolver := resolve.New(f.idx)
+	return resolver, semantics.NewModel(resolver), nil
+}
+
+// fresh is a runtime of a run's own on a worker.
+func (f *fixture) fresh(w *Worker) (*runtime.Context, error) {
+	return runtime.NewContext(w.Model, w.Resolver, fixtureSteps), nil
+}
+
+// building is the model as a surface holding no context of its own supplies it.
+func (f *fixture) building() *Model {
+	return &Model{Semantics: f.semantics, Fresh: f.fresh}
 }
 
 // context is a runtime the surface would hold over the model.
 func (f *fixture) context(t *testing.T) *runtime.Context {
 	t.Helper()
-	ctx, err := f.fresh()
-	if err != nil {
-		t.Fatalf("runtime: %v", err)
-	}
-	return ctx
+	return runtime.NewContext(f.model, f.resolver, fixtureSteps)
 }
 
 // symbol is the named member of the test package.

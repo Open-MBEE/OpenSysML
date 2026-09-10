@@ -57,8 +57,7 @@ func errorLines(lines []string, _ []NamedValue, err error) ([]string, bool, erro
 // could not read; a model that read but did not analyse cleanly is reported by
 // Diagnostics.
 func (s *Session) LoadFile(path string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	name, data, err := project.ReadFile(expandHome(path))
 	if err != nil {
 		return nil, readError(name, err)
@@ -77,8 +76,7 @@ func (s *Session) LoadFileSummary(path string) ([]string, error) {
 // LoadFilesSummary is LoadFileSummary over every path as one submission, indexed and
 // analyzed once, each file still summarized on its own; a read failure is a *ReadError.
 func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	files := make([]SourceFile, 0, len(paths))
 	for _, path := range paths {
 		name, data, err := project.ReadFile(expandHome(path))
@@ -107,8 +105,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 // prompt prints it: the source line each finding is on, under a position naming
 // the file the finding is in, at the verbosity the session was asked for.
 func (s *Session) DiagnosticLines() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.diagnosticLines()
 }
 
@@ -143,8 +140,7 @@ func (s *Session) diagnosticLines() []string {
 // text: a load whose file does not parse says why, and HasErrors is true, which is
 // what a non-interactive run exits on.
 func (s *Session) Diagnostics() []passes.Diagnostic {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.diagnostics()
 }
 
@@ -152,8 +148,7 @@ func (s *Session) Diagnostics() []passes.Diagnostic {
 // found, or a feature value a command could not materialize. It is what a non-interactive
 // run exits on.
 func (s *Session) HasErrors() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.hasAnalysisErrors() || len(s.materializeFailures) > 0
 }
 
@@ -173,8 +168,7 @@ func (s *Session) hasAnalysisErrors() bool {
 // materialize, in the order they were reported: a command that rendered one
 // answered nothing about that feature value.
 func (s *Session) MaterializationFailures() []error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return slices.Clone(s.materializeFailures)
 }
 
@@ -218,8 +212,7 @@ type Diagnostic struct {
 // finding placed in the submission it is about: the file it was loaded from, at
 // the line and column that file has it on.
 func (s *Session) LocatedDiagnostics() []Diagnostic {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	diags := s.diagnostics()
 	if len(diags) == 0 {
 		return nil
@@ -265,8 +258,7 @@ func (s *Session) snippetAt(offset int) (snippet, int) {
 // EvalExpr evaluates an expression and returns the lines `%eval` prints, with an
 // error for one that could not be evaluated.
 func (s *Session) EvalExpr(expr string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	lines, err := s.evalExpr(expr)
 	if err != nil {
 		return nil, err
@@ -277,8 +269,7 @@ func (s *Session) EvalExpr(expr string) ([]string, error) {
 // EvalBare evaluates a prompt line read as an expression, recording a failed
 // materialization so a piped run's exit status reports it, as %eval does.
 func (s *Session) EvalBare(expr string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	lines, err := s.evalExpr(expr)
 	if err != nil {
 		s.noteIfMaterializationFailure(err)
@@ -291,8 +282,7 @@ func (s *Session) EvalBare(expr string) ([]string, error) {
 // what `%calc` takes: a name, optionally followed by its arguments or carrying
 // them as `Fall(3, 4)`.
 func (s *Session) RunCalc(invocation string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	if _, explores := s.exploring(); explores {
 		return s.exploreCalc(invocation)
 	}
@@ -305,8 +295,7 @@ func (s *Session) RunCalc(invocation string) Verdict {
 // carrying arguments as `Case(3.0, limit = 4.0)`, then the object that is its
 // subject. Its status is the worst its objective and assertions decided.
 func (s *Session) RunAnalysis(invocation string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	inv, err := splitAnalysisArgs(invocation)
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(invocation, err.Error()))
@@ -321,8 +310,7 @@ func (s *Session) RunAnalysis(invocation string) Verdict {
 // performer names when it names one. An action that could not be run, or that
 // stopped short of completing, is unresolved: it produced no outputs to judge.
 func (s *Session) RunAction(name string, performer ...string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	if _, explores := s.exploring(); explores {
 		return s.exploreAction(name, performer)
 	}
@@ -359,8 +347,7 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 // initial transition, which is `%state` alone. The values are the configuration
 // the machine settled in.
 func (s *Session) RunStateMachine(name string, performer ...string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.runStateMachine(name, nil, performer)
 }
 
@@ -368,8 +355,7 @@ func (s *Session) RunStateMachine(name string, performer ...string) Verdict {
 // units, which is `%state` followed by `%advance`. A duration of 0 is a run to
 // the current time, dispatching the events already due, as `%advance 0` is.
 func (s *Session) RunStateMachineFor(name string, duration float64, performer ...string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.runStateMachine(name, &duration, performer)
 }
 
@@ -383,8 +369,7 @@ type Behavior struct {
 // RunFor starts the behaviors named, advances their shared clock by duration once
 // and returns one verdict per behavior (an action holds when it completed in time).
 func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	if _, explores := s.exploring(); explores {
 		return s.exploreRunFor(actions, states, duration)
 	}

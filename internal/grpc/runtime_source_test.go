@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
-// The cached semantic model reads documentation through the cache's own source
-// lookup; a request's runtime context must neither replace it nor be retained
-// by the model once the request is over.
-func TestRuntimeLeavesCachedSourceLookupInPlace(t *testing.T) {
+// Every worker's semantic model reads documentation through the cached model's own
+// source lookup, so a request's runtime answers the same as the next request's.
+func TestRuntimeWorkersReadTheCachedSourceLookup(t *testing.T) {
 	const model = `
 package Demo {
 	requirement def <'R1'> Safe {
@@ -34,27 +34,18 @@ package Demo {
 		t.Fatalf("Demo::Safe resolved to %d symbols, want 1", len(syms))
 	}
 
-	rs, release := cached.RuntimeSemantics()
-	before := rs.Model.SourceText()
-	release()
-	if before == nil {
-		t.Fatal("cached runtime model has no source lookup")
-	}
-
+	var last *runtime.Context
 	for i := 0; i < 3; i++ {
-		ctx, sem, release := srv.newRuntime(cached)
-		if ctx.Model() != sem {
-			t.Fatalf("runtime %d: context model differs from the cached model", i)
+		ctx := srv.newRuntime(cached)
+		if last != nil && (ctx.Model() == last.Model() || ctx.Resolver() == last.Resolver()) {
+			t.Fatalf("runtime %d: shares its resolver or semantic model with the one before", i)
 		}
-		if got := sem.DocumentationOf(syms[0]); len(got) != 1 || got[0] != "The crew shall return safely." {
+		if ctx.Model().SourceText() == nil {
+			t.Fatalf("runtime %d: worker's model has no source lookup", i)
+		}
+		if got := ctx.Model().DocumentationOf(syms[0]); len(got) != 1 || got[0] != "The crew shall return safely." {
 			t.Fatalf("runtime %d: DocumentationOf = %q, want the doc body", i, got)
 		}
-		release()
-	}
-
-	rs, release = cached.RuntimeSemantics()
-	defer release()
-	if got := rs.Model.DocumentationOf(syms[0]); len(got) != 1 {
-		t.Fatalf("after requests: DocumentationOf = %q, want the doc body", got)
+		last = ctx
 	}
 }

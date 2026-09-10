@@ -12,8 +12,7 @@ import (
 // Query evaluates OSLC element-identification query text and renders one
 // matched element per line for the interactive frontend.
 func (s *Session) Query(text string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.query(text)
 }
 

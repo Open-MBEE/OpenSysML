@@ -25,7 +25,7 @@ func raceRun(t *testing.T, f *fixture) Linearization {
 func outcomes(t *testing.T, f *fixture, spelling string, budget Budget) Plan {
 	t.Helper()
 	q := Question{Kind: Outcomes, Subject: "test::race", Schedule: policy(t, spelling), Free: FreeSchedule, Linearize: raceRun(t, f)}
-	return answered(t, Default(), &Model{Fresh: f.fresh}, q, budget)
+	return answered(t, Default(), f.building(), q, budget)
 }
 
 func TestExploreProvesACompleteOutcomeSet(t *testing.T) {
@@ -84,7 +84,7 @@ func TestExploreTakesTheBudgetsRunsAndDepth(t *testing.T) {
 
 func TestRegistryExploreIsTheRuntimesExploration(t *testing.T) {
 	f := parseFixture(t)
-	plan, err := Default().Explore(context.Background(), &Model{Fresh: f.fresh}, "test::race", policy(t, "explore"), raceRun(t, f), Budget{}, Auto())
+	plan, err := Default().Explore(context.Background(), f.building(), "test::race", policy(t, "explore"), raceRun(t, f), Budget{}, Auto())
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestRegistryExploreIsTheRuntimesExploration(t *testing.T) {
 	if !x.Complete() || len(x.Outcomes) != 3 {
 		t.Fatalf("exploration %+v, want the 3 outcomes", x)
 	}
-	if _, err = Default().Explore(context.Background(), &Model{Fresh: f.fresh}, "test::race", runtime.DefaultSchedulePolicy, raceRun(t, f), Budget{}, Auto()); !errors.Is(err, runtime.ErrNotExploring) {
+	if _, err = Default().Explore(context.Background(), f.building(), "test::race", runtime.DefaultSchedulePolicy, raceRun(t, f), Budget{}, Auto()); !errors.Is(err, runtime.ErrNotExploring) {
 		t.Fatalf("explore under a fixed schedule: %v, want the refusal", err)
 	}
 }
@@ -114,7 +114,7 @@ func TestExploreStopsWhenTheCallerGoesAway(t *testing.T) {
 			return run(rctx)
 		},
 	}
-	plan, err := Default().Answer(ctx, &Model{Fresh: f.fresh}, q, Budget{})
+	plan, err := Default().Answer(ctx, f.building(), q, Budget{})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("answer after cancel: %v, want context.Canceled", err)
 	}
@@ -131,7 +131,7 @@ func TestExploreStopsWhenTheCallerGoesAway(t *testing.T) {
 	// A run that fails on its own is an outcome, not the exploration's error.
 	failing := errors.New("run failed")
 	q.Linearize = func(*runtime.Context) (runtime.Outcome, error) { return runtime.Outcome{}, failing }
-	x := answered(t, Default(), &Model{Fresh: f.fresh}, q, Budget{}).Result.Exploration()
+	x := answered(t, Default(), f.building(), q, Budget{}).Result.Exploration()
 	if x == nil || len(x.Outcomes) != 1 || !errors.Is(x.Outcomes[0].Outcome.Err, failing) {
 		t.Fatalf("exploration %+v, want the failure as its one outcome", x)
 	}

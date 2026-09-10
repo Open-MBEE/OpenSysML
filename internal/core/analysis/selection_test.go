@@ -88,7 +88,7 @@ func TestNamedEngineNotCoveredIsFinal(t *testing.T) {
 func TestNamedEngineOfAnotherKindRefusesThroughCovers(t *testing.T) {
 	f := parseFixture(t)
 	q := Question{Kind: Evaluate, Subject: "test::Double", Schedule: policy(t, "reverse"), Perform: func(*runtime.Context) (Answer, error) { return Answer{Claim: ClaimHolds}, nil }}
-	plan, err := Default().AnswerWith(context.Background(), Held(f.context(t), nil), q, Budget{}, Only(ExploreEngineName))
+	plan, err := Default().AnswerWith(context.Background(), Held(f.context(t)), q, Budget{}, Only(ExploreEngineName))
 	if err != nil {
 		t.Fatalf("answer: %v", err)
 	}
