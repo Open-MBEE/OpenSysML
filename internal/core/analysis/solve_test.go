@@ -212,8 +212,8 @@ func TestSolveAsksNoMoreQueriesThanTheBudgetsRuns(t *testing.T) {
 		t.Fatalf("asked %v, result %+v; want every query asked within 3 runs", asked, result)
 	}
 	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{}).Result
-	if _, ok := result.Bounds.Limit("runs"); ok || result.Claim != ClaimSatisfiable {
-		t.Fatalf("result %+v, want no runs bound without a runs budget", result)
+	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 3 || result.Bounds.Reached() || result.Claim != ClaimSatisfiable {
+		t.Fatalf("result %+v, want every query asked and the 3 named as the runs without a runs budget", result)
 	}
 	withheld := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
 		if query.Element == "B" {
@@ -235,15 +235,17 @@ func TestSolveReportsTheBoundsItDeclares(t *testing.T) {
 		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
 	}
 	engine := NewSolve(present)
-	q := Question{Kind: Satisfiable, Subject: "test::A", Free: FreeInputs, Solve: &SolveAsk{Queries: []*solve.Query{intQuery("A", 2, 5)}, Ask: sat}}
-	result := answered(t, registered(t, engine), nil, q, Budget{Runs: 1}).Result
+	q := Question{Kind: Satisfiable, Subject: "test::A", Free: FreeInputs, Solve: &SolveAsk{Queries: []*solve.Query{intQuery("A", 2, 5), intQuery("B", 2, 5)}, Ask: sat}}
 	declared := engine.Describe().Bounds
-	if len(result.Bounds) != len(declared) {
-		t.Fatalf("bounds %s, want the declared %v", result.Bounds, declared)
-	}
-	for i, bound := range result.Bounds {
-		if bound.Name != declared[i] {
-			t.Errorf("bound %d is %q, want the declared %q", i, bound.Name, declared[i])
+	for _, budget := range []Budget{{}, {Runs: 1}, {Runs: 5}} {
+		result := answered(t, registered(t, engine), nil, q, budget).Result
+		if len(result.Bounds) != len(declared) {
+			t.Fatalf("%+v: bounds %s, want the declared %v", budget, result.Bounds, declared)
+		}
+		for i, bound := range result.Bounds {
+			if bound.Name != declared[i] {
+				t.Errorf("%+v: bound %d is %q, want the declared %q", budget, i, bound.Name, declared[i])
+			}
 		}
 	}
 }

@@ -70,8 +70,8 @@ func (e solveEngine) Covers(_ *Model, q Question) Coverage {
 }
 
 // Run asks the queries in turn, each under the budget's solver time and no more of them than
-// its runs, and judges the set: satisfiable when every query is, unsatisfiable when any is,
-// not covered while any is undecided or unasked.
+// its runs (every query without one), and judges the set: satisfiable when every query is,
+// unsatisfiable when any is, not covered while any is undecided or unasked.
 func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budget) (Result, error) {
 	solver, err := e.discover()
 	if err != nil {
@@ -103,10 +103,10 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 		Elapsed:  time.Since(started),
 	}
 	result.Claim, result.Strength, result.Reason = judgeSolved(values, asked)
-	if budget.Runs > 0 {
-		result.Bounds = Bounds{{Name: "runs", Limit: int64(budget.Runs), Reached: asked < len(values)}}
+	result.Bounds = Bounds{
+		{Name: "runs", Limit: int64(asked), Reached: asked < len(values)},
+		{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)},
 	}
-	result.Bounds = append(result.Bounds, Bound{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)})
 	return result, nil
 }
 
