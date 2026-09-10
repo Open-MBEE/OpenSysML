@@ -130,19 +130,19 @@ func builtinSequenceConcat(ec *EvalContext, args []Value) (Value, error) {
 // builtinNumericalSum0 is NumericalFunctions::sum0(collection, zero):
 // `collection->reduce '+' ?? zero`, so an empty collection is the zero given.
 func builtinNumericalSum0(ec *EvalContext, args []Value) (Value, error) {
-	return aggregateWithIdentity("NumericalFunctions::sum0", "zero", args, ast.OpAdd)
+	return ec.ctx.aggregateWithIdentity("NumericalFunctions::sum0", "zero", args, ast.OpAdd)
 }
 
 // builtinNumericalProduct1 is NumericalFunctions::product1(collection, one):
 // `collection->reduce '*' ?? one`.
 func builtinNumericalProduct1(ec *EvalContext, args []Value) (Value, error) {
-	return aggregateWithIdentity("NumericalFunctions::product1", "one", args, ast.OpMul)
+	return ec.ctx.aggregateWithIdentity("NumericalFunctions::product1", "one", args, ast.OpMul)
 }
 
 // aggregateWithIdentity folds a collection under op from its first element, and
 // answers the identity given for an empty one. The library asserts the identity
 // is one (`inv { isZero(zero) }`), so another value is reported.
-func aggregateWithIdentity(op, param string, args []Value, operator ast.OperatorKind) (Value, error) {
+func (ctx *Context) aggregateWithIdentity(op, param string, args []Value, operator ast.OperatorKind) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
@@ -158,7 +158,7 @@ func aggregateWithIdentity(op, param string, args []Value, operator ast.Operator
 	if len(elementsOf(args[0])) == 0 {
 		return identity, nil
 	}
-	return aggregate(op, args[:1], operator, false)
+	return ctx.aggregate(op, args[:1], operator, false)
 }
 
 // isIdentityElement reports whether val is the additive (0) or multiplicative

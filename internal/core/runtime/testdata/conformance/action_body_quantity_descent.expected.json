@@ -4,7 +4,7 @@
 	"outputs": {
 		"t": {"type": "Quantity", "value": 17.19999999999997, "unit": "s"},
 		"h": {"type": "Quantity", "value": -0.41680000000065043, "unit": "m"},
-		"v": {"type": "Quantity", "value": -42.86400000000001, "unit": "m/s"},
+		"v": {"type": "Quantity", "value": -42.86400000000001, "unit": "SI::'m/s'"},
 		"dt": {"type": "Quantity", "value": 0.2, "unit": "s"},
 		"g": {"type": "Quantity", "value": 1.62, "unit": "m/s**2"}
 	}

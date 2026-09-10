@@ -899,7 +899,7 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 		return Value{}, err
 	}
 	what := fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym))
-	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), val, admitDeclared); err != nil {
+	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
 	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
@@ -1779,12 +1779,12 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 	if val, ok, err := ec.ctx.tensorArithmetic(n.Operator, left, right); ok {
 		return val, err
 	}
-	return arithmeticValues(n.Operator, left, right, n.Span())
+	return ec.ctx.arithmeticValues(n.Operator, left, right, n.Span())
 }
 
 // arithmeticValues applies a binary arithmetic operator to two evaluated
 // operands; the operator notation and the library's `'+'` forms both use it.
-func arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
+func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
 	// '+' over two strings concatenates, the one arithmetic operator
 	// StringFunctions declares; a non-string operand is not coerced.
 	if op == ast.OpAdd && left.Kind == ValString && right.Kind == ValString {
@@ -1807,12 +1807,12 @@ func arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) 
 		case ast.OpAdd, ast.OpSub:
 			return addQuantities(op, lq, rq)
 		case ast.OpMul, ast.OpDiv:
-			return scaleQuantities(op, lq, rq)
+			return ctx.scaleQuantities(op, lq, rq)
 		case ast.OpPow:
 			if right.Kind != ValConst {
 				return Value{}, fmt.Errorf("%w: exponent of a quantity is a quantity", ErrTypeMismatch)
 			}
-			return powQuantity(lq, right.Const)
+			return ctx.powQuantity(lq, right.Const)
 		case ast.OpMod:
 			return Value{}, fmt.Errorf("%w: '%%' is not defined for a quantity", ErrTypeMismatch)
 		}

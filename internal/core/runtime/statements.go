@@ -293,7 +293,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		// An output is bound by the host even when the body's data holds it, so a
 		// second binding is reported; a block-local of the name shadows it.
 		if e.env.holdsLocal(s.Target) {
-			if err := e.ctx.checkBodyWrite(e.host, s, value); err != nil {
+			if err := e.ctx.checkBodyWrite(e.host, s, &value); err != nil {
 				return flowNext, err
 			}
 			e.env.assignLocal(s.Target, value)

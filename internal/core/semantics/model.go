@@ -57,10 +57,11 @@ type Model struct {
 	unitTerms    map[*symbols.Symbol]UnitTerm // measurement units reduced to base units
 	reducingUnit map[*symbols.Symbol]bool     // units being reduced, to detect a cycle
 
-	dimensions   map[*symbols.Symbol]dimensionResult // units to the dimension they measure in
-	dimensioning map[*symbols.Symbol]bool            // units whose dimension is being derived, to detect a cycle
-	libSymbols   map[string]*symbols.Symbol          // library elements resolved by qualified name
-	baseUnits    map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
+	dimensions    map[*symbols.Symbol]dimensionResult // units to the dimension they measure in
+	dimensioning  map[*symbols.Symbol]bool            // units whose dimension is being derived, to detect a cycle
+	libSymbols    map[string]*symbols.Symbol          // library elements resolved by qualified name
+	baseUnits     map[*symbols.Symbol]*symbols.Symbol // base quantities to SI::si's base units, nil until read
+	coherentUnits map[string][]coherentUnit           // declared coherent units by reduced factors, nil until indexed
 
 	// Element-filter evaluation: conditions compiled once per expression, their
 	// verdicts memoized per candidate, and the metadata annotating each candidate

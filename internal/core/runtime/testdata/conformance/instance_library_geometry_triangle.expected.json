@@ -9,8 +9,8 @@
     "tri.base.length": {"type": "Quantity", "value": 4, "unit": "m"},
     "tri.e2.length": {"type": "Quantity", "value": 3, "unit": "m"},
     "tri.xoffset": {"type": "Quantity", "value": 2, "unit": "m"},
-    "tri.hypotenuse.length": {"error": "type mismatch: cannot write 25 [m**2] (dimension L^2) to a feature typed by LengthValue (dimension L)"},
-    "tri.e3.length": {"error": "type mismatch: cannot write 25 [m**2] (dimension L^2) to a feature typed by LengthValue (dimension L)"},
+    "tri.hypotenuse.length": {"error": "type mismatch: cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue (dimension L)"},
+    "tri.e3.length": {"error": "type mismatch: cannot write 25 [SI::'m²'] (dimension L^2) to a feature typed by LengthValue (dimension L)"},
     "tri.vertices": {"type": "Sequence", "elements": [
       {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
       {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}

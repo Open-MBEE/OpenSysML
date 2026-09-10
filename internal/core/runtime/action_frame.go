@@ -301,7 +301,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		if err != nil {
 			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
 		}
-		if err := e.ctx.checkNamedWrite(feature.Scope, perf.describe(), feature.Name, value); err != nil {
+		if err := e.ctx.checkNamedWrite(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
 			return err
 		}
 		perf.data[perf.key(feature.Name)] = value
@@ -555,7 +555,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 	if !pins.declares(pin) {
 		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
 	}
-	if err := e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, value); err != nil {
+	if err := e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, &value); err != nil {
 		return err
 	}
 	pin = canonical(pins.aliases, pin)
@@ -586,7 +586,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 	if !pins.declares(pin) {
 		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
 	}
-	return e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, value)
+	return e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, &value)
 }
 
 // takeDeliveries moves the oldest delivery at each pin of node into perf, so that
@@ -625,7 +625,7 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 		e.noteFrameWrite(f, name, value)
 		return nil
 	}
-	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, value); err != nil {
+	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, &value); err != nil {
 		return err
 	}
 	f.data[f.key(name)] = value

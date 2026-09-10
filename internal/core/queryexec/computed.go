@@ -370,6 +370,9 @@ func (e *executor) applyQuantityOperator(
 	} else {
 		result, err = semantics.QuantityBinary(op, operands[0], operands[1])
 	}
+	if err == nil {
+		result, err = e.context.Model.CoherentQuantity(result, nil)
+	}
 	switch {
 	case err == nil:
 	case errors.Is(err, semantics.ErrDivisionByZero):

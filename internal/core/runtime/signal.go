@@ -172,10 +172,11 @@ func (ctx *Context) SignalMessage(signal *symbols.Symbol, args map[string]Value,
 			return Message{}, fmt.Errorf("%w: %s carries no feature %q%s",
 				ErrSignalArgument, symbolText(signal), name, carriedFeaturesNote(features))
 		}
-		if err := ctx.checkAdmits(feat, symbolText(signal)+"."+name, args[name], admitWritten); err != nil {
+		arg := args[name]
+		if err := ctx.checkAdmits(feat, symbolText(signal)+"."+name, &arg, admitWritten); err != nil {
 			return Message{}, fmt.Errorf("%w: %w", ErrSignalArgument, err)
 		}
-		payload[name] = args[name]
+		payload[name] = arg
 	}
 	msg := NamedSignalMessage(signal.Name, to)
 	msg.Signal, msg.Payload = signal, payload

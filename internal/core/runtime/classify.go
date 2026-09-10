@@ -160,7 +160,7 @@ func (ctx *Context) refineFeatureValue(inst *Instance, fv *FeatureValue, feat *E
 		how = admitWritten
 	}
 	held := fv.HeldValue()
-	if err := ctx.checkAdmits(feat, fmt.Sprintf("feature value %s.%s", inst.Type.Name, feat.Name), held, how); err != nil {
+	if err := ctx.checkAdmits(feat, fmt.Sprintf("feature value %s.%s", inst.Type.Name, feat.Name), &held, how); err != nil {
 		return err
 	}
 	val, err := ctx.admitted(feat, held, how)

@@ -81,8 +81,8 @@ func TestSweepPilotDynamicsAnalysis(t *testing.T) {
 		"accelerationProfile",
 		"0.0 [SI::'m/s']",
 		"division by zero",
-		"[1.0 [SI::W/(SI::'m/s'*SI::kg)], 0.5 [SI::W/(SI::'m/s'*SI::kg)]]",
-		"[0.5 [SI::W/(SI::'m/s'*SI::kg)], 0.4 [SI::W/(SI::'m/s'*SI::kg)]]",
+		"[1.0 [SI::'m⋅s⁻²'], 0.5 [SI::'m⋅s⁻²']]",
+		"[0.5 [SI::'m⋅s⁻²'], 0.4 [SI::'m⋅s⁻²']]",
 	} {
 		if !strings.Contains(table, want) {
 			t.Errorf("table is\n%s\nwant it to carry %q", table, want)

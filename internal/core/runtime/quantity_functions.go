@@ -233,18 +233,18 @@ func quantityAdditive(op ast.OperatorKind) libraryApply {
 
 // quantityMultiplicative is '*' or '/', composing the operands' units.
 func quantityMultiplicative(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, y, err := quantityArgs(name, args)
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := scaleQuantities(op, x, y)
+		val, err := ctx.scaleQuantities(op, x, y)
 		return val, functionError(name, err)
 	}
 }
 
 // quantityPower is '**' and '^': the quantity raised to a Real exponent.
-func quantityPower(name string, _ *Context, args []Value) (Value, error) {
+func quantityPower(name string, ctx *Context, args []Value) (Value, error) {
 	x, err := quantityArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
@@ -253,7 +253,7 @@ func quantityPower(name string, _ *Context, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	val, err := powQuantity(x, y)
+	val, err := ctx.powQuantity(x, y)
 	return val, functionError(name, err)
 }
 
@@ -303,12 +303,12 @@ func quantityExtremum(op ast.OperatorKind) libraryApply {
 }
 
 // quantitySqrt is sqrt: the root of the magnitude in the root of the unit.
-func quantitySqrt(name string, _ *Context, args []Value) (Value, error) {
+func quantitySqrt(name string, ctx *Context, args []Value) (Value, error) {
 	x, err := quantityArg(name, "x", args[0])
 	if err != nil {
 		return Value{}, err
 	}
-	val, err := sqrtQuantity(x)
+	val, err := ctx.sqrtQuantity(x)
 	return val, functionError(name, err)
 }
 
@@ -364,8 +364,8 @@ func toDimensionOneValue(name string, _ *Context, args []Value) (Value, error) {
 // quantityAggregate is sum or product over quantities, folded in the first element's
 // unit; an empty collection has no unit, so it is the dimensionless 0 or 1.
 func quantityAggregate(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
-		return aggregate(name, args, op, false)
+	return func(name string, ctx *Context, args []Value) (Value, error) {
+		return ctx.aggregate(name, args, op, false)
 	}
 }
 

@@ -154,6 +154,36 @@ func TestRunCalc(t *testing.T) {
 	wantReport(t, check(t, binary, behaviorModel, "-calc", "Mission::Fall(3)"), 2, `parameter "g" has no argument`)
 }
 
+// quantityModel declares calculations over ISQ quantities whose results compose
+// units: a product, a quotient, and a fractional power over a prefixed input.
+const quantityModel = `package Orbit {
+    private import SI::*;
+    private import ISQ::*;
+    private import MeasurementReferences::*;
+    attribute def GravParam :> Quantities::ScalarQuantityValue;
+    attribute 'm³⋅s⁻²' : DerivedUnit {
+        private attribute m3 : UnitPowerFactor[1] { :>> unit = SI::m; :>> exponent = 3; }
+        private attribute s_2 : UnitPowerFactor[1] { :>> unit = SI::s; :>> exponent = -2; }
+        attribute :>> unitPowerFactors = (m3, s_2);
+    }
+    calc def velocity { in a :> ISQ::acceleration; in t :> ISQ::time; return v :> ISQ::speed = a * t; }
+    calc def orbital { in mu : GravParam; in r :> ISQ::length; return v :> ISQ::speed = (mu / r)^(1/2); }
+    calc def perMass { in f :> ISQ::force; in m :> ISQ::mass; return a :> ISQ::acceleration = f / m; }
+}
+`
+
+// TestRunCalcQuantity checks that a calculation's quantity result is reported in
+// the coherent unit of its dimension, a prefix folded into the magnitude.
+func TestRunCalcQuantity(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::velocity(9.80665 [SI::'m⋅s⁻²'], 311 [SI::s])"), 0, "= 3049.86815 [SI::'m/s']")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563 [SI::km])"), 0, "= 7793.229127559948 [SI::'m/s']")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::orbital(3.986E14 [Orbit::'m³⋅s⁻²'], 6563000 [SI::m])"), 0, "= 7793.229127559948 [SI::'m/s']")
+	wantReport(t, check(t, binary, quantityModel, "-calc", "Orbit::perMass(10 [SI::N], 2 [SI::kg])"), 0, "= 5.0 [SI::'m⋅s⁻²']")
+	wantReport(t, check(t, binary, quantityModel, "-eval", "6 [SI::km] / 3 [SI::km]"), 0, "= 2.0")
+}
+
 // analysisModel declares an analysis case run by TestRunAnalysis: a usage binding
 // its own subject, and a definition whose subject and inputs a run supplies.
 const analysisModel = `package An {

@@ -111,7 +111,7 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 	if !ok {
 		return false, nil
 	}
-	if err := h.exec.ctx.checkNamedWrite(scope, h.describe(), name, value); err != nil {
+	if err := h.exec.ctx.checkNamedWrite(scope, h.describe(), name, &value); err != nil {
 		return true, err
 	}
 	data[name] = value

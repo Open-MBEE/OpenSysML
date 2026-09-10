@@ -27,9 +27,18 @@ func quantityResult(q semantics.Quantity, err error) (Value, error) {
 	return NewQuantityValue(&q), nil
 }
 
+// coherentResult is quantityResult over a quantity whose unit an operation
+// composed, re-expressed in the coherent unit the library declares for its dimension.
+func (ctx *Context) coherentResult(q semantics.Quantity, err error) (Value, error) {
+	if err == nil && ctx != nil {
+		q, err = ctx.model.CoherentQuantity(q, nil)
+	}
+	return quantityResult(q, err)
+}
+
 // composedQuantity is a result in the canonical form of its composed unit (`m**2`, `m`).
-func composedQuantity(num semantics.Value, product semantics.UnitProduct, term semantics.UnitTerm) (Value, error) {
-	return quantityResult(semantics.ComposedQuantity(num, product, term))
+func (ctx *Context) composedQuantity(num semantics.Value, product semantics.UnitProduct, term semantics.UnitTerm) (Value, error) {
+	return ctx.coherentResult(semantics.ComposedQuantity(num, product, term))
 }
 
 // evalIndexExpr evaluates `magnitude [unit]`, the quantity expression: a
@@ -159,24 +168,24 @@ func addQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
 }
 
 // scaleQuantities evaluates a product or quotient of quantities, whose unit is
-// the product or quotient of theirs — `10 [m] / 2 [s]` is `5 [m/s]`.
-func scaleQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
-	return quantityResult(semantics.ScaleQuantities(op, *left, *right))
+// the product or quotient of theirs — `10 [m] / 2 [s]` is `5 ['m/s']`.
+func (ctx *Context) scaleQuantities(op ast.OperatorKind, left, right *Quantity) (Value, error) {
+	return ctx.coherentResult(semantics.ScaleQuantities(op, *left, *right))
 }
 
 // powQuantity raises a quantity to a constant exponent, its unit included.
-func powQuantity(base *Quantity, exponent semantics.Value) (Value, error) {
+func (ctx *Context) powQuantity(base *Quantity, exponent semantics.Value) (Value, error) {
 	if !exponent.IsNumeric() {
 		return Value{}, fmt.Errorf("%w: exponent of a quantity is not a number", ErrTypeMismatch)
 	}
-	return quantityResult(semantics.PowQuantity(*base, exponent))
+	return ctx.coherentResult(semantics.PowQuantity(*base, exponent))
 }
 
 // sqrtQuantity is the square root of a quantity, `9 [m**2]` giving `3.0 [m]`;
 // a unit with a base unit at an odd power has no root, so `sqrt(9 [m])` is rejected.
 // A root the named units cannot spell at whole powers (`km*m`) is taken over the
 // base units instead, unless a dimension-one unit (`rad`, `°`) would be lost there.
-func sqrtQuantity(q *Quantity) (Value, error) {
+func (ctx *Context) sqrtQuantity(q *Quantity) (Value, error) {
 	for _, f := range q.Unit.Term.Factors {
 		if math.Mod(f.Exponent, 2) != 0 {
 			return Value{}, fmt.Errorf("%w: %s (%s) raises %s to the odd power %g",
@@ -203,7 +212,7 @@ func sqrtQuantity(q *Quantity) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return composedQuantity(num, root, term.Pow(0.5))
+	return ctx.composedQuantity(num, root, term.Pow(0.5))
 }
 
 // compareQuantities orders two quantities, converting the right one into the

@@ -3,8 +3,8 @@
   "libraries": true,
   "instantiate": "test::Block",
   "slots": {
-    "volume": {"type": "Quantity", "value": 8, "unit": "m**3"},
-    "edge": {"error": "unit has no root: m**3 (metre^3) raises metre to the odd power 3"},
+    "volume": {"type": "Quantity", "value": 8, "unit": "SI::'m³'"},
+    "edge": {"error": "unit has no root: SI::'m³' (metre^3) raises metre to the odd power 3"},
     "negative": {"error": "sqrt of a negative quantity -4 [m**2]"},
     "turn": {"type": "Quantity", "value": 9, "unit": "rad"},
     "halfTurn": {"error": "unit has no root: rad raises the dimension-one unit rad to the odd power 1"},
