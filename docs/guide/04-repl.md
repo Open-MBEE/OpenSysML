@@ -153,6 +153,14 @@ sysml> %builtins
 sysml> %view Demo::summary
 ```
 
+`%engines` lists the analysis engines the build answers checks with — `run` for one execution,
+`explore` for every linearization, `sweep` for a table, `solve` for the SMT solver, each with
+the strongest evidence it can produce and whether its process was found — and `%engine` picks
+the one the checks that follow are put to (`%engine solve`, `%engine all` for every engine that
+covers the question, `%engine auto` for the default). Every verdict is followed by its
+`standing:` line, saying which engine answered and how strong the evidence is
+([Analysis engines](../reference/cli.md#analysis-engines)).
+
 `%view <name>` reports the elements a view exposes, the views nested inside it, and whether it
 conforms to the viewpoints it satisfies. Conformance checking is read-only and reported in
 declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `unevaluable`,
@@ -344,6 +352,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | which values are best for an analysis case's objectives (experimental, needs [z3](01-install.md#installing-a-solver-optional)) | `%optimize` | [reference](../reference/repl-commands.md) |
 | what a behavior does, step by step | `%action`, `%state`, `%step`, `%tokens`, `%advance` | [6](06-behavior.md) |
 | whether a result depends on the order the run happened to take, and how to replay another | `%schedule`, `%trace` | [6](06-behavior.md#when-a-model-has-more-than-one-valid-run) |
+| which engine answered a check, how strong its evidence is, and which engines the build has | `%engines`, `%engine` | [reference](../reference/cli.md#analysis-engines) |
 | where a run stopped and why | `%trace`, `%budget`, `%verbosity` | [10](10-troubleshooting.md) |
 | whether what is typed is conforming SysML v2 | `%strict` | [3](03-command-line.md#strict-conformance) |
 

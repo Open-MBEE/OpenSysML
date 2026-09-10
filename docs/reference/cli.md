@@ -209,7 +209,9 @@ written in, so the verdicts are about that object:
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
-| `-json` | Reports the checks as one JSON document rather than as lines |
+| `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
+| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does. See [Analysis engines](#analysis-engines) |
+| `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 **Arguments:**
 - `[file...]` - SysML files to load (loaded in order)
@@ -724,6 +726,115 @@ exploration ended as `exploration` (`complete`, `runs`, `budgetsHit`):
 The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run
 ([`%schedule`](repl-commands.md)); a service client explores through the same `schedule` field
 and reads the outcomes off the response ([API](api.md), [wire contract](wire-contract.md)).
+
+## Analysis engines
+
+Every check is a question put to an analysis engine, and every verdict line is followed by its
+**standing**: the claim, the strength of the evidence behind it, and what earned that strength.
+
+```bash
+$ sysml -constraint Rover::MassBudget -constraint Rover::Overweight model.sysml
+✓ package Rover
+✓ Constraint Rover::MassBudget passed
+  standing: holds (observed: 1 run under reverse)
+✗ Constraint Rover::Overweight failed
+  Assertion evaluated to false: 250.0 <= 200.0
+  standing: violated (witnessed: 1 run under reverse)
+```
+
+The strengths, weakest first: *not covered* (no claim is made, and the standing says why —
+the engine's refusal, a solver's `unknown`, a witness that did not replay), *observed* (one
+execution, or an exploration that stopped at its budget), *witnessed* (an existential claim
+exhibited by an execution the interpreter replayed — a violation, a satisfying assignment),
+*bounded* (every case within a stated budget) and *proved* (every case). A universal claim states
+what it ranges over — `holds (proved over schedules: 6 linearizations, inputs as written)` —
+and a budget the engine reached is named in the standing and lowers the strength:
+`outcomes (observed: 1 linearization, inputs as written, runs=1 (reached))`. A budget reached is
+never a proof.
+
+`-engines` tables the engines of the build, in name order, with the authority each carries (the
+strongest strength it may claim for a universal answer), the question kinds it answers and its
+status — `ready`, `ready (z3 at /usr/bin/z3)` for one whose process was found, or
+`unavailable: <why>`:
+
+```bash
+$ sysml -engines
+engine   authority  answers      status
+explore  proved     outcomes     ready
+run      observed   evaluate     ready
+solve    proved     satisfiable  ready (z3 at /usr/bin/z3)
+sweep    observed   sweep        ready
+```
+
+`-engine` selects. `auto`, the default, is the dispatch every check has always had: the engine
+of highest authority that covers the question answers it, and one that refuses or answers *not
+covered* is passed over for the next, each kept in the plan with its reason. `-engine <name>`
+puts the question to that engine alone, and its refusal is the verdict — nothing answers in its
+place, so `-engine explore -constraint C` reports the constraint as not evaluated with
+`explore does not answer evaluate questions` and exits 2:
+
+```bash
+$ sysml -engine explore -constraint Rover::MassBudget model.sysml
+✓ package Rover
+? Constraint Rover::MassBudget could not be evaluated
+  Error: explore does not answer evaluate questions
+  standing: not covered (explore refused: explore does not answer evaluate questions)
+```
+
+`-engine explore -action <name>` explores every linearization exactly as `-schedule explore`
+does, and a budget spelled on `-schedule explore:runs=N,depth=D` bounds it. `-engine all` puts
+the question to every engine that covers it, one after another in name order, and composes what
+they answered: a witnessed violation stands over any universal claim, agreeing universal claims
+stand at the strongest strength any of them earned (never promoted past it), differing
+observed values become a witnessed sensitivity, and a universal claim an execution refutes is a
+**disagreement** — the witness stands, the refuted result is demoted to *not covered* with the
+disagreement as its reason, and the plan records both. The standing under `all` lists each
+engine's part after the composed result:
+
+```
+  standing: holds (observed: 1 run under reverse); all: run holds (observed)
+```
+
+An engine `all` stopped before it answered — the plan's deadline was met — is kept in the plan
+as cancelled with the bound it reached, and the composed result is what the engines that
+finished earned. A name no engine is registered under is refused before anything runs:
+
+```bash
+$ sysml -engine bogus -constraint Rover::MassBudget model.sysml
+invalid value "bogus" for flag -engine: analysis: no engine named "bogus"; the engines are explore, run, solve, sweep, or auto, or all
+```
+
+With `-json` each check carries how it was answered beside the fields it always carried. `plan`
+holds the selection (`engine`: `auto`, `all` or the name), the composed `standing`, one `steps[]`
+entry per engine consulted — its `engine` and `status` (`answered`, `refused`, `failed`,
+`cancelled`), the `detail` of a refusal or fault, the `bounds` a cancelled engine reached — and
+the `disagreements[]` the composition under `all` resolved (`stands`, `demoted`, the demoted
+`claim` and `strength`, `reason`). `results[]` holds one entry per engine that answered:
+`engine`, `claim`, `strength`, `bounds` (every bound the engine took, each with `name`, `limit`
+and whether it was `reached`), `witness` (the replayable execution behind a witnessed claim —
+its `schedule` and `choices` — or `null`), the `reason` of a result claiming nothing, and its
+`standing`. The verdict's `lines` end with the standing line. `results` is absent when no engine
+answered (every one refused), and a check decided before any engine was asked — a subject that
+did not resolve — carries neither key.
+
+```json
+{"checks": [{"subject": "Rover::Overweight", "status": "fails",
+  "lines": ["✗ Constraint Rover::Overweight failed",
+            "  Assertion evaluated to false: 250.0 <= 200.0",
+            "  standing: violated (witnessed: 1 run under reverse)"],
+  "plan": {"engine": "auto", "standing": "violated (witnessed: 1 run under reverse)",
+           "steps": [{"engine": "run", "status": "answered"}]},
+  "results": [{"engine": "run", "claim": "violated", "strength": "witnessed",
+               "bounds": [{"name": "steps", "limit": 10000000, "reached": false},
+                          {"name": "elements", "limit": 1000000, "reached": false}],
+               "witness": {"schedule": "reverse", "choices": []},
+               "reason": "constraint Overweight: assertion evaluated to false: 250.0 <= 200.0",
+               "standing": "violated (witnessed: 1 run under reverse)"}]}]}
+```
+
+The REPL selects with [`%engine`](repl-commands.md) and lists with `%engines`; a service client
+sends the same selection in the `engine` field of a request and reads `engine`, `strength` and
+`bounds` off the response ([wire contract](wire-contract.md)).
 
 ## Output Format
 
