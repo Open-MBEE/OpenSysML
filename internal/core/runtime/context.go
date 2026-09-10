@@ -167,6 +167,9 @@ type Context struct {
 	// the identities it keeps for connectors not yet materialized — run in reverse
 	// as each is undone; see noteProbeUndo.
 	journalUndos []func()
+	// snapshots are the live snapshots of this context, oldest first (snapshot.go);
+	// each is a journal under way.
+	snapshots []*Snapshot
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
@@ -619,30 +622,17 @@ func (ctx *Context) beginRunBoundary() func() {
 // and behaviors attached are journaled until commit keeps them or rollback
 // restores them. A commit inside an enclosing journal leaves the entries to it.
 func (ctx *Context) beginJournal() (commit, rollback func()) {
-	mark, undoMark := len(ctx.journalWrites), len(ctx.journalUndos)
-	created, attached := len(ctx.created), len(ctx.objectBehaviors)
-	messages := slices.Clone(ctx.messages)
-	restoreClock := ctx.clock.snapshot()
+	mark := ctx.markJournal()
 	ctx.journals++
 	commit = func() {
 		ctx.journals--
 		if ctx.journals == 0 {
-			ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:mark], ctx.journalUndos[:undoMark]
+			ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:mark.writes], ctx.journalUndos[:mark.undos]
 		}
 	}
 	rollback = func() {
 		ctx.journals--
-		for i := len(ctx.journalWrites) - 1; i >= mark; i-- {
-			*ctx.journalWrites[i].fv = ctx.journalWrites[i].prior
-		}
-		ctx.journalWrites = ctx.journalWrites[:mark]
-		for i := len(ctx.journalUndos) - 1; i >= undoMark; i-- {
-			ctx.journalUndos[i]()
-		}
-		ctx.journalUndos = ctx.journalUndos[:undoMark]
-		ctx.messages = messages
-		ctx.abandonCreationSince(created, attached)
-		restoreClock()
+		ctx.rollbackJournal(mark)
 	}
 	return commit, rollback
 }

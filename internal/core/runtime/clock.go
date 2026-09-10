@@ -79,13 +79,6 @@ func (c *Clock) forgetFinished() {
 	c.waiters = slices.DeleteFunc(c.waiters, clockWaiter.finished)
 }
 
-// snapshot returns what restores the clock to its current state, for a probe
-// whose preview created executors or moved time.
-func (c *Clock) snapshot() func() {
-	now, waiters := c.now, slices.Clone(c.waiters)
-	return func() { c.now, c.waiters = now, waiters }
-}
-
 // Clock returns the simulation clock every executor of this context shares.
 func (ctx *Context) Clock() *Clock {
 	return &ctx.clock
