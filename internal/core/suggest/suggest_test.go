@@ -168,6 +168,8 @@ func TestQuotingRule(t *testing.T) {
 		{name: "hyphen", names: []string{"T::SA-506"}, want: "Names containing '-' must be quoted."},
 		{name: "several", names: []string{"SA-506", "SA 506", "A.B-1"}, want: "Names containing '-', ' ' or '.' must be quoted."},
 		{name: "leading digit", names: []string{"1st"}, want: "Names containing '1' must be quoted."},
+		{name: "quoted segment", names: []string{"T::'left::right-X'"}, want: "Names containing ':' or '-' must be quoted."},
+		{name: "rooted", names: []string{"$::T::'SA-506'"}, want: "Names containing '-' must be quoted."},
 	}
 
 	for _, tt := range tests {
@@ -238,11 +240,35 @@ func TestNotation(t *testing.T) {
 		"My Pkg::Car":                       "'My Pkg'::Car",
 		"SysML::Systems::TriggerKind::when": "SysML::Systems::TriggerKind::when",
 		"BaseFunctions::#::index":           "BaseFunctions::'#'::index",
+		"$::T::SA-506":                      "$::T::'SA-506'",
+		"T::'left::right-X'":                "T::'left::right-X'",
+		`T::'it\'s::not'::Sub-1`:            `T::'it\'s::not'::'Sub-1'`,
 	}
 	for fqn, want := range tests {
 		if got := suggest.Notation(fqn); got != want {
 			t.Errorf("suggest.Notation(%q) = %q, want %q", fqn, got, want)
 		}
+	}
+}
+
+// TestSpelled covers a registered name typed back with its last segment quoted
+// whole: a `::` inside the name is not read as qualification.
+func TestSpelled(t *testing.T) {
+	tests := []struct{ fqn, name, want string }{
+		{"T::SA-506", "SA-506", "T::'SA-506'"},
+		{"T::left::right-X", "left::right-X", "T::'left::right-X'"},
+		{"My Pkg::left::right-X", "left::right-X", "'My Pkg'::'left::right-X'"},
+		{"$::T::SA-506", "SA-506", "$::T::'SA-506'"},
+		{"SA-506", "SA-506", "'SA-506'"},
+		{"T::Rocket", "Rocket", "T::Rocket"},
+	}
+	for _, tt := range tests {
+		if got := suggest.Spelled(tt.fqn, tt.name); got != tt.want {
+			t.Errorf("suggest.Spelled(%q, %q) = %q, want %q", tt.fqn, tt.name, got, tt.want)
+		}
+	}
+	if got := suggest.Name("left::right-X"); got != "'left::right-X'" {
+		t.Errorf("suggest.Name = %q", got)
 	}
 }
 

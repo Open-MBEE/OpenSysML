@@ -54,6 +54,7 @@ func TestTableUnquotedAndDeclared(t *testing.T) {
 		part def 'SA 507';
 		part def SAT;
 		requirement def 'HLR-R001';
+		part def 'left::right-X';
 	}`)))
 	root := p.ParseFile()
 	if len(p.Diagnostics) != 0 {
@@ -74,6 +75,16 @@ func TestTableUnquotedAndDeclared(t *testing.T) {
 	}
 	if got, want := table.Declared("SA-506"), []string{"T::SA-506"}; !equal(got, want) {
 		t.Errorf("Table.Declared(SA-506) = %v, want %v", got, want)
+	}
+	// A declared name holding `::` is one name, not a path ending in `right-X`.
+	if got, want := table.Unquoted("left"), []string{"left::right-X"}; !equal(got, want) {
+		t.Errorf("Table.Unquoted(left) = %v, want %v", got, want)
+	}
+	if got := table.Unquoted("right"); len(got) > 0 {
+		t.Errorf("Table.Unquoted(right) = %v, want none", got)
+	}
+	if got, want := table.Declared("left::right-X"), []string{"T::left::right-X"}; !equal(got, want) {
+		t.Errorf("Table.Declared(left::right-X) = %v, want %v", got, want)
 	}
 	if got := table.Qualified("SA-506"); len(got) > 0 {
 		t.Errorf("Table.Qualified(SA-506) = %v, want none: the path is not typable bare", got)

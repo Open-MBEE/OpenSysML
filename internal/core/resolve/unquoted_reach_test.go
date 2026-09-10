@@ -86,3 +86,22 @@ func TestUnresolvedGlobalMemberIsOfferedRooted(t *testing.T) {
 		t.Errorf("diagnostic = %q, want %q", got, want)
 	}
 }
+
+// A name holding `::` is offered quoted whole, bare or under its namespace: the
+// spelling typed back must be one segment, not a qualification.
+func TestUnresolvedNameQuotesAnEmbeddedSeparatorWhole(t *testing.T) {
+	const rule = "Names containing ':' or '-' must be quoted."
+	src := `package T {
+		part def 'left::right-X';
+		part d : left;
+	}
+	package U { part e : T::left; }`
+	if got, want := unresolvedMessage(t, src, "left"),
+		"unresolved reference: left — did you mean 'left::right-X'? "+rule; got != want {
+		t.Errorf("bare diagnostic = %q, want %q", got, want)
+	}
+	if got, want := unresolvedMessage(t, src, "T::left"),
+		"unresolved reference: T::left — did you mean T::'left::right-X'? "+rule; got != want {
+		t.Errorf("qualified diagnostic = %q, want %q", got, want)
+	}
+}

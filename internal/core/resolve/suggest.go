@@ -66,19 +66,19 @@ func (r *Resolver) namesSomething(fqn string) bool {
 	return !r.AliasNamesNothing(decl) && r.BindsName(decl)
 }
 
-// unquotedFor returns the declared names name is the unquoted start of, as they
-// read from scope: bare when they resolve there, else by the path declaring them.
+// unquotedFor returns the declared names name is the unquoted start of, as typed
+// from scope: bare when they resolve there, else by the path declaring them.
 func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 	table := r.suggestTable()
 	var cands []suggest.Candidate
 	for _, full := range table.Unquoted(name) {
 		if res := r.walkUnqualified(scope, full); res.ok {
-			cands = append(cands, suggest.Candidate{Spelling: full, InScope: true, Library: r.idx.Library(res.sym)})
+			cands = append(cands, suggest.Candidate{Spelling: suggest.Name(full), InScope: true, Library: r.idx.Library(res.sym)})
 			continue
 		}
 		for _, fqn := range table.Declared(full) {
 			if r.importable(fqn) && r.namesSomething(fqn) {
-				cands = append(cands, suggest.Candidate{Spelling: fqn, Library: r.libraryFQN(fqn)})
+				cands = append(cands, suggest.Candidate{Spelling: suggest.Spelled(fqn, full), Library: r.libraryFQN(fqn)})
 				break
 			}
 		}
@@ -131,7 +131,7 @@ func (r *Resolver) unquotedMembers(scope *symbols.Scope, owner *symbols.Symbol, 
 		if len(r.membersNamed(scope, owner, name, global)) == 0 {
 			continue
 		}
-		out = append(out, prefix+"::"+name)
+		out = append(out, prefix+"::"+suggest.Name(name))
 		if len(out) == suggest.Limit {
 			break
 		}

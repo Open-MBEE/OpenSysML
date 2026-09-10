@@ -34,7 +34,7 @@ func NewTable(idx *symbols.Index) *Table {
 		return t
 	}
 	for _, fqn := range idx.FQNs() {
-		last := LastSegment(fqn)
+		last := simpleName(idx, fqn)
 		if _, seen := t.byName[last]; !seen {
 			n := len([]rune(last))
 			t.byLength[n] = append(t.byLength[n], lowered{name: last, lower: strings.ToLower(last)})
@@ -44,6 +44,15 @@ func NewTable(idx *symbols.Index) *Table {
 	}
 	sort.Strings(t.sorted)
 	return t
+}
+
+// simpleName is the name fqn registers a declaration under: the declared name,
+// which may hold `::` of its own, else the last segment (as a short name is).
+func simpleName(idx *symbols.Index, fqn string) string {
+	if sym := idx.Declaring(fqn); sym != nil && sym.Name != "" {
+		return sym.Name
+	}
+	return LastSegment(fqn)
 }
 
 // Unquoted returns the registered simple names word is the unquoted start of
