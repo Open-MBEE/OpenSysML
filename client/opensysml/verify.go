@@ -289,7 +289,7 @@ func (c *client) EvaluateCalc(
 	symbolID string,
 	arguments ...Value,
 ) (*Calculation, error) {
-	return c.Calculate(ctx, model, symbolID, CalcArguments(arguments...))
+	return c.calculate(ctx, "EvaluateCalc", model, symbolID, calcOptions{arguments: arguments})
 }
 
 // CalcOption configures Calculate.
@@ -323,6 +323,18 @@ func (c *client) Calculate(
 	for _, opt := range opts {
 		opt(&options)
 	}
+	return c.calculate(ctx, "Calculate", model, symbolID, options)
+}
+
+// calculate evaluates the calculation for the method named op, whose name a
+// failure carries.
+func (c *client) calculate(
+	ctx context.Context,
+	op string,
+	model *Model,
+	symbolID string,
+	options calcOptions,
+) (*Calculation, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
@@ -348,7 +360,7 @@ func (c *client) Calculate(
 	diagnostics := diagnosticsFromProto(resp.Diagnostics)
 	if resp.Error != "" {
 		return nil, &VerifyError{
-			FailureError: FailureError{Op: "EvaluateCalc", Message: resp.Error, Diagnostics: diagnostics},
+			FailureError: FailureError{Op: op, Message: resp.Error, Diagnostics: diagnostics},
 			Reason:       Reason(resp.FailureReason),
 		}
 	}

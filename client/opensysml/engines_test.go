@@ -150,6 +150,24 @@ func TestANamedEngineAnswers(t *testing.T) {
 	}
 }
 
+// A failure names the method that was called, Calculate or EvaluateCalc.
+func TestACalculationFailureNamesItsMethod(t *testing.T) {
+	ctx := context.Background()
+	client := newClient(t)
+	model := parse(t, client, verificationSource)
+
+	for op, call := range map[string]func() (*opensysml.Calculation, error){
+		"Calculate":    func() (*opensysml.Calculation, error) { return client.Calculate(ctx, model, "Demo::missing") },
+		"EvaluateCalc": func() (*opensysml.Calculation, error) { return client.EvaluateCalc(ctx, model, "Demo::missing") },
+	} {
+		_, err := call()
+		var failure *opensysml.VerifyError
+		if !errors.As(err, &failure) || failure.Op != op {
+			t.Errorf("%s: err = %v, want a *VerifyError with Op %q", op, err, op)
+		}
+	}
+}
+
 // An engine the service does not register is refused as an invalid argument
 // naming it, on every path that selects one.
 func TestAnUnknownEngineIsInvalidArgument(t *testing.T) {
