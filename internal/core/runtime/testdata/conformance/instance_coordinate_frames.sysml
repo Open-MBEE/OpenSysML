@@ -29,6 +29,8 @@ package test {
 		attribute velocityAxes : SpeedUnit[3] = velocityCF.mRefs;
 		attribute scaledCF : CoordinateFrame = MeasurementRefCalculations::'CoordinateFrame*'(spatialCF, s);
 		attribute sameCF : Boolean = spatialCF / s == velocityCF;
+		attribute units : MeasurementUnit[0..*] = (s);
+		attribute scaledByMember : CoordinateFrame = MeasurementRefCalculations::'CoordinateFrame*'(spatialCF, units);
 
 		attribute p : Position3dVector = (1.0, 2.0, 3.0) [spatialCF];
 		attribute pFrame : CartesianSpatial3dCoordinateFrame = p.mRef;
