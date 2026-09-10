@@ -1,0 +1,1126 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ConditionReferences
+    a sysml:Package ;
+    sysml:qualifiedName "ConditionReferences" ;
+    sysml:elementId "ConditionReferences" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "ConditionReferences" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:ConditionReferences___400, elmt:ConditionReferences__Resistance_om, elmt:ConditionReferences__Rover_om ;
+    sysml:ownedImport elmt:ConditionReferences___400 ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance, elmt:ConditionReferences__Rover ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance_om, elmt:ConditionReferences__Rover_om ;
+    sysx:sourceText "package ConditionReferences {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences___400\"},{\"@id\":\"ConditionReferences__Resistance_om\"},{\"@id\":\"ConditionReferences__Rover_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ConditionReferences__Resistance\"},{\"@id\":\"ConditionReferences__Rover\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance_om\"},{\"@id\":\"ConditionReferences__Rover_om\"}]" .
+
+elmt:ConditionReferences___400
+    a sysml:Import ;
+    sysml:qualifiedName "ConditionReferences::@0" ;
+    sysml:elementId "ConditionReferences___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences ;
+    sysml:owner elmt:ConditionReferences ;
+    sysml:owningRelatedElement elmt:ConditionReferences ;
+    sysml:importOwningNamespace elmt:ConditionReferences ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace "ScalarValues" ;
+    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    private import ScalarValues::*;\n" .
+
+elmt:ConditionReferences__Resistance
+    a sysml:RequirementDefinition ;
+    sysml:qualifiedName "ConditionReferences::Resistance" ;
+    sysml:elementId "ConditionReferences__Resistance" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences ;
+    sysml:owner elmt:ConditionReferences ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance_om ;
+    sysml:declaredName "Resistance" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance__structuralIntegrityMaintained, elmt:ConditionReferences__Resistance__a, elmt:ConditionReferences__Resistance__b, elmt:ConditionReferences__Resistance__x, elmt:ConditionReferences__Resistance___404, elmt:ConditionReferences__Resistance___405, elmt:ConditionReferences__Resistance___406, elmt:ConditionReferences__Resistance___407, elmt:ConditionReferences__Resistance__named, elmt:ConditionReferences__Resistance___409, elmt:ConditionReferences__Resistance__c1, elmt:ConditionReferences__Resistance___4011, elmt:ConditionReferences__Resistance___4012, elmt:ConditionReferences__Resistance___4013 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om, elmt:ConditionReferences__Resistance__a_om, elmt:ConditionReferences__Resistance__b_om, elmt:ConditionReferences__Resistance__x_om, elmt:ConditionReferences__Resistance___404_om, elmt:ConditionReferences__Resistance___405_om, elmt:ConditionReferences__Resistance___406_om, elmt:ConditionReferences__Resistance___407_om, elmt:ConditionReferences__Resistance__named_om, elmt:ConditionReferences__Resistance___409_om, elmt:ConditionReferences__Resistance__c1_om, elmt:ConditionReferences__Resistance___4011_om, elmt:ConditionReferences__Resistance___4012_om, elmt:ConditionReferences__Resistance___4013_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om, elmt:ConditionReferences__Resistance__a_om, elmt:ConditionReferences__Resistance__b_om, elmt:ConditionReferences__Resistance__x_om, elmt:ConditionReferences__Resistance___404_om, elmt:ConditionReferences__Resistance___405_om, elmt:ConditionReferences__Resistance___406_om, elmt:ConditionReferences__Resistance___407_om, elmt:ConditionReferences__Resistance__named_om, elmt:ConditionReferences__Resistance___409_om, elmt:ConditionReferences__Resistance__c1_om, elmt:ConditionReferences__Resistance___4011_om, elmt:ConditionReferences__Resistance___4012_om, elmt:ConditionReferences__Resistance___4013_om ;
+    sysml:ownedFeature elmt:ConditionReferences__Resistance__structuralIntegrityMaintained, elmt:ConditionReferences__Resistance__a, elmt:ConditionReferences__Resistance__b, elmt:ConditionReferences__Resistance__x, elmt:ConditionReferences__Resistance___409, elmt:ConditionReferences__Resistance__c1, elmt:ConditionReferences__Resistance___4011, elmt:ConditionReferences__Resistance___4012, elmt:ConditionReferences__Resistance___4013 ;
+    sysml:ownedFeatureMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om, elmt:ConditionReferences__Resistance__a_om, elmt:ConditionReferences__Resistance__b_om, elmt:ConditionReferences__Resistance__x_om, elmt:ConditionReferences__Resistance___409_om, elmt:ConditionReferences__Resistance__c1_om, elmt:ConditionReferences__Resistance___4011_om, elmt:ConditionReferences__Resistance___4012_om, elmt:ConditionReferences__Resistance___4013_om ;
+    sysx:sourceText "    requirement def Resistance {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"ConditionReferences__Resistance__structuralIntegrityMaintained\"},{\"@id\":\"ConditionReferences__Resistance__a\"},{\"@id\":\"ConditionReferences__Resistance__b\"},{\"@id\":\"ConditionReferences__Resistance__x\"},{\"@id\":\"ConditionReferences__Resistance___404\"},{\"@id\":\"ConditionReferences__Resistance___405\"},{\"@id\":\"ConditionReferences__Resistance___406\"},{\"@id\":\"ConditionReferences__Resistance___407\"},{\"@id\":\"ConditionReferences__Resistance__named\"},{\"@id\":\"ConditionReferences__Resistance___409\"},{\"@id\":\"ConditionReferences__Resistance__c1\"},{\"@id\":\"ConditionReferences__Resistance___4011\"},{\"@id\":\"ConditionReferences__Resistance___4012\"},{\"@id\":\"ConditionReferences__Resistance___4013\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Resistance__structuralIntegrityMaintained_om\"},{\"@id\":\"ConditionReferences__Resistance__a_om\"},{\"@id\":\"ConditionReferences__Resistance__b_om\"},{\"@id\":\"ConditionReferences__Resistance__x_om\"},{\"@id\":\"ConditionReferences__Resistance___404_om\"},{\"@id\":\"ConditionReferences__Resistance___405_om\"},{\"@id\":\"ConditionReferences__Resistance___406_om\"},{\"@id\":\"ConditionReferences__Resistance___407_om\"},{\"@id\":\"ConditionReferences__Resistance__named_om\"},{\"@id\":\"ConditionReferences__Resistance___409_om\"},{\"@id\":\"ConditionReferences__Resistance__c1_om\"},{\"@id\":\"ConditionReferences__Resistance___4011_om\"},{\"@id\":\"ConditionReferences__Resistance___4012_om\"},{\"@id\":\"ConditionReferences__Resistance___4013_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Resistance__structuralIntegrityMaintained_om\"},{\"@id\":\"ConditionReferences__Resistance__a_om\"},{\"@id\":\"ConditionReferences__Resistance__b_om\"},{\"@id\":\"ConditionReferences__Resistance__x_om\"},{\"@id\":\"ConditionReferences__Resistance___404_om\"},{\"@id\":\"ConditionReferences__Resistance___405_om\"},{\"@id\":\"ConditionReferences__Resistance___406_om\"},{\"@id\":\"ConditionReferences__Resistance___407_om\"},{\"@id\":\"ConditionReferences__Resistance__named_om\"},{\"@id\":\"ConditionReferences__Resistance___409_om\"},{\"@id\":\"ConditionReferences__Resistance__c1_om\"},{\"@id\":\"ConditionReferences__Resistance___4011_om\"},{\"@id\":\"ConditionReferences__Resistance___4012_om\"},{\"@id\":\"ConditionReferences__Resistance___4013_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Resistance__structuralIntegrityMaintained\"},{\"@id\":\"ConditionReferences__Resistance__a\"},{\"@id\":\"ConditionReferences__Resistance__b\"},{\"@id\":\"ConditionReferences__Resistance__x\"},{\"@id\":\"ConditionReferences__Resistance___409\"},{\"@id\":\"ConditionReferences__Resistance__c1\"},{\"@id\":\"ConditionReferences__Resistance___4011\"},{\"@id\":\"ConditionReferences__Resistance___4012\"},{\"@id\":\"ConditionReferences__Resistance___4013\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Resistance__structuralIntegrityMaintained_om\"},{\"@id\":\"ConditionReferences__Resistance__a_om\"},{\"@id\":\"ConditionReferences__Resistance__b_om\"},{\"@id\":\"ConditionReferences__Resistance__x_om\"},{\"@id\":\"ConditionReferences__Resistance___409_om\"},{\"@id\":\"ConditionReferences__Resistance__c1_om\"},{\"@id\":\"ConditionReferences__Resistance___4011_om\"},{\"@id\":\"ConditionReferences__Resistance___4012_om\"},{\"@id\":\"ConditionReferences__Resistance___4013_om\"}]" .
+
+elmt:ConditionReferences__Resistance_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance_om" ;
+    sysml:owner elmt:ConditionReferences ;
+    sysml:memberElement elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:owningRelatedElement elmt:ConditionReferences ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences .
+
+elmt:ConditionReferences__Resistance__structuralIntegrityMaintained
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::structuralIntegrityMaintained" ;
+    sysml:elementId "ConditionReferences__Resistance__structuralIntegrityMaintained" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om ;
+    sysml:declaredName "structuralIntegrityMaintained" ;
+    sysml:type "Boolean" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute structuralIntegrityMaintained : Boolean;\n" .
+
+elmt:ConditionReferences__Resistance__structuralIntegrityMaintained_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance__structuralIntegrityMaintained_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__structuralIntegrityMaintained ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__structuralIntegrityMaintained ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__structuralIntegrityMaintained ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance__structuralIntegrityMaintained ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance__a
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::a" ;
+    sysml:elementId "ConditionReferences__Resistance__a" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__a_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__a_om ;
+    sysml:declaredName "a" ;
+    sysml:type "Boolean" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute a : Boolean;\n" .
+
+elmt:ConditionReferences__Resistance__a_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance__a_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__a ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__a ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__a ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance__a ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance__b
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::b" ;
+    sysml:elementId "ConditionReferences__Resistance__b" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__b_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__b_om ;
+    sysml:declaredName "b" ;
+    sysml:type "Boolean" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute b : Boolean;\n" .
+
+elmt:ConditionReferences__Resistance__b_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance__b_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__b ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__b ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__b ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance__b ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance__x
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::x" ;
+    sysml:elementId "ConditionReferences__Resistance__x" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__x_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__x_om ;
+    sysml:declaredName "x" ;
+    sysml:type "Boolean" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute x : Boolean;\n" .
+
+elmt:ConditionReferences__Resistance__x_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance__x_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__x ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__x ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__x ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance__x ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___404
+    a sysx:RequireMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@4" ;
+    sysml:elementId "ConditionReferences__Resistance___404" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___404_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___404_om ;
+    sysx:declaredKeyword "constraint" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___404___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___404___400_om ;
+    sysx:sourceText "        require constraint { structuralIntegrityMaintained }\n" .
+
+elmt:ConditionReferences__Resistance___404_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___404_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___404 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___404 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___404 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___404___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@4::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___404___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___404 ;
+    sysml:owner elmt:ConditionReferences__Resistance___404 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___404___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___404___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___404___400_pcondition .
+
+elmt:ConditionReferences__Resistance___404___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___404___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___404 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___404___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___404 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___404 .
+
+expr:ConditionReferences__Resistance___404___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "structuralIntegrityMaintained" ;
+    sysml:elementId "ConditionReferences__Resistance___404___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Resistance__structuralIntegrityMaintained .
+
+elmt:ConditionReferences__Resistance___405
+    a sysx:RequireMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@5" ;
+    sysml:elementId "ConditionReferences__Resistance___405" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___405_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___405_om ;
+    sysx:declaredKeyword "constraint" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___405___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___405___400_om ;
+    sysx:sourceText "        require constraint { not x }\n" .
+
+elmt:ConditionReferences__Resistance___405_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___405_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___405 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___405 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___405 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___405___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@5::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___405___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___405 ;
+    sysml:owner elmt:ConditionReferences__Resistance___405 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___405___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___405___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___405___400_pcondition .
+
+elmt:ConditionReferences__Resistance___405___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___405 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___405___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___405 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___405 .
+
+expr:ConditionReferences__Resistance___405___400_pcondition
+    a sysml:OperatorExpression ;
+    sysx:sourceText "not x" ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_pcondition" ;
+    sysml:operator "not" ;
+    sysml:argument expr:ConditionReferences__Resistance___405___400_pcondition_pa0 .
+
+expr:ConditionReferences__Resistance___405___400_pcondition_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "ConditionReferences__Resistance___405___400_pcondition_pa0" ;
+    sysml:referent elmt:ConditionReferences__Resistance__x ;
+    sysx:argumentIndex "0"^^xsd:integer .
+
+elmt:ConditionReferences__Resistance___406
+    a sysx:AssumeMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@6" ;
+    sysml:elementId "ConditionReferences__Resistance___406" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___406_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___406_om ;
+    sysx:declaredKeyword "constraint" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___406___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___406___400_om ;
+    sysx:sourceText "        assume constraint { a }\n" .
+
+elmt:ConditionReferences__Resistance___406_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___406_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___406 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___406 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___406 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___406___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@6::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___406___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___406 ;
+    sysml:owner elmt:ConditionReferences__Resistance___406 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___406___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___406___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___406___400_pcondition .
+
+elmt:ConditionReferences__Resistance___406___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___406___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___406 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___406___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___406 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___406 .
+
+expr:ConditionReferences__Resistance___406___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "a" ;
+    sysml:elementId "ConditionReferences__Resistance___406___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Resistance__a .
+
+elmt:ConditionReferences__Resistance___407
+    a sysx:RequireMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@7" ;
+    sysml:elementId "ConditionReferences__Resistance___407" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___407_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___407_om ;
+    sysml:declaredShortName "HLR-R059" ;
+    sysx:declaredKeyword "constraint" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___407___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___407___400_om ;
+    sysx:sourceText "        require constraint <'HLR-R059'> { x }\n" .
+
+elmt:ConditionReferences__Resistance___407_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___407_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___407 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___407 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___407 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___407___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@7::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___407___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___407 ;
+    sysml:owner elmt:ConditionReferences__Resistance___407 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___407___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___407___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___407___400_pcondition .
+
+elmt:ConditionReferences__Resistance___407___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___407___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___407 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___407___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___407 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___407 .
+
+expr:ConditionReferences__Resistance___407___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "ConditionReferences__Resistance___407___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Resistance__x .
+
+elmt:ConditionReferences__Resistance__named
+    a sysx:RequireMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::named" ;
+    sysml:elementId "ConditionReferences__Resistance__named" ;
+    sysx:memberIndex "8"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__named_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__named_om ;
+    sysml:declaredName "named" ;
+    sysml:declaredShortName "HLR-R060" ;
+    sysx:declaredKeyword "constraint" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance__named___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance__named___400_om ;
+    sysx:sourceText "        require constraint <'HLR-R060'> named { a and b }\n" .
+
+elmt:ConditionReferences__Resistance__named_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance__named_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__named ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__named ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__named ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance__named___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::named::@0" ;
+    sysml:elementId "ConditionReferences__Resistance__named___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance__named ;
+    sysml:owner elmt:ConditionReferences__Resistance__named ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__named___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__named___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance__named___400_pcondition .
+
+elmt:ConditionReferences__Resistance__named___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance__named ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__named___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance__named ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance__named .
+
+expr:ConditionReferences__Resistance__named___400_pcondition
+    a sysml:OperatorExpression ;
+    sysx:sourceText "a and b" ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pcondition" ;
+    sysml:operator "and" ;
+    sysml:argument expr:ConditionReferences__Resistance__named___400_pcondition_pa0, expr:ConditionReferences__Resistance__named___400_pcondition_pa1 ;
+    json:argument "[{\"@id\":\"ConditionReferences__Resistance__named___400_pcondition_pa0\"},{\"@id\":\"ConditionReferences__Resistance__named___400_pcondition_pa1\"}]" .
+
+expr:ConditionReferences__Resistance__named___400_pcondition_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "a" ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pcondition_pa0" ;
+    sysml:referent elmt:ConditionReferences__Resistance__a ;
+    sysx:argumentIndex "0"^^xsd:integer .
+
+expr:ConditionReferences__Resistance__named___400_pcondition_pa1
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "b" ;
+    sysml:elementId "ConditionReferences__Resistance__named___400_pcondition_pa1" ;
+    sysml:referent elmt:ConditionReferences__Resistance__b ;
+    sysx:argumentIndex "1"^^xsd:integer .
+
+elmt:ConditionReferences__Resistance___409
+    a sysml:ConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@9" ;
+    sysml:elementId "ConditionReferences__Resistance___409" ;
+    sysx:memberIndex "9"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___409_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___409_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___409___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___409___400_om ;
+    sysx:sourceText "        constraint { a and b }\n" .
+
+elmt:ConditionReferences__Resistance___409_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance___409_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___409 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___409 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___409 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___409 ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___409___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@9::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___409___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___409 ;
+    sysml:owner elmt:ConditionReferences__Resistance___409 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___409___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___409___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___409___400_pcondition .
+
+elmt:ConditionReferences__Resistance___409___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___409 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___409___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___409 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___409 .
+
+expr:ConditionReferences__Resistance___409___400_pcondition
+    a sysml:OperatorExpression ;
+    sysx:sourceText "a and b" ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pcondition" ;
+    sysml:operator "and" ;
+    sysml:argument expr:ConditionReferences__Resistance___409___400_pcondition_pa0, expr:ConditionReferences__Resistance___409___400_pcondition_pa1 ;
+    json:argument "[{\"@id\":\"ConditionReferences__Resistance___409___400_pcondition_pa0\"},{\"@id\":\"ConditionReferences__Resistance___409___400_pcondition_pa1\"}]" .
+
+expr:ConditionReferences__Resistance___409___400_pcondition_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "a" ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pcondition_pa0" ;
+    sysml:referent elmt:ConditionReferences__Resistance__a ;
+    sysx:argumentIndex "0"^^xsd:integer .
+
+expr:ConditionReferences__Resistance___409___400_pcondition_pa1
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "b" ;
+    sysml:elementId "ConditionReferences__Resistance___409___400_pcondition_pa1" ;
+    sysml:referent elmt:ConditionReferences__Resistance__b ;
+    sysx:argumentIndex "1"^^xsd:integer .
+
+elmt:ConditionReferences__Resistance__c1
+    a sysml:ConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::c1" ;
+    sysml:elementId "ConditionReferences__Resistance__c1" ;
+    sysx:memberIndex "10"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__c1_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__c1_om ;
+    sysml:declaredName "c1" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance__c1___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance__c1___400_om ;
+    sysx:sourceText "        constraint c1 { x }\n" .
+
+elmt:ConditionReferences__Resistance__c1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance__c1_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__c1 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__c1 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__c1 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance__c1 ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance__c1___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::c1::@0" ;
+    sysml:elementId "ConditionReferences__Resistance__c1___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance__c1 ;
+    sysml:owner elmt:ConditionReferences__Resistance__c1 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance__c1___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance__c1___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance__c1___400_pcondition .
+
+elmt:ConditionReferences__Resistance__c1___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance__c1___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance__c1 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance__c1___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance__c1 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance__c1 .
+
+expr:ConditionReferences__Resistance__c1___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "ConditionReferences__Resistance__c1___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Resistance__x .
+
+elmt:ConditionReferences__Resistance___4011
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@11" ;
+    sysml:elementId "ConditionReferences__Resistance___4011" ;
+    sysx:memberIndex "11"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___4011_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___4011_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___4011___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___4011___400_om ;
+    sysx:sourceText "        assert constraint { x }\n" .
+
+elmt:ConditionReferences__Resistance___4011_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4011_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___4011 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___4011 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___4011 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___4011 ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___4011___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@11::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___4011___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___4011 ;
+    sysml:owner elmt:ConditionReferences__Resistance___4011 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___4011___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___4011___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___4011___400_pcondition .
+
+elmt:ConditionReferences__Resistance___4011___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4011___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4011 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___4011___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___4011 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___4011 .
+
+expr:ConditionReferences__Resistance___4011___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "ConditionReferences__Resistance___4011___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Resistance__x .
+
+elmt:ConditionReferences__Resistance___4012
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@12" ;
+    sysml:elementId "ConditionReferences__Resistance___4012" ;
+    sysx:memberIndex "12"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___4012_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___4012_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___4012___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___4012___400_om ;
+    sysx:sourceText "        assert constraint { not x }\n" .
+
+elmt:ConditionReferences__Resistance___4012_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4012_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___4012 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___4012 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___4012 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___4012 ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___4012___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@12::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___4012 ;
+    sysml:owner elmt:ConditionReferences__Resistance___4012 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___4012___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___4012___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___4012___400_pcondition .
+
+elmt:ConditionReferences__Resistance___4012___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4012 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___4012___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___4012 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___4012 .
+
+expr:ConditionReferences__Resistance___4012___400_pcondition
+    a sysml:OperatorExpression ;
+    sysx:sourceText "not x" ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_pcondition" ;
+    sysml:operator "not" ;
+    sysml:argument expr:ConditionReferences__Resistance___4012___400_pcondition_pa0 .
+
+expr:ConditionReferences__Resistance___4012___400_pcondition_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "ConditionReferences__Resistance___4012___400_pcondition_pa0" ;
+    sysml:referent elmt:ConditionReferences__Resistance__x ;
+    sysx:argumentIndex "0"^^xsd:integer .
+
+elmt:ConditionReferences__Resistance___4013
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@13" ;
+    sysml:elementId "ConditionReferences__Resistance___4013" ;
+    sysx:memberIndex "13"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___4013_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___4013_om ;
+    sysml:isNegated "true"^^xsd:boolean ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Resistance___4013___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Resistance___4013___400_om ;
+    sysx:sourceText "        assert not constraint { x }\n" .
+
+elmt:ConditionReferences__Resistance___4013_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4013_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___4013 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___4013 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___4013 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Resistance___4013 ;
+    sysml:owningType elmt:ConditionReferences__Resistance .
+
+elmt:ConditionReferences__Resistance___4013___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Resistance::@13::@0" ;
+    sysml:elementId "ConditionReferences__Resistance___4013___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Resistance___4013 ;
+    sysml:owner elmt:ConditionReferences__Resistance___4013 ;
+    sysml:owningRelationship elmt:ConditionReferences__Resistance___4013___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Resistance___4013___400_om ;
+    sysx:condition expr:ConditionReferences__Resistance___4013___400_pcondition .
+
+elmt:ConditionReferences__Resistance___4013___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Resistance___4013___400_om" ;
+    sysml:owner elmt:ConditionReferences__Resistance___4013 ;
+    sysml:memberElement elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Resistance___4013___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Resistance___4013 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Resistance___4013 .
+
+expr:ConditionReferences__Resistance___4013___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "ConditionReferences__Resistance___4013___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Resistance__x .
+
+elmt:ConditionReferences__Rover
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ConditionReferences::Rover" ;
+    sysml:elementId "ConditionReferences__Rover" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences ;
+    sysml:owner elmt:ConditionReferences ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover_om ;
+    sysml:declaredName "Rover" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Rover__ok, elmt:ConditionReferences__Rover__n, elmt:ConditionReferences__Rover___402, elmt:ConditionReferences__Rover___403, elmt:ConditionReferences__Rover___404, elmt:ConditionReferences__Rover__inv1 ;
+    sysml:ownedMembership elmt:ConditionReferences__Rover__ok_om, elmt:ConditionReferences__Rover__n_om, elmt:ConditionReferences__Rover___402_om, elmt:ConditionReferences__Rover___403_om, elmt:ConditionReferences__Rover___404_om, elmt:ConditionReferences__Rover__inv1_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Rover__ok_om, elmt:ConditionReferences__Rover__n_om, elmt:ConditionReferences__Rover___402_om, elmt:ConditionReferences__Rover___403_om, elmt:ConditionReferences__Rover___404_om, elmt:ConditionReferences__Rover__inv1_om ;
+    sysml:ownedFeature elmt:ConditionReferences__Rover__ok, elmt:ConditionReferences__Rover__n, elmt:ConditionReferences__Rover___402, elmt:ConditionReferences__Rover___403, elmt:ConditionReferences__Rover___404, elmt:ConditionReferences__Rover__inv1 ;
+    sysml:ownedFeatureMembership elmt:ConditionReferences__Rover__ok_om, elmt:ConditionReferences__Rover__n_om, elmt:ConditionReferences__Rover___402_om, elmt:ConditionReferences__Rover___403_om, elmt:ConditionReferences__Rover___404_om, elmt:ConditionReferences__Rover__inv1_om ;
+    sysx:sourceText "    part def Rover {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"ConditionReferences__Rover__ok\"},{\"@id\":\"ConditionReferences__Rover__n\"},{\"@id\":\"ConditionReferences__Rover___402\"},{\"@id\":\"ConditionReferences__Rover___403\"},{\"@id\":\"ConditionReferences__Rover___404\"},{\"@id\":\"ConditionReferences__Rover__inv1\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Rover__ok_om\"},{\"@id\":\"ConditionReferences__Rover__n_om\"},{\"@id\":\"ConditionReferences__Rover___402_om\"},{\"@id\":\"ConditionReferences__Rover___403_om\"},{\"@id\":\"ConditionReferences__Rover___404_om\"},{\"@id\":\"ConditionReferences__Rover__inv1_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover__ok_om\"},{\"@id\":\"ConditionReferences__Rover__n_om\"},{\"@id\":\"ConditionReferences__Rover___402_om\"},{\"@id\":\"ConditionReferences__Rover___403_om\"},{\"@id\":\"ConditionReferences__Rover___404_om\"},{\"@id\":\"ConditionReferences__Rover__inv1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ConditionReferences__Rover__ok\"},{\"@id\":\"ConditionReferences__Rover__n\"},{\"@id\":\"ConditionReferences__Rover___402\"},{\"@id\":\"ConditionReferences__Rover___403\"},{\"@id\":\"ConditionReferences__Rover___404\"},{\"@id\":\"ConditionReferences__Rover__inv1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ConditionReferences__Rover__ok_om\"},{\"@id\":\"ConditionReferences__Rover__n_om\"},{\"@id\":\"ConditionReferences__Rover___402_om\"},{\"@id\":\"ConditionReferences__Rover___403_om\"},{\"@id\":\"ConditionReferences__Rover___404_om\"},{\"@id\":\"ConditionReferences__Rover__inv1_om\"}]" .
+
+elmt:ConditionReferences__Rover_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Rover_om" ;
+    sysml:owner elmt:ConditionReferences ;
+    sysml:memberElement elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:owningRelatedElement elmt:ConditionReferences ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences .
+
+elmt:ConditionReferences__Rover__ok
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ConditionReferences::Rover::ok" ;
+    sysml:elementId "ConditionReferences__Rover__ok" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover__ok_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover__ok_om ;
+    sysml:declaredName "ok" ;
+    sysml:type "Boolean" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute ok : Boolean;\n" .
+
+elmt:ConditionReferences__Rover__ok_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Rover__ok_om" ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:memberElement elmt:ConditionReferences__Rover__ok ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover__ok ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover__ok ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Rover__ok ;
+    sysml:owningType elmt:ConditionReferences__Rover .
+
+elmt:ConditionReferences__Rover__n
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ConditionReferences::Rover::n" ;
+    sysml:elementId "ConditionReferences__Rover__n" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover__n_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover__n_om ;
+    sysml:declaredName "n" ;
+    sysml:type "Real" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute n : Real;\n" .
+
+elmt:ConditionReferences__Rover__n_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Rover__n_om" ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:memberElement elmt:ConditionReferences__Rover__n ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover__n ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover__n ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Rover__n ;
+    sysml:owningType elmt:ConditionReferences__Rover .
+
+elmt:ConditionReferences__Rover___402
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Rover::@2" ;
+    sysml:elementId "ConditionReferences__Rover___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___402_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___402_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Rover___402___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Rover___402___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Rover___402___400_om ;
+    sysx:sourceText "        assert constraint { ok }\n" .
+
+elmt:ConditionReferences__Rover___402_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Rover___402_om" ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:memberElement elmt:ConditionReferences__Rover___402 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___402 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___402 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Rover___402 ;
+    sysml:owningType elmt:ConditionReferences__Rover .
+
+elmt:ConditionReferences__Rover___402___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Rover::@2::@0" ;
+    sysml:elementId "ConditionReferences__Rover___402___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover___402 ;
+    sysml:owner elmt:ConditionReferences__Rover___402 ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___402___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___402___400_om ;
+    sysx:condition expr:ConditionReferences__Rover___402___400_pcondition .
+
+elmt:ConditionReferences__Rover___402___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Rover___402___400_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___402 ;
+    sysml:memberElement elmt:ConditionReferences__Rover___402___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___402___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___402___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___402 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___402 .
+
+expr:ConditionReferences__Rover___402___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "ok" ;
+    sysml:elementId "ConditionReferences__Rover___402___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Rover__ok .
+
+elmt:ConditionReferences__Rover___403
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Rover::@3" ;
+    sysml:elementId "ConditionReferences__Rover___403" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___403_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___403_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Rover___403___400, elmt:ConditionReferences__Rover___403___401 ;
+    sysml:ownedMembership elmt:ConditionReferences__Rover___403___400_om, elmt:ConditionReferences__Rover___403___401_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Rover___403___400_om, elmt:ConditionReferences__Rover___403___401_om ;
+    sysx:sourceText "        assert constraint {\n" ;
+    sysx:sourceTail "        }\n" ;
+    json:ownedMember "[{\"@id\":\"ConditionReferences__Rover___403___400\"},{\"@id\":\"ConditionReferences__Rover___403___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConditionReferences__Rover___403___400_om\"},{\"@id\":\"ConditionReferences__Rover___403___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConditionReferences__Rover___403___400_om\"},{\"@id\":\"ConditionReferences__Rover___403___401_om\"}]" .
+
+elmt:ConditionReferences__Rover___403_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Rover___403_om" ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:memberElement elmt:ConditionReferences__Rover___403 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___403 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___403 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Rover___403 ;
+    sysml:owningType elmt:ConditionReferences__Rover .
+
+elmt:ConditionReferences__Rover___403___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Rover::@3::@0" ;
+    sysml:elementId "ConditionReferences__Rover___403___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover___403 ;
+    sysml:owner elmt:ConditionReferences__Rover___403 ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___403___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___403___400_om ;
+    sysx:condition expr:ConditionReferences__Rover___403___400_pcondition ;
+    sysx:sourceText "            n > 0\n" .
+
+elmt:ConditionReferences__Rover___403___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Rover___403___400_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___403 ;
+    sysml:memberElement elmt:ConditionReferences__Rover___403___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___403___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___403___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___403 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___403 .
+
+expr:ConditionReferences__Rover___403___400_pcondition
+    a sysml:OperatorExpression ;
+    sysx:sourceText "n > 0" ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pcondition" ;
+    sysml:operator ">" ;
+    sysml:argument expr:ConditionReferences__Rover___403___400_pcondition_pa0, expr:ConditionReferences__Rover___403___400_pcondition_pa1 ;
+    json:argument "[{\"@id\":\"ConditionReferences__Rover___403___400_pcondition_pa0\"},{\"@id\":\"ConditionReferences__Rover___403___400_pcondition_pa1\"}]" .
+
+expr:ConditionReferences__Rover___403___400_pcondition_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "n" ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pcondition_pa0" ;
+    sysml:referent elmt:ConditionReferences__Rover__n ;
+    sysx:argumentIndex "0"^^xsd:integer .
+
+expr:ConditionReferences__Rover___403___400_pcondition_pa1
+    a sysml:LiteralInteger ;
+    sysx:sourceText "0" ;
+    sysml:elementId "ConditionReferences__Rover___403___400_pcondition_pa1" ;
+    sysml:value "0"^^xsd:integer ;
+    sysx:argumentIndex "1"^^xsd:integer .
+
+elmt:ConditionReferences__Rover___403___401
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Rover::@3::@1" ;
+    sysml:elementId "ConditionReferences__Rover___403___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover___403 ;
+    sysml:owner elmt:ConditionReferences__Rover___403 ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___403___401_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___403___401_om ;
+    sysx:condition expr:ConditionReferences__Rover___403___401_pcondition ;
+    sysx:sourceText "            ok\n" .
+
+elmt:ConditionReferences__Rover___403___401_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Rover___403___401_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___403 ;
+    sysml:memberElement elmt:ConditionReferences__Rover___403___401 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___403___401 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___403___401 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___403 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___403 .
+
+expr:ConditionReferences__Rover___403___401_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "ok" ;
+    sysml:elementId "ConditionReferences__Rover___403___401_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Rover__ok .
+
+elmt:ConditionReferences__Rover___404
+    a sysml:ConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Rover::@4" ;
+    sysml:elementId "ConditionReferences__Rover___404" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___404_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___404_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Rover___404___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Rover___404___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Rover___404___400_om ;
+    sysx:sourceText "        constraint { ok }\n" .
+
+elmt:ConditionReferences__Rover___404_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Rover___404_om" ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:memberElement elmt:ConditionReferences__Rover___404 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___404 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___404 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Rover___404 ;
+    sysml:owningType elmt:ConditionReferences__Rover .
+
+elmt:ConditionReferences__Rover___404___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Rover::@4::@0" ;
+    sysml:elementId "ConditionReferences__Rover___404___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover___404 ;
+    sysml:owner elmt:ConditionReferences__Rover___404 ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover___404___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover___404___400_om ;
+    sysx:condition expr:ConditionReferences__Rover___404___400_pcondition .
+
+elmt:ConditionReferences__Rover___404___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Rover___404___400_om" ;
+    sysml:owner elmt:ConditionReferences__Rover___404 ;
+    sysml:memberElement elmt:ConditionReferences__Rover___404___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover___404___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover___404___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover___404 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover___404 .
+
+expr:ConditionReferences__Rover___404___400_pcondition
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "ok" ;
+    sysml:elementId "ConditionReferences__Rover___404___400_pcondition" ;
+    sysml:referent elmt:ConditionReferences__Rover__ok .
+
+elmt:ConditionReferences__Rover__inv1
+    a sysml:ConstraintUsage ;
+    sysml:qualifiedName "ConditionReferences::Rover::inv1" ;
+    sysml:elementId "ConditionReferences__Rover__inv1" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover__inv1_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover__inv1_om ;
+    sysml:declaredName "inv1" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:ownedMembership elmt:ConditionReferences__Rover__inv1___400_om ;
+    sysml:ownedRelationship elmt:ConditionReferences__Rover__inv1___400_om ;
+    sysx:sourceText "        constraint inv1 { not ok }\n" .
+
+elmt:ConditionReferences__Rover__inv1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ConditionReferences__Rover__inv1_om" ;
+    sysml:owner elmt:ConditionReferences__Rover ;
+    sysml:memberElement elmt:ConditionReferences__Rover__inv1 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover__inv1 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover__inv1 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover ;
+    sysml:ownedMemberFeature elmt:ConditionReferences__Rover__inv1 ;
+    sysml:owningType elmt:ConditionReferences__Rover .
+
+elmt:ConditionReferences__Rover__inv1___400
+    a sysx:ConstraintMember ;
+    sysml:qualifiedName "ConditionReferences::Rover::inv1::@0" ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConditionReferences__Rover__inv1 ;
+    sysml:owner elmt:ConditionReferences__Rover__inv1 ;
+    sysml:owningRelationship elmt:ConditionReferences__Rover__inv1___400_om ;
+    sysml:owningMembership elmt:ConditionReferences__Rover__inv1___400_om ;
+    sysx:condition expr:ConditionReferences__Rover__inv1___400_pcondition .
+
+elmt:ConditionReferences__Rover__inv1___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_om" ;
+    sysml:owner elmt:ConditionReferences__Rover__inv1 ;
+    sysml:memberElement elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:ownedMemberElement elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:ownedRelatedElement elmt:ConditionReferences__Rover__inv1___400 ;
+    sysml:owningRelatedElement elmt:ConditionReferences__Rover__inv1 ;
+    sysml:membershipOwningNamespace elmt:ConditionReferences__Rover__inv1 .
+
+expr:ConditionReferences__Rover__inv1___400_pcondition
+    a sysml:OperatorExpression ;
+    sysx:sourceText "not ok" ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_pcondition" ;
+    sysml:operator "not" ;
+    sysml:argument expr:ConditionReferences__Rover__inv1___400_pcondition_pa0 .
+
+expr:ConditionReferences__Rover__inv1___400_pcondition_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "ok" ;
+    sysml:elementId "ConditionReferences__Rover__inv1___400_pcondition_pa0" ;
+    sysml:referent elmt:ConditionReferences__Rover__ok ;
+    sysx:argumentIndex "0"^^xsd:integer .

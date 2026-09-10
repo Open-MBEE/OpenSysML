@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/project"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -328,15 +330,28 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 	if _, explores := s.exploring(); explores {
 		return s.exploreAction(name, performer)
 	}
-	started, err := s.startAction(name, performer)
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
+	}
+	done, err := evaluate(s, name, ctx, func(*runtime.Context) (performed, error) {
+		started, err := s.startAction(name, performer)
+		if err != nil {
+			return performed{}, err
+		}
+		lines, values, err := s.continueAction()
+		return performed{lines: append(started, lines...), values: values}, err
+	}, func(_ performed, err error) analysis.Answer {
+		if err != nil {
+			return analysis.Answer{Err: err}
+		}
+		exec := s.actionExec.executor
+		return behaviorAnswer(exec.State() == runtime.StateCompleted, "stopped at "+exec.State().String(), exec.Results(), nil)
+	})
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, err.Error()))
 	}
-	lines, values, err := s.continueAction()
-	if err != nil {
-		return s.withTrace(unresolvedVerdict(name, err.Error()))
-	}
-	lines = append(started, lines...)
+	lines, values := done.lines, done.values
 	if state := s.actionExec.executor.State(); state != runtime.StateCompleted {
 		lines = append(lines, fmt.Sprintf("error: action %s stopped at %s without completing", name, state))
 		return s.withTrace(Verdict{Subject: name, Status: VerdictUnresolved, Lines: lines, Values: values})
@@ -427,11 +442,20 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 	}()
 
 	var contexts []*runtime.Context
+	names := make([]string, 0, len(runs))
 	for _, r := range runs {
 		contexts = append(contexts, r.action.contextOf(), r.state.contextOf())
+		names = append(names, r.name)
 	}
 	contexts = distinctContexts(contexts...)
-	moved, failed, err := s.advanceContexts(contexts, duration)
+	var (
+		moved  advanceOutcome
+		failed []string
+		err    error
+	)
+	if len(contexts) > 0 {
+		moved, failed, err = s.advanceFor(strings.Join(names, ", "), contexts, duration)
+	}
 
 	// The drain is one operation over every behavior, so what it did is reported
 	// once, with the first behavior that ran; each then reports where it stands.
@@ -493,17 +517,31 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 	if _, explores := s.exploring(); explores {
 		return s.exploreStateMachine(name, duration, performer)
 	}
-	started, err := s.startStateMachine(name, performer)
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
+	}
+	lines, err := evaluate(s, name, ctx, func(*runtime.Context) ([]string, error) {
+		lines, err := s.startStateMachine(name, performer)
+		if err != nil {
+			return nil, err
+		}
+		if duration != nil {
+			advanced, err := s.advanceBy(*duration)
+			if err != nil {
+				return nil, err
+			}
+			lines = append(lines, advanced...)
+		}
+		return lines, nil
+	}, func(_ []string, err error) analysis.Answer {
+		if err != nil {
+			return analysis.Answer{Err: err}
+		}
+		return behaviorAnswer(true, "", s.stateExec.executor.StateData(), nil)
+	})
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, err.Error()))
-	}
-	lines := started
-	if duration != nil {
-		advanced, err := s.advanceBy(*duration)
-		if err != nil {
-			return s.withTrace(unresolvedVerdict(name, err.Error()))
-		}
-		lines = append(lines, advanced...)
 	}
 	exec := s.stateExec.executor
 	values := []NamedValue{

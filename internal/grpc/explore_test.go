@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -313,6 +314,25 @@ func TestExploreIsUnimplementedWithoutItsCapability(t *testing.T) {
 	for _, c := range info.Capabilities {
 		if c == CapabilityScheduleExplore {
 			t.Errorf("capabilities %v advertise %s, which the service withholds", info.Capabilities, c)
+		}
+	}
+}
+
+// A caller that has gone away fails the call with its own error, whether the
+// behavior was to run once or be explored; neither is a failed run or an unmet
+// precondition.
+func TestExecuteActionCanceledCallerFailsTheCall(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, exploreModel, "explore-canceled")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, schedule := range []string{"", "explore"} {
+		resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{ModelHash: hash, ActionSymbolId: "Race::race", Schedule: schedule})
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("schedule %q: err = %v; want context.Canceled", schedule, err)
+		}
+		if resp != nil {
+			t.Errorf("schedule %q: a canceled call answered %v; want no response", schedule, resp)
 		}
 	}
 }

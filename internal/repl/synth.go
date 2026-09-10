@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -28,15 +29,35 @@ func (s *Session) solveValues(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solver, err := solve.Discover()
+	solved, err := s.solveWith(name, queries, synthesise)
 	if err != nil {
 		return []SolveReport{unavailableReport(name, err.Error())}
 	}
 	reports := make([]SolveReport, 0, len(queries))
-	for _, q := range queries {
-		reports = append(reports, s.synthesise(name, solver, q, unfixed))
+	for i, q := range queries {
+		reports = append(reports, synthesisReport(name, q, solved[i], unfixed))
 	}
 	return reports
+}
+
+// synthesise asks the solver for one satisfying assignment and, when none is consistent
+// with the values fixed, for the conflict, so the report can name the fixed values in it.
+func synthesise(solver *solve.Solver, ctx context.Context, q *solve.Query) (*solve.Result, error) {
+	result, err := solver.Solve(ctx, q)
+	if err != nil || result.Status != solve.StatusUnsat || q.Rounded() || !q.Fixes() {
+		return result, err
+	}
+	return withConflict(solver, ctx, q, result), nil
+}
+
+// withConflict attaches to an unsat verdict the conflict behind it. A solver
+// that will not explain leaves the verdict standing without one.
+func withConflict(solver *solve.Solver, ctx context.Context, q *solve.Query, result *solve.Result) *solve.Result {
+	explained, err := solver.Explain(ctx, q)
+	if err == nil && explained.Status == solve.StatusUnsat {
+		result.Core = explained.Core
+	}
+	return result
 }
 
 // declaredPins reads the values the model already fixes for the element a query
@@ -81,12 +102,10 @@ func owningElement(sym *symbols.Symbol) *symbols.Symbol {
 	return sym.OwnerScope.Owner()
 }
 
-// synthesise asks the solver for one satisfying assignment and reports it: the
-// values that were fixed, then the ones the solver chose. An unsat verdict about
-// a query that fixes values says no values exist consistent with those, which is
-// not the plain unsatisfiability of the conditions.
-func (s *Session) synthesise(name string, solver *solve.Solver, q *solve.Query, unfixed []solve.Unfixed) SolveReport {
-	result, err := solver.Solve(context.Background(), q)
+// synthesisReport reports one satisfying assignment, fixed values first; unsat over fixed
+// values says none exist consistent with those, not that the conditions are unsatisfiable.
+func synthesisReport(name string, q *solve.Query, solved analysis.Evaluation, unfixed []solve.Unfixed) SolveReport {
+	result, err := solved.Solved, solved.Err
 	if err != nil {
 		return unavailableReport(name, err.Error())
 	}
@@ -105,7 +124,7 @@ func (s *Session) synthesise(name string, solver *solve.Solver, q *solve.Query, 
 			return report
 		}
 		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver,
-			Lines: s.noValuesLines(subject, solver, q, result, unfixed)}
+			Lines: noValuesLines(subject, q, result, unfixed)}
 	default:
 		lines := []string{fmt.Sprintf("? %s has no values decided either way (%s)", subject, solveDetail(result))}
 		if reason := solveReason(result, q); reason != "" {
@@ -133,13 +152,7 @@ func roundedNoValuesReport(name, subject string, result *solve.Result, q *solve.
 // noValuesLines reports that no values satisfy the element, distinguishing values
 // that conflict with what is already fixed from conditions that conflict on their
 // own, and naming which fixed values take part in the conflict.
-func (s *Session) noValuesLines(
-	subject string,
-	solver *solve.Solver,
-	q *solve.Query,
-	result *solve.Result,
-	unfixed []solve.Unfixed,
-) []string {
+func noValuesLines(subject string, q *solve.Query, result *solve.Result, unfixed []solve.Unfixed) []string {
 	if !q.Fixes() {
 		lines := []string{fmt.Sprintf("✗ %s has no satisfying values: its conditions conflict on their own (%s)",
 			subject, solveDetail(result))}
@@ -149,20 +162,18 @@ func (s *Session) noValuesLines(
 	lines := []string{fmt.Sprintf("✗ %s has no values consistent with the %s already fixed (%s)",
 		subject, plural(len(q.Pinned), "value", "values"), solveDetail(result))}
 	lines = append(lines, fixedLines(q)...)
-	lines = append(lines, s.conflictingFixed(solver, q)...)
+	lines = append(lines, conflictingFixed(q, result.Core)...)
 	return append(lines, unfixedLines(unfixed)...)
 }
 
-// conflictingFixed asks for the conflict behind an unsat verdict and names the
-// fixed values taking part in it. A solver that will not explain leaves the
-// verdict standing, which the fixed values above already report.
-func (s *Session) conflictingFixed(solver *solve.Solver, q *solve.Query) []string {
-	result, err := solver.Explain(context.Background(), q)
-	if err != nil || result.Status != solve.StatusUnsat || result.Core == nil {
+// conflictingFixed names the fixed values taking part in the conflict behind an unsat
+// verdict; without a conflict there is nothing the fixed values above do not already say.
+func conflictingFixed(q *solve.Query, core *solve.Core) []string {
+	if core == nil {
 		return nil
 	}
 	var conflicting []string
-	for _, i := range result.Core.Indices {
+	for _, i := range core.Indices {
 		for _, pinned := range q.Pinned {
 			if pinned.Index == i {
 				conflicting = append(conflicting, notationName(pinned.Var.Name)+" = "+pinned.Value)
@@ -280,13 +291,13 @@ func (s *Session) configureVariants(name string, args []string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solver, derr := solve.Discover()
-	if derr != nil {
-		return []SolveReport{unavailableReport(name, derr.Error())}
+	configured, err := s.solveWith(name, queries, request.ask(name))
+	if err != nil {
+		return []SolveReport{unavailableReport(name, err.Error())}
 	}
 	reports := make([]SolveReport, 0, len(queries))
-	for _, q := range queries {
-		reports = append(reports, s.configureQuery(name, solver, q, request))
+	for i, q := range queries {
+		reports = append(reports, configureReport(name, q, configured[i], request))
 	}
 	return reports
 }
@@ -336,29 +347,50 @@ func parseConfigure(args []string) (configureRequest, error) {
 	return request, nil
 }
 
-// configureQuery answers one query: checking the selection given, enumerating
-// consistent selections, or synthesising one.
-func (s *Session) configureQuery(
-	name string,
-	solver *solve.Solver,
-	q *solve.Query,
-	request configureRequest,
-) SolveReport {
-	variations := q.Variations()
-	if len(variations) == 0 {
-		return unavailableReport(name, fmt.Sprintf("%s: %s. Use %%check %s for satisfiability",
-			solveSubject(q), solve.ErrNoVariations, name))
-	}
-	if len(request.chosen) > 0 {
-		if err := chooseVariants(q, variations, request); err != nil {
-			return unavailableReport(name, err.Error())
+// ask puts one query to the solver: chosen variants fixed and an inconsistent selection
+// explained; for `all` an enumeration, withheld where the evaluator rounds; else one solve.
+func (r configureRequest) ask(name string) analysis.Asking {
+	return func(solver *solve.Solver, ctx context.Context, q *solve.Query) (*solve.Result, error) {
+		variations := q.Variations()
+		if len(variations) == 0 {
+			return nil, fmt.Errorf("%s: %s. Use %%check %s for satisfiability", solveSubject(q), solve.ErrNoVariations, name)
 		}
-		return s.checkSelection(name, solver, q)
+		switch {
+		case len(r.chosen) > 0:
+			if err := chooseVariants(q, variations, r); err != nil {
+				return nil, err
+			}
+			result, err := solver.Solve(ctx, q)
+			if err != nil || result.Status != solve.StatusUnsat || q.Rounded() {
+				return result, err
+			}
+			return withConflict(solver, ctx, q, result), nil
+		case r.all:
+			// Enumerating "all" selections over conditions the evaluator rounds would
+			// claim exact-real completeness the evaluator's arithmetic may not share.
+			if q.Rounded() {
+				return nil, nil
+			}
+			return solver.Configurations(ctx, q, r.limit)
+		}
+		return solver.Solve(ctx, q)
 	}
-	if request.all {
-		return s.enumerateConfigurations(name, solver, q, request.limit)
+}
+
+// configureReport renders one query's answer: the selection given checked,
+// the consistent selections enumerated, or one synthesised.
+func configureReport(name string, q *solve.Query, configured analysis.Evaluation, request configureRequest) SolveReport {
+	result, err := configured.Solved, configured.Err
+	if err != nil {
+		return unavailableReport(name, err.Error())
 	}
-	return s.synthesiseConfiguration(name, solver, q, variations)
+	switch {
+	case len(request.chosen) > 0:
+		return selectionReport(name, q, result)
+	case request.all:
+		return configurationsReport(name, q, result)
+	}
+	return configurationReport(name, q, result)
 }
 
 // chooseVariants fixes each chosen variant in the query, resolving the names
@@ -460,13 +492,9 @@ func notationNames(names []string) []string {
 	return out
 }
 
-// checkSelection reports whether the chosen variants are consistent with the
+// selectionReport reports whether the chosen variants are consistent with the
 // element's conditions.
-func (s *Session) checkSelection(name string, solver *solve.Solver, q *solve.Query) SolveReport {
-	result, err := solver.Solve(context.Background(), q)
-	if err != nil {
-		return unavailableReport(name, err.Error())
-	}
+func selectionReport(name string, q *solve.Query, result *solve.Result) SolveReport {
 	subject := solveSubject(q)
 	switch result.Status {
 	case solve.StatusSat:
@@ -484,7 +512,7 @@ func (s *Session) checkSelection(name string, solver *solve.Solver, q *solve.Que
 		lines := []string{fmt.Sprintf("✗ the chosen variants are not consistent with %s (%s)", subject, solveDetail(result))}
 		lines = append(lines, fixedLines(q)...)
 		return SolveReport{Subject: name, Status: SolveUnsat, Solver: result.Solver,
-			Lines: append(lines, s.conflictingFixed(solver, q)...)}
+			Lines: append(lines, conflictingFixed(q, result.Core)...)}
 	default:
 		lines := []string{fmt.Sprintf("? whether the chosen variants are consistent with %s is undecided (%s)",
 			subject, solveDetail(result))}
@@ -495,22 +523,13 @@ func (s *Session) checkSelection(name string, solver *solve.Solver, q *solve.Que
 	}
 }
 
-// synthesiseConfiguration reports one consistent selection of variants.
-func (s *Session) synthesiseConfiguration(
-	name string,
-	solver *solve.Solver,
-	q *solve.Query,
-	variations []*solve.Var,
-) SolveReport {
-	result, err := solver.Solve(context.Background(), q)
-	if err != nil {
-		return unavailableReport(name, err.Error())
-	}
+// configurationReport reports one consistent selection of variants.
+func configurationReport(name string, q *solve.Query, result *solve.Result) SolveReport {
 	subject := solveSubject(q)
 	switch result.Status {
 	case solve.StatusSat:
 		lines := []string{fmt.Sprintf("✓ %s permits a selection of variants (%s)", subject, solveDetail(result))}
-		lines = append(lines, selectionLines(selectionOf(result.Model, variations))...)
+		lines = append(lines, selectionLines(selectionOf(result.Model, q.Variations()))...)
 		lines = append(lines, fmt.Sprintf("  One witness: use %%configure %s all for every consistent selection.", name))
 		return SolveReport{Subject: name, Status: SolveSat, Solver: result.Solver, Lines: lines}
 	case solve.StatusUnsat:
@@ -533,21 +552,14 @@ func (s *Session) synthesiseConfiguration(
 	}
 }
 
-// enumerateConfigurations reports the consistent selections of variants, up to
-// the bound, saying when it stopped at the bound rather than having shown there
-// is no other.
-func (s *Session) enumerateConfigurations(name string, solver *solve.Solver, q *solve.Query, limit int) SolveReport {
-	// Enumerating "all" selections over conditions the evaluator rounds would
-	// claim exact-real completeness the evaluator's arithmetic may not share.
-	if q.Rounded() {
+// configurationsReport reports the consistent selections of variants up to the bound, saying
+// when it stopped there rather than showing there is no other; withheld is undecided.
+func configurationsReport(name string, q *solve.Query, result *solve.Result) SolveReport {
+	if result == nil {
 		return SolveReport{Subject: name, Status: SolveUnknown, Lines: []string{
 			fmt.Sprintf("? which variants %s permits is undecided", solveSubject(q)),
 			"  " + roundedClaim,
 		}}
-	}
-	result, err := solver.Configurations(context.Background(), q, limit)
-	if err != nil {
-		return unavailableReport(name, err.Error())
 	}
 	subject := solveSubject(q)
 	if result.Status == solve.StatusUnknown {

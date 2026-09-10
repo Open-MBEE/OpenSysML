@@ -101,7 +101,7 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 		}
 		return outcome, err
 	}
-	x, err := runtime.Explore(policy, fresh, traced)
+	x, err := s.explore(subject, policy, fresh, traced)
 	if err != nil {
 		return unresolvedVerdict(subject, err.Error())
 	}

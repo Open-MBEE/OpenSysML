@@ -6,11 +6,27 @@ this external tool compute for this analysis case* — by dispatching each quest
 more **engines** registered against a common contract, running them in parallel under one
 budget, and composing their answers under one vocabulary of evidence. The interpreter, the
 `explore` scheduling policy, the parameter sweep, the SMT constraint solver, the proposed
-behavioral model checkers and external simulators all become engines. Nothing here is
-implemented. The note fixes the engine contract, the registry, how a question chooses engines,
-what a composed result may claim, how runs are isolated so they can be parallel, and how the
-existing surfaces migrate without changing what they mean, so the work can be reviewed before
-code is written.
+behavioral model checkers and external simulators all become engines. The note fixes the
+engine contract, the registry, how a question chooses engines, what a composed result may
+claim, how runs are isolated so they can be parallel, and how the existing surfaces migrate
+without changing what they mean.
+
+**Status.** Stage 1 of the [stages](#stages) below is implemented: `internal/core/analysis`
+holds the contract (`Question`, `Engine`, `Result`, `Claim`, `Strength`, `Bounds`, `Budget`),
+the registry and `auto` dispatch, and the `run`, `explore`, `sweep` and `solve` engines as
+adapters over the interpreter, `runtime.Explore`, `Context.RunSweep` and `internal/core/solve`.
+The REPL session and the gRPC service each own a `Default()` registry and put every question the
+migration table lists to it; nothing a user sees has changed. Stages 2 to 6 — isolation, parallel
+runs, the user surface, tools and the model checkers — are not implemented, so the sections on
+parallel execution, external tools and the user surface still describe a design. Two readings
+the implementation took where the note left room: the `%run` in the migration table is the REPL
+commands that share the CLI flags' code (there is no meta-command of that name), and a `solve`
+question is one per element with that element's condition sets as its queries, so the solver is
+found once per element and its absence is reported once, as before. Of the `Budget`, the
+fields whose limits an engine builds for itself are applied by it — `Runs` and `Depth` by
+`explore`, `Solver` by `solve` — while `Steps` and `Memory` are the limits the surface's runtime
+context already enforces, carried so a result can name them; `Deadline` and `Jobs` are carried
+unread until the parallel-runs stage gives them a coordinator.
 
 This is the framework that the two model-checking designs are written into:
 [bounded model checking](bounded-model-checking.md) explores the executor and
@@ -62,10 +78,10 @@ turns a question into the engines that can answer it.
 
 ## What exists to build on
 
-- **`Explore(policy, fresh, run)`** is already the isolation shape a parallel run needs: the
-  caller supplies a function that builds a fresh `runtime.Context`, and each linearization runs
-  in its own. Nothing about a run leaks into the next except the recorded choice prefix that
-  picks the next one.
+- **`Explore(stop, policy, fresh, run)`** is already the isolation shape a parallel run needs:
+  the caller supplies a function that builds a fresh `runtime.Context`, and each linearization
+  runs in its own. Nothing about a run leaks into the next except the recorded choice prefix
+  that picks the next one, and a caller that goes away ends the exploration between runs.
 - **`solve.Capabilities`** and **`solve.Discover`** are a capability declaration and a probe: a
   backend is asked once what it supports (models, unsat cores, incremental checks, datatypes,
   strings, nonlinear arithmetic, optimization) and a query that needs more is refused with a
@@ -580,7 +596,11 @@ behavior unchanged until stage 4.
 
 1. **Contract and registry.** `Question`, `Engine`, `Result`, `Strength`, `Budget`; the
    registry; `run`, `explore`, `sweep` and `solve` as adapters over existing code; every
-   existing surface routed through `auto`. No output changes.
+   existing surface routed through `auto`. No output changes. *Implemented:*
+   `internal/core/analysis`, with the registry and dispatch tests of the test contract, the
+   `auto` clauses of its dispatch bullet, and the existing goldens passing through the engines.
+   The `Strength` and `Claim` orderings are in place; the strength-scale tests proper, `all` and
+   the disagreement result belong to stage 4.
 2. **Isolation.** Resolver and semantic model per worker over the shared frozen index; the
    gRPC service and the REPL session release their locks while a plan runs; the `-race`
    isolation tests.

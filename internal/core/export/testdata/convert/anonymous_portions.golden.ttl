@@ -297,8 +297,8 @@ elmt:AnonymousPortions__car___402
     sysx:declaredKeyword "snapshot" ;
     sysml:isPortion "true"^^xsd:boolean ;
     sysml:portionKind "snapshot" ;
-    sysml:redefines "done" ;
     sysml:subsets elmt:AnonymousPortions__Vehicle__fuel ;
+    sysml:redefines "done" ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:AnonymousPortions__car___402___400 ;
     sysml:ownedMembership elmt:AnonymousPortions__car___402___400_om ;

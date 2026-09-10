@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -119,8 +120,10 @@ func (x *Exploration) Status() string {
 }
 
 // Explore runs a behavior once per linearization within the policy's budget:
-// fresh builds each run's context, run performs it and reports the outcome.
-func Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
+// fresh builds each run's context, run performs it and reports the outcome. A run
+// that failed is an outcome; a caller that goes away between runs takes the
+// exploration with it, its error being stop's.
+func Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	budget, ok := policy.Exploration()
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotExploring, policy)
@@ -133,6 +136,9 @@ func Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Co
 		if result.Runs == budget.Runs {
 			result.BudgetsHit = append(result.BudgetsHit, "runs")
 			break
+		}
+		if err := stop.Err(); err != nil {
+			return nil, err
 		}
 		ctx, err := fresh()
 		if err != nil {

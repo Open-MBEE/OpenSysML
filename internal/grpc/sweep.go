@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -37,8 +38,8 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		return sweepFailure(fmt.Errorf("%w: %s is a verification case, which a sweep does not run; run it with RunAnalysis",
 			runtime.ErrNotAnAnalysis, req.SymbolId)), nil
 	}
-	analysis := runtime.IsRunnableCaseSymbol(sym)
-	if !analysis {
+	isCase := runtime.IsRunnableCaseSymbol(sym)
+	if !isCase {
 		switch sym.Kind {
 		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		default:
@@ -81,7 +82,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		for _, b := range bindings {
 			bound[b.Param] = b.Value
 		}
-		if !analysis {
+		if !isCase {
 			value, err := v.runtime.InvokeCalcWith(sym, positional, bound, scope)
 			if err != nil {
 				return runtime.SweepRunResult{}, err
@@ -102,7 +103,8 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		}, err
 	}
 
-	table, err := v.runtime.RunSweep(ctx, req.SymbolId, plan, run)
+	schedule := v.runtime.Schedule()
+	table, err := s.engines.Sweep(ctx, analysis.Held(v.runtime, nil), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule))
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {
