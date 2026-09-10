@@ -484,11 +484,8 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 			return Value{}, err
 		}
 		val = collectionOf(feat, elements)
-	} else if feat.Scalar() && (val.Kind == ValSequence || val.Kind == ValSet) {
-		// A scalar feature holds the one element of a one-element collection.
-		if elements := elementsOf(val); len(elements) == 1 {
-			val = elements[0]
-		}
+	} else if feat.Scalar() {
+		val = soleElement(val)
 	}
 	if how == admitDeclared {
 		if err := ctx.classifyHeld(feat.heldBy(), val); err != nil {

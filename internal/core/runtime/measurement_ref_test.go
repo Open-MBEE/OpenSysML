@@ -41,6 +41,8 @@ func measurementRefContext(t *testing.T) (*Context, *symbols.Scope) {
 			attribute inferred = m * m;
 			attribute inferredAgain = inferred;
 			attribute celsius : IntervalScale = SI::'°C_abs';
+			attribute units : MeasurementUnit[0..*] = (m);
+			attribute scales : ScalarMeasurementReference[0..*] = (Time::UTC);
 			attribute vq : Quantities::VectorQuantityValue = VectorFunctions::VectorOf((1.0, 2.0, 3.0)) [m];
 			attribute scaled = VectorFunctions::VectorOf((1.0, 2.0)) [m] * (2 [s]);
 			package Imperial {
@@ -142,6 +144,11 @@ func TestMeasurementRefValues(t *testing.T) {
 		{"ConvertQuantity(273.15 [K], SI::'°C_abs')", "0.0 ['°C_abs']"},
 		{"ConvertQuantity(0.0 ['°C_abs'], K)", "273.15 [K]"},
 		{"ConvertQuantity(100.0 ['°C_abs'], K)", "373.15 [K]"},
+		{"MeasurementRefCalculations::'*'(units, s)", "m*s"},
+		{"MeasurementRefCalculations::'**'(units, (2))", "m**2"},
+		{"ToString(units)", `"m"`},
+		{"'['(2, units)", "2 [m]"},
+		{"MeasurementRefCalculations::ToString(scales)", `"UTC"`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {

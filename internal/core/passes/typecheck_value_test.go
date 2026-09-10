@@ -342,9 +342,16 @@ func wantCollectionValueDiags(t *testing.T, members string, want ...string) {
 
 // A collection value binds by the elements it maps to or keeps, not by the Anything the
 // library declares its result: collect and `xs.{…}` by the body's result, select and
-// selectOne by the collection's elements, a sequence-valued body element by element.
+// selectOne by the collection's elements, a sequence-valued body element by element. An
+// untyped body parameter is of the elements' type; over an untypable collection it is open.
 func TestValueCollectionResultIsJudged(t *testing.T) {
 	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v : Vehicle; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs.{ in v; v };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->collect { in v; (v, boat) };`,
+		"cannot bind a value of type Vehicle to a feature typed by Boat")
+	wantCollectionValueDiags(t, `part b : Boat = vs->reduce { in a; in b; a };`,
 		"cannot bind a value of type Vehicle to a feature typed by Boat")
 	wantCollectionValueDiags(t, `part b : Boat = vs->collect { in v : Vehicle; v };`,
 		"cannot bind a value of type Vehicle to a feature typed by Boat")
@@ -372,8 +379,11 @@ func TestValueCollectionResultIsJudged(t *testing.T) {
 		part b2 : Boat = vs->collect Boats;
 		attribute i : Integer = vs->collect { in v : Vehicle; (1, 2) };
 		attribute b3 : Boolean = vs->forAll { in v : Vehicle; true };
-		part open : Boat = vs.{ in v; v };
-		part open2 : Boat = vs.{ in v; (v, boat) };`)
+		attribute b4 : Boolean = vs->forAll { in v; true };
+		part b5 : Boat = vs.{ in v; boat };
+		attribute anys;
+		part open : Boat = anys.{ in v; v };
+		part open2 : Boat = anys.{ in v; (v, boat) };`)
 }
 
 // A scalar element a collection value spells out is exact, as a literal bound directly is:

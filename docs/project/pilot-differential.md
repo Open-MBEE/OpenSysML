@@ -215,11 +215,11 @@ nor double-counted as two independent disagreements.
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 50 | 4 | 6 | 0 | 0 | 4 | 6 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 49 | 6 | 6 | 0 | 0 | 6 | 6 |
 | `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
 | `examples` | 35 | 26 | 2 | 575 | 0 | 1 | 1 | 574 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **369** | **338** | **57** | **636** | **34** | **2** | **21** | **600** |
+| **Total** | **369** | **337** | **59** | **636** | **34** | **2** | **23** | **600** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -228,7 +228,9 @@ retired one more of `pilot-examples` by publishing the conforming type its
 [non-conforming redefinition](omg-issues.md) named, leaving 6, and the quantity-dimension error on
 `Analysis Examples/Dynamics.sysml`:13 — a published product bound to a return typed by another
 dimension — takes it to **7**; the [unbound-parameter advisory](#the-unbound-parameter-advisory)
-then takes `kerml-examples` to **4**. Our diagnostics on those roots therefore fall 20 → **11**. The
+then takes `kerml-examples` to **4**, and the
+[collection-body element typing round](#collection-body-element-typing-round) to **6**. Our
+diagnostics on those roots therefore fall 20 → **13**. The
 `examples` root carries 1, the non-standard-notation warning on the `junction` of
 `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because no SysML v2
 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
@@ -236,8 +238,8 @@ succession shorthands retired 30, removing `initial <state>;` and `transition <s
 retired 27 more, and the standard-notation round below retired the last 7. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
-reference corpora is **11** — of which one, the `Behaviors.kerml` advisory, is deliberate and
-adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
+reference corpora is **13** — of which three, the `Behaviors.kerml` advisory and the two
+`Expressions.kerml` operator errors, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
 
@@ -271,6 +273,42 @@ harness is 1268 agree / 57 disagree before and after, the 57 being the pre-exist
 | overall: only ours | 20 | **21** |
 | `kerml-examples`: fully agreeing | 51 | **50** |
 | `kerml-examples`: only ours | 3 | **4** |
+
+### Collection-body element typing round
+
+An untyped parameter of a collection-operation body — `collect`, `select`, `reject`,
+`selectOne`, `forAll`, `exists`, `reduce`, `minimize`, `maximize`, in receiver, plain and
+named-argument notation alike — is now typed by the element type(s) of the collection the body is
+applied to (KerML 1.1 §8.3.4.8: the body is evaluated once per element with its parameter bound
+to that element), where before it was left at the library's `Anything` and its uses went
+unchecked. `xs->collect {in x; x.mass}` therefore types like `xs->collect {in x : C; x.mass}`
+did already, and `x.nosuch` in such a body is reported. The fallback to `Anything` remains only
+where the source collection itself cannot be typed.
+
+The rule reaches one file of the reference corpora, `kerml-examples/Simple Tests/Expressions.kerml`,
+lines 15 and 16: `c = x->collect {in xx; xx + 1};` and `c1 = x.{in xx; xx + 1};` over
+`x = ToString(a * a + 3 == 4);`. `BaseFunctions::ToString` returns `String`, so `xx` is a
+`String` and `xx + 1` draws `operator '+' is not defined for String and Natural` — the error
+the same body already drew when written `in xx : String`, and the answer the arithmetic-operand
+rule gives `s + 1` over any `String`-typed `s`
+(`passes/typecheck_expr.go` `checkAddition`; the runtime refuses the evaluation the same way,
+`ErrTypeMismatch`). The pilot's `validate-kerml` accepts the file and its
+`ParsingTests_Expressions.kerml.xt` declares `noErrors`: by the library's declarations the call
+is well formed, since `ScalarFunctions::'+'` is abstract over any two `ScalarValue`s, but no
+concrete `'+'` takes a `String` and a `Natural` (`StringFunctions::'+'` is `String` × `String`),
+so the expression has no value. It is **ours, one-sided by design**: the operand rule is
+unchanged, and the round only lets it see a parameter it could not type before. Recorded in the
+pilot-corpora ratchet (`Expressions.kerml` 0 → 2) and here; the Xpect harness moves one row, the
+file's `noErrors` (1268 agree / 57 disagree → 1267 / 58), recorded in
+[pilot-xpect.md](pilot-xpect.md#noerrors--268-of-276-agree).
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 338 | **337** |
+| overall: our diagnostics | 57 | **59** |
+| overall: only ours | 21 | **23** |
+| `kerml-examples`: fully agreeing | 50 | **49** |
+| `kerml-examples`: only ours | 4 | **6** |
 
 ### Standard-notation demo round
 
@@ -509,7 +547,7 @@ populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two sema
 Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
-`units`, 1 `kind-mismatch`; `kerml-examples` 3 `unmapped`, 1 `multiplicity` (the
+`units`, 1 `kind-mismatch`; `kerml-examples` 5 `unmapped`, 1 `multiplicity` (the
 [unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 2
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
@@ -587,21 +625,22 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **338 / 21 / 57** |
+| overall: fully agreeing / only ours / our diagnostics | **337 / 23 / 59** |
 | only pilot | **600** |
 | pilot diagnostics | **636** |
 | severity-only | **2** |
-| unmapped, our side | **19** |
-| kerml-examples: only ours | **4** |
+| unmapped, our side | **21** |
+| kerml-examples: only ours | **6** |
 | pilot-examples: only ours | **7** |
 | examples: only pilot | **574** |
 
-The KerML root is now the *cleanest* of the three OMG roots in proportion: **4** only-ours against 6
-only-pilot — the only root where the reference reports more than we do — with 50 of 58 files fully
-agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 4 is a syntax or `kind-mismatch` diagnostic — the notation
+The KerML root is now the *cleanest* of the three OMG roots in proportion: **6** only-ours against 6
+only-pilot — the only root where the reference reports as much as we do — with 49 of 58 files fully
+agreeing (439 / 6 and 10 / 58 when the root was added, and 72 / 39, 15 / 47 and 8 / 48 at earlier rounds). None of the 6 is a syntax or `kind-mismatch` diagnostic — the notation
 the reference accepts, we parse, and the checks we applied to KerML typings that it does not apply
-are gone. What is left is K5's three specialization cycles and the one deliberate
-[unbound-parameter advisory](#the-unbound-parameter-advisory), all adjudicated. The class tables below
+are gone. What is left is K5's three specialization cycles, the one deliberate
+[unbound-parameter advisory](#the-unbound-parameter-advisory) and the two operator errors of the
+[collection-body element typing round](#collection-body-element-typing-round), all adjudicated. The class tables below
 are kept as measured when each class was adjudicated, so they describe the root at 150 rather than at 3.
 
 One category label moved with this adjudication and **no count did**:

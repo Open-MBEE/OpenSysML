@@ -22,6 +22,18 @@ const subsequenceOp = "SequenceFunctions::subsequence"
 // that view of a value, so `1->size()` is 1 and `null->isEmpty()` is true,
 // exactly as the library's own definitions compute them.
 
+// soleElement is what a value denotes where one value is taken: a one-element collection is its
+// element, a feature's values being a sequence its multiplicity constrains (KerML 1.0 §7.3.4.1, §7.4.12).
+func soleElement(val Value) Value {
+	if val.Kind != ValSequence && val.Kind != ValSet {
+		return val
+	}
+	if elements := elementsOf(val); len(elements) == 1 {
+		return elements[0]
+	}
+	return val
+}
+
 // elementsOf views a value as the sequence of its elements: a sequence or a set
 // as its own elements, null as the empty sequence, and any other value as the
 // one-element sequence containing it. An array or a vector is one value — a
@@ -202,6 +214,7 @@ func nullValue() Value { return Value{Kind: ValNull} }
 // indexOf reads a sequence index (`in index: Positive[1]`): one whole number, counting
 // from 1, so 4 / 2 indexes while a fractional Real is reported rather than truncated.
 func indexOf(op string, val Value) (int64, error) {
+	val = soleElement(val)
 	if val.Kind == ValConst {
 		if index, ok := val.Const.WholeNumber(); ok {
 			return index, nil

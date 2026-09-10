@@ -1,0 +1,17 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "sum": {"type": "Real", "value": 3.5},
+    "less": {"type": "Boolean", "value": true},
+    "same": {"type": "Boolean", "value": true},
+    "incremented": {"type": "Real", "value": 3.5},
+    "root": {"type": "Real", "value": 1.5811388300841898},
+    "cast": {"type": "Real", "value": 2.5},
+    "classified": {"type": "Boolean", "value": true},
+    "negated": {"type": "Real", "value": -2.5},
+    "realPart": {"type": "Real", "value": 3.0},
+    "zeroLength": {"type": "Boolean", "value": false}
+  }
+}

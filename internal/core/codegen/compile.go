@@ -36,20 +36,21 @@ func (e *UnsupportedError) Unwrap() error { return ErrUnsupported }
 type Compiler struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
-	funcs    map[*symbols.Symbol]*Func
-	order    []*Func
+	// funcs holds each calc once per tuple of function values it is specialized over.
+	funcs map[specKey]*Func
+	order []*Func
 	// collections is set once any compiled value is a collection.
 	collections bool
 }
 
 // New returns a Compiler resolving names through resolver and typing through model.
 func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
-	return &Compiler{model: model, resolver: resolver, funcs: map[*symbols.Symbol]*Func{}}
+	return &Compiler{model: model, resolver: resolver, funcs: map[specKey]*Func{}}
 }
 
 // Compile compiles entry and every calc it invokes, transitively.
 func (c *Compiler) Compile(entry *symbols.Symbol) (*Program, error) {
-	fn, err := c.compileCalc(entry)
+	fn, err := c.compileCalcWith(entry, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -65,11 +66,15 @@ type env struct {
 // binding is the declared type of a variable, the range its elements are
 // narrowed to and, for a collection, the multiplicity a write must satisfy.
 // A body-expression local is read on demand, so inline names its initializer.
+// An `in calc` parameter is the function value fn it is specialized over, and
+// an attribute holding a SampledFunction is sampled; neither has a type.
 type binding struct {
-	t      Type
-	r      Range
-	m      Mult
-	inline Expr
+	t       Type
+	r       Range
+	m       Mult
+	inline  Expr
+	fn      *funcValue
+	sampled *sampledFn
 }
 
 func (e *env) push()                    { e.frames = append(e.frames, map[string]binding{}) }
@@ -88,6 +93,7 @@ func (e *env) lookup(n string) (binding, bool) {
 type funcCompiler struct {
 	c     *Compiler
 	fn    *Func
+	sym   *symbols.Symbol
 	scope *symbols.Scope
 	env   env
 	// result is the return binding once a declaration or a return has fixed it.
@@ -101,29 +107,37 @@ const resultWhere = "result"
 // paramWhere names a parameter's binding in a multiplicity diagnostic.
 func paramWhere(name string) string { return fmt.Sprintf("argument for parameter %q", name) }
 
-func (c *Compiler) compileCalc(sym *symbols.Symbol) (*Func, error) {
-	if fn, ok := c.funcs[sym]; ok {
-		return fn, nil
-	}
+// compileCalcWith compiles the calc sym with its `in calc` parameters bound, in
+// declaration order, to the function values fargs; each distinct tuple is a
+// function of its own, so a call through such a parameter is a direct call.
+func (c *Compiler) compileCalcWith(sym *symbols.Symbol, fargs []funcValue) (*Func, error) {
 	if sym == nil || sym.Decl == nil {
 		return nil, &UnsupportedError{Calc: "?", What: "no declaration"}
+	}
+	key := specKeyOf(sym, fargs)
+	if fn, ok := c.funcs[key]; ok {
+		return fn, nil
 	}
 	body, rels, err := calcDecl(sym.Decl)
 	if err != nil {
 		return nil, &UnsupportedError{Calc: c.name(sym), What: err.Error()}
 	}
+	if u, ok := sym.Decl.(*ast.Usage); ok && u.Direction != ast.DirNone {
+		return nil, &UnsupportedError{Calc: c.name(sym), What: "an `in calc` parameter invoked outside the body of the calc declaring it"}
+	}
 	if len(rels) > 0 {
-		return c.compileInheriting(sym, body, rels)
+		return c.compileInheriting(sym, body, rels, fargs)
 	}
 
-	fn := &Func{Name: c.name(sym), Ident: identOf(sym)}
+	fn := &Func{Name: c.name(sym), Ident: specIdent(sym, fargs)}
 	// Registered before the body is compiled so recursion finds it; the result
 	// type of a recursive call is fixed by an earlier return (see compileCall).
-	c.funcs[sym] = fn
+	c.funcs[key] = fn
 	c.order = append(c.order, fn)
 
-	fc := &funcCompiler{c: c, fn: fn, scope: sym.Scope}
+	fc := &funcCompiler{c: c, fn: fn, sym: sym, scope: sym.Scope}
 	fc.env.push()
+	nextFn := 0
 	for _, member := range unwrapped(body) {
 		u, ok := member.(*ast.Usage)
 		if !ok {
@@ -140,7 +154,12 @@ func (c *Compiler) compileCalc(sym *symbols.Symbol) (*Func, error) {
 			return nil, fc.unsupported(fmt.Sprintf("parameter %s has a default value", name))
 		}
 		if u.Kind == ast.UsageCalc {
-			return nil, fc.unsupported(fmt.Sprintf("parameter %s binds a function value", name))
+			if nextFn == len(fargs) {
+				return nil, fc.unsupported(fmt.Sprintf("parameter %s binds a function value, which a program cannot take on its command line", name))
+			}
+			fc.env.bind(name, binding{fn: &fargs[nextFn]})
+			nextFn++
+			continue
 		}
 		b, err := fc.declaredBinding(sym.Scope, u, name)
 		if err != nil {
@@ -148,6 +167,9 @@ func (c *Compiler) compileCalc(sym *symbols.Symbol) (*Func, error) {
 		}
 		fn.Params = append(fn.Params, Param{Name: name, Type: b.t, Range: b.r, Mult: b.m})
 		fc.env.bind(name, b)
+	}
+	if nextFn != len(fargs) {
+		return nil, fc.unsupported(fmt.Sprintf("%d function values bound to %d `in calc` parameters", len(fargs), nextFn))
 	}
 
 	stmts := lower.CalcBody(sym.Decl, body, sym.Scope)
@@ -195,7 +217,22 @@ func calcDecl(decl ast.Node) ([]ast.Node, []*ast.Relationship, error) {
 // The interpreter flattens parameters and body along the chain of calc
 // supertypes; a calc adding no member of its own is that chain's one other
 // calc, so it compiles to that calc's function. Anything richer is refused.
-func (c *Compiler) compileInheriting(sym *symbols.Symbol, body []ast.Node, rels []*ast.Relationship) (*Func, error) {
+func (c *Compiler) compileInheriting(sym *symbols.Symbol, body []ast.Node, rels []*ast.Relationship, fargs []funcValue) (*Func, error) {
+	parent, err := c.inheritedCalc(sym, body, rels)
+	if err != nil {
+		return nil, err
+	}
+	fn, err := c.compileCalcWith(parent, fargs)
+	if err != nil {
+		return nil, err
+	}
+	c.funcs[specKeyOf(sym, fargs)] = fn
+	return fn, nil
+}
+
+// inheritedCalc is the one compiled calc a member-less calc specializing or
+// typed by another compiles as.
+func (c *Compiler) inheritedCalc(sym *symbols.Symbol, body []ast.Node, rels []*ast.Relationship) (*symbols.Symbol, error) {
 	var parent *symbols.Symbol
 	for _, super := range c.model.DirectSupertypes(sym) {
 		if super == nil || !isCalc(super.Decl) || c.resolver.Index().Library(super) {
@@ -212,12 +249,7 @@ func (c *Compiler) compileInheriting(sym *symbols.Symbol, body []ast.Node, rels 
 	if len(unwrapped(body)) > 0 {
 		return nil, &UnsupportedError{Calc: c.name(sym), What: "a calc declaring `" + rels[0].Kind.String() + "` and members of its own; redefinition of inherited parameters and body is not compiled"}
 	}
-	fn, err := c.compileCalc(parent)
-	if err != nil {
-		return nil, err
-	}
-	c.funcs[sym] = fn
-	return fn, nil
+	return parent, nil
 }
 
 func isCalc(decl ast.Node) bool {
@@ -306,8 +338,17 @@ func hasTyping(u *ast.Usage) bool {
 	return false
 }
 
-// declaredType resolves the scalar type a usage is typed by, and its range.
-func (fc *funcCompiler) declaredType(scope *symbols.Scope, u *ast.Usage, name string) (Type, Range, error) {
+// typingOf resolves the one type a usage is typed by.
+func (fc *funcCompiler) typingOf(scope *symbols.Scope, u *ast.Usage, name string) (*symbols.Symbol, error) {
+	typ, why := fc.c.typingOf(scope, u, name)
+	if why != "" {
+		return nil, fc.unsupported(why)
+	}
+	return typ, nil
+}
+
+// typingOf resolves the one type a usage is typed by, or says why it cannot.
+func (c *Compiler) typingOf(scope *symbols.Scope, u *ast.Usage, name string) (*symbols.Symbol, string) {
 	var typ *symbols.Symbol
 	for _, r := range u.Relationships {
 		if r == nil || r.Kind != ast.RelTyping || r.Target == nil {
@@ -319,19 +360,28 @@ func (fc *funcCompiler) declaredType(scope *symbols.Scope, u *ast.Usage, name st
 		}
 		qn, ok := target.(*ast.QualifiedName)
 		if !ok {
-			return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s: typing by an expression", name))
+			return nil, fmt.Sprintf("%s: typing by an expression", name)
 		}
-		resolved, ok := fc.c.resolver.ResolveQualified(scope, qn)
+		resolved, ok := c.resolver.ResolveQualified(scope, qn)
 		if !ok {
-			return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s: type %s does not resolve", name, qnText(qn)))
+			return nil, fmt.Sprintf("%s: type %s does not resolve", name, qnText(qn))
 		}
 		if typ != nil {
-			return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s is typed more than once", name))
+			return nil, fmt.Sprintf("%s is typed more than once", name)
 		}
 		typ = resolved
 	}
 	if typ == nil {
-		return TypeInvalid, RangeAny, fc.unsupported(fmt.Sprintf("%s declares no type", name))
+		return nil, fmt.Sprintf("%s declares no type", name)
+	}
+	return typ, ""
+}
+
+// declaredType resolves the scalar type a usage is typed by, and its range.
+func (fc *funcCompiler) declaredType(scope *symbols.Scope, u *ast.Usage, name string) (Type, Range, error) {
+	typ, err := fc.typingOf(scope, u, name)
+	if err != nil {
+		return TypeInvalid, RangeAny, err
 	}
 	t, r, ok := scalarType(fc.c.name(typ))
 	if !ok {
@@ -361,6 +411,14 @@ func scalarType(fqn string) (Type, Range, bool) {
 func (fc *funcCompiler) compileBlock(stmts []lower.Statement) ([]Stmt, error) {
 	var out []Stmt
 	for _, s := range stmts {
+		if d, ok := s.(lower.Declare); ok {
+			declared, err := fc.compileDeclare(d)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, declared...)
+			continue
+		}
 		compiled, err := fc.compileStmt(s)
 		if err != nil {
 			return nil, err
@@ -374,8 +432,6 @@ func (fc *funcCompiler) compileBlock(stmts []lower.Statement) ([]Stmt, error) {
 
 func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 	switch s := s.(type) {
-	case lower.Declare:
-		return fc.compileDeclare(s)
 	case lower.Assign:
 		if s.Chain != nil {
 			return nil, fc.unsupported("assignment through a feature chain")
@@ -383,6 +439,15 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 		b, ok := fc.env.lookup(s.Target)
 		if !ok {
 			return nil, fc.unsupported(fmt.Sprintf("assignment to %s, which the body does not declare", s.Target))
+		}
+		if b.fn != nil {
+			return nil, fc.unsupported(fmt.Sprintf("assignment to %s, an `in calc` parameter", s.Target))
+		}
+		if b.sampled != nil {
+			return nil, fc.unsupported(fmt.Sprintf("assignment to %s, an attribute holding a SampledFunction", s.Target))
+		}
+		if what, isFn := fc.functionValueRead(s.Value); isFn {
+			return nil, fc.unsupported(fmt.Sprintf("%s assigned to %s; a function value can only be passed to an `in calc` parameter or invoked", what, s.Target))
 		}
 		v, err := fc.compileExpr(s.Value)
 		if err != nil {
@@ -420,6 +485,9 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 	case lower.Loop:
 		return fc.compileLoop(s)
 	case lower.Return:
+		if what, isFn := fc.functionValueRead(s.Value); isFn {
+			return nil, fc.unsupported(what + " escaping as the result; a function value can only be passed to an `in calc` parameter or invoked")
+		}
 		v, err := fc.compileExpr(s.Value)
 		if err != nil {
 			return nil, err
@@ -458,15 +526,24 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 // compileDeclare declares a body-local attribute. Its binding is a scalar only
 // when it is declared `[1]` and initialized with a scalar: an unbound attribute
 // is null, and an initializer's shape is kept whatever the declaration says.
-func (fc *funcCompiler) compileDeclare(s lower.Declare) (Stmt, error) {
+func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 	u, _ := s.Node.(*ast.Usage)
 	var declared binding
 	if u != nil && hasTyping(u) {
+		typ, err := fc.typingOf(s.Scope, u, s.Name)
+		if err != nil {
+			return nil, err
+		}
+		if fc.c.name(typ) == sampledFunctionType {
+			return fc.compileSampledDeclare(s)
+		}
 		b, err := fc.declaredBinding(s.Scope, u, s.Name)
 		if err != nil {
 			return nil, err
 		}
 		declared = b
+	} else if _, ok := fc.sampleCall(s.Value); ok {
+		return fc.compileSampledDeclare(s)
 	}
 	if s.Value == nil {
 		if declared.t == TypeInvalid {
@@ -475,7 +552,10 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) (Stmt, error) {
 		declared.t = declared.t.Seq()
 		fc.c.collections = true
 		fc.env.bind(s.Name, declared)
-		return Declare{Name: s.Name, T: declared.t}, nil
+		return []Stmt{Declare{Name: s.Name, T: declared.t}}, nil
+	}
+	if what, isFn := fc.functionValueRead(s.Value); isFn {
+		return nil, fc.unsupported(fmt.Sprintf("%s bound to attribute %s; a function value can only be passed to an `in calc` parameter or invoked", what, s.Name))
 	}
 	v, err := fc.compileExpr(s.Value)
 	if err != nil {
@@ -499,7 +579,7 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) (Stmt, error) {
 		return nil, fc.unsupported(fmt.Sprintf("a %s bound to %s, which is %s", v.Type(), s.Name, declared.t))
 	}
 	fc.env.bind(s.Name, declared)
-	return Declare{Name: s.Name, T: declared.t, Init: init}, nil
+	return []Stmt{Declare{Name: s.Name, T: declared.t, Init: init}}, nil
 }
 
 func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {
@@ -630,7 +710,12 @@ func unwrap(n ast.Node) ast.Node {
 func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 	if qn != nil && len(qn.Parts) == 1 {
 		if b, ok := fc.env.lookup(qn.Parts[0].Text); ok {
-			if b.inline != nil {
+			switch {
+			case b.fn != nil:
+				return nil, fc.unsupported(fmt.Sprintf("the function value %s where a value is expected; a function value can only be passed to an `in calc` parameter or invoked", qn.Parts[0].Text))
+			case b.sampled != nil:
+				return nil, fc.unsupported(fmt.Sprintf("%s, a SampledFunction, where a value is expected; only Domain(%[1]s) and Range(%[1]s) are compiled", qn.Parts[0].Text))
+			case b.inline != nil:
 				return b.inline, nil
 			}
 			return Var{Name: qn.Parts[0].Text, T: b.t}, nil
@@ -643,6 +728,9 @@ func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 				return v, nil
 			}
 		}
+	}
+	if what, isFn := fc.functionValueName(qn); isFn {
+		return nil, fc.unsupported(what + " where a value is expected; a function value can only be passed to an `in calc` parameter or invoked")
 	}
 	return nil, fc.unsupported(fmt.Sprintf("reference to %s, which is not a parameter, body-local attribute or compiled library constant", qnText(qn)))
 }
@@ -863,6 +951,13 @@ func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
 	if n.Type == nil {
 		return nil, fc.unsupported("an invocation naming no calc")
 	}
+	// A name bound as an `in calc` parameter applies the function value it holds.
+	if f, ok := fc.boundFunction(n.Type); ok {
+		if n.Operand != nil {
+			return nil, fc.unsupported("an invocation of a function value with a receiver (`x->f()`)")
+		}
+		return fc.applyFunction(*f, n)
+	}
 	// The declaration the checker and interpreter select by the arguments' types.
 	sel := passes.SelectInvocation(fc.c.resolver, fc.c.model, fc.scope, n, semantics.PerformsBehavior)
 	if sel.Ambiguous {
@@ -892,18 +987,31 @@ func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
 	if n.Operand != nil {
 		return nil, fc.unsupported("an invocation of a model calc with a receiver (`x->F()`)")
 	}
-	callee, err := fc.c.compileCalc(sym)
+	return fc.callCalc(sym, n)
+}
+
+// callCalc compiles a call of the model calc sym with n's arguments: the
+// function values among them select the specialization called, the rest are
+// bound to its parameters.
+func (fc *funcCompiler) callCalc(sym *symbols.Symbol, n *ast.InvocationExpr) (Expr, error) {
+	params, err := fc.c.calcParams(sym)
 	if err != nil {
 		return nil, err
 	}
-	params := make([]string, len(callee.Params))
-	for i, p := range callee.Params {
-		params[i] = p.Name
-	}
-	args, err := fc.bindArgs(n, callee.Name, params)
+	args, fargs, err := fc.bindArgs(n, fc.c.name(sym), params)
 	if err != nil {
 		return nil, err
 	}
+	callee, err := fc.c.compileCalcWith(sym, fargs)
+	if err != nil {
+		return nil, err
+	}
+	return fc.finishCalcCall(callee, args)
+}
+
+// finishCalcCall binds the value arguments args to callee's parameters.
+func (fc *funcCompiler) finishCalcCall(callee *Func, args []Arg) (Expr, error) {
+	var err error
 	for i, a := range args {
 		p := callee.Params[a.Param]
 		// The callee checks multiplicity and range on entry; only the shape is bound here.
@@ -927,6 +1035,12 @@ func (fc *funcCompiler) compileLibCall(n *ast.InvocationExpr, fqn string) (Expr,
 	if op, realAgg, ok := seqOpByName(fqn); ok {
 		return fc.compileSeqCall(n, op, realAgg)
 	}
+	switch fqn {
+	case sampleCalc:
+		return nil, fc.unsupported("Sample(…) where a value is expected; a SampledFunction is compiled only bound to an attribute, or read by Domain or Range right there")
+	case sampleDomain, sampleRange:
+		return fc.compileSampledRead(n, fqn)
+	}
 	if n.Operand != nil {
 		return nil, fc.unsupported(fmt.Sprintf("an invocation of %s with a receiver (`x->F()`)", fqn))
 	}
@@ -934,10 +1048,21 @@ func (fc *funcCompiler) compileLibCall(n *ast.InvocationExpr, fqn string) (Expr,
 	if !ok {
 		return nil, fc.unsupported(fmt.Sprintf("library function %s is not compiled", fqn))
 	}
-	args, err := fc.bindArgs(n, fqn, params)
+	decls := make([]paramDecl, len(params))
+	for i, p := range params {
+		decls[i] = paramDecl{name: p}
+	}
+	args, _, err := fc.bindArgs(n, fqn, decls)
 	if err != nil {
 		return nil, err
 	}
+	return fc.finishLibCall(fqn, params, args)
+}
+
+// finishLibCall chooses the operation of fqn from the argument types and coerces
+// the arguments to its operands.
+func (fc *funcCompiler) finishLibCall(fqn string, params []string, args []Arg) (Expr, error) {
+	var err error
 	types := make([]Type, len(params))
 	for i, a := range args {
 		if args[i].Value, err = fc.scalarOperandOf(a.Value, fqn, params[a.Param]); err != nil {
@@ -958,45 +1083,78 @@ func (fc *funcCompiler) compileLibCall(n *ast.InvocationExpr, fqn string) (Expr,
 }
 
 // bindArgs compiles n's arguments in source order, each bound to one of params;
-// every parameter must be bound, by position or by name.
-func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []string) ([]Arg, error) {
+// every parameter must be bound, by position or by name. A value argument is
+// an Arg indexed among the value parameters; a function value bound to an
+// `in calc` parameter is returned among fargs, in parameter order.
+func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []paramDecl) ([]Arg, []funcValue, error) {
+	names := make([]string, len(params))
+	valueIndex := make([]int, len(params))
+	var fnCount, valueCount int
+	for i, p := range params {
+		names[i] = p.name
+		if p.fn {
+			valueIndex[i] = fnCount
+			fnCount++
+		} else {
+			valueIndex[i] = valueCount
+			valueCount++
+		}
+	}
 	var args []Arg
+	fargs := make([]funcValue, fnCount)
 	bound := make([]bool, len(params))
+	bindOne := func(i int, node ast.Node) error {
+		if params[i].fn {
+			f, err := fc.compileFuncArg(node, paramWhere(params[i].name))
+			if err != nil {
+				return err
+			}
+			if err := fc.checkFuncArgType(params[i], f); err != nil {
+				return err
+			}
+			fargs[valueIndex[i]] = f
+		} else {
+			if what, isFn := fc.functionValueRead(node); isFn {
+				return fc.unsupported(fmt.Sprintf("%s: %s where a value is expected", paramWhere(params[i].name), what))
+			}
+			v, err := fc.compileExpr(node)
+			if err != nil {
+				return err
+			}
+			args = append(args, Arg{Param: valueIndex[i], Value: v})
+		}
+		bound[i] = true
+		return nil
+	}
 	if len(n.NamedArgs) > 0 {
 		for _, na := range n.NamedArgs {
-			i := paramIndex(params, na.Name)
+			i := paramIndex(names, na.Name)
 			if i < 0 {
-				return nil, fc.unsupported(fmt.Sprintf("%s has no parameter %s", callee, qnText(na.Name)))
+				return nil, nil, fc.unsupported(fmt.Sprintf("%s has no parameter %s", callee, qnText(na.Name)))
 			}
 			if bound[i] {
-				return nil, fc.unsupported(fmt.Sprintf("%s binds parameter %s twice", callee, params[i]))
+				return nil, nil, fc.unsupported(fmt.Sprintf("%s binds parameter %s twice", callee, names[i]))
 			}
-			v, err := fc.compileExpr(na.Value)
-			if err != nil {
-				return nil, err
+			if err := bindOne(i, na.Value); err != nil {
+				return nil, nil, err
 			}
-			args = append(args, Arg{Param: i, Value: v})
-			bound[i] = true
 		}
 	} else {
 		if len(n.Args) != len(params) {
-			return nil, fc.unsupported(fmt.Sprintf("%s takes %d arguments, %d given", callee, len(params), len(n.Args)))
+			return nil, nil, fc.unsupported(fmt.Sprintf("%s takes %d arguments, %d given", callee, len(params), len(n.Args)))
 		}
 		for i, a := range n.Args {
-			v, err := fc.compileExpr(a)
-			if err != nil {
-				return nil, err
+			if err := bindOne(i, a); err != nil {
+				return nil, nil, err
 			}
-			args = append(args, Arg{Param: i, Value: v})
-			bound[i] = true
 		}
 	}
 	for i, b := range bound {
 		if !b {
-			return nil, fc.unsupported(fmt.Sprintf("%s: parameter %s is not bound", callee, params[i]))
+			return nil, nil, fc.unsupported(fmt.Sprintf("%s: parameter %s is not bound", callee, names[i]))
 		}
 	}
-	return args, nil
+	return args, fargs, nil
 }
 
 func paramIndex(params []string, name *ast.QualifiedName) int {

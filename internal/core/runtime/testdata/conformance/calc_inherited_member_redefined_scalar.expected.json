@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "fromScalar": {"type": "Real", "value": 4.0},
+    "fromInherited": {"type": "Real", "value": 4.0},
+    "fromMany": {"type": "Sequence", "elements": [{"type": "Real", "value": 5.0}, {"type": "Real", "value": 6.0}]}
+  }
+}

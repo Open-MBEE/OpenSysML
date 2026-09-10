@@ -506,6 +506,8 @@ func (e *goEmitter) stmt(s Stmt) {
 		e.linef("}")
 	case ForEach:
 		e.forEach(s)
+	case Sample:
+		e.linef("%s", e.sample(s))
 	case Return:
 		e.linef("return %s", goNarrowed(e.expr(s.Value), e.resultRange))
 	default:

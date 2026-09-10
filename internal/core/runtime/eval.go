@@ -1407,7 +1407,7 @@ func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error
 	if n.Operator == ast.OpHasType {
 		by = byOwnType
 	}
-	matches, err := ec.valuesClassified(value, target, ec.declaredOperandTypes(n.Operands[0]), by, n.Operator == ast.OpAt)
+	matches, err := ec.valuesClassified(soleElement(value), target, ec.declaredOperandTypes(n.Operands[0]), by, n.Operator == ast.OpAt)
 	if err != nil {
 		return Value{}, err
 	}
@@ -1922,7 +1922,7 @@ func (ec *EvalContext) evalEquality(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.ctx.equalityValues(n.Operator, left, right)
+	return ec.ctx.equalityValues(n.Operator, soleElement(left), soleElement(right))
 }
 
 // equalityValues applies `==` or `!=` to two evaluated operands; the operator
@@ -2134,8 +2134,9 @@ func combineBooleans(op ast.OperatorKind, l, r bool) (Value, error) {
 	return Value{}, fmt.Errorf("%w: '%s' is not a Boolean operator", ErrUnsupportedOperator, op)
 }
 
-// valueOperand evaluates an operand an operator needs a value of: a feature
-// holding none is reported as such, not as an operand of the wrong type.
+// valueOperand evaluates an operand an operator needs one value of: a feature
+// holding none is reported as such, not as an operand of the wrong type, and a
+// one-element collection is the value it holds.
 func (ec *EvalContext) valueOperand(node ast.Node) (Value, error) {
 	val, err := ec.Eval(node)
 	if err != nil {
@@ -2144,12 +2145,13 @@ func (ec *EvalContext) valueOperand(node ast.Node) (Value, error) {
 	if ec.ctx.HoldsNoValue(val) {
 		return Value{}, ec.ctx.noValueError(val, node)
 	}
-	return val, nil
+	return soleElement(val), nil
 }
 
 // boolOperand reads a Boolean out of a value, naming what was expected when the
 // value is not one.
 func boolOperand(what string, v Value) (bool, error) {
+	v = soleElement(v)
 	if v.Kind != ValConst || v.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%w: %s must be Boolean, got %s", ErrTypeMismatch, what, v.Kind)
 	}

@@ -13,6 +13,7 @@
     ]},
     "scaledCF": {"type": "CoordinateFrame", "text": "scaledCF [m*s, m*s, m*s]"},
     "sameCF": {"type": "Boolean", "value": true},
+    "scaledByMember": {"type": "CoordinateFrame", "text": "scaledByMember [m*s, m*s, m*s]"},
 
     "p": {"type": "VectorQuantity", "elements": [
       {"type": "Quantity", "value": 1.0, "unit": "m"},

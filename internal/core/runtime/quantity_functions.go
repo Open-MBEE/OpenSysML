@@ -172,7 +172,7 @@ func isAngleUnit(ctx *Context, product semantics.UnitProduct) bool {
 // quantityArg reads a ScalarQuantityValue argument: a quantity, or a number,
 // which is how the runtime holds a quantity of dimension one (ToDimensionOneValue).
 func quantityArg(name, param string, val Value) (*Quantity, error) {
-	q, ok := asQuantity(val)
+	q, ok := asQuantity(soleElement(val))
 	if !ok {
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a quantity, got %s",
 			ErrTypeMismatch, name, param, describeValue(val))
