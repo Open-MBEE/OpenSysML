@@ -89,6 +89,71 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+// TestRenderSeveralFiles checks that a view declared in one file renders the
+// elements its sibling files declare, loaded as one model, on stdout and into
+// -o in the form -render-form names.
+func TestRenderSeveralFiles(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	types := writeModel(t, dir, "types.sysml", `package Types {
+    part def Wheel;
+    part def Vehicle { part wheel : Wheel; }
+}
+`)
+	diagrams := writeModel(t, dir, "diagrams.sysml", `package Diagrams {
+    private import Types::*;
+    view overview { expose Types::Vehicle; }
+    view parts { expose Types::*; render Views::asElementTable; }
+}
+`)
+
+	got := runFiles(t, binary, []string{types, diagrams}, "-render", "Diagrams::overview")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"flowchart TD", "part def Types::Vehicle", "wheel"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	for _, want := range []string{"package Types", "package Diagrams"} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr does not say the load declared %q:\n%s", want, got.stderr)
+		}
+	}
+
+	out := filepath.Join(dir, "parts.md")
+	got = runFiles(t, binary, []string{diagrams, types}, "-render", "Diagrams::parts", "-render-form", "markdown", "-o", out)
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	if got.stdout != "" {
+		t.Errorf("stdout is not empty with -o:\n%s", got.stdout)
+	}
+	if !strings.Contains(got.stderr, "wrote "+out) {
+		t.Errorf("stderr should name the file written, got:\n%s", got.stderr)
+	}
+	written, err := os.ReadFile(out) // #nosec G304 -- the test wrote this path.
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"| Element | Kind | Type | Declared in |", "| Types::Vehicle | part def |", "| Types::Wheel | part def |"} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("the table is missing %q:\n%s", want, written)
+		}
+	}
+
+	got = runFiles(t, binary, []string{types, diagrams}, "-render", "#tree", "-render-form", "text")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"Types", "Diagrams"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("#tree over two files is missing %q:\n%s", want, got.stdout)
+		}
+	}
+}
+
 func TestRenderReportsWhatItCouldNotDo(t *testing.T) {
 	binary := buildCLI(t)
 

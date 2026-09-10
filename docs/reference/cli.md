@@ -164,7 +164,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. RDF is [experimental](rdf-mapping.md#status-experimental) and every run that converts it says so on stderr (see [the RDF mapping](rdf-mapping.md)) |
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`mdzip` for a SysML v1 model to migrate (default: from the input's extension; `.xmi` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
-| `--render <view>` | | Render this view of the model instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
+| `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid` or `markdown` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a table-kind view as a pipe table), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
@@ -322,14 +322,16 @@ sysml -e "result" file1.sysml file2.sysml
 
 ## Rendering a view
 
-`-render <view>` renders one view of the model and exits. The rendering kind comes from the view's
-`render` member, or is a containment tree if the view does not state one. This build can produce a
-tree, an interconnection diagram, a state machine, an action flow, a sequence diagram and a table.
-A geometry view is recognized but not drawn. Pseudo-views let you render without declaring a view:
-`#tree` renders the one model file `-render` accepts (or every document loaded in the REPL),
-while `#tree:<name>`, `#interconnection:<name>`, `#state:<name>`, `#action:<name>`,
-`#sequence:<name>` and `#table:<name>` render the named element directly. Only the kinds this build
-produces are offered; newly supported kinds become pseudo-views automatically.
+`-render <view>` renders one view of the model and exits. Every file named on the command line is
+loaded as one model, as `-render-all` and `-render-document` load theirs, so the view may expose
+elements a sibling file declares. The rendering kind comes from the view's `render` member, or is a
+containment tree if the view does not state one. This build can produce a tree, an interconnection
+diagram, a state machine, an action flow, a sequence diagram and a table. A geometry view is
+recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
+every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
+`#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
+render the named element directly. Only the kinds this build produces are offered; newly supported
+kinds become pseudo-views automatically.
 
 ```bash
 # The ASCII text form a person reads, written to fit the terminal
@@ -344,7 +346,11 @@ sysml model.sysml -render Views::vehicleView -o view.mmd
 sysml model.sysml -render Views::partsTable -render-form markdown
 sysml model.sysml -render Views::vehicleView -render-form text
 
-# Render a named element, or one model directly, without declaring a view
+# A view over several files, loaded as one model
+sysml types.sysml model.sysml -render Views::vehicleView
+sysml model/*.sysml -render Views::partsTable -render-form markdown -o parts.md
+
+# Render a named element, or the whole model directly, without declaring a view
 sysml model.sysml -render '#state:Vehicle::controller'
 sysml model.sysml -render '#tree'
 ```
