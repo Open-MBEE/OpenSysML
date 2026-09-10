@@ -463,7 +463,8 @@ contains can cause it:
 Each stage is a pull request into `develop` that leaves the gate green. The stages depend on the
 framework's: none starts before the framework's surface stage (`-engines`, `-engine`, the
 standing line) and its tools stage (the manifest, the tool protocol) are merged, since this
-design extends both.
+design extends both; the first stage also needs the `replay:` policy, which the SMT design's
+first stage delivers, since it is the gate every external witness passes through.
 
 1. **External engines over standard input.** The manifest entry format for `engine`, read from
    `OPENSYSML_ENGINES`; the session, the message set and its JSON Schema; the `sources` and
