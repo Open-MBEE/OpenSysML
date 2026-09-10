@@ -87,20 +87,30 @@ func (r *Resolver) walkQualifiedTail(scope *symbols.Scope, qn *ast.QualifiedName
 // qualifiedSegment returns the members of cur that qn's segment i names, in
 // lookup order, or reports the name unresolved when the segment reaches none.
 func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, i int) ([]*symbols.Symbol, bool) {
+	all := r.membersNamed(scope, cur, qn.Parts[i].Text, qn.Global)
+	if len(all) == 0 {
+		r.unresolvedMember(scope, qn, cur, i)
+		return nil, false
+	}
+	return all, true
+}
+
+// membersNamed returns the members of cur a segment spelled name reaches from
+// scope (global: a `$::`-rooted name), in lookup order; it records nothing.
+func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name string, global bool) []*symbols.Symbol {
 	from := r.ReferringNamespaceFQN(scope)
-	seg := qn.Parts[i]
 	var all []*symbols.Symbol
 
 	// Try local scope lookup first if available. A segment names a member of
 	// the namespace the walk has reached, so it reaches only the visible ones.
 	if cur.Scope != nil {
-		all = r.namedThroughNamespaces(r.LocalBindings(cur.Scope, seg.Text))
+		all = r.namedThroughNamespaces(r.LocalBindings(cur.Scope, name))
 	}
 
 	// A member cur inherits hides one its imports surface (KerML 8.3.3.1.4);
 	// what cur's features redefine is not inherited (KerML 8.3.3.3.6).
 	if len(all) == 0 {
-		if sym, ok := r.lookupContributedMember(cur, seg.Text); ok &&
+		if sym, ok := r.lookupContributedMember(cur, name); ok &&
 			visibleAsInheritedMember(cur, sym) && r.namedThroughNamespace(sym) {
 			if sym, ok = r.inheritedAs(cur, sym); ok {
 				all = []*symbols.Symbol{sym}
@@ -109,7 +119,7 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 	}
 
 	if len(all) == 0 && cur.Scope != nil {
-		if sym, ok := r.lookupImportedMember(cur, cur.Scope, scope, seg.Text); ok &&
+		if sym, ok := r.lookupImportedMember(cur, cur.Scope, scope, name); ok &&
 			r.namedThroughNamespace(sym) {
 			all = []*symbols.Symbol{sym}
 		}
@@ -119,23 +129,22 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 	// walked so far. This handles cases like ScalarValues::Real where
 	// ScalarValues is a package from stdlib that was indexed with full FQNs
 	// but doesn't have a populated Scope, at any nesting depth.
-	memberFQN := r.registeredFQN(cur) + "::" + seg.Text
+	memberFQN := r.registeredFQN(cur) + "::" + name
 	if len(all) == 0 && r.idx != nil {
 		found := r.idx.LookupQualifiedFrom(memberFQN, from)
-		if !qn.Global {
+		if !global {
 			found = notConflatedWith(cur, found)
 		}
 		candidates := r.namedThroughNamespaces(
 			r.admittedUnder(r.documentOf(scope), from, memberFQN, found))
 		switch {
 		case len(candidates) > 0:
-			return candidates, true
+			return candidates
 		case len(found) > 0:
 			// Every candidate the name reaches is filtered out, so it is not a
 			// member of the namespace it appears under (KerML 8.2.4) and no
 			// other route may recover it.
-			r.unresolved(scope, qn)
-			return nil, false
+			return nil
 		}
 	}
 
@@ -143,26 +152,20 @@ func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName,
 	// there: it is invisible from here (KerML 8.2.3.3), and the member search
 	// below reaches cached symbols by a route that does not know that.
 	if len(all) == 0 && r.idx != nil && r.idx.HiddenFrom(memberFQN, from) {
-		r.unresolved(scope, qn)
-		return nil, false
+		return nil
 	}
 
 	// A segment may name a member the current symbol inherits rather than
 	// declares: `engine::'4cylEngine'` reaches the variants of the type
 	// `engine` is typed by.
 	if len(all) == 0 {
-		if sym, ok := r.lookupMember(cur, seg.Text); ok && r.namedThroughNamespace(sym) {
+		if sym, ok := r.lookupMember(cur, name); ok && r.namedThroughNamespace(sym) {
 			if sym, ok = r.inheritedAs(cur, sym); ok {
 				all = []*symbols.Symbol{sym}
 			}
 		}
 	}
-
-	if len(all) == 0 {
-		r.unresolved(scope, qn)
-		return nil, false
-	}
-	return all, true
+	return all
 }
 
 // notConflatedWith drops candidates owned by another namespace that merely
@@ -266,6 +269,17 @@ func (r *Resolver) unresolved(scope *symbols.Scope, qn *ast.QualifiedName) {
 		Span:    qn.Span(),
 		Message: msg,
 		Fixes:   fixes,
+	})
+}
+
+// unresolvedMember records an unresolved-reference diagnostic for a qualified
+// name whose segment i names no member of cur, offering the members it is the
+// unquoted start of: `T::SA` may mean `T::'SA-506'`.
+func (r *Resolver) unresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, i int) {
+	delete(r.ambiguities, qn)
+	r.reportQualified(qn, Diagnostic{
+		Span:    qn.Span(),
+		Message: unresolvedReferencePrefix + r.UnresolvedMember(scope, qn, cur, i),
 	})
 }
 

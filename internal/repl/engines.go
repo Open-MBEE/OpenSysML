@@ -8,15 +8,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
-// budgetFor is the session's bounds as a question under policy states them.
-func (s *Session) budgetFor(policy runtime.SchedulePolicy) analysis.Budget {
-	return analysis.BudgetOf(s.budgets, policy)
+// budgetFor is the session's bounds as a question of kind under policy states them.
+func (s *Session) budgetFor(policy runtime.SchedulePolicy, kind analysis.Kind) analysis.Budget {
+	return analysis.BudgetOf(s.budgets, policy, kind)
 }
 
 // evaluate puts one execution in ctx to the session's engines under auto.
 func evaluate[T any](s *Session, subject string, ctx *runtime.Context, call func(*runtime.Context) (T, error), answer func(T, error) analysis.Answer) (T, error) {
 	schedule := s.drivenSchedule()
-	return analysis.Perform(context.Background(), s.engines, analysis.Held(ctx, nil), subject, schedule, s.budgetFor(schedule), call, answer)
+	return analysis.Perform(context.Background(), s.engines, analysis.Held(ctx, nil), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), call, answer)
 }
 
 // check puts one constraint, requirement or satisfaction check to the engines.
@@ -74,19 +74,19 @@ func (s *Session) runVerification(subject string, ctx *runtime.Context, call fun
 // explore puts a behavior's outcomes to the engines under auto: run performs it
 // once per linearization, each in a context fresh makes.
 func (s *Session) explore(subject string, policy runtime.SchedulePolicy, fresh func() (*runtime.Context, error), run analysis.Linearization) (*runtime.Exploration, error) {
-	return s.engines.Explore(context.Background(), &analysis.Model{Fresh: fresh}, subject, policy, run, s.budgetFor(policy))
+	return s.engines.Explore(context.Background(), &analysis.Model{Fresh: fresh}, subject, policy, run, s.budgetFor(policy, analysis.Outcomes))
 }
 
 // sweep puts a domain to the engines under auto: row runs the target once per
 // row of the plan in ctx.
 func (s *Session) sweep(target string, ctx *runtime.Context, plan runtime.SweepPlan, row runtime.SweepRun) (runtime.SweepTable, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), analysis.Held(ctx, nil), target, schedule, plan, row, s.budgetFor(schedule))
+	return s.engines.Sweep(context.Background(), analysis.Held(ctx, nil), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep))
 }
 
 // solveWith puts an element's condition sets to the engines under auto, ask
 // being the operation made of each, and returns the solver's answer to each in
 // order. The error is the one for a solver that is absent.
 func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis.Asking) ([]analysis.Evaluation, error) {
-	return s.engines.Solve(context.Background(), subject, queries, ask, s.budgetFor(s.drivenSchedule()))
+	return s.engines.Solve(context.Background(), subject, queries, ask, s.budgetFor(s.drivenSchedule(), analysis.Satisfiable))
 }

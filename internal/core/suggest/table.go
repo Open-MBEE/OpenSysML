@@ -16,6 +16,9 @@ type Table struct {
 	// only the lengths its tolerance admits.
 	byName   map[string][]string
 	byLength map[int][]lowered
+	// sorted holds the simple names in order, so the names a word starts are a
+	// binary search away.
+	sorted []string
 }
 
 // lowered is a candidate spelling beside its lowercase form, folded once.
@@ -31,19 +34,55 @@ func NewTable(idx *symbols.Index) *Table {
 		return t
 	}
 	for _, fqn := range idx.FQNs() {
-		last := LastSegment(fqn)
+		last := simpleName(idx, fqn)
 		if _, seen := t.byName[last]; !seen {
 			n := len([]rune(last))
 			t.byLength[n] = append(t.byLength[n], lowered{name: last, lower: strings.ToLower(last)})
+			t.sorted = append(t.sorted, last)
 		}
 		t.byName[last] = append(t.byName[last], fqn)
 	}
+	sort.Strings(t.sorted)
 	return t
+}
+
+// simpleName is the name fqn registers a declaration under: the declared name,
+// which may hold `::` of its own, else the last segment (as a short name is).
+func simpleName(idx *symbols.Index, fqn string) string {
+	if sym := idx.Declaring(fqn); sym != nil && sym.Name != "" {
+		return sym.Name
+	}
+	return LastSegment(fqn)
+}
+
+// Unquoted returns the registered simple names word is the unquoted start of
+// (see Unquoted), in name order.
+func (t *Table) Unquoted(word string) []string {
+	if word == "" {
+		return nil
+	}
+	from := sort.SearchStrings(t.sorted, word)
+	to := from
+	for to < len(t.sorted) && strings.HasPrefix(t.sorted[to], word) {
+		to++
+	}
+	return Unquoted(word, t.sorted[from:to])
+}
+
+// Declared is Qualified over every spelling, including the names that must be
+// written quoted.
+func (t *Table) Declared(name string) []string {
+	return t.qualified(name, func(string) bool { return true })
 }
 
 // Qualified returns the qualified names, shortest first, under which the index
 // declares the simple name name: `Integer` is declared as `ScalarValues::Integer`.
 func (t *Table) Qualified(name string) []string {
+	return t.qualified(name, typable)
+}
+
+// qualified is Qualified over the spellings admit accepts.
+func (t *Table) qualified(name string, admit func(fqn string) bool) []string {
 	if t.idx == nil || name == "" {
 		return nil
 	}
@@ -59,7 +98,7 @@ func (t *Table) Qualified(name string) []string {
 		if i == scanLimit {
 			break
 		}
-		if typable(fqn) && t.idx.Declaring(fqn) != nil {
+		if admit(fqn) && t.idx.Declaring(fqn) != nil {
 			out = append(out, fqn)
 			if len(out) == Limit {
 				break

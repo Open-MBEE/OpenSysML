@@ -42,15 +42,20 @@ func (e sweepEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run tables the plan in the model's context, one evaluation per row (a failed row carrying
-// its error); a plan the runtime refuses, or a caller that went away, is the error.
-func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, _ Budget) (Result, error) {
+// Run tables the plan in the model's context within the budget's runs (else the context's),
+// one evaluation per row (a failed row carrying its error); a plan of more rows than that,
+// or a caller that went away, is the error.
+func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
 	rctx, err := model.Context()
 	if err != nil {
 		return Result{}, err
 	}
+	runs := int64(budget.Runs)
+	if runs <= 0 {
+		runs = rctx.SweepRunBudget()
+	}
 	started := time.Now()
-	table, err := rctx.RunSweep(ctx, q.Subject, q.Sweep.Plan, q.Sweep.Row)
+	table, err := rctx.RunSweep(ctx, q.Subject, q.Sweep.Plan, runs, q.Sweep.Row)
 	if err != nil {
 		return Result{}, err
 	}
@@ -64,7 +69,7 @@ func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, _ Budget
 		Engine:   e.Name(),
 		Claim:    ClaimTable,
 		Strength: Observed,
-		Bounds:   Bounds{{Name: "runs", Limit: rctx.SweepRunBudget()}},
+		Bounds:   Bounds{{Name: "runs", Limit: runs}},
 		Values:   values,
 		Elapsed:  time.Since(started),
 	}, nil

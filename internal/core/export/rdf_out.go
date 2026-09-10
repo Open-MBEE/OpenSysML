@@ -674,6 +674,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
+			{"isIndividual", n.IsIndividual},
 			{"isParallel", n.IsParallel},
 		})
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
