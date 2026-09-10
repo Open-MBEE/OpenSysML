@@ -170,6 +170,9 @@ var compiledCases = []compiledCase{
 	{"Fn::DownDirect", []string{"9998"}}, {"Fn::DownDirect", []string{"9999"}},
 	{"Fn::DownRange", []string{"9997"}}, {"Fn::DownRange", []string{"9998"}},
 	{"Fn::DownDomain", []string{"9997"}}, {"Fn::DownDomain", []string{"9998"}},
+	// The domain is computed before Sample's frame: the entry calc and Deep n+1 times.
+	{"Fn::DeepRange", []string{"9998"}}, {"Fn::DeepRange", []string{"9999"}},
+	{"Fn::DeepDomain", []string{"9998"}}, {"Fn::DeepDomain", []string{"9999"}},
 }
 
 // transcendental calcs call libm functions whose last bit is the library's, so the

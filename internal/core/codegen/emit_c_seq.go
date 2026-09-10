@@ -504,8 +504,8 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 	return "", false
 }
 
-// sample declares a Sample's two variables and fills them one frame deeper. Each
-// pair is three elements, as the library's `new SamplePair` in a `collect` is.
+// sample declares a Sample's two variables and fills them one frame deeper; the domain is an
+// argument, evaluated before the frame. Each pair is the three elements a collected SamplePair is.
 func (e *cEmitter) sample(s Sample) string {
 	e.temps++
 	n := e.temps
@@ -513,8 +513,8 @@ func (e *cEmitter) sample(s Sample) string {
 	dsfx, rsfx := cSeqSuffix(s.DomType()), cSeqSuffix(s.RngType())
 	x := s.Body.Params[0]
 	var b strings.Builder
-	fmt.Fprintf(&b, "sysml_enter(); sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; ", dsfx, dom, rsfx, rng)
-	fmt.Fprintf(&b, "{ %s sysml_s%d = %s; sysml_int sysml_c%d = 0, sysml_d%d = 0; ", cType(s.Seq.Type()), n, e.expr(s.Seq), n, n)
+	fmt.Fprintf(&b, "sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; ", dsfx, dom, rsfx, rng)
+	fmt.Fprintf(&b, "{ %s sysml_s%d = %s; sysml_int sysml_c%d = 0, sysml_d%d = 0; sysml_enter(); ", cType(s.Seq.Type()), n, e.expr(s.Seq), n, n)
 	fmt.Fprintf(&b, "for (sysml_int sysml_i = 0; sysml_i < sysml_s%d.len; sysml_i++) { %s %s = sysml_s%d.data[sysml_i]; %s sysml_v%d = %s; ", n, cType(x.Type), cLocal(x.Name), n, cType(s.Body.Body.Type()), n, e.expr(s.Body.Body))
 	fmt.Fprintf(&b, "sysml_push_%s(&%s, &sysml_c%d, %s); sysml_push_%s(&%s, &sysml_d%d, sysml_v%d); sysml_charge(1); } } sysml_leave();", dsfx, dom, n, cLocal(x.Name), rsfx, rng, n, n)
 	return b.String()

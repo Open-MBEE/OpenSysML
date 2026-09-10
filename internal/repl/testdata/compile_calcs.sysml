@@ -439,6 +439,10 @@ package Compiled {
 		calc def DownDirect { in n : Integer; return : Integer = Down(n); }
 		calc def DownRange { in n : Integer; return : Integer[0..*] = Range(Sample(Down, n)); }
 		calc def DownDomain { in n : Integer; attribute s : SampledFunction = Sample(Down, n); return : Integer[0..*] = Domain(s); }
+		// The domain is Sample's argument, so it is computed before Sample's frame is entered.
+		calc def Deep { in n : Integer; return : Integer[0..*] = if n == 0 ? (1) else Deep(n - 1); }
+		calc def DeepRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, Deep(n))); }
+		calc def DeepDomain { in n : Integer; attribute s : SampledFunction = Sample(Inc, Deep(n)); return : Integer[0..*] = Domain(s); }
 		calc def SizeDomain { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Domain(s)); }
 		calc def SizeRange { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Range(s)); }
 		// Each SamplePair taken is three elements: its domainValue, its rangeValue and

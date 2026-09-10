@@ -129,8 +129,9 @@ arithmetic rather than the host language's:
   it from that calc's run. `Sample(f, xs)` computes `f` at each domain value in order when the
   sample is taken, so the first failing element is the one reported and an unbound `xs` samples
   to `[]` as the library's `collect` does. `Sample`, `Domain` and `Range` are the library calcs
-  they are in the interpreter: each is one frame against the recursion budget, so a sampled calc
-  recursing to the limit fails at the same depth; each `SamplePair` is the three elements the
+  they are in the interpreter: each is one frame against the recursion budget, entered after its
+  arguments are computed, so a sampled calc recursing to the limit fails at the same depth and a
+  domain computed by a calc at the limit succeeds; each `SamplePair` is the three elements the
   library's `new SamplePair` in a `collect` holds (its domain value, its range value and its
   place among the samples), charged as it is taken, and each `Domain` or `Range` read collects a
   fresh sequence charged to the element budget.
