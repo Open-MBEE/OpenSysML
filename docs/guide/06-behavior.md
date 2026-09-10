@@ -467,9 +467,9 @@ $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ explored test::race: 3 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 3: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
@@ -479,8 +479,13 @@ final state, states visited and values; an analysis case's outputs and verdicts 
 linearizations reached it, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
 4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
-tried. A run that fails under some order is an outcome of its own (`error: …`), not the end of
-the exploration; a behavior with no choice point explores in exactly one run (`no choice points`
+tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
+policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
+of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
+`complete` exploration therefore covers every interleaving of the nodes the library leaves
+unordered, at body granularity: the statements of one body run without interruption. A run that
+fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
+behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
 (run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
@@ -502,8 +507,8 @@ $ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers
 ? explored test::race: 2 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 incomplete: runs budget 2 hit after 2 runs
 $ echo $?
 2

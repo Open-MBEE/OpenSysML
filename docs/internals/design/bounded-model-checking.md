@@ -97,11 +97,14 @@ move's writes — and avoids copying the object graph at every choice point.
 
 ### The atomic step
 
-The executor's `Step()` is a tool artifact: it steps every token once, in a fixed order, and the
+The executor's `Step()` under a fixed policy is a tool artifact: it steps every token once, in a
+fixed order, and the
 [oracle](../../project/behavior-semantic-oracle.md#what-the-library-fixes-and-what-a-trace-adds)
 already warns that a `step N:` line is a boundary the library does not define. The checker must
 not explore interleavings *inside* that artifact, nor interleavings finer than the library
-admits.
+admits. The `explore` policy already takes the unit below for actions: one of its steps is one
+token advancing one node, so a branch of several nodes can be overtaken between any two of them
+(`action_explore_write_between_branch_nodes` is the case a lockstep step would have missed).
 
 The unit the library defines is a **performance**: a node's body runs "completely before" its
 successors start (`HappensBefore`), and two unordered performances may overlap arbitrarily in
@@ -128,9 +131,12 @@ stop. A `do` round is one atomic unit per do behavior.
 
 At each state the checker enumerates the **enabled moves**:
 
-- **Action**: every token not in a paused body whose node can advance now. A token at a plain
-  node always can. A token at a join that has not collected cannot. A token parked at an
-  `accept` (`Wait != nil`) can when its wait is answered in the current state: for a message
+- **Action**: every token whose node can advance now. A token at a plain node always can. A
+  token at a join that has not collected cannot. A token whose body is paused can when the
+  body would go on if resumed (`Token.resumable`): at a breakpoint always, on the clock once
+  the performed action's wait has ended — so a performed action and a sibling accept due at
+  the same instant are two moves, either first. A token parked at an `accept` (`Wait != nil`)
+  can when its wait is answered in the current state: for a message
   accept, when `Context.messages` holds a message `acceptMatch` would take; for a time or change
   trigger, when `triggerHolds`. The executor already retries every parked token on every step
   and clears the wait only when the match succeeds (`stepNestedAction`), so the checker asks the

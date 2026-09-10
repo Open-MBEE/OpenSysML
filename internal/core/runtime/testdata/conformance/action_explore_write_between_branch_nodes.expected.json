@@ -1,0 +1,25 @@
+{
+	"type": "action",
+	"trace": true,
+	"outcomes": [
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 1},
+				"y": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"y": {"type": "Integer", "value": 1}
+			}
+		},
+		{
+			"outputs": {
+				"x": {"type": "Integer", "value": 2},
+				"y": {"type": "Integer", "value": 2}
+			}
+		}
+	],
+	"admissible": "A write between two nodes of a concurrent branch: three orders, three outcomes"
+}

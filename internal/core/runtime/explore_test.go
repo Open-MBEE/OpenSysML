@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -537,6 +538,64 @@ func TestExploreDueOrder(t *testing.T) {
 		}
 		if !slices.Contains(want, outcome.String()) {
 			t.Errorf("%s: outcome %q is not one the exploration reached", spelling, outcome.String())
+		}
+	}
+}
+
+// A body paused on the clock whose wait is over is a token able to act, so it is
+// an alternative to a sibling parked accept due at the same instant, not work
+// swept up after the sibling has acted.
+func TestExplorePausedBodyDueIsAMove(t *testing.T) {
+	path := filepath.Join("testdata", "conformance", "action_explore_performed_and_accept_due_together.sysml")
+	text, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, model, _ := buildRuntimeWithLibraries(t, path, parseAndBuild(t, string(text)))
+	resolver := resolve.New(idx)
+	sym := namedOrFoundSymbol(t, idx, "test::wake", idx.DocumentRoot(path), ast.DefAction, ast.UsageAction)
+	fresh := func() (*Context, error) { return NewContext(model, resolver, 10000), nil }
+	run := func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	x, err := Explore(mustPolicy(t, "explore"), fresh, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 6 {
+		t.Fatalf("status %q, want complete after the 6 interleavings of two chains of two moves", x.Status())
+	}
+	want := []string{"x = 1", "x = 2"}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	for _, o := range x.Outcomes {
+		if o.Linearizations != 3 {
+			t.Errorf("%s reached by %d linearizations, want 3", o.Outcome, o.Linearizations)
+		}
+	}
+	const wantWitness = "step 3: 2@performed first of 2@performed, 3@direct; step 4: 2@writeOne first of 2@writeOne, 3@direct"
+	if got := FormatChoices(x.Outcomes[1].Witness); got != wantWitness {
+		t.Fatalf("witness of x = 2:\n%s\nwant\n%s", got, wantWitness)
+	}
+	// The fixed sweeps resume the paused body after the sibling has acted; the
+	// writes then run in the policy's order, so the one it steps last stands.
+	fixed := map[string]string{"reverse": "x = 1", "declared": "x = 2", "seed:1": "x = 1"}
+	for _, spelling := range []string{"reverse", "declared", "seed:1"} {
+		ctx, _ := fresh()
+		if err := ctx.SetSchedule(mustPolicy(t, spelling)); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		if got := outcome.String(); got != fixed[spelling] {
+			t.Errorf("%s: outcome %q, want %s", spelling, got, fixed[spelling])
 		}
 	}
 }

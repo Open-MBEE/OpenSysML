@@ -1,0 +1,20 @@
+step 1: token 1@split
+step 2: token 2@performed, token 3@direct
+step 1: token 1@nap
+  eval literal 2 -> 2
+eval index -> 2 [s]
+  eval literal 2 -> 2
+eval index -> 2 [s]
+step 2: token 1@rested
+step 3: no active tokens
+choice step 3: tokens 2@performed, 3@direct (unordered; took 3@direct first)
+step 3: token 2@writeOne, token 3@writeTwo
+stmt assign x
+  eval literal 2 -> 2
+stmt assign x
+  eval literal 1 -> 1
+choice step 4: writes x := 1 by token 2, x := 2 by token 3 (unordered; x := 1 by token 2 stood)
+choice step 4: tokens 2@writeOne, 3@writeTwo (unordered; took 3@writeTwo first)
+step 4: token 2@sync, token 3@sync
+step 5: token 4@done
+step 6: no active tokens

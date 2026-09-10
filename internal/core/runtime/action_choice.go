@@ -252,22 +252,24 @@ func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 	return after.moved != before.moved || (before.Wait != nil && after.Wait == nil)
 }
 
-// noteTokenOrder records the tokens a step advanced as a choice point when there
-// are at least two; which went first is the executor's rule, not the library's.
-func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder) {
-	if len(order.acted) < 2 {
-		return
-	}
-	first := order.acted[0].ID
-	tokens := make([]Token, len(order.acted))
-	copy(tokens, order.acted)
-	sort.Slice(tokens, func(i, j int) bool { return tokens[i].ID < tokens[j].ID })
-	alts := make([]string, len(tokens))
-	taken := 0
-	for i, t := range tokens {
-		alts[i] = fmt.Sprintf("%d@%s", t.ID, nodeIdentifier(t.Location))
-		if t.ID == first {
-			taken = i
+// noteTokenOrder records the tokens a step advanced as a choice point when there are
+// at least two, or the one an exploring step picked among those able to act.
+func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tokenSchedule) {
+	alts, taken, chosen := schedule.Choice()
+	if !chosen {
+		if len(order.acted) < 2 {
+			return
+		}
+		first := order.acted[0].ID
+		tokens := make([]Token, len(order.acted))
+		copy(tokens, order.acted)
+		sort.Slice(tokens, func(i, j int) bool { return tokens[i].ID < tokens[j].ID })
+		alts = make([]string, len(tokens))
+		for i, t := range tokens {
+			alts[i] = fmt.Sprintf("%d@%s", t.ID, nodeIdentifier(t.Location))
+			if t.ID == first {
+				taken = i
+			}
 		}
 	}
 	e.ctx.noteChoice(ChoicePoint{
