@@ -12,6 +12,7 @@ import (
 
 	"github.com/chzyer/readline"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
 	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
@@ -111,6 +112,8 @@ var (
 	quietMode       bool
 	traceMode       bool
 	schedule        schedulePolicy
+	listEngines     bool
+	engine          engineSelection
 	convertFormat   string
 	queryText       string
 	outputPath      string
@@ -166,6 +169,23 @@ func (s *schedulePolicy) Set(value string) error {
 		return err
 	}
 	s.value, s.text = policy, value
+	return nil
+}
+
+// engineSelection is -engine as written: the engine every question is put to,
+// rejected where it is parsed so a name no engine is registered under is
+// reported at startup rather than at the first check.
+type engineSelection struct {
+	text string
+}
+
+func (e *engineSelection) String() string { return e.text }
+
+func (e *engineSelection) Set(value string) error {
+	if _, err := analysis.Default().Select(value); err != nil {
+		return err
+	}
+	e.text = value
 	return nil
 }
 
@@ -253,6 +273,13 @@ func runCLI() int {
 		fmt.Printf("  Build time: %s\n", BuildTime)
 		fmt.Printf("  Go version: %s\n", GoVersion)
 		return 0
+	}
+
+	// The engines a build knows are a property of the build, like its version, so
+	// they are listed without a model and the run ends there.
+	if listEngines {
+		writeLines(os.Stdout, analysis.Lines(analysis.Default().Listings()))
+		return exitHolds
 	}
 
 	// A mode asked for with an empty value is a misuse, not an absent flag: it
@@ -540,6 +567,11 @@ func newSession() *repl.Session {
 	}
 	sess.SetTracing(traceMode)
 	if err := sess.SetSchedule(schedule.value); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetEngine(engine.text); err != nil {
+		// Unreachable: the selection was validated against the same engines when parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}

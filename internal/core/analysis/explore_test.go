@@ -84,14 +84,15 @@ func TestExploreTakesTheBudgetsRunsAndDepth(t *testing.T) {
 
 func TestRegistryExploreIsTheRuntimesExploration(t *testing.T) {
 	f := parseFixture(t)
-	x, err := Default().Explore(context.Background(), &Model{Fresh: f.fresh}, "test::race", policy(t, "explore"), raceRun(t, f), Budget{})
+	plan, err := Default().Explore(context.Background(), &Model{Fresh: f.fresh}, "test::race", policy(t, "explore"), raceRun(t, f), Budget{}, Auto())
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}
+	x := plan.Result.Exploration()
 	if !x.Complete() || len(x.Outcomes) != 3 {
 		t.Fatalf("exploration %+v, want the 3 outcomes", x)
 	}
-	if _, err = Default().Explore(context.Background(), &Model{Fresh: f.fresh}, "test::race", runtime.DefaultSchedulePolicy, raceRun(t, f), Budget{}); !errors.Is(err, runtime.ErrNotExploring) {
+	if _, err = Default().Explore(context.Background(), &Model{Fresh: f.fresh}, "test::race", runtime.DefaultSchedulePolicy, raceRun(t, f), Budget{}, Auto()); !errors.Is(err, runtime.ErrNotExploring) {
 		t.Fatalf("explore under a fixed schedule: %v, want the refusal", err)
 	}
 }

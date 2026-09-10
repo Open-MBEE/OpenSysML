@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -61,6 +62,71 @@ func (c Claim) String() string {
 	}
 	return "unknown"
 }
+
+// Existential reports whether the claim is that some execution exists — a
+// violation, a sensitivity, a satisfying assignment — for which witnessed is
+// the one strength that is a claim at all.
+func (c Claim) Existential() bool {
+	return c == ClaimViolated || c == ClaimSensitive || c == ClaimSatisfiable
+}
+
+// Concrete reports whether the claim is the values concrete executions
+// produced — a value, a table — which are only ever observed.
+func (c Claim) Concrete() bool {
+	return c == ClaimValue || c == ClaimTable
+}
+
+// Universal reports whether the claim is over everything the question left
+// free — holds, an outcome set, unsatisfiable, unbounded — graded proved,
+// bounded or observed.
+func (c Claim) Universal() bool {
+	return c == ClaimHolds || c == ClaimOutcomes || c == ClaimUnsatisfiable || c == ClaimUnbounded
+}
+
+// Consistent is the typed error for a claim at a strength the scale does not
+// admit, nil for a pair it does: nothing at not covered, an existential at
+// witnessed, a concrete claim at observed, a universal at observed, bounded or proved.
+func Consistent(claim Claim, strength Strength) error {
+	ok := false
+	switch {
+	case claim == ClaimNone:
+		ok = strength == NotCovered
+	case strength == NotCovered:
+		ok = false
+	case claim.Existential():
+		ok = strength == Witnessed
+	case claim.Concrete():
+		ok = strength == Observed
+	case claim.Universal():
+		ok = strength != Witnessed
+	}
+	if ok {
+		return nil
+	}
+	return &InconsistentResultError{Claim: claim, Strength: strength}
+}
+
+// ErrInconsistentResult is the typed error for a claim at a strength the scale does not admit.
+var ErrInconsistentResult = errors.New("claim and strength do not agree")
+
+// InconsistentResultError reports a result whose claim and strength the scale
+// does not admit together: a defect in the engine, never an answer.
+type InconsistentResultError struct {
+	Engine   string
+	Claim    Claim
+	Strength Strength
+}
+
+// Error names the pair, and the engine when known.
+func (e *InconsistentResultError) Error() string {
+	if e.Engine == "" {
+		return fmt.Sprintf("analysis: %s cannot be %s", e.Claim, e.Strength)
+	}
+	return fmt.Sprintf("analysis: %s answered %s at %s, which the scale does not admit", e.Engine, e.Claim, e.Strength)
+}
+
+// Is matches ErrInconsistentResult.
+func (e *InconsistentResultError) Is(target error) bool { return target == ErrInconsistentResult }
 
 // Strength is how a claim is supported, ranked so a greater Strength is never weaker
 // evidence: Proved > Bounded > Witnessed (the one strength of an existential) > Observed > NotCovered.

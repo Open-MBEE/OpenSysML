@@ -36,6 +36,7 @@ const (
 	SysMLService_EvaluateCalc_FullMethodName       = "/sysml.SysMLService/EvaluateCalc"
 	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
 	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
+	SysMLService_ListEngines_FullMethodName        = "/sysml.SysMLService/ListEngines"
 	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
 	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
 	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
@@ -89,6 +90,12 @@ type SysMLServiceClient interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(ctx context.Context, in *RunSweepRequest, opts ...grpc.CallOption) (*RunSweepResponse, error)
+	// List the analysis engines this build registers, as the CLI's -engines and
+	// the REPL's %engines do: each with the questions it answers, the strongest
+	// evidence it can produce and whether it can run. Reported as the "engines"
+	// capability, which also names the `engine` request fields and the `engine`,
+	// `strength` and `bounds` response fields of the verification RPCs.
+	ListEngines(ctx context.Context, in *ListEnginesRequest, opts ...grpc.CallOption) (*ListEnginesResponse, error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -263,6 +270,15 @@ func (c *sysMLServiceClient) RunSweep(ctx context.Context, in *RunSweepRequest, 
 	return out, nil
 }
 
+func (c *sysMLServiceClient) ListEngines(ctx context.Context, in *ListEnginesRequest, opts ...grpc.CallOption) (*ListEnginesResponse, error) {
+	out := new(ListEnginesResponse)
+	err := c.cc.Invoke(ctx, SysMLService_ListEngines_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
 	out := new(QueryResponse)
 	err := c.cc.Invoke(ctx, SysMLService_Query_FullMethodName, in, out, opts...)
@@ -338,6 +354,12 @@ type SysMLServiceServer interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error)
+	// List the analysis engines this build registers, as the CLI's -engines and
+	// the REPL's %engines do: each with the questions it answers, the strongest
+	// evidence it can produce and whether it can run. Reported as the "engines"
+	// capability, which also names the `engine` request fields and the `engine`,
+	// `strength` and `bounds` response fields of the verification RPCs.
+	ListEngines(context.Context, *ListEnginesRequest) (*ListEnginesResponse, error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -406,6 +428,9 @@ func (UnimplementedSysMLServiceServer) RunAnalysis(context.Context, *RunAnalysis
 }
 func (UnimplementedSysMLServiceServer) RunSweep(context.Context, *RunSweepRequest) (*RunSweepResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunSweep not implemented")
+}
+func (UnimplementedSysMLServiceServer) ListEngines(context.Context, *ListEnginesRequest) (*ListEnginesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListEngines not implemented")
 }
 func (UnimplementedSysMLServiceServer) Query(context.Context, *QueryRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
@@ -735,6 +760,24 @@ func _SysMLService_RunSweep_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_ListEngines_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEnginesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).ListEngines(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_ListEngines_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).ListEngines(ctx, req.(*ListEnginesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryRequest)
 	if err := dec(in); err != nil {
@@ -863,6 +906,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RunSweep",
 			Handler:    _SysMLService_RunSweep_Handler,
+		},
+		{
+			MethodName: "ListEngines",
+			Handler:    _SysMLService_ListEngines_Handler,
 		},
 		{
 			MethodName: "Query",

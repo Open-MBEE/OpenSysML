@@ -4,6 +4,7 @@
 import { create } from "@bufbuild/protobuf";
 import type {
   Array as ArrayMessage,
+  Bound,
   EnumLiteral,
   Function as FunctionMessage,
   MeasurementRef,
@@ -159,14 +160,43 @@ export interface VerdictSubject {
   instanceTypeId?: string;
 }
 
+/** One limit an engine ran under, and whether the run stopped at it. */
+export interface VerdictBound {
+  /** The bound's name as the budget spells it: "runs", "depth", "steps", "solver". */
+  name: string;
+  limit: bigint;
+  /** True when the run stopped at the limit, which lowers the verdict's strength. */
+  reached: boolean;
+}
+
+/**
+ * What a verdict rests on: the engine that answered, the strength of its
+ * evidence and the bounds it ran under. Empty from a service without the
+ * `engines` capability, or for a verdict decided before any engine was asked.
+ */
+export interface VerdictStanding {
+  /** The engine as `ListEngines` names it. */
+  engine: string;
+  /** "not covered", "observed", "witnessed", "bounded" or "proved". */
+  strength: string;
+  bounds: VerdictBound[];
+}
+
 /**
  * One verification's answer. `undecided` is the service reporting it could not
- * answer, which a `holds: false` alone does not distinguish.
+ * answer, which a `holds: false` alone does not distinguish. Every arm carries
+ * the `standing` its evidence rests on.
  */
 export type SysMLVerdict =
-  | { kind: "holds"; subject: VerdictSubject }
-  | { kind: "fails"; subject: VerdictSubject; condition: string }
-  | { kind: "undecided"; subject: VerdictSubject; error: string; cause: FailureCause };
+  | { kind: "holds"; subject: VerdictSubject; standing: VerdictStanding }
+  | { kind: "fails"; subject: VerdictSubject; condition: string; standing: VerdictStanding }
+  | {
+      kind: "undecided";
+      subject: VerdictSubject;
+      error: string;
+      cause: FailureCause;
+      standing: VerdictStanding;
+    };
 
 /**
  * Decodes a `sysml.Value` into the union.
@@ -341,17 +371,32 @@ export function decodeVerdict(verdict: Verdict): SysMLVerdict {
     ...(verdict.instanceId === 0n ? {} : { instanceId: verdict.instanceId }),
     ...(verdict.instanceTypeId === "" ? {} : { instanceTypeId: verdict.instanceTypeId }),
   };
+  const standing = decodeStanding(verdict);
   if (verdict.error !== "") {
     return {
       kind: "undecided",
       subject,
       error: verdict.error,
       cause: failureCause(verdict.failureReason),
+      standing,
     };
   }
   return verdict.holds
-    ? { kind: "holds", subject }
-    : { kind: "fails", subject, condition: verdict.condition };
+    ? { kind: "holds", subject, standing }
+    : { kind: "fails", subject, condition: verdict.condition, standing };
+}
+
+/** Reads the standing fields the `engines` capability adds to a verdict. */
+export function decodeStanding(verdict: {
+  engine: string;
+  strength: string;
+  bounds: Bound[];
+}): VerdictStanding {
+  return {
+    engine: verdict.engine,
+    strength: verdict.strength,
+    bounds: verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached })),
+  };
 }
 
 /** Names the enum the service reports for a failure it could not answer through. */

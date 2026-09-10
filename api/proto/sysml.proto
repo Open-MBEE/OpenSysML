@@ -60,6 +60,13 @@ service SysMLService {
   // capability.
   rpc RunSweep(RunSweepRequest) returns (RunSweepResponse);
 
+  // List the analysis engines this build registers, as the CLI's -engines and
+  // the REPL's %engines do: each with the questions it answers, the strongest
+  // evidence it can produce and whether it can run. Reported as the "engines"
+  // capability, which also names the `engine` request fields and the `engine`,
+  // `strength` and `bounds` response fields of the verification RPCs.
+  rpc ListEngines(ListEnginesRequest) returns (ListEnginesResponse);
+
   // Run a SysML v2 API & Services Query over a parsed model: scope/select/where
   // as the standard defines them, so a client that speaks that API can filter a
   // model here. Reported as the "query" capability.
@@ -120,6 +127,30 @@ message Verdict {
   // associates it with the verification_verdicts reported for that requirement.
   // Empty for every other kind, and for a requirement no FQN names.
   string requirement_id = 10;
+  // The engine whose answer this verdict is, as ListEngines names it; empty
+  // for a verdict decided before any engine was asked. Reported as the
+  // "engines" capability, with `strength` and `bounds`.
+  string engine = 11;
+  // The strength of the evidence behind the verdict: "observed" for one run,
+  // "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+  // search within the bounds, "proved" for every case, "not covered" when no
+  // engine decided it.
+  string strength = 12;
+  // The bounds the engine ran under, each marked when it stopped the run.
+  repeated Bound bounds = 13;
+}
+
+// Bound is one limit an engine ran under, as its plan names it: a count, or
+// milliseconds for a time, and whether the run stopped at it.
+message Bound {
+  // The bound's name as the budget spells it: "runs", "depth", "steps",
+  // "elements", "solver", "configurations".
+  string name = 1;
+  // The value the run was held to.
+  int64 limit = 2;
+  // True when the run stopped at the limit rather than finishing within it,
+  // which is what lowers a verdict's strength.
+  bool reached = 3;
 }
 
 // VerifyConstraintRequest asks whether a constraint holds, as %constraint does.
@@ -132,9 +163,14 @@ message VerifyConstraintRequest {
   // defaults. The prompt evaluates against the object a %instantiate created;
   // a call carries no session, so it names the subject instead.
   string subject_symbol_id = 3;
+  // The engine the question is put to, as ListEngines names it, "auto" for the
+  // strongest covering one, or "all" for every covering one. Unset is "auto".
+  // An unknown name is INVALID_ARGUMENT. Reported as the "engines" capability.
+  string engine = 4;
 }
 
-// VerifyConstraintResponse carries the verdict.
+// VerifyConstraintResponse carries the verdict; its engine, strength and bounds
+// are on the verdict.
 message VerifyConstraintResponse {
   Verdict verdict = 1;
   // Instances reachable from the verdict's subject, including it, so its feature
@@ -154,6 +190,8 @@ message VerifyRequirementRequest {
   string symbol_id = 2;
   // Optional FQN of a part/usage to instantiate and evaluate against.
   string subject_symbol_id = 3;
+  // The engine the question is put to; see VerifyConstraintRequest.engine.
+  string engine = 4;
 }
 
 // VerificationVerdict is what the body of a verification case answered when it
@@ -196,6 +234,8 @@ message VerifySatisfactionRequest {
   // element, or that element itself when it is a named satisfy assertion. Empty
   // evaluates every assertion the model states.
   string symbol_id = 2;
+  // The engine every assertion is put to; see VerifyConstraintRequest.engine.
+  string engine = 3;
 }
 
 // VerifySatisfactionResponse carries one verdict per assertion evaluated, in
@@ -224,6 +264,8 @@ message EvaluateCalcRequest {
   // Positional arguments. The notation writes named arguments inside an
   // invocation's parentheses, which this request does not carry.
   repeated Value arguments = 3;
+  // The engine the calculation is put to; see VerifyConstraintRequest.engine.
+  string engine = 4;
 }
 
 // EvaluateCalcResponse carries what the calculation computed.
@@ -237,6 +279,12 @@ message EvaluateCalcResponse {
   repeated Diagnostic diagnostics = 4;
   // What kind of failure `error` reports.
   FailureReason failure_reason = 5;
+  // The engine that computed the answer, the strength of its evidence and the
+  // bounds it ran under, as Verdict carries them. Empty when the request was
+  // answered before any engine was asked. Reported as the "engines" capability.
+  string engine = 6;
+  string strength = 7;
+  repeated Bound bounds = 8;
 }
 
 // CalcOutput is one output feature a calc usage computed.
@@ -289,6 +337,9 @@ message RunAnalysisRequest {
   // the response answers with `outcomes` and `exploration` in place of one run's
   // outputs, verdicts, instances and error (see ExecuteActionResponse).
   string schedule = 6;
+  // The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+  // asks what "explore" as the schedule asks, and the response answers alike.
+  string engine = 7;
 }
 
 // RunAnalysisResponse carries what the case computed and decided.
@@ -325,6 +376,13 @@ message RunAnalysisResponse {
   // value, in the order first made: a trade study's evaluation of each
   // alternative in subject order, the selected one marked.
   repeated CaseEvaluation evaluations = 10;
+  // The engine that answered, the strength of its evidence and the bounds it ran
+  // under, as Verdict carries them; each verdict in `verdicts` carries the same.
+  // Empty when the request was answered before any engine was asked. Reported
+  // as the "engines" capability.
+  string engine = 11;
+  string strength = 12;
+  repeated Bound bounds = 13;
 }
 
 // Outcome is one distinct outcome an exploration reached: the observables a
@@ -366,6 +424,37 @@ message ExplorationStatus {
   // one run may resolve before the rest take their first alternative.
   int32 runs_budget = 4;
   int32 depth_budget = 5;
+}
+
+// ListEnginesRequest asks for the analysis engines registered in this build.
+message ListEnginesRequest {}
+
+// EngineInfo is one analysis engine: what it answers, how strongly it can, and
+// whether it can run here.
+message EngineInfo {
+  // The engine's name, as a request's `engine` field selects it.
+  string name = 1;
+  // The strongest evidence the engine can ever produce, spelled as
+  // Verdict.strength is.
+  string authority = 2;
+  // The kinds of question the engine answers: "evaluate", "outcomes",
+  // "holds", "sensitive", "satisfiable", "sweep", "compute".
+  repeated string answers = 3;
+  // The bounds the engine takes, in the order it reports them.
+  repeated string bounds = 4;
+  // The external process the engine needs, empty for one running in-process;
+  // `process_found` says where it was found when it was.
+  string process = 5;
+  string process_found = 6;
+  // True when the engine can run: it needs no process, or its process was found.
+  bool ready = 7;
+  // Why the engine cannot run, empty when it can.
+  string unavailable = 8;
+}
+
+// ListEnginesResponse lists the engines in name order.
+message ListEnginesResponse {
+  repeated EngineInfo engines = 1;
 }
 
 // ParseFileRequest specifies the source to parse
@@ -1085,6 +1174,14 @@ message ServerInfoResponse {
   //   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
   //                  final_time, the run's simulation clock when it ended;
   //                  without it the field is 0 whatever the run waited on.
+  //   "engines"      - the ListEngines RPC lists the analysis engines; the
+  //                  verification and sweep requests take an `engine`, the
+  //                  engine the question is put to, unset meaning "auto"; and
+  //                  their responses and every Verdict report the `engine` that
+  //                  answered with the `strength` of its evidence and the
+  //                  `bounds` it ran under. Without it a service drops the
+  //                  request field and answers under "auto", so a client must
+  //                  not send one.
   repeated string capabilities = 2;
 }
 
@@ -1214,6 +1311,8 @@ message RunSweepRequest {
   // Seed the draws are taken from: the same seed draws the same table on every
   // platform. Required with `samples`, ignored without it.
   uint64 seed = 8;
+  // The engine the sweep is put to; see VerifyConstraintRequest.engine.
+  string engine = 9;
 }
 
 // SweepRow is one run of a sweep: what it bound, what it produced, how long it
@@ -1260,6 +1359,12 @@ message RunSweepResponse {
   // Every object a row's verdict is about, from every run of the table, so each
   // verdict's `instance_id` resolves here.
   repeated Instance instances = 8;
+  // The engine that ran the table, the strength of its evidence and the bounds
+  // it ran under, as Verdict carries them; each row's verdicts carry the same.
+  // Empty when no run was made. Reported as the "engines" capability.
+  string engine = 9;
+  string strength = 10;
+  repeated Bound bounds = 11;
 }
 
 // RunDocumentQueryRequest runs a named document query — a calc def

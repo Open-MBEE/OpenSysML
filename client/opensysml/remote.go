@@ -78,6 +78,14 @@ func (r *remote) serverInfo(ctx context.Context) (*pb.ServerInfoResponse, error)
 	return resp.Msg, nil
 }
 
+func (r *remote) listEngines(ctx context.Context, req *pb.ListEnginesRequest) (*pb.ListEnginesResponse, error) {
+	resp, err := r.rpc.ListEngines(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) parseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.ParseFileResponse, error) {
 	resp, err := r.rpc.ParseFile(ctx, connect.NewRequest(req))
 	if err != nil {

@@ -88,10 +88,11 @@ func TestSolveJudgesTheSetOfQueries(t *testing.T) {
 
 func TestRegistrySolveIsTheSolversAnswer(t *testing.T) {
 	solver := requireSolver(t)
-	values, err := Default().Solve(context.Background(), "test::C", []*solve.Query{intQuery("C", 2, 5)}, (*solve.Solver).Explain, Budget{Solver: time.Minute})
+	plan, err := Default().Solve(context.Background(), "test::C", []*solve.Query{intQuery("C", 2, 5)}, (*solve.Solver).Explain, Budget{Solver: time.Minute}, Auto())
 	if err != nil {
 		t.Fatalf("solve: %v", err)
 	}
+	values := plan.Result.Values
 	direct, err := solver.Explain(context.Background(), intQuery("C", 2, 5))
 	if err != nil {
 		t.Fatalf("explain: %v", err)
@@ -99,7 +100,7 @@ func TestRegistrySolveIsTheSolversAnswer(t *testing.T) {
 	if len(values) != 1 || values[0].Err != nil || values[0].Solved.Status != direct.Status || values[0].Solved.Solver != direct.Solver {
 		t.Fatalf("values %+v, want the solver's own %+v", values, direct)
 	}
-	if _, err = registered(t, NewSolve(absentSolver)).Solve(context.Background(), "test::C", []*solve.Query{intQuery("C", 2, 5)}, (*solve.Solver).Solve, Budget{}); !errors.Is(err, solve.ErrNoSolver) {
+	if _, err = registered(t, NewSolve(absentSolver)).Solve(context.Background(), "test::C", []*solve.Query{intQuery("C", 2, 5)}, (*solve.Solver).Solve, Budget{}, Auto()); !errors.Is(err, solve.ErrNoSolver) {
 		t.Fatalf("solve without a solver: %v, want its absence", err)
 	}
 }

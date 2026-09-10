@@ -153,7 +153,7 @@ func TestPerformReturnsWhatTheCallProduced(t *testing.T) {
 	f := parseFixture(t)
 	double := f.symbol(t, "Double")
 	ctx := f.context(t)
-	value, err := Perform(context.Background(), Default(), Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	value, _, err := Perform(context.Background(), Default(), Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{}, Auto(),
 		func(rt *runtime.Context) (runtime.Value, error) {
 			return rt.InvokeCalc(double, []runtime.Value{intOf(4)}, f.pkg)
 		},
@@ -165,7 +165,7 @@ func TestPerformReturnsWhatTheCallProduced(t *testing.T) {
 		t.Fatalf("perform: %v = %+v, want 8", err, value)
 	}
 	failed := errors.New("unbound parameter")
-	_, err = Perform(context.Background(), Default(), Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	_, _, err = Perform(context.Background(), Default(), Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{}, Auto(),
 		func(*runtime.Context) (runtime.Value, error) { return runtime.Value{}, failed },
 		func(v runtime.Value, err error) Answer { return ValuesAnswer(nil, err) },
 	)
@@ -178,7 +178,7 @@ func TestPerformReportsARefusal(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
 	r := registered(t, NewExplore())
-	_, err := Perform(context.Background(), r, Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	_, _, err := Perform(context.Background(), r, Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{}, Auto(),
 		func(*runtime.Context) (int, error) { return 1, nil },
 		func(int, error) Answer { return Answer{Claim: ClaimValue} },
 	)
@@ -186,7 +186,7 @@ func TestPerformReportsARefusal(t *testing.T) {
 		t.Fatalf("perform without run: %v, want no engine", err)
 	}
 	r = registered(t, fakeEngine{name: "picky", kinds: []Kind{Evaluate}, authority: Observed, refusal: errFixtureRefusal})
-	_, err = Perform(context.Background(), r, Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	_, _, err = Perform(context.Background(), r, Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{}, Auto(),
 		func(*runtime.Context) (int, error) { return 1, nil },
 		func(int, error) Answer { return Answer{Claim: ClaimValue} },
 	)

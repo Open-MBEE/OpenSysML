@@ -162,6 +162,14 @@ CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 #: field is 0 whatever the run waited on.
 CAPABILITY_FINAL_TIME = "final_time"
 
+#: The analysis engines: ``ListEngines``, the ``engine`` field selecting one
+#: (``auto``, ``all`` or a name) on the verification, calc, analysis and sweep
+#: requests, and ``engine``, ``strength`` and ``bounds`` on their responses,
+#: read as :class:`~opensysml.engines.Standing`. Without it the service would
+#: run every request under ``auto`` and report no standing, so the client
+#: refuses to send a selection.
+CAPABILITY_ENGINES = "engines"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

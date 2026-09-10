@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -63,6 +64,10 @@ type Verdict struct {
 	// order, and Exploration how it ended; only an explored run has them.
 	Outcomes    []VerdictOutcome
 	Exploration *VerdictExploration
+	// Plan is how the engines answered: the selection made, each engine put to
+	// the question and what it answered, and the composed result whose standing
+	// the last line reports. Nil for a verdict decided before any engine was asked.
+	Plan *analysis.Plan
 }
 
 // Evaluation is one application of a case's calc as a function value: what it
@@ -169,10 +174,15 @@ func (s *Session) checkConstraint(name string) Verdict {
 	if bad != nil {
 		return *bad
 	}
-	result, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+	result, plan, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
 		return ctx.CheckConstraintOn(target.sym, target.scope, inst)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
+	return standing(constraintVerdict(name, result, err, inst, owner), plan)
+}
+
+// constraintVerdict reports what checking a constraint decided.
+func constraintVerdict(name string, result runtime.CheckResult, err error, inst *runtime.Instance, owner string) Verdict {
 	if unevaluable(err) {
 		return unevaluableVerdict(name, "Constraint "+name, err, inst, owner)
 	}
@@ -210,22 +220,28 @@ func (s *Session) checkRequirement(name string) Verdict {
 	if bad != nil {
 		return *bad
 	}
-	result, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+	result, plan, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
 		return ctx.CheckRequirementOn(target.sym, target.scope, inst)
 	})
 	inst, owner = s.reportedSubject(result, inst, owner)
+	verdict := s.withVerifications(requirementVerdict(name, result, err, inst, owner), target.ctx, target.sym)
+	return standing(verdict, plan)
+}
+
+// requirementVerdict reports what checking a requirement decided.
+func requirementVerdict(name string, result runtime.CheckResult, err error, inst *runtime.Instance, owner string) Verdict {
 	if unevaluable(err) {
-		return s.withVerifications(unevaluableVerdict(name, "Requirement "+name, err, inst, owner), target.ctx, target.sym)
+		return unevaluableVerdict(name, "Requirement "+name, err, inst, owner)
 	}
 	if err != nil || !result.Holds {
-		return s.withVerifications(Verdict{Subject: name, Status: VerdictFails, Lines: []string{
+		return Verdict{Subject: name, Status: VerdictFails, Lines: []string{
 			fmt.Sprintf("✗ Requirement %s failed%s", name, onInstance(inst, owner)),
 			"  " + verdictDetail("Required condition", err),
-		}}, target.ctx, target.sym)
+		}}
 	}
-	return s.withVerifications(Verdict{Subject: name, Status: VerdictHolds, Lines: []string{
+	return Verdict{Subject: name, Status: VerdictHolds, Lines: []string{
 		fmt.Sprintf("✓ Requirement %s satisfied%s", name, onInstance(inst, owner)),
-	}}, target.ctx, target.sym)
+	}}
 }
 
 // CheckSatisfy evaluates satisfaction assertions: every one the model states

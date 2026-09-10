@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -106,7 +107,7 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 	if err != nil {
 		verdict := unresolvedVerdict(label, err.Error())
 		s.reportCaseRun(&verdict, run.result)
-		return verdict
+		return standing(verdict, run.plan)
 	}
 	result, subject, subjectLabel := run.result, run.subject, run.label
 
@@ -147,7 +148,7 @@ func (s *Session) analysisVerdict(inv analysisInvocation) Verdict {
 		})
 		verdict.Lines = append(verdict.Lines, "  "+verificationLine(v))
 	}
-	return verdict
+	return standing(verdict, run.plan)
 }
 
 // reportCaseRun adds to verdict what a case run produced: each output, each
@@ -217,12 +218,14 @@ func objectText(ctx *runtime.Context, val runtime.Value) string {
 
 // caseRun is what one run of a case produced: what it computed and decided, the
 // object it ran on, and, for a verification case, the verdict of its body and of
-// every subcase it performed.
+// every subcase it performed. plan is how the engines answered, nil for a run
+// made inside a linearization.
 type caseRun struct {
 	result   runtime.AnalysisResult
 	subject  *runtime.Instance
 	label    string
 	verdicts []runtime.VerificationVerdict
+	plan     *analysis.Plan
 }
 
 // runAnalysis resolves the case an invocation names, evaluates its arguments
@@ -238,7 +241,7 @@ func (s *Session) runAnalysis(inv analysisInvocation) (caseRun, error) {
 	if err != nil {
 		return caseRun{}, err
 	}
-	return s.runAnalysisIn(ctx, inv, sym, fqn, heldObjects{s})
+	return s.runAnalysisIn(s.dispatched(), ctx, inv, sym, fqn, heldObjects{s})
 }
 
 // analysisSymbol resolves the case an invocation names. It is resolved before the
@@ -253,9 +256,9 @@ func (s *Session) analysisSymbol(inv analysisInvocation) (*symbols.Symbol, strin
 		symbols.SymbolVerificationCaseDef, symbols.SymbolVerificationCaseUsage)
 }
 
-// runAnalysisIn runs a case in ctx, finding the object named as its subject, and
-// the one owning a usage nested in a type, where objects finds them.
-func (s *Session) runAnalysisIn(ctx *runtime.Context, inv analysisInvocation, sym *symbols.Symbol, fqn string, objects runObjects) (caseRun, error) {
+// runAnalysisIn runs a case in ctx as x makes runs, finding the object named as
+// its subject, and the one owning a usage nested in a type, where objects finds them.
+func (s *Session) runAnalysisIn(x execution, ctx *runtime.Context, inv analysisInvocation, sym *symbols.Symbol, fqn string, objects runObjects) (caseRun, error) {
 	if err := ctx.RequireAnalysisCase(sym); err != nil {
 		return caseRun{}, err
 	}
@@ -293,23 +296,24 @@ func (s *Session) runAnalysisIn(ctx *runtime.Context, inv analysisInvocation, sy
 	// A verification case runs the same body; asking the run for its verdict too
 	// reports it beside what the run computed.
 	if runtime.IsVerificationCaseSymbol(sym) {
-		verified, err := s.runVerification(fqn, ctx, func(ctx *runtime.Context) (runtime.VerificationResult, error) {
+		verified, plan, err := x.runVerification(fqn, ctx, func(ctx *runtime.Context) (runtime.VerificationResult, error) {
 			return ctx.RunVerification(sym, args, runScope, self)
 		})
+		run.plan = plan
 		if err != nil {
-			return caseRun{}, err
+			return run, err
 		}
 		run.result = verified.Run
 		run.verdicts = append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...)
 		return run, nil
 	}
-	result, err := s.runCase(fqn, ctx, func(ctx *runtime.Context) (runtime.AnalysisResult, error) {
+	result, plan, err := x.runCase(fqn, ctx, func(ctx *runtime.Context) (runtime.AnalysisResult, error) {
 		return ctx.RunAnalysis(sym, args, runScope, self)
 	})
-	run.result = result
+	run.result, run.plan = result, plan
 	if err != nil {
 		if errors.Is(err, runtime.ErrNotAnAnalysis) {
-			return caseRun{}, err
+			return caseRun{plan: plan}, err
 		}
 		return run, fmt.Errorf("analysis run failed: %w", err)
 	}
