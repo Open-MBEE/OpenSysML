@@ -596,8 +596,14 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 			declared.m = MultOne
 		}
 		if u != nil && v.Type().Many() {
-			if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
+			m, err := fc.multOf(u, s.Name)
+			if err != nil {
 				return nil, err
+			}
+			if m != MultOne {
+				if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -605,7 +611,7 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		declared.t = declared.t.Seq()
 		fc.c.collections = true
 	}
-	init, err := fc.bind(v, binding{t: declared.t, m: MultAny}, "", "")
+	init, err := fc.bind(v, binding{t: declared.t, m: MultAny, unique: declared.unique}, "", "declaration of "+s.Name)
 	if err != nil {
 		return nil, fc.unsupported(fmt.Sprintf("a %s bound to %s, which is %s", v.Type(), s.Name, declared.t))
 	}

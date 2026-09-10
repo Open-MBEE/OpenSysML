@@ -323,9 +323,9 @@ func (s Sampled) Type() Type  { return s.In.Type() }
 type Stmt interface{ stmt() }
 
 // Declare introduces a body-local variable with its initial value, null (a
-// collection) when Init is nil. The interpreter does not judge an
-// initializer against the variable's range or multiplicity, so neither does
-// generated code; later assignments are checked.
+// collection) when Init is nil. The interpreter judges an initializer's
+// uniqueness but not its range or multiplicity, so neither does generated
+// code; later assignments are checked in full.
 type Declare struct {
 	Name string
 	T    Type

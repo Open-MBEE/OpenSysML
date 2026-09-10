@@ -245,7 +245,7 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			calc def BoundMany { in xs : Integer[*]; return : Integer[*]; bind result = xs; }
 			calc def BoundDerived :> BoundOne {
 				in :>> xs;
-				attribute pair : Integer[2] = (xs, xs);
+				attribute pair : Integer[2] nonunique = (xs, xs);
 				bind result = pair;
 			}
 			calc def BoundString { attribute s : String = "s"; return : Integer; bind result = s; }

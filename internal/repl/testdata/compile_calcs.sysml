@@ -346,6 +346,9 @@ package Compiled {
 		calc def UniqB { in x : Boolean[0..*]; return : Boolean[0..*] = x; }
 		calc def UniqAs { in n : Integer; attribute keep : Integer[0..*] = (); for i in 1..n { assign keep := including(keep, i % 3); } return : Integer = size(keep); }
 		calc def UniqLoc { in x : Integer[0..*]; attribute y : Integer[0..*] = x; return : Integer = size(y); }
+		calc def UniqLocInit { in x : Integer[0..*] nonunique; attribute y : Integer[0..*] = x; return : Integer = size(y); }
+		calc def UniqLocFree { in x : Integer[0..*] nonunique; attribute y : Integer[0..*] nonunique = x; return : Integer = size(y); }
+		calc def UniqLocAny { in x : Integer[0..*] nonunique; attribute y = x; return : Integer = size(y); }
 	}
 
 	// Overloads: the declaration a call compiles to is the one its arguments

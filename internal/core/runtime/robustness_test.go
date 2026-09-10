@@ -11311,13 +11311,21 @@ func testWriteOfARepeatedValueLeavesTheFeature(t *testing.T) {
 	calcSrc := `
 	package test {
 		private import ScalarValues::*;
+		private import SequenceFunctions::size;
 		calc def Pass { in xs : Integer[*]; return : Integer[*] = xs; }
 		calc def Twice { in x : Integer; return : Integer[*] = (x, x); }
+		calc def Local { in xs : Integer[*] nonunique; attribute ys : Integer[*] = xs; return : Integer = size(ys); }
+		calc def LocalRepeats { in xs : Integer[*] nonunique; attribute ys : Integer[*] nonunique = xs; return : Integer = size(ys); }
 	}`
-	for name, args := range map[string][]Value{"Pass": {repeated}, "Twice": {constInt(7)}} {
+	for name, args := range map[string][]Value{"Pass": {repeated}, "Twice": {constInt(7)}, "Local": {repeated}} {
 		if err := calcErrorWithLibraries(t, calcSrc, name, args, 10000); !errors.Is(err, ErrUniquenessViolation) {
 			t.Errorf("%s: error = %v, want ErrUniquenessViolation", name, err)
 		}
+	}
+	cidx, _, cctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcSrc))
+	sym, scope := calcByName(t, cidx.DocumentRoot("<test>"), "test", "LocalRepeats")
+	if result, err := cctx.InvokeCalc(sym, []Value{repeated}, scope); err != nil || FormatTraceValue(result) != "3" {
+		t.Errorf("LocalRepeats = %s, %v; want 3: a nonunique local takes the repeat", FormatTraceValue(result), err)
 	}
 }
 

@@ -107,6 +107,38 @@ func TestIsUniqueInheritsThroughRedefinition(t *testing.T) {
 	}
 }
 
+// TestUniquenessConformanceUsesEffectiveUniqueness: a nonunique redefinition is
+// judged against what its target effectively is, not what it locally says.
+func TestUniquenessConformanceUsesEffectiveUniqueness(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def A;
+		part def Base {
+			part us : A[*];
+			part rs : A[*] nonunique;
+		}
+		part def Middle :> Base {
+			part :>> us;
+			part :>> rs;
+		}
+		part def Leaf :> Middle {
+			part :>> us [*] nonunique;
+			part :>> rs [*] nonunique;
+		}
+	}`)
+	p := sym(t, root, "P").Scope
+	leaf := nested(t, p, "Leaf")
+	middle := nested(t, p, "Middle")
+	rs := nested(t, leaf.Scope, "rs")
+	if got := m.ConformanceViolations(rs); len(got) != 0 {
+		t.Errorf("ConformanceViolations(Leaf::rs) = %+v, want none: Middle::rs inherits nonunique", got)
+	}
+	us := nested(t, leaf.Scope, "us")
+	got := m.ConformanceViolations(us)
+	if len(got) != 1 || got[0].Kind != ViolationUniqueness || got[0].Target != nested(t, middle.Scope, "us") {
+		t.Errorf("ConformanceViolations(Leaf::us) = %+v, want one uniqueness violation against Middle::us", got)
+	}
+}
+
 // TestIsUniqueTerminatesOnRedefinitionCycle covers that a redefinition chain
 // closing on itself contributes nothing and does not recurse forever.
 func TestIsUniqueTerminatesOnRedefinitionCycle(t *testing.T) {
