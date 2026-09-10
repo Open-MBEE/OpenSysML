@@ -153,6 +153,16 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 	e.addFeatureDirections(root.features, &root.aliases, e.action)
 }
 
+// declareAcceptPayloads gives root the payloads the graph's accepts name: each is a
+// feature of the flow its accept sits in, read by the nodes after it.
+func (e *ActionExecutor) declareAcceptPayloads(root *actionFrame) {
+	for _, accept := range e.graph.Accepts {
+		if accept.ParamName != "" {
+			root.features[accept.ParamName] = ast.DirNone
+		}
+	}
+}
+
 // addFeatureDirections adds the parameters and attributes an action holds, the
 // inherited ones included, to features by name, aliasing what each redefines.
 func (e *performances) addFeatureDirections(
@@ -842,6 +852,9 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		}
 		name := simpleEndName(end.Other)
 		if name == "" {
+			if end.FromValue {
+				continue // a qualified value (`Mode::idle`) initialized the pin, and holds nothing
+			}
 			return fmt.Errorf("%w: %s is bound to %s, which names no feature to hold its value",
 				ErrBindingEnd, end.pinText(), bindingEndText(end.Other))
 		}
@@ -849,7 +862,7 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		if err != nil {
 			return err
 		}
-		if !written {
+		if !written && !end.FromValue {
 			return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
 				ErrBindingEnd, end.pinText(), name)
 		}

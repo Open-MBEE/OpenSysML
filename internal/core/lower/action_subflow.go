@@ -34,8 +34,8 @@ func statesOwnFlow(members []ast.Node) bool {
 }
 
 // lowerActionNode records what a nested action node runs: the flow its own
-// members state, or — where they state none — the statements and accept of a
-// leaf. scope is the node's own namespace.
+// members state (its start inferred as a whole action's is), or — where they
+// state none — the statements and accept of a leaf. scope is the node's own namespace.
 func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	lowerFeatures(graph, node, scope)
 	if !statesOwnFlow(node.Members) {
@@ -47,6 +47,9 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		graph.Subflows = make(map[ast.Node]*Subflow)
 	}
 	sub, err := ToActionGraph(node, scope)
+	if err == nil {
+		StartFlow(sub)
+	}
 	graph.Subflows[node] = &Subflow{Graph: sub, Err: err}
 }
 

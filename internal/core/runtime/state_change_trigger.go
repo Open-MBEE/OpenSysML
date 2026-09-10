@@ -60,7 +60,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, nil
 	}
 
-	candidates, err := e.selectCandidates(func(state *ast.StateNode) ([]int, []RunNote, error) {
+	selected, err := e.selectCandidates(func(state *ast.StateNode) ([]int, []RunNote, error) {
 		enabled, notes := e.risenChangeTransitions(state, poll)
 		return enabled, notes, nil
 	})
@@ -69,6 +69,11 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, err
 	}
 
+	candidates, err := e.chooseTransitions(selected, nil)
+	if err != nil {
+		e.changeWaits = poll.waits
+		return false, err
+	}
 	fired, err := e.dispatchInOrder("on change", candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// An earlier candidate's effect may have blocked this guard since the poll
 		// read it, and the fire path re-tests it: a transition that would not move
@@ -87,7 +92,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		// firing causes must not re-arm the edge that caused it.
 		e.changeFired[trans] = true
 		e.firingChange = trans
-		_, err = e.fireFrom(candidate.source, trans, notes)
+		_, err = e.fireFrom(candidate.source, trans, notes, candidate.route)
 		e.firingChange = nil
 		if err != nil {
 			return true, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)

@@ -2950,10 +2950,7 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return "", fmt.Errorf("event processing failed: %w", err)
 		}
-		if note := droppedSignalNote(exec); note != "" {
-			return "Event dispatched, but " + note, nil
-		}
-		return "Event dispatched", nil
+		return "Event dispatched" + dispatchedEventNote(exec), nil
 	}
 	if exec.HasPendingDoWork() {
 		ran, err := exec.RunDoRound()
