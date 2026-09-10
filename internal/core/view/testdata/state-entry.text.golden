@@ -1,0 +1,30 @@
+MachineViews::thermostat - state rendering (view def StateTransitionView)
+
+state def Machines::Thermostat
+  start
+  state heating
+  state idle
+    start
+    state drying
+    state resting
+  state monitoring
+    region lights
+      start
+      state lit
+      state unlit
+    region fans
+      start
+      state off (initial)
+      state on
+
+transitions:
+  start of Machines::Thermostat -> heating: [cold]
+  start of Machines::Thermostat -> idle: [not cold]
+  start of idle -> drying: [wet]
+  start of idle -> resting
+  start of lights -> lit: [dark]
+  start of lights -> unlit: [not dark]
+  start of fans -> off
+  heating -> idle
+  idle -> monitoring
+  off -> on

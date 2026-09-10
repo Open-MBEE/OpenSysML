@@ -82,10 +82,10 @@ func (g *StateGraph) StartOf(owner ast.Node) []*EntryTransition {
 	return g.EntryTransitions[owner]
 }
 
-// unconditionalStart returns the state a body starts in when no guard decides
-// it: the target of its first entry transition when that one is unguarded.
-func (g *StateGraph) unconditionalStart(owner ast.Node) *ast.StateNode {
-	transitions := g.EntryTransitions[owner]
+// UnconditionalStart is the state a body starts in whatever its guards say: its
+// first entry transition's target when unguarded, else nil. owner is as for StartOf.
+func (g *StateGraph) UnconditionalStart(owner ast.Node) *ast.StateNode {
+	transitions := g.StartOf(owner)
 	if len(transitions) == 0 || transitions[0].Guard != nil {
 		return nil
 	}

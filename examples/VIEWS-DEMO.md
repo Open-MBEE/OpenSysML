@@ -80,19 +80,26 @@ connections:
 ```
 
 The state rendering comes from the lowered state graph, nested regions and
-transitions with their triggers and guards alike:
+transitions with their triggers and guards alike. Each body that says where it
+starts has a `start`, and the entry transitions out of it are edges in the order
+their guards are tried in, carrying the guard like any transition; a state is
+`initial` only when its body starts in it whatever the guards say:
 
 ```
 LanderViews::descentStates - state rendering (view def StateTransitionView)
 
 state def Lander::DescentStates
+  start
   state cruise (initial)
   state descent
+    start
     state braking (initial)
     state hover
   state landed
 
 transitions:
+  start of Lander::DescentStates -> cruise
+  start of descent -> braking
   cruise -> descent
   descent -> landed
   braking -> hover: braking_to_hover: accept Signal [altitude < 100.0]
