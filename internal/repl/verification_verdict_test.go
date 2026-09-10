@@ -101,3 +101,32 @@ func join(parts []string) string {
 	}
 	return out
 }
+
+// TestVerificationObjectiveDecidesAgainstTheCaseSubject checks that %analysis
+// decides the objective of a verification case against the verification's
+// subject — the requirement names its subject differently — agreeing with the
+// body's verdict, and that %requirement and %satisfy report those verdicts.
+func TestVerificationObjectiveDecidesAgainstTheCaseSubject(t *testing.T) {
+	s := loadFixture(t, "testdata/verification_objective_subject.sysml")
+	scout := run(t, s, "%analysis Landing::checkScout")
+	wants(t, scout, "result = VerdictKind::pass", "objective obj: satisfied",
+		"✓ Verification Landing::checkScout verdict: pass")
+	heavy := run(t, s, "%analysis Landing::checkHeavy")
+	wants(t, heavy, "result = VerdictKind::fail",
+		"objective obj: not satisfied: lander.touchdownSpeed <= limit",
+		"✗ Verification Landing::checkHeavy verdict: fail")
+	for _, out := range []string{scout, heavy} {
+		if strings.Contains(out, "undecided") || strings.Contains(out, "Cases::Case::obj") {
+			t.Errorf("the objective did not decide against the verification's subject:\n%s", out)
+		}
+	}
+
+	wants(t, run(t, s, "%requirement Landing::softLanding"),
+		"✓ Requirement Landing::softLanding satisfied",
+		"✓ Verification Landing::checkScout verdict: pass",
+		"✗ Verification Landing::checkHeavy verdict: fail")
+	wants(t, run(t, s, "%satisfy"),
+		"✓ satisfy softLanding by scout holds",
+		"✓ Verification Landing::checkScout verdict: pass",
+		"✗ Verification Landing::checkHeavy verdict: fail")
+}

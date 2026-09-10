@@ -250,7 +250,8 @@ func (ctx *Context) returnsResult(sym *symbols.Symbol) bool {
 }
 
 // memberName is the name a run of the calc binds the resolved member sym under: a
-// parameter, output or local its chain declares, or an inherited result parameter
+// parameter, output or local its chain declares, a feature one of those redefines
+// (`VerificationCase::subj` as the case's subject), or an inherited result parameter
 // (`Case::result`) as the result the calc designates.
 func (shape *calcShape) memberName(ctx *Context, sym *symbols.Symbol) (string, bool) {
 	if shape.members == nil {
@@ -292,10 +293,11 @@ func (ctx *Context) isOrSpecializes(sym, general *symbols.Symbol) bool {
 	return false
 }
 
-// calcMemberNames indexes the named members declared along shape's chain by the
-// name the run binds each under, a renamed redeclaration's name included.
+// calcMemberNames indexes the named members declared along shape's chain, and the features
+// they redefine (KerML §7.3.4.5, one feature), by the name the run binds each under.
 func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string {
 	members := make(map[*symbols.Symbol]string)
+	redefined := make(map[*symbols.Symbol]string)
 	for _, link := range ctx.calcChain(shape.Sym) {
 		for _, member := range declMembers(link.Decl) {
 			var name string
@@ -308,7 +310,16 @@ func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string
 			if name == "" || sym == nil {
 				continue
 			}
-			members[sym] = canonical(shape.Aliases, name)
+			name = canonical(shape.Aliases, name)
+			members[sym] = name
+			for _, feature := range ctx.redefinedFeatures(sym, shape.Sym) {
+				redefined[feature] = name
+			}
+		}
+	}
+	for feature, name := range redefined {
+		if _, declared := members[feature]; !declared {
+			members[feature] = name
 		}
 	}
 	return members

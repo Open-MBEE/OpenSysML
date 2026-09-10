@@ -105,6 +105,53 @@ func TestSweepAnalysisThroughCLI(t *testing.T) {
 	}
 }
 
+// sweepVerificationModel declares a verification whose objective is a
+// requirement on the verification's subject, swept over its limit.
+const sweepVerificationModel = `package Sw {
+    private import ScalarValues::*;
+    part def Lander { attribute touchdownSpeed : Real; }
+    part scout : Lander { attribute :>> touchdownSpeed = 1.2; }
+    requirement def SoftLanding {
+        subject lander : Lander;
+        in attribute limit : Real default = 1.5;
+        require constraint { lander.touchdownSpeed <= limit }
+    }
+    verification def TouchdownCheck {
+        subject lander : Lander;
+        in attribute limit : Real = 1.5;
+        objective : SoftLanding { in limit = limit; }
+        VerificationCases::PassIf(lander.touchdownSpeed <= limit)
+    }
+    verification checkScout : TouchdownCheck { subject lander = scout; }
+}
+`
+
+// TestSweepVerificationThroughCLI checks that a verification case is swept with
+// its objective deciding each row against the verification's subject, so the
+// objective and the body's verdict agree row by row.
+func TestSweepVerificationThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, sweepVerificationModel,
+		"-analysis", "Sw::checkScout", "-sweep", "limit=1.0..2.0:0.5")
+	if got.status != 1 {
+		t.Errorf("exit status = %d, want 1 for the run whose objective failed\n%s", got.status, got.output())
+	}
+	want := strings.Join([]string{
+		"limit | result            | verdict            | time",
+		"-+-+-+-",
+		"1.0   | VerdictKind::fail | obj: not satisfied | <time>",
+		"1.5   | VerdictKind::pass | obj: satisfied     | <time>",
+		"2.0   | VerdictKind::pass | obj: satisfied     | <time>",
+	}, "\n")
+	if table := sweepTable(got.output()); !strings.Contains(table, want) {
+		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
+	}
+	if strings.Contains(got.output(), "undecided") {
+		t.Errorf("report leaves an objective undecided:\n%s", got.output())
+	}
+}
+
 // TestSamplesThroughCLI checks that -samples draws one row per draw from the
 // seed given, that the seed is echoed, and that the same seed draws the same
 // table while another seed draws another.

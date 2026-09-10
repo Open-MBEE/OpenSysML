@@ -831,8 +831,10 @@ the objective, `MassCase::result < limit` in an `assert constraint`, `inner.resu
 performing `inner` as a step. The qualifier names whose result it is: `MassCase::result` (or
 `Cases::Case::result`) is the running case's, while a sibling usage's `light::result` is the
 sibling's own run, never the running case's value. An objective that binds no subject takes the
-library's default for it: the case's result (`Cases::Case::obj` declares `subject subj default
-Case::result`, SysML v2 §7.22). So an objective typed by `MassLimit` in a case that `return`s a `Ship` checks the ship
+value the library states for it — in an analysis case its default, the case's result
+(`Cases::Case::obj` declares `subject subj default Case::result`, SysML v2 §7.22); in a
+[verification case](#verification-cases) the case's own subject, which the library binds rather
+than defaults. So an objective typed by `MassLimit` in an analysis case that `return`s a `Ship` checks the ship
 returned, while in a case that returns a `Real` it is `undecided`, saying so: `subject s defaults
 to the case's result (Cases::Case::obj): type mismatch: 1000.0 (a Real) is not a Ship`. The result
 must also fit the subject's multiplicity: one `Ship` for a `subject pair : Ship[2]` is `undecided`
@@ -916,6 +918,48 @@ $ sysml -analysis L::checkSlow landing.sysml
 The two verdicts are independent: an objective stating no condition of its own —
 `objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
 the body verdict beside it still reports what the body answered.
+
+A verification case's objective checks the case's subject, not its verdict: the library binds it
+so (`VerificationCases::VerificationCase::obj` redefines `Cases::Case::obj` with `subject subj =
+VerificationCase::subj`, SysML v2 §7.23), where an analysis case's objective defaults to the
+result. An objective typed by a requirement definition therefore evaluates that definition's
+conditions against the verification subject, whatever the requirement calls it — `subject lander :
+Lander` in the requirement below receives the `scout` the case is run on. The objective's own
+`subject :>> subj;` states no value: it only keeps the subject the first parameter, as a usage's
+owned parameters redefine its definition's by position, ahead of the `in limit = limit;` that binds
+the requirement's input. Because the library states the subject binding with `=`, not `default`, a
+usage cannot rebind it: `objective : SoftLanding { subject lander = other; }` is refused as
+overriding a fixed value.
+
+```sysml
+requirement def SoftLanding {
+    subject lander : Lander;
+    in attribute limit : Real default = 1.5;
+    require constraint { lander.touchdownSpeed <= limit }
+}
+verification def TouchdownCheck {
+    subject lander : Lander;
+    in attribute limit : Real = 1.5;
+    objective : SoftLanding { subject :>> subj; in limit = limit; }
+    VerificationCases::PassIf(lander.touchdownSpeed <= limit)
+}
+verification checkScout : TouchdownCheck { subject lander = L::scout; }
+```
+
+```bash
+$ sysml -analysis L::checkScout landing.sysml
+✓ package L
+✓ L::checkScout
+  result = VerdictKind::pass
+  objective obj: satisfied
+  ✓ Verification L::checkScout verdict: pass
+```
+
+A requirement whose subject the verification subject cannot be — `subject rover : Rover` checked
+against a `Lander` — leaves the objective `undecided`, naming both (`subject subj is bound to the
+case's subject (VerificationCases::VerificationCase::obj): type mismatch: Lander #1 (scout) is not
+a Rover`), and a verification whose own subject nothing binds is an error naming *that* subject,
+as for any case.
 
 A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
