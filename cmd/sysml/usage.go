@@ -75,14 +75,25 @@ func doc() usage.Doc {
 				"An endpoint and a step carry the syntax and the units an argument " +
 					`carries ("mass=0.0 [SI::kg]..9.0 [SI::kg]:3.0 [SI::kg]"), and ` +
 					"the end of the range is included where the step lands on it.",
-				"A range between Integers steps by one where no :<step> is written; " +
-					"a range between reals needs one. Rows come out in the order the " +
+				"The values are produced in the swept parameter's declared type, not " +
+					"the literals': a Real parameter swept over 1..4:1 is bound to 1.0, " +
+					"2.0, 3.0, 4.0 and an Integer one swept over 1.0..3.0:1.0 to 1, 2, 3, " +
+					"while an endpoint or step no Integer parameter can take (:0.5) is " +
+					"refused before any run, as is a range over a Boolean, String, " +
+					"enumeration or non-scalar parameter. A parameter declaring no type " +
+					"takes the range as written, and the table says so.",
+				"A range between whole numbers steps by one where no :<step> is written; " +
+					"one with a fractional endpoint needs one. A range read as reals takes " +
+					"an Integer endpoint or step only where a Real holds it without rounding, " +
+					"and steps only where the reals tell its rows apart. Rows come out in the order the " +
 					"ranges were given, the first varying slowest, and a run that " +
 					"failed is a row carrying its error rather than the end of the " +
 					"table.",
 				"-samples draws that many values uniformly from each range instead of " +
-					"stepping through it, and needs -seed: the same seed draws the " +
-					"same table on every platform. Uniform is the only distribution " +
+					"stepping through it — Integers inclusively for a parameter taking " +
+					"Integers, reals in [<from>, <to>) for one taking reals — and needs " +
+					"-seed: the same seed draws the same table on every platform. " +
+					"Uniform is the only distribution " +
 					"on offer — the bundled library states no probability " +
 					"distributions — so a range must be written <from>..<to> rather " +
 					"than as a named distribution.",
@@ -328,8 +339,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&modelChecks.validate, "validate", false, "Analyse the model and report its diagnostics, exiting nonzero on an error")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report what it computed, as -calc \"Fall(3, 4)\" (repeatable)")
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and the verdict of its objective, as -analysis \"Pkg::Case(3.0) Pkg::part\" with arguments for its inputs and an object as its subject; a verification case also reports the verdict its body produced (repeatable)")
-	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; several ranges run their cartesian product (repeatable)")
-	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them; needs -seed")
+	fs.Var(&modelChecks.sweeps, "sweep", "Run the named -analysis or -calc once per value of this range, as -sweep \"speed=0.0 [SI::'m/s']..10.0 [SI::'m/s']:2.0 [SI::'m/s']\"; the values are produced in the parameter's declared type; several ranges run their cartesian product (repeatable)")
+	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through them, Integers or reals as the parameter is typed; needs -seed")
 	fs.Var(&modelChecks.seed, "seed", "Seed -samples draws from, so the same seed draws the same table")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"HeavySubsystems root=telescope\" (repeatable)")
 	fs.Var(&modelChecks.actions, "action", "Run this action to completion, as -action \"Drive rover1\" to run it on an object (repeatable)")

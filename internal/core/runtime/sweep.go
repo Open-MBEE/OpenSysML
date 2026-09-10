@@ -21,7 +21,8 @@ import (
 var (
 	// ErrSweepRange reports a range no sequence of values follows from: a
 	// non-numeric endpoint, endpoints measuring different things, a zero step, a
-	// step whose sign never reaches the endpoint, or a real range stating none.
+	// step whose sign never reaches the endpoint, a real range stating none, or an
+	// endpoint or step that is no value of the swept parameter's type.
 	ErrSweepRange = errors.New("invalid sweep range")
 	// ErrSweepParameter reports a parameter the target declares none of, or one
 	// the invocation already binds.
@@ -39,14 +40,52 @@ var (
 	ErrSweepDistribution = errors.New("no distribution library")
 )
 
-// SweepRange is one parameter's range as values: the endpoints it runs between
-// and the step it advances by, which a sampled range leaves unstated.
+// SweepRange is one parameter's range as values: its endpoints, the step a
+// sampled range leaves unstated, and the type ResolveSweepPlan produces them in.
 type SweepRange struct {
 	Param   string
 	From    Value
 	To      Value
 	Step    Value
 	HasStep bool
+	Type    SweepType
+}
+
+// SweepNumbers is which numbers a swept parameter's type takes, which decides
+// the values its range produces and how a sampled range draws them.
+type SweepNumbers uint8
+
+const (
+	// SweepAsWritten produces values as the endpoints are written — Integers
+	// between Integers, reals otherwise — for a parameter that takes both or no type.
+	SweepAsWritten SweepNumbers = iota
+	// SweepIntegers produces Integers however the endpoints are written, and
+	// refuses an endpoint or step that is not one.
+	SweepIntegers
+	// SweepReals produces reals however the endpoints are written.
+	SweepReals
+)
+
+// SweepType is a swept parameter's declared type, which its range's values are
+// produced in and each endpoint is admitted to as an argument is.
+type SweepType struct {
+	Numbers SweepNumbers
+	// Untyped reports a parameter declaring no type, whose range is read as written.
+	Untyped bool
+	// Positive excludes zero, which no scalar type's numbers alone rule out.
+	Positive bool
+	decl     calcMemberDecl
+	// num is the feature a quantity type's magnitude is bound to, nil for a scalar.
+	num *symbols.Symbol
+}
+
+// Declared is the type the parameter declares, nil where it declares none or
+// the range was never resolved.
+func (t SweepType) Declared() *symbols.Symbol {
+	if t.decl.Target == nil {
+		return nil
+	}
+	return t.decl.Target.typ
 }
 
 // SweepBinding is one parameter bound to the value one row runs with.
@@ -98,8 +137,10 @@ type SweepRow struct {
 // table runs lexicographically over its parameters in the order they were
 // given, each from its first endpoint; a sampled table runs in draw order.
 type SweepTable struct {
-	Target  string
-	Params  []string
+	Target string
+	Params []string
+	// Types are the parameters' types as the plan resolved them, one per Param.
+	Types   []SweepType
 	Sampled bool
 	Seed    uint64
 	Rows    []SweepRow
@@ -129,12 +170,14 @@ func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan
 	table := SweepTable{
 		Target:  target,
 		Params:  make([]string, 0, len(plan.Ranges)),
+		Types:   make([]SweepType, 0, len(plan.Ranges)),
 		Sampled: plan.Sampled,
 		Seed:    plan.Seed,
 		Rows:    make([]SweepRow, 0, len(rows)),
 	}
 	for _, r := range plan.Ranges {
 		table.Params = append(table.Params, r.Param)
+		table.Types = append(table.Types, r.Type)
 	}
 	for _, bindings := range rows {
 		if err := stop.Err(); err != nil {
@@ -183,7 +226,7 @@ func (ctx *Context) sweptBindings(plan SweepPlan) ([][]SweepBinding, error) {
 	columns := make([][]Value, len(plan.Ranges))
 	total := int64(1)
 	for i, r := range plan.Ranges {
-		values, err := r.enumerate(ctx.maxSweepRuns)
+		values, err := r.enumerate(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +276,7 @@ func (ctx *Context) sampledBindings(plan SweepPlan) ([][]SweepBinding, error) {
 				ErrSweepSamples, r.Param,
 			)
 		}
-		bounds, err := r.endpoints()
+		bounds, err := r.endpoints(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -257,9 +300,8 @@ func (ctx *Context) sweepBudgetError() error {
 		ErrSweepBudget, ctx.maxSweepRuns, MaxSweepRunsEnvVar)
 }
 
-// sweepBounds is a range as arithmetic reads it: magnitudes in the unit its
-// first endpoint carries, and whether its values are Integers. A range between
-// Integers also keeps them exactly, which float64 stops doing beyond 2^53.
+// sweepBounds is a range as arithmetic reads it: magnitudes in its first
+// endpoint's unit, and whether it takes Integers, kept exactly beyond 2^53.
 type sweepBounds struct {
 	from, to float64
 	step     float64
@@ -267,6 +309,8 @@ type sweepBounds struct {
 	intFrom  int64
 	intTo    int64
 	intStep  int64
+	// whole reports both endpoints are whole numbers, which step by one unstated.
+	whole    bool
 	unit     semantics.Unit
 	quantity bool
 }
@@ -327,61 +371,94 @@ func finiteMagnitude(m float64, what string) (float64, error) {
 	return m, nil
 }
 
-// endpoints reads a range's endpoints, expressed in the unit its first one
-// carries. A range between Integers takes Integer values. A sampled range needs
-// nothing more, since it draws over the endpoints rather than stepping.
-func (r SweepRange) endpoints() (sweepBounds, error) {
-	from, err := sweepScalarOf(r.From, "range start "+FormatValue(r.From))
+// endpoints reads a range's endpoints in the unit its first one carries and in
+// the swept parameter's type, each admitted as an argument would be.
+func (r SweepRange) endpoints(ctx *Context) (sweepBounds, error) {
+	fromWhat, toWhat := "range start "+FormatValue(r.From), "range end "+FormatValue(r.To)
+	from, err := sweepScalarOf(r.From, fromWhat)
 	if err != nil {
 		return sweepBounds{}, err
 	}
-	to, err := sweepScalarOf(r.To, "range end "+FormatValue(r.To))
+	to, err := sweepScalarOf(r.To, toWhat)
 	if err != nil {
 		return sweepBounds{}, err
 	}
 	bounds := sweepBounds{unit: from.unit, quantity: from.quantity}
-	if bounds.from, err = finiteMagnitude(from.num.AsReal(), "range start "+FormatValue(r.From)); err != nil {
+	if bounds.from, err = finiteMagnitude(from.num.AsReal(), fromWhat); err != nil {
 		return sweepBounds{}, err
 	}
-	if bounds.to, err = to.magnitudeIn(from.unit, from.quantity, "range end "+FormatValue(r.To)); err != nil {
+	if bounds.to, err = to.magnitudeIn(from.unit, from.quantity, toWhat); err != nil {
 		return sweepBounds{}, err
 	}
-	fromInt, fromWhole := from.exactInt(bounds.unit, bounds.from)
-	toInt, toWhole := to.exactInt(bounds.unit, bounds.to)
+	fromInt, fromWhole := r.Type.integer(from, bounds.unit, bounds.from)
+	toInt, toWhole := r.Type.integer(to, bounds.unit, bounds.to)
 	bounds.isInt = fromWhole && toWhole
 	bounds.intFrom, bounds.intTo = fromInt, toInt
+	bounds.whole = bounds.from == math.Trunc(bounds.from) && bounds.to == math.Trunc(bounds.to)
+	if r.Type.Numbers == SweepIntegers {
+		if !fromWhole {
+			return sweepBounds{}, r.Type.notAnInteger(r.Param, fromWhat)
+		}
+		if !toWhole {
+			return sweepBounds{}, r.Type.notAnInteger(r.Param, toWhat)
+		}
+	}
+	if !bounds.isInt {
+		if err := r.exactRealEndpoints(); err != nil {
+			return sweepBounds{}, err
+		}
+	}
+	if err := r.Type.admit(ctx, r.Param, fromWhat, bounds.value(bounds.from, bounds.intFrom)); err != nil {
+		return sweepBounds{}, err
+	}
+	if err := r.Type.admit(ctx, r.Param, toWhat, bounds.value(bounds.to, bounds.intTo)); err != nil {
+		return sweepBounds{}, err
+	}
 	return bounds, nil
 }
 
-// bounds reads a range a sweep steps through: its endpoints and its step. A
-// range between Integers steps by one where it states none; a real range with
-// no step is refused, since no step is the obvious one between two reals.
-func (r SweepRange) bounds() (sweepBounds, error) {
-	bounds, err := r.endpoints()
+// bounds reads a range a sweep steps through: its endpoints and its step, which
+// only a range between whole numbers may leave unstated, stepping by one.
+func (r SweepRange) bounds(ctx *Context) (sweepBounds, error) {
+	bounds, err := r.endpoints(ctx)
 	if err != nil {
 		return sweepBounds{}, err
 	}
 	if !r.HasStep {
-		if !bounds.isInt {
+		if !bounds.whole {
 			return sweepBounds{}, fmt.Errorf(
-				"%w: %s=%s..%s states no step; only a range between Integers steps by one, a real range needs `:<step>`",
+				"%w: %s=%s..%s states no step; only a range between whole numbers steps by one, one with a fractional endpoint needs `:<step>`",
 				ErrSweepRange, r.Param, FormatValue(r.From), FormatValue(r.To),
 			)
 		}
 		bounds.step, bounds.intStep = 1, 1
-		if bounds.intTo < bounds.intFrom {
+		if bounds.descends() {
 			bounds.step, bounds.intStep = -1, -1
 		}
 		return bounds, nil
 	}
-	step, err := sweepScalarOf(r.Step, "step "+FormatValue(r.Step))
+	stepWhat := "step " + FormatValue(r.Step)
+	step, err := sweepScalarOf(r.Step, stepWhat)
 	if err != nil {
 		return sweepBounds{}, err
 	}
-	if bounds.step, err = step.magnitudeIn(bounds.unit, bounds.quantity, "step "+FormatValue(r.Step)); err != nil {
+	if bounds.step, err = step.magnitudeIn(bounds.unit, bounds.quantity, stepWhat); err != nil {
 		return sweepBounds{}, err
 	}
-	stepInt, stepWhole := step.exactInt(bounds.unit, bounds.step)
+	stepInt, stepWhole := r.Type.integer(step, bounds.unit, bounds.step)
+	if r.Type.Numbers == SweepIntegers && !stepWhole {
+		return sweepBounds{}, r.Type.notAnInteger(r.Param, stepWhat)
+	}
+	if !stepWhole {
+		if bounds.isInt {
+			if err := r.exactRealEndpoints(); err != nil {
+				return sweepBounds{}, err
+			}
+		}
+		if err := r.Type.exactReal(r.Param, stepWhat, r.Step); err != nil {
+			return sweepBounds{}, err
+		}
+	}
 	bounds.isInt = bounds.isInt && stepWhole
 	bounds.intStep = stepInt
 	if bounds.step == 0 {
@@ -395,6 +472,14 @@ func (r SweepRange) bounds() (sweepBounds, error) {
 	return bounds, nil
 }
 
+// descends reports a range whose end lies below its start.
+func (b sweepBounds) descends() bool {
+	if b.isInt {
+		return b.intTo < b.intFrom
+	}
+	return b.to < b.from
+}
+
 // stepsAway reports whether the step leads away from the range's end.
 func (b sweepBounds) stepsAway() bool {
 	if b.isInt {
@@ -403,8 +488,128 @@ func (b sweepBounds) stepsAway() bool {
 	return b.to != b.from && (b.to-b.from)*b.step < 0
 }
 
+// integer is the scalar as an Integer in the range's unit: any whole number for
+// a parameter taking Integers, only one written as an Integer where read as written.
+func (t SweepType) integer(s sweepScalar, unit semantics.Unit, magnitude float64) (int64, bool) {
+	switch t.Numbers {
+	case SweepReals:
+		return 0, false
+	case SweepIntegers:
+		if n, ok := s.exactInt(unit, magnitude); ok {
+			return n, true
+		}
+		return (semantics.Value{Kind: semantics.ValReal, Real: magnitude}).WholeNumber()
+	}
+	return s.exactInt(unit, magnitude)
+}
+
+// notAnInteger refuses an endpoint or step of an Integer-typed parameter that
+// is not whole.
+func (t SweepType) notAnInteger(param, what string) error {
+	return fmt.Errorf("%w: %s is not an Integer, which %s : %s takes",
+		ErrSweepRange, what, param, symbolText(t.Declared()))
+}
+
+// exactReal refuses an endpoint or step written as an Integer no Real holds
+// exactly, where the range is read as reals.
+func (t SweepType) exactReal(param, what string, value Value) error {
+	n, ok := sweepInteger(value)
+	if !ok || realHolds(n) {
+		return nil
+	}
+	reads := "the range is read as reals"
+	if t.Numbers == SweepReals {
+		reads = param + " : " + symbolText(t.Declared()) + " takes Reals"
+	}
+	return fmt.Errorf("%w: %s is an Integer beyond what a Real holds exactly, and %s",
+		ErrSweepRange, what, reads)
+}
+
+// exactRealEndpoints refuses either endpoint an Integer no Real holds exactly.
+func (r SweepRange) exactRealEndpoints() error {
+	if err := r.Type.exactReal(r.Param, "range start "+FormatValue(r.From), r.From); err != nil {
+		return err
+	}
+	return r.Type.exactReal(r.Param, "range end "+FormatValue(r.To), r.To)
+}
+
+// sweepInteger is the Integer an endpoint or step was written as, a quantity's
+// magnitude included.
+func sweepInteger(value Value) (int64, bool) {
+	switch value.Kind {
+	case ValConst:
+		return value.Const.Int, value.Const.Kind == semantics.ValInt
+	case ValQuantity:
+		if q := value.Quantity(); q != nil && q.Num.Kind == semantics.ValInt {
+			return q.Num.Int, true
+		}
+	}
+	return 0, false
+}
+
+// realHolds reports whether a Real holds the Integer without rounding it.
+func realHolds(n int64) bool {
+	f := float64(n)
+	return f >= math.MinInt64 && f < -math.MinInt64 && int64(f) == n
+}
+
+// admit refuses an endpoint the parameter would refuse as an argument, before
+// any row runs.
+func (t SweepType) admit(ctx *Context, param, what string, value Value) error {
+	if t.Positive {
+		if n, ok := sweepMagnitude(value); ok && n <= 0 {
+			return fmt.Errorf("%w: %s is not Positive, which %s : %s takes",
+				ErrSweepRange, what, param, symbolText(t.Declared()))
+		}
+	}
+	if err := t.decl.check(ctx, &value, func() string { return what + " of " + param }); err != nil {
+		return fmt.Errorf("%w: %w", ErrSweepRange, err)
+	}
+	return t.admitMagnitude(ctx, param, what, value)
+}
+
+// admitMagnitude refuses a quantity whose magnitude the quantity type's `num`
+// cannot hold, which its dimension alone does not judge.
+func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value) error {
+	q := value.Quantity()
+	if t.num == nil || q == nil {
+		return nil
+	}
+	magnitude := constValue(q.Num)
+	prim := ctx.model.PrimTypeOf(t.num)
+	if prim.IsNumeric() && semantics.PrimConforms(valuePrimType(&magnitude), prim) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s is %s, which num : %s of %s : %s cannot hold",
+		ErrSweepRange, what, describeValue(magnitude), ctx.numTypeText(t.num, prim), param, symbolText(t.Declared()))
+}
+
+// numTypeText names a quantity's `num` type as a refusal reads it.
+func (ctx *Context) numTypeText(num *symbols.Symbol, prim semantics.PrimType) string {
+	if prim != semantics.PrimUnknown {
+		return prim.String()
+	}
+	if types := ctx.model.FeatureTypes(num); len(types) > 0 {
+		return symbolText(types[0])
+	}
+	return unknownText
+}
+
+// sweepMagnitude is the number a produced value is, a quantity's magnitude included.
+func sweepMagnitude(value Value) (float64, bool) {
+	switch value.Kind {
+	case ValConst:
+		return value.Const.AsReal(), value.Const.IsNumeric()
+	case ValQuantity:
+		if q := value.Quantity(); q != nil && q.Num.IsNumeric() {
+			return q.Num.AsReal(), true
+		}
+	}
+	return 0, false
+}
+
 // exactInt is the scalar as the Integer it was written as, expressed in the
-// range's unit, where the range still takes Integer values.
+// range's unit, where that Integer is exact.
 func (s sweepScalar) exactInt(unit semantics.Unit, magnitude float64) (int64, bool) {
 	if s.num.Kind != semantics.ValInt {
 		return 0, false
@@ -463,11 +668,12 @@ func exactScaled(n, mul, div int64) (int64, bool) {
 // enumerate is every value of a swept range, from its start towards its end,
 // including the end where a step lands on it. Values are computed from the
 // start rather than accumulated, so a real step does not drift.
-func (r SweepRange) enumerate(limit int64) ([]Value, error) {
-	bounds, err := r.bounds()
+func (r SweepRange) enumerate(ctx *Context) ([]Value, error) {
+	bounds, err := r.bounds(ctx)
 	if err != nil {
 		return nil, err
 	}
+	limit := ctx.maxSweepRuns
 	count := bounds.count()
 	if count > unsignedInt(limit) {
 		return nil, fmt.Errorf("%w: %s=%s..%s takes %d run(s), at most %d allowed (raise %s)",
@@ -476,6 +682,15 @@ func (r SweepRange) enumerate(limit int64) ([]Value, error) {
 	values := make([]Value, 0, count)
 	for i := int64(0); i < signedInt(count); i++ {
 		values = append(values, bounds.at(i))
+	}
+	if !bounds.isInt {
+		for i := 1; i < len(values); i++ {
+			at, _ := sweepMagnitude(values[i])
+			if before, _ := sweepMagnitude(values[i-1]); at == before {
+				return nil, fmt.Errorf("%w: %s steps by %s, finer than a Real tells apart near %s, so its rows would repeat",
+					ErrSweepRange, r.Param, FormatValue(bounds.valueReal(bounds.step)), FormatValue(values[i]))
+			}
+		}
 	}
 	return values, nil
 }
@@ -537,7 +752,7 @@ func (b sweepBounds) at(i int64) Value {
 		}
 		return b.valueInt(signedInt(unsignedInt(b.intFrom) + offset))
 	}
-	return b.value(b.from + float64(i)*b.step)
+	return b.valueReal(b.from + float64(i)*b.step)
 }
 
 // intStepMagnitude is how far one Integer step reaches, which the widest step
@@ -576,17 +791,19 @@ func (b sweepBounds) draw(source *rand.Rand) Value {
 		lo, hi = hi, lo
 	}
 	u := source.Float64()
+	var drawn float64
 	if width := hi - lo; !math.IsInf(width, 0) {
-		return b.value(lo + u*width)
+		drawn = lo + u*width
+	} else {
+		// A range whose width overflows is drawn from as the two endpoints
+		// weighted, which stays between them however wide they are.
+		drawn = lo*(1-u) + hi*u
 	}
-	// A range whose width overflows is drawn from as the two endpoints weighted,
-	// which stays between them however wide they are; rounding up to the end is
-	// stepped back, since the end is not drawn.
-	drawn := lo*(1-u) + hi*u
+	// Either arithmetic can round up to the end, which is not drawn.
 	if drawn >= hi {
 		drawn = math.Nextafter(hi, lo)
 	}
-	return b.value(drawn)
+	return b.valueReal(drawn)
 }
 
 // drawOffset is a uniform offset from zero to width inclusive, drawn as an
@@ -602,14 +819,18 @@ func drawOffset(source *rand.Rand, width uint64) uint64 {
 	}
 }
 
-// value is a magnitude as the range's own kind of value: an Integer or a real,
-// carrying the unit its first endpoint was expressed in.
-func (b sweepBounds) value(magnitude float64) Value {
-	num := semantics.Value{Kind: semantics.ValReal, Real: magnitude}
+// value is an endpoint as the range's kind of value: n where it takes Integers,
+// the magnitude as a real otherwise.
+func (b sweepBounds) value(magnitude float64, n int64) Value {
 	if b.isInt {
-		num = semantics.Value{Kind: semantics.ValInt, Int: int64(math.Round(magnitude))}
+		return b.valueInt(n)
 	}
-	return b.carry(num)
+	return b.valueReal(magnitude)
+}
+
+// valueReal is a real of the range, carrying its unit.
+func (b sweepBounds) valueReal(magnitude float64) Value {
+	return b.carry(semantics.Value{Kind: semantics.ValReal, Real: magnitude})
 }
 
 // valueInt is an Integer of the range, carrying its unit.
@@ -635,13 +856,12 @@ func (ctx *Context) InputParameterNames(sym *symbols.Symbol) ([]string, error) {
 	return shape.parameterNames(), nil
 }
 
-// CheckSweepParameters refuses a plan whose parameter the target does not
-// declare, whose parameter is a case's subject, or which the invocation already
-// binds — by name, or by holding the position that parameter is bound from.
-func (ctx *Context) CheckSweepParameters(sym *symbols.Symbol, plan SweepPlan, positional int, named []string) error {
+// ResolveSweepPlan refuses a range over a parameter the target does not declare,
+// its subject or one the invocation binds, and types each range by its parameter.
+func (ctx *Context) ResolveSweepPlan(sym *symbols.Symbol, plan SweepPlan, positional int, named []string) (SweepPlan, error) {
 	shape, err := ctx.calcShapeOf(sym)
 	if err != nil {
-		return err
+		return SweepPlan{}, err
 	}
 	declared := shape.parameterNames()
 	bound := make(map[string]bool, len(named)+positional)
@@ -654,18 +874,88 @@ func (ctx *Context) CheckSweepParameters(sym *symbols.Symbol, plan SweepPlan, po
 		}
 		bound[name] = true
 	}
-	for _, r := range plan.Ranges {
-		if !contains(declared, r.Param) {
-			return fmt.Errorf("%w: %s declares no input parameter %q (it declares %v)",
+	resolved := plan
+	resolved.Ranges = make([]SweepRange, len(plan.Ranges))
+	for i, r := range plan.Ranges {
+		param := shape.parameterNamed(r.Param)
+		if param == nil {
+			return SweepPlan{}, fmt.Errorf("%w: %s declares no input parameter %q (it declares %v)",
 				ErrSweepParameter, ctx.qualifiedSymbolName(sym), r.Param, declared)
 		}
-		if subject, ok := shape.subjectParameter(); ok && subject.Name == r.Param {
-			return fmt.Errorf("%w: %s is the subject of %s, which an object binds, not a range",
+		if param.IsSubject {
+			return SweepPlan{}, fmt.Errorf("%w: %s is the subject of %s, which an object binds, not a range",
 				ErrSweepParameter, r.Param, ctx.qualifiedSymbolName(sym))
 		}
 		if bound[r.Param] {
-			return fmt.Errorf("%w: %s is both an argument of the invocation and swept",
+			return SweepPlan{}, fmt.Errorf("%w: %s is both an argument of the invocation and swept",
 				ErrSweepParameter, r.Param)
+		}
+		r.Type = ctx.sweepTypeOf(param.Decl)
+		resolved.Ranges[i] = r
+	}
+	return resolved, nil
+}
+
+// sweepTypeOf types a range by its parameter: a scalar, or a quantity through its
+// number, takes Integers or reals; any other type, and none, reads it as written.
+func (ctx *Context) sweepTypeOf(decl calcMemberDecl) SweepType {
+	t := SweepType{decl: decl}
+	typ := t.Declared()
+	if typ == nil {
+		t.Untyped = true
+		return t
+	}
+	prim := ctx.model.PrimTypeOf(typ)
+	if prim == semantics.PrimUnknown {
+		num, ok := ctx.quantityNumber(typ)
+		if !ok {
+			return t
+		}
+		typ, prim = num, ctx.model.PrimTypeOf(num)
+		t.num = num
+	}
+	t.Numbers = sweepNumbersOf(prim)
+	t.Positive = ctx.positiveScalar(typ)
+	return t
+}
+
+// sweepNumbersOf is how a scalar lattice element counts: Naturals and Integers
+// by Integers, Rationals and Reals by reals, anything else as written.
+func sweepNumbersOf(prim semantics.PrimType) SweepNumbers {
+	switch prim {
+	case semantics.PrimNatural, semantics.PrimInteger:
+		return SweepIntegers
+	case semantics.PrimRational, semantics.PrimReal:
+		return SweepReals
+	}
+	return SweepAsWritten
+}
+
+// positiveScalar reports a type that is, or specializes, ScalarValues::Positive.
+func (ctx *Context) positiveScalar(typ *symbols.Symbol) bool {
+	positive := ctx.librarySymbol("ScalarValues::Positive")
+	return positive != nil && ctx.model.Conforms(typ, positive)
+}
+
+// quantityNumber is the feature holding a scalar quantity type's magnitude, the
+// `num` a quantity value's number is bound to; false for any other type.
+func (ctx *Context) quantityNumber(typ *symbols.Symbol) (*symbols.Symbol, bool) {
+	scalar := ctx.librarySymbol(scalarQuantityTypeFQN)
+	if scalar == nil || !ctx.model.Conforms(typ, scalar) {
+		return nil, false
+	}
+	num, ok := ctx.model.LookupMember(typ, vectorQuantityNumFeature)
+	if !ok || num == nil {
+		return nil, false
+	}
+	return num, true
+}
+
+// parameterNamed is the target's parameter of that name, nil for none.
+func (shape *calcShape) parameterNamed(name string) *calcParameter {
+	for i := range shape.Params {
+		if shape.Params[i].Name == name {
+			return &shape.Params[i]
 		}
 	}
 	return nil

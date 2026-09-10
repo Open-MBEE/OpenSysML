@@ -997,11 +997,22 @@ limit              | total | verdict                   | time
 ```
 
 The endpoints are expressions evaluated where the session evaluates one, units included, and a
-calc is swept the same way (`%sweep An::Sum(2.0) b=0.0..10.0:2.5`). Several ranges run their
-cartesian product, a failed run is a row of the table rather than the end of it, and
-[reference/repl-commands.md](../reference/repl-commands.md) states each refusal. Sampling is
-uniform over the range — the bundled library defines no probability distribution, so a
-distribution asked for by name is refused naming what is missing.
+calc is swept the same way (`%sweep An::Sum(2.0) b=0.0..10.0:2.5`). The values a range produces
+are typed by the parameter it sweeps, not by how its endpoints are spelled: `limit : Real` swept
+over `10..30:10` is bound to `10.0`, `20.0`, `30.0`, an `Integer` parameter swept over
+`1.0..3.0:1.0` to `1`, `2`, `3`, and a range an `Integer` parameter cannot take — a fractional
+endpoint or step — is refused before any run rather than failing row by row, as is a range over a
+`Boolean`, `String`, enumeration or non-scalar parameter. A range read as reals takes an Integer
+endpoint or step only where a Real holds it without rounding (every Integer up to 2⁵³ in
+magnitude does), and steps only where the reals tell its rows apart, so no two rows bind one value:
+a `Real` parameter swept from 2⁶⁰ to 2⁶⁰+3 is refused, not collapsed onto one row. A parameter
+declaring no type takes the
+range as written, and the table says so. Sampling follows the same type — an `Integer` parameter
+draws Integers inclusively, a `Real` one draws reals in `[<from>, <to>)`, however the endpoints
+are written. Several ranges run their cartesian product, a failed run is a row of the table rather
+than the end of it, and [reference/repl-commands.md](../reference/repl-commands.md) states each
+refusal. Sampling is uniform over the range — the bundled library defines no probability
+distribution, so a distribution asked for by name is refused naming what is missing.
 
 ### Trade studies
 

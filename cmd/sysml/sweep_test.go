@@ -15,6 +15,7 @@ const sweepCLIModel = `package Sw {
     calc def Twice { in n : Integer; return : Integer = n * 2; }
     calc def Ratio { in a : Real; in b : Real; return : Real = a / b; }
     calc def Lift { in 'launch mass' : Integer; return : Integer = 'launch mass' * 2; }
+    calc def Toggle { in on : Boolean; return : Boolean = not on; }
     part def Ship { attribute cost : Real = 5.0; }
     analysis def Priced {
         subject s : Ship;
@@ -59,6 +60,72 @@ func TestSweepThroughCLI(t *testing.T) {
 	}, "\n")
 	if table := sweepTable(got.output()); !strings.Contains(table, want) {
 		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
+	}
+}
+
+// TestSweepBindsInTheParameterTypeThroughCLI checks a range is typed by the
+// parameter it sweeps, not by its literals: Integer literals over a Real
+// parameter bind and print as Reals, real literals over an Integer parameter
+// bind and print as Integers, and a Real parameter samples reals.
+func TestSweepBindsInTheParameterTypeThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, sweepCLIModel, "-calc", "Sw::Ratio(b = 2.0)", "-sweep", "a=1..4:1")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	want := strings.Join([]string{
+		"a   | result | time",
+		"-+-+-",
+		"1.0 | 0.5    | <time>",
+		"2.0 | 1.0    | <time>",
+		"3.0 | 1.5    | <time>",
+		"4.0 | 2.0    | <time>",
+	}, "\n")
+	if table := sweepTable(got.output()); !strings.Contains(table, want) {
+		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
+	}
+
+	got = check(t, binary, sweepCLIModel, "-calc", "Sw::Twice", "-sweep", "n=1.0..3.0:1.0")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	want = strings.Join([]string{
+		"n | result | time",
+		"-+-+-",
+		"1 | 2      | <time>",
+		"2 | 4      | <time>",
+		"3 | 6      | <time>",
+	}, "\n")
+	if table := sweepTable(got.output()); !strings.Contains(table, want) {
+		t.Errorf("report is\n%s\nwant it to carry\n%s", table, want)
+	}
+
+	got = check(t, binary, sweepCLIModel, "-json", "-calc", "Sw::Ratio(b = 1.0)", "-sweep", "a=1..4",
+		"-samples", "4", "-seed", "7")
+	if got.status != 0 {
+		t.Fatalf("exit status = %d, want 0\n%s", got.status, got.output())
+	}
+	var report struct {
+		Checks []struct {
+			Rows []struct {
+				Inputs []struct {
+					Name  string `json:"name"`
+					Value string `json:"value"`
+				} `json:"inputs"`
+			} `json:"rows"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("report is not the check document: %v\n%s", err, got.output())
+	}
+	if len(report.Checks) != 1 || len(report.Checks[0].Rows) != 4 {
+		t.Fatalf("report does not carry one check of 4 rows: %s", got.stdout)
+	}
+	for _, row := range report.Checks[0].Rows {
+		if len(row.Inputs) != 1 || row.Inputs[0].Name != "a" || !strings.Contains(row.Inputs[0].Value, ".") {
+			t.Errorf("row binds %+v, want a Real a", row.Inputs)
+		}
 	}
 }
 
@@ -223,8 +290,8 @@ func TestSweepJSONThroughCLI(t *testing.T) {
 	if len(rows) != 3 {
 		t.Fatalf("check carries %d row(s), want 3: %s", len(rows), got.stdout)
 	}
-	if len(rows[0].Inputs) != 1 || rows[0].Inputs[0].Name != "b" || rows[0].Inputs[0].Value != "-1" {
-		t.Errorf("first row binds %+v, want b = -1", rows[0].Inputs)
+	if len(rows[0].Inputs) != 1 || rows[0].Inputs[0].Name != "b" || rows[0].Inputs[0].Value != "-1.0" {
+		t.Errorf("first row binds %+v, want b = -1.0, the Real the parameter takes", rows[0].Inputs)
 	}
 	if len(rows[0].Outputs) != 1 || rows[0].Outputs[0].Value != "-4.0" {
 		t.Errorf("first row returned %+v, want -4.0", rows[0].Outputs)
@@ -292,8 +359,16 @@ func TestSweepRefusalsThroughCLI(t *testing.T) {
 		args  []string
 		wants string
 	}{
-		{"a real range stating no step", []string{"-calc", "Sw::Ratio(b = 1.0)", "-sweep", "a=0.0..1.0"},
+		{"a real range stating no step", []string{"-calc", "Sw::Ratio(b = 1.0)", "-sweep", "a=0.5..1.0"},
 			"needs `:<step>`"},
+		{"a fractional step over an Integer parameter", []string{"-calc", "Sw::Twice", "-sweep", "n=1.0..3.0:0.5"},
+			"n : Integer"},
+		{"a fractional endpoint over an Integer parameter", []string{"-calc", "Sw::Twice", "-sweep", "n=1.5..3"},
+			"n : Integer"},
+		{"a fractional endpoint sampled over an Integer parameter", []string{"-calc", "Sw::Twice", "-sweep", "n=1.5..3",
+			"-samples", "2", "-seed", "1"}, "n : Integer"},
+		{"a range over a Boolean parameter", []string{"-calc", "Sw::Toggle", "-sweep", "on=0..1"},
+			"typed by Boolean"},
 		{"a step of zero", []string{"-calc", "Sw::Twice", "-sweep", "n=1..4:0"}, "zero"},
 		{"a parameter the calc does not declare", []string{"-calc", "Sw::Twice", "-sweep", "nope=1..4"}, "nope"},
 		{"a parameter the arguments bind", []string{"-calc", "Sw::Twice(n = 1)", "-sweep", "n=1..4"},

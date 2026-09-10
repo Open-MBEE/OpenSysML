@@ -67,7 +67,8 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	if err := v.runtime.CheckSweepParameters(sym, plan, len(positional), names); err != nil {
+	plan, err = v.runtime.ResolveSweepPlan(sym, plan, len(positional), names)
+	if err != nil {
 		return sweepFailure(err), nil
 	}
 

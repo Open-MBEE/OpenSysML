@@ -205,8 +205,8 @@ written in, so the verdicts are about that object:
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate` |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order, and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
-| `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind. Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
-| `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names |
+| `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
+| `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
 | `-json` | Reports the checks as one JSON document rather than as lines |
@@ -552,21 +552,42 @@ error 1: analysis Dyn::DynamicsAnalysis: … calc Dyn::Acceleration: division by
 **Ranges.** `<from>`, `<to>` and `<step>` carry the literal syntax an argument carries, units
 included; a quantity range's endpoints and step must be compatible, and the values are converted
 to the unit `<from>` is written in. `<to>` is included when the step lands on it. A range between
-Integers with no `:<step>` steps by one, up or down as the endpoints direct; a range between Reals
-with no step is refused, because no step is the obviously intended one. A step of zero, a step
-whose sign never reaches `<to>`, an endpoint that is no number or is not finite, a parameter the
-case or calc does not declare, a case's subject — which an `-instantiate`d object binds, not a range — a parameter
-the arguments already bind, by name or by holding the position it is bound from, and a
-`-sweep`/`-samples` without an `-analysis` or `-calc` are each refused with status 2 before any
-run is made.
+whole numbers with no `:<step>` steps by one, up or down as the endpoints direct; a range with a
+fractional endpoint and no step is refused, because no step is the obviously intended one. A range
+read as reals takes an Integer endpoint or step only where a Real holds it without rounding, and
+steps only where the reals tell its rows apart, so a range no two rows of which would differ is
+refused rather than run. A step
+of zero, a step whose sign never reaches `<to>`, an endpoint that is no number or is not finite, a
+parameter the case or calc does not declare, a case's subject — which an `-instantiate`d object
+binds, not a range — a parameter the arguments already bind, by name or by holding the position it
+is bound from, and a `-sweep`/`-samples` without an `-analysis` or `-calc` are each refused with
+status 2 before any run is made.
+
+**Types.** The values a range produces are typed by the parameter it sweeps, not by how its
+endpoints are spelled. A `Real` or `Rational` parameter swept over `1..4:1` is bound to the reals
+`1.0`, `2.0`, `3.0`, `4.0`, and the table shows them so; an `Integer`, `Natural` or `Positive`
+parameter swept over `1.0..3.0:1.0` is bound to the Integers `1`, `2`, `3`, and an endpoint or
+step of it that is no Integer (`1.0..3.0:0.5`, `1.5..3`) — or below what a `Natural` or
+`Positive` holds — is refused naming the parameter and its type, before any run, rather than
+failing row by row. An `attribute def` specializing a scalar takes that scalar's values. A
+quantity-typed parameter (`ISQ::LengthValue`) is typed through its `num`: the library declares
+`Number`, which Integers and reals both are, so its magnitudes are read as written, while a
+quantity redefining `num : Integer` takes Integers, one redefining it `Natural` or `Positive`
+refuses a magnitude below what that holds, and one whose `num` holds no number refuses the range;
+the range's unit is the one `<from>` carries, not one the parameter names. A `Number`-typed
+parameter, and one declaring no type, take the range as written — Integers between Integer
+literals, reals otherwise — and the table notes an untyped one under its rows. A range over a
+`Boolean`, `String`, enumeration or non-scalar parameter is refused naming that type.
 
 **Order.** Rows come out in the order the ranges are written: the first `-sweep` flag varies
 slowest, the last fastest, each range from `<from>` towards `<to>`. Two runs of one plan produce
 the same rows in the same order.
 
 **Samples.** `-samples <n> -seed <s>` draws `n` values for each range instead of running every
-value of it, uniformly over `[<from>, <to>]` for a range between Integers and `[<from>, <to>)` for
-one between Reals, in draw order. A sampled range needs no step, and stating one is refused.
+value of it, uniformly over `[<from>, <to>]` for a parameter taking Integers and `[<from>, <to>)`
+for one taking reals, in draw order — the parameter's type decides, so an `Integer` parameter
+sampled over `1.0..4.0` draws the Integers 1 to 4 inclusive and a `Real` parameter sampled over
+`1..4` draws reals in `[1, 4)`. A sampled range needs no step, and stating one is refused.
 Sampling is uniform because the bundled standard library states no probability distribution: a
 range written as a named distribution (`n=normal(1.0, 0.2)`) is refused naming what is missing,
 rather than approximated. The generator is `math/rand/v2`'s `PCG` seeded from `<s>`, so the same

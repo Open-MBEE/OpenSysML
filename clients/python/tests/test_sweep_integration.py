@@ -145,10 +145,18 @@ class TestSweepIntegration:
                 "Sw::Twice", {"n": (1, 2)}, named_arguments={"n": 3}
             )
 
-    def test_a_real_range_without_a_step_raises(self):
+    def test_a_real_range_between_whole_numbers_steps_by_one(self):
+        table = self.model.run_sweep(
+            "Sw::Ratio", {"b": (1.0, 2.0)}, named_arguments={"a": 1.0}
+        )
+        assert [row.inputs["b"] for row in table] == [1.0, 2.0]
+        assert all(isinstance(row.inputs["b"], float) for row in table)
+        assert [row.outputs["result"] for row in table] == [1.0, 0.5]
+
+    def test_a_range_with_a_fractional_endpoint_and_no_step_raises(self):
         with pytest.raises(ExecutionError) as exc_info:
             self.model.run_sweep(
-                "Sw::Ratio", {"b": (1.0, 2.0)}, named_arguments={"a": 1.0}
+                "Sw::Ratio", {"b": (1.0, 2.5)}, named_arguments={"a": 1.0}
             )
         assert "step" in str(exc_info.value)
 

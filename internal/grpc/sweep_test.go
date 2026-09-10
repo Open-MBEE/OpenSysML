@@ -36,6 +36,11 @@ const sweepModelSource = `package Sw {
 		return : Real = a / b;
 	}
 
+	calc def Toggle {
+		in on : Boolean;
+		return : Boolean = not on;
+	}
+
 	analysis def CostAnalysis {
 		subject s : Ship;
 		in limit : Real = 20.0;
@@ -131,6 +136,70 @@ func TestRunSweepIntegerRangeStepsByOne(t *testing.T) {
 	for i, row := range resp.Rows {
 		if row.ElapsedMicros < 0 {
 			t.Errorf("row %d took %d micros", i, row.ElapsedMicros)
+		}
+	}
+}
+
+// TestRunSweepBindsInTheParameterType verifies a range is typed by the
+// parameter it sweeps: Integer literals over a Real parameter reach each row
+// as Reals, real literals over an Integer parameter as Integers, and a Real
+// parameter samples reals.
+func TestRunSweepBindsInTheParameterType(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, sweepModelSource, "sweep-typed")
+
+	resp := runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::Ratio",
+		NamedArguments: map[string]*pb.Value{"b": realProto(2)},
+		Ranges:         []*pb.SweepRange{{Parameter: "a", Start: intProto(1), End: intProto(4), Step: intProto(1)}},
+	})
+	if resp.Error != "" {
+		t.Fatalf("RunSweep reported %q", resp.Error)
+	}
+	want := strings.Join([]string{
+		"a=1.0 result -> 0.5",
+		"a=2.0 result -> 1.0",
+		"a=3.0 result -> 1.5",
+		"a=4.0 result -> 2.0",
+	}, "\n")
+	if got := rowText(resp); got != want {
+		t.Errorf("rows are\n%s\nwant\n%s", got, want)
+	}
+	for _, row := range resp.Rows {
+		if _, ok := row.Inputs[0].Value.GetKind().(*pb.Value_RealValue); !ok {
+			t.Errorf("row binds %v; want a real_value", row.Inputs[0].Value)
+		}
+	}
+
+	resp = runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::Twice",
+		Ranges: []*pb.SweepRange{{Parameter: "n", Start: realProto(1), End: realProto(3), Step: realProto(1)}},
+	})
+	if resp.Error != "" {
+		t.Fatalf("RunSweep reported %q", resp.Error)
+	}
+	if got, want := rowText(resp), "n=1 result -> 2\nn=2 result -> 4\nn=3 result -> 6"; got != want {
+		t.Errorf("rows are\n%s\nwant\n%s", got, want)
+	}
+	for _, row := range resp.Rows {
+		if _, ok := row.Inputs[0].Value.GetKind().(*pb.Value_IntValue); !ok {
+			t.Errorf("row binds %v; want an int_value", row.Inputs[0].Value)
+		}
+	}
+
+	resp = runSweep(t, srv, &pb.RunSweepRequest{
+		ModelHash: hash, SymbolId: "Sw::Ratio",
+		NamedArguments: map[string]*pb.Value{"b": realProto(1)},
+		Ranges:         []*pb.SweepRange{intRange("a", 1, 4)},
+		Samples:        4, Seed: 7,
+	})
+	if resp.Error != "" || len(resp.Rows) != 4 {
+		t.Fatalf("RunSweep reported %q with %d row(s); want 4 rows", resp.Error, len(resp.Rows))
+	}
+	for _, row := range resp.Rows {
+		drawn, ok := row.Inputs[0].Value.GetKind().(*pb.Value_RealValue)
+		if !ok || drawn.RealValue < 1 || drawn.RealValue >= 4 {
+			t.Errorf("drew %v; want a real_value in [1.0, 4.0)", row.Inputs[0].Value)
 		}
 	}
 }
@@ -315,9 +384,30 @@ func TestRunSweepFailures(t *testing.T) {
 			req: &pb.RunSweepRequest{ModelHash: hash, SymbolId: "Sw::Ratio",
 				NamedArguments: map[string]*pb.Value{"b": realProto(1)},
 				Ranges: []*pb.SweepRange{{
-					Parameter: "a", Start: realProto(0), End: realProto(1),
+					Parameter: "a", Start: realProto(0.5), End: realProto(1),
 				}}},
 			wants: "step",
+		},
+		{
+			name: "a fractional step over an Integer parameter",
+			req: &pb.RunSweepRequest{ModelHash: hash, SymbolId: "Sw::Twice",
+				Ranges: []*pb.SweepRange{{
+					Parameter: "n", Start: realProto(1), End: realProto(3), Step: realProto(0.5),
+				}}},
+			wants: "n : Integer",
+		},
+		{
+			name: "a fractional endpoint sampled over an Integer parameter",
+			req: &pb.RunSweepRequest{ModelHash: hash, SymbolId: "Sw::Twice",
+				Ranges:  []*pb.SweepRange{{Parameter: "n", Start: realProto(1.5), End: realProto(3)}},
+				Samples: 2, Seed: 1},
+			wants: "n : Integer",
+		},
+		{
+			name: "a range over a Boolean parameter",
+			req: &pb.RunSweepRequest{ModelHash: hash, SymbolId: "Sw::Toggle",
+				Ranges: []*pb.SweepRange{intRange("on", 0, 1)}},
+			wants: "typed by Boolean",
 		},
 		{
 			name: "a step of zero",
