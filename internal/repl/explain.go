@@ -1,10 +1,10 @@
 package repl
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -22,21 +22,21 @@ func (s *Session) explainSolve(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solver, err := solve.Discover()
+	explained, err := s.solveWith(name, queries, (*solve.Solver).Explain)
 	if err != nil {
 		return []SolveReport{unavailableReport(name, err.Error())}
 	}
 	reports := make([]SolveReport, 0, len(queries))
-	for _, q := range queries {
-		reports = append(reports, s.explainQuery(name, solver, q))
+	for i, q := range queries {
+		reports = append(reports, explainQueryReport(name, q, explained[i]))
 	}
 	return reports
 }
 
-// explainQuery asks the solver about one query and renders the conflict it
-// reports, or says why there is none to render.
-func (s *Session) explainQuery(name string, solver *solve.Solver, q *solve.Query) SolveReport {
-	result, err := solver.Explain(context.Background(), q)
+// explainQueryReport renders the conflict the solver reports about one query,
+// or says why there is none to render.
+func explainQueryReport(name string, q *solve.Query, explained analysis.Evaluation) SolveReport {
+	result, err := explained.Solved, explained.Err
 	if err != nil {
 		return unavailableReport(name, err.Error())
 	}

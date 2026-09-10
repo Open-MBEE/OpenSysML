@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -132,6 +133,10 @@ type Session struct {
 
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
+
+	// engines answers every check, run, exploration, sweep and solve the session
+	// makes, dispatching each to the engine that covers it.
+	engines *analysis.Registry
 
 	verbosity Verbosity
 
@@ -257,6 +262,7 @@ func NewSession() *Session {
 		ws:        model.NewWorkspace(),
 		instances: make(map[string]*runtime.Instance),
 		budgets:   runtime.DefaultBudgets(),
+		engines:   analysis.Default(),
 		verbosity: VerbosityNormal,
 	}
 }

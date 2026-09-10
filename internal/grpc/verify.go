@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -178,7 +179,9 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
 	}
 
-	result, evalErr := v.runtime.CheckConstraintOn(sym, v.declaringScope(sym), inst)
+	result, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
+		return rt.CheckConstraintOn(sym, v.declaringScope(sym), inst)
+	})
 	subject := subjectOf(result, inst)
 	return &pb.VerifyConstraintResponse{
 		Verdict:   v.verdict(verdictConstraint, sym, "", subject, result.Holds, evalErr),
@@ -206,7 +209,9 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
 	}
 
-	result, evalErr := v.runtime.CheckRequirementOn(sym, v.declaringScope(sym), inst)
+	result, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
+		return rt.CheckRequirementOn(sym, v.declaringScope(sym), inst)
+	})
 	subject := subjectOf(result, inst)
 	return &pb.VerifyRequirementResponse{
 		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr),
@@ -239,7 +244,7 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		}
 		// A named `satisfy requirement r by p` is itself one assertion.
 		if a, aerr := v.runtime.SatisfyAssertionOf(sym); aerr == nil {
-			verdict, instances := v.satisfyVerdict(a)
+			verdict, instances := v.satisfyVerdict(ctx, a)
 			return &pb.VerifySatisfactionResponse{
 				Verdicts:             []*pb.Verdict{verdict},
 				Instances:            instances,
@@ -264,7 +269,7 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
-			verdict, instances := v.satisfyVerdict(a)
+			verdict, instances := v.satisfyVerdict(ctx, a)
 			resp.Verdicts = append(resp.Verdicts, verdict)
 			if req := a.AssertedRequirement(); req != nil && !verified[req] {
 				verified[req] = true
@@ -285,7 +290,7 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 
 // satisfyVerdict evaluates one assertion against an object of its subject, built
 // for this call so the verdict is about the values that subject holds.
-func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance) {
+func (v *verifyContext) satisfyVerdict(ctx context.Context, a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance) {
 	var subject *runtime.Instance
 	if a.Subject != nil {
 		// Created here rather than inside the evaluation so that the object the
@@ -300,7 +305,9 @@ func (v *verifyContext) satisfyVerdict(a *runtime.SatisfyAssertion) (*pb.Verdict
 		}
 		subject = inst
 	}
-	result, err := v.runtime.CheckSatisfactionOn(a, subject)
+	result, err := v.check(ctx, a.Text(), func(rt *runtime.Context) (runtime.CheckResult, error) {
+		return rt.CheckSatisfactionOn(a, subject)
+	})
 	subject = subjectOf(result, subject)
 	verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err)
 	v.associateRequirement(verdict, a)
@@ -373,7 +380,11 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		args = append(args, val)
 	}
 
-	result, err := v.runtime.InvokeCalc(sym, args, v.declaringScope(sym))
+	result, err := perform(ctx, v, req.SymbolId, func(rt *runtime.Context) (runtime.Value, error) {
+		return rt.InvokeCalc(sym, args, v.declaringScope(sym))
+	}, func(result runtime.Value, err error) analysis.Answer {
+		return analysis.ValuesAnswer([]analysis.Evaluation{{Name: sweepResultName, Value: result}}, err)
+	})
 	if err != nil {
 		return &pb.EvaluateCalcResponse{
 			Error:         fmt.Sprintf("calc invocation failed: %v", err),

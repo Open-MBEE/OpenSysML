@@ -146,6 +146,23 @@ type SweepTable struct {
 	Rows    []SweepRow
 }
 
+// NewSweepTable is the table of a plan before any row is run: the target, the
+// parameters and their types in plan order, and how the rows are drawn.
+func NewSweepTable(target string, plan SweepPlan) SweepTable {
+	table := SweepTable{
+		Target:  target,
+		Params:  make([]string, 0, len(plan.Ranges)),
+		Types:   make([]SweepType, 0, len(plan.Ranges)),
+		Sampled: plan.Sampled,
+		Seed:    plan.Seed,
+	}
+	for _, r := range plan.Ranges {
+		table.Params = append(table.Params, r.Param)
+		table.Types = append(table.Types, r.Type)
+	}
+	return table
+}
+
 // sampleStream separates the generator's two seed words, so one seed still
 // selects one whole PCG state.
 const sampleStream uint64 = 0x9E3779B97F4A7C15
@@ -167,18 +184,8 @@ func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan
 	if err != nil {
 		return SweepTable{}, err
 	}
-	table := SweepTable{
-		Target:  target,
-		Params:  make([]string, 0, len(plan.Ranges)),
-		Types:   make([]SweepType, 0, len(plan.Ranges)),
-		Sampled: plan.Sampled,
-		Seed:    plan.Seed,
-		Rows:    make([]SweepRow, 0, len(rows)),
-	}
-	for _, r := range plan.Ranges {
-		table.Params = append(table.Params, r.Param)
-		table.Types = append(table.Types, r.Type)
-	}
+	table := NewSweepTable(target, plan)
+	table.Rows = make([]SweepRow, 0, len(rows))
 	for _, bindings := range rows {
 		if err := stop.Err(); err != nil {
 			return SweepTable{}, err

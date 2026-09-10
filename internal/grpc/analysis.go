@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -42,14 +43,14 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	}
 
 	if _, explores := schedule.Exploration(); explores {
-		return s.exploreAnalysis(schedule, v, req, sym)
+		return s.exploreAnalysis(ctx, schedule, v, req, sym)
 	}
 	if err := v.runtime.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	// The choices a run made are reported with its outcome, failed or not.
-	result, verdicts, err := v.runCase(sym, args)
+	result, verdicts, err := v.runCase(ctx, sym, args)
 	resp = &pb.RunAnalysisResponse{}
 	if err != nil {
 		resp.Error = err.Error()
@@ -119,28 +120,59 @@ func (v *verifyContext) analysisArgs(req *pb.RunAnalysisRequest) (runtime.Analys
 	return args, nil, nil
 }
 
-// runCase runs the case once on the context's runtime: a verification case answers with
-// its verdicts as well; a run failing after computing something keeps that beside the error.
-func (v *verifyContext) runCase(sym *symbols.Symbol, args runtime.AnalysisArgs) (runtime.AnalysisResult, []runtime.VerificationVerdict, error) {
+// caseRun is one run of a case: a verification case's verdict beside the run.
+type caseRun struct {
+	result   runtime.AnalysisResult
+	verified *runtime.VerificationResult
+}
+
+// verdicts are the verification verdicts the run answered, none for an analysis case.
+func (r caseRun) verdicts() []runtime.VerificationVerdict {
+	if r.verified == nil {
+		return nil
+	}
+	return append([]runtime.VerificationVerdict{r.verified.Verdict}, r.verified.Subcases...)
+}
+
+// answer is what the run established: a verification case its verdict, an
+// analysis case its outputs.
+func (r caseRun) answer(err error) analysis.Answer {
+	if r.verified != nil {
+		return analysis.VerificationAnswer(*r.verified, err)
+	}
+	return analysis.CaseAnswer(r.result, err)
+}
+
+// runCaseOn runs the case once on the context's runtime; a run failing after
+// computing something keeps that beside the error.
+func (v *verifyContext) runCaseOn(sym *symbols.Symbol, args runtime.AnalysisArgs) (caseRun, error) {
 	if runtime.IsVerificationCaseSymbol(sym) {
 		verified, err := v.runtime.RunVerification(sym, args, v.declaringScope(sym), nil)
 		if err != nil {
-			return runtime.AnalysisResult{}, nil, fmt.Errorf("verification run failed: %w", err)
+			return caseRun{}, fmt.Errorf("verification run failed: %w", err)
 		}
-		return verified.Run, append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...), nil
+		return caseRun{result: verified.Run, verified: &verified}, nil
 	}
 	result, err := v.runtime.RunAnalysis(sym, args, v.declaringScope(sym), nil)
 	if err != nil {
-		return result, nil, fmt.Errorf("analysis run failed: %w", err)
+		return caseRun{result: result}, fmt.Errorf("analysis run failed: %w", err)
 	}
-	return result, nil, nil
+	return caseRun{result: result}, nil
+}
+
+// runCase puts one run of the case on the context's runtime to the engines.
+func (v *verifyContext) runCase(ctx context.Context, sym *symbols.Symbol, args runtime.AnalysisArgs) (runtime.AnalysisResult, []runtime.VerificationVerdict, error) {
+	run, err := perform(ctx, v, v.cached.Index.GetFQN(sym), func(*runtime.Context) (caseRun, error) {
+		return v.runCaseOn(sym, args)
+	}, caseRun.answer)
+	return run.result, run.verdicts(), err
 }
 
 // exploreAnalysis runs the case once per linearization on a context of its own
 // and answers every distinct outcome of outputs and verdicts.
-func (s *Service) exploreAnalysis(schedule runtime.SchedulePolicy, v *verifyContext, req *pb.RunAnalysisRequest, sym *symbols.Symbol) (*pb.RunAnalysisResponse, error) {
-	outcomes, status, err := s.explore(schedule, v.cached, v.sems, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		fresh := &verifyContext{service: s, cached: v.cached, runtime: ctx, sem: v.sem, sems: v.sems}
+func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.SchedulePolicy, v *verifyContext, req *pb.RunAnalysisRequest, sym *symbols.Symbol) (*pb.RunAnalysisResponse, error) {
+	outcomes, status, err := s.explore(ctx, v.cached.Index.GetFQN(sym), schedule, v.cached, v.sems, func(rt *runtime.Context) (runtime.Outcome, error) {
+		fresh := &verifyContext{service: s, cached: v.cached, runtime: rt, sem: v.sem, sems: v.sems}
 		args, resp, err := fresh.analysisArgs(req)
 		if err != nil {
 			return runtime.Outcome{}, err
@@ -148,11 +180,11 @@ func (s *Service) exploreAnalysis(schedule runtime.SchedulePolicy, v *verifyCont
 		if resp != nil {
 			return runtime.Outcome{}, errors.New(resp.Error)
 		}
-		result, verdicts, err := fresh.runCase(sym, args)
+		run, err := fresh.runCaseOn(sym, args)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
-		return ctx.VerifiedOutcome(result, verdicts), nil
+		return rt.VerifiedOutcome(run.result, run.verdicts()), nil
 	})
 	if err != nil {
 		return nil, err

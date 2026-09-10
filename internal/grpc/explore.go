@@ -1,8 +1,11 @@
 package grpc
 
 import (
+	"context"
+
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
@@ -13,28 +16,28 @@ type exploredRun struct {
 	diagnostics []*pb.Diagnostic
 }
 
-// explore runs a behavior once per linearization, each run on a fresh context over
-// the semantics held; a run that fails is an outcome, only a diverging replay fails the call.
-func (s *Service) explore(policy runtime.SchedulePolicy, cached *CachedModel, rs *runtimeSemantics, run func(*runtime.Context) (runtime.Outcome, error)) ([]*pb.Outcome, *pb.ExplorationStatus, error) {
+// explore puts the behavior's outcomes to the engines, run performing it once per
+// linearization on a fresh context; a failed run is an outcome, a diverging replay an error.
+func (s *Service) explore(ctx context.Context, subject string, policy runtime.SchedulePolicy, cached *CachedModel, rs *runtimeSemantics, run func(*runtime.Context) (runtime.Outcome, error)) ([]*pb.Outcome, *pb.ExplorationStatus, error) {
 	var runs []exploredRun
 	fresh := func() (*runtime.Context, error) {
 		return s.newRuntimeOver(rs), nil
 	}
-	recorded := func(ctx *runtime.Context) (runtime.Outcome, error) {
-		outcome, err := run(ctx)
+	recorded := func(rt *runtime.Context) (runtime.Outcome, error) {
+		outcome, err := run(rt)
 		rec := exploredRun{
-			diagnostics: s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(ctx.Notes(), cached)),
+			diagnostics: s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(rt.Notes(), cached)),
 		}
 		if err == nil && len(outcome.Outputs) > 0 {
 			rec.outputs = make(map[string]*pb.Value, len(outcome.Outputs))
 			for name, val := range outcome.Outputs {
-				rec.outputs[name] = s.valueToProto(ctx, val, cached.Index)
+				rec.outputs[name] = s.valueToProto(rt, val, cached.Index)
 			}
 		}
 		runs = append(runs, rec)
 		return outcome, err
 	}
-	x, err := runtime.Explore(policy, fresh, recorded)
+	x, err := s.engines.Explore(ctx, &analysis.Model{Fresh: fresh}, subject, policy, recorded, analysis.BudgetOf(s.budgets, policy))
 	if err != nil {
 		return nil, nil, statusError(connect.CodeFailedPrecondition, err.Error())
 	}
