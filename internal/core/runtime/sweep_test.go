@@ -674,6 +674,21 @@ func TestSweepNaturalAndPositiveParametersRefuseWhatTheyCannotHold(t *testing.T)
 	if got, want := inputsOf(table), []string{"n=1", "n=2"}; !equalStrings(got, want) {
 		t.Errorf("Rank over 1..2 bound %v; want %v", got, want)
 	}
+	// The step is a difference between rows, not a value the parameter takes, so
+	// a Natural or Positive parameter is swept downwards by a negative step.
+	for _, name := range []string{"Count", "Rank"} {
+		table := runSweepOver(t, ctx, scope, name, SweepPlan{
+			Ranges: []SweepRange{steppedRange("n", intOf(3), intOf(1), intOf(-1))},
+		})
+		if got, want := inputsOf(table), []string{"n=3", "n=2", "n=1"}; !equalStrings(got, want) {
+			t.Errorf("%s over 3..1:-1 bound %v; want %v", name, got, want)
+		}
+		for _, row := range table.Rows {
+			if row.Err != nil {
+				t.Errorf("%s row %+v failed", name, row)
+			}
+		}
+	}
 }
 
 // A Real parameter takes reals however its range is written: Integer endpoints
