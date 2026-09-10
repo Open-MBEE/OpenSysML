@@ -207,9 +207,9 @@ func TestSolveAsksNoMoreQueriesThanTheBudgetsRuns(t *testing.T) {
 		t.Fatalf("bounds %s, want the budget's 2 runs reached", result.Bounds)
 	}
 	asked = nil
-	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 3}).Result
-	if len(asked) != 3 || result.Claim != ClaimSatisfiable || result.Bounds.Reached() {
-		t.Fatalf("asked %v, result %+v; want every query asked within 3 runs", asked, result)
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 5}).Result
+	if runs, ok := result.Bounds.Limit("runs"); len(asked) != 3 || result.Claim != ClaimSatisfiable || !ok || runs != 5 || result.Bounds.Reached() {
+		t.Fatalf("asked %v, result %+v; want every query asked and the budget's 5 runs named unreached", asked, result)
 	}
 	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{}).Result
 	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 3 || result.Bounds.Reached() || result.Claim != ClaimSatisfiable {

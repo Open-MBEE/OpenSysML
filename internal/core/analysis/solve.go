@@ -84,9 +84,12 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 	if timeout <= 0 {
 		timeout = solve.DefaultTimeout
 	}
-	asked := len(q.Solve.Queries)
-	if budget.Runs > 0 && budget.Runs < asked {
-		asked = budget.Runs
+	runs, asked := budget.Runs, len(q.Solve.Queries)
+	switch {
+	case runs <= 0:
+		runs = asked
+	case runs < asked:
+		asked = runs
 	}
 	started := time.Now()
 	values := make([]Evaluation, len(q.Solve.Queries))
@@ -104,7 +107,7 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 	}
 	result.Claim, result.Strength, result.Reason = judgeSolved(values, asked)
 	result.Bounds = Bounds{
-		{Name: "runs", Limit: int64(asked), Reached: asked < len(values)},
+		{Name: "runs", Limit: int64(runs), Reached: asked < len(values)},
 		{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)},
 	}
 	return result, nil
