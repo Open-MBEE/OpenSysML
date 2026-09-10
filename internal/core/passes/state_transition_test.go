@@ -156,22 +156,22 @@ func TestSuccessionTargetInUnrelatedMachineIsIllegal(t *testing.T) {
 }`, CodeEndpointNotOfMachine, "Other::running")
 }
 
-// An entry point is a pseudostate the composite state owns, so a transition to
-// it is legal (UML 2.5.1 §14.2.3.8).
-func TestTransitionToEntryPointIsLegal(t *testing.T) {
+// A history pseudostate is a vertex the composite state owns, so a transition to
+// it is legal.
+func TestTransitionToHistoryIsLegal(t *testing.T) {
 	wantClean(t, `package test {
 	state def M {
 		entry; then i;
 		state i;
 		state comp {
-			entry point ep;
+			history resume;
 			entry; then ci;
 			state ci;
 			state cs;
 			succession first ci then cs;
 		}
 		succession first i then comp;
-		transition first comp then comp::ep;
+		transition first comp then comp::resume;
 	}
 }`)
 }

@@ -99,7 +99,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 **Behavioral fixtures:**
 - `action_control_flow.sysml`, `action_if_branch_body.sysml`, `action_mixed_params.sysml`, `action_send_port.sysml`
-- `state_full.sysml`, `state_transition_variants.sysml`, `state_call_trigger.sysml`, `state_def_region_pseudostate.sysml`, `state_defer.sysml`, `state_fork_join.sysml`, `state_history_entry_exit.sysml`, `state_timed_triggers.sysml`, `state.sysml`
+- `state_full.sysml`, `state_transition_variants.sysml`, `state_call_trigger.sysml`, `state_def_region_pseudostate.sysml`, `state_defer.sysml`, `state_fork_join.sysml`, `state_history.sysml`, `state_timed_triggers.sysml`, `state.sysml`
 - `calc.sysml`, `calc_defaults_and_invocation.sysml`, `calc_return.sysml`, `calc_return_parameter.sysml`
 - `constraint_assert_assume.sysml`
 - `requirement.sysml`, `requirement_members.sysml`
@@ -119,7 +119,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 **Coverage (all passing, by fixture prefix; counts in [the measured counts](../project/spec-compliance.md)):**
 - Calc: parameter binding, return values, defaults, inherited parameters, unary ops, qualified names, type coercion, body-local usages, statement bodies, nested and from-constraint invocation
 - Action: token flow, outputs, nested invocation, send/accept, port communication, `perform` reference and shorthand, accept...then, flows, loops and decisions
-- State: simple, do behavior, concurrent do, transition effect, choice/junction/fork-join pseudostates, orthogonal regions and region pseudostates, shallow/deep history, entry/exit points, deferred/undeferred events, call and timed triggers, signal discrimination/unmatched, self signal
+- State: simple, do behavior, concurrent do, transition effect, choice/junction/fork-join pseudostates, orthogonal regions and region pseudostates, shallow/deep history, deferred/undeferred events, call and timed triggers, signal discrimination/unmatched, self signal
 - Requirement: require, subject, actor, assume, nested
 - Instance, unit and quantity, constraint assert/assume/negation, satisfy, variation, redefinition, variant, feature chains, string operations, nested behaviors, element filters, ball-and-chain, and one each of attribute, connector, cubesat and view
 

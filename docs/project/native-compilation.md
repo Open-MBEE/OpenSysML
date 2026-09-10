@@ -265,7 +265,7 @@ sysml system.sysml -compile Vehicle::Sim -o sim         # a part, action, state 
 | `document def`, `view def` | the `docplan` and its `queryplan` programs emitted as code over the compiled structs; output is Markdown or the `docir` tree; PDF remains the external converter's job |
 | Library functions (OMG `RealFunctions`, `TrigFunctions`, `CollectionFunctions`; OpenSysML `OpenSysMLMathFunctions`) | a precompiled runtime (`libm` / Go `math`) with the interpreter's domain and arity errors, not re-lowered per model |
 | `metadata`, `IdentityMetadata` | constant tables, so a compiled program still reports identities and tags |
-| Extension notations (`defer`, `choice`, `junction`, `history`, `entry`/`exit point`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
+| Extension notations (`defer`, `choice`, `junction`, `history`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
 
 Interpreter-only, refused by the compiler with a named error: SMT-backed satisfiability
 (`internal/core/solve`), REPL introspection and `%trace`, instance adoption across edits, and

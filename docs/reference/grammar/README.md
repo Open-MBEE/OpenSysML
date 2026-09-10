@@ -44,8 +44,6 @@ They are a documented extension, not OMG notation, and using one produces a
 | `history <name>;` | shallow history (UML `H`) | UML `shallowHistory` pseudostate |
 | `shallow history <name>;` | shallow history, spelled out | UML `shallowHistory` pseudostate |
 | `deep history <name>;` | deep history (UML `H*`) | UML `deepHistory` pseudostate |
-| `entry point <name>;` | entry point | UML `entryPoint` pseudostate |
-| `exit point <name>;` | exit point | UML `exitPoint` pseudostate |
 | `defer <event> [, <event>]*;` | events the state retains while active | KerML `StatePerformances::StatePerformance::deferrable: Transfer[0..*] subsets acceptable` — "transfers … can be considered for acceptance more than once"; dispatch order is `Occurrences::Occurrence::incomingTransferSort`, defaulting to `earlierFirstIncomingTransferSort` |
 
 The action-level `fork` and `join` control nodes are SysML v2's `Actions::ForkAction`
@@ -63,10 +61,6 @@ Notes:
   `initial`, `junction` or `shallow` is a reserved word. None of them appears as a literal
   in the pinned grammars, so they remain ordinary names and are recognized only in the
   positions where the notation above needs them.
-- `point` is **not** reserved either. It is recognized only after `entry`
-  or `exit`, and only when a pseudostate name and `;` follow, because models
-  routinely declare features named `point`. `entry <action>` keeps its OMG
-  meaning.
 - `on` and `var` are **not** reserved, for the same reason and on the
   pilot implementation's authority: `on` is not a literal in any of its grammars,
   and `var` appears only in `KerML.xtext`'s `BasicFeaturePrefix` (`isVariable ?= 'var'`).

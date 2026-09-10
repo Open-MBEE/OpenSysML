@@ -27,7 +27,7 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, in the standard
   `parallel` notation; the bundled libraries give them no performance, so UML 2.5.1 supplies
   the semantics
-- **[Pseudostates](pseudostates.md)** — choice, junction, fork, join, entry/exit points
+- **[Pseudostates](pseudostates.md)** — choice, junction, fork, join
   and history
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
 - **[SMT bounded model checking of behaviors](smt-model-checking.md)** — a proposal: unroll an

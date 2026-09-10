@@ -15,8 +15,6 @@ var extensionInventory = []string{
 	"state def S { history h; }",
 	"state def S { shallow history h; }",
 	"state def S { deep history h; }",
-	"state def S { entry point p; }",
-	"state def S { exit point p; }",
 	"state def S { state a { defer e; } }",
 	"part def P { part a; first a; }",
 }

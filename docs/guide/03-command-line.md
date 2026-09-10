@@ -186,7 +186,7 @@ a declaration in another resolves correctly.
 ## Strict conformance
 
 OpenSysML accepts several notations of its own that no SysML v2 production admits: `defer`, and
-the `choice`, `junction`, `history` and `entry`/`exit point` pseudostates. These are reported as
+the `choice`, `junction` and `history` pseudostates. These are reported as
 warnings, so a model that uses them still analyses cleanly. `-strict` promotes those warnings
 to errors, which turns the run into a test of whether the file is conforming SysML v2.
 
