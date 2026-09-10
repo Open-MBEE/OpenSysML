@@ -22,7 +22,6 @@ package Probe {
     calc def Rev { return : Integer[*] = (1, 2, 3)->including(9); }
     calc def Cat { return : String = "ab" + "cd"; }
     calc def Div { return : Real = 1.0 / 3.0; }
-    calc def IntDiv { return : Integer = 7 / 2; }
     calc def Neg { return : Integer = -3; }
     calc def Big { return : Integer = 2 ** 40; }
     calc def Cmp { return : Boolean = 1 < 2 and not (3 >= 4); }

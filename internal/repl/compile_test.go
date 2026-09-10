@@ -463,7 +463,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"RealToNatural", "requires Integer arguments"},
 		{"Refined", "members of its own"},
 		{"DynamicIntPow", "non-literal Integer exponent"},
-		{"Narrowed", "a Real bound at x, which holds Integer"},
+		{"Narrowed", "a Real bound to x, which is Integer"},
 		{"RecordParam", "type Refused::Point is not Integer, Real or Boolean"},
 		{"EnumParam", "type Refused::Color is not Integer, Real or Boolean"},
 		{"RealIntIdentity", "'===' between Real and Integer"},

@@ -105,8 +105,8 @@ static sysml_real sysml_quot(sysml_int a, sysml_int b) {
 	return negative ? -r : r;
 }
 
-static inline sysml_int sysml_nonnegative(sysml_int v, const char *type) {
-	if (__builtin_expect(v < 0, 0)) {
+static inline sysml_int sysml_at_least(sysml_int v, sysml_int lo, const char *type) {
+	if (__builtin_expect(v < lo, 0)) {
 		static char msg[128];
 		snprintf(msg, sizeof msg, "type mismatch: cannot write %lld (an Integer) to a feature typed by %s", (long long)v, type);
 		sysml_fail(msg);
@@ -469,7 +469,7 @@ func cNarrowed(v string, r Range) string {
 	if r == RangeAny {
 		return v
 	}
-	return fmt.Sprintf("sysml_nonnegative(%s, \"%s\")", v, r)
+	return fmt.Sprintf("sysml_at_least(%s, %d, \"%s\")", v, r.Lower(), r)
 }
 
 func (e *cEmitter) raw(s string) {

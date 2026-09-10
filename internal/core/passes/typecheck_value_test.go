@@ -387,8 +387,9 @@ func TestValueCollectionResultIsJudged(t *testing.T) {
 }
 
 // A scalar element a collection value spells out is exact, as a literal bound directly is:
-// a decimal does not bind to an Integer feature because Integer values are Real. An
-// element a feature or function result types only bounds its values, so it binds either way.
+// a decimal does not bind to an Integer feature because Integer values are Real, nor does a
+// quotient, a Rational whatever it divides. An element a feature or function result types
+// only bounds its values, so it binds either way.
 func TestValueCollectionElementLiteralIsExact(t *testing.T) {
 	wantCollectionValueDiags(t, `attribute i : Integer = vs.{ in v : Vehicle; 1.5 };`,
 		"cannot bind Rational value to a feature typed by Integer")
@@ -408,8 +409,11 @@ func TestValueCollectionElementLiteralIsExact(t *testing.T) {
 		"cannot bind Rational value to a feature typed by Integer")
 	wantCollectionValueDiags(t, `
 		attribute r : Real;
+		attribute i2 : Integer = vs->collect { in v : Vehicle; r / 2 };`,
+		"cannot bind Real value to a feature typed by Integer")
+	wantCollectionValueDiags(t, `
+		attribute r : Real;
 		attribute i : Integer = vs.{ in v : Vehicle; r };
-		attribute i2 : Integer = vs->collect { in v : Vehicle; r / 2 };
 		attribute i3 : Integer = vs->collect Half;
 		attribute i4 : Integer = vs.{ in v : Vehicle; 2 };
 		attribute r2 : Real = vs.{ in v : Vehicle; 2 };

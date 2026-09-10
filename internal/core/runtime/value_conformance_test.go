@@ -2,8 +2,10 @@ package runtime
 
 import (
 	"errors"
+	"math"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -14,6 +16,7 @@ func valueConformanceContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
 			private import ScalarValues::*;
+			private import RealFunctions::ToInteger;
 			attribute seven : Real = 7.0;
 			attribute two : Real = 2.0;
 			attribute xs = (1, 2, 3);
@@ -21,15 +24,22 @@ func valueConformanceContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			part def P {
 				attribute exact : Integer = 3;
 				attribute whole : Integer = 4 / 2;
+				attribute wholeRational : Rational = 4 / 2;
+				attribute wholeConverted : Integer = ToInteger(4 / 2);
 				attribute half : Integer = 7 / 2;
 				attribute nat : Natural = 4 / 2;
+				attribute natConverted : Natural = ToInteger(4 / 2);
 				attribute neg : Natural = -4 / 2;
+				attribute negConverted : Natural = ToInteger(-4 / 2);
 				attribute fromReal : Integer = two;
+				attribute fromRealConverted : Integer = ToInteger(two);
 				attribute computed : Integer = seven - two;
+				attribute computedReal : Real = seven - two;
 				attribute computedHalf : Integer = seven / two;
 			}
 			part p : P;
 			part q : P { attribute :>> half = 4 / 2; }
+			part r : P { attribute :>> half = ToInteger(4 / 2); }
 
 			calc def Half { in x : Integer; return : Rational = x / 2; }
 			calc def Twice { in x : Integer = 7 / 2; return : Integer = x * 2; }
@@ -38,6 +48,8 @@ func valueConformanceContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			calc def Redef :> Base { in :>> x = 7 / 2; }
 			calc def IntDiv { return : Integer = 7 / 2; }
 			calc def WholeDiv { return : Integer = 4 / 2; }
+			calc def WholeDivConverted { return : Integer = ToInteger(4 / 2); }
+			calc def WholeDivRational { return : Rational = 4 / 2; }
 		}
 	`))
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
@@ -61,7 +73,9 @@ func instantiateNamed(t *testing.T, ctx *Context, idx *symbols.Index, qualified 
 }
 
 // A feature value is a binding, so the value materialized for a default must be
-// an instance of the declared type: 4 / 2 is the Integer 2, 7 / 2 is not one.
+// an instance of the declared type by what it is (KerML 1.1 §8.3.4.9): `4 / 2` is the
+// Rational 2.0 that IntegerFunctions::'/' returns, not an Integer, and a whole Real is
+// no Integer either; RealFunctions::ToInteger converts one.
 func TestDefaultValueMustConformAtMaterialization(t *testing.T) {
 	ctx, idx, _ := valueConformanceContext(t)
 	inst := instantiateNamed(t, ctx, idx, "test::p")
@@ -71,10 +85,11 @@ func TestDefaultValueMustConformAtMaterialization(t *testing.T) {
 		want    string
 	}{
 		{"exact", "3"},
-		{"whole", "2.0"},
-		{"nat", "2.0"},
-		{"fromReal", "2.0"},
-		{"computed", "5.0"},
+		{"wholeRational", "2.0"},
+		{"wholeConverted", "2"},
+		{"natConverted", "2"},
+		{"fromRealConverted", "2"},
+		{"computedReal", "5.0"},
 	} {
 		fv, err := inst.GetFeatureValue(ctx, tc.feature)
 		if err != nil {
@@ -85,7 +100,9 @@ func TestDefaultValueMustConformAtMaterialization(t *testing.T) {
 			t.Errorf("%s = %s, want %s", tc.feature, got, tc.want)
 		}
 	}
-	for _, feature := range []string{"half", "neg", "computedHalf"} {
+	for _, feature := range []string{
+		"whole", "half", "nat", "neg", "negConverted", "fromReal", "computed", "computedHalf",
+	} {
 		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
 		}
@@ -96,12 +113,16 @@ func TestDefaultValueMustConformAtMaterialization(t *testing.T) {
 func TestRestatedDefaultConformsByItsOwnValue(t *testing.T) {
 	ctx, idx, _ := valueConformanceContext(t)
 	inst := instantiateNamed(t, ctx, idx, "test::q")
+	if _, err := inst.GetFeatureValue(ctx, "half"); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("q.half: error = %v, want ErrTypeMismatch", err)
+	}
+	inst = instantiateNamed(t, ctx, idx, "test::r")
 	fv, err := inst.GetFeatureValue(ctx, "half")
 	if err != nil {
-		t.Fatalf("half: %v", err)
+		t.Fatalf("r.half: %v", err)
 	}
-	if got := FormatTraceValue(fv.HeldValue()); got != "2.0" {
-		t.Errorf("q.half = %s, want 2.0", got)
+	if got := FormatTraceValue(fv.HeldValue()); got != "2" {
+		t.Errorf("r.half = %s, want 2", got)
 	}
 }
 
@@ -110,7 +131,9 @@ func TestDeclaredValueReadChecksItsType(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
 		package test {
 			private import ScalarValues::*;
-			attribute whole : Integer = 4 / 2;
+			private import RealFunctions::ToInteger;
+			attribute whole : Integer = ToInteger(4 / 2);
+			attribute quotient : Integer = 4 / 2;
 			attribute half : Integer = 7 / 2;
 		}
 	`))
@@ -121,11 +144,13 @@ func TestDeclaredValueReadChecksItsType(t *testing.T) {
 		}
 		return matches[0]
 	}
-	if got, err := ctx.EvalDeclaredValue(symbol("whole")); err != nil || FormatTraceValue(got) != "2.0" {
-		t.Errorf("whole = %s, %v; want 2.0", FormatTraceValue(got), err)
+	if got, err := ctx.EvalDeclaredValue(symbol("whole")); err != nil || FormatTraceValue(got) != "2" {
+		t.Errorf("whole = %s, %v; want 2", FormatTraceValue(got), err)
 	}
-	if _, err := ctx.EvalDeclaredValue(symbol("half")); !errors.Is(err, ErrTypeMismatch) {
-		t.Errorf("half: error = %v, want ErrTypeMismatch", err)
+	for _, name := range []string{"quotient", "half"} {
+		if _, err := ctx.EvalDeclaredValue(symbol(name)); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: error = %v, want ErrTypeMismatch", name, err)
+		}
 	}
 }
 
@@ -165,7 +190,9 @@ func TestUserDeclaredScalarTypeDefersToTheBinding(t *testing.T) {
 }
 
 // A positional, named or default argument — through an inherited or redefined
-// parameter too — must be a value of the parameter's type; so must the result.
+// parameter too — must be a value of the parameter's type; so must the result. A
+// quotient is a Rational whatever number it is, so an Integer parameter takes it
+// only converted (RealFunctions::ToInteger).
 func TestCalcParameterAndResultMustConform(t *testing.T) {
 	ctx, _, scope := valueConformanceContext(t)
 
@@ -173,15 +200,16 @@ func TestCalcParameterAndResultMustConform(t *testing.T) {
 		expr string
 		want string
 	}{
-		{"Half(4 / 2)", "1.0"},
-		{"Half(x = 4 / 2)", "1.0"},
-		{"Half(two)", "1.0"},
+		{"Half(ToInteger(4 / 2))", "1.0"},
+		{"Half(x = ToInteger(4 / 2))", "1.0"},
+		{"Half(ToInteger(two))", "1.0"},
 		{"Twice(2)", "4"},
-		{"Twice(x = 4 / 2)", "4.0"},
-		{"Derived(4 / 2)", "2.0"},
-		{"Redef(4 / 2)", "2.0"},
-		{"Redef(x = 4 / 2)", "2.0"},
-		{"WholeDiv()", "2.0"},
+		{"Twice(x = ToInteger(4 / 2))", "4"},
+		{"Derived(ToInteger(4 / 2))", "2"},
+		{"Redef(ToInteger(4 / 2))", "2"},
+		{"Redef(x = ToInteger(4 / 2))", "2"},
+		{"WholeDivConverted()", "2"},
+		{"WholeDivRational()", "2.0"},
 	} {
 		got, err := evalIn(t, ctx, scope, tc.expr)
 		if err != nil {
@@ -193,15 +221,23 @@ func TestCalcParameterAndResultMustConform(t *testing.T) {
 		}
 	}
 	for _, expr := range []string{
+		"Half(4 / 2)",
+		"Half(x = 4 / 2)",
+		"Half(two)",
 		"Half(7 / 2)",
 		"Half(1.5)",
 		"Half(x = 1.5)",
 		"Half(seven / two)",
 		"Twice()",
+		"Twice(x = 4 / 2)",
+		"Derived(4 / 2)",
 		"Derived(1.5)",
+		"Redef(4 / 2)",
+		"Redef(x = 4 / 2)",
 		"Redef(1.5)",
 		"Redef()",
 		"IntDiv()",
+		"WholeDiv()",
 	} {
 		if _, err := evalIn(t, ctx, scope, expr); !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("%s: error = %v, want ErrTypeMismatch", expr, err)
@@ -258,9 +294,11 @@ func calcMultiplicityContext(t *testing.T) (*Context, *symbols.Index, *symbols.S
 			part def P {
 				attribute z : Complex = ComplexFunctions::rect(0.0, 1.0);
 				attribute r : Complex = 2.0;
-				attribute onAxis : Real = ComplexFunctions::rect(2.0, 0.0);
+				attribute onAxis : Complex = ComplexFunctions::rect(2.0, 0.0);
+				attribute realAxis : Real = ComplexFunctions::rect(2.0, 0.0);
 				attribute whole : Integer = ComplexFunctions::rect(2.0, 0.0);
 				attribute half : Integer = ComplexFunctions::rect(2.5, 0.0);
+				attribute realPart : Real = ComplexFunctions::re(ComplexFunctions::rect(2.0, 0.0));
 				attribute pair : Complex = (1.0, 2.0);
 				attribute triple : Complex = (1.0, 2.0, 3.0);
 				attribute offAxis : Real = ComplexFunctions::rect(0.0, 1.0);
@@ -364,8 +402,9 @@ func TestCalcMultiplicityViolationNamesTheBinding(t *testing.T) {
 	}
 }
 
-// One Complex is one value, however a feature is typed: a Complex feature holds
-// it, a Real feature refuses it by type, and a numeric pair is two values.
+// One Complex is one value, however a feature is typed: a Complex feature holds it, a
+// Real or Integer feature refuses it by type even on the real axis (a Complex is what
+// ComplexFunctions return; `re` gives the Real), and a numeric pair is two values.
 func TestComplexCountsAsOneValue(t *testing.T) {
 	ctx, idx, scope := calcMultiplicityContext(t)
 
@@ -395,7 +434,7 @@ func TestComplexCountsAsOneValue(t *testing.T) {
 
 	inst := instantiateNamed(t, ctx, idx, "test::p")
 	for feature, want := range map[string]string{
-		"z": "0.0 + 1.0i", "r": "2.0", "onAxis": "2.0 + 0.0i", "whole": "2.0 + 0.0i",
+		"z": "0.0 + 1.0i", "r": "2.0", "onAxis": "2.0 + 0.0i", "realPart": "2.0",
 	} {
 		fv, err := inst.GetFeatureValue(ctx, feature)
 		if err != nil {
@@ -411,7 +450,7 @@ func TestComplexCountsAsOneValue(t *testing.T) {
 			t.Errorf("%s: error = %v, want ErrMultiplicityViolation", feature, err)
 		}
 	}
-	for _, feature := range []string{"half", "offAxis"} {
+	for _, feature := range []string{"realAxis", "whole", "half", "offAxis"} {
 		if _, err := inst.GetFeatureValue(ctx, feature); !errors.Is(err, ErrTypeMismatch) {
 			t.Errorf("%s: error = %v, want ErrTypeMismatch", feature, err)
 		}
@@ -449,6 +488,54 @@ func TestSequenceIndexAcceptsAWholeValuedReal(t *testing.T) {
 	for _, expr := range []string{"xs#(0)", "xs#(-1)", "xs#(8 / 2)", "xs#(0 / 2)"} {
 		if _, err := evalIn(t, ctx, scope, expr); !errors.Is(err, ErrIndexOutOfRange) {
 			t.Errorf("%s: error = %v, want ErrIndexOutOfRange", expr, err)
+		}
+	}
+}
+
+// A NaN's representation states no scalar type, so it is of none: `istype` and `hastype`
+// answer false against every ScalarValues type, a write refuses it, and its direct type is
+// undetermined, while an infinity is a Real and a finite real a Rational as before.
+func TestNaNIsOfNoScalarType(t *testing.T) {
+	ctx, _, scope := valueConformanceContext(t)
+	nan := realArg(math.NaN())
+	complexNaN := NewComplex(complex(math.NaN(), 0))
+
+	for _, name := range []string{"Real", "Rational", "Integer", "Complex", "Number", "ScalarValue"} {
+		target := ctx.librarySymbol("ScalarValues::" + name)
+		if target == nil {
+			t.Fatalf("ScalarValues::%s not loaded", name)
+		}
+		for _, value := range []Value{nan, complexNaN} {
+			for _, by := range []classifiedBy{byAnyType, byOwnType} {
+				verdict, err := ctx.classifyValue(scope, value, target, nil, by)
+				if err != nil || verdict != semantics.ClassifiesNone {
+					t.Errorf("classify %s as %s (by %d) = %v, %v; want ClassifiesNone", FormatValue(value), name, by, verdict, err)
+				}
+			}
+			conforms, _, err := ctx.valueConforms(scope, &value, target, admitWritten)
+			if err != nil || conforms {
+				t.Errorf("valueConforms(%s, %s) = %v, %v; want false", FormatValue(value), name, conforms, err)
+			}
+			if _, err := ctx.directValueType(scope, value); !errors.Is(err, ErrUndeterminedValueType) {
+				t.Errorf("directValueType(%s) error = %v, want ErrUndeterminedValueType", FormatValue(value), err)
+			}
+		}
+	}
+
+	for _, tc := range []struct {
+		value Value
+		want  string
+	}{
+		{realArg(math.Inf(1)), "ScalarValues::Real"},
+		{realArg(2.0), "ScalarValues::Rational"},
+		{intArg(2), "ScalarValues::Integer"},
+	} {
+		typ, err := ctx.directValueType(scope, tc.value)
+		if err != nil {
+			t.Fatalf("directValueType(%s): %v", FormatValue(tc.value), err)
+		}
+		if got := ctx.librarySymbol(tc.want); typ != got {
+			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), symbolText(typ), tc.want)
 		}
 	}
 }

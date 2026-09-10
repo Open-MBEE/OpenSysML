@@ -75,9 +75,8 @@ func (m Mult) Admits(n int64) bool {
 	return n >= m.Lower && (m.Upper < 0 || n <= m.Upper)
 }
 
-// Range narrows an Integer to the values its declared library subtype admits.
-// The interpreter judges Positive as Natural, so both admit every non-negative
-// Integer and differ only in the type the refusal names.
+// Range narrows an Integer to the values its declared library subtype admits:
+// Natural the non-negative Integers, Positive those above zero.
 type Range int
 
 const (
@@ -95,6 +94,14 @@ func (r Range) String() string {
 		return "Positive"
 	}
 	return ""
+}
+
+// Lower is the least Integer the range admits.
+func (r Range) Lower() int64 {
+	if r == RangePositive {
+		return 1
+	}
+	return 0
 }
 
 // Program is a set of compiled functions with one entry point. Collections

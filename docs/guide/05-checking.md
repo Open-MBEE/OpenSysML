@@ -116,10 +116,17 @@ value it had. Nothing is dropped silently: a `(1, 1, 2)` is not quietly read as 
 
 **Casts:** `x as T` selects rather than converts. It yields `x` where `T` classifies the value `x`
 is, and the empty sequence where it does not; a sequence is cast element by element, keeping the
-elements `T` classifies in their order. A whole Real *is* an Integer in the `ScalarValues`
-hierarchy, so `4.0 as Integer` keeps `4.0` (the conversions, `ToInteger` and its kin, are library
-functions). An object is kept by every classifier it is an instance of, its type's generalizations
-included.
+elements `T` classifies in their order. An object is kept by every classifier it is an instance of,
+its type's generalizations included.
+
+A scalar is of the type it is written or computed in and of that type's supertypes, never of a
+narrower one by the number it happens to hold: `4` is an `Integer`, so also a `Rational`, a `Real`
+and a `Number`; `4.0` is a `Rational` and not an `Integer`, and so is `6 / 3`, since dividing two
+integers yields a `Rational`. `x istype T`, `x hastype T`, `x @ T`, `x as T` and a feature's type
+all judge a value by that one rule, so `4.0 istype Integer` is `false`, `4.0 as Integer` is empty,
+and `attribute whole : Integer = 4 / 2` is refused (by the checker, where the value is a quotient;
+at evaluation, where a whole `Real` reaches an `Integer` feature). `hastype` names the value's own
+type alone: `4 hastype Rational` is `false` while `4 istype Rational` is `true`.
 
 ```sysml
 sysml> package Payload {
@@ -129,13 +136,18 @@ sysml> package Payload {
   ...>     part navCam : Camera;
   ...>     part probe : Instrument;
   ...>     ref part cameras : Camera[0..*] = (navCam, probe) as Camera;
-  ...>     attribute whole : Integer[0..*] = (1.0, 2.5, 3.0) as Integer;
+  ...>     attribute whole : Integer[0..*] = (1.0, 2, 3.0) as Integer;
+  ...>     attribute reals : Real[0..*] = (1.0, 2, 3.0) as Real;
   ...> }
 ✓ package Payload
 
 sysml> %eval Payload::whole
 ✓ Payload::whole
-  = [1.0, 3.0]
+  = [2]
+
+sysml> %eval Payload::reals
+✓ Payload::reals
+  = [1.0, 2, 3.0]
 
 sysml> %eval Payload::cameras
 ✓ Payload::cameras
@@ -149,6 +161,40 @@ sysml> %eval 2.5 as ScalarValues::Integer
 Declare a feature that holds a cast result `[0..1]` or `[0..*]`: a cast that selects nothing is
 empty, which a feature of multiplicity `[1]` cannot hold. The checker warns where a cast can only
 be empty because the operand's type and the target are unrelated.
+
+**Converting a number:** the conversions are library functions, not casts. `RationalFunctions::ToInteger`
+and `RealFunctions::ToInteger` truncate toward zero, so pair them with `RealFunctions::round`, `floor`
+or `ceiling` where rounding is meant; `IntegerFunctions::ToNatural` refuses a negative integer.
+Declare the feature `Rational` or `Real` instead where the quotient itself is the value wanted.
+
+```sysml
+sysml> package Counts {
+  ...>     private import ScalarValues::*;
+  ...>     attribute quotient : Rational = 6 / 3;
+  ...>     attribute converted : Integer = RationalFunctions::ToInteger(6 / 3);
+  ...>     attribute rounded : Integer = RealFunctions::ToInteger(RealFunctions::round(7 / 2));
+  ...>     attribute count : Natural = IntegerFunctions::ToNatural(RationalFunctions::ToInteger(6 / 3));
+  ...> }
+✓ package Counts
+
+sysml> %eval Counts::quotient
+✓ Counts::quotient
+  = 2.0
+
+sysml> %eval Counts::converted
+✓ Counts::converted
+  = 2
+
+sysml> %eval Counts::rounded
+✓ Counts::rounded
+  = 4
+```
+
+A user-declared scalar type (`attribute def Even :> Integer;`) marks no evaluated value, so a bare
+`5 as Even` cannot be decided by the value and is reported rather than answered empty; a value read
+from a feature declared `Even` is kept, the declaration being what states it is one. `Natural` and
+`Positive` are read the same way: their bounds refuse `-1` and `0`, and `7 as Natural` on a bare
+integer is reported, while `n as Natural` on `attribute n : Natural = 7` keeps `7`.
 
 **The unbounded value:** `*` is a value of its own, not a large number. It exceeds every finite
 number, equals itself and prints as `*`; arithmetic over it is refused with an error naming the

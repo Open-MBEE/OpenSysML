@@ -1509,7 +1509,8 @@ func testTensorQuantityFailureModes(t *testing.T) {
 // CoordinateTransformation the library gives no shape, a placement whose origin
 // is no vector quantity or whose basis is singular, a translation in an
 // incommensurable unit, a scale placed on two references at odds, and matrices,
-// sequences and placements missing what they declare.
+// sequences and placements missing what they declare. A scalar written where a
+// reference, vector or step is declared is refused by the write itself.
 func testCoordinateFrameFailureModes(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -1528,7 +1529,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"frame whose dimensions overflow", `attribute bad : CoordinateFrame { :>> dimensions : Positive[2] = (4611686018427387904, 4); :>> mRefs = (m, m, m); }`,
 			"CoordinateFrame", "bad", semantics.ErrArithmeticOverflow, "bad: flattenedSize of dimensions [4611686018427387904, 4] exceeds the Integer range"},
 		{"frame whose mRef is a number", `attribute bad : CoordinateFrame { :>> mRefs = (m, 2); }`,
-			"CoordinateFrame", "bad", ErrTypeMismatch, "mRefs#(2) is an Integer, want a ScalarMeasurementReference"},
+			"CoordinateFrame", "bad", ErrTypeMismatch, "bad.mRefs: type mismatch: cannot write 2 (an Integer) to a feature typed by ScalarMeasurementReference"},
 		{"vector short of an axis", ``,
 			"Position3dVector", "(1.0, 2.0) [spatialCF]", ErrMultiplicityViolation, "2 elements over the coordinate frame spatialCF, whose flattenedSize is 3; elements: Number[1..n] with n = mRef.flattenedSize"},
 		{"vector of a number too many", ``,
@@ -1565,7 +1566,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrUnevaluableLibraryFunction, "transformation is a Bespoke, a CoordinateTransformation of no shape the library gives a meaning"},
 		{"placement whose origin is a string", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : CoordinateFramePlacement { :>> source = datum; :>> origin = "2024-01-01T00:00:00Z"; } }`,
-			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, "origin is string, not a vector quantity over datum"},
+			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, `transformation.origin: type mismatch: cannot write "2024-01-01T00:00:00Z" (string) to a feature typed by VectorQuantityValue`},
 		{"placement whose origin is missing", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : CoordinateFramePlacement { :>> source = datum; } }`,
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrNoValue, "states no origin; CoordinateFramePlacement declares origin: VectorQuantityValue[1]"},
@@ -1603,7 +1604,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrNoValue, "states no elements; TranslationRotationSequence declares elements: TranslationOrRotation[1..*]"},
 		{"sequence whose element is a number", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : TranslationRotationSequence { :>> source = datum; :>> elements = (1, 2); } }`,
-			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, "want a Translation or a Rotation"},
+			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, "transformation.elements: type mismatch: cannot write 1 (an Integer) to a feature typed by TranslationOrRotation"},
 		{"rotation about the zero vector", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : TranslationRotationSequence { :>> source = datum; :>> elements = (new Rotation((0.0, 0.0, 0.0) [datum], 90 ['°'])); } }`,
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", semantics.ErrArithmeticDomain, "axisDirection is the zero vector, which points nowhere"},
@@ -1672,7 +1673,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"scale whose origin is a string", `
 			attribute def Muddled :> Time::TimeScale { :>> unit = s; :>> transformation : CoordinateFramePlacement { :>> source = Time::UTC; :>> origin = "2024-01-01T00:00:00Z"; } }
 			attribute muddled : Muddled;`,
-			"ISQ::DurationValue", "ConvertQuantity(3.0 [Time::UTC], muddled)", ErrUnevaluableLibraryFunction, "muddled: the origin of its transformation transformation is string, not a quantity on UTC"},
+			"ISQ::DurationValue", "ConvertQuantity(3.0 [Time::UTC], muddled)", ErrTypeMismatch, `transformation.origin: type mismatch: cannot write "2024-01-01T00:00:00Z" (string) to a feature typed by VectorQuantityValue`},
 		{"scale whose one basis direction is the identity in another unit", `
 			attribute shifted : IntervalScale { :>> unit = m; :>> transformation : CoordinateFramePlacement { :>> source = m; :>> origin = 10.0 [m]; :>> basisDirections = 1000.0 [mm]; } }`,
 			"LengthValue", "ConvertQuantity(3.0 [shifted], m)", nil, ""},
@@ -4425,10 +4426,13 @@ func testTypeClassificationUnresolvedType(t *testing.T) {
 	}
 }
 
+// A value whose type the model cannot name is a typed error; `null` is the empty
+// sequence (KerML 8.3.4.8.16), of every type, so it is not that value.
 func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `package P {
 		item def Integer;
-		calc classify { return : Boolean = null istype Integer; }
+		calc classify { return : Boolean = 1.5 istype Integer; }
+		calc empty { return : Boolean = null istype Integer; }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "classify")
@@ -4439,8 +4443,16 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	if !errors.Is(err, ErrUndeterminedValueType) {
 		t.Fatalf("expected ErrUndeterminedValueType, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "null") {
-		t.Errorf("error = %v, want undecidable value description", err)
+	if !strings.Contains(err.Error(), "Rational") {
+		t.Errorf("error = %v, want the type the model has no name for", err)
+	}
+	empty := resolveSymbol(t, pkg.Scope, "empty")
+	got, err := NewContext(model, resolver, 1000).InvokeCalc(empty, nil, pkg.Scope)
+	if err != nil {
+		t.Fatalf("null istype Integer: %v", err)
+	}
+	if FormatValue(got) != "true" {
+		t.Errorf("null istype Integer = %s, want true", FormatValue(got))
 	}
 }
 

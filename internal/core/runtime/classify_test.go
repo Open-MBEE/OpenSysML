@@ -1472,7 +1472,7 @@ func TestRefusedClassificationUndoesTheVariantsItSelected(t *testing.T) {
 func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
-		item def Counter { attribute hits : Integer; }
+		item def Counter { attribute hits : Rational; }
 		item def Tallied :> Counter {
 			exhibit state tally {
 				entry; then on;
@@ -1514,7 +1514,7 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
-		item def Counter { attribute hits : Integer; }
+		item def Counter { attribute hits : Rational; }
 		item def Gauge { attribute reading : Integer = 1; }
 		item def Tallied :> Counter {
 			item gauge : Gauge [1];

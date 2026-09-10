@@ -137,9 +137,9 @@ func sysmlUnique[T sysmlElem](s sysmlSeq[T], where string) sysmlSeq[T] {
 	return s
 }
 
-func sysmlNonNegativeSeq(s sysmlSeq[int64], typ string) sysmlSeq[int64] {
+func sysmlAtLeastSeq(s sysmlSeq[int64], lo int64, typ string) sysmlSeq[int64] {
 	for _, v := range s.data {
-		sysmlNonNegative(v, typ)
+		sysmlAtLeast(v, lo, typ)
 	}
 	return s
 }
@@ -543,7 +543,7 @@ func (e *goEmitter) checked(x Checked) string {
 		v = fmt.Sprintf("sysmlCheck(%s, %d, %d, %s)", v, x.M.Lower, x.M.Upper, strconv.Quote(x.Where))
 	}
 	if x.R != RangeAny {
-		v = fmt.Sprintf("sysmlNonNegativeSeq(%s, %q)", v, x.R.String())
+		v = fmt.Sprintf("sysmlAtLeastSeq(%s, %d, %q)", v, x.R.Lower(), x.R.String())
 	}
 	if x.Unique {
 		v = fmt.Sprintf("sysmlUnique(%s, %s)", v, strconv.Quote(x.Where))

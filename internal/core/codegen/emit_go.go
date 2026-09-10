@@ -101,8 +101,8 @@ func sysmlQuot(a, b int64) float64 {
 	return q
 }
 
-func sysmlNonNegative(v int64, typ string) int64 {
-	if v < 0 {
+func sysmlAtLeast(v, lo int64, typ string) int64 {
+	if v < lo {
 		sysmlFail(fmt.Sprintf("type mismatch: cannot write %d (an Integer) to a feature typed by %s", v, typ))
 	}
 	return v
@@ -412,7 +412,7 @@ func goNarrowed(v string, r Range) string {
 	if r == RangeAny {
 		return v
 	}
-	return fmt.Sprintf("sysmlNonNegative(%s, %q)", v, r.String())
+	return fmt.Sprintf("sysmlAtLeast(%s, %d, %q)", v, r.Lower(), r.String())
 }
 
 func goParams(fn *Func) string {

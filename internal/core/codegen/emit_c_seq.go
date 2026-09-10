@@ -354,8 +354,8 @@ static sysml_seq_SFX sysml_parse_seq_SFX(const char *s, const char *name) {
 // cSeqTyped is the runtime that differs by element type: ranges and
 // aggregation over numbers, truth over Booleans, widening to Real.
 const cSeqTyped = `
-static sysml_seq_int sysml_nonnegative_seq(sysml_seq_int s, const char *type) {
-	for (sysml_int i = 0; i < s.len; i++) sysml_nonnegative(s.data[i], type);
+static sysml_seq_int sysml_at_least_seq(sysml_seq_int s, sysml_int lo, const char *type) {
+	for (sysml_int i = 0; i < s.len; i++) sysml_at_least(s.data[i], lo, type);
 	return s;
 }
 
@@ -594,7 +594,7 @@ func (e *cEmitter) checked(x Checked) string {
 		v = fmt.Sprintf("sysml_check_%s(%s, %d, %d, %s)", sfx, v, x.M.Lower, x.M.Upper, cWhere(x.Where))
 	}
 	if x.R != RangeAny {
-		v = fmt.Sprintf("sysml_nonnegative_seq(%s, \"%s\")", v, x.R)
+		v = fmt.Sprintf("sysml_at_least_seq(%s, %d, \"%s\")", v, x.R.Lower(), x.R)
 	}
 	if x.Unique {
 		v = fmt.Sprintf("sysml_unique_%s(%s, %s)", sfx, v, cWhere(x.Where))

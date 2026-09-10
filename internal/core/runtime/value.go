@@ -302,6 +302,15 @@ func (v Value) exprEnv(in *EvalContext) *EvalContext {
 	return &env
 }
 
+// exprScope is the scope a ValExpr closes over, or in where it closes over none.
+func (v Value) exprScope(in *symbols.Scope) *symbols.Scope {
+	closure, ok := v.ref.(*exprValue)
+	if !ok || v.Kind != ValExpr || closure.env == nil {
+		return in
+	}
+	return closure.env.scope
+}
+
 // Quantity is the payload of a ValQuantity; nil for every other kind.
 func (v Value) Quantity() *Quantity {
 	if v.Kind != ValQuantity {
