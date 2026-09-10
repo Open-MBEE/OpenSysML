@@ -475,8 +475,23 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		return e.seqCall(x, v), true
 	case Fold:
 		return e.fold(x), true
+	case Framed:
+		return fmt.Sprintf("func() %s { sysmlEnter(); r := %s; sysmlLeave(); return r }()", goType(x.Type()), e.expr(x.X)), true
+	case Sampled:
+		return fmt.Sprintf("func() %s { %s; return %s }()", goType(x.Type()), e.sample(x.S), e.expr(x.In)), true
 	}
 	return "", false
+}
+
+// sample declares a Sample's two variables and fills them one frame deeper,
+// charging each domain element's pair as its value is computed.
+func (e *goEmitter) sample(s Sample) string {
+	dom, rng := goLocal(s.Dom), goLocal(s.Rng)
+	x := goLocal(s.Body.Params[0].Name)
+	var b strings.Builder
+	fmt.Fprintf(&b, "sysmlEnter(); var %s = %s{sysmlMany, nil}; var %s = %s{sysmlMany, nil}; ", dom, goSeqType(s.DomType()), rng, goSeqType(s.RngType()))
+	fmt.Fprintf(&b, "for _, %s := range %s.data { y := %s; sysmlPush(&%s, %s); sysmlPush(&%s, y); sysmlCharge(1) }; sysmlLeave()", x, e.expr(s.Seq), e.expr(s.Body.Body), dom, x, rng)
+	return b.String()
 }
 
 // seqLit concatenates the operands' elements, evaluated left to right.

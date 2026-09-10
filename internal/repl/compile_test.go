@@ -164,6 +164,10 @@ var compiledCases = []compiledCase{
 	{"Fn::UsageRange", []string{"(3.0)"}},
 	{"Fn::SumRange", []string{"(1.0,2.0)"}}, {"Fn::SumRange", []string{"null"}},
 	{"Fn::NullDomain", []string{"1.0"}}, {"Fn::NullRange", []string{"1"}}, {"Fn::NullSqrtRange", []string{"1.0"}}, {"Fn::NullSum", []string{"1.5"}},
+	// The recursion budget is 10000 frames: the entry calc, Sample, and Down n+1 times.
+	{"Fn::DownDirect", []string{"9998"}}, {"Fn::DownDirect", []string{"9999"}},
+	{"Fn::DownRange", []string{"9997"}}, {"Fn::DownRange", []string{"9998"}},
+	{"Fn::DownDomain", []string{"9997"}}, {"Fn::DownDomain", []string{"9998"}},
 }
 
 // transcendental calcs call libm functions whose last bit is the library's, so the
@@ -328,6 +332,9 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 	cases := []compiledCase{
 		{"Seq::BigIn", []string{"(1,2,3,4,5,6,7,8,9,10)"}}, {"Seq::BigIn", []string{"(1,2,3,4,5,6,7,8,9,10,11)"}},
 		{"Seq::LazyBig", []string{"()", "100"}}, {"Seq::LazyBig", []string{"(1)", "100"}},
+		// A Domain or Range read collects a sequence of its own: 8 held plus 2 more fit, 9 plus 2 do not.
+		{"Fn::SizeDomain", []string{"2", "8"}}, {"Fn::SizeDomain", []string{"2", "9"}},
+		{"Fn::SizeRange", []string{"2", "8"}}, {"Fn::SizeRange", []string{"2", "9"}},
 	}
 	// 5 Integers and their 5 Reals fit the budget of 10; 6 and 6 do not.
 	widened := []struct{ n, sum, want, failure string }{{"5", "15.0", "15.0", ""}, {"6", "21.0", "", "collection element limit exceeded"}}

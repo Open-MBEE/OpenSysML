@@ -600,8 +600,11 @@ func escapingSeqs(s Stmt) []Var {
 				scope[k] = true
 			}
 			for _, s := range stmts {
-				if d, ok := s.(Declare); ok {
+				switch d := s.(type) {
+				case Declare:
 					scope[d.Name] = true
+				case Sample:
+					scope[d.Dom], scope[d.Rng] = true, true
 				}
 				walk(s, scope)
 			}
@@ -609,6 +612,9 @@ func escapingSeqs(s Stmt) []Var {
 		switch s := s.(type) {
 		case Declare:
 			store(s.Name, s.T)
+		case Sample:
+			store(s.Dom, s.DomType())
+			store(s.Rng, s.RngType())
 		case Assign:
 			store(s.Name, s.Value.Type())
 		case If:
@@ -668,6 +674,8 @@ func (e *cEmitter) stmt(s Stmt) {
 		e.linef("}")
 	case ForEach:
 		e.forEach(s)
+	case Sample:
+		e.linef("%s", e.sample(s))
 	case Return:
 		e.linef("{ %s sysml_r = %s; sysml_leave(); return sysml_r; }", e.result, cNarrowed(e.expr(s.Value), e.resultRange))
 	default:

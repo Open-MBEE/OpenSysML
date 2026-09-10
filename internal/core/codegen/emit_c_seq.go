@@ -494,8 +494,30 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 		return e.sequenced(x.Args, func(v []string) string { return e.seqCall(x, v) }), true
 	case Fold:
 		return e.fold(x), true
+	case Framed:
+		e.temps++
+		r := fmt.Sprintf("sysml_t%d", e.temps)
+		return fmt.Sprintf("({ sysml_enter(); %s %s = %s; sysml_leave(); %s; })", cType(x.Type()), r, e.expr(x.X), r), true
+	case Sampled:
+		return fmt.Sprintf("({ %s %s; })", e.sample(x.S), e.expr(x.In)), true
 	}
 	return "", false
+}
+
+// sample declares a Sample's two variables and fills them one frame deeper,
+// charging each domain element's pair as its value is computed.
+func (e *cEmitter) sample(s Sample) string {
+	e.temps++
+	n := e.temps
+	dom, rng := cLocal(s.Dom), cLocal(s.Rng)
+	dsfx, rsfx := cSeqSuffix(s.DomType()), cSeqSuffix(s.RngType())
+	x := s.Body.Params[0]
+	var b strings.Builder
+	fmt.Fprintf(&b, "sysml_enter(); sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; ", dsfx, dom, rsfx, rng)
+	fmt.Fprintf(&b, "{ %s sysml_s%d = %s; sysml_int sysml_c%d = 0, sysml_d%d = 0; ", cType(s.Seq.Type()), n, e.expr(s.Seq), n, n)
+	fmt.Fprintf(&b, "for (sysml_int sysml_i = 0; sysml_i < sysml_s%d.len; sysml_i++) { %s %s = sysml_s%d.data[sysml_i]; %s sysml_v%d = %s; ", n, cType(x.Type), cLocal(x.Name), n, cType(s.Body.Body.Type()), n, e.expr(s.Body.Body))
+	fmt.Fprintf(&b, "sysml_push_%s(&%s, &sysml_c%d, %s); sysml_push_%s(&%s, &sysml_d%d, sysml_v%d); sysml_charge(1); } } sysml_leave();", dsfx, dom, n, cLocal(x.Name), rsfx, rng, n, n)
+	return b.String()
 }
 
 // seqLit concatenates the operands' elements, evaluated left to right.

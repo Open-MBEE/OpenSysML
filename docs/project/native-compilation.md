@@ -126,8 +126,11 @@ arithmetic rather than the host language's:
   exactly as a direct invocation of `Sq` does — by `Sq`'s own parameter names, with `Sq`'s own
   arity, at the same depth against the recursion budget. `Sample(f, xs)` computes `f` at each
   domain value in order when the sample is taken, so the first failing element is the one
-  reported and an unbound `xs` samples to `[]` as the library's `collect` does; `Domain` and
-  `Range` then read the stored sequences.
+  reported and an unbound `xs` samples to `[]` as the library's `collect` does. `Sample`,
+  `Domain` and `Range` are the library calcs they are in the interpreter: each is one frame
+  against the recursion budget, so a sampled calc recursing to the limit fails at the same
+  depth, and each `Domain` or `Range` read collects a fresh sequence charged to the element
+  budget, the sample's own `SamplePair`s being charged as they are taken.
 - **Output** uses the interpreter's `FormatReal` convention: positional notation with a `.0` on
   whole values, exponent notation below `1e-4` and from `1e21`, `-0.0` preserved. A sequence
   prints as `[1, 2]`, an empty one as `[]`, an unbound value as `null`.
@@ -169,6 +172,11 @@ pins the refusals.
   Reals and the copy is charged to the element budget; the interpreter keeps the Integers and
   holds no copy. At the limit the program can therefore fail where the interpreter runs, never
   the reverse. `TestCompiledBudgetChargesInputsAndWidening` pins both sides.
+- **A call's result stays charged to the end of its statement.** The interpreter releases what
+  a calc's return statement built as soon as the calc answers, so `size(Mk(k)) + size(1..k)`
+  holds `k` elements at a time there and `2k` in the program; a `Domain` or `Range` read, and
+  the `Sample` a `Range(Sample(f, xs))` takes inline, are held the same way. Again the program
+  can fail where the interpreter runs, never the reverse.
 - **Transcendental last bits.** `sin`, `cos`, `tan`, `exp`, `ln`, `log`, `atan2` and the inverse
   trigonometric functions come from glibc's `libm` in C and Go's `math` in Go and the interpreter;
   the two libraries agree to within an ulp but not bit-for-bit (Go's own `Exp` differs between

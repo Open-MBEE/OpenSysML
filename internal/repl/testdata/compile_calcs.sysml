@@ -424,6 +424,14 @@ package Compiled {
 		calc def NullRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, null)); }
 		calc def NullSqrtRange { in a : Real; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, null)); }
 		calc def NullSum { in a : Real; return : Real = RealFunctions::sum(Range(Sample(Sq, null))) + a; }
+		// Sample, Domain and Range are library calcs: each is one frame against the
+		// recursion budget, and each Domain or Range read collects its own sequence.
+		calc def Down { in n : Integer; return : Integer = if n == 0 ? 0 else Down(n - 1); }
+		calc def DownDirect { in n : Integer; return : Integer = Down(n); }
+		calc def DownRange { in n : Integer; return : Integer[0..*] = Range(Sample(Down, n)); }
+		calc def DownDomain { in n : Integer; attribute s : SampledFunction = Sample(Down, n); return : Integer[0..*] = Domain(s); }
+		calc def SizeDomain { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Domain(s)); }
+		calc def SizeRange { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Range(s)); }
 	}
 }
 

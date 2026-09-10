@@ -367,39 +367,49 @@ func (fc *funcCompiler) sampleCall(node ast.Node) (*ast.InvocationExpr, bool) {
 	return n, true
 }
 
-// compileSample compiles `Sample(calculation, domainValues)`: the domain as the
-// sequence of samples taken (so null samples to `[]`, as the library's collect
-// does), and the range as the calculation collected over the domain read from
-// the local domName, in order, failing at the first element that fails.
-func (fc *funcCompiler) compileSample(n *ast.InvocationExpr, domName string) (dom, rng Expr, err error) {
+// compileSample compiles `Sample(calculation, domainValues)` into a Sample of
+// two fresh locals: the domain is the sequence of samples taken (so null
+// samples to `[]`, as the library's collect does) and the range the
+// calculation at each, in order, failing at the first element that fails.
+func (fc *funcCompiler) compileSample(n *ast.InvocationExpr) (Sample, error) {
 	args, fargs, err := fc.bindArgs(n, sampleCalc, []paramDecl{{name: "calculation", fn: true}, {name: "domainValues"}})
 	if err != nil {
-		return nil, nil, err
+		return Sample{}, err
 	}
-	dom = args[0].Value
+	dom := args[0].Value
 	if dom.Type() == TypeNull {
 		elem, err := fc.sampledElemType(fargs[0])
 		if err != nil {
-			return nil, nil, err
+			return Sample{}, err
 		}
 		dom = fc.retype(dom, elem.Seq())
 	}
 	if dom, err = fc.toMany(dom, dom.Type().Seq(), "argument for parameter \"domainValues\""); err != nil {
-		return nil, nil, err
+		return Sample{}, err
 	}
-	fc.temps++
-	x := Param{Name: fmt.Sprintf("\x00%d", fc.temps), Type: dom.Type().Elem(), Mult: MultOne}
-	dom = Fold{Op: SeqCollect, Seq: dom, Body: Lambda{Params: []Param{x}, Body: Var{Name: x.Name, T: x.Type}}, T: dom.Type()}
+	x := fc.temp(dom.Type().Elem())
 	at, err := fc.applyToOne(fargs[0], Var{Name: x.Name, T: x.Type})
 	if err != nil {
-		return nil, nil, err
+		return Sample{}, err
 	}
 	if !at.Type().Scalar() {
-		return nil, nil, fc.unsupported(fmt.Sprintf("Sample of a calc whose result is a %s, not a scalar", at.Type()))
+		return Sample{}, fc.unsupported(fmt.Sprintf("Sample of a calc whose result is a %s, not a scalar", at.Type()))
 	}
-	rng = Fold{Op: SeqCollect, Seq: Var{Name: domName, T: dom.Type()}, Body: Lambda{Params: []Param{x}, Body: at}, T: at.Type().Seq()}
 	fc.c.collections = true
-	return dom, rng, nil
+	return Sample{Dom: fc.temp(dom.Type()).Name, Rng: fc.temp(at.Type().Seq()).Name, Seq: dom, Body: Lambda{Params: []Param{x}, Body: at}}, nil
+}
+
+// temp is a fresh hidden local of type t.
+func (fc *funcCompiler) temp(t Type) Param {
+	fc.temps++
+	return Param{Name: fmt.Sprintf("\x00%d", fc.temps), Type: t, Mult: MultOne}
+}
+
+// projection compiles `Domain(fn)` or `Range(fn)` over the sample's values held
+// in seq: the library calc collects them into a fresh sequence, one frame deeper.
+func (fc *funcCompiler) projection(seq Var) Expr {
+	x := fc.temp(seq.T.Elem())
+	return Framed{X: Fold{Op: SeqCollect, Seq: seq, Body: Lambda{Params: []Param{x}, Body: Var{Name: x.Name, T: x.Type}}, T: seq.T}}
 }
 
 // compileSampledDeclare declares an attribute holding a SampledFunction, which
@@ -419,19 +429,12 @@ func (fc *funcCompiler) compileSampledDeclare(s lower.Declare) ([]Stmt, error) {
 			return nil, fc.unsupported(fmt.Sprintf("attribute %s, a SampledFunction declaring a multiplicity", s.Name))
 		}
 	}
-	fc.temps++
-	domName := fmt.Sprintf("\x00%d", fc.temps)
-	fc.temps++
-	rngName := fmt.Sprintf("\x00%d", fc.temps)
-	dom, rng, err := fc.compileSample(n, domName)
+	sample, err := fc.compileSample(n)
 	if err != nil {
 		return nil, err
 	}
-	fc.env.bind(s.Name, binding{sampled: &sampledFn{dom: domName, rng: rngName, domT: dom.Type(), rngT: rng.Type()}})
-	return []Stmt{
-		Declare{Name: domName, T: dom.Type(), Init: dom},
-		Declare{Name: rngName, T: rng.Type(), Init: rng},
-	}, nil
+	fc.env.bind(s.Name, binding{sampled: &sampledFn{dom: sample.Dom, rng: sample.Rng, domT: sample.DomType(), rngT: sample.RngType()}})
+	return []Stmt{sample}, nil
 }
 
 // compileSampledRead compiles `Domain(s)` or `Range(s)` of a SampledFunction:
@@ -456,26 +459,22 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 				return nil, fc.unsupported(fmt.Sprintf("%s of %s, which is not a SampledFunction", fqn, ref.Name.Parts[0].Text))
 			}
 			if rangeRead {
-				return Var{Name: b.sampled.rng, T: b.sampled.rngT}, nil
+				return fc.projection(Var{Name: b.sampled.rng, T: b.sampled.rngT}), nil
 			}
-			return Var{Name: b.sampled.dom, T: b.sampled.domT}, nil
+			return fc.projection(Var{Name: b.sampled.dom, T: b.sampled.domT}), nil
 		}
 	}
-	sample, ok := fc.sampleCall(arg)
+	n, ok := fc.sampleCall(arg)
 	if !ok {
 		return nil, fc.unsupported(fmt.Sprintf("%s of something other than an attribute holding a SampledFunction or `Sample(…)` itself", fqn))
 	}
-	fc.temps++
-	domName := fmt.Sprintf("\x00%d", fc.temps)
-	fc.temps++
-	rngName := fmt.Sprintf("\x00%d", fc.temps)
-	dom, rng, err := fc.compileSample(sample, domName)
+	sample, err := fc.compileSample(n)
 	if err != nil {
 		return nil, err
 	}
-	read := Var{Name: rngName, T: rng.Type()}
+	read := Var{Name: sample.Rng, T: sample.RngType()}
 	if !rangeRead {
-		read = Var{Name: domName, T: dom.Type()}
+		read = Var{Name: sample.Dom, T: sample.DomType()}
 	}
-	return Let{Name: domName, Value: dom, In: Let{Name: rngName, Value: rng, In: read}}, nil
+	return Sampled{S: sample, In: fc.projection(read)}, nil
 }
