@@ -110,6 +110,10 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("no_entry_transition_guard_holds", testNoEntryTransitionGuardHolds)
 	t.Run("entry_transition_target_is_not_a_state", testEntryTransitionTargetIsNotAState)
 	t.Run("entry_transition_carries_a_trigger", testEntryTransitionCarriesATrigger)
+	t.Run("entry_transition_into_done_completes_at_initialize", testEntryTransitionIntoDoneCompletesAtInitialize)
+	t.Run("region_entry_transitions_into_done_complete_at_initialize", testRegionEntryTransitionsIntoDoneCompleteAtInitialize)
+	t.Run("region_start_descends_through_entry_transitions", testRegionStartDescendsThroughEntryTransitions)
+	t.Run("leaving_regions_descends_through_entry_transitions", testLeavingRegionsDescendsThroughEntryTransitions)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
 	t.Run("calc_calls_an_unimported_extension_function", testCalcCallsAnUnimportedExtensionFunction)
 	t.Run("calc_calls_an_unimported_library_function", testCalcCallsAnUnimportedLibraryFunction)
@@ -6161,6 +6165,153 @@ func testEntryTransitionCarriesATrigger(t *testing.T) {
 	if err.Error() != want {
 		t.Fatalf("message:\n got %q\nwant %q", err.Error(), want)
 	}
+}
+
+// testEntryTransitionIntoDoneCompletesAtInitialize: an entry transition whose
+// guard chooses `done` completes the machine as it starts — its exit behavior
+// runs and no event is left waiting — rather than leaving it running in `done`.
+func testEntryTransitionIntoDoneCompletesAtInitialize(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute skip : Boolean = true;
+			attribute left : Boolean = false;
+			entry; if skip then done;
+			then busy;
+			exit action { assign left := true; }
+			state busy;
+			transition first busy accept after 1 [SI::s] then done;
+		}
+	}`)
+	if exec.State() != StateCompleted {
+		t.Fatalf("expected StateCompleted right after initialize, got %s", exec.State())
+	}
+	assertCurrentState(t, exec, ast.DoneFeature)
+	if got := exec.StateData()["left"]; got.Kind != ValConst || !got.Const.Bool {
+		t.Errorf("the machine's exit action did not run, left = %v", got)
+	}
+	if exec.EventQueue().Len() != 0 {
+		t.Errorf("a completed machine keeps %d events waiting", exec.EventQueue().Len())
+	}
+}
+
+// testRegionEntryTransitionsIntoDoneCompleteAtInitialize: every orthogonal
+// region starting in `done` completes the machine as it starts, exactly once.
+func testRegionEntryTransitionsIntoDoneCompleteAtInitialize(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine parallel {
+			attribute exits : Integer = 0;
+			exit action { assign exits := exits + 1; }
+			state left {
+				entry; then done;
+			}
+			state right {
+				entry; then done;
+			}
+		}
+	}`)
+	if exec.State() != StateCompleted {
+		t.Fatalf("expected StateCompleted right after initialize, got %s", exec.State())
+	}
+	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 1 {
+		t.Errorf("the machine's exit action ran %v times, want once", got)
+	}
+}
+
+// testRegionStartDescendsThroughEntryTransitions: a region whose starting state
+// is composite starts that state where its own entry transitions choose, and the
+// nested state is the region's active state, so its transitions are armed.
+func testRegionStartDescendsThroughEntryTransitions(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine parallel {
+			attribute cold : Boolean = true;
+			state control {
+				entry; then running;
+				state running {
+					entry; if cold then heating;
+					if not cold then idle;
+					state heating;
+					transition first heating accept warm then idle;
+					state idle;
+				}
+			}
+			state monitor {
+				entry; then watching;
+				state watching;
+			}
+		}
+	}`)
+	activeNames := func() map[string]bool {
+		active := make(map[string]bool)
+		for _, state := range exec.ActiveStates() {
+			active[state.Name] = true
+		}
+		return active
+	}
+	if active := activeNames(); !active["heating"] || !active["watching"] {
+		t.Fatalf("expected heating and watching active after initialize, got %v", active)
+	}
+	exec.SendSignal("warm", nil)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if active := activeNames(); !active["idle"] || active["heating"] {
+		t.Errorf("warm did not move heating to idle, active states %v", active)
+	}
+}
+
+// testLeavingRegionsDescendsThroughEntryTransitions: a transition out of an
+// orthogonal region into a composite state outside it starts that state where
+// its own entry transitions choose, and the nested state's timer is armed.
+func testLeavingRegionsDescendsThroughEntryTransitions(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		state Machine {
+			entry; then both;
+			state both parallel {
+				state left {
+					entry; then l1;
+					state l1;
+				}
+				state right {
+					entry; then r1;
+					state r1;
+				}
+			}
+			transition first both.left.l1 accept leave then running;
+			state running {
+				entry; then waiting;
+				state waiting;
+				transition first waiting accept after 1 [SI::s] then finished;
+				state finished;
+			}
+		}
+	}`))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("Machine not found")
+	}
+	exec, err := newStateExecutor(ctx, sym, nil)
+	if err != nil {
+		t.Fatalf("newStateExecutor: %v", err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	exec.SendSignal("leave", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("leave: %v", err)
+	}
+	assertCurrentState(t, exec, "waiting")
+	if got := len(ctx.Clock().Waits()); got != 1 {
+		t.Fatalf("%d wait(s) on the clock after entering waiting; want its timer armed", got)
+	}
+	if _, err := ctx.Advance(1); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	assertCurrentState(t, exec, "finished")
 }
 
 // testCalcUnboundParameter: a parameter with neither an argument nor a default

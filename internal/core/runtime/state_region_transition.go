@@ -358,14 +358,21 @@ func (e *StateExecutor) moveBetweenRegions(
 			return fmt.Errorf("enter state: %w", err)
 		}
 	}
-	if _, err := e.enterStartOf(target); err != nil {
+	// The target's own entry transitions may start it in a nested state, which
+	// then is the deepest state the region keeps active.
+	deepest, err := e.enterStartOf(target)
+	if err != nil {
 		return err
+	}
+	if branch, ok := e.branchesTo(nil, deepest)[targetRegion]; ok {
+		leaf = branch
+		e.activeConfig.regionStates[targetRegion] = leaf
 	}
 
 	if err := e.scheduleFromEntered(leaf); err != nil {
 		return err
 	}
-	if err := e.completeIfDone(target); err != nil {
+	if err := e.completeIfDone(deepest); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 	e.recordTransitionTrace(trans, source, target)
@@ -473,7 +480,7 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 	// Record the entered path: the deepest entered state of every orthogonal
 	// region on it becomes that region's active state, and a target inside none
 	// of them becomes the machine's single active state.
-	onPath := e.branchesTo(nil, target)
+	onPath := e.branchesTo(nil, deepest)
 	for region, leaf := range onPath {
 		e.activeConfig.regionStates[region] = leaf
 	}
@@ -482,10 +489,16 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 	}
 
 	e.stateStack = e.rootToLeaf(deepest)
-	if err := e.scheduleFromEntered(enter); err != nil {
+	// Scheduling starts from the deepest state entered when the path descends
+	// through no orthogonal regions; otherwise their recorded leaves are used.
+	scheduleFrom := enter
+	if enter == target {
+		scheduleFrom = deepest
+	}
+	if err := e.scheduleFromEntered(scheduleFrom); err != nil {
 		return err
 	}
-	if err := e.completeIfDone(target); err != nil {
+	if err := e.completeIfDone(deepest); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 	e.recordTransitionTrace(trans, source, target)

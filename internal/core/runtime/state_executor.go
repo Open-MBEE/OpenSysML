@@ -2580,6 +2580,10 @@ func (e *StateExecutor) initialize() error {
 		if err := e.scheduleTransitionEvents(); err != nil {
 			return fmt.Errorf("schedule events: %w", err)
 		}
+		// An entry transition choosing `done` completes the machine as it starts.
+		if err := e.completeIfDone(leaf); err != nil {
+			return fmt.Errorf("complete state machine: %w", err)
+		}
 		return nil
 	}
 
@@ -2604,6 +2608,15 @@ func (e *StateExecutor) initialize() error {
 		return fmt.Errorf("schedule events: %w", err)
 	}
 
+	// Every region starting in `done` completes the machine as it starts.
+	for _, region := range e.graph.TopRegions {
+		if err := e.completeIfDone(e.activeConfig.regionStates[region]); err != nil {
+			return fmt.Errorf("complete state machine: %w", err)
+		}
+		if e.state == StateCompleted {
+			break
+		}
+	}
 	return nil
 }
 
@@ -2846,6 +2859,15 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 			if err := e.enterStateInto(descendant, branches); err != nil {
 				return fmt.Errorf("enter starting state in region %s: %w", region.Name, err)
 			}
+		}
+		// A composite entry starts in the state its own entry transitions choose,
+		// which is then the deepest state the region keeps active.
+		deepest, err := e.enterStartOf(entry)
+		if err != nil {
+			return err
+		}
+		if branch, ok := e.branchesTo(nil, deepest)[region]; ok {
+			e.activeConfig.regionStates[region] = branch
 		}
 	}
 	return nil
