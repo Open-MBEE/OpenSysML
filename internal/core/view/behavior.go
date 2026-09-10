@@ -36,7 +36,8 @@ func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
 }
 
 // stateMachineNode renders one lowered state machine: its regions and states as
-// nested nodes, its transitions as edges.
+// nested nodes, the start of each body with the entry transitions out of it, and
+// its transitions as edges.
 func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Detail: declType(machine),
 		Origin: symbolOrigin(machine)}
@@ -79,6 +80,39 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 		parent.Children = append(parent.Children, node)
 	}
 
+	// Each body that says where it starts gets a start node, and one edge per
+	// entry transition, in the order the guards are tried in.
+	bodies := []stateBody{{nil, root}}
+	for _, region := range graph.TopRegions {
+		bodies = append(bodies, stateBody{region, regions[region]})
+	}
+	for _, state := range graph.States {
+		bodies = append(bodies, stateBody{state, nodes[state]})
+		for _, region := range graph.CompositeStates[state] {
+			bodies = append(bodies, stateBody{region, regions[region]})
+		}
+	}
+	for _, body := range bodies {
+		entries := graph.StartOf(body.owner)
+		if len(entries) == 0 {
+			continue
+		}
+		start := &Node{ID: ids.take(), Kind: startKind}
+		body.node.Children = append([]*Node{start}, body.node.Children...)
+		for _, entry := range entries {
+			target, ok := nodes[entry.Target]
+			if !ok {
+				out.Notices = append(out.Notices, fmt.Sprintf("entry transition to %s of %s leaves the machine's own states; no edge is drawn",
+					behaviorNodeName(entry.Target), r.notationName(machine)))
+				continue
+			}
+			out.Edges = append(out.Edges, Edge{
+				From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
+				Origin: nodeOrigin(doc, entry.Decl),
+			})
+		}
+	}
+
 	sources := make([]ast.Node, 0, len(graph.States)+len(graph.Pseudostates))
 	for _, state := range graph.States {
 		sources = append(sources, state)
@@ -106,18 +140,29 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 	return root
 }
 
+// startKind is the Kind of the node a body's entry transitions leave, which a
+// state diagram draws as its start marker.
+const startKind = "start"
+
+// stateBody is a body whose entry transitions say where it starts — the machine
+// (owner nil), a composite state or a region — and the node rendering it.
+type stateBody struct {
+	owner ast.Node
+	node  *Node
+}
+
 // regionNode renders one orthogonal region, which holds the states declared in
 // it.
 func (r *Renderer) regionNode(region *ast.StateRegion, doc string, ids *nodeIDs) *Node {
 	return &Node{ID: ids.take(), Kind: "region", Name: notationName(region.Name), Origin: nodeOrigin(doc, region)}
 }
 
-// stateNode renders one state with what the machine says about it: whether it is
-// the state entered first, whether entering it completes, and what it runs.
+// stateNode renders one state with what the machine says about it: whether its
+// body unconditionally starts in it, whether entering it completes, what it runs.
 func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, doc string, ids *nodeIDs) *Node {
 	node := &Node{ID: ids.take(), Kind: "state", Name: notationName(state.Name), Origin: nodeOrigin(doc, state)}
 	var detail []string
-	if graph.IsInitial(state) || graph.Initial == state || initialOfRegion(graph, state) {
+	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		detail = append(detail, "initial")
 	}
 	if graph.Completes(state) {
@@ -140,10 +185,16 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, doc 
 	return node
 }
 
-// initialOfRegion reports whether a state is the one its region enters first.
-func initialOfRegion(graph *lower.StateGraph, state *ast.StateNode) bool {
-	region := graph.RegionOf[state]
-	return region != nil && graph.RegionInitials[region] == state
+// bodyOwning is the body a state is declared in, as StateGraph.StartOf names it:
+// its region, else its parent state, else nil for the machine's own body.
+func bodyOwning(graph *lower.StateGraph, state *ast.StateNode) ast.Node {
+	if region := graph.RegionOf[state]; region != nil {
+		return region
+	}
+	if parent := graph.ParentState[state]; parent != nil {
+		return parent
+	}
+	return nil
 }
 
 // transitionLabel is what a transition edge carries: its name, the trigger it
@@ -160,15 +211,25 @@ func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) str
 	if transition.Via != "" {
 		parts = append(parts, "via "+notationName(transition.Via))
 	}
-	if guard := r.nodeText(doc, transition.Guard); guard != "" {
-		parts = append(parts, "["+guard+"]")
-	} else if transition.Guard != nil {
-		parts = append(parts, "[guard]")
+	if guard := r.guardLabel(doc, transition.Guard); guard != "" {
+		parts = append(parts, guard)
 	}
 	if len(transition.Effect) > 0 {
 		parts = append(parts, "/ "+behaviorNames(transition.Effect))
 	}
 	return strings.Join(parts, " ")
+}
+
+// guardLabel is the guard an edge carries, `[guard]` as written when the source
+// is at hand, and "" for an unguarded one.
+func (r *Renderer) guardLabel(doc string, guard ast.Node) string {
+	if guard == nil {
+		return ""
+	}
+	if text := r.nodeText(doc, guard); text != "" {
+		return "[" + text + "]"
+	}
+	return "[guard]"
 }
 
 // transitionName names a transition in a notice: its own name, else the states

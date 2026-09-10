@@ -1,0 +1,29 @@
+%% MachineViews::thermostat — state rendering (view def StateTransitionView)
+stateDiagram-v2
+  state "state def Machines::Thermostat" as n0 {
+    state "state heating" as n1
+    state "state idle" as n2 {
+      state "state drying" as n3
+      state "state resting" as n4
+      [*] --> n3 : [wet]
+      [*] --> n4
+    }
+    state "state monitoring" as n5 {
+      state "region lights" as n6 {
+        state "state lit" as n8
+        state "state unlit" as n9
+        [*] --> n8 : [dark]
+        [*] --> n9 : [not dark]
+      }
+      state "region fans" as n7 {
+        state "state off (initial)" as n10
+        state "state on" as n11
+        [*] --> n10
+      }
+    }
+    [*] --> n1 : [cold]
+    [*] --> n2 : [not cold]
+  }
+  n1 --> n2
+  n2 --> n5
+  n10 --> n11

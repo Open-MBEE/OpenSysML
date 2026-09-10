@@ -472,6 +472,7 @@ view RobotViews::overview
 RobotViews::modes - state rendering (view def StateTransitionView)
 
 state def RobotBehavior::Modes
+  start
   state idle (initial)
   state approach
     state rolling (entry)
@@ -481,6 +482,7 @@ state def RobotBehavior::Modes
   state done (completes)
 
 transitions:
+  start of RobotBehavior::Modes -> idle
   idle -> rolling: idle_to_rolling: after 5 [s]
   approach -> handling: approach_to_handling: after 20 [s]
   rolling -> holding: rolling_to_holding: after 10 [s]

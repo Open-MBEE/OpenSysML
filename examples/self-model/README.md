@@ -121,8 +121,8 @@ state views, Markdown for the tables. Override the destination with
 stateDiagram-v2
   state "state def OpenSysMLBehavior::TierProgression" as n0 {
     state "state syntaxTier (initial)" as n1
-    [*] --> n1
     ...
+    [*] --> n1
   }
   n1 --> n2 : [failures == 0]
   n1 --> n8 : [failures #gt; 0]
