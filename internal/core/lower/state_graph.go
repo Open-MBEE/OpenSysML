@@ -282,7 +282,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 
 	// Third pass: collect transitions
 	for _, group := range groupMembers(body) {
-		if err := collectTransitions(graph, group.nodes, group.owner, nil, nil, group.scope); err != nil {
+		if err := collectGroupTransitions(graph, group, group.owner, nil, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -1406,12 +1406,25 @@ func collectStateTransitions(graph *StateGraph, usage *ast.Usage, owner ast.Node
 		if containing == nil {
 			containing = usage
 		}
-		if err := collectTransitions(graph, group.nodes, containing,
-			graph.completionOwner(containing, owner), graph.entryOwner(state), group.scope); err != nil {
+		if err := collectGroupTransitions(graph, group, containing,
+			graph.completionOwner(containing, owner), graph.entryOwner(state)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// collectGroupTransitions lowers the transitions one body contributes to a state.
+// A group without an owner is the state's own body, whose entry transitions
+// replace the inherited ones.
+func collectGroupTransitions(graph *StateGraph, group memberGroup, containingState, owner, entryOwner ast.Node) error {
+	collect := func() error {
+		return collectTransitions(graph, group.nodes, containingState, owner, entryOwner, group.scope)
+	}
+	if group.owner != nil {
+		return collect()
+	}
+	return graph.withOwnEntryTransitions(entryOwner, collect)
 }
 
 // collectTransitions recursively processes member lists to collect transitions.

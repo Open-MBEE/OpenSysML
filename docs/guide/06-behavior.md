@@ -117,7 +117,10 @@ alternative taken when it is reached. The entry action itself runs first, so a g
 what it assigned. When alternatives are written and no guard holds, the machine has nowhere
 to start and reports it as an error (`no entry transition holds`). An entry transition
 chooses by its guard alone: one written with a trigger or an effect, or one reaching
-something other than a state, is reported.
+something other than a state, is reported. A state usage typed by a definition (or a
+definition specializing another) that writes entry transitions of its own starts by those
+alone, the inherited ones being replaced just as its own `entry` behavior replaces the
+inherited one; a usage writing none starts where its definition says.
 
 ```sysml
 state def Heater {

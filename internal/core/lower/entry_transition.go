@@ -99,6 +99,32 @@ func (g *StateGraph) addEntryTransition(owner ast.Node, transition *EntryTransit
 	g.designateInitial(transition.Target)
 }
 
+// withOwnEntryTransitions runs collect over the members a body writes itself.
+// Entry transitions written there replace those the body inherited, as its own
+// entry behavior replaces the inherited one (pickBehaviors).
+func (g *StateGraph) withOwnEntryTransitions(owner ast.Node, collect func() error) error {
+	inherited := len(g.EntryTransitions[owner])
+	if err := collect(); err != nil {
+		return err
+	}
+	if transitions := g.EntryTransitions[owner]; inherited > 0 && len(transitions) > inherited {
+		g.EntryTransitions[owner] = transitions[inherited:]
+		g.redesignateInitials()
+	}
+	return nil
+}
+
+// redesignateInitials recomputes the states some entry transition names, once a
+// body's inherited entry transitions have been dropped.
+func (g *StateGraph) redesignateInitials() {
+	g.designatedInitials = make(map[*ast.StateNode]bool)
+	for _, transitions := range g.EntryTransitions {
+		for _, transition := range transitions {
+			g.designateInitial(transition.Target)
+		}
+	}
+}
+
 // entryOwner is the body an entry transition written in state's body starts: the
 // region when state stands for one of a parallel state, else the state itself.
 func (g *StateGraph) entryOwner(state *ast.StateNode) ast.Node {

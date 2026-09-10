@@ -112,6 +112,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("entry_transition_carries_a_trigger", testEntryTransitionCarriesATrigger)
 	t.Run("entry_transition_into_done_completes_at_initialize", testEntryTransitionIntoDoneCompletesAtInitialize)
 	t.Run("named_entry_action_transition_into_done_completes_at_initialize", testNamedEntryActionTransitionIntoDoneCompletesAtInitialize)
+	t.Run("own_entry_transitions_replace_inherited_ones", testOwnEntryTransitionsReplaceInheritedOnes)
 	t.Run("region_entry_transitions_into_done_complete_at_initialize", testRegionEntryTransitionsIntoDoneCompleteAtInitialize)
 	t.Run("nested_regions_into_done_complete_at_initialize", testNestedRegionsIntoDoneCompleteAtInitialize)
 	t.Run("transition_into_nested_regions_in_done_completes", testTransitionIntoNestedRegionsInDoneCompletes)
@@ -6239,6 +6240,75 @@ func testNamedEntryActionTransitionIntoDoneCompletesAtInitialize(t *testing.T) {
 		t.Errorf("expected the machine to be running in its declared state done, got %s", exec.State())
 	}
 	assertCurrentState(t, exec, "done")
+}
+
+// testOwnEntryTransitionsReplaceInheritedOnes: the entry transitions a state
+// writes itself replace the ones it inherits, guarded or not, at the machine's
+// top level, in a nested typed usage and in a typed orthogonal region; a state
+// writing none keeps the inherited start.
+func testOwnEntryTransitionsReplaceInheritedOnes(t *testing.T) {
+	const base = `
+		state def Base {
+			attribute c : Boolean = true;
+			entry; if c then old;
+			then older;
+			state old;
+			state older;
+		}`
+	for name, tc := range map[string]struct {
+		machine string
+		want    []string
+	}{
+		"specializing machine": {machine: `
+			state def Machine :> Base {
+				entry; then fresh;
+				state fresh;
+			}`, want: []string{"fresh"}},
+		"typed usage": {machine: `
+			state def Machine {
+				entry; then u;
+				state u : Base {
+					entry; then fresh;
+					state fresh;
+				}
+			}`, want: []string{"fresh"}},
+		"guarded typed usage": {machine: `
+			state def Machine {
+				entry; then u;
+				state u : Base {
+					entry; if not c then fresh;
+					then fresher;
+					state fresh;
+					state fresher;
+				}
+			}`, want: []string{"fresher"}},
+		"redeclared entry behavior only": {machine: `
+			state def Machine {
+				entry; then u;
+				state u : Base {
+					entry assign c := true;
+				}
+			}`, want: []string{"old"}},
+		"typed region": {machine: `
+			state def Machine parallel {
+				state left : Base {
+					entry; then fresh;
+					state fresh;
+				}
+				state right : Base;
+			}`, want: []string{"fresh", "old"}},
+	} {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			private import ScalarValues::*;`+base+tc.machine+`
+		}`)
+		var got []string
+		for _, state := range exec.ActiveStates() {
+			got = append(got, state.Name)
+		}
+		if fmt.Sprint(got) != fmt.Sprint(tc.want) {
+			t.Errorf("%s: started in %v, want %v", name, got, tc.want)
+		}
+	}
 }
 
 // testRegionEntryTransitionsIntoDoneCompleteAtInitialize: every orthogonal
