@@ -902,6 +902,9 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), val, admitDeclared); err != nil {
 		return Value{}, err
 	}
+	if msg := ec.ctx.declaredUniquenessRefusal(sym, &val); msg != "" {
+		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
 	}

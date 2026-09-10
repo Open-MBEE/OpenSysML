@@ -1,0 +1,18 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::h",
+  "slots": {
+    "repeated.elements": {"error": "(kv1) is written at positions 1 and 3 of a unique feature"},
+    "valid.elements": {"type": "Sequence", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "count": {"type": "Integer", "value": 2},
+    "asMap.elements": {"type": "Set", "elements": [
+      {"type": "Instance"},
+      {"type": "Instance"}
+    ]},
+    "mapCount": {"type": "Integer", "value": 2}
+  }
+}

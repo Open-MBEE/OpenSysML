@@ -113,6 +113,30 @@ func sysmlCheck[T sysmlElem](s sysmlSeq[T], lo, hi int64, where string) sysmlSeq
 	return s
 }
 
+// sysmlElemKind is the interpreter's description of an element's type.
+func sysmlElemKind[T sysmlElem](v T) string {
+	switch any(v).(type) {
+	case int64:
+		return "an Integer"
+	case float64:
+		return "a Real"
+	}
+	return "a Boolean"
+}
+
+// sysmlUnique refuses the first element of s equal to an earlier one, as a
+// write to a unique feature at where does.
+func sysmlUnique[T sysmlElem](s sysmlSeq[T], where string) sysmlSeq[T] {
+	seen := make(map[T]int, len(s.data))
+	for i, v := range s.data {
+		if first, dup := seen[v]; dup {
+			sysmlFailf("%s: uniqueness violation: %s (%s) is written at positions %d and %d of a unique feature", where, sysmlFormat(v), sysmlElemKind(v), first+1, i+1)
+		}
+		seen[v] = i
+	}
+	return s
+}
+
 func sysmlNonNegativeSeq(s sysmlSeq[int64], typ string) sysmlSeq[int64] {
 	for _, v := range s.data {
 		sysmlNonNegative(v, typ)
@@ -511,7 +535,8 @@ func (e *goEmitter) seqLit(x SeqLit) string {
 	return fmt.Sprintf("sysmlConcat[%s](%s)", elem, strings.Join(parts, ", "))
 }
 
-// checked binds a collection: multiplicity first, then the elements' range.
+// checked binds a collection: multiplicity first, then the elements' range,
+// then their uniqueness.
 func (e *goEmitter) checked(x Checked) string {
 	v := e.expr(x.X)
 	if x.M != MultAny {
@@ -519,6 +544,9 @@ func (e *goEmitter) checked(x Checked) string {
 	}
 	if x.R != RangeAny {
 		v = fmt.Sprintf("sysmlNonNegativeSeq(%s, %q)", v, x.R.String())
+	}
+	if x.Unique {
+		v = fmt.Sprintf("sysmlUnique(%s, %s)", v, strconv.Quote(x.Where))
 	}
 	return v
 }

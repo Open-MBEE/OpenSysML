@@ -2,9 +2,11 @@ package passes
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -114,6 +116,105 @@ func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d f
 	if msg := r.HeldViolation(held); msg != "" {
 		ec.errorf(value.Span(), "%s", msg)
 	}
+}
+
+// checkValueUniqueness reports a literal writing one const-decidable value twice to
+// a unique, sequence-held feature (KerML 7.3.4.4); other equality is the runtime's.
+func (ec *exprChecker) checkValueUniqueness(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
+	if _, ok := value.(*ast.SequenceExpr); !ok {
+		return
+	}
+	feature := declaredSymbol(declScope, d.node)
+	if feature == nil || !ec.model.IsUnique(feature) || ec.model.HoldsSet(feature, ownerType(feature)) {
+		return
+	}
+	var seen []constElement
+	for i, element := range valueElements(value) {
+		el, ok := ec.constElement(valueScope, element)
+		if !ok {
+			continue
+		}
+		el.position = i + 1
+		for _, prior := range seen {
+			if prior.equal(el) {
+				ec.errorf(element.Span(), "%s", semantics.UniquenessViolation(el.text, prior.position, el.position))
+				return
+			}
+		}
+		seen = append(seen, el)
+	}
+}
+
+// constElement is one element of a collection literal whose value is decided
+// statically: a scalar constant, a string literal or an enumeration literal.
+type constElement struct {
+	scalar   semantics.Value
+	str      string
+	literal  *symbols.Symbol
+	text     string
+	position int
+}
+
+// equal holds when the two elements are one value, as the runtime's equality judges.
+func (e constElement) equal(o constElement) bool {
+	switch {
+	case e.literal != nil || o.literal != nil:
+		return e.literal == o.literal
+	case e.scalar.Kind != semantics.ValInvalid || o.scalar.Kind != semantics.ValInvalid:
+		eq, ok := semantics.EvalBinary(ast.OpEq, e.scalar, o.scalar)
+		return ok && eq.Kind == semantics.ValBool && eq.Bool
+	}
+	return e.str == o.str
+}
+
+// constElement decides an element's value statically, or reports it cannot.
+func (ec *exprChecker) constElement(scope *symbols.Scope, element ast.Node) (constElement, bool) {
+	if s, ok := element.(*ast.LiteralString); ok {
+		text := lexer.StringValue(s.Value)
+		return constElement{str: text, text: strconv.Quote(text) + " (string)"}, true
+	}
+	if v, ok := ec.model.Eval(element); ok && v.Kind != semantics.ValInfinity {
+		return constElement{scalar: v, text: semantics.FormatConst(v) + " (" + constKind(v) + ")"}, true
+	}
+	if sym := ec.valueFeature(scope, element); sym != nil {
+		if enum := ec.owningEnumeration(sym); enum != nil {
+			return constElement{literal: sym, text: enum.Name + "::" + sym.Name + " (enumeration literal)"}, true
+		}
+	}
+	return constElement{}, false
+}
+
+// constKind names a constant's kind as the runtime describes one.
+func constKind(v semantics.Value) string {
+	switch v.Kind {
+	case semantics.ValInt:
+		return "an Integer"
+	case semantics.ValReal:
+		return "a Real"
+	default:
+		return "a Boolean"
+	}
+}
+
+// ownerType is the symbol whose body declares a feature, or nil.
+func ownerType(feature *symbols.Symbol) *symbols.Symbol {
+	if feature == nil || feature.OwnerScope == nil {
+		return nil
+	}
+	return feature.OwnerScope.Owner()
+}
+
+// declaredSymbol is the symbol scope registers for a declaration, or nil.
+func declaredSymbol(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
+	if scope == nil || decl == nil {
+		return nil
+	}
+	for _, sym := range scope.AllMembers() {
+		if sym.Decl == decl {
+			return sym
+		}
+	}
+	return nil
 }
 
 // maxRedefinitionDepth bounds the redefinition chain the effective multiplicity

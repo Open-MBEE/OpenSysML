@@ -64,14 +64,16 @@ type env struct {
 }
 
 // binding is the declared type of a variable, the range its elements are
-// narrowed to and, for a collection, the multiplicity a write must satisfy.
-// A body-expression local is read on demand, so inline names its initializer.
-// An `in calc` parameter is the function value fn it is specialized over, and
-// an attribute holding a SampledFunction is sampled; neither has a type.
+// narrowed to and, for a collection, the multiplicity a write must satisfy and
+// whether its elements are unique. A body-expression local is read on demand,
+// so inline names its initializer. An `in calc` parameter is the function value
+// fn it is specialized over, and an attribute holding a SampledFunction is
+// sampled; neither has a type.
 type binding struct {
 	t       Type
 	r       Range
 	m       Mult
+	unique  bool
 	inline  Expr
 	fn      *funcValue
 	sampled *sampledFn
@@ -165,7 +167,7 @@ func (c *Compiler) compileCalcWith(sym *symbols.Symbol, fargs []funcValue) (*Fun
 		if err != nil {
 			return nil, err
 		}
-		fn.Params = append(fn.Params, Param{Name: name, Type: b.t, Range: b.r, Mult: b.m})
+		fn.Params = append(fn.Params, Param{Name: name, Type: b.t, Range: b.r, Mult: b.m, Unique: b.unique})
 		fc.env.bind(name, b)
 	}
 	if nextFn != len(fargs) {
@@ -325,8 +327,32 @@ func (fc *funcCompiler) declaredBinding(scope *symbols.Scope, u *ast.Usage, name
 	if m == MultOne {
 		return binding{t: t, r: r, m: m}, nil
 	}
+	unique, err := fc.uniqueOf(scope, u, name)
+	if err != nil {
+		return binding{}, err
+	}
 	fc.c.collections = true
-	return binding{t: t.Seq(), r: r, m: m}, nil
+	return binding{t: t.Seq(), r: r, m: m, unique: unique}, nil
+}
+
+// uniqueOf is the effective uniqueness of the feature a usage declares: what
+// the interpreter checks when the feature is written (semantics.Model.IsUnique).
+func (fc *funcCompiler) uniqueOf(scope *symbols.Scope, u *ast.Usage, name string) (bool, error) {
+	if sym, ok := fc.c.resolver.LookupName(scope, name); ok && sym != nil && sym.Decl == u {
+		return fc.c.model.IsUnique(sym), nil
+	}
+	// An anonymous `return` is declared without a name to look up.
+	for s := scope; s != nil; s = s.Parent() {
+		for _, sym := range s.AllMembers() {
+			if sym.Decl == u {
+				return fc.c.model.IsUnique(sym), nil
+			}
+		}
+	}
+	if name == "" {
+		name = resultWhere
+	}
+	return false, fc.unsupported(fmt.Sprintf("%s: the declaration does not resolve in its scope", name))
 }
 
 func hasTyping(u *ast.Usage) bool {
@@ -453,7 +479,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 		if err != nil {
 			return nil, err
 		}
-		v, err = fc.bind(v, b, s.Target)
+		v, err = fc.bind(v, b, s.Target, "assignment to "+s.Target)
 		if err != nil {
 			return nil, err
 		}
@@ -499,7 +525,7 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 			fc.result = binding{t: v.Type(), m: MultAny}
 			fc.fn.Result = v.Type()
 		}
-		v, err = fc.bind(v, fc.result, resultWhere)
+		v, err = fc.bind(v, fc.result, resultWhere, resultWhere)
 		if err != nil {
 			return nil, err
 		}
@@ -569,12 +595,23 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		if v.Type().Many() {
 			declared.m = MultOne
 		}
+		if u != nil && v.Type().Many() {
+			m, err := fc.multOf(u, s.Name)
+			if err != nil {
+				return nil, err
+			}
+			if m != MultOne {
+				if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 	if declared.t.Scalar() && !v.Type().Scalar() {
 		declared.t = declared.t.Seq()
 		fc.c.collections = true
 	}
-	init, err := fc.bind(v, binding{t: declared.t, m: MultAny}, "")
+	init, err := fc.bind(v, binding{t: declared.t, m: MultAny, unique: declared.unique}, "", "declaration of "+s.Name)
 	if err != nil {
 		return nil, fc.unsupported(fmt.Sprintf("a %s bound to %s, which is %s", v.Type(), s.Name, declared.t))
 	}
@@ -1015,7 +1052,7 @@ func (fc *funcCompiler) finishCalcCall(callee *Func, args []Arg) (Expr, error) {
 	for i, a := range args {
 		p := callee.Params[a.Param]
 		// The callee checks multiplicity and range on entry; only the shape is bound here.
-		if args[i].Value, err = fc.bind(a.Value, binding{t: p.Type, m: MultAny}, paramWhere(p.Name)); err != nil {
+		if args[i].Value, err = fc.bind(a.Value, binding{t: p.Type, m: MultAny}, paramWhere(p.Name), paramWhere(p.Name)); err != nil {
 			return nil, err
 		}
 	}
