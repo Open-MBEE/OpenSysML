@@ -235,7 +235,8 @@ Today's statuses map onto the scale without changing what any of them prints:
 | `unsat` | `solve` | no assignment | proved over the encoded fragment; *not covered* when the conditions round in floating point, as `%check` already downgrades an exact-real `unsat` |
 | `sat` | `solve` | this assignment | witnessed once the evaluator confirms the assignment satisfies the conditions; *not covered* with the disagreement when it does not |
 | `unknown`, `unavailable` | `solve` | none | not covered |
-| `unbounded`, `no-optimum` | `solve` | the objective has no optimum | proved |
+| `unbounded` | `solve` | the objective has no optimum | proved over the encoded fragment |
+| `no-optimum` | `solve` | none: the conditions are satisfiable but the optimum was not established | not covered, with the bound or unverified answer kept in `Values` |
 | `proved`, `bounded`, `violated`, `sensitive`, `not covered` in the SMT design | `smt` | as named | proved, bounded, witnessed, witnessed, not covered |
 
 ## The registry
@@ -292,10 +293,22 @@ A question is answered by a **plan**: the engines that cover it, in the order th
 ranks them for that question's kind, and how they are combined.
 
 ```
--engine <name>      exactly this engine; a refusal is the result
--engine auto        the strongest covering engine; on refusal, the next; the plan names both
+-engine <name>      exactly this engine; a refusal or a not-covered result is the result
+-engine auto        the strongest covering engine; on not covered, the next; the plan names each
 -engine all         every covering engine, in parallel, composed under the rules above
 ```
+
+`auto` advances on every *not covered* result, whether it came before the run (`Covers` refused
+a construct, the engine's process is absent) or after it (the solver returned `unknown` or hit
+its timeout, the budget was reached without completing, the witness did not replay). Each
+result it advanced past stays in the plan with its reason, beside the answer the fallback
+gave, so a reader sees both that `smt` timed out and that `explore` then enumerated. It does
+not advance on an `error` from `Run`: an error is a fault — the subject did not resolve, the
+model has no lowered graph for it, an engine broke its own contract — that no other engine
+would answer differently, and it stops the plan and is reported as an error, not composed. An
+engine that cannot get an answer for a reason particular to itself (a crashed solver, a tool
+that exited non-zero) returns *not covered* with that reason, as `solve` and `%check` already
+distinguish an unusable solver from a malformed query.
 
 `auto` is the default and preserves every existing surface: for `evaluate` the only covering
 engine is `run`; for `sweep` it is `sweep`; for `satisfiable` it is `solve`; for `outcomes` it
@@ -398,11 +411,20 @@ variation is between an answer and an honest absence, never between two answers.
 ### Stopping early
 
 A witnessed violation answers an existential question, so a plan may cancel the runs that remain
-once one is in hand — `explore` stops when its first violating linearization replays. It does
-not cancel runs that serve a *universal* claim: a plan whose question is `holds` under
-`-engine all` lets `smt` finish even after `explore` has completed, because the two bounds are
-different evidence and the user asked for both. A cancelled run is reported as such, not
-dropped.
+once one is in hand — but *which* runs remain is decided by plan order, not by the clock, or
+the determinism above would not hold. `explore`'s witness is the violating linearization with
+the least prefix in plan order. A violation found at prefix `p` cancels only the runs whose
+prefixes order after `p`; runs ordered before `p` finish, and if one of them also violates, it
+becomes the witness and cancels from its own position. The witness is final only when every
+prefix before it has completed. So the set of cancelled runs is every prefix after the witness,
+the same set under `-jobs 1` and `-jobs 8`; what `Jobs` changes is how many of those had
+started, which the report does not distinguish. The report lists the cancelled runs by prefix,
+not by how far each had got.
+
+A plan does not cancel runs that serve a *universal* claim: a plan whose question is `holds`
+under `-engine all` lets `smt` finish even after `explore` has completed, because the two
+bounds are different evidence and the user asked for both. A cancelled run is reported as such,
+not dropped.
 
 ## External tools
 
@@ -456,7 +478,12 @@ Existing flags, commands, RPCs and their outputs keep their meaning. What is add
 the SMT design's `-check-engine explore|smt|both` is this note's `-engine explore|smt|all`, and
 its `-check-*` bounds become the engine's bounds under the shared `Budget`. Wire additions are
 fields on existing messages and one new RPC; nothing is removed or renamed, so under the
-versioning rule in `CONTRIBUTING.md` this is patch material.
+versioning rule in `CONTRIBUTING.md` they are patch material. The `-json` additions are new keys
+beside the existing ones, with no existing key changed — but the same rule names the shape of a
+`-json` report among the changes that make a release minor when existing artifacts fail against
+it, and a consumer that validates the report against a closed schema would. The stage that adds
+them (stage 4 below) therefore carries that decision to the release checklist rather than
+assuming patch; every stage before it changes no output at all.
 
 ## Migration
 
@@ -482,8 +509,10 @@ reached.
   registries in one process do not see each other; an engine whose process is absent lists with
   that status and refuses through `Covers` with a typed error.
 - **Dispatch:** `auto` picks the strongest covering engine and names the fallback and the
-  refusal in the plan; `-engine <name>` on a refusing engine stops with the refusal; `all` runs
-  every covering engine.
+  refusal in the plan; `auto` also advances past a run-time *not covered* (a solver `unknown`, a
+  failed replay) and keeps that result in the plan; an `error` from `Run` stops the plan;
+  `-engine <name>` on a refusing engine stops with the refusal; `all` runs every covering
+  engine.
 - **The strength scale:** a table-driven test over every (`Claim`, `Strength`) pair each engine
   may produce; a test that no path promotes *observed* to *bounded* or *bounded* to *proved*; a
   test that a budget reached lowers the strength and prints the bound; a test that a witness that
@@ -493,7 +522,9 @@ reached.
   golden and REPL/CLI/gRPC golden passes unchanged with the engines behind the surfaces, before
   any surface addition lands.
 - **Determinism under `-jobs`:** for `explore` and `sweep` over the conformance corpus,
-  `-jobs 1` and `-jobs 8` produce byte-identical `-json` reports; run under `-race`.
+  `-jobs 1` and `-jobs 8` produce byte-identical `-json` reports, including the witness and the
+  cancelled-run list of a violating case whose later prefix violates faster than its earlier
+  one; run under `-race`.
 - **Isolation:** two plans on one model in one process on two goroutines, under `-race`, with
   the resolver and semantic model per worker; the gRPC service serves concurrent runtime requests
   on one model.
@@ -522,6 +553,8 @@ behavior unchanged until stage 4.
    work queue; the determinism tests.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
+   The `-json` additions land here, and its release checklist records whether they are patch or
+   minor under the versioning rule.
 5. **Tools.** The manifest, the `tool:<name>` engine and its protocol, the `AnalysisAnnotation`
    fixture and the stand-in.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as
