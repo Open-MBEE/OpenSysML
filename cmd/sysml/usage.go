@@ -57,6 +57,34 @@ func doc() usage.Doc {
 			},
 			Paragraphs: []string{"Each check flag may be repeated."},
 		}, {
+			Title: "Analysis engines",
+			Examples: []usage.Example{
+				usage.Ex("sysml -engines", "List the engines, their authority and status"),
+				usage.Ex("sysml -engine explore -action Drive m.sysml", "The same as -schedule explore"),
+				usage.Ex("sysml -engine all -requirement R m.sysml", "Every engine that covers the question"),
+				usage.Ex("sysml -engine run -json -constraint C m.sysml", "One engine; the plan in the report"),
+			},
+			Paragraphs: []string{
+				"Every check is a question put to an analysis engine: run executes the " +
+					"model once under -schedule, explore runs every linearization, sweep " +
+					"runs the rows of -sweep, and solve puts condition sets to an SMT " +
+					"solver. -engine auto (the default) picks the engine of highest " +
+					"authority that covers the question and falls back to the next when " +
+					"it refuses or covers nothing; -engine <name> puts the question to " +
+					"that engine alone, and its refusal is the answer; -engine all puts " +
+					"it to every engine that covers it, one after another in name order, " +
+					"and composes their answers: a witnessed violation stands over any " +
+					"universal claim, and a contradiction is reported as a disagreement " +
+					"decided in the interpreter's favor.",
+				"Every verdict is followed by its standing: the claim, the strength of " +
+					"the evidence — observed (one run), witnessed (a replayed execution), " +
+					"bounded (every case within a budget), proved (every case) — and what " +
+					"earned it, as `holds (observed: 1 run under reverse)`. A budget the " +
+					"engine reached lowers the strength and is named. Under -json each " +
+					"check carries the plan and one results[] entry per engine that " +
+					"answered, with its engine, claim, strength, bounds and witness.",
+			},
+		}, {
 			Title: "Sweeping and sampling a parameter",
 			Examples: []usage.Example{
 				usage.Ex(`sysml -calc Twice -sweep "n=1..8:2" m.sysml`, "One run per range value"),
@@ -301,6 +329,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
 	fs.Var(&schedule, "schedule", "Scheduling policy every run resolves its choice points under (concurrent tokens, overlapping guards, competing transitions): declared, reverse (default), seed:<n> for a reproducible pseudo-random order, or explore[:runs=N,depth=D] to run every linearization within the budget and table the distinct outcomes")
+	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows — name, authority, the questions each answers and whether its process is found — and exit")
+	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default) picks the strongest engine covering the question, all puts it to every covering engine in name order and composes their answers, or an engine by name (run, explore, sweep, solve), whose refusal is then the answer; -engine explore is -schedule explore")
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")
 	fs.StringVar(&outputPath, "output", "", "Write conversion output to this file (default: stdout)")

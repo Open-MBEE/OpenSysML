@@ -2,6 +2,7 @@ package repl
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -13,15 +14,108 @@ func (s *Session) budgetFor(policy runtime.SchedulePolicy, kind analysis.Kind) a
 	return analysis.BudgetOf(s.budgets, policy, kind)
 }
 
-// evaluate puts one execution in ctx to the session's engines under auto.
-func evaluate[T any](s *Session, subject string, ctx *runtime.Context, call func(*runtime.Context) (T, error), answer func(T, error) analysis.Answer) (T, error) {
+// Engine returns the engine selection every question the session asks is made under.
+func (s *Session) Engine() analysis.Selection {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.engine
+}
+
+// SetEngine selects the engine questions asked from here on are put to: `auto`,
+// `all`, or one engine by name. A name no engine is registered under is a typed error.
+func (s *Session) SetEngine(text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	selection, err := s.engines.Select(text)
+	if err != nil {
+		return err
+	}
+	return s.setEngine(selection)
+}
+
+// setEngine records the selection and moves the session's context to the schedule it
+// drives, which changes when the selection makes runs explore.
+func (s *Session) setEngine(selection analysis.Selection) error {
+	s.engine = selection
+	if s.rtCtx != nil {
+		return s.rtCtx.SetSchedule(s.drivenSchedule())
+	}
+	return nil
+}
+
+// Engines lists the registered engines with their authority, the questions each
+// answers and the state of its process, as `%engines` prints them.
+func (s *Session) Engines() []analysis.Listing {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.engines.Listings()
+}
+
+// doEngine shows the engine selection, or sets it when one is named. `explore` is
+// refused as `%schedule explore` is: the prompt's debuggers step one run.
+func (s *Session) doEngine(args []string) []string {
+	if len(args) > 0 {
+		selection, err := s.engines.Select(args[0])
+		if err != nil {
+			return []string{errPrefix + err.Error()}
+		}
+		if policy, explores := analysis.Explores(selection, runtime.DefaultSchedulePolicy); explores {
+			return []string{errPrefix + (&ExploreAtPromptError{Policy: policy}).Error()}
+		}
+		if err := s.setEngine(selection); err != nil {
+			return []string{errPrefix + err.Error()}
+		}
+	}
+	return []string{fmt.Sprintf("engine: %s", s.engine)}
+}
+
+// doEngines lists the registered engines.
+func (s *Session) doEngines() []string {
+	return analysis.Lines(s.engines.Listings())
+}
+
+// standingPrefix opens the line that follows a verdict with its standing.
+const standingPrefix = "  standing: "
+
+// standing attaches to a verdict the plan that answered it and the line
+// reporting the standing of the answer; a verdict no engine was asked for keeps its lines.
+func standing(v Verdict, plan *analysis.Plan) Verdict {
+	if plan == nil {
+		return v
+	}
+	v.Plan = plan
+	v.Lines = append(v.Lines, standingPrefix+plan.Standing())
+	return v
+}
+
+// execution is how one run is made: put to the engines under the session's selection,
+// or, inside a linearization an engine is already running, made directly in its context.
+type execution struct {
+	s      *Session
+	direct bool
+}
+
+// dispatched is the execution the prompt makes: a question to the engines.
+func (s *Session) dispatched() execution { return execution{s: s} }
+
+// direct is the execution a linearization makes, which an engine is already answering.
+func (s *Session) direct() execution { return execution{s: s, direct: true} }
+
+// evaluate makes one execution in ctx; the plan is nil for a direct one.
+func evaluate[T any](x execution, subject string, ctx *runtime.Context, call func(*runtime.Context) (T, error), answer func(T, error) analysis.Answer) (T, *analysis.Plan, error) {
+	if x.direct {
+		out, err := call(ctx)
+		return out, nil, err
+	}
+	s := x.s
 	schedule := s.drivenSchedule()
-	return analysis.Perform(context.Background(), s.engines, analysis.Held(ctx, nil), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), call, answer)
+	out, plan, err := analysis.Perform(context.Background(), s.engines, analysis.Held(ctx, nil), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), s.engine, call, answer)
+	return out, &plan, err
 }
 
 // check puts one constraint, requirement or satisfaction check to the engines.
-func (s *Session) check(subject string, ctx *runtime.Context, call func(*runtime.Context) (runtime.CheckResult, error)) (runtime.CheckResult, error) {
-	return evaluate(s, subject, ctx, call, analysis.CheckAnswer)
+func (s *Session) check(subject string, ctx *runtime.Context, call func(*runtime.Context) (runtime.CheckResult, error)) (runtime.CheckResult, *analysis.Plan, error) {
+	return evaluate(s.dispatched(), subject, ctx, call, analysis.CheckAnswer)
 }
 
 // behaviorAnswer is what a behavior's run established: its values when it ran
@@ -44,12 +138,12 @@ type performed struct {
 
 // advanceFor puts the run of the behaviors named in subject, their clocks
 // advanced by duration, to the engines; a budget stop is a run that fell short.
-func (s *Session) advanceFor(subject string, contexts []*runtime.Context, duration float64) (advanceOutcome, []string, error) {
+func (s *Session) advanceFor(subject string, contexts []*runtime.Context, duration float64) (advanceOutcome, []string, *analysis.Plan, error) {
 	type drained struct {
 		moved  advanceOutcome
 		failed []string
 	}
-	done, err := evaluate(s, subject, contexts[0], func(*runtime.Context) (drained, error) {
+	done, plan, err := evaluate(s.dispatched(), subject, contexts[0], func(*runtime.Context) (drained, error) {
 		moved, failed, err := s.advanceContexts(contexts, duration)
 		return drained{moved: moved, failed: failed}, err
 	}, func(done drained, err error) analysis.Answer {
@@ -58,35 +152,60 @@ func (s *Session) advanceFor(subject string, contexts []*runtime.Context, durati
 		}
 		return behaviorAnswer(true, "", nil, err)
 	})
-	return done.moved, done.failed, err
+	return done.moved, done.failed, plan, err
 }
 
-// runCase puts one analysis case run to the engines.
-func (s *Session) runCase(subject string, ctx *runtime.Context, call func(*runtime.Context) (runtime.AnalysisResult, error)) (runtime.AnalysisResult, error) {
-	return evaluate(s, subject, ctx, call, analysis.CaseAnswer)
+// runCase makes one analysis case run.
+func (x execution) runCase(subject string, ctx *runtime.Context, call func(*runtime.Context) (runtime.AnalysisResult, error)) (runtime.AnalysisResult, *analysis.Plan, error) {
+	return evaluate(x, subject, ctx, call, analysis.CaseAnswer)
 }
 
-// runVerification puts one verification case run to the engines.
-func (s *Session) runVerification(subject string, ctx *runtime.Context, call func(*runtime.Context) (runtime.VerificationResult, error)) (runtime.VerificationResult, error) {
-	return evaluate(s, subject, ctx, call, analysis.VerificationAnswer)
+// runVerification makes one verification case run.
+func (x execution) runVerification(subject string, ctx *runtime.Context, call func(*runtime.Context) (runtime.VerificationResult, error)) (runtime.VerificationResult, *analysis.Plan, error) {
+	return evaluate(x, subject, ctx, call, analysis.VerificationAnswer)
 }
 
-// explore puts a behavior's outcomes to the engines under auto: run performs it
-// once per linearization, each in a context fresh makes.
-func (s *Session) explore(subject string, policy runtime.SchedulePolicy, fresh func() (*runtime.Context, error), run analysis.Linearization) (*runtime.Exploration, error) {
-	return s.engines.Explore(context.Background(), &analysis.Model{Fresh: fresh}, subject, policy, run, s.budgetFor(policy, analysis.Outcomes))
+// explore puts a behavior's outcomes to the engines under the session's selection:
+// run performs it once per linearization, each in a context fresh makes.
+func (s *Session) explore(subject string, policy runtime.SchedulePolicy, fresh func() (*runtime.Context, error), run analysis.Linearization) (analysis.Plan, error) {
+	return s.engines.Explore(context.Background(), &analysis.Model{Fresh: fresh}, subject, policy, run, s.budgetFor(policy, analysis.Outcomes), s.engine)
 }
 
-// sweep puts a domain to the engines under auto: row runs the target once per
-// row of the plan in ctx.
-func (s *Session) sweep(target string, ctx *runtime.Context, plan runtime.SweepPlan, row runtime.SweepRun) (runtime.SweepTable, error) {
+// sweep puts a domain to the engines under the session's selection: row runs the
+// target once per row of the plan in ctx.
+func (s *Session) sweep(target string, ctx *runtime.Context, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), analysis.Held(ctx, nil), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep))
+	return s.engines.Sweep(context.Background(), analysis.Held(ctx, nil), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep), s.engine)
 }
 
-// solveWith puts an element's condition sets to the engines under auto, ask
-// being the operation made of each, and returns the solver's answer to each in
-// order. The error is the one for a solver that is absent.
-func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis.Asking) ([]analysis.Evaluation, error) {
-	return s.engines.Solve(context.Background(), subject, queries, ask, s.budgetFor(s.drivenSchedule(), analysis.Satisfiable))
+// solveWith puts an element's condition sets to the engines under the session's
+// selection, ask being the operation made of each; the plan's result answers each
+// in order. The error is a refusal: no solver, or a selected engine that does not solve.
+func (s *Session) solveWith(subject string, queries []*solve.Query, ask analysis.Asking) (analysis.Plan, error) {
+	return s.engines.Solve(context.Background(), subject, queries, ask, s.budgetFor(s.drivenSchedule(), analysis.Satisfiable), s.engine)
+}
+
+// solveReports renders one report per query from the plan's answers, every report
+// carrying the plan and the last followed by its standing.
+func solveReports(name string, queries []*solve.Query, plan analysis.Plan, err error, report func(string, *solve.Query, analysis.Evaluation) SolveReport) []SolveReport {
+	if err != nil {
+		return []SolveReport{withStanding(unavailableReport(name, err.Error()), &plan)}
+	}
+	if len(plan.Result.Values) != len(queries) {
+		return []SolveReport{withStanding(unavailableReport(name, plan.Result.Standing()), &plan)}
+	}
+	reports := make([]SolveReport, 0, len(queries))
+	for i, q := range queries {
+		r := report(name, q, plan.Result.Values[i])
+		r.Plan = &plan
+		reports = append(reports, r)
+	}
+	reports[len(reports)-1] = withStanding(reports[len(reports)-1], &plan)
+	return reports
+}
+
+func withStanding(r SolveReport, plan *analysis.Plan) SolveReport {
+	r.Plan = plan
+	r.Lines = append(r.Lines, standingPrefix+plan.Standing())
+	return r
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -117,6 +118,149 @@ type checkResult struct {
 	// order, and Exploration how it ended; only a run under `explore` has them.
 	Outcomes    []checkOutcome    `json:"outcomes,omitempty"`
 	Exploration *checkExploration `json:"exploration,omitempty"`
+	// Plan is how the engines answered and Results what each answered, one entry
+	// per engine that ran; only a check put to the engines has them.
+	Plan    *checkPlan      `json:"plan,omitempty"`
+	Results []checkResultOf `json:"results,omitempty"`
+}
+
+// checkPlan is how a check was answered in the JSON report: the selection made,
+// every engine consulted in order, the standing that stood and the disagreements resolved.
+type checkPlan struct {
+	// Engine is the selection: auto, all, or the engine named.
+	Engine   string      `json:"engine"`
+	Standing string      `json:"standing"`
+	Steps    []checkStep `json:"steps"`
+	// Disagreements are the contradictions all resolved, each in the interpreter's favor.
+	Disagreements []checkDisagreement `json:"disagreements,omitempty"`
+}
+
+// checkStep is one engine's part in the plan.
+type checkStep struct {
+	Engine string `json:"engine"`
+	// Status is answered, refused, failed or cancelled.
+	Status string `json:"status"`
+	// Detail is the refusal or the fault, empty for an engine that answered.
+	Detail string `json:"detail,omitempty"`
+	// Bounds is the bound a cancelled engine reached.
+	Bounds []checkBound `json:"bounds,omitempty"`
+}
+
+// checkDisagreement is one contradiction the composition under all resolved.
+type checkDisagreement struct {
+	Stands  string `json:"stands"`
+	Demoted string `json:"demoted"`
+	// Claim and Strength are what the demoted engine answered before it was demoted.
+	Claim    string `json:"claim"`
+	Strength string `json:"strength"`
+	Reason   string `json:"reason"`
+}
+
+// checkResultOf is what one engine answered, as the JSON report spells it.
+type checkResultOf struct {
+	Engine   string       `json:"engine"`
+	Claim    string       `json:"claim"`
+	Strength string       `json:"strength"`
+	Bounds   []checkBound `json:"bounds"`
+	// Witness is the execution the interpreter replays to exhibit the claim; `null` without one.
+	Witness *checkWitness `json:"witness"`
+	// Reason is why nothing is claimed, empty for a covered result.
+	Reason   string `json:"reason,omitempty"`
+	Standing string `json:"standing"`
+}
+
+// checkBound is one limit an engine took, and whether it reached it.
+type checkBound struct {
+	Name    string `json:"name"`
+	Limit   int64  `json:"limit"`
+	Reached bool   `json:"reached"`
+}
+
+// checkWitness is a replayable execution: the policy it ran under and its choices.
+type checkWitness struct {
+	Schedule string   `json:"schedule"`
+	Choices  []string `json:"choices"`
+}
+
+// checkBounds converts the bounds an engine took into the reported form; a
+// result's bounds are always present, `[]` for an engine that took none.
+func checkBounds(bounds analysis.Bounds) []checkBound {
+	out := make([]checkBound, 0, len(bounds))
+	for _, b := range bounds {
+		out = append(out, checkBound{Name: b.Name, Limit: b.Limit, Reached: b.Reached})
+	}
+	return out
+}
+
+// checkWitnessOf converts a result's witness into the reported form.
+func checkWitnessOf(w *analysis.Witness) *checkWitness {
+	if w == nil {
+		return nil
+	}
+	choices := make([]string, 0, len(w.Choices))
+	for _, c := range w.Choices {
+		choices = append(choices, c.String())
+	}
+	return &checkWitness{Schedule: w.Schedule.String(), Choices: choices}
+}
+
+// checkPlanOf converts the plan that answered a check into the reported form.
+func checkPlanOf(plan *analysis.Plan) *checkPlan {
+	if plan == nil {
+		return nil
+	}
+	out := &checkPlan{Engine: plan.Selection.String(), Standing: plan.Standing(), Steps: make([]checkStep, 0, len(plan.Steps))}
+	for _, step := range plan.Steps {
+		s := checkStep{Engine: step.Engine}
+		switch {
+		case step.Refusal != nil:
+			s.Status, s.Detail = "refused", step.Refusal.Error()
+		case step.Cancelled:
+			s.Status = "cancelled"
+			if len(step.Bounds) > 0 {
+				s.Bounds = checkBounds(step.Bounds)
+			}
+		case step.Err != nil:
+			s.Status, s.Detail = "failed", step.Err.Error()
+		default:
+			s.Status = "answered"
+		}
+		out.Steps = append(out.Steps, s)
+	}
+	for _, d := range plan.Disagreements {
+		out.Disagreements = append(out.Disagreements, checkDisagreement{
+			Stands:   d.Stands,
+			Demoted:  d.Demoted,
+			Claim:    d.Claimed.Claim.String(),
+			Strength: d.Claimed.Strength.String(),
+			Reason:   d.Reason,
+		})
+	}
+	return out
+}
+
+// checkResultsOf converts what each engine of a plan answered into the reported form.
+func checkResultsOf(plan *analysis.Plan) []checkResultOf {
+	if plan == nil {
+		return nil
+	}
+	results := plan.Results()
+	if len(results) == 0 {
+		return nil
+	}
+	out := make([]checkResultOf, 0, len(results))
+	for _, r := range results {
+		out = append(out, checkResultOf{
+			Engine:   r.Engine,
+			Claim:    r.Claim.String(),
+			Strength: r.Strength.String(),
+			Bounds:   checkBounds(r.Bounds),
+			Witness:  checkWitnessOf(r.Witness),
+			Reason:   r.Reason,
+			Standing: r.Standing(),
+		})
+	}
+	return out
 }
 
 // checkOutcome is one distinct outcome of an exploration in the JSON report.
@@ -370,6 +514,8 @@ func (r *reporter) finish() int {
 			Rows:          checkRows(v.Rows),
 			Outcomes:      checkOutcomes(v.Outcomes),
 			Exploration:   checkExplorationOf(v.Exploration),
+			Plan:          checkPlanOf(v.Plan),
+			Results:       checkResultsOf(v.Plan),
 		})
 	}
 	out, err := json.MarshalIndent(r.report, "", "  ")
