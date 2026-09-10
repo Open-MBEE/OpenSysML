@@ -6,7 +6,9 @@
   `Range`. The compiler fixes each function value at compile time and compiles the callee once
   per distinct binding, so `f(a)` is a direct call and computes, prints and fails exactly as the
   interpreter's invocation does (`Apply(Recip, 0.0)` divides by zero, `Sample` reports its first
-  failing element, a null domain samples to `[]`). What a compile-time value cannot express keeps
+  failing element, a null domain — a literal `null` included — samples to `[]`, and a parameter
+  typed by a calc, `in calc f : Sq`, takes only a function value whose calc conforms to `Sq`).
+  What a compile-time value cannot express keeps
   a typed refusal naming the construct: a function value returned, stored, compared, chosen by an
   `if` at run time or handed to a value parameter, a calc owned by a part or declared in a
   behavior body (its value closes over that object or run), an entry calc's own `in calc`

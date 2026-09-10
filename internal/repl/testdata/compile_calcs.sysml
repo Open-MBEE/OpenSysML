@@ -400,6 +400,14 @@ package Compiled {
 		// A two-argument calc applied through a two-argument parameter.
 		calc def Fold2 { in calc f { in x : Real; in y : Real; return : Real; } in a : Real; in b : Real; return : Real = f(a, b); }
 		calc def Fold2Add { in a : Real; in b : Real; return : Real = Fold2(AddBoth, a, b); }
+		// A parameter typed by a calc takes that calc, a usage typed by it, or a
+		// specialization of it, and passes it on to another typed parameter.
+		calc def SubSq :> Sq;
+		calc def ApplyTyped { in calc f : Sq { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+		calc def ApplyTypedOnly { in calc f : Sq; in a : Real; return : Real = ApplyTyped(f, a); }
+		calc def TypedSq { in a : Real; return : Real = ApplyTyped(Sq, a) + ApplyTypedOnly(Sq, a); }
+		calc def TypedUsage { in a : Real; return : Real = ApplyTyped(sqUsage, a) + ApplyTypedOnly(sqUsage, a); }
+		calc def TypedSub { in a : Real; return : Real = ApplyTyped(SubSq, a) + ApplyTypedOnly(SubSq, a); }
 
 		// Sampling: the domain in order, the calc at each, failing at the first that fails.
 		calc def RangeOf { in calc f { in v : Real; return : Real; } in xs : Real[0..*]; attribute s : SampledFunction = Sample(f, xs); return : Real[0..*] = Range(s); }
@@ -411,6 +419,11 @@ package Compiled {
 		calc def SqrtRange { in xs : Real[0..*]; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, xs)); }
 		calc def UsageRange { in xs : Real[0..*]; return : Real[0..*] = Range(Sample(sqUsage, xs)); }
 		calc def SumRange { in xs : Real[0..*]; return : Real = RealFunctions::sum(Range(Sample(Sq, xs))); }
+		// A literal null domain samples to `[]`, typed by the sampled calc's parameter.
+		calc def NullDomain { in a : Real; attribute s : SampledFunction = Sample(Sq, null); return : Real[0..*] = SequenceFunctions::union(Domain(s), Range(s)); }
+		calc def NullRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, null)); }
+		calc def NullSqrtRange { in a : Real; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, null)); }
+		calc def NullSum { in a : Real; return : Real = RealFunctions::sum(Range(Sample(Sq, null))) + a; }
 	}
 }
 
@@ -460,6 +473,15 @@ package Refused {
 	calc def ChosenFunction { in b : Boolean; in a : Real; return : Real = Compiled::Fn::Apply(if b ? Sq else Sq2, a); }
 	calc def WrongArity { in a : Real; return : Real = Compiled::Fn::Apply(Add2, a); }
 	calc def WrongName { in a : Real; return : Real = Compiled::Fn::ByName(Sq2, a); }
+	// A parameter typed by a calc refuses a function value of a calc that does not specialize it.
+	calc def UnrelatedTyped { in a : Real; return : Real = Compiled::Fn::ApplyTyped(Sq2, a); }
+	calc def LibraryTyped { in a : Real; return : Real = Compiled::Fn::ApplyTypedOnly(RealFunctions::sqrt, a); }
+	calc def ApplySub { in calc f : Compiled::Fn::SubSq; in a : Real; return : Real = f(a); }
+	calc def GeneralForSub { in a : Real; return : Real = ApplySub(Compiled::Fn::Sq, a); }
+	calc def ForwardedTyped { in calc g { in v : Real; return : Real; } in a : Real; return : Real = Compiled::Fn::ApplyTypedOnly(g, a); }
+	calc def ForwardedUnrelated { in a : Real; return : Real = ForwardedTyped(Sq2, a); }
+	// A null domain over a kind-preserving library function is Real, its widest kind.
+	calc def IntegerNullRange { in n : Integer; return : Integer[0..*] = SampledFunctions::Range(SampledFunctions::Sample(NumericalFunctions::abs, null)); }
 	calc def BodyClosure { in k : Real; in a : Real; calc scale { in v : Real; return : Real = v * k; } return : Real = Compiled::Fn::Apply(scale, a); }
 	part def Scaler { attribute k : Real; calc scale { in v : Real; return : Real = v * k; } }
 	part twice : Scaler { attribute :>> k = 2.0; }

@@ -56,8 +56,8 @@ A calc compiles when everything it reaches is in this subset:
 | `if` / `else`, `while … [until]`, `loop { … } until` | control flow |
 | Invocation of another compilable calc, positional or named; direct and mutual recursion | native call |
 | `calc c : D;`, `calc def E :> D;` adding no member of its own | compiles as `D` |
-| `in calc f { in v : Real; return : Real; }` parameters; a calc def, a calc usage with an unsupplied input, or a compiled scalar library function (`RealFunctions::sqrt`, `RealFunctions::floor`, …) passed for one; `f(a)` and `f(v = a)` in the body | one function per calc *and* per tuple of function values its `in calc` parameters are bound to ([Function values](#function-values)); `f(a)` is a direct call |
-| `SampledFunctions::Sample(f, xs)` bound to an `attribute s : SampledFunction`, or read at once by `Domain(…)`/`Range(…)`; `Domain(s)`, `Range(s)` | two hidden locals: the domain as a sequence and `f` collected over it in order, taken when the sample is; `Domain`/`Range` read them |
+| `in calc f { in v : Real; return : Real; }` and `in calc f : Sq` parameters; a calc def, a calc usage with an unsupplied input, or a compiled scalar library function (`RealFunctions::sqrt`, `RealFunctions::floor`, …) passed for one; `f(a)` and `f(v = a)` in the body | one function per calc *and* per tuple of function values its `in calc` parameters are bound to ([Function values](#function-values)); `f(a)` is a direct call; a typed parameter takes only a calc conforming to its type, as the interpreter's binding does |
+| `SampledFunctions::Sample(f, xs)` bound to an `attribute s : SampledFunction`, or read at once by `Domain(…)`/`Range(…)`; `Domain(s)`, `Range(s)` | two hidden locals: the domain as a sequence and `f` collected over it in order, taken when the sample is; `Domain`/`Range` read them; a literal `null` domain is the empty sequence of `f`'s parameter type (Real for a kind-preserving library function) |
 | Scalar library functions: `RealFunctions`/`RationalFunctions`/`NumericalFunctions` `sqrt floor round abs max min isZero isUnit`, `IntegerFunctions`/`NaturalFunctions` `abs max min`, `TrigFunctions` (`sin cos tan cot arcsin arccos arctan deg rad pi`), `OpenSysMLMathFunctions` (`exp ln log atan2`) | `libm` / Go `math` with the interpreter's domain, overflow and `Natural` errors |
 
 Everything else refuses: String, record (`attribute def`) and enum parameters, results or
@@ -76,8 +76,13 @@ value is expected`), an `in calc` parameter of the calc being compiled itself (`
 cannot take on its command line`), a function value chosen at run time (`if b ? Sq else Half`) or
 produced by an invocation, a calc declared in a behavior's body or owned by a part (its function
 value closes over that run or object), a control operation such as `ControlFunctions::collect`
-(which binds its arguments unevaluated), and a `SampledFunction` used as anything but the operand
-of `Domain` or `Range`. The refusal names the calc and
+(which binds its arguments unevaluated), a function value bound to an `in calc f : Sq` parameter
+whose calc does not specialize `Sq` (`cannot bind the function value … to a parameter typed by
+…`, the interpreter's `type mismatch` at the same binding), a `SampledFunction` used as anything
+but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))` where an
+`Integer[0..*]` is declared (the compiler fixes a null domain's element type from the sampled
+function alone, and a kind-preserving library function's is Real; the interpreter, which types
+nothing, computes `[]`). The refusal names the calc and
 the construct (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
 ## Semantics the generated code preserves
@@ -206,7 +211,15 @@ implements — and the callee is compiled once per distinct tuple of such values
 (`Apply_fn_Sq`, `Apply_fn_Half`; `codegen.Compiler.funcs` is keyed by calc and tuple). Inside
 the specialization the parameter is bound to the value, so `f(a)` compiles as the direct call
 the interpreter would make after looking `f` up, and `Sample(f, xs)` as a `collect` of that call.
-No function pointer, closure record or dispatch exists in the generated program.
+No function pointer, closure record or dispatch exists in the generated program. The type an
+`in calc f : Sq` parameter declares travels with the parameter (`paramDecl.typ`, inherited by a
+member-less specialization along with the parameter), and the value bound to it is checked
+against that type where the interpreter checks a written value: the calc the function value
+names — a model calc or the library function's own declaration — must conform to `Sq`, so a
+usage typed by `Sq` or a `calc def :> Sq` passes and an unrelated calc of the same signature, or
+a library function, is refused. A literal `null` domain in `Sample(f, null)` is typed by `f`'s
+one value parameter (a model calc's declared type; Real for a kind-preserving library function,
+the widest kind it accepts) and compiles as an empty sequence, so `Domain`/`Range` print `[]`.
 
 The trade-off is deliberate. A function pointer would have needed one calling convention for
 every arity and type signature in both C and Go, an environment record for captured bindings,

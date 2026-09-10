@@ -10,10 +10,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// funcValue is a function value the compiler fixes statically: a model calc,
-// or a library function the compiler implements, by its qualified name. A calc
-// binding an `in calc` parameter is compiled once per distinct value it is
-// applied to (monomorphization), so no function value exists at run time.
+// funcValue is a function value the compiler fixes statically: the calc it is
+// a value of, and for a library function the compiler implements its qualified
+// name. A calc binding an `in calc` parameter is compiled once per distinct
+// value it is applied to (monomorphization), so no function value exists at run time.
 type funcValue struct {
 	sym *symbols.Symbol
 	lib string
@@ -21,7 +21,7 @@ type funcValue struct {
 
 // ident is the identifier a specialization over v carries; injective, as identOf is.
 func (v funcValue) ident() string {
-	if v.sym != nil {
+	if v.lib == "" {
 		return identOf(v.sym)
 	}
 	var b strings.Builder
@@ -54,11 +54,12 @@ func specIdent(sym *symbols.Symbol, fargs []funcValue) string {
 	return id
 }
 
-// paramDecl is one in-parameter of a calc: its name, and whether it is an
-// `in calc` parameter bound to a function value.
+// paramDecl is one in-parameter of a calc: its name, whether it is an `in calc`
+// parameter bound to a function value, and the calc such a parameter is typed by, if any.
 type paramDecl struct {
 	name string
 	fn   bool
+	typ  *symbols.Symbol
 }
 
 // calcParams is the in-parameters of the calc sym, in declaration order: its
@@ -82,7 +83,15 @@ func (c *Compiler) calcParams(sym *symbols.Symbol) ([]paramDecl, error) {
 			continue
 		}
 		name, _ := ast.EffectiveName(u)
-		params = append(params, paramDecl{name: name, fn: u.Kind == ast.UsageCalc})
+		p := paramDecl{name: name, fn: u.Kind == ast.UsageCalc}
+		if p.fn && hasTyping(u) {
+			typ, why := c.typingOf(sym.Scope, u, name)
+			if why != "" {
+				return nil, &UnsupportedError{Calc: c.name(sym), What: why}
+			}
+			p.typ = typ
+		}
+		params = append(params, p)
 	}
 	return params, nil
 }
@@ -172,7 +181,7 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s binds its arguments unevaluated and cannot be read as a value", where, name))
 		}
 		if _, ok := runtime.LibraryFunctionParams(name); ok {
-			return funcValue{lib: name}, nil
+			return funcValue{sym: sym, lib: name}, nil
 		}
 		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: library function %s is not compiled", where, name))
 	}
@@ -201,6 +210,16 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a calc owned by %s, whose function value closes over that object", where, name, fc.c.name(owner)))
 	}
 	return funcValue{sym: sym}, nil
+}
+
+// checkFuncArgType refuses the function value f bound to the typed `in calc`
+// parameter p unless f's calc, model or library, conforms to the calc p is
+// typed by: the relation the interpreter binds the value under.
+func (fc *funcCompiler) checkFuncArgType(p paramDecl, f funcValue) error {
+	if p.typ == nil || fc.c.model.Conforms(f.sym, p.typ) {
+		return nil
+	}
+	return fc.unsupported(fmt.Sprintf("%s: cannot bind the function value %s to a parameter typed by %s", paramWhere(p.name), fc.c.name(f.sym), fc.c.name(p.typ)))
 }
 
 func ownerOf(sym *symbols.Symbol) *symbols.Symbol {
@@ -266,12 +285,30 @@ func (fc *funcCompiler) applyFunction(f funcValue, n *ast.InvocationExpr) (Expr,
 func (fc *funcCompiler) applyToOne(f funcValue, x Expr) (Expr, error) {
 	args := []Arg{{Param: 0, Value: x}}
 	if f.lib != "" {
-		params, _ := runtime.LibraryFunctionParams(f.lib)
-		if len(params) != 1 {
-			return nil, fc.unsupported(fmt.Sprintf("Sample of %s, which takes %d arguments", f.lib, len(params)))
+		params, err := fc.sampledLibParams(f)
+		if err != nil {
+			return nil, err
 		}
 		return fc.finishLibCall(f.lib, params, args)
 	}
+	callee, err := fc.sampledCalc(f)
+	if err != nil {
+		return nil, err
+	}
+	return fc.finishCalcCall(callee, args)
+}
+
+// sampledLibParams is the one parameter of the library function f, which Sample applies.
+func (fc *funcCompiler) sampledLibParams(f funcValue) ([]string, error) {
+	params, _ := runtime.LibraryFunctionParams(f.lib)
+	if len(params) != 1 {
+		return nil, fc.unsupported(fmt.Sprintf("Sample of %s, which takes %d arguments", f.lib, len(params)))
+	}
+	return params, nil
+}
+
+// sampledCalc compiles the calc f, which Sample applies to one value argument.
+func (fc *funcCompiler) sampledCalc(f funcValue) (*Func, error) {
 	params, err := fc.c.calcParams(f.sym)
 	if err != nil {
 		return nil, err
@@ -279,11 +316,28 @@ func (fc *funcCompiler) applyToOne(f funcValue, x Expr) (Expr, error) {
 	if len(params) != 1 || params[0].fn {
 		return nil, fc.unsupported(fmt.Sprintf("Sample of %s, which does not take one value argument", fc.c.name(f.sym)))
 	}
-	callee, err := fc.c.compileCalcWith(f.sym, nil)
-	if err != nil {
-		return nil, err
+	return fc.c.compileCalcWith(f.sym, nil)
+}
+
+// sampledElemType is the element type of a domain sampled over f whose values
+// fix none: the type of f's one parameter; for a library function, the operand
+// type of its operation over a Real (its widest kind).
+func (fc *funcCompiler) sampledElemType(f funcValue) (Type, error) {
+	if f.lib != "" {
+		if _, err := fc.sampledLibParams(f); err != nil {
+			return TypeInvalid, err
+		}
+		op, why := libOpFor(f.lib, []Type{TypeReal})
+		if why != "" {
+			return TypeInvalid, fc.unsupported(why)
+		}
+		return op.Operands()[0], nil
 	}
-	return fc.finishCalcCall(callee, args)
+	callee, err := fc.sampledCalc(f)
+	if err != nil {
+		return TypeInvalid, err
+	}
+	return callee.Params[0].Type.Elem(), nil
 }
 
 // sampledFn is a SampledFunction held as two hidden locals: the domain values
@@ -324,7 +378,11 @@ func (fc *funcCompiler) compileSample(n *ast.InvocationExpr, domName string) (do
 	}
 	dom = args[0].Value
 	if dom.Type() == TypeNull {
-		return nil, nil, fc.unsupported("Sample over a null domain, whose element type fixes nothing")
+		elem, err := fc.sampledElemType(fargs[0])
+		if err != nil {
+			return nil, nil, err
+		}
+		dom = fc.retype(dom, elem.Seq())
 	}
 	if dom, err = fc.toMany(dom, dom.Type().Seq(), "argument for parameter \"domainValues\""); err != nil {
 		return nil, nil, err

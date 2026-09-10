@@ -339,6 +339,15 @@ func hasTyping(u *ast.Usage) bool {
 
 // typingOf resolves the one type a usage is typed by.
 func (fc *funcCompiler) typingOf(scope *symbols.Scope, u *ast.Usage, name string) (*symbols.Symbol, error) {
+	typ, why := fc.c.typingOf(scope, u, name)
+	if why != "" {
+		return nil, fc.unsupported(why)
+	}
+	return typ, nil
+}
+
+// typingOf resolves the one type a usage is typed by, or says why it cannot.
+func (c *Compiler) typingOf(scope *symbols.Scope, u *ast.Usage, name string) (*symbols.Symbol, string) {
 	var typ *symbols.Symbol
 	for _, r := range u.Relationships {
 		if r == nil || r.Kind != ast.RelTyping || r.Target == nil {
@@ -350,21 +359,21 @@ func (fc *funcCompiler) typingOf(scope *symbols.Scope, u *ast.Usage, name string
 		}
 		qn, ok := target.(*ast.QualifiedName)
 		if !ok {
-			return nil, fc.unsupported(fmt.Sprintf("%s: typing by an expression", name))
+			return nil, fmt.Sprintf("%s: typing by an expression", name)
 		}
-		resolved, ok := fc.c.resolver.ResolveQualified(scope, qn)
+		resolved, ok := c.resolver.ResolveQualified(scope, qn)
 		if !ok {
-			return nil, fc.unsupported(fmt.Sprintf("%s: type %s does not resolve", name, qnText(qn)))
+			return nil, fmt.Sprintf("%s: type %s does not resolve", name, qnText(qn))
 		}
 		if typ != nil {
-			return nil, fc.unsupported(fmt.Sprintf("%s is typed more than once", name))
+			return nil, fmt.Sprintf("%s is typed more than once", name)
 		}
 		typ = resolved
 	}
 	if typ == nil {
-		return nil, fc.unsupported(fmt.Sprintf("%s declares no type", name))
+		return nil, fmt.Sprintf("%s declares no type", name)
 	}
-	return typ, nil
+	return typ, ""
 }
 
 // declaredType resolves the scalar type a usage is typed by, and its range.
@@ -1099,6 +1108,9 @@ func (fc *funcCompiler) bindArgs(n *ast.InvocationExpr, callee string, params []
 		if params[i].fn {
 			f, err := fc.compileFuncArg(node, paramWhere(params[i].name))
 			if err != nil {
+				return err
+			}
+			if err := fc.checkFuncArgType(params[i], f); err != nil {
 				return err
 			}
 			fargs[valueIndex[i]] = f

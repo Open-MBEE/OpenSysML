@@ -154,6 +154,7 @@ var compiledCases = []compiledCase{
 	{"Fn::ByNameSq", []string{"3.0"}},
 	{"Fn::IntBoth", []string{"1"}}, {"Fn::IntBoth", []string{"2"}},
 	{"Fn::Fold2Add", []string{"1.5", "2.0"}},
+	{"Fn::TypedSq", []string{"3.0"}}, {"Fn::TypedUsage", []string{"3.0"}}, {"Fn::TypedSub", []string{"3.0"}},
 	{"Fn::SqRange", []string{"(1.0,2.0,3.0)"}}, {"Fn::SqRange", []string{"null"}}, {"Fn::SqRange", []string{"2.0"}}, {"Fn::SqRange", []string{"()"}},
 	{"Fn::RecipRange", []string{"(1.0,2.0)"}}, {"Fn::RecipRange", []string{"(1.0,0.0,2.0)"}},
 	{"Fn::HalfDomain", []string{"(1.0,2.0)"}}, {"Fn::HalfDomain", []string{"null"}}, {"Fn::HalfDomain", []string{"()"}}, {"Fn::HalfDomain", []string{"2.0"}},
@@ -162,6 +163,7 @@ var compiledCases = []compiledCase{
 	{"Fn::SqrtRange", []string{"(4.0,9.0)"}}, {"Fn::SqrtRange", []string{"(4.0,-1.0)"}},
 	{"Fn::UsageRange", []string{"(3.0)"}},
 	{"Fn::SumRange", []string{"(1.0,2.0)"}}, {"Fn::SumRange", []string{"null"}},
+	{"Fn::NullDomain", []string{"1.0"}}, {"Fn::NullRange", []string{"1"}}, {"Fn::NullSqrtRange", []string{"1.0"}}, {"Fn::NullSum", []string{"1.5"}},
 }
 
 // transcendental calcs call libm functions whose last bit is the library's, so the
@@ -453,6 +455,11 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"ChosenFunction", "an `if` choosing a function value at run time"},
 		{"WrongArity", "Refused::Add2 takes 2 arguments, 1 given"},
 		{"WrongName", "Refused::Sq2 has no parameter v"},
+		{"UnrelatedTyped", `in calc Refused::UnrelatedTyped: argument for parameter "f": cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq`},
+		{"LibraryTyped", "cannot bind the function value RealFunctions::sqrt to a parameter typed by Compiled::Fn::Sq"},
+		{"GeneralForSub", "cannot bind the function value Compiled::Fn::Sq to a parameter typed by Compiled::Fn::SubSq"},
+		{"ForwardedUnrelated", "cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq"},
+		{"IntegerNullRange", "a Real[0..*] at result, which holds Integer[0..*]"},
 		{"BodyClosure", "a body-local calc usage"},
 		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, whose function value closes over that run's bindings"},
 		{"ObjectClosure", "a calc read off an object through a feature chain, whose function value closes over that object"},
