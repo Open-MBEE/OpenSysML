@@ -6,8 +6,9 @@ package suggest
 import (
 	"sort"
 	"strings"
-	"unicode"
+	"unicode/utf8"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -153,17 +154,127 @@ func Qualified(idx *symbols.Index, name string) []string {
 // `BaseFunctions::#::index` is no use as a suggestion.
 func typable(fqn string) bool {
 	for _, seg := range strings.Split(fqn, "::") {
-		if seg == "" {
-			return false
-		}
-		for i, r := range seg {
-			if unicode.IsLetter(r) || r == '_' || i > 0 && unicode.IsDigit(r) {
-				continue
-			}
+		if !lexer.IsIdentifier(seg) {
 			return false
 		}
 	}
 	return true
+}
+
+// globalRoot starts a qualified name read from the document root.
+const globalRoot = "$::"
+
+// Name writes a registered name as it is typed back: quoted unless a basic name
+// spells it, so a name holding `::` is one segment however it reads.
+func Name(name string) string {
+	if lexer.IsIdentifier(name) {
+		return name
+	}
+	return "'" + name + "'"
+}
+
+// Spelled writes the registered fqn whose last segment is name as it is typed
+// back, that segment quoted whole: `T::'a::b-1'` for `T::a::b-1` named `a::b-1`.
+func Spelled(fqn, name string) string {
+	path, ok := strings.CutSuffix(fqn, "::"+name)
+	if !ok {
+		return Notation(fqn)
+	}
+	return Notation(path) + "::" + Name(name)
+}
+
+// Notation writes a registered qualified name as it is typed back: a segment no
+// basic name spells is quoted, one the library writes bare (`when`) is left so.
+func Notation(fqn string) string {
+	if fqn == "" {
+		return fqn
+	}
+	rest, global := strings.CutPrefix(fqn, globalRoot)
+	segs := segments(rest)
+	for i, seg := range segs {
+		if !quoted(seg) && !lexer.IsIdentifier(seg) {
+			segs[i] = "'" + seg + "'"
+		}
+	}
+	if global {
+		return globalRoot + strings.Join(segs, "::")
+	}
+	return strings.Join(segs, "::")
+}
+
+// segments splits a qualified name at the `::` outside its quoted segments,
+// which are kept as written, quotes and escapes included.
+func segments(text string) []string {
+	var out []string
+	start, inQuote := 0, false
+	for i := 0; i < len(text); i++ {
+		switch c := text[i]; {
+		case inQuote && c == '\\':
+			i++
+		case c == '\'':
+			inQuote = !inQuote
+		case !inQuote && strings.HasPrefix(text[i:], "::"):
+			out = append(out, text[start:i])
+			start = i + 2
+			i++
+		}
+	}
+	return append(out, text[start:])
+}
+
+// quoted reports whether a segment is written quoted already.
+func quoted(seg string) bool {
+	return len(seg) >= 2 && seg[0] == '\'' && seg[len(seg)-1] == '\''
+}
+
+// identifierRune reports whether r can appear in a basic name as the lexer
+// scans one; a name holding any other character is written quoted.
+func identifierRune(r rune) bool {
+	return r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9'
+}
+
+// Unquoted returns the names, in the order given, that the identifier word starts
+// and that go on with a character no basic name holds: `SA` starts 'SA-506'.
+func Unquoted(word string, names []string) []string {
+	if !lexer.IsIdentifier(word) {
+		return nil
+	}
+	var out []string
+	for _, name := range names {
+		if len(name) <= len(word) || !strings.HasPrefix(name, word) {
+			continue
+		}
+		if r, _ := utf8.DecodeRuneInString(name[len(word):]); !identifierRune(r) {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// QuotingRule states why the names must be quoted, naming the characters (in the
+// order met) no basic name holds; a leading digit is one such character.
+func QuotingRule(names []string) string {
+	var chars []string
+	seen := map[rune]bool{}
+	for _, name := range names {
+		name, _ = strings.CutPrefix(name, globalRoot)
+		for _, seg := range segments(name) {
+			if quoted(seg) {
+				seg = seg[1 : len(seg)-1]
+			}
+			for i, r := range seg {
+				if seen[r] || identifierRune(r) && !(i == 0 && r >= '0' && r <= '9') {
+					continue
+				}
+				seen[r] = true
+				chars = append(chars, "'"+string(r)+"'")
+			}
+		}
+	}
+	if len(chars) == 0 {
+		return ""
+	}
+	return "Names containing " + OrList(chars) + " must be quoted."
 }
 
 // SimpleNames returns every simple name the index registers, sorted.
@@ -174,7 +285,7 @@ func SimpleNames(idx *symbols.Index) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, fqn := range idx.FQNs() {
-		if last := LastSegment(fqn); !seen[last] {
+		if last := simpleName(idx, fqn); !seen[last] {
 			seen[last] = true
 			out = append(out, last)
 		}
@@ -316,14 +427,32 @@ func OrList(items []string) string {
 // With appends "— did you mean …?" to a message about word, ignoring a
 // candidate equal to word.
 func With(msg, word string, candidates []string) string {
-	offer := make([]string, 0, len(candidates))
-	for _, c := range candidates {
-		if c != word {
-			offer = append(offer, c)
+	return Hint(msg, word, candidates, nil)
+}
+
+// Hint is With, offering first the registered names word is the unquoted start of,
+// each in Notation, and stating the QuotingRule after the question.
+func Hint(msg, word string, candidates, unquoted []string) string {
+	seen := map[string]bool{word: true}
+	var offer []string
+	add := func(spelling string) {
+		if !seen[spelling] && len(offer) < Limit {
+			seen[spelling] = true
+			offer = append(offer, spelling)
 		}
+	}
+	for _, name := range unquoted {
+		add(Notation(name))
+	}
+	for _, c := range candidates {
+		add(c)
 	}
 	if len(offer) == 0 {
 		return msg
 	}
-	return msg + " — did you mean " + OrList(offer) + "?"
+	msg += " — did you mean " + OrList(offer) + "?"
+	if rule := QuotingRule(unquoted); rule != "" {
+		msg += " " + rule
+	}
+	return msg
 }

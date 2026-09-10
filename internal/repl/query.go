@@ -468,5 +468,10 @@ func (s *Session) instantiateNamed(name string) ([]string, error) {
 			out = append(out, "  "+notice)
 		}
 	}
-	return append(out, fmt.Sprintf("  Use %%features %s to inspect", name)), nil
+	// Echoed as typed, unless %features would not read that spelling as a name.
+	shown := name
+	if _, err := parseObjectRef(name); err != nil {
+		shown = s.declaredName(fqn)
+	}
+	return append(out, fmt.Sprintf("  Use %%features %s to inspect", shown)), nil
 }

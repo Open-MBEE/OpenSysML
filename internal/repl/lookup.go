@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -549,10 +550,15 @@ type objectRef struct {
 type ObjectRefError struct {
 	Ref    string
 	Detail string
+	// Named is the `::`-joined run of names read before a character no unquoted
+	// name holds stopped the text: `T::SA` in `T::SA-506`.
+	Named string
+	// Hint is what Named may have meant, appended to the report.
+	Hint string
 }
 
 func (e *ObjectRefError) Error() string {
-	return fmt.Sprintf("%q is not an object reference: %s", e.Ref, e.Detail)
+	return fmt.Sprintf("%q is not an object reference: %s%s", e.Ref, e.Detail, e.Hint)
 }
 
 // UnknownObjectIDError reports an id no object of the session has, with the
@@ -793,13 +799,30 @@ func parseObjectRef(text string) (objectRef, error) {
 		}
 		sep, next, ok := cutSeparator(after)
 		if !ok {
-			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%q cannot follow %s: segments are separated by . or ::", after, seg.text)}
+			err := &ObjectRefError{Ref: text, Detail: fmt.Sprintf("%q cannot follow %s: segments are separated by . or ::", after, seg.text)}
+			if ref.id == 0 {
+				err.Named = declaredRun(ref.segments)
+			}
+			return ref, err
 		}
 		if next == "" {
 			return ref, &ObjectRefError{Ref: text, Detail: fmt.Sprintf("it ends in %q with no feature after it", sep)}
 		}
 		rest, dotted = next, sep == "."
 	}
+}
+
+// declaredRun is the `::`-joined registered names of segments that may all name
+// a declaration — none reached through `.` or an index — or "" when one is not.
+func declaredRun(segments []objectSegment) string {
+	names := make([]string, len(segments))
+	for i, seg := range segments {
+		if seg.dotted || seg.index > 0 {
+			return ""
+		}
+		names[i] = seg.name
+	}
+	return strings.Join(names, "::")
 }
 
 // cutSeparator splits the segment separator text starts with from what follows.
@@ -880,6 +903,10 @@ func scanObjectSegment(ref, rest string) (objectSegment, string, error) {
 func (s *Session) resolveObject(text string) (*runtime.Instance, string, error) {
 	ref, err := parseObjectRef(text)
 	if err != nil {
+		var bad *ObjectRefError
+		if errors.As(err, &bad) && bad.Named != "" {
+			bad.Hint = suggest.Hint("", bad.Named, nil, s.unquotedNames(bad.Named, nil))
+		}
 		return nil, "", err
 	}
 	if ref.id > 0 {
