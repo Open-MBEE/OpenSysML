@@ -1367,3 +1367,54 @@ func TestSweepRunsToTheOutermostRealEndpoints(t *testing.T) {
 		})
 	}
 }
+
+// A range read as reals takes its Integers as the Reals they are: one no Real
+// holds exactly is refused, as is a step finer than the reals tell apart, so
+// no row binds a value the range did not state and no two rows bind the same.
+func TestSweepRealRangeRefusesWhatARealCannotHoldApart(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	const big = int64(1) << 60
+	one := SweepRange{Param: "b", From: realOf(1), To: realOf(1)}
+	table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+		Ranges: []SweepRange{steppedRange("a", intOf(big), intOf(big+512), intOf(256)), one},
+	})
+	if got, want := inputsOf(table), []string{"a=1152921504606847000.0 b=1.0", "a=1152921504606847200.0 b=1.0", "a=1152921504606847500.0 b=1.0"}; !equalStrings(got, want) {
+		t.Errorf("Ratio over %d..%d:256 bound %v; want %v", big, big+512, got, want)
+	}
+	for _, tc := range []struct {
+		name  string
+		calc  string
+		r     SweepRange
+		words []string
+	}{
+		{"end beyond exactness", "Ratio", rangeOf("a", intOf(big), intOf(big+3)),
+			[]string{"range end 1152921504606846979", "a : Real takes Reals"}},
+		{"start beyond exactness", "Ratio", rangeOf("a", intOf(big+1), intOf(big)),
+			[]string{"range start 1152921504606846977", "a : Real"}},
+		{"step beyond exactness", "Ratio", steppedRange("a", intOf(0), intOf(big), intOf(big+1)),
+			[]string{"step 1152921504606846977", "a : Real"}},
+		{"a Rational the same", "Frac", rangeOf("q", intOf(big), intOf(big+3)),
+			[]string{"range end 1152921504606846979", "q : Rational"}},
+		{"read as written by a fractional step", "Any", steppedRange("v", intOf(big), intOf(big+3), realOf(0.5)),
+			[]string{"range end 1152921504606846979", "the range is read as reals"}},
+		{"a step finer than the reals", "Ratio", steppedRange("a", realOf(1e16), realOf(1e16+4), realOf(1)),
+			[]string{"a steps by 1.0", "finer than a Real tells apart", "rows would repeat"}},
+		{"a step of one finer than the reals", "Ratio", rangeOf("a", intOf(big), intOf(big+512)),
+			[]string{"a steps by 1.0", "finer than a Real tells apart"}},
+	} {
+		plan := SweepPlan{Ranges: []SweepRange{tc.r}}
+		if tc.calc == "Ratio" {
+			plan.Ranges = append(plan.Ranges, one)
+		}
+		refusedNaming(t, refuseSweep(t, ctx, scope, tc.calc, plan), tc.words...)
+		if !tc.r.HasStep {
+			plan.Ranges = []SweepRange{tc.r}
+			plan.Sampled, plan.Samples, plan.Seed = true, 2, 1
+			if strings.Contains(tc.name, "finer") {
+				runSweepOver(t, ctx, scope, tc.calc, plan)
+				continue
+			}
+			refusedNaming(t, refuseSweep(t, ctx, scope, tc.calc, plan), tc.words...)
+		}
+	}
+}

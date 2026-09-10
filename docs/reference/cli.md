@@ -553,7 +553,10 @@ error 1: analysis Dyn::DynamicsAnalysis: … calc Dyn::Acceleration: division by
 included; a quantity range's endpoints and step must be compatible, and the values are converted
 to the unit `<from>` is written in. `<to>` is included when the step lands on it. A range between
 whole numbers with no `:<step>` steps by one, up or down as the endpoints direct; a range with a
-fractional endpoint and no step is refused, because no step is the obviously intended one. A step
+fractional endpoint and no step is refused, because no step is the obviously intended one. A range
+read as reals takes an Integer endpoint or step only where a Real holds it without rounding, and
+steps only where the reals tell its rows apart, so a range no two rows of which would differ is
+refused rather than run. A step
 of zero, a step whose sign never reaches `<to>`, an endpoint that is no number or is not finite, a
 parameter the case or calc does not declare, a case's subject — which an `-instantiate`d object
 binds, not a range — a parameter the arguments already bind, by name or by holding the position it

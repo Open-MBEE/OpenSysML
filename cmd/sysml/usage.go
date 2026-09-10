@@ -83,7 +83,9 @@ func doc() usage.Doc {
 					"enumeration or non-scalar parameter. A parameter declaring no type " +
 					"takes the range as written, and the table says so.",
 				"A range between whole numbers steps by one where no :<step> is written; " +
-					"one with a fractional endpoint needs one. Rows come out in the order the " +
+					"one with a fractional endpoint needs one. A range read as reals takes " +
+					"an Integer endpoint or step only where a Real holds it without rounding, " +
+					"and steps only where the reals tell its rows apart. Rows come out in the order the " +
 					"ranges were given, the first varying slowest, and a run that " +
 					"failed is a row carrying its error rather than the end of the " +
 					"table.",

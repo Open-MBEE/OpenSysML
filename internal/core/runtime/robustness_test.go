@@ -395,6 +395,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("sweep_over_a_boolean_parameter", testSweepOverABooleanParameter)
 	t.Run("sweep_over_a_parameter_typed_by_a_part", testSweepOverAParameterTypedByAPart)
 	t.Run("sweep_over_an_integer_parameter_by_a_fraction", testSweepOverAnIntegerParameterByAFraction)
+	t.Run("sweep_over_a_real_parameter_by_integers_no_real_holds", testSweepOverARealParameterByIntegersNoRealHolds)
 }
 
 func testBindingConflict(t *testing.T) {
@@ -12773,14 +12774,15 @@ func testTradeStudyWhoseAlternativesReadAnUnboundFeature(t *testing.T) {
 	}
 }
 
-// sweepRobustnessModel declares parameters no numeric range can bind, and an
-// Integer one a fractional step cannot step.
+// sweepRobustnessModel declares parameters no numeric range can bind, an
+// Integer one a fractional step cannot step, and a Real one.
 const sweepRobustnessModel = `package test {
 	private import ScalarValues::*;
 	part def Ship;
 	calc def Flag { in b : Boolean; return : Boolean = b; }
 	calc def Hull { in s : Ship; return : Ship = s; }
 	calc def Sq { in x : Integer; return : Integer = x * x; }
+	calc def Half { in x : Real; return : Real = x / 2.0; }
 }`
 
 // refusedSweepPlan sweeps the named calc over the plan, both stepped and
@@ -12871,6 +12873,37 @@ func testSweepOverAnIntegerParameterByAFraction(t *testing.T) {
 		if !strings.Contains(err.Error(), "x : Integer") {
 			t.Errorf("error = %v, want it to name x : Integer", err)
 		}
+	}
+}
+
+// testSweepOverARealParameterByIntegersNoRealHolds: a Real parameter takes the
+// Integers of its range as Reals, so endpoints a Real rounds together are
+// refused rather than collapsed onto one row, as is a step the reals cannot
+// tell apart, before any row runs.
+func testSweepOverARealParameterByIntegersNoRealHolds(t *testing.T) {
+	integer := func(n int64) Value {
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+	}
+	const big = int64(1) << 60
+	for _, err := range refusedSweepPlan(t, "Half", SweepPlan{Ranges: []SweepRange{{Param: "x", From: integer(big), To: integer(big + 3)}}}) {
+		if msg := err.Error(); !strings.Contains(msg, "x : Real") || !strings.Contains(msg, "1152921504606846979") {
+			t.Errorf("error = %v, want it to name x : Real and the end 1152921504606846979", err)
+		}
+	}
+	ctx, scope := analysisFixture(t, sweepRobustnessModel)
+	sym, _ := scope.LookupLocal("Half")
+	plan, err := ctx.ResolveSweepPlan(sym, SweepPlan{Ranges: []SweepRange{{
+		Param: "x", From: integer(big), To: integer(big + 512),
+	}}}, 0, nil)
+	if err != nil {
+		t.Fatalf("resolving x: %v", err)
+	}
+	_, err = ctx.RunSweep(context.Background(), "test::Half", plan, func([]SweepBinding) (SweepRunResult, error) {
+		t.Fatal("a row ran under a step the reals cannot tell apart")
+		return SweepRunResult{}, nil
+	})
+	if !errors.Is(err, ErrSweepRange) || !strings.Contains(err.Error(), "rows would repeat") {
+		t.Fatalf("error = %v, want ErrSweepRange refusing repeated rows", err)
 	}
 }
 

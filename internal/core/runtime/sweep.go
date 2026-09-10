@@ -403,6 +403,11 @@ func (r SweepRange) endpoints(ctx *Context) (sweepBounds, error) {
 			return sweepBounds{}, r.Type.notAnInteger(r.Param, toWhat)
 		}
 	}
+	if !bounds.isInt {
+		if err := r.exactRealEndpoints(); err != nil {
+			return sweepBounds{}, err
+		}
+	}
 	if err := r.Type.admit(ctx, r.Param, fromWhat, bounds.value(bounds.from, bounds.intFrom)); err != nil {
 		return sweepBounds{}, err
 	}
@@ -443,6 +448,16 @@ func (r SweepRange) bounds(ctx *Context) (sweepBounds, error) {
 	stepInt, stepWhole := r.Type.integer(step, bounds.unit, bounds.step)
 	if r.Type.Numbers == SweepIntegers && !stepWhole {
 		return sweepBounds{}, r.Type.notAnInteger(r.Param, stepWhat)
+	}
+	if !stepWhole {
+		if bounds.isInt {
+			if err := r.exactRealEndpoints(); err != nil {
+				return sweepBounds{}, err
+			}
+		}
+		if err := r.Type.exactReal(r.Param, stepWhat, r.Step); err != nil {
+			return sweepBounds{}, err
+		}
 	}
 	bounds.isInt = bounds.isInt && stepWhole
 	bounds.intStep = stepInt
@@ -493,6 +508,49 @@ func (t SweepType) integer(s sweepScalar, unit semantics.Unit, magnitude float64
 func (t SweepType) notAnInteger(param, what string) error {
 	return fmt.Errorf("%w: %s is not an Integer, which %s : %s takes",
 		ErrSweepRange, what, param, symbolText(t.Declared()))
+}
+
+// exactReal refuses an endpoint or step written as an Integer no Real holds
+// exactly, where the range is read as reals.
+func (t SweepType) exactReal(param, what string, value Value) error {
+	n, ok := sweepInteger(value)
+	if !ok || realHolds(n) {
+		return nil
+	}
+	reads := "the range is read as reals"
+	if t.Numbers == SweepReals {
+		reads = param + " : " + symbolText(t.Declared()) + " takes Reals"
+	}
+	return fmt.Errorf("%w: %s is an Integer beyond what a Real holds exactly, and %s",
+		ErrSweepRange, what, reads)
+}
+
+// exactRealEndpoints refuses either endpoint an Integer no Real holds exactly.
+func (r SweepRange) exactRealEndpoints() error {
+	if err := r.Type.exactReal(r.Param, "range start "+FormatValue(r.From), r.From); err != nil {
+		return err
+	}
+	return r.Type.exactReal(r.Param, "range end "+FormatValue(r.To), r.To)
+}
+
+// sweepInteger is the Integer an endpoint or step was written as, a quantity's
+// magnitude included.
+func sweepInteger(value Value) (int64, bool) {
+	switch value.Kind {
+	case ValConst:
+		return value.Const.Int, value.Const.Kind == semantics.ValInt
+	case ValQuantity:
+		if q := value.Quantity(); q != nil && q.Num.Kind == semantics.ValInt {
+			return q.Num.Int, true
+		}
+	}
+	return 0, false
+}
+
+// realHolds reports whether a Real holds the Integer without rounding it.
+func realHolds(n int64) bool {
+	f := float64(n)
+	return f >= math.MinInt64 && f < -math.MinInt64 && int64(f) == n
 }
 
 // admit refuses an endpoint the parameter would refuse as an argument, before
@@ -624,6 +682,15 @@ func (r SweepRange) enumerate(ctx *Context) ([]Value, error) {
 	values := make([]Value, 0, count)
 	for i := int64(0); i < signedInt(count); i++ {
 		values = append(values, bounds.at(i))
+	}
+	if !bounds.isInt {
+		for i := 1; i < len(values); i++ {
+			at, _ := sweepMagnitude(values[i])
+			if before, _ := sweepMagnitude(values[i-1]); at == before {
+				return nil, fmt.Errorf("%w: %s steps by %s, finer than a Real tells apart near %s, so its rows would repeat",
+					ErrSweepRange, r.Param, FormatValue(bounds.valueReal(bounds.step)), FormatValue(values[i]))
+			}
+		}
 	}
 	return values, nil
 }
