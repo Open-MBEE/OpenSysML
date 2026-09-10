@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 var errFixtureRefusal = errors.New("orthogonal regions are not encoded")
@@ -111,6 +112,106 @@ func TestRunErrorStopsThePlan(t *testing.T) {
 		t.Fatalf("steps %v (weak ran %d), want strong's fault alone", stepNames(plan), weakRan)
 	}
 }
+
+func TestAPastDeadlineFailsBeforeTheFirstEngineRuns(t *testing.T) {
+	var ran int
+	r := registered(t,
+		fakeEngine{name: "strong", kinds: []Kind{Holds}, authority: Proved, result: Result{Claim: ClaimHolds, Strength: Proved}, ran: &ran},
+		fakeEngine{name: "weak", kinds: []Kind{Holds}, authority: Observed, result: Result{Claim: ClaimHolds, Strength: Observed}, ran: &ran},
+	)
+	budget := Budget{Deadline: time.Now().Add(-time.Second)}
+	plan, err := r.Answer(context.Background(), nil, Question{Kind: Holds, Subject: "R"}, budget)
+	if !errors.Is(err, context.DeadlineExceeded) || ran != 0 {
+		t.Fatalf("answer: %v (engines ran %d), want the deadline exceeded before any engine ran", err, ran)
+	}
+	if !sameNames(stepNames(plan), []string{"strong"}) || !errors.Is(plan.Steps[0].Err, context.DeadlineExceeded) || plan.Steps[0].Result != nil {
+		t.Fatalf("steps %+v, want the first engine's step carrying the deadline", plan.Steps)
+	}
+}
+
+func TestAPastDeadlineFailsAPlanEveryEngineWouldRefuse(t *testing.T) {
+	r := registered(t,
+		fakeEngine{name: "strong", kinds: []Kind{Holds}, authority: Proved, refusal: errFixtureRefusal},
+		fakeEngine{name: "weak", kinds: []Kind{Holds}, authority: Observed, refusal: errFixtureRefusal},
+	)
+	budget := Budget{Deadline: time.Now().Add(-time.Second)}
+	plan, err := r.Answer(context.Background(), nil, Question{Kind: Holds, Subject: "R"}, budget)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("answer: %v, want the deadline exceeded, not a plan of refusals", err)
+	}
+	if !sameNames(stepNames(plan), []string{"strong"}) || plan.Steps[0].Refusal != nil || !errors.Is(plan.Steps[0].Err, context.DeadlineExceeded) {
+		t.Fatalf("steps %+v, want the first engine's step carrying the deadline before it was consulted", plan.Steps)
+	}
+	if plan.Refused() != nil || len(plan.Refusals()) != 0 {
+		t.Fatalf("refused %v, want none: no engine was consulted", plan.Refused())
+	}
+}
+
+func TestAnAnswerAfterTheDeadlineIsNotTaken(t *testing.T) {
+	var weakRan int
+	r := registered(t,
+		fakeEngine{name: "strong", kinds: []Kind{Holds}, authority: Proved, run: func(ctx context.Context) (Result, error) {
+			<-ctx.Done()
+			return Result{Claim: ClaimHolds, Strength: Proved}, nil
+		}},
+		fakeEngine{name: "weak", kinds: []Kind{Holds}, authority: Observed, result: Result{Claim: ClaimHolds, Strength: Observed}, ran: &weakRan},
+	)
+	budget := Budget{Deadline: time.Now().Add(20 * time.Millisecond)}
+	plan, err := r.Answer(context.Background(), nil, Question{Kind: Holds, Subject: "R"}, budget)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("answer: %v, want the deadline exceeded although the engine answered", err)
+	}
+	if !sameNames(stepNames(plan), []string{"strong"}) || !errors.Is(plan.Steps[0].Err, context.DeadlineExceeded) || plan.Steps[0].Result != nil || weakRan != 0 {
+		t.Fatalf("steps %+v (weak ran %d), want strong's step carrying the deadline, its late answer dropped", plan.Steps, weakRan)
+	}
+	if plan.Result.Covered() {
+		t.Fatalf("result %+v, want none: the answer came after the deadline", plan.Result)
+	}
+}
+
+func TestADeadlineMetMidPlanStopsThePlanOnThatStep(t *testing.T) {
+	var weakRan int
+	r := registered(t,
+		fakeEngine{name: "strong", kinds: []Kind{Holds}, authority: Proved, run: func(ctx context.Context) (Result, error) {
+			<-ctx.Done()
+			return Result{}, ctx.Err()
+		}},
+		fakeEngine{name: "weak", kinds: []Kind{Holds}, authority: Observed, result: Result{Claim: ClaimHolds, Strength: Observed}, ran: &weakRan},
+	)
+	budget := Budget{Deadline: time.Now().Add(20 * time.Millisecond)}
+	plan, err := r.Answer(context.Background(), nil, Question{Kind: Holds, Subject: "R"}, budget)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("answer: %v, want the deadline exceeded", err)
+	}
+	if !sameNames(stepNames(plan), []string{"strong"}) || !errors.Is(plan.Steps[0].Err, context.DeadlineExceeded) || weakRan != 0 {
+		t.Fatalf("steps %+v (weak ran %d), want strong's step carrying the deadline and no fallback", plan.Steps, weakRan)
+	}
+	if plan.Result.Covered() {
+		t.Fatalf("result %+v, want none: the plan stopped", plan.Result)
+	}
+}
+
+func TestNoDeadlineLeavesTheContextAlone(t *testing.T) {
+	var seen context.Context
+	r := registered(t, fakeEngine{name: "a", kinds: []Kind{Holds}, authority: Proved, run: func(ctx context.Context) (Result, error) {
+		seen = ctx
+		return Result{Claim: ClaimHolds, Strength: Proved}, nil
+	}})
+	ctx := context.WithValue(context.Background(), fixtureKey{}, "caller")
+	plan, err := r.Answer(ctx, nil, Question{Kind: Holds, Subject: "R"}, Budget{})
+	if err != nil || !plan.Result.Covered() {
+		t.Fatalf("answer: %v, result %+v; want the engine's answer", err, plan.Result)
+	}
+	if seen != ctx {
+		t.Fatalf("engine ran under %v, want the caller's context untouched", seen)
+	}
+	if _, has := seen.Deadline(); has {
+		t.Fatal("engine ran under a deadline the budget did not set")
+	}
+}
+
+// fixtureKey is the context key a test threads through Answer to recognize its own context.
+type fixtureKey struct{}
 
 func TestEveryRefusalIsATypedError(t *testing.T) {
 	other := errors.New("no solver on PATH")

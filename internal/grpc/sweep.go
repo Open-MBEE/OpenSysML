@@ -104,7 +104,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	}
 
 	schedule := v.runtime.Schedule()
-	table, err := s.engines.Sweep(ctx, analysis.Held(v.runtime, nil), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule))
+	table, err := s.engines.Sweep(ctx, analysis.Held(v.runtime, nil), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep))
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {

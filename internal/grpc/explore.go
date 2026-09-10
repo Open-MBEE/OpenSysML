@@ -37,7 +37,7 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 		runs = append(runs, rec)
 		return outcome, err
 	}
-	x, err := s.engines.Explore(ctx, &analysis.Model{Fresh: fresh}, subject, policy, recorded, analysis.BudgetOf(s.budgets, policy))
+	x, err := s.engines.Explore(ctx, &analysis.Model{Fresh: fresh}, subject, policy, recorded, analysis.BudgetOf(s.budgets, policy, analysis.Outcomes))
 	if err != nil {
 		// A caller that went away is the call failing, not a precondition unmet.
 		if ctx.Err() != nil {

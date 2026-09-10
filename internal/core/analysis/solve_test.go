@@ -159,9 +159,10 @@ func TestSolveJudgesSetsAsTheirWeakestMember(t *testing.T) {
 		{"unbounded among sat", []Evaluation{sat, unbounded}, ClaimUnbounded, Proved, ""},
 		{"unsat over unbounded", []Evaluation{unbounded, unsat}, ClaimUnsatisfiable, Proved, ""},
 		{"none", nil, ClaimSatisfiable, Witnessed, ""},
+		{"withheld", []Evaluation{sat, {Name: "W"}}, ClaimNone, NotCovered, "W was not put to the solver"},
 	}
 	for _, tc := range cases {
-		claim, strength, reason := judgeSolved(tc.values)
+		claim, strength, reason := judgeSolved(tc.values, len(tc.values))
 		if claim != tc.claim || strength != tc.strength || reason != tc.reason {
 			t.Errorf("%s: %s %s %q, want %s %s %q", tc.name, claim, strength, reason, tc.claim, tc.strength, tc.reason)
 		}
@@ -178,6 +179,74 @@ func TestSolveTakesTheBudgetsSolverTime(t *testing.T) {
 	timedOut := []Evaluation{{Name: "C", Solved: &solve.Result{Status: solve.StatusUnknown, TimedOut: true}}}
 	if !anyTimedOut(timedOut) || anyTimedOut(nil) {
 		t.Fatal("a timed-out verdict must reach the solver bound")
+	}
+}
+
+// The budget's runs are the queries solve asks: the rest are left unasked, which the
+// set's verdict and the runs bound both report.
+func TestSolveAsksNoMoreQueriesThanTheBudgetsRuns(t *testing.T) {
+	present := func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/usr/bin/z3"}, nil }
+	var asked []string
+	sat := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
+		asked = append(asked, query.Element)
+		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
+	}
+	queries := []*solve.Query{intQuery("A", 2, 5), intQuery("B", 2, 5), intQuery("C", 2, 5)}
+	q := Question{Kind: Satisfiable, Subject: "test::C", Free: FreeInputs, Solve: &SolveAsk{Queries: queries, Ask: sat}}
+	result := answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 2}).Result
+	if len(asked) != 2 || asked[0] != "A" || asked[1] != "B" {
+		t.Fatalf("asked %v, want A and B only", asked)
+	}
+	if result.Claim != ClaimNone || result.Strength != NotCovered || result.Reason != "C was left unasked by the runs budget" {
+		t.Fatalf("result %+v, want not covered for the unasked C", result)
+	}
+	if len(result.Values) != 3 || result.Values[2].Solved != nil || result.Values[2].Err != nil || result.Values[2].Name != "C" {
+		t.Fatalf("values %+v, want C's unasked entry in place", result.Values)
+	}
+	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 2 || !result.Bounds.Reached() {
+		t.Fatalf("bounds %s, want the budget's 2 runs reached", result.Bounds)
+	}
+	asked = nil
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 5}).Result
+	if runs, ok := result.Bounds.Limit("runs"); len(asked) != 3 || result.Claim != ClaimSatisfiable || !ok || runs != 5 || result.Bounds.Reached() {
+		t.Fatalf("asked %v, result %+v; want every query asked and the budget's 5 runs named unreached", asked, result)
+	}
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{}).Result
+	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 3 || result.Bounds.Reached() || result.Claim != ClaimSatisfiable {
+		t.Fatalf("result %+v, want every query asked and the 3 named as the runs without a runs budget", result)
+	}
+	withheld := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
+		if query.Element == "B" {
+			return nil, nil
+		}
+		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
+	}
+	q.Solve = &SolveAsk{Queries: queries, Ask: withheld}
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 3}).Result
+	if result.Strength != NotCovered || result.Reason != "B was not put to the solver" || result.Bounds.Reached() {
+		t.Fatalf("result %+v, want the withheld B not covered without blaming the runs budget", result)
+	}
+}
+
+// The bounds solve declares are the bounds its result reports, in that order.
+func TestSolveReportsTheBoundsItDeclares(t *testing.T) {
+	present := func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/usr/bin/z3"}, nil }
+	sat := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
+		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
+	}
+	engine := NewSolve(present)
+	q := Question{Kind: Satisfiable, Subject: "test::A", Free: FreeInputs, Solve: &SolveAsk{Queries: []*solve.Query{intQuery("A", 2, 5), intQuery("B", 2, 5)}, Ask: sat}}
+	declared := engine.Describe().Bounds
+	for _, budget := range []Budget{{}, {Runs: 1}, {Runs: 5}} {
+		result := answered(t, registered(t, engine), nil, q, budget).Result
+		if len(result.Bounds) != len(declared) {
+			t.Fatalf("%+v: bounds %s, want the declared %v", budget, result.Bounds, declared)
+		}
+		for i, bound := range result.Bounds {
+			if bound.Name != declared[i] {
+				t.Errorf("%+v: bound %d is %q, want the declared %q", budget, i, bound.Name, declared[i])
+			}
+		}
 	}
 }
 

@@ -118,3 +118,27 @@ func answered(t *testing.T, r *Registry, model *Model, q Question, budget Budget
 	}
 	return plan
 }
+
+// BudgetOf fills Runs in the unit of the question's kind: an exploring policy's
+// runs for outcomes, the sweep runs for a sweep, none for a run or a solve.
+func TestBudgetOfFillsRunsByKind(t *testing.T) {
+	limits := runtime.Budgets{MaxSteps: 70, MaxElements: 90, MaxSweepRuns: 40}
+	exploring := policy(t, "explore:runs=6,depth=4")
+	cases := []struct {
+		kind   Kind
+		policy runtime.SchedulePolicy
+		want   Budget
+	}{
+		{Outcomes, exploring, Budget{Runs: 6, Depth: 4, Steps: 70, Memory: 90}},
+		{Outcomes, runtime.DefaultSchedulePolicy, Budget{Steps: 70, Memory: 90}},
+		{Sweep, exploring, Budget{Runs: 40, Depth: 4, Steps: 70, Memory: 90}},
+		{Sweep, runtime.DefaultSchedulePolicy, Budget{Runs: 40, Steps: 70, Memory: 90}},
+		{Evaluate, exploring, Budget{Depth: 4, Steps: 70, Memory: 90}},
+		{Satisfiable, exploring, Budget{Depth: 4, Steps: 70, Memory: 90}},
+	}
+	for _, tc := range cases {
+		if got := BudgetOf(limits, tc.policy, tc.kind); got != tc.want {
+			t.Errorf("BudgetOf(%s, %s) = %+v, want %+v", tc.kind, tc.policy, got, tc.want)
+		}
+	}
+}

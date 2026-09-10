@@ -36,7 +36,7 @@ func (solveEngine) Describe() Description {
 	return Description{
 		Questions: []Kind{Satisfiable},
 		Process:   SolveProcess,
-		Bounds:    []string{"solver"},
+		Bounds:    []string{"runs", "solver"},
 		Replays:   true,
 		Authority: Proved,
 	}
@@ -69,8 +69,9 @@ func (e solveEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run asks each query in turn under the budget's solver time and judges the set: satisfiable
-// when every query is, unsatisfiable when any is, not covered while any is undecided.
+// Run asks the queries in turn, each under the budget's solver time and no more of them than
+// its runs (every query without one), and judges the set: satisfiable when every query is,
+// unsatisfiable when any is, not covered while any is undecided or unasked.
 func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budget) (Result, error) {
 	solver, err := e.discover()
 	if err != nil {
@@ -83,11 +84,20 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 	if timeout <= 0 {
 		timeout = solve.DefaultTimeout
 	}
+	runs, asked := budget.Runs, len(q.Solve.Queries)
+	switch {
+	case runs <= 0:
+		runs = asked
+	case runs < asked:
+		asked = runs
+	}
 	started := time.Now()
 	values := make([]Evaluation, len(q.Solve.Queries))
 	for i, query := range q.Solve.Queries {
-		solved, err := q.Solve.Ask(solver, ctx, query)
-		values[i] = Evaluation{Name: query.Element, Solved: solved, Err: err}
+		values[i] = Evaluation{Name: query.Element}
+		if i < asked {
+			values[i].Solved, values[i].Err = q.Solve.Ask(solver, ctx, query)
+		}
 	}
 	result := Result{
 		Question: q,
@@ -95,16 +105,23 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 		Values:   values,
 		Elapsed:  time.Since(started),
 	}
-	result.Claim, result.Strength, result.Reason = judgeSolved(values)
-	result.Bounds = Bounds{{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)}}
+	result.Claim, result.Strength, result.Reason = judgeSolved(values, asked)
+	result.Bounds = Bounds{
+		{Name: "runs", Limit: int64(runs), Reached: asked < len(values)},
+		{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)},
+	}
 	return result, nil
 }
 
-// judgeSolved is the claim the answers support as a set: an undecided query leaves it not
-// covered, an unsatisfiable one makes it so, and otherwise every query has a witness.
-func judgeSolved(values []Evaluation) (Claim, Strength, string) {
+// judgeSolved is the claim the answers support as a set: an undecided query, or one past
+// the asked queries, leaves it not covered, an unsatisfiable one makes it so, and otherwise
+// every query has a witness.
+func judgeSolved(values []Evaluation, asked int) (Claim, Strength, string) {
 	claim, strength := ClaimSatisfiable, Witnessed
-	for _, v := range values {
+	for i, v := range values {
+		if i >= asked {
+			return ClaimNone, NotCovered, v.Name + " was left unasked by the runs budget"
+		}
 		c, s, reason := judgeOne(v)
 		switch {
 		case s == NotCovered:

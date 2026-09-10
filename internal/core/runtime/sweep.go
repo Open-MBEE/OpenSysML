@@ -176,11 +176,12 @@ func NewSampleSource(seed uint64) *rand.Rand {
 }
 
 // RunSweep makes one run per row of the plan and reports the table. A run that
-// failed is that row's typed error; the table is completed either way. The plan
-// itself is refused before any run is made, and a caller that goes away between
-// runs takes the rest of the table with it.
-func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan, run SweepRun) (SweepTable, error) {
-	rows, err := ctx.sweepBindings(plan)
+// failed is that row's typed error; the table is completed either way. A plan of
+// more rows than runs allows (the context's SweepRunBudget when runs is zero) is
+// refused before any run is made, and a caller that goes away between runs takes
+// the rest of the table with it.
+func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan, runs int64, run SweepRun) (SweepTable, error) {
+	rows, err := ctx.sweepBindings(plan, ctx.sweepRunLimit(runs))
 	if err != nil {
 		return SweepTable{}, err
 	}
@@ -202,12 +203,20 @@ func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan
 	return table, nil
 }
 
-// SweepRunBudget is the number of runs one sweep may ask for.
+// SweepRunBudget is the number of runs one sweep may ask for when none is stated.
 func (ctx *Context) SweepRunBudget() int64 { return ctx.maxSweepRuns }
 
+// sweepRunLimit is the rows a sweep may make: runs when stated, else the context's.
+func (ctx *Context) sweepRunLimit(runs int64) int64 {
+	if runs > 0 {
+		return runs
+	}
+	return ctx.maxSweepRuns
+}
+
 // sweepBindings is every row of a plan, in the order it is run: the cartesian
-// product of the swept ranges, or one row per draw of a sampled one.
-func (ctx *Context) sweepBindings(plan SweepPlan) ([][]SweepBinding, error) {
+// product of the swept ranges, or one row per draw of a sampled one, at most limit.
+func (ctx *Context) sweepBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
 	if len(plan.Ranges) == 0 {
 		return nil, fmt.Errorf("%w: name a range as <parameter>=<from>..<to>", ErrSweepEmpty)
 	}
@@ -222,24 +231,24 @@ func (ctx *Context) sweepBindings(plan SweepPlan) ([][]SweepBinding, error) {
 		seen[r.Param] = true
 	}
 	if plan.Sampled {
-		return ctx.sampledBindings(plan)
+		return ctx.sampledBindings(plan, limit)
 	}
-	return ctx.sweptBindings(plan)
+	return ctx.sweptBindings(plan, limit)
 }
 
 // sweptBindings enumerates each range and takes the cartesian product, the
 // first parameter varying slowest so the rows read in the order given.
-func (ctx *Context) sweptBindings(plan SweepPlan) ([][]SweepBinding, error) {
+func (ctx *Context) sweptBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
 	columns := make([][]Value, len(plan.Ranges))
 	total := int64(1)
 	for i, r := range plan.Ranges {
-		values, err := r.enumerate(ctx)
+		values, err := r.enumerate(ctx, limit)
 		if err != nil {
 			return nil, err
 		}
 		columns[i] = values
-		if total > ctx.maxSweepRuns/int64(len(values)) {
-			return nil, ctx.sweepBudgetError()
+		if total > limit/int64(len(values)) {
+			return nil, ctx.sweepBudgetError(limit)
 		}
 		total *= int64(len(values))
 	}
@@ -268,12 +277,12 @@ func (ctx *Context) sweptBindings(plan SweepPlan) ([][]SweepBinding, error) {
 
 // sampledBindings draws one value per parameter per row, the parameters in the
 // order they were given, so the draws pair up into rows rather than multiplying.
-func (ctx *Context) sampledBindings(plan SweepPlan) ([][]SweepBinding, error) {
+func (ctx *Context) sampledBindings(plan SweepPlan, limit int64) ([][]SweepBinding, error) {
 	if plan.Samples <= 0 {
 		return nil, fmt.Errorf("%w: draw at least one sample, got %d", ErrSweepSamples, plan.Samples)
 	}
-	if plan.Samples > ctx.maxSweepRuns {
-		return nil, ctx.sweepBudgetError()
+	if plan.Samples > limit {
+		return nil, ctx.sweepBudgetError(limit)
 	}
 	prepared := make([]sweepBounds, len(plan.Ranges))
 	for i, r := range plan.Ranges {
@@ -301,10 +310,17 @@ func (ctx *Context) sampledBindings(plan SweepPlan) ([][]SweepBinding, error) {
 	return rows, nil
 }
 
-// sweepBudgetError is the refusal of a plan asking for more runs than allowed.
-func (ctx *Context) sweepBudgetError() error {
-	return fmt.Errorf("%w: at most %d run(s) per sweep (raise %s)",
-		ErrSweepBudget, ctx.maxSweepRuns, MaxSweepRunsEnvVar)
+// sweepBudgetError is the refusal of a plan asking for more runs than limit allows.
+func (ctx *Context) sweepBudgetError(limit int64) error {
+	return fmt.Errorf("%w: at most %d run(s) per sweep%s", ErrSweepBudget, limit, ctx.raiseSweepRuns(limit))
+}
+
+// raiseSweepRuns names the variable that raises limit, when limit is the context's own.
+func (ctx *Context) raiseSweepRuns(limit int64) string {
+	if limit != ctx.maxSweepRuns {
+		return ""
+	}
+	return " (raise " + MaxSweepRunsEnvVar + ")"
 }
 
 // sweepBounds is a range as arithmetic reads it: magnitudes in its first
@@ -675,16 +691,15 @@ func exactScaled(n, mul, div int64) (int64, bool) {
 // enumerate is every value of a swept range, from its start towards its end,
 // including the end where a step lands on it. Values are computed from the
 // start rather than accumulated, so a real step does not drift.
-func (r SweepRange) enumerate(ctx *Context) ([]Value, error) {
+func (r SweepRange) enumerate(ctx *Context, limit int64) ([]Value, error) {
 	bounds, err := r.bounds(ctx)
 	if err != nil {
 		return nil, err
 	}
-	limit := ctx.maxSweepRuns
 	count := bounds.count()
 	if count > unsignedInt(limit) {
-		return nil, fmt.Errorf("%w: %s=%s..%s takes %d run(s), at most %d allowed (raise %s)",
-			ErrSweepBudget, r.Param, FormatValue(r.From), FormatValue(r.To), count, limit, MaxSweepRunsEnvVar)
+		return nil, fmt.Errorf("%w: %s=%s..%s takes %d run(s), at most %d allowed%s",
+			ErrSweepBudget, r.Param, FormatValue(r.From), FormatValue(r.To), count, limit, ctx.raiseSweepRuns(limit))
 	}
 	values := make([]Value, 0, count)
 	for i := int64(0); i < signedInt(count); i++ {
