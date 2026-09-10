@@ -50,7 +50,8 @@ Out of scope, and stated as such in the report where they apply:
   the caller gave; the checker explores scheduling, not the value domain. Value-domain questions
   are the SMT layer's (`internal/core/solve`), which reasons about constraints and requirements
   over free variables and has no notion of a behavior's state. The two are complementary and stay
-  separate.
+  separate here; [SMT bounded model checking](smt-model-checking.md) is the design that gives the
+  solver that notion, with this engine as its referee.
 - **Unbounded state spaces.** A merge-loop, a `do` behavior that never completes or a time
   trigger that re-arms itself produces infinitely many states. The checker is *bounded*: it
   reports what it found within the bound and never claims more.
@@ -450,8 +451,7 @@ where most systems models live (a state machine per component) and should follow
   specification does not stays approximate; the checker makes the openness *visible*, it does
   not make the pick faithful. The row gains a pointer to the divergence report.
 - The SMT layer. Scheduling and value nondeterminism remain separate questions with separate
-  tools; a later design may compose them (explore schedules, hand each final state's constraints
-  to the solver), and should be its own note.
+  tools here; composing them is [its own note](smt-model-checking.md).
 
 ## Alternatives considered
 
@@ -473,4 +473,6 @@ where most systems models live (a state machine per component) and should follow
 - **Symbolic execution.** Would answer data and scheduling nondeterminism together. The value
   domain includes quantities with units, collections, strings and object graphs; a symbolic
   state over those is a much larger project than either the SMT layer or this checker, and
-  neither is a prerequisite for it. Left for a later note.
+  neither is a prerequisite for it. The [SMT bounded model checking](smt-model-checking.md) note
+  takes the narrower route: a bounded transition relation over the solver's already-translatable
+  subset, rather than a symbolic executor.
