@@ -51,13 +51,27 @@ and the machine completes only once every region has reached it.
 sysml> state TrafficLight {
   ...>     entry; then start;
   ...>     state start;
-  ...>     state green { accept after 25 [SI::s] then yellow; }
-  ...>     state yellow { accept after 5 [SI::s] then red; }
-  ...>     state red { accept after 30 [SI::s] then done; }
+  ...>     state green;
+  ...>     accept after 25 [SI::s] then yellow;
+  ...>     state yellow;
+  ...>     accept after 5 [SI::s] then red;
+  ...>     state red;
+  ...>     accept after 30 [SI::s] then done;
   ...>     succession first start then green;
   ...> }
 ✓ state TrafficLight
+```
 
+A transition written without `transition … first`, as the three `accept after … then …`
+lines above are, leaves the state declared right before it in the same body (SysML v2
+§7.18.3): `accept after 25 [SI::s] then yellow;` leaves `green` because `state green;`
+precedes it. Several such transitions in a row all leave the same state, and the shorthand
+takes the same triggers (`accept Signal`, `accept after`, `accept at`, `accept when`), guards
+(`if …`) and effects (`do …`) as the full form. It has to follow the state it leaves
+directly, so write it in the body that declares that state, not inside the state's own body;
+written first in a body, or after a member that is not a state, it is reported.
+
+```sysml
 sysml> %state TrafficLight
 ✓ Started state machine executor for "TrafficLight"
   Current state: start
@@ -91,6 +105,32 @@ sysml> %advance 30
   Remaining events: 0
 
 ✓ State machine completed (a transition reached `done`)
+```
+
+**Choosing the starting state.** Written right after the body's entry action, the shorthand
+is an *entry transition* instead: it names the state the body starts in. `entry; then start;`
+above always starts in `start`; with a guard, `entry; if cold then heating; if not cold then
+idle;`, the alternatives are tried in the order written each time the body is entered — when
+the machine starts, and again whenever a transition enters the composite state whose body it
+is — and the first whose guard holds is entered. An unguarded `then s;` among them is the
+alternative taken when it is reached. The entry action itself runs first, so a guard reads
+what it assigned. When alternatives are written and no guard holds, the machine has nowhere
+to start and reports it as an error (`no entry transition holds`). An entry transition
+chooses by its guard alone: one written with a trigger or an effect, or one reaching
+something other than a state, is reported. A state usage typed by a definition (or a
+definition specializing another) that writes entry transitions of its own starts by those
+alone, the inherited ones being replaced just as its own `entry` behavior replaces the
+inherited one; a usage writing none starts where its definition says.
+
+```sysml
+state def Heater {
+    attribute cold : Boolean = true;
+    entry;
+    if cold then heating;
+    if not cold then idle;
+    state heating;
+    state idle;
+}
 ```
 
 **Sending a signal.** A transition that waits on an `accept` is driven from the prompt with
@@ -626,10 +666,8 @@ sysml> part def Monitor {
   ...>     attribute count = 0;
   ...>     exhibit state modes {
   ...>         entry; then idle;
-  ...>         state idle {
-  ...>             entry action bump { assign count := count + 1; }
-  ...>             accept after 10 [SI::s] then awake;
-  ...>         }
+  ...>         state idle { entry action bump { assign count := count + 1; } }
+  ...>         accept after 10 [SI::s] then awake;
   ...>         state awake { entry action mark { assign count := count + 10; } }
   ...>     }
   ...>     action bumpBy { in n; action apply { assign count := count + n; } first apply; then done; }

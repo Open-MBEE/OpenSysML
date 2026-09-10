@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::unit",
+  "objects": [
+    {
+      "finalState": "b+d",
+      "stateVisits": ["running", "fast", "b", "d"],
+      "slots": {
+        "mode": {"type": "Integer", "value": 2},
+        "slowEntries": {"type": "Integer", "value": 0},
+        "fastEntries": {"type": "Integer", "value": 1}
+      }
+    }
+  ]
+}

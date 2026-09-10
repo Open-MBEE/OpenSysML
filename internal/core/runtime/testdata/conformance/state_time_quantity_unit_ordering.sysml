@@ -12,9 +12,8 @@ package test {
 			state slow {
 				entry; then sstart;
 				state sstart;
-				state sWaiting {
-					accept after 1 [min] then sDone;
-				}
+				state sWaiting;
+				accept after 1 [min] then sDone;
 				state sDone {
 					entry { assign log := log * 10 + 2; }
 				}
@@ -25,9 +24,8 @@ package test {
 			state fast {
 				entry; then fstart;
 				state fstart;
-				state fWaiting {
-					accept after 30 [s] then fDone;
-				}
+				state fWaiting;
+				accept after 30 [s] then fDone;
 				state fDone {
 					entry { assign log := log * 10 + 1; }
 				}

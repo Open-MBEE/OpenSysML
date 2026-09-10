@@ -4,17 +4,15 @@ package Pair {
 	part def Gauge {
 		exhibit state power {
 			entry; then off;
-			state off {
-				accept after 5 [SI::s] then on;
-			}
+			state off;
+			accept after 5 [SI::s] then on;
 			state on;
 		}
 
 		exhibit state link {
 			entry; then idle;
-			state idle {
-				accept after 3 [SI::s] then busy;
-			}
+			state idle;
+			accept after 3 [SI::s] then busy;
 			state busy;
 		}
 	}

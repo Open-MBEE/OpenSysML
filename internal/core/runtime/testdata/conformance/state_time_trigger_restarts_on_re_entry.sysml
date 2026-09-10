@@ -10,12 +10,10 @@ package Test {
 		state work {
 			entry; then wstart;
 			state wstart;
-			state waiting {
-				accept after 10 [s] then late;
-			}
-			state away {
-				accept after 4 [s] then waiting;
-			}
+			state waiting;
+			accept after 10 [s] then late;
+			state away;
+			accept after 4 [s] then waiting;
 			state late {
 				entry { assign log := log * 10 + 1; }
 			}
@@ -26,9 +24,8 @@ package Test {
 		state clock {
 			entry; then cstart;
 			state cstart;
-			state c0 {
-				accept after 12 [s] then c1;
-			}
+			state c0;
+			accept after 12 [s] then c1;
 			state c1 {
 				entry { assign log := log * 10 + 2; }
 			}

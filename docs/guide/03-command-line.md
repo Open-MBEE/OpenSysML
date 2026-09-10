@@ -55,9 +55,8 @@ package MyModel {
         entry;
         then off;
         state off;
-        state warming {
-            accept after 10 [SI::s] then running;
-        }
+        state warming;
+        accept after 10 [SI::s] then running;
         state running;
         transition first off then warming;
     }
@@ -189,9 +188,8 @@ package M {
         state off {
             defer Alarm;
         }
-        state warming {
-            accept after 10 [SI::s] then done;
-        }
+        state warming;
+        accept after 10 [SI::s] then done;
         succession first off then warming;
     }
 }

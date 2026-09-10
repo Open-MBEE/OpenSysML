@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 )
@@ -200,8 +201,9 @@ func TestTransitionTargetResolvingToNonVertexIsIllegal(t *testing.T) {
 	}
 }
 
-// A sourceless `accept … then` takes the state it is written in as its source
-// (SysML v2 §7.19.3), so it has one, and reporting it would break a legal model.
+// A sourceless `accept … then` leaves the state declared before it in the same
+// body (SysML v2 §7.18.3), so it has a source, and reporting it would break a
+// legal model.
 func TestSourcelessAcceptTransitionIsLegal(t *testing.T) {
 	wantClean(t, `package test {
 	state def M {
@@ -210,11 +212,224 @@ func TestSourcelessAcceptTransitionIsLegal(t *testing.T) {
 		state busy;
 		state done;
 		succession first i then busy;
-		state idle {
-			accept go then done;
+		state idle;
+		accept go then done;
+	}
+}`)
+}
+
+// Several sourceless transitions after one state all leave it, and the succession
+// `then state wait;` declares is looked past, as is a preceding sourceless
+// transition; the shorthand is legal in a composite state's body too.
+func TestSourcelessTransitionChainAndSuccessionAreLegal(t *testing.T) {
+	wantClean(t, `package test {
+	state def M {
+		entry; then start;
+		state start;
+		then state normal;
+		accept go then maintenance;
+		if ready then degraded;
+		state maintenance;
+		accept after 5 then normal;
+		state degraded {
+			entry; then low;
+			state low;
+			accept go then high;
+			state high;
 		}
 	}
 }`)
+}
+
+// The shorthand's source is the member before it (SysML v2 §7.18.3), so as the
+// first member of its body it has none, and the check reports it where the
+// endpoint diagnostics report.
+func TestSourcelessTransitionWithNothingBeforeIsReported(t *testing.T) {
+	d := wantOneError(t, `package test {
+	state def M {
+		accept go then active;
+		entry; then init;
+		state init;
+		state active;
+	}
+}`, CodeNoTransitionSource, "has no member before it to leave")
+	if d.Message != lower.NoTransitionSourceMessage {
+		t.Fatalf("got message %q, want %q", d.Message, lower.NoTransitionSourceMessage)
+	}
+}
+
+// A guarded shorthand right after the body's entry action is the guarded entry
+// transition of SysML v2 §7.18.3 (`EntryTransitionMember`), which the pilot
+// accepts, an unguarded default among them included.
+func TestGuardedEntryTransitionIsLegal(t *testing.T) {
+	wantClean(t, `package test {
+	state def M {
+		in attribute isInitOff : Boolean;
+		entry;
+		if isInitOff then off;
+		if not isInitOff then on;
+		state off;
+		state on;
+	}
+}`)
+	wantClean(t, `package test {
+	state def M {
+		in attribute isInitOff : Boolean;
+		entry; then off;
+		if isInitOff then on;
+		state off;
+		state on;
+	}
+}`)
+	wantClean(t, `package test {
+	state def M {
+		in attribute isInitOff : Boolean;
+		entry action boot { }
+		if isInitOff then off;
+		then on;
+		state off;
+		state on;
+	}
+}`)
+}
+
+// An entry transition chooses the starting state by its guard alone (SysML v2
+// §7.18.3): a trigger or an effect on it, or a target that is no state, is
+// reported where the endpoint diagnostics report.
+func TestEntryTransitionShapeIsReported(t *testing.T) {
+	wantOneError(t, `package test {
+	state def M {
+		entry action boot { }
+		accept go then active;
+		state active;
+	}
+}`, CodeEntryTransitionShape, "carries a trigger")
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		accept go then active;
+		state init;
+		state active;
+	}
+}`, CodeEntryTransitionShape, "carries a trigger")
+	wantOneError(t, `package test {
+	state def M {
+		entry;
+		if true do action mark then active;
+		state active;
+	}
+}`, CodeEntryTransitionShape, "carries an effect")
+	wantOneError(t, `package test {
+	state def M {
+		entry;
+		if true then pick;
+		choice pick;
+		transition first pick then active;
+		state active;
+	}
+}`, CodeEntryTransitionTarget, "reaches the choice pick")
+}
+
+// The member before the shorthand is an entry action or an attribute rather than
+// a vertex, which the check names in modelling terms.
+func TestSourcelessTransitionAfterANonVertexIsReported(t *testing.T) {
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		state init;
+		attribute count : Integer = 0;
+		accept go then active;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves the attribute usage count, the member declared before it")
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		state init;
+		first init then active;
+		accept go then done;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves the succession from init, the member declared before it, which is not a state")
+	// The pilot's grammar chains the shorthand straight off the usage it leaves: a
+	// parameter, a written succession or documentation between them is what it leaves.
+	wantOneError(t, `package test {
+	part def V;
+	state def M {
+		entry; then init;
+		state init;
+		in v : V;
+		accept go then active;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves the in parameter v, the member declared before it")
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		state init;
+		succession first init then active;
+		accept go then done;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves an unnamed succession usage, the member declared before it")
+	// A pseudostate is a vertex, but not the state usage the rule names; only a
+	// transition naming it as `first` leaves it, whatever the shorthand carries.
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		state init;
+		transition first init then pick;
+		choice pick;
+		accept go then active;
+		transition first pick then active;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex,
+		"leaves the choice pick, the member declared before it, which is a pseudostate rather than a state (SysML v2 7.18.3): write `transition first pick … then …;` to leave it")
+	wantOneError(t, `package test {
+	state def M {
+		attribute ready : Boolean = true;
+		entry; then init;
+		state init;
+		transition first init then sync;
+		join sync;
+		if ready then active;
+		transition first sync then active;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves the join sync, the member declared before it, which is a pseudostate rather than a state")
+	wantOneError(t, `package test {
+	state def M {
+		entry; then init;
+		state init;
+		doc /* Serviced, then back to normal. */
+		accept go then active;
+		state active;
+	}
+}`, CodeTransitionSourceNotVertex, "leaves the documentation, the member declared before it")
+}
+
+// A region of a parallel state before the shorthand is not a state the machine
+// can leave, and the diagnostic says which kind of member it is.
+func TestSourcelessTransitionAfterARegionIsReported(t *testing.T) {
+	wantOneError(t, `package test {
+	attribute def Go;
+	state def M {
+		entry; then p;
+		state p parallel {
+			state r1 {
+				entry; then a;
+				state a;
+			}
+			accept Go then r2.b;
+			state r2 {
+				entry; then b;
+				state b;
+			}
+		}
+	}
+}`, CodeTransitionSourceNotVertex,
+		"leaves the state usage r1, the member declared before it, which is an orthogonal region of a parallel state")
 }
 
 // A junction no transition leaves routes a transition reaching it nowhere, which
@@ -347,9 +562,9 @@ func TestTransitionOutOfEntryActionIsLegal(t *testing.T) {
 }`)
 }
 
-// An entry action stands in for a start pseudostate only in the bare completion
-// shape: a triggered or guarded transition is an edge between two vertices, and
-// an entry action is neither. A trigger names the accepter rule, which is the
+// An entry action stands in for a start pseudostate in the completion shape,
+// guarded or not: a triggered transition is an edge between two vertices, and
+// an entry action is none. A trigger names the accepter rule, which is the
 // specific reading of the same rejection.
 func TestTriggeredTransitionOutOfEntryActionIsNotAVertex(t *testing.T) {
 	wantOneError(t, `package test {
@@ -359,13 +574,16 @@ func TestTriggeredTransitionOutOfEntryActionIsNotAVertex(t *testing.T) {
 		state busy;
 	}
 }`, CodeAccepterSourceNotState, "must have a state as its source")
-	wantOneError(t, `package test {
+	wantClean(t, `package test {
 	state def M {
+		in attribute c : Boolean;
 		entry action begin { }
-		transition begin if true then busy;
+		transition begin if c then busy;
+		transition begin if not c then idle;
 		state busy;
+		state idle;
 	}
-}`, CodeEndpointNotOfMachine, "begin")
+}`)
 }
 
 // Nothing transitions into an entry action.

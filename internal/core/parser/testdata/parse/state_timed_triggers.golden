@@ -4,19 +4,17 @@
       (EntryMember)
       (SuccessionEdge source="@entry" target="start")
       (SubstateMember name="start")
-      (Membership visibility="default"
-        (Usage kind="state" name="waiting" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-          (TransitionMember source="" target="working"
-            (TimeEvent absolute=false
-              (LiteralInteger value="10")))))
-      (Membership visibility="default"
-        (Usage kind="state" name="working" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-          (TransitionMember source="" target="done"
-            (TimeEvent absolute=true
-              (LiteralInteger value="15")))
-          (TransitionMember source="" target="done"
-            (ChangeEvent
-              (FeatureReference name="working")))))
+      (SubstateMember name="waiting")
+      (TransitionMember source="" target="working"
+        (TimeEvent absolute=false
+          (LiteralInteger value="10")))
+      (SubstateMember name="working")
+      (TransitionMember source="" target="done"
+        (TimeEvent absolute=true
+          (LiteralInteger value="15")))
+      (TransitionMember source="" target="done"
+        (ChangeEvent
+          (FeatureReference name="working")))
       (Membership visibility="default"
         (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (ConnectorEnd target="start"

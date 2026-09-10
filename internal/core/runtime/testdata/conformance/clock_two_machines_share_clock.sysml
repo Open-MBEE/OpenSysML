@@ -13,9 +13,8 @@ package test {
 		exhibit state pinging {
 			entry; then holding;
 
-			state holding {
-				accept after 5 [s] then pinged;
-			}
+			state holding;
+			accept after 5 [s] then pinged;
 			state pinged {
 				entry send new Ping() to receiver;
 			}
@@ -26,13 +25,11 @@ package test {
 		exhibit state listening {
 			entry; then waiting;
 
-			state waiting {
-				accept after 3 [s] then armed;
-				accept Ping then early;
-			}
-			state armed {
-				accept Ping then gotPing;
-			}
+			state waiting;
+			accept after 3 [s] then armed;
+			accept Ping then early;
+			state armed;
+			accept Ping then gotPing;
 			state early;
 			state gotPing;
 		}

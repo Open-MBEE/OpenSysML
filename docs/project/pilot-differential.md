@@ -692,8 +692,41 @@ retired rows were agreement.
 diagnostic from either side: files 33 → **34** and fully agreeing 25 → **26** on the root,
 367 → **368** and 337 → **338** overall, with every diagnostic count unmoved. The model writes its
 timed transition in the full form (`transition first coasting accept after 5 [SI::s] then decelerating;`)
-because the pinned reference does not parse a target transition inside the body of its source state,
-and this implementation does not lower a sourceless target transition at the state machine's top level.
+because the pinned reference does not parse a target transition inside the body of its source state;
+the shorthand form (`state coasting; accept after 5 [SI::s] then decelerating;`) is equivalent, and both
+sides accept it.
+
+### Target transition source round
+
+A transition written without a source now leaves the state declared before it in its body
+(SysML v2 §7.18.3 `TargetTransitionUsage`), where it used to leave the state whose body contained
+it. No corpus file moves: 368 files, 338 fully agreeing, 34 agreed, 21 only ours, 596 only the
+pilot's, identical on the parent commit and on this branch. The corpora write the shorthand only
+in the flat placement both sides accept (the training `25. Transitions` models leave `normal`,
+`maintenance` and `degraded` by it), and no corpus file writes it inside the state it leaves, or
+first in its body, or after a member that is not a state — the placements this implementation now
+reports at the constraint tier and the reference rejects by its grammar (`no viable alternative
+at input 'accept'`, `missing '}' at 'go'`) or by `A transition with an accepter must have a state
+as its source`. Three placements were refereed by probe rather than by corpus, with the same
+verdict on both sides: a `doc` between the state and the shorthand makes the documentation the
+member before it (rejected), a guarded shorthand directly after `entry;` is the guarded entry
+transition (accepted by both and lowered, see `spec-compliance.md`), and a shorthand directly
+inside a `parallel` state is `A parallel state cannot have successions or transitions` on both
+sides. The entry transition's own shapes were refereed the same way, all agreeing: `entry; if c
+then s;`, several guarded alternatives, an unguarded `then s;` among them, `entry assign x :=
+…; if c then s;`, `entry action boot { } if c then s;` and `transition boot if c then s;` after
+a named entry action, nested in a composite state, in an orthogonal region and in an exhibited
+state are accepted on both sides; an entry transition with a trigger (`entry; accept Go then
+s;`, `entry; accept after 5 [SI::s] then s;`) or an effect (`entry; if c do action a then s;`)
+is rejected on both sides — by the reference's grammar (`EntryTransitionMember` takes a guard
+and a target only) or by `A transition with an accepter must have a state as its source`, here
+by the constraint tier and `lower.ToStateGraph`; one reaching an attribute is rejected on both
+sides too (`A transition must own a succession to its target` there). Two target shapes could
+not be refereed: an entry transition reaching a `choice` or `junction` pseudostate, which the
+reference's grammar has no production for and this implementation reports as a target the body
+cannot start in, and one reaching an action usage, which the reference accepts and this
+implementation reports as `transition endpoint … is not a state or pseudostate` — the endpoint
+rule every transition is held to here, entry transitions included.
 
 ### Expressions walkthrough round
 

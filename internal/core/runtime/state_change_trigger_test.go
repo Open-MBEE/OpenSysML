@@ -15,9 +15,8 @@ func TestChangeTriggerRunsWithoutAnExternalPoll(t *testing.T) {
 			attribute log : Integer = 0;
 			entry; then start;
 			state start;
-			state waiting {
-				accept when ready then done;
-			}
+			state waiting;
+			accept when ready then done;
 			state done { entry { assign log := 1; } }
 			succession first start then waiting;
 		}
@@ -47,8 +46,8 @@ func TestChangeTriggerFiresOnRiseFromDoBehavior(t *testing.T) {
 					assign count := count + 1;
 					assign count := count + 1;
 				}
-				accept when count >= 2 then done;
 			}
+			accept when count >= 2 then done;
 			state done;
 			succession first start then counting;
 		}
@@ -69,9 +68,8 @@ func TestChangeTriggerFalseConditionIsReported(t *testing.T) {
 			attribute ready : Boolean = false;
 			entry; then start;
 			state start;
-			state waiting {
-				accept when ready then done;
-			}
+			state waiting;
+			accept when ready then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -108,9 +106,8 @@ func TestQuiescedMachineReportsNoChangeCondition(t *testing.T) {
 		state Machine {
 			entry; then start;
 			state start;
-			state waiting {
-				accept sig then done;
-			}
+			state waiting;
+			accept sig then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -210,8 +207,8 @@ func TestChangeTriggerPollingKeepsEventBudget(t *testing.T) {
 			state start;
 			state waiting {
 				do action tick { assign ready := ready; }
-				accept when ready then done;
 			}
+			accept when ready then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -276,12 +273,10 @@ func TestChangeTriggerRearmsOnStateExit(t *testing.T) {
 			attribute ready : Boolean = true;
 			entry; then start;
 			state start;
-			state waiting {
-				accept when ready then working;
-			}
-			state working {
-				accept Back then waiting;
-			}
+			state waiting;
+			accept when ready then working;
+			state working;
+			accept Back then waiting;
 			succession first start then waiting;
 		}
 	}`)
@@ -324,8 +319,8 @@ func TestChangeTriggerConsumesTheRiseForALosingTransition(t *testing.T) {
 					state r1;
 					transition first rstart then r1;
 				}
-				accept when ready then Done;
 			}
+			accept when ready then Done;
 			state Done;
 			succession first start then Working;
 		}
@@ -430,9 +425,8 @@ func TestSuspendReasonMakesNoClaimBeforeTheMachineIsStepped(t *testing.T) {
 			attribute ready : Boolean = true;
 			entry; then start;
 			state start;
-			state waiting {
-				accept when ready then done;
-			}
+			state waiting;
+			accept when ready then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -455,10 +449,9 @@ func TestSuspendReasonMakesNoClaimOnceASignalIsQueued(t *testing.T) {
 			attribute ready : Boolean = false;
 			entry; then start;
 			state start;
-			state waiting {
-				accept when ready then done;
-				accept Go then done;
-			}
+			state waiting;
+			accept when ready then done;
+			accept Go then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -555,11 +548,10 @@ func TestChangeTriggerRecallsDeferredEvents(t *testing.T) {
 			state start;
 			state busy {
 				defer Ping;
-				accept when ready then waiting;
 			}
-			state waiting {
-				accept Ping then done;
-			}
+			accept when ready then waiting;
+			state waiting;
+			accept Ping then done;
 			state done;
 			succession first start then busy;
 		}

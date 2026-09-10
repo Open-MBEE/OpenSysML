@@ -1,7 +1,7 @@
 {
   "type": "state",
   "events": [
-    {"signal": "go"}
+    {"signal": "Go"}
   ],
   "stateVisits": ["init", "waiting", "active", "done"],
   "finalState": "done"

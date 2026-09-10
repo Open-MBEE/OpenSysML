@@ -688,7 +688,7 @@ go test -v -run TestExecutionConformance ./internal/core/runtime
 - Deadlocked action (join starvation)
 - Decision with no satisfied guard
 - State machine with dangling transition
-- Sourceless accept...then at top level
+- Sourceless accept...then written first in its body or after a member that is not a state
 - Calc with unbound parameter, surplus or unknown-named arguments, no result, non-calc target, direct or mutual recursion
 - Constraint referencing missing feature
 - Step budget exceeded

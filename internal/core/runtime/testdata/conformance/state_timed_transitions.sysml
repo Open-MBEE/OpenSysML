@@ -12,16 +12,13 @@ package test {
 
         entry; then init;
         state init;
-        state waiting {
-            accept after 10 [s] then working;
-        }
-        state working {
-            accept at five then instant;
-            accept after 3 [s] then later;
-        }
-        state instant {
-            accept after 1 [s] then done;
-        }
+        state waiting;
+        accept after 10 [s] then working;
+        state working;
+        accept at five then instant;
+        accept after 3 [s] then later;
+        state instant;
+        accept after 1 [s] then done;
         state later;
 
         succession first init then waiting;

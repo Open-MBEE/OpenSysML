@@ -280,12 +280,10 @@ func TestExprTimedTransitionDelayIsNotACondition(t *testing.T) {
 		part def M {
 			attribute period : ScalarValues::Integer = 10;
 			state def S {
-				state a {
-					accept after 10 then b;
-				}
-				state b {
-					accept at period then a;
-				}
+				state a;
+				accept after 10 then b;
+				state b;
+				accept at period then a;
 			}
 		}
 	}`)
@@ -296,9 +294,8 @@ func TestExprAcceptWhenConditionMustBeBoolean(t *testing.T) {
 		part def M {
 			attribute temp : ScalarValues::Integer = 3;
 			state def S {
-				state a {
-					accept when temp then b;
-				}
+				state a;
+				accept when temp then b;
 				state b;
 			}
 		}

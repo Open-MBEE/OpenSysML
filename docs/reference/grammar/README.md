@@ -80,6 +80,18 @@ Notes:
   Time and change events cannot be deferred; lowering reports them.
 - `defer` is only meaningful inside a state. One written in the machine's own body is
   reported by `lower.ToStateGraph`.
+- A transition without a source part (`accept go then s;`, `if c then s;`, `then s;`,
+  `transition if c then s;`) is parsed with no source; the state declared before it in
+  the same body is its source (SysML v2 §7.18.3, `TargetTransitionUsage`), derived by
+  `ast.ImplicitTransitionSource` for validation and lowering. It is a member of the body
+  that declares that state, written after it — the pilot's grammar does not accept it
+  inside the state's own body — and one written first in its body or after a member that
+  is not a state is reported.
+- The same shorthand written right after the body's entry action (`entry; then s;`,
+  `entry; if c then s;`, `entry action boot { … } if c then s;`) is an entry transition
+  (SysML v2 §7.18.3, `EntryTransitionMember`), naming a state the body starts in. It
+  carries a guard at most; `lower.ToStateGraph` reports one with a trigger or an effect,
+  or whose target is not a state, as does the constraint tier.
 - Unreserved does not mean invisible to editors. `lexer.ContextualWords(kind)`
   lists these words for the two places that want them, the VS Code grammars
   (`keywords-contextual`) and LSP keyword completion, without the lexer

@@ -1,9 +1,10 @@
 {
   "type": "state",
   "evaluate": "test::Twice",
-  "finalState": "two",
+  "finalState": "done",
+  "stateVisits": ["one", "counting", "two", "counting", "done"],
   "outputs": {
     "one.hits": {"type": "Integer", "value": 1},
-    "two.hits": {"type": "Integer", "value": 0}
+    "two.hits": {"type": "Integer", "value": 1}
   }
 }

@@ -6,10 +6,9 @@
           (EntryMember)
           (SuccessionEdge source="@entry" target="start")
           (SubstateMember name="start")
-          (Membership visibility="default"
-            (Usage kind="state" name="idle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
-              (TransitionMember source="" target="stopping"
-                (CallEvent operation="brake" parameters=[]))))
+          (SubstateMember name="idle")
+          (TransitionMember source="" target="stopping"
+            (CallEvent operation="brake" parameters=[]))
           (SubstateMember name="stopping")
           (SubstateMember name="cruising")
           (Membership visibility="default"

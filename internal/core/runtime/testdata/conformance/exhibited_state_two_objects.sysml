@@ -8,9 +8,8 @@ package test {
 		attribute count : Integer = 0;
 
 		entry; then waiting;
-		state waiting {
-			accept Tick then counted;
-		}
+		state waiting;
+		accept Tick then counted;
 		state counted {
 			entry action increment {
 				assign count := count + 1;

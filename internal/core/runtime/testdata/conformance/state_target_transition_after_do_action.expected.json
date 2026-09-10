@@ -1,0 +1,5 @@
+{
+  "type": "instance",
+  "instantiate": "test::scout",
+  "error": "exhibited state machine flightMode of scout: lower state machine: transition without a source leaves the do action, the member declared before it, which is not a state of this state machine (SysML v2 7.18.3)"
+}

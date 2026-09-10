@@ -13,12 +13,10 @@ package test {
 		exhibit state reacting {
 			entry; then idle;
 
-			state idle {
-				accept Go then countdown;
-			}
-			state countdown {
-				accept after 3 [s] then fired;
-			}
+			state idle;
+			accept Go then countdown;
+			state countdown;
+			accept after 3 [s] then fired;
 			state fired {
 				entry assign count := count + 1;
 			}

@@ -1,0 +1,8 @@
+{
+  "type": "state",
+  "finalState": "ready",
+  "stateVisits": ["ready"],
+  "outputs": {
+    "readyEntries": {"type": "Integer", "value": 1}
+  }
+}

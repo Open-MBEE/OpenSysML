@@ -716,13 +716,15 @@ func changeWatchOrder(t *testing.T, policy SchedulePolicy) ([]int64, []ChoicePoi
 			part cell : Cell;
 			state raiser {
 				entry; then holding;
-				state holding { accept after 2 [s] then raised; }
+				state holding;
+				accept after 2 [s] then raised;
 				state raised { entry assign cell.mark := 1; }
 			}
 			state taker {
 				attribute seen : Integer = -1;
 				entry; then waiting;
-				state waiting { accept when cell.mark > 0 then took; }
+				state waiting;
+				accept when cell.mark > 0 then took;
 				state took {
 					entry action take { assign seen := cell.mark; assign cell.mark := cell.mark + 1; }
 				}

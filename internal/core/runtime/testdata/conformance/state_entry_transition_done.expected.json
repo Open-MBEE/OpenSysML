@@ -1,0 +1,14 @@
+{
+  "type": "state",
+  "events": [],
+  "finalState": "done",
+  "stateVisits": [
+    "done"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "in;out;"
+    }
+  }
+}

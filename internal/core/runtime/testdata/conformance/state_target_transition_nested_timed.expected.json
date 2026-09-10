@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "trace": true,
+  "instantiate": "test::scout",
+  "objects": [
+    {
+      "finalState": "decelerating",
+      "stateVisits": ["descent", "coasting", "decelerating"],
+      "slots": {
+        "entries": {"type": "Integer", "value": 1}
+      }
+    }
+  ]
+}

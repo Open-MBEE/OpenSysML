@@ -2233,7 +2233,7 @@ fixed from broken, each with a visible A/B against `main`:
 - **Calc parameter** — `in redefines factor = 3;` overriding an inherited `in factor = 2`. The
   giveaway is a *wrong number*, not an error: the invocation silently uses the inherited default
   (`Scaled(7)` → 14 instead of 21), so assert the value, never just "it evaluated".
-- **State** — `state redefines waiting { accept go then active; }`. A lost name makes the sourceless
+- **State** — `state redefines waiting; accept go then active;`. A lost name makes the sourceless
   accept vanish: `%state` shows `Events: 0` and `%advance 1` never leaves the initial state.
 
 Ready-made fixtures for all of these live in `internal/core/runtime/testdata/conformance/`
@@ -3596,7 +3596,7 @@ False-positive traps to always include as *legal* rows, since each exercises a d
   one; run it with `%state TransitionSiblingRegion` + `%advance 1` → `Current state: lidle | rtarget`
   and `crossed = 1`.
 - `entry point into;` / `exit point outOf;` as endpoints (`state_entry_exit_points.sysml`).
-- A sourceless `accept after 5 then <s>;` written *inside* a state (source is implicit).
+- A sourceless `accept after 5 then <s>;` written after a state (the source is the state declared before it).
 - `first start then off;` with no `initial`.
 - A junction left by a **succession** (`route then finishedUp;`) rather than a `transition`, and a
   `fork`/`join` reached by one — the pass tracks succession sources *by name*, so a regression here
@@ -5250,7 +5250,7 @@ to diff against a document's table verbatim.
 Use `%send <SignalName> [to <object>]` followed by `%step` to drive signal transitions.
 The signal lists in `internal/core/runtime/testdata/conformance/*.expected.json` belong to the
 conformance harness and are not automatically injected by the REPL. Alternatively, write
-fixtures with **timed triggers** (`state a { accept after 5 then done; }`)
+fixtures with **timed triggers** (`state a; accept after 5 then done;`)
 and step them with `%advance <t>`; each region can be given
 a different delay so a partial configuration is observable. `sysml <model> -state <name>` only
 *starts* the executor and prints the initial configuration — it does not run to completion, so use
@@ -5280,8 +5280,8 @@ Completion (a transition whose endpoint is the unqualified `done`) shows up as, 
   ```sysml
   state def M { entry; then outer;
       state outer parallel {
-          state r1 { entry; then x; state x { accept after 5 then done; } }
-          state r2 { entry; then y; state y { accept after 7 then done; } } } }
+          state r1 { entry; then x; state x; accept after 5 then done; }
+          state r2 { entry; then y; state y; accept after 7 then done; } } }
   ```
   `%advance 5` → `done | y` + `Running`, no completion line; `%advance 2` → `done | done` + `Completed`.
   Add a *two-level* variant (a `parallel` state inside a region of another `parallel` state) whose inner

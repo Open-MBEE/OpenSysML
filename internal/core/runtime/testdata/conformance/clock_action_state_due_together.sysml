@@ -12,9 +12,8 @@ package test {
 		exhibit state blinking {
 			entry; then dark;
 
-			state dark {
-				accept after 5 [s] then shining;
-			}
+			state dark;
+			accept after 5 [s] then shining;
 			state shining {
 				entry assign lit := true;
 			}
