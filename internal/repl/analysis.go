@@ -293,7 +293,9 @@ func (s *Session) runAnalysisIn(ctx *runtime.Context, inv analysisInvocation, sy
 	// A verification case runs the same body; asking the run for its verdict too
 	// reports it beside what the run computed.
 	if runtime.IsVerificationCaseSymbol(sym) {
-		verified, err := ctx.RunVerification(sym, args, runScope, self)
+		verified, err := s.runVerification(fqn, ctx, func(ctx *runtime.Context) (runtime.VerificationResult, error) {
+			return ctx.RunVerification(sym, args, runScope, self)
+		})
 		if err != nil {
 			return caseRun{}, err
 		}
@@ -301,7 +303,9 @@ func (s *Session) runAnalysisIn(ctx *runtime.Context, inv analysisInvocation, sy
 		run.verdicts = append([]runtime.VerificationVerdict{verified.Verdict}, verified.Subcases...)
 		return run, nil
 	}
-	result, err := ctx.RunAnalysis(sym, args, runScope, self)
+	result, err := s.runCase(fqn, ctx, func(ctx *runtime.Context) (runtime.AnalysisResult, error) {
+		return ctx.RunAnalysis(sym, args, runScope, self)
+	})
 	run.result = result
 	if err != nil {
 		if errors.Is(err, runtime.ErrNotAnAnalysis) {

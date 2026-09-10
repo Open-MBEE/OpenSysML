@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"sync"
@@ -484,6 +485,23 @@ func TestEvaluateCalcUsageReportsItsOutputs(t *testing.T) {
 		if out.Value.GetIntValue() != want[out.Name] {
 			t.Errorf("output %s = %v, want %d", out.Name, out.Value, want[out.Name])
 		}
+	}
+}
+
+// A calc usage evaluated from its members is one run under the registry like any
+// other evaluation, so a caller already gone fails the call unperformed.
+func TestEvaluateCalcUsageCanceledCallerFailsTheCall(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, `package Demo {
+	calc def Two { in n; out a = n + 1; }
+	calc c : Two { in n = 5; }
+}
+`, "verify-calc-usage-canceled")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	resp, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: "Demo::c"})
+	if !errors.Is(err, context.Canceled) || resp != nil {
+		t.Fatalf("EvaluateCalc for a gone caller: %v, %v; want context.Canceled and no response", err, resp)
 	}
 }
 

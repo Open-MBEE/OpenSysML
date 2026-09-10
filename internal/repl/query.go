@@ -169,7 +169,9 @@ func (s *Session) checkConstraint(name string) Verdict {
 	if bad != nil {
 		return *bad
 	}
-	result, err := target.ctx.CheckConstraintOn(target.sym, target.scope, inst)
+	result, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+		return ctx.CheckConstraintOn(target.sym, target.scope, inst)
+	})
 	inst, owner = s.reportedSubject(result, inst, owner)
 	if unevaluable(err) {
 		return unevaluableVerdict(name, "Constraint "+name, err, inst, owner)
@@ -208,7 +210,9 @@ func (s *Session) checkRequirement(name string) Verdict {
 	if bad != nil {
 		return *bad
 	}
-	result, err := target.ctx.CheckRequirementOn(target.sym, target.scope, inst)
+	result, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+		return ctx.CheckRequirementOn(target.sym, target.scope, inst)
+	})
 	inst, owner = s.reportedSubject(result, inst, owner)
 	if unevaluable(err) {
 		return s.withVerifications(unevaluableVerdict(name, "Requirement "+name, err, inst, owner), target.ctx, target.sym)
