@@ -1896,8 +1896,8 @@ This item gates everything else in the track.
 
 ## M2 — a state and action C backend over static tables
 
-From M1: state and transition tables, a static Petri-net-style scheduler for the action graph
-(token counts per place, no dynamic node creation), fixed-size event queues sized from the model,
+From M1: state and transition tables, a static succession scheduler for the action graph
+(a token count per node, no dynamic node creation), fixed-size event queues sized from the model,
 static port/connection routing, expression evaluation through N2's C emitter, and no `malloc`
 after initialization. A model that cannot be bounded — unbounded multiplicity, recursion the
 compiler cannot bound, `all T`, dynamic `new` — is refused by name. Differential against the

@@ -490,11 +490,14 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 
 **Behavioral Execution (Tier 5):**
 
-- **`Token`** — Control token for action execution, carrying no values of its own
+- **`Token`** — Control token for action execution, carrying no values of its own. A token is
+  the executor's record of where a performance is along the successions of the lowered graph;
+  the ordering it realizes is KerML's `HappensBefore`, not a Petri-net or fUML semantics
   - `ID int64` — Unique token ID
   - `Location ast.Node` — Current node (InitialNode, ActionExecutionNode, etc.)
 
-- **`ActionExecutor`** — Petri-net token-flow execution engine
+- **`ActionExecutor`** — Succession-ordered action execution engine (a token queue over the
+  lowered `ActionGraph`)
   - `Step() error` — Advance all tokens one step; a breakpoint met inside a token's body
     ends the step there, with no other token stepped, and the next step steps the other
     tokens before resuming the paused one

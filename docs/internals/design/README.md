@@ -24,8 +24,9 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
   within a budget under `explore`
-- **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, an OpenSysML
-  extension against UML 2.5.1 semantics
+- **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, in the standard
+  `parallel` notation; the bundled libraries give them no performance, so UML 2.5.1 supplies
+  the semantics
 - **[Pseudostates](pseudostates.md)** — choice, junction, fork, join
   and history
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
