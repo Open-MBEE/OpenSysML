@@ -23,10 +23,10 @@ package IrregularLayout {
         part axle : Axle;
         connect wheels to axle;
         constraint bounds {
-            mass > 0 and mass < limit;
+            mass > 0 and mass < limit
         }
         assert constraint {
-            mass > 0;
+            mass > 0
         }
         calc speed : Speed {
             in m = mass * 2 - 1;

@@ -1158,7 +1158,13 @@ own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBoun
 and `sysml:value` with its `default`/`:=` operator (`require #Goal constraint braked [1] = true;`) — and
 `subject s : X;` as the `sysml:SubjectMembership` it declares. The `assert` prefixing a named usage
 (`assert constraint c : C`) is carried as `sysx:declaredPrefix`. The conditions
-themselves are notation, with the limits stated above. An `assume`/`require`
+themselves are notation, with the limits stated above. The keyword-less condition
+that closes a body is written bare, as a [result expression](#result-expressions)
+is, because a name alone before a `;` (`ready;`) declares a kind-less feature rather
+than referring to one — so `require constraint { ready }`, `assert constraint { not x }`
+and `inv { a and b }` come back from the graph alone with the reference their
+`sysml:FeatureReferenceExpression` states; a condition others follow keeps its `;`
+(`condition_references` fixture, `condition_references_test.go`). An `assume`/`require`
 member's `sysx:declaredKeyword`, when present, is `constraint`; any other value
 is reported rather than the member written in a form the keyword did not state.
 A member is written in one of these forms, so a graph stating an inline
