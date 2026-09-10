@@ -182,6 +182,9 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	result, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
 		return rt.CheckConstraintOn(sym, v.declaringScope(sym), inst)
 	})
+	if err := callerGone(ctx, evalErr); err != nil {
+		return nil, err
+	}
 	subject := subjectOf(result, inst)
 	return &pb.VerifyConstraintResponse{
 		Verdict:   v.verdict(verdictConstraint, sym, "", subject, result.Holds, evalErr),
@@ -212,6 +215,9 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	result, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
 		return rt.CheckRequirementOn(sym, v.declaringScope(sym), inst)
 	})
+	if err := callerGone(ctx, evalErr); err != nil {
+		return nil, err
+	}
 	subject := subjectOf(result, inst)
 	return &pb.VerifyRequirementResponse{
 		Verdict:   v.verdict(verdictRequirement, sym, "", subject, result.Holds, evalErr),
@@ -244,7 +250,10 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		}
 		// A named `satisfy requirement r by p` is itself one assertion.
 		if a, aerr := v.runtime.SatisfyAssertionOf(sym); aerr == nil {
-			verdict, instances := v.satisfyVerdict(ctx, a)
+			verdict, instances, err := v.satisfyVerdict(ctx, a)
+			if err != nil {
+				return nil, err
+			}
 			return &pb.VerifySatisfactionResponse{
 				Verdicts:             []*pb.Verdict{verdict},
 				Instances:            instances,
@@ -269,7 +278,10 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
-			verdict, instances := v.satisfyVerdict(ctx, a)
+			verdict, instances, err := v.satisfyVerdict(ctx, a)
+			if err != nil {
+				return nil, err
+			}
 			resp.Verdicts = append(resp.Verdicts, verdict)
 			if req := a.AssertedRequirement(); req != nil && !verified[req] {
 				verified[req] = true
@@ -289,8 +301,9 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 }
 
 // satisfyVerdict evaluates one assertion against an object of its subject, built
-// for this call so the verdict is about the values that subject holds.
-func (v *verifyContext) satisfyVerdict(ctx context.Context, a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance) {
+// for this call so the verdict is about the values that subject holds. The error
+// is the caller's own, having gone away before the check.
+func (v *verifyContext) satisfyVerdict(ctx context.Context, a *runtime.SatisfyAssertion) (*pb.Verdict, []*pb.Instance, error) {
 	var subject *runtime.Instance
 	if a.Subject != nil {
 		// Created here rather than inside the evaluation so that the object the
@@ -301,17 +314,20 @@ func (v *verifyContext) satisfyVerdict(ctx context.Context, a *runtime.SatisfyAs
 			// which is a failure to evaluate rather than a verdict of false.
 			verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), nil, false, err)
 			v.associateRequirement(verdict, a)
-			return verdict, nil
+			return verdict, nil, nil
 		}
 		subject = inst
 	}
 	result, err := v.check(ctx, a.Text(), func(rt *runtime.Context) (runtime.CheckResult, error) {
 		return rt.CheckSatisfactionOn(a, subject)
 	})
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, nil, gone
+	}
 	subject = subjectOf(result, subject)
 	verdict := v.verdict(verdictSatisfy, a.Symbol, a.Text(), subject, result.Holds, err)
 	v.associateRequirement(verdict, a)
-	return verdict, v.instanceGraph(subject)
+	return verdict, v.instanceGraph(subject), nil
 }
 
 // associateRequirement names on a satisfaction verdict the requirement it
@@ -385,6 +401,9 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 	}, func(result runtime.Value, err error) analysis.Answer {
 		return analysis.ValuesAnswer([]analysis.Evaluation{{Name: sweepResultName, Value: result}}, err)
 	})
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
 	if err != nil {
 		return &pb.EvaluateCalcResponse{
 			Error:         fmt.Sprintf("calc invocation failed: %v", err),

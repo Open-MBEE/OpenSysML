@@ -25,6 +25,15 @@ func performOn[T any](ctx context.Context, s *Service, rt *runtime.Context, subj
 	return analysis.Perform(ctx, s.engines, analysis.Held(rt, nil), subject, schedule, analysis.BudgetOf(s.budgets, schedule), call, answer)
 }
 
+// callerGone is the caller's own error when a run failed because the caller went
+// away, which fails the call rather than being reported as the run's failure.
+func callerGone(ctx context.Context, err error) error {
+	if err != nil {
+		return ctx.Err()
+	}
+	return nil
+}
+
 // heldAnswer is what a behavior run established: the values it left, or nothing.
 func heldAnswer(held map[string]runtime.Value, err error) analysis.Answer {
 	return analysis.ValuesAnswer(analysis.ValuesOf(held), err)

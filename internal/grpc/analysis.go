@@ -51,6 +51,9 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 
 	// The choices a run made are reported with its outcome, failed or not.
 	result, verdicts, err := v.runCase(ctx, sym, args)
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
 	resp = &pb.RunAnalysisResponse{}
 	if err != nil {
 		resp.Error = err.Error()

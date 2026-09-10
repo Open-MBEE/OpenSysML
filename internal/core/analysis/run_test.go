@@ -224,3 +224,28 @@ func TestAnswersOfRuns(t *testing.T) {
 		t.Fatalf("failed check %+v, want nothing claimed", a)
 	}
 }
+
+// A caller already gone when the run is asked for is answered with its own error
+// before the execution starts, the run engine's step carrying it.
+func TestRunStopsWhenTheCallerIsGone(t *testing.T) {
+	f := parseFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	performed := false
+	q := Question{Kind: Evaluate, Subject: "test::Double", Schedule: runtime.DefaultSchedulePolicy,
+		Perform: func(*runtime.Context) (Answer, error) {
+			performed = true
+			return Answer{Claim: ClaimValue}, nil
+		}}
+	plan, err := Default().Answer(ctx, Held(f.context(t), nil), q, Budget{})
+	if !errors.Is(err, context.Canceled) || performed {
+		t.Fatalf("answer for a gone caller: %v, performed %v; want context.Canceled unperformed", err, performed)
+	}
+	if len(plan.Steps) != 1 || plan.Steps[0].Engine != RunEngineName ||
+		!errors.Is(plan.Steps[0].Err, context.Canceled) {
+		t.Fatalf("steps %+v, want run's step carrying the cancellation", plan.Steps)
+	}
+	if plan.Result.Covered() {
+		t.Fatalf("result %+v, want nothing established", plan.Result)
+	}
+}

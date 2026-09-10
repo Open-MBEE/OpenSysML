@@ -39,6 +39,10 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 	}
 	x, err := s.engines.Explore(ctx, &analysis.Model{Fresh: fresh}, subject, policy, recorded, analysis.BudgetOf(s.budgets, policy))
 	if err != nil {
+		// A caller that went away is the call failing, not a precondition unmet.
+		if ctx.Err() != nil {
+			return nil, nil, ctx.Err()
+		}
 		return nil, nil, statusError(connect.CodeFailedPrecondition, err.Error())
 	}
 	outcomes := make([]*pb.Outcome, 0, len(x.Outcomes))

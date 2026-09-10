@@ -873,6 +873,9 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	outputs, err := performOn(ctx, s, runtimeCtx, req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
 		return rt.ExecuteActionWithInputs(action, inputs)
 	}, heldAnswer)
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
@@ -952,6 +955,9 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		final, visited, err := rt.ExecuteStateWithEvents(stateMachine, req.Events)
 		return stateRun{final: final, visited: visited}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
 	if err != nil {

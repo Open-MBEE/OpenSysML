@@ -48,7 +48,11 @@ func (e runEngine) Covers(_ *Model, q Question) Coverage {
 
 // Run performs the question once in the model's context: a violation is witnessed, any
 // other claim observed, and a failed execution claims nothing, naming the budget it hit.
-func (e runEngine) Run(_ context.Context, model *Model, q Question, _ Budget) (Result, error) {
+// The one execution is the unit of work, so a ctx already done is its error unperformed.
+func (e runEngine) Run(ctx context.Context, model *Model, q Question, _ Budget) (Result, error) {
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
 	rctx, err := model.Context()
 	if err != nil {
 		return Result{}, err
