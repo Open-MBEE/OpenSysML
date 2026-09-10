@@ -150,8 +150,13 @@ the manifest said.
   allows such a claim to be composed at, and is the subject of the standing section. An entry
   with no `admit` has its universal claims composed as *not covered* unless they rest on
   executions the interpreter replays.
-- `concurrent`, default true, says whether one process may serve several runs at once; an
-  engine that cannot gets one process per run under `-jobs`.
+- `concurrent`, default true, says whether one process may hold several `run` requests open at
+  once — the questions `-jobs` puts to the engine at the same time. An engine that cannot gets
+  one process per open request: the coordinator starts another session for the next question
+  while one is still answering, and ends it with the plan. The unit is the request, never
+  anything inside it: what an engine does to answer one `run` — the solver queries, the
+  simulations, the rows of a `sweep` it was asked whole — is its own, and the host neither
+  sees nor splits it.
 
 A strategy's entry is the same file with `kind` `policy` or `sampler`, a `protocol`, and no
 question fields:
@@ -177,8 +182,9 @@ Two rules the manifest enforces that the tool manifest already implied:
 A **session** is one process for one plan. The coordinator starts it at the plan's first
 question to the engine and ends it when the plan ends or the deadline passes, so an engine that
 loads a formalism or warms a solver pays once per plan, and under `-jobs` several questions to
-one engine share one process unless the entry declares `"concurrent": false`, in which case the
-coordinator starts one process per run. Standard error is captured up to `OPENSYSML_TOOL_MAX_OUTPUT`
+one engine share one process, each an open `run` request with its own `id`, unless the entry
+declares `"concurrent": false`, in which case the coordinator starts one process per open
+request and the engine sees one question at a time. Standard error is captured up to `OPENSYSML_TOOL_MAX_OUTPUT`
 (the rest discarded), printed with a *not covered* result's reason, and never parsed.
 
 Messages are JSON-RPC 2.0 objects, one per line — the envelope `internal/stdiorpc` already
@@ -543,7 +549,9 @@ contains can cause it:
   prints a handful), an exit mid-run, and no answer to `cancel` (the process is ended at the
   deadline) — each producing the *not covered* result the failure table names, with `auto`
   advancing to `explore` and `-engine <name>` stopping with the reason. Run under `-race` with
-  `-jobs 8` and a stand-in that declares `concurrent: false`.
+  `-jobs 8` against a stand-in that answers several open requests on one process, and again
+  against one that declares `concurrent: false` and asserts it never holds two open requests,
+  with the plan's output identical in both.
 - **Standing:** an external `holds` claimed *bounded* with no `executions` and no `admit` is
   composed *not covered* with the claim in the reason; with `executions` that replay and on
   which the claim holds it is *observed* naming their count; with one execution that fails
