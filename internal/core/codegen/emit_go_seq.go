@@ -452,7 +452,7 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		}
 		return fmt.Sprintf("sysmlScalar(%s, %s, %t, %s)", e.expr(x.X), strconv.Quote(x.Fail), x.Bare, other), true
 	case Let:
-		return fmt.Sprintf("func() %s { %s := %s; return %s }()", goType(x.In.Type()), goLocal(x.Name), e.expr(x.Value), e.expr(x.In)), true
+		return fmt.Sprintf("func() %s { %s := %s; _ = %s; return %s }()", goType(x.In.Type()), goLocal(x.Name), e.expr(x.Value), goLocal(x.Name), e.expr(x.In)), true
 	case Checked:
 		return e.checked(x), true
 	case Coalesce:

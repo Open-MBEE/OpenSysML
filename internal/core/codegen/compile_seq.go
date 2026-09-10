@@ -498,11 +498,14 @@ func (fc *funcCompiler) compileLambda(op SeqOp, b *ast.BodyExpr, paramTypes []Ty
 			continue
 		}
 		if u, ok := unwrap(member).(*ast.Usage); ok {
-			decl, err := fc.compileDeclare(lower.Declare{Name: usageName(u), Value: u.Value, Node: u, Scope: fc.scope})
+			decls, err := fc.compileDeclare(lower.Declare{Name: usageName(u), Value: u.Value, Node: u, Scope: fc.scope})
 			if err != nil {
 				return Lambda{}, err
 			}
-			d := decl.(Declare)
+			if len(decls) != 1 {
+				return Lambda{}, fc.unsupported(fmt.Sprintf("attribute %s, a SampledFunction declared inside a body expression", usageName(u)))
+			}
+			d := decls[0].(Declare)
 			local, _ := fc.env.lookup(d.Name)
 			local.inline = d.Init
 			if local.inline == nil {

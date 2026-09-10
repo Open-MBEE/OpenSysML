@@ -467,7 +467,7 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 		}
 		return fmt.Sprintf("sysml_scalar_%s(%s, %s, %t, %s)", sfx, e.expr(x.X), cWhere(x.Fail), x.Bare, other), true
 	case Let:
-		return fmt.Sprintf("({ %s %s = %s; %s; })", cType(x.Value.Type()), cLocal(x.Name), e.expr(x.Value), e.expr(x.In)), true
+		return fmt.Sprintf("({ %s %s = %s; (void)%s; %s; })", cType(x.Value.Type()), cLocal(x.Name), e.expr(x.Value), cLocal(x.Name), e.expr(x.In)), true
 	case Checked:
 		return e.checked(x), true
 	case Coalesce:

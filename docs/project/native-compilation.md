@@ -56,6 +56,8 @@ A calc compiles when everything it reaches is in this subset:
 | `if` / `else`, `while … [until]`, `loop { … } until` | control flow |
 | Invocation of another compilable calc, positional or named; direct and mutual recursion | native call |
 | `calc c : D;`, `calc def E :> D;` adding no member of its own | compiles as `D` |
+| `in calc f { in v : Real; return : Real; }` parameters; a calc def, a calc usage with an unsupplied input, or a compiled scalar library function (`RealFunctions::sqrt`, `RealFunctions::floor`, …) passed for one; `f(a)` and `f(v = a)` in the body | one function per calc *and* per tuple of function values its `in calc` parameters are bound to ([Function values](#function-values)); `f(a)` is a direct call |
+| `SampledFunctions::Sample(f, xs)` bound to an `attribute s : SampledFunction`, or read at once by `Domain(…)`/`Range(…)`; `Domain(s)`, `Range(s)` | two hidden locals: the domain as a sequence and `f` collected over it in order, taken when the sample is; `Domain`/`Range` read them |
 | Scalar library functions: `RealFunctions`/`RationalFunctions`/`NumericalFunctions` `sqrt floor round abs max min isZero isUnit`, `IntegerFunctions`/`NaturalFunctions` `abs max min`, `TrigFunctions` (`sin cos tan cot arcsin arccos arctan deg rad pi`), `OpenSysMLMathFunctions` (`exp ln log atan2`) | `libm` / Go `math` with the interpreter's domain, overflow and `Natural` errors |
 
 Everything else refuses: String, record (`attribute def`) and enum parameters, results or
@@ -67,7 +69,15 @@ and Real (`==`, `same`, `union` between an `Integer[0..*]` and a `Real[0..*]`, `
 a `collect` body that yields null, a `select` body that is not Boolean, `===` between a Real and an
 Integer, library functions over strings, quantities and units, and `Integer ** <non-literal Integer>` (whether the
 result is an Integer depends on the exponent's sign at run time, which a static type cannot
-express; write the exponent as a literal or make the base Real). The refusal names the calc and
+express; write the exponent as a literal or make the base Real), and every use of a function
+value other than the two above — a function value returned, bound to an attribute, assigned,
+compared or handed to a value parameter (`the function value f escaping as the result`, `… where a
+value is expected`), an `in calc` parameter of the calc being compiled itself (`which a program
+cannot take on its command line`), a function value chosen at run time (`if b ? Sq else Half`) or
+produced by an invocation, a calc declared in a behavior's body or owned by a part (its function
+value closes over that run or object), a control operation such as `ControlFunctions::collect`
+(which binds its arguments unevaluated), and a `SampledFunction` used as anything but the operand
+of `Domain` or `Range`. The refusal names the calc and
 the construct (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
 ## Semantics the generated code preserves
@@ -106,6 +116,13 @@ arithmetic rather than the host language's:
   exceeds `int64`, `IntegerFunctions`/`NaturalFunctions` refuse Real operands at compile time and
   report negative Naturals at run time, `ln`/`log`/`sqrt`/`arcsin` report the interpreter's domain
   errors. Named and positional arguments bind and evaluate as for model calcs.
+- **Function values** exist only at compile time. `Apply(Sq, a)` calls a specialization of
+  `Apply` in which `f(a)` is the direct call `Sq(a)`, so `f`'s arguments bind, evaluate and fail
+  exactly as a direct invocation of `Sq` does — by `Sq`'s own parameter names, with `Sq`'s own
+  arity, at the same depth against the recursion budget. `Sample(f, xs)` computes `f` at each
+  domain value in order when the sample is taken, so the first failing element is the one
+  reported and an unbound `xs` samples to `[]` as the library's `collect` does; `Domain` and
+  `Range` then read the stored sequences.
 - **Output** uses the interpreter's `FormatReal` convention: positional notation with a `.0` on
   whole values, exponent notation below `1e-4` and from `1e21`, `-0.0` preserved. A sequence
   prints as `[1, 2]`, an empty one as `[]`, an unbound value as `null`.
@@ -177,6 +194,32 @@ lower.CalcBody (statements) ──┘
   a status, and a `main`.
 - `build.go` — `Source`, `Build`, `Targets`; C is compiled with
   `-O3 -flto -std=gnu11 -Wall -Wextra`, Go in a throwaway module.
+
+### Function values
+
+The interpreter's function value (`runtime/function_value.go`) is a closure: the calc's shape
+together with the lexical frames and the object it was read in. The compiler represents it by
+**monomorphization** instead (`compile_fn.go`): every argument to an `in calc` parameter must
+name a calc the compiler can fix statically — a calc def, a calc usage with an unsupplied
+input, an `in calc` parameter of the enclosing calc, or a library function the prelude
+implements — and the callee is compiled once per distinct tuple of such values
+(`Apply_fn_Sq`, `Apply_fn_Half`; `codegen.Compiler.funcs` is keyed by calc and tuple). Inside
+the specialization the parameter is bound to the value, so `f(a)` compiles as the direct call
+the interpreter would make after looking `f` up, and `Sample(f, xs)` as a `collect` of that call.
+No function pointer, closure record or dispatch exists in the generated program.
+
+The trade-off is deliberate. A function pointer would have needed one calling convention for
+every arity and type signature in both C and Go, an environment record for captured bindings,
+and a run-time arity and name check at each `f(…)` — every one of them a second place where the
+interpreter's error behavior (which parameter names bind, when a mismatch is reported, how deep
+the call counts) could diverge. Specialization reuses the existing direct-call path, so a call
+through `f` is checked and fails exactly where a call of `Sq` is, and the generated program stays
+as fast as hand-written calls; the cost is one function body per distinct binding, and the limit
+that the value must be known at compile time. Consequently a function value cannot be returned,
+stored, assigned, compared or chosen by a run-time condition, and a calc whose function value
+would close over a body's bindings or a part's attributes — the cases a closure record would
+have carried — is refused by name; they remain interpreter-only. Both backends compile function
+values, since the specialization happens before either emitter runs.
 
 ## Benchmark methodology
 
