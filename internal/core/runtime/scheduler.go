@@ -64,6 +64,10 @@ type SchedulePolicy struct {
 // DefaultSchedulePolicy is the policy runs use unless one is set: `reverse`.
 var DefaultSchedulePolicy = SchedulePolicy{kind: scheduleReverse}
 
+// DefaultExploreSchedulePolicy is `explore` with no options: every linearization
+// within the default budget.
+var DefaultExploreSchedulePolicy = SchedulePolicy{kind: scheduleExplore, budget: DefaultExploreBudget}
+
 // SchedulePolicyNames lists the policy spellings ParseSchedulePolicy accepts, for
 // usage text; `seed:<n>` stands for any non-negative decimal seed and the
 // bracketed options of `explore` are each optional; `replay:<file>` names a
@@ -95,7 +99,7 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 	case spelling == "seed":
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: "seed: needs a number"}
 	case spelling == "explore":
-		return SchedulePolicy{kind: scheduleExplore, budget: DefaultExploreBudget}, nil
+		return DefaultExploreSchedulePolicy, nil
 	case strings.HasPrefix(spelling, "explore:"):
 		budget, reason := parseExploreOptions(spelling[len("explore:"):])
 		if reason != "" {

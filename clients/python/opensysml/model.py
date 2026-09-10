@@ -526,13 +526,16 @@ class Model:
             state_machine_symbol_id, self._hash, events=events, schedule=schedule
         )
 
-    def verify_constraint(self, symbol_id, subject=None):
+    def verify_constraint(self, symbol_id, subject=None, engine=None):
         """Ask whether one of this model's constraints holds.
 
         Args:
             symbol_id (str): FQN of the constraint definition or usage
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against, so the verdict is about concrete values
+            engine (str, optional): The engine to ask: ``"auto"`` (the
+                default), ``"all"``, or one by name, as
+                :meth:`~opensysml.Connection.verify_constraint` takes it
 
         Returns:
             Verdict: The answer; false is the model's answer, not an exception
@@ -543,16 +546,18 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_constraint(
-            symbol_id, self._hash, subject_symbol_id=subject
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
         )
 
-    def verify_requirement(self, symbol_id, subject=None):
+    def verify_requirement(self, symbol_id, subject=None, engine=None):
         """Ask whether one of this model's requirements is satisfied.
 
         Args:
             symbol_id (str): FQN of the requirement definition or usage
             subject (str, optional): FQN of a part/usage to instantiate and
                 evaluate against
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             Verdict: The answer
@@ -563,10 +568,10 @@ class Model:
             ExecutionError: If the request could not be answered at all
         """
         return self._client.verify_requirement(
-            symbol_id, self._hash, subject_symbol_id=subject
+            symbol_id, self._hash, subject_symbol_id=subject, engine=engine
         )
 
-    def verify_satisfaction(self, symbol_id=None):
+    def verify_satisfaction(self, symbol_id=None, engine=None):
         """Ask whether this model's satisfaction assertions hold.
 
         This is the scriptable form of "does this model satisfy its
@@ -577,6 +582,8 @@ class Model:
             symbol_id (str, optional): FQN limiting evaluation to the assertions
                 stated within that element, or to that element itself when it is
                 a named satisfaction assertion
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. An
@@ -587,7 +594,7 @@ class Model:
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
         """
-        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id)
+        return self._client.verify_satisfaction(self._hash, symbol_id=symbol_id, engine=engine)
 
     def satisfied(self, symbol_id=None):
         """Whether every satisfaction assertion evaluated holds.
@@ -605,12 +612,14 @@ class Model:
         """
         return all(v.holds for v in self.verify_satisfaction(symbol_id))
 
-    def calc(self, symbol_id, arguments=None):
+    def calc(self, symbol_id, arguments=None, engine=None):
         """Invoke one of this model's calculations.
 
         Args:
             symbol_id (str): FQN of the calc definition or usage
             arguments (list, optional): Positional arguments, as Python values
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             CalcResult: The value returned, or the outputs a calc usage computed
@@ -619,10 +628,10 @@ class Model:
             WrongKindError: If symbol_id names an element that is not a calc
             ExecutionError: If the calculation could not be evaluated
         """
-        return self._client.calc(symbol_id, self._hash, arguments=arguments)
+        return self._client.calc(symbol_id, self._hash, arguments=arguments, engine=engine)
 
     def run_analysis(self, symbol_id, subject=None, arguments=None,
-                     named_arguments=None, schedule=None):
+                     named_arguments=None, schedule=None, engine=None):
         """Run one of this model's analysis cases.
 
         Args:
@@ -636,21 +645,25 @@ class Model:
                 performs resolve their choice points under, as for
                 :meth:`execute_action`; ``"explore"`` belongs to
                 :meth:`explore_analysis`
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`; ``"explore"`` belongs to
+                :meth:`explore_analysis`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
                 its objective and assertions
 
         Raises:
-            ValueError: If the schedule explores
+            ValueError: If the schedule or the engine explores
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
             ExecutionError: If the case could not run
-            InvalidRequestError: If the schedule names no policy
+            InvalidRequestError: If the schedule names no policy, or the
+                engine names none the service registers
         """
         return self._client.run_analysis(
             symbol_id, self._hash, subject=subject, arguments=arguments,
-            named_arguments=named_arguments, schedule=schedule,
+            named_arguments=named_arguments, schedule=schedule, engine=engine,
         )
 
     def explore_analysis(self, symbol_id, subject=None, arguments=None,
@@ -685,7 +698,7 @@ class Model:
         )
 
     def run_sweep(self, symbol_id, ranges, subject=None, arguments=None,
-                  named_arguments=None, samples=0, seed=0):
+                  named_arguments=None, samples=0, seed=0, engine=None):
         """Run one of this model's analysis cases or calcs once per swept row.
 
         Args:
@@ -697,6 +710,8 @@ class Model:
             named_arguments (dict, optional): Arguments by name every row binds
             samples (int, optional): Rows to draw rather than step through
             seed (int, optional): Seed the draws are taken from
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             SweepTable: One row per run, in the order the runs were made
@@ -708,7 +723,7 @@ class Model:
         return self._client.run_sweep(
             symbol_id, self._hash, ranges, subject=subject,
             arguments=arguments, named_arguments=named_arguments,
-            samples=samples, seed=seed,
+            samples=samples, seed=seed, engine=engine,
         )
 
     def __getitem__(self, name):

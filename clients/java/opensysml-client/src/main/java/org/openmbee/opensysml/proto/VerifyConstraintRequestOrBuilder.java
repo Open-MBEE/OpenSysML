@@ -67,4 +67,28 @@ public interface VerifyConstraintRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSubjectSymbolIdBytes();
+
+  /**
+   * <pre>
+   * The engine the question is put to, as ListEngines names it, "auto" for the
+   * strongest covering one, or "all" for every covering one. Unset is "auto".
+   * An unknown name is INVALID_ARGUMENT. Reported as the "engines" capability.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine the question is put to, as ListEngines names it, "auto" for the
+   * strongest covering one, or "all" for every covering one. Unset is "auto".
+   * An unknown name is INVALID_ARGUMENT. Reported as the "engines" capability.
+   * </pre>
+   *
+   * <code>string engine = 4 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
 }

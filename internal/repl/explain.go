@@ -22,15 +22,8 @@ func (s *Session) explainSolve(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	explained, err := s.solveWith(name, queries, (*solve.Solver).Explain)
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	reports := make([]SolveReport, 0, len(queries))
-	for i, q := range queries {
-		reports = append(reports, explainQueryReport(name, q, explained[i]))
-	}
-	return reports
+	plan, err := s.solveWith(name, queries, (*solve.Solver).Explain)
+	return solveReports(name, queries, plan, err, explainQueryReport)
 }
 
 // explainQueryReport renders the conflict the solver reports about one query,

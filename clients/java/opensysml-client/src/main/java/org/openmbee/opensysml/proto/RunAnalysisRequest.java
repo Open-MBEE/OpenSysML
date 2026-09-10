@@ -40,6 +40,7 @@ private static final long serialVersionUID = 0L;
     subjectSymbolId_ = "";
     arguments_ = java.util.Collections.emptyList();
     schedule_ = "";
+    engine_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -420,6 +421,55 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
   }
 
+  public static final int ENGINE_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object engine_ = "";
+  /**
+   * <pre>
+   * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+   * asks what "explore" as the schedule asks, and the response answers alike.
+   * </pre>
+   *
+   * <code>string engine = 7 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  @java.lang.Override
+  public java.lang.String getEngine() {
+    java.lang.Object ref = engine_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      engine_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+   * asks what "explore" as the schedule asks, and the response answers alike.
+   * </pre>
+   *
+   * <code>string engine = 7 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEngineBytes() {
+    java.lang.Object ref = engine_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      engine_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -454,6 +504,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         5);
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(schedule_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 6, schedule_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 7, engine_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -490,6 +543,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(schedule_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(6, schedule_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(7, engine_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -517,6 +573,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         other.internalGetNamedArguments())) return false;
     if (!getSchedule()
         .equals(other.getSchedule())) return false;
+    if (!getEngine()
+        .equals(other.getEngine())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -544,6 +602,8 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     hash = (37 * hash) + SCHEDULE_FIELD_NUMBER;
     hash = (53 * hash) + getSchedule().hashCode();
+    hash = (37 * hash) + ENGINE_FIELD_NUMBER;
+    hash = (53 * hash) + getEngine().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -716,6 +776,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       bitField0_ = (bitField0_ & ~0x00000008);
       internalGetMutableNamedArguments().clear();
       schedule_ = "";
+      engine_ = "";
       return this;
     }
 
@@ -776,6 +837,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       if (((from_bitField0_ & 0x00000020) != 0)) {
         result.schedule_ = schedule_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.engine_ = engine_;
       }
     }
 
@@ -838,6 +902,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (!other.getSchedule().isEmpty()) {
         schedule_ = other.schedule_;
         bitField0_ |= 0x00000020;
+        onChanged();
+      }
+      if (!other.getEngine().isEmpty()) {
+        engine_ = other.engine_;
+        bitField0_ |= 0x00000040;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -908,6 +977,11 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000020;
               break;
             } // case 50
+            case 58: {
+              engine_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1816,6 +1890,103 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       checkByteStringIsUtf8(value);
       schedule_ = value;
       bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object engine_ = "";
+    /**
+     * <pre>
+     * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+     * asks what "explore" as the schedule asks, and the response answers alike.
+     * </pre>
+     *
+     * <code>string engine = 7 [json_name = "engine"];</code>
+     * @return The engine.
+     */
+    public java.lang.String getEngine() {
+      java.lang.Object ref = engine_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        engine_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+     * asks what "explore" as the schedule asks, and the response answers alike.
+     * </pre>
+     *
+     * <code>string engine = 7 [json_name = "engine"];</code>
+     * @return The bytes for engine.
+     */
+    public com.google.protobuf.ByteString
+        getEngineBytes() {
+      java.lang.Object ref = engine_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        engine_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+     * asks what "explore" as the schedule asks, and the response answers alike.
+     * </pre>
+     *
+     * <code>string engine = 7 [json_name = "engine"];</code>
+     * @param value The engine to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEngine(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      engine_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+     * asks what "explore" as the schedule asks, and the response answers alike.
+     * </pre>
+     *
+     * <code>string engine = 7 [json_name = "engine"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEngine() {
+      engine_ = getDefaultInstance().getEngine();
+      bitField0_ = (bitField0_ & ~0x00000040);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+     * asks what "explore" as the schedule asks, and the response answers alike.
+     * </pre>
+     *
+     * <code>string engine = 7 [json_name = "engine"];</code>
+     * @param value The bytes for engine to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEngineBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      engine_ = value;
+      bitField0_ |= 0x00000040;
       onChanged();
       return this;
     }

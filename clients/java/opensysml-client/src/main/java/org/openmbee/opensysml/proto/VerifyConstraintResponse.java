@@ -7,7 +7,8 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * VerifyConstraintResponse carries the verdict.
+ * VerifyConstraintResponse carries the verdict; its engine, strength and bounds
+ * are on the verdict.
  * </pre>
  *
  * Protobuf type {@code sysml.VerifyConstraintResponse}
@@ -433,7 +434,8 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * VerifyConstraintResponse carries the verdict.
+   * VerifyConstraintResponse carries the verdict; its engine, strength and bounds
+   * are on the verdict.
    * </pre>
    *
    * Protobuf type {@code sysml.VerifyConstraintResponse}

@@ -32,6 +32,7 @@ from opensysml.verdict import (
     VerificationVerdict,
 )
 from opensysml.exploration import Exploration, Outcome
+from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.query import QueryElement, QueryError
 from opensysml.document import (
     DocumentQueryError, DocumentQueryResult, DocumentRow, ElementRef, INFINITY,
@@ -69,6 +70,7 @@ __all__ = [
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "VerificationVerdict",
     "Exploration", "Outcome",
+    "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
     "DocumentQueryError", "DocumentQueryResult", "DocumentRow", "ElementRef",
     "INFINITY",

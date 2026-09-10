@@ -26,6 +26,8 @@ type clockWaiter interface {
 	// run of it already on the stack, which drives the clock itself.
 	finished() bool
 	running() bool
+	// Release withdraws the executor from the clock for good.
+	Release()
 }
 
 // dueProgress counts what one drive of the clock did, in the units the budgets
@@ -52,9 +54,11 @@ func (p *dueProgress) unsettle() {
 	clear(p.settled)
 }
 
-// noteDispatch records a dispatched signal that fired nothing.
+// noteDispatch records a dispatched signal nothing took: no transition fired on
+// it and no do behavior went on with it. The do behaviors resumed count as do steps.
 func (p *dueProgress) noteDispatch(d Dispatch) {
-	if _, isSignal := d.Event.Payload.(Message); isSignal && !d.Fired {
+	p.doSteps += int64(len(d.Resumed))
+	if _, isSignal := d.Event.Payload.(Message); isSignal && !d.Fired && len(d.Resumed) == 0 {
 		p.dropped = append(p.dropped, d)
 	}
 }
@@ -67,7 +71,7 @@ type AdvanceReport struct {
 	// actions run and the action steps taken along the way.
 	Events, DoSteps, Steps int64
 	// Dropped are the signals dispatched along the way that no transition
-	// consumed: deferred by the active state, or dropped.
+	// consumed and no do behavior went on with: deferred by the active state, or dropped.
 	Dropped []Dispatch
 	// Notes are what the advance noted: the choice points it drew and the
 	// guards it could not evaluate, in order.

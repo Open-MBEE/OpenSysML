@@ -629,6 +629,44 @@ that dispatches it draws the region order the same way (`choice on change: state
 (unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
 library either.
 
+### Do behaviors of sibling regions active at one instant: each proceeds, in which order is open
+
+Fixtures: `state_concurrent_do` (golden, explored), `state_concurrent_do_action_bodies_timed`
+(golden, explored).
+
+```
+Interleave parallel { left:  lwork { do { seq := seq*10+1; seq := seq*10+2; seq := seq*10+3 } }
+                      right: rwork { do { seq := seq*10+4; seq := seq*10+5; seq := seq*10+6 } } }
+```
+
+Derived constraints:
+
+- A state's do behavior is a performance nested in the state performance, after its entry and
+  before its exit (`StatePerformances.kerml` `StatePerformance`: `succession [1] entry then [*]
+  middle; succession [*] middle then [1] exit`), so each region's do behavior runs while its state
+  is active and the statements of one body keep their declared order (`1 < 2 < 3`, `4 < 5 < 6`).
+- The regions of a parallel state are concurrent substate performances; no succession joins a step
+  of one region's do behavior to a step of the other's, so the library orders nothing between them.
+  The executor shares the machine one action at a time — each behavior with an action due performs
+  one before any performs its next — and which of the due behaviors acts first in a round is a
+  tool-defined order.
+- Every statement writes `seq`, so the digits record the interleaving: in `state_concurrent_do`,
+  `left` enters its working state one step before `right` (`1` is alone in its round), the next two
+  rounds each have both due, and `right`'s last statement is alone again (`6` last).
+
+Open: which region's do behavior acts first in each round both are due in. Two rounds of two
+orders reach four values of `seq`.
+
+Pinned outcome: the admissible set `{124356, 142356, 124536, 142536}`, stated as `outcomes` citing
+this section. The order is a choice point under every policy, reported as `choice do round at
+t=0.0: states lwork, rwork react (unordered; took lwork first)`: `declared` and `reverse` take the
+order the states were entered in — a tool-defined order — and the default golden pins that
+linearization (`124356`); `seed:<n>` draws the order; `explore` varies it and must reach all four
+values and no other. `state_concurrent_do_action_bodies_timed` is the shape with action bodies
+that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
+round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
+other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
+
 ### A merge is re-entered on every traversal of a loop
 
 Fixture: `action_merge_loop_reenters` (golden), after the specification's `ChargeBattery`.

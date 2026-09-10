@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -52,16 +53,16 @@ type VerdictExploration struct {
 	BudgetsHit []string
 }
 
-// exploring reports whether runs started from here on explore, and under what.
+// exploring reports whether runs started from here on explore, and under what:
+// the schedule set when it explores, else the default when the engine is explore.
 func (s *Session) exploring() (runtime.SchedulePolicy, bool) {
-	_, ok := s.schedule.Exploration()
-	return s.schedule, ok
+	return analysis.Explores(s.engine, s.schedule)
 }
 
 // drivenSchedule is the policy the session's own context runs under: the one
-// set, or the default while the one set explores, which drives contexts of its own.
+// set, or the default while runs explore, which drives contexts of its own.
 func (s *Session) drivenSchedule() runtime.SchedulePolicy {
-	if _, ok := s.schedule.Exploration(); ok {
+	if _, ok := s.exploring(); ok {
 		return runtime.DefaultSchedulePolicy
 	}
 	return s.schedule
@@ -101,16 +102,19 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 		}
 		return outcome, err
 	}
-	x, err := s.explore(subject, policy, fresh, traced)
+	plan, err := s.explore(subject, policy, fresh, traced)
 	if err != nil {
-		return unresolvedVerdict(subject, err.Error())
+		return standing(unresolvedVerdict(subject, err.Error()), &plan)
 	}
-	return explorationVerdict(subject, x, traces)
+	return standing(explorationVerdict(subject, plan.Result.Exploration(), traces), &plan)
 }
 
 // explorationVerdict tables one row per distinct outcome, then how it ended;
 // a failed run or a budget hit leaves it unresolved.
 func explorationVerdict(subject string, x *runtime.Exploration, traces [][]string) Verdict {
+	if x == nil {
+		return unresolvedVerdict(subject, "exploration of "+subject+" reached no outcome")
+	}
 	status := VerdictHolds
 	if !x.Complete() {
 		status = VerdictUnresolved
@@ -499,7 +503,7 @@ func (s *Session) exploreCalc(invocation string) Verdict {
 		return unresolvedVerdict(name, err.Error())
 	}
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		_, results, err := s.evalCalcIn(ctx, sym, name, argText)
+		_, results, _, err := s.evalCalcIn(s.direct(), ctx, sym, name, argText)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -523,7 +527,7 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 		return unresolvedVerdict(label, err.Error())
 	}
 	return s.exploreVerdict(label, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		run, err := s.runAnalysisIn(ctx, inv, sym, fqn, newFreshObjects(s, ctx))
+		run, err := s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, newFreshObjects(s, ctx))
 		if err != nil {
 			return runtime.Outcome{}, err
 		}

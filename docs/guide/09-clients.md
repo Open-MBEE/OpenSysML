@@ -228,8 +228,8 @@ go get github.com/Open-MBEE/OpenSysML@latest
 Nothing else needs installing: the SysML standard library is embedded in the module and no
 operation shells out. Every RPC the service offers is a method (`ParseFiles` for a model made of
 several documents, `ExecuteAction` and `ExecuteState`, `VerifyConstraint`, `VerifyRequirement`,
-`VerifySatisfaction`, `EvaluateCalc`, `RunAnalysis`, `Query`, `RunDocumentQuery`, `RenderDocument`,
-`Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
+`VerifySatisfaction`, `EvaluateCalc`, `RunAnalysis`, `ListEngines`, `Query`, `RunDocumentQuery`,
+`RenderDocument`, `Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
 an unsupported operator is a compile error rather than a refused call.
 
 A run with [more than one valid order](06-behavior.md#when-a-model-has-more-than-one-valid-run)
@@ -242,6 +242,17 @@ every linearization under `"explore"` — the default when no policy is given �
 `ExecuteAction`, or a one-run policy to `ExploreAction`, is refused with `CodeInvalidArgument`
 before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
 refuses with `CodeUnimplemented`.
+
+Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen the same way
+`sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take
+`opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
+with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
+asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
+choice to the service. `ListEngines` names the engines the service registers. Every `Verdict`,
+`Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of
+its evidence and the `Bounds` it ran under, each `Reached` or not — which is what the `standing:`
+line under a REPL verdict prints. A service that does not advertise `engines` refuses a named
+engine with `CodeUnimplemented` before anything is sent.
 
 `Dial("host:50051")` is the other constructor, for a shared `sysml-grpc` that someone else runs.
 This package never spawns a service of its own, because a private child would only be serving the

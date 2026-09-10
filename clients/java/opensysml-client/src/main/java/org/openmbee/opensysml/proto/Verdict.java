@@ -41,6 +41,9 @@ private static final long serialVersionUID = 0L;
     error_ = "";
     failureReason_ = 0;
     requirementId_ = "";
+    engine_ = "";
+    strength_ = "";
+    bounds_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -465,6 +468,171 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int ENGINE_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object engine_ = "";
+  /**
+   * <pre>
+   * The engine whose answer this verdict is, as ListEngines names it; empty
+   * for a verdict decided before any engine was asked. Reported as the
+   * "engines" capability, with `strength` and `bounds`.
+   * </pre>
+   *
+   * <code>string engine = 11 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  @java.lang.Override
+  public java.lang.String getEngine() {
+    java.lang.Object ref = engine_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      engine_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The engine whose answer this verdict is, as ListEngines names it; empty
+   * for a verdict decided before any engine was asked. Reported as the
+   * "engines" capability, with `strength` and `bounds`.
+   * </pre>
+   *
+   * <code>string engine = 11 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getEngineBytes() {
+    java.lang.Object ref = engine_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      engine_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int STRENGTH_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object strength_ = "";
+  /**
+   * <pre>
+   * The strength of the evidence behind the verdict: "observed" for one run,
+   * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+   * search within the bounds, "proved" for every case, "not covered" when no
+   * engine decided it.
+   * </pre>
+   *
+   * <code>string strength = 12 [json_name = "strength"];</code>
+   * @return The strength.
+   */
+  @java.lang.Override
+  public java.lang.String getStrength() {
+    java.lang.Object ref = strength_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      strength_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * The strength of the evidence behind the verdict: "observed" for one run,
+   * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+   * search within the bounds, "proved" for every case, "not covered" when no
+   * engine decided it.
+   * </pre>
+   *
+   * <code>string strength = 12 [json_name = "strength"];</code>
+   * @return The bytes for strength.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getStrengthBytes() {
+    java.lang.Object ref = strength_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      strength_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int BOUNDS_FIELD_NUMBER = 13;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.Bound> bounds_;
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.Bound> getBoundsList() {
+    return bounds_;
+  }
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.BoundOrBuilder> 
+      getBoundsOrBuilderList() {
+    return bounds_;
+  }
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  @java.lang.Override
+  public int getBoundsCount() {
+    return bounds_.size();
+  }
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Bound getBounds(int index) {
+    return bounds_.get(index);
+  }
+  /**
+   * <pre>
+   * The bounds the engine ran under, each marked when it stopped the run.
+   * </pre>
+   *
+   * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.BoundOrBuilder getBoundsOrBuilder(
+      int index) {
+    return bounds_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -509,6 +677,15 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requirementId_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 10, requirementId_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, engine_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(strength_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, strength_);
+    }
+    for (int i = 0; i < bounds_.size(); i++) {
+      output.writeMessage(13, bounds_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -551,6 +728,16 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(requirementId_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(10, requirementId_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(engine_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, engine_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(strength_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, strength_);
+    }
+    for (int i = 0; i < bounds_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(13, bounds_.get(i));
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -585,6 +772,12 @@ private static final long serialVersionUID = 0L;
     if (failureReason_ != other.failureReason_) return false;
     if (!getRequirementId()
         .equals(other.getRequirementId())) return false;
+    if (!getEngine()
+        .equals(other.getEngine())) return false;
+    if (!getStrength()
+        .equals(other.getStrength())) return false;
+    if (!getBoundsList()
+        .equals(other.getBoundsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -618,6 +811,14 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + failureReason_;
     hash = (37 * hash) + REQUIREMENT_ID_FIELD_NUMBER;
     hash = (53 * hash) + getRequirementId().hashCode();
+    hash = (37 * hash) + ENGINE_FIELD_NUMBER;
+    hash = (53 * hash) + getEngine().hashCode();
+    hash = (37 * hash) + STRENGTH_FIELD_NUMBER;
+    hash = (53 * hash) + getStrength().hashCode();
+    if (getBoundsCount() > 0) {
+      hash = (37 * hash) + BOUNDS_FIELD_NUMBER;
+      hash = (53 * hash) + getBoundsList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -764,6 +965,15 @@ private static final long serialVersionUID = 0L;
       error_ = "";
       failureReason_ = 0;
       requirementId_ = "";
+      engine_ = "";
+      strength_ = "";
+      if (boundsBuilder_ == null) {
+        bounds_ = java.util.Collections.emptyList();
+      } else {
+        bounds_ = null;
+        boundsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00001000);
       return this;
     }
 
@@ -790,9 +1000,22 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public org.openmbee.opensysml.proto.Verdict buildPartial() {
       org.openmbee.opensysml.proto.Verdict result = new org.openmbee.opensysml.proto.Verdict(this);
+      buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartialRepeatedFields(org.openmbee.opensysml.proto.Verdict result) {
+      if (boundsBuilder_ == null) {
+        if (((bitField0_ & 0x00001000) != 0)) {
+          bounds_ = java.util.Collections.unmodifiableList(bounds_);
+          bitField0_ = (bitField0_ & ~0x00001000);
+        }
+        result.bounds_ = bounds_;
+      } else {
+        result.bounds_ = boundsBuilder_.build();
+      }
     }
 
     private void buildPartial0(org.openmbee.opensysml.proto.Verdict result) {
@@ -826,6 +1049,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000200) != 0)) {
         result.requirementId_ = requirementId_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.engine_ = engine_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.strength_ = strength_;
       }
     }
 
@@ -884,6 +1113,42 @@ private static final long serialVersionUID = 0L;
         requirementId_ = other.requirementId_;
         bitField0_ |= 0x00000200;
         onChanged();
+      }
+      if (!other.getEngine().isEmpty()) {
+        engine_ = other.engine_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getStrength().isEmpty()) {
+        strength_ = other.strength_;
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      if (boundsBuilder_ == null) {
+        if (!other.bounds_.isEmpty()) {
+          if (bounds_.isEmpty()) {
+            bounds_ = other.bounds_;
+            bitField0_ = (bitField0_ & ~0x00001000);
+          } else {
+            ensureBoundsIsMutable();
+            bounds_.addAll(other.bounds_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.bounds_.isEmpty()) {
+          if (boundsBuilder_.isEmpty()) {
+            boundsBuilder_.dispose();
+            boundsBuilder_ = null;
+            bounds_ = other.bounds_;
+            bitField0_ = (bitField0_ & ~0x00001000);
+            boundsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetBoundsFieldBuilder() : null;
+          } else {
+            boundsBuilder_.addAllMessages(other.bounds_);
+          }
+        }
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -961,6 +1226,29 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000200;
               break;
             } // case 82
+            case 90: {
+              engine_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 98: {
+              strength_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 106: {
+              org.openmbee.opensysml.proto.Bound m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.Bound.parser(),
+                      extensionRegistry);
+              if (boundsBuilder_ == null) {
+                ensureBoundsIsMutable();
+                bounds_.add(m);
+              } else {
+                boundsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 106
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1840,6 +2128,527 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000200;
       onChanged();
       return this;
+    }
+
+    private java.lang.Object engine_ = "";
+    /**
+     * <pre>
+     * The engine whose answer this verdict is, as ListEngines names it; empty
+     * for a verdict decided before any engine was asked. Reported as the
+     * "engines" capability, with `strength` and `bounds`.
+     * </pre>
+     *
+     * <code>string engine = 11 [json_name = "engine"];</code>
+     * @return The engine.
+     */
+    public java.lang.String getEngine() {
+      java.lang.Object ref = engine_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        engine_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The engine whose answer this verdict is, as ListEngines names it; empty
+     * for a verdict decided before any engine was asked. Reported as the
+     * "engines" capability, with `strength` and `bounds`.
+     * </pre>
+     *
+     * <code>string engine = 11 [json_name = "engine"];</code>
+     * @return The bytes for engine.
+     */
+    public com.google.protobuf.ByteString
+        getEngineBytes() {
+      java.lang.Object ref = engine_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        engine_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The engine whose answer this verdict is, as ListEngines names it; empty
+     * for a verdict decided before any engine was asked. Reported as the
+     * "engines" capability, with `strength` and `bounds`.
+     * </pre>
+     *
+     * <code>string engine = 11 [json_name = "engine"];</code>
+     * @param value The engine to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEngine(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      engine_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine whose answer this verdict is, as ListEngines names it; empty
+     * for a verdict decided before any engine was asked. Reported as the
+     * "engines" capability, with `strength` and `bounds`.
+     * </pre>
+     *
+     * <code>string engine = 11 [json_name = "engine"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearEngine() {
+      engine_ = getDefaultInstance().getEngine();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The engine whose answer this verdict is, as ListEngines names it; empty
+     * for a verdict decided before any engine was asked. Reported as the
+     * "engines" capability, with `strength` and `bounds`.
+     * </pre>
+     *
+     * <code>string engine = 11 [json_name = "engine"];</code>
+     * @param value The bytes for engine to set.
+     * @return This builder for chaining.
+     */
+    public Builder setEngineBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      engine_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object strength_ = "";
+    /**
+     * <pre>
+     * The strength of the evidence behind the verdict: "observed" for one run,
+     * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+     * search within the bounds, "proved" for every case, "not covered" when no
+     * engine decided it.
+     * </pre>
+     *
+     * <code>string strength = 12 [json_name = "strength"];</code>
+     * @return The strength.
+     */
+    public java.lang.String getStrength() {
+      java.lang.Object ref = strength_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        strength_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The strength of the evidence behind the verdict: "observed" for one run,
+     * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+     * search within the bounds, "proved" for every case, "not covered" when no
+     * engine decided it.
+     * </pre>
+     *
+     * <code>string strength = 12 [json_name = "strength"];</code>
+     * @return The bytes for strength.
+     */
+    public com.google.protobuf.ByteString
+        getStrengthBytes() {
+      java.lang.Object ref = strength_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        strength_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * The strength of the evidence behind the verdict: "observed" for one run,
+     * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+     * search within the bounds, "proved" for every case, "not covered" when no
+     * engine decided it.
+     * </pre>
+     *
+     * <code>string strength = 12 [json_name = "strength"];</code>
+     * @param value The strength to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrength(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      strength_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The strength of the evidence behind the verdict: "observed" for one run,
+     * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+     * search within the bounds, "proved" for every case, "not covered" when no
+     * engine decided it.
+     * </pre>
+     *
+     * <code>string strength = 12 [json_name = "strength"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStrength() {
+      strength_ = getDefaultInstance().getStrength();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The strength of the evidence behind the verdict: "observed" for one run,
+     * "witnessed" for a replayed counterexample, "bounded" for an exhaustive
+     * search within the bounds, "proved" for every case, "not covered" when no
+     * engine decided it.
+     * </pre>
+     *
+     * <code>string strength = 12 [json_name = "strength"];</code>
+     * @param value The bytes for strength to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStrengthBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      strength_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.Bound> bounds_ =
+      java.util.Collections.emptyList();
+    private void ensureBoundsIsMutable() {
+      if (!((bitField0_ & 0x00001000) != 0)) {
+        bounds_ = new java.util.ArrayList<org.openmbee.opensysml.proto.Bound>(bounds_);
+        bitField0_ |= 0x00001000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Bound, org.openmbee.opensysml.proto.Bound.Builder, org.openmbee.opensysml.proto.BoundOrBuilder> boundsBuilder_;
+
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Bound> getBoundsList() {
+      if (boundsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(bounds_);
+      } else {
+        return boundsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public int getBoundsCount() {
+      if (boundsBuilder_ == null) {
+        return bounds_.size();
+      } else {
+        return boundsBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public org.openmbee.opensysml.proto.Bound getBounds(int index) {
+      if (boundsBuilder_ == null) {
+        return bounds_.get(index);
+      } else {
+        return boundsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder setBounds(
+        int index, org.openmbee.opensysml.proto.Bound value) {
+      if (boundsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureBoundsIsMutable();
+        bounds_.set(index, value);
+        onChanged();
+      } else {
+        boundsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder setBounds(
+        int index, org.openmbee.opensysml.proto.Bound.Builder builderForValue) {
+      if (boundsBuilder_ == null) {
+        ensureBoundsIsMutable();
+        bounds_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        boundsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder addBounds(org.openmbee.opensysml.proto.Bound value) {
+      if (boundsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureBoundsIsMutable();
+        bounds_.add(value);
+        onChanged();
+      } else {
+        boundsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder addBounds(
+        int index, org.openmbee.opensysml.proto.Bound value) {
+      if (boundsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureBoundsIsMutable();
+        bounds_.add(index, value);
+        onChanged();
+      } else {
+        boundsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder addBounds(
+        org.openmbee.opensysml.proto.Bound.Builder builderForValue) {
+      if (boundsBuilder_ == null) {
+        ensureBoundsIsMutable();
+        bounds_.add(builderForValue.build());
+        onChanged();
+      } else {
+        boundsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder addBounds(
+        int index, org.openmbee.opensysml.proto.Bound.Builder builderForValue) {
+      if (boundsBuilder_ == null) {
+        ensureBoundsIsMutable();
+        bounds_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        boundsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder addAllBounds(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.Bound> values) {
+      if (boundsBuilder_ == null) {
+        ensureBoundsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, bounds_);
+        onChanged();
+      } else {
+        boundsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder clearBounds() {
+      if (boundsBuilder_ == null) {
+        bounds_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00001000);
+        onChanged();
+      } else {
+        boundsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public Builder removeBounds(int index) {
+      if (boundsBuilder_ == null) {
+        ensureBoundsIsMutable();
+        bounds_.remove(index);
+        onChanged();
+      } else {
+        boundsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public org.openmbee.opensysml.proto.Bound.Builder getBoundsBuilder(
+        int index) {
+      return internalGetBoundsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public org.openmbee.opensysml.proto.BoundOrBuilder getBoundsOrBuilder(
+        int index) {
+      if (boundsBuilder_ == null) {
+        return bounds_.get(index);  } else {
+        return boundsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.BoundOrBuilder> 
+         getBoundsOrBuilderList() {
+      if (boundsBuilder_ != null) {
+        return boundsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(bounds_);
+      }
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public org.openmbee.opensysml.proto.Bound.Builder addBoundsBuilder() {
+      return internalGetBoundsFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.Bound.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public org.openmbee.opensysml.proto.Bound.Builder addBoundsBuilder(
+        int index) {
+      return internalGetBoundsFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.Bound.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The bounds the engine ran under, each marked when it stopped the run.
+     * </pre>
+     *
+     * <code>repeated .sysml.Bound bounds = 13 [json_name = "bounds"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.Bound.Builder> 
+         getBoundsBuilderList() {
+      return internalGetBoundsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.Bound, org.openmbee.opensysml.proto.Bound.Builder, org.openmbee.opensysml.proto.BoundOrBuilder> 
+        internalGetBoundsFieldBuilder() {
+      if (boundsBuilder_ == null) {
+        boundsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.Bound, org.openmbee.opensysml.proto.Bound.Builder, org.openmbee.opensysml.proto.BoundOrBuilder>(
+                bounds_,
+                ((bitField0_ & 0x00001000) != 0),
+                getParentForChildren(),
+                isClean());
+        bounds_ = null;
+      }
+      return boundsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Verdict)

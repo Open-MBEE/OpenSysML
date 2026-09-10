@@ -25,14 +25,20 @@ type bodyRun struct {
 	// pausedAt orders the paused runs by when they last paused; paused is why.
 	pausedAt int64
 	paused   bodyPause
+	// traceLevels is the trace nesting the paused work holds open, set aside
+	// while it is paused so what runs meanwhile records at the outer depth.
+	traceLevels int
+	// awaitsMessages lets the run pause for a message too, as a do behavior does
+	// while its machine goes on; a token's step run waits only on the clock.
+	awaitsMessages bool
 }
 
-// bodyPause is why a body run paused: at the named breakpoint, or on the clock
-// for a wait of a flow it runs or of the executor (held) it performs an action with;
-// ended reports the work done instead.
+// bodyPause is why a body run paused: at the named breakpoint, or on a wait (on
+// the clock, or for a message) of a flow it runs or of the executor (held) it
+// performs an action with; ended reports the work done instead.
 type bodyPause struct {
 	breakpoint string
-	onClock    bool
+	onWait     bool
 	held       clockWaiter
 	// waits reports whether the wait goes on, so resuming would only pause again.
 	waits func() bool
@@ -132,10 +138,39 @@ func (e *ActionExecutor) endPausedBodies() {
 	}
 }
 
-// end ends the paused work for good, unwinding it on the nesting the context has now.
+// end ends the paused work for good, unwinding it on the nesting the context has
+// now; an action the work was performing is let go of, so the clock drives it no further.
 func (run *bodyRun) end(ctx *Context) {
 	run.runDepth, run.actionDepth = ctx.runDepth, ctx.actionDepth
+	outer := ctx.trace.nesting()
 	run.co.stop()
+	ctx.trace.setNesting(outer)
+	if held := run.paused.held; held != nil {
+		held.Release()
+	}
+}
+
+// resume lets the paused work go on to its next pause, which it reports as true
+// with why, or to its end, leaving err set; the coroutine is kept for the next step.
+func (run *bodyRun) resume(ctx *Context) (bodyPause, bool) {
+	run.runDepth, run.actionDepth = ctx.runDepth, ctx.actionDepth
+	co := run.co
+	co.run = run
+	pausable, outer := ctx.pausable, ctx.trace.nesting()
+	ctx.trace.setNesting(outer + run.traceLevels)
+	pause, alive := co.next()
+	ctx.pausable = pausable
+	if alive && !pause.ended {
+		run.paused = pause
+		run.traceLevels = ctx.trace.nesting() - outer
+		ctx.trace.setNesting(outer)
+		return pause, true
+	}
+	co.run = nil
+	if alive {
+		ctx.keepBodyCoroutine(co)
+	}
+	return pause, false
 }
 
 // pausedTokens returns the IDs of the tokens whose work a breakpoint paused, the
@@ -171,25 +206,16 @@ func (e *ActionExecutor) tokenIndex(id int64) int {
 // (a breakpoint suspends the executor, the clock does not) or to its end.
 func (e *ActionExecutor) resumeBody(tokenIdx int) error {
 	run := e.tokens[tokenIdx].body
-	run.runDepth, run.actionDepth = e.ctx.runDepth, e.ctx.actionDepth
-	co := run.co
-	co.run = run
-	pause, alive := co.next()
-	if alive && !pause.ended {
+	if pause, paused := run.resume(e.ctx); paused {
 		e.pauses++
 		run.pausedAt = e.pauses
-		run.paused = pause
-		if !pause.onClock {
+		if !pause.onWait {
 			e.pausedAt = pause.breakpoint
 			e.state = StateSuspended
 		}
 		return nil
 	}
 	e.tokens[tokenIdx].body = nil
-	co.run = nil
-	if alive {
-		e.ctx.keepBodyCoroutine(co)
-	}
 	if run.err != nil {
 		return run.err
 	}
@@ -219,8 +245,8 @@ func (ctx *Context) pauseRun(pause bodyPause) error {
 	ctx.pausable = run
 	ctx.runDepth, ctx.actionDepth = run.runDepth+heldRuns, run.actionDepth+heldActions
 	if !resumed {
-		where := "on the clock"
-		if !pause.onClock {
+		where := "on a wait"
+		if !pause.onWait {
 			where = fmt.Sprintf("at breakpoint %q", pause.breakpoint)
 		}
 		return fmt.Errorf("%w: the run paused %s was abandoned", ErrActionDeadlock, where)
@@ -235,19 +261,47 @@ func (ctx *Context) pauseForClock(held clockWaiter, waits func() bool) (bool, er
 	if ctx.pausable == nil {
 		return false, nil
 	}
-	return true, ctx.pauseRun(bodyPause{onClock: true, held: held, waits: waits})
+	return true, ctx.pauseRun(bodyPause{onWait: true, held: held, waits: waits})
+}
+
+// pauseForMessage pauses the pausable run on the stack while held (nil for a flow
+// of the run's own executor) waits for a message, as long as waits reports; false
+// when none is pausable or the run cannot wait for one.
+func (ctx *Context) pauseForMessage(held clockWaiter, waits func() bool) (bool, error) {
+	if ctx.pausable == nil || !ctx.pausable.awaitsMessages {
+		return false, nil
+	}
+	return true, ctx.pauseRun(bodyPause{onWait: true, held: held, waits: waits})
+}
+
+// holdClock keeps the clock where it is while the behavior named runs: a wait on the
+// clock under it, with no run to pause, is an error rather than an advance.
+func (ctx *Context) holdClock(behavior string) func() {
+	outer := ctx.clockHeldBy
+	ctx.clockHeldBy = behavior
+	return func() { ctx.clockHeldBy = outer }
+}
+
+// driveClock reports the error where a wait on the clock, described by waits, cannot
+// advance it because a behavior on the stack holds it; nil where the clock is free.
+func (ctx *Context) driveClock(waits string) error {
+	if ctx.clockHeldBy == "" {
+		return nil
+	}
+	return fmt.Errorf("%w: %s waits for the clock (%s), which only a do behavior may",
+		ErrStateBehaviorWaits, ctx.clockHeldBy, waits)
 }
 
 // pausedOnClock reports a token whose work waits on the clock through a flow it
 // runs or an action it performs; the tokens parked there hold the wait, not this one.
 func (t Token) pausedOnClock() bool {
-	return t.body != nil && t.body.paused.onClock
+	return t.body != nil && t.body.paused.onWait
 }
 
 // resumable reports a token whose paused work would go on if resumed now: paused
 // at a breakpoint, or on the clock for a wait that has ended.
 func (t Token) resumable() bool {
-	return t.body != nil && (!t.body.paused.onClock || !t.body.paused.waits())
+	return t.body != nil && (!t.body.paused.onWait || !t.body.paused.waits())
 }
 
 // heldWaiter returns the executor performing an action for the token's paused

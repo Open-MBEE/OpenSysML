@@ -349,6 +349,10 @@ user may have expected — the SMT design's *not covered → run explore* row is
 `all` is the referee mode. It is what the SMT design's referee section runs over the conformance
 corpus, and what an engineer runs when a proof matters enough to be cross-checked: `smt` proves,
 `explore` enumerates, and the composed result carries both strengths or the disagreement.
+Until the parallel-runs stage puts `all` on its work queue, the surface stage runs the covering
+engines one after another in name order; the composition, the marking of a cancelled engine and
+the disagreement result are defined over the set of results and do not depend on the order the
+engines ran or finished, so moving `all` onto the queue changes no answer.
 
 Explicit selection is never overridden: `-engine smt` on a model `smt` refuses prints the
 refusal and stops. The framework's job is to make the answer's standing legible, not to be
@@ -631,7 +635,19 @@ behavior unchanged until stage 4.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or
-   minor under the versioning rule.
+   minor under the versioning rule. *Implemented:* `Selection` and `Registry.AnswerWith` in
+   `internal/core/analysis`, with `all` running the covering engines one after another in name
+   order and `Compose` deciding the composed result, the demotion and the disagreement over the
+   set of results; a cancelled engine kept in the plan as a step marked cancelled with the
+   bound it reached; `Result.Standing` and `Plan.Standing` for the standing line the REPL, the
+   CLI report and `-json` print after every verdict; `-engines`, `-engine`, `%engines`,
+   `%engine`, `ListEngines`, the `engine` request field and the `engine`, `strength` and
+   `bounds` response fields with the `engines` capability; the `-json` `plan` and `results[]`
+   keys; the strength-scale, dispatch and cancellation tests of the test contract, the
+   disagreement test over a test engine claiming *proved* in the shape `smt` will fill. The
+   patch-or-minor question the `-json` keys raise is an item of the release checklist in
+   `CONTRIBUTING.md`, undecided here; no version was bumped. Running `all` concurrently, `-jobs`
+   and `%jobs` remain with the parallel-runs stage.
 5. **Tools.** The manifest, the `tool:<name>` engine and its protocol, the `AnalysisAnnotation`
    fixture and the stand-in.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as

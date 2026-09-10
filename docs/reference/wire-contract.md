@@ -1474,6 +1474,57 @@ $ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analy
 for the `massLight` example.) Each assertion instantiated its own `sedan`, hence two ids; the
 second verdict has no `holds` and no `error`, so it is a real *false*.
 
+### `ListEngines`, the `engine` field and the standing of an answer
+
+Every verification, analysis and sweep request is a question put to an analysis engine, and a
+service advertising the `engines` capability reports which engine answered and how strongly.
+The transcripts above omit these fields for brevity; a service with the capability adds them.
+
+`ListEngines` takes an empty request and returns the engines of the build in name order, each
+an `EngineInfo`: `name`; `authority`, the strongest evidence the engine can produce, spelled as
+`strength` is; `answers`, the question kinds it covers; `bounds`, the budget bounds it takes;
+`process` and `processFound` for an engine that needs an external process, where it was found;
+`ready`, and `unavailable` with the reason when it is not.
+
+```console
+$ … /ListEngines -d '{}'
+{"engines":[
+  {"name":"explore","authority":"proved","answers":["outcomes"],"bounds":["runs","depth"],"ready":true},
+  {"name":"run","authority":"observed","answers":["evaluate"],"bounds":["steps","elements"],"ready":true},
+  {"name":"solve","authority":"proved","answers":["satisfiable"],"bounds":["runs","solver"],"process":"z3","processFound":"/usr/bin/z3","ready":true},
+  {"name":"sweep","authority":"observed","answers":["sweep"],"bounds":["runs"],"ready":true}]}
+```
+
+The `engine` field on `VerifyConstraintRequest`, `VerifyRequirementRequest`,
+`VerifySatisfactionRequest`, `EvaluateCalcRequest`, `RunAnalysisRequest` and `RunSweepRequest`
+selects: unset or `"auto"` puts the question to the engine of highest authority covering it,
+advancing past one that refuses; a name puts it to that engine alone, whose refusal is then the
+answer (`VerifyConstraint` with `"engine":"explore"` returns a verdict whose `error` is the
+refusal); `"all"` puts it to every covering engine, one after another in name order, and
+composes their answers. `"engine":"explore"` on `RunAnalysisRequest` asks what
+`"schedule":"explore"` asks, and the response answers alike. A name no engine is registered
+under is the `invalid_argument` Connect error. Send the field only to a service advertising
+`engines`: one without the capability does not read it and answers under `auto`.
+
+Every `Verdict`, and `EvaluateCalcResponse`, `RunAnalysisResponse` and `RunSweepResponse`,
+carry the standing of the answer: `engine`, the engine whose answer it is; `strength`, one of
+`"not covered"`, `"observed"`, `"witnessed"`, `"bounded"` and `"proved"`; and `bounds`, one
+`Bound` per limit the engine ran under — `name`, `limit` and `reached`, true when the run
+stopped at the limit, which is what lowers the strength. An answer decided before any engine
+was asked (a failure classified before the run) carries none of the three.
+
+```console
+$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+{"verdict":{"kind":"constraint", …, "condition":"mass < 100.0","engine":"run","strength":"witnessed",
+  "bounds":[{"name":"steps","limit":"10000000"},{"name":"elements","limit":"1000000"}]}, "instances":[…]}
+```
+
+`limit` is an `int64`, so it arrives as a string in JSON, and `reached` is omitted when false
+(the default-omission rule). The other fields keep their meaning: `holds`, `error` and
+`condition` are read exactly as before, and the standing says how much the answer is worth.
+The Python client reads them as `Verdict.engine`, `Verdict.strength` and `Verdict.bounds`
+and lists engines with `Connection.list_engines()`.
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be

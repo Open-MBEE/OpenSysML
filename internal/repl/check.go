@@ -61,6 +61,8 @@ type SolveReport struct {
 	Lines   []string
 	// Solver names the solver that answered, empty when none did.
 	Solver string
+	// Plan is how the engines answered; nil for a report made before any was asked.
+	Plan *analysis.Plan
 }
 
 // Satisfiable reports whether the solver found the conditions satisfiable.
@@ -79,15 +81,8 @@ func (s *Session) checkSolve(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solved, err := s.solveWith(name, queries, (*solve.Solver).Solve)
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	reports := make([]SolveReport, 0, len(queries))
-	for i, q := range queries {
-		reports = append(reports, solveQueryReport(name, q, solved[i]))
-	}
-	return reports
+	plan, err := s.solveWith(name, queries, (*solve.Solver).Solve)
+	return solveReports(name, queries, plan, err, solveQueryReport)
 }
 
 // solveQueryReport renders the solver's answer about one query.

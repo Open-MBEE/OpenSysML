@@ -302,6 +302,80 @@ is listed under `Waiting on the clock`; an advance with nothing waiting just mov
 `%continue` runs an action to completion on its own, moving the clock to each of its waits as it
 reaches them, and moving with it every other behavior of the same runtime that comes due.
 
+**What a state's behaviors may do.** A state's `entry`, `do` and `exit` behaviors are actions,
+and their bodies may hold whatever an action body holds: a flow of nodes joined by successions
+(`first start; then …` or, with one node no succession leads to, the flow starts there),
+forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
+their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
+body stating no flow still runs its statements in declaration order. The three behaviors differ
+in *when* they run: entry and exit are performed whole at the instant the state is entered or
+left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
+with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
+one action per round, and may wait. An `accept after` in a do body parks it on the shared clock
+and `%advance` moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig`
+takes it though no transition fires on it, reporting that the do behavior goes on. A do behavior
+performs once — when its body ends, the state has completed and a completion transition out of
+it, if any, fires — and leaving the state for any other reason abandons what is left of it: its
+waits leave the clock, nothing after the wait runs, and an `inout` pin writes its value back to
+the bound attribute only when the performance ends (an `inout` pin valued by an enumeration
+literal or another constant, `inout mode = Mode::idle`, starts from that value and writes back
+nowhere). `Poll` below counts once at `t=3.0`, the
+state is left at `t=10.0`, and `ticks` reads `1`:
+
+```sysml
+sysml> package Watch {
+  ...>     private import ScalarValues::*;
+  ...>     action def Poll {
+  ...>         inout n : Integer;
+  ...>         action wait accept after 3 [SI::s];
+  ...>         then assign n := n + 1;
+  ...>     }
+  ...>     part def Watcher {
+  ...>         attribute ticks : Integer = 0;
+  ...>         exhibit state m {
+  ...>             entry; then watching;
+  ...>             state watching { do action poll : Poll { inout n = ticks; } }
+  ...>             transition first watching accept after 10 [SI::s] then finished;
+  ...>             state finished;
+  ...>         }
+  ...>     }
+  ...>     part w : Watcher;
+  ...> }
+✓ package Watch
+
+sysml> %instantiate Watch::w
+✓ Created instance of Watch::w
+  ID: 1
+  Use %features Watch::w to inspect
+
+sysml> %state Watch::w
+✓ Debugging state machine "m" exhibited by object #1 of "Watch::w"
+  Current state: watching
+  Time: 0.0
+  Events: 1
+
+sysml> %advance 20
+✓ Advanced to 20.0 (1 event(s) processed)
+  Current state: finished
+  Last event at: 10.0
+  Remaining events: 0
+  Do behavior actions run: 1
+
+sysml> %features Watch::w
+Instance: Watch::w (ID: 1)
+Features:
+  ticks = 1
+Behaviors:
+  m: exhibited state machine, current state finished
+```
+
+Had the poll waited `30 [SI::s]` instead, the exit at `t=10.0` would have cancelled it and
+`ticks` would still read `0`. When the states of two orthogonal regions both have a do action
+due at one instant, which acts first in the round is a choice point (`choice do round at t=2.0:
+states left, right react`), explored like any other ([below](#when-a-model-has-more-than-one-valid-run)).
+A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
+refused when the behavior starts, naming the pin.
+
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
 - `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it

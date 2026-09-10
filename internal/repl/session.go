@@ -137,6 +137,8 @@ type Session struct {
 	// engines answers every check, run, exploration, sweep and solve the session
 	// makes, dispatching each to the engine that covers it.
 	engines *analysis.Registry
+	// engine is the selection every question is put to the engines under.
+	engine analysis.Selection
 
 	verbosity Verbosity
 

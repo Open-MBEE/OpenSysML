@@ -31,10 +31,11 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Parse one document | `ParseFile`, `ParseSource` |
 | Parse a model of several documents | `ParseFiles`, `ParseDocuments` |
 | Read the model | `LookupSymbol`, `Diagnostics` |
-| Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `RunAnalysis` |
+| Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
 | Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` |
+| Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
 | Report on it | `RunDocumentQuery`, `RenderDocument` |
 | Write it out | `Convert`, `ConvertFile`, `ConvertSource` |
@@ -108,6 +109,24 @@ for _, outcome := range exploration.Outcomes {
 	fmt.Println(outcome.Outputs["winner"], outcome.Linearizations, outcome.Witness)
 }
 fmt.Println(exploration.Status()) // complete (6 runs)
+```
+
+Every verdict, calculation and analysis carries its `Standing`: the analysis
+engine that answered (`run`, `explore`, `sweep` or `solve`), the `Strength` of
+its evidence (`observed`, `witnessed`, `bounded`, `proved`, or `not covered`)
+and the `Bounds` it ran under, each marked `Reached` when hitting it is what
+stopped the run. `ListEngines` names the engines a service registers with the
+strongest strength each may claim and the question kinds it answers;
+`WithEngine` (`Engine` for an analysis, `CalcEngine` for a calculation put
+through `Calculate`) puts the question to one of them by name, to `EngineAll` for every engine that covers it, or to `EngineAuto` — the
+default — for the service's own choice. A named engine that refuses the
+question is the answer, not a fallback, and an engine the service does not
+register is refused with `CodeInvalidArgument`.
+
+```go
+verification, err := client.VerifyConstraint(ctx, model, "Demo::Vehicle::massLight",
+	opensysml.Against("Demo::sedan"), opensysml.WithEngine("run"))
+fmt.Println(verification.Verdict.Standing.Engine, verification.Verdict.Standing.Strength) // run observed
 ```
 
 An action or state machine runs on a simulation clock that starts at 0 and
@@ -264,7 +283,9 @@ service without them would read the value as null, so the client refuses with
 `CodeUnimplemented` before sending anything. A scheduling policy is checked the
 same way: `WithSchedule`/`Schedule` need `schedule`, and the `Explore*` calls
 `schedule_explore` besides, since a service without them would run under the
-default, or run once, rather than refuse.
+default, or run once, rather than refuse. So is an engine: `WithEngine`,
+`Engine` and `CalcEngine` naming anything but `EngineAuto` need `engines`, since a service without it
+would answer with whichever engine it chose.
 
 A `Set` arrives with its elements in the service's canonical order — Booleans,
 then numbers, strings, quantities, enumeration literals and objects, each class

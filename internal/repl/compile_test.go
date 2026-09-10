@@ -200,7 +200,18 @@ func interpreted(t *testing.T, s *Session, c compiledCase) (value, failure strin
 		}
 		t.Fatalf("%s%v: no value in %q", c.calc, c.args, v.Lines)
 	}
-	return "", failureClass(c.calc, strings.Join(v.Lines, "\n"))
+	return "", failureClass(c.calc, strings.Join(verdictLines(v), "\n"))
+}
+
+// verdictLines is the verdict without its standing line, which no compiled program prints.
+func verdictLines(v Verdict) []string {
+	var lines []string
+	for _, line := range v.Lines {
+		if !strings.HasPrefix(line, standingPrefix) {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }
 
 // compiledRun answers a case with the executable: the value, or the failure.
