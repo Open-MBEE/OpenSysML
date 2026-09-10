@@ -2207,3 +2207,9 @@ func (e *ActionExecutor) SetTrace(trace *TraceRecorder) {
 func (e *ActionExecutor) ActionSymbol() *symbols.Symbol {
 	return e.action
 }
+
+// Performer returns the object performing the action, nil for an action
+// performed outside any object.
+func (e *ActionExecutor) Performer() *Instance {
+	return e.self
+}

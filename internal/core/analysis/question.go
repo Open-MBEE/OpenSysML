@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // Kind is what a question asks of its subject.
@@ -102,6 +103,8 @@ type Question struct {
 	Sweep *SweepAsk
 	// Solve is the queries of a Satisfiable question and how each is asked.
 	Solve *SolveAsk
+	// Holds is the behavior, the condition and the start of one run of a Holds question.
+	Holds *HoldsAsk
 }
 
 // Performance makes one execution in the given context and reports what it established.
@@ -136,6 +139,25 @@ type SolveAsk struct {
 	Queries []*solve.Query
 	Ask     Asking
 }
+
+// HoldsAsk is the behavior a Holds question is about, the condition asked to
+// hold over its schedules, and how one run of it begins in a fresh context.
+type HoldsAsk struct {
+	// Behavior is the action definition or usage whose schedules are asked about.
+	Behavior *symbols.Symbol
+	// Scope is the scope Behavior's body resolves in; Behavior's own when nil.
+	Scope *symbols.Scope
+	// Condition is the requirement or constraint asked to hold at every move;
+	// nil asks only that no schedule deadlocks.
+	Condition *symbols.Symbol
+	// Start begins one run of Behavior in a fresh context, as an explored run is
+	// begun: the executor made, on the object performing it when there is one.
+	Start Start
+}
+
+// Start begins one run of a behavior in the given context and returns the executor
+// about to run it. An error is a fault of the start, not an outcome of the run.
+type Start func(*runtime.Context) (*runtime.ActionExecutor, error)
 
 // Asking puts one query to the solver in a method expression's shape. An error is that
 // query's failure, not the question's; nil for both is a query withheld, which stays uncovered.
