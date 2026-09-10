@@ -189,23 +189,13 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		}
 		return ctx.instanceConforms(inst, declared), "", nil
 	}
-	prim := ctx.model.PrimTypeOf(declared)
-	if got := valuePrimType(value); prim != semantics.PrimUnknown && got != semantics.PrimUnknown {
-		return semantics.PrimConforms(got, prim), "", nil
-	}
-	// Outside the lattice, a constant's direct type is known by name only, so a
-	// target specializing it may still hold the value; a disjoint one cannot.
-	direct, err := ctx.directValueType(scope, *value)
+	// A scalar is what its representation and the declared type say (classifyValue); a
+	// verdict they leave open is the declaration's to make (KerML 1.0 §7.3.4.1).
+	verdict, err := ctx.classifyValue(scope, *value, declared, nil, byAnyType)
 	if err != nil {
 		return false, "", err
 	}
-	if ctx.model.Conforms(direct, declared) {
-		return true, "", nil
-	}
-	if prim == semantics.PrimUnknown && isScalarConstant(value) {
-		return ctx.model.Conforms(declared, direct), "", nil
-	}
-	return false, "", nil
+	return verdict != semantics.ClassifiesNone, "", nil
 }
 
 // isScalarConstant reports a value written as one scalar constant.
@@ -454,18 +444,4 @@ func dimensionText(d semantics.Dimension) string {
 		return "dimensionless"
 	}
 	return "dimension " + d.String()
-}
-
-// valuePrimType classifies a value against the scalar lattice by the value itself
-// (4 / 2 is an Integer, 7 / 2 a Rational); outside the lattice it is PrimUnknown.
-func valuePrimType(value *Value) semantics.PrimType {
-	switch value.Kind {
-	case ValConst:
-		return semantics.PrimTypeOfValue(value.Const)
-	case ValComplex:
-		return complexPrimType(value.Complex())
-	case ValString:
-		return semantics.PrimString
-	}
-	return semantics.PrimUnknown
 }

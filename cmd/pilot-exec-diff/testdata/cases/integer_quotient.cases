@@ -1,0 +1,6 @@
+model: cmd/pilot-exec-diff/testdata/models/integer_quotient.sysml
+
+# The pilot evaluates the quotient regardless of the result's type; this
+# implementation refuses the model statically (ours-error), so the case is kept
+# apart from expr_values to leave the other probes there evaluable.
+intdiv ::  :: Quotient::IntDiv()

@@ -421,12 +421,11 @@ package Refused {
 		in n : Integer;
 	}
 
-	// The interpreter stores the Real quotient in an Integer attribute; the
-	// compiler would have to pick a representation, so it declines.
+	// The interpreter judges the Real parameter's value when it is written to the
+	// Integer attribute; the compiler would have to pick a representation, so it declines.
 	calc def Narrowed {
-		in n : Integer;
-		attribute x : Integer = n;
-		assign x := x / 2;
+		in r : Real;
+		attribute x : Integer = r;
 		return : Integer = x;
 	}
 

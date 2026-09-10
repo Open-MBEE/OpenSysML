@@ -36,7 +36,7 @@ func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]))
+	return ec.castValue(value, target, ec.declaredOperandTypes(n.Operands[0]))
 }
 
 // castEntries casts one entry of a written sequence, answering the values target
@@ -60,16 +60,16 @@ func (ec *EvalContext) castEntries(
 	if err != nil {
 		return nil, nil, err
 	}
-	out, err := ec.castValue(value, target, ec.declaredCastTypes(entry))
+	out, err := ec.castValue(value, target, ec.declaredOperandTypes(entry))
 	if err != nil {
 		return nil, nil, err
 	}
 	return elementsOf(out), []Value{value}, nil
 }
 
-// declaredCastTypes names every type the cast's operand is declared with, which
-// classifies its values where their own content does not state their type.
-func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
+// declaredOperandTypes names every type an operand is declared with, which classifies
+// its values where their own content does not state their type (KerML 1.0 §7.3.4.1).
+func (ec *EvalContext) declaredOperandTypes(operand ast.Node) []*symbols.Symbol {
 	// An enumeration literal is of its enumeration however its value is written.
 	if sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
 		if canonical, aliased := ec.ctx.resolver.ResolveAliasTarget(sym); aliased {
@@ -131,239 +131,22 @@ func (ec *EvalContext) castValue(
 	return value, nil
 }
 
-// castKeeps reports whether target classifies one value. The types the value is
-// of decide it wherever they are enough; where target is narrower than all of
-// them, the value's own content does (castNarrowerKeeps).
+// castKeeps reports whether target classifies one value, by the shared classification;
+// a verdict neither the value's types nor its content settle fails the cast (undecidedCast).
 func (ec *EvalContext) castKeeps(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 ) (bool, error) {
-	return ec.castKeepsReading(value, target, declared, nil)
-}
-
-// castKeepsReading answers castKeeps; reading holds the composed targets being
-// read, so a composition naming itself does not recur.
-func (ec *EvalContext) castKeepsReading(
-	value Value, target *symbols.Symbol, declared []*symbols.Symbol, reading map[*symbols.Symbol]bool,
-) (bool, error) {
-	types, err := ec.castTypes(value)
-	if err != nil && len(declared) == 0 {
+	verdict, err := ec.ctx.classifyValue(ec.scope, value, target, declared, byAnyType)
+	if err != nil {
 		return false, err
 	}
-	known := append(append([]*symbols.Symbol{}, declared...), types...)
-	switch ec.ctx.model.ClassifiesTypes(known, target) {
+	switch verdict {
 	case semantics.ClassifiesAll:
 		return true, nil
 	case semantics.ClassifiesNone:
 		return false, nil
 	}
-	if keep, composed, err := ec.castComposedKeeps(value, target, declared, reading); composed {
-		return keep, err
-	}
-	return ec.castNarrowerKeeps(value, target)
-}
-
-// castComposedKeeps decides a value by a composed target's operands — any of a
-// union, all of an intersection, the first of a difference and none of the rest —
-// and reports second whether the target is composed at all.
-func (ec *EvalContext) castComposedKeeps(
-	value Value, target *symbols.Symbol, declared []*symbols.Symbol, reading map[*symbols.Symbol]bool,
-) (bool, bool, error) {
-	unions := ec.ctx.model.UnioningTypes(target)
-	intersects := ec.ctx.model.IntersectingTypes(target)
-	differences := ec.ctx.model.DifferencingTypes(target)
-	if len(unions)+len(intersects)+len(differences) == 0 || reading[target] {
-		return false, false, nil
-	}
-	if reading == nil {
-		reading = make(map[*symbols.Symbol]bool)
-	}
-	reading[target] = true
-	defer delete(reading, target)
-
-	keeps := func(operand *symbols.Symbol) (bool, error) {
-		return ec.castKeepsReading(value, operand, declared, reading)
-	}
-	// An operand no type of the value settles leaves the cast undecided, but only
-	// where no other operand excludes the value outright.
-	var undecided error
-	if len(unions) > 0 {
-		kept, err := anyKeeps(unions, keeps)
-		switch {
-		case err != nil:
-			undecided = err
-		case !kept:
-			return false, true, nil
-		}
-	}
-	for _, operand := range intersects {
-		kept, err := keeps(operand)
-		switch {
-		case err != nil:
-			undecided = err
-		case !kept:
-			return false, true, nil
-		}
-	}
-	for i, operand := range differences {
-		kept, err := keeps(operand)
-		switch {
-		case err != nil:
-			undecided = err
-		case kept != (i == 0):
-			return false, true, nil
-		}
-	}
-	if undecided != nil {
-		return false, true, undecided
-	}
-	return true, true, nil
-}
-
-// anyKeeps reports whether any operand keeps the value, reporting an operand's
-// error only when no other one keeps it.
-func anyKeeps(operands []*symbols.Symbol, keeps func(*symbols.Symbol) (bool, error)) (bool, error) {
-	var undecided error
-	for _, operand := range operands {
-		kept, err := keeps(operand)
-		if err != nil {
-			undecided = err
-			continue
-		}
-		if kept {
-			return true, nil
-		}
-	}
-	return false, undecided
-}
-
-// castTypes names the types a value is of for a cast: a quantity value is the
-// quantity type it is, whose dimension castNarrowerKeeps then judges, and every
-// other value is of the types a classification reads it as.
-func (ec *EvalContext) castTypes(value Value) ([]*symbols.Symbol, error) {
-	// A deferred expression is of the evaluation type the model reads it as, in
-	// the scope it closes over.
-	if value.Kind == ValExpr {
-		if typ := ec.ctx.model.ExprResultType(value.exprEnv(ec).scope, value.Expr()); typ != nil {
-			return []*symbols.Symbol{typ}, nil
-		}
-		evaluation, err := ec.ctx.loadedLibraryType(evaluationTypeFQN)
-		if err != nil {
-			return nil, err
-		}
-		return []*symbols.Symbol{evaluation}, nil
-	}
-	if value.Kind == ValQuantity {
-		quantity, err := ec.ctx.loadedLibraryType(scalarQuantityTypeFQN)
-		if err != nil {
-			return nil, err
-		}
-		return []*symbols.Symbol{quantity}, nil
-	}
-	// A scalar is of its ScalarValues type whatever a declaration of that name in
-	// the reading scope says, so the library symbol answers ahead of a lookup.
-	if scalar := ec.scalarLibraryType(value); scalar != nil {
-		return []*symbols.Symbol{scalar}, nil
-	}
-	return ec.ctx.directValueTypes(ec.scope, value)
-}
-
-// scalarLibraryType is the ScalarValues type a literal value is of, independent of
-// what the reading scope imports or declares under that type's name.
-func (ec *EvalContext) scalarLibraryType(value Value) *symbols.Symbol {
-	var prim semantics.PrimType
-	switch value.Kind {
-	case ValString:
-		prim = semantics.PrimString
-	case ValComplex:
-		prim = semantics.PrimComplex
-	case ValConst:
-		switch value.Const.Kind {
-		case semantics.ValInt:
-			prim = semantics.PrimInteger
-		case semantics.ValReal:
-			prim = semantics.PrimReal
-		case semantics.ValBool:
-			prim = semantics.PrimBoolean
-		default:
-			return nil
-		}
-	default:
-		return nil
-	}
-	return ec.ctx.model.ScalarSymbol(prim)
-}
-
-// positiveValue reports whether a numeric value is greater than zero; a complex
-// value off the real axis is not on the ordering Positive bounds.
-func positiveValue(value Value) bool {
-	if value.Kind == ValComplex {
-		return imag(value.Complex()) == 0 && real(value.Complex()) > 0
-	}
-	switch value.Const.Kind {
-	case semantics.ValInt:
-		return value.Const.Int > 0
-	case semantics.ValReal:
-		return value.Const.Real > 0
-	}
-	return false
-}
-
-// castNarrowerKeeps decides a target narrower than every type the value is of,
-// which only the value itself settles: a scalar by its own magnitude against the
-// ScalarValues lattice, a quantity by the dimension the target fixes, an object
-// and an enumeration literal by the types they carry — which already said no.
-func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (bool, error) {
-	switch value.Kind {
-	case ValConst, ValComplex, ValString:
-		prim, ok := ec.ctx.model.ScalarLatticeElement(target)
-		got := valuePrimType(&value)
-		if !ok || got == semantics.PrimUnknown {
-			return false, ec.undecidedCast(value, target)
-		}
-		if !semantics.PrimConforms(got, prim) {
-			return false, nil
-		}
-		// Positive shares Natural's lattice element but not its zero.
-		return !ec.ctx.model.PositiveScalar(target) || positiveValue(value), nil
-	case ValQuantity:
-		return ec.quantityCastKeeps(value, target)
-	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity,
-		ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
-		// A structured value's own shape, units and frame decide it, as they do
-		// for a value written to a feature of the target type.
-		keep, _, err := ec.ctx.valueConforms(ec.scope, &value, target, admitWritten)
-		return keep, err
-	case ValEnumLiteral, ValVariant:
-		return false, nil
-	}
-	if _, isObject := value.Object(); isObject {
-		// An object is classified by the types it was declared and classified by;
-		// a specialization of those does not classify it.
-		return false, nil
-	}
 	return false, ec.undecidedCast(value, target)
-}
-
-// quantityCastKeeps judges a quantity against a narrower target by dimension: an
-// incommensurable target measures none of its values, and a target stating its own
-// measurement reference measures every value of that dimension. Anything else a
-// magnitude and a unit do not state, so it is undecided.
-func (ec *EvalContext) quantityCastKeeps(value Value, target *symbols.Symbol) (bool, error) {
-	want, ok := ec.ctx.model.DimensionOfType(target)
-	if !ok || value.Quantity() == nil {
-		return false, ec.undecidedCast(value, target)
-	}
-	got, ok := ec.ctx.model.DimensionOfUnit(value.Quantity().Unit.Term)
-	if !ok {
-		return false, ec.undecidedCast(value, target)
-	}
-	if !want.Term.Commensurable(got.Term) {
-		return false, nil
-	}
-	if !ec.ctx.model.FixesMeasurementReference(target) {
-		return false, ec.undecidedCast(value, target)
-	}
-	return true, nil
 }
 
 // undecidedCast reports a cast whose verdict the value does not settle, so the

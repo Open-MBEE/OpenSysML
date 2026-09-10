@@ -1387,8 +1387,8 @@ func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbol
 	return target, true
 }
 
-// evalTypeClassification evaluates `x hastype T`, `x istype T` and the value
-// form of `x @ T`; only `hastype` demands T be one of the value's direct types.
+// evalTypeClassification evaluates `x hastype T`, `x istype T` and the value form of
+// `x @ T` (KerML 1.0 Table 5): `hastype` reads the direct types alone, `@` holds for any value.
 func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 1 || n.TypeRef == nil {
 		return Value{}, fmt.Errorf("%w: '%s' requires one value and one type",
@@ -1403,54 +1403,39 @@ func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error
 	if err != nil {
 		return Value{}, err
 	}
-	matches, err := ec.valueHasType(value, target, n.Operator == ast.OpHasType)
+	by := byAnyType
+	if n.Operator == ast.OpHasType {
+		by = byOwnType
+	}
+	matches, err := ec.valuesClassified(value, target, ec.declaredOperandTypes(n.Operands[0]), by, n.Operator == ast.OpAt)
 	if err != nil {
 		return Value{}, err
 	}
 	return boolValue(matches), nil
 }
 
-func (ec *EvalContext) valueHasType(value Value, target *symbols.Symbol, exact bool) (bool, error) {
+// valuesClassified reports whether target classifies every value of value — or, for
+// `@`, any — so an empty value satisfies `istype` and `hastype` and fails `@`.
+func (ec *EvalContext) valuesClassified(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol, by classifiedBy, any bool,
+) (bool, error) {
+	var elements []Value
 	switch value.Kind {
-	case ValSequence:
-		if value.Sequence() == nil || value.Sequence().Size() == 0 {
-			return true, nil
-		}
-		for _, element := range value.Sequence().Elements() {
-			matches, err := ec.valueHasType(element, target, exact)
-			if err != nil {
-				return false, err
-			}
-			if !matches {
-				return false, nil
-			}
-		}
-		return true, nil
-	case ValSet:
-		if value.Set() == nil || value.Set().Size() == 0 {
-			return true, nil
-		}
-		for _, element := range value.Set().Elements() {
-			matches, err := ec.valueHasType(element, target, exact)
-			if err != nil {
-				return false, err
-			}
-			if !matches {
-				return false, nil
-			}
-		}
-		return true, nil
+	case ValNull, ValInvalid, ValSequence, ValSet:
+		elements = elementsOf(value)
+	default:
+		elements = []Value{value}
 	}
-	direct, err := ec.ctx.directValueTypes(ec.scope, value)
-	if err != nil {
-		return false, err
+	for _, element := range elements {
+		verdict, err := ec.ctx.classifyValue(ec.scope, element, target, declared, by)
+		if err != nil {
+			return false, err
+		}
+		if (verdict == semantics.ClassifiesAll) == any {
+			return any, nil
+		}
 	}
-	// istype reads a composed target as a cast does, weighing the value's types
-	// together; hastype stays on identity with one of them.
-	if !exact {
-		return ec.ctx.model.ClassifiesTypes(direct, target) == semantics.ClassifiesAll, nil
-	}
-	return slices.Contains(direct, target), nil
+	return !any, nil
 }
 
 // directValueTypes names the types a value is of, resolved in the scope reading it:
@@ -1509,7 +1494,11 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		case semantics.ValInt:
 			name = "Integer"
 		case semantics.ValReal:
-			name = "Real"
+			// A finite real is a rational (KerML 8.4.4.9.2): only infinities need Real.
+			name = "Rational"
+			if math.IsInf(value.Const.Real, 0) {
+				name = "Real"
+			}
 		case semantics.ValBool:
 			name = "Boolean"
 		case semantics.ValInfinity:
@@ -1551,9 +1540,6 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		return ctx.directValueType(scope, Value{Kind: ValConst, Const: value.Quantity().Num})
 	case ValComplex:
 		name = "Complex"
-		if re, ok := value.realPart(); ok {
-			return ctx.directValueType(scope, realConst(re))
-		}
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		return ctx.structuredValueType(value)
 	case ValMeasurementRef:

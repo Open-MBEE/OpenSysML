@@ -156,12 +156,22 @@ func (ec *exprChecker) checkScalarBinding(value ast.Node, got, want semantics.Pr
 }
 
 // bindable reports whether a got-typed value may bind to a want-typed feature: a literal's
-// type is exact, an expression's only bounds its values (7 / 2 is Rational, 4 / 2 whole).
+// type is exact, a quotient's is Rational whatever it divides (a Real-typed feature may
+// still hold an Integer), any other expression's only bounds its values.
 func bindable(value ast.Node, got, want semantics.PrimType) bool {
 	if semantics.PrimConforms(got, want) {
 		return true
 	}
-	return !spellsOneValue(value) && semantics.PrimConforms(want, got)
+	if spellsOneValue(value) || isQuotient(value) && semantics.PrimConforms(want, semantics.PrimInteger) {
+		return false
+	}
+	return semantics.PrimConforms(want, got)
+}
+
+// isQuotient reports a division, whose result is a Rational however whole (IntegerFunctions::'/').
+func isQuotient(n ast.Node) bool {
+	op, ok := n.(*ast.OperatorExpr)
+	return ok && op.Operator == ast.OpDiv && len(op.Operands) == 2
 }
 
 // spellsOneValue reports whether an expression writes its value out: a literal, or a signed one.

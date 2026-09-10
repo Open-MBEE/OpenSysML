@@ -285,7 +285,9 @@ func TestMeasurementRefEquality(t *testing.T) {
 }
 
 // TestMeasurementRefClassification: a reference is of its declaration's type; a
-// composed unit is a DerivedUnit, a unit of powers of other units.
+// composed unit is a DerivedUnit, and a unit definition fixing its dimension
+// (AreaUnit's quantityDimension) classifies the composed unit of that dimension,
+// as a feature of that type holds it.
 func TestMeasurementRefClassification(t *testing.T) {
 	ctx, scope := measurementRefContext(t)
 
@@ -305,7 +307,9 @@ func TestMeasurementRefClassification(t *testing.T) {
 		{"(m * s) istype MeasurementReferences::DerivedUnit", "true"},
 		{"m istype MeasurementReferences::DerivedUnit", "false"},
 		{"(m * s) istype LengthUnit", "false"},
-		{"(m * m) istype AreaUnit", "false"},
+		{"(m * m) istype AreaUnit", "true"},
+		{"(m * s) istype AreaUnit", "false"},
+		{"(m * m) hastype AreaUnit", "false"},
 		{"(m * m) @ MeasurementReferences::MeasurementUnit", "true"},
 		{"m istype ScalarValues::Real", "false"},
 	}

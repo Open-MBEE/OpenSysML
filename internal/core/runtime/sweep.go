@@ -568,8 +568,8 @@ func (t SweepType) admit(ctx *Context, param, what string, value Value) error {
 	return t.admitMagnitude(ctx, param, what, value)
 }
 
-// admitMagnitude refuses a quantity whose magnitude the quantity type's `num`
-// cannot hold, which its dimension alone does not judge.
+// admitMagnitude refuses a quantity whose magnitude the quantity type's `num` excludes
+// (classifyValue), which its dimension alone does not judge.
 func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value) error {
 	q := value.Quantity()
 	if t.num == nil || q == nil {
@@ -577,11 +577,21 @@ func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value)
 	}
 	magnitude := constValue(q.Num)
 	prim := ctx.model.PrimTypeOf(t.num)
-	if prim.IsNumeric() && semantics.PrimConforms(valuePrimType(&magnitude), prim) {
-		return nil
-	}
-	return fmt.Errorf("%w: %s is %s, which num : %s of %s : %s cannot hold",
+	refusal := fmt.Errorf("%w: %s is %s, which num : %s of %s : %s cannot hold",
 		ErrSweepRange, what, describeValue(magnitude), ctx.numTypeText(t.num, prim), param, symbolText(t.Declared()))
+	if !prim.IsNumeric() {
+		return refusal
+	}
+	for _, typ := range ctx.model.FeatureTypes(t.num) {
+		verdict, err := ctx.classifyValue(declScope(t.decl.Owner), magnitude, typ, nil, byAnyType)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrSweepRange, err)
+		}
+		if verdict == semantics.ClassifiesNone {
+			return refusal
+		}
+	}
+	return nil
 }
 
 // numTypeText names a quantity's `num` type as a refusal reads it.

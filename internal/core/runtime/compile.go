@@ -121,13 +121,9 @@ func (c *scalarCheck) accepts(v scalar) bool {
 	return c.acceptsReal(v)
 }
 
-// acceptsReal places a Real on the lattice by its value, as the evaluator does.
+// acceptsReal places a Real on the lattice by its representation, as the evaluator does.
 func (c *scalarCheck) acceptsReal(v scalar) bool {
-	switch semantics.PrimTypeOfValue(v.semantic()) {
-	case semantics.PrimNatural:
-		return c.naturalOK
-	case semantics.PrimInteger:
-		return c.integerOK
+	switch representationPrim(v.boxed()) {
 	case semantics.PrimRational:
 		return c.rationalOK
 	case semantics.PrimReal:
