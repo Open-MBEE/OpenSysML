@@ -346,6 +346,8 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Analysis case: subject → calc chain → result values
 - Verification case: evaluate requirements → pass/fail
 - Entry points: REPL/LSP commands (`%run`, `%verify`)
+- Design: [the analysis framework](design/analysis-framework.md) — registered engines behind
+  one contract, one scale for the strength of an answer, parallel isolated runs
 
 ---
 
