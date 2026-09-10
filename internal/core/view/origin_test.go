@@ -116,7 +116,8 @@ func TestInterconnectionOriginsLocateFeaturesAndConnectors(t *testing.T) {
 }
 
 // A state rendering locates each state and the transition each edge was
-// declared as, both of which come from the lowered graph rather than a symbol.
+// declared as, both of which come from the lowered graph rather than a symbol;
+// an entry edge is located at the entry transition written after `entry;`.
 func TestStateOriginsComeFromTheLoweredGraph(t *testing.T) {
 	rendering := render(t, "state.sysml", "MachineViews::vehicleStates")
 	sf := fixtureText(t, "state.sysml")
@@ -126,18 +127,24 @@ func TestStateOriginsComeFromTheLoweredGraph(t *testing.T) {
 			t.Errorf("state %s: origin spans %q, want the state's declaration", name, text)
 		}
 	}
-	located := 0
+	var transitions, entries int
 	for _, edge := range rendering.Edges {
 		if !edge.Origin.Located() {
+			t.Errorf("edge %s→%s carries no origin", edge.From, edge.To)
 			continue
 		}
-		located++
-		if text := sf.Text(edge.Origin.Span); !strings.HasPrefix(text, "transition") && !strings.HasPrefix(text, "accept") {
+		text := sf.Text(edge.Origin.Span)
+		switch {
+		case strings.HasPrefix(text, "transition"), strings.HasPrefix(text, "accept"):
+			transitions++
+		case strings.HasPrefix(text, "then "), strings.HasPrefix(text, "if "):
+			entries++
+		default:
 			t.Errorf("transition edge origin spans %q, want the transition's declaration", text)
 		}
 	}
-	if located == 0 {
-		t.Error("no transition edge carries an origin")
+	if transitions == 0 || entries == 0 {
+		t.Errorf("%d transition and %d entry edges carry an origin, want some of each", transitions, entries)
 	}
 }
 

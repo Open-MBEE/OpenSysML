@@ -164,8 +164,9 @@ func (k EdgeKind) String() string {
 }
 
 // Node is one element of a rendering: an exposed element, a feature nested in
-// one, a state or an action node. Children are the nodes nested in it, which is
-// how a rendering carries containment.
+// one, a state or an action node, or the "start" of a state body, which its entry
+// transitions leave. Children are the nodes nested in it, which is how a
+// rendering carries containment.
 type Node struct {
 	// ID identifies the node within its rendering, and is what an edge names.
 	ID string

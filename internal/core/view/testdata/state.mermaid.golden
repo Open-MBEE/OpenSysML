@@ -2,12 +2,12 @@
 stateDiagram-v2
   state "state def Machines::VehicleStates" as n0 {
     state "state off (initial)" as n1
-    [*] --> n1
     state "state operating" as n2 {
       state "state idle (initial)" as n3
-      [*] --> n3
       state "state moving" as n4
+      [*] --> n3
     }
+    [*] --> n1
   }
   n1 --> n2
   n2 --> n1

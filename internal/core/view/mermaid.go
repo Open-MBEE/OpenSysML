@@ -101,9 +101,8 @@ func writeFlowchartNode(b *strings.Builder, node *Node, depth int, containment b
 	fmt.Fprintf(b, "%send\n", indent)
 }
 
-// writeStateDiagram writes a state rendering as a Mermaid state diagram: each
-// machine and composite state is a composite state, an initial state is entered
-// from the start marker, and every transition carries its label.
+// writeStateDiagram writes a state rendering as a Mermaid state diagram: bodies
+// are composite states, entry transitions leave the `[*]` marker of their body.
 func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction) {
 	b.WriteString("stateDiagram-v2\n")
 	if direction != "" {
@@ -115,16 +114,45 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction) {
 		fmt.Fprintf(b, "  state \"%s\" as empty\n", mermaidText(r.EmptyReason()))
 		return
 	}
+	starts := map[string][]Edge{}
 	for _, root := range r.Roots {
-		writeStateNode(b, root, 1)
+		collectStarts(root, starts)
 	}
 	for _, edge := range r.Edges {
-		if edge.Label == "" {
-			fmt.Fprintf(b, "  %s --> %s\n", edge.From, edge.To)
+		if _, ok := starts[edge.From]; ok {
+			starts[edge.From] = append(starts[edge.From], edge)
+		}
+	}
+	for _, root := range r.Roots {
+		writeStateNode(b, root, 1, starts)
+	}
+	for _, edge := range r.Edges {
+		if _, ok := starts[edge.From]; ok {
 			continue
 		}
-		fmt.Fprintf(b, "  %s --> %s : %s\n", edge.From, edge.To, mermaidText(edge.Label))
+		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
 	}
+}
+
+// collectStarts records the start node of each body under node, to gather the
+// edges leaving it.
+func collectStarts(node *Node, starts map[string][]Edge) {
+	if node.Kind == startKind {
+		starts[node.ID] = nil
+	}
+	for _, child := range node.Children {
+		collectStarts(child, starts)
+	}
+}
+
+// writeStateEdge writes one transition, with its label when it carries one.
+func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
+	indent := strings.Repeat("  ", depth)
+	if label == "" {
+		fmt.Fprintf(b, "%s%s --> %s\n", indent, from, to)
+		return
+	}
+	fmt.Fprintf(b, "%s%s --> %s : %s\n", indent, from, to, mermaidText(label))
 }
 
 // writeSequenceDiagram writes a sequence rendering as a Mermaid sequence
@@ -152,33 +180,26 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder) {
 	}
 }
 
-// writeStateNode writes one state, its substates, and the start marker of an
-// initial one.
-func writeStateNode(b *strings.Builder, node *Node, depth int) {
+// writeStateNode writes one state and its substates. A body's start is the `[*]`
+// marker inside that state, so its edges are written there after the substates.
+func writeStateNode(b *strings.Builder, node *Node, depth int, starts map[string][]Edge) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 {
 		fmt.Fprintf(b, "%sstate \"%s\" as %s\n", indent, mermaidText(mermaidLabel(node)), node.ID)
-	} else {
-		fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidText(mermaidLabel(node)), node.ID)
-		for _, child := range node.Children {
-			writeStateNode(b, child, depth+1)
-		}
-		fmt.Fprintf(b, "%s}\n", indent)
+		return
 	}
-	if isInitial(node) {
-		fmt.Fprintf(b, "%s[*] --> %s\n", indent, node.ID)
-	}
-}
-
-// isInitial reports whether a state node is the one its machine or region enters
-// first.
-func isInitial(node *Node) bool {
-	for _, detail := range strings.Split(node.Detail, ", ") {
-		if detail == "initial" {
-			return true
+	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, mermaidText(mermaidLabel(node)), node.ID)
+	for _, child := range node.Children {
+		if child.Kind != startKind {
+			writeStateNode(b, child, depth+1, starts)
 		}
 	}
-	return false
+	for _, child := range node.Children {
+		for _, edge := range starts[child.ID] {
+			writeStateEdge(b, "[*]", edge.To, edge.Label, depth+1)
+		}
+	}
+	fmt.Fprintf(b, "%s}\n", indent)
 }
 
 // mermaidLabel is the text a node carries in a diagram: its kind, its name, and

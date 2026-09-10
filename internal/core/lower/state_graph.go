@@ -287,7 +287,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		}
 	}
 	for _, region := range graph.TopRegions {
-		graph.RegionInitials[region] = graph.unconditionalStart(region)
+		graph.RegionInitials[region] = graph.UnconditionalStart(region)
 		if len(graph.EntryTransitions[region]) == 0 {
 			if graph.regionDecl[region] != nil {
 				return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
@@ -297,7 +297,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 	for state, regions := range graph.CompositeStates {
 		for _, region := range regions {
-			graph.RegionInitials[region] = graph.unconditionalStart(region)
+			graph.RegionInitials[region] = graph.UnconditionalStart(region)
 			if len(graph.EntryTransitions[region]) == 0 {
 				if graph.regionDecl[region] != nil {
 					return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
@@ -310,7 +310,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	// A machine without top-level regions starts where its own body's entry
 	// transition says; a missing one is the executor's to report at initialize().
 	if !hasTopLevelRegions {
-		graph.Initial = graph.unconditionalStart(nil)
+		graph.Initial = graph.UnconditionalStart(nil)
 	}
 
 	graph.ownTransitionEffects()
@@ -590,13 +590,13 @@ func (g *StateGraph) targetVertex(scope *symbols.Scope, qn *ast.QualifiedName, o
 	return node, err
 }
 
-// IsInitial reports whether the machine starts in state, which a transition out
-// of the body's entry action designates.
+// IsInitial reports whether the machine may start in state: some entry transition
+// of its body names it. Whether it starts there unconditionally is UnconditionalStart's.
 func (g *StateGraph) IsInitial(state *ast.StateNode) bool {
 	return state != nil && g.designatedInitials[state]
 }
 
-// designateInitial records state as one the machine starts in.
+// designateInitial records state as one the machine may start in.
 func (g *StateGraph) designateInitial(state *ast.StateNode) {
 	g.designatedInitials[state] = true
 }
@@ -778,9 +778,9 @@ func (g *StateGraph) stateScope(parent *symbols.Scope, state *ast.StateNode) *sy
 }
 
 // collectRegionStates collects the states an orthogonal region declares, records
-// which region declares each of them and which one the region starts in, and
-// assigns the region's pseudostates to the state that owns the region. parent is
-// the state owning the region, nil for the machine's own regions.
+// which region declares each of them, and assigns the region's pseudostates to
+// the state that owns the region. parent is the state owning the region, nil for
+// the machine's own regions.
 //
 // Region members reach here as a state node, a bare `state <name>;` substate or a
 // state usage with a body, each of them possibly wrapped in a membership: a state
@@ -821,9 +821,6 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			return err
 		}
 		graph.RegionOf[state] = region
-		if graph.IsInitial(state) && graph.RegionInitials[region] == nil {
-			graph.RegionInitials[region] = state
-		}
 	}
 	return nil
 }
