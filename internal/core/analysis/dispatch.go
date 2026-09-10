@@ -75,10 +75,16 @@ func (e *RefusedError) Unwrap() []error { return e.Refusals }
 
 // Answer answers q under `auto`: engines of q's kind strongest first, a refusal or a
 // not-covered result advancing (and kept in the plan), an error from Run stopping the plan.
+// A Deadline in the budget bounds the plan through ctx; meeting it is an error like any other.
 func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget Budget) (Plan, error) {
 	candidates := r.ranked(q.Kind)
 	if len(candidates) == 0 {
 		return Plan{Question: q}, &NoEngineError{Kind: q.Kind}
+	}
+	if !budget.Deadline.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, budget.Deadline)
+		defer cancel()
 	}
 	plan := Plan{Question: q}
 	var last *Result
@@ -87,6 +93,10 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 		if !coverage.Covered {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Refusal: coverage.Refusal})
 			continue
+		}
+		if err := ctx.Err(); err != nil {
+			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
+			return plan, err
 		}
 		result, err := e.Run(ctx, model, q, budget)
 		if err != nil {

@@ -217,9 +217,10 @@ func (r Result) Table() runtime.SweepTable {
 }
 
 // Budget is what a run may spend; a zero field is the engine's own default. Runs, Depth and
-// Solver are applied by the engines in their own units; Steps and Memory name the context's.
+// Solver are applied by the engines in their own units, Deadline by Registry.Answer to the
+// plan's context; Steps and Memory name the context's.
 type Budget struct {
-	// Deadline is the wall clock for the whole plan; zero means none.
+	// Deadline is the wall clock for the whole plan, met as context.DeadlineExceeded; zero means none.
 	Deadline time.Time
 	// Jobs is how many runs may go concurrently; zero means one.
 	Jobs int

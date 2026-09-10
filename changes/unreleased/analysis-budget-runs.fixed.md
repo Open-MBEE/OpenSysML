@@ -4,5 +4,6 @@
   `solve` engine asks no more queries than the budget's runs, leaving the set *not covered* with
   the `runs` bound reached when some went unasked. `BudgetOf` fills `Runs` in the unit of the
   question's kind, so a sweep or solver query under an exploring schedule is no longer handed
-  the schedule's exploration runs as its bound. No flag, command, RPC, field or line of output
-  changed.
+  the schedule's exploration runs as its bound. `Registry.Answer` bounds a plan's context by the
+  budget's `Deadline`, so an engine that meets it returns `context.DeadlineExceeded` and stops the
+  plan on that step. No flag, command, RPC, field or line of output changed.

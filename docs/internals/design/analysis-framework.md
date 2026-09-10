@@ -26,11 +26,14 @@ found once per element and its absence is reported once, as before. Of the `Budg
 fields whose limits an engine applies in its own unit are applied by it — `Runs` as `explore`'s
 runs, `sweep`'s rows (the limit `Context.RunSweep` now takes in place of the context's) and
 `solve`'s queries (the rest left unasked and the set *not covered*), `Depth` by `explore`,
-`Solver` by `solve` — and each result names the bound it ran under; `Steps` and `Memory` are the
-limits the surface's runtime context already enforces, carried so a result can name them;
-`Deadline` and `Jobs` are carried unread until the parallel-runs stage gives them a coordinator.
-`BudgetOf` fills `Runs` in the unit of the question's kind, so a sweep asked under an exploring
-schedule is bounded by `OPENSYSML_MAX_SWEEP_RUNS`, not by the schedule's exploration runs.
+`Solver` by `solve` — and each result names the bound it ran under; `Deadline` is applied by
+`Registry.Answer`, which bounds the plan's context by it so an engine that meets it returns
+`context.DeadlineExceeded` and stops the plan on that step; `Steps` and `Memory` are the limits
+the surface's runtime context already enforces, carried so a result can name them, until the
+isolation stage's run-owned context takes them at construction; `Jobs` is carried unread until
+the parallel-runs stage gives it a coordinator. `BudgetOf` fills `Runs` in the unit of the
+question's kind, so a sweep asked under an exploring schedule is bounded by
+`OPENSYSML_MAX_SWEEP_RUNS`, not by the schedule's exploration runs.
 
 This is the framework that the two model-checking designs are written into:
 [bounded model checking](bounded-model-checking.md) explores the executor and
@@ -370,12 +373,19 @@ type Budget struct {
 }
 ```
 
-The per-run limits that exist today keep their names and meanings. What the framework adds is
-the two that only make sense once several runs share a machine: `Jobs`, and a `Deadline` that
-applies to the plan, so `-engine all` with a solver that will not answer still returns when the
-`explore` half is done. Cancellation is the `context.Context` that `RunSweep` already threads
-through; every engine's `Run` observes it between units of work and returns what it has as an
-*observed* or *not covered* result with the budget named.
+The per-run limits that exist today keep their names and meanings. `Steps` and `Memory` are the
+running context's limits until the isolation stage builds a context per run, which takes them
+from the budget at construction; that stage also specifies how the one `Steps` maps onto the
+runtime's step kin (`OPENSYSML_MAX_STEPS`, `OPENSYSML_MAX_ACTION_STEPS`, `OPENSYSML_MAX_EVENTS`,
+`OPENSYSML_MAX_DO_STEPS`, `OPENSYSML_MAX_CALC_DEPTH`), which this note leaves open. What the
+framework adds is the two that only make sense once several runs share a machine: `Jobs`, and a
+`Deadline` that applies to the plan. Cancellation is the `context.Context` that `RunSweep`
+already threads through: `Registry.Answer` derives the plan's context from `Deadline`, every
+engine's `Run` observes the context between units of work and returns its error, and a deadline
+met is an error that stops the plan on the step that met it, not a *not covered* result. The
+`all` coordinator of the surface and parallel-runs stages is what returns what it has — so
+`-engine all` with a solver that will not answer still returns when the `explore` half is done —
+by composing the finished engines' results around the stopped step.
 
 ## Parallel execution
 
@@ -581,9 +591,11 @@ reached.
 - **Isolation:** two plans on one model in one process on two goroutines, under `-race`, with
   the resolver and semantic model per worker; the gRPC service serves concurrent runtime requests
   on one model.
-- **Cancellation:** a deadline reached mid-plan returns every finished engine's result, every
-  cancelled engine marked as such with the bound it reached, and the composed result at the
-  strength the finished runs earned.
+- **Cancellation:** a deadline already past fails a plan before its first engine runs; a
+  deadline met mid-plan stops it, the step that met it carrying `context.DeadlineExceeded`; a
+  budget without one leaves the caller's context as it is. Under `all`, the coordinator returns
+  every finished engine's result, every cancelled engine marked as such with the bound it
+  reached, and the composed result at the strength the finished runs earned.
 - **Tools:** the `AnalysisAnnotation` fixture against a stand-in executable, with the
   input/output protocol, a missing output, a non-zero exit, a timeout, an unregistered
   `toolName`, and a non-deterministic stand-in, each producing its typed error or its *observed*
@@ -605,8 +617,9 @@ behavior unchanged until stage 4.
    The `Strength` and `Claim` orderings are in place; the strength-scale tests proper, `all` and
    the disagreement result belong to stage 4.
 2. **Isolation.** Resolver and semantic model per worker over the shared frozen index; the
-   gRPC service and the REPL session release their locks while a plan runs; the `-race`
-   isolation tests.
+   gRPC service and the REPL session release their locks while a plan runs; a context per run
+   that takes the budget's `Steps` and `Memory` at construction, with the mapping of `Steps`
+   onto the runtime's step kin; the `-race` isolation tests.
 3. **Parallel runs.** `-jobs`/`OPENSYSML_JOBS`; `sweep` rows and `explore` prefixes on the
    work queue; the determinism tests.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the

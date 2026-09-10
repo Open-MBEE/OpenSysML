@@ -9,7 +9,7 @@ import (
 )
 
 // fakeEngine is an engine scripted for one test: what it covers, what it
-// answers, and the fault it reports.
+// answers, and the fault it reports; run, when set, answers in place of the script.
 type fakeEngine struct {
 	name      string
 	kinds     []Kind
@@ -18,6 +18,7 @@ type fakeEngine struct {
 	result    Result
 	fault     error
 	ran       *int
+	run       func(context.Context) (Result, error)
 }
 
 func (e fakeEngine) Name() string { return e.name }
@@ -33,7 +34,7 @@ func (e fakeEngine) Covers(*Model, Question) Coverage {
 	return covered
 }
 
-func (e fakeEngine) Run(_ context.Context, _ *Model, q Question, _ Budget) (Result, error) {
+func (e fakeEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Result, error) {
 	if e.ran != nil {
 		*e.ran++
 	}
@@ -41,6 +42,12 @@ func (e fakeEngine) Run(_ context.Context, _ *Model, q Question, _ Budget) (Resu
 		return Result{}, e.fault
 	}
 	result := e.result
+	if e.run != nil {
+		var err error
+		if result, err = e.run(ctx); err != nil {
+			return Result{}, err
+		}
+	}
 	result.Question, result.Engine = q, e.name
 	return result, nil
 }
