@@ -69,6 +69,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_yields_to_a_transition", testStateDoBodyAcceptYieldsToATransition)
 	t.Run("state_do_body_accept_goes_on_across_a_substate_transition", testStateDoBodyAcceptGoesOnAcrossASubstateTransition)
 	t.Run("state_do_body_accept_yields_to_a_substate_transition_leaving_it", testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt)
+	t.Run("state_do_body_accept_follows_the_transition_chosen", testStateDoBodyAcceptFollowsTheTransitionChosen)
 	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
@@ -12822,6 +12823,60 @@ func testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt(t *testing.T) {
 	}
 	if exec.HasPendingDoWork() || exec.HasPendingSignal() || len(ctx.Clock().Waits()) != 0 {
 		t.Error("nothing of the abandoned do behavior must remain due")
+	}
+}
+
+// testStateDoBodyAcceptFollowsTheTransitionChosen: a substate with two transitions
+// enabled for the signal, one between the enclosing state's substates and one out
+// of it. The one the policy chooses (the first declared) stays inside, so the
+// enclosing do behavior goes on with the signal, the alternative leaving
+// notwithstanding; Decide names the same transition and resume.
+func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Waiter {
+		attribute total : Integer = 0;
+		entry; then active;
+		state active {
+			do action work {
+				first start;
+				then action reader accept Go;
+				then action count assign total := total + 10;
+				then done;
+			}
+			entry; then left;
+			state left;
+			transition shift first left accept Go then right;
+			transition leave first left accept Go then stopped;
+			state right { entry assign total := total + 1; }
+		}
+		state stopped { entry assign total := total + 100; }
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, src)
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition shift"}, Resumes: []string{"do behavior of state active"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition chosen stays in the state, whose do behavior takes it too", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	}
+	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
+		t.Errorf("state %s with %d messages in flight, want right with the one message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
+		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
 	}
 }
 

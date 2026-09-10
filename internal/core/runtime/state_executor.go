@@ -714,10 +714,11 @@ func (e *StateExecutor) recallDeferredEvents() {
 // it; the do behaviors parked at an accept for it then go on with it, and the
 // selected transitions fire one at a time in the order the scheduling policy draws.
 func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
-	candidates, err := e.selectTransitions(event)
+	selected, err := e.selectTransitions(event)
 	if err != nil {
 		return false, nil, err
 	}
+	candidates := e.chooseTransitions(selected)
 	var resumed []string
 	if msg, ok := event.Payload.(Message); ok {
 		taking, err := e.doBehaviorsTaking(msg, candidates)
@@ -745,7 +746,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	return consumed, resumed, err
 }
 
-// dispatchInOrder fires the surviving candidates one at a time through fire, the
+// dispatchInOrder fires the chosen candidates one at a time through fire, the
 // policy re-drawing among those still active since a reaction may leave a leaf;
 // where names the occurrence dispatched, for the choice each draw reports.
 func (e *StateExecutor) dispatchInOrder(
@@ -753,13 +754,7 @@ func (e *StateExecutor) dispatchInOrder(
 	candidates []dispatchCandidate,
 	fire func(dispatchCandidate, *lower.Transition, []RunNote) (bool, error),
 ) (bool, error) {
-	pending := make([]dispatchCandidate, 0, len(candidates))
-	for _, candidate := range candidates {
-		if !e.losesToNestedTransition(candidates, candidate) {
-			pending = append(pending, candidate)
-		}
-	}
-
+	pending := slices.Clone(candidates)
 	acted := false
 	for len(pending) > 0 {
 		pending = slices.DeleteFunc(pending, func(c dispatchCandidate) bool { return !e.isActive(c.leaf) })
@@ -769,11 +764,11 @@ func (e *StateExecutor) dispatchInOrder(
 		next, order := e.chooseRegion(where, pending)
 		candidate := pending[next]
 		pending = slices.Delete(pending, next, next+1)
-		trans, notes := e.chooseTransition(candidate)
+		notes := candidate.notes
 		if order != nil {
 			notes = append([]RunNote{order}, notes...)
 		}
-		fired, err := fire(candidate, trans, notes)
+		fired, err := fire(candidate, candidate.chosen, notes)
 		acted = acted || fired
 		if err != nil {
 			return acted, err
@@ -788,13 +783,14 @@ func (e *StateExecutor) dispatchInOrder(
 // dispatchCandidate is the state one active leaf selected for an event, the leaf
 // itself or a composite state enclosing it, with the positions of the transitions
 // out of it the event enables. Which of them fires is chosen only once the
-// candidate survives conflict resolution; what selecting it found worth noting is
-// recorded only if it fires.
+// candidate survives conflict resolution (chooseTransitions); what selecting and
+// choosing found worth noting is recorded only if it fires.
 type dispatchCandidate struct {
 	leaf    *ast.StateNode
 	source  *ast.StateNode
 	enabled []int
 	notes   []RunNote
+	chosen  *lower.Transition
 }
 
 // selectTransitions picks one source state per leaf active when the event is
@@ -841,9 +837,24 @@ func (e *StateExecutor) selectCandidates(
 	return candidates, nil
 }
 
+// chooseTransitions resolves the dispatch: the candidates not outranked by a nested
+// one, each with the one of its enabled transitions that fires drawn once here,
+// for the do behaviors taking the occurrence, the firing and the preview alike.
+// A state outranked by a nested one draws nothing.
+func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate) []dispatchCandidate {
+	chosen := make([]dispatchCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if e.losesToNestedTransition(candidates, candidate) {
+			continue
+		}
+		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
+		chosen = append(chosen, candidate)
+	}
+	return chosen
+}
+
 // chooseTransition resolves which of the candidate's enabled transitions fires,
-// with the choice point it makes ahead of the candidate's notes. The policy is
-// consulted only here, so a state outranked by a nested one draws nothing.
+// with the choice point it makes ahead of the candidate's notes.
 func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
 	transitions := e.graph.Transitions[candidate.source]
 	scheduling := e.ctx.scheduling()
@@ -2299,7 +2310,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 }
 
 // doBehaviorsTaking lists the do behaviors the message being dispatched lets go on:
-// those parked at an accept for it, except in a state a transition selected for it
+// those parked at an accept for it, except in a state a transition chosen for it
 // leaves — the transition ending the state is the message's only taker there, as
 // the innermost enabled transition is among transitions, while one moving between
 // the state's own substates leaves its do behavior to go on. A port failing to
@@ -2307,7 +2318,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandidate) ([]*doAction, error) {
 	var taking []*doAction
 	for _, act := range e.doActions {
-		if act.run == nil || e.leftBySelected(act.state, candidates) {
+		if act.run == nil || e.leftByChosen(act.state, candidates) {
 			continue
 		}
 		accepted, err := act.run.acceptsMessage(m)
@@ -2321,20 +2332,17 @@ func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandid
 	return taking, nil
 }
 
-// leftBySelected reports whether a transition a candidate may fire leaves the
-// state: one of those enabled, to any state its target may lead on to.
-func (e *StateExecutor) leftBySelected(state *ast.StateNode, candidates []dispatchCandidate) bool {
+// leftByChosen reports whether the transition chosen for a candidate leaves the
+// state, to any state its target may lead on to.
+func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
 	for _, candidate := range candidates {
-		transitions := e.graph.Transitions[candidate.source]
-		for _, i := range candidate.enabled {
-			targets, ok := e.statesReached(transitions[i].Target, make(map[*ast.PseudostateNode]bool))
-			if !ok {
+		targets, ok := e.statesReached(candidate.chosen.Target, make(map[*ast.PseudostateNode]bool))
+		if !ok {
+			return true
+		}
+		for _, target := range targets {
+			if e.leaves(candidate.source, target, state) {
 				return true
-			}
-			for _, target := range targets {
-				if e.leaves(candidate.source, target, state) {
-					return true
-				}
 			}
 		}
 	}
@@ -2683,9 +2691,11 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 	}
 	var candidates []dispatchCandidate
 	if accepted {
-		if candidates, err = e.selectTransitions(&event); err != nil {
+		selected, err := e.selectTransitions(&event)
+		if err != nil {
 			return Decision{}, err
 		}
+		candidates = e.chooseTransitions(selected)
 	}
 	taking, err := e.doBehaviorsTaking(m, candidates)
 	if err != nil {
@@ -2693,10 +2703,7 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 	}
 	var decision Decision
 	for _, candidate := range candidates {
-		if !e.losesToNestedTransition(candidates, candidate) {
-			trans, _ := e.chooseTransition(candidate)
-			decision.Fires = append(decision.Fires, transitionDescription(trans))
-		}
+		decision.Fires = append(decision.Fires, transitionDescription(candidate.chosen))
 	}
 	for _, act := range taking {
 		decision.Resumes = append(decision.Resumes, doBehaviorDescription(act.state))
