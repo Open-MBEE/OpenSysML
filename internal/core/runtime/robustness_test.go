@@ -112,6 +112,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("entry_transition_carries_a_trigger", testEntryTransitionCarriesATrigger)
 	t.Run("entry_transition_into_done_completes_at_initialize", testEntryTransitionIntoDoneCompletesAtInitialize)
 	t.Run("region_entry_transitions_into_done_complete_at_initialize", testRegionEntryTransitionsIntoDoneCompleteAtInitialize)
+	t.Run("nested_regions_into_done_complete_at_initialize", testNestedRegionsIntoDoneCompleteAtInitialize)
+	t.Run("transition_into_nested_regions_in_done_completes", testTransitionIntoNestedRegionsInDoneCompletes)
 	t.Run("region_start_descends_through_entry_transitions", testRegionStartDescendsThroughEntryTransitions)
 	t.Run("leaving_regions_descends_through_entry_transitions", testLeavingRegionsDescendsThroughEntryTransitions)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
@@ -6213,6 +6215,67 @@ func testRegionEntryTransitionsIntoDoneCompleteAtInitialize(t *testing.T) {
 	}`)
 	if exec.State() != StateCompleted {
 		t.Fatalf("expected StateCompleted right after initialize, got %s", exec.State())
+	}
+	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 1 {
+		t.Errorf("the machine's exit action ran %v times, want once", got)
+	}
+}
+
+// testNestedRegionsIntoDoneCompleteAtInitialize: a machine starting in a
+// parallel state whose every region starts in `done` completes as it starts.
+func testNestedRegionsIntoDoneCompleteAtInitialize(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute exits : Integer = 0;
+			exit action { assign exits := exits + 1; }
+			entry; then outer;
+			state outer parallel {
+				state left {
+					entry; then done;
+				}
+				state right {
+					entry; then done;
+				}
+			}
+		}
+	}`)
+	if exec.State() != StateCompleted {
+		t.Fatalf("expected StateCompleted right after initialize, got %s", exec.State())
+	}
+	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 1 {
+		t.Errorf("the machine's exit action ran %v times, want once", got)
+	}
+}
+
+// testTransitionIntoNestedRegionsInDoneCompletes: a transition into a parallel
+// state whose every region starts in `done` completes the machine.
+func testTransitionIntoNestedRegionsInDoneCompletes(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute exits : Integer = 0;
+			exit action { assign exits := exits + 1; }
+			entry; then idle;
+			state idle;
+			transition first idle accept go then outer;
+			state outer parallel {
+				state left {
+					entry; then done;
+				}
+				state right {
+					entry; then done;
+				}
+			}
+		}
+	}`)
+	assertCurrentState(t, exec, "idle")
+	exec.SendSignal("go", nil)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("go: %v", err)
+	}
+	if exec.State() != StateCompleted {
+		t.Fatalf("expected StateCompleted after entering outer, got %s", exec.State())
 	}
 	if got := exec.StateData()["exits"]; got.Kind != ValConst || got.Const.Int != 1 {
 		t.Errorf("the machine's exit action ran %v times, want once", got)

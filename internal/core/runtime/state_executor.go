@@ -1496,10 +1496,11 @@ func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *a
 	return nil
 }
 
-// completeIfDone completes a machine when a completion vertex is reached, which
-// an orthogonal region reaching one does only once its siblings completed too.
+// completeIfDone completes a machine when a completion vertex is reached, or a
+// composite state whose every region started in one; an orthogonal region
+// completing does so only once its siblings completed too.
 func (e *StateExecutor) completeIfDone(target *ast.StateNode) error {
-	if !e.graph.Completes(target) || !e.machineComplete(target) {
+	if !e.stateComplete(target) || !e.machineComplete(target) {
 		return nil
 	}
 	if err := e.exitMachine(); err != nil {
