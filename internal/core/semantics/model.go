@@ -92,6 +92,10 @@ type Model struct {
 	// sources they read are complete (see members.go).
 	members map[memberKey][]*symbols.Symbol
 	shapes  map[*symbols.Symbol][]ShapeFeature
+	// bodyApplications is the operation each body expression is passed to, indexed per
+	// document root on first query (see bodyparam.go).
+	bodyApplications map[*ast.BodyExpr]bodyApplication
+	bodyIndexed      map[*symbols.Scope]bool
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -140,6 +144,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
 		members:               make(map[memberKey][]*symbols.Symbol),
 		shapes:                make(map[*symbols.Symbol][]ShapeFeature),
+		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
+		bodyIndexed:           make(map[*symbols.Scope]bool),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -386,6 +392,16 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		seen[redefined] = true
 		out = append(out, redefined)
+	}
+
+	// An untyped parameter of a body a collection function applies is bound to each
+	// element of the collection, so it takes the elements' types (see bodyparam.go).
+	for _, typ := range m.BodyParameterElementTypes(sym) {
+		if typ == nil || typ == sym || seen[typ] {
+			continue
+		}
+		seen[typ] = true
+		out = append(out, typ)
 	}
 
 	// An end of a connector implicitly redefines the end at its own position of
