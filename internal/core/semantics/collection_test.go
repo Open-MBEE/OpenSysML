@@ -265,26 +265,60 @@ func appliedBody(t *testing.T, value ast.Node) *ast.BodyExpr {
 	return body
 }
 
-// Both parameters of a reducer take the elements' type: the accumulated value is an element
-// or what the reducer returned, which over elements of one type is that type again.
+// A reducer's second parameter takes the elements' type; its first, which holds the reducer's
+// result from the second fold on, only where that result conforms to it.
 func TestCollectionReduceUntypedParametersTakeElementType(t *testing.T) {
 	m, s := collectionModel(t, `
-		attribute total = cs->reduce { in a; in b; a.mass };
-		attribute heaviest = cs->reduce { in a; in b; if a.mass > b.mass ? a else b };
+		part def D :> C { part next : D[0..1]; }
+		part ds : D[*];
+		part one : C;
 		attribute either = cs->reduce { in a; in b; a };
-		attribute named = reduce(reducer = { in a; in b; b.name }, collection = cs);`)
+		attribute other = cs->reduce { in a; in b; b };
+		attribute named = reduce(reducer = { in a; in b; one }, collection = cs);
+		attribute special = cs->reduce { in a; in b; ds#(1) };
+		attribute chained = ds->reduce { in a; in b; a.next };
+		attribute total = cs->reduce { in a; in b; a.mass };
+		attribute label = reduce(reducer = { in a; in b; b.name }, collection = cs);
+		attribute heaviest = cs->reduce { in a; in b; if a.mass > b.mass ? a else b };
+		attribute general = ds->reduce { in a; in b; one };`)
 	wantValueTypes(t, m, s, "either", "C")
-	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "heaviest"), fqnString); !c.Known || c.Holds || c.Untyped || c.Found != "C" {
-		t.Errorf("heaviest as String: %+v, want known, not holding, found C", c)
-	}
-	for _, name := range []string{"total", "heaviest", "either", "named"} {
+	wantValueTypes(t, m, s, "chained", "D")
+	for _, name := range []string{"either", "other", "named", "special"} {
 		wantBodyParameterTypes(t, m, s, name, "a", "C")
 		wantBodyParameterTypes(t, m, s, name, "b", "C")
 	}
-	elements, ok := m.CollectionElements(s, valueOf(t, s, "total"))
-	if !ok || len(elements) != 2 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "MassValue" ||
+	wantBodyParameterTypes(t, m, s, "chained", "a", "D")
+	wantBodyParameterTypes(t, m, s, "chained", "b", "D")
+	for _, name := range []string{"total", "label", "heaviest"} {
+		wantBodyParameterTypes(t, m, s, name, "a")
+		wantBodyParameterTypes(t, m, s, name, "b", "C")
+	}
+	wantBodyParameterTypes(t, m, s, "general", "a")
+	wantBodyParameterTypes(t, m, s, "general", "b", "D")
+	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "heaviest"), fqnString); !c.Known || c.Holds || c.Untyped || c.Found != "C" {
+		t.Errorf("heaviest as String: %+v, want known, not holding, found C", c)
+	}
+	elements, ok := m.CollectionElements(s, valueOf(t, s, "label"))
+	if !ok || len(elements) != 2 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "String" ||
 		len(elements[1].Types) != 1 || leafName(elements[1].Types[0].Name) != "C" {
-		t.Errorf("total: elements %v, want the reducer's MassValue then the collection's C", elements)
+		t.Errorf("label: elements %v, want the reducer's String then the collection's C", elements)
+	}
+}
+
+// The guard's decision is memoized as the first parameter's supertypes, never the assumption.
+func TestCollectionReduceGuardMemoizesDecision(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute total = cs->reduce { in a; in b; a.mass };
+		attribute either = cs->reduce { in a; in b; a };`)
+	for i := 0; i < 2; i++ {
+		wantBodyParameterTypes(t, m, s, "total", "a")
+		wantBodyParameterTypes(t, m, s, "either", "a", "C")
+		wantValueTypes(t, m, s, "total", "Anything")
+		wantValueTypes(t, m, s, "either", "C")
+	}
+	a := sym(t, symbols.BodyExprScope(s, appliedBody(t, valueOf(t, s, "total"))), "a")
+	if len(m.AllSupertypes(a)) != 0 || len(m.MembersOf(a)) != 0 {
+		t.Errorf("total: a has supertypes %v and members %v after the guard, want none", m.AllSupertypes(a), m.MembersOf(a))
 	}
 }
 

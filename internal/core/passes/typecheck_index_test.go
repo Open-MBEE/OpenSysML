@@ -201,6 +201,46 @@ func TestBodyParameterTakesElementType(t *testing.T) {
 	}
 }
 
+// A reducer's first parameter holds the reducer's result from the second fold on, so it is an
+// element only where that result conforms; `a.mass` (a MassValue) and `if` (Anything) leave it untyped.
+func TestReducerFirstParameterTypedOnlyWhereResultFeedsBack(t *testing.T) {
+	const model = `package P {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import ControlFunctions::*;
+		part def C { attribute mass :> ISQ::mass; attribute name : String; part next : C[0..1]; }
+		part cs : C[*];
+		%s
+	}`
+	for _, member := range []string{
+		`attribute total = cs->reduce {in a; in b; a.mass};`,
+		`attribute total = reduce(cs, {in a; in b; a.mass});`,
+		`attribute total = reduce(reducer = {in a; in b; a.mass}, collection = cs);`,
+		`attribute label = cs->reduce {in a; in b; if b.name == "x" ? a.name else b.name};`,
+		`part heaviest : C = cs->reduce {in a; in b; if a.mass > b.mass ? a else b};`,
+	} {
+		diags := libraryDiags(t, fmt.Sprintf(model, member))
+		if len(diags) != 1 || diags[0].Source != "name-resolution" || !strings.HasPrefix(diags[0].Message, "no scope for member lookup in a") {
+			t.Errorf("%s: got %v, want one diagnostic that a has no members to read", member, diags)
+		}
+	}
+	for member, want := range map[string]string{
+		`attribute bad = cs->reduce {in a; in b; b.nosuch};`:                            "unresolved member: nosuch",
+		`attribute bad = cs->reduce {in a; in b; if b.nosuch > 1 [SI::kg] ? a else b};`: "unresolved member: nosuch",
+		`attribute bad = cs->reduce {in a; in b; a.nosuch};`:                            "no scope for member lookup in a",
+		`attribute bad = cs->reduce {in a; in b; a.next.nosuch};`:                       "no scope for member lookup in a",
+	} {
+		diags := libraryDiags(t, fmt.Sprintf(model, member))
+		if len(diags) != 1 || diags[0].Source != "name-resolution" || !strings.HasPrefix(diags[0].Message, want) {
+			t.Errorf("%s: got %v, want one name-resolution diagnostic %q", member, diags, want)
+		}
+	}
+	wantLibraryClean(t, fmt.Sprintf(model, `
+		part last : C = cs->reduce {in a; in b; a.next};
+		part heaviest : C = cs->reduce {in a : C; in b; if a.mass > b.mass ? a else b};
+		attribute total : MassValue = (cs.{in c; c.mass})->reduce {in acc; in m; acc + m};`))
+}
+
 func TestCollectBodyOK(t *testing.T) {
 	wantNoDiags(t, `package P { attribute xs = (1, 2, 3); attribute x = xs.{in e; e * 2}; }`)
 }

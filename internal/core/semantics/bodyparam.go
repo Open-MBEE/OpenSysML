@@ -21,8 +21,16 @@ type bodyApplication struct {
 	op    ast.Node
 }
 
+// assumedSupertypes answers a symbol's supertypes under the resolver frame at depth,
+// cutting every query it answers short so none is memoized.
+type assumedSupertypes struct {
+	types []*symbols.Symbol
+	depth int
+}
+
 // BodyParameterElementTypes is the element types of the collection a collection function
-// binds an untyped body parameter to (KerML 8.3.4.8); nothing where those cannot be typed.
+// binds an untyped body parameter to (KerML 8.3.4.8); nothing where those cannot be typed,
+// nor for a reducer's first parameter unless the reducer's result feeds back as an element.
 func (m *Model) BodyParameterElementTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || m.resolver == nil || sym == nil || sym.OwnerScope == nil {
 		return nil
@@ -43,7 +51,32 @@ func (m *Model) BodyParameterElementTypes(sym *symbols.Symbol) []*symbols.Symbol
 	if !ok || position >= bound || collection == nil {
 		return nil
 	}
-	return m.sourcesTypes([]collectionSource{{scope: app.scope, node: collection}})
+	elements := m.sourcesTypes([]collectionSource{{scope: app.scope, node: collection}})
+	if len(elements) == 0 || position == 0 && bound == 2 && !m.reducerFeedsBack(sym, app.scope, body, elements) {
+		return nil
+	}
+	return elements
+}
+
+// reducerFeedsBack reports whether the reducer's result, typed with its first parameter
+// assumed to hold the elements, conforms to every element type: the fold's fixed point.
+func (m *Model) reducerFeedsBack(first *symbols.Symbol, scope *symbols.Scope, body *ast.BodyExpr, elements []*symbols.Symbol) bool {
+	if body.Result == nil {
+		return false
+	}
+	if _, assuming := m.assumedSupers[first]; assuming {
+		return false
+	}
+	m.assumedSupers[first] = assumedSupertypes{types: elements, depth: m.resolver.Enter()}
+	results := m.resultTypes(symbols.BodyExprScope(scope, body), body.Result)
+	delete(m.assumedSupers, first)
+	m.resolver.Leave()
+	for _, element := range elements {
+		if !m.anyConforms(results, element) {
+			return false
+		}
+	}
+	return true
 }
 
 // bodyParameterPosition is the position of body's parameter named name, or -1 where it

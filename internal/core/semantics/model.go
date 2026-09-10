@@ -96,6 +96,9 @@ type Model struct {
 	// document root on first query (see bodyparam.go).
 	bodyApplications map[*ast.BodyExpr]bodyApplication
 	bodyIndexed      map[*symbols.Scope]bool
+	// assumedSupers holds the supertypes a reducer's first parameter is judged under
+	// while its reducer's result is typed (see bodyparam.go).
+	assumedSupers map[*symbols.Symbol]assumedSupertypes
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -146,6 +149,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		shapes:                make(map[*symbols.Symbol][]ShapeFeature),
 		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
 		bodyIndexed:           make(map[*symbols.Scope]bool),
+		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -237,6 +241,11 @@ func bodyParamRelationships(body *ast.BodyExpr, name string) []*ast.Relationship
 func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
+	}
+	// An assumption answers every query under it, which it cuts short so nothing is memoized.
+	if assumed, ok := m.assumedSupers[sym]; ok {
+		m.resolver.CutShort(assumed.depth)
+		return assumed.types
 	}
 	if cached, ok := m.directSupers[sym]; ok {
 		// The seed answers a re-entrant query with nothing, cutting that query short.
@@ -494,8 +503,11 @@ func (m *Model) SupertypesProvisional(sym *symbols.Symbol) bool {
 
 // supersUnstable reports whether sym's supertype answer may still change: it was
 // provisional, or its own computation is on the stack and the re-entrancy guard
-// is answering nil for it.
+// is answering nil for it, or an assumption is answering for it.
 func (m *Model) supersUnstable(sym *symbols.Symbol) bool {
+	if _, assumed := m.assumedSupers[sym]; assumed {
+		return true
+	}
 	return m.provisionalSupers[sym] || m.computingSupers[sym] != 0
 }
 
