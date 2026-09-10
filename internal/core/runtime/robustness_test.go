@@ -115,6 +115,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("nested_regions_into_done_complete_at_initialize", testNestedRegionsIntoDoneCompleteAtInitialize)
 	t.Run("transition_into_nested_regions_in_done_completes", testTransitionIntoNestedRegionsInDoneCompletes)
 	t.Run("region_start_descends_through_entry_transitions", testRegionStartDescendsThroughEntryTransitions)
+	t.Run("region_entry_guards_read_the_region_state_attributes", testRegionEntryGuardsReadTheRegionStateAttributes)
 	t.Run("leaving_regions_descends_through_entry_transitions", testLeavingRegionsDescendsThroughEntryTransitions)
 	t.Run("calc_unbound_parameter", testCalcUnboundParameter)
 	t.Run("calc_calls_an_unimported_extension_function", testCalcCallsAnUnimportedExtensionFunction)
@@ -6322,6 +6323,55 @@ func testRegionStartDescendsThroughEntryTransitions(t *testing.T) {
 	}
 	if active := activeNames(); !active["idle"] || active["heating"] {
 		t.Errorf("warm did not move heating to idle, active states %v", active)
+	}
+}
+
+// testRegionEntryGuardsReadTheRegionStateAttributes: the entry transitions of a
+// region of a parallel state read the attributes that region's own state
+// declares, after its entry behavior has run, whether the parallel state is the
+// machine itself or a composite state entered below it.
+func testRegionEntryGuardsReadTheRegionStateAttributes(t *testing.T) {
+	regions := `
+			state left {
+				attribute cold : Boolean = true;
+				entry assign cold := false;
+				if cold then on;
+				then off;
+				state on;
+				state off;
+			}
+			state right {
+				attribute cold : Boolean = false;
+				entry assign cold := true;
+				if cold then on;
+				then off;
+				state on;
+				state off;
+			}`
+	machines := map[string]string{
+		"parallel machine": `package test {
+		private import ScalarValues::*;
+		state Machine parallel {` + regions + `
+		}
+	}`,
+		"parallel state": `package test {
+		private import ScalarValues::*;
+		state Machine {
+			entry; then outer;
+			state outer parallel {` + regions + `
+			}
+		}
+	}`,
+	}
+	for name, src := range machines {
+		exec := stateExecutorForSource(t, "Machine", src)
+		active := make(map[string]string)
+		for _, state := range exec.ActiveStates() {
+			active[exec.graph.ParentState[state].Name] = state.Name
+		}
+		if active["left"] != "off" || active["right"] != "on" {
+			t.Errorf("%s: expected left in off and right in on after their entry behaviors, got %v", name, active)
+		}
 	}
 }
 

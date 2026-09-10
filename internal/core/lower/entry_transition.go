@@ -73,8 +73,12 @@ func IsEntryTransition(source ast.Node) bool {
 
 // StartOf returns the transitions out of a body's entry action in declaration
 // order: owner is the state whose body it is, the region, or nil for the
-// machine's own body.
+// machine's own body. A state standing for a region of a parallel state starts
+// where that region's entry transitions say.
 func (g *StateGraph) StartOf(owner ast.Node) []*EntryTransition {
+	if state, ok := owner.(*ast.StateNode); ok {
+		owner = g.entryOwner(state)
+	}
 	return g.EntryTransitions[owner]
 }
 

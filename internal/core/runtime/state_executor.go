@@ -2843,9 +2843,16 @@ func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*as
 	for _, region := range regions {
 		entry, targeted := branches[region]
 		if !targeted {
-			var err error
-			if entry, err = e.startIn(region); err != nil {
-				return err
+			// A region standing for a substate of a parallel state is entered through
+			// that substate, whose entry behavior runs before its entry transitions
+			// choose where its body starts.
+			if owner := e.graph.RegionState[region]; owner != nil {
+				entry = owner
+			} else {
+				var err error
+				if entry, err = e.startIn(region); err != nil {
+					return err
+				}
 			}
 		}
 		if entry == nil {

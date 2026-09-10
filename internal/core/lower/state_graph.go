@@ -35,6 +35,10 @@ type StateGraph struct {
 	// the parent chain crosses it without losing which region a state is in.
 	HiddenRegionOf map[*ast.StateNode]*ast.StateRegion
 
+	// RegionState: synthesized region → the graph-only owner standing for it,
+	// which holds the attributes the region's body declares.
+	RegionState map[*ast.StateRegion]*ast.StateNode
+
 	// Machine is the graph-only root state for the machine's own entry, do and
 	// exit behaviors. A parallel machine's regions are TopRegions instead.
 	Machine *ast.StateNode
@@ -502,6 +506,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		Behaviors:           make(map[*ast.StateNode]*StateBehaviors),
 		HiddenStates:        make(map[*ast.StateNode]bool),
 		HiddenRegionOf:      make(map[*ast.StateNode]*ast.StateRegion),
+		RegionState:         make(map[*ast.StateRegion]*ast.StateNode),
 		declOf:              make(map[*ast.StateNode]ast.Node),
 		States:              make([]*ast.StateNode, 0),
 		Pseudostates:        make([]*ast.PseudostateNode, 0),
@@ -897,6 +902,7 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 		}
 		g.regionDecl[region] = actual
 		g.HiddenRegionOf[wrapper] = region
+		g.RegionState[region] = wrapper
 		before := len(g.States)
 		if err := collectGraphOnlyState(g, wrapper, parent, g.stateScope(member.scope, wrapper)); err != nil {
 			return nil, err
