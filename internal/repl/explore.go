@@ -24,6 +24,16 @@ func (e *ExploreAtPromptError) Error() string {
 		e.Policy, e.Policy, e.Policy.String())
 }
 
+// UnplannedObjectError reports an object name an explored run asked for that its
+// plan did not resolve: runs name only what was planned while the session was held.
+type UnplannedObjectError struct {
+	Ref string
+}
+
+func (e *UnplannedObjectError) Error() string {
+	return fmt.Sprintf("%q was not resolved before the exploration ran", e.Ref)
+}
+
 // ExploredObjectError reports an object reference an exploration cannot follow:
 // every explored run creates its objects afresh, so it names declarations only.
 type ExploredObjectError struct {
@@ -78,9 +88,10 @@ func (s *Session) refuseExplore() error {
 }
 
 // exploreVerdict explores one behavior, run performing it on a context of its
-// own, and tables every distinct outcome with the witness run's trace. The plan
-// runs on a worker and contexts of its own, so the session's state is released
-// to readers while it runs; the index and name table are built before that.
+// own, and tables every distinct outcome with the witness run's trace. The
+// session's state is released while the plan runs, so run may read only what the
+// command lock keeps still: declarations and settings, never the session's objects.
+// What a run names is resolved into a freshPlan before the release.
 func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (runtime.Outcome, error)) Verdict {
 	policy, _ := s.exploring()
 	s.browseIndex()
@@ -210,16 +221,87 @@ func tableLines(cells [][]string) []string {
 	return lines
 }
 
-// freshObjects finds the objects an explored run names in the run's own context:
-// a declaration is instantiated there once, and an object of the session is refused.
-type freshObjects struct {
-	s    *Session
-	ctx  *runtime.Context
-	made map[string]*runtime.Instance
+// freshPlan is what an exploration's runs name, resolved while the session's state
+// is held: declarations to instantiate, a nested case's held owner, the exhibits declared.
+type freshPlan struct {
+	refs     map[string]freshRef
+	owners   map[string]freshRef
+	exhibits []exhibitEntry
 }
 
-func newFreshObjects(s *Session, ctx *runtime.Context) *freshObjects {
-	return &freshObjects{s: s, ctx: ctx, made: make(map[string]*runtime.Instance)}
+// freshRef is a declaration an explored run instantiates, or the error its name resolved to.
+type freshRef struct {
+	sym  *symbols.Symbol
+	fqn  string
+	name string
+	err  error
+}
+
+// planFresh resolves the object names an exploration's runs will ask for.
+func (s *Session) planFresh(names ...string) *freshPlan {
+	p := &freshPlan{
+		refs:     make(map[string]freshRef, len(names)),
+		owners:   make(map[string]freshRef),
+		exhibits: collectExhibits(s.docScopes()),
+	}
+	for _, text := range names {
+		if _, done := p.refs[text]; !done {
+			p.refs[text] = s.freshRef(text)
+		}
+	}
+	return p
+}
+
+// freshRef resolves one object name to the declaration an explored run
+// instantiates; an object of the session is refused.
+func (s *Session) freshRef(text string) freshRef {
+	ref, err := parseObjectRef(text)
+	if err != nil {
+		return freshRef{err: err}
+	}
+	if ref.id > 0 {
+		return freshRef{err: &ExploredObjectError{Ref: text}}
+	}
+	for _, seg := range ref.segments {
+		if seg.index > 0 || seg.dotted {
+			return freshRef{err: &ExploredObjectError{Ref: text}}
+		}
+	}
+	sym, fqn, err := s.lookupSymbol(joinTyped(ref.segments))
+	if err != nil {
+		return freshRef{err: err}
+	}
+	return freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn)}
+}
+
+// planOwner resolves the type owning the case at fqn when the session holds an
+// object of it, so each run instantiates one as the prompt's run performs on the held one.
+func (s *Session) planOwner(p *freshPlan, sym *symbols.Symbol, fqn string) {
+	if !isNestedCase(sym) {
+		return
+	}
+	if held, _ := s.owningInstance(fqn); held == nil {
+		return
+	}
+	segments := strings.Split(fqn, "::")
+	owner, ownerFQN, err := s.lookupSymbol(strings.Join(segments[:len(segments)-1], "::"))
+	if err != nil {
+		return
+	}
+	p.owners[fqn] = freshRef{sym: owner, fqn: ownerFQN, name: s.declaredName(ownerFQN)}
+}
+
+// bind is the plan's objects in one run's context.
+func (p *freshPlan) bind(ctx *runtime.Context) *freshObjects {
+	return &freshObjects{plan: p, ctx: ctx, made: make(map[string]*runtime.Instance)}
+}
+
+// freshObjects finds the objects an explored run names in the run's own context:
+// each declaration the plan resolved is instantiated there once.
+type freshObjects struct {
+	plan *freshPlan
+	ctx  *runtime.Context
+	made map[string]*runtime.Instance
 }
 
 // heldObjects finds the objects a run at the prompt names: the session's own.
@@ -243,49 +325,36 @@ func (h heldObjects) owner(fqn string) (*runtime.Instance, string) {
 }
 
 func (f *freshObjects) object(text string) (*runtime.Instance, string, error) {
-	ref, err := parseObjectRef(text)
+	ref, planned := f.plan.refs[text]
+	if !planned {
+		return nil, "", &UnplannedObjectError{Ref: text}
+	}
+	if ref.err != nil {
+		return nil, "", ref.err
+	}
+	if inst, ok := f.made[ref.fqn]; ok {
+		return inst, ref.name, nil
+	}
+	inst, err := f.ctx.Instantiate(ref.sym)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
 	}
-	if ref.id > 0 {
-		return nil, "", &ExploredObjectError{Ref: text}
-	}
-	for _, seg := range ref.segments {
-		if seg.index > 0 || seg.dotted {
-			return nil, "", &ExploredObjectError{Ref: text}
-		}
-	}
-	sym, fqn, err := f.s.lookupSymbol(joinTyped(ref.segments))
-	if err != nil {
-		return nil, "", err
-	}
-	if inst, ok := f.made[fqn]; ok {
-		return inst, f.s.declaredName(fqn), nil
-	}
-	inst, err := f.ctx.Instantiate(sym)
-	if err != nil {
-		return nil, "", fmt.Errorf("instantiation of %s failed: %w", f.s.declaredName(fqn), err)
-	}
-	f.made[fqn] = inst
-	return inst, f.s.declaredName(fqn), nil
+	f.made[ref.fqn] = inst
+	return inst, ref.name, nil
 }
 
-// owner instantiates the type owning a nested usage when the session holds an
-// object of it, as the prompt's run would.
+// owner instantiates the type owning a nested usage when the plan found the
+// session holding an object of it, as the prompt's run would perform on that one.
 func (f *freshObjects) owner(fqn string) (*runtime.Instance, string) {
-	if held, _ := f.s.owningInstance(fqn); held == nil {
+	ref, ok := f.plan.owners[fqn]
+	if !ok {
 		return nil, ""
 	}
-	segments := strings.Split(fqn, "::")
-	sym, ownerFQN, err := f.s.lookupSymbol(strings.Join(segments[:len(segments)-1], "::"))
+	inst, err := f.ctx.Instantiate(ref.sym)
 	if err != nil {
 		return nil, ""
 	}
-	inst, err := f.ctx.Instantiate(sym)
-	if err != nil {
-		return nil, ""
-	}
-	return inst, f.s.declaredName(ownerFQN)
+	return inst, ref.name
 }
 
 // exploredAction resolves the action an exploration runs.
@@ -318,7 +387,7 @@ func (s *Session) exploredMachine(name string) (*symbols.Symbol, error) {
 
 // freshAction starts the action on an explored run's context, on an object of
 // what performer names when it names one.
-func (s *Session) freshAction(objects *freshObjects, sym *symbols.Symbol, performer []string) (*runtime.ActionExecutor, error) {
+func freshAction(objects *freshObjects, sym *symbols.Symbol, performer []string) (*runtime.ActionExecutor, error) {
 	ctx := objects.ctx
 	var self *runtime.Instance
 	if len(performer) > 0 {
@@ -337,11 +406,11 @@ func (s *Session) freshAction(objects *freshObjects, sym *symbols.Symbol, perfor
 
 // freshMachine starts the machine on an explored run's context: the one an
 // object of performer exhibits when it names one, else a run of the declaration.
-func (s *Session) freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (*runtime.StateExecutor, error) {
+func freshMachine(objects *freshObjects, sym *symbols.Symbol, name string, performer []string) (*runtime.StateExecutor, error) {
 	ctx := objects.ctx
 	if len(performer) == 0 {
-		if types := s.exhibitingTypes(ctx, sym); len(types) > 0 {
-			return nil, s.exhibitorsError(name, types, nil)
+		if types := exhibitingTypes(ctx, objects.plan.exhibits, sym); len(types) > 0 {
+			return nil, exhibitorsError(name, types, nil)
 		}
 	}
 	var (
@@ -391,8 +460,9 @@ func (s *Session) exploreAction(name string, performer []string) Verdict {
 	if err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
+	plan := s.planFresh(performer...)
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		exec, err := s.freshAction(newFreshObjects(s, ctx), sym, performer)
+		exec, err := freshAction(plan.bind(ctx), sym, performer)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -410,8 +480,9 @@ func (s *Session) exploreStateMachine(name string, duration *float64, performer 
 	if err != nil {
 		return unresolvedVerdict(name, err.Error())
 	}
+	plan := s.planFresh(performer...)
 	return s.exploreVerdict(name, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		exec, err := s.freshMachine(newFreshObjects(s, ctx), sym, name, performer)
+		exec, err := freshMachine(plan.bind(ctx), sym, name, performer)
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -438,6 +509,7 @@ func (s *Session) exploreRunFor(actions, states []Behavior, duration float64) []
 		runs       []explored
 		unresolved []Verdict
 		names      []string
+		performers []string
 	)
 	for _, b := range actions {
 		sym, err := s.exploredAction(b.Name)
@@ -447,6 +519,7 @@ func (s *Session) exploreRunFor(actions, states []Behavior, duration float64) []
 		}
 		runs = append(runs, explored{Behavior: b, sym: sym, action: true})
 		names = append(names, b.Name)
+		performers = append(performers, b.Performer...)
 	}
 	for _, b := range states {
 		sym, err := s.exploredMachine(b.Name)
@@ -456,25 +529,27 @@ func (s *Session) exploreRunFor(actions, states []Behavior, duration float64) []
 		}
 		runs = append(runs, explored{Behavior: b, sym: sym})
 		names = append(names, b.Name)
+		performers = append(performers, b.Performer...)
 	}
 	if len(unresolved) > 0 || len(runs) == 0 {
 		return unresolved
 	}
 	subject := strings.Join(names, ", ")
+	plan := s.planFresh(performers...)
 	verdict := s.exploreVerdict(subject, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		objects := newFreshObjects(s, ctx)
+		objects := plan.bind(ctx)
 		actionExecs := make(map[int]*runtime.ActionExecutor)
 		stateExecs := make(map[int]*runtime.StateExecutor)
 		for i, r := range runs {
 			if r.action {
-				exec, err := s.freshAction(objects, r.sym, r.Performer)
+				exec, err := freshAction(objects, r.sym, r.Performer)
 				if err != nil {
 					return runtime.Outcome{}, err
 				}
 				actionExecs[i] = exec
 				continue
 			}
-			exec, err := s.freshMachine(objects, r.sym, r.Name, r.Performer)
+			exec, err := freshMachine(objects, r.sym, r.Name, r.Performer)
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
@@ -535,8 +610,14 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
 	}
+	var names []string
+	if inv.object != "" {
+		names = append(names, inv.object)
+	}
+	plan := s.planFresh(names...)
+	s.planOwner(plan, sym, fqn)
 	return s.exploreVerdict(label, func(ctx *runtime.Context) (runtime.Outcome, error) {
-		run, err := s.runAnalysisIn(ctx, inv, sym, fqn, newFreshObjects(s, ctx))
+		run, err := s.runAnalysisIn(ctx, inv, sym, fqn, plan.bind(ctx))
 		if err != nil {
 			return runtime.Outcome{}, err
 		}
@@ -547,10 +628,16 @@ func (s *Session) exploreAnalysis(inv analysisInvocation) Verdict {
 // nestedCaseOwner is the object a case usage nested in a type is performed on:
 // one of that type, found where objects finds them.
 func nestedCaseOwner(sym *symbols.Symbol, fqn string, objects runObjects) *runtime.Instance {
-	if usage, ok := sym.Decl.(*ast.Usage); ok &&
-		(usage.Kind == ast.UsageAnalysisCase || usage.Kind == ast.UsageVerificationCase) {
+	if isNestedCase(sym) {
 		self, _ := objects.owner(fqn)
 		return self
 	}
 	return nil
+}
+
+// isNestedCase reports whether sym is a case usage, which is performed on an
+// object of the type owning it.
+func isNestedCase(sym *symbols.Symbol) bool {
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && (usage.Kind == ast.UsageAnalysisCase || usage.Kind == ast.UsageVerificationCase)
 }

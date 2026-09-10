@@ -2626,8 +2626,8 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 	if len(performer) == 0 {
 		switch exhibitors := s.exhibitorsOf(ctx, sym); len(exhibitors) {
 		case 0:
-			if types := s.exhibitingTypes(ctx, sym); len(types) > 0 {
-				return nil, s.exhibitorsError(name, types, nil)
+			if types := exhibitingTypes(ctx, s.exhibitEntries(ctx), sym); len(types) > 0 {
+				return nil, exhibitorsError(name, types, nil)
 			}
 		case 1:
 			ex := exhibitors[0]
@@ -2636,7 +2636,7 @@ func (s *Session) startStateMachine(name string, performer []string) ([]string, 
 			}
 			return s.attachExhibitedMachine(ctx, name, ex.name, ex.inst, ex.machines[0]), nil
 		default:
-			return nil, s.exhibitorsError(name, nil, exhibitors)
+			return nil, exhibitorsError(name, nil, exhibitors)
 		}
 	}
 
@@ -2794,11 +2794,11 @@ func (s *Session) exhibitorsOf(ctx *runtime.Context, sym *symbols.Symbol) []exhi
 	return found
 }
 
-// exhibitingTypes finds the types of the session's documents declaring an exhibit
-// of sym's machine (the usage itself, or one typed by or naming it), in declaration order.
-func (s *Session) exhibitingTypes(ctx *runtime.Context, sym *symbols.Symbol) []*symbols.Symbol {
+// exhibitingTypes finds the types among entries declaring an exhibit of sym's
+// machine (the usage itself, or one typed by or naming it), in declaration order.
+func exhibitingTypes(ctx *runtime.Context, entries []exhibitEntry, sym *symbols.Symbol) []*symbols.Symbol {
 	var types []*symbols.Symbol
-	for _, e := range s.exhibitEntries(ctx) {
+	for _, e := range entries {
 		// One mention per type: the entries of a type are contiguous.
 		if len(types) > 0 && types[len(types)-1] == e.owner {
 			continue
@@ -2828,7 +2828,13 @@ func (s *Session) exhibitEntries(ctx *runtime.Context) []exhibitEntry {
 	if s.exhibits != nil && s.exhibits.ctx == ctx {
 		return s.exhibits.entries
 	}
-	idx := &exhibitIndex{ctx: ctx}
+	s.exhibits = &exhibitIndex{ctx: ctx, entries: collectExhibits(s.docScopes())}
+	return s.exhibits.entries
+}
+
+// collectExhibits lists the exhibited-state declarations under scopes in declaration order.
+func collectExhibits(scopes []*symbols.Scope) []exhibitEntry {
+	var entries []exhibitEntry
 	var collect func(scope *symbols.Scope)
 	collect = func(scope *symbols.Scope) {
 		if scope == nil {
@@ -2838,7 +2844,7 @@ func (s *Session) exhibitEntries(ctx *runtime.Context) []exhibitEntry {
 			scope.ForEachMember(func(member *symbols.Symbol) bool {
 				if member.Name != "" && member.Decl != nil {
 					if b, ok := lower.ClassifierBehaviorOf(member.Decl); ok && b.Kind == lower.ExhibitedState {
-						idx.entries = append(idx.entries, exhibitEntry{owner: owner, member: member})
+						entries = append(entries, exhibitEntry{owner: owner, member: member})
 					}
 				}
 				return true
@@ -2848,16 +2854,15 @@ func (s *Session) exhibitEntries(ctx *runtime.Context) []exhibitEntry {
 			collect(child)
 		}
 	}
-	for _, scope := range s.docScopes() {
+	for _, scope := range scopes {
 		collect(scope)
 	}
-	s.exhibits = idx
-	return idx.entries
+	return entries
 }
 
 // exhibitorsError reports sym's machine as one `%state <machine>` alone cannot
 // attach to, naming the types declaring an exhibit of it and the objects exhibiting it.
-func (s *Session) exhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibitor) error {
+func exhibitorsError(name string, types []*symbols.Symbol, exhibitors []exhibitor) error {
 	e := &ExhibitorsError{Machine: name}
 	for _, typ := range types {
 		e.Types = append(e.Types, declarationNotation(typ))

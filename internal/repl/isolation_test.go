@@ -1,6 +1,8 @@
 package repl
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -74,6 +76,112 @@ func TestExploreReleasesTheSessionToReadersOnly(t *testing.T) {
 	case <-time.After(wait):
 		t.Fatal("List did not run once the exploration was over")
 	}
+}
+
+// nestedCaseSource declares a case under a part nested in a part def, so the
+// object owning it is reached through a held object's feature values.
+const nestedCaseSource = `package Nested {
+	private import ScalarValues::*;
+	part def Vehicle {
+		part subsystem : Subsystem {
+			analysis check : Rated { subject s = sensor; }
+			part sensor : Sensor;
+		}
+	}
+	part def Subsystem;
+	part def Sensor { attribute rating : Real = 3.0; }
+	analysis def Rated { subject s : Sensor; out r : Real = s.rating; }
+}`
+
+const nestedCase = "Nested::Vehicle::subsystem::check"
+
+// An explored case nested in a type finds the object owning it while the
+// session's state is held; a run then instantiates the owner in its own context,
+// reading nothing of the session, so the held objects stay as the plan left them.
+func TestExploredNestedCaseOwnerIsPlannedBeforeRelease(t *testing.T) {
+	s := loadSource(t, nestedCaseSource)
+	run(t, s, "%instantiate Nested::Vehicle")
+	defer s.enter()()
+	inv, err := splitAnalysisArgs(nestedCase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym, fqn, err := s.analysisSymbol(inv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := s.planFresh()
+	s.planOwner(plan, sym, fqn)
+	if _, ok := plan.owners[fqn]; !ok {
+		t.Fatalf("the plan did not find the held owner of %s", fqn)
+	}
+	held := s.heldIDs()
+
+	sem, resolver, err := s.semanticModel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := s.newRuntimeOver(sem, resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	objects := plan.bind(ctx)
+	self, name := objects.owner(fqn)
+	if self == nil || name != "Nested::Vehicle::subsystem" {
+		t.Fatalf("owner = %v %q, want an object of Nested::Vehicle::subsystem", self, name)
+	}
+	if inSession, _ := s.rtCtx.Instance(self.ID); inSession == self {
+		t.Error("the owner was instantiated in the session's runtime, not the run's")
+	}
+	var unplanned *UnplannedObjectError
+	if _, _, err := objects.object("Nested::Vehicle"); !errors.As(err, &unplanned) {
+		t.Errorf("an object the plan did not resolve = %v, want UnplannedObjectError", err)
+	}
+	if got := s.heldIDs(); !slices.Equal(got, held) {
+		t.Errorf("the run changed the session's held objects: %v, was %v", got, held)
+	}
+}
+
+// Explorations of a case nested in a held object's part, beside completion of
+// that object's features on another goroutine, answer as they do alone.
+func TestNestedCaseExplorationsAnswerAlikeBesideCompletion(t *testing.T) {
+	s := loadSource(t, nestedCaseSource)
+	run(t, s, "%instantiate Nested::Vehicle")
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	want := strings.Join(s.RunAnalysis(nestedCase).Lines, "\n")
+	if !strings.Contains(want, "r = 3.0") || !strings.Contains(want, "complete (1 runs)") {
+		t.Fatalf("exploration alone:\n%s", want)
+	}
+
+	var wg sync.WaitGroup
+	done := make(chan struct{})
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(done)
+		for i := 0; i < 4; i++ {
+			if got := strings.Join(s.RunAnalysis(nestedCase).Lines, "\n"); got != want {
+				t.Errorf("exploration %d beside completion:\n%s\nwant\n%s", i, got, want)
+			}
+		}
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-done:
+				return
+			default:
+			}
+			if c := s.Complete("%features #1.", len("%features #1.")); !slices.Contains(c.Candidates, "#1.subsystem") {
+				t.Errorf("Complete beside an exploration = %v", c.Candidates)
+			}
+		}
+	}()
+	wg.Wait()
 }
 
 // Explorations and completion requests interleaved on two goroutines answer as

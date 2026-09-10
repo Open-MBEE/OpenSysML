@@ -437,7 +437,9 @@ The gRPC service builds a worker per request over the cached model's index and n
 a lock between requests. The REPL session keeps a command lock, so a second command waits for
 the first, and a state lock for the readers that run beside a command — completion, the
 getters — which an exploration releases while its plan runs on a worker and contexts of its own.
-A prompt run in the session's own context (`%run`, `%check`, `%sweep` on held objects) keeps
+What the explored runs name — the performers and subjects to instantiate, the held object owning
+a nested case, the exhibits declared — is resolved into a plan before the release, so a run reads
+nothing the state lock guards. A prompt run in the session's own context (`%run`, `%check`, `%sweep` on held objects) keeps
 the state lock: its context is what the readers read, and releasing it there would be a shared
 `Context`.
 
