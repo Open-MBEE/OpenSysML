@@ -754,8 +754,8 @@ elmt:Shadowing__study___400
     sysml:owningNamespace elmt:Shadowing__study ;
     sysml:owner elmt:Shadowing__study ;
     sysml:owningRelatedElement elmt:Shadowing__study ;
-    sysml:redefines elmt:Shadowing__Study__vehicle ;
     sysml:subsets elmt:Shadowing__bus ;
+    sysml:redefines elmt:Shadowing__Study__vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        subject :>> vehicle :> bus;\n" .
 

@@ -652,8 +652,8 @@ elmt:R90__B___400
     sysml:owner elmt:R90__B ;
     sysml:owningRelationship elmt:R90__B___400_om ;
     sysml:owningMembership elmt:R90__B___400_om ;
-    sysml:redefines elmt:R90__A__w ;
     sysml:type elmt:OtherPkg__Inner__Wheel ;
+    sysml:redefines elmt:R90__A__w ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        part :>> w : Inner::Wheel;\n" .
 
