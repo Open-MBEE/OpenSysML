@@ -104,8 +104,8 @@ stateDiagram-v2
   direction LR
   state "state Observatory::operatingStates (ObservatoryStates)" as n0 {
     state "state idle (initial)" as n1
-    [*] --> n1
     state "state observing" as n2
+    [*] --> n1
   }
   n1 --> n2
   n2 --> n1

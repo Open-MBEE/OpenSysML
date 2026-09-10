@@ -386,7 +386,7 @@ func unsupportedInherited(inherited bool, member ast.Node, state *ast.StateNode)
 		return nil
 	}
 	return fmt.Errorf("%w: %s cannot be inherited by the state %s; a state usage inherits its definition's substates, behaviors, transitions, deferred events and attributes",
-		ErrUnsupportedStateContent, describeMember(member), state.Name)
+		ErrUnsupportedStateContent, DescribeMember(member), state.Name)
 }
 
 // loweredElsewhere reports whether another pass lowers a member: the edges and
@@ -591,16 +591,36 @@ func keptAttributes(inherited, own []Attribute) []Attribute {
 	return append(kept, own...)
 }
 
-// describeMember names a state machine member in modelling terms, for a message
+// DescribeMember names a state machine member in modelling terms, for a message
 // about content that cannot be lowered where it was written.
-func describeMember(member ast.Node) string {
+func DescribeMember(member ast.Node) string {
 	switch n := member.(type) {
+	case *ast.EntryMember:
+		return "the entry action"
+	case *ast.DoMember:
+		return "the do action"
+	case *ast.ExitMember:
+		return "the exit action"
+	case *ast.TransitionMember:
+		if n.Name != "" {
+			return "the transition " + n.Name
+		}
+		return "the transition"
+	case *ast.Comment:
+		return "the comment"
+	case *ast.Documentation:
+		return "the documentation"
+	case *ast.Import:
+		return "the import"
 	case *ast.Definition:
 		return fmt.Sprintf("the %s definition %s", n.Kind, n.Ident.Name)
 	case *ast.Usage:
 		name, _ := ast.EffectiveName(n)
 		if name == "" {
 			return fmt.Sprintf("an unnamed %s usage", n.Kind)
+		}
+		if n.Direction != ast.DirNone {
+			return fmt.Sprintf("the %s parameter %s", n.Direction, name)
 		}
 		return fmt.Sprintf("the %s usage %s", n.Kind, name)
 	case *ast.StateNode:
@@ -611,6 +631,10 @@ func describeMember(member ast.Node) string {
 		return "the region " + n.Name
 	case *ast.PseudostateNode:
 		return fmt.Sprintf("the %s %s", n.Kind, n.Name)
+	case *ast.InitialNode:
+		return "the succession from " + n.Name
+	case *ast.FinalNode:
+		return "the `done` marker"
 	case *ast.Package:
 		return "the package " + n.Ident.Name
 	}

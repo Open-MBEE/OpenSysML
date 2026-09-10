@@ -484,9 +484,8 @@ func (ctx *Context) analysisVerdicts(run *calcRun, sym *symbols.Symbol, scope *s
 	return verdicts
 }
 
-// objectiveBindings are the case run's bindings plus the subject and actors the objective
-// binds itself, as a requirement's are; a subject left unbound is the case's result
-// (Cases::Case::obj). The frame stays the case's, so `Case::result` reads the run's.
+// objectiveBindings are the case run's bindings plus the subject and actors the objective binds
+// itself; a subject left unbound holds the case feature the library's objective states for it.
 func (ctx *Context) objectiveBindings(run *calcRun, obj *symbols.Symbol, name string, caseBindings frame) (frame, error) {
 	members := ctx.chainMembers(obj, obj.OwnerScope)
 	own, err := ctx.memberBindings(obj, "objective", name, members, run.self, nil, caseBindings)
@@ -500,30 +499,30 @@ func (ctx *Context) objectiveBindings(run *calcRun, obj *symbols.Symbol, name st
 	for k, v := range own {
 		bindings[k] = v
 	}
-	subject, decl, unbound := ctx.unboundObjectiveSubject(obj, members, own)
+	subject, decl, stated, unbound := ctx.unboundObjectiveSubject(obj, members, own)
 	if subject == nil {
 		return caseBindings.withVars(bindings), nil
 	}
-	result, ok := run.caseResult(caseBindings.vars)
-	if !ok {
-		return frame{}, &UnboundSubjectError{Kind: "objective", Element: name, Subject: subject.Name}
+	value, what, err := ctx.statedSubjectValue(run, name, subject, stated, caseBindings.vars)
+	if err != nil {
+		return frame{}, err
 	}
-	what := fmt.Sprintf("objective %s: subject %s defaults to the case's result (Cases::Case::obj)", name, subject.Name)
-	if err := ctx.holdAs(declScope(obj), what, decl, result, subject); err != nil {
+	if err := ctx.holdAs(declScope(obj), what, decl, value, subject); err != nil {
 		return frame{}, err
 	}
 	for unboundName := range unbound {
-		bindings[unboundName] = result
+		bindings[unboundName] = value
 	}
 	return caseBindings.withVars(bindings), nil
 }
 
-// unboundObjectiveSubject is the objective's subject no binding the model writes supplies, its
-// declaration folded along the chain (a redeclaration keeps what it omits) and its names; nil when bound.
-func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scopedMember, own map[string]Value) (*symbols.Symbol, calcMemberDecl, map[string]bool) {
+// unboundObjectiveSubject is the objective's subject no binding the model writes supplies: its
+// folded declaration, the value the library states for it, and its names; nil when bound.
+func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scopedMember, own map[string]Value) (*symbols.Symbol, calcMemberDecl, scopedExpr, map[string]bool) {
 	features := ctx.conditionFeatures(obj)
 	var subject *symbols.Symbol
 	var decl calcMemberDecl
+	var stated scopedExpr
 	unbound := make(map[string]bool)
 	for _, member := range members {
 		declared, ok := subjectDeclaration(member.node)
@@ -536,11 +535,16 @@ func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scope
 		}
 		names := ctx.memberNames(obj, member, declared.Name, sym.ShortName)
 		if _, bound := boundUnder(own, names); bound || declared.Value != nil {
-			return nil, calcMemberDecl{}, nil
+			return nil, calcMemberDecl{}, scopedExpr{}, nil
 		}
 		for _, n := range names {
-			if feat, ok := features[n]; ok && feat.expr != nil && !ctx.libraryDeclared(feat.decl) {
-				return nil, calcMemberDecl{}, nil
+			if feat, ok := features[n]; ok && feat.expr != nil {
+				if !ctx.libraryDeclared(feat.decl) {
+					return nil, calcMemberDecl{}, scopedExpr{}, nil
+				}
+				if stated.expr == nil {
+					stated = feat
+				}
 			}
 			unbound[n] = true
 		}
@@ -549,7 +553,70 @@ func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scope
 		}
 		decl = ctx.calcMemberDeclFor(obj, sym, subject.Name).redeclaring(decl)
 	}
-	return subject, decl, unbound
+	return subject, decl, stated, unbound
+}
+
+// statedSubjectValue reads the case feature the library states for an objective's subject
+// (`Case::result`, `VerificationCase::subj`) from the run, with the wording a diagnostic names it by.
+func (ctx *Context) statedSubjectValue(run *calcRun, name string, subject *symbols.Symbol, stated scopedExpr, bindings map[string]Value) (Value, string, error) {
+	member, value, ok := ctx.statedCaseMember(run, stated, bindings)
+	if !ok {
+		return Value{}, "", &UnboundSubjectError{Kind: "objective", Element: name, Subject: subject.Name}
+	}
+	verb := "is bound to"
+	if statedAsDefault(stated.decl) {
+		verb = "defaults to"
+	}
+	what := fmt.Sprintf("objective %s: subject %s %s the case's %s (%s)", name, subject.Name, verb, run.shape.memberRole(member), ctx.qualifiedSymbolName(stated.decl.OwnerScope.Owner()))
+	return value, what, nil
+}
+
+// statedCaseMember is the run's member the stated feature reference names, and the value it
+// holds; false when nothing is stated, the reference names no member, or the member is unbound.
+func (ctx *Context) statedCaseMember(run *calcRun, stated scopedExpr, bindings map[string]Value) (string, Value, bool) {
+	qn := ast.AsQualifiedName(stated.expr)
+	if qn == nil {
+		return "", Value{}, false
+	}
+	feature, ok := ctx.resolver.ReadQualified(stated.scope, qn).Symbol()
+	if !ok {
+		return "", Value{}, false
+	}
+	member, ok := run.shape.memberName(ctx, feature)
+	if !ok {
+		return "", Value{}, false
+	}
+	value, ok := bindings[member]
+	return member, value, ok
+}
+
+// statedAsDefault reports a feature stating its value with `default`, a fallback a
+// redefinition's `=` overrides, rather than binding it.
+func statedAsDefault(decl *symbols.Symbol) bool {
+	if decl == nil {
+		return false
+	}
+	switch d := decl.Decl.(type) {
+	case *ast.Usage:
+		return d.ValueIsDefault
+	case *ast.SubjectMember:
+		return d.ValueIsDefault
+	}
+	return false
+}
+
+// memberRole says what the run's member of that name is to the case, as a diagnostic
+// names it: its result, its subject, or the member by name.
+func (shape *calcShape) memberRole(name string) string {
+	if out := shape.resultOutput(); (out != nil && out.Name == name) || (out == nil && name == resultOutputName) {
+		return "result"
+	}
+	for _, param := range shape.Params {
+		if param.IsSubject && param.Name == name {
+			return "subject"
+		}
+	}
+	return name
 }
 
 // caseResult is the value the run's result parameter holds; false when the case returns none.

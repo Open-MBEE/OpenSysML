@@ -410,8 +410,10 @@ state def RegionChoice parallel {
   target is entered, entering that target's own regions on the way.
 - **`leaveTopRegions`** does the same for the machine's own regions, which no
   state owns. `lower.StateGraph.TopRegions` carries their declaration order, so
-  the order regions are entered, exited and offered an event in is the declared
-  one and never map iteration order.
+  the order regions are entered and exited in is the declared one and never map
+  iteration order; the order their selected reactions to one event fire in is a
+  choice point the run's scheduling policy draws
+  ([orthogonal regions](orthogonal-regions.md), [scheduling](scheduling.md)).
 
 Fork, join and history reached from inside a region are fired whole
 (`fireTransition`), since they rewrite the configuration rather than move one

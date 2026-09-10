@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::checkNothing",
+  "verdict": "error",
+  "verdictDetail": "verification test::checkNothing: lander subject is unbound"
+}

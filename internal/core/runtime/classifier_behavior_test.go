@@ -1220,7 +1220,8 @@ func TestFailedMaterializationLeavesNoNeighbourBehind(t *testing.T) {
 			part def Listener {
 				exhibit state listening {
 					entry; then waiting;
-					state waiting { accept Ping then heard; }
+					state waiting;
+					accept Ping then heard;
 					state heard;
 				}
 			}
@@ -1230,7 +1231,7 @@ func TestFailedMaterializationLeavesNoNeighbourBehind(t *testing.T) {
 					entry; then sent;
 					state sent { entry send Ping() to good; }
 				}
-				exhibit state empty { }
+				exhibit state empty;
 			}
 
 			part good : Listener;
@@ -1270,15 +1271,16 @@ func TestMutuallyAddressedObjectsAreMaterializedOnce(t *testing.T) {
 						entry; then sending;
 						state sending {
 							entry send new Ping() to b;
-							accept Pong then answered;
 						}
+						accept Pong then answered;
 						state answered;
 					}
 				}
 				part b : Node {
 					exhibit state replying {
 						entry; then waiting;
-						state waiting { accept Ping then replied; }
+						state waiting;
+						accept Ping then replied;
 						state replied { entry send new Pong() to a; }
 					}
 				}
@@ -1324,7 +1326,8 @@ func TestFailedNestedStartFailsTheHolder(t *testing.T) {
 			part def Listener {
 				exhibit state listening {
 					entry; then waiting;
-					state waiting { accept Ping then heard; }
+					state waiting;
+					accept Ping then heard;
 					state heard;
 				}
 			}
@@ -1334,7 +1337,7 @@ func TestFailedNestedStartFailsTheHolder(t *testing.T) {
 					entry; then sent;
 					state sent { entry send Ping() to good; }
 				}
-				exhibit state empty { }
+				exhibit state empty;
 			}
 
 			part def Group {

@@ -45,9 +45,8 @@ func TestTimeTriggerUnitIsConverted(t *testing.T) {
 				state Machine {
 					entry; then start;
 					state start;
-					state waiting {
-						accept after `+tc.duration+` then done;
-					}
+					state waiting;
+					accept after `+tc.duration+` then done;
 					state done;
 					succession first start then waiting;
 				}
@@ -77,9 +76,8 @@ func TestTimeTriggerSubSecondUnit(t *testing.T) {
 		state Machine {
 			entry; then start;
 			state start;
-			state waiting {
-				accept after 500 [ms] then done;
-			}
+			state waiting;
+			accept after 500 [ms] then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -103,9 +101,8 @@ func TestTimeTriggerAbsoluteInstantWithUnit(t *testing.T) {
 			attribute due : TimeInstantValue = 2 [min];
 			entry; then start;
 			state start;
-			state waiting {
-				accept at due then done;
-			}
+			state waiting;
+			accept at due then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -136,9 +133,8 @@ func TestTimeTriggerRefusesTheTypeValidationRefuses(t *testing.T) {
 				state Machine {
 					entry; then start;
 					state start;
-					state waiting {
-						accept `+tc.trigger+` then done;
-					}
+					state waiting;
+					accept `+tc.trigger+` then done;
 					state done;
 					succession first start then waiting;
 				}
@@ -167,9 +163,8 @@ func TestTimeTriggerAdmitsATypedFeature(t *testing.T) {
 			attribute delay : DurationValue = 3 [s];
 			entry; then start;
 			state start;
-			state waiting {
-				accept after delay then done;
-			}
+			state waiting;
+			accept after delay then done;
 			state done;
 			succession first start then waiting;
 		}
@@ -191,9 +186,8 @@ func TestTimeTriggerRejectsNonTimeDimension(t *testing.T) {
 		state Machine {
 			entry; then start;
 			state start;
-			state waiting {
-				accept after 5 [kg] then done;
-			}
+			state waiting;
+			accept after 5 [kg] then done;
 			state done;
 			succession first start then waiting;
 		}

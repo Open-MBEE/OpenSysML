@@ -12,10 +12,10 @@ func TestInheritedStateActionEndpointsAreVertices(t *testing.T) {
 		attribute def Exit;
 		state def S {
 			state S1;
+			accept Exit then done;
 			entry;
 			then S1;
 			transition aTransition first start accept Exit then done;
-			accept Exit then done;
 			transition toStart first S1 then start;
 			transition fromDone first done then S1;
 		}

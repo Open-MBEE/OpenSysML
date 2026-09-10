@@ -10,7 +10,7 @@ func TestResolveEventOccurrenceFeature(t *testing.T) {
 		"occurrence def O; part def P { event occurrence o : O; }",
 		"occurrence def O; part def P { event occurrence o : O; attribute a = o; }",
 		"occurrence def O; part def P { occurrence o : O; event o; }",
-		"occurrence def O; part def P { event occurrence o : O; state s; state t { accept o then s; } }",
+		"occurrence def O; part def P { event occurrence o : O; state s; state t; accept o then s; }",
 		"occurrence def O; action def A { event occurrence o : O; accept o; }",
 	} {
 		r := resolveDoc(t, "<t>", src)

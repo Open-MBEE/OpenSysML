@@ -69,7 +69,7 @@ func (r *Rendering) EmptyReason() string {
 }
 
 // writeNodeText writes one node and its children, and records the label an edge
-// names the node by.
+// names the node by. A body's start is named by the body it starts.
 func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string) {
 	labels[node.ID] = nodeLabel(node)
 	line := strings.Repeat("  ", depth) + node.Kind
@@ -82,6 +82,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	b.WriteString(line + "\n")
 	for _, child := range node.Children {
 		writeNodeText(b, child, depth+1, labels)
+		if child.Kind == startKind {
+			labels[child.ID] = "start of " + labels[node.ID]
+		}
 	}
 }
 

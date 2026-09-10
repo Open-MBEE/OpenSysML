@@ -10,10 +10,11 @@ import (
 
 // A run's choice points — several steppable tokens in one step, several holding
 // guards at a decision, several enabled transitions for one event, several
-// executors due at one instant of the clock — are resolved by a scheduling
-// policy; which of two same-step writes to one feature stands follows from the
-// token order it chose. The default is what the executors always did; the others
-// let a driver ask for another linearization of the run.
+// regions reacting to one event, several executors due at one instant of the
+// clock — are resolved by a scheduling policy; which of two same-step writes to
+// one feature stands follows from the token order it chose. The default is what
+// the executors always did; the others let a driver ask for another
+// linearization of the run.
 
 // ErrInvalidSchedulePolicy is the typed error every unparseable policy spelling wraps.
 var ErrInvalidSchedulePolicy = errors.New("invalid scheduling policy")
@@ -237,10 +238,25 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 	}
 }
 
+// Choice is the token-order pick an exploring step resolved, as the trace names
+// the tokens able to act and the index of the one moved; false when it made none.
+func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
+	if ts.explore == nil || ts.explore.choice == nil {
+		return nil, 0, false
+	}
+	return ts.explore.choice.labels, ts.explore.choice.taken, true
+}
+
+// oneMove reports whether a step is one token's move, the exploration's pick among
+// every token able to act, rather than a sweep giving each token its turn.
+func (s *scheduler) oneMove() bool {
+	return s.policy.kind == scheduleExplore && s.explore != nil
+}
+
 // scheduleStep fixes how the step tries its tokens: reversed, declared,
 // seeded shuffle, or one at a time as the exploration picks them.
 func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
-	if s.policy.kind == scheduleExplore && s.explore != nil {
+	if s.oneMove() {
 		return &tokenSchedule{explore: s.explore.beginStep(tokens)}
 	}
 	ids := tokens.ids

@@ -42,12 +42,10 @@ const behaviorModel = `package Mission {
     state Cycle {
         entry; then init;
         state init;
-        state waiting {
-            accept after 10 [SI::s] then working;
-        }
-        state working {
-            accept after 5 [SI::s] then done;
-        }
+        state waiting;
+        accept after 10 [SI::s] then working;
+        state working;
+        accept after 5 [SI::s] then done;
         succession first init then waiting;
     }
 }
@@ -457,8 +455,8 @@ const fleetModel = `package Fleet {
                     assign log := log + "W";
                     assign level := level + 10;
                 }
-                accept after 5 [SI::s] then moving;
             }
+            accept after 5 [SI::s] then moving;
             state moving {
                 entry action m {
                     assign log := log + "M";
@@ -568,7 +566,8 @@ func TestStateNamesTheUsageToInstantiate(t *testing.T) {
 const sharedMachineModel = `package Shared {
     state def Blink {
         entry; then dark;
-        state dark { accept after 2 [SI::s] then lit; }
+        state dark;
+        accept after 2 [SI::s] then lit;
         state lit;
     }
     part def Lamp {
@@ -903,7 +902,8 @@ const dueTogetherModel = `package Due {
         attribute lit : Boolean = false;
         exhibit state blinking {
             entry; then dark;
-            state dark { accept after 5 [s] then shining; }
+            state dark;
+            accept after 5 [s] then shining;
             state shining { entry assign lit := true; }
         }
     }

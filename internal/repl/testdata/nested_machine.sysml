@@ -13,8 +13,8 @@ package Fleet {
 					assign log := log + "W";
 					assign level := level + 10;
 				}
-				accept after 5 [SI::s] then moving;
 			}
+			accept after 5 [SI::s] then moving;
 			state moving {
 				entry action m {
 					assign log := log + "M";

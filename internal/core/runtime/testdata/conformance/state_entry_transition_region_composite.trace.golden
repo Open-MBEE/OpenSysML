@@ -1,0 +1,22 @@
+exit: idle
+enter: running (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "running;" -> "running;"
+    eval operator + -> "running;"
+enter: waiting (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "running;"
+      eval literal "waiting;" -> "waiting;"
+    eval operator + -> "running;waiting;"
+transition: idle -> running (event: accept Start)
+exit: waiting
+enter: finished (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "running;waiting;"
+      eval literal "finished;" -> "finished;"
+    eval operator + -> "running;waiting;finished;"
+transition: waiting -> finished (event: accept Go)

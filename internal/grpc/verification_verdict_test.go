@@ -364,3 +364,72 @@ func TestRunSweepRefusesAVerificationCase(t *testing.T) {
 		t.Errorf("failure reason = %v, want WRONG_KIND", resp.FailureReason)
 	}
 }
+
+// objectiveSubjectModel declares a verification whose objective is a requirement
+// naming its subject differently from the verification's; the library binds the
+// objective's subject to the verification's, so the objective decides.
+const objectiveSubjectModel = `package Demo {
+	private import ScalarValues::*;
+	part def Lander { attribute touchdownSpeed : Real; }
+	part scout : Lander { attribute :>> touchdownSpeed = 1.2; }
+	part heavy : Lander { attribute :>> touchdownSpeed = 1.6; }
+	requirement def SoftLanding {
+		subject lander : Lander;
+		in attribute limit : Real default = 1.5;
+		require constraint { lander.touchdownSpeed <= limit }
+	}
+	requirement softLanding : SoftLanding { subject lander = scout; }
+	verification def TouchdownCheck {
+		subject lander : Lander;
+		in attribute limit : Real = 1.5;
+		objective : SoftLanding { in limit = limit; verify softLanding; }
+		VerificationCases::PassIf(lander.touchdownSpeed <= limit)
+	}
+	verification checkScout : TouchdownCheck { subject lander = scout; }
+	verification checkHeavy : TouchdownCheck { subject lander = heavy; }
+}`
+
+// TestRunAnalysisDecidesAVerificationObjectiveAgainstTheCaseSubject verifies
+// RunAnalysis reports the objective of a verification case decided against the
+// verification's subject, agreeing with the body's verdict, and that
+// VerifyRequirement reports those body verdicts beside the requirement's own.
+func TestRunAnalysisDecidesAVerificationObjectiveAgainstTheCaseSubject(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, objectiveSubjectModel, "verification-objective-subject")
+
+	for name, holds := range map[string]bool{"Demo::checkScout": true, "Demo::checkHeavy": false} {
+		resp := runAnalysis(t, srv, &pb.RunAnalysisRequest{ModelHash: hash, SymbolId: name})
+		if resp.Error != "" {
+			t.Fatalf("RunAnalysis(%s) reported %q", name, resp.Error)
+		}
+		if len(resp.Verdicts) != 1 {
+			t.Fatalf("%s: got %d verdicts, want the objective's: %v", name, len(resp.Verdicts), resp.Verdicts)
+		}
+		v := resp.Verdicts[0]
+		if v.Kind != "objective" || v.Element != "obj" || v.Holds != holds || v.Error != "" {
+			t.Errorf("%s: verdict = %v, want objective obj deciding holds=%v", name, v, holds)
+		}
+		if !holds && v.Condition != "lander.touchdownSpeed <= limit" {
+			t.Errorf("%s: violated condition = %q, want the requirement's", name, v.Condition)
+		}
+		kind := "pass"
+		if !holds {
+			kind = "fail"
+		}
+		wantVerdicts(t, "RunAnalysis("+name+")", resp.VerificationVerdicts, name+"="+kind)
+	}
+
+	resp, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+		ModelHash:       hash,
+		SymbolId:        "Demo::softLanding",
+		SubjectSymbolId: "Demo::scout",
+	})
+	if err != nil {
+		t.Fatalf("VerifyRequirement: %v", err)
+	}
+	if resp.Error != "" || !resp.Verdict.Holds {
+		t.Fatalf("softLanding by scout: error %q, holds %v; want it to hold", resp.Error, resp.Verdict.Holds)
+	}
+	wantVerdicts(t, "VerifyRequirement", resp.VerificationVerdicts,
+		"Demo::checkScout=pass", "Demo::checkHeavy=fail")
+}

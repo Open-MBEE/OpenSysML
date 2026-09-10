@@ -1,5 +1,6 @@
 // Two usages of one state definition keep separate attribute values and
-// separate current-state configurations.
+// separate current-state configurations: entering `two` performs its own
+// `entry; then counting;`, bumping its own `hits` and not `one`'s.
 package test {
 	private import ScalarValues::*;
 
@@ -19,5 +20,6 @@ package test {
 		state one : Counter;
 		state two : Counter;
 		transition first one.counting then two;
+		transition first two.counting then done;
 	}
 }

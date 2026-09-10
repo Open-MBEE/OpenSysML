@@ -17,6 +17,8 @@ const sweepModel = `package Sw {
 	calc def Ratio { in a : Real; in b : Real; return : Real = a / b; }
 	calc def Reach { in v : Real; in t : Real; return : Real = v * t; }
 	calc def Lift { in 'launch mass' : Integer; return : Integer = 'launch mass' * 2; }
+	calc def Toggle { in on : Boolean; return : Boolean = not on; }
+	calc def Echo { in v; return r = v; }
 	part def Ship { attribute cost : Real = 5.0; }
 	analysis def Priced {
 		subject s : Ship;
@@ -180,6 +182,69 @@ func TestSamplesTableIsPinned(t *testing.T) {
 	}
 }
 
+// A range is typed by the parameter it sweeps, not by its literals: over a Real
+// parameter Integer literals bind and print as Reals, over an Integer parameter
+// real literals bind and print as Integers, and a Real parameter samples reals.
+func TestSweepBindsInTheParameterType(t *testing.T) {
+	s := sweepSession(t)
+	got := sweepTable(run(t, s, "%sweep Sw::Ratio(b = 2.0) a=1..4:1"))
+	want := strings.Join([]string{
+		"sweep Sw::Ratio — 4 run(s)",
+		"a   | result | time",
+		"-+-+-",
+		"1.0 | 0.5    | <time>",
+		"2.0 | 1.0    | <time>",
+		"3.0 | 1.5    | <time>",
+		"4.0 | 2.0    | <time>",
+	}, "\n")
+	if !strings.Contains(got, want) {
+		t.Errorf("table is\n%s\nwant it to carry\n%s", got, want)
+	}
+	got = sweepTable(run(t, s, "%sweep Sw::Twice n=1.0..3.0:1.0"))
+	want = strings.Join([]string{
+		"sweep Sw::Twice — 3 run(s)",
+		"n | result | time",
+		"-+-+-",
+		"1 | 2      | <time>",
+		"2 | 4      | <time>",
+		"3 | 6      | <time>",
+	}, "\n")
+	if !strings.Contains(got, want) {
+		t.Errorf("table is\n%s\nwant it to carry\n%s", got, want)
+	}
+	got = sweepTable(run(t, s, "%samples 4 7 Sw::Ratio(b = 1.0) a=1..4"))
+	if !strings.Contains(got, "4 run(s), seed 7") || strings.Contains(got, "error") {
+		t.Fatalf("table is\n%s\nwant four drawn runs", got)
+	}
+	for _, line := range strings.Split(got, "\n")[3:7] {
+		if cell := strings.TrimSpace(strings.SplitN(line, "|", 2)[0]); !strings.Contains(cell, ".") {
+			t.Errorf("row %q drew %s over a Real parameter; want a real", line, cell)
+		}
+	}
+}
+
+// A parameter declaring no type has its range read as written, and the table
+// says so.
+func TestSweepOverAnUntypedParameterIsReadAsWritten(t *testing.T) {
+	s := sweepSession(t)
+	got := sweepTable(run(t, s, "%sweep Sw::Echo v=1..2"))
+	want := strings.Join([]string{
+		"sweep Sw::Echo — 2 run(s)",
+		"v | result | time",
+		"-+-+-",
+		"1 | 1      | <time>",
+		"2 | 2      | <time>",
+		"note: v declares no type; its range is read as written",
+	}, "\n")
+	if !strings.Contains(got, want) {
+		t.Errorf("table is\n%s\nwant it to carry\n%s", got, want)
+	}
+	got = sweepTable(run(t, s, "%sweep Sw::Echo v=1.0..2.0:1.0"))
+	if !strings.Contains(got, "1.0 | 1.0    | <time>") || !strings.Contains(got, "note: v declares no type") {
+		t.Errorf("table is\n%s\nwant reals read as written and the note", got)
+	}
+}
+
 // A sampled range needs no step, since it draws over its endpoints rather than
 // stepping through them.
 func TestSamplesOverARealRangeNeedNoStep(t *testing.T) {
@@ -201,7 +266,12 @@ func TestSweepErrors(t *testing.T) {
 		{"%sweep", []string{"usage: %sweep"}},
 		{"%sweep Sw::Twice", []string{"no sweep range"}},
 		{"%sweep Sw::Twice n=1", []string{"states no range"}},
-		{"%sweep Sw::Ratio(b = 1.0) a=0.0..1.0", []string{"needs `:<step>`"}},
+		{"%sweep Sw::Ratio(b = 1.0) a=0.5..1.0", []string{"needs `:<step>`"}},
+		{"%sweep Sw::Twice n=1.0..3.0:0.5", []string{"n : Integer", "0.5"}},
+		{"%sweep Sw::Twice n=1.5..3", []string{"n : Integer", "1.5"}},
+		{"%samples 2 1 Sw::Twice n=1.5..3", []string{"n : Integer", "1.5"}},
+		{"%sweep Sw::Toggle on=0..1", []string{"on", "typed by Boolean"}},
+		{"%samples 2 1 Sw::Toggle on=0..1", []string{"on", "typed by Boolean"}},
 		{"%sweep Sw::Twice n=1..4:0", []string{"zero"}},
 		{"%sweep Sw::Twice n=4..1:1", []string{"away from"}},
 		{"%sweep Sw::Twice nope=1..4", []string{"nope"}},

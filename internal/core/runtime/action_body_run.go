@@ -34,7 +34,9 @@ type bodyPause struct {
 	breakpoint string
 	onClock    bool
 	held       clockWaiter
-	ended      bool
+	// waits reports whether the wait goes on, so resuming would only pause again.
+	waits func() bool
+	ended bool
 }
 
 // bodyCoroutine runs the work of token steps one after another, so the steps of a
@@ -227,18 +229,25 @@ func (ctx *Context) pauseRun(pause bodyPause) error {
 }
 
 // pauseForClock pauses the pausable run on the stack while held (nil for a flow of
-// the run's own executor) waits on the clock; false when none is pausable.
-func (ctx *Context) pauseForClock(held clockWaiter) (bool, error) {
+// the run's own executor) waits on the clock, as long as waits reports; false when
+// none is pausable.
+func (ctx *Context) pauseForClock(held clockWaiter, waits func() bool) (bool, error) {
 	if ctx.pausable == nil {
 		return false, nil
 	}
-	return true, ctx.pauseRun(bodyPause{onClock: true, held: held})
+	return true, ctx.pauseRun(bodyPause{onClock: true, held: held, waits: waits})
 }
 
 // pausedOnClock reports a token whose work waits on the clock through a flow it
 // runs or an action it performs; the tokens parked there hold the wait, not this one.
 func (t Token) pausedOnClock() bool {
 	return t.body != nil && t.body.paused.onClock
+}
+
+// resumable reports a token whose paused work would go on if resumed now: paused
+// at a breakpoint, or on the clock for a wait that has ended.
+func (t Token) resumable() bool {
+	return t.body != nil && (!t.body.paused.onClock || !t.body.paused.waits())
 }
 
 // heldWaiter returns the executor performing an action for the token's paused

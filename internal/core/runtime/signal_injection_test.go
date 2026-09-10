@@ -1473,7 +1473,8 @@ func TestPreviewsDiscardThePortTheyMaterialize(t *testing.T) {
 			port in : ~Chan;
 			exhibit state sm {
 				entry; then Idle;
-				state Idle { accept v : Integer via in then Got; }
+				state Idle;
+				accept v : Integer via in then Got;
 				state Got;
 			}
 		}

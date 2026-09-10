@@ -65,14 +65,13 @@ func syntheticModel(n int) []byte {
     state def SM%[1]d {
         attribute count : Integer = 0;
         entry; then s0;
-        state s0 {
-            accept after 1 [SI::s] if count < 50 then s1;
-            accept after 1 [SI::s] if count >= 50 then done;
-        }
+        state s0;
+        accept after 1 [SI::s] if count < 50 then s1;
+        accept after 1 [SI::s] if count >= 50 then done;
         state s1 {
             entry assign count := count + 1;
-            accept after 1 [SI::s] then s0;
         }
+        accept after 1 [SI::s] then s0;
     }
     part inst%[1]d : Comp%[1]d {
         attribute :>> mass = %[1]d.0 + 1.0;

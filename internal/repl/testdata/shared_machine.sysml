@@ -4,9 +4,8 @@
 package Shared {
 	state def Blink {
 		entry; then dark;
-		state dark {
-			accept after 2 [SI::s] then lit;
-		}
+		state dark;
+		accept after 2 [SI::s] then lit;
 		state lit;
 	}
 

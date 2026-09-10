@@ -492,7 +492,7 @@ func (r *Resolver) endpointIsVertex(scope *symbols.Scope, qn *ast.QualifiedName,
 	if sym == nil {
 		return false
 	}
-	if isVertex(sym.Decl) {
+	if IsVertex(sym.Decl) {
 		return true
 	}
 	if startAction(sym) {
@@ -505,7 +505,7 @@ func (r *Resolver) endpointIsVertex(scope *symbols.Scope, qn *ast.QualifiedName,
 }
 
 func isVertexSymbol(sym *symbols.Symbol) bool {
-	return sym != nil && isVertex(sym.Decl)
+	return sym != nil && IsVertex(sym.Decl)
 }
 
 func (r *Resolver) machineStateVertex(scope *symbols.Scope, qn *ast.QualifiedName, sym *symbols.Symbol) bool {
@@ -602,9 +602,9 @@ func startAction(sym *symbols.Symbol) bool {
 	return ast.IsEntryAction(ast.StateEntryActions(sym.OwnerScope.Node()), sym.Decl)
 }
 
-// isVertex reports whether decl is a vertex a transition may name: a state, a
+// IsVertex reports whether decl is a vertex a transition may name: a state, a
 // pseudostate, or a control node standing in for one (SysML 7.19.2).
-func isVertex(decl ast.Node) bool {
+func IsVertex(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.StateNode, *ast.SubstateMember, *ast.PseudostateNode, *ast.InitialNode, *ast.FinalNode:
 		return true
@@ -657,7 +657,7 @@ func firstVertex(scope *symbols.Scope, parts []string) (*symbols.Symbol, bool) {
 			continue
 		}
 		for _, sym := range symbols.PreferDeclared(scope.LookupLocalAll(key)) {
-			if isVertex(sym.Decl) || startAction(sym) {
+			if IsVertex(sym.Decl) || startAction(sym) {
 				return sym, true
 			}
 		}
@@ -702,7 +702,7 @@ func vertexNames(scope *symbols.Scope) []string {
 		}
 		for _, key := range scope.MemberNames() {
 			for _, sym := range scope.LookupLocalAll(key) {
-				if isVertex(sym.Decl) && !seen[key] {
+				if IsVertex(sym.Decl) && !seen[key] {
 					seen[key] = true
 					names = append(names, key)
 					break

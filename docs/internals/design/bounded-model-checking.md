@@ -2,9 +2,17 @@
 
 A design for exploring every admissible interleaving of an action or state machine, up to a
 bound, and reporting the outcomes the specification leaves open, the deadlocks a run can reach,
-and the requirements an interleaving can violate. Nothing here is implemented; this note fixes
-the data shapes, the reduction rule, the bounds and the user surface so the work can be reviewed
-before code is written, and so each stage can be judged complete on its own.
+and the requirements an interleaving can violate. This note fixes the data shapes, the reduction
+rule, the bounds and the user surface so the work can be reviewed before code is written, and so
+each stage can be judged complete on its own.
+
+What is implemented of it is the `explore` scheduling policy
+([scheduling](scheduling.md#exploration-explorego)): every linearization within a budget of runs
+and choice points, each replayed from a fresh context, with the distinct outcomes, their
+linearization counts and one witness per outcome reported, and an honest `incomplete` when the
+budget stopped it. It runs every linearization rather than one per equivalence class, and it
+reports outcomes, not deadlocks or requirement violations; the snapshots, the partial-order
+reduction and those analyses remain this proposal's.
 
 ## The problem this answers
 
@@ -16,15 +24,22 @@ independent chains are unordered, and the library states no conflict rule for tw
 writes of one feature. One model therefore admits many executions, and every one of them
 conforms.
 
-The executor runs exactly one. Its choice is deterministic and documented — tokens are stepped in
-descending index order within a step, a fork appends its branch tokens in succession-declaration
-order, a state machine fires transitions and exits regions in region declaration order — and
-[the semantic oracle](../../project/behavior-semantic-oracle.md) separates what the library fixes
-from what that scheduling chose. The compliance map marks the rows where the runtime picks an
-order the specification does not as approximate. What no surface offers today is the question a
-safety case asks: *does any admissible execution violate this requirement, deadlock, or end in a
-state the model did not intend?* A single run cannot answer it, and a race the scheduling happens
-to resolve the intended way is invisible.
+The executor runs exactly one, chosen by the run's scheduling policy
+([scheduling](scheduling.md)) and reported at each choice point. Under the default `reverse` the
+choice is fixed and documented — tokens are stepped in descending index order within a step, a
+fork appends its branch tokens in succession-declaration order, the first holding guard, the first
+enabled transition and the first of the regions an event selected fire — while `seed:<n>` draws
+every one of those, transition and region order included, from a generator the seed replays;
+only the order regions are entered and exited in on a composite transition stays declaration
+order under every policy, since it is no choice point. [The semantic
+oracle](../../project/behavior-semantic-oracle.md) separates what the library fixes from what
+that scheduling chose. The compliance map marks the rows where the runtime picks an
+order the specification does not as approximate. The `explore` policy answers which outcomes the
+admissible executions reach, by running each of them within a budget; what no surface offers is
+the question a safety case asks at scale: *does any admissible execution violate this
+requirement, deadlock, or end in a state the model did not intend?* Enumerating every
+linearization answers it only for behaviors small enough to enumerate, and a race the scheduling
+happens to resolve the intended way is invisible to a single run.
 
 The pinned OMG pilot evaluates expressions and executes neither actions nor state machines
 ([pilot execution referee](../../project/pilot-execution-referee.md)), so there is no reference
@@ -50,7 +65,8 @@ Out of scope, and stated as such in the report where they apply:
   the caller gave; the checker explores scheduling, not the value domain. Value-domain questions
   are the SMT layer's (`internal/core/solve`), which reasons about constraints and requirements
   over free variables and has no notion of a behavior's state. The two are complementary and stay
-  separate.
+  separate here; [SMT bounded model checking](smt-model-checking.md) is the design that gives the
+  solver that notion, with this engine as its referee.
 - **Unbounded state spaces.** A merge-loop, a `do` behavior that never completes or a time
   trigger that re-arms itself produces infinitely many states. The checker is *bounded*: it
   reports what it found within the bound and never claims more.
@@ -97,11 +113,14 @@ move's writes — and avoids copying the object graph at every choice point.
 
 ### The atomic step
 
-The executor's `Step()` is a tool artifact: it steps every token once, in a fixed order, and the
+The executor's `Step()` under a fixed policy is a tool artifact: it steps every token once, in a
+fixed order, and the
 [oracle](../../project/behavior-semantic-oracle.md#what-the-library-fixes-and-what-a-trace-adds)
 already warns that a `step N:` line is a boundary the library does not define. The checker must
 not explore interleavings *inside* that artifact, nor interleavings finer than the library
-admits.
+admits. The `explore` policy already takes the unit below for actions: one of its steps is one
+token advancing one node, so a branch of several nodes can be overtaken between any two of them
+(`action_explore_write_between_branch_nodes` is the case a lockstep step would have missed).
 
 The unit the library defines is a **performance**: a node's body runs "completely before" its
 successors start (`HappensBefore`), and two unordered performances may overlap arbitrarily in
@@ -128,9 +147,12 @@ stop. A `do` round is one atomic unit per do behavior.
 
 At each state the checker enumerates the **enabled moves**:
 
-- **Action**: every token not in a paused body whose node can advance now. A token at a plain
-  node always can. A token at a join that has not collected cannot. A token parked at an
-  `accept` (`Wait != nil`) can when its wait is answered in the current state: for a message
+- **Action**: every token whose node can advance now. A token at a plain node always can. A
+  token at a join that has not collected cannot. A token whose body is paused can when the
+  body would go on if resumed (`Token.resumable`): at a breakpoint always, on the clock once
+  the performed action's wait has ended — so a performed action and a sibling accept due at
+  the same instant are two moves, either first. A token parked at an `accept` (`Wait != nil`)
+  can when its wait is answered in the current state: for a message
   accept, when `Context.messages` holds a message `acceptMatch` would take; for a time or change
   trigger, when `triggerHolds`. The executor already retries every parked token on every step
   and clears the wait only when the match succeeds (`stepNestedAction`), so the checker asks the
@@ -144,9 +166,9 @@ At each state the checker enumerates the **enabled moves**:
   token has a move and some token is parked is a deadlock, as `ErrAcceptDeadlock` reports it
   today. A token at a decision has one move per succession whose guard holds — the library
   fixes exactly one (`DecisionPerformance::outgoingHBLink [1]`), so with guards evaluated
-  against the current state there is normally one; overlapping guards are a model defect and
-  are reported rather than branched on, as the executor takes the first in declaration order
-  today.
+  against the current state there is normally one; overlapping guards are a model defect the
+  executor reports as a `ChoiceDecisionBranch` today, taking the first in declaration order
+  under `reverse` and `declared` and a seeded draw under `seed:<n>`.
 - **State machine**: with one event at the head of the queue there is one move. Several events
   due at the same instant are one move each; the executor dispatches them in arrival order,
   the checker explores every order, so a state that reacts differently to `A` then `B` than to
@@ -160,13 +182,14 @@ At each state the checker enumerates the **enabled moves**:
   the selected transitions fire, so a reaction's effect cannot enable or disable another
   region's transition for the same event — that write is seen by the *next* dispatch's
   selection, which the captured state carries. The checker keeps this reading, and what it
-  explores inside a dispatch is the order in which the selected reactions run, which is
-  tool-defined (declaration order today). Order matters in two ways. Two reactions that write
+  explores inside a dispatch is the order in which the selected reactions run, which the
+  library leaves open and the executor draws through its scheduling policy today
+  (`ChoiceRegionOrder`: declaration order under `reverse` and `declared`, a seeded draw under
+  `seed:<n>`, every order under `explore`). Order matters in two ways. Two reactions that write
   shared data, or one that writes what another's effect reads, reach different states in
   different orders. And a reaction that leaves a composite state deactivates every leaf under
   it, so a sibling region's candidate whose leaf was left is dropped when its turn comes
-  (`broadcastEvent` checks `isActive` and `losesToNestedTransition` at fire time, not at
-  selection): a region-local transition out of a parallel composite fires alone in one order
+  (`dispatchInOrder` checks `isActive` before each firing, not at selection): a region-local transition out of a parallel composite fires alone in one order
   and after its sibling's reaction in the other. The active configuration is therefore part of
   a reaction's footprint — it reads the activity of its own leaf and writes the activity of
   every state it exits or enters — and the dispatch is split by the independence relation
@@ -444,8 +467,7 @@ where most systems models live (a state machine per component) and should follow
   specification does not stays approximate; the checker makes the openness *visible*, it does
   not make the pick faithful. The row gains a pointer to the divergence report.
 - The SMT layer. Scheduling and value nondeterminism remain separate questions with separate
-  tools; a later design may compose them (explore schedules, hand each final state's constraints
-  to the solver), and should be its own note.
+  tools here; composing them is [its own note](smt-model-checking.md).
 
 ## Alternatives considered
 
@@ -467,4 +489,6 @@ where most systems models live (a state machine per component) and should follow
 - **Symbolic execution.** Would answer data and scheduling nondeterminism together. The value
   domain includes quantities with units, collections, strings and object graphs; a symbolic
   state over those is a much larger project than either the SMT layer or this checker, and
-  neither is a prerequisite for it. Left for a later note.
+  neither is a prerequisite for it. The [SMT bounded model checking](smt-model-checking.md) note
+  takes the narrower route: a bounded transition relation over the solver's already-translatable
+  subset, rather than a symbolic executor.

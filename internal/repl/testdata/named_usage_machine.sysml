@@ -10,11 +10,10 @@ package Relay {
 			entry action mark {
 				assign ticks := ticks + 1;
 			}
-			accept after 2 [SI::s] then lit;
 		}
-		state lit {
-			accept after 2 [SI::s] then dark;
-		}
+		accept after 2 [SI::s] then lit;
+		state lit;
+		accept after 2 [SI::s] then dark;
 	}
 
 	part def Beacon {

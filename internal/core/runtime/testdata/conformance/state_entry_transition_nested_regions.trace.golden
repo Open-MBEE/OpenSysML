@@ -1,0 +1,34 @@
+materialize: unit #1
+start: exhibited state machine control of #1
+materialize: control #2
+stmt assign mode
+    eval feature mode -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+  eval feature mode -> 2
+  eval literal 1 -> 1
+eval operator == -> false
+  eval feature mode -> 2
+  eval literal 2 -> 2
+eval operator == -> true
+enter: running
+  eval feature mode -> 2
+  eval literal 2 -> 2
+eval operator < -> false
+  eval feature mode -> 2
+  eval literal 2 -> 2
+eval operator >= -> true
+enter: fast (entry action)
+stmt assign fastEntries
+    eval feature fastEntries -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+  eval feature mode -> 2
+  eval literal 1 -> 1
+eval operator == -> false
+enter: b
+  eval feature mode -> 2
+  eval literal 2 -> 2
+eval operator == -> true
+enter: d
+run: exhibited state machine control of #1

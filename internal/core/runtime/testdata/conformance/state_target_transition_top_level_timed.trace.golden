@@ -1,0 +1,12 @@
+materialize: scout #1
+start: exhibited state machine flightMode of #1
+materialize: flightMode #2
+enter: coasting
+  eval literal 5 -> 5
+eval index -> 5 [s]
+run: exhibited state machine flightMode of #1
+exit: coasting
+enter: decelerating (entry action)
+stmt assign braking
+  eval literal true -> true
+transition: coasting -> decelerating (event: time)

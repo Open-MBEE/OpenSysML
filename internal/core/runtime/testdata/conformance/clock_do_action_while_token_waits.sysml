@@ -11,9 +11,8 @@ package test {
 		exhibit state shift {
 			entry; then working;
 
-			state working {
-				accept after 2 [s] then resting;
-			}
+			state working;
+			accept after 2 [s] then resting;
 			state resting {
 				entry assign ticks := ticks + 10;
 				do action rest assign ticks := ticks + 1;

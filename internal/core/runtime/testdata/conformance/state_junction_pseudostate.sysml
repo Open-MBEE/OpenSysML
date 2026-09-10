@@ -7,16 +7,13 @@ package JunctionTest {
         state init;
         state start;
         junction routeDecision;
-        state highPriority;
-        state normalPriority;
+        state highPriority { entry assign status := "high"; }
+        state normalPriority { entry assign status := "normal"; }
         
         succession first init then start;
         transition first start then routeDecision;
         transition first routeDecision if priority > 5 then highPriority;
         transition first routeDecision then normalPriority;  // else branch
-        
-        entry highPriority { assign status := "high"; }
-        entry normalPriority { assign status := "normal"; }
         
         transition first highPriority then done;
         transition first normalPriority then done;

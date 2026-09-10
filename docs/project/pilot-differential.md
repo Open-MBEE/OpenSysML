@@ -208,7 +208,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 368 files)
+## Results (pilot `2026-07`, 369 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -217,9 +217,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 50 | 4 | 6 | 0 | 0 | 4 | 6 |
 | `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
-| `examples` | 34 | 26 | 2 | 571 | 0 | 1 | 1 | 570 |
+| `examples` | 35 | 26 | 2 | 575 | 0 | 1 | 1 | 574 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **368** | **338** | **57** | **632** | **34** | **2** | **21** | **596** |
+| **Total** | **369** | **338** | **57** | **636** | **34** | **2** | **21** | **600** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -381,8 +381,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **596** |
-| pilot diagnostics | 123 | **632** |
+| only pilot | 82 | **600** |
+| pilot diagnostics | 123 | **636** |
 | severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -513,7 +513,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 [unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 2
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 15 `unmapped`, 258 `kind-mismatch`, 287 `unresolved-reference` — of which
+`examples` 10 syntax, 15 `unmapped`, 262 `kind-mismatch`, 287 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -588,13 +588,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **338 / 21 / 57** |
-| only pilot | **596** |
-| pilot diagnostics | **632** |
+| only pilot | **600** |
+| pilot diagnostics | **636** |
 | severity-only | **2** |
 | unmapped, our side | **19** |
 | kerml-examples: only ours | **4** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **570** |
+| examples: only pilot | **574** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **4** only-ours against 6
 only-pilot — the only root where the reference reports more than we do — with 50 of 58 files fully
@@ -692,8 +692,49 @@ retired rows were agreement.
 diagnostic from either side: files 33 → **34** and fully agreeing 25 → **26** on the root,
 367 → **368** and 337 → **338** overall, with every diagnostic count unmoved. The model writes its
 timed transition in the full form (`transition first coasting accept after 5 [SI::s] then decelerating;`)
-because the pinned reference does not parse a target transition inside the body of its source state,
-and this implementation does not lower a sourceless target transition at the state machine's top level.
+because the pinned reference does not parse a target transition inside the body of its source state;
+the shorthand form (`state coasting; accept after 5 [SI::s] then decelerating;`) is equivalent, and both
+sides accept it.
+
+### Target transition source round
+
+A transition written without a source now leaves the state declared before it in its body
+(SysML v2 §7.18.3 `TargetTransitionUsage`), where it used to leave the state whose body contained
+it. No corpus file moves: 368 files, 338 fully agreeing, 34 agreed, 21 only ours, 596 only the
+pilot's, identical on the parent commit and on this branch. The corpora write the shorthand only
+in the flat placement both sides accept (the training `25. Transitions` models leave `normal`,
+`maintenance` and `degraded` by it), and no corpus file writes it inside the state it leaves, or
+first in its body, or after a member that is not a state — the placements this implementation now
+reports at the constraint tier and the reference rejects by its grammar (`no viable alternative
+at input 'accept'`, `missing '}' at 'go'`) or by `A transition with an accepter must have a state
+as its source`. Three placements were refereed by probe rather than by corpus, with the same
+verdict on both sides: a `doc` between the state and the shorthand makes the documentation the
+member before it (rejected), a guarded shorthand directly after `entry;` is the guarded entry
+transition (accepted by both and lowered, see `spec-compliance.md`), and a shorthand directly
+inside a `parallel` state is `A parallel state cannot have successions or transitions` on both
+sides. The entry transition's own shapes were refereed the same way, all agreeing: `entry; if c
+then s;`, several guarded alternatives, an unguarded `then s;` among them, `entry assign x :=
+…; if c then s;`, `entry action boot { } if c then s;` and `transition boot if c then s;` after
+a named entry action, nested in a composite state, in an orthogonal region and in an exhibited
+state are accepted on both sides; an entry transition with a trigger (`entry; accept Go then
+s;`, `entry; accept after 5 [SI::s] then s;`) or an effect (`entry; if c do action a then s;`)
+is rejected on both sides — by the reference's grammar (`EntryTransitionMember` takes a guard
+and a target only) or by `A transition with an accepter must have a state as its source`, here
+by the constraint tier and `lower.ToStateGraph`; one reaching an attribute is rejected on both
+sides too (`A transition must own a succession to its target` there). Two target shapes could
+not be refereed: an entry transition reaching a `choice` or `junction` pseudostate, which the
+reference's grammar has no production for and this implementation reports as a target the body
+cannot start in, and one reaching an action usage, which the reference accepts and this
+implementation reports as `transition endpoint … is not a state or pseudostate` — the endpoint
+rule every transition is held to here, entry transitions included.
+
+### Expressions walkthrough round
+
+`examples/expressions-demo.sysml` is one file added to the `examples` root: files 34 → **35** on the
+root, 368 → **369** overall, and pilot diagnostics 632 → **636** / only pilot 596 → **600**, all four
+of them the `kind-mismatch` rows adjudicated below where a `calc def` is passed as an argument.
+Nothing else moves: the file draws no diagnostic from this implementation, so `fully agreeing`,
+`only ours` and `agreed` stay where the analysis walkthrough left them.
 
 ## Adjudications
 

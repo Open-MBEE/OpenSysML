@@ -1785,8 +1785,9 @@ class Connection:
             model_hash (str): Hash from ParseFile response
             ranges (dict): Range per swept parameter, as
                 ``{"speed": (0, 10, 2)}`` or ``{"speed": (0.0, 10.0)}`` where
-                the rows are drawn; a range between Integers steps by one where
-                it states no step, one between reals must state one
+                the rows are drawn; a range between whole numbers steps by one
+                where it states no step, one with a fractional endpoint must
+                state one; the values are typed by the parameter they bind
             subject (str, optional): FQN of a part/usage to instantiate and run
                 an analysis case on
             arguments (list, optional): Positional arguments every row binds

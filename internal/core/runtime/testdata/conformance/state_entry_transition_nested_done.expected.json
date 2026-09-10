@@ -1,0 +1,15 @@
+{
+  "type": "state",
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "done+done",
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "in;outer;out;"
+    }
+  }
+}

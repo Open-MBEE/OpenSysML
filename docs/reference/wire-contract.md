@@ -922,7 +922,7 @@ $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tall
 {"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 3: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 3: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 3: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
 ```
 
 `tally`'s two orders write two different features, so its two linearizations are one outcome;
@@ -1278,9 +1278,15 @@ The same request as `RunAnalysis` — `symbolId` naming an analysis case **or** 
 `subjectSymbolId`, `arguments`, `namedArguments` — plus `ranges`, and `samples` with `seed`.
 Each `SweepRange` names a `parameter` the target declares and the arguments do not bind, with
 `start`, `end` and an optional `step` as `Value`s; `end` is included where the step lands on it,
-a range between Integers with no step steps by one, and one between Reals with no step is
-refused. The response's `parameters` are the swept parameters in request order and `rows` is one
-run each, in lexicographic order over them (the first range varying slowest). A row carries the
+a range between whole numbers with no step steps by one, and one with a fractional endpoint and
+no step is refused. The row values are typed by the parameter each range binds, not by the
+`Value`s the range is written with: a `Real` parameter swept over Integer `start`/`end` binds
+and reports Reals, an `Integer` one over integral Reals binds Integers, and a range the
+parameter's type cannot take is refused before any row runs — an Integer `start`, `end` or
+`step` a Real does not hold without rounding, or a step the reals cannot tell rows apart by,
+included where the range is read as reals. The response's `parameters` are
+the swept parameters in request order and `rows` is one run each, in lexicographic order over
+them (the first range varying slowest). A row carries the
 `inputs` bound for that run, its `outputs` (a calc's returned value under `result`, as
 `EvaluateCalc` reports it), its `verdicts` where the case has an objective, its `evaluations`
 where the case applied one of its own calcs as a value ([Case evaluations](#case-evaluations), a

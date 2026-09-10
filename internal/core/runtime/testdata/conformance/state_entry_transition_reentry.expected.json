@@ -1,0 +1,16 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Pause", "args": null},
+    {"signal": "Resume", "args": null},
+    {"signal": "Stop", "args": null}
+  ],
+  "finalState": "finished",
+  "stateVisits": ["running", "slow", "paused", "running", "fast", "finished"],
+  "outputs": {
+    "visits": {"type": "Integer", "value": 2},
+    "slowEntries": {"type": "Integer", "value": 1},
+    "fastEntries": {"type": "Integer", "value": 1}
+  }
+}

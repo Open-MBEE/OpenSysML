@@ -81,6 +81,7 @@ func TestGoldenRenderings(t *testing.T) {
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
+		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
 		{"table", "table.sysml", "TableViews::partsTable", KindTable},
@@ -174,6 +175,91 @@ func TestStateRenderingComesFromTheLoweredGraph(t *testing.T) {
 	}
 	if !strings.Contains(rendering.Mermaid(), "stateDiagram-v2") {
 		t.Errorf("Mermaid is no state diagram:\n%s", rendering.Mermaid())
+	}
+}
+
+// A body's entry transitions are edges out of its start node, in the order their
+// guards are tried in and carrying the guard as transitions carry theirs; only
+// the state an unguarded first entry transition names is initial, a guarded
+// alternative never is. The machine's own body, a composite state and a region
+// of a parallel state each have a start of their own.
+func TestStateRenderingDrawsGuardedEntryTransitions(t *testing.T) {
+	rendering := render(t, "state-entry.sysml", "MachineViews::thermostat")
+	byID := map[string]*Node{}
+	bodies := map[string]string{} // start node ID -> name of the body it starts
+	var walk func(*Node)
+	walk = func(node *Node) {
+		byID[node.ID] = node
+		for _, child := range node.Children {
+			if child.Kind == "start" {
+				bodies[child.ID] = node.Name
+			}
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if len(bodies) != 4 {
+		t.Errorf("%d start nodes, want one each for the machine, idle, lights and fans: %v", len(bodies), bodies)
+	}
+
+	states := map[string]*Node{}
+	for _, node := range byID {
+		if node.Kind == "state" {
+			states[node.Name] = node
+		}
+	}
+	initial := map[string]bool{"off": true}
+	for _, name := range []string{"heating", "idle", "drying", "resting", "lit", "unlit", "off", "on"} {
+		node := states[name]
+		if node == nil {
+			t.Fatalf("state rendering has no state %q", name)
+		}
+		if got := strings.Contains(node.Detail, "initial"); got != initial[name] {
+			t.Errorf("state %s detail = %q; initial = %t, want %t", name, node.Detail, got, initial[name])
+		}
+	}
+
+	var entries []string
+	for _, edge := range rendering.Edges {
+		body, fromStart := bodies[edge.From]
+		if edge.Kind != EdgeTransition || byID[edge.To] == nil || !edge.Origin.Located() {
+			t.Errorf("edge %s -> %s is no located transition between nodes: %+v", edge.From, edge.To, edge)
+		}
+		if fromStart {
+			entries = append(entries, body+" -> "+byID[edge.To].Name+": "+edge.Label)
+		}
+	}
+	want := []string{
+		"Machines::Thermostat -> heating: [cold]",
+		"Machines::Thermostat -> idle: [not cold]",
+		"idle -> drying: [wet]",
+		"idle -> resting: ",
+		"lights -> lit: [dark]",
+		"lights -> unlit: [not dark]",
+		"fans -> off: ",
+	}
+	if strings.Join(entries, "\n") != strings.Join(want, "\n") {
+		t.Errorf("entry edges:\n%s\nwant:\n%s", strings.Join(entries, "\n"), strings.Join(want, "\n"))
+	}
+
+	// Mermaid draws each body's entry transitions from its own start marker,
+	// inside the body, and no second start arrow for an initial state.
+	mermaid := rendering.Mermaid()
+	blocks := []string{
+		"    [*] --> n1 : [cold]\n    [*] --> n2 : [not cold]\n  }",
+		"      [*] --> n3 : [wet]\n      [*] --> n4\n    }",
+		"        [*] --> n8 : [dark]\n        [*] --> n9 : [not dark]\n      }",
+		"        [*] --> n10\n      }",
+	}
+	for _, block := range blocks {
+		if !strings.Contains(mermaid, block) {
+			t.Errorf("Mermaid lacks %q:\n%s", block, mermaid)
+		}
+	}
+	if got := strings.Count(mermaid, "[*] -->"); got != len(entries) {
+		t.Errorf("Mermaid draws %d start arrows, want %d, one per entry transition:\n%s", got, len(entries), mermaid)
 	}
 }
 

@@ -971,7 +971,15 @@ cases without `outcomes` are not explored; and the budget is the author's to rai
 (`"exploreBudget": {"runs": N, "depth": D}`), not the harness's to sample past. #138 wrote it
 up: every open ordering in the oracle names the `outcomes` or `.trace.order` that encodes it and
 the run and outcome counts `explore` reaches, and the behavior guide has a section on models with
-more than one valid run.
+more than one valid run. As landed, `explore` permuted the tokens of one lockstep step — every
+steppable token moved once per step — so a branch of two nodes could never both run before a
+concurrent branch's one, and a fork of `left1 { x := 1 } → left2 { y := x }` against
+`right { x := 2 }` explored `complete` with two outcomes, missing `x = 2, y = 1`. An action step
+under `explore` is now one token advancing one node, the tokens able to act are picked among
+afresh after each move, and `complete` covers every interleaving at body granularity
+(`action_explore_write_between_branch_nodes` pins the three); the fixed policies keep their
+sweep, so no default trace moved, and the oracle's run counts were re-derived at the new
+granularity (`action_merge_fork_branch_and_loop` now needs `explore:runs=10000` to complete).
 
 ---
 

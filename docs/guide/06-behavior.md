@@ -51,13 +51,27 @@ and the machine completes only once every region has reached it.
 sysml> state TrafficLight {
   ...>     entry; then start;
   ...>     state start;
-  ...>     state green { accept after 25 [SI::s] then yellow; }
-  ...>     state yellow { accept after 5 [SI::s] then red; }
-  ...>     state red { accept after 30 [SI::s] then done; }
+  ...>     state green;
+  ...>     accept after 25 [SI::s] then yellow;
+  ...>     state yellow;
+  ...>     accept after 5 [SI::s] then red;
+  ...>     state red;
+  ...>     accept after 30 [SI::s] then done;
   ...>     succession first start then green;
   ...> }
 ✓ state TrafficLight
+```
 
+A transition written without `transition … first`, as the three `accept after … then …`
+lines above are, leaves the state declared right before it in the same body (SysML v2
+§7.18.3): `accept after 25 [SI::s] then yellow;` leaves `green` because `state green;`
+precedes it. Several such transitions in a row all leave the same state, and the shorthand
+takes the same triggers (`accept Signal`, `accept after`, `accept at`, `accept when`), guards
+(`if …`) and effects (`do …`) as the full form. It has to follow the state it leaves
+directly, so write it in the body that declares that state, not inside the state's own body;
+written first in a body, or after a member that is not a state, it is reported.
+
+```sysml
 sysml> %state TrafficLight
 ✓ Started state machine executor for "TrafficLight"
   Current state: start
@@ -91,6 +105,32 @@ sysml> %advance 30
   Remaining events: 0
 
 ✓ State machine completed (a transition reached `done`)
+```
+
+**Choosing the starting state.** Written right after the body's entry action, the shorthand
+is an *entry transition* instead: it names the state the body starts in. `entry; then start;`
+above always starts in `start`; with a guard, `entry; if cold then heating; if not cold then
+idle;`, the alternatives are tried in the order written each time the body is entered — when
+the machine starts, and again whenever a transition enters the composite state whose body it
+is — and the first whose guard holds is entered. An unguarded `then s;` among them is the
+alternative taken when it is reached. The entry action itself runs first, so a guard reads
+what it assigned. When alternatives are written and no guard holds, the machine has nowhere
+to start and reports it as an error (`no entry transition holds`). An entry transition
+chooses by its guard alone: one written with a trigger or an effect, or one reaching
+something other than a state, is reported. A state usage typed by a definition (or a
+definition specializing another) that writes entry transitions of its own starts by those
+alone, the inherited ones being replaced just as its own `entry` behavior replaces the
+inherited one; a usage writing none starts where its definition says.
+
+```sysml
+state def Heater {
+    attribute cold : Boolean = true;
+    entry;
+    if cold then heating;
+    if not cold then idle;
+    state heating;
+    state idle;
+}
 ```
 
 **Sending a signal.** A transition that waits on an `accept` is driven from the prompt with
@@ -467,9 +507,9 @@ $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ explored test::race: 3 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 3: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
@@ -479,8 +519,13 @@ final state, states visited and values; an analysis case's outputs and verdicts 
 linearizations reached it, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
 4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
-tried. A run that fails under some order is an outcome of its own (`error: …`), not the end of
-the exploration; a behavior with no choice point explores in exactly one run (`no choice points`
+tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
+policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
+of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
+`complete` exploration therefore covers every interleaving of the nodes the library leaves
+unordered, at body granularity: the statements of one body run without interruption. A run that
+fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
+behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
 (run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
@@ -502,8 +547,8 @@ $ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers
 ? explored test::race: 2 outcomes
 outcome                                      | linearizations | witness
 ---------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 3: 3@b first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 incomplete: runs budget 2 hit after 2 runs
 $ echo $?
 2
@@ -621,10 +666,8 @@ sysml> part def Monitor {
   ...>     attribute count = 0;
   ...>     exhibit state modes {
   ...>         entry; then idle;
-  ...>         state idle {
-  ...>             entry action bump { assign count := count + 1; }
-  ...>             accept after 10 [SI::s] then awake;
-  ...>         }
+  ...>         state idle { entry action bump { assign count := count + 1; } }
+  ...>         accept after 10 [SI::s] then awake;
   ...>         state awake { entry action mark { assign count := count + 10; } }
   ...>     }
   ...>     action bumpBy { in n; action apply { assign count := count + n; } first apply; then done; }
@@ -826,8 +869,10 @@ the objective, `MassCase::result < limit` in an `assert constraint`, `inner.resu
 performing `inner` as a step. The qualifier names whose result it is: `MassCase::result` (or
 `Cases::Case::result`) is the running case's, while a sibling usage's `light::result` is the
 sibling's own run, never the running case's value. An objective that binds no subject takes the
-library's default for it: the case's result (`Cases::Case::obj` declares `subject subj default
-Case::result`, SysML v2 §7.22). So an objective typed by `MassLimit` in a case that `return`s a `Ship` checks the ship
+value the library states for it — in an analysis case its default, the case's result
+(`Cases::Case::obj` declares `subject subj default Case::result`, SysML v2 §7.22); in a
+[verification case](#verification-cases) the case's own subject, which the library binds rather
+than defaults. So an objective typed by `MassLimit` in an analysis case that `return`s a `Ship` checks the ship
 returned, while in a case that returns a `Real` it is `undecided`, saying so: `subject s defaults
 to the case's result (Cases::Case::obj): type mismatch: 1000.0 (a Real) is not a Ship`. The result
 must also fit the subject's multiplicity: one `Ship` for a `subject pair : Ship[2]` is `undecided`
@@ -912,6 +957,48 @@ The two verdicts are independent: an objective stating no condition of its own �
 `objective { verify touchdown; }` alone — stays `undecided` and leaves the case unresolved, while
 the body verdict beside it still reports what the body answered.
 
+A verification case's objective checks the case's subject, not its verdict: the library binds it
+so (`VerificationCases::VerificationCase::obj` redefines `Cases::Case::obj` with `subject subj =
+VerificationCase::subj`, SysML v2 §7.23), where an analysis case's objective defaults to the
+result. An objective typed by a requirement definition therefore evaluates that definition's
+conditions against the verification subject, whatever the requirement calls it — `subject lander :
+Lander` in the requirement below receives the `scout` the case is run on. The objective's own
+`subject :>> subj;` states no value: it only keeps the subject the first parameter, as a usage's
+owned parameters redefine its definition's by position, ahead of the `in limit = limit;` that binds
+the requirement's input. Because the library states the subject binding with `=`, not `default`, a
+usage cannot rebind it: `objective : SoftLanding { subject lander = other; }` is refused as
+overriding a fixed value.
+
+```sysml
+requirement def SoftLanding {
+    subject lander : Lander;
+    in attribute limit : Real default = 1.5;
+    require constraint { lander.touchdownSpeed <= limit }
+}
+verification def TouchdownCheck {
+    subject lander : Lander;
+    in attribute limit : Real = 1.5;
+    objective : SoftLanding { subject :>> subj; in limit = limit; }
+    VerificationCases::PassIf(lander.touchdownSpeed <= limit)
+}
+verification checkScout : TouchdownCheck { subject lander = L::scout; }
+```
+
+```bash
+$ sysml -analysis L::checkScout landing.sysml
+✓ package L
+✓ L::checkScout
+  result = VerdictKind::pass
+  objective obj: satisfied
+  ✓ Verification L::checkScout verdict: pass
+```
+
+A requirement whose subject the verification subject cannot be — `subject rover : Rover` checked
+against a `Lander` — leaves the objective `undecided`, naming both (`subject subj is bound to the
+case's subject (VerificationCases::VerificationCase::obj): type mismatch: Lander #1 (scout) is not
+a Rover`), and a verification whose own subject nothing binds is an error naming *that* subject,
+as for any case.
+
 A body whose result is a `VerificationCases::PassIf(...)` call is `pass` or `fail` as that library
 calculation computes it; one binding `verdict` to a `VerdictKind` literal reports that literal; one
 producing no verdict value is `inconclusive`; and one whose run could not be carried out is `error`
@@ -948,11 +1035,22 @@ limit              | total | verdict                   | time
 ```
 
 The endpoints are expressions evaluated where the session evaluates one, units included, and a
-calc is swept the same way (`%sweep An::Sum(2.0) b=0.0..10.0:2.5`). Several ranges run their
-cartesian product, a failed run is a row of the table rather than the end of it, and
-[reference/repl-commands.md](../reference/repl-commands.md) states each refusal. Sampling is
-uniform over the range — the bundled library defines no probability distribution, so a
-distribution asked for by name is refused naming what is missing.
+calc is swept the same way (`%sweep An::Sum(2.0) b=0.0..10.0:2.5`). The values a range produces
+are typed by the parameter it sweeps, not by how its endpoints are spelled: `limit : Real` swept
+over `10..30:10` is bound to `10.0`, `20.0`, `30.0`, an `Integer` parameter swept over
+`1.0..3.0:1.0` to `1`, `2`, `3`, and a range an `Integer` parameter cannot take — a fractional
+endpoint or step — is refused before any run rather than failing row by row, as is a range over a
+`Boolean`, `String`, enumeration or non-scalar parameter. A range read as reals takes an Integer
+endpoint or step only where a Real holds it without rounding (every Integer up to 2⁵³ in
+magnitude does), and steps only where the reals tell its rows apart, so no two rows bind one value:
+a `Real` parameter swept from 2⁶⁰ to 2⁶⁰+3 is refused, not collapsed onto one row. A parameter
+declaring no type takes the
+range as written, and the table says so. Sampling follows the same type — an `Integer` parameter
+draws Integers inclusively, a `Real` one draws reals in `[<from>, <to>)`, however the endpoints
+are written. Several ranges run their cartesian product, a failed run is a row of the table rather
+than the end of it, and [reference/repl-commands.md](../reference/repl-commands.md) states each
+refusal. Sampling is uniform over the range — the bundled library defines no probability
+distribution, so a distribution asked for by name is refused naming what is missing.
 
 ### Trade studies
 

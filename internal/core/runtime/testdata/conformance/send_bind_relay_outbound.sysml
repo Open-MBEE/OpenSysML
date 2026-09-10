@@ -17,9 +17,8 @@ package BindRelayOutbound {
 		exhibit state sm {
 			entry; then Idle;
 
-			state Idle {
-				accept Ping via o then Got;
-			}
+			state Idle;
+			accept Ping via o then Got;
 
 			state Got {
 				entry assign got := got + 1;

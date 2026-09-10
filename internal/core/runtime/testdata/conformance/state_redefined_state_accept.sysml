@@ -6,9 +6,8 @@ package Test {
     state Machine : Base {
         entry; then init;
         state init;
-        state redefines waiting {
-            accept go then active;
-        }
+        state redefines waiting;
+        accept go then active;
         state active;
 
         succession first init then waiting;

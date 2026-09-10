@@ -1,0 +1,24 @@
+enter verification test::checkScout
+materialize: scout #1
+  eval feature scout -> instance#1
+  bind lander = instance#1 [default]
+  eval literal 1.5 -> 1.5
+  bind limit = 1.5 [default]
+  stmt return
+          eval feature lander -> instance#1
+        eval chain touchdownSpeed -> 1.2
+        eval feature limit -> 1.5
+      eval operator <= -> true
+      enter calc VerificationCases::PassIf
+        bind isPassing = true [argument]
+        stmt return
+            eval feature isPassing -> true
+            eval feature VerdictKind::pass -> VerdictKind::pass
+          eval operator if -> VerdictKind::pass
+      exit calc VerificationCases::PassIf -> VerdictKind::pass
+    eval invoke VerificationCases::PassIf -> VerdictKind::pass
+exit verification test::checkScout -> VerdictKind::pass
+    eval feature lander -> instance#1
+  eval chain touchdownSpeed -> 1.2
+  eval feature limit -> 1.5
+eval operator <= -> true

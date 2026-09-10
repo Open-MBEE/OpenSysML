@@ -198,6 +198,10 @@ var (
 	// entry into its states: it states no `entry; then <state>;`.
 	ErrNoInitialState = errors.New("no initial state found")
 
+	// ErrNoEntryTransitionHolds is returned when a body's guarded entry transitions
+	// (`entry; if c then s;`) all have false guards, so it has no state to start in.
+	ErrNoEntryTransitionHolds = errors.New("no entry transition holds")
+
 	// ErrStatePerformanceOccurrence is returned when an exhibited machine cannot
 	// read or write the occurrence of its state usage.
 	ErrStatePerformanceOccurrence = errors.New("state performance occurrence unavailable")

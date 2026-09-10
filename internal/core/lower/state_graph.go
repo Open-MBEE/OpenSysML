@@ -35,8 +35,12 @@ type StateGraph struct {
 	// the parent chain crosses it without losing which region a state is in.
 	HiddenRegionOf map[*ast.StateNode]*ast.StateRegion
 
-	// Machine is the graph-only root state for a parallel machine's own entry,
-	// do and exit behaviors. Its regions are represented by TopRegions instead.
+	// RegionState: synthesized region → the graph-only owner standing for it,
+	// which holds the attributes the region's body declares.
+	RegionState map[*ast.StateRegion]*ast.StateNode
+
+	// Machine is the graph-only root state for the machine's own entry, do and
+	// exit behaviors. A parallel machine's regions are TopRegions instead.
 	Machine *ast.StateNode
 
 	// declOf: synthesized state → the declaration it was built from, since the
@@ -120,6 +124,11 @@ type StateGraph struct {
 	// action names as the state the machine starts in. It is graph-local: the
 	// parsed AST it is derived from stays as written.
 	designatedInitials map[*ast.StateNode]bool
+
+	// EntryTransitions: the body a transition out of the entry action is written
+	// in (a state, a region, nil for the machine's own body) → those transitions in
+	// declaration order; the first whose guard holds names the state it starts in.
+	EntryTransitions map[ast.Node][]*EntryTransition
 
 	// Connections are the connectors declared in the state machine body, which
 	// is how a `send ... via <port>` in an entry/do/exit/effect action finds the
@@ -239,9 +248,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	for _, owner := range owners {
 		parallelMachine = parallelMachine || stateMachineIsParallel(owner)
 	}
-	if parallelMachine {
-		graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
-	}
+	graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
 
 	for _, group := range groupMembers(body) {
 		if err := collectVertices(graph, group.nodes, group.scope, parallelMachine); err != nil {
@@ -259,9 +266,6 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 			graph.TopRegions = append(graph.TopRegions, region)
 		}
 	}
-	if graph.Machine == nil && hasTopLevelRegions {
-		graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
-	}
 	// Also handle states that have regions as sub-members
 	for _, state := range graph.States {
 		if len(state.Regions) > 0 {
@@ -278,21 +282,13 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 
 	// Third pass: collect transitions
 	for _, group := range groupMembers(body) {
-		if err := collectTransitions(graph, group.nodes, group.owner, nil, group.scope); err != nil {
+		if err := collectGroupTransitions(graph, group, group.owner, nil, nil); err != nil {
 			return nil, err
 		}
 	}
-	// Declaration order decides which of several initial states a region starts in.
-	for _, state := range graph.States {
-		if !graph.IsInitial(state) {
-			continue
-		}
-		if region := graph.RegionOf[state]; region != nil && graph.RegionInitials[region] == nil {
-			graph.RegionInitials[region] = state
-		}
-	}
 	for _, region := range graph.TopRegions {
-		if graph.RegionInitials[region] == nil {
+		graph.RegionInitials[region] = graph.UnconditionalStart(region)
+		if len(graph.EntryTransitions[region]) == 0 {
 			if graph.regionDecl[region] != nil {
 				return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 			}
@@ -301,7 +297,8 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 	for state, regions := range graph.CompositeStates {
 		for _, region := range regions {
-			if graph.RegionInitials[region] == nil {
+			graph.RegionInitials[region] = graph.UnconditionalStart(region)
+			if len(graph.EntryTransitions[region]) == 0 {
 				if graph.regionDecl[region] != nil {
 					return nil, fmt.Errorf("region %s has no initial state; write `entry; then <state>;` inside the region", region.Name)
 				}
@@ -310,74 +307,11 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		}
 	}
 
-	// Find initial state (for simple machines - machines without top-level regions).
-	// Regions nested inside a composite state do not remove the machine's own
-	// initial state.
+	// A machine without top-level regions starts where its own body's entry
+	// transition says; a missing one is the executor's to report at initialize().
 	if !hasTopLevelRegions {
-		// Find the leaf initial state (deepest in a chain of initials)
-		// When multiple initial chains exist in different branches, prefer the shallowest branch root
-		var selectedInitial *ast.StateNode
-		minRootDepth := 999999
-		maxLeafDepth := -1
-
-		for _, state := range graph.States {
-			if !graph.IsInitial(state) {
-				continue
-			}
-
-			// Calculate depth (distance from root)
-			depth := 0
-			current := state
-			for {
-				parent, hasParent := graph.ParentState[current]
-				if !hasParent {
-					break
-				}
-				depth++
-				current = parent
-			}
-
-			// Find the root of the initial chain (topmost initial ancestor)
-			chainRoot := state
-			for {
-				parent, hasParent := graph.ParentState[chainRoot]
-				if !hasParent || !graph.IsInitial(parent) {
-					break
-				}
-				chainRoot = parent
-			}
-
-			// Calculate chain root depth
-			rootDepth := 0
-			current = chainRoot
-			for {
-				parent, hasParent := graph.ParentState[current]
-				if !hasParent {
-					break
-				}
-				rootDepth++
-				current = parent
-			}
-
-			// Prefer chain with shallowest root, then deepest leaf within that chain
-			if rootDepth < minRootDepth || (rootDepth == minRootDepth && depth > maxLeafDepth) {
-				selectedInitial = state
-				minRootDepth = rootDepth
-				maxLeafDepth = depth
-			}
-		}
-
-		// Only set Initial if there are no top-level regions
-		// (executor will use RegionInitials for orthogonal region machines)
-		if selectedInitial != nil {
-			graph.Initial = selectedInitial
-		}
+		graph.Initial = graph.UnconditionalStart(nil)
 	}
-	// If there are top-level regions, Initial stays nil (executor will use RegionInitials instead)
-
-	// Note: Initial state is optional at graph construction time.
-	// The executor's initialize() will validate and return the error if missing.
-	// Top-level regions are also valid (no single initial state).
 
 	graph.ownTransitionEffects()
 
@@ -572,6 +506,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		Behaviors:           make(map[*ast.StateNode]*StateBehaviors),
 		HiddenStates:        make(map[*ast.StateNode]bool),
 		HiddenRegionOf:      make(map[*ast.StateNode]*ast.StateRegion),
+		RegionState:         make(map[*ast.StateRegion]*ast.StateNode),
 		declOf:              make(map[*ast.StateNode]ast.Node),
 		States:              make([]*ast.StateNode, 0),
 		Pseudostates:        make([]*ast.PseudostateNode, 0),
@@ -587,6 +522,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		regionDecl:          make(map[*ast.StateRegion]ast.Node),
 
 		designatedInitials: make(map[*ast.StateNode]bool),
+		EntryTransitions:   make(map[ast.Node][]*EntryTransition),
 	}
 }
 
@@ -654,13 +590,13 @@ func (g *StateGraph) targetVertex(scope *symbols.Scope, qn *ast.QualifiedName, o
 	return node, err
 }
 
-// IsInitial reports whether the machine starts in state, which a transition out
-// of the body's entry action designates.
+// IsInitial reports whether the machine may start in state: some entry transition
+// of its body names it. Whether it starts there unconditionally is UnconditionalStart's.
 func (g *StateGraph) IsInitial(state *ast.StateNode) bool {
 	return state != nil && g.designatedInitials[state]
 }
 
-// designateInitial records state as one the machine starts in.
+// designateInitial records state as one the machine may start in.
 func (g *StateGraph) designateInitial(state *ast.StateNode) {
 	g.designatedInitials[state] = true
 }
@@ -842,9 +778,9 @@ func (g *StateGraph) stateScope(parent *symbols.Scope, state *ast.StateNode) *sy
 }
 
 // collectRegionStates collects the states an orthogonal region declares, records
-// which region declares each of them and which one the region starts in, and
-// assigns the region's pseudostates to the state that owns the region. parent is
-// the state owning the region, nil for the machine's own regions.
+// which region declares each of them, and assigns the region's pseudostates to
+// the state that owns the region. parent is the state owning the region, nil for
+// the machine's own regions.
 //
 // Region members reach here as a state node, a bare `state <name>;` substate or a
 // state usage with a body, each of them possibly wrapped in a membership: a state
@@ -885,9 +821,6 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			return err
 		}
 		graph.RegionOf[state] = region
-		if graph.IsInitial(state) && graph.RegionInitials[region] == nil {
-			graph.RegionInitials[region] = state
-		}
 	}
 	return nil
 }
@@ -950,7 +883,7 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 		if !isParallelRegionMember(actual) {
 			if !parallelOwnedMember(actual) {
 				return nil, fmt.Errorf("%w: parallel state body contains unsupported member %s; a parallel state's direct substates are its orthogonal regions",
-					ErrUnsupportedStateContent, describeMember(actual))
+					ErrUnsupportedStateContent, DescribeMember(actual))
 			}
 			continue
 		}
@@ -966,6 +899,7 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 		}
 		g.regionDecl[region] = actual
 		g.HiddenRegionOf[wrapper] = region
+		g.RegionState[region] = wrapper
 		before := len(g.States)
 		if err := collectGraphOnlyState(g, wrapper, parent, g.stateScope(member.scope, wrapper)); err != nil {
 			return nil, err
@@ -1281,19 +1215,19 @@ func lowerTransitionEdge(graph *StateGraph, edge *ast.TransitionEdge, owner ast.
 }
 
 // lowerTransitionMember converts a TransitionMember (parser output) to a Transition.
-// containingState is used as the source when member.Source is nil (`accept … then`, `if … then`).
+// body is the ordered body it was written in; a sourceless one leaves the member before it.
 // scope is the scope the transition was declared in.
-func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, containingState, owner ast.Node, scope *symbols.Scope) (*Transition, error) {
-	// A sourceless transition leaves the state it is written in, so the state
-	// declaring it is the source; anywhere else it names no source at all.
+func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body []ast.Node, owner ast.Node, scope *symbols.Scope) (*Transition, error) {
 	var source ast.Node
 	if member.Source == nil {
-		if containingState == nil {
-			return nil, fmt.Errorf("sourceless transition at top level has no containing state")
+		decl, err := ImplicitSource(body, member)
+		if err != nil {
+			return nil, err
 		}
-		vertex, ok := graph.findVertex(containingState)
-		if !ok {
-			return nil, fmt.Errorf("sourceless transition is declared in a %T that is not a state of the machine", containingState)
+		vertex, ok := graph.findVertex(decl)
+		if !ok || !IsStateSource(decl) {
+			state := graph.findStateDecl(decl)
+			return nil, &TransitionSourceError{Source: decl, Region: state != nil && graph.HiddenRegionOf[state] != nil}
 		}
 		source = vertex
 	} else {
@@ -1346,27 +1280,33 @@ func isEntrySubaction(member ast.Node) bool {
 	return ok
 }
 
-// startsAt marks the state a bare completion transition out of the body's entry
+// startsAt records the state a bare completion transition out of the body's entry
 // action starts the machine in, as `entry; then off;` does, and reports whether
-// it did.
-func (g *StateGraph) startsAt(members []ast.Node, containingState ast.Node, scope *symbols.Scope, source, target *ast.QualifiedName) bool {
+// it did. owner is the body a `done` target completes, entryOwner the body it
+// starts, as entryOwner names it; guard is the condition a
+// `transition initial if c then off;` chooses it under, nil otherwise.
+func (g *StateGraph) startsAt(decl, guard ast.Node, members []ast.Node, containingState, owner, entryOwner ast.Node, scope *symbols.Scope, source, target *ast.QualifiedName) (bool, error) {
 	if source == nil || target == nil {
-		return false
+		return false, nil
 	}
-	decl, ok := g.endpoints.Endpoint(scope, source)
+	entry, ok := g.endpoints.Endpoint(scope, source)
 	if !ok {
-		return false
+		return false, nil
 	}
-	if !ast.IsEntryAction(ast.EntryActions(members), decl) &&
-		!ast.IsEntryAction(ast.StateEntryActions(containingState), decl) {
-		return false
+	if !ast.IsEntryAction(ast.EntryActions(members), entry) &&
+		!ast.IsEntryAction(ast.StateEntryActions(containingState), entry) {
+		return false, nil
 	}
-	start, ok := g.endpointVertex(scope, target).(*ast.StateNode)
+	vertex, err := g.targetVertex(scope, target, owner)
+	if err != nil || vertex == nil {
+		return false, err
+	}
+	start, ok := vertex.(*ast.StateNode)
 	if !ok {
-		return false
+		return false, &EntryTransitionTargetError{Target: vertex}
 	}
-	g.designateInitial(start)
-	return true
+	g.addEntryTransition(entryOwner, &EntryTransition{Decl: decl, Guard: guard, Target: start, Scope: scope})
+	return true, nil
 }
 
 // classifyTrigger converts a raw trigger expression into a typed TriggerEvent.
@@ -1463,22 +1403,38 @@ func collectStateTransitions(graph *StateGraph, usage *ast.Usage, owner ast.Node
 		if containing == nil {
 			containing = usage
 		}
-		if err := collectTransitions(graph, group.nodes, containing,
-			graph.completionOwner(containing, owner), group.scope); err != nil {
+		if err := collectGroupTransitions(graph, group, containing,
+			graph.completionOwner(containing, owner), graph.entryOwner(state)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// collectGroupTransitions lowers the transitions one body contributes to a state.
+// A group without an owner is the state's own body, whose entry transitions
+// replace the inherited ones.
+func collectGroupTransitions(graph *StateGraph, group memberGroup, containingState, owner, entryOwner ast.Node) error {
+	collect := func() error {
+		return collectTransitions(graph, group.nodes, containingState, owner, entryOwner, group.scope)
+	}
+	if group.owner != nil {
+		return collect()
+	}
+	return graph.withOwnEntryTransitions(entryOwner, collect)
+}
+
 // collectTransitions recursively processes member lists to collect transitions.
 // Handles top-level members and region members.
-// containingState is the enclosing state for sourceless transitions (nil at top level).
+// memberList is one body in declaration order (a sourceless transition leaves the member
+// before it); containingState is the state whose body it is, nil at the top level.
 // scope is the scope the members were declared in, in which their endpoints name
 // the vertices they reach.
 // owner is the region whose body memberList belongs to, which a transition
 // entering `done` completes; nil is the machine's own body.
-func collectTransitions(graph *StateGraph, memberList []ast.Node, containingState, owner ast.Node, scope *symbols.Scope) error {
+// entryOwner is the body a transition out of the entry action starts, as
+// entryOwner names it.
+func collectTransitions(graph *StateGraph, memberList []ast.Node, containingState, owner, entryOwner ast.Node, scope *symbols.Scope) error {
 
 	for _, member := range memberList {
 		actualMember := unwrapMembership(member)
@@ -1503,9 +1459,14 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 
 						// `succession first begin then off;` out of a named entry action names the
 						// state the machine starts in, not an edge (SysML 7.19.3).
-						if sourceVertex == nil &&
-							graph.startsAt(memberList, containingState, scope, sourceQName, targetQName) {
-							continue
+						if sourceVertex == nil {
+							starts, err := graph.startsAt(n, nil, memberList, containingState, owner, entryOwner, scope, sourceQName, targetQName)
+							if err != nil {
+								return err
+							}
+							if starts {
+								continue
+							}
 						}
 
 						if sourceVertex != nil && targetVertex != nil {
@@ -1538,7 +1499,7 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 			if n.Successor != nil {
 				targetState := graph.endpointState(scope, n.Successor)
 				if targetState != nil {
-					graph.designateInitial(targetState)
+					graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: targetState, Scope: scope})
 				}
 			}
 		case *ast.SuccessionEdge:
@@ -1550,16 +1511,24 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 			// `entry; then off;` — a succession out of the body's own entry
 			// subaction names the state it starts in (SysML 7.19.3), the same as
 			// a named entry action with a succession out of it does.
-			if sourceVertex == nil && isEntrySubaction(n.SourceMember) {
-				if target, ok := targetVertex.(*ast.StateNode); ok {
-					graph.designateInitial(target)
-					continue
+			if sourceVertex == nil && isEntrySubaction(n.SourceMember) && targetVertex != nil {
+				target, ok := targetVertex.(*ast.StateNode)
+				if !ok {
+					return &EntryTransitionTargetError{Target: targetVertex}
 				}
+				graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: target, Scope: scope})
+				continue
 			}
 
 			// `succession first start then off;` out of a named entry action says the same.
-			if sourceVertex == nil && graph.startsAt(memberList, containingState, scope, n.Source, n.Target) {
-				continue
+			if sourceVertex == nil {
+				starts, err := graph.startsAt(n, nil, memberList, containingState, owner, entryOwner, scope, n.Source, n.Target)
+				if err != nil {
+					return err
+				}
+				if starts {
+					continue
+				}
 			}
 
 			if sourceVertex != nil && targetVertex != nil {
@@ -1585,12 +1554,26 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 		case *ast.TransitionMember:
 			// `transition initial then off;` out of the entry action names the
 			// state the machine starts in, not an edge between two vertices.
-			if n.Trigger == nil && n.Guard == nil && len(n.Effect) == 0 &&
-				graph.startsAt(memberList, containingState, scope, n.Source, n.Target) {
-				continue
+			if n.Trigger == nil && len(n.Effect) == 0 {
+				starts, err := graph.startsAt(n, n.Guard, memberList, containingState, owner, entryOwner, scope, n.Source, n.Target)
+				if err != nil {
+					return err
+				}
+				if starts {
+					continue
+				}
 			}
-			// New: TransitionMember from parser (declarative)
-			trans, err := lowerTransitionMember(graph, n, containingState, owner, scope)
+			// `entry; if c then off;` out of the entry subaction chooses the state the
+			// body starts in by its guard.
+			if n.Source == nil {
+				if source := ast.ImplicitTransitionSource(memberList, n); source != nil && IsEntryTransition(source) {
+					if err := lowerEntryTransition(graph, n, owner, entryOwner, scope); err != nil {
+						return err
+					}
+					continue
+				}
+			}
+			trans, err := lowerTransitionMember(graph, n, memberList, owner, scope)
 			if err != nil {
 				return err
 			}
@@ -1600,26 +1583,25 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 			}
 			graph.Transitions[trans.Source] = append(graph.Transitions[trans.Source], trans)
 		case *ast.StateNode:
-			// Recurse into state substates to collect transitions within the state
-			// Transitions inside this state have this state as their containing state
+			// Recurse into state substates to collect transitions within the state.
 			stateScope := graph.StateScopes[n]
 			if stateScope == nil {
 				stateScope = graph.stateScope(scope, n)
 			}
 			if err := collectTransitions(graph, n.Substates, n,
-				graph.completionOwner(n, owner), stateScope); err != nil {
+				graph.completionOwner(n, owner), graph.entryOwner(n), stateScope); err != nil {
 				return err
 			}
 			// The state's own regions carry successions of their own.
 			for _, region := range n.Regions {
-				if err := collectTransitions(graph, []ast.Node{region}, nil, owner, stateScope); err != nil {
+				if err := collectTransitions(graph, []ast.Node{region}, nil, owner, nil, stateScope); err != nil {
 					return err
 				}
 			}
 		case *ast.StateRegion:
-			// Regions are orthogonal: a transition in one inherits no containing
-			// state, and names its vertices from the region's own scope.
-			if err := collectTransitions(graph, n.States, nil, n, childScope(scope, n)); err != nil {
+			// Regions are orthogonal: a transition in one names its vertices from
+			// the region's own scope.
+			if err := collectTransitions(graph, n.States, nil, n, n, childScope(scope, n)); err != nil {
 				return err
 			}
 		}

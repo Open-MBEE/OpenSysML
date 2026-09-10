@@ -8,11 +8,19 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 - **[Bounded model checking of behaviors](bounded-model-checking.md)** — a proposal: explore
   every admissible interleaving up to a bound with partial-order reduction, and report the
   requirement violations, deadlocks and schedule-dependent outcomes it finds
+- **[Scheduling policies, choice points and exploration](scheduling.md)** — how a run
+  resolves what the library leaves unordered, reports each such choice without changing the
+  run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
+  within a budget under `explore`
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, an OpenSysML
   extension against UML 2.5.1 semantics
 - **[Pseudostates](pseudostates.md)** — choice, junction, fork, join, entry/exit points
   and history
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
+- **[SMT bounded model checking of behaviors](smt-model-checking.md)** — a proposal: unroll an
+  action's token flow to a bounded number of moves and ask an SMT solver whether any schedule and
+  any input violates a requirement, with every witness replayed in the interpreter and `explore`
+  as the referee
 - **[Transport evaluation](transport-evaluation.md)** — Connect and stdio measured beside gRPC,
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the

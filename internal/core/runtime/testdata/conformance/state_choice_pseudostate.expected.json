@@ -1,5 +1,7 @@
 {
   "type": "state",
   "finalState": "done",
-  "outputs": {}
+  "outputs": {
+    "mode": {"type": "String", "value": "cooling"}
+  }
 }

@@ -179,7 +179,8 @@ func TestBehaviorDeclarationsAreVisible(t *testing.T) {
 			state S {
 				attribute v : Integer = 0;
 				entry; then i; state i; state b; succession first i then a;
-				state a { accept setSpeed(value) do { assign v := value; } then b; }
+				state a;
+				accept setSpeed(value) do { assign v := value; } then b;
 			}
 		}`},
 		{"accept payload in effect and guard", `package P {

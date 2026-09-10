@@ -514,7 +514,8 @@ func testUnattachableConnectorTouchesNoOtherObject(t *testing.T) {
 				attribute heard : Integer = 0;
 				exhibit state listening {
 					entry; then waiting;
-					state waiting { accept Ping then noted; }
+					state waiting;
+					accept Ping then noted;
 					state noted { entry action note { assign heard := heard + 1; } }
 				}
 			}
@@ -570,7 +571,8 @@ func testConnectorWhoseStartFailsLeavesNoTrace(t *testing.T) {
 				attribute heard : Integer = 0;
 				exhibit state listening {
 					entry; then waiting;
-					state waiting { accept Ping then noted; }
+					state waiting;
+					accept Ping then noted;
 					state noted { entry action note { assign heard := heard + 1; } }
 				}
 			}
@@ -652,7 +654,8 @@ func testConnectorAnsweredByAFailingBehaviorIsKept(t *testing.T) {
 				attribute heard : Integer = 0;
 				exhibit state listening {
 					entry; then waiting;
-					state waiting { accept Ping then noted; }
+					state waiting;
+					accept Ping then noted;
 					state noted { entry action note { assign heard := heard + nosuch; } }
 				}
 			}
@@ -761,7 +764,8 @@ func testUnattachableConnectorEndsRunNothingEarly(t *testing.T) {
 				attribute heard : Integer = 0;
 				exhibit state listening {
 					entry; then waiting;
-					state waiting { accept Ping then noted; }
+					state waiting;
+					accept Ping then noted;
 					state noted { entry action note { assign heard := heard + 1; } }
 				}
 			}
