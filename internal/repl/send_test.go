@@ -429,7 +429,7 @@ func TestSendReachesADoBehaviorParkedAtItsAccept(t *testing.T) {
 		`Accepted by state machine "Waiter" in state active: the do behavior of state active goes on from its accept`,
 		"Use %step or %advance <time> to dispatch it")
 	wants(t, run(t, s, "%events"), "Signals in flight: 1", "  Go")
-	wants(t, run(t, s, "%step"), "✓ Ran 1 do action(s)", "Current state: active")
+	wants(t, run(t, s, "%step"), "✓ Event dispatched, letting the do behavior of state active go on from its accept", "Current state: active")
 	rejects(t, run(t, s, "%events"), "Signals in flight")
 	wants(t, run(t, s, "%step"), "Current state: finished")
 	wants(t, run(t, s, "%events"), "Event queue empty")

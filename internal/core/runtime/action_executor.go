@@ -600,7 +600,7 @@ func (e *ActionExecutor) HasPendingSignal() bool {
 // hasPendingSignal reports whether a message in flight would let a parked token
 // of perf's flow (of the whole action for nil) proceed, without consuming it.
 func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
-	pending := e.ctx.PendingMessages()
+	pending := e.ctx.acceptable()
 	return e.parkedAcceptTakes(perf, func(matches func(Message) bool, failed *error) bool {
 		for _, msg := range pending {
 			// A port that fails to resolve counts as pending: the step this
@@ -1368,7 +1368,7 @@ func (e *ActionExecutor) enabled(id int64, eligible func(Token) bool) bool {
 	if _, waitsForMessage := e.messageAccept(t); !waitsForMessage {
 		return true
 	}
-	pending := e.ctx.PendingMessages()
+	pending := e.ctx.acceptable()
 	if len(pending) == 0 {
 		return false
 	}
@@ -1793,7 +1793,7 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 			want = lower.FeaturePath(accept.SubsetsEvent)
 		}
 		matches, failed := e.acceptMatch(token.frame, accept, usage)
-		msg, taken := e.ctx.TakeMessage(matches)
+		msg, taken := e.ctx.takeAcceptable(matches)
 		if *failed != nil {
 			return *failed
 		}

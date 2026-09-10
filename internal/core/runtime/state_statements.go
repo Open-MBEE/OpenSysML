@@ -69,6 +69,9 @@ func (h *stateStmtHost) run() error {
 type doRun struct {
 	host *stateStmtHost
 	body *bodyRun
+	// mail is what the run's accepts read in place of the bus: the message the
+	// machine is dispatching to it, none between dispatches.
+	mail []Message
 }
 
 // startDoRun begins a do behavior, pausing it where it first waits; nil once it
@@ -85,6 +88,8 @@ func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error)
 
 // resume lets the run go on to where it next waits, or to its end.
 func (run *doRun) resume(ctx *Context) (*doRun, error) {
+	defer ctx.readingMail(&run.mail)()
+	defer func() { run.mail = nil }()
 	for {
 		pause, paused := run.body.resume(ctx)
 		if !paused {
@@ -96,8 +101,17 @@ func (run *doRun) resume(ctx *Context) (*doRun, error) {
 	}
 }
 
-// resumable reports a run whose wait, on the clock or for a message, has ended.
-func (run *doRun) resumable() bool {
+// offer resumes the run with the message its machine dispatches to it, which the
+// accept it is parked at takes; the run goes on to where it next waits.
+func (run *doRun) offer(ctx *Context, m Message) (*doRun, error) {
+	run.mail = []Message{m}
+	return run.resume(ctx)
+}
+
+// resumable reports a run whose wait on the clock has ended: a run parked for a
+// message stays until its machine dispatches one to it.
+func (run *doRun) resumable(ctx *Context) bool {
+	defer ctx.readingMail(&run.mail)()
 	return !run.body.paused.waits()
 }
 

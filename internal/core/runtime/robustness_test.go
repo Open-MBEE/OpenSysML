@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +66,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
 	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
 	t.Run("state_do_body_accept_is_decided_for_a_send", testStateDoBodyAcceptIsDecidedForASend)
+	t.Run("state_do_body_accept_yields_to_a_transition", testStateDoBodyAcceptYieldsToATransition)
+	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
 	t.Run("state_do_typed_action_pin_bound_to_missing_feature", testStateDoTypedActionPinBoundToMissingFeature)
@@ -8853,6 +8856,41 @@ func testClockAdvance(t *testing.T) {
 			t.Errorf("clock = %v; want 10", got)
 		}
 	})
+	t.Run("a do behavior paused in a timed action leaves the clock with its dropped machine", func(t *testing.T) {
+		ctx, _, err := instantiateWithLibraries(t, `
+			package test {
+				private import SI::*;
+				private import ScalarValues::*;
+				action def Poll { inout n : Integer; action wait accept after 5 [s]; then assign n := n + 1; }
+				part def Rig {
+					attribute ticks : Integer = 0;
+					exhibit state pulse {
+						entry; then busy;
+						state busy { do action poll : Poll { inout n = ticks; } }
+					}
+					perform action bad { action crash assign ticks := ticks / 0; }
+				}
+			}`, "test::Rig")
+		if !errors.Is(err, ErrDivisionByZero) {
+			t.Fatalf("instantiate = %v; want ErrDivisionByZero from the action that fails the start", err)
+		}
+		if got := len(ctx.clock.waiters); got != 0 {
+			t.Errorf("clock drives %d executors after the failed start; want none: the performed Poll left with its machine", got)
+		}
+		if waits := ctx.Clock().Waits(); len(waits) != 0 {
+			t.Errorf("clock waits = %v after the failed start; want none", waits)
+		}
+		if len(ctx.objectBehaviors) != 0 {
+			t.Errorf("%d behavior(s) still attached after the failed start; want none", len(ctx.objectBehaviors))
+		}
+		report, err := ctx.Advance(10)
+		if err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		if report.Events != 0 || report.Steps != 0 || report.DoSteps != 0 {
+			t.Errorf("report = %+v; want nothing run for the do behavior the failed start withdrew", report)
+		}
+	})
 }
 
 // nestedWaitModel waits on the clock in the flow of a block a body statement runs.
@@ -12521,13 +12559,13 @@ func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
 	if exec.State() != StateSuspended || getNodeName(exec.CurrentState()) != "active" {
 		t.Fatalf("state = %v in %s, want suspended in active", exec.State(), getNodeName(exec.CurrentState()))
 	}
-	if exec.HasPendingDoWork() {
-		t.Error("a do body parked at its accept must not be due")
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
+		t.Error("a do body parked at its accept must not be due with no message in flight")
 	}
 	nine := integerValue(9)
 	exec.ctx.PostMessage(Message{SignalType: "Integer", Target: "reader", Value: &nine})
-	if !exec.HasPendingDoWork() {
-		t.Fatal("the message in flight must make the parked do body due")
+	if exec.HasPendingDoWork() || !exec.HasPendingSignal() {
+		t.Fatal("the message in flight must be one the machine dispatches, to the parked do body")
 	}
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after the message: %v", err)
@@ -12603,8 +12641,15 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 		t.Fatal("the previews must leave the machine, the body and the bus as they were")
 	}
 	ctx.PostMessage(goMsg)
-	if !exec.HasPendingDoWork() {
-		t.Fatal("the message in flight must make the parked do body due")
+	if exec.HasPendingDoWork() || !exec.HasPendingSignal() {
+		t.Fatal("the message in flight must be one the machine dispatches, to the parked do body")
+	}
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
+		t.Errorf("dispatch = %+v, %v; want the do behavior of active resumed, as decided", dispatch, ok)
 	}
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("run after the message: %v", err)
@@ -12615,6 +12660,144 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
 		t.Errorf("total = %v, want 1: the body went on past its accept once", total)
 	}
+}
+
+// testStateDoBodyAcceptYieldsToATransition: a signal both a transition out of the
+// active state and its do behavior, parked at an accept, would take goes to the
+// transition alone — the behavior is abandoned when the state is left — and
+// Decide reports just that, before.
+func testStateDoBodyAcceptYieldsToATransition(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Waiter {
+		attribute total : Integer = 0;
+		entry; then active;
+		state active {
+			do action work {
+				first start;
+				then action reader accept Go;
+				then action count assign total := total + 10;
+				then done;
+			}
+		}
+		transition leave first active accept Go then stopped;
+		state stopped { entry assign total := total + 1; }
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, src)
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition leave"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition takes it alone", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
+	}
+	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
+		t.Errorf("state %s with %d messages in flight, want stopped with the one message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of stopped alone, the do behavior abandoned at its accept", total)
+	}
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() || len(ctx.Clock().Waits()) != 0 {
+		t.Error("nothing of the abandoned do behavior must remain due")
+	}
+}
+
+// testStateDoBodyAcceptSharesTheDispatchWithARegion: a signal a do behavior in one
+// orthogonal region is parked at an accept for and a transition in a sibling
+// region accepts is dispatched once to both, the behavior going on from its accept
+// before the transition fires, and Decide reports both, before.
+func testStateDoBodyAcceptSharesTheDispatchWithARegion(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Waiter parallel {
+		attribute total : Integer = 0;
+		state left {
+			entry; then lwork;
+			state lwork {
+				do action work {
+					first start;
+					then action reader accept Go;
+					then action count assign total := total + 10;
+					then done;
+				}
+			}
+		}
+		state right {
+			entry; then rwait;
+			state rwait;
+			transition leave first rwait accept Go then rdone;
+			state rdone { entry assign total := total + 1; }
+		}
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, src)
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition leave"}, Resumes: []string{"do behavior of state lwork"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition and the do behavior of the sibling region both take it", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	}
+	if len(ctx.PendingMessages()) != 0 {
+		t.Errorf("%d messages in flight, want the one message consumed", len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
+		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of rdone", total)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run on: %v", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
+		t.Errorf("total = %v after running on, want 11 still", total)
+	}
+}
+
+// boxDoBehaviorParkedAtGo instantiates Box from the source, whose exhibited machine
+// starts a do behavior that parks at an accept of Go, and builds a Go for it.
+func boxDoBehaviorParkedAtGo(t *testing.T, src string) (*StateExecutor, *Context, Message) {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "w.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("w.sysml")
+	box, err := ctx.Instantiate(resolveSymbol(t, root, "Box"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := box.ExhibitedState()
+	if !ok {
+		t.Fatal("the box exhibits no machine")
+	}
+	exec := behavior.State
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
+		t.Fatal("the do behavior must be parked at its accept with nothing due")
+	}
+	goMsg, err := ctx.SignalMessage(resolveSymbol(t, root, "Go"), nil, box)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return exec, ctx, goMsg
 }
 
 // testStateDoBodyNodeReturnParameter: an action node of an inline do body's flow

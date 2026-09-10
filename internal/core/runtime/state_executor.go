@@ -145,9 +145,9 @@ type doAction struct {
 
 // due reports work of the do behavior runnable now: a paused behavior whose wait
 // has ended, or the next behavior where none is under way.
-func (act *doAction) due() bool {
+func (act *doAction) due(ctx *Context) bool {
 	if act.run != nil {
-		return act.run.resumable()
+		return act.run.resumable(ctx)
 	}
 	return len(act.pending) > 0
 }
@@ -570,11 +570,13 @@ func (e *StateExecutor) processNextEvent() error {
 }
 
 // Dispatch is what became of an event a step took off the queue: a transition
-// fired on it, a state deferred it, or nothing was enabled for it and it was dropped.
+// fired on it, a state deferred it, or nothing was enabled for it and it was
+// dropped; Resumed names the states whose do behavior went on from an accept with it.
 type Dispatch struct {
 	Event    Event
 	Fired    bool
 	Deferred bool
+	Resumed  []string
 }
 
 // LastDispatch returns what became of the event the last ProcessNextEvent
@@ -653,12 +655,12 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 		return dispatch, fmt.Errorf("invalid TimeEvent payload: expected *lower.Transition or *ast.TransitionEdge")
 	default:
 		// For general events, broadcast to all active regions
-		consumed, err := e.broadcastEvent(&event)
+		consumed, resumed, err := e.broadcastEvent(&event)
 		if err != nil {
 			return dispatch, err
 		}
-		dispatch.Fired = consumed
-		if !consumed && e.defersEvent(&event) {
+		dispatch.Fired, dispatch.Resumed = consumed, resumed
+		if !consumed && len(resumed) == 0 && e.defersEvent(&event) {
 			dispatch.Deferred = true
 			e.deferred = append(e.deferred, event)
 		}
@@ -703,19 +705,30 @@ func (e *StateExecutor) recallDeferredEvents() {
 }
 
 // broadcastEvent offers an event to the active configuration, reporting whether
-// any transition consumed it. An event nothing consumed is either deferred or
-// dropped by the caller, so "a transition fired" and "nothing happened" must not
-// look alike here.
+// any transition consumed it and the states whose do behavior went on with it.
+// An event nothing consumed is either deferred or dropped by the caller, so "a
+// transition fired" and "nothing happened" must not look alike here.
 //
-// Dispatch selects the transitions to take against the configuration the event
-// was taken off the queue for, so a state this event entered never reacts to it,
-// then fires them one at a time in the order the scheduling policy draws.
-func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
+// Dispatch selects the transitions to take against the configuration and data the
+// event was taken off the queue for, so a state this event entered never reacts to
+// it; the do behaviors parked at an accept for it then go on with it, and the
+// selected transitions fire one at a time in the order the scheduling policy draws.
+func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	candidates, err := e.selectTransitions(event)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return e.dispatchInOrder("on "+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
+	var resumed []string
+	if msg, ok := event.Payload.(Message); ok {
+		taking, err := e.doBehaviorsTaking(msg, candidates)
+		if err != nil {
+			return false, nil, err
+		}
+		if resumed, err = e.resumeDoBehaviors(taking, msg); err != nil {
+			return false, resumed, err
+		}
+	}
+	consumed, err := e.dispatchInOrder("on "+eventName(event), candidates, func(candidate dispatchCandidate, trans *lower.Transition, notes []RunNote) (bool, error) {
 		// The guard ran against the pre-dispatch data, so the arguments it read were
 		// unbound again; the effect needs them bound.
 		unbind, err := e.bindTriggerArguments(trans, event)
@@ -729,6 +742,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, error) {
 		}
 		return fired, nil
 	})
+	return consumed, resumed, err
 }
 
 // dispatchInOrder fires the surviving candidates one at a time through fire, the
@@ -2242,7 +2256,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 	}
 	due := make([]*doAction, 0, len(e.doActions))
 	for _, act := range e.doActions {
-		if act.due() {
+		if act.due(e.ctx) {
 			due = append(due, act)
 		}
 	}
@@ -2256,25 +2270,95 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		next := e.chooseDoAction(due)
 		act := due[next]
 		due = slices.Delete(due, next, next+1)
-		if e.trace() != nil {
-			e.trace().RecordDoStep(act.state.Name)
-		}
-		var err error
-		if act.run != nil {
-			act.run, err = act.run.resume(e.ctx)
-		} else {
-			behavior := act.pending[0]
-			act.pending = act.pending[1:]
-			act.run, err = e.startDoRun(behavior)
-		}
-		if err != nil {
-			return ran, fmt.Errorf("do action in state %s: %w", act.state.Name, err)
+		if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
+			return ran, err
 		}
 		ran++
 	}
+	return ran, e.settleDoActions()
+}
 
-	// Drop the behaviors that have finished; a do action whose state was exited
-	// is already gone.
+// stepDoAction performs one action of a do behavior: the behavior under way goes
+// on as told, else the next behavior begins.
+func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
+	if e.trace() != nil {
+		e.trace().RecordDoStep(act.state.Name)
+	}
+	var err error
+	if act.run != nil {
+		act.run, err = goOn(act.run)
+	} else {
+		behavior := act.pending[0]
+		act.pending = act.pending[1:]
+		act.run, err = e.startDoRun(behavior)
+	}
+	if err != nil {
+		return fmt.Errorf("do action in state %s: %w", act.state.Name, err)
+	}
+	return nil
+}
+
+// doBehaviorsTaking lists the do behaviors the message being dispatched lets go on:
+// those parked at an accept for it, except under a leaf that selected a transition
+// for it — along one active leaf's chain the transition is the message's only
+// taker, as the innermost enabled transition is among transitions. A port failing
+// to resolve on the way is the error.
+func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandidate) ([]*doAction, error) {
+	var taking []*doAction
+	for _, act := range e.doActions {
+		if act.run == nil || e.transitionSelectedUnder(act.state, candidates) {
+			continue
+		}
+		accepted, err := act.run.acceptsMessage(m)
+		if err != nil {
+			return nil, fmt.Errorf("do action in state %s: %w", act.state.Name, err)
+		}
+		if accepted {
+			taking = append(taking, act)
+		}
+	}
+	return taking, nil
+}
+
+// transitionSelectedUnder reports whether a candidate was selected for an active
+// leaf the state is or encloses.
+func (e *StateExecutor) transitionSelectedUnder(state *ast.StateNode, candidates []dispatchCandidate) bool {
+	for _, candidate := range candidates {
+		if slices.Contains(e.getParentChain(candidate.leaf), state) {
+			return true
+		}
+	}
+	return false
+}
+
+// resumeDoBehaviors lets the do behaviors taking the message being dispatched go
+// on with it, before the transitions selected fire, and names the states whose
+// behavior did. One an earlier behavior's step has already ended is skipped.
+func (e *StateExecutor) resumeDoBehaviors(taking []*doAction, m Message) ([]string, error) {
+	var resumed []string
+	for _, act := range taking {
+		if !e.isRunningDoAction(act) {
+			continue
+		}
+		if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.offer(e.ctx, m) }); err != nil {
+			return resumed, err
+		}
+		resumed = append(resumed, doBehaviorDescription(act.state))
+	}
+	if len(resumed) == 0 {
+		return nil, nil
+	}
+	return resumed, e.settleDoActions()
+}
+
+// doBehaviorDescription names a state's do behavior as decisions and dispatches report it.
+func doBehaviorDescription(state *ast.StateNode) string {
+	return "do behavior of state " + getNodeName(state)
+}
+
+// settleDoActions drops the do behaviors that have finished and schedules the
+// completion of their states; a do action whose state was exited is already gone.
+func (e *StateExecutor) settleDoActions() error {
 	finished := make([]*ast.StateNode, 0, len(e.doActions))
 	kept := e.doActions[:0]
 	for _, act := range e.doActions {
@@ -2293,10 +2377,10 @@ func (e *StateExecutor) runDoRound() (int, error) {
 	// completion transitions become eligible.
 	for _, state := range finished {
 		if err := e.scheduleCompletionTransitions(state); err != nil {
-			return ran, fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
+			return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
 		}
 	}
-	return ran, nil
+	return nil
 }
 
 // chooseDoAction resolves which of the do behaviors due in a round acts next: the
@@ -2399,8 +2483,8 @@ func (e *StateExecutor) deliverPendingSignal() (bool, error) {
 // flight: one it can react to, unless its guards would drop it while a sibling
 // machine of the same object would fire on or defer it.
 func (e *StateExecutor) takesMessage(m Message) (bool, error) {
-	if accepted, err := e.acceptableMessage(m); err != nil || !accepted {
-		return accepted, err
+	if reacts, err := e.reactsTo(m); err != nil || !reacts {
+		return reacts, err
 	}
 	return !e.yieldsTo(m), nil
 }
@@ -2448,32 +2532,13 @@ func (e *StateExecutor) siblingsAccepting(m Message) []*StateExecutor {
 
 // reactsTo reports whether a message in flight is one this machine would act on:
 // its configuration accepts or defers it, or a do behavior under way is parked at
-// an accept for it, which takes the message from the bus itself when resumed.
+// an accept for it, which dispatching the message lets go on with it.
 func (e *StateExecutor) reactsTo(m Message) (bool, error) {
 	if accepted, err := e.acceptableMessage(m); err != nil || accepted {
 		return accepted, err
 	}
-	resumes, err := e.doBehaviorsAccepting(m)
-	return len(resumes) > 0, err
-}
-
-// doBehaviorsAccepting names the states whose do behavior, parked at an accept,
-// would go on with the message; a port failing to resolve on the way is the error.
-func (e *StateExecutor) doBehaviorsAccepting(m Message) ([]string, error) {
-	var names []string
-	for _, act := range e.doActions {
-		if act.run == nil {
-			continue
-		}
-		accepted, err := act.run.acceptsMessage(m)
-		if err != nil {
-			return nil, err
-		}
-		if accepted {
-			names = append(names, "do behavior of state "+getNodeName(act.state))
-		}
-	}
-	return names, nil
+	taking, err := e.doBehaviorsTaking(m, nil)
+	return len(taking) > 0, err
 }
 
 // acceptableMessage reports whether a message in flight is one this machine can
@@ -2496,9 +2561,10 @@ func (e *StateExecutor) defersMessage(m Message) bool {
 	return e.defersEvent(&event)
 }
 
-// HasPendingSignal reports whether a signal this machine accepts is in flight.
-// Such a signal is due now, unlike a queued event's timestamp: the next step
-// delivers and dispatches it.
+// HasPendingSignal reports whether a signal this machine reacts to is in flight:
+// one its configuration accepts or defers, or a do behavior under way is parked at
+// an accept for. Such a signal is due now, unlike a queued event's timestamp: the
+// next step delivers and dispatches it.
 func (e *StateExecutor) HasPendingSignal() bool {
 	return e.hasPendingSignal()
 }
@@ -2551,28 +2617,35 @@ func (e *StateExecutor) Decide(m Message) (decision Decision, err error) {
 	return decision, err
 }
 
-// decide is Decide under the preview that discards what it builds.
+// decide is Decide under the preview that discards what it builds. It selects the
+// message's takers as broadcastEvent does, so the two agree.
 func (e *StateExecutor) decide(m Message) (Decision, error) {
-	resumes, err := e.doBehaviorsAccepting(m)
-	if err != nil {
-		return Decision{}, err
-	}
-	decision := Decision{Resumes: resumes}
-	if accepted, err := e.acceptableMessage(m); err != nil || !accepted {
-		return decision, err
-	}
 	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
-	candidates, err := e.selectTransitions(&event)
+	accepted, err := e.acceptableMessage(m)
 	if err != nil {
 		return Decision{}, err
 	}
+	var candidates []dispatchCandidate
+	if accepted {
+		if candidates, err = e.selectTransitions(&event); err != nil {
+			return Decision{}, err
+		}
+	}
+	taking, err := e.doBehaviorsTaking(m, candidates)
+	if err != nil {
+		return Decision{}, err
+	}
+	var decision Decision
 	for _, candidate := range candidates {
 		if !e.losesToNestedTransition(candidates, candidate) {
 			trans, _ := e.chooseTransition(candidate)
 			decision.Fires = append(decision.Fires, transitionDescription(trans))
 		}
 	}
-	if len(decision.Fires) == 0 {
+	for _, act := range taking {
+		decision.Resumes = append(decision.Resumes, doBehaviorDescription(act.state))
+	}
+	if accepted && !decision.Enabled() {
 		decision.Deferred = e.defersEvent(&event)
 	}
 	return decision, nil
@@ -3392,7 +3465,7 @@ func (e *StateExecutor) RunDoRound() (int, error) {
 // action to run. Such work is due now, unlike a queued event's timestamp.
 func (e *StateExecutor) HasPendingDoWork() bool {
 	for _, act := range e.doActions {
-		if act.due() {
+		if act.due(e.ctx) {
 			return true
 		}
 	}

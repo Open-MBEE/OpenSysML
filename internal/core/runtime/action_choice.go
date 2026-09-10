@@ -177,7 +177,7 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 			order.unready[t.ID] = true
 		}
 	}
-	if pending := e.ctx.PendingMessages(); len(pending) > 0 {
+	if pending := e.ctx.acceptable(); len(pending) > 0 {
 		// Matching may materialize a port; as a probe, the scan leaves the run as it was.
 		defer e.ctx.beginProbe()()
 		for _, t := range e.tokens {

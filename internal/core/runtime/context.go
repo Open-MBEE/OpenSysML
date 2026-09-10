@@ -259,6 +259,9 @@ type Context struct {
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
+	// mail, while a state's do behavior runs, is where its accepts look in place
+	// of the bus: the message its machine dispatched to it, none between dispatches.
+	mail *[]Message
 
 	// clock is the simulation time every executor of this context shares, and
 	// clockRun the run an advance of it draws its due-order choices from.

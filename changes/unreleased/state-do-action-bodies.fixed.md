@@ -9,8 +9,13 @@
   parks it on the shared clock — `%advance`/`-advance` move it and list it under `Waiting on the
   clock` — and an `accept Sig` parks it until a matching signal is sent (`%send Sig` takes it,
   reporting `the do behavior of state <s> goes on from its accept`, rather than refusing it because
-  no transition fires), while the machine's transitions and its other regions' do behaviors go on
-  around it. A nested action node stating its flow in declaration order starts at its one
+  no transition fires; a signal sent from a sibling object wakes it too), while the machine's
+  transitions and its other regions' do behaviors go on around it. `%send`'s preview and the
+  dispatch select the signal's takers by one rule: a transition out of the state whose do behavior
+  is parked for the signal is its only taker there, while a do behavior in one region and a
+  transition in a sibling region share the one dispatch; the step reports `Event dispatched,
+  letting the do behavior of state <s> go on from its accept`, and such a signal is neither deferred
+  nor counted as dropped. A nested action node stating its flow in declaration order starts at its one
   unpreceded node as the body does, rather than being reported as a flow without a start. Leaving the state ends the
   performance: its wait leaves the clock, nothing after the wait runs, and a signal sent later
   wakes nothing. A typed usage whose body declares only the pins of the action it performs

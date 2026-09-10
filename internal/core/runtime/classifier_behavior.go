@@ -606,14 +606,14 @@ func (ctx *Context) forgetBehaviors(behaviors []*ObjectBehavior) {
 	ctx.pendingBehaviors = behaviorsExcept(ctx.pendingBehaviors, dropped)
 }
 
-// leaveClock withdraws the behavior's execution from the clock, so a behavior
-// dropped from its object is never driven again.
+// leaveClock releases the behavior's execution, ending the work it left paused
+// and withdrawing it from the clock, so a behavior dropped from its object is never driven again.
 func (b *ObjectBehavior) leaveClock() {
 	switch {
 	case b.State != nil:
-		b.State.ctx.clock.detach(b.State)
+		b.State.Release()
 	case b.Action != nil:
-		b.Action.ctx.clock.detach(b.Action)
+		b.Action.Release()
 	}
 }
 
