@@ -7,7 +7,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
-## 0.7.0 — 2026-09-09
+## 0.7.0 — 2026-09-10
 
 ### Added
 
@@ -213,6 +213,18 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 - **A worked walkthrough of analysis cases, `examples/analysis-demo`.** One lander model asked every way the tool answers: an analysis whose action steps feed each other and whose objective is a requirement, run bound, with arguments and on an object; a verification case whose body verdict is reported beside its objective; a parameter sweep and a seeded sample; two trade studies choosing among three landers, one swept over its cost parameter; and an action and a state machine due at the same instant of the shared clock, run under the default and `declared` scheduling policies and under `explore`. Each command is shown with its output and what to read in it, with `-trace` and `-json`, the REPL forms and the same questions asked through the Python client in `lander_demo.py`.
 
+- **A worked example of the expression forms.** `examples/expressions-demo.sysml` and its walkthrough `examples/EXPRESSIONS-DEMO.md` take `as` casts, the unbounded value `*`, `.metadata`, function values, `Collections::Set`, rank-three tensor quantities and typed collection bodies through one payload model, and the guide's expressions chapter (`docs/guide/05-checking.md`) gains sections on each with REPL transcripts.
+
+- **A design note for SMT bounded model checking of behaviors**
+  (`docs/internals/design/smt-model-checking.md`). It proposes unrolling an action's token flow
+  to a bounded number of moves and asking the SMT solver whether any schedule, for any value of
+  the inputs the model leaves unbound, violates a requirement, deadlocks or leaves a feature's
+  final value depending on the order of two moves. It fixes what a verdict may claim — proved
+  within a stated bound, violated with a witness the interpreter replays, sensitive with the two
+  schedules, or not covered with the reason — a per-construct coverage table, the referee gate
+  against `-schedule explore`, and the stages. Nothing is implemented; the note exists to be
+  reviewed before code is written.
+
 ### Changed
 
 - **What may differ from 0.6.0.** A model that mixes actions and state machines can take another
@@ -251,6 +263,8 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   `release/x.y.z` pull requests and are tagged there, and CircleCI builds and tests both
   branches. `make proto-breaking` compares against `origin/develop` by default.
 
+- **The contributor documentation now covers how a run resolves what the library leaves unordered.** A new design note, `docs/internals/design/scheduling.md`, describes the six kinds of choice point and how each is recorded without altering the run, the `reverse`, `declared`, `seed:<n>` and `explore[:runs=N,depth=D]` policies and what each draws, replay-based exploration from a fresh context per run with its witnesses, outcome grouping, budgets and `incomplete` verdict, and the conformance contract behind it — plural `outcomes` with their `admissible` citations, `.trace.order` partial-order constraints, per-policy trace goldens and the whole-suite sweep under `declared` and `seed:1`. The architecture and testing overviews and the orthogonal-regions note point to it, the latter now describing how sibling regions' reactions to one event or one change are dispatched through the scheduler and reported as a `region order` choice. The `--trace`, `%trace` and `SchedulePolicy` descriptions list region order among the choice kinds they report, and the REPL guide's command table gains a row for `%schedule`.
+
 ### Fixed
 
 - **A transition's `accept` with no `via` no longer takes a transfer addressed to a port.** An accept naming no port receives as the performer of the machine (SysML v2 §7.16.7), and a port is a sub-occurrence of its part, not the part, so `send new Ping() to alpha.inPort` — or a send routed to `inPort` over a connector — is now taken only by `accept Ping via inPort`; a via-less `accept Ping` on the same state is not enabled by it and no choice point is reported between the two. A transfer addressed to the part itself, `send new Ping() to alpha`, is still taken by the via-less accept and not by the `via` one. The state executor now judges every message by the same rule its dispatch check and the action executor already applied, so the two agree on what a machine can react to; call and change triggers are unaffected.
@@ -287,6 +301,28 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 - **The Java client reads a whole unit scale without going through `BigDecimal`.** `Value.sameValue` compares quantities exactly over integer magnitudes and whole scales; the scale double is now converted to its integer directly instead of through `new BigDecimal(double)`. The integer is the one the double is, the same value the service and the other clients compute, so no comparison, membership or set-equality result changes.
 - **Tests that could not fail now test what they name.** A Java test that compared a `SetValue` with a `Sequence` through `assertNotEquals`, which no two such values could ever satisfy, now asserts that the order of a sequence tells it apart from a set through `sameValue`; two Python assertions that compared an expression with itself now compare independently built measurement references. The Java exactness test also pins whole scales beyond a `long`.
 - **The SonarCloud findings outside cognitive complexity are cleared again.** Duplicated Go literals are named constants, intentional no-op closures state their contract, a negated comparison is written directly, an underscore-suffixed local is renamed, unnecessary locals are inlined, the Java transport tells a connect timeout from a read timeout in one catch block, `exactBaseMagnitude` returns an empty array instead of `null`, `valueHash` lives in `SetValue`, and the Java and Python tests hold one call per exception assertion, one property per assertion, fewer than 25 assertions per method and a single argument order. No behavior changes.
+
+- **`explore` advances one token per step, so `complete` covers every interleaving.** Exploration
+  used to permute the tokens of one lockstep step, in which every steppable token moved once, so a
+  branch of two nodes could never both run before a concurrent branch's one node: a fork of
+  `left1 { x := 1 } → left2 { y := x }` against `right { x := 2 }` reported `complete` with two
+  outcomes and missed `x = 2, y = 1`. Under `explore` a step is now one token advancing one node,
+  the tokens able to act are picked among afresh after each move, and each pick is its own
+  `step N:` choice point in the witness; the fixed policies (`reverse`, `declared`, `seed:<n>`)
+  keep their sweep, so no default trace changed. Run counts grow with the finer granularity
+  (`action_merge_fork_branch_and_loop` needs `explore:runs=10000` to complete) and the semantic
+  oracle's figures are re-derived; `action_explore_write_between_branch_nodes` pins the case.
+  A performed action paused on the clock is among the tokens an exploring step picks from once
+  its wait has ended, so a sibling accept due at the same instant no longer always runs first:
+  `action_explore_performed_and_accept_due_together` reaches both writes, six linearizations.
+
+- **Sweep and sample values are typed by the parameter they bind, not by the literals of the range.** `-sweep`, `-samples`, `%sweep`, `%samples` and `RunSweep` resolve each range against the parameter's declaration: a `Real` or `Rational` parameter swept over `1..4:1` is bound to `1.0`, `2.0`, `3.0`, `4.0` and the table shows them so, and sampled over `1..4` draws reals in `[1, 4)` rather than the four Integers; an `Integer`, `Natural` or `Positive` parameter — or an `attribute def` specializing one — swept over `1.0..3.0:1.0` is bound to the Integers `1`, `2`, `3`, and sampled over `1.0..4.0` draws Integers inclusively. A fractional endpoint or step over an Integer parameter (`1.0..3.0:0.5`, `1.5..3`), a value below what a `Natural` or `Positive` holds, and a range over a `Boolean`, `String`, enumeration or non-scalar parameter are refused before any run, naming the parameter and its type, where before half the rows failed one by one. A quantity-typed parameter is typed through its `num` — refusing a magnitude a `num : Natural` or `num : Positive` cannot hold, and any range where the `num` holds no number — and keeps the first endpoint's unit; a `Number`-typed parameter and one declaring no type take the range as written, the untyped one noted under the table. A range between whole numbers needs no step whatever the parameter's type — `0.0..1.0` over a `Real` steps by one — while a range with a fractional endpoint still needs `:<step>`. A range read as reals takes an Integer endpoint or step only where a Real holds it without rounding, and steps only where the reals tell its rows apart, so a `Real` parameter swept from 2⁶⁰ to 2⁶⁰+3 is refused rather than collapsed onto one row.
+
+- **A transition written without a source (`accept … then`, `if … then`, `then`) now leaves the state declared before it in the same body, as SysML v2 §7.18.3 specifies and the OMG pilot implements.** It used to take the state whose body contained it as the source, and to refuse the form at a state machine's top level at instantiation, so a nested `accept after 5 [SI::s] then decelerating;` fired from every substate and re-armed its timer forever, and the top-level form failed with `sourceless transition at top level has no containing state`. The shorthand is now a member of the body that declares the state it leaves, written after that state (the pinned pilot rejects it inside the state's own body), several in a row all leave the same state, and one written first in its body or after a member that is not a state — an attribute, a `do` action, a succession, a `choice` or `join` pseudostate, an orthogonal region — is reported by validation with the member named; a pseudostate is left by `transition first <pseudostate> … then …;` only.
+- **The guarded entry transition (`entry; if cold then heating; if not cold then idle;`, SysML v2 §7.18.3 `EntryTransitionMember`) now chooses the state a body starts in.** The transitions out of a body's entry action are lowered in declaration order and tried in that order each time the body is entered — when the machine starts and whenever a transition enters the composite state whose body it is — after the entry action itself has run; the first whose guard holds is entered, an unguarded `then s;` among them is taken when reached, and when none holds the machine reports `no entry transition holds` rather than starting somewhere. A body's entry transitions are tried inside a composite state, an orthogonal region and an exhibited state alike, and a transition into a composite state now starts that state's body by its entry transition rather than leaving it without an active substate. A state usage typed by a definition that writes entry transitions of its own starts by those alone, replacing the inherited ones as its own entry behavior does, instead of starting where the definition's came first. An entry transition written with a trigger or an effect, or reaching something other than a state, is reported by validation and by lowering, as the OMG pilot rejects those shapes.
+- **A state machine's own `entry`, `do` and `exit` behaviors now run for every machine.** They were skipped unless the machine had orthogonal regions of its own, so `state def M { entry assign started := true; then idle; … }` never assigned; the entry behavior now runs before the start state is chosen, and the exit behavior once a transition to `done` has completed the machine.
+
+- **A verification case's objective checks the case's subject, not its verdict.** The library binds it so — `VerificationCases::VerificationCase::obj` redefines `Cases::Case::obj` with `subject subj = VerificationCase::subj` — but the runtime applied the redefined objective's `default Case::result` to every case kind, so an objective typed by a requirement with a typed subject (`subject lander : Lander`) was `undecided` with `type mismatch: VerdictKind::pass (enumeration literal) is not a Lander`, and a sweep over such a case printed `undecided` in every row. An unbound objective subject now holds the value the library states for it, read through the redefinition chain: an analysis case's objective still defaults to the result, a verification case's evaluates the requirement against the verification subject whatever the requirement names it, and the objective is decided on `-analysis`, `-requirement`, `-satisfy`, the REPL and gRPC alike. A requirement subject the verification subject cannot be is `undecided` naming both types, and a usage restating the library's `=` binding is still refused.
 
 ### Performance
 
