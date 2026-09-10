@@ -742,6 +742,9 @@ func (e *StateExecutor) dispatchInOrder(
 		if order != nil {
 			notes = append([]RunNote{order}, notes...)
 		}
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return acted, err
+		}
 		fired, err := fire(candidate, trans, notes)
 		acted = acted || fired
 		if err != nil {
@@ -815,11 +818,13 @@ func (e *StateExecutor) selectCandidates(
 // consulted only here, so a state outranked by a nested one draws nothing.
 func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
 	transitions := e.graph.Transitions[candidate.source]
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(candidate.enabled))
 	notes := candidate.notes
-	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled, pick); ok {
-		scheduling.describe(choice)
+	pick := 0
+	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled); ok {
+		whereOf := func(i int) string { return transitionWhere(candidate.source, transitions[candidate.enabled[i]]) }
+		pick = e.ctx.scheduling().choose(choice, whereOf)
+		choice.Taken, choice.Where = pick, whereOf(pick)
+		choice.File, choice.Span = e.transitionLocation(candidate.source, transitions[candidate.enabled[pick]])
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
@@ -828,23 +833,18 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 // chooseRegion resolves which of the candidates, all still able to fire, fires next:
 // the policy draws the pick and, with several candidates, the choice is reported.
 func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(pending))
 	if len(pending) < 2 {
-		return pick, nil
+		return 0, nil
 	}
-	alts := e.candidateNames(pending)
-	taken := pending[pick]
 	choice := ChoicePoint{
 		Kind:         ChoiceRegionOrder,
 		Where:        where,
-		Alternatives: alts,
-		Taken:        pick,
+		Alternatives: e.candidateNames(pending),
 		File:         e.stateMachine.DocName,
-		Span:         taken.source.Span(),
 	}
-	scheduling.describe(choice)
-	return pick, choice
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	choice.Span = pending[choice.Taken].source.Span()
+	return choice.Taken, choice
 }
 
 // candidateNames spells each candidate's source state, qualified by its region's
@@ -1106,7 +1106,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 // transitionChoice is the transitions out of state enabled for one event, at
 // their declared positions, as a choice point; there is none under two. pick is
 // the position in enabled of the one that fires.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int, pick int) (ChoicePoint, bool) {
+func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -1114,16 +1114,7 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 	for i, pos := range enabled {
 		alts[i] = transitionName(transitions, pos)
 	}
-	taken := transitions[enabled[pick]]
-	file, span := e.transitionLocation(state, taken)
-	return ChoicePoint{
-		Kind:         ChoiceTransition,
-		Where:        transitionWhere(state, taken),
-		Alternatives: alts,
-		Taken:        pick,
-		File:         file,
-		Span:         span,
-	}, true
+	return ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}, true
 }
 
 // unevaluableTransition is the transition at position pos out of state, probed

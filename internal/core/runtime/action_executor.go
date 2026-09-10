@@ -266,6 +266,9 @@ func (e *ActionExecutor) Step() error {
 
 	schedule := e.scheduleTokens(&order, eligible)
 	err := e.stepTokens(schedule, paused, &order)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		err = refused
+	}
 	// What the tokens wrote and the order they took are facts of the step whether
 	// or not it failed.
 	endWrites()
@@ -1593,7 +1596,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		}
 	}
 	if len(holding) > 0 {
-		pick := e.ctx.scheduling().pick(len(holding))
+		choice, pick := e.chooseBranch(token.frame, decisionNode, successors, holding)
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 {
@@ -1606,7 +1609,9 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
-		e.noteDecisionBranches(token.frame, decisionNode, successors, holding, pick)
+		if choice != nil {
+			e.ctx.noteChoice(*choice)
+		}
 		token.travel(successors[holding[pick]], e.sweep)
 		return nil
 	}
