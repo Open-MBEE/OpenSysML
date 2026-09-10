@@ -50,7 +50,7 @@ func (d calcMemberDecl) redeclaring(redeclared calcMemberDecl) calcMemberDecl {
 	return d
 }
 
-// check reports a value outside the declared multiplicity or type, described by
+// check reports a value outside the declared multiplicity, type or uniqueness, described by
 // what (asked only on refusal, a binding being the hot path); unknown: not judged.
 func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) error {
 	if d.Target == nil {
@@ -62,11 +62,14 @@ func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) e
 	if refusal, refused := ctx.writeTypeRefusal(declScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)
 	}
+	if msg := ctx.uniquenessRefusal(d.Target.unique, d.Target.holdsSet, value); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what(), ErrUniquenessViolation, msg)
+	}
 	return nil
 }
 
 // admits reports a value the declaration cannot hold as a declared feature value: more or fewer
-// values than its multiplicity, or one not of its type. what names the binding; scope answers its names.
+// values than its multiplicity, one not of its type, or a repeat. what names the binding; scope answers its names.
 func (d calcMemberDecl) admits(ctx *Context, scope *symbols.Scope, what string, value Value) error {
 	if d.Target == nil {
 		return nil
@@ -74,18 +77,19 @@ func (d calcMemberDecl) admits(ctx *Context, scope *symbols.Scope, what string, 
 	if msg := ctx.writeCountRefusal(d.Target, &value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
-	typ := d.Target.typ
-	if typ == nil {
-		return nil
+	if typ := d.Target.typ; typ != nil {
+		for _, element := range elementsOf(value) {
+			conforms, _, err := ctx.valueConforms(scope, &element, typ, admitDeclared)
+			if err != nil {
+				return fmt.Errorf("%s: %w", what, err)
+			}
+			if !conforms {
+				return fmt.Errorf("%s: %w: %s is not a %s", what, ErrTypeMismatch, ctx.elementText(element), symbolText(typ))
+			}
+		}
 	}
-	for _, element := range elementsOf(value) {
-		conforms, _, err := ctx.valueConforms(scope, &element, typ, admitDeclared)
-		if err != nil {
-			return fmt.Errorf("%s: %w", what, err)
-		}
-		if !conforms {
-			return fmt.Errorf("%s: %w: %s is not a %s", what, ErrTypeMismatch, ctx.elementText(element), symbolText(typ))
-		}
+	if msg := ctx.uniquenessRefusal(d.Target.unique, d.Target.holdsSet, &value); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
 	}
 	return nil
 }
@@ -122,7 +126,7 @@ func (ctx *Context) calcMemberDeclOf(link *symbols.Symbol, sym *symbols.Symbol, 
 func (ctx *Context) calcMemberDeclFor(link, sym *symbols.Symbol, name string) calcMemberDecl {
 	mult, stated := ctx.extractMultiplicity(sym)
 	return calcMemberDecl{
-		Target:     &writeTarget{name: name, typ: ctx.extractType(sym), mult: mult},
+		Target:     ctx.newWriteTarget(sym, name, mult),
 		Owner:      link,
 		multStated: stated,
 	}

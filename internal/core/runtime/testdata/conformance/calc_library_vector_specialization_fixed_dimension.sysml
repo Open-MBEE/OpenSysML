@@ -15,6 +15,6 @@ package test {
 	}
 
 	calc def probe {
-		return : Base::Anything[3] = (v.label, v.dimension, norm(v));
+		return : Base::Anything[3] nonunique = (v.label, v.dimension, norm(v));
 	}
 }

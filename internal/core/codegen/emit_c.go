@@ -284,38 +284,54 @@ static void sysml_shortest(sysml_real r, char *buf, size_t size) {
 	}
 }
 
-/* Prints r as the interpreter does: shortest round-trip digits, positional
+/* Appends c to the text being formatted into out, which holds size bytes. */
+static void sysml_put(char *out, size_t size, size_t *n, char c) {
+	if (*n + 1 < size) out[(*n)++] = c;
+	out[*n] = 0;
+}
+
+/* Formats r as the interpreter does: shortest round-trip digits, positional
  * for 1e-4 <= |r| < 1e21 and for 0, exponent form otherwise, always with a
  * fraction or exponent so a whole Real still reads as a Real. */
-static void sysml_print_real_value(sysml_real r) {
+static void sysml_format_real(sysml_real r, char *out, size_t size) {
 	char buf[40];
 	sysml_shortest(r, buf, sizeof buf);
 	sysml_real a = fabs(r);
 	if (r != 0 && (a < 1e-4 || a >= 1e21)) {
-		fputs(buf, stdout);
+		snprintf(out, size, "%s", buf);
 		return;
 	}
 	/* buf is [-]d[.ddd]e[+-]xx: reassemble the digits around the point. */
 	char digits[24];
 	int nd = 0, exp10 = 0;
+	size_t n = 0;
 	const char *p = buf;
-	if (*p == '-') { fputc('-', stdout); p++; }
+	out[0] = 0;
+	if (*p == '-') { sysml_put(out, size, &n, '-'); p++; }
 	for (; *p && *p != 'e'; p++) if (*p != '.') digits[nd++] = *p;
 	exp10 = atoi(p + 1);
 	int intdigits = exp10 + 1;
 	if (intdigits <= 0) {
-		fputs("0.", stdout);
-		for (int i = intdigits; i < 0; i++) fputc('0', stdout);
-		fwrite(digits, 1, nd, stdout);
+		sysml_put(out, size, &n, '0');
+		sysml_put(out, size, &n, '.');
+		for (int i = intdigits; i < 0; i++) sysml_put(out, size, &n, '0');
+		for (int i = 0; i < nd; i++) sysml_put(out, size, &n, digits[i]);
 	} else {
-		for (int i = 0; i < intdigits; i++) fputc(i < nd ? digits[i] : '0', stdout);
+		for (int i = 0; i < intdigits; i++) sysml_put(out, size, &n, i < nd ? digits[i] : '0');
 		if (nd > intdigits) {
-			fputc('.', stdout);
-			fwrite(digits + intdigits, 1, nd - intdigits, stdout);
+			sysml_put(out, size, &n, '.');
+			for (int i = intdigits; i < nd; i++) sysml_put(out, size, &n, digits[i]);
 		} else {
-			fputs(".0", stdout);
+			sysml_put(out, size, &n, '.');
+			sysml_put(out, size, &n, '0');
 		}
 	}
+}
+
+static void sysml_print_real_value(sysml_real r) {
+	char text[64];
+	sysml_format_real(r, text, sizeof text);
+	fputs(text, stdout);
 }
 
 static void sysml_print_real(sysml_real r) {
@@ -508,8 +524,8 @@ func (e *cEmitter) function(fn *Func) {
 	for _, p := range fn.Params {
 		switch {
 		case p.Type.Many():
-			if p.Mult != MultAny || p.Range != RangeAny {
-				v := e.checked(Checked{X: Var{Name: p.Name, T: p.Type}, M: p.Mult, R: p.Range, Where: paramWhere(p.Name)})
+			if p.Mult != MultAny || p.Range != RangeAny || p.Unique {
+				v := e.checked(Checked{X: Var{Name: p.Name, T: p.Type}, M: p.Mult, R: p.Range, Unique: p.Unique, Where: paramWhere(p.Name)})
 				e.linef(cAssign, cLocal(p.Name), v)
 			}
 		case p.Range != RangeAny:

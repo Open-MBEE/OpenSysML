@@ -1,0 +1,29 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::h",
+  "slots": {
+    "xs": {"error": "uniqueness violation: 1 (an Integer) is written at positions 1 and 2 of a unique feature"},
+    "repeats": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 1}
+    ]},
+    "inOrder": {"error": "uniqueness violation: 1 (an Integer) is written at positions 1 and 3 of a unique feature"},
+    "distinct": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2}
+    ]},
+    "mixed": {"error": "uniqueness violation: 1.0 (a Real) is written at positions 1 and 2 of a unique feature"},
+    "masses": {"error": "uniqueness violation: 2000 [g] (a quantity in g) is written at positions 1 and 2 of a unique feature"},
+    "colors": {"error": "uniqueness violation: Color::red (enumeration literal) is written at positions 1 and 3 of a unique feature"},
+    "words": {"error": "uniqueness violation: \"a\" (string) is written at positions 1 and 3 of a unique feature"},
+    "dynamic": {"error": "uniqueness violation: 3 (an Integer) is written at positions 1 and 4 of a unique feature"},
+    "dynamicOk": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2},
+      {"type": "Integer", "value": 4}
+    ]}
+  }
+}

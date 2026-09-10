@@ -44,7 +44,7 @@ A calc compiles when everything it reaches is in this subset:
 | Construct | Compiled as |
 |---|---|
 | `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, with no multiplicity or `[1]` | `int64_t` / `double` / `bool` |
-| The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them |
+| The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
 | `(a, b, …)`, `()`, `null`, `lo..hi`, `s#(i)`, `??`, `==`/`!=` and `===`/`!==` over sequences | sequence literals (nested ones flatten, null contributes nothing), inclusive ranges, one-based indexing, coalescing, elementwise and identity comparison |
@@ -131,7 +131,7 @@ arithmetic rather than the host language's:
 `internal/repl/compile_test.go:TestCompiledCalcsAgreeWithInterpreter` is the differential contract:
 every calc in `testdata/compile_calcs.sysml` is compiled by both backends and run over a matrix of
 values and failure inputs (overflow, zero divisors, non-finite Reals, deep recursion, null and
-many-valued operands, out-of-range indexes, multiplicity and element-budget violations), and each
+many-valued operands, out-of-range indexes, multiplicity, uniqueness and element-budget violations), and each
 value must equal the interpreter's; a scalar failure must be of the same class and a collection
 failure must carry the interpreter's message verbatim. `TestCompileRefusesWhatItCannotCompile`
 pins the refusals.

@@ -375,6 +375,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("second_instantiation_of_one_type", testSecondInstantiationOfOneType)
 	t.Run("write_of_a_wrong_typed_value_leaves_the_feature", testWriteOfAWrongTypedValueLeavesTheFeature)
 	t.Run("write_of_too_many_values_leaves_the_feature", testWriteOfTooManyValuesLeavesTheFeature)
+	t.Run("write_of_a_repeated_value_leaves_the_feature", testWriteOfARepeatedValueLeavesTheFeature)
 	t.Run("write_of_no_value_where_one_is_required", testWriteOfNoValueWhereOneIsRequired)
 	t.Run("state_entry_write_of_a_wrong_typed_value", testStateEntryWriteOfAWrongTypedValue)
 	t.Run("performer_feature_write_of_a_wrong_typed_value", testPerformerFeatureWriteOfAWrongTypedValue)
@@ -10897,7 +10898,7 @@ func testObjectExhibitedMachineAttributeWriteViolatesMultiplicity(t *testing.T) 
 	src := `
 	package test {
 		state def Modes {
-			attribute samples : Integer[2] = (0, 0);
+			attribute samples : Integer[2] nonunique = (0, 0);
 			entry; then active;
 			state active {
 				entry action record {
@@ -10924,7 +10925,7 @@ func testObjectPerformedActionAttributeWriteViolatesMultiplicity(t *testing.T) {
 	src := `
 	package test {
 		action def Record {
-			attribute samples : Integer[2] = (0, 0);
+			attribute samples : Integer[2] nonunique = (0, 0);
 			action step {
 				assign samples := 1;
 			}
@@ -11168,6 +11169,104 @@ func testWriteOfTooManyValuesLeavesTheFeature(t *testing.T) {
 	}
 	if got := len(elementsOf(fv.HeldValue())); got != 2 {
 		t.Errorf("samples holds %d value(s), want the 2 it held before the rejected write", got)
+	}
+}
+
+// testWriteOfARepeatedValueLeavesTheFeature: a repeat written to a unique feature
+// is refused after count and type, leaving its value; nonunique takes it, a set drops it.
+func testWriteOfARepeatedValueLeavesTheFeature(t *testing.T) {
+	src := `
+	package test {
+		private import ScalarValues::*;
+		private import Collections::*;
+		part def Rig {
+			attribute xs : Integer[*] = (1, 2);
+			attribute ordered : Integer[*] ordered = (1, 2);
+			attribute bounded : Integer[0..2] = (1, 2);
+			attribute repeats : Integer[*] nonunique = (1, 1);
+			attribute members : Set { :>> elements = (1, 2); }
+		}
+	}`
+	ctx, inst, err := instantiateWithLibraries(t, src, "test::Rig")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	repeated := sequenceOf([]Value{constInt(3), constInt(4), constInt(3)})
+	for _, feature := range []string{"xs", "ordered"} {
+		err := inst.SetFeatureValue(ctx, feature, repeated)
+		if !errors.Is(err, ErrUniquenessViolation) {
+			t.Fatalf("%s: error = %v, want ErrUniquenessViolation", feature, err)
+		}
+		if want := "3 (an Integer) is written at positions 1 and 3 of a unique feature"; !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: error = %v, want it to say %q", feature, err, want)
+		}
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Fatalf("read %s after the rejected write: %v", feature, err)
+		}
+		if got := intsOf(t, fv.HeldValue()); !equalInts(got, []int64{1, 2}) {
+			t.Errorf("%s = %v, want the (1, 2) it held before the rejected write", feature, got)
+		}
+	}
+	if err := inst.SetFeatureValue(ctx, "bounded", repeated); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("bounded: error = %v, want ErrMultiplicityViolation before the repeat is judged", err)
+	}
+	wrongType := sequenceOf([]Value{NewStringValue("a"), NewStringValue("a")})
+	if err := inst.SetFeatureValue(ctx, "xs", wrongType); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("xs: error = %v, want ErrTypeMismatch before the repeat is judged", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "repeats", repeated); err != nil {
+		t.Errorf("repeats: error = %v, want a nonunique feature to take the repeat", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "ordered", sequenceOf([]Value{constInt(3), constInt(1), constInt(2)})); err != nil {
+		t.Fatalf("ordered: error = %v, want distinct values to be written", err)
+	}
+	if fv, _ := inst.GetFeatureValue(ctx, "ordered"); !equalInts(intsOf(t, fv.HeldValue()), []int64{3, 1, 2}) {
+		t.Errorf("ordered = %s, want (3, 1, 2) in the order written", FormatValue(fv.HeldValue()))
+	}
+	members, err := inst.GetFeatureValue(ctx, "members")
+	if err != nil {
+		t.Fatalf("members: %v", err)
+	}
+	set, ok := members.HeldValue().Object()
+	if !ok {
+		t.Fatalf("members = %s, want a Set object", FormatValue(members.HeldValue()))
+	}
+	if err := ctx.instances[set].SetFeatureValue(ctx, "elements", repeated); err != nil {
+		t.Errorf("members.elements: error = %v, want a set to drop the repeat", err)
+	}
+	if fv, _ := ctx.instances[set].GetFeatureValue(ctx, "elements"); fv.HeldValue().Kind != ValSet || len(elementsOf(fv.HeldValue())) != 2 {
+		t.Errorf("members.elements = %s, want the set {3, 4}", FormatValue(fv.HeldValue()))
+	}
+
+	actionSrc := `
+	package test {
+		private import ScalarValues::*;
+		action w {
+			attribute xs : Integer[*] ordered = (1, 2);
+			attribute n : Integer = 5;
+			first start;
+			action step { assign xs := (n, 6, n); }
+			done;
+			succession first start then step;
+			succession first step then done;
+		}
+	}`
+	idx, _, actx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, actionSrc))
+	if _, err := actx.ExecuteAction(findSymbolByName(idx.DocumentRoot("<test>"), "w", ast.DefAction)); !errors.Is(err, ErrUniquenessViolation) {
+		t.Errorf("assign: error = %v, want ErrUniquenessViolation", err)
+	}
+
+	calcSrc := `
+	package test {
+		private import ScalarValues::*;
+		calc def Pass { in xs : Integer[*]; return : Integer[*] = xs; }
+		calc def Twice { in x : Integer; return : Integer[*] = (x, x); }
+	}`
+	for name, args := range map[string][]Value{"Pass": {repeated}, "Twice": {constInt(7)}} {
+		if err := calcErrorWithLibraries(t, calcSrc, name, args, 10000); !errors.Is(err, ErrUniquenessViolation) {
+			t.Errorf("%s: error = %v, want ErrUniquenessViolation", name, err)
+		}
 	}
 }
 

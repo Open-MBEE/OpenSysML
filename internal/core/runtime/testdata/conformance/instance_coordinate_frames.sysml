@@ -26,7 +26,7 @@ package test {
 		attribute spatialCF : CartesianSpatial3dCoordinateFrame[1] { :>> mRefs = (m, m, m); }
 		attribute velocityCF : CartesianVelocity3dCoordinateFrame[1] = spatialCF / s;
 		attribute accelerationCF : CartesianAcceleration3dCoordinateFrame[1] = velocityCF / s;
-		attribute velocityAxes : SpeedUnit[3] = velocityCF.mRefs;
+		attribute velocityAxes : SpeedUnit[3] nonunique = velocityCF.mRefs;
 		attribute scaledCF : CoordinateFrame = MeasurementRefCalculations::'CoordinateFrame*'(spatialCF, s);
 		attribute sameCF : Boolean = spatialCF / s == velocityCF;
 

@@ -282,7 +282,7 @@ package Compiled {
 		calc def LtS { in x : Integer[0..*]; return : Boolean = x < 1; }
 		calc def AndS { in x : Boolean[0..*]; return : Boolean = x and true; }
 		calc def AndS2 { in x : Boolean[0..*]; return : Boolean = true and x; }
-		calc def NotS { in x : Boolean[0..*]; return : Boolean = not x; }
+		calc def NotS { in x : Boolean[0..*] nonunique; return : Boolean = not x; }
 		calc def IfS { in x : Boolean[0..*]; return : Integer = if x ? 1 else 2; }
 		calc def NegS { in x : Integer[0..*]; return : Integer = -x; }
 		calc def EqS { in x : Integer[0..*]; return : Boolean = x == 1; }
@@ -301,12 +301,12 @@ package Compiled {
 		calc def MinR { in x : Integer[0..*]; return : Real = x->minimize {in v; v / 2}; }
 		calc def RedN { in x : Integer[0..*]; return : Integer = x->reduce {in a; in b; a + b} + 1; }
 		calc def FA { in x : Integer[0..*]; return : Boolean = x->forAll {in v; v > 0 or v / 0 > 1}; }
-		calc def Col2 { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; (v, v)}; }
+		calc def Col2 { in x : Integer[0..*]; return : Integer[0..*] nonunique = x->collect {in v; (v, v)}; }
 		calc def Sz { in x : Integer[0..*]; return : Integer = size(x) + x->size(); }
 		calc def Hd { in x : Integer[0..*]; return : Integer = head(x); }
 		calc def Hd2 { in x : Integer[0..*]; return : Integer[0..1] = head(x); }
-		calc def CmpS { in x : Integer[0..*]; in y : Integer[0..*]; return : Boolean = x == y; }
-		calc def Nst { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; x->select {in w; w > v}}; }
+		calc def CmpS { in x : Integer[0..*]; in y : Integer[0..*] nonunique; return : Boolean = x == y; }
+		calc def Nst { in x : Integer[0..*]; return : Integer[0..*] nonunique = x->collect {in v; x->select {in w; w > v}}; }
 		calc def Rng2 { in n : Integer; return : Integer = sum(1..n); }
 		calc def M2 { in x : Integer[2..3]; return : Integer = size(x); }
 		calc def Ret2 { in x : Integer[0..*]; return : Integer[2..3] = x; }
@@ -334,12 +334,18 @@ package Compiled {
 		calc def ExAt { in x : Integer[0..*]; in i : Integer; in j : Integer; return : Integer[0..*] = excludingAt(x, i, j); }
 		calc def ForR { in x : Integer[0..*]; attribute s : Real = 0.0; for v in x { assign s := s + v; } return : Real = s; }
 		calc def Churn { in n : Integer; attribute i : Integer = 0; attribute total : Integer = 0; attribute keep : Integer[0..*] = (); while i < n { attribute s : Integer[0..*] = 1..100; assign total := total + size(s); assign keep := including(keep, i); assign i := i + 1; } return : Integer = total + size(keep); }
-		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(i % 100 + 1)); } } return : Real[0..*] = keep; }
-		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] = (); loop { assign i := i + 1; attribute s : Integer[0..*] = including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] = keep; }
-		calc def ChurnNest { in n : Integer; attribute keep : Integer[0..*] = (); attribute inner : Integer[0..*] = (); attribute i : Integer = 0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0; } assign i := i + 1; } return : Integer = size(keep) + size(inner); }
+		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] nonunique = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(i % 100 + 1)); } } return : Real[0..*] nonunique = keep; }
+		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] nonunique = (); loop { assign i := i + 1; attribute s : Integer[0..*] = including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] nonunique = keep; }
+		calc def ChurnNest { in n : Integer; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Integer = 0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0; } assign i := i + 1; } return : Integer = size(keep) + size(inner); }
 		calc def ForB { in n : Integer; attribute s : Integer = 0; for v in 1..n { for w in 1..v { assign s := s + w; } } return : Integer = s; }
 		calc def RS { in x : Integer[0..*]; return : Real = RealFunctions::sum(x); }
 		calc def MaxS { in x : Real[0..*]; return : Real = x->maximize {in v; v}; }
+		// Unique by default: a repeated argument, result or assigned value is refused.
+		calc def UniqI { in x : Integer[0..*]; return : Integer[0..*] = including(x, 1); }
+		calc def UniqR { in x : Real[0..*]; return : Real[0..*] = x; }
+		calc def UniqB { in x : Boolean[0..*]; return : Boolean[0..*] = x; }
+		calc def UniqAs { in n : Integer; attribute keep : Integer[0..*] = (); for i in 1..n { assign keep := including(keep, i % 3); } return : Integer = size(keep); }
+		calc def UniqLoc { in x : Integer[0..*]; attribute y : Integer[0..*] = x; return : Integer = size(y); }
 	}
 
 	// Overloads: the declaration a call compiles to is the one its arguments

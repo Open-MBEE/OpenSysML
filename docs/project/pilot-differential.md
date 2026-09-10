@@ -208,7 +208,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 369 files)
+## Results (pilot `2026-07`, 370 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -216,10 +216,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 50 | 4 | 6 | 0 | 0 | 4 | 6 |
-| `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
+| `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
 | `examples` | 35 | 26 | 2 | 575 | 0 | 1 | 1 | 574 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **369** | **338** | **57** | **636** | **34** | **2** | **21** | **600** |
+| **Total** | **370** | **338** | **62** | **636** | **34** | **2** | **26** | **600** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -233,7 +233,10 @@ then takes `kerml-examples` to **4**. Our diagnostics on those roots therefore f
 `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because no SysML v2
 spelling of it exists. It carried 64 before the demos were rewritten to standard notation: the
 succession shorthands retired 30, removing `initial <state>;` and `transition <src> to <tgt>;`
-retired 27 more, and the standard-notation round below retired the last 7. **Those that remain are
+retired 27 more, and the standard-notation round below retired the last 7. `testdata` carries 8:
+the 3 adjudicated below and the 5 value-uniqueness diagnostics of `passes/unique_values.sysml`, a
+fixture that exists to draw them (see [Value uniqueness](#value-uniqueness-only-ours-5)) — the
+pilot has no value-level uniqueness constraint, so all 5 are one-sided by construction. **Those that remain are
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
 reference corpora is **11** — of which one, the `Behaviors.kerml` advisory, is deliberate and
@@ -510,7 +513,7 @@ Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 `units`, 1 `kind-mismatch`; `kerml-examples` 3 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 2
+[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
 `examples` 10 syntax, 15 `unmapped`, 262 `kind-mismatch`, 287 `unresolved-reference` — of which
@@ -587,11 +590,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **338 / 21 / 57** |
+| overall: fully agreeing / only ours / our diagnostics | **338 / 26 / 62** |
 | only pilot | **600** |
 | pilot diagnostics | **636** |
 | severity-only | **2** |
-| unmapped, our side | **19** |
+| unmapped, our side | **24** |
 | kerml-examples: only ours | **4** |
 | pilot-examples: only ours | **7** |
 | examples: only pilot | **574** |
@@ -740,7 +743,8 @@ Nothing else moves: the file draws no diagnostic from this implementation, so `f
 
 ### Only ours — candidate false positives (3, SysML side)
 
-The three diagnostics below are the `testdata` only-ours set. The six cycle diagnostics on the
+The three diagnostics below are the `testdata` only-ours set apart from the five uniqueness
+diagnostics adjudicated in [Value uniqueness](#value-uniqueness-only-ours-5). The six cycle diagnostics on the
 `probes` root are adjudicated with F4 below, the KerML root has its own tables further down,
 and the 373 diagnostics on the two OMG SysML roots are adjudicated in
 [SysML corpora — only ours](#sysml-corpora--only-ours-373), which supersedes this paragraph's
@@ -760,6 +764,27 @@ are gone from the three files listed in the movement table above.
 | ~~`passes/errors.sysml:4`, `resolve/errors.sysml:4`~~ | ~~`unresolved reference: Nowhere`~~ | **No longer a disagreement.** These were negative fixtures where the pilot was silent only because a bare `import` earlier in the same file broke its parse before it got there (see P1). Since F2 gave our fixtures an explicit visibility, the pilot parses them and reports `Nowhere` too: both rows are now agreement. |
 | `passes/constraints.sysml:2,3` | `A`/`B` `participates in a specialization cycle` (`unmapped`) | **Ours is right, and the pilot has no such check** — settled by F4, both by reading its validators and by probing it on clean files (see [Specialization cycles](#specialization-cycles-f4)). The silence is not a parse cascade of the kind P1 describes: the same three cycle shapes in files with nothing else in them are accepted by the pilot with zero diagnostics. A one-sided finding, so it is our extension of the reference rather than a disagreement — kept `unmapped` because no coarse category honestly covers it. |
 | `passes/constraints.sysml:9` | `multiplicity lower bound exceeds upper bound on lo` | **Ours is right**: `part lo [5..2];`. No pilot counterpart. |
+
+### Value uniqueness — only ours (5)
+
+`testdata/passes/unique_values.sysml` binds repeated literal values to multi-valued features that
+are unique — either by KerML's default (`attribute xs : Integer[*] = (1, 1);`, `Integer[*] ordered`,
+`Real[*]` holding `1` and `1.0`, `String[*]` holding `"a"` twice) or by the library's declaration
+(`OrderedSet { :>> elements = (1, 1, 2); }`). KerML 1.0 §7.3.4.4: "The default is that the feature is
+unique"; §8.3.3.3.1 shows `+isUnique : Boolean = true`; a `nonunique` feature is the one whose
+values may repeat. Each of the five draws `<value> is written at positions i and j of a unique
+feature` (`unmapped`, error) at lines 6, 8, 10, 13 and 14; the same file's `nonunique`, `Bag`, `Set`
+and distinct-value declarations draw nothing, and its `dynamic` declaration is deferred to the
+runtime because equality is not decidable from the literal.
+
+**Ours is right, and the pilot has no such check.** Its validators enforce uniqueness only as a
+declaration constraint — `validateSubsettingUniquenessConformance` rejects a `nonunique`
+redefinition of a unique feature — and its evaluator returns `1, 1, 2` for the `OrderedSet`
+above without complaint (`go run ./cmd/pilot-exec-diff`, and the reading in
+[omg-issues.md](omg-issues.md)). A one-sided finding rather than a disagreement, kept `unmapped`
+because no coarse category covers it. The runtime side of the same rule — a typed
+`uniqueness violation` on a dynamic write — is out of the pilot's reach for the reasons the
+[execution referee](pilot-execution-referee.md) records.
 
 ### SysML corpora — only ours (373)
 

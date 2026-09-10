@@ -86,6 +86,8 @@ type Model struct {
 	redefClosure               map[*symbols.Symbol]map[*symbols.Symbol]bool
 	computingRedefClosure      map[*symbols.Symbol]bool
 	computingRedefinedFeatures int
+	// unique memoizes each feature's effective uniqueness (see uniqueness.go).
+	unique map[*symbols.Symbol]bool
 	// ctorSlots memoizes each type's constructible features (see shape.go).
 	ctorSlots map[*symbols.Symbol]constructorSlots
 	// members and shapes memoize MembersOf and ShapeFeatures once the member
@@ -137,6 +139,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		redefMaskInherited:    make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
+		unique:                make(map[*symbols.Symbol]bool),
 		ctorSlots:             make(map[*symbols.Symbol]constructorSlots),
 		members:               make(map[memberKey][]*symbols.Symbol),
 		shapes:                make(map[*symbols.Symbol][]ShapeFeature),

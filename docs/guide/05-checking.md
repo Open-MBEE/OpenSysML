@@ -93,6 +93,25 @@ part System {
 }
 ```
 
+A multi-valued feature is **unique** unless it says `nonunique`: no two of its values may be
+equal, whatever its order. Repeats need the keyword.
+```sysml
+package Readings {
+    private import ScalarValues::*;
+    attribute channels : Integer[*] ordered = (3, 1, 2);            // fine, order kept
+    attribute levels : Integer[*] = (1, 1, 2);                      // error
+    attribute samples : Real[*] nonunique = (0.5, 0.5, 0.7);        // fine, three values
+}
+```
+```
+readings.sysml:4:41: error: 1 (an Integer) is written at positions 1 and 2 of a unique feature
+```
+The check reports a repeat it can decide from the text; one that only appears when the model runs
+— a value reaching a feature through another feature, an `assign`, a calc's argument or result —
+is refused at that write with the same wording (`uniqueness violation`), and the feature keeps the
+value it had. Nothing is dropped silently: a `(1, 1, 2)` is not quietly read as `(1, 2)`. A
+`Collections::Set` or `Map` is the exception, since throwing away repeats is what a set does.
+
 ## Casts, the unbounded value and metadata
 
 **Casts:** `x as T` selects rather than converts. It yields `x` where `T` classifies the value `x`

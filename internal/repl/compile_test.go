@@ -140,6 +140,11 @@ var compiledCases = []compiledCase{
 	{"Seq::ForB", []string{"4"}}, {"Seq::ForB", []string{"0"}},
 	{"Seq::RS", []string{"(1,2,3)"}}, {"Seq::RS", []string{"null"}}, {"Seq::RS", []string{"4"}},
 	{"Seq::MaxS", []string{"(1.5,2.5)"}}, {"Seq::MaxS", []string{"null"}},
+	{"Seq::UniqI", []string{"(2,3)"}}, {"Seq::UniqI", []string{"(2,2)"}}, {"Seq::UniqI", []string{"(1,2)"}}, {"Seq::UniqI", []string{"null"}},
+	{"Seq::UniqR", []string{"(1.5,2.5)"}}, {"Seq::UniqR", []string{"(0.0,-0.0)"}}, {"Seq::UniqR", []string{"(1.5,2.5,1.5)"}},
+	{"Seq::UniqB", []string{"(true,false)"}}, {"Seq::UniqB", []string{"(false,true,false)"}},
+	{"Seq::UniqAs", []string{"3"}}, {"Seq::UniqAs", []string{"4"}},
+	{"Seq::UniqLoc", []string{"(1,2)"}}, {"Seq::UniqLoc", []string{"(1,1)"}},
 	{"Overloads::PickInt", []string{"7"}}, {"Overloads::PickReal", []string{"7.0"}}, {"Overloads::PickFlag", []string{"true"}},
 	{"Overloads::PickQualified", []string{"7"}}, {"Overloads::PickQualified", []string{"-7"}},
 }

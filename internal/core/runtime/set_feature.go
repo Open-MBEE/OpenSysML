@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -9,49 +8,17 @@ import (
 // The library Collections declare `elements` once as nonunique, at the root,
 // and redefine it unique (UniqueCollection, Map) or ordered (OrderedCollection).
 const (
-	collectionType            = "Collections::Collection"
-	collectionElementsName    = "elements"
-	collectionElementsFeature = collectionType + "::" + collectionElementsName
-	orderedCollectionType     = "Collections::OrderedCollection"
+	collectionType         = "Collections::Collection"
+	collectionElementsName = "elements"
 )
 
 // holdsSet reports whether a multi-valued feature of typeSym holds a set rather
-// than a sequence. That is `elements` of a library Collection whose own
-// redefinition of it is unique and not ordered — Set's and Map's, not Bag's,
-// which inherits the nonunique root, and not OrderedSet's or OrderedMap's —
-// unless the feature itself is declared ordered or nonunique.
+// than a sequence (semantics.Model.HoldsSet); a single-valued feature holds neither.
 func (ctx *Context) holdsSet(feat, typeSym *symbols.Symbol, mult semantics.Range) bool {
 	if feat == nil || ctx.model == nil || !mult.Upper.Infinite && mult.Upper.Value <= 1 {
 		return false
 	}
-	if declaredOrderedOrNonunique(feat) {
-		return false
-	}
-	root := ctx.librarySymbol(collectionElementsFeature)
-	if root == nil || !ctx.specializes(feat, root) {
-		return false
-	}
-	if ctx.specializes(typeSym, ctx.librarySymbol(orderedCollectionType)) {
-		return false
-	}
-	redefined := ctx.libraryDeclared(feat) && feat != root
-	for _, sup := range ctx.model.AllSupertypes(feat) {
-		if sup == root || !ctx.libraryDeclared(sup) || !ctx.specializes(sup, root) {
-			continue
-		}
-		if declaredOrderedOrNonunique(sup) {
-			return false
-		}
-		redefined = true
-	}
-	return redefined
-}
-
-// declaredOrderedOrNonunique reports whether a feature's own declaration says
-// ordered or nonunique.
-func declaredOrderedOrNonunique(feat *symbols.Symbol) bool {
-	usage, ok := feat.Decl.(*ast.Usage)
-	return ok && (usage.IsOrdered || usage.IsNonunique)
+	return ctx.model.HoldsSet(feat, typeSym)
 }
 
 // specializes reports whether sym is general, or has it among its supertypes.

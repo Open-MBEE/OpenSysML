@@ -145,7 +145,7 @@ func TestValueNestedCollectionElementTypes(t *testing.T) {
 	}`, "cannot bind a value of type Size to a feature typed by Color")
 	wantNoValueDiags(t, `package P {
 		attribute xs : ScalarValues::Integer[1..*] = (1, ((), (2, 3)));
-		attribute cs : M::Color[*] = (M::Color::red, (M::Color::red, M::Color::red));
+		attribute cs : M::Color[*] nonunique = (M::Color::red, (M::Color::red, M::Color::red));
 	}`)
 }
 
@@ -690,4 +690,70 @@ func TestConstructorCollectionElementsAreJudgedSeverally(t *testing.T) {
 		part f = new Fleet(vs.{ in v : Vehicle; boat }, vs.{ in v : Vehicle; 1 });
 		part f2 = new Fleet(n = vs.{ in v : Vehicle; h });
 		part f3 = new Fleet((boat, vs.{ in v : Vehicle; boat }));`)
+}
+
+// A multi-valued feature is unique unless declared nonunique (KerML 7.3.4.4), so a
+// literal repeating a constant is refused where it is written; nonunique accepts it.
+func TestValueUniqueFeatureRefusesRepeatedConstant(t *testing.T) {
+	wantOneValueDiag(t,
+		`package P { attribute xs : ScalarValues::Integer[*] = (1, 1); }`,
+		"1 (an Integer) is written at positions 1 and 2 of a unique feature")
+	wantOneValueDiag(t,
+		`package P { attribute xs : ScalarValues::Integer[*] ordered = (3, 1, 2, 1 + 0); }`,
+		"1 (an Integer) is written at positions 2 and 4 of a unique feature")
+	wantOneValueDiag(t,
+		`package P { attribute xs : ScalarValues::Real[*] = (1.5, 2.0, 1.5); }`,
+		"1.5 (a Real) is written at positions 1 and 3 of a unique feature")
+	wantOneValueDiag(t,
+		`package P { attribute bs : ScalarValues::Boolean[*] = (true, false, true); }`,
+		"true (a Boolean) is written at positions 1 and 3 of a unique feature")
+	wantOneValueDiag(t,
+		`package P { attribute ss : ScalarValues::String[*] = ("a", "b", "a"); }`,
+		"\"a\" (string) is written at positions 1 and 3 of a unique feature")
+	wantOneValueDiag(t,
+		`package P { attribute cs : M::Color[*] = (M::Color::red, M::Color::green, M::Color::red); }`,
+		"Color::red (enumeration literal) is written at positions 1 and 3 of a unique feature")
+	wantNoValueDiags(t, `package P { attribute xs : ScalarValues::Integer[*] nonunique = (1, 1); }`)
+	wantNoValueDiags(t, `package P { attribute xs : ScalarValues::Integer[*] ordered nonunique = (1, 1); }`)
+	wantNoValueDiags(t, `package P { attribute xs : ScalarValues::Integer[*] = (1, 2, 3); }`)
+}
+
+// An Integer and a Real that compare equal are one value, as they are at run time.
+func TestValueUniqueFeatureComparesAcrossNumericKinds(t *testing.T) {
+	wantOneValueDiag(t,
+		`package P { attribute xs : ScalarValues::Real[*] = (1, 2.5, 1.0); }`,
+		"1.0 (a Real) is written at positions 1 and 3 of a unique feature")
+}
+
+// Only an equality the literal decides is reported: a computed element is the run time's.
+func TestValueUniqueFeatureLeavesDynamicElementsToRuntime(t *testing.T) {
+	wantNoValueDiags(t, `package P {
+		attribute n : ScalarValues::Integer;
+		attribute xs : ScalarValues::Integer[*] = (1, n, 1 + n);
+	}`)
+	wantOneValueDiag(t, `package P {
+		attribute n : ScalarValues::Integer;
+		attribute xs : ScalarValues::Integer[*] = (1, n, 1);
+	}`, "1 (an Integer) is written at positions 1 and 3 of a unique feature")
+}
+
+// A redefinition stating neither keyword takes the uniqueness of what it redefines
+// (KerML 7.3.4.5), so Bag's elements stay nonunique and OrderedSet's unique.
+func TestValueUniquenessFollowsRedefinition(t *testing.T) {
+	wantNoValueDiags(t, `package P {
+		part def Base { attribute xs : ScalarValues::Integer[*] nonunique; }
+		part def Derived :> Base { attribute :>> xs = (1, 1); }
+	}`)
+	wantOneValueDiag(t, `package P {
+		part def Base { attribute xs : ScalarValues::Integer[*]; }
+		part def Derived :> Base { attribute :>> xs = (1, 1); }
+	}`, "1 (an Integer) is written at positions 1 and 2 of a unique feature")
+}
+
+// The count check precedes the uniqueness check, so a literal both too long and
+// repeating a value is reported for its count alone.
+func TestValueCountViolationPrecedesUniqueness(t *testing.T) {
+	wantOneValueDiag(t,
+		`package P { attribute xs : ScalarValues::Integer[2] = (1, 1, 1); }`,
+		"3 value(s) bound to a feature with multiplicity upper bound 2")
 }

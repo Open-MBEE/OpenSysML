@@ -10,8 +10,9 @@ import (
 
 // bind coerces v to the shape of binding b at where: a scalar binding takes the
 // one value v holds, a collection binding views a scalar as one element and
-// checks multiplicity and range.
-func (fc *funcCompiler) bind(v Expr, b binding, where string) (Expr, error) {
+// checks multiplicity, range and uniqueness. A run-time failure names the site
+// as the interpreter does, by label.
+func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, error) {
 	if b.t.Elem() == TypeReal && v.Type().Elem() == TypeInt {
 		v = ToReal{X: v}
 	}
@@ -21,10 +22,10 @@ func (fc *funcCompiler) bind(v Expr, b binding, where string) (Expr, error) {
 		case vt == b.t:
 			return v, nil
 		case vt == TypeNull:
-			return ToOne{X: fc.retype(v, b.t.Seq()), Where: where}, nil
+			return ToOne{X: fc.retype(v, b.t.Seq()), Where: label}, nil
 		case vt.Many() && vt.Elem() == b.t:
 			fc.c.collections = true
-			return ToOne{X: v, Where: where}, nil
+			return ToOne{X: v, Where: label}, nil
 		}
 		return nil, fc.unsupported(fmt.Sprintf("a %s bound at %s, which holds %s", vt, where, b.t))
 	}
@@ -33,10 +34,10 @@ func (fc *funcCompiler) bind(v Expr, b binding, where string) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if b.m == MultAny && b.r == RangeAny {
+	if b.m == MultAny && b.r == RangeAny && !b.unique {
 		return many, nil
 	}
-	return Checked{X: many, M: b.m, R: b.r, Where: where}, nil
+	return Checked{X: many, M: b.m, R: b.r, Unique: b.unique, Where: label}, nil
 }
 
 // toMany views v as a collection of type t.

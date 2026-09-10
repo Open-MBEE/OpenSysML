@@ -30,6 +30,6 @@ package test {
 	}
 
 	calc def tags {
-		return : String[3] = (t.tag, tagOf(t), pass(named).tag);
+		return : String[3] nonunique = (t.tag, tagOf(t), pass(named).tag);
 	}
 }
