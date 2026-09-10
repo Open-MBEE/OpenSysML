@@ -40,6 +40,8 @@ package test {
 	calc def Not { in b : Boolean; return : Boolean = not b; }
 	calc def Least { return : Integer = -9223372036854775808; }
 	calc def Dflt { in a : Integer; in b : Integer = 10; in c : Real = 2.5; return : Real = a + b * c; }
+	calc def SameReal { in r : Real; return : Real = r; }
+	calc def SameRational { in q : Rational; return : Rational = q; }
 	calc def Natural1 { in n : Natural; return : Natural = n - 1; }
 	calc def Positive1 { in n : Positive; return : Positive = n - 1; }
 	calc def TailPos { in a : Integer; return : Rank; a - 1 }
@@ -244,6 +246,10 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 	wantErrorIs(t, "TailPos", wantSameOutcome(t, "TailPos", intArg(1)), ErrTypeMismatch)
 	realForInt := wantSameOutcome(t, "Add", realArg(1.5), intArg(1))
 	wantErrorIs(t, "Add", realForInt, ErrTypeMismatch)
+	wantOutcomeReal(t, "SameReal(Inf)", wantSameOutcome(t, "SameReal", realArg(math.Inf(1))), math.Inf(1))
+	wantOutcomeReal(t, "SameRational(1.5)", wantSameOutcome(t, "SameRational", realArg(1.5)), 1.5)
+	wantErrorIs(t, "SameReal", wantSameOutcome(t, "SameReal", realArg(math.NaN())), ErrTypeMismatch)
+	wantErrorIs(t, "SameRational", wantSameOutcome(t, "SameRational", realArg(math.NaN())), ErrTypeMismatch)
 	boolForInt := wantSameOutcome(t, "Add", boolArg(true), intArg(1))
 	wantErrorIs(t, "Add", boolForInt, ErrTypeMismatch)
 	intForBool := wantSameOutcome(t, "Not", intArg(1))

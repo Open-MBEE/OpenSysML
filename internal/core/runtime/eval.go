@@ -1497,10 +1497,15 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		case semantics.ValInt:
 			name = "Integer"
 		case semantics.ValReal:
-			// A finite real is a rational (KerML 8.4.4.9.2): only infinities need Real.
-			name = "Rational"
-			if math.IsInf(value.Const.Real, 0) {
+			// A finite real is a rational (KerML 8.4.4.9.2): only infinities need Real,
+			// and a NaN is no number at all.
+			switch realRepresentationPrim(value.Const.Real) {
+			case semantics.PrimRational:
+				name = "Rational"
+			case semantics.PrimReal:
 				name = "Real"
+			default:
+				return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
 			}
 		case semantics.ValBool:
 			name = "Boolean"
@@ -1542,6 +1547,9 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		}
 		return ctx.directValueType(scope, Value{Kind: ValConst, Const: value.Quantity().Num})
 	case ValComplex:
+		if isNaN(value) {
+			return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
+		}
 		name = "Complex"
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		return ctx.structuredValueType(value)

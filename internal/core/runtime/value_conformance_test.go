@@ -2,8 +2,10 @@ package runtime
 
 import (
 	"errors"
+	"math"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -486,6 +488,54 @@ func TestSequenceIndexAcceptsAWholeValuedReal(t *testing.T) {
 	for _, expr := range []string{"xs#(0)", "xs#(-1)", "xs#(8 / 2)", "xs#(0 / 2)"} {
 		if _, err := evalIn(t, ctx, scope, expr); !errors.Is(err, ErrIndexOutOfRange) {
 			t.Errorf("%s: error = %v, want ErrIndexOutOfRange", expr, err)
+		}
+	}
+}
+
+// A NaN's representation states no scalar type, so it is of none: `istype` and `hastype`
+// answer false against every ScalarValues type, a write refuses it, and its direct type is
+// undetermined, while an infinity is a Real and a finite real a Rational as before.
+func TestNaNIsOfNoScalarType(t *testing.T) {
+	ctx, _, scope := valueConformanceContext(t)
+	nan := realArg(math.NaN())
+	complexNaN := NewComplex(complex(math.NaN(), 0))
+
+	for _, name := range []string{"Real", "Rational", "Integer", "Complex", "Number", "ScalarValue"} {
+		target := ctx.librarySymbol("ScalarValues::" + name)
+		if target == nil {
+			t.Fatalf("ScalarValues::%s not loaded", name)
+		}
+		for _, value := range []Value{nan, complexNaN} {
+			for _, by := range []classifiedBy{byAnyType, byOwnType} {
+				verdict, err := ctx.classifyValue(scope, value, target, nil, by)
+				if err != nil || verdict != semantics.ClassifiesNone {
+					t.Errorf("classify %s as %s (by %d) = %v, %v; want ClassifiesNone", FormatValue(value), name, by, verdict, err)
+				}
+			}
+			conforms, _, err := ctx.valueConforms(scope, &value, target, admitWritten)
+			if err != nil || conforms {
+				t.Errorf("valueConforms(%s, %s) = %v, %v; want false", FormatValue(value), name, conforms, err)
+			}
+			if _, err := ctx.directValueType(scope, value); !errors.Is(err, ErrUndeterminedValueType) {
+				t.Errorf("directValueType(%s) error = %v, want ErrUndeterminedValueType", FormatValue(value), err)
+			}
+		}
+	}
+
+	for _, tc := range []struct {
+		value Value
+		want  string
+	}{
+		{realArg(math.Inf(1)), "ScalarValues::Real"},
+		{realArg(2.0), "ScalarValues::Rational"},
+		{intArg(2), "ScalarValues::Integer"},
+	} {
+		typ, err := ctx.directValueType(scope, tc.value)
+		if err != nil {
+			t.Fatalf("directValueType(%s): %v", FormatValue(tc.value), err)
+		}
+		if got := ctx.librarySymbol(tc.want); typ != got {
+			t.Errorf("directValueType(%s) = %s, want %s", FormatValue(tc.value), symbolText(typ), tc.want)
 		}
 	}
 }

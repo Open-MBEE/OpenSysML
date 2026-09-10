@@ -32,6 +32,10 @@ func (ctx *Context) classifyValueReading(
 	scope *symbols.Scope, value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 	by classifiedBy, reading map[*symbols.Symbol]bool,
 ) (semantics.TypeClassification, error) {
+	if isNaN(value) {
+		// A NaN states no scalar type, so no type holds it whatever a feature declares.
+		return semantics.ClassifiesNone, nil
+	}
 	types, err := ctx.valueTypes(scope, value)
 	if by == byOwnType {
 		// A direct type is the value's own; what a feature declares of it is not.
@@ -209,6 +213,18 @@ func representationPrim(value Value) semantics.PrimType {
 		}
 	}
 	return semantics.PrimUnknown
+}
+
+// isNaN reports a real or complex value that is not a number.
+func isNaN(value Value) bool {
+	switch value.Kind {
+	case ValComplex:
+		z := value.Complex()
+		return math.IsNaN(real(z)) || math.IsNaN(imag(z))
+	case ValConst:
+		return value.Const.Kind == semantics.ValReal && math.IsNaN(value.Const.Real)
+	}
+	return false
 }
 
 func realRepresentationPrim(x float64) semantics.PrimType {
