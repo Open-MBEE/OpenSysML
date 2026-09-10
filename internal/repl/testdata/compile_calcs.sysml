@@ -408,6 +408,15 @@ package Compiled {
 		calc def TypedSq { in a : Real; return : Real = ApplyTyped(Sq, a) + ApplyTypedOnly(Sq, a); }
 		calc def TypedUsage { in a : Real; return : Real = ApplyTyped(sqUsage, a) + ApplyTypedOnly(sqUsage, a); }
 		calc def TypedSub { in a : Real; return : Real = ApplyTyped(SubSq, a) + ApplyTypedOnly(SubSq, a); }
+		// A parameter is named by its qualified name too, through the calc declaring
+		// it, and a member-less specialization runs the body it inherits.
+		calc def ApplyQual { in calc f { in v : Real; return : Real; } in a : Real; return : Real = ApplyQual::f(a) + Compiled::Fn::ApplyQual::f(1.0); }
+		calc def SubApplyQual :> ApplyQual;
+		calc def QualSq { in a : Real; return : Real = ApplyQual(Sq, a) + SubApplyQual(Half, a); }
+		calc def QualByName { in calc f { in v : Real; return : Real; } in a : Real; return : Real = QualByName::f(v = a) + Pass(QualByName::f, a); }
+		calc def QualByNameSq { in a : Real; return : Real = QualByName(Sq, a); }
+		calc def QualRange { in calc f { in v : Real; return : Real; } in xs : Real[0..*]; return : Real[0..*] = Range(Sample(QualRange::f, xs)); }
+		calc def QualRecipRange { in xs : Real[0..*]; return : Real[0..*] = QualRange(Recip, xs); }
 
 		// Sampling: the domain in order, the calc at each, failing at the first that fails.
 		calc def RangeOf { in calc f { in v : Real; return : Real; } in xs : Real[0..*]; attribute s : SampledFunction = Sample(f, xs); return : Real[0..*] = Range(s); }
@@ -432,6 +441,9 @@ package Compiled {
 		calc def DownDomain { in n : Integer; attribute s : SampledFunction = Sample(Down, n); return : Integer[0..*] = Domain(s); }
 		calc def SizeDomain { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Domain(s)); }
 		calc def SizeRange { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Range(s)); }
+		// Each SamplePair taken is three elements: its domainValue, its rangeValue and
+		// its place among the samples, charged on top of the domain it is taken over.
+		calc def SamplePairs { in k : Integer; attribute s : SampledFunction = Sample(Inc, (1..k)->ControlFunctions::select { in x : Integer; x < 3 }); return : Integer = SequenceFunctions::size(Range(s)); }
 	}
 }
 
@@ -496,6 +508,9 @@ package Refused {
 	calc def OuterClosure { in a : Real; return : Real = Compiled::Fn::Apply(BodyClosure::scale, a); }
 	calc def ObjectClosure { in a : Real; return : Real = Compiled::Fn::Apply(twice.scale, a); }
 	calc def ObjectCalc { in a : Real; return : Real = Compiled::Fn::Apply(Scaler::scale, a); }
+	calc def QualifiedReceiver { in calc f { in v : Real; return : Real; } in a : Real; return : Real = a->QualifiedReceiver::f(); }
+	calc def ReceiverQualified { in a : Real; return : Real = QualifiedReceiver(Sq, a); }
+	calc def ForeignQualified { in a : Real; return : Real = Compiled::Fn::ApplyQual::f(a); }
 	calc def SampleArity { in xs : Real[0..*]; return : Real[0..*] = SampledFunctions::Range(SampledFunctions::Sample(Add2, xs)); }
 	calc def SampledValue { in xs : Real[0..*]; attribute s : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); return : Integer = CollectionFunctions::size(s); }
 	calc def SampledEscapes { in xs : Real[0..*]; return : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); }

@@ -93,6 +93,7 @@ func (e *env) lookup(n string) (binding, bool) {
 type funcCompiler struct {
 	c     *Compiler
 	fn    *Func
+	sym   *symbols.Symbol
 	scope *symbols.Scope
 	env   env
 	// result is the return binding once a declaration or a return has fixed it.
@@ -134,7 +135,7 @@ func (c *Compiler) compileCalcWith(sym *symbols.Symbol, fargs []funcValue) (*Fun
 	c.funcs[key] = fn
 	c.order = append(c.order, fn)
 
-	fc := &funcCompiler{c: c, fn: fn, scope: sym.Scope}
+	fc := &funcCompiler{c: c, fn: fn, sym: sym, scope: sym.Scope}
 	fc.env.push()
 	nextFn := 0
 	for _, member := range unwrapped(body) {
@@ -951,13 +952,11 @@ func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
 		return nil, fc.unsupported("an invocation naming no calc")
 	}
 	// A name bound as an `in calc` parameter applies the function value it holds.
-	if len(n.Type.Parts) == 1 && !n.Type.Global {
-		if b, ok := fc.env.lookup(n.Type.Parts[0].Text); ok && b.fn != nil {
-			if n.Operand != nil {
-				return nil, fc.unsupported("an invocation of a function value with a receiver (`x->f()`)")
-			}
-			return fc.applyFunction(*b.fn, n)
+	if f, ok := fc.boundFunction(n.Type); ok {
+		if n.Operand != nil {
+			return nil, fc.unsupported("an invocation of a function value with a receiver (`x->f()`)")
 		}
+		return fc.applyFunction(*f, n)
 	}
 	// The declaration the checker and interpreter select by the arguments' types.
 	sel := passes.SelectInvocation(fc.c.resolver, fc.c.model, fc.scope, n, semantics.PerformsBehavior)

@@ -483,8 +483,8 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 	return "", false
 }
 
-// sample declares a Sample's two variables and fills them one frame deeper,
-// charging each domain element's pair as its value is computed.
+// sample declares a Sample's two variables and fills them one frame deeper. Each
+// pair is three elements, as the library's `new SamplePair` in a `collect` is.
 func (e *goEmitter) sample(s Sample) string {
 	dom, rng := goLocal(s.Dom), goLocal(s.Rng)
 	x := goLocal(s.Body.Params[0].Name)

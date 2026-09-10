@@ -504,8 +504,8 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 	return "", false
 }
 
-// sample declares a Sample's two variables and fills them one frame deeper,
-// charging each domain element's pair as its value is computed.
+// sample declares a Sample's two variables and fills them one frame deeper. Each
+// pair is three elements, as the library's `new SamplePair` in a `collect` is.
 func (e *cEmitter) sample(s Sample) string {
 	e.temps++
 	n := e.temps

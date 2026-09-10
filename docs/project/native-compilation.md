@@ -124,13 +124,16 @@ arithmetic rather than the host language's:
 - **Function values** exist only at compile time. `Apply(Sq, a)` calls a specialization of
   `Apply` in which `f(a)` is the direct call `Sq(a)`, so `f`'s arguments bind, evaluate and fail
   exactly as a direct invocation of `Sq` does — by `Sq`'s own parameter names, with `Sq`'s own
-  arity, at the same depth against the recursion budget. `Sample(f, xs)` computes `f` at each
-  domain value in order when the sample is taken, so the first failing element is the one
-  reported and an unbound `xs` samples to `[]` as the library's `collect` does. `Sample`,
-  `Domain` and `Range` are the library calcs they are in the interpreter: each is one frame
-  against the recursion budget, so a sampled calc recursing to the limit fails at the same
-  depth, and each `Domain` or `Range` read collects a fresh sequence charged to the element
-  budget, the sample's own `SamplePair`s being charged as they are taken.
+  arity, at the same depth against the recursion budget. The parameter is `f` or its qualified
+  name through the calc declaring it, `Apply::f` and `Pkg::Apply::f`, as the interpreter reads
+  it from that calc's run. `Sample(f, xs)` computes `f` at each domain value in order when the
+  sample is taken, so the first failing element is the one reported and an unbound `xs` samples
+  to `[]` as the library's `collect` does. `Sample`, `Domain` and `Range` are the library calcs
+  they are in the interpreter: each is one frame against the recursion budget, so a sampled calc
+  recursing to the limit fails at the same depth; each `SamplePair` is the three elements the
+  library's `new SamplePair` in a `collect` holds (its domain value, its range value and its
+  place among the samples), charged as it is taken, and each `Domain` or `Range` read collects a
+  fresh sequence charged to the element budget.
 - **Output** uses the interpreter's `FormatReal` convention: positional notation with a `.0` on
   whole values, exponent notation below `1e-4` and from `1e21`, `-0.0` preserved. A sequence
   prints as `[1, 2]`, an empty one as `[]`, an unbound value as `null`.

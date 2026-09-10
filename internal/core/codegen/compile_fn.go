@@ -128,6 +128,46 @@ func (fc *funcCompiler) hasUnsuppliedInput(sym *symbols.Symbol) (bool, error) {
 	return false, nil
 }
 
+// boundFunction is the function value the body being compiled binds the name qn
+// to: an `in calc` parameter by its own name, or qualified by the calc declaring
+// it (`Apply::f`, `Pkg::Apply::f`), which the interpreter reads from the run of
+// that calc. False when qn names anything else.
+func (fc *funcCompiler) boundFunction(qn *ast.QualifiedName) (*funcValue, bool) {
+	if qn == nil || len(qn.Parts) == 0 {
+		return nil, false
+	}
+	if len(qn.Parts) == 1 {
+		if qn.Global {
+			return nil, false
+		}
+		b, ok := fc.env.lookup(qn.Parts[0].Text)
+		if !ok || b.fn == nil {
+			return nil, false
+		}
+		return b.fn, true
+	}
+	// The compiled body has no specialization chain, so the run the qualifier
+	// names is this one exactly when it names the calc declaring the parameter.
+	rd := fc.c.resolver.ReadQualified(fc.scope, qn)
+	sym, ok := rd.Symbol()
+	if !ok || ownerOf(sym) != fc.sym {
+		return nil, false
+	}
+	if qualifier, ok := rd.Part(len(qn.Parts) - 2); !ok || qualifier != fc.sym {
+		return nil, false
+	}
+	u, ok := sym.Decl.(*ast.Usage)
+	if !ok || u.Kind != ast.UsageCalc || (u.Direction != ast.DirIn && u.Direction != ast.DirInOut) {
+		return nil, false
+	}
+	name, _ := ast.EffectiveName(u)
+	b, ok := fc.env.frames[0][name]
+	if !ok || b.fn == nil {
+		return nil, false
+	}
+	return b.fn, true
+}
+
 // compileFuncArg is the function value the argument node names, or the typed
 // refusal naming what it is instead; where names the binding for diagnostics.
 func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, error) {
@@ -151,12 +191,12 @@ func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, 
 		return funcValue{}, fc.unsupported(fmt.Sprintf("%s: expression %T where a function value is expected; a function value must name a calc directly", where, node))
 	}
 	qn := ref.Name
+	if f, ok := fc.boundFunction(qn); ok {
+		return *f, nil
+	}
 	if qn != nil && len(qn.Parts) == 1 && !qn.Global {
 		if b, ok := fc.env.lookup(qn.Parts[0].Text); ok {
-			switch {
-			case b.fn != nil:
-				return *b.fn, nil
-			case b.sampled != nil:
+			if b.sampled != nil {
 				return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a SampledFunction, where a function value is expected", where, qn.Parts[0].Text))
 			}
 			return funcValue{}, fc.unsupported(fmt.Sprintf("%s: %s, a %s, where a function value is expected", where, qn.Parts[0].Text, b.t))
@@ -246,11 +286,11 @@ func (fc *funcCompiler) functionValueName(qn *ast.QualifiedName) (string, bool) 
 	if qn == nil {
 		return "", false
 	}
+	if _, ok := fc.boundFunction(qn); ok {
+		return fmt.Sprintf("the function value %s", qnText(qn)), true
+	}
 	if len(qn.Parts) == 1 && !qn.Global {
-		if b, ok := fc.env.lookup(qn.Parts[0].Text); ok {
-			if b.fn != nil {
-				return fmt.Sprintf("the function value %s", qn.Parts[0].Text), true
-			}
+		if _, ok := fc.env.lookup(qn.Parts[0].Text); ok {
 			return "", false
 		}
 	}

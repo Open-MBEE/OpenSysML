@@ -155,6 +155,8 @@ var compiledCases = []compiledCase{
 	{"Fn::IntBoth", []string{"1"}}, {"Fn::IntBoth", []string{"2"}},
 	{"Fn::Fold2Add", []string{"1.5", "2.0"}},
 	{"Fn::TypedSq", []string{"3.0"}}, {"Fn::TypedUsage", []string{"3.0"}}, {"Fn::TypedSub", []string{"3.0"}},
+	{"Fn::QualSq", []string{"3.0"}}, {"Fn::QualByNameSq", []string{"3.0"}},
+	{"Fn::QualRecipRange", []string{"(1.0,2.0)"}}, {"Fn::QualRecipRange", []string{"(1.0,0.0,2.0)"}},
 	{"Fn::SqRange", []string{"(1.0,2.0,3.0)"}}, {"Fn::SqRange", []string{"null"}}, {"Fn::SqRange", []string{"2.0"}}, {"Fn::SqRange", []string{"()"}},
 	{"Fn::RecipRange", []string{"(1.0,2.0)"}}, {"Fn::RecipRange", []string{"(1.0,0.0,2.0)"}},
 	{"Fn::HalfDomain", []string{"(1.0,2.0)"}}, {"Fn::HalfDomain", []string{"null"}}, {"Fn::HalfDomain", []string{"()"}}, {"Fn::HalfDomain", []string{"2.0"}},
@@ -335,6 +337,8 @@ func TestCompiledBudgetChargesInputsAndWidening(t *testing.T) {
 		// A Domain or Range read collects a sequence of its own: 8 held plus 2 more fit, 9 plus 2 do not.
 		{"Fn::SizeDomain", []string{"2", "8"}}, {"Fn::SizeDomain", []string{"2", "9"}},
 		{"Fn::SizeRange", []string{"2", "8"}}, {"Fn::SizeRange", []string{"2", "9"}},
+		// Two pairs are 6 elements over a domain of 2 selected from 2 (10 fit) or from 3 (11 do not).
+		{"Fn::SamplePairs", []string{"2"}}, {"Fn::SamplePairs", []string{"3"}},
 	}
 	// 5 Integers and their 5 Reals fit the budget of 10; 6 and 6 do not.
 	widened := []struct{ n, sum, want, failure string }{{"5", "15.0", "15.0", ""}, {"6", "21.0", "", "collection element limit exceeded"}}
@@ -471,6 +475,8 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, whose function value closes over that run's bindings"},
 		{"ObjectClosure", "a calc read off an object through a feature chain, whose function value closes over that object"},
 		{"ObjectCalc", "a calc owned by Refused::Scaler, whose function value closes over that object"},
+		{"ReceiverQualified", "an invocation of a function value with a receiver (`x->f()`)"},
+		{"ForeignQualified", "in calc Compiled::Fn::ApplyQual::f: an `in calc` parameter invoked outside the body of the calc declaring it"},
 		{"SampleArity", "Sample of Refused::Add2, which does not take one value argument"},
 		{"SampledValue", "s, a SampledFunction, where a value is expected"},
 		{"SampledEscapes", "type SampledFunctions::SampledFunction is not Integer, Real or Boolean"},
