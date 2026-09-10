@@ -150,11 +150,15 @@ func TestExprQuotientDoesNotBindToWholeNumberFeature(t *testing.T) {
 	attribute q : ScalarValues::Natural = 7 / 2;
 	attribute r : ScalarValues::Natural = i / 2;
 	attribute s : ScalarValues::Integer = 1.5 / 2;
+	attribute neg : ScalarValues::Integer = -(4 / 2);
+	attribute pos : ScalarValues::Natural = +(4 / 2);
 	calc def IntDiv { return : ScalarValues::Integer = 4 / 2; }
 }`,
 		"cannot bind Rational value to a feature typed by Natural",
 		"cannot bind Rational value to a feature typed by Natural",
 		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Natural",
 		"cannot bind Rational value to a feature typed by Integer")
 	wantNoDiags(t, `package P {
 	attribute x : ScalarValues::Real = 4;

@@ -332,12 +332,13 @@ whole number converts with `RationalFunctions::ToInteger`, `RealFunctions::ToInt
 answers `as`, `istype`, `hastype`, `@` and `write_conformance.go` `valueConforms`, so no two of
 them can judge the same value and type differently. The static checker follows the same rule
 where the value's type is settled at its spelling: a literal's type is exact, and a quotient's is
-`Rational` however whole, so `Integer = 7 / 2`, `Natural = i / 2` and an argument `add(4 / 2)` to
-an `Integer` parameter are refused where they are written (`passes/typecheck_expr.go` `bindable`,
-`isQuotient`); a call or a `Real` feature bound to an `Integer` is still left to evaluation, since
-their static type only bounds their values (a `Real` feature may hold an integer, as `rat :
-Rational = 4` shows). Nothing is truncated: a sequence index that evaluates to `2.0` names the
-second element and one that evaluates to `1.5` names none, as before.
+`Rational` however whole or signed, so `Integer = 7 / 2`, `Integer = -(4 / 2)`, `Natural = i / 2`
+and an argument `add(4 / 2)` to an `Integer` parameter are refused where they are written
+(`passes/typecheck_expr.go` `bindable`, `isQuotient`); a call or a `Real` feature bound to an
+`Integer` is still left to evaluation, since their static type only bounds their values (a `Real`
+feature may hold an integer, as `rat : Rational = 4` shows). Nothing is truncated: a sequence
+index that evaluates to `2.0` names the second element and one that evaluates to `1.5` names none,
+as before.
 
 The fixtures that relied on the by-magnitude write were re-adjudicated one by one rather than
 relaxed: an `Integer` or `Natural` feature or parameter that a quotient or a whole real reached

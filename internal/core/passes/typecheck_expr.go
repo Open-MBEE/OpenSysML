@@ -168,10 +168,18 @@ func bindable(value ast.Node, got, want semantics.PrimType) bool {
 	return semantics.PrimConforms(want, got)
 }
 
-// isQuotient reports a division, whose result is a Rational however whole (IntegerFunctions::'/').
+// isQuotient reports a division, signed or not, whose result is a Rational however
+// whole (IntegerFunctions::'/').
 func isQuotient(n ast.Node) bool {
 	op, ok := n.(*ast.OperatorExpr)
-	return ok && op.Operator == ast.OpDiv && len(op.Operands) == 2
+	if !ok {
+		return false
+	}
+	if op.Operator == ast.OpDiv && len(op.Operands) == 2 {
+		return true
+	}
+	return (op.Operator == ast.OpNeg || op.Operator == ast.OpPos) &&
+		len(op.Operands) == 1 && isQuotient(op.Operands[0])
 }
 
 // spellsOneValue reports whether an expression writes its value out: a literal, or a signed one.
