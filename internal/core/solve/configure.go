@@ -163,6 +163,58 @@ func (s *Solver) Configurations(ctx context.Context, q *Query, limit int) (*Resu
 	return s.solve(ctx, q, func(sess *session) (*Result, error) { return sess.enumerate(q, vars, limit) })
 }
 
+// ErrNotDeclared is returned for an enumeration over a variable the query does
+// not declare, which no model of it assigns.
+var ErrNotDeclared = errors.New("the query does not declare it")
+
+// NotDeclaredError names the variable an enumeration was asked over that the
+// query does not declare. It unwraps to ErrNotDeclared.
+type NotDeclaredError struct {
+	// Kind and Element name the query asked about.
+	Kind    string
+	Element string
+
+	// Variable is the name of the variable the query lacks.
+	Variable string
+}
+
+// Error reports which variable the query lacks.
+func (e *NotDeclaredError) Error() string {
+	return fmt.Sprintf("%s %s: enumerating %s: %s", e.Kind, e.Element, e.Variable, ErrNotDeclared)
+}
+
+// Unwrap returns ErrNotDeclared.
+func (e *NotDeclaredError) Unwrap() error { return ErrNotDeclared }
+
+// Enumerate enumerates the distinct assignments to vars the query admits, asking
+// for at most limit of them, each found by its own `check-sat` with the ones
+// already reported denied; a limit of zero or less asks for one. It is
+// Configurations over variables the caller names rather than over the variation
+// points read, for a query whose distinct models are told apart by chosen
+// variables — the moves of a bounded run, say — rather than by every variable.
+// Result.Truncated says the enumeration stopped at its bound rather than having
+// shown there is no other assignment.
+func (s *Solver) Enumerate(ctx context.Context, q *Query, vars []*Var, limit int) (*Result, error) {
+	if q == nil {
+		return nil, fmt.Errorf("solve: no query to enumerate")
+	}
+	if len(vars) == 0 {
+		return nil, fmt.Errorf("%s %s: no variable to enumerate", q.Kind, q.Element)
+	}
+	for _, v := range vars {
+		if !q.declares(v) {
+			return nil, &NotDeclaredError{Kind: q.Kind, Element: q.Element, Variable: v.Name}
+		}
+	}
+	if limit <= 0 {
+		limit = 1
+	}
+	if err := s.require(ctx, q, "enumerating assignments", CapModels, CapIncremental); err != nil {
+		return nil, err
+	}
+	return s.solve(ctx, q, func(sess *session) (*Result, error) { return sess.enumerate(q, vars, limit) })
+}
+
 // enumerate holds the dialogue that reports one configuration per `check-sat`,
 // denying each one it reported before asking again, until the solver answers
 // unsat — which is when the reported ones are all there are — or the bound is
@@ -255,18 +307,25 @@ func (s *session) deny(values []Assignment) error {
 		"(assert (not " + clause + "))\n(check-sat)\n")
 }
 
-// blocking builds the conjunction that holds exactly of the configuration
-// reported, from the values as the notation names them rather than from the
-// solver's own text, so what is denied is a combination of declared variants.
+// blocking builds the conjunction that holds exactly of the assignment reported,
+// from the values decoded into the term language rather than from the solver's
+// own text, so what is denied is a combination of values the sorts declare.
 func (s *session) blocking(values []Assignment) (string, error) {
 	parts := make([]string, 0, len(values))
 	for _, a := range values {
-		if !a.Rendered {
+		value, err := DecodeValue(a)
+		if err != nil {
 			return "", s.solver.processError("get-value",
-				"its model gave "+a.Raw+" for "+a.Var.Name+", which names no variant of "+a.Var.Sort.Name,
+				"its model gave "+a.Raw+" for "+a.Var.Name+", which is no value of "+a.Var.Sort.Name+": "+err.Error(),
 				s.stderrText(), nil)
 		}
-		parts = append(parts, writeTerm(Binary(OpEq, Bool, VarTerm(a.Var), ValueTerm(a.Var.Sort, a.Value))))
+		literal, err := value.literal(a.Var.Sort)
+		if err != nil {
+			return "", s.solver.processError("get-value",
+				"its model gave "+a.Raw+" for "+a.Var.Name+", which the term language cannot deny: "+err.Error(),
+				s.stderrText(), nil)
+		}
+		parts = append(parts, writeTerm(Binary(OpEq, Bool, VarTerm(a.Var), literal)))
 	}
 	if len(parts) == 1 {
 		return parts[0], nil

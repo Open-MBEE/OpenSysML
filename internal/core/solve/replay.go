@@ -1,11 +1,9 @@
 package solve
 
 import (
-	"bufio"
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -112,40 +110,24 @@ func replayWitness(q *Query, model []Assignment) (bool, string) {
 // reporting a value the evaluator cannot hold — an Integer outside int64, a
 // Real with no finite float64 — as an error.
 func witnessValue(a Assignment) (replayValue, error) {
-	value, err := readSexpr(bufio.NewReader(strings.NewReader(a.Raw)))
+	value, err := DecodeValue(a)
 	if err != nil {
-		return replayValue{}, fmt.Errorf("unreadable value %s", a.Raw)
+		return replayValue{}, err
 	}
-	switch a.Var.Sort.Kind {
+	switch value.Kind {
 	case SortBool:
-		if !value.IsList && (value.Atom == "true" || value.Atom == "false") {
-			return replayValue{kind: SortBool, b: value.Atom == "true"}, nil
-		}
-	case SortString:
-		if !value.IsList && value.Quoted {
-			return replayValue{kind: SortString, s: value.Atom}, nil
-		}
-	case SortDatatype:
-		if !value.IsList {
-			return replayValue{kind: SortDatatype, s: smtName(value.Atom)}, nil
-		}
+		return replayValue{kind: SortBool, b: value.Bool}, nil
+	case SortString, SortDatatype:
+		return replayValue{kind: value.Kind, s: value.Text}, nil
 	case SortInt:
-		rat, ok := ratOfSexpr(value)
-		if !ok || !rat.IsInt() {
-			return replayValue{}, fmt.Errorf("no integer in %s", a.Raw)
+		if !value.Number.Num().IsInt64() {
+			return replayValue{}, fmt.Errorf("%s is outside the Integer range", value.Number.Num().String())
 		}
-		if !rat.Num().IsInt64() {
-			return replayValue{}, fmt.Errorf("%s is outside the Integer range", rat.Num().String())
-		}
-		return replayValue{kind: SortInt, i: rat.Num().Int64()}, nil
+		return replayValue{kind: SortInt, i: value.Number.Num().Int64()}, nil
 	case SortReal:
-		rat, ok := ratOfSexpr(value)
-		if !ok {
-			return replayValue{}, fmt.Errorf("no rational in %s", a.Raw)
-		}
 		// The evaluator holds the nearest float64, which is where a witness
 		// only the exact encoding can hold is caught by the replay.
-		f, _ := rat.Float64()
+		f, _ := value.Number.Float64()
 		if math.IsInf(f, 0) || math.IsNaN(f) {
 			return replayValue{}, fmt.Errorf("%s is outside the Real range", a.Value)
 		}
