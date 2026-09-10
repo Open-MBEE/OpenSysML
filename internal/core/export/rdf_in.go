@@ -1037,9 +1037,9 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	if err := d.unwrittenPrefix(el); err != nil {
 		return err
 	}
-	if annotationMetaclasses[el.metaclass] || d.isResultExpression(el) {
+	if annotationMetaclasses[el.metaclass] || d.isResultExpression(el) || d.isTrailingCondition(el) {
 		// A comment, doc or rep declaration ends with its comment body, and a
-		// result expression is bare: neither takes a terminator.
+		// result expression or trailing condition is bare: none takes a terminator.
 		b.WriteString(d.nl)
 		return nil
 	}
@@ -1819,6 +1819,22 @@ func (d *decoder) unprefixedCondition(el *element, form string) error {
 func (d *decoder) isResultExpression(el *element) bool {
 	m, owned := d.owningMembership[el.iri]
 	return owned && d.metaclass(rdf.IRI(m.iri)) == mResultExpressionMembership
+}
+
+// isTrailingCondition reports whether el is the keyword-less condition closing its body,
+// written bare as its result expression: a lone name with `;` would declare a feature.
+func (d *decoder) isTrailingCondition(el *element) bool {
+	if el.metaclass != mConstraint || el.owner == nil {
+		return false
+	}
+	if _, ok := d.stringOf(el, rdf.OpenSysML+xCondition); !ok {
+		return false
+	}
+	if _, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
+		return false
+	}
+	members := d.bodyChildren(el.owner)
+	return len(members) > 0 && members[len(members)-1] == el
 }
 
 // acceptParam returns the synthetic parameter of an accept shorthand, whose

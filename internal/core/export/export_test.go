@@ -827,29 +827,44 @@ func TestRequirementConditionsSurviveRDF(t *testing.T) {
 // typing, multiplicity, value, specializations — which the graph must carry
 // without the source text, prefixed or not.
 func TestRequirementConditionDeclarationsSurviveRDF(t *testing.T) {
-	for _, member := range []string{
-		"assume constraint c : Light;",
-		"require #Goal constraint d[1] = true;",
-		"assume #Goal constraint f : Light subsets Light[0..1] {\n            true;\n        }",
-		"assume constraint c references Light;",
-		"assume #Goal constraint c references Light;",
-		"require #Goal constraint c references Light;",
-		"require constraint references Light;",
-		"require Light subsets Light[1];",
-		"require Light {\n        }",
+	// back is the spelling the mapping alone writes where it differs from the
+	// one written: a body's trailing condition is its result expression, bare.
+	for _, member := range []struct{ written, back string }{
+		{written: "assume constraint c : Light;"},
+		{written: "require #Goal constraint d[1] = true;"},
+		{
+			written: "assume #Goal constraint f : Light subsets Light[0..1] {\n            true;\n        }",
+			back:    "assume #Goal constraint f : Light subsets Light[0..1] {\n            true\n        }",
+		},
+		{written: "assume constraint c references Light;"},
+		{written: "assume #Goal constraint c references Light;"},
+		{written: "require #Goal constraint c references Light;"},
+		{written: "require constraint references Light;"},
+		{written: "require Light subsets Light[1];"},
+		{written: "require Light {\n        }"},
 	} {
-		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member + "\n\t}\n}"
+		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member.written + "\n\t}\n}"
 		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
 		if err != nil {
-			t.Fatalf("%s: to turtle: %v", member, err)
+			t.Fatalf("%s: to turtle: %v", member.written, err)
 		}
-		for _, graph := range [][]byte{turtle, withoutTriples(t, turtle, "sysx:sourceText")} {
-			back, err := export.Convert("m.ttl", graph, export.FormatTurtle, export.FormatSysML)
+		structural := member.back
+		if structural == "" {
+			structural = member.written
+		}
+		for _, hop := range []struct {
+			graph []byte
+			want  string
+		}{
+			{turtle, member.written},
+			{withoutTriples(t, turtle, "sysx:sourceText"), structural},
+		} {
+			back, err := export.Convert("m.ttl", hop.graph, export.FormatTurtle, export.FormatSysML)
 			if err != nil {
-				t.Fatalf("%s: back to notation: %v", member, err)
+				t.Fatalf("%s: back to notation: %v", member.written, err)
 			}
-			if !strings.Contains(string(back), member) {
-				t.Errorf("the requirement member %q was rewritten:\n%s", member, back)
+			if !strings.Contains(string(back), hop.want) {
+				t.Errorf("the requirement member %q was rewritten:\n%s", hop.want, back)
 			}
 		}
 	}
@@ -1062,8 +1077,8 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 		{written: "use case def U {\n        objective #Safety o : Goal;\n    }"},
 		{written: "use case def U {\n        #Safety include Ride;\n    }"},
 		{written: "use case def U {\n        #Safety include use case ride : Ride;\n    }"},
-		{written: "requirement def R {\n        assume #Reviewed constraint {\n            true;\n        }\n    }"},
-		{written: "requirement def R {\n        require #Safety constraint {\n            true;\n        }\n    }"},
+		{written: "requirement def R {\n        assume #Reviewed constraint {\n            true\n        }\n    }"},
+		{written: "requirement def R {\n        require #Safety constraint {\n            true\n        }\n    }"},
 		{written: "part def Q {\n        #Safety assert constraint ok : Stopped;\n    }"},
 		{written: "part def Q {\n        #Safety assert not constraint bad : Stopped;\n    }"},
 		{written: "part def Q {\n        ref #Safety assert not constraint bad : Stopped;\n    }"},
