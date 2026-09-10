@@ -125,8 +125,10 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 ## `.metadata` — what annotates an element
 
 `elem.metadata` is the sequence of metadata annotating `elem`, one object per
-annotation in the order they are written, each carrying the values its body
-binds over the defaults its `metadata def` declares. `navCam` is annotated
+annotation in the order they are written — a `metadata … about elem` usage
+declared elsewhere takes its place by source position among the inline `@`
+annotations — each carrying the values its body binds over the defaults its
+`metadata def` declares. `navCam` is annotated
 `@Heritage { mission = "Cassini"; }`, the spectrometer sets `flown = false`,
 and `sciCam` carries no annotation at all.
 

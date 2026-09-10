@@ -147,9 +147,10 @@ type ElementMetadata struct {
 	Bindings []MetadataBinding
 }
 
-// ElementMetadataOf returns the metadata annotating sym, inline annotations
-// first and `about`-form ones after, each in declaration order — the same side
-// table an element filter classifies by.
+// ElementMetadataOf returns the metadata annotating sym — the same side table
+// an element filter classifies by — in textual order: by the document stating
+// each annotation (in the index's document order), then by source position, so
+// an `about` annotation written before an inline one comes first.
 func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 	var out []ElementMetadata
 	for _, a := range m.annotationsOf(sym) {
@@ -164,7 +165,28 @@ func (m *Model) ElementMetadataOf(sym *symbols.Symbol) []ElementMetadata {
 			Bindings: metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node)),
 		})
 	}
+	rank := m.documentRanks()
+	sort.SliceStable(out, func(i, j int) bool {
+		if ri, rj := rank[out[i].Doc], rank[out[j].Doc]; ri != rj {
+			return ri < rj
+		}
+		return out[i].Node.Span().Offset < out[j].Node.Span().Offset
+	})
 	return out
+}
+
+// documentRanks orders the documents of the index as Index.Documents lists
+// them; a document the index does not hold sorts after every one it does.
+func (m *Model) documentRanks() map[string]int {
+	ranks := make(map[string]int)
+	if m.resolver == nil || m.resolver.Index() == nil {
+		return ranks
+	}
+	docs := m.resolver.Index().Documents()
+	for i, doc := range docs {
+		ranks[doc] = i - len(docs)
+	}
+	return ranks
 }
 
 // metadataBody is the body an annotation node binds feature values in.
