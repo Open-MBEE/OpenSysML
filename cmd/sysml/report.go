@@ -119,9 +119,10 @@ type checkResult struct {
 	Outcomes    []checkOutcome    `json:"outcomes,omitempty"`
 	Exploration *checkExploration `json:"exploration,omitempty"`
 	// Plan is how the engines answered and Results what each answered, one entry
-	// per engine that ran; only a check put to the engines has them.
+	// per engine that ran (empty when every engine refused); only a check put to
+	// the engines has them.
 	Plan    *checkPlan      `json:"plan,omitempty"`
-	Results []checkResultOf `json:"results,omitempty"`
+	Results []checkResultOf `json:"results,omitzero"`
 }
 
 // checkPlan is how a check was answered in the JSON report: the selection made,
@@ -245,9 +246,6 @@ func checkResultsOf(plan *analysis.Plan) []checkResultOf {
 		return nil
 	}
 	results := plan.Results()
-	if len(results) == 0 {
-		return nil
-	}
 	out := make([]checkResultOf, 0, len(results))
 	for _, r := range results {
 		out = append(out, checkResultOf{

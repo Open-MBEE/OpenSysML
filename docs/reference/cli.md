@@ -813,7 +813,7 @@ the `disagreements[]` the composition under `all` resolved (`stands`, `demoted`,
 `engine`, `claim`, `strength`, `bounds` (every bound the engine took, each with `name`, `limit`
 and whether it was `reached`), `witness` (the replayable execution behind a witnessed claim —
 its `schedule` and `choices` — or `null`), the `reason` of a result claiming nothing, and its
-`standing`. The verdict's `lines` end with the standing line. `results` is absent when no engine
+`standing`. The verdict's `lines` end with the standing line. `results` is `[]` when no engine
 answered (every one refused), and a check decided before any engine was asked — a subject that
 did not resolve — carries neither key.
 

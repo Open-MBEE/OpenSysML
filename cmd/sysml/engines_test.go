@@ -198,7 +198,7 @@ func TestJSONReportsThePlan(t *testing.T) {
 		t.Errorf("the lines do not end with the standing:\n%s", got.stdout)
 	}
 
-	// A refusal is a step with its reason and no result.
+	// A refusal is a step with its reason and an empty results[], not a missing key.
 	got = check(t, binary, engineModel, "-json", "-engine", "explore", "-constraint", "Rover::MassBudget")
 	report = engineReport{}
 	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
@@ -211,6 +211,9 @@ func TestJSONReportsThePlan(t *testing.T) {
 	if c.Plan.Engine != "explore" || len(c.Plan.Steps) != 1 || c.Plan.Steps[0].Status != "refused" ||
 		!strings.Contains(c.Plan.Steps[0].Detail, "explore does not answer evaluate questions") || len(c.Results) != 0 {
 		t.Errorf("report does not carry the refusal:\n%s", got.stdout)
+	}
+	if !strings.Contains(got.stdout, "\"results\": []") {
+		t.Errorf("a refused check does not carry an empty results[]:\n%s", got.stdout)
 	}
 }
 
