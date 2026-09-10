@@ -1390,8 +1390,8 @@ func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbol
 	return target, true
 }
 
-// evalTypeClassification evaluates `x hastype T`, `x istype T` and the value form of
-// `x @ T` (KerML 1.0 Table 5): `hastype` reads the direct types alone, `@` holds for any value.
+// evalTypeClassification evaluates `x hastype T`, `x istype T` and the value form of `x @ T`
+// (KerML 1.0 §7.4.9.2): `hastype` reads the direct types alone, `@` holds when any value is of T.
 func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 1 || n.TypeRef == nil {
 		return Value{}, fmt.Errorf("%w: '%s' requires one value and one type",
@@ -1417,8 +1417,8 @@ func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error
 	return boolValue(matches), nil
 }
 
-// valuesClassified reports whether target classifies every value of value — or, for
-// `@`, any — so an empty value satisfies `istype` and `hastype` and fails `@`.
+// valuesClassified reports whether target classifies every value of value — or, for `@`, any
+// (KerML 1.0 §7.4.9.2) — so an empty value satisfies `istype` and `hastype` and fails `@`.
 func (ec *EvalContext) valuesClassified(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol, by classifiedBy, any bool,
 ) (bool, error) {
