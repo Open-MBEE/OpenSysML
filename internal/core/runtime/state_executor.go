@@ -611,11 +611,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 			// the region set. The source may be a composite state enclosing the
 			// region's active state, so the region is resolved by containment.
 			var err error
-			if sourceState != nil {
-				dispatch.Fired, err = e.fireFrom(sourceState, lowerTrans, nil)
-			} else {
-				dispatch.Fired, err = e.fireTransition(lowerTrans)
-			}
+			dispatch.Fired, err = e.resolveAndFire(sourceState, lowerTrans)
 			return dispatch, err
 		}
 
@@ -648,7 +644,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Effect:  lower.LowerBehaviors(edge.Effect, e.stateMachine.Scope),
 			}
 			var err error
-			dispatch.Fired, err = e.fireTransition(lowerTrans)
+			dispatch.Fired, err = e.fireTransition(lowerTrans, targetState)
 			return dispatch, err
 		}
 
@@ -718,7 +714,10 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	if err != nil {
 		return false, nil, err
 	}
-	candidates := e.chooseTransitions(selected)
+	candidates, err := e.chooseTransitions(selected)
+	if err != nil {
+		return false, nil, err
+	}
 	var resumed []string
 	if msg, ok := event.Payload.(Message); ok {
 		taking, err := e.doBehaviorsTaking(msg, candidates)
@@ -737,7 +736,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 			unbind()
 			return false, fmt.Errorf("state %s: %w", candidate.source.Name, err)
 		}
-		fired, err := e.fireFrom(candidate.source, trans, notes)
+		fired, err := e.fireFrom(candidate.source, trans, notes, candidate.route)
 		if err != nil {
 			return false, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -782,15 +781,17 @@ func (e *StateExecutor) dispatchInOrder(
 
 // dispatchCandidate is the state one active leaf selected for an event, the leaf
 // itself or a composite state enclosing it, with the positions of the transitions
-// out of it the event enables. Which of them fires is chosen only once the
-// candidate survives conflict resolution (chooseTransitions); what selecting and
-// choosing found worth noting is recorded only if it fires.
+// out of it the event enables. Which of them fires, and the state it is routed to,
+// is settled only once the candidate survives conflict resolution
+// (chooseTransitions); what selecting and choosing found worth noting is recorded
+// only if it fires.
 type dispatchCandidate struct {
 	leaf    *ast.StateNode
 	source  *ast.StateNode
 	enabled []int
 	notes   []RunNote
 	chosen  *lower.Transition
+	route   *ast.StateNode
 }
 
 // selectTransitions picks one source state per leaf active when the event is
@@ -838,19 +839,25 @@ func (e *StateExecutor) selectCandidates(
 }
 
 // chooseTransitions resolves the dispatch: the candidates not outranked by a nested
-// one, each with the one of its enabled transitions that fires drawn once here,
-// for the do behaviors taking the occurrence, the firing and the preview alike.
-// A state outranked by a nested one draws nothing.
-func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate) []dispatchCandidate {
+// one, each with the one of its enabled transitions that fires drawn once here and
+// its route through any pseudostates settled against the pre-dispatch data, for
+// the do behaviors taking the occurrence, the firing and the preview alike. A
+// state outranked by a nested one draws nothing.
+func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate) ([]dispatchCandidate, error) {
 	chosen := make([]dispatchCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if e.losesToNestedTransition(candidates, candidate) {
 			continue
 		}
 		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
+		route, err := e.resolveRoute(candidate.chosen)
+		if err != nil {
+			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
+		}
+		candidate.route = route
 		chosen = append(chosen, candidate)
 	}
-	return chosen
+	return chosen, nil
 }
 
 // chooseTransition resolves which of the candidate's enabled transitions fires,
@@ -1037,15 +1044,29 @@ func lessPath(a, b []int) bool {
 // fireFrom takes a transition whose source is the given active state, which is
 // either the active leaf or a composite state enclosing it. A source lying in an
 // active orthogonal region moves that region; one outside every active region
-// moves the machine's single active hierarchy. notes are recorded only if it fires.
-func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote) (bool, error) {
+// moves the machine's single active hierarchy. notes are recorded only if it fires;
+// route is the state the transition was resolved to (resolveRoute).
+func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, route *ast.StateNode) (bool, error) {
 	saved := e.firingNotes
 	e.firingNotes = notes
 	defer func() { e.firingNotes = saved }()
 	if region := e.activeRegionOf(source); region != nil {
-		return e.fireTransitionInRegion(region, trans)
+		return e.fireTransitionInRegion(region, trans, route)
 	}
-	return e.fireTransition(trans)
+	return e.fireTransition(trans, route)
+}
+
+// resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
+// its route as it fires; source is as for fireFrom, nil for the single hierarchy.
+func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Transition) (bool, error) {
+	route, err := e.resolveRoute(trans)
+	if err != nil {
+		return false, err
+	}
+	if source != nil {
+		return e.fireFrom(source, trans, nil, route)
+	}
+	return e.fireTransition(trans, route)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
@@ -1396,58 +1417,62 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 
 // fireTransition takes a state transition, reporting whether it was taken: one
 // whose guard is false leaves the machine where it is.
-func (e *StateExecutor) fireTransition(trans *lower.Transition) (bool, error) {
+func (e *StateExecutor) fireTransition(trans *lower.Transition, route *ast.StateNode) (bool, error) {
+	pass, err := e.passesGuard(trans)
+	if err != nil || !pass {
+		return false, err
+	}
 	// Fork, join and history reshape the active configuration rather than moving
 	// to a single state, so they are fired whole.
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
-		pass, err := e.passesGuard(trans)
-		if err != nil || !pass {
-			return false, err
-		}
 		e.transitionDecided()
 		switch ps.Kind {
 		case ast.PseudostateFork:
 			return true, e.fireForkTransition(trans, ps)
 		case ast.PseudostateJoin:
-			return e.fireJoinTransition(trans, ps)
+			return e.fireJoinTransition(trans, ps, route)
 		default:
-			return true, e.fireHistoryTransition(trans, ps)
+			return true, e.fireHistoryTransition(trans, ps, route)
 		}
 	}
-
-	// Target can be StateNode or PseudostateNode
-	var targetState *ast.StateNode
-
-	// Type assert to determine target type
-	switch target := trans.Target.(type) {
-	case *ast.StateNode:
-		targetState = target
-	case *ast.PseudostateNode:
-		// A choice, junction or entry/exit point routes the transition onwards:
-		// following it yields the state the transition really enters.
-		if !transientPseudostate(target.Kind) {
-			return false, fmt.Errorf("unsupported pseudostate kind: %v", target.Kind)
-		}
-		var err error
-		targetState, err = e.pseudostateTarget(target)
-		if err != nil {
-			return false, fmt.Errorf("evaluate pseudostate: %w", err)
-		}
-	default:
-		return false, fmt.Errorf("transition target must be StateNode or PseudostateNode, got %T", trans.Target)
-	}
-
-	if targetState == nil {
+	if route == nil {
 		return false, fmt.Errorf("transition target state not found")
 	}
-
-	pass, err := e.passesGuard(trans)
-	if err != nil || !pass {
-		return false, err
-	}
 	e.transitionDecided()
+	return true, e.transitionTo(trans, route)
+}
 
-	return true, e.transitionTo(trans, targetState)
+// moveOrigin is the state a move of the single active hierarchy starts from: the
+// active simple state, or the composite state whose regions hold the configuration.
+func (e *StateExecutor) moveOrigin() *ast.StateNode {
+	if current := e.getCurrentState(); current != nil {
+		return current
+	}
+	return e.activeCompositeOwner()
+}
+
+// moveBoundary is the state a move from current to target stops exiting at: their
+// least common ancestor, or the parent of a source that encloses the target, which
+// an external transition leaves even so.
+func (e *StateExecutor) moveBoundary(current *ast.StateNode, trans *lower.Transition, target *ast.StateNode) *ast.StateNode {
+	lca := e.getLCA(current, target)
+	if source, isState := trans.Source.(*ast.StateNode); isState && e.encloses(source, target) {
+		lca = e.graph.ParentState[source]
+	}
+	return lca
+}
+
+// exitPath lists from and its ancestors up to but excluding stop, innermost first;
+// within a region it ends at the region's boundary as well.
+func (e *StateExecutor) exitPath(from, stop *ast.StateNode, within *ast.StateRegion) []*ast.StateNode {
+	var path []*ast.StateNode
+	for current := from; current != nil && current != stop; current = e.graph.ParentState[current] {
+		if within != nil && !e.regionContains(within, current) {
+			break
+		}
+		path = append(path, current)
+	}
+	return path
 }
 
 // transitionTo moves the active configuration from the current state to
@@ -1462,33 +1487,16 @@ func (e *StateExecutor) transitionTo(trans *lower.Transition, targetState *ast.S
 // pseudostate restores a recorded configuration rather than the initial one.
 func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	// Exit current state hierarchy up to LCA
-	currentState := e.getCurrentState()
-	if currentState == nil {
-		// A composite state with orthogonal regions is represented by its
-		// regions' active states rather than by a single active state, so leaving
-		// it starts from the state that owns those regions.
-		currentState = e.activeCompositeOwner()
-	}
+	currentState := e.moveOrigin()
 	// The trace's source name has to be read before the move, not after it.
 	fromName := ""
 	if currentState != nil {
 		fromName = currentState.Name
 	}
-	lca := e.getLCA(currentState, targetState)
-	// An external transition out of a composite state leaves it even when the target
-	// is the state itself or one of its substates, so the boundary is its parent.
-	if source, isState := trans.Source.(*ast.StateNode); isState && e.encloses(source, targetState) {
-		lca = e.graph.ParentState[source]
-	}
-	statesToExit := make([]*ast.StateNode, 0)
-	current := currentState
-	for current != nil && current != lca {
-		statesToExit = append(statesToExit, current)
-		current = e.graph.ParentState[current]
-	}
+	lca := e.moveBoundary(currentState, trans, targetState)
 
 	// Exit states (deepest to shallowest)
-	if err := e.exitStates(statesToExit); err != nil {
+	if err := e.exitStates(e.exitPath(currentState, lca, nil)); err != nil {
 		return err
 	}
 
@@ -1501,7 +1509,7 @@ func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *a
 
 	// Enter target state hierarchy from LCA
 	statesToEnter := make([]*ast.StateNode, 0)
-	current = targetState
+	current := targetState
 	for current != nil && current != lca {
 		statesToEnter = append(statesToEnter, current)
 		current = e.graph.ParentState[current]
@@ -1702,22 +1710,27 @@ func (e *StateExecutor) forgetRegionHistory(region *ast.StateRegion) {
 //
 // A shallow history restores the substate that was active; a deep history keeps
 // descending, restoring the innermost one.
-func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast.PseudostateNode) error {
+func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast.PseudostateNode, route *ast.StateNode) error {
+	target, branches, err := e.historyEntry(hist, route)
+	if err != nil {
+		return err
+	}
+	return e.transitionToInto(trans, target, branches)
+}
+
+// historyEntry is the state a history transition enters and the branch each region
+// entered on the way starts in; read before the source configuration is left.
+func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.StateNode) (*ast.StateNode, map[*ast.StateRegion]*ast.StateNode, error) {
 	owner, ok := e.graph.PseudostateOwner[hist]
 	if !ok || owner == nil {
-		return fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
+		return nil, nil, fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
 	}
-
-	// The record has to be read before the source configuration is left: a
-	// transition out of the owner's own substates would otherwise overwrite it.
 	record := e.history[owner]
 	if record == nil {
-		// Never exited: take the default history transition.
-		target, err := e.pseudostateTarget(hist)
-		if err != nil {
-			return fmt.Errorf("history %s has no default transition and %s has no recorded configuration: %w", hist.Name, owner.Name, err)
+		if route == nil {
+			return nil, nil, fmt.Errorf("history %s has no default transition and %s has no recorded configuration", hist.Name, owner.Name)
 		}
-		return e.transitionTo(trans, target)
+		return route, nil, nil
 	}
 
 	deep := hist.Kind == ast.PseudostateDeepHistory
@@ -1736,17 +1749,17 @@ func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast
 			}
 			branches[region] = active
 		}
-		return e.transitionToInto(trans, owner, branches)
+		return owner, branches, nil
 	}
 
 	target := record.child
 	if target == nil {
-		return fmt.Errorf("history %s: no substate of %s was recorded", hist.Name, owner.Name)
+		return nil, nil, fmt.Errorf("history %s: no substate of %s was recorded", hist.Name, owner.Name)
 	}
 	if deep {
 		target = e.deepestRecorded(target, branches)
 	}
-	return e.transitionToInto(trans, target, branches)
+	return target, branches, nil
 }
 
 // deepestRecorded follows the configuration recorded below state and returns the
@@ -1779,35 +1792,9 @@ func (e *StateExecutor) deepestRecorded(state *ast.StateNode, branches map[*ast.
 // taken at once, making one state active per orthogonal region of the composite
 // state that owns them.
 func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.PseudostateNode) error {
-	branches := e.graph.Transitions[fork]
-	if len(branches) < 2 {
-		return fmt.Errorf("fork %s needs at least two outgoing transitions, found %d", fork.Name, len(branches))
-	}
-
-	targets := make(map[*ast.StateRegion]*ast.StateNode, len(branches))
-	var owner *ast.StateNode
-	for _, branch := range branches {
-		if branch.Guard != nil {
-			return fmt.Errorf("fork %s: outgoing transitions cannot be guarded", fork.Name)
-		}
-		target, ok := branch.Target.(*ast.StateNode)
-		if !ok {
-			return fmt.Errorf("fork %s: branch target must be a state, got %T", fork.Name, branch.Target)
-		}
-		region, ok := e.graph.RegionOf[target]
-		if !ok {
-			return fmt.Errorf("fork %s: branch target %s is not in an orthogonal region", fork.Name, target.Name)
-		}
-		if existing, dup := targets[region]; dup {
-			return fmt.Errorf("fork %s: branches %s and %s are in the same region", fork.Name, existing.Name, target.Name)
-		}
-		targets[region] = target
-		if regionOwner := e.graph.RegionOwner[region]; regionOwner != nil {
-			if owner != nil && owner != regionOwner {
-				return fmt.Errorf("fork %s: branches span more than one composite state", fork.Name)
-			}
-			owner = regionOwner
-		}
+	targets, owner, err := e.forkPlan(fork)
+	if err != nil {
+		return err
 	}
 
 	// Leave the source configuration, up to but excluding the composite state
@@ -1841,33 +1828,58 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	return nil
 }
 
+// forkPlan is the state each outgoing branch of a fork enters, by region, and the
+// composite state owning those regions.
+func (e *StateExecutor) forkPlan(fork *ast.PseudostateNode) (map[*ast.StateRegion]*ast.StateNode, *ast.StateNode, error) {
+	branches := e.graph.Transitions[fork]
+	if len(branches) < 2 {
+		return nil, nil, fmt.Errorf("fork %s needs at least two outgoing transitions, found %d", fork.Name, len(branches))
+	}
+
+	targets := make(map[*ast.StateRegion]*ast.StateNode, len(branches))
+	var owner *ast.StateNode
+	for _, branch := range branches {
+		if branch.Guard != nil {
+			return nil, nil, fmt.Errorf("fork %s: outgoing transitions cannot be guarded", fork.Name)
+		}
+		target, ok := branch.Target.(*ast.StateNode)
+		if !ok {
+			return nil, nil, fmt.Errorf("fork %s: branch target must be a state, got %T", fork.Name, branch.Target)
+		}
+		region, ok := e.graph.RegionOf[target]
+		if !ok {
+			return nil, nil, fmt.Errorf("fork %s: branch target %s is not in an orthogonal region", fork.Name, target.Name)
+		}
+		if existing, dup := targets[region]; dup {
+			return nil, nil, fmt.Errorf("fork %s: branches %s and %s are in the same region", fork.Name, existing.Name, target.Name)
+		}
+		targets[region] = target
+		if regionOwner := e.graph.RegionOwner[region]; regionOwner != nil {
+			if owner != nil && owner != regionOwner {
+				return nil, nil, fmt.Errorf("fork %s: branches span more than one composite state", fork.Name)
+			}
+			owner = regionOwner
+		}
+	}
+	return targets, owner, nil
+}
+
 // fireJoinTransition takes a transition into a join, reporting whether the join
 // fired. It only fires once every one of its incoming branches has an active
-// source state; until then the completed branch simply waits.
-func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.PseudostateNode) (bool, error) {
+// source state, still, as it fires; until then the completed branch simply waits.
+func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.PseudostateNode, route *ast.StateNode) (bool, error) {
 	sources, err := e.joinSources(join)
 	if err != nil {
 		return false, err
 	}
-	if !e.allActive(sources) {
-		return false, nil // Not yet synchronized: wait for the other branches.
-	}
-
-	target, err := e.pseudostateTarget(join)
-	if err != nil {
-		return false, fmt.Errorf("evaluate pseudostate: %w", err)
-	}
-	if target == nil {
-		return false, fmt.Errorf("join %s has no target state", join.Name)
+	if route == nil || !e.allActive(sources) {
+		return false, nil
 	}
 
 	// Exit every synchronized branch, then continue from the composite state
 	// they belong to so the usual hierarchy walk exits it as well.
-	var owner *ast.StateNode
+	owner := e.joinOwner(sources)
 	for _, source := range sources {
-		if region, ok := e.graph.RegionOf[source]; ok {
-			owner = e.graph.RegionOwner[region]
-		}
 		if err := e.exitState(source); err != nil {
 			return false, fmt.Errorf("exit state: %w", err)
 		}
@@ -1875,7 +1887,18 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = owner
 
-	return true, e.transitionTo(trans, target)
+	return true, e.transitionTo(trans, route)
+}
+
+// joinOwner is the composite state whose regions the sources of a join lie in.
+func (e *StateExecutor) joinOwner(sources []*ast.StateNode) *ast.StateNode {
+	var owner *ast.StateNode
+	for _, source := range sources {
+		if region, ok := e.graph.RegionOf[source]; ok {
+			owner = e.graph.RegionOwner[region]
+		}
+	}
+	return owner
 }
 
 // joinSynchronized reports whether a transition is enabled as far as its target
@@ -1953,7 +1976,7 @@ func (e *StateExecutor) exitToward(stop *ast.StateNode) error {
 	}
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 
-	for current := e.getCurrentState(); current != nil && current != stop; current = e.graph.ParentState[current] {
+	for _, current := range e.exitPath(e.getCurrentState(), stop, nil) {
 		if err := e.exitState(current); err != nil {
 			return fmt.Errorf("exit state: %w", err)
 		}
@@ -2332,16 +2355,16 @@ func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandid
 	return taking, nil
 }
 
-// leftByChosen reports whether the transition chosen for a candidate leaves the
-// state, going to the states firing it would enter.
+// leftByChosen reports whether firing the transition chosen for a candidate exits
+// the state, itself or a state enclosing it; a firing that would fail counts as one.
 func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
 	for _, candidate := range candidates {
-		targets, ok := e.statesEntered(candidate.chosen)
+		exited, ok := e.exitedBy(candidate)
 		if !ok {
 			return true
 		}
-		for _, target := range targets {
-			if e.leaves(candidate.source, target, state) {
+		for _, left := range exited {
+			if e.isBelowOrEqual(state, left) {
 				return true
 			}
 		}
@@ -2349,74 +2372,80 @@ func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatch
 	return false
 }
 
-// leaves reports whether a transition from source to target exits state, as
-// transitionToInto exits: the source and, unless the target lies inside it, the
-// states enclosing the source up to the innermost one enclosing the target too.
-func (e *StateExecutor) leaves(source, target, state *ast.StateNode) bool {
-	outermost := source
-	if !e.encloses(source, target) {
-		for parent := e.graph.ParentState[source]; parent != nil && !e.isBelowOrEqual(target, parent); parent = e.graph.ParentState[parent] {
-			outermost = parent
-		}
+// exitedBy lists the states firing the candidate's chosen transition along its
+// route exits, as fireFrom exits them; false where the firing would fail.
+func (e *StateExecutor) exitedBy(candidate dispatchCandidate) ([]*ast.StateNode, bool) {
+	trans, route := candidate.chosen, candidate.route
+	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
+		return e.exitedBySynchronization(trans, ps, route)
 	}
-	return e.isBelowOrEqual(state, outermost)
+	if route == nil {
+		return nil, false
+	}
+	if region := e.activeRegionOf(candidate.source); region != nil {
+		return e.exitedInRegion(region, trans, route), true
+	}
+	return e.exitedByMove(e.moveOrigin(), trans, route), true
 }
 
-// statesEntered lists the states firing the transition enters, as fireTransition
-// resolves its target against the data as it stands: the state itself; the one
-// the branch a choice, junction, entry or exit point routes along reaches
-// (pseudostateTarget), or a join leads on to; a fork's every branch; the state a
-// history restores (fireHistoryTransition). False where firing would fail.
-func (e *StateExecutor) statesEntered(trans *lower.Transition) ([]*ast.StateNode, bool) {
-	ps, ok := trans.Target.(*ast.PseudostateNode)
-	if !ok {
-		state, isState := trans.Target.(*ast.StateNode)
-		return []*ast.StateNode{state}, isState
+// exitedInRegion lists the states a transition out of region's active state exits
+// on its way to route, as fireTransitionInRegion exits them.
+func (e *StateExecutor) exitedInRegion(region *ast.StateRegion, trans *lower.Transition, route *ast.StateNode) []*ast.StateNode {
+	sourceRegion, targetRegion := e.regionMove(region, route)
+	if targetRegion == nil {
+		owner := e.graph.RegionOwner[region]
+		if owner == nil {
+			var exited []*ast.StateNode
+			for _, top := range e.graph.TopRegions {
+				if active, ok := e.activeConfig.regionStates[top]; ok {
+					exited = append(exited, e.exitPath(active, nil, nil)...)
+				}
+			}
+			return exited
+		}
+		return e.exitPath(owner, e.getLCA(owner, route), nil)
 	}
+	keep := e.regionKeep(targetRegion, trans, route)
+	if sourceRegion == targetRegion {
+		return e.regionExitPath(sourceRegion, keep)
+	}
+	return append(e.regionExitPath(sourceRegion, nil), e.regionExitPath(targetRegion, keep)...)
+}
+
+// exitedBySynchronization lists the states a transition into a fork, join or
+// history exits, as fireTransition exits them; a join not yet synchronized exits none.
+func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast.PseudostateNode, route *ast.StateNode) ([]*ast.StateNode, bool) {
 	switch ps.Kind {
 	case ast.PseudostateFork:
-		branches := e.graph.Transitions[ps]
-		states := make([]*ast.StateNode, 0, len(branches))
-		for _, branch := range branches {
-			state, isState := branch.Target.(*ast.StateNode)
-			if !isState {
-				return nil, false
-			}
-			states = append(states, state)
+		_, owner, err := e.forkPlan(ps)
+		if err != nil {
+			return nil, false
 		}
-		return states, len(states) > 0
-	case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
-		return e.stateRestored(ps)
+		exited := slices.Clone(e.orderedRegionStates())
+		return append(exited, e.exitPath(e.getCurrentState(), owner, nil)...), true
+	case ast.PseudostateJoin:
+		if route == nil {
+			return nil, true
+		}
+		sources, err := e.joinSources(ps)
+		if err != nil {
+			return nil, false
+		}
+		exited := slices.Clone(sources)
+		return append(exited, e.exitedByMove(e.joinOwner(sources), trans, route)...), true
+	default:
+		target, _, err := e.historyEntry(ps, route)
+		if err != nil {
+			return nil, false
+		}
+		return e.exitedByMove(e.moveOrigin(), trans, target), true
 	}
-	state, err := e.pseudostateTarget(ps)
-	return []*ast.StateNode{state}, err == nil
 }
 
-// stateRestored is the state a transition into a history pseudostate enters, as
-// fireHistoryTransition enters it: the default the history's own transition
-// names before its owner was ever left, the owner itself when its configuration
-// lives in regions, else the substate recorded, the innermost for a deep history.
-func (e *StateExecutor) stateRestored(hist *ast.PseudostateNode) ([]*ast.StateNode, bool) {
-	owner := e.graph.PseudostateOwner[hist]
-	if owner == nil {
-		return nil, false
-	}
-	record := e.history[owner]
-	if record == nil {
-		state, err := e.pseudostateTarget(hist)
-		return []*ast.StateNode{state}, err == nil
-	}
-	if len(record.regions) > 0 {
-		return []*ast.StateNode{owner}, true
-	}
-	state := record.child
-	if state == nil {
-		return nil, false
-	}
-	if hist.Kind == ast.PseudostateDeepHistory {
-		state = e.deepestRecorded(state, make(map[*ast.StateRegion]*ast.StateNode))
-	}
-	return []*ast.StateNode{state}, true
+// exitedByMove lists the states a move from current to target exits, as
+// transitionToInto exits them.
+func (e *StateExecutor) exitedByMove(current *ast.StateNode, trans *lower.Transition, target *ast.StateNode) []*ast.StateNode {
+	return e.exitPath(current, e.moveBoundary(current, trans, target), nil)
 }
 
 // resumeDoBehaviors lets the do behaviors taking the message being dispatched go
@@ -2719,7 +2748,9 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 		if err != nil {
 			return Decision{}, err
 		}
-		candidates = e.chooseTransitions(selected)
+		if candidates, err = e.chooseTransitions(selected); err != nil {
+			return Decision{}, err
+		}
 	}
 	taking, err := e.doBehaviorsTaking(m, candidates)
 	if err != nil {

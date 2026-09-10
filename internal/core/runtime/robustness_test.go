@@ -71,6 +71,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_yields_to_a_substate_transition_leaving_it", testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt)
 	t.Run("state_do_body_accept_follows_the_transition_chosen", testStateDoBodyAcceptFollowsTheTransitionChosen)
 	t.Run("state_do_body_accept_follows_the_choice_branch_taken", testStateDoBodyAcceptFollowsTheChoiceBranchTaken)
+	t.Run("state_do_body_accept_yields_to_a_transition_into_its_region", testStateDoBodyAcceptYieldsToATransitionIntoItsRegion)
+	t.Run("state_do_body_accept_keeps_the_route_chosen", testStateDoBodyAcceptKeepsTheRouteChosen)
 	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
@@ -3929,7 +3931,7 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.fireTransition(transitionBetween(t, exec, "away", "H"))
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
 	if err == nil {
 		t.Fatal("expected an error for a history outside any composite state")
 	}
@@ -3964,7 +3966,7 @@ func testHistoryWithoutRecordOrDefault(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.fireTransition(transitionBetween(t, exec, "away", "H"))
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
 	if err == nil {
 		t.Fatal("expected an error: nothing recorded and no default history transition")
 	}
@@ -12947,6 +12949,119 @@ func testStateDoBodyAcceptFollowsTheChoiceBranchTaken(t *testing.T) {
 		if total := exec.StateData()["total"]; !valueEqual(total, integerValue(tc.total)) {
 			t.Errorf("stay = %s: total = %v, want %d", tc.stay, total, tc.total)
 		}
+	}
+}
+
+// testStateDoBodyAcceptYieldsToATransitionIntoItsRegion: a transition out of one
+// orthogonal region into a sibling region exits the state that region is in on the
+// way, so the do behavior parked there does not take the signal the transition
+// accepts, in Decide and in the dispatch alike; the signal is consumed once.
+func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Waiter parallel {
+		attribute total : Integer = 0;
+		state left {
+			entry; then l1;
+			state l1;
+			transition swap first l1 accept Go then r2;
+		}
+		state right {
+			entry; then r1;
+			state r1 {
+				do action work {
+					first start;
+					then action reader accept Go;
+					then action count assign total := total + 10;
+					then done;
+				}
+			}
+			state r2 { entry assign total := total + 1; }
+		}
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, src)
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition swap"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition replaces the state the do behavior runs in", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed", dispatch, ok)
+	}
+	assertRegionConfig(t, exec, map[string]string{"right": "r2"})
+	if len(ctx.PendingMessages()) != 0 {
+		t.Errorf("%d messages in flight, want the one message consumed", len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of r2 only, the do behavior of r1 cancelled at its accept", total)
+	}
+}
+
+// testStateDoBodyAcceptKeepsTheRouteChosen: the branch a choice routes the chosen
+// transition along is settled before the do behaviors go on with the signal, so a
+// do behavior that rewrites the guard on its way cannot send the transition down
+// another branch than the one it was let go on for.
+func testStateDoBodyAcceptKeepsTheRouteChosen(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	state def Waiter {
+		attribute total : Integer = 0;
+		attribute stay : Boolean = true;
+		entry; then active;
+		state active {
+			do action work {
+				first start;
+				then action reader accept Go;
+				then action flip assign stay := false;
+				then action count assign total := total + 10;
+				then done;
+			}
+			entry; then left;
+			state left;
+			choice pick;
+			transition route first left accept Go then pick;
+			transition first pick if stay then right;
+			transition first pick then stopped;
+			state right { entry assign total := total + 1; }
+		}
+		state stopped { entry assign total := total + 100; }
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	exec, ctx, goMsg := boxDoBehaviorParkedAtGo(t, src)
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state active"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	dispatch, ok := exec.LastDispatch()
+	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", dispatch, ok)
+	}
+	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
+		t.Errorf("state %s with %d messages in flight, want right with the one message consumed: the route was settled while stay held", activeLeaf(exec), len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
+		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
 	}
 }
 
