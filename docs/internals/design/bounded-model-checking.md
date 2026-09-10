@@ -24,11 +24,16 @@ independent chains are unordered, and the library states no conflict rule for tw
 writes of one feature. One model therefore admits many executions, and every one of them
 conforms.
 
-The executor runs exactly one. Its choice is deterministic and documented — tokens are stepped in
-descending index order within a step, a fork appends its branch tokens in succession-declaration
-order, a state machine fires transitions and exits regions in region declaration order — and
-[the semantic oracle](../../project/behavior-semantic-oracle.md) separates what the library fixes
-from what that scheduling chose. The compliance map marks the rows where the runtime picks an
+The executor runs exactly one, chosen by the run's scheduling policy
+([scheduling](scheduling.md)) and reported at each choice point. Under the default `reverse` the
+choice is fixed and documented — tokens are stepped in descending index order within a step, a
+fork appends its branch tokens in succession-declaration order, the first holding guard, the first
+enabled transition and the first of the regions an event selected fire — while `seed:<n>` draws
+every one of those, transition and region order included, from a generator the seed replays;
+only the order regions are entered and exited in on a composite transition stays declaration
+order under every policy, since it is no choice point. [The semantic
+oracle](../../project/behavior-semantic-oracle.md) separates what the library fixes from what
+that scheduling chose. The compliance map marks the rows where the runtime picks an
 order the specification does not as approximate. The `explore` policy answers which outcomes the
 admissible executions reach, by running each of them within a budget; what no surface offers is
 the question a safety case asks at scale: *does any admissible execution violate this
@@ -154,9 +159,9 @@ At each state the checker enumerates the **enabled moves**:
   token has a move and some token is parked is a deadlock, as `ErrAcceptDeadlock` reports it
   today. A token at a decision has one move per succession whose guard holds — the library
   fixes exactly one (`DecisionPerformance::outgoingHBLink [1]`), so with guards evaluated
-  against the current state there is normally one; overlapping guards are a model defect and
-  are reported rather than branched on, as the executor takes the first in declaration order
-  today.
+  against the current state there is normally one; overlapping guards are a model defect the
+  executor reports as a `ChoiceDecisionBranch` today, taking the first in declaration order
+  under `reverse` and `declared` and a seeded draw under `seed:<n>`.
 - **State machine**: with one event at the head of the queue there is one move. Several events
   due at the same instant are one move each; the executor dispatches them in arrival order,
   the checker explores every order, so a state that reacts differently to `A` then `B` than to
@@ -170,13 +175,14 @@ At each state the checker enumerates the **enabled moves**:
   the selected transitions fire, so a reaction's effect cannot enable or disable another
   region's transition for the same event — that write is seen by the *next* dispatch's
   selection, which the captured state carries. The checker keeps this reading, and what it
-  explores inside a dispatch is the order in which the selected reactions run, which is
-  tool-defined (declaration order today). Order matters in two ways. Two reactions that write
+  explores inside a dispatch is the order in which the selected reactions run, which the
+  library leaves open and the executor draws through its scheduling policy today
+  (`ChoiceRegionOrder`: declaration order under `reverse` and `declared`, a seeded draw under
+  `seed:<n>`, every order under `explore`). Order matters in two ways. Two reactions that write
   shared data, or one that writes what another's effect reads, reach different states in
   different orders. And a reaction that leaves a composite state deactivates every leaf under
   it, so a sibling region's candidate whose leaf was left is dropped when its turn comes
-  (`broadcastEvent` checks `isActive` and `losesToNestedTransition` at fire time, not at
-  selection): a region-local transition out of a parallel composite fires alone in one order
+  (`dispatchInOrder` checks `isActive` before each firing, not at selection): a region-local transition out of a parallel composite fires alone in one order
   and after its sibling's reaction in the other. The active configuration is therefore part of
   a reaction's footprint — it reads the activity of its own leaf and writes the activity of
   every state it exits or enters — and the dispatch is split by the independence relation
