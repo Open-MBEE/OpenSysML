@@ -255,6 +255,12 @@ the workflows runs everything. A path no area claims turns every area on, so a n
 is over-tested rather than untested — teach the script about it, and add a case to
 `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
+`.github/workflows/devin-review.yml` is not a check. It asks the Devin API for a review of the
+pull request as soon as it opens or gains commits, draft or not, so the review runs alongside
+`pr.yml` rather than waiting for the pull request to be marked ready. It needs the repository
+secret `DEVIN_API_TOKEN`, a Devin service-user API key with the organization's
+"Use Review (manual)" permission, and fails visibly when that secret is absent.
+
 ### CircleCI
 
 `.circleci/config.yml` runs after a merge and on tags, never on a pull request branch:

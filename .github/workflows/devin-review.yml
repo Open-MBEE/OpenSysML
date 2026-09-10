@@ -1,0 +1,63 @@
+name: Devin Review
+
+# Devin's automatic review skips a draft pull request until it is marked ready,
+# and pull requests here open as drafts until the checks clear, so left to itself
+# the review would only start once CI had finished. This asks the Devin API for a
+# review the moment a pull request opens or gains commits, draft or not, so the
+# review runs alongside the checks rather than after them.
+#
+# pull_request_target rather than pull_request so the token is present for a
+# pull request from a fork too. That event runs with the base branch's
+# permissions, which is safe here only because nothing from the pull request is
+# checked out or executed: the one step posts the pull request's URL, taken from
+# the event, to an API that fetches the branch itself.
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+# The API reviews the head commit at the time it is asked, so a request for an
+# already-superseded push has nothing to add.
+concurrency:
+  group: devin-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  request:
+    name: Request a Devin review
+    # The organization below is the one this repository is connected to; a fork
+    # is connected elsewhere, if at all, and would need its own workflow.
+    if: github.repository == 'Open-MBEE/OpenSysML'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Request the review
+        env:
+          # The deployment's API, and the Devin organization the repository is
+          # connected to. The token is a service-user API key holding the
+          # organization's "Use Review (manual)" permission, stored as the
+          # repository secret DEVIN_API_TOKEN.
+          DEVIN_API_URL: https://nasa-jpl-demo.devinenterprise.com/api
+          DEVIN_ORG_ID: org-17d5b4cf402940dbab163440fe604f84
+          DEVIN_API_TOKEN: ${{ secrets.DEVIN_API_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          if [ -z "$DEVIN_API_TOKEN" ]; then
+            echo "::error::The repository secret DEVIN_API_TOKEN is not set, so no review was requested."
+            exit 1
+          fi
+          body=$(mktemp)
+          status=$(curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+            --max-time 60 \
+            --request POST "$DEVIN_API_URL/v3/organizations/$DEVIN_ORG_ID/pr-reviews" \
+            --header "Authorization: Bearer $DEVIN_API_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data "$(jq --null-input --arg pr_url "$PR_URL" '{pr_url: $pr_url}')")
+          cat "$body"
+          echo
+          case "$status" in
+            2*) ;;
+            409) echo "The API reported a conflict, so a review of this commit is presumably already queued." ;;
+            *) echo "::error::Requesting a Devin review failed with HTTP $status."; exit 1 ;;
+          esac
