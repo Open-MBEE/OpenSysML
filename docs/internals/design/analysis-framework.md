@@ -306,9 +306,12 @@ gave, so a reader sees both that `smt` timed out and that `explore` then enumera
 not advance on an `error` from `Run`: an error is a fault — the subject did not resolve, the
 model has no lowered graph for it, an engine broke its own contract — that no other engine
 would answer differently, and it stops the plan and is reported as an error, not composed. An
-engine that cannot get an answer for a reason particular to itself (a crashed solver, a tool
-that exited non-zero) returns *not covered* with that reason, as `solve` and `%check` already
-distinguish an unusable solver from a malformed query.
+engine that cannot get an answer for a reason particular to itself (a solver process that died
+mid-query, a solver that lacks a capability the query needs) returns *not covered* with that
+reason, as `solve` and `%check` already distinguish an unusable solver from a malformed query.
+The rule does not reach into a run: a tool process that fails *inside* an execution fails that
+performance (below), as a failed calc does, and the question that ran it reports the failure
+the way `run` reports a failed calc today, since nothing else answers `compute`.
 
 `auto` is the default and preserves every existing surface: for `evaluate` the only covering
 engine is `run`; for `sweep` it is `sweep`; for `satisfiable` it is `solve`; for `outcomes` it
@@ -416,15 +419,20 @@ the determinism above would not hold. `explore`'s witness is the violating linea
 the least prefix in plan order. A violation found at prefix `p` cancels only the runs whose
 prefixes order after `p`; runs ordered before `p` finish, and if one of them also violates, it
 becomes the witness and cancels from its own position. The witness is final only when every
-prefix before it has completed. So the set of cancelled runs is every prefix after the witness,
-the same set under `-jobs 1` and `-jobs 8`; what `Jobs` changes is how many of those had
-started, which the report does not distinguish. The report lists the cancelled runs by prefix,
-not by how far each had got.
+prefix before it has completed — and every such prefix is known, because a prefix's ancestors
+order before it, so the subtree before `p` is discovered entirely by runs that themselves order
+before `p`. The prefixes *after* `p` are not known: the tree is discovered by running it, and
+how much of the later tree a plan had uncovered when the witness became final depends on
+`Jobs`. So the report does not list cancelled prefixes. It reports the witness, the outcomes of
+the linearizations before it, and the cut itself — *stopped at the witness; the linearizations
+after it in plan order were not explored* — and discards whatever a worker had already learned
+past the cut, whether or not that run had finished. That is the same report under `-jobs 1`
+and `-jobs 8`, and it is what the sequential `Explore` would print if it stopped at `p`.
 
 A plan does not cancel runs that serve a *universal* claim: a plan whose question is `holds`
 under `-engine all` lets `smt` finish even after `explore` has completed, because the two
-bounds are different evidence and the user asked for both. A cancelled run is reported as such,
-not dropped.
+bounds are different evidence and the user asked for both. A cancelled *engine* is reported as
+such, not dropped: the plan names it and the bound it had reached.
 
 ## External tools
 
@@ -440,7 +448,10 @@ engine turns this into one process invocation per performance of the action:
    converting units to the parameters' declared ones, and the run continues.
 3. A non-zero exit, malformed output, a missing output, an output with no `ToolVariable` to
    receive it, or a timeout (`OPENSYSML_TOOL_TIMEOUT`, default the solver's 10 s) is a typed
-   error that fails the performance, as a failed calc does. No default value is invented.
+   error that fails the performance, as a failed calc does. No default value is invented, and
+   there is no fallback: `tool:<name>` is the only engine that answers `compute`, so a tool
+   failure is never a *not covered* that `auto` advances past; it is the failure of the
+   performance, and the enclosing question's result carries it.
 
 Three things the framework asserts about the result and will not let a tool bypass:
 
@@ -522,14 +533,15 @@ reached.
   golden and REPL/CLI/gRPC golden passes unchanged with the engines behind the surfaces, before
   any surface addition lands.
 - **Determinism under `-jobs`:** for `explore` and `sweep` over the conformance corpus,
-  `-jobs 1` and `-jobs 8` produce byte-identical `-json` reports, including the witness and the
-  cancelled-run list of a violating case whose later prefix violates faster than its earlier
-  one; run under `-race`.
+  `-jobs 1` and `-jobs 8` produce byte-identical `-json` reports, including the witness, the
+  outcome table and the cut of a violating case whose later prefix violates faster than its
+  earlier one and whose later subtree is wider than the earlier; run under `-race`.
 - **Isolation:** two plans on one model in one process on two goroutines, under `-race`, with
   the resolver and semantic model per worker; the gRPC service serves concurrent runtime requests
   on one model.
-- **Cancellation:** a deadline reached mid-plan returns every finished run's result, every
-  cancelled run marked as such, and the composed result at the strength the finished runs earned.
+- **Cancellation:** a deadline reached mid-plan returns every finished engine's result, every
+  cancelled engine marked as such with the bound it reached, and the composed result at the
+  strength the finished runs earned.
 - **Tools:** the `AnalysisAnnotation` fixture against a stand-in executable, with the
   input/output protocol, a missing output, a non-zero exit, a timeout, an unregistered
   `toolName`, and a non-deterministic stand-in, each producing its typed error or its *observed*
