@@ -665,6 +665,36 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
+// TestIndividualDefinitionWithoutItsFlagReadsAsIndividual covers a graph typed
+// sysml:IndividualDefinition that carries no sysml:isIndividual, the shape
+// earlier releases wrote: the metaclass states the fact, so it reads back as
+// `individual def` and its next hop is the graph an `individual def` writes today.
+func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
+	src := `package P {
+    individual def Eagle;
+}`
+	first, err := export.Convert("legacy.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if !strings.Contains(string(first), "sysml:isIndividual") {
+		t.Fatalf("an individual def should carry sysml:isIndividual\n%s", first)
+	}
+	legacy := withoutTriples(t, withoutTriples(t, first, "sysx:sourceText"), "sysml:isIndividual")
+	back, err := export.Convert("legacy.ttl", legacy, export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "individual def Eagle;") {
+		t.Errorf("an IndividualDefinition without its flag should still read as individual\n%s", back)
+	}
+	second, err := export.Convert("legacy.sysml", back, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	requireSameGraphBytes(t, back, first, second)
+}
+
 // tripleSetDiff parses two Turtle documents and returns the triples only the
 // first holds, then the triples only the second holds, each in document order.
 func tripleSetDiff(t *testing.T, first, second []byte) (lost, gained []string) {

@@ -215,7 +215,11 @@ triples come); a set of classes with no such member is refused, naming the subje
   `individual part def`, `individual item def`, `individual occurrence def`, …
   carries it and reads back with its `individual` modifier, and so does an
   `individual def`, whose kind keyword states the fact and is written back
-  alone rather than doubled as a modifier
+  alone rather than doubled as a modifier. As with `sysml:EnumerationDefinition`
+  and `isVariation`, the metaclass `sysml:IndividualDefinition` states the fact
+  on its own: a graph typed so but carrying no flag — the shape earlier
+  releases wrote — reads back as `individual def` and gains the flag on its
+  next hop, after which it is stable
 - `sysml:portionKind`, `"snapshot"` or `"timeslice"`, for a usage declared as a
   portion (`snapshot :>> start`, `timeslice occurrence t`); the two are the
   metamodel's `OccurrenceUsage::portionKind`, so no flag spells them. Such a
