@@ -108,7 +108,7 @@ verdict names it.
 | Component | In the executor | In the query |
 |-----------|-----------------|--------------|
 | Tokens | `ActionExecutor.tokens`, ids assigned on spawn | `T` **token slots**, `T` computed from the graph: the widest set of tokens `k` moves can hold, one per fork branch reachable within the bound, plus one per nested flow. `at_i[t]` is a finite datatype over the graph's nodes with `Absent`, `Done` and `Parked` |
-| Node performances | `stepToken`, `stepJoinNode`, `stepMergeNode` | `joined_i[j]` — how many of join `j`'s incoming successions have delivered; `merged_i[m]` — whether merge `m` has admitted a token, the executor's `mergeVisited` |
+| Node performances | `stepToken`, `stepJoinNode`, `stepMergeNode` | `joined_i[j]` — how many of join `j`'s incoming successions have delivered. A merge keeps no state: it is one performance per arrival, so a token at a merge is described by its slot alone |
 | Feature values | `Instance.FeatureValues`, `actionFrame.data` | one variable per scalar feature per state, `x_i`, in the sort the translator already gives the feature; a frame-local feature is one per (node performance, feature) |
 | Pins and object flows | `PinBinding`, `DataFlows`, delivered `out` pins | the value carried on an object flow is a variable set by the source node's move and read by the target's |
 | Messages | `Context.messages`, oldest first | a bounded bus of `M` slots, each `(present, signal type, payload, posted-at)`, `M` computed as the number of `Send` statements reachable in `k` moves |
@@ -128,7 +128,7 @@ per rule, each cited to what the executor does:
 |---------------|-------------------------|
 | A token at a plain node can act | `at_i[t] = n ∧ plain(n) ⇒ en_i(t)` |
 | A token at a join acts when the join has collected (`stepJoinNode`) | `at_i[t] = j ⇒ (en_i(t) ⇔ joined_i[j] = indegree(j))` |
-| A merge admits one token (`stepMergeNode`, and the known failure the oracle records) | `at_i[t] = m ⇒ (en_i(t) ⇔ ¬merged_i[m])` |
+| A merge performs once per arriving token, a loop re-entering it and a fork's branches each traversing it (`stepMergeNode`) | `at_i[t] = m ⇒ en_i(t)`, for every slot at `m` |
 | A parked accept acts when a matching message is on the bus (`acceptMatch`) | `at_i[t] = Parked ∧ accept(t) = a ⇒ (en_i(t) ⇔ ∃ slot: present ∧ type matches a)` |
 | A parked `accept after`/`at` acts when due (`triggerHolds`) | `en_i(t) ⇔ now_i ≥ due_i[t]` |
 | A paused nested flow resumes when it would go on (`Token.resumable`) | the nested slots' own enabledness; the performing node has no move of its own |
@@ -159,8 +159,9 @@ schedule of *at most* `k` moves.
    that reaches it, as the explicit note reports overlapping guards.
 3. **Placement.** The token moves to its single successor; a fork sets its branch slots to their
    first nodes; arriving at a join increments `joined[j]` and the arriving slot becomes `Absent`
-   unless it is the one that collects; arriving at a merge sets `merged[m]`; arriving at a final
-   sets `Done`; an `accept` sets `Parked` with its due time or signal.
+   unless it is the one that collects; arriving at a merge is arriving at a plain node, and two
+   slots may sit at the same merge; arriving at a final sets `Done`; an `accept` sets `Parked`
+   with its due time or signal.
 4. **Frame.** Every variable the move does not write is equal to its previous value. This is the
    bulk of the script and the reason `T` is built per node from the graph rather than by hand.
 
@@ -200,8 +201,14 @@ counterexample and `unsat` is the proof:
   `f^A_k ≠ f^B_k`. `sat` yields two schedules from one initial state that end with different
   values of `f`; the earliest move at which `c^A` and `c^B` differ, and the two moves they take,
   are the pair the report names. `unsat` says `f`'s final value is a function of the inputs
-  alone within the bound — the sentence that closes the compliance map's *approximate* row for
-  a given model, though not for the runtime in general.
+  alone — **provided every schedule completes within `k`**. The `both complete` conjunct makes
+  the query vacuous otherwise: at a `k` too short for any run to finish, no pair of completed
+  copies exists and `unsat` says nothing. So `unsat` is reported as *not sensitive* only when a
+  second query, `∃ schedule. cut_k ∨ loopflag` (some run is still live at `k` or hit a loop
+  bound), is itself `unsat`; if that query is `sat`, the verdict is *no sensitivity found within
+  k moves*, named as the bounded result it is, with a schedule that is still live at `k` printed
+  as the reason. Only *not sensitive* closes the compliance map's *approximate* row for a given
+  model, and not for the runtime in general.
 
 One query per property, or several properties in one query with a labelled disjunct each, so the
 model says which failed.
@@ -315,7 +322,7 @@ solver answers and `explore` confirms.
 | Construct | SMT | explore | If not covered |
 |-----------|-----|---------|----------------|
 | Successions, fork, join, decision with translatable guards | encoded | yes | — |
-| Merge, merge-loop | encoded; a back edge is a loop unrolled `L` times | yes, to `depth` | proof needs the unroll flag never set; otherwise *not covered: loop 'name' cut at L* |
+| Merge, merge-loop | encoded; a back edge is a succession like any other, so a merge-loop's iterations are bounded by `k`, not unrolled | yes, to `depth` | a loop still live at `k` sets `cut_k`: *no violation within k moves*, not *proved* — unless k-induction closes it |
 | Body `assign` of Boolean, Integer, Natural, Rational, Real, enumeration, variation features; `if`; local `Declare` | encoded through the existing translator | yes | — |
 | Quantities with units | encoded, normalized to base units as exact rationals | yes | proof is qualified *over exact arithmetic* when the evaluator rounds |
 | Feature chains grounding in a scalar of the performing object | encoded | yes | — |
@@ -350,7 +357,7 @@ printed with a *proved* verdict, and none is ever silently exceeded:
 | Bound | Default | Flag | What happens at it |
 |-------|---------|------|--------------------|
 | Moves `k` | 40 | `-check-moves N` | A schedule longer than `k` is not covered. A schedule that has not completed or stuttered by move `k` sets `cut_k`; a *proved* verdict with `cut_k` satisfiable is downgraded to *no violation within k moves*, distinctly named |
-| Loop unrolling `L` | 4 per loop | `-check-unroll N` | An iteration past `L` sets the loop's flag; same downgrade |
+| Loop unrolling `L` | 4 per body `Loop` statement | `-check-unroll N` | A body `Loop` (`while`/`for` inside one node, run within one move) is unrolled `L` times; an iteration past `L` sets the loop's flag; same downgrade. Loops through the graph (a merge back edge) are not unrolled: they are moves, bounded by `k` |
 | Token slots `T`, bus slots `M` | computed from the graph and `k` | — | Never hit by construction; reported for the record |
 | Heap `N` (later stage) | — | `-check-objects N` | An allocation past `N` refuses the query |
 | Solver time | the SMT layer's `OPENSYSML_SMT_TIMEOUT` (10 s) | `-check-timeout D` | `unknown`, reported as *not covered: solver undecided within D* |
@@ -358,7 +365,8 @@ printed with a *proved* verdict, and none is ever silently exceeded:
 Two verdicts therefore sit under *proved*: `proved` when no bound flag can be set within the
 query (the solver shows `¬cut_k ∧ ¬loopflag` is implied), and `no violation within k moves`
 when one can. Only the first is a proof, and it is a proof relative to the atomicity rule, the
-translated subset and the input domains stated with it.
+translated subset and the input domains stated with it. The sensitivity query has the same
+pair — *not sensitive* and *no sensitivity found within k moves* — decided by the same flags.
 
 ### From a bound to a proof: k-induction
 
@@ -368,15 +376,26 @@ extends to every schedule of any length:
 
 - **Base**: `R(s_0) ∧ … ∧ R(s_k)` is not violated from the initial state (the bounded query).
 - **Step**: `R(s_i) ∧ … ∧ R(s_{i+k}) ∧ T … ⇒ R(s_{i+k+1})`, from an arbitrary state — the
-  same transition relation with `s_0` unconstrained except by `R`.
+  same one-move transition relation with `s_0` unconstrained except by `R` and by the state
+  invariants `T` maintains (a slot count, `joined[j] ≤ indegree(j)`).
 
-If the step is `unsat` the verdict is `proved, unbounded (k-induction at k)`, and a merge-loop
-with a loop-invariant requirement is proved without unrolling it to termination. If the step is
-`sat` the counterexample starts from a state that may be unreachable; it is *not* reported as a
-violation — the verdict stays the bounded one, and the report says the induction failed and at
-which `k`. Strengthening `R` with an auxiliary invariant so the induction closes is the user's
-move, and a later stage may search for one. This is a later stage in any case; the bounded
-verdict is what ships first.
+The step is sound only over a `T` with **no cut in it**: every transition of the real system
+must be a transition of `T` from every state, or the step proves invariance of a smaller
+system. A merge-loop qualifies — its progress is token position, which is state, and its back
+edge is an ordinary move of `T`, so the step covers iteration `L+1` as readily as iteration 1.
+A body `Loop` does not: it is unrolled `L` times *inside* one move, so `T` has no transition
+for an iteration past `L`, from any state, and an `unsat` step says nothing about it. A
+behavior whose encoding contains an unrolled body `Loop` is therefore excluded from the unbounded
+verdict: the report prints `proved within k moves; loop 'name' unrolled L times, not inductive`
+and stops there. Lifting a body loop into moves would change the atomic unit, and is not done.
+
+If the step is `unsat` and no unrolled loop is in `T`, the verdict is
+`proved, unbounded (k-induction at k)`, and a merge-loop with a loop-invariant requirement is
+proved without running it to termination. If the step is `sat` the counterexample starts from a
+state that may be unreachable; it is *not* reported as a violation — the verdict stays the
+bounded one, and the report says the induction failed and at which `k`. Strengthening `R` with
+an auxiliary invariant so the induction closes is the user's move, and a later stage may search
+for one. This is a later stage in any case; the bounded verdict is what ships first.
 
 ## User surface
 
@@ -433,9 +452,13 @@ Written before the code, as the behavioral contract asks:
    not enabled is refused with a typed error naming the move.
 3. **Verdict discipline.** A model with a computed product answers `unknown` under a short
    timeout and is reported *not covered*, never *proved*. A model with an untranslatable body is
-   refused before any query, naming the node. A merge-loop with `-check-unroll 1` reports
-   `no violation within` and not `proved`; the same loop with a loop-invariant requirement and
-   k-induction reports `proved, unbounded`.
+   refused before any query, naming the node. A merge-loop of more iterations than
+   `-check-moves` allows reports `no violation within` and not `proved`; the same loop with a
+   loop-invariant requirement and k-induction reports `proved, unbounded`; a body `while` under
+   `-check-unroll 1` reports `no violation within`, and with k-induction reports
+   `proved within k moves … not inductive`, never `unbounded`. A fork whose two branches both
+   arrive at one merge, and a merge-loop re-entered three times, produce the executor's outcomes
+   (two merge performances; three), pinned as referee cases.
 4. **Inputs.** A requirement that holds for the model's default input and fails for another
    value in the domain is *violated* under `smt` and *no violation* under `explore` on the same
    command, and the report of each says why they differ.
@@ -443,7 +466,9 @@ Written before the code, as the behavioral contract asks:
    witnesses and `leftRan`, `rightRan` not sensitive;
    `action_explore_performed_and_accept_due_together` reports `x` sensitive with the paused body
    and the sibling accept as the diverging pair; `action_join_waits_for_slowest_branch` reports
-   `arrived` not sensitive. These expectations are derived from the oracle, not from the checker.
+   `arrived` not sensitive. `action_fork_branches_write_one_feature` at a `-check-moves` short
+   of its completion reports `no sensitivity found within k moves`, not *not sensitive*. These
+   expectations are derived from the oracle, not from the checker.
 6. **Portability.** One query per feature the encoding emits — datatypes for nodes, the
    two-copy query, the incremental enumeration, the induction step — added to the SMT layer's
    portability harness, so a backend that refuses one is reported as refusing it.
@@ -455,8 +480,8 @@ Written before the code, as the behavioral contract asks:
 Each stage leaves `develop` green, ships behind `-check-engine smt`, and is useful on its own.
 
 1. **The transition relation for actions on concrete inputs.** Straight-line bodies, fork, join,
-   merge with unrolling, decisions, pins and object flows; no clock, no messages, no nested
-   flows. The requirement and deadlock properties, the *proved*/*bounded*/*violated*/*not
+   merge, body loops with unrolling, decisions, pins and object flows; no clock, no messages, no
+   nested flows. The requirement and deadlock properties, the *proved*/*bounded*/*violated*/*not
    covered* verdicts, witness decoding and the `replay:` policy. Referee checks 1–3 over the
    corpus cases these constructs cover. This is where the encoding is proved faithful and is the
    stage whose review matters most.
