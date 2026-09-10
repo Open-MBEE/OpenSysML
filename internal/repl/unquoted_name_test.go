@@ -103,6 +103,14 @@ func TestUnquotedMemberIsOfferedOnlyWhereItResolves(t *testing.T) {
 	wants(t, run(t, s, "%instantiate Pub::'SA-506'"), "✓ Created instance")
 }
 
+// A command looks a declaration up from outside every namespace, where a private
+// member is as reachable as a public one: the path offered for it is one that works.
+func TestUnquotedPrivateMemberIsOfferedWhereTheCommandReachesIt(t *testing.T) {
+	s := submitted(t, `package T { private part def 'SA-506'; }`)
+	wants(t, run(t, s, "%instantiate SA"), "error: unresolved reference: SA — "+quotingHint)
+	wants(t, run(t, s, "%instantiate T::'SA-506'"), "✓ Created instance")
+}
+
 // A name that resolves to nothing quoted either is reported as before: the
 // quoting rule is stated only where a quoted declaration is what it starts.
 func TestNoQuotingHintWithoutAQuotedDeclaration(t *testing.T) {

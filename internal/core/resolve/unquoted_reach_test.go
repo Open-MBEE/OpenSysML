@@ -73,6 +73,30 @@ func TestUnresolvedMemberOffersAnImportedMember(t *testing.T) {
 	}
 }
 
+// A bare name is offered by its declaring path only when that path resolves from
+// where it was written: a member private to its package is not; a private import
+// surfaces no path, so the declaring one is offered; a public one nested two
+// packages deep is.
+func TestUnresolvedNameOffersOnlyAReachablePath(t *testing.T) {
+	if got := unresolvedMessage(t, `package T { private part def 'SA-506'; }
+	package U { part d : SA; }`, "SA"); got != "unresolved reference: SA" {
+		t.Errorf("private member: diagnostic = %q, want no spelling offered", got)
+	}
+	got := unresolvedMessage(t, `package Zlib { part def 'SA-506'; }
+	package T { private import Zlib::*; }
+	package U { part d : SA; }`, "SA")
+	want := "unresolved reference: SA — did you mean Zlib::'SA-506'? " + quotingRule
+	if got != want {
+		t.Errorf("privately imported: diagnostic = %q, want %q", got, want)
+	}
+	got = unresolvedMessage(t, `package Outer { package T { part def 'SA-506'; } }
+	package U { part d : SA; }`, "SA")
+	want = "unresolved reference: SA — did you mean Outer::T::'SA-506'? " + quotingRule
+	if got != want {
+		t.Errorf("nested member: diagnostic = %q, want %q", got, want)
+	}
+}
+
 // A `$::`-rooted name is offered rooted: the bare spelling would start at a
 // local namespace of the same name.
 func TestUnresolvedGlobalMemberIsOfferedRooted(t *testing.T) {

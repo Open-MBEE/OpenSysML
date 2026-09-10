@@ -67,7 +67,8 @@ func (r *Resolver) namesSomething(fqn string) bool {
 }
 
 // unquotedFor returns the declared names name is the unquoted start of, as typed
-// from scope: bare when they resolve there, else by the path declaring them.
+// from scope: bare when they resolve there, else by the path declaring them,
+// when that path resolves from scope too — a private member's does not.
 func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 	table := r.suggestTable()
 	var cands []suggest.Candidate
@@ -77,13 +78,38 @@ func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 			continue
 		}
 		for _, fqn := range table.Declared(full) {
-			if r.importable(fqn) && r.namesSomething(fqn) {
+			if r.importable(fqn) && r.namesSomething(fqn) && r.pathReaches(scope, fqn, full) {
 				cands = append(cands, suggest.Candidate{Spelling: suggest.Spelled(fqn, full), Library: r.libraryFQN(fqn)})
 				break
 			}
 		}
 	}
 	return suggest.Rank(cands)
+}
+
+// pathReaches reports whether the registered fqn, ending in the declared name,
+// resolves segment by segment from scope as a reference written there would.
+func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string) bool {
+	path, ok := strings.CutSuffix(fqn, "::"+name)
+	if !ok {
+		return false
+	}
+	segs := strings.Split(path, "::")
+	cur := r.walkUnqualified(scope, segs[0]).sym
+	if cur == nil {
+		cur = r.lookupGlobalTop(scope, segs[0])
+	}
+	for _, seg := range append(segs[1:], name) {
+		if cur == nil || r.AliasNamesNothing(cur) {
+			return false
+		}
+		all := r.membersNamed(scope, cur, seg, false)
+		if len(all) != 1 {
+			return false
+		}
+		cur = all[0]
+	}
+	return cur != nil && !r.AliasNamesNothing(cur)
 }
 
 // memberKey identifies a member hint by the namespace and the segment written
