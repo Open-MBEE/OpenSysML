@@ -407,7 +407,7 @@ instruction. The KerML Kernel Semantic Library orders three things and nothing e
 - **Send before accept.** A message is accepted after it was sent, so an `accept` that waits for a
   `send` in another branch follows that send.
 - **Ancestor priority.** When a substate's transition and its enclosing state's are both enabled
-  by one event, the innermost fires — UML/SysML order, not a pick.
+  by one event, the innermost fires — SysML v2/KerML order, not a pick.
 
 Everything else two performances could do in either order, they may: which of two fork branches
 steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
