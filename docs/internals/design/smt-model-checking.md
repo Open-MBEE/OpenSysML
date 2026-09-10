@@ -203,12 +203,16 @@ counterexample and `unsat` is the proof:
   are the pair the report names. `unsat` says `f`'s final value is a function of the inputs
   alone — **provided every schedule completes within `k`**. The `both complete` conjunct makes
   the query vacuous otherwise: at a `k` too short for any run to finish, no pair of completed
-  copies exists and `unsat` says nothing. So `unsat` is reported as *not sensitive* only when a
-  second query, `∃ schedule. cut_k ∨ loopflag` (some run is still live at `k` or hit a loop
-  bound), is itself `unsat`; if that query is `sat`, the verdict is *no sensitivity found within
-  k moves*, named as the bounded result it is, with a schedule that is still live at `k` printed
-  as the reason. Only *not sensitive* closes the compliance map's *approximate* row for a given
-  model, and not for the runtime in general.
+  copies exists and `unsat` says nothing, and the same holds when some schedules never complete
+  at all. So `unsat` is reported as *not sensitive* only when a second query,
+  `∃ schedule. ¬complete(s_k) ∨ loopflag` — some run is still live at `k`, deadlocked, ended in a
+  runtime error, or hit a body-loop bound — is itself `unsat`, which is the statement that every
+  schedule completes within `k`. If that query is `sat`, its witness decides the verdict: a
+  deadlocked or erroring schedule is the *violated* deadlock or error finding, with `f` having no
+  final value on it; a schedule still live at `k` gives *no sensitivity found within k moves*,
+  named as the bounded result it is, with that schedule printed as the reason. Only *not
+  sensitive* closes the compliance map's *approximate* row for a given model, and not for the
+  runtime in general.
 
 One query per property, or several properties in one query with a labelled disjunct each, so the
 model says which failed.
@@ -381,15 +385,31 @@ extends to every schedule of any length:
 
 The step is sound only over a `T` with **no cut in it**: every transition of the real system
 must be a transition of `T` from every state, or the step proves invariance of a smaller
-system. A merge-loop qualifies — its progress is token position, which is state, and its back
-edge is an ordinary move of `T`, so the step covers iteration `L+1` as readily as iteration 1.
-A body `Loop` does not: it is unrolled `L` times *inside* one move, so `T` has no transition
-for an iteration past `L`, from any state, and an `unsat` step says nothing about it. A
-behavior whose encoding contains an unrolled body `Loop` is therefore excluded from the unbounded
-verdict: the report prints `proved within k moves; loop 'name' unrolled L times, not inductive`
-and stops there. Lifting a body loop into moves would change the atomic unit, and is not done.
+system. Three places in the bounded encoding are cuts, and each must be absent or the behavior
+is excluded from the unbounded verdict:
 
-If the step is `unsat` and no unrolled loop is in `T`, the verdict is
+- **Body loops.** A merge-loop qualifies — its progress is token position, which is state, and
+  its back edge is an ordinary move of `T`, so the step covers iteration `L+1` as readily as
+  iteration 1. A body `Loop` does not: it is unrolled `L` times *inside* one move, so `T` has no
+  transition for an iteration past `L`, from any state, and an `unsat` step says nothing about
+  it. Lifting a body loop into moves would change the atomic unit, and is not done.
+- **Token slots.** The bounded query sizes the slot set from `k`; the step runs from arbitrary
+  states and for any length, so the slot set must instead bound the token population of *every*
+  run. It does when no cycle of the graph contains a fork whose branches can return to it
+  without being collected by a join on that cycle: then the widest set of live tokens is fixed
+  by the graph's fork nesting alone, and the step uses a slot set of that size. A cycle through
+  an uncollected fork grows the token population by one each time round, no finite slot set
+  covers it, and a `T` with all slots occupied has no transition for the fork's next spawn — the
+  step is refused for such a graph.
+- **Bus slots.** The same for `M`: a cycle containing a `Send` can grow the bus without bound,
+  and the step is refused when the graph has one. (The bounded query is unaffected, its `M` being
+  sized from `k`.)
+
+The refusal is printed in the report, and stops there:
+`proved within k moves; loop 'name' unrolled L times, not inductive`,
+`…; fork 'spawn' on a cycle can grow the token population without bound, not inductive`.
+
+If the step is `unsat` and no cut is in `T`, the verdict is
 `proved, unbounded (k-induction at k)`, and a merge-loop with a loop-invariant requirement is
 proved without running it to termination. If the step is `sat` the counterexample starts from a
 state that may be unreachable; it is *not* reported as a violation — the verdict stays the
@@ -456,7 +476,9 @@ Written before the code, as the behavioral contract asks:
    `-check-moves` allows reports `no violation within` and not `proved`; the same loop with a
    loop-invariant requirement and k-induction reports `proved, unbounded`; a body `while` under
    `-check-unroll 1` reports `no violation within`, and with k-induction reports
-   `proved within k moves … not inductive`, never `unbounded`. A fork whose two branches both
+   `proved within k moves … not inductive`, never `unbounded`; so does a merge-loop that
+   re-enters a fork whose branches are never joined. A behavior whose every schedule deadlocks
+   at a join reports the deadlock and never *not sensitive*. A fork whose two branches both
    arrive at one merge, and a merge-loop re-entered three times, produce the executor's outcomes
    (two merge performances; three), pinned as referee cases.
 4. **Inputs.** A requirement that holds for the model's default input and fails for another
