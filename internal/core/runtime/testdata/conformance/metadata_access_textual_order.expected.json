@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "annotations": {"type": "Sequence", "elements": [{"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}]},
+    "firstReviewer": {"type": "String", "value": "ops"},
+    "level": {"type": "Integer", "value": 4},
+    "inlineReviewer": {"type": "String", "value": "nobody"},
+    "lastReviewer": {"type": "String", "value": "qa"}
+  }
+}

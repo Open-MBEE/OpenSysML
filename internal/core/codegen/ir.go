@@ -278,6 +278,17 @@ type Fold struct {
 	T    Type
 }
 
+// Framed evaluates X as the inlined body of a library calc: one frame
+// deeper against the recursion budget, left once X has answered.
+type Framed struct{ X Expr }
+
+// Sampled takes the sample S for the duration of In, which reads S.Dom and
+// S.Rng as Vars.
+type Sampled struct {
+	S  Sample
+	In Expr
+}
+
 func (IntLit) Type() Type    { return TypeInt }
 func (RealLit) Type() Type   { return TypeReal }
 func (BoolLit) Type() Type   { return TypeBool }
@@ -305,6 +316,8 @@ func (i Index) Type() Type    { return i.Seq.Type().Elem() }
 func (RangeExpr) Type() Type  { return TypeSeqInt }
 func (s SeqCall) Type() Type  { return s.T }
 func (f Fold) Type() Type     { return f.T }
+func (f Framed) Type() Type   { return f.X.Type() }
+func (s Sampled) Type() Type  { return s.In.Type() }
 
 // Stmt is a statement of a function body.
 type Stmt interface{ stmt() }
@@ -350,6 +363,18 @@ type ForEach struct {
 	Body []Stmt
 }
 
+// Sample takes `Sample(f, Seq)` one frame deeper: Dom gets the domain values,
+// Rng Body at each in order, every sample charged as the interpreter's pair is.
+type Sample struct {
+	Dom, Rng string
+	Seq      Expr
+	Body     Lambda
+}
+
+// DomType and RngType are the collection types of Dom and Rng.
+func (s Sample) DomType() Type { return s.Seq.Type() }
+func (s Sample) RngType() Type { return s.Body.Body.Type().Seq() }
+
 // Return answers the function's result.
 type Return struct{ Value Expr }
 
@@ -358,4 +383,5 @@ func (Assign) stmt()  { /* marker: Stmt */ }
 func (If) stmt()      { /* marker: Stmt */ }
 func (While) stmt()   { /* marker: Stmt */ }
 func (ForEach) stmt() { /* marker: Stmt */ }
+func (Sample) stmt()  { /* marker: Stmt */ }
 func (Return) stmt()  { /* marker: Stmt */ }

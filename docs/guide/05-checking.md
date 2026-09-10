@@ -171,7 +171,9 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 ```
 
 **Metadata:** `elem.metadata` is the sequence of metadata annotating `elem`, one object per
-annotation in the order written, each carrying the values its body binds over the defaults its
+annotation in the order written — an inline `@` annotation and a `metadata … about elem`
+usage declared elsewhere take their places by source position, across files in document
+order — each carrying the values its body binds over the defaults its
 `metadata def` declares. An element with no annotation answers the empty sequence. The library
 types the sequence as `Metaobject`, so cast an annotation to its `metadata def` before reading
 the values it binds.

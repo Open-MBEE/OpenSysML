@@ -150,14 +150,15 @@ func composeFrame(op ast.OperatorKind, left, right Value) (Value, bool, error) {
 // 'CoordinateFrame/' called by name: x a CoordinateFrame, y a MeasurementUnit.
 func frameArithmetic(op ast.OperatorKind) libraryApply {
 	return func(name string, _ *Context, args []Value) (Value, error) {
-		if args[0].Kind != ValCoordinateFrame {
+		x, y := soleElement(args[0]), soleElement(args[1])
+		if x.Kind != ValCoordinateFrame {
 			return Value{}, fmt.Errorf("%w: function %s parameter %q requires a coordinate frame, a usage typed CoordinateFrame with its mRefs, got %s",
-				ErrTypeMismatch, name, "x", describeValue(args[0]))
+				ErrTypeMismatch, name, "x", describeValue(x))
 		}
-		if _, err := measurementRefArg(name, "y", args[1]); err != nil {
+		if _, err := measurementRefArg(name, "y", y); err != nil {
 			return Value{}, err
 		}
-		val, _, err := composeFrame(op, args[0], args[1])
+		val, _, err := composeFrame(op, x, y)
 		return val, functionError(name, err)
 	}
 }

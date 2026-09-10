@@ -52,12 +52,16 @@ func (d calcMemberDecl) redeclaring(redeclared calcMemberDecl) calcMemberDecl {
 
 // check reports a value outside the declared multiplicity, type or uniqueness, described by
 // what (asked only on refusal, a binding being the hot path); unknown: not judged.
+// A declaration holding at most one value holds the sole element of a collection.
 func (d *calcMemberDecl) check(ctx *Context, value *Value, what func() string) error {
 	if d.Target == nil {
 		return nil
 	}
 	if msg := ctx.writeCountRefusal(d.Target, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what(), ErrMultiplicityViolation, msg)
+	}
+	if d.Target.mult.AtMostOne() {
+		*value = soleElement(*value)
 	}
 	if refusal, refused := ctx.writeTypeRefusal(declScope(d.Owner), d.Target.typ, value, admitWritten); refused {
 		return fmt.Errorf("%s: %w: %s", what(), ErrTypeMismatch, refusal)

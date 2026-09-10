@@ -20,10 +20,9 @@ type EffectiveFeature struct {
 	Unique       bool            // holds no two equal values (KerML isUnique, the default)
 }
 
-// Scalar reports whether the feature holds at most one value. An unbounded
-// upper bound carries Value 0, so the infinite flag has to be tested separately.
+// Scalar reports whether the feature holds at most one value.
 func (f *EffectiveFeature) Scalar() bool {
-	return !f.Multiplicity.Upper.Infinite && f.Multiplicity.Upper.Value <= 1
+	return f.Multiplicity.AtMostOne()
 }
 
 // DefaultIsFallback reports whether DefaultValue was written with `default`: a
