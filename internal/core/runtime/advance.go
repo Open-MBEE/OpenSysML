@@ -26,6 +26,8 @@ type clockWaiter interface {
 	// run of it already on the stack, which drives the clock itself.
 	finished() bool
 	running() bool
+	// Release withdraws the executor from the clock for good.
+	Release()
 }
 
 // dueProgress counts what one drive of the clock did, in the units the budgets

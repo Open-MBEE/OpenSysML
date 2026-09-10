@@ -1,0 +1,16 @@
+{
+    "type": "state",
+    "libraries": true,
+    "trace": true,
+    "outcomes": [
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 1324 } }
+        },
+        {
+            "finalState": "ldone+rdone",
+            "outputs": { "seq": { "type": "Integer", "value": 3124 } }
+        }
+    ],
+    "admissible": "Do behaviors of sibling regions active at one instant: each proceeds, in which order is open"
+}

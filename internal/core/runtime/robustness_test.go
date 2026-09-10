@@ -53,9 +53,20 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_dangling_succession", testStateDoBodyDanglingSuccession)
 	t.Run("state_do_body_first_then_undefined", testStateDoBodyFirstThenUndefined)
 	t.Run("state_do_body_flow_without_start", testStateDoBodyFlowWithoutStart)
+	t.Run("state_do_body_flow_with_two_starts", testStateDoBodyFlowWithTwoStarts)
+	t.Run("state_do_body_starts_at_its_unpreceded_step", testStateDoBodyStartsAtItsUnprecededStep)
+	t.Run("action_flow_starts_at_its_unpreceded_step", testActionFlowStartsAtItsUnprecededStep)
+	t.Run("action_flow_with_two_starts", testActionFlowWithTwoStarts)
+	t.Run("action_flow_cycle_without_start", testActionFlowCycleWithoutStart)
 	t.Run("state_do_body_nested_node_dangling_succession", testStateDoBodyNestedNodeDanglingSuccession)
 	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
-	t.Run("state_do_body_accept_deadlock", testStateDoBodyAcceptDeadlock)
+	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
+	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
+	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
+	t.Run("state_do_typed_action_pin_bound_to_missing_feature", testStateDoTypedActionPinBoundToMissingFeature)
+	t.Run("state_entry_body_waits_for_the_clock", testStateEntryBodyWaitsForTheClock)
+	t.Run("state_exit_body_waits_for_the_clock", testStateExitBodyWaitsForTheClock)
+	t.Run("transition_effect_body_waits_for_the_clock", testTransitionEffectBodyWaitsForTheClock)
 	t.Run("state_do_body_flow_that_never_ends", testStateDoBodyFlowThatNeverEnds)
 	t.Run("state_do_body_node_return_parameter", testStateDoBodyNodeReturnParameter)
 	t.Run("state_do_body_return_parameter", testStateDoBodyReturnParameter)
@@ -12255,6 +12266,107 @@ func testStateDoBodyFlowWithoutStart(t *testing.T) {
 	}
 }
 
+// testStateDoBodyFlowWithTwoStarts: successions leaving two nodes unpreceded
+// state no start either; the error names both and what would state one.
+func testStateDoBodyFlowWithTwoStarts(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		action a { assign total := total + 1; }
+		action b { assign total := total + 1; }
+		action c { assign total := total + 1; }
+		succession first a then c;
+		succession first b then c;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	}
+	for _, want := range []string{"no node starts the flow", `"a"`, `"b"`, "'first'"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not contain %q", err, want)
+		}
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyStartsAtItsUnprecededStep: a do body written in declaration
+// order, with no `first`, starts at the one node no succession leads to.
+func testStateDoBodyStartsAtItsUnprecededStep(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		action a { assign total := total + 1; }
+		then action b { assign total := total * 10; }
+	`)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(10)) {
+		t.Errorf("total = %v, want 10: a then b", total)
+	}
+}
+
+// testActionFlowStartsAtItsUnprecededStep: an action definition performed whole
+// starts at its one unpreceded node the same way.
+func testActionFlowStartsAtItsUnprecededStep(t *testing.T) {
+	outputs, err := executeActionSource(t, "Count", `package P {
+		private import ScalarValues::*;
+		action def Count {
+			attribute total : Integer = 1;
+			action a { assign total := total + 1; }
+			then action b { assign total := total * 10; }
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	assertIntOutput(t, outputs, "total", 20)
+}
+
+// testActionFlowWithTwoStarts: an action whose successions leave two nodes
+// unpreceded is an invalid flow at initialization, not a bodiless action.
+func testActionFlowWithTwoStarts(t *testing.T) {
+	_, err := executeActionSource(t, "Count", `package P {
+		private import ScalarValues::*;
+		action def Count {
+			attribute total : Integer = 0;
+			action a { assign total := total + 1; }
+			action b { assign total := total + 1; }
+			action c { assign total := total + 1; }
+			succession first a then c;
+			succession first b then c;
+		}
+	}`)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	}
+	for _, want := range []string{"no initial node found in action Count", `"a"`, `"b"`, "'first'"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not contain %q", err, want)
+		}
+	}
+}
+
+// testActionFlowCycleWithoutStart: successions closing a cycle over every node
+// leave nothing to start at; the error says so rather than the run hanging.
+func testActionFlowCycleWithoutStart(t *testing.T) {
+	_, err := executeActionSource(t, "Loop", `package P {
+		private import ScalarValues::*;
+		action def Loop {
+			attribute total : Integer = 0;
+			action a { assign total := total + 1; }
+			action b { assign total := total + 1; }
+			succession first a then b;
+			succession first b then a;
+		}
+	}`)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "cycle") {
+		t.Errorf("error %q does not name the cycle", err)
+	}
+}
+
 // testStateDoBodyNestedNodeDanglingSuccession: the flow a node of an inline do
 // body states of its own is validated with the body's before any node runs, so
 // a dangling succession in it is reported naming the node and the target.
@@ -12313,31 +12425,49 @@ func testStateEntryBodyDanglingSuccession(t *testing.T) {
 	}
 }
 
-// testStateDoBodyAcceptDeadlock: an accept in an inline do body's flow that
-// nothing can ever post is reported as the deadlock it is, not waited on.
-func testStateDoBodyAcceptDeadlock(t *testing.T) {
+// testStateDoBodyAcceptWaitsForTheMessage: an accept in an inline do body's flow
+// with no message in flight suspends the machine in its state, as a transition
+// triggered by a signal does, rather than hanging or deadlocking; the message
+// posted later lets the body finish and the state complete.
+func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
+	var exec *StateExecutor
 	done := make(chan error, 1)
 	go func() {
-		exec := stateWithDoBody(t, `
+		exec = stateWithDoBody(t, `
 			first start;
 			then action reader accept n : Integer;
+			then action count assign total := n;
 			then done;
 		`)
 		done <- exec.RunToCompletion()
 	}()
-	var err error
 	select {
-	case err = <-done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("a do body waiting for a message that cannot arrive did not terminate")
-	}
-	if !errors.Is(err, ErrAcceptDeadlock) {
-		t.Fatalf("expected ErrAcceptDeadlock, got: %v", err)
-	}
-	for _, want := range []string{"state behavior ops", "accept n", "Integer"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("expected %q in the deadlock report, got: %v", want, err)
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("run: %v", err)
 		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("a do body waiting for a message did not suspend")
+	}
+	if exec.State() != StateSuspended || getNodeName(exec.CurrentState()) != "active" {
+		t.Fatalf("state = %v in %s, want suspended in active", exec.State(), getNodeName(exec.CurrentState()))
+	}
+	if exec.HasPendingDoWork() {
+		t.Error("a do body parked at its accept must not be due")
+	}
+	nine := integerValue(9)
+	exec.ctx.PostMessage(Message{SignalType: "Integer", Target: "reader", Value: &nine})
+	if !exec.HasPendingDoWork() {
+		t.Fatal("the message in flight must make the parked do body due")
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run after the message: %v", err)
+	}
+	if exec.State() != StateCompleted {
+		t.Errorf("state = %v in %s, want completed", exec.State(), getNodeName(exec.CurrentState()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(9)) {
+		t.Errorf("total = %v, want 9: the accepted value", total)
 	}
 }
 
@@ -13821,5 +13951,233 @@ func testMetadataOfAnUnresolvedName(t *testing.T) {
 	_, _, err := evalDeclaredExpr(t, "package test {}", "test::missing.metadata")
 	if !errors.Is(err, ErrUnresolvedReference) {
 		t.Fatalf("error = %v, want ErrUnresolvedReference", err)
+	}
+}
+
+// stateMachineWithLibraries builds Machine from src over the standard library,
+// for state bodies that name units, and returns it before initialization.
+func stateMachineWithLibraries(t *testing.T, src string) *StateExecutor {
+	t.Helper()
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("Machine not found")
+	}
+	exec, err := newStateExecutor(ctx, sym, nil)
+	if err != nil {
+		t.Fatalf("newStateExecutor: %v", err)
+	}
+	return exec
+}
+
+// testStateDoTypedActionInputUnbound: a typed do usage that binds none of the
+// action's input parameters is refused when the state's do behavior starts,
+// naming the action and the parameter, and the action does not run.
+func testStateDoTypedActionInputUnbound(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		action def Poll { in n : Integer; assign n := n + 1; }
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active { do action poll : Poll { } }
+			succession first active then done;
+		}
+	}`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrUnboundParameter) {
+		t.Fatalf("expected ErrUnboundParameter, got: %v", err)
+	}
+	for _, want := range []string{"do action in state active", "action Poll", "input parameter n"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not say %q", err, want)
+		}
+	}
+	assertCurrentState(t, exec, "active")
+}
+
+// testStateDoTypedActionPinBoundToMissingFeature: a typed do usage binding a pin
+// to a feature the state does not declare is refused naming the pin, and the
+// action does not run.
+func testStateDoTypedActionPinBoundToMissingFeature(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		action def Poll { in n : Integer; assign n := n + 1; }
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active { do action poll : Poll { in n = nothing; } }
+			succession first active then done;
+		}
+	}`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrUnresolvedReference) {
+		t.Fatalf("expected ErrUnresolvedReference, got: %v", err)
+	}
+	for _, want := range []string{"do action in state active", "n of node poll", "nothing"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not say %q", err, want)
+		}
+	}
+	assertCurrentState(t, exec, "active")
+}
+
+// testStateEntryBodyWaitsForTheClock: an entry body whose flow waits for the
+// clock is refused when the state is entered, naming the wait; a state is
+// entered at one instant, and only its do behavior may wait.
+func testStateEntryBodyWaitsForTheClock(t *testing.T) {
+	exec := stateMachineWithLibraries(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active {
+				entry action {
+					action w accept after 1 [s];
+					then action c assign total := 1;
+				}
+			}
+			succession first active then done;
+		}
+	}`)
+	err := exec.initialize()
+	if !errors.Is(err, ErrStateBehaviorWaits) {
+		t.Fatalf("expected ErrStateBehaviorWaits, got: %v", err)
+	}
+	for _, want := range []string{"enter state active", "entry action", "t=1.0"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not say %q", err, want)
+		}
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: nothing after the wait must run", total)
+	}
+	if got := len(exec.ctx.Clock().Waits()); got != 0 {
+		t.Errorf("%d wait(s) left on the clock by the refused entry body", got)
+	}
+}
+
+// testStateExitBodyWaitsForTheClock: an exit body whose flow waits for the clock
+// is refused when the state is left, naming the wait, and time does not advance.
+func testStateExitBodyWaitsForTheClock(t *testing.T) {
+	exec := stateMachineWithLibraries(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active {
+				exit action {
+					action w accept after 1 [s];
+					then action c assign total := 1;
+				}
+			}
+			succession first active then done;
+		}
+	}`)
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrStateBehaviorWaits) {
+		t.Fatalf("expected ErrStateBehaviorWaits, got: %v", err)
+	}
+	for _, want := range []string{"exit state", "exit action", "t=1.0"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not say %q", err, want)
+		}
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: nothing after the wait must run", total)
+	}
+	if now := exec.ctx.Clock().Now(); now != 0 {
+		t.Errorf("clock at %v, want 0: a refused exit body must not advance time", now)
+	}
+}
+
+// testTransitionEffectBodyWaitsForTheClock: a transition effect whose flow waits
+// for the clock is refused when the transition fires, naming the wait.
+func testTransitionEffectBodyWaitsForTheClock(t *testing.T) {
+	exec := stateMachineWithLibraries(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active;
+			transition first active then done do action {
+				action w accept after 1 [s];
+				then action c assign total := 1;
+			}
+		}
+	}`)
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrStateBehaviorWaits) {
+		t.Fatalf("expected ErrStateBehaviorWaits, got: %v", err)
+	}
+	for _, want := range []string{"transition effect", "t=1.0"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not say %q", err, want)
+		}
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: nothing after the wait must run", total)
+	}
+}
+
+// testStateDoBodyNestedAcceptCancelledOnExit: an accept nested one node deep in
+// a do body, for a signal nothing sends, parks the body while the machine waits
+// for its timed exit; leaving the state cancels the body, leaving no waiter
+// behind and running nothing after the accept.
+func testStateDoBodyNestedAcceptCancelledOnExit(t *testing.T) {
+	exec := stateMachineWithLibraries(t, `package test {
+		private import ScalarValues::*;
+		private import SI::*;
+		attribute def Go;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active {
+				do action ops {
+					first start;
+					then action inner {
+						first start;
+						then action w accept g : Go;
+						then action c assign total := 1;
+						then done;
+					}
+					then done;
+				}
+			}
+			transition first active accept after 10 [s] then finished;
+			state finished;
+		}
+	}`)
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	assertCurrentState(t, exec, "finished")
+	if now := exec.ctx.Clock().Now(); now != 10 {
+		t.Errorf("clock at %v, want 10: the exit transition's instant", now)
+	}
+	if exec.HasPendingDoWork() {
+		t.Error("leaving the state must end its parked do body")
+	}
+	if got := len(exec.ctx.Clock().Waits()); got != 0 {
+		t.Errorf("%d wait(s) left on the clock after the state exited", got)
+	}
+	exec.ctx.PostMessage(Message{SignalType: "Go", Target: "w"})
+	if exec.HasPendingDoWork() {
+		t.Error("a message after the exit must not revive the cancelled body")
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: the node after the cancelled accept must not run", total)
 	}
 }

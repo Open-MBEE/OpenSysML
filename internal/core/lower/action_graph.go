@@ -816,7 +816,9 @@ func nodeAnswering(nodes []ast.Node, name string) ast.Node {
 	return nil
 }
 
-// lowerFeatures records the parameters and attributes a node declares itself.
+// lowerFeatures records the parameters and attributes a node declares itself. An
+// `inout` pin valued by a feature name is bound to that feature, as a feature value
+// binds the feature to its result, so what the node leaves in the pin writes back.
 func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	if graph.Features == nil {
 		graph.Features = make(map[ast.Node][]Feature)
@@ -840,8 +842,25 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 			Node:      m,
 			Scope:     scope,
 		})
+		if binding, ok := inoutValueBinding(node, m, name, scope); ok {
+			graph.Bindings = append(graph.Bindings, binding)
+		}
 	}
 	graph.Features[node] = features
+}
+
+// inoutValueBinding lowers the value of a node's `inout` pin that names a feature
+// (`inout n = ticks;`) to the binding between the two it states; a value that is
+// an expression of another kind is the pin's initial value alone.
+func inoutValueBinding(node, pin *ast.Usage, name string, scope *symbols.Scope) (PinBinding, bool) {
+	if pin.Direction != ast.DirInOut || pin.Value == nil || len(endSegments(pin.Value)) == 0 {
+		return PinBinding{}, false
+	}
+	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin}
+	if chain, feature, ok := assignTarget(pin.Value); ok {
+		binding.OtherChain, binding.OtherFeature = chain, feature
+	}
+	return binding, true
 }
 
 // DeclaresNodeFeature reports whether an action member is a parameter or attribute.

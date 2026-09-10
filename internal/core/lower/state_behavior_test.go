@@ -109,3 +109,63 @@ func TestStateBehaviorBodyWithADanglingSuccessionIsUnsupported(t *testing.T) {
 		t.Errorf("description %q does not name the undefined target", unsupported.Description)
 	}
 }
+
+// A behavior body whose successions leave one step unpreceded starts there, as a
+// case body's flow does, so `first` is needed only where the start is ambiguous.
+func TestStateBehaviorBodyStartsAtItsOneUnprecededStep(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			action def A;
+			state Machine {
+				entry; then s;
+				state s {
+					do action ops {
+						action a : A;
+						then action b : A;
+					}
+				}
+				succession first s then done;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	block, ok := graph.Behaviors[stateNamed(graph, "s")].Do[0].Body[0].(Block)
+	if !ok || block.Graph == nil {
+		t.Fatalf("do body is not a stated flow: %#v", graph.Behaviors[stateNamed(graph, "s")].Do[0].Body)
+	}
+	if block.Graph.Initial != nodeNamed(t, block.Graph, "a") {
+		t.Errorf("initial node = %v, want the unpreceded step a", block.Graph.Initial)
+	}
+}
+
+// Two unpreceded steps, or a cycle, leave the start unstated: the graph keeps no
+// initial node for the runtime to report, since the lowerer cannot choose.
+func TestStateBehaviorBodyWithAmbiguousStartKeepsNoInitial(t *testing.T) {
+	for name, body := range map[string]string{
+		"two unpreceded steps": `action a : A; action b : A; action c : A; succession first a then c; succession first b then c;`,
+		"a cycle":              `action a : A; action b : A; succession first a then b; succession first b then a;`,
+	} {
+		graph, err := ToStateGraph(stateUsageIn(t, `
+			package test {
+				action def A;
+				state Machine {
+					entry; then s;
+					state s { do action ops { `+body+` } }
+					succession first s then done;
+				}
+			}
+		`), nil)
+		if err != nil {
+			t.Fatalf("%s: ToStateGraph: %v", name, err)
+		}
+		block, ok := graph.Behaviors[stateNamed(graph, "s")].Do[0].Body[0].(Block)
+		if !ok || block.Graph == nil {
+			t.Fatalf("%s: do body is not a stated flow", name)
+		}
+		if block.Graph.Initial != nil {
+			t.Errorf("%s: initial node = %v, want none", name, block.Graph.Initial)
+		}
+	}
+}

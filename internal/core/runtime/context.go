@@ -187,6 +187,9 @@ type Context struct {
 	// pausable is the body run on the stack a breakpoint or a wait on the clock
 	// pauses (action_body_run.go), nil while none is.
 	pausable *bodyRun
+	// clockHeldBy names the behavior on the stack that must end at the instant it
+	// runs at, so no wait on the clock under it may advance the clock; "" for none.
+	clockHeldBy string
 	// idleBody is the body coroutine no step's work is on, kept for the next step
 	// until the outermost run leaves; bodyCoroutinesMade counts the ones made.
 	idleBody           *bodyCoroutine

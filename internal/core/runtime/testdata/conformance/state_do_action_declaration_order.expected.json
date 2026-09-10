@@ -1,0 +1,10 @@
+{
+    "type": "state",
+    "libraries": true,
+    "trace": true,
+    "finalState": "finished",
+    "stateVisits": ["watching", "finished"],
+    "outputs": {
+        "ticks": { "type": "Integer", "value": 1 }
+    }
+}

@@ -153,6 +153,16 @@ func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 	e.addFeatureDirections(root.features, &root.aliases, e.action)
 }
 
+// declareAcceptPayloads gives root the payloads the graph's accepts name: each is a
+// feature of the flow its accept sits in, read by the nodes after it.
+func (e *ActionExecutor) declareAcceptPayloads(root *actionFrame) {
+	for _, accept := range e.graph.Accepts {
+		if accept.ParamName != "" {
+			root.features[accept.ParamName] = ast.DirNone
+		}
+	}
+}
+
 // addFeatureDirections adds the parameters and attributes an action holds, the
 // inherited ones included, to features by name, aliasing what each redefines.
 func (e *performances) addFeatureDirections(

@@ -93,11 +93,21 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 			} else if paused {
 				continue
 			}
+			if err := e.ctx.driveClock(e.describeWaits(perf)); err != nil {
+				return err
+			}
 			moved, err := e.awaitClock(perf, &progress)
 			if err != nil {
 				return err
 			}
 			if moved {
+				continue
+			}
+		} else if len(e.waitingTokens(perf)) > 0 && !e.canProceed(perf) {
+			awaitsMessage := func() bool { return len(e.waitingTokens(perf)) > 0 && !e.canProceed(perf) }
+			if paused, err := e.ctx.pauseForMessage(nil, awaitsMessage); err != nil {
+				return err
+			} else if paused {
 				continue
 			}
 		}

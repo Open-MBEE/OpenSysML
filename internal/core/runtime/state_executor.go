@@ -138,6 +138,23 @@ type StateExecutor struct {
 type doAction struct {
 	state   *ast.StateNode
 	pending []lower.StateBehavior
+	// run is the behavior under way, paused where its flow waits on the clock or
+	// for a message; nil between behaviors.
+	run *doRun
+}
+
+// due reports work of the do behavior runnable now: a paused behavior whose wait
+// has ended, or the next behavior where none is under way.
+func (act *doAction) due() bool {
+	if act.run != nil {
+		return act.run.resumable()
+	}
+	return len(act.pending) > 0
+}
+
+// finished reports a do behavior with nothing left to run.
+func (act *doAction) finished() bool {
+	return act.run == nil && len(act.pending) == 0
 }
 
 // historyRecord is the configuration one composite state was last left in.
@@ -833,31 +850,39 @@ func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) 
 	if len(pending) < 2 {
 		return pick, nil
 	}
-	alts := e.candidateNames(pending)
-	taken := pending[pick]
-	choice := ChoicePoint{
-		Kind:         ChoiceRegionOrder,
-		Where:        where,
-		Alternatives: alts,
-		Taken:        pick,
-		File:         e.stateMachine.DocName,
-		Span:         taken.source.Span(),
+	sources := make([]*ast.StateNode, len(pending))
+	for i, candidate := range pending {
+		sources[i] = candidate.source
 	}
+	choice := e.regionOrderChoice(where, sources, pick)
 	scheduling.describe(choice)
 	return pick, choice
 }
 
-// candidateNames spells each candidate's source state, qualified by its region's
-// name where two candidates' sources share a name, as typed regions' states do.
-func (e *StateExecutor) candidateNames(pending []dispatchCandidate) []string {
-	shared := make(map[string]int, len(pending))
-	for _, candidate := range pending {
-		shared[candidate.source.Name]++
+// regionOrderChoice is the choice among the states of several regions acting on
+// one occasion, the one at pick first.
+func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode, pick int) ChoicePoint {
+	return ChoicePoint{
+		Kind:         ChoiceRegionOrder,
+		Where:        where,
+		Alternatives: e.stateNames(states),
+		Taken:        pick,
+		File:         e.stateMachine.DocName,
+		Span:         states[pick].Span(),
 	}
-	names := make([]string, len(pending))
-	for i, candidate := range pending {
-		names[i] = candidate.source.Name
-		if region := e.graph.RegionOf[candidate.source]; shared[names[i]] > 1 && region != nil && region.Name != "" {
+}
+
+// stateNames spells each state, qualified by its region's name where two of the
+// states share a name, as typed regions' states do.
+func (e *StateExecutor) stateNames(states []*ast.StateNode) []string {
+	shared := make(map[string]int, len(states))
+	for _, state := range states {
+		shared[state.Name]++
+	}
+	names := make([]string, len(states))
+	for i, state := range states {
+		names[i] = state.Name
+		if region := e.graph.RegionOf[state]; shared[names[i]] > 1 && region != nil && region.Name != "" {
 			names[i] = region.Name + "." + names[i]
 		}
 	}
@@ -2062,7 +2087,8 @@ func (e *StateExecutor) dueLabel() string {
 	return "state machine " + symbolText(e.stateMachine) + performerSuffix(e.self)
 }
 
-// clockWaits lists the timers set for an instant the clock has not reached.
+// clockWaits lists the timers set for an instant the clock has not reached, and
+// the waits the do behaviors under way are paused on.
 func (e *StateExecutor) clockWaits() []ClockWait {
 	var waits []ClockWait
 	for _, event := range e.eventQueue.events {
@@ -2076,7 +2102,15 @@ func (e *StateExecutor) clockWaits() []ClockWait {
 			What:   fmt.Sprintf("%s -> %s", triggerName(trans.Trigger), getNodeName(trans.Target)),
 		})
 	}
-	slices.SortFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
+	for _, act := range e.doActions {
+		if act.run == nil {
+			continue
+		}
+		for _, wait := range act.run.clockWaits() {
+			waits = append(waits, ClockWait{Due: wait.Due, Holder: e.dueLabel(), What: wait.What})
+		}
+	}
+	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits
 }
 
@@ -2177,12 +2211,17 @@ func (e *StateExecutor) behaviorsOf(state *ast.StateNode) *lower.StateBehaviors 
 }
 
 // stopDoAction abandons whatever is left of a state's do behavior, which is
-// what exiting the state does to it.
+// what exiting the state does to it: a behavior paused on the clock ends there.
 func (e *StateExecutor) stopDoAction(state *ast.StateNode) {
 	kept := e.doActions[:0]
 	for _, act := range e.doActions {
 		if act.state != state {
 			kept = append(kept, act)
+			continue
+		}
+		if act.run != nil {
+			act.run.end(e.ctx)
+			act.run = nil
 		}
 	}
 	for i := len(kept); i < len(e.doActions); i++ {
@@ -2191,28 +2230,44 @@ func (e *StateExecutor) stopDoAction(state *ast.StateNode) {
 	e.doActions = kept
 }
 
-// runDoRound advances every running do behavior by one action, in the order the
-// states were entered, and returns how many actions ran. One round is how
-// concurrently active states share the machine: each performs one action before
-// any performs its next.
+// runDoRound advances every running do behavior with an action due by one action
+// and returns how many ran. One round is how concurrently active states share
+// the machine: each performs one action before any performs its next, in an
+// order the policy draws (entry order by default), reported as a choice where
+// two or more are due. A behavior that waits on the clock or for a message
+// pauses there and is a state's action for the round its wait ends in.
 func (e *StateExecutor) runDoRound() (int, error) {
 	if len(e.doActions) == 0 {
 		return 0, nil
 	}
-	round := make([]*doAction, len(e.doActions))
-	copy(round, e.doActions)
+	due := make([]*doAction, 0, len(e.doActions))
+	for _, act := range e.doActions {
+		if act.due() {
+			due = append(due, act)
+		}
+	}
 
 	ran := 0
-	for _, act := range round {
-		if len(act.pending) == 0 || !e.isRunningDoAction(act) {
-			continue
+	for len(due) > 0 {
+		due = slices.DeleteFunc(due, func(act *doAction) bool { return !e.isRunningDoAction(act) })
+		if len(due) == 0 {
+			break
 		}
-		behavior := act.pending[0]
-		act.pending = act.pending[1:]
+		next := e.chooseDoAction(due)
+		act := due[next]
+		due = slices.Delete(due, next, next+1)
 		if e.trace() != nil {
 			e.trace().RecordDoStep(act.state.Name)
 		}
-		if err := e.executeBehavior(behavior); err != nil {
+		var err error
+		if act.run != nil {
+			act.run, err = act.run.resume(e.ctx)
+		} else {
+			behavior := act.pending[0]
+			act.pending = act.pending[1:]
+			act.run, err = e.startDoRun(behavior)
+		}
+		if err != nil {
 			return ran, fmt.Errorf("do action in state %s: %w", act.state.Name, err)
 		}
 		ran++
@@ -2223,7 +2278,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 	finished := make([]*ast.StateNode, 0, len(e.doActions))
 	kept := e.doActions[:0]
 	for _, act := range e.doActions {
-		if len(act.pending) > 0 {
+		if !act.finished() {
 			kept = append(kept, act)
 			continue
 		}
@@ -2242,6 +2297,24 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		}
 	}
 	return ran, nil
+}
+
+// chooseDoAction resolves which of the do behaviors due in a round acts next: the
+// policy draws the pick and, with several due, the choice is reported.
+func (e *StateExecutor) chooseDoAction(due []*doAction) int {
+	scheduling := e.ctx.scheduling()
+	pick := scheduling.pick(len(due))
+	if len(due) < 2 {
+		return pick
+	}
+	states := make([]*ast.StateNode, len(due))
+	for i, act := range due {
+		states[i] = act.state
+	}
+	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states, pick)
+	scheduling.describe(choice)
+	e.ctx.noteChoice(choice)
+	return pick
 }
 
 // isRunningDoAction reports whether a do action is still registered, which it
@@ -3137,18 +3210,26 @@ func (e *StateExecutor) LastEventAt() float64 {
 	return e.lastEventAt
 }
 
-// NextWait returns the instant the machine's earliest timer comes due at, false
-// when none is set for later than the clock's instant.
+// NextWait returns the instant the machine's earliest wait — a timer, or a do
+// behavior paused on the clock — comes due at, false when none is set for later
+// than the clock's instant.
 func (e *StateExecutor) NextWait() (float64, bool) {
-	if e.eventQueue.Len() == 0 || e.eventQueue.Peek().Timestamp <= e.ctx.clock.now {
+	waits := e.clockWaits()
+	if len(waits) == 0 {
 		return 0, false
 	}
-	return e.eventQueue.Peek().Timestamp, true
+	return waits[0].Due, true
 }
 
-// Release withdraws a machine its driver is done with from the clock; safe to
-// call more than once.
+// Release withdraws a machine its driver is done with from the clock, ending the
+// do behaviors paused on it; safe to call more than once.
 func (e *StateExecutor) Release() {
+	for _, act := range e.doActions {
+		if act.run != nil {
+			act.run.end(e.ctx)
+			act.run = nil
+		}
+	}
 	e.ctx.clock.detach(e)
 }
 
@@ -3273,7 +3354,7 @@ func (e *StateExecutor) RunDoRound() (int, error) {
 // action to run. Such work is due now, unlike a queued event's timestamp.
 func (e *StateExecutor) HasPendingDoWork() bool {
 	for _, act := range e.doActions {
-		if len(act.pending) > 0 {
+		if act.due() {
 			return true
 		}
 	}

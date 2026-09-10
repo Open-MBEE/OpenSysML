@@ -19,18 +19,29 @@ type stateStmtHost struct {
 	// standalone action executor does; perfs are its performances.
 	flow  *ActionExecutor
 	perfs *performances
+	// attrs are the attributes of the state the behavior belongs to and of the
+	// states enclosing it, innermost first.
+	attrs []map[string]Value
 }
 
-// executeBehavior runs one behavior of a state or transition: the statements it
-// was lowered into, whichever form it was written in.
+// executeBehavior runs one behavior of a state or transition to its end at the
+// instant it is triggered: an entry, exit or effect behavior does not wait on the
+// clock, so one whose flow does is an error; a do behavior runs as a doRun instead.
 func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) error {
 	if len(behavior.Body) == 0 {
 		return nil
 	}
-	host := &stateStmtHost{exec: e, behavior: behavior}
-	attrs := e.attrFramesFor(behavior.Owner)
+	host := e.behaviorHost(behavior)
+	defer e.ctx.holdClock(host.describe())()
+	return host.run()
+}
+
+// behaviorHost prepares one execution of a behavior: its performance over the
+// machine's data and the attributes of the states around it.
+func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior) *stateStmtHost {
+	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner)}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(attrs), owner: host},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,
@@ -38,13 +49,71 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) error {
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	host.perfs = &host.flow.performances
-	engine := newStmtEngineOver(e.ctx, host, e.stateData, attrs)
-	engine.env.perf = host.perfs.root
+	return host
+}
+
+// run executes the behavior's statements.
+func (h *stateStmtHost) run() error {
+	engine := newStmtEngineOver(h.exec.ctx, h, h.exec.stateData, h.attrs)
+	engine.env.perf = h.perfs.root
 	// The activation ends with this execution of the body, so a behavior run
 	// again does not read what an earlier execution computed.
 	defer engine.finish()
-	_, err := engine.run(behavior.Body)
+	_, err := engine.run(h.behavior.Body)
 	return err
+}
+
+// doRun is a do behavior under way on a body coroutine: a wait on the clock or
+// for a message in its flow pauses it there, to be resumed once the wait ends or
+// ended when the state is exited, while the machine goes on around it.
+type doRun struct {
+	host *stateStmtHost
+	body *bodyRun
+}
+
+// startDoRun begins a do behavior, pausing it where it first waits; nil once it
+// has ended, with the error that ended it.
+func (e *StateExecutor) startDoRun(behavior lower.StateBehavior) (*doRun, error) {
+	if len(behavior.Body) == 0 {
+		return nil, nil
+	}
+	host := e.behaviorHost(behavior)
+	body := &bodyRun{co: e.ctx.takeBodyCoroutine(), work: host.run, awaitsMessages: true}
+	run := &doRun{host: host, body: body}
+	return run.resume(e.ctx)
+}
+
+// resume lets the run go on to where it next waits, or to its end.
+func (run *doRun) resume(ctx *Context) (*doRun, error) {
+	for {
+		pause, paused := run.body.resume(ctx)
+		if !paused {
+			return nil, run.body.err
+		}
+		if pause.onWait {
+			return run, nil
+		}
+	}
+}
+
+// resumable reports a run whose wait, on the clock or for a message, has ended.
+func (run *doRun) resumable() bool {
+	return !run.body.paused.waits()
+}
+
+// end abandons the run for good: nothing of the behavior runs after it.
+func (run *doRun) end(ctx *Context) {
+	run.body.end(ctx)
+}
+
+// clockWaits lists the waits the run is paused on: its flow's, and those of the
+// action it performs where that is what waits.
+func (run *doRun) clockWaits() []ClockWait {
+	waits := run.host.flow.clockWaits()
+	if held := run.body.paused.held; held != nil {
+		waits = append(waits, held.clockWaits()...)
+	}
+	return waits
 }
 
 // rootFrame is the performance of the behavior itself: it holds no feature of its
@@ -177,7 +246,8 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 // the performance's, initialized as a standalone action's are.
 func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if block.Graph.Initial == nil {
-		return flowNext, fmt.Errorf("%w: %s: no node starts the flow", ErrInvalidActionFlow, h.describe())
+		return flowNext, fmt.Errorf("%w: %s: no node starts the flow%s",
+			ErrInvalidActionFlow, h.describe(), noFlowStart(block.Graph))
 	}
 	if err := h.flow.validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
@@ -195,6 +265,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 		root.scope = block.Graph.Scope
 	}
 	h.flow.declareRootFeatures(root)
+	h.flow.declareAcceptPayloads(root)
 	if err := h.flow.initializeAttributes(); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
 	}
@@ -230,7 +301,7 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 		h.exec.stateData[name] = value
 		return true, nil
 	}
-	return false, nil
+	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)
 }
 
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.

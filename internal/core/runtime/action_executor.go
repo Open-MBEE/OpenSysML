@@ -132,6 +132,7 @@ func newActionExecutorForOccurrence(
 	if err != nil {
 		return nil, fmt.Errorf("lower action graph: %w", err)
 	}
+	lower.StartFlow(graph)
 
 	exec := &ActionExecutor{
 		performances: performances{ctx: ctx, self: self},
@@ -372,6 +373,16 @@ func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 // waiting in perf's flow (the action's for nil), and any token of it blocked for
 // another reason alongside them.
 func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
+	where := "action " + symbolText(e.action)
+	if perf != nil {
+		where = perf.describe()
+	}
+	return fmt.Errorf("%w in %s: nothing can post the awaited message (%s)",
+		ErrAcceptDeadlock, where, e.describeWaits(perf))
+}
+
+// describeWaits lists what the parked tokens of perf's flow (the action's for nil) wait for.
+func (e *ActionExecutor) describeWaits(perf *actionFrame) string {
 	waiting := e.waitingTokens(perf)
 	descriptions := make([]string, 0, len(waiting))
 	for _, token := range waiting {
@@ -381,12 +392,7 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 		descriptions = append(descriptions,
 			fmt.Sprintf("%d token(s) blocked for another reason", blocked))
 	}
-	where := "action " + symbolText(e.action)
-	if perf != nil {
-		where = perf.describe()
-	}
-	return fmt.Errorf("%w in %s: nothing can post the awaited message (%s)",
-		ErrAcceptDeadlock, where, strings.Join(descriptions, "; "))
+	return strings.Join(descriptions, "; ")
 }
 
 // RunToCompletion executes until StateCompleted, a breakpoint, or error.
@@ -429,6 +435,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 	// suspension and then posted the awaited message resumes it here.
 	var progress dueProgress
 	waits := func() bool { return e.state == StateWaiting && e.waitsOnClock(nil) && !e.canProceed(nil) }
+	awaitsMessage := func() bool { return e.state == StateWaiting && !e.canProceed(nil) }
 	for e.state == StateRunning || e.state == StateWaiting {
 		// Tokens parked on the clock alone: advancing it is what moves them; a run
 		// performing this action for a body pauses that body's run instead.
@@ -441,6 +448,9 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			} else if paused {
 				continue
 			}
+			if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {
+				return err
+			}
 			moved, err := e.awaitClock(nil, &progress)
 			if err != nil {
 				return err
@@ -449,6 +459,14 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 				continue
 			}
 			break
+		} else if !atCurrentTime && awaitsMessage() {
+			// Tokens parked for a message: a do behavior pauses until one is in
+			// flight or its state is left; any other run deadlocks below.
+			if paused, err := e.ctx.pauseForMessage(e, awaitsMessage); err != nil {
+				return err
+			} else if paused {
+				continue
+			}
 		}
 
 		if node := e.breakpointHit(); node != "" {
@@ -869,9 +887,28 @@ func (e *ActionExecutor) setFrameFeatures(frame *actionFrame, values map[string]
 }
 
 // hasFlow reports whether the action states a flow to start: an action with no
-// initial node has no step to perform.
+// step performs none, while one whose steps give no start fails to initialize.
 func (e *ActionExecutor) hasFlow() bool {
-	return e.graph != nil && e.graph.Initial != nil
+	return e.graph != nil && (e.graph.Initial != nil || statesSteps(e.graph))
+}
+
+// statesSteps reports whether the graph has a step to perform, a final node aside.
+func statesSteps(graph *lower.ActionGraph) bool {
+	for _, node := range graph.Nodes {
+		if _, final := node.(*ast.FinalNode); !final {
+			return true
+		}
+	}
+	return false
+}
+
+// noFlowStart says why a flow that states steps has no step to start at.
+func noFlowStart(graph *lower.ActionGraph) string {
+	if !statesSteps(graph) {
+		return ""
+	}
+	_, err := lower.CaseFlowStart(graph)
+	return ": " + err.Error()
 }
 
 // completeWithoutFlow completes an action stating no flow: it performs no step,
@@ -949,10 +986,9 @@ func (e *ActionExecutor) checkInputNames() error {
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
-	// Use initial node from graph
 	if e.graph.Initial == nil {
-		return fmt.Errorf("%w: no initial node found in action %s",
-			ErrInvalidActionFlow, e.action.Name)
+		return fmt.Errorf("%w: no initial node found in action %s%s",
+			ErrInvalidActionFlow, e.action.Name, noFlowStart(e.graph))
 	}
 
 	// A nested node's own flow is validated here, not at construction, so a
