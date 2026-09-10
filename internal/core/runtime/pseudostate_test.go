@@ -225,47 +225,6 @@ func TestJoinBranchArrivingFirstFiresNothing(t *testing.T) {
 	}
 }
 
-// The executor must route through an entry or exit point like a junction. The
-// machine is built on the AST directly; the `entry point`/`exit point` notation
-// is covered by the state_entry_exit_points conformance case.
-func TestEntryAndExitPointPseudostates(t *testing.T) {
-	init := &ast.StateNode{Name: "init"}
-	inner := &ast.StateNode{Name: "inner"}
-	outer := &ast.StateNode{Name: "outer", Substates: []ast.Node{inner}}
-	done := &ast.StateNode{Name: "done"}
-	entryPoint := &ast.PseudostateNode{Kind: ast.PseudostateEntry, Name: "in"}
-	exitPoint := &ast.PseudostateNode{Kind: ast.PseudostateExit, Name: "out"}
-
-	machine := &ast.Usage{
-		Kind:  ast.UsageState,
-		Ident: ast.Identification{Name: "Machine"},
-		Members: []ast.Node{
-			entryStart("init"),
-			init, outer, done, entryPoint, exitPoint,
-			transitionMember("init", "in"),
-			transitionMember("in", "inner"),
-			transitionMember("inner", "out"),
-			transitionMember("out", "done"),
-		},
-	}
-
-	exec := stateExecutorFor(t, machine)
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize: %v", err)
-	}
-	for exec.eventQueue.Len() > 0 && exec.state == StateRunning {
-		if err := exec.processNextEvent(); err != nil {
-			t.Fatalf("processNextEvent: %v", err)
-		}
-	}
-
-	for _, want := range []string{"outer", "inner", "done"} {
-		if !containsState(exec.stateVisits, want) {
-			t.Errorf("state %q not visited, visits: %v", want, exec.stateVisits)
-		}
-	}
-}
-
 // entryStart designates the state a machine or region starts in, as the
 // `entry; then <name>;` succession out of the body's entry action does.
 func entryStart(name string) *ast.SuccessionEdge {

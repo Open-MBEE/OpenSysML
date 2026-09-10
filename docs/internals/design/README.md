@@ -26,7 +26,7 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   within a budget under `explore`
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, an OpenSysML
   extension against UML 2.5.1 semantics
-- **[Pseudostates](pseudostates.md)** — choice, junction, fork, join, entry/exit points
+- **[Pseudostates](pseudostates.md)** — choice, junction, fork, join
   and history
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
 - **[SMT bounded model checking of behaviors](smt-model-checking.md)** — a proposal: unroll an

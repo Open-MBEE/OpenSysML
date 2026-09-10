@@ -1,4 +1,4 @@
-package HistoryAndPoints {
+package History {
     state Controller {
         entry; then start;
         state start;
@@ -7,8 +7,6 @@ package HistoryAndPoints {
             state second;
             history resume;
             deep history resumeDeep;
-            entry point into;
-            exit point outOf;
         }
         state away;
 

@@ -2366,24 +2366,12 @@ func (p *Parser) parseStateMember(allowBody bool) ast.Node {
 
 		switch kw {
 		case "entry":
-			// `entry point <name>;` declares an entry point pseudostate; `entry ...`
-			// anything else is the state's entry action.
-			if p.atPointPseudostate() {
-				p.advance() // consume 'entry'
-				p.advance() // consume 'point'
-				return p.parsePseudostate(start, "entry point", ast.PseudostateEntry)
-			}
 			p.advance()
 			return p.parseEntryMember(start)
 		case "do":
 			p.advance()
 			return p.parseDoMember(start)
 		case "exit":
-			if p.atPointPseudostate() {
-				p.advance() // consume 'exit'
-				p.advance() // consume 'point'
-				return p.parsePseudostate(start, "exit point", ast.PseudostateExit)
-			}
 			p.advance()
 			return p.parseExitMember(start)
 		case "state":
@@ -2904,22 +2892,6 @@ func (p *Parser) parseSubstateMember(start int) ast.Node {
 	}
 	node.NodeSpan = p.spanFrom(start)
 	return node
-}
-
-// atPointPseudostate reports whether the `entry`/`exit` keyword at the cursor
-// starts an entry/exit point pseudostate — `entry point <name>;` — rather than
-// an entry/exit action. `point` is matched contextually rather than reserved as
-// a keyword, because models routinely name features `point`.
-func (p *Parser) atPointPseudostate() bool {
-	point := p.peekN(1)
-	if point.Kind != lexer.Identifier || p.src.Text(point.Span) != "point" {
-		return false
-	}
-	name := p.peekN(2)
-	if name.Kind != lexer.Identifier && name.Kind != lexer.Keyword {
-		return false
-	}
-	return p.peekN(3).Kind == lexer.Semicolon
 }
 
 // parseDeferMember parses `defer <event> [, <event>]* ;` in a state body: the

@@ -97,8 +97,6 @@ func TestStateExtensionsAreReported(t *testing.T) {
 		{"state def S { history h; }", "history"},
 		{"state def S { shallow history h; }", "history"},
 		{"state def S { deep history h; }", "history"},
-		{"state def S { entry point p; }", "point"},
-		{"state def S { exit point p; }", "point"},
 		{"state def S { state a { defer e; } }", "`defer <event>;`"},
 	} {
 		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)

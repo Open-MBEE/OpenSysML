@@ -151,8 +151,6 @@ func TestStateMembersRoundTrip(t *testing.T) {
 		"junction":             "junction meet;",
 		"fork pseudostate":     "fork split;",
 		"join pseudostate":     "join sync;",
-		"entry point":          "entry point way_in;",
-		"exit point":           "exit point way_out;",
 		"shallow history":      "shallow history last;",
 		"deep history":         "deep history deepest;",
 		"history synonym":      "history last;",

@@ -1789,21 +1789,9 @@ func (p *Parser) parseMisplacedStateSubaction(start int, trivia []ast.Trivia) as
 		return nil
 	}
 	kind := stateSubactionKind(tok.KeywordID)
-	var en *ast.ErrorNode
-	if kind != subactionDo && p.atPointPseudostate() {
-		en = p.misplacedMemberAs(tok, "an "+tok.KeywordID+" point of a state", "state")
-		pk := ast.PseudostateEntry
-		if kind == subactionExit {
-			pk = ast.PseudostateExit
-		}
-		p.advance()
-		p.advance()
-		p.parsePseudostate(start, tok.KeywordID+" point", pk)
-	} else {
-		en = p.misplacedMember(tok)
-		p.advance()
-		p.parseStateSubaction(start, kind)
-	}
+	en := p.misplacedMember(tok)
+	p.advance()
+	p.parseStateSubaction(start, kind)
 	en.NodeSpan = p.spanFrom(start)
 	en.SetLeadingTrivia(trivia)
 	return en
@@ -1813,13 +1801,8 @@ func (p *Parser) parseMisplacedStateSubaction(start int, trivia []ast.Trivia) as
 // returns the ErrorNode standing in for it; the caller parses the member and spans the node.
 func (p *Parser) misplacedMember(kw lexer.Token) *ast.ErrorNode {
 	m := ownedMembers[kw.KeywordID]
-	return p.misplacedMemberAs(kw, m.role, m.owner)
-}
-
-// misplacedMemberAs is misplacedMember with the role and owner spelled by the caller.
-func (p *Parser) misplacedMemberAs(kw lexer.Token, role, owner string) *ast.ErrorNode {
 	msg := fmt.Sprintf("'%s' declares %s and is only allowed in a %s body; move it into the %s it belongs to",
-		kw.KeywordID, role, owner, owner)
+		kw.KeywordID, m.role, m.owner, m.owner)
 	p.error(kw.Span, msg)
 	return &ast.ErrorNode{Message: msg}
 }

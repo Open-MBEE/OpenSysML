@@ -483,17 +483,11 @@ func (e *encoder) writtenKeyword(subject rdf.Term, node ast.Node, canonical stri
 	}
 }
 
-// pseudostateKeyword gives the notation of a pseudostate's kind: an entry or
-// exit point states `point` as well, and a shallow history may be written with
-// `history` alone.
+// pseudostateKeyword gives the notation of a pseudostate's kind; a shallow
+// history may be written with `history` alone.
 func (e *encoder) pseudostateKeyword(n *ast.PseudostateNode) string {
-	switch n.Kind {
-	case ast.PseudostateEntry, ast.PseudostateExit:
-		return n.Kind.String() + " point"
-	case ast.PseudostateShallowHistory:
-		if firstWord(e.text(n)) == "history" {
-			return "history"
-		}
+	if n.Kind == ast.PseudostateShallowHistory && firstWord(e.text(n)) == "history" {
+		return "history"
 	}
 	return n.Kind.String()
 }

@@ -251,8 +251,6 @@ const (
 	PseudostateJunction                        // merge point
 	PseudostateFork                            // parallel split
 	PseudostateJoin                            // parallel sync
-	PseudostateEntry                           // entry point (submachine)
-	PseudostateExit                            // exit point (submachine)
 	// PseudostateShallowHistory re-enters the substate of its composite state
 	// that was active when that state was last exited.
 	PseudostateShallowHistory
@@ -271,10 +269,6 @@ func (k PseudostateKind) String() string {
 		return "fork"
 	case PseudostateJoin:
 		return "join"
-	case PseudostateEntry:
-		return "entry"
-	case PseudostateExit:
-		return "exit"
 	case PseudostateShallowHistory:
 		return "shallow history"
 	case PseudostateDeepHistory:
@@ -290,7 +284,7 @@ type PseudostateNode struct {
 	Kind PseudostateKind
 	Name string
 	// Keyword is the notation the pseudostate was written with (`choice`,
-	// `deep history`, `entry point`, `fork`).
+	// `deep history`, `fork`).
 	Keyword string
 }
 

@@ -311,7 +311,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		buildMembers(scope, d.Actions)
 		return true
 	case *ast.PseudostateNode:
-		// fork/join/choice/junction/entry/exit named in a state body are
+		// fork/join/choice/junction/history named in a state body are
 		// transition endpoints, so they must be referenceable.
 		if d.Name != "" {
 			id := ast.Identification{Name: d.Name}

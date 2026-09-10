@@ -256,7 +256,7 @@ func TestRegionPseudostateExitRecordsHistory(t *testing.T) {
 			&ast.StateNode{Name: "init"},
 			outer,
 			&ast.StateNode{Name: "away"},
-			&ast.PseudostateNode{Kind: ast.PseudostateExit, Name: "out"},
+			&ast.PseudostateNode{Kind: ast.PseudostateJunction, Name: "out"},
 			transitionMember("init", "outer"),
 			transitionMember("lstart", "lwork"),
 			transitionMember("rstart", "rwork"),
@@ -273,10 +273,10 @@ func TestRegionPseudostateExitRecordsHistory(t *testing.T) {
 	advanceRegion(t, exec, "left", "lstart", "lwork")
 	advanceRegion(t, exec, "right", "rstart", "rwork")
 
-	// An exit point reached from inside the left region leaves the whole state.
+	// A junction reached from inside the left region routes out of the whole state.
 	advanceRegion(t, exec, "left", "lwork", "out")
 	if got := exec.getCurrentState(); got == nil || got.Name != "away" {
-		t.Fatalf("current state = %v, want away (the exit point routes out of outer)", got)
+		t.Fatalf("current state = %v, want away (the junction routes out of outer)", got)
 	}
 	if len(exec.activeConfig.regionStates) != 0 {
 		t.Errorf("regions still active after leaving outer: %v", regionConfig(exec))

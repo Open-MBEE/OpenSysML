@@ -1,9 +1,0 @@
-{
-  "type": "state",
-  "events": [
-    {"signal": "Leave", "args": null}
-  ],
-  "finalState": "done",
-  "stateVisits": ["start", "outer", "inner", "done"],
-  "outputs": {}
-}
