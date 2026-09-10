@@ -49,7 +49,16 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_block_node_unvalued_pin_write_checked", testStateBlockNodeUnvaluedPinWriteChecked)
 	t.Run("state_block_node_pin_read_before_performed", testStateBlockNodePinReadBeforePerformed)
 	t.Run("state_block_node_bound_at_no_pin", testStateBlockNodeBoundAtNoPin)
-	t.Run("state_block_node_own_flow_not_executable", testStateBlockNodeOwnFlowNotExecutable)
+	t.Run("state_block_node_own_flow_runs", testStateBlockNodeOwnFlowRuns)
+	t.Run("state_do_body_dangling_succession", testStateDoBodyDanglingSuccession)
+	t.Run("state_do_body_first_then_undefined", testStateDoBodyFirstThenUndefined)
+	t.Run("state_do_body_flow_without_start", testStateDoBodyFlowWithoutStart)
+	t.Run("state_do_body_nested_node_dangling_succession", testStateDoBodyNestedNodeDanglingSuccession)
+	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
+	t.Run("state_do_body_accept_deadlock", testStateDoBodyAcceptDeadlock)
+	t.Run("state_do_body_flow_that_never_ends", testStateDoBodyFlowThatNeverEnds)
+	t.Run("state_do_body_node_return_parameter", testStateDoBodyNodeReturnParameter)
+	t.Run("state_do_body_return_parameter", testStateDoBodyReturnParameter)
 	t.Run("calc_block_node_unvalued_pin_write_checked", testCalcBlockNodeUnvaluedPinWriteChecked)
 	t.Run("node_binding_to_a_non_parameter", testNodeBindingToANonParameter)
 	t.Run("node_undirected_binding_carried_to_a_non_parameter", testNodeUndirectedBindingCarriedToANonParameter)
@@ -12134,9 +12143,10 @@ func testStateBlockNodeBoundAtNoPin(t *testing.T) {
 	}
 }
 
-// testStateBlockNodeOwnFlowNotExecutable: a state behavior has no token flow, so a
-// node of its body stating a flow of its own is reported when reached, not run.
-func testStateBlockNodeOwnFlowNotExecutable(t *testing.T) {
+// testStateBlockNodeOwnFlowRuns: a node of a state behavior's body stating a
+// flow of its own runs that flow to its end when the block reaches it, as a node
+// of an action body does.
+func testStateBlockNodeOwnFlowRuns(t *testing.T) {
 	exec := stateExecutorForSource(t, "Machine", `package test {
 		private import ScalarValues::*;
 		state Machine {
@@ -12149,6 +12159,7 @@ func testStateBlockNodeOwnFlowNotExecutable(t *testing.T) {
 						action step {
 							first start;
 							then action one { assign total := total + 1; }
+							then action two { assign total := total * 10; }
 							then done;
 						}
 					}
@@ -12158,12 +12169,257 @@ func testStateBlockNodeOwnFlowNotExecutable(t *testing.T) {
 			succession first active then done;
 		}
 	}`)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(10)) {
+		t.Errorf("total = %v, want 10: the node's flow runs one then two", total)
+	}
+}
+
+// stateWithDoBody is a machine whose state active runs body as its inline do
+// action, counting in total what the body's nodes did.
+func stateWithDoBody(t *testing.T, body string) *StateExecutor {
+	t.Helper()
+	return stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then init;
+			state init;
+			state active { do action ops { `+body+` } }
+			succession first init then active;
+			succession first active then done;
+		}
+	}`)
+}
+
+// testStateDoBodyDanglingSuccession: a succession of an inline do body naming a
+// node the body does not declare is reported as a flow that cannot be built,
+// naming the target, and no node of the body runs.
+func testStateDoBodyDanglingSuccession(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		first start;
+		then action a { assign total := total + 1; }
+		succession a then missing;
+	`)
 	err := exec.RunToCompletion()
-	if err == nil || !strings.Contains(err.Error(), "the flow node step states of its own in a body is not executable") {
-		t.Errorf("expected the node's own flow to be reported, got: %v", err)
+	if !errors.Is(err, ErrStatementNotExecutable) {
+		t.Fatalf("expected ErrStatementNotExecutable, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "state behavior ops") || !strings.Contains(err.Error(), `"missing"`) {
+		t.Errorf("error %q does not name the behavior and the undefined target", err)
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
-		t.Errorf("total = %v, want 0: the node's flow must not run", total)
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyFirstThenUndefined: `first a then b` in an inline do body where
+// b is not declared is reported the same way.
+func testStateDoBodyFirstThenUndefined(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		action a { assign total := total + 1; }
+		first a then b;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrStatementNotExecutable) {
+		t.Fatalf("expected ErrStatementNotExecutable, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), `"b"`) {
+		t.Errorf("error %q does not name the undefined target", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyFlowWithoutStart: successions that give the flow no node to
+// start at — a cycle and nothing first — are an invalid flow, not a hang.
+func testStateDoBodyFlowWithoutStart(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		action a { assign total := total + 1; }
+		action b { assign total := total + 1; }
+		succession first a then b;
+		succession first b then a;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "no node starts the flow") {
+		t.Errorf("error %q does not say what the flow lacks", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyNestedNodeDanglingSuccession: the flow a node of an inline do
+// body states of its own is validated with the body's before any node runs, so
+// a dangling succession in it is reported naming the node and the target.
+func testStateDoBodyNestedNodeDanglingSuccession(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		first start;
+		then action a { assign total := total + 1; }
+		then action step {
+			first start;
+			then action one { assign total := total + 1; }
+			succession one then missing;
+		}
+		then done;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "action node step") || !strings.Contains(err.Error(), `"missing"`) {
+		t.Errorf("error %q does not name the node and the undefined target", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateEntryBodyDanglingSuccession: an inline entry body's flow is built the
+// same way, so its dangling succession is reported on entering the state.
+func testStateEntryBodyDanglingSuccession(t *testing.T) {
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then init;
+			state init;
+			state active {
+				entry action prep {
+					first start;
+					then action a { assign total := total + 1; }
+					then missing;
+				}
+			}
+			succession first init then active;
+			succession first active then done;
+		}
+	}`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrStatementNotExecutable) {
+		t.Fatalf("expected ErrStatementNotExecutable, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "state behavior prep") || !strings.Contains(err.Error(), `"missing"`) {
+		t.Errorf("error %q does not name the behavior and the undefined target", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyAcceptDeadlock: an accept in an inline do body's flow that
+// nothing can ever post is reported as the deadlock it is, not waited on.
+func testStateDoBodyAcceptDeadlock(t *testing.T) {
+	done := make(chan error, 1)
+	go func() {
+		exec := stateWithDoBody(t, `
+			first start;
+			then action reader accept n : Integer;
+			then done;
+		`)
+		done <- exec.RunToCompletion()
+	}()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("a do body waiting for a message that cannot arrive did not terminate")
+	}
+	if !errors.Is(err, ErrAcceptDeadlock) {
+		t.Fatalf("expected ErrAcceptDeadlock, got: %v", err)
+	}
+	for _, want := range []string{"state behavior ops", "accept n", "Integer"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("expected %q in the deadlock report, got: %v", want, err)
+		}
+	}
+}
+
+// testStateDoBodyNodeReturnParameter: an action node of an inline do body's flow
+// declaring `return` is refused before any node runs, as in a standalone action.
+func testStateDoBodyNodeReturnParameter(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		first start;
+		then action a { assign total := total + 1; }
+		then action b { return r : Integer = 1; }
+		then done;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrActionResultParameter) {
+		t.Fatalf("expected ErrActionResultParameter, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "state behavior ops") || !strings.Contains(err.Error(), "action node b") {
+		t.Errorf("error %q does not name the behavior and the node", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyReturnParameter: an inline do body stating a flow and declaring
+// `return` itself is refused before any node runs, as a standalone action is.
+func testStateDoBodyReturnParameter(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		return r : Integer = 1;
+		first start;
+		then action a { assign total := total + 1; }
+		then done;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrActionResultParameter) {
+		t.Fatalf("expected ErrActionResultParameter, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "action ops declares `return r`") {
+		t.Errorf("error %q does not name the body's parameter", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
+	}
+}
+
+// testStateDoBodyFlowThatNeverEnds: a cycle of successions in an inline do body
+// spends the step budget and is reported, rather than running forever.
+func testStateDoBodyFlowThatNeverEnds(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		state Machine {
+			attribute total : Integer = 0;
+			entry; then active;
+			state active {
+				do action ops {
+					first start;
+					then action a { assign total := total + 1; }
+					then action b { assign total := total + 1; }
+					succession first b then a;
+				}
+			}
+			succession first active then done;
+		}
+	}`))
+	ctx.maxActionSteps = 50
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
+	if sym == nil {
+		t.Fatal("state machine Machine not found")
+	}
+	exec, err := newStateExecutor(ctx, sym, nil)
+	if err != nil {
+		t.Fatalf("newStateExecutor: %v", err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+	err = exec.RunToCompletion()
+	if !errors.Is(err, ErrActionStepLimitExceeded) {
+		t.Fatalf("expected ErrActionStepLimitExceeded, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "possible infinite loop") {
+		t.Errorf("error %q does not point at the loop", err)
 	}
 }
 
@@ -13426,7 +13682,7 @@ func refusedSweepPlan(t *testing.T, name string, plan SweepPlan) []error {
 			t.Fatalf("%s refused the plan's parameter: %v", name, err)
 		}
 		runs := 0
-		table, err := ctx.RunSweep(context.Background(), "test::"+name, resolved, func([]SweepBinding) (SweepRunResult, error) {
+		table, err := ctx.RunSweep(context.Background(), "test::"+name, resolved, 0, func([]SweepBinding) (SweepRunResult, error) {
 			runs++
 			return SweepRunResult{}, nil
 		})
@@ -13485,7 +13741,7 @@ func testSweepOverAnIntegerParameterByAFraction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolving x: %v", err)
 	}
-	_, err = ctx.RunSweep(context.Background(), "test::Sq", plan, func([]SweepBinding) (SweepRunResult, error) {
+	_, err = ctx.RunSweep(context.Background(), "test::Sq", plan, 0, func([]SweepBinding) (SweepRunResult, error) {
 		t.Fatal("a row ran under a fractional step")
 		return SweepRunResult{}, nil
 	})
@@ -13521,7 +13777,7 @@ func testSweepOverARealParameterByIntegersNoRealHolds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolving x: %v", err)
 	}
-	_, err = ctx.RunSweep(context.Background(), "test::Half", plan, func([]SweepBinding) (SweepRunResult, error) {
+	_, err = ctx.RunSweep(context.Background(), "test::Half", plan, 0, func([]SweepBinding) (SweepRunResult, error) {
 		t.Fatal("a row ran under a step the reals cannot tell apart")
 		return SweepRunResult{}, nil
 	})

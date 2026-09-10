@@ -1,0 +1,419 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:IndividualDefinitions
+    a sysml:Package ;
+    sysml:qualifiedName "IndividualDefinitions" ;
+    sysml:elementId "IndividualDefinitions" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "IndividualDefinitions" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:IndividualDefinitions__Astronaut, elmt:IndividualDefinitions__Neil_20Armstrong, elmt:IndividualDefinitions__Sample, elmt:IndividualDefinitions__Sample_2010005, elmt:IndividualDefinitions__FirstLanding, elmt:IndividualDefinitions__PlantFlag, elmt:IndividualDefinitions__Spacecraft, elmt:IndividualDefinitions__Eagle, elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMembership elmt:IndividualDefinitions__Astronaut_om, elmt:IndividualDefinitions__Neil_20Armstrong_om, elmt:IndividualDefinitions__Sample_om, elmt:IndividualDefinitions__Sample_2010005_om, elmt:IndividualDefinitions__FirstLanding_om, elmt:IndividualDefinitions__PlantFlag_om, elmt:IndividualDefinitions__Spacecraft_om, elmt:IndividualDefinitions__Eagle_om, elmt:IndividualDefinitions__Mission_om ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Astronaut_om, elmt:IndividualDefinitions__Neil_20Armstrong_om, elmt:IndividualDefinitions__Sample_om, elmt:IndividualDefinitions__Sample_2010005_om, elmt:IndividualDefinitions__FirstLanding_om, elmt:IndividualDefinitions__PlantFlag_om, elmt:IndividualDefinitions__Spacecraft_om, elmt:IndividualDefinitions__Eagle_om, elmt:IndividualDefinitions__Mission_om ;
+    sysx:sourceText "package IndividualDefinitions {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"IndividualDefinitions__Astronaut\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong\"},{\"@id\":\"IndividualDefinitions__Sample\"},{\"@id\":\"IndividualDefinitions__Sample_2010005\"},{\"@id\":\"IndividualDefinitions__FirstLanding\"},{\"@id\":\"IndividualDefinitions__PlantFlag\"},{\"@id\":\"IndividualDefinitions__Spacecraft\"},{\"@id\":\"IndividualDefinitions__Eagle\"},{\"@id\":\"IndividualDefinitions__Mission\"}]" ;
+    json:ownedMembership "[{\"@id\":\"IndividualDefinitions__Astronaut_om\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong_om\"},{\"@id\":\"IndividualDefinitions__Sample_om\"},{\"@id\":\"IndividualDefinitions__Sample_2010005_om\"},{\"@id\":\"IndividualDefinitions__FirstLanding_om\"},{\"@id\":\"IndividualDefinitions__PlantFlag_om\"},{\"@id\":\"IndividualDefinitions__Spacecraft_om\"},{\"@id\":\"IndividualDefinitions__Eagle_om\"},{\"@id\":\"IndividualDefinitions__Mission_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Astronaut_om\"},{\"@id\":\"IndividualDefinitions__Neil_20Armstrong_om\"},{\"@id\":\"IndividualDefinitions__Sample_om\"},{\"@id\":\"IndividualDefinitions__Sample_2010005_om\"},{\"@id\":\"IndividualDefinitions__FirstLanding_om\"},{\"@id\":\"IndividualDefinitions__PlantFlag_om\"},{\"@id\":\"IndividualDefinitions__Spacecraft_om\"},{\"@id\":\"IndividualDefinitions__Eagle_om\"},{\"@id\":\"IndividualDefinitions__Mission_om\"}]" .
+
+elmt:IndividualDefinitions__Astronaut
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Astronaut" ;
+    sysml:elementId "IndividualDefinitions__Astronaut" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Astronaut_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Astronaut_om ;
+    sysml:declaredName "Astronaut" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tpart def Astronaut;\n" .
+
+elmt:IndividualDefinitions__Astronaut_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Astronaut_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Astronaut ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Astronaut ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Astronaut ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Neil_20Armstrong
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Neil Armstrong" ;
+    sysml:elementId "IndividualDefinitions__Neil_20Armstrong" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Neil_20Armstrong_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Neil_20Armstrong_om ;
+    sysml:declaredName "Neil Armstrong" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:specializes elmt:IndividualDefinitions__Astronaut ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tindividual part def 'Neil Armstrong' :> Astronaut;\n" .
+
+elmt:IndividualDefinitions__Neil_20Armstrong_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Neil_20Armstrong_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Sample
+    a sysml:ItemDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Sample" ;
+    sysml:elementId "IndividualDefinitions__Sample" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Sample_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Sample_om ;
+    sysml:declaredName "Sample" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\titem def Sample;\n" .
+
+elmt:IndividualDefinitions__Sample_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Sample_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Sample ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Sample ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Sample ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Sample_2010005
+    a sysml:ItemDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Sample 10005" ;
+    sysml:elementId "IndividualDefinitions__Sample_2010005" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Sample_2010005_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Sample_2010005_om ;
+    sysml:declaredName "Sample 10005" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tindividual item def 'Sample 10005';\n" .
+
+elmt:IndividualDefinitions__Sample_2010005_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Sample_2010005_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Sample_2010005 ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__FirstLanding
+    a sysml:OccurrenceDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::FirstLanding" ;
+    sysml:elementId "IndividualDefinitions__FirstLanding" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__FirstLanding_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__FirstLanding_om ;
+    sysml:declaredName "FirstLanding" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tindividual occurrence def FirstLanding;\n" .
+
+elmt:IndividualDefinitions__FirstLanding_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__FirstLanding_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__FirstLanding ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__FirstLanding ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__FirstLanding ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__PlantFlag
+    a sysml:ActionDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::PlantFlag" ;
+    sysml:elementId "IndividualDefinitions__PlantFlag" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__PlantFlag_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__PlantFlag_om ;
+    sysml:declaredName "PlantFlag" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tindividual action def PlantFlag;\n" .
+
+elmt:IndividualDefinitions__PlantFlag_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__PlantFlag_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__PlantFlag ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__PlantFlag ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__PlantFlag ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Spacecraft
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Spacecraft" ;
+    sysml:elementId "IndividualDefinitions__Spacecraft" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Spacecraft_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Spacecraft_om ;
+    sysml:declaredName "Spacecraft" ;
+    sysml:isAbstract "true"^^xsd:boolean ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tabstract individual part def Spacecraft;\n" .
+
+elmt:IndividualDefinitions__Spacecraft_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Spacecraft_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Spacecraft ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Spacecraft ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Spacecraft ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Eagle
+    a sysml:IndividualDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Eagle" ;
+    sysml:elementId "IndividualDefinitions__Eagle" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Eagle_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Eagle_om ;
+    sysml:declaredName "Eagle" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:specializes elmt:IndividualDefinitions__Spacecraft ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\tindividual def Eagle :> Spacecraft;\n" .
+
+elmt:IndividualDefinitions__Eagle_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Eagle_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Eagle ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Eagle ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Eagle ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Mission
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "IndividualDefinitions::Mission" ;
+    sysml:elementId "IndividualDefinitions__Mission" ;
+    sysx:memberIndex "8"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission_om ;
+    sysml:declaredName "Mission" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:IndividualDefinitions__Mission__crew, elmt:IndividualDefinitions__Mission__commander, elmt:IndividualDefinitions__Mission__returned, elmt:IndividualDefinitions__Mission__landing, elmt:IndividualDefinitions__Mission__flag, elmt:IndividualDefinitions__Mission__lander ;
+    sysml:ownedMembership elmt:IndividualDefinitions__Mission__crew_om, elmt:IndividualDefinitions__Mission__commander_om, elmt:IndividualDefinitions__Mission__returned_om, elmt:IndividualDefinitions__Mission__landing_om, elmt:IndividualDefinitions__Mission__flag_om, elmt:IndividualDefinitions__Mission__lander_om ;
+    sysml:ownedRelationship elmt:IndividualDefinitions__Mission__crew_om, elmt:IndividualDefinitions__Mission__commander_om, elmt:IndividualDefinitions__Mission__returned_om, elmt:IndividualDefinitions__Mission__landing_om, elmt:IndividualDefinitions__Mission__flag_om, elmt:IndividualDefinitions__Mission__lander_om ;
+    sysml:ownedFeature elmt:IndividualDefinitions__Mission__crew, elmt:IndividualDefinitions__Mission__commander, elmt:IndividualDefinitions__Mission__returned, elmt:IndividualDefinitions__Mission__landing, elmt:IndividualDefinitions__Mission__flag, elmt:IndividualDefinitions__Mission__lander ;
+    sysml:ownedFeatureMembership elmt:IndividualDefinitions__Mission__crew_om, elmt:IndividualDefinitions__Mission__commander_om, elmt:IndividualDefinitions__Mission__returned_om, elmt:IndividualDefinitions__Mission__landing_om, elmt:IndividualDefinitions__Mission__flag_om, elmt:IndividualDefinitions__Mission__lander_om ;
+    sysx:sourceText "\tpart def Mission {\n" ;
+    sysx:sourceTail "\t}\n" ;
+    json:ownedMember "[{\"@id\":\"IndividualDefinitions__Mission__crew\"},{\"@id\":\"IndividualDefinitions__Mission__commander\"},{\"@id\":\"IndividualDefinitions__Mission__returned\"},{\"@id\":\"IndividualDefinitions__Mission__landing\"},{\"@id\":\"IndividualDefinitions__Mission__flag\"},{\"@id\":\"IndividualDefinitions__Mission__lander\"}]" ;
+    json:ownedMembership "[{\"@id\":\"IndividualDefinitions__Mission__crew_om\"},{\"@id\":\"IndividualDefinitions__Mission__commander_om\"},{\"@id\":\"IndividualDefinitions__Mission__returned_om\"},{\"@id\":\"IndividualDefinitions__Mission__landing_om\"},{\"@id\":\"IndividualDefinitions__Mission__flag_om\"},{\"@id\":\"IndividualDefinitions__Mission__lander_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"IndividualDefinitions__Mission__crew_om\"},{\"@id\":\"IndividualDefinitions__Mission__commander_om\"},{\"@id\":\"IndividualDefinitions__Mission__returned_om\"},{\"@id\":\"IndividualDefinitions__Mission__landing_om\"},{\"@id\":\"IndividualDefinitions__Mission__flag_om\"},{\"@id\":\"IndividualDefinitions__Mission__lander_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"IndividualDefinitions__Mission__crew\"},{\"@id\":\"IndividualDefinitions__Mission__commander\"},{\"@id\":\"IndividualDefinitions__Mission__returned\"},{\"@id\":\"IndividualDefinitions__Mission__landing\"},{\"@id\":\"IndividualDefinitions__Mission__flag\"},{\"@id\":\"IndividualDefinitions__Mission__lander\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"IndividualDefinitions__Mission__crew_om\"},{\"@id\":\"IndividualDefinitions__Mission__commander_om\"},{\"@id\":\"IndividualDefinitions__Mission__returned_om\"},{\"@id\":\"IndividualDefinitions__Mission__landing_om\"},{\"@id\":\"IndividualDefinitions__Mission__flag_om\"},{\"@id\":\"IndividualDefinitions__Mission__lander_om\"}]" .
+
+elmt:IndividualDefinitions__Mission_om
+    a sysml:OwningMembership ;
+    sysml:elementId "IndividualDefinitions__Mission_om" ;
+    sysml:owner elmt:IndividualDefinitions ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions .
+
+elmt:IndividualDefinitions__Mission__crew
+    a sysml:PartUsage ;
+    sysml:qualifiedName "IndividualDefinitions::Mission::crew" ;
+    sysml:elementId "IndividualDefinitions__Mission__crew" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission__crew_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission__crew_om ;
+    sysml:declaredName "crew" ;
+    sysml:type elmt:IndividualDefinitions__Astronaut ;
+    sysml:upperBound expr:IndividualDefinitions__Mission__crew_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\t\tpart crew : Astronaut[*];\n" .
+
+elmt:IndividualDefinitions__Mission__crew_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__crew_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission__crew ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission__crew ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__crew ;
+    sysml:owningType elmt:IndividualDefinitions__Mission .
+
+expr:IndividualDefinitions__Mission__crew_pupperBound
+    a sysml:LiteralInfinity ;
+    sysx:sourceText "*" ;
+    sysml:elementId "IndividualDefinitions__Mission__crew_pupperBound" .
+
+elmt:IndividualDefinitions__Mission__commander
+    a sysml:PartUsage ;
+    sysml:qualifiedName "IndividualDefinitions::Mission::commander" ;
+    sysml:elementId "IndividualDefinitions__Mission__commander" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission__commander_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission__commander_om ;
+    sysml:declaredName "commander" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:type elmt:IndividualDefinitions__Neil_20Armstrong ;
+    sysml:subsets elmt:IndividualDefinitions__Mission__crew ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\t\tindividual part commander : 'Neil Armstrong' :> crew;\n" .
+
+elmt:IndividualDefinitions__Mission__commander_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__commander_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission__commander ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission__commander ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__commander ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__commander ;
+    sysml:owningType elmt:IndividualDefinitions__Mission .
+
+elmt:IndividualDefinitions__Mission__returned
+    a sysml:ItemUsage ;
+    sysml:qualifiedName "IndividualDefinitions::Mission::returned" ;
+    sysml:elementId "IndividualDefinitions__Mission__returned" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission__returned_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission__returned_om ;
+    sysml:declaredName "returned" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:type elmt:IndividualDefinitions__Sample_2010005 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\t\tindividual item returned : 'Sample 10005';\n" .
+
+elmt:IndividualDefinitions__Mission__returned_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__returned_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission__returned ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission__returned ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__returned ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__returned ;
+    sysml:owningType elmt:IndividualDefinitions__Mission .
+
+elmt:IndividualDefinitions__Mission__landing
+    a sysml:OccurrenceUsage ;
+    sysml:qualifiedName "IndividualDefinitions::Mission::landing" ;
+    sysml:elementId "IndividualDefinitions__Mission__landing" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission__landing_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission__landing_om ;
+    sysml:declaredName "landing" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:type elmt:IndividualDefinitions__FirstLanding ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\t\tindividual occurrence landing : FirstLanding;\n" .
+
+elmt:IndividualDefinitions__Mission__landing_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__landing_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission__landing ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission__landing ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__landing ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__landing ;
+    sysml:owningType elmt:IndividualDefinitions__Mission .
+
+elmt:IndividualDefinitions__Mission__flag
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "IndividualDefinitions::Mission::flag" ;
+    sysml:elementId "IndividualDefinitions__Mission__flag" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission__flag_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission__flag_om ;
+    sysml:declaredName "flag" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:type elmt:IndividualDefinitions__PlantFlag ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\t\tindividual action flag : PlantFlag;\n" .
+
+elmt:IndividualDefinitions__Mission__flag_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__flag_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission__flag ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission__flag ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__flag ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__flag ;
+    sysml:owningType elmt:IndividualDefinitions__Mission .
+
+elmt:IndividualDefinitions__Mission__lander
+    a sysml:PartUsage ;
+    sysml:qualifiedName "IndividualDefinitions::Mission::lander" ;
+    sysml:elementId "IndividualDefinitions__Mission__lander" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:owningRelationship elmt:IndividualDefinitions__Mission__lander_om ;
+    sysml:owningMembership elmt:IndividualDefinitions__Mission__lander_om ;
+    sysml:declaredName "lander" ;
+    sysml:isIndividual "true"^^xsd:boolean ;
+    sysml:type elmt:IndividualDefinitions__Eagle ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "\t\tindividual part lander : Eagle;\n" .
+
+elmt:IndividualDefinitions__Mission__lander_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "IndividualDefinitions__Mission__lander_om" ;
+    sysml:owner elmt:IndividualDefinitions__Mission ;
+    sysml:memberElement elmt:IndividualDefinitions__Mission__lander ;
+    sysml:ownedMemberElement elmt:IndividualDefinitions__Mission__lander ;
+    sysml:ownedRelatedElement elmt:IndividualDefinitions__Mission__lander ;
+    sysml:owningRelatedElement elmt:IndividualDefinitions__Mission ;
+    sysml:membershipOwningNamespace elmt:IndividualDefinitions__Mission ;
+    sysml:ownedMemberFeature elmt:IndividualDefinitions__Mission__lander ;
+    sysml:owningType elmt:IndividualDefinitions__Mission .

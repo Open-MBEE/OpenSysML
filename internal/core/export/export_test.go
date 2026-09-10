@@ -1,8 +1,10 @@
 package export_test
 
 import (
+	"bytes"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -145,11 +147,42 @@ func structuralRoundTrip(t *testing.T, name string, first []byte) []byte {
 	if err != nil {
 		t.Fatalf("to turtle again from the mapping alone: %v", err)
 	}
-	if lost, gained := tripleSetDiff(t, withoutSourceText(t, first), withoutSourceText(t, again)); len(lost)+len(gained) > 0 {
-		t.Errorf("the mapping alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
-			fromGraph, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
-	}
+	requireSameGraphBytes(t, fromGraph, first, again)
 	return fromGraph
+}
+
+// requireSameGraphBytes requires two hops' Turtle, source text stripped, to be
+// the same triple set and then the same bytes; notation is the second hop's input.
+func requireSameGraphBytes(t *testing.T, notation, first, second []byte) {
+	t.Helper()
+	first, second = withoutSourceText(t, first), withoutSourceText(t, second)
+	if lost, gained := tripleSetDiff(t, first, second); len(lost)+len(gained) > 0 {
+		t.Errorf("the mapping alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
+			notation, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
+		return
+	}
+	if !bytes.Equal(first, second) {
+		t.Errorf("the same graph was written in a different order\n--- notation ---\n%s\n--- first difference ---\n%s",
+			notation, firstLineDifference(first, second))
+	}
+}
+
+// firstLineDifference reports the first line two documents disagree on.
+func firstLineDifference(first, second []byte) string {
+	a, b := strings.Split(string(first), "\n"), strings.Split(string(second), "\n")
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var left, right string
+		if i < len(a) {
+			left = a[i]
+		}
+		if i < len(b) {
+			right = b[i]
+		}
+		if left != right {
+			return fmt.Sprintf("line %d:\n- %s\n+ %s", i+1, left, right)
+		}
+	}
+	return ""
 }
 
 // withoutSourceText strips the triples that carry notation rather than structure.
@@ -605,6 +638,7 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 		"end_prefix_metadata.sysml",
 		"nested_namespace_import.sysml",
 		"quoted_succession_ends.sysml",
+		"individual_definitions.sysml",
 	}
 	for _, fixture := range fixtures {
 		path := filepath.Join("testdata", "convert", fixture)
@@ -626,12 +660,39 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if lost, gained := tripleSetDiff(t, withoutSourceText(t, first), withoutSourceText(t, second)); len(lost)+len(gained) > 0 {
-				t.Errorf("the second hop changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
-					back, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
-			}
+			requireSameGraphBytes(t, back, first, second)
 		})
 	}
+}
+
+// TestIndividualDefinitionWithoutItsFlagReadsAsIndividual covers a graph typed
+// sysml:IndividualDefinition that carries no sysml:isIndividual, the shape
+// earlier releases wrote: the metaclass states the fact, so it reads back as
+// `individual def` and its next hop is the graph an `individual def` writes today.
+func TestIndividualDefinitionWithoutItsFlagReadsAsIndividual(t *testing.T) {
+	src := `package P {
+    individual def Eagle;
+}`
+	first, err := export.Convert("legacy.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if !strings.Contains(string(first), "sysml:isIndividual") {
+		t.Fatalf("an individual def should carry sysml:isIndividual\n%s", first)
+	}
+	legacy := withoutTriples(t, withoutTriples(t, first, "sysx:sourceText"), "sysml:isIndividual")
+	back, err := export.Convert("legacy.ttl", legacy, export.FormatTurtle, export.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "individual def Eagle;") {
+		t.Errorf("an IndividualDefinition without its flag should still read as individual\n%s", back)
+	}
+	second, err := export.Convert("legacy.sysml", back, export.FormatSysML, export.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle again: %v", err)
+	}
+	requireSameGraphBytes(t, back, first, second)
 }
 
 // tripleSetDiff parses two Turtle documents and returns the triples only the
@@ -827,29 +888,44 @@ func TestRequirementConditionsSurviveRDF(t *testing.T) {
 // typing, multiplicity, value, specializations — which the graph must carry
 // without the source text, prefixed or not.
 func TestRequirementConditionDeclarationsSurviveRDF(t *testing.T) {
-	for _, member := range []string{
-		"assume constraint c : Light;",
-		"require #Goal constraint d[1] = true;",
-		"assume #Goal constraint f : Light subsets Light[0..1] {\n            true;\n        }",
-		"assume constraint c references Light;",
-		"assume #Goal constraint c references Light;",
-		"require #Goal constraint c references Light;",
-		"require constraint references Light;",
-		"require Light subsets Light[1];",
-		"require Light {\n        }",
+	// back is the spelling the mapping alone writes where it differs from the
+	// one written: a body's trailing condition is its result expression, bare.
+	for _, member := range []struct{ written, back string }{
+		{written: "assume constraint c : Light;"},
+		{written: "require #Goal constraint d[1] = true;"},
+		{
+			written: "assume #Goal constraint f : Light subsets Light[0..1] {\n            true;\n        }",
+			back:    "assume #Goal constraint f : Light subsets Light[0..1] {\n            true\n        }",
+		},
+		{written: "assume constraint c references Light;"},
+		{written: "assume #Goal constraint c references Light;"},
+		{written: "require #Goal constraint c references Light;"},
+		{written: "require constraint references Light;"},
+		{written: "require Light subsets Light[1];"},
+		{written: "require Light {\n        }"},
 	} {
-		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member + "\n\t}\n}"
+		src := "package P {\n\tattribute mass;\n\tconstraint def Light;\n\tmetadata def Goal;\n\trequirement r {\n\t\t" + member.written + "\n\t}\n}"
 		turtle, err := export.Convert("m.sysml", []byte(src), export.FormatSysML, export.FormatTurtle)
 		if err != nil {
-			t.Fatalf("%s: to turtle: %v", member, err)
+			t.Fatalf("%s: to turtle: %v", member.written, err)
 		}
-		for _, graph := range [][]byte{turtle, withoutTriples(t, turtle, "sysx:sourceText")} {
-			back, err := export.Convert("m.ttl", graph, export.FormatTurtle, export.FormatSysML)
+		structural := member.back
+		if structural == "" {
+			structural = member.written
+		}
+		for _, hop := range []struct {
+			graph []byte
+			want  string
+		}{
+			{turtle, member.written},
+			{withoutTriples(t, turtle, "sysx:sourceText"), structural},
+		} {
+			back, err := export.Convert("m.ttl", hop.graph, export.FormatTurtle, export.FormatSysML)
 			if err != nil {
-				t.Fatalf("%s: back to notation: %v", member, err)
+				t.Fatalf("%s: back to notation: %v", member.written, err)
 			}
-			if !strings.Contains(string(back), member) {
-				t.Errorf("the requirement member %q was rewritten:\n%s", member, back)
+			if !strings.Contains(string(back), hop.want) {
+				t.Errorf("the requirement member %q was rewritten:\n%s", hop.want, back)
 			}
 		}
 	}
@@ -1062,8 +1138,8 @@ func TestPrefixMetadataComesBackFromTheGraphAlone(t *testing.T) {
 		{written: "use case def U {\n        objective #Safety o : Goal;\n    }"},
 		{written: "use case def U {\n        #Safety include Ride;\n    }"},
 		{written: "use case def U {\n        #Safety include use case ride : Ride;\n    }"},
-		{written: "requirement def R {\n        assume #Reviewed constraint {\n            true;\n        }\n    }"},
-		{written: "requirement def R {\n        require #Safety constraint {\n            true;\n        }\n    }"},
+		{written: "requirement def R {\n        assume #Reviewed constraint {\n            true\n        }\n    }"},
+		{written: "requirement def R {\n        require #Safety constraint {\n            true\n        }\n    }"},
 		{written: "part def Q {\n        #Safety assert constraint ok : Stopped;\n    }"},
 		{written: "part def Q {\n        #Safety assert not constraint bad : Stopped;\n    }"},
 		{written: "part def Q {\n        ref #Safety assert not constraint bad : Stopped;\n    }"},

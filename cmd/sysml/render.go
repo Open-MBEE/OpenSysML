@@ -15,18 +15,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
-// runRender renders the view -render names of the model named on the command
-// line, writing the artifact to -o or to stdout and every notice to stderr.
+// runRender renders the view -render names of the model the files named on the
+// command line make up, writing the artifact to -o or to stdout and every
+// notice to stderr.
 func runRender(files []string) error {
 	form := view.Form(renderForm)
 	if renderForm != "" && !slices.Contains(view.Forms(), form) {
 		return fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, formList())
 	}
 	if len(files) == 0 {
-		return errors.New("no model to render; name the file the view is declared in, as `sysml model.sysml -render MyView`")
-	}
-	if len(files) > 1 {
-		return fmt.Errorf("-render renders a view of one model; unexpected extra argument %q", files[1])
+		return errors.New("no model to render; name the files the view is declared in, as `sysml model.sysml -render MyView`")
 	}
 
 	sess, err := loadRenderingModel(files)

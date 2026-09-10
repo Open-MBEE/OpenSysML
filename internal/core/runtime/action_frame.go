@@ -135,6 +135,13 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		subactions:  make(map[ast.Node]*actionFrame),
 		run:         e.ctx.newRun(),
 	}
+	e.declareRootFeatures(root)
+	return root
+}
+
+// declareRootFeatures gives root the attributes the graph declares and the
+// features the action holds, aliasing what each redefines.
+func (e *ActionExecutor) declareRootFeatures(root *actionFrame) {
 	for _, attr := range e.graph.Attributes {
 		root.features[attr.Name] = ast.DirNone
 		scope := attr.Scope
@@ -144,7 +151,6 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		e.ctx.aliasRedefinitions(&root.aliases, memberSymbol(scope, attr.Node), attr.Name)
 	}
 	e.addFeatureDirections(root.features, &root.aliases, e.action)
-	return root
 }
 
 // addFeatureDirections adds the parameters and attributes an action holds, the

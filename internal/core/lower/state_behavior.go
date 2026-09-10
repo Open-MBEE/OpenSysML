@@ -71,7 +71,7 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
 			// block's frame rather than in the state machine's data.
-			behavior.Body = []Statement{lowerBlock(node, node.Members, childScope(scope, node))}
+			behavior.Body = []Statement{lowerBehaviorBody(node, childScope(scope, node))}
 		default:
 			behavior.Body = []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 		}
@@ -83,6 +83,24 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	return behavior
+}
+
+// lowerBehaviorBody lowers an inline action body of a behavior. A body stating
+// successions or control nodes is the token flow a standalone action's body is
+// (ToActionGraph); one stating none runs its statements in declaration order.
+func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope) Statement {
+	if !statesOwnFlow(node.Members) {
+		return lowerBlock(node, node.Members, scope)
+	}
+	graph, err := ToActionGraph(node, scope)
+	if err != nil {
+		return Unsupported{
+			Description: "the flow the body states: " + err.Error(),
+			Node:        node,
+			Scope:       scope,
+		}
+	}
+	return Block{Node: node, Scope: scope, Graph: graph, Own: true, Stated: true}
 }
 
 // lowerActionExecution lowers the step form of a behavior: an expression whose

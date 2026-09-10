@@ -10,6 +10,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
@@ -218,6 +219,8 @@ type Service struct {
 	// budgets bounds every runtime context the service creates, read once from
 	// the environment at construction.
 	budgets runtime.Budgets
+	// engines answers every analysis question the runtime RPCs put, under auto.
+	engines *analysis.Registry
 	// version is the build version GetServerInfo reports, informational only.
 	version string
 	// capabilities decides both what this service reports and what it supplies.
@@ -262,6 +265,7 @@ func newService(cacheSize int, version string, unavailable []string) (*Service, 
 		libIndexes:   newLibraryBase(buildLibraryIndex),
 		prewarm:      prewarm > 0,
 		budgets:      budgets,
+		engines:      analysis.Default(),
 		version:      version,
 		capabilities: availability,
 	}, nil
@@ -842,19 +846,19 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if _, explores := schedule.Exploration(); explores {
 		// Inputs are read again on each run's own context, so an object among them
 		// belongs to the run that binds it.
-		outcomes, status, err := s.explore(schedule, cached, rs, func(ctx *runtime.Context) (runtime.Outcome, error) {
-			inputs, resp, err := readInputs(ctx)
+		outcomes, status, err := s.explore(ctx, req.ActionSymbolId, schedule, cached, rs, func(rt *runtime.Context) (runtime.Outcome, error) {
+			inputs, resp, err := readInputs(rt)
 			if err != nil {
 				return runtime.Outcome{}, err
 			}
 			if resp != nil {
 				return runtime.Outcome{}, errors.New(resp.Error)
 			}
-			outputs, err := ctx.ExecuteActionWithInputs(action, inputs)
+			outputs, err := rt.ExecuteActionWithInputs(action, inputs)
 			if err != nil {
 				return runtime.Outcome{}, fmt.Errorf("action execution failed: %w", err)
 			}
-			return ctx.ActionOutcome(outputs), nil
+			return rt.ActionOutcome(outputs), nil
 		})
 		if err != nil {
 			return nil, err
@@ -866,7 +870,12 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// Execute action with the supplied inputs
-	outputs, err := runtimeCtx.ExecuteActionWithInputs(action, inputs)
+	outputs, err := performOn(ctx, s, runtimeCtx, req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
+		return rt.ExecuteActionWithInputs(action, inputs)
+	}, heldAnswer)
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
@@ -924,8 +933,8 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	if _, explores := schedule.Exploration(); explores {
 		rs, release := cached.RuntimeSemantics()
 		defer release()
-		outcomes, status, err := s.explore(schedule, cached, rs, func(ctx *runtime.Context) (runtime.Outcome, error) {
-			return ctx.StateOutcomeWithEvents(stateMachine, req.Events)
+		outcomes, status, err := s.explore(ctx, req.StateMachineSymbolId, schedule, cached, rs, func(rt *runtime.Context) (runtime.Outcome, error) {
+			return rt.StateOutcomeWithEvents(stateMachine, req.Events)
 		})
 		if err != nil {
 			return nil, err
@@ -942,7 +951,14 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
-	finalContext, statesVisited, err := runtimeCtx.ExecuteStateWithEvents(stateMachine, req.Events)
+	ran, err := performOn(ctx, s, runtimeCtx, req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
+		final, visited, err := rt.ExecuteStateWithEvents(stateMachine, req.Events)
+		return stateRun{final: final, visited: visited}, err
+	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })
+	if gone := callerGone(ctx, err); gone != nil {
+		return nil, gone
+	}
+	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
 	if err != nil {
 		return &pb.ExecuteStateResponse{

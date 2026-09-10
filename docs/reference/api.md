@@ -449,16 +449,17 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     choice point takes, never whether it is reported: the `Taken` of each `ChoicePoint` is what
     the policy took
 
-- **`Explore(policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
+- **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
   — Run a behavior under `explore` once per linearization within the budget: each run starts
   from the `Context` `fresh` builds over the model and lowering they all share, records the
   alternative taken at every choice point, and the next run replays that prefix up to its
   frontier and takes the first untried alternative there, depth-first over the tree of choice
   sequences. `run` performs one run and answers its `Outcome`; an error it returns is the
   `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
-  ending the search. A policy other than `explore` is `ErrNotExploring`; a replay that does not
-  meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the model's runs
-  are then not a function of their choices
+  ending the search. A `stop` that ends between runs ends the exploration with its error before
+  the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
+  does not meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the
+  model's runs are then not a function of their choices
   - **`Outcome`** — What one run came to, in the observables a conformance case compares:
     `Outputs`, and for a state machine `FinalState` and `StateVisits`; `Err` for a run that
     failed. `String()` renders it in a fixed order; `Explore` tells outcomes apart by a stricter
@@ -566,7 +567,7 @@ results, err = ctx.ExecuteAction(myActionSym) // the same run on every call
 
 // Or every run: one fresh context per linearization over the shared model
 explore, _ := runtime.ParseSchedulePolicy("explore:runs=64")
-exploration, err := runtime.Explore(explore,
+exploration, err := runtime.Explore(context.Background(), explore,
     func() (*runtime.Context, error) { return runtime.NewContext(model, resolver, runtime.DefaultMaxSteps), nil },
     func(c *runtime.Context) (runtime.Outcome, error) {
         outputs, err := c.ExecuteAction(myActionSym)

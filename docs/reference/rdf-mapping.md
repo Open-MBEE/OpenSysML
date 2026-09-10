@@ -210,7 +210,16 @@ triples come); a set of classes with no such member is refused, naming the subje
   `timeslice` states (`OccurrenceUsage::portionKind` implies it), so it is
   written back by the portion kind and refused without one, SysML having no
   `portion` prefix and `composite` dropping the fact. The other flags are
-  spelled alike in both grammars
+  spelled alike in both grammars. `isIndividual` is written for a definition as
+  for a usage (`OccurrenceDefinition::isIndividual`, SysML v2 §8.3.9.11): an
+  `individual part def`, `individual item def`, `individual occurrence def`, …
+  carries it and reads back with its `individual` modifier, and so does an
+  `individual def`, whose kind keyword states the fact and is written back
+  alone rather than doubled as a modifier. As with `sysml:EnumerationDefinition`
+  and `isVariation`, the metaclass `sysml:IndividualDefinition` states the fact
+  on its own: a graph typed so but carrying no flag — the shape earlier
+  releases wrote — reads back as `individual def` and gains the flag on its
+  next hop, after which it is stable
 - `sysml:portionKind`, `"snapshot"` or `"timeslice"`, for a usage declared as a
   portion (`snapshot :>> start`, `timeslice occurrence t`); the two are the
   metamodel's `OccurrenceUsage::portionKind`, so no flag spells them. Such a
@@ -228,7 +237,16 @@ triples come); a set of classes with no such member is refused, naming the subje
   carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
-  was written as, typed `sysx:Expression` to tell the two apart. Reading a graph
+  was written as, typed `sysx:Expression` to tell the two apart. These
+  properties are written in one canonical order whatever order the clauses were
+  spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
+  `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
+  `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
+  (`internal/core/export/kinds.go` `relationshipOrder`, the same order the
+  clauses are written back in) — with the targets of one property in the order
+  they were written; so `attribute :>> num : Real;` and `attribute : Real
+  redefines num;` give byte-identical Turtle, and a `.ttl` kept under version
+  control does not churn with the spelling of a head. Reading a graph
   back, a literal that is neither — a number, a boolean, a language-tagged
   string, an empty or broken qualified name — is refused rather than written
   into the notation as it stands. A feature
@@ -954,6 +972,14 @@ notation offers a choice and the model does not:
   element, so no spelling is recorded and the writer uses one form. This differs
   from `sysx:declaredKeyword`, which is kept where the notation's synonyms name
   *different* declarations (`datatype` and `attribute`).
+- The clauses of a head come back in the canonical order of [What each element
+  carries](#what-each-element-carries) — typing first, then `specializes`,
+  `subsets`, `redefines`, `references`, and so on — however they were written
+  (`snapshot s :> context : Ctx` comes back as `snapshot s : Ctx subsets
+  context`). The order of the clauses states nothing about the model, and the
+  graph does not record it: the properties are the same set either way, and
+  the writer emits them in the canonical order, so a spelling could only be
+  restored from the source text, which is what `sysx:sourceText` is for.
 - The modifiers of a usage are written in the grammar's order (`end #derive r1
   : R;`, `end ref cause : S[*];`), and a multiplicity goes with the typing
   clause it qualifies, or with the name when there is none (`composite
@@ -1158,7 +1184,13 @@ own — `sysml:declaredName`, its specializations, `sysml:lowerBound`/`upperBoun
 and `sysml:value` with its `default`/`:=` operator (`require #Goal constraint braked [1] = true;`) — and
 `subject s : X;` as the `sysml:SubjectMembership` it declares. The `assert` prefixing a named usage
 (`assert constraint c : C`) is carried as `sysx:declaredPrefix`. The conditions
-themselves are notation, with the limits stated above. An `assume`/`require`
+themselves are notation, with the limits stated above. The keyword-less condition
+that closes a body is written bare, as a [result expression](#result-expressions)
+is, because a name alone before a `;` (`ready;`) declares a kind-less feature rather
+than referring to one — so `require constraint { ready }`, `assert constraint { not x }`
+and `inv { a and b }` come back from the graph alone with the reference their
+`sysml:FeatureReferenceExpression` states; a condition others follow keeps its `;`
+(`condition_references` fixture, `condition_references_test.go`). An `assume`/`require`
 member's `sysx:declaredKeyword`, when present, is `constraint`; any other value
 is reported rather than the member written in a form the keyword did not state.
 A member is written in one of these forms, so a graph stating an inline

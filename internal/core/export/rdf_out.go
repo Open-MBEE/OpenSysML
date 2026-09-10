@@ -674,6 +674,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isAll", n.IsAll},
 			{"isConstant", n.IsConstant},
 			{"isEvent", n.IsEvent},
+			{"isIndividual", n.IsIndividual},
 			{"isParallel", n.IsParallel},
 		})
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
@@ -1423,23 +1424,24 @@ func withoutComments(text string) string {
 	return kept.String()
 }
 
+// relationships writes a head's clauses in relationshipOrder, not the order the
+// notation spelled them in, so the Turtle is the same for every spelling.
 func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Relationship) {
-	for _, rel := range rels {
-		if rel == nil || rel.Target == nil {
-			continue
+	for _, kind := range relationshipOrder {
+		property := relationshipProperty[kind]
+		for _, rel := range rels {
+			if rel == nil || rel.Target == nil || rel.Kind != kind {
+				continue
+			}
+			// A name is mapped as a reference, which links it when this document
+			// declares it; a feature chain or other expression is not a name, so it
+			// is carried as the text it was written as.
+			if name, ok := rel.Target.(*ast.QualifiedName); ok {
+				e.graph.Add(subject, e.sysml(property), e.reference(name))
+				continue
+			}
+			e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
 		}
-		property, ok := relationshipProperty[rel.Kind]
-		if !ok {
-			continue
-		}
-		// A name is mapped as a reference, which links it when this document
-		// declares it; a feature chain or other expression is not a name, so it
-		// is carried as the text it was written as.
-		if name, ok := rel.Target.(*ast.QualifiedName); ok {
-			e.graph.Add(subject, e.sysml(property), e.reference(name))
-			continue
-		}
-		e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
 	}
 }
 

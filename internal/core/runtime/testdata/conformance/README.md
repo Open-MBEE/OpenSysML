@@ -347,6 +347,11 @@ regenerates them beside the default golden.
 - `error`: text the instantiation must fail with, for a case whose contract is a
   diagnostic — a declaration valuing one feature under two of its names. Set it
   instead of `slots`.
+- `materialization`: what reading every feature value of the instance, and of
+  the objects those hold, reports — the check `-instantiate` makes over an
+  object. `errors` lists the text of each error in order (matched as a
+  substring) and `bounded` whether the walk left nesting unchecked; `{}` states
+  a clean, complete read. Omit it for a case whose contract is its slots alone.
 
 ## Diagnostics
 

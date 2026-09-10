@@ -1,0 +1,259 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ClauseOrder
+    a sysml:Package ;
+    sysml:qualifiedName "ClauseOrder" ;
+    sysml:elementId "ClauseOrder" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "ClauseOrder" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:ClauseOrder___400, elmt:ClauseOrder__Quantity_om, elmt:ClauseOrder__Ratio_om, elmt:ClauseOrder__Ctx_om, elmt:ClauseOrder__Mission_om ;
+    sysml:ownedImport elmt:ClauseOrder___400 ;
+    sysml:ownedMember elmt:ClauseOrder__Quantity, elmt:ClauseOrder__Ratio, elmt:ClauseOrder__Ctx, elmt:ClauseOrder__Mission ;
+    sysml:ownedMembership elmt:ClauseOrder__Quantity_om, elmt:ClauseOrder__Ratio_om, elmt:ClauseOrder__Ctx_om, elmt:ClauseOrder__Mission_om ;
+    sysx:sourceText "package ClauseOrder {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder___400\"},{\"@id\":\"ClauseOrder__Quantity_om\"},{\"@id\":\"ClauseOrder__Ratio_om\"},{\"@id\":\"ClauseOrder__Ctx_om\"},{\"@id\":\"ClauseOrder__Mission_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ClauseOrder__Quantity\"},{\"@id\":\"ClauseOrder__Ratio\"},{\"@id\":\"ClauseOrder__Ctx\"},{\"@id\":\"ClauseOrder__Mission\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ClauseOrder__Quantity_om\"},{\"@id\":\"ClauseOrder__Ratio_om\"},{\"@id\":\"ClauseOrder__Ctx_om\"},{\"@id\":\"ClauseOrder__Mission_om\"}]" .
+
+elmt:ClauseOrder___400
+    a sysml:Import ;
+    sysml:qualifiedName "ClauseOrder::@0" ;
+    sysml:elementId "ClauseOrder___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:owningRelatedElement elmt:ClauseOrder ;
+    sysml:importOwningNamespace elmt:ClauseOrder ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace "ScalarValues" ;
+    sysx:isNamespaceImport "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    private import ScalarValues::*;\n" .
+
+elmt:ClauseOrder__Quantity
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ClauseOrder::Quantity" ;
+    sysml:elementId "ClauseOrder__Quantity" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:owningRelationship elmt:ClauseOrder__Quantity_om ;
+    sysml:owningMembership elmt:ClauseOrder__Quantity_om ;
+    sysml:declaredName "Quantity" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ClauseOrder__Quantity__num ;
+    sysml:ownedMembership elmt:ClauseOrder__Quantity__num_om ;
+    sysml:ownedRelationship elmt:ClauseOrder__Quantity__num_om ;
+    sysml:ownedFeature elmt:ClauseOrder__Quantity__num ;
+    sysml:ownedFeatureMembership elmt:ClauseOrder__Quantity__num_om ;
+    sysx:sourceText "    part def Quantity { attribute num : ScalarValues::Real; }\n" .
+
+elmt:ClauseOrder__Quantity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ClauseOrder__Quantity_om" ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:memberElement elmt:ClauseOrder__Quantity ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Quantity ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Quantity ;
+    sysml:owningRelatedElement elmt:ClauseOrder ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder .
+
+elmt:ClauseOrder__Quantity__num
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ClauseOrder::Quantity::num" ;
+    sysml:elementId "ClauseOrder__Quantity__num" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder__Quantity ;
+    sysml:owner elmt:ClauseOrder__Quantity ;
+    sysml:owningRelationship elmt:ClauseOrder__Quantity__num_om ;
+    sysml:owningMembership elmt:ClauseOrder__Quantity__num_om ;
+    sysml:declaredName "num" ;
+    sysml:type "ScalarValues::Real" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:ClauseOrder__Quantity__num_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ClauseOrder__Quantity__num_om" ;
+    sysml:owner elmt:ClauseOrder__Quantity ;
+    sysml:memberElement elmt:ClauseOrder__Quantity__num ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Quantity__num ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Quantity__num ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Quantity ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder__Quantity ;
+    sysml:ownedMemberFeature elmt:ClauseOrder__Quantity__num ;
+    sysml:owningType elmt:ClauseOrder__Quantity .
+
+elmt:ClauseOrder__Ratio
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ClauseOrder::Ratio" ;
+    sysml:elementId "ClauseOrder__Ratio" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:owningRelationship elmt:ClauseOrder__Ratio_om ;
+    sysml:owningMembership elmt:ClauseOrder__Ratio_om ;
+    sysml:declaredName "Ratio" ;
+    sysml:specializes elmt:ClauseOrder__Quantity ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ClauseOrder__Ratio___400 ;
+    sysml:ownedMembership elmt:ClauseOrder__Ratio___400_om ;
+    sysml:ownedRelationship elmt:ClauseOrder__Ratio___400_om ;
+    sysml:ownedFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:ownedFeatureMembership elmt:ClauseOrder__Ratio___400_om ;
+    sysx:sourceText "    part def Ratio :> Quantity { attribute :>> num : ScalarValues::Real; }\n" .
+
+elmt:ClauseOrder__Ratio_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ClauseOrder__Ratio_om" ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:memberElement elmt:ClauseOrder__Ratio ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Ratio ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Ratio ;
+    sysml:owningRelatedElement elmt:ClauseOrder ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder .
+
+elmt:ClauseOrder__Ratio___400
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ClauseOrder::Ratio::@0" ;
+    sysml:elementId "ClauseOrder__Ratio___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder__Ratio ;
+    sysml:owner elmt:ClauseOrder__Ratio ;
+    sysml:owningRelationship elmt:ClauseOrder__Ratio___400_om ;
+    sysml:owningMembership elmt:ClauseOrder__Ratio___400_om ;
+    sysml:type "ScalarValues::Real" ;
+    sysml:redefines elmt:ClauseOrder__Quantity__num ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:ClauseOrder__Ratio___400_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ClauseOrder__Ratio___400_om" ;
+    sysml:owner elmt:ClauseOrder__Ratio ;
+    sysml:memberElement elmt:ClauseOrder__Ratio___400 ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Ratio___400 ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Ratio___400 ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Ratio ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder__Ratio ;
+    sysml:ownedMemberFeature elmt:ClauseOrder__Ratio___400 ;
+    sysml:owningType elmt:ClauseOrder__Ratio .
+
+elmt:ClauseOrder__Ctx
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ClauseOrder::Ctx" ;
+    sysml:elementId "ClauseOrder__Ctx" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:owningRelationship elmt:ClauseOrder__Ctx_om ;
+    sysml:owningMembership elmt:ClauseOrder__Ctx_om ;
+    sysml:declaredName "Ctx" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    part def Ctx;\n" .
+
+elmt:ClauseOrder__Ctx_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ClauseOrder__Ctx_om" ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:memberElement elmt:ClauseOrder__Ctx ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Ctx ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Ctx ;
+    sysml:owningRelatedElement elmt:ClauseOrder ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder .
+
+elmt:ClauseOrder__Mission
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ClauseOrder::Mission" ;
+    sysml:elementId "ClauseOrder__Mission" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:owningRelationship elmt:ClauseOrder__Mission_om ;
+    sysml:owningMembership elmt:ClauseOrder__Mission_om ;
+    sysml:declaredName "Mission" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ClauseOrder__Mission__context, elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:ownedMembership elmt:ClauseOrder__Mission__context_om, elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
+    sysml:ownedRelationship elmt:ClauseOrder__Mission__context_om, elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
+    sysml:ownedFeature elmt:ClauseOrder__Mission__context, elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:ownedFeatureMembership elmt:ClauseOrder__Mission__context_om, elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
+    sysx:sourceText "    part def Mission {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"ClauseOrder__Mission__context\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ClauseOrder__Mission__context_om\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ClauseOrder__Mission__context_om\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ClauseOrder__Mission__context\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ClauseOrder__Mission__context_om\"},{\"@id\":\"ClauseOrder__Mission__groundSystemAtIngress_om\"}]" .
+
+elmt:ClauseOrder__Mission_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ClauseOrder__Mission_om" ;
+    sysml:owner elmt:ClauseOrder ;
+    sysml:memberElement elmt:ClauseOrder__Mission ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Mission ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Mission ;
+    sysml:owningRelatedElement elmt:ClauseOrder ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder .
+
+elmt:ClauseOrder__Mission__context
+    a sysml:PartUsage ;
+    sysml:qualifiedName "ClauseOrder::Mission::context" ;
+    sysml:elementId "ClauseOrder__Mission__context" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder__Mission ;
+    sysml:owner elmt:ClauseOrder__Mission ;
+    sysml:owningRelationship elmt:ClauseOrder__Mission__context_om ;
+    sysml:owningMembership elmt:ClauseOrder__Mission__context_om ;
+    sysml:declaredName "context" ;
+    sysml:type elmt:ClauseOrder__Ctx ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        part context : Ctx;\n" .
+
+elmt:ClauseOrder__Mission__context_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ClauseOrder__Mission__context_om" ;
+    sysml:owner elmt:ClauseOrder__Mission ;
+    sysml:memberElement elmt:ClauseOrder__Mission__context ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Mission__context ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Mission__context ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Mission ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder__Mission ;
+    sysml:ownedMemberFeature elmt:ClauseOrder__Mission__context ;
+    sysml:owningType elmt:ClauseOrder__Mission .
+
+elmt:ClauseOrder__Mission__groundSystemAtIngress
+    a sysml:OccurrenceUsage ;
+    sysml:qualifiedName "ClauseOrder::Mission::groundSystemAtIngress" ;
+    sysml:elementId "ClauseOrder__Mission__groundSystemAtIngress" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ClauseOrder__Mission ;
+    sysml:owner elmt:ClauseOrder__Mission ;
+    sysml:owningRelationship elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
+    sysml:owningMembership elmt:ClauseOrder__Mission__groundSystemAtIngress_om ;
+    sysml:declaredName "groundSystemAtIngress" ;
+    sysx:declaredKeyword "snapshot" ;
+    sysml:isPortion "true"^^xsd:boolean ;
+    sysml:portionKind "snapshot" ;
+    sysml:type elmt:ClauseOrder__Ctx ;
+    sysml:subsets elmt:ClauseOrder__Mission__context ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:sourceText "        snapshot groundSystemAtIngress :> context : Ctx { }\n" .
+
+elmt:ClauseOrder__Mission__groundSystemAtIngress_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ClauseOrder__Mission__groundSystemAtIngress_om" ;
+    sysml:owner elmt:ClauseOrder__Mission ;
+    sysml:memberElement elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:ownedMemberElement elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:ownedRelatedElement elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:owningRelatedElement elmt:ClauseOrder__Mission ;
+    sysml:membershipOwningNamespace elmt:ClauseOrder__Mission ;
+    sysml:ownedMemberFeature elmt:ClauseOrder__Mission__groundSystemAtIngress ;
+    sysml:owningType elmt:ClauseOrder__Mission .

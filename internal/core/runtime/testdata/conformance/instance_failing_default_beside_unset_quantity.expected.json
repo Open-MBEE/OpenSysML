@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rocket",
+  "libraries": true,
+  "slots": {
+    "engine.mass": {"type": "Unset"},
+    "engine.origin": {"type": "Instance"},
+    "engine.origin.x": {"type": "Real", "value": 1.0},
+    "engine.origin.xs": {"error": "1 value(s) bound to a feature with multiplicity lower bound 3"},
+    "mass": {"type": "Quantity", "value": 100, "unit": "kg"},
+    "masses": {"error": "1 value(s) bound to a feature with multiplicity lower bound 3"}
+  },
+  "materialization": {
+    "errors": [
+      "feature value Point.xs: multiplicity violation: 1 value(s) bound to a feature with multiplicity lower bound 3",
+      "feature value Rocket.masses: multiplicity violation: 1 value(s) bound to a feature with multiplicity lower bound 3"
+    ]
+  }
+}

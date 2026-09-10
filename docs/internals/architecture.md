@@ -347,7 +347,14 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Verification case: evaluate requirements → pass/fail
 - Entry points: REPL/LSP commands (`%run`, `%verify`)
 - Design: [the analysis framework](design/analysis-framework.md) — registered engines behind
-  one contract, one scale for the strength of an answer, parallel isolated runs
+  one contract, one scale for the strength of an answer, parallel isolated runs; and
+  [bring your own engine](design/bring-your-own-engines.md) — how a user's engine, strategy
+  or tool registers and what its answers are worth
+- Landed: `internal/core/analysis` — the contract (`Question`, `Engine`, `Result`, `Claim`,
+  `Strength`, `Budget`), a per-owner `Registry` with `auto` dispatch, and the `run`, `explore`,
+  `sweep` and `solve` engines as adapters over the runtime and `internal/core/solve`; the REPL
+  session and the gRPC service ask every check, run, exploration, sweep and solver question
+  through it with no change to what they print or return
 
 ---
 

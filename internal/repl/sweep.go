@@ -1,7 +1,6 @@
 package repl
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -226,7 +225,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		}, err
 	}
 
-	table, err := ctx.RunSweep(context.Background(), fqn, plan, run)
+	table, err := s.sweep(fqn, ctx, plan, run)
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}

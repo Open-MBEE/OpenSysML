@@ -1037,9 +1037,9 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	if err := d.unwrittenPrefix(el); err != nil {
 		return err
 	}
-	if annotationMetaclasses[el.metaclass] || d.isResultExpression(el) {
+	if annotationMetaclasses[el.metaclass] || d.isResultExpression(el) || d.isTrailingCondition(el) {
 		// A comment, doc or rep declaration ends with its comment body, and a
-		// result expression is bare: neither takes a terminator.
+		// result expression or trailing condition is bare: none takes a terminator.
 		b.WriteString(d.nl)
 		return nil
 	}
@@ -1287,6 +1287,12 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
+	keyword := d.keywordOr(el, definitionKeyword(kind))
+	// `individual def` states isIndividual by its kind keyword; writing the
+	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
+	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
+		words = append(words, "individual")
+	}
 	if d.boolOf(el, rdf.SysML+"isConstant") {
 		words = append(words, constantKeyword(d.kerml(el)))
 	}
@@ -1300,7 +1306,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 		return "", err
 	}
 	words = append(words, prefixes...)
-	words = append(words, d.keywordOr(el, definitionKeyword(kind)))
+	words = append(words, keyword)
 	if d.boolOf(el, rdf.SysML+"isAll") {
 		words = append(words, "all")
 	}
@@ -1819,6 +1825,22 @@ func (d *decoder) unprefixedCondition(el *element, form string) error {
 func (d *decoder) isResultExpression(el *element) bool {
 	m, owned := d.owningMembership[el.iri]
 	return owned && d.metaclass(rdf.IRI(m.iri)) == mResultExpressionMembership
+}
+
+// isTrailingCondition reports whether el is the keyword-less condition closing its body,
+// written bare as its result expression: a lone name with `;` would declare a feature.
+func (d *decoder) isTrailingCondition(el *element) bool {
+	if el.metaclass != mConstraint || el.owner == nil {
+		return false
+	}
+	if _, ok := d.stringOf(el, rdf.OpenSysML+xCondition); !ok {
+		return false
+	}
+	if _, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
+		return false
+	}
+	members := d.bodyChildren(el.owner)
+	return len(members) > 0 && members[len(members)-1] == el
 }
 
 // acceptParam returns the synthetic parameter of an accept shorthand, whose

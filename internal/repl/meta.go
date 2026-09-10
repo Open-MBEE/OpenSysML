@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
@@ -1766,7 +1767,11 @@ func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName
 		argTexts[i] = arg.text
 	}
 
-	result, err := ctx.InvokeCalc(sym, argValues, scope)
+	result, err := evaluate(s, calcName, ctx, func(ctx *runtime.Context) (runtime.Value, error) {
+		return ctx.InvokeCalc(sym, argValues, scope)
+	}, func(result runtime.Value, err error) analysis.Answer {
+		return analysis.ValuesAnswer([]analysis.Evaluation{{Name: calcResultName, Value: result}}, err)
+	})
 	if err != nil {
 		// A name of another kind is a wrong argument, so it is reported as
 		// itself rather than as a calculation that failed.
@@ -1791,7 +1796,11 @@ func (s *Session) calcUsageOutputs(ctx *runtime.Context, sym *symbols.Symbol, ca
 	if !ok || usage.Kind != ast.UsageCalc {
 		return nil, nil, false, nil
 	}
-	outputs, err := ctx.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	outputs, err := evaluate(s, calcName, ctx, func(ctx *runtime.Context) ([]runtime.CalcOutputValue, error) {
+		return ctx.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	}, func(outputs []runtime.CalcOutputValue, err error) analysis.Answer {
+		return analysis.ValuesAnswer(analysis.OutputValues(outputs), err)
+	})
 	if err != nil {
 		return nil, nil, true, fmt.Errorf("calc usage evaluation failed: %w", err)
 	}
@@ -2149,7 +2158,9 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 			subject, owner = inst, s.keepSubject(a, inst)
 		}
 	}
-	result, err := ctx.CheckSatisfactionOn(a, subject)
+	result, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+		return ctx.CheckSatisfactionOn(a, subject)
+	})
 	subject, owner = s.reportedSubject(result, subject, owner)
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.

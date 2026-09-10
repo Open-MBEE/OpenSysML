@@ -692,6 +692,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		if _, declared := ec.features[name]; declared {
 			return Value{}, &NoValueError{Feature: name, Ref: qn}
 		}
+		if ec.ctx.resolver != nil && ec.scope != nil {
+			return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedName(ec.scope, name, qn))
+		}
 		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
 
@@ -885,6 +888,9 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 		if ec.ctx.model.IsVariationFeature(owner) {
 			return fmt.Errorf("%w: %s is not a variant of %s (%s)",
 				ErrNotAVariant, memberName, owner.Name, ec.ctx.variantSummary(owner))
+		}
+		if ec.ctx.resolver != nil {
+			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
 		}
 		break
 	}
@@ -2444,10 +2450,20 @@ func ambiguousInvocationError(qualName string, candidates []*symbols.Symbol) err
 }
 
 // unresolvedInvocation reports a call to a name that denotes nothing, with the
-// same "did you mean" hint the validator gives an unqualified reference.
+// same "did you mean" hint the validator gives a reference: for a qualified
+// name, the quoted member the segment past the deepest resolved one may start.
 func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written string) error {
-	if qn != nil && len(qn.Parts) == 1 && !qn.Global && ec.ctx.resolver != nil {
+	if qn == nil || ec.ctx.resolver == nil {
+		return fmt.Errorf("%w: %s", ErrUnresolvedReference, written)
+	}
+	if len(qn.Parts) == 1 && !qn.Global {
 		return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedName(ec.scope, written, qn))
+	}
+	reading := ec.ctx.resolver.ReadQualified(ec.scope, qn)
+	for i := len(qn.Parts) - 2; i >= 0; i-- {
+		if owner, ok := reading.Part(i); ok {
+			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
+		}
 	}
 	return fmt.Errorf("%w: %s", ErrUnresolvedReference, written)
 }

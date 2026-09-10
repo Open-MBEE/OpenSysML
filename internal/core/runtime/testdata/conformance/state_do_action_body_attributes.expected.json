@@ -1,0 +1,10 @@
+{
+    "type": "state",
+    "finalState": "done",
+    "stateVisits": ["working", "done"],
+    "outputs": {
+        "seq": { "type": "Integer", "value": 0 },
+        "total": { "type": "Integer", "value": 21 },
+        "n": { "type": "Integer", "value": 100 }
+    }
+}

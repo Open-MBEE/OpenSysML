@@ -1,11 +1,11 @@
 package repl
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -79,20 +79,20 @@ func (s *Session) checkSolve(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solver, err := solve.Discover()
+	solved, err := s.solveWith(name, queries, (*solve.Solver).Solve)
 	if err != nil {
 		return []SolveReport{unavailableReport(name, err.Error())}
 	}
 	reports := make([]SolveReport, 0, len(queries))
-	for _, q := range queries {
-		reports = append(reports, s.solveQuery(name, solver, q))
+	for i, q := range queries {
+		reports = append(reports, solveQueryReport(name, q, solved[i]))
 	}
 	return reports
 }
 
-// solveQuery asks the solver about one query and renders its answer.
-func (s *Session) solveQuery(name string, solver *solve.Solver, q *solve.Query) SolveReport {
-	result, err := solver.Solve(context.Background(), q)
+// solveQueryReport renders the solver's answer about one query.
+func solveQueryReport(name string, q *solve.Query, solved analysis.Evaluation) SolveReport {
+	result, err := solved.Solved, solved.Err
 	if err != nil {
 		return unavailableReport(name, err.Error())
 	}

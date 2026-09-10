@@ -169,7 +169,9 @@ func (s *Session) checkConstraint(name string) Verdict {
 	if bad != nil {
 		return *bad
 	}
-	result, err := target.ctx.CheckConstraintOn(target.sym, target.scope, inst)
+	result, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+		return ctx.CheckConstraintOn(target.sym, target.scope, inst)
+	})
 	inst, owner = s.reportedSubject(result, inst, owner)
 	if unevaluable(err) {
 		return unevaluableVerdict(name, "Constraint "+name, err, inst, owner)
@@ -208,7 +210,9 @@ func (s *Session) checkRequirement(name string) Verdict {
 	if bad != nil {
 		return *bad
 	}
-	result, err := target.ctx.CheckRequirementOn(target.sym, target.scope, inst)
+	result, err := s.check(name, target.ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+		return ctx.CheckRequirementOn(target.sym, target.scope, inst)
+	})
 	inst, owner = s.reportedSubject(result, inst, owner)
 	if unevaluable(err) {
 		return s.withVerifications(unevaluableVerdict(name, "Requirement "+name, err, inst, owner), target.ctx, target.sym)
@@ -464,5 +468,10 @@ func (s *Session) instantiateNamed(name string) ([]string, error) {
 			out = append(out, "  "+notice)
 		}
 	}
-	return append(out, fmt.Sprintf("  Use %%features %s to inspect", name)), nil
+	// Echoed as typed, unless %features would not read that spelling as a name.
+	shown := name
+	if _, err := parseObjectRef(name); err != nil {
+		shown = s.declaredName(fqn)
+	}
+	return append(out, fmt.Sprintf("  Use %%features %s to inspect", shown)), nil
 }

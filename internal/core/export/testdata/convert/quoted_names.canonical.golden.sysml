@@ -3,7 +3,7 @@ package 'Quoted Names' {
     part def <'1'> 'Rover Model' {
         attribute 'dry mass' : 'Mass (kg)';
         constraint 'mass limit' {
-            'dry mass' > 0;
+            'dry mass' > 0
         }
         assert constraint 'is light' : 'mass limit';
     }

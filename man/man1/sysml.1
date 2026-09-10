@@ -150,8 +150,8 @@ Evaluate OSLC Query text against the model instead of running the REPL
 Report errors only, suppressing warnings
 .TP
 .BI \-render " string"
-Render this view of the model instead of running it, in the form its render
-member states
+Render this view of the model (every file named, loaded as one) instead of
+running it, in the form its render member states
 .TP
 .BI \-render\-all " string"
 Render every declared view into this directory
@@ -440,6 +440,8 @@ the resulting commit; the token comes from FLEXO_INTEROP_TOKEN.
 sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render Views::vehicleView \-render\-form markdown
 sysml model.sysml \-render Views::vehicleView \-o view.mmd
+# several files, loaded as one model
+sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
 .fi
 .RE
@@ -447,7 +449,8 @@ sysml model.sysml \-render\-all rendered
 The rendering is the one the view's render member states, and a containment
 tree where it states none. It is tool\-defined output: SysML v2 specifies the
 notation, not how a tool draws it. Notices \(em an empty view, an element the
-rendering cannot represent \(em go on stderr.
+rendering cannot represent \(em go on stderr. Every file named is loaded as
+one model, so a view may expose elements a sibling file declares.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

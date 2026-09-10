@@ -157,9 +157,11 @@ type Resolver struct {
 	// per name and scope; names is the index's name table they are looked up in.
 	// suggesting holds the suggestions being scored, so scoring one cannot
 	// recurse into scoring itself.
-	suggestions map[suggestKey][]string
+	suggestions map[suggestKey]suggestion
 	names       *suggest.Table
 	suggesting  map[suggestKey]bool
+	// probing holds the member hints being computed, for the same reason.
+	probing map[memberKey]bool
 	// document is the document ResolveDocument is resolving, so a reference
 	// reached in another one is not reported against it (see foreignScope).
 	document          string
@@ -273,8 +275,9 @@ func New(idx *symbols.Index) *Resolver {
 		bodyOwners:            map[*symbols.Scope]*symbols.Symbol{},
 		effNames:              map[*symbols.Symbol]bool{},
 
-		suggestions: map[suggestKey][]string{},
+		suggestions: map[suggestKey]suggestion{},
 		suggesting:  map[suggestKey]bool{},
+		probing:     map[memberKey]bool{},
 
 		inheritedImports:  map[*symbols.Symbol]bool{},
 		aliasTargets:      map[*symbols.Symbol]resolution{},
