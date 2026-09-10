@@ -791,13 +791,15 @@ func (b sweepBounds) draw(source *rand.Rand) Value {
 		lo, hi = hi, lo
 	}
 	u := source.Float64()
+	var drawn float64
 	if width := hi - lo; !math.IsInf(width, 0) {
-		return b.valueReal(lo + u*width)
+		drawn = lo + u*width
+	} else {
+		// A range whose width overflows is drawn from as the two endpoints
+		// weighted, which stays between them however wide they are.
+		drawn = lo*(1-u) + hi*u
 	}
-	// A range whose width overflows is drawn from as the two endpoints weighted,
-	// which stays between them however wide they are; rounding up to the end is
-	// stepped back, since the end is not drawn.
-	drawn := lo*(1-u) + hi*u
+	// Either arithmetic can round up to the end, which is not drawn.
 	if drawn >= hi {
 		drawn = math.Nextafter(hi, lo)
 	}

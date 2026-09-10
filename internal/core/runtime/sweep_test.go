@@ -753,6 +753,24 @@ func TestSamplesDrawInTheParameterTypeNotTheLiteralType(t *testing.T) {
 	}
 }
 
+// A real draw stays below the range's end however narrow the range: over two
+// adjacent reals only the lower is ever drawn.
+func TestSamplesNeverDrawTheEndOfARealRange(t *testing.T) {
+	ctx, scope := sweepFixture(t)
+	lo, hi := 1.0, math.Nextafter(1.0, 2.0)
+	for _, seed := range []uint64{1, 2, 3} {
+		table := runSweepOver(t, ctx, scope, "Ratio", SweepPlan{
+			Ranges:  []SweepRange{rangeOf("a", realOf(lo), realOf(hi)), rangeOf("b", intOf(1), intOf(1))},
+			Sampled: true, Samples: 32, Seed: seed,
+		})
+		for _, row := range table.Rows {
+			if drawn := row.Bindings[0].Value.Const.AsReal(); drawn != lo {
+				t.Errorf("seed %d drew a=%v; want %v, the one real in [%v, %v)", seed, drawn, lo, lo, hi)
+			}
+		}
+	}
+}
+
 // A parameter typed by neither a scalar nor a quantity — Boolean, String, an
 // enumeration or a part — takes no numeric range: the plan is refused before
 // any run, naming the parameter's type.
