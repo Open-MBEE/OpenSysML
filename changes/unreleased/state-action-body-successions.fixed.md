@@ -5,6 +5,7 @@
   executable`, while the same body as a standalone `action def` ran. The body is now lowered to
   the same token flow a standalone action's body is and runs through the action executor, so
   successions, `first … then …`, guards, forks, joins, `then done` and action nodes with a flow
-  of their own behave as they do in an action; a dangling or unstartable succession is reported
-  as a typed error before any node runs. A body stating no flow still runs its statements in
-  declaration order.
+  of their own behave as they do in an action, and the attributes the body declares are the
+  performance's own; a dangling or unstartable succession, or a node declaring `return`, is
+  reported as a typed error before any node runs. A body stating no flow still runs its
+  statements in declaration order.

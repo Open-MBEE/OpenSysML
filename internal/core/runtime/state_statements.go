@@ -173,7 +173,8 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 }
 
 // runFlow runs the token flow an inline body states with its successions and
-// control nodes, as the behavior's own performance.
+// control nodes, as the behavior's own performance: the body's attributes are
+// the performance's, initialized as a standalone action's are.
 func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if block.Graph.Initial == nil {
 		return flowNext, fmt.Errorf("%w: %s: no node starts the flow", ErrInvalidActionFlow, h.describe())
@@ -181,17 +182,35 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if err := h.flow.validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
 	}
+	if err := h.flow.checkNodeResultParameters(block.Graph); err != nil {
+		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
+	}
 	root := h.flow.root
 	h.flow.graph = block.Graph
+	h.flow.features = h.flow.performanceFeatures()
 	root.graph = block.Graph
 	root.connections = block.Graph.Connections
 	root.live = 1
+	if block.Graph.Scope != nil {
+		root.scope = block.Graph.Scope
+	}
+	h.flow.declareRootFeatures(root)
+	if err := h.flow.initializeAttributes(); err != nil {
+		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
+	}
 	return flowNext, h.flow.runSubflow(root)
 }
 
-// setFeature writes a feature the behavior's performance holds; it holds none, so
-// the write reaches what is around it.
+// setFeature writes a feature the behavior's performance holds: an attribute of
+// the body's flow, else what is around it.
 func (h *stateStmtHost) setFeature(name string, value Value) error {
+	if root := h.perfs.root; root.holds(name) {
+		if err := h.exec.ctx.checkNamedWrite(root.scope, h.describe(), name, value); err != nil {
+			return err
+		}
+		root.data[root.key(name)] = value
+		return nil
+	}
 	if written, err := h.assignAround(name, value); written || err != nil {
 		return err
 	}

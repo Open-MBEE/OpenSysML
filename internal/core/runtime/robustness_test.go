@@ -57,6 +57,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
 	t.Run("state_do_body_accept_deadlock", testStateDoBodyAcceptDeadlock)
 	t.Run("state_do_body_flow_that_never_ends", testStateDoBodyFlowThatNeverEnds)
+	t.Run("state_do_body_node_return_parameter", testStateDoBodyNodeReturnParameter)
 	t.Run("calc_block_node_unvalued_pin_write_checked", testCalcBlockNodeUnvaluedPinWriteChecked)
 	t.Run("node_binding_to_a_non_parameter", testNodeBindingToANonParameter)
 	t.Run("node_undirected_binding_carried_to_a_non_parameter", testNodeUndirectedBindingCarriedToANonParameter)
@@ -12336,6 +12337,27 @@ func testStateDoBodyAcceptDeadlock(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("expected %q in the deadlock report, got: %v", want, err)
 		}
+	}
+}
+
+// testStateDoBodyNodeReturnParameter: an action node of an inline do body's flow
+// declaring `return` is refused before any node runs, as in a standalone action.
+func testStateDoBodyNodeReturnParameter(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		first start;
+		then action a { assign total := total + 1; }
+		then action b { return r : Integer = 1; }
+		then done;
+	`)
+	err := exec.RunToCompletion()
+	if !errors.Is(err, ErrActionResultParameter) {
+		t.Fatalf("expected ErrActionResultParameter, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "state behavior ops") || !strings.Contains(err.Error(), "action node b") {
+		t.Errorf("error %q does not name the behavior and the node", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
+		t.Errorf("total = %v, want 0: no node of the body must run", total)
 	}
 }
 
