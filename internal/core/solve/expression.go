@@ -87,6 +87,27 @@ func (x *Translator) Boolean(node ast.Node, scope *symbols.Scope, within string)
 	return expr, nil
 }
 
+// Variable is the variable standing for the feature name resolves to where it is
+// written in scope — the one a reference to the name in an expression reads — for
+// a consumer encoding a write to it. within names the statement writing it.
+func (x *Translator) Variable(name string, scope *symbols.Scope, within string) (*Var, error) {
+	t := x.t
+	t.condLabel = within
+	segments := []string{name}
+	chain, err := t.resolvePath(nil, scope, segments)
+	if err != nil {
+		return nil, err
+	}
+	if _, _, literal := t.valueOf(chain[len(chain)-1]); literal {
+		return nil, t.refuse(nil, "feature `"+name+"`", "it names a literal rather than a feature")
+	}
+	term, err := t.variableOf(nil, scope, chain, segments)
+	if err != nil {
+		return nil, err
+	}
+	return term.Var, nil
+}
+
 // Vars are the variables the expressions translated so far read, ordered by
 // name; each stands for one feature.
 func (x *Translator) Vars() []*Var {
