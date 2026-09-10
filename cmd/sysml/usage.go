@@ -162,6 +162,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView", "ASCII text at a terminal"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form markdown", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
+				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
 			Paragraphs: []string{
@@ -169,7 +170,8 @@ func doc() usage.Doc {
 					"containment tree where it states none. It is tool-defined " +
 					"output: SysML v2 specifies the notation, not how a tool draws " +
 					"it. Notices — an empty view, an element the rendering cannot " +
-					"represent — go on stderr.",
+					"represent — go on stderr. Every file named is loaded as one " +
+					"model, so a view may expose elements a sibling file declares.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -305,7 +307,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&outputPath, "o", "", "Write conversion output to this file (shorthand)")
 	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi: write the element-by-element migration report to this file (JSON when it ends in .json, text otherwise)")
-	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states")
+	fs.StringVar(&renderView, "render", "", "Render this view of the model (every file named, loaded as one) instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition as linked Markdown into this directory")
