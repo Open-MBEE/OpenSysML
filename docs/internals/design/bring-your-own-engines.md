@@ -245,20 +245,29 @@ The framework's `Result`, as JSON: `claim` (`holds`, `violated`, `sensitive`, `v
 `none`), `strength` as the engine claims it, `bounds` taken and reached, `witness`, `reason`,
 `values`, `elapsed`. The two fields the host treats specially:
 
-- **`witness`** is checked by the interpreter before the result is composed, and its shape
-  follows the entry's `witness` kind. A `schedule` witness is a file in the `replay:` format the
-  SMT design fixes — the schedule as `step N: <token>@<node> first of …` lines naming moves by
-  the labels the lowered-graph export gave them — plus `inputs` as `{name, value, unit}`; the
-  host writes it to a file and replays it through `explore`'s replay policy, and the SMT
-  design's rule that *a witness that cannot be followed is never silently resolved* applies to
-  every external witness without exception. An `assignment` witness, the shape a `satisfiable`
-  answer has, is `inputs` alone: the host binds the values to the free features and evaluates
-  every condition of the question with the evaluator, as the framework has `solve` confirm a
-  `sat` model, and the witness stands only when every condition evaluates `true` — a condition
-  that evaluates `false` or that the evaluator cannot evaluate at those values is a failed
-  witness. An engine answers a question with the witness kind that question has: `violated`,
-  `sensitive` and an outcome take a schedule, `satisfiable` takes an assignment, and a result
-  that carries the other kind is a protocol break.
+- **`witness`** is checked by the interpreter before the result is composed, and the check is
+  the claim's, not merely the schedule's: a replay that runs to the end proves only that the
+  moves are an execution, and the host then evaluates what the claim says of that execution.
+  The shape follows the entry's `witness` kind and the claim. A `schedule` witness is a file in
+  the `replay:` format the SMT design fixes — the schedule as `step N: <token>@<node> first of …`
+  lines naming moves by the labels the lowered-graph export gave them — plus `inputs` as
+  `{name, value, unit}`; the host writes it to a file and replays it through `explore`'s replay
+  policy, and the SMT design's rule that *a witness that cannot be followed is never silently
+  resolved* applies to every external witness without exception. For `violated` the host then
+  evaluates the condition in the replayed state and the witness stands only when it evaluates
+  `false` there, as the SMT design has its own `sat` checked; for an outcome, only when the
+  replayed execution's outcome is the one claimed. For `sensitive` the witness is **two**
+  schedules under the same `inputs` and the feature they diverge on, the SMT design's two-copy
+  shape: the host replays both and the witness stands only when the feature's final values
+  differ — one schedule cannot show that another exists. An `assignment` witness, the shape a
+  `satisfiable` answer has, is `inputs` alone: the host binds the values to the free features
+  and evaluates every condition of the question with the evaluator, as the framework has
+  `solve` confirm a `sat` model, and the witness stands only when every condition evaluates
+  `true` — a condition that evaluates `false` or that the evaluator cannot evaluate at those
+  values is a failed witness. An engine answers a question with the witness kind and count that
+  question has: `violated` and an outcome take one schedule, `sensitive` takes two,
+  `satisfiable` takes an assignment, and a result that carries the other kind, or one schedule
+  for `sensitive`, is a protocol break.
 - **`executions`**, optional on a universal claim, is a list of witnesses in the same two
   shapes: the concrete executions the engine ran and found the claim holding on. The host
   replays each and evaluates the claim on it, and they are what lets a universal claim be
@@ -279,7 +288,7 @@ engine would answer differently) from a reason particular to one engine (*not co
 | a line that is not JSON, a missing `jsonrpc` or `id`, a field of the wrong type, a line over `OPENSYSML_TOOL_MAX_OUTPUT`, a witness of the wrong kind for the question, a result whose `claim` and `strength` are not a pair the framework admits | *not covered: engine 'spin-bridge' broke protocol: …*, the session ended; `auto` advances |
 | the process exits during a `run`, or the deadline passes without an answer to `cancel` | *not covered* with the exit status or the bound; `auto` advances |
 | an `error` answer | *not covered* with its `code` and `message` |
-| a witness that fails replay or evaluation | *not covered: engine 'spin-bridge' reports a violation; its witness does not replay (move 3, 2@vent is not enabled)*, or *… reports satisfiable; at its assignment `x > 3` evaluates false* — the framework's rule, never *violated* or *satisfiable* |
+| a witness that fails replay or evaluation | *not covered: engine 'spin-bridge' reports a violation; its witness does not replay (move 3, 2@vent is not enabled)*, *… reports a violation; its schedule replays and `maxPressure` holds at its end*, *… reports sensitive; both schedules replay and `x` is 1 under each*, or *… reports satisfiable; at its assignment `x > 3` evaluates false* — the framework's rule, never *violated*, *sensitive* or *satisfiable* |
 | an existential claim from an entry whose `witness` is `none` | *not covered: engine 'spin-bridge' reports a violation and produces no replayable witness* |
 | a universal claim with no `executions` from an entry with no `admit`, or with an `admit` its referee record does not support | *not covered: engine 'spin-bridge' reports holds, bounded at depth 40; not admitted* — the claim kept in the reason and in `Values`, nothing claimed |
 | an `executions` entry that fails replay, or on which the claim does not hold | *not covered* naming the execution and the move or the value; the rest are not counted, since the engine's account of what it ran has been shown wrong once |
@@ -299,10 +308,11 @@ labeled. Three rules decide the label.
 
 **An existential claim is *witnessed* when its witness checks, and *not covered* otherwise.**
 This is the framework's rule for `smt`'s `sat` and `solve`'s `sat`, and it needs no trust: the
-interpreter is normative, the check is the interpreter's — a schedule replays, an assignment is
-evaluated — and an external model checker whose violation replays, or an external solver whose
-assignment satisfies every condition under the evaluator, has found a real one whatever its own
-soundness. The witness dominates every universal claim about the same question, as the
+interpreter is normative, the check is the interpreter's — a schedule replays and the claim is
+evaluated on what it reached, two schedules replay and their results are compared, an
+assignment is evaluated — and an external model checker whose violation replays and evaluates
+`false`, or an external solver whose assignment satisfies every condition under the evaluator,
+has found a real one whatever its own soundness. The witness dominates every universal claim about the same question, as the
 framework's first composition rule says.
 
 **A universal claim is *observed* only for executions the interpreter ran, and is otherwise
@@ -494,14 +504,18 @@ contains can cause it:
   starts with external engines *listed but not served*: `ListEngines` shows them with
   `served: false`, a request naming one is refused with a typed error (*engine 'spin-bridge' is
   not served by this service*), and the `engines_external` capability is not advertised. The
-  operator who wants them starts the service with `-serve-external-engines`, which enables
-  exactly the entries the environment names for every authenticated client; there is no
-  per-request path to a manifest, an executable or an `admit`, and the transport's
-  authentication is the transport's, not this design's — an operator who serves external engines
-  to a network serves them to whoever the transport admits, and the reference says so where it
-  documents the flag. The same holds for the `grpc` transport in the other direction: an engine
-  reached at an `address` receives the model's sources, so an entry with an `address` is a
-  decision to send the model there, made in the manifest and nowhere else.
+  operator who wants them starts the service with `-serve-external-engines <name>,…`, naming
+  the entries to serve (or `all`), and the service then runs exactly those for every
+  authenticated client; there is no per-request path to a manifest, an executable or an `admit`.
+  The flag is a grant of command execution and the reference names it as one: every client the
+  transport admits can run every named command as the service's user, so the option belongs to a
+  service whose clients are already trusted with that, and a deployment that must keep analysts
+  and operators apart leaves it off and runs external engines from the CLI, where the user who
+  asks is the user who runs. The transport's authentication is the transport's, not this
+  design's; this design adds no client-level authorization, and says so rather than implying one
+  the flag does not provide. The same holds for the `grpc` transport in the other direction: an
+  engine reached at an `address` receives the model's sources, so an entry with an `address` is
+  a decision to send the model there, made in the manifest and nowhere else.
 - A WebAssembly module runs with no capabilities beyond the messages it is passed.
 - What an engine writes is bounded: one message and the captured standard error by
   `OPENSYSML_TOOL_MAX_OUTPUT`, `progress` by coalescing, time by the deadline and
@@ -533,7 +547,11 @@ contains can cause it:
   replay or on which the claim fails it is *not covered* naming it; with `admit: bounded` and a
   referee record for its version and case set it is composed *bounded* naming the record; with
   a record for another version, or an edited record, it is *not covered* and `-engines` says
-  why; an external `violated` whose schedule witness replays is *witnessed*; an external
+  why; an external `violated` whose schedule witness replays and whose condition evaluates
+  `false` at its end is *witnessed*, and one whose schedule replays with the condition still
+  `true` is *not covered* naming the condition; an external `sensitive` with two schedules that
+  replay to different values of the named feature is *witnessed*, with two that replay to the
+  same value it is *not covered*, and with one schedule it is a protocol break; an external
   `satisfiable` whose assignment satisfies every condition under the evaluator is *witnessed*,
   and one whose assignment falsifies a condition is *not covered* naming the condition; a
   witness of the wrong kind for the question is a protocol break; one whose witness fails
@@ -571,7 +589,8 @@ first stage delivers, since it is the gate every external witness passes through
    `OPENSYSML_ENGINES`; the session, the message set and its JSON Schema; the `sources` and
    `graphs:1` model forms, the latter as the new versioned export of lowered graphs; the failure
    table; the output bounds; the standing rules without admission — witnesses of both kinds
-   checked, `executions` replayed for *observed*, every other universal claim *not covered*
+   checked and the claim evaluated on what they replay to, two schedules for `sensitive`,
+   `executions` replayed for *observed*, every other universal claim *not covered*
    with the claim kept (`admit` is refused until the next stage); the stand-in engine and its
    tests; `-engines`, `-engines -probe`, `%engines` and `ListEngines` listing external engines,
    the service refusing to run them until `-serve-external-engines`; the reference pages.
