@@ -14,8 +14,7 @@ import (
 // admit, over the conditions the case requires or assumes. Experimental: SysML v2
 // defines no solving, and the runtime evaluator remains normative.
 func (s *Session) OptimizeSolve(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.optimizeSolve(name)
 }
 

@@ -229,8 +229,7 @@ func metaCommands() []string {
 // RunMeta executes a meta-command (e.g., %eval, %load) and returns the output lines,
 // a quit flag, and any error encountered.
 func (s *Session) RunMeta(line string) (out []string, quit bool, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	out, quit, err = s.runMeta(line)
 	return append(s.drainTrace(), out...), quit, err
 }

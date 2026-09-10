@@ -9,16 +9,14 @@ import (
 // Schedule returns the policy runs started from here on resolve their choice
 // points under.
 func (s *Session) Schedule() runtime.SchedulePolicy {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.schedule
 }
 
 // SetSchedule sets the policy for runs started from here on; a debugger under
 // way keeps its own, and `explore` runs on contexts of their own.
 func (s *Session) SetSchedule(policy runtime.SchedulePolicy) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.setSchedule(policy)
 }
 

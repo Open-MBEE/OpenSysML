@@ -69,10 +69,10 @@ Each was the right shape for the question it answered. Together they have four c
   in the interpreter) are each a paragraph describing how one engine calls another. The next
   engine — a state-machine checker, a simulator — would write the same paragraphs again.
 - **Nothing runs in parallel.** `Explore` visits linearizations in sequence, `RunSweep` rows in
-  sequence, `Session.mu` is held for the length of a REPL command, and the gRPC service hands
-  each request exclusive use of the model's resolver and semantic model because both memoize
-  into plain maps (`CachedModel.RuntimeSemantics`). A sweep of 10 000 rows on a 16-core machine
-  uses one core.
+  sequence, `Session.mu` is held for the length of a REPL command, and the gRPC service handed
+  each request exclusive use of one resolver and semantic model per model because both memoize
+  into plain maps (undone by the isolation stage below). A sweep of 10 000 rows on a 16-core
+  machine uses one core.
 - **External tools have a spec-native binding and no runtime.** A model can already say, with
   standard-library metadata, that an action is computed by a named tool and which of its
   parameters map to which tool variables. The runtime cannot act on it, and if it could, nothing
@@ -375,13 +375,20 @@ type Budget struct {
 }
 ```
 
-The per-run limits that exist today keep their names and meanings. `Steps` and `Memory` are the
-running context's limits until the isolation stage builds a context per run, which takes them
-from the budget at construction; that stage also specifies how the one `Steps` maps onto the
-runtime's step kin (`OPENSYSML_MAX_STEPS`, `OPENSYSML_MAX_ACTION_STEPS`, `OPENSYSML_MAX_EVENTS`,
-`OPENSYSML_MAX_DO_STEPS`, `OPENSYSML_MAX_CALC_DEPTH`), which this note leaves open. What the
-framework adds is the two that only make sense once several runs share a machine: `Jobs`, and a
-`Deadline` that applies to the plan. Cancellation is the `context.Context` that `RunSweep`
+The per-run limits that exist today keep their names and meanings. A context of a run's own
+(`Model.NewContext`) takes `Steps` and `Memory` from the budget at construction: a positive
+`Steps` is the context's `MaxSteps` (`OPENSYSML_MAX_STEPS`, expression evaluations per run) and
+nothing else, a positive `Memory` its `MaxElements` (`OPENSYSML_MAX_ELEMENTS`), and a zero field
+leaves the bound at what the surface's `Fresh` built — the engine's own default. The other step
+kin (`OPENSYSML_MAX_ACTION_STEPS`, `OPENSYSML_MAX_EVENTS`, `OPENSYSML_MAX_DO_STEPS`,
+`OPENSYSML_MAX_CALC_DEPTH`) are never derived from `Steps`: the runtime counts them in
+different units (token-flow steps, events, do-steps, nesting depth), so any arithmetic from the
+one figure onto them would give a kin a meaning it does not have, while the identity onto the
+kin the field is named after is the one mapping under which `BudgetOf` followed by construction
+reproduces the context's limits exactly. A budget that does not set `Steps` leaves every kin at
+the context's value. A context the surface holds (`Model.Context`) is not rebuilt and keeps its
+limits, and `BudgetOf` reads its budget from them. What the framework adds is the two that
+only make sense once several runs share a machine: `Jobs`, and a `Deadline` that applies to the plan. Cancellation is the `context.Context` that `RunSweep`
 already threads through: `Registry.Answer` derives the plan's context from `Deadline` and
 checks it before it consults each engine and before it takes an engine's answer, every engine's
 `Run` observes the context between units of work and returns its error, and a deadline met is
@@ -398,23 +405,41 @@ by composing the finished engines' results around the stopped step.
 
 The rule is the one the runtime already lives by, made a contract: **model-derived state is
 immutable and shared; run-derived state is owned by one run.** The AST is immutable after
-parsing, and the frozen index is built to be read concurrently. Two components are not yet safe
-to share, and they are the actual work of this section:
+parsing, and the frozen index is built to be read concurrently. Two components are not safe to
+share, and they are the actual work of this section:
 
-- **The resolver and the semantic model memoize into plain maps.** The gRPC service knows this
-  and serializes every runtime request on a model behind `runtimeSemantics.mu`. Two runs on two
-  goroutines resolving the same name would race.
+- **The resolver and the semantic model memoize into plain maps.** Two runs on two goroutines
+  resolving the same name would race. The gRPC service once serialized every runtime request on
+  a model behind one shared pair for this reason.
 - **`runtime.Context`** is a run's mutable state by design and is never shared; `Explore`'s
   `fresh` already builds one per linearization.
 
 The design takes the first apart by **giving each worker its own resolver and semantic model
-over the shared frozen index**, rather than by making the memoization concurrent. A worker is
-built once per plan and reused across its runs, so the memoized resolutions are paid `Jobs`
-times, not once per run; the index, the standard library and the lowered graphs are built once
-and read by all. Making the lazy, recursive resolver lock-safe instead was considered and
-rejected below. The `libs` snapshot already makes the frozen standard-library index cheap to
-share; the per-worker cost is the model's own resolutions, and the framework measures it
-(`plan: 8 workers, 1.2 s warming`) so the trade is visible.
+over the shared frozen index**, rather than by making the memoization concurrent. A worker
+(`analysis.Worker`) is built once per plan and reused across its runs, so the memoized
+resolutions are paid `Jobs` times, not once per run; the index, the standard library and the
+lowered graphs are built once and read by all. Making the lazy, recursive resolver lock-safe
+instead was considered and rejected below. The `libs` snapshot already makes the frozen
+standard-library index cheap to share; the per-worker cost is the model's own resolutions, and
+the framework measures it (`plan: 8 workers, 1.2 s warming`) so the trade is visible.
+
+The surface hands the framework an `analysis.Model` with three ways to a context: `Context`,
+the context the surface itself holds (the REPL's own, whose objects a `%run` names); `Semantics`,
+how to build a resolver and semantic model over the shared index; and `Fresh`, how to build a
+run's context over a worker. `Registry.Answer` gives each plan a copy of the model, so two plans
+on one model never share a worker, and builds the plan's worker on its first run-owned context;
+the count and the time it took are the result's `Workers` and `Warming`. Both are lazy, so
+`Warming` is the cost of construction; the resolutions themselves are paid inside the runs. A
+plan in a context the surface holds builds no worker: that context is the surface's state, and
+rebuilding it would lose the objects the plan was asked about.
+
+The gRPC service builds a worker per request over the cached model's index and no longer holds
+a lock between requests. The REPL session keeps a command lock, so a second command waits for
+the first, and a state lock for the readers that run beside a command — completion, the
+getters — which an exploration releases while its plan runs on a worker and contexts of its own.
+A prompt run in the session's own context (`%run`, `%check`, `%sweep` on held objects) keeps
+the state lock: its context is what the readers read, and releasing it there would be a shared
+`Context`.
 
 ### Units of work
 
@@ -565,8 +590,8 @@ reached.
 | Proposed `-check-engine smt` and `-check-*` | `smt` | the flags are `-engine smt` and the shared bounds |
 | Proposed `-check-action`, `-check-state`, `-check-diverge` | `check` | selected by `-engine check` |
 | `ToolExecution` and `ToolVariable`, parsed and unread | `tool:<name>` | new: analysis cases that name a registered tool run it |
-| `Session.mu` held for a whole REPL command | held to read the session, released while the plan runs | the REPL stays responsive to `%stop`-style interruption during a long plan; a second command still waits |
-| `runtimeSemantics.mu` in the gRPC service | one resolver and semantic model per worker | concurrent requests on one model no longer serialize |
+| `Session.mu` held for a whole REPL command | a command lock held for the command and a state lock released while a plan runs on contexts of its own | completion and the session's getters answer during a long exploration, and a `%stop`-style interruption becomes possible; a second command still waits |
+| `runtimeSemantics.mu` in the gRPC service | one resolver and semantic model per worker, a worker per request | concurrent requests on one model no longer serialize |
 
 ## Test contract
 
@@ -625,7 +650,20 @@ behavior unchanged until stage 4.
 2. **Isolation.** Resolver and semantic model per worker over the shared frozen index; the
    gRPC service and the REPL session release their locks while a plan runs; a context per run
    that takes the budget's `Steps` and `Memory` at construction, with the mapping of `Steps`
-   onto the runtime's step kin; the `-race` isolation tests.
+   onto the runtime's step kin; the `-race` isolation tests. *Implemented:* `analysis.Worker`
+   and `Model{Context, Semantics, Fresh}` with `Model.NewContext` taking `Steps` as `MaxSteps`
+   and `Memory` as `MaxElements` (the mapping above), `Result.Workers` and `Result.Warming`
+   carried and not printed; `run` and `explore` build their contexts through the worker, and
+   `Explore`'s `fresh` is `NewContext`. The gRPC service builds a worker per request; the REPL
+   session's lock is split as described under *What may be shared*, and an exploration releases
+   the state lock while it runs. Tests: two plans on one model on two goroutines under `-race`,
+   concurrent gRPC requests on one cached model, completion beside an exploration, and
+   budget-at-construction with a zero field the context's own for `run` and `explore`. As it
+   applies: `sweep` builds no context — a row is the surface's closure over its own context
+   (`SweepRun` takes none), so the engine refuses a model that holds none with the typed
+   `NoRuntimeError` and its `Runs` bound is the row limit; `solve` builds none — the solver
+   queries the semantic model. Both stay one worker per plan: a plan's runs are sequential
+   until stage 3 puts several workers on them.
 3. **Parallel runs.** `-jobs`/`OPENSYSML_JOBS`; `sweep` rows and `explore` prefixes on the
    work queue; the determinism tests.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the

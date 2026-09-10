@@ -196,6 +196,10 @@ type Result struct {
 	// Values are the feature values, outputs, rows or answers the question asked for.
 	Values  []Evaluation
 	Elapsed time.Duration
+	// Workers is how many workers the plan built for the engine's runs, and Warming the
+	// time building them took; a plan in the surface's own context builds none.
+	Workers int
+	Warming time.Duration
 }
 
 // Covered reports whether the result claims anything.

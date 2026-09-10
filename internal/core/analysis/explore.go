@@ -12,8 +12,8 @@ import (
 // ExploreEngineName is the name of the engine that runs every linearization.
 const ExploreEngineName = "explore"
 
-// exploreEngine answers Outcomes questions by running the interpreter once per
-// linearization within a runs and depth budget, each in a fresh context.
+// exploreEngine answers Outcomes questions by running the interpreter once per linearization
+// within a runs and depth budget, each in a context of its own on the plan's worker.
 type exploreEngine struct{}
 
 // NewExplore returns the explore engine.
@@ -51,16 +51,20 @@ func (e exploreEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run explores under the budget's runs and depth (else the policy's own): complete is
-// proved over schedules, incomplete is observed with the budget hit named as reached.
-// A ctx that ends between runs ends the exploration with its error.
+// Run explores under the budget's runs and depth (else the policy's own), each run in a context
+// of its own under the budget: complete is proved, incomplete observed naming the budget hit.
+// A model that builds no context of a run's own is the typed fault NoRuntimeError.
 func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
 	policy, err := explorePolicy(q.Schedule, budget)
 	if err != nil {
 		return Result{}, err
 	}
+	if !model.builds() {
+		return Result{}, &NoRuntimeError{Engine: e.Name()}
+	}
+	fresh := func() (*runtime.Context, error) { return model.NewContext(budget) }
 	started := time.Now()
-	x, err := runtime.Explore(ctx, policy, model.Fresh, q.Linearize)
+	x, err := runtime.Explore(ctx, policy, fresh, q.Linearize)
 	if err != nil {
 		return Result{}, err
 	}

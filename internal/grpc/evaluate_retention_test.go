@@ -3,16 +3,16 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
-// Each Evaluate parses its own expression; the resolver and semantics shared
-// per model hash must not retain those trees, or unique expressions grow them
-// without bound.
-func TestEvaluateDoesNotRetainRequestExpressions(t *testing.T) {
+// Each request evaluates on a resolver and semantic model of its own over the cached
+// index, so what a request resolves or parses is the request's, and requests on one
+// model run beside each other. Under -race, this is the service's isolation test.
+func TestEvaluateRunsEachRequestOnAWorkerOfItsOwn(t *testing.T) {
 	const model = `
 package Demo {
   calc def Twice { in x : ScalarValues::Real; return : ScalarValues::Real = x * 2.0; }
@@ -37,54 +37,61 @@ package Demo {
 	if !ok {
 		t.Fatal("parsed model not cached")
 	}
-	memoSize := func() (int, int) {
-		rs, release := cached.RuntimeSemantics()
-		defer release()
-		return rs.Resolver.MemoSize(), rs.Model.MemoSize()
-	}
 
-	evaluate := func(expr string) string {
-		resp, err := srv.Evaluate(context.Background(), &pb.EvaluateRequest{
+	evaluate := func(expr string) (*pb.EvaluateResponse, error) {
+		return srv.Evaluate(context.Background(), &pb.EvaluateRequest{
 			ModelHash: parseResp.ModelHash, Expression: expr, SubjectSymbolId: "Demo::sedan",
 		})
-		if err != nil {
-			t.Fatalf("Evaluate(%q): %v", expr, err)
-		}
-		return resp.GetError()
 	}
-	mustEvaluate := func(expr string) {
-		if msg := evaluate(expr); msg != "" {
-			t.Fatalf("Evaluate(%q): %s", expr, msg)
-		}
-	}
-	// The first request resolves the model's own syntax the expressions reach
-	// (Twice's parameters, the parts' types); that is the model's and stays.
-	mustEvaluate("Twice(mass) + engine.power + Demo::sedan::mass + 1.0")
-	before, beforeSel := memoSize()
+	var wg sync.WaitGroup
+	errs := make(chan string, 128)
 	for i := 0; i < 50; i++ {
-		mustEvaluate(fmt.Sprintf("Twice(mass) + engine.power + Demo::sedan::mass + %d.0", i))
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			expr := fmt.Sprintf("Twice(mass) + engine.power + Demo::sedan::mass + %d.0", i)
+			resp, err := evaluate(expr)
+			switch {
+			case err != nil:
+				errs <- fmt.Sprintf("Evaluate(%q): %v", expr, err)
+			case resp.GetError() != "":
+				errs <- fmt.Sprintf("Evaluate(%q): %s", expr, resp.GetError())
+			case resp.GetResult().GetRealValue() != 2400+100+1200+float64(i):
+				errs <- fmt.Sprintf("Evaluate(%q) = %v", expr, resp.GetResult())
+			}
+			// A misspelling is the request's: resolving it must not disturb the others.
+			if resp, err := evaluate(fmt.Sprintf("nosuch%d(1.0) + masss%d", i, i)); err != nil || resp.GetError() == "" {
+				errs <- fmt.Sprintf("expression %d: unresolved names evaluated: %v", i, err)
+			}
+		}(i)
 	}
-	if got, gotSel := memoSize(); got != before || gotSel != beforeSel {
-		t.Fatalf("shared memo grew from %d+%d to %d+%d over 50 unique expressions",
-			before, beforeSel, got, gotSel)
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		t.Error(e)
 	}
 
-	// A name that resolves to nothing is spell-checked, and the spellings are
-	// memoized by name: a request's misspelling is the request's too.
-	for i := 0; i < 50; i++ {
-		if evaluate(fmt.Sprintf("nosuch%d(1.0) + masss%d", i, i)) == "" {
-			t.Fatalf("expression %d: unresolved names evaluated", i)
-		}
+	// Nothing a request resolved is the cached model's: a worker built after them
+	// starts with no resolutions and no selections.
+	resolver, sem, err := cached.Semantics()
+	if err != nil {
+		t.Fatalf("Semantics: %v", err)
 	}
-	if got, gotSel := memoSize(); got != before || gotSel != beforeSel {
-		t.Fatalf("shared memo grew from %d+%d to %d+%d over 50 unresolved expressions",
-			before, beforeSel, got, gotSel)
+	if got, gotSel := resolver.MemoSize(), sem.MemoSize(); got != 0 || gotSel != 0 {
+		t.Fatalf("a new worker starts with %d resolutions and %d selections, want none", got, gotSel)
+	}
+	other, _, err := cached.Semantics()
+	if err != nil {
+		t.Fatalf("Semantics: %v", err)
+	}
+	if other == resolver || other.Index() != resolver.Index() || resolver.Index() != cached.Index {
+		t.Fatal("two workers over one model: want distinct resolvers over the one cached index")
 	}
 }
 
-// Each request builds its own runtime context over the shared semantics; the
-// overloads the model selected for one request must still be selected for the next.
-func TestEvaluateKeepsInvocationSelectionsAcrossRequests(t *testing.T) {
+// Each request selects the overloads its expressions invoke on its own semantic model,
+// and every request selects alike.
+func TestEvaluateSelectsInvocationsOnEachWorker(t *testing.T) {
 	const model = `
 package Demo {
   calc def Twice { in x : ScalarValues::Real; return : ScalarValues::Real = x * 2.0; }
@@ -107,34 +114,35 @@ package Demo {
 	if !ok {
 		t.Fatal("parsed model not cached")
 	}
-	selections := func() int {
-		rs, release := cached.RuntimeSemantics()
-		defer release()
-		return rs.Model.MemoSize()
-	}
-	evaluate := func() {
+	evaluate := func() float64 {
 		resp, err := srv.Evaluate(context.Background(), &pb.EvaluateRequest{
 			ModelHash: parseResp.ModelHash, Expression: "doubled", SubjectSymbolId: "Demo::sedan",
 		})
 		if err != nil || resp.GetError() != "" {
 			t.Fatalf("Evaluate: %v %s", err, resp.GetError())
 		}
+		return resp.GetResult().GetRealValue()
 	}
-	evaluate()
-	after := selections()
-	if after == 0 {
-		t.Fatal("evaluating doubled selected no invocation, or the selection was not kept")
+	if got := evaluate(); got != 3000 {
+		t.Fatalf("doubled = %v, want 3000", got)
 	}
-	// What the next request does first: build its context over the shared model.
-	rs, release := cached.RuntimeSemantics()
-	runtime.NewContext(rs.Model, rs.Resolver, srv.budgets.MaxSteps)
-	got := rs.Model.MemoSize()
-	release()
-	if got != after {
-		t.Fatalf("invocation selections %d after a new runtime context, want %d", got, after)
+	if got := evaluate(); got != 3000 {
+		t.Fatalf("doubled on a second request = %v, want 3000", got)
 	}
-	evaluate()
-	if got := selections(); got != after {
-		t.Fatalf("invocation selections %d after a second request, want %d", got, after)
+
+	// The selection lives on the worker that made it, which the request built.
+	rt := srv.newRuntime(cached)
+	if got := rt.Model().MemoSize(); got != 0 {
+		t.Fatalf("a request's worker starts with %d selections, want none", got)
+	}
+	doubled := cached.Index.LookupQualified("Demo::Vehicle::doubled")
+	if len(doubled) != 1 {
+		t.Fatalf("Demo::Vehicle::doubled resolved to %d symbols, want 1", len(doubled))
+	}
+	if _, err := rt.EvalDeclaredValue(doubled[0]); err != nil {
+		t.Fatalf("doubled on the worker: %v", err)
+	}
+	if got := rt.Model().MemoSize(); got == 0 {
+		t.Fatal("evaluating doubled selected no invocation, or the selection was not kept on the worker")
 	}
 }

@@ -74,11 +74,12 @@ type snippet struct {
 
 // Session accumulates submissions into a single implicit <repl> document.
 type Session struct {
-	// mu serializes the session's exported entry points, which a frontend may
-	// call from more than one goroutine: readline answers Tab from its own input
-	// goroutine while the loop is still evaluating the previous line. Exported
-	// methods take it; lower-case helpers assume the caller holds it.
-	mu sync.Mutex
+	// mu serializes commands; state guards the session for readers beside one
+	// (Complete answers Tab while a line evaluates). Exported commands take both,
+	// readers take state alone, and a plan on its own contexts releases state
+	// while it runs (exploreVerdict). Lower-case helpers assume the caller holds both.
+	mu    sync.Mutex
+	state sync.Mutex
 
 	ws       *model.Workspace
 	snippets []snippet
@@ -267,6 +268,23 @@ func NewSession() *Session {
 	}
 }
 
+// enter takes the session for one command; the function returned leaves it.
+func (s *Session) enter() func() {
+	s.mu.Lock()
+	s.state.Lock()
+	return func() {
+		s.state.Unlock()
+		s.mu.Unlock()
+	}
+}
+
+// reading takes the session's state to read it beside a running command; the
+// function returned lets it go.
+func (s *Session) reading() func() {
+	s.state.Lock()
+	return s.state.Unlock
+}
+
 // SetBudgets sets the bounds for runtime contexts created from here on, dropping
 // the current one with its objects and the debuggers driving it, which the next
 // command reports. It errors on a non-positive bound, which no run could make
@@ -275,8 +293,7 @@ func (s *Session) SetBudgets(budgets runtime.Budgets) error {
 	if err := budgets.Validate(); err != nil {
 		return err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.budgets = budgets
 	s.rtCtx, s.replaced = nil, nil
 	if n := s.heldObjects(); n > 0 {
@@ -305,15 +322,13 @@ func (s *Session) endDebugSessions(cause string) {
 
 // Budgets returns the bounds this session gives its runtime contexts.
 func (s *Session) Budgets() runtime.Budgets {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.budgets
 }
 
 // List returns a one-line summary per surviving snippet.
 func (s *Session) List() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.list()
 }
 
@@ -731,8 +746,7 @@ func intersects(names []string, set map[string]bool) bool {
 // the buffer instead, since it would otherwise absorb the next submission. A
 // later redeclaration of the same name replaces the prior snippet (see accept).
 func (s *Session) Submit(src string) Result {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.submitAll([]string{src})
 }
 
@@ -745,8 +759,7 @@ type SourceFile struct {
 
 // SubmitAll accumulates every src as one submission, from no file in particular.
 func (s *Session) SubmitAll(srcs []string) Result {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.submitAll(srcs)
 }
 
@@ -769,8 +782,7 @@ func (s *Session) submit(origin, src string) Result {
 // against the others no matter which order they arrive in. This is what makes
 // loading a multi-file project order-independent.
 func (s *Session) SubmitFiles(files []SourceFile) Result {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.submitFiles(files)
 }
 
@@ -1076,8 +1088,7 @@ func supersededBy(gone []string, fqn string) (string, bool) {
 // Clear resets the session, dropping all accumulated declarations. It returns
 // the notices for what the reset took with it.
 func (s *Session) Clear() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.clear()
 }
 

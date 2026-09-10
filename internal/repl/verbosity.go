@@ -44,14 +44,12 @@ func ParseVerbosity(s string) (Verbosity, error) {
 
 // Verbosity reports the session's current output level.
 func (s *Session) Verbosity() Verbosity {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.verbosity
 }
 
 // SetVerbosity sets the session's output level.
 func (s *Session) SetVerbosity(v Verbosity) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.verbosity = v
 }

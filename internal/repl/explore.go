@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -76,23 +78,32 @@ func (s *Session) refuseExplore() error {
 }
 
 // exploreVerdict explores one behavior, run performing it on a context of its
-// own, and tables every distinct outcome with the witness run's trace.
+// own, and tables every distinct outcome with the witness run's trace. The plan
+// runs on a worker and contexts of its own, so the session's state is released
+// to readers while it runs; the index and name table are built before that.
 func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (runtime.Outcome, error)) Verdict {
 	policy, _ := s.exploring()
-	model, resolver, err := s.semanticModel()
-	if err != nil {
-		return unresolvedVerdict(subject, fmt.Errorf("%w: %w", errRuntimeInit, err).Error())
-	}
+	s.browseIndex()
+	s.nameTable()
 	var traces [][]string
-	fresh := func() (*runtime.Context, error) {
-		ctx, err := s.newRuntimeOver(model, resolver)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
-		}
-		if s.trace != nil {
-			ctx.SetTrace(runtime.NewTraceRecorder())
-		}
-		return ctx, nil
+	model := &analysis.Model{
+		Semantics: func() (*resolve.Resolver, *semantics.Model, error) {
+			sem, resolver, err := s.semanticModel()
+			if err != nil {
+				return nil, nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
+			}
+			return resolver, sem, nil
+		},
+		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
+			ctx, err := s.newRuntimeOver(w.Model, w.Resolver)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
+			}
+			if s.trace != nil {
+				ctx.SetTrace(runtime.NewTraceRecorder())
+			}
+			return ctx, nil
+		},
 	}
 	traced := func(ctx *runtime.Context) (runtime.Outcome, error) {
 		outcome, err := run(ctx)
@@ -101,7 +112,9 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 		}
 		return outcome, err
 	}
-	x, err := s.explore(subject, policy, fresh, traced)
+	s.state.Unlock()
+	x, err := s.explore(subject, policy, model, traced)
+	s.state.Lock()
 	if err != nil {
 		return unresolvedVerdict(subject, err.Error())
 	}

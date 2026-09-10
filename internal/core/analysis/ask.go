@@ -9,10 +9,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
-// Held is the model as a surface reaches it through a context it holds: one
-// execution runs in ctx, and fresh runs are made where fresh says.
-func Held(ctx *runtime.Context, fresh func() (*runtime.Context, error)) *Model {
-	return &Model{Context: func() (*runtime.Context, error) { return ctx, nil }, Fresh: fresh}
+// Held is the model as a surface reaches it through a context it holds: an
+// execution runs in ctx, under its limits, and no run of its own is built.
+func Held(ctx *runtime.Context) *Model {
+	return &Model{Context: func() (*runtime.Context, error) { return ctx, nil }}
 }
 
 // Perform puts one execution (call, in the model's context) to the registry under auto;

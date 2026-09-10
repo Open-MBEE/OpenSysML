@@ -16,7 +16,7 @@ func (s *Session) budgetFor(policy runtime.SchedulePolicy, kind analysis.Kind) a
 // evaluate puts one execution in ctx to the session's engines under auto.
 func evaluate[T any](s *Session, subject string, ctx *runtime.Context, call func(*runtime.Context) (T, error), answer func(T, error) analysis.Answer) (T, error) {
 	schedule := s.drivenSchedule()
-	return analysis.Perform(context.Background(), s.engines, analysis.Held(ctx, nil), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), call, answer)
+	return analysis.Perform(context.Background(), s.engines, analysis.Held(ctx), subject, schedule, s.budgetFor(schedule, analysis.Evaluate), call, answer)
 }
 
 // check puts one constraint, requirement or satisfaction check to the engines.
@@ -72,16 +72,16 @@ func (s *Session) runVerification(subject string, ctx *runtime.Context, call fun
 }
 
 // explore puts a behavior's outcomes to the engines under auto: run performs it
-// once per linearization, each in a context fresh makes.
-func (s *Session) explore(subject string, policy runtime.SchedulePolicy, fresh func() (*runtime.Context, error), run analysis.Linearization) (*runtime.Exploration, error) {
-	return s.engines.Explore(context.Background(), &analysis.Model{Fresh: fresh}, subject, policy, run, s.budgetFor(policy, analysis.Outcomes))
+// once per linearization, each in a context of the plan's own over model.
+func (s *Session) explore(subject string, policy runtime.SchedulePolicy, model *analysis.Model, run analysis.Linearization) (*runtime.Exploration, error) {
+	return s.engines.Explore(context.Background(), model, subject, policy, run, s.budgetFor(policy, analysis.Outcomes))
 }
 
 // sweep puts a domain to the engines under auto: row runs the target once per
 // row of the plan in ctx.
 func (s *Session) sweep(target string, ctx *runtime.Context, plan runtime.SweepPlan, row runtime.SweepRun) (runtime.SweepTable, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), analysis.Held(ctx, nil), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep))
+	return s.engines.Sweep(context.Background(), analysis.Held(ctx), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep))
 }
 
 // solveWith puts an element's condition sets to the engines under auto, ask

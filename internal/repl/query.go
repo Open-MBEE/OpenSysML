@@ -149,8 +149,7 @@ func (s *Session) withTrace(v Verdict) Verdict {
 // CheckConstraint evaluates a constraint definition, against the object that
 // carries it when one has been created, so the verdict is about concrete values.
 func (s *Session) CheckConstraint(name string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.withTrace(s.checkConstraint(name))
 }
 
@@ -190,8 +189,7 @@ func (s *Session) checkConstraint(name string) Verdict {
 // CheckRequirement evaluates a requirement definition, against the object that
 // carries it when one has been created.
 func (s *Session) CheckRequirement(name string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.withTrace(s.checkRequirement(name))
 }
 
@@ -234,8 +232,7 @@ func (s *Session) checkRequirement(name string) Verdict {
 // `assert satisfy r by p;` is anonymous, so the element stating it is how a
 // caller reaches it.
 func (s *Session) CheckSatisfy(name string) []Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.satisfyVerdicts(name)
 }
 
@@ -403,8 +400,7 @@ func (s *Session) resolveCheckTarget(name string) (checkTarget, *Verdict) {
 // `%instantiate` prints, and an error for a name the session cannot resolve or
 // an instantiation the runtime rejected.
 func (s *Session) InstantiateNamed(name string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.instantiateLines(name)
 }
 

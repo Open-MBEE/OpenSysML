@@ -42,7 +42,7 @@ func TestSweepObservesATable(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
 	q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
-	plan := answered(t, Default(), Held(ctx, nil), q, Budget{})
+	plan := answered(t, Default(), Held(ctx), q, Budget{})
 	result := plan.Result
 	if result.Engine != SweepEngineName || result.Claim != ClaimTable || result.Strength != Observed {
 		t.Fatalf("result %+v, want sweep's observed table", result)
@@ -72,14 +72,14 @@ func TestSweepTakesTheBudgetsRuns(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
 	q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
-	result := answered(t, Default(), Held(ctx, nil), q, Budget{Runs: 5}).Result
+	result := answered(t, Default(), Held(ctx), q, Budget{Runs: 5}).Result
 	if len(result.Values) != 3 {
 		t.Fatalf("values %+v, want the 3 rows within 5 runs", result.Values)
 	}
 	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 5 || result.Bounds.Reached() {
 		t.Fatalf("bounds %s, want the budget's 5 runs unreached", result.Bounds)
 	}
-	_, err := Default().Answer(context.Background(), Held(ctx, nil), q, Budget{Runs: 2})
+	_, err := Default().Answer(context.Background(), Held(ctx), q, Budget{Runs: 2})
 	if !errors.Is(err, runtime.ErrSweepBudget) || !strings.Contains(err.Error(), "at most 2 allowed") {
 		t.Fatalf("3 rows within 2 runs: %v, want the runtime's refusal of the budget's 2", err)
 	}
@@ -88,7 +88,7 @@ func TestSweepTakesTheBudgetsRuns(t *testing.T) {
 func TestRegistrySweepIsTheRuntimesSweep(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
-	table, err := Default().Sweep(context.Background(), Held(ctx, nil), "test::Double", ctx.Schedule(), doublePlan(t, f, ctx), doubleRow(t, f, ctx), Budget{})
+	table, err := Default().Sweep(context.Background(), Held(ctx), "test::Double", ctx.Schedule(), doublePlan(t, f, ctx), doubleRow(t, f, ctx), Budget{})
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestSweepRefusalIsTheRuntimes(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
 	plan := runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "x", From: intOf(1), To: intOf(4), Step: intOf(0), HasStep: true}}}
-	_, err := Default().Sweep(context.Background(), Held(ctx, nil), "test::Double", ctx.Schedule(), plan, doubleRow(t, f, ctx), Budget{})
+	_, err := Default().Sweep(context.Background(), Held(ctx), "test::Double", ctx.Schedule(), plan, doubleRow(t, f, ctx), Budget{})
 	if !errors.Is(err, runtime.ErrSweepRange) {
 		t.Fatalf("sweep with a zero step: %v, want the runtime's range refusal", err)
 	}

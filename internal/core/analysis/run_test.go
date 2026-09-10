@@ -14,7 +14,7 @@ import (
 func evaluate(t *testing.T, f *fixture, perform Performance) Plan {
 	t.Helper()
 	q := Question{Kind: Evaluate, Subject: "test::Double", Schedule: runtime.DefaultSchedulePolicy, Perform: perform}
-	return answered(t, Default(), Held(f.context(t), nil), q, Budget{})
+	return answered(t, Default(), Held(f.context(t)), q, Budget{})
 }
 
 func TestRunObservesAValue(t *testing.T) {
@@ -73,7 +73,7 @@ func TestRunWitnessesARuntimeViolation(t *testing.T) {
 		if !ok {
 			t.Fatalf("constraint %s not indexed", name)
 		}
-		return answered(t, Default(), Held(rctx, nil), Question{
+		return answered(t, Default(), Held(rctx), Question{
 			Kind: Evaluate, Subject: "test::Tank::" + name, Schedule: runtime.DefaultSchedulePolicy,
 			Perform: func(rctx *runtime.Context) (Answer, error) {
 				return CheckAnswer(rctx.CheckConstraintOn(sym, tank.Scope, inst)), nil
@@ -130,7 +130,7 @@ func TestRunFaultStopsThePlan(t *testing.T) {
 	q := Question{Kind: Evaluate, Subject: "test::Missing", Schedule: runtime.DefaultSchedulePolicy, Perform: func(*runtime.Context) (Answer, error) {
 		return Answer{}, fault
 	}}
-	plan, err := Default().Answer(context.Background(), Held(f.context(t), nil), q, Budget{})
+	plan, err := Default().Answer(context.Background(), Held(f.context(t)), q, Budget{})
 	if !errors.Is(err, fault) || len(plan.Steps) != 1 || !errors.Is(plan.Steps[0].Err, fault) {
 		t.Fatalf("answer: %v, steps %+v; want the fault stopping the plan", err, plan.Steps)
 	}
@@ -153,7 +153,7 @@ func TestPerformReturnsWhatTheCallProduced(t *testing.T) {
 	f := parseFixture(t)
 	double := f.symbol(t, "Double")
 	ctx := f.context(t)
-	value, err := Perform(context.Background(), Default(), Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	value, err := Perform(context.Background(), Default(), Held(ctx), "test::Double", ctx.Schedule(), Budget{},
 		func(rt *runtime.Context) (runtime.Value, error) {
 			return rt.InvokeCalc(double, []runtime.Value{intOf(4)}, f.pkg)
 		},
@@ -165,7 +165,7 @@ func TestPerformReturnsWhatTheCallProduced(t *testing.T) {
 		t.Fatalf("perform: %v = %+v, want 8", err, value)
 	}
 	failed := errors.New("unbound parameter")
-	_, err = Perform(context.Background(), Default(), Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	_, err = Perform(context.Background(), Default(), Held(ctx), "test::Double", ctx.Schedule(), Budget{},
 		func(*runtime.Context) (runtime.Value, error) { return runtime.Value{}, failed },
 		func(v runtime.Value, err error) Answer { return ValuesAnswer(nil, err) },
 	)
@@ -178,7 +178,7 @@ func TestPerformReportsARefusal(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
 	r := registered(t, NewExplore())
-	_, err := Perform(context.Background(), r, Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	_, err := Perform(context.Background(), r, Held(ctx), "test::Double", ctx.Schedule(), Budget{},
 		func(*runtime.Context) (int, error) { return 1, nil },
 		func(int, error) Answer { return Answer{Claim: ClaimValue} },
 	)
@@ -186,7 +186,7 @@ func TestPerformReportsARefusal(t *testing.T) {
 		t.Fatalf("perform without run: %v, want no engine", err)
 	}
 	r = registered(t, fakeEngine{name: "picky", kinds: []Kind{Evaluate}, authority: Observed, refusal: errFixtureRefusal})
-	_, err = Perform(context.Background(), r, Held(ctx, nil), "test::Double", ctx.Schedule(), Budget{},
+	_, err = Perform(context.Background(), r, Held(ctx), "test::Double", ctx.Schedule(), Budget{},
 		func(*runtime.Context) (int, error) { return 1, nil },
 		func(int, error) Answer { return Answer{Claim: ClaimValue} },
 	)
@@ -237,7 +237,7 @@ func TestRunStopsWhenTheCallerIsGone(t *testing.T) {
 			performed = true
 			return Answer{Claim: ClaimValue}, nil
 		}}
-	plan, err := Default().Answer(ctx, Held(f.context(t), nil), q, Budget{})
+	plan, err := Default().Answer(ctx, Held(f.context(t)), q, Budget{})
 	if !errors.Is(err, context.Canceled) || performed {
 		t.Fatalf("answer for a gone caller: %v, performed %v; want context.Canceled unperformed", err, performed)
 	}

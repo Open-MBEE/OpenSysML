@@ -113,16 +113,14 @@ func TestFunctionRoundTrip(t *testing.T) {
 			t.Errorf("%s = %v, want calc_id %q closing over no object", expr, fn, want)
 		}
 
-		rt, _, release := srv.newRuntime(cached)
+		rt := srv.newRuntime(cached)
 		back, err := ProtoToRuntimeValue(rt, pv, idx, sem)
 		if err != nil {
-			release()
 			t.Fatalf("ProtoToRuntimeValue(%s): %v", expr, err)
 		}
 		if back.Kind != runtime.ValFunction || runtime.FormatValue(back) != want {
 			t.Errorf("%s read back as %s %s, want the function %s", expr, back.Kind, runtime.FormatValue(back), want)
 		}
-		release()
 	}
 
 	fns := mustEvaluate(t, srv, modelHash, "F::fns")
@@ -142,10 +140,9 @@ func TestFunctionRoundTrip(t *testing.T) {
 		"set in sequence": sequenceOf(setOf(sqCube...)),
 		"sequence in set": setOf(sequenceOf(sqCube...)),
 	} {
-		rt, _, release := srv.newRuntime(cached)
+		rt := srv.newRuntime(cached)
 		back, err := ProtoToRuntimeValue(rt, nested, idx, sem)
 		if err != nil {
-			release()
 			t.Fatalf("ProtoToRuntimeValue(functions in a %s): %v", name, err)
 		}
 		var got []string
@@ -169,7 +166,6 @@ func TestFunctionRoundTrip(t *testing.T) {
 		if want := []string{"function F::Cube", "function F::Sq"}; !slices.Equal(got, want) {
 			t.Errorf("functions in a %s read back as %s holding %v, want %v", name, back.Kind, got, want)
 		}
-		release()
 	}
 
 	// A function read in applies as the argument of a calc and an action.
@@ -290,7 +286,7 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 	modelHash := mustParse(t, srv, functionWireModel)
 	cached, _ := srv.cache.Get(modelHash)
 	idx, sem := cached.Index, NewSymbolContext(cached.Index).Semantics
-	rt, _, release := srv.newRuntime(cached)
+	rt := srv.newRuntime(cached)
 
 	cases := []struct {
 		name string
@@ -333,7 +329,6 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 			t.Errorf("%s without a runtime: err = %v, want %v", name, err, ErrFunctionNeedsRuntime)
 		}
 	}
-	release()
 
 	// Over the service, a malformed argument is an in-band error, as a
 	// malformed quantity is; a function where a number is due is a type error.

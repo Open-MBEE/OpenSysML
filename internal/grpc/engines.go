@@ -22,7 +22,7 @@ func (v *verifyContext) check(ctx context.Context, subject string, call func(*ru
 // the schedule rt was set.
 func performOn[T any](ctx context.Context, s *Service, rt *runtime.Context, subject string, call func(*runtime.Context) (T, error), answer func(T, error) analysis.Answer) (T, error) {
 	schedule := rt.Schedule()
-	return analysis.Perform(ctx, s.engines, analysis.Held(rt, nil), subject, schedule, analysis.BudgetOf(s.budgets, schedule, analysis.Evaluate), call, answer)
+	return analysis.Perform(ctx, s.engines, analysis.Held(rt), subject, schedule, analysis.BudgetOf(s.budgets, schedule, analysis.Evaluate), call, answer)
 }
 
 // callerGone is the caller's own error when a run failed because the caller went

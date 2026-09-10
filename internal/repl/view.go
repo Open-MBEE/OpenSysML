@@ -34,8 +34,7 @@ func (s *Session) doView(name string) ([]string, bool, error) {
 // conforms to the viewpoints it satisfies. A view exposing nothing says so; an
 // element that is no view is semantics.ErrNotAView.
 func (s *Session) View(name string) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.view(name)
 }
 
@@ -118,8 +117,7 @@ func (s *Session) renderLines(name string, form view.Form) ([]string, error) {
 // frontend sets it from the terminal; view.WidthUnbounded, the default, writes
 // every column as wide as its widest cell.
 func (s *Session) SetRenderWidth(width int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.renderWidth = width
 }
 
@@ -127,8 +125,7 @@ func (s *Session) SetRenderWidth(width int) {
 // symbols and creates nothing in it: no object, no runtime, no change to a
 // debugging session in progress.
 func (s *Session) ViewRendering(name string) (*view.Rendering, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.viewRendering(name)
 }
 
@@ -182,8 +179,7 @@ func (s *Session) renderPseudoView(spec string) (*view.Rendering, error) {
 // Views lists every view the session declares, in document then declaration
 // order.
 func (s *Session) Views() ([]model.ViewInfo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	renderer, err := s.viewRenderer()
 	if err != nil {
 		return nil, err

@@ -617,8 +617,8 @@ func TestVerdictFalseCarriesNoFailureReason(t *testing.T) {
 }
 
 // TestVerifyConstraintConcurrentRequestsShareTheModel verifies concurrent
-// requests over one model answer alike, including ones that name an unknown
-// symbol, whose resolution errors must not leak into the shared resolver.
+// requests over one model answer alike, each on a worker of its own, including
+// ones that name an unknown symbol, whose resolution errors are that request's.
 func TestVerifyConstraintConcurrentRequestsShareTheModel(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := mustVerifyModel(t, srv, verifyModelSource, "verify-concurrent")
@@ -652,9 +652,7 @@ func TestVerifyConstraintConcurrentRequestsShareTheModel(t *testing.T) {
 		t.Error(e)
 	}
 	cached, _ := srv.cache.Get(hash)
-	rs, release := cached.RuntimeSemantics()
-	defer release()
-	if n := len(rs.Resolver.Diagnostics); n != 0 {
-		t.Errorf("shared resolver kept %d request diagnostics", n)
+	if resolver, _, _ := cached.Semantics(); len(resolver.Diagnostics) != 0 || resolver.MemoSize() != 0 {
+		t.Errorf("a worker built after the requests carries %d diagnostics and %d resolutions of theirs", len(resolver.Diagnostics), resolver.MemoSize())
 	}
 }

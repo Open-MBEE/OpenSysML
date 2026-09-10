@@ -77,7 +77,8 @@ func (e *RefusedError) Unwrap() []error { return e.Refusals }
 // Answer answers q under `auto`: engines of q's kind strongest first, a refusal or a
 // not-covered result advancing (and kept in the plan), an error from Run stopping the plan.
 // A Deadline in the budget bounds the plan through ctx; meeting it is an error like any other,
-// checked before each engine is consulted and before an answer is taken from it.
+// checked before each engine is consulted and before an answer is taken from it. The plan
+// works on a copy of model, so its worker is its own and model is never written.
 func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget Budget) (Plan, error) {
 	candidates := r.ranked(q.Kind)
 	if len(candidates) == 0 {
@@ -89,18 +90,19 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 		defer cancel()
 	}
 	plan := Plan{Question: q}
+	held := model.plan()
 	var last *Result
 	for _, e := range candidates {
 		if err := ctx.Err(); err != nil {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
 			return plan, err
 		}
-		coverage := e.Covers(model, q)
+		coverage := e.Covers(held, q)
 		if !coverage.Covered {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Refusal: coverage.Refusal})
 			continue
 		}
-		result, err := e.Run(ctx, model, q, budget)
+		result, err := e.Run(ctx, held, q, budget)
 		if err == nil {
 			err = ctx.Err()
 		}
@@ -108,6 +110,7 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
 			return plan, err
 		}
+		result.Workers, result.Warming = held.warmed()
 		plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Result: &result})
 		if result.Covered() {
 			plan.Result = result

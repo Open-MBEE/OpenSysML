@@ -12,8 +12,7 @@ import (
 // constraint, requirement or satisfaction. Experimental: SysML v2 defines no
 // solving, and the runtime evaluator remains normative.
 func (s *Session) ExplainSolve(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.explainSolve(name)
 }
 
