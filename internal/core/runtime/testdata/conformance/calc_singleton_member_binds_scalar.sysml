@@ -4,13 +4,21 @@
 package test {
 	private import ScalarValues::*;
 	private import RealFunctions::sqrt;
+	private import ComplexFunctions::*;
+	private import QuantityCalculations::isZero;
+	private import ISQ::*;
+	private import SI::*;
 
 	calc def Inc { in x : Real; x + 1.0 }
 
-	part def Holder { attribute zs : Real[0..*]; }
+	part def Holder {
+		attribute zs : Real[0..*];
+		attribute cs : Complex[0..*];
+		attribute ls : LengthValue[0..*];
+	}
 
 	calc def SingletonMember {
-		attribute q : Holder = new Holder(zs = (2.5));
+		attribute q : Holder = new Holder(zs = (2.5), cs = (rect(3.0, 4.0)), ls = (2.0 [m]));
 		out sum = q.zs + 1.0;
 		out less = q.zs < 3.0;
 		out same = q.zs == 2.5;
@@ -19,6 +27,8 @@ package test {
 		out cast = q.zs as Real;
 		out classified = q.zs istype Real;
 		out negated = -q.zs;
+		out realPart = re(q.cs);
+		out zeroLength = isZero(q.ls);
 	}
 
 	calc c : SingletonMember;

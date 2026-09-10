@@ -835,7 +835,7 @@ func radiansFromDegrees(args []semantics.Value) (semantics.Value, error) {
 // asComplex reads a Complex argument: a Complex value, or a Real, which
 // ScalarValues declares a Complex (Real :> Complex) with a zero imaginary part.
 func asComplex(name, param string, val Value) (complex128, error) {
-	z, ok := complexOf(val)
+	z, ok := complexOf(soleElement(val))
 	if !ok {
 		return 0, fmt.Errorf(
 			"%w: function %s parameter %q requires a Complex value, got %s",

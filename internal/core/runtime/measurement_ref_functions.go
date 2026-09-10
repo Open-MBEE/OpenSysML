@@ -8,6 +8,7 @@ import (
 
 // measurementRefArg reads a ScalarMeasurementReference (MeasurementUnit) parameter.
 func measurementRefArg(name, param string, val Value) (*MeasurementRef, error) {
+	val = soleElement(val)
 	if val.Kind != ValMeasurementRef || val.MeasurementRef() == nil {
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a measurement reference such as SI::m, got %s",
 			ErrTypeMismatch, name, param, describeValue(val))

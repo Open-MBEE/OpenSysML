@@ -737,7 +737,7 @@ func TestComplexAggregationsKeepRealElementsReal(t *testing.T) {
 }
 
 // A numeric pair is a vector, not a Complex: only rect, polar, i and the
-// Complex operations make one, so a sequence never binds to a Complex parameter.
+// Complex operations make one, so a pair never binds to a Complex parameter.
 func TestComplexFunctionsRejectNumericPairs(t *testing.T) {
 	for _, fn := range []string{
 		"ComplexFunctions::re", "ComplexFunctions::im", "ComplexFunctions::abs",
@@ -754,9 +754,10 @@ func TestComplexFunctionsRejectNumericPairs(t *testing.T) {
 			t.Errorf("%s(1.0 + 2.0i, (1.0, 2.0)) = (%v, %v), want %v", fn, got, err, ErrTypeMismatch)
 		}
 	}
-	// A one-element collection is not the scalar it holds either.
-	if got, err := applyLibrary(t, "ComplexFunctions::re", realVec(1)); !errors.Is(err, ErrTypeMismatch) {
-		t.Errorf("re((1.0)) = (%v, %v), want %v", got, err, ErrTypeMismatch)
+	// A one-element collection is the scalar it holds, here a Real on the real axis.
+	got, err := applyLibrary(t, "ComplexFunctions::re", realVec(1))
+	if err != nil || got.Kind != ValConst || !got.Const.IsNumeric() || got.Const.Real != 1 {
+		t.Errorf("re((1.0)) = (%v, %v), want 1.0", got, err)
 	}
 }
 
