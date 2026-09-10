@@ -542,7 +542,7 @@ func (f *actionFrame) resultValue() (Value, error) {
 // waits for its next one to forward it.
 func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value Value) error {
 	if len(path) > 0 {
-		if err := e.checkNestedDelivery(flow, node, path, pin, value); err != nil {
+		if err := e.checkNestedDelivery(flow, node, path, pin, &value); err != nil {
 			return err
 		}
 		if sub, performed := f.subactions[node]; performed && !sub.ended {
@@ -577,7 +577,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 
 // checkNestedDelivery checks that path leads from node through the flows under it to a
 // node declaring pin, so a delivery waiting for a performance is known to have somewhere to go.
-func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value Value) error {
+func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value *Value) error {
 	for _, next := range path {
 		flow = lower.NestedFlow(flow, node, next)
 		if flow == nil {
@@ -592,7 +592,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 	if !pins.declares(pin) {
 		return fmt.Errorf("%w: %s declares no %s", ErrNodePin, nodeDescription(node), pin)
 	}
-	return e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, &value)
+	return e.ctx.checkNamedWrite(flow.Scopes[node], nodeDescription(node), pin, value)
 }
 
 // takeDeliveries moves the oldest delivery at each pin of node into perf, so that
