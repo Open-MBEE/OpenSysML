@@ -359,15 +359,18 @@ func (fc *funcCompiler) sampledCalc(f funcValue) (*Func, error) {
 	return fc.c.compileCalcWith(f.sym, nil)
 }
 
-// sampledElemType is the element type of a domain sampled over f whose values
-// fix none: the type of f's one parameter; for a library function, the operand
-// type of its operation over a Real (its widest kind).
+// sampledElemType is the element type of a domain sampled over f whose values fix none:
+// f's declared parameter type, Real for a library function over any NumericalValue.
 func (fc *funcCompiler) sampledElemType(f funcValue) (Type, error) {
 	if f.lib != "" {
 		if _, err := fc.sampledLibParams(f); err != nil {
 			return TypeInvalid, err
 		}
-		op, why := libOpFor(f.lib, []Type{TypeReal})
+		elem := TypeReal
+		if declared, ok := fc.libParamType(f.sym); ok {
+			elem = declared
+		}
+		op, why := libOpFor(f.lib, []Type{elem})
 		if why != "" {
 			return TypeInvalid, fc.unsupported(why)
 		}
@@ -380,11 +383,47 @@ func (fc *funcCompiler) sampledElemType(f funcValue) (Type, error) {
 	return callee.Params[0].Type.Elem(), nil
 }
 
-// sampledFn is a SampledFunction held as two hidden locals: the domain values
-// and the sampled calc's result at each, computed when the sample was taken.
+// libParamType is the scalar type the library function sym declares its one
+// in-parameter with, if it is one the targets compile.
+func (fc *funcCompiler) libParamType(sym *symbols.Symbol) (Type, bool) {
+	body, _, err := calcDecl(sym.Decl)
+	if err != nil {
+		return TypeInvalid, false
+	}
+	for _, member := range unwrapped(body) {
+		u, ok := member.(*ast.Usage)
+		if !ok || u.Direction != ast.DirIn || !hasTyping(u) {
+			continue
+		}
+		name, _ := ast.EffectiveName(u)
+		typ, why := fc.c.typingOf(sym.Scope, u, name)
+		if why != "" {
+			return TypeInvalid, false
+		}
+		t, _, ok := scalarType(fc.c.name(typ))
+		return t, ok
+	}
+	return TypeInvalid, false
+}
+
+// sampledFn is a SampledFunction held as two hidden locals: the domain values and the
+// sampled calc's result at each; one a body expression declares is taken at each read (onDemand).
 type sampledFn struct {
 	dom, rng   string
 	domT, rngT Type
+	onDemand   *Sample
+}
+
+// sampledRead is `Domain(s)` or `Range(s)` of the SampledFunction s holds.
+func (fc *funcCompiler) sampledRead(s *sampledFn, rangeRead bool) Expr {
+	read := Var{Name: s.dom, T: s.domT}
+	if rangeRead {
+		read = Var{Name: s.rng, T: s.rngT}
+	}
+	if s.onDemand != nil {
+		return Sampled{S: *s.onDemand, In: fc.projection(read)}
+	}
+	return fc.projection(read)
 }
 
 const (
@@ -473,7 +512,7 @@ func (fc *funcCompiler) compileSampledDeclare(s lower.Declare) ([]Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	fc.env.bind(s.Name, binding{sampled: &sampledFn{dom: sample.Dom, rng: sample.Rng, domT: sample.DomType(), rngT: sample.RngType()}})
+	fc.env.bind(s.Name, binding{sampled: sampledFnOf(sample, false)})
 	return []Stmt{sample}, nil
 }
 
@@ -498,10 +537,7 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 			if b.sampled == nil {
 				return nil, fc.unsupported(fmt.Sprintf("%s of %s, which is not a SampledFunction", fqn, ref.Name.Parts[0].Text))
 			}
-			if rangeRead {
-				return fc.projection(Var{Name: b.sampled.rng, T: b.sampled.rngT}), nil
-			}
-			return fc.projection(Var{Name: b.sampled.dom, T: b.sampled.domT}), nil
+			return fc.sampledRead(b.sampled, rangeRead), nil
 		}
 	}
 	n, ok := fc.sampleCall(arg)
@@ -512,9 +548,14 @@ func (fc *funcCompiler) compileSampledRead(n *ast.InvocationExpr, fqn string) (E
 	if err != nil {
 		return nil, err
 	}
-	read := Var{Name: sample.Rng, T: sample.RngType()}
-	if !rangeRead {
-		read = Var{Name: sample.Dom, T: sample.DomType()}
+	return fc.sampledRead(sampledFnOf(sample, true), rangeRead), nil
+}
+
+// sampledFnOf is the SampledFunction the sample holds, taken once where declared or at each read.
+func sampledFnOf(sample Sample, onDemand bool) *sampledFn {
+	s := &sampledFn{dom: sample.Dom, rng: sample.Rng, domT: sample.DomType(), rngT: sample.RngType()}
+	if onDemand {
+		s.onDemand = &sample
 	}
-	return Sampled{S: sample, In: fc.projection(read)}, nil
+	return s
 }

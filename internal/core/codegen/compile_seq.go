@@ -502,16 +502,23 @@ func (fc *funcCompiler) compileLambda(op SeqOp, b *ast.BodyExpr, paramTypes []Ty
 			if err != nil {
 				return Lambda{}, err
 			}
-			if len(decls) != 1 {
-				return Lambda{}, fc.unsupported(fmt.Sprintf("attribute %s, a SampledFunction declared inside a body expression", usageName(u)))
+			var decl Stmt
+			if len(decls) == 1 {
+				decl = decls[0]
 			}
-			d := decls[0].(Declare)
-			local, _ := fc.env.lookup(d.Name)
-			local.inline = d.Init
-			if local.inline == nil {
-				local.inline = NullLit{T: d.T}
+			switch d := decl.(type) {
+			case Declare:
+				local, _ := fc.env.lookup(d.Name)
+				local.inline = d.Init
+				if local.inline == nil {
+					local.inline = NullLit{T: d.T}
+				}
+				fc.env.bind(d.Name, local)
+			case Sample:
+				fc.env.bind(usageName(u), binding{sampled: sampledFnOf(d, true)})
+			default:
+				return Lambda{}, fc.unsupported(fmt.Sprintf("attribute %s declared inside a body expression", usageName(u)))
 			}
-			fc.env.bind(d.Name, local)
 			continue
 		}
 		if result != nil {

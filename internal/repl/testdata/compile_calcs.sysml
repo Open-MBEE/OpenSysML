@@ -433,6 +433,13 @@ package Compiled {
 		calc def NullRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, null)); }
 		calc def NullSqrtRange { in a : Real; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, null)); }
 		calc def NullSum { in a : Real; return : Real = RealFunctions::sum(Range(Sample(Sq, null))) + a; }
+		// A library function's declared parameter types its null domain: Integer for IntegerFunctions::abs.
+		calc def NullAbsRange { in n : Integer; return : Integer[0..*] = Range(Sample(IntegerFunctions::abs, null)); }
+		calc def NullAbsDomain { in n : Integer; attribute s : SampledFunction = Sample(IntegerFunctions::abs, null); return : Integer[0..*] = SequenceFunctions::union(Domain(s), Range(s)); }
+		// A SampledFunction a body declares is taken at each read of it, as any body-local is.
+		calc def BodySample { in xs : Integer[0..*]; return : Integer[0..*] = xs->ControlFunctions::collect { in x : Integer; attribute s : SampledFunction = Sample(Inc, 1..x); SequenceFunctions::size(Domain(s)) + SequenceFunctions::size(Range(s)) }; }
+		calc def BodySampleRecip { in xs : Real[0..*]; return : Real[0..*] = xs->ControlFunctions::collect { in x : Real; attribute s : SampledFunction = Sample(Recip, (x, x - 1.0)); RealFunctions::sum(Range(s)) }; }
+		calc def BodySampleUnread { in xs : Real[0..*]; return : Real[0..*] = xs->ControlFunctions::collect { in x : Real; attribute s : SampledFunction = Sample(Recip, x); x }; }
 		// Sample, Domain and Range are library calcs: each is one frame against the
 		// recursion budget, and each Domain or Range read collects its own sequence.
 		calc def Down { in n : Integer; return : Integer = if n == 0 ? 0 else Down(n - 1); }

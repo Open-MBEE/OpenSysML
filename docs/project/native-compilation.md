@@ -57,7 +57,7 @@ A calc compiles when everything it reaches is in this subset:
 | Invocation of another compilable calc, positional or named; direct and mutual recursion | native call |
 | `calc c : D;`, `calc def E :> D;` adding no member of its own | compiles as `D` |
 | `in calc f { in v : Real; return : Real; }` and `in calc f : Sq` parameters; a calc def, a calc usage with an unsupplied input, or a compiled scalar library function (`RealFunctions::sqrt`, `RealFunctions::floor`, …) passed for one; `f(a)` and `f(v = a)` in the body | one function per calc *and* per tuple of function values its `in calc` parameters are bound to ([Function values](#function-values)); `f(a)` is a direct call; a typed parameter takes only a calc conforming to its type, as the interpreter's binding does |
-| `SampledFunctions::Sample(f, xs)` bound to an `attribute s : SampledFunction`, or read at once by `Domain(…)`/`Range(…)`; `Domain(s)`, `Range(s)` | two hidden locals: the domain as a sequence and `f` collected over it in order, taken when the sample is; `Domain`/`Range` read them; a literal `null` domain is the empty sequence of `f`'s parameter type (Real for a kind-preserving library function) |
+| `SampledFunctions::Sample(f, xs)` bound to an `attribute s : SampledFunction`, or read at once by `Domain(…)`/`Range(…)`; `Domain(s)`, `Range(s)` | two hidden locals: the domain as a sequence and `f` collected over it in order, taken when the sample is (at each read of `s` when a body expression declares it); `Domain`/`Range` read them; a literal `null` domain is the empty sequence of `f`'s parameter type (the type a library function declares for its parameter, Real when that is any `NumericalValue`) |
 | Scalar library functions: `RealFunctions`/`RationalFunctions`/`NumericalFunctions` `sqrt floor round abs max min isZero isUnit`, `IntegerFunctions`/`NaturalFunctions` `abs max min`, `TrigFunctions` (`sin cos tan cot arcsin arccos arctan deg rad pi`), `OpenSysMLMathFunctions` (`exp ln log atan2`) | `libm` / Go `math` with the interpreter's domain, overflow and `Natural` errors |
 
 Everything else refuses: String, record (`attribute def`) and enum parameters, results or
@@ -81,8 +81,8 @@ whose calc does not specialize `Sq` (`cannot bind the function value … to a pa
 …`, the interpreter's `type mismatch` at the same binding), a `SampledFunction` used as anything
 but the operand of `Domain` or `Range`, and `Range(Sample(NumericalFunctions::abs, null))` where an
 `Integer[0..*]` is declared (the compiler fixes a null domain's element type from the sampled
-function alone, and a kind-preserving library function's is Real; the interpreter, which types
-nothing, computes `[]`). The refusal names the calc and
+function alone, and a function declared over any `NumericalValue` gives Real; the interpreter,
+which types nothing, computes `[]`). The refusal names the calc and
 the construct (`codegen.UnsupportedError`, `errors.Is(err, codegen.ErrUnsupported)`).
 
 ## Semantics the generated code preserves
@@ -179,7 +179,7 @@ pins the refusals.
 - **A call's result stays charged to the end of its statement.** The interpreter releases what
   a calc's return statement built as soon as the calc answers, so `size(Mk(k)) + size(1..k)`
   holds `k` elements at a time there and `2k` in the program; a `Domain` or `Range` read, and
-  the `Sample` a `Range(Sample(f, xs))` takes inline, are held the same way. Again the program
+  the `Sample` a `Range(Sample(f, xs))` takes inline or a `{in v; …}` body declares, are held the same way. Again the program
   can fail where the interpreter runs, never the reverse.
 - **Transcendental last bits.** `sin`, `cos`, `tan`, `exp`, `ln`, `log`, `atan2` and the inverse
   trigonometric functions come from glibc's `libm` in C and Go's `math` in Go and the interpreter;
@@ -230,8 +230,9 @@ against that type where the interpreter checks a written value: the calc the fun
 names — a model calc or the library function's own declaration — must conform to `Sq`, so a
 usage typed by `Sq` or a `calc def :> Sq` passes and an unrelated calc of the same signature, or
 a library function, is refused. A literal `null` domain in `Sample(f, null)` is typed by `f`'s
-one value parameter (a model calc's declared type; Real for a kind-preserving library function,
-the widest kind it accepts) and compiles as an empty sequence, so `Domain`/`Range` print `[]`.
+one value parameter (a model calc's declared type; a library function's declared type, so
+`IntegerFunctions::abs` gives Integer and `NumericalFunctions::abs`, over any `NumericalValue`,
+Real) and compiles as an empty sequence, so `Domain`/`Range` print `[]`.
 
 The trade-off is deliberate. A function pointer would have needed one calling convention for
 every arity and type signature in both C and Go, an environment record for captured bindings,

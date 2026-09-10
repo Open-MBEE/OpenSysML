@@ -166,6 +166,10 @@ var compiledCases = []compiledCase{
 	{"Fn::UsageRange", []string{"(3.0)"}},
 	{"Fn::SumRange", []string{"(1.0,2.0)"}}, {"Fn::SumRange", []string{"null"}},
 	{"Fn::NullDomain", []string{"1.0"}}, {"Fn::NullRange", []string{"1"}}, {"Fn::NullSqrtRange", []string{"1.0"}}, {"Fn::NullSum", []string{"1.5"}},
+	{"Fn::NullAbsRange", []string{"1"}}, {"Fn::NullAbsDomain", []string{"1"}},
+	{"Fn::BodySample", []string{"(1,2,3)"}}, {"Fn::BodySample", []string{"null"}}, {"Fn::BodySample", []string{"0"}},
+	{"Fn::BodySampleRecip", []string{"(2.0,4.0)"}}, {"Fn::BodySampleRecip", []string{"(2.0,1.0,4.0)"}},
+	{"Fn::BodySampleUnread", []string{"(2.0,0.0)"}},
 	// The recursion budget is 10000 frames: the entry calc, Sample, and Down n+1 times.
 	{"Fn::DownDirect", []string{"9998"}}, {"Fn::DownDirect", []string{"9999"}},
 	{"Fn::DownRange", []string{"9997"}}, {"Fn::DownRange", []string{"9998"}},
