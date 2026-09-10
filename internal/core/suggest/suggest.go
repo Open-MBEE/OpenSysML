@@ -161,17 +161,24 @@ func typable(fqn string) bool {
 	return true
 }
 
+// globalRoot starts a qualified name read from the document root.
+const globalRoot = "$::"
+
 // Notation writes a registered qualified name as it is typed back: a segment no
 // basic name spells is quoted, one the library writes bare (`when`) is left so.
 func Notation(fqn string) string {
 	if fqn == "" {
 		return fqn
 	}
-	segments := strings.Split(fqn, "::")
+	rest, global := strings.CutPrefix(fqn, globalRoot)
+	segments := strings.Split(rest, "::")
 	for i, seg := range segments {
 		if !lexer.IsIdentifier(seg) {
 			segments[i] = "'" + seg + "'"
 		}
+	}
+	if global {
+		return globalRoot + strings.Join(segments, "::")
 	}
 	return strings.Join(segments, "::")
 }
@@ -206,6 +213,7 @@ func QuotingRule(names []string) string {
 	var chars []string
 	seen := map[rune]bool{}
 	for _, name := range names {
+		name, _ = strings.CutPrefix(name, globalRoot)
 		for _, seg := range strings.Split(name, "::") {
 			for i, r := range seg {
 				if seen[r] || identifierRune(r) && !(i == 0 && r >= '0' && r <= '9') {

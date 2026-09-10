@@ -191,8 +191,12 @@ func (s *Session) unquotedNames(name string, want []symbols.SymbolKind) []string
 		if !ok {
 			return nil
 		}
-		for _, member := range suggest.Unquoted(name[cut+2:], s.memberNames(idx, prefix)) {
-			out = append(out, prefix+"::"+member)
+		// Every known name, so a member the qualifier re-exports is a candidate;
+		// offered only when the spelling resolves as a command would look it up.
+		for _, member := range suggest.Unquoted(name[cut+2:], s.knownSimpleNames(idx)) {
+			if fqn := prefix + "::" + member; len(idx.LookupQualified(fqn)) == 1 {
+				out = append(out, fqn)
+			}
 		}
 		return s.matchingKinds(out, want)
 	}

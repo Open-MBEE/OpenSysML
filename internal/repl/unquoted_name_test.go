@@ -47,6 +47,12 @@ func TestUnquotedNameIsPointedAtItsQuotedDeclaration(t *testing.T) {
 			"error: unresolved reference: T::Delta — did you mean T::'Delta-V'? Names containing '-' must be quoted.")
 	})
 
+	t.Run("%eval of a qualified invocation", func(t *testing.T) {
+		s := submitted(t, quotedNamesModel)
+		wants(t, run(t, s, "%eval T::Delta()"),
+			"unresolved reference: T::Delta — did you mean T::'Delta-V'? Names containing '-' must be quoted.")
+	})
+
 	// Offered only of the kinds the command acts on: a part def is no state.
 	t.Run("%state", func(t *testing.T) {
 		s := submitted(t, quotedNamesModel)
@@ -80,6 +86,21 @@ func TestUnquotedShortNameAndInstantiateEcho(t *testing.T) {
 	wants(t, run(t, s, "%instantiate T::'HLR-R001'"), "Use %features T::'HLR-R001' to inspect")
 	wants(t, run(t, s, "%instantiate T::SA-506"), "Use %features T::'SA-506' to inspect")
 	rejects(t, run(t, s, "%instantiate T::SA-506"), "Use %features T::SA-506 to inspect")
+}
+
+// A quoted member is offered under a qualifier only when the spelling offered
+// resolves there: one a public import surfaces is, one a private import is not.
+func TestUnquotedMemberIsOfferedOnlyWhereItResolves(t *testing.T) {
+	s := submitted(t, `package Lib { part def 'SA-506'; }
+	package Aux { part def 'LM-5'; }
+	package Pub { public import Lib::*; }
+	package Priv { private import Aux::*; }`)
+	wants(t, run(t, s, "%instantiate Pub::SA"),
+		"error: unresolved reference: Pub::SA — did you mean Pub::'SA-506'? Names containing '-' must be quoted.")
+	got := run(t, s, "%instantiate Priv::LM")
+	wants(t, got, "error: unresolved reference: Priv::LM")
+	rejects(t, got, "Priv::'LM-5'")
+	wants(t, run(t, s, "%instantiate Pub::'SA-506'"), "✓ Created instance")
 }
 
 // A name that resolves to nothing quoted either is reported as before: the

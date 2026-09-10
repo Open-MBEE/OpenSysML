@@ -160,6 +160,8 @@ type Resolver struct {
 	suggestions map[suggestKey]suggestion
 	names       *suggest.Table
 	suggesting  map[suggestKey]bool
+	// probing holds the member hints being computed, for the same reason.
+	probing map[memberKey]bool
 	// document is the document ResolveDocument is resolving, so a reference
 	// reached in another one is not reported against it (see foreignScope).
 	document          string
@@ -275,6 +277,7 @@ func New(idx *symbols.Index) *Resolver {
 
 		suggestions: map[suggestKey]suggestion{},
 		suggesting:  map[suggestKey]bool{},
+		probing:     map[memberKey]bool{},
 
 		inheritedImports:  map[*symbols.Symbol]bool{},
 		aliasTargets:      map[*symbols.Symbol]resolution{},

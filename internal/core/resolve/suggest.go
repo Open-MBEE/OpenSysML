@@ -86,12 +86,26 @@ func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 	return suggest.Rank(cands)
 }
 
-// unquotedMembers returns the members of owner, as registered and qualified by
-// prefix, that the segment written under it is the unquoted start of.
-func (r *Resolver) unquotedMembers(owner *symbols.Symbol, prefix, segment string) []string {
+// memberKey identifies a member hint by the namespace and the segment written
+// under it; probing one resolves names, which may want the same hint in turn.
+type memberKey struct {
+	owner *symbols.Symbol
+	name  string
+}
+
+// unquotedMembers returns the members of owner, qualified by prefix, that the
+// segment written under it is the unquoted start of and that resolve from scope.
+func (r *Resolver) unquotedMembers(scope *symbols.Scope, owner *symbols.Symbol, prefix, segment string, global bool) []string {
 	if owner == nil {
 		return nil
 	}
+	key := memberKey{owner: owner, name: segment}
+	if r.probing[key] {
+		return nil
+	}
+	r.probing[key] = true
+	defer delete(r.probing, key)
+
 	seen := map[string]bool{}
 	var names []string
 	if owner.Scope != nil {
@@ -103,16 +117,20 @@ func (r *Resolver) unquotedMembers(owner *symbols.Symbol, prefix, segment string
 		}
 	}
 	if r.idx != nil {
-		for _, sym := range r.idx.LookupDirectChildren(r.registeredFQN(owner)) {
-			if !seen[sym.Name] {
-				seen[sym.Name] = true
-				names = append(names, sym.Name)
+		// Every registered name: an inherited or imported member is a candidate too.
+		for _, name := range r.suggestTable().Unquoted(segment) {
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
 			}
 		}
 	}
 	sort.Strings(names)
 	var out []string
 	for _, name := range suggest.Unquoted(segment, names) {
+		if len(r.membersNamed(scope, owner, name, global)) == 0 {
+			continue
+		}
 		out = append(out, prefix+"::"+name)
 		if len(out) == suggest.Limit {
 			break
@@ -195,15 +213,17 @@ func (r *Resolver) UnresolvedName(scope *symbols.Scope, name string, at ast.Node
 	return suggest.Hint(name, name, spellings, s.unquoted)
 }
 
-// UnresolvedMember is the text after "unresolved reference: " for a qualified name
-// whose segment i names no member of owner: as written, plus `T::'SA-506'` for `T::SA`.
-func (r *Resolver) UnresolvedMember(qn *ast.QualifiedName, owner *symbols.Symbol, i int) string {
+// UnresolvedMember is the text after "unresolved reference: " for a qualified
+// name read from scope whose segment i names no member of owner: as written,
+// plus `T::'SA-506'` for `T::SA` when that spelling would resolve from scope.
+func (r *Resolver) UnresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName, owner *symbols.Symbol, i int) string {
 	written := qnText(qn)
 	if i <= 0 || i >= len(qn.Parts) {
 		return written
 	}
-	prefix := qnText(&ast.QualifiedName{Parts: qn.Parts[:i]})
-	return suggest.Hint(written, written, nil, r.unquotedMembers(owner, prefix, qn.Parts[i].Text))
+	prefix := qnText(&ast.QualifiedName{Global: qn.Global, Parts: qn.Parts[:i]})
+	return suggest.Hint(written, written, nil,
+		r.unquotedMembers(scope, owner, prefix, qn.Parts[i].Text, qn.Global))
 }
 
 // unresolvedReferencePrefix is how a reference that resolves to nothing reads.
