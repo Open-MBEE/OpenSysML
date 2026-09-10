@@ -1287,6 +1287,12 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
+	keyword := d.keywordOr(el, definitionKeyword(kind))
+	// `individual def` states isIndividual by its kind keyword; writing the
+	// modifier as well would declare it twice (SysML.xtext OccurrenceDefinitionPrefix).
+	if d.boolOf(el, rdf.SysML+"isIndividual") && keyword != "individual" {
+		words = append(words, "individual")
+	}
 	if d.boolOf(el, rdf.SysML+"isConstant") {
 		words = append(words, constantKeyword(d.kerml(el)))
 	}
@@ -1300,7 +1306,7 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 		return "", err
 	}
 	words = append(words, prefixes...)
-	words = append(words, d.keywordOr(el, definitionKeyword(kind)))
+	words = append(words, keyword)
 	if d.boolOf(el, rdf.SysML+"isAll") {
 		words = append(words, "all")
 	}
