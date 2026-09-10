@@ -69,6 +69,16 @@ func (ec *exprChecker) warnCode(code string, span source.Span, format string, ar
 	})
 }
 
+// errorsSince reports whether an error was added after the first n diagnostics.
+func (ec *exprChecker) errorsSince(n int) bool {
+	for _, d := range ec.diags[n:] {
+		if d.Severity == SeverityError {
+			return true
+		}
+	}
+	return false
+}
+
 // CodeUnboundParameter advises of an invocation leaving a default-less input parameter
 // unbound: well formed (KerML 1.0 §8.3.4.8.8), but the runtime refuses to evaluate it.
 const CodeUnboundParameter = "unbound-parameter"
@@ -145,7 +155,7 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	ec.checkValueCount(valueScope, declScope, d, value)
 	// Uniqueness is judged last, as the run time judges it: a value refused for
 	// its type, dimension or count is not also refused for repeating an element.
-	if len(ec.diags) == reported {
+	if !ec.errorsSince(reported) {
 		ec.checkValueUniqueness(valueScope, declScope, d, value)
 	}
 }

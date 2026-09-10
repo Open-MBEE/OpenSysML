@@ -767,3 +767,17 @@ func TestValueCountViolationPrecedesUniqueness(t *testing.T) {
 		`package P { attribute xs : ScalarValues::Integer[2] = (1, 1, 1); }`,
 		"3 value(s) bound to a feature with multiplicity upper bound 2")
 }
+
+// Only an error on the value withholds the uniqueness check; a warning raised
+// while typing an element (an always-false comparison) leaves the repeat reported.
+func TestValueUniquenessReportedBesideWarning(t *testing.T) {
+	diags := valueDiags(t, `package P { attribute bs : ScalarValues::Boolean[*] = (true, true, 1 == "a"); }`)
+	got := map[Severity]string{}
+	for _, d := range diags {
+		got[d.Severity] = d.Message
+	}
+	if len(diags) != 2 || got[SeverityWarning] != "comparing Natural with String is always false" ||
+		got[SeverityError] != "true (a Boolean) is written at positions 1 and 2 of a unique feature" {
+		t.Fatalf("expected the comparison warning beside the uniqueness error, got %v", diags)
+	}
+}
