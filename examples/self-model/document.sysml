@@ -180,7 +180,7 @@ package OpenSysMLDocument {
             }
 
             part executing : Paragraph {
-                attribute redefines text = "What runs is the lowered graph, never the syntax tree: actions execute as Petri-net token flow and states as run-to-completion event dispatch. Each kind of work has its own budget, so a model that cannot finish reports which budget it exhausted rather than hanging the tool.";
+                attribute redefines text = "What runs is the lowered graph, never the syntax tree: actions execute in succession order, as tokens over the lowered graph, and states as run-to-completion event dispatch. Each kind of work has its own budget, so a model that cannot finish reports which budget it exhausted rather than hanging the tool.";
             }
 
             part budgets : Table {

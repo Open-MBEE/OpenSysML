@@ -342,7 +342,7 @@ package OpenSysMLPipeline {
         port irOut : ArtifactPort;
     }
 
-    // Petri-net token flow over the lowered action graph.
+    // Succession-ordered token flow over the lowered action graph.
     part def ActionExecutor :> CodeUnit {
         attribute :>> goPackage = "internal/core/runtime";
         attribute detectsDeadlock : Boolean = true;
