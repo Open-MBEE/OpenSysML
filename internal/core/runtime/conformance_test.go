@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -427,7 +428,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	if err != nil {
 		t.Fatalf("exploreBudget: %v", err)
 	}
-	exploration, err := Explore(policy, func() (*Context, error) { return fresh(), nil }, conformanceRun(t, idx, path, expected))
+	exploration, err := Explore(context.Background(), policy, func() (*Context, error) { return fresh(), nil }, conformanceRun(t, idx, path, expected))
 	if err != nil {
 		t.Fatalf("explore: %v", err)
 	}

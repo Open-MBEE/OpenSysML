@@ -14,9 +14,15 @@ import (
 )
 
 // fixtureModel is the model the adapter tests ask about: a calc to evaluate and
-// sweep, and an action whose three writers race.
+// sweep, a part with one holding and one violated constraint, and an action whose
+// three writers race.
 const fixtureModel = `package test {
 	calc def Double { in x : Integer; return : Integer = x * 2; }
+	part def Tank {
+		attribute pressure = 40.0;
+		assert constraint low { pressure < 100.0 }
+		assert constraint high { pressure > 100.0 }
+	}
 	action race {
 		attribute x : Integer = 0;
 		first start;

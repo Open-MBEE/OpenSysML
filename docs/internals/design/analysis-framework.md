@@ -74,10 +74,10 @@ turns a question into the engines that can answer it.
 
 ## What exists to build on
 
-- **`Explore(policy, fresh, run)`** is already the isolation shape a parallel run needs: the
-  caller supplies a function that builds a fresh `runtime.Context`, and each linearization runs
-  in its own. Nothing about a run leaks into the next except the recorded choice prefix that
-  picks the next one.
+- **`Explore(stop, policy, fresh, run)`** is already the isolation shape a parallel run needs:
+  the caller supplies a function that builds a fresh `runtime.Context`, and each linearization
+  runs in its own. Nothing about a run leaks into the next except the recorded choice prefix
+  that picks the next one, and a caller that goes away ends the exploration between runs.
 - **`solve.Capabilities`** and **`solve.Discover`** are a capability declaration and a probe: a
   backend is asked once what it supports (models, unsat cores, incremental checks, datatypes,
   strings, nonlinear arithmetic, optimization) and a query that needs more is refused with a

@@ -96,6 +96,46 @@ func TestRegistryExploreIsTheRuntimesExploration(t *testing.T) {
 	}
 }
 
+// A caller that goes away mid-exploration ends it before the next run, and the
+// cancellation is the plan's error rather than an outcome or a bound reached.
+func TestExploreStopsWhenTheCallerGoesAway(t *testing.T) {
+	f := parseFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runs := 0
+	run := raceRun(t, f)
+	q := Question{Kind: Outcomes, Subject: "test::race", Schedule: policy(t, "explore"), Free: FreeSchedule,
+		Linearize: func(rctx *runtime.Context) (runtime.Outcome, error) {
+			runs++
+			if runs == 2 {
+				cancel()
+			}
+			return run(rctx)
+		},
+	}
+	plan, err := Default().Answer(ctx, &Model{Fresh: f.fresh}, q, Budget{})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("answer after cancel: %v, want context.Canceled", err)
+	}
+	if runs != 2 {
+		t.Fatalf("%d runs made, want the exploration to stop before the third", runs)
+	}
+	if len(plan.Steps) != 1 || plan.Steps[0].Engine != ExploreEngineName || !errors.Is(plan.Steps[0].Err, context.Canceled) {
+		t.Fatalf("steps %+v, want explore's step carrying the cancellation", plan.Steps)
+	}
+	if plan.Result.Covered() {
+		t.Fatalf("result %+v, want nothing established", plan.Result)
+	}
+
+	// A run that fails on its own is an outcome, not the exploration's error.
+	failing := errors.New("run failed")
+	q.Linearize = func(*runtime.Context) (runtime.Outcome, error) { return runtime.Outcome{}, failing }
+	x := answered(t, Default(), &Model{Fresh: f.fresh}, q, Budget{}).Result.Exploration()
+	if x == nil || len(x.Outcomes) != 1 || !errors.Is(x.Outcomes[0].Outcome.Err, failing) {
+		t.Fatalf("exploration %+v, want the failure as its one outcome", x)
+	}
+}
+
 func TestExploreRefusesWhatItCannotRun(t *testing.T) {
 	e := NewExplore()
 	run := func(*runtime.Context) (runtime.Outcome, error) { return runtime.Outcome{}, nil }

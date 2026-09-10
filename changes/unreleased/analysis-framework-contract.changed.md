@@ -9,4 +9,6 @@
   analysis and verification run, action and state execution, exploration, sweep and `%check`,
   `%explain`, `%solve`, `%configure` and `%optimize` query to their registry. No flag, command,
   RPC, field or line of output changed; the framework's own surface — engine listing and
-  selection, the standing line on verdicts, parallel runs — is still to come.
+  selection, the standing line on verdicts, parallel runs — is still to come. `runtime.Explore`
+  takes the caller's `context.Context` as `RunSweep` does, so a `RunAnalysis` request cancelled
+  mid-exploration ends it before the next linearization instead of running every remaining one.

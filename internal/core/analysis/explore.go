@@ -53,13 +53,14 @@ func (e exploreEngine) Covers(_ *Model, q Question) Coverage {
 
 // Run explores under the budget's runs and depth (else the policy's own): complete is
 // proved over schedules, incomplete is observed with the budget hit named as reached.
-func (e exploreEngine) Run(_ context.Context, model *Model, q Question, budget Budget) (Result, error) {
+// A ctx that ends between runs ends the exploration with its error.
+func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
 	policy, err := explorePolicy(q.Schedule, budget)
 	if err != nil {
 		return Result{}, err
 	}
 	started := time.Now()
-	x, err := runtime.Explore(policy, model.Fresh, q.Linearize)
+	x, err := runtime.Explore(ctx, policy, model.Fresh, q.Linearize)
 	if err != nil {
 		return Result{}, err
 	}

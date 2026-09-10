@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -46,9 +47,12 @@ func Perform[T any](
 	return out, err
 }
 
-// CheckAnswer is what a constraint, requirement or satisfaction check established.
+// CheckAnswer is what a constraint, requirement or satisfaction check established. A
+// false verdict arrives as an error unwrapping to runtime.ErrViolated and is a violation.
 func CheckAnswer(result runtime.CheckResult, err error) Answer {
 	switch {
+	case errors.Is(err, runtime.ErrViolated):
+		return Answer{Claim: ClaimViolated, Reason: err.Error()}
 	case err != nil:
 		return Answer{Err: err}
 	case result.Holds:

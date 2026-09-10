@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -54,6 +55,49 @@ func TestRunGradesChecks(t *testing.T) {
 	}
 	if violated.Witness == nil || violated.Witness.Schedule != runtime.DefaultSchedulePolicy {
 		t.Fatalf("witness %+v, want the run's own schedule", violated.Witness)
+	}
+}
+
+// A false verdict reaches CheckAnswer as a *runtime.ViolationError, which is a
+// witnessed violation and not a failed execution.
+func TestRunWitnessesARuntimeViolation(t *testing.T) {
+	f := parseFixture(t)
+	tank := f.symbol(t, "Tank")
+	rctx := f.context(t)
+	inst, err := rctx.Instantiate(tank)
+	if err != nil {
+		t.Fatalf("instantiate Tank: %v", err)
+	}
+	check := func(name string) Plan {
+		sym, ok := tank.Scope.LookupLocal(name)
+		if !ok {
+			t.Fatalf("constraint %s not indexed", name)
+		}
+		return answered(t, Default(), Held(rctx, nil), Question{
+			Kind: Evaluate, Subject: "test::Tank::" + name, Schedule: runtime.DefaultSchedulePolicy,
+			Perform: func(rctx *runtime.Context) (Answer, error) {
+				return CheckAnswer(rctx.CheckConstraintOn(sym, tank.Scope, inst)), nil
+			},
+		}, Budget{})
+	}
+	low := check("low").Result
+	if low.Claim != ClaimHolds || low.Strength != Observed {
+		t.Fatalf("low %+v, want holds observed", low)
+	}
+	high := check("high").Result
+	if high.Claim != ClaimViolated || high.Strength != Witnessed || high.Witness == nil {
+		t.Fatalf("high %+v, want violated witnessed", high)
+	}
+	if !strings.Contains(high.Reason, "pressure > 100.0") {
+		t.Fatalf("reason %q, want the failed condition", high.Reason)
+	}
+	if high.Bounds.Reached() {
+		t.Fatalf("bounds %s, want no budget reached by a violation", high.Bounds)
+	}
+
+	wrapped := fmt.Errorf("check: %w", &runtime.ViolationError{Kind: "constraint", Element: "high", What: "assertion", Condition: "pressure > 100.0"})
+	if a := CheckAnswer(runtime.CheckResult{}, wrapped); a.Claim != ClaimViolated || a.Err != nil || a.Reason != wrapped.Error() {
+		t.Fatalf("wrapped violation %+v, want violated with the violation as reason", a)
 	}
 }
 
