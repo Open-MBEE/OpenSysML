@@ -36,7 +36,7 @@ func (solveEngine) Describe() Description {
 	return Description{
 		Questions: []Kind{Satisfiable},
 		Process:   SolveProcess,
-		Bounds:    []string{"solver"},
+		Bounds:    []string{"runs", "solver"},
 		Replays:   true,
 		Authority: Proved,
 	}
@@ -102,7 +102,7 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 		Values:   values,
 		Elapsed:  time.Since(started),
 	}
-	result.Claim, result.Strength, result.Reason = judgeSolved(values)
+	result.Claim, result.Strength, result.Reason = judgeSolved(values, asked)
 	if budget.Runs > 0 {
 		result.Bounds = Bounds{{Name: "runs", Limit: int64(budget.Runs), Reached: asked < len(values)}}
 	}
@@ -110,11 +110,15 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 	return result, nil
 }
 
-// judgeSolved is the claim the answers support as a set: an undecided query leaves it not
-// covered, an unsatisfiable one makes it so, and otherwise every query has a witness.
-func judgeSolved(values []Evaluation) (Claim, Strength, string) {
+// judgeSolved is the claim the answers support as a set: an undecided query, or one past
+// the asked queries, leaves it not covered, an unsatisfiable one makes it so, and otherwise
+// every query has a witness.
+func judgeSolved(values []Evaluation, asked int) (Claim, Strength, string) {
 	claim, strength := ClaimSatisfiable, Witnessed
-	for _, v := range values {
+	for i, v := range values {
+		if i >= asked {
+			return ClaimNone, NotCovered, v.Name + " was left unasked by the runs budget"
+		}
 		c, s, reason := judgeOne(v)
 		switch {
 		case s == NotCovered:
@@ -133,7 +137,7 @@ func judgeOne(v Evaluation) (Claim, Strength, string) {
 	case v.Err != nil:
 		return ClaimNone, NotCovered, v.Err.Error()
 	case v.Solved == nil:
-		return ClaimNone, NotCovered, v.Name + " was left unasked by the runs budget"
+		return ClaimNone, NotCovered, v.Name + " was not put to the solver"
 	}
 	switch v.Solved.Status {
 	case solve.StatusUnsat:

@@ -125,7 +125,7 @@ func TestSolveGradesEachVerdict(t *testing.T) {
 		{"unknown", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusUnknown, Reason: "timeout"}}, ClaimNone, NotCovered, "timeout"},
 		{"silent unknown", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusUnknown}}, ClaimNone, NotCovered, "the solver did not decide C"},
 		{"failed", Evaluation{Name: "C", Err: errors.New("the solver exited")}, ClaimNone, NotCovered, "the solver exited"},
-		{"unasked", Evaluation{Name: "C"}, ClaimNone, NotCovered, "C was left unasked by the runs budget"},
+		{"not asked", Evaluation{Name: "C"}, ClaimNone, NotCovered, "C was not put to the solver"},
 		{"attained", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumAttained, Value: "3"}}}}, ClaimSatisfiable, Witnessed, ""},
 		{"unbounded", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumUnbounded}}}}, ClaimUnbounded, Proved, ""},
 		{"bounded", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumBounded, Detail: "approaches 2"}}}}, ClaimNone, NotCovered, "m: approaches 2"},
@@ -159,9 +159,10 @@ func TestSolveJudgesSetsAsTheirWeakestMember(t *testing.T) {
 		{"unbounded among sat", []Evaluation{sat, unbounded}, ClaimUnbounded, Proved, ""},
 		{"unsat over unbounded", []Evaluation{unbounded, unsat}, ClaimUnsatisfiable, Proved, ""},
 		{"none", nil, ClaimSatisfiable, Witnessed, ""},
+		{"withheld", []Evaluation{sat, {Name: "W"}}, ClaimNone, NotCovered, "W was not put to the solver"},
 	}
 	for _, tc := range cases {
-		claim, strength, reason := judgeSolved(tc.values)
+		claim, strength, reason := judgeSolved(tc.values, len(tc.values))
 		if claim != tc.claim || strength != tc.strength || reason != tc.reason {
 			t.Errorf("%s: %s %s %q, want %s %s %q", tc.name, claim, strength, reason, tc.claim, tc.strength, tc.reason)
 		}
@@ -213,6 +214,37 @@ func TestSolveAsksNoMoreQueriesThanTheBudgetsRuns(t *testing.T) {
 	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{}).Result
 	if _, ok := result.Bounds.Limit("runs"); ok || result.Claim != ClaimSatisfiable {
 		t.Fatalf("result %+v, want no runs bound without a runs budget", result)
+	}
+	withheld := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
+		if query.Element == "B" {
+			return nil, nil
+		}
+		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
+	}
+	q.Solve = &SolveAsk{Queries: queries, Ask: withheld}
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 3}).Result
+	if result.Strength != NotCovered || result.Reason != "B was not put to the solver" || result.Bounds.Reached() {
+		t.Fatalf("result %+v, want the withheld B not covered without blaming the runs budget", result)
+	}
+}
+
+// The bounds solve declares are the bounds its result reports, in that order.
+func TestSolveReportsTheBoundsItDeclares(t *testing.T) {
+	present := func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/usr/bin/z3"}, nil }
+	sat := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
+		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
+	}
+	engine := NewSolve(present)
+	q := Question{Kind: Satisfiable, Subject: "test::A", Free: FreeInputs, Solve: &SolveAsk{Queries: []*solve.Query{intQuery("A", 2, 5)}, Ask: sat}}
+	result := answered(t, registered(t, engine), nil, q, Budget{Runs: 1}).Result
+	declared := engine.Describe().Bounds
+	if len(result.Bounds) != len(declared) {
+		t.Fatalf("bounds %s, want the declared %v", result.Bounds, declared)
+	}
+	for i, bound := range result.Bounds {
+		if bound.Name != declared[i] {
+			t.Errorf("bound %d is %q, want the declared %q", i, bound.Name, declared[i])
+		}
 	}
 }
 
