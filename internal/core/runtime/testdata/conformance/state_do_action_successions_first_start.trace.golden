@@ -1,0 +1,19 @@
+do: working
+stmt action body
+enter action node: state behavior ops
+  stmt assign seq
+        eval feature seq -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+  stmt assign seq
+        eval feature seq -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
+leave action node: state behavior ops
+exit: working
+enter: done
+transition: working -> done

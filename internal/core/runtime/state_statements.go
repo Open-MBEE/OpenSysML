@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // stateStmtHost runs the statements of a state machine behavior written as an
@@ -14,7 +15,10 @@ import (
 type stateStmtHost struct {
 	exec     *StateExecutor
 	behavior lower.StateBehavior
-	perfs    performances
+	// flow runs the token flow the body or one of its nodes states, as the
+	// standalone action executor does; perfs are its performances.
+	flow  *ActionExecutor
+	perfs *performances
 }
 
 // executeBehavior runs one behavior of a state or transition: the statements it
@@ -25,7 +29,15 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) error {
 	}
 	host := &stateStmtHost{exec: e, behavior: behavior}
 	attrs := e.attrFramesFor(behavior.Owner)
-	host.perfs = performances{ctx: e.ctx, self: e.self, root: host.rootFrame(attrs), owner: host}
+	host.flow = &ActionExecutor{
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(attrs), owner: host},
+		action:           behaviorSymbol(behavior),
+		state:            StateRunning,
+		nextTokenID:      1,
+		breakpoints:      make(map[string]bool),
+		firedBreakpoints: make(map[breakpointVisit]bool),
+	}
+	host.perfs = &host.flow.performances
 	engine := newStmtEngineOver(e.ctx, host, e.stateData, attrs)
 	engine.env.perf = host.perfs.root
 	// The activation ends with this execution of the body, so a behavior run
@@ -56,6 +68,19 @@ func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
 		root.outer = append(root.outer, mapFrame(attr))
 	}
 	return root
+}
+
+// behaviorSymbol is the symbol of the action a behavior's inline body declares,
+// nil for a behavior written in another form.
+func behaviorSymbol(behavior lower.StateBehavior) *symbols.Symbol {
+	for _, stmt := range behavior.Body {
+		block, ok := stmt.(lower.Block)
+		if !ok || block.Scope == nil || block.Scope.Node() != block.Node {
+			continue
+		}
+		return block.Scope.Owner()
+	}
+	return nil
 }
 
 func (h *stateStmtHost) describe() string {
@@ -147,10 +172,21 @@ func (h *stateStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph
 	return h.perfs.performNode(h.perfs.root, engine, graph, node)
 }
 
-// runFlow rejects a stated flow among statements: a state's behavior sequences its nodes.
-func (h *stateStmtHost) runFlow(lower.Block) (stmtFlow, error) {
-	return flowNext, fmt.Errorf("%w: %s: a flow of steps in a block is not executable",
-		ErrStatementNotExecutable, h.describe())
+// runFlow runs the token flow an inline body states with its successions and
+// control nodes, as the behavior's own performance.
+func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
+	if block.Graph.Initial == nil {
+		return flowNext, fmt.Errorf("%w: %s: no node starts the flow", ErrInvalidActionFlow, h.describe())
+	}
+	if err := h.flow.validateSubflows(block.Graph); err != nil {
+		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	root := h.flow.root
+	h.flow.graph = block.Graph
+	root.graph = block.Graph
+	root.connections = block.Graph.Connections
+	root.live = 1
+	return flowNext, h.flow.runSubflow(root)
 }
 
 // setFeature writes a feature the behavior's performance holds; it holds none, so
@@ -183,11 +219,10 @@ func (h *stateStmtHost) pauseAt(ast.Node) error {
 	return nil
 }
 
-// runOwnFlow refuses the flow a node states of its own: a state behavior has no
-// token flow to run it in.
+// runOwnFlow runs the flow a nested node states of its own, as a subflow of the
+// behavior's performance.
 func (h *stateStmtHost) runOwnFlow(perf *actionFrame) error {
-	return fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
-		h.describe(), nodeDescription(perf.node))
+	return h.flow.runSubflow(perf)
 }
 
 // performedInvocation reports the action a `perform` statement names, in either

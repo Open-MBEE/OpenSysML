@@ -381,7 +381,7 @@ func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
 		descriptions = append(descriptions,
 			fmt.Sprintf("%d token(s) blocked for another reason", blocked))
 	}
-	where := "action " + e.action.Name
+	where := "action " + symbolText(e.action)
 	if perf != nil {
 		where = perf.describe()
 	}
