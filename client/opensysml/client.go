@@ -118,6 +118,12 @@ type Client interface {
 	// TensorQuantity argument, checked before anything is sent.
 	EvaluateCalc(ctx context.Context, model *Model, symbolID string, arguments ...Value) (*Calculation, error)
 
+	// Calculate is EvaluateCalc with options: CalcArguments bind the inputs and
+	// CalcEngine names the engine that answers. Requires what EvaluateCalc
+	// requires, and the engines capability for a named engine, checked before
+	// anything is sent.
+	Calculate(ctx context.Context, model *Model, symbolID string, opts ...CalcOption) (*Calculation, error)
+
 	// RunAnalysis runs the named analysis case — a definition or a usage — and
 	// reports its outputs with the verdict of its objective and of each
 	// assertion in its body. Positional arguments bind its inputs in

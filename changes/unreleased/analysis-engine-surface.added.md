@@ -20,6 +20,7 @@
   `auto`) and `engine`, `strength` and `bounds` on their responses and on every `Verdict`,
   advertised as the `engines` capability; the Python client takes `engine=` on its verification
   and analysis calls, reads `Verdict.engine`, `.strength` and `.bounds`, and lists engines with
-  `Connection.list_engines()`; the Go client takes `WithEngine`/`Engine`, reads the `Standing` of
+  `Connection.list_engines()`; the Go client takes `WithEngine`/`Engine`, gains `Calculate` — `EvaluateCalc` with
+  options — taking `CalcArguments` and `CalcEngine`, reads the `Standing` of
   every verdict, calculation and analysis, and lists engines with `Client.ListEngines`. No
   existing flag, command, RPC, field or key changed its meaning.

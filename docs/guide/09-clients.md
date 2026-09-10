@@ -245,7 +245,8 @@ refuses with `CodeUnimplemented`.
 
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen the same way
 `sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take
-`opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `opensysml.EngineAll`
+`opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
+with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
 asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
 choice to the service. `ListEngines` names the engines the service registers. Every `Verdict`,
 `Calculation` and `Analysis` carries a `Standing` — the `Engine` that answered, the `Strength` of

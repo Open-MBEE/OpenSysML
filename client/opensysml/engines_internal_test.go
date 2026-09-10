@@ -43,6 +43,8 @@ func TestANamedEngineIsNotSentWithoutTheCapability(t *testing.T) {
 			wantUnimplemented(t, "VerifySatisfaction", err)
 			_, err = c.RunAnalysis(ctx, model, "an", Engine("run"))
 			wantUnimplemented(t, "RunAnalysis", err)
+			_, err = c.Calculate(ctx, model, "f", CalcArguments(Int(1)), CalcEngine("run"))
+			wantUnimplemented(t, "Calculate", err)
 		})
 	}
 }

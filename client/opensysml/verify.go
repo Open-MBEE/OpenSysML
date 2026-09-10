@@ -289,15 +289,52 @@ func (c *client) EvaluateCalc(
 	symbolID string,
 	arguments ...Value,
 ) (*Calculation, error) {
+	return c.Calculate(ctx, model, symbolID, CalcArguments(arguments...))
+}
+
+// CalcOption configures Calculate.
+type CalcOption func(*calcOptions)
+
+type calcOptions struct {
+	arguments []Value
+	engine    string
+}
+
+// CalcArguments bind the calculation's inputs in declaration order, after any
+// given earlier; none evaluates a calc usage from its own members.
+func CalcArguments(values ...Value) CalcOption {
+	return func(o *calcOptions) { o.arguments = append(o.arguments, values...) }
+}
+
+// CalcEngine names the engine that answers the calculation, as `sysml -engine`
+// spells it: an engine's name, EngineAuto or EngineAll. Requires the engines
+// capability, checked before anything is sent.
+func CalcEngine(engine string) CalcOption {
+	return func(o *calcOptions) { o.engine = engine }
+}
+
+func (c *client) Calculate(
+	ctx context.Context,
+	model *Model,
+	symbolID string,
+	opts ...CalcOption,
+) (*Calculation, error) {
+	var options calcOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	if err := c.requireValueCapabilities(ctx, arguments...); err != nil {
+	if err := c.requireValueCapabilities(ctx, options.arguments...); err != nil {
 		return nil, err
 	}
-	req := &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: symbolID}
-	for _, argument := range arguments {
+	if err := c.requireEngine(ctx, options.engine); err != nil {
+		return nil, err
+	}
+	req := &pb.EvaluateCalcRequest{ModelHash: hash, SymbolId: symbolID, Engine: engineField(options.engine)}
+	for _, argument := range options.arguments {
 		sent, err := valueToProto(argument)
 		if err != nil {
 			return nil, err

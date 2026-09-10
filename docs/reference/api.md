@@ -41,7 +41,8 @@ refuse each other's policies with `CodeInvalidArgument`, and exploring requires 
 
 `ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
 `VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take `WithEngine(name)` and
-`RunAnalysis` and `ExploreAnalysis` take `Engine(name)` to put the question to one engine,
+`RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
+options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
 `EngineAll` to ask every engine that covers it, or `EngineAuto` (the default) to leave the choice
 to the service; a name the service does not register is `CodeInvalidArgument`, and a named engine
 needs the `engines` capability. `Verdict`, `Calculation` and `Analysis` each carry a `Standing`:

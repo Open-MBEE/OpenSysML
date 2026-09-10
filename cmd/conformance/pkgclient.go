@@ -431,7 +431,8 @@ func (c *pkgClient) evaluateCalc(ctx context.Context, request protoreflect.Messa
 		}
 		arguments = append(arguments, converted)
 	}
-	calculation, err := c.api.EvaluateCalc(ctx, c.model(req.ModelHash), req.SymbolId, arguments...)
+	calculation, err := c.api.Calculate(ctx, c.model(req.ModelHash), req.SymbolId,
+		opensysml.CalcArguments(arguments...), opensysml.CalcEngine(req.Engine))
 	var verifyErr *opensysml.VerifyError
 	if errors.As(err, &verifyErr) {
 		return &pb.EvaluateCalcResponse{

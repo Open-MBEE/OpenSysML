@@ -137,6 +137,17 @@ func TestANamedEngineAnswers(t *testing.T) {
 	if analysis.Standing.Engine != "run" || analysis.Standing.Strength == "" {
 		t.Errorf("analysis standing = %+v, want run with a strength", analysis.Standing)
 	}
+	calculation, err := client.Calculate(ctx, model, "Demo::add",
+		opensysml.CalcArguments(opensysml.Real(1), opensysml.Real(2)), opensysml.CalcEngine("run"))
+	if err != nil {
+		t.Fatalf("Calculate under run: %v", err)
+	}
+	if calculation.Standing.Engine != "run" || calculation.Standing.Strength != "observed" {
+		t.Errorf("calculation standing = %+v, want run at observed", calculation.Standing)
+	}
+	if got, ok := calculation.Result.(opensysml.Real); !ok || float64(got) != 3 {
+		t.Errorf("calculation result = %#v, want Real(3)", calculation.Result)
+	}
 }
 
 // An engine the service does not register is refused as an invalid argument
@@ -163,6 +174,11 @@ func TestAnUnknownEngineIsInvalidArgument(t *testing.T) {
 	_, err = client.RunAnalysis(ctx, parse(t, client, verdictSource), "Demo::checkBound", opensysml.Engine("oracle"))
 	if !errors.Is(err, opensysml.CodeInvalidArgument) || !strings.Contains(err.Error(), "oracle") {
 		t.Errorf("RunAnalysis: err = %v, want CodeInvalidArgument naming oracle", err)
+	}
+	_, err = client.Calculate(ctx, model, "Demo::add",
+		opensysml.CalcArguments(opensysml.Real(1), opensysml.Real(2)), opensysml.CalcEngine("oracle"))
+	if !errors.Is(err, opensysml.CodeInvalidArgument) || !strings.Contains(err.Error(), "oracle") {
+		t.Errorf("Calculate: err = %v, want CodeInvalidArgument naming oracle", err)
 	}
 }
 
