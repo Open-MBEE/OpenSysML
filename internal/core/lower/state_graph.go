@@ -1285,9 +1285,10 @@ func isEntrySubaction(member ast.Node) bool {
 
 // startsAt records the state a bare completion transition out of the body's entry
 // action starts the machine in, as `entry; then off;` does, and reports whether
-// it did. owner is the body it starts, as entryOwner names it; guard is the
-// condition a `transition initial if c then off;` chooses it under, nil otherwise.
-func (g *StateGraph) startsAt(decl, guard ast.Node, members []ast.Node, containingState, owner ast.Node, scope *symbols.Scope, source, target *ast.QualifiedName) (bool, error) {
+// it did. owner is the body a `done` target completes, entryOwner the body it
+// starts, as entryOwner names it; guard is the condition a
+// `transition initial if c then off;` chooses it under, nil otherwise.
+func (g *StateGraph) startsAt(decl, guard ast.Node, members []ast.Node, containingState, owner, entryOwner ast.Node, scope *symbols.Scope, source, target *ast.QualifiedName) (bool, error) {
 	if source == nil || target == nil {
 		return false, nil
 	}
@@ -1299,15 +1300,15 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, members []ast.Node, containi
 		!ast.IsEntryAction(ast.StateEntryActions(containingState), entry) {
 		return false, nil
 	}
-	vertex := g.endpointVertex(scope, target)
-	if vertex == nil {
-		return false, nil
+	vertex, err := g.targetVertex(scope, target, owner)
+	if err != nil || vertex == nil {
+		return false, err
 	}
 	start, ok := vertex.(*ast.StateNode)
 	if !ok {
 		return false, &EntryTransitionTargetError{Target: vertex}
 	}
-	g.addEntryTransition(owner, &EntryTransition{Decl: decl, Guard: guard, Target: start, Scope: scope})
+	g.addEntryTransition(entryOwner, &EntryTransition{Decl: decl, Guard: guard, Target: start, Scope: scope})
 	return true, nil
 }
 
@@ -1449,7 +1450,7 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 						// `succession first begin then off;` out of a named entry action names the
 						// state the machine starts in, not an edge (SysML 7.19.3).
 						if sourceVertex == nil {
-							starts, err := graph.startsAt(n, nil, memberList, containingState, entryOwner, scope, sourceQName, targetQName)
+							starts, err := graph.startsAt(n, nil, memberList, containingState, owner, entryOwner, scope, sourceQName, targetQName)
 							if err != nil {
 								return err
 							}
@@ -1511,7 +1512,7 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 
 			// `succession first start then off;` out of a named entry action says the same.
 			if sourceVertex == nil {
-				starts, err := graph.startsAt(n, nil, memberList, containingState, entryOwner, scope, n.Source, n.Target)
+				starts, err := graph.startsAt(n, nil, memberList, containingState, owner, entryOwner, scope, n.Source, n.Target)
 				if err != nil {
 					return err
 				}
@@ -1544,7 +1545,7 @@ func collectTransitions(graph *StateGraph, memberList []ast.Node, containingStat
 			// `transition initial then off;` out of the entry action names the
 			// state the machine starts in, not an edge between two vertices.
 			if n.Trigger == nil && len(n.Effect) == 0 {
-				starts, err := graph.startsAt(n, n.Guard, memberList, containingState, entryOwner, scope, n.Source, n.Target)
+				starts, err := graph.startsAt(n, n.Guard, memberList, containingState, owner, entryOwner, scope, n.Source, n.Target)
 				if err != nil {
 					return err
 				}

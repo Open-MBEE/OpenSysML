@@ -111,6 +111,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("entry_transition_target_is_not_a_state", testEntryTransitionTargetIsNotAState)
 	t.Run("entry_transition_carries_a_trigger", testEntryTransitionCarriesATrigger)
 	t.Run("entry_transition_into_done_completes_at_initialize", testEntryTransitionIntoDoneCompletesAtInitialize)
+	t.Run("named_entry_action_transition_into_done_completes_at_initialize", testNamedEntryActionTransitionIntoDoneCompletesAtInitialize)
 	t.Run("region_entry_transitions_into_done_complete_at_initialize", testRegionEntryTransitionsIntoDoneCompleteAtInitialize)
 	t.Run("nested_regions_into_done_complete_at_initialize", testNestedRegionsIntoDoneCompleteAtInitialize)
 	t.Run("transition_into_nested_regions_in_done_completes", testTransitionIntoNestedRegionsInDoneCompletes)
@@ -6196,6 +6197,48 @@ func testEntryTransitionIntoDoneCompletesAtInitialize(t *testing.T) {
 	if exec.EventQueue().Len() != 0 {
 		t.Errorf("a completed machine keeps %d events waiting", exec.EventQueue().Len())
 	}
+}
+
+// testNamedEntryActionTransitionIntoDoneCompletesAtInitialize: a transition
+// out of a named entry action into an undeclared `done` completes the machine as
+// it starts, in each syntax the succession can be written in; a declared state
+// named `done` is entered instead.
+func testNamedEntryActionTransitionIntoDoneCompletesAtInitialize(t *testing.T) {
+	for name, successions := range map[string]string{
+		"guarded transition": `transition begin if skip then done;
+			transition begin then busy;`,
+		"transition": `transition begin then done;`,
+		"succession": `succession first begin then done;`,
+	} {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			private import ScalarValues::*;
+			state Machine {
+				attribute skip : Boolean = true;
+				attribute left : Boolean = false;
+				entry action begin { }
+				`+successions+`
+				exit action { assign left := true; }
+				state busy;
+			}
+		}`)
+		if exec.State() != StateCompleted {
+			t.Errorf("%s: expected StateCompleted right after initialize, got %s", name, exec.State())
+		}
+		if got := exec.StateData()["left"]; got.Kind != ValConst || !got.Const.Bool {
+			t.Errorf("%s: the machine's exit action did not run, left = %v", name, got)
+		}
+	}
+	exec := stateExecutorForSource(t, "Machine", `package test {
+		state Machine {
+			entry action begin { }
+			transition begin then done;
+			state done;
+		}
+	}`)
+	if exec.State() != StateRunning {
+		t.Errorf("expected the machine to be running in its declared state done, got %s", exec.State())
+	}
+	assertCurrentState(t, exec, "done")
 }
 
 // testRegionEntryTransitionsIntoDoneCompleteAtInitialize: every orthogonal
