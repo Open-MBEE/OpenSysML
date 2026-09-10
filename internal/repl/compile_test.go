@@ -165,6 +165,7 @@ var compiledCases = []compiledCase{
 	{"Fn::SqrtRange", []string{"(4.0,9.0)"}}, {"Fn::SqrtRange", []string{"(4.0,-1.0)"}},
 	{"Fn::UsageRange", []string{"(3.0)"}},
 	{"Fn::SumRange", []string{"(1.0,2.0)"}}, {"Fn::SumRange", []string{"null"}},
+	{"Fn::ParenSample", []string{"(2.0,3.0)"}}, {"Fn::ParenDomain", []string{"(2.0,4.0)"}}, {"Fn::ParenDomain", []string{"(2.0,0.0)"}}, {"Fn::ParenApply", []string{"3.0"}},
 	{"Fn::NullDomain", []string{"1.0"}}, {"Fn::NullRange", []string{"1"}}, {"Fn::NullSqrtRange", []string{"1.0"}}, {"Fn::NullSum", []string{"1.5"}},
 	{"Fn::NullAbsRange", []string{"1"}}, {"Fn::NullAbsDomain", []string{"1"}},
 	{"Fn::BodySample", []string{"(1,2,3)"}}, {"Fn::BodySample", []string{"null"}}, {"Fn::BodySample", []string{"0"}},

@@ -428,6 +428,10 @@ package Compiled {
 		calc def SqrtRange { in xs : Real[0..*]; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, xs)); }
 		calc def UsageRange { in xs : Real[0..*]; return : Real[0..*] = Range(Sample(sqUsage, xs)); }
 		calc def SumRange { in xs : Real[0..*]; return : Real = RealFunctions::sum(Range(Sample(Sq, xs))); }
+		// Parentheses around `Sample(…)` or a function value are the expression itself.
+		calc def ParenSample { in xs : Real[0..*]; attribute s : SampledFunction = (Sample(Sq, xs)); return : Real[0..*] = Range(s); }
+		calc def ParenDomain { in xs : Real[0..*]; return : Real[0..*] = SequenceFunctions::union(Domain((Sample(Recip, xs))), Range((Sample((Sq), xs)))); }
+		calc def ParenApply { in a : Real; return : Real = Apply((Sq), a); }
 		// A literal null domain samples to `[]`, typed by the sampled calc's parameter.
 		calc def NullDomain { in a : Real; attribute s : SampledFunction = Sample(Sq, null); return : Real[0..*] = SequenceFunctions::union(Domain(s), Range(s)); }
 		calc def NullRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, null)); }

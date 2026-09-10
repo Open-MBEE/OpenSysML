@@ -171,12 +171,6 @@ func (fc *funcCompiler) boundFunction(qn *ast.QualifiedName) (*funcValue, bool) 
 // compileFuncArg is the function value the argument node names, or the typed
 // refusal naming what it is instead; where names the binding for diagnostics.
 func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, error) {
-	// A parenthesized expression parses as a body holding one expression.
-	if b, ok := node.(*ast.BodyExpr); ok && len(b.Members) == 1 && b.Result == nil && len(b.Params) == 0 {
-		if inner := unwrap(b.Members[0]); inner != nil {
-			node = inner
-		}
-	}
 	ref, ok := node.(*ast.FeatureReference)
 	if !ok {
 		if op, isOp := node.(*ast.OperatorExpr); isOp && op.Operator == ast.OpConditional {
