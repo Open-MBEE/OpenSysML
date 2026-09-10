@@ -788,11 +788,26 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if !ok {
 			return "", true, d.missing(el, "sysx:"+xPseudostateKind, "a pseudostate states which kind it is")
 		}
+		if !pseudostateKinds[kind] {
+			return "", true, &UnsupportedError{
+				What: fmt.Sprintf("the pseudostate <%s>", el.iri),
+				Note: fmt.Sprintf("it states sysx:%s %q, and no pseudostate of that kind can be written in notation", xPseudostateKind, kind),
+			}
+		}
 		words := []string{d.keywordOr(el, kind)}
 		return strings.Join(append(words, d.identWords(el)...), " "), true, nil
 	}
 	return "", false, nil
 }
+
+// pseudostateKinds are the sysx:pseudostateKind values the encoder writes.
+var pseudostateKinds = func() map[string]bool {
+	kinds := make(map[string]bool)
+	for k := ast.PseudostateChoice; k <= ast.PseudostateDeepHistory; k++ {
+		kinds[k.String()] = true
+	}
+	return kinds
+}()
 
 // controlNodeKeyword gives the notation of each control node metaclass.
 var controlNodeKeyword = map[string]string{

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/pack"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/testutil/graphcmp"
@@ -76,9 +77,9 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 	}
 }
 
-// snapshotKindDigest pins the SymbolKind numbering the snapshot stream persists
-// under snapshotFormatVersion; a kind added or moved renumbers the ones after it.
-const snapshotKindDigest = "7eb54fec9a7a8cbd"
+// snapshotKindDigest pins the SymbolKind and PseudostateKind numbering the snapshot
+// stream persists under snapshotFormatVersion; a kind added or moved renumbers the ones after it.
+const snapshotKindDigest = "b25f9797183c528d"
 
 func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	var b strings.Builder
@@ -86,9 +87,12 @@ func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	for k := symbols.SymbolUnknown; k <= symbols.SymbolMultiplicity; k++ {
 		fmt.Fprintf(&b, "%d=%s\n", int(k), k)
 	}
+	for k := ast.PseudostateChoice; k <= ast.PseudostateDeepHistory; k++ {
+		fmt.Fprintf(&b, "pseudostate %d=%s\n", int(k), k)
+	}
 	sum := sha256.Sum256([]byte(b.String()))
 	if got := hex.EncodeToString(sum[:8]); got != snapshotKindDigest {
-		t.Fatalf("SymbolKind numbering changed under snapshot format %d (digest %s, want %s).\n"+
+		t.Fatalf("SymbolKind or PseudostateKind numbering changed under snapshot format %d (digest %s, want %s).\n"+
 			"The snapshot stream persists kinds as integers: bump snapshotFormatVersion so a "+
 			"blob in the old numbering is refused, regenerate stdlib.snapshot with "+
 			"`go generate ./internal/core/libs`, then update snapshotKindDigest.",
@@ -105,7 +109,8 @@ func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
 	// numbered the kinds before SymbolCrossFeature was added; format 9 wrote a
 	// CrossFeatureMember without its prefix fields, format 10 without ordered/nonunique,
 	// format 11 a member without how it came by its name, format 12 a Usage with a
-	// ValueMultiplicity field.
+	// ValueMultiplicity field, format 13 the pseudostate kinds with entry and exit
+	// points numbered before the histories.
 	digest := NewLoader(EmbeddedSource(), nil).setDigest()
 	for _, version := range []uint64{8, 9, 10, 11, snapshotFormatVersion - 1, snapshotFormatVersion + 1} {
 		other := binary.AppendUvarint([]byte(snapshotMagic), version)

@@ -212,6 +212,10 @@ func TestUnsupportedBehavioralShapesAreReported(t *testing.T) {
 			src:   prologue + member("pick", "sysx:Pseudostate", ""),
 			names: "sysx:pseudostateKind",
 		},
+		"a pseudostate of a kind no notation writes": {
+			src:   prologue + member("into", "sysx:Pseudostate", "    sysx:pseudostateKind \"entry\" ;\n"),
+			names: `sysx:pseudostateKind "entry"`,
+		},
 	}
 	for name, model := range models {
 		t.Run(name, func(t *testing.T) {
