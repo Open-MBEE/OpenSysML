@@ -394,11 +394,20 @@ A run is the unit the coordinator schedules. Each engine says what its runs are:
   worker always takes the least prefix not yet run, and the `Runs` budget is a **cut in plan
   order, not a count of executions**: the result covers the `Runs` least linearizations, which
   are exactly the ones the sequential `Explore` runs before it stops, and a run that turns out
-  to lie past the cut is discarded and charged to nothing. Work past the cut is bounded by
-  `Jobs` in-flight runs, since every worker is on the least prefix available when it started.
-  The outcome table is merged by outcome identity, and the witness kept for an outcome is the
-  one with the least choice prefix, not the first to arrive, so the table, its witnesses and
-  its `incomplete: runs hit` cut are the sequential ones.
+  to lie past the cut is discarded and charged to nothing. `Runs` is also a resource limit
+  today, and stays one: a run is **committed** once every prefix before it has completed, so
+  its position is fixed and below `Runs`; a run that has started but is not committed is
+  **speculative**; and a plan may discard at most `Jobs` speculative runs in its lifetime. Until
+  that allowance is spent, a free worker takes the least prefix not yet run whose position
+  among the prefixes discovered so far is below `Runs`, with at most `Jobs` speculative runs in
+  flight; once it is spent, a worker starts only a prefix that is already committed — the
+  sequential frontier, which always has a next run until the tree or the budget is exhausted —
+  so the plan still finishes exactly the first `Runs` linearizations and never executes more
+  than `Runs + Jobs`. Speculation is what parallelism buys on a wide tree; on an adversarial
+  one (an early prefix that runs slowly while later ones fan out) it degrades to the sequential
+  rate rather than to unbounded work. The outcome table is merged by outcome identity, and the
+  witness kept for an outcome is the one with the least choice prefix, not the first to arrive,
+  so the table, its witnesses and its `incomplete: runs hit` cut are the sequential ones.
 - **`solve`**, **`smt`**: one query, one solver process. The SMT design's sensitivity procedure
   asks three queries whose answers are independent; the induction proof's base and step are
   independent; each is a run.
@@ -435,8 +444,8 @@ past the cut, whether or not that run had finished. That is the same report unde
 and `-jobs 8`, and it is what the sequential `Explore` would print if it stopped at `p`. The
 `Runs` budget is the same kind of cut, and the two compose the same way: a witness at `p` is
 final only if `p` lies within the first `Runs` linearizations, and a run past either cut is
-discarded without being charged, so a plan under `Jobs=8` finishes exactly the prefixes before
-`p` that `Jobs=1` would, however many later runs its workers had started.
+discarded without being charged to `Runs`, so a plan under `Jobs=8` finishes exactly the
+prefixes before `p` that `Jobs=1` would, however many later runs its workers had started.
 
 A plan does not cancel runs that serve a *universal* claim: a plan whose question is `holds`
 under `-engine all` lets `smt` finish even after `explore` has completed, because the two
@@ -546,7 +555,8 @@ reached.
   outcome table and the cut of a violating case whose later prefix violates faster than its
   earlier one and whose later subtree is wider than the earlier; the same case again with
   `runs` set just above the witness's position, so that speculative runs past the cut would
-  exhaust a counted budget; run under `-race`.
+  exhaust a counted budget; and a case whose first prefix is slow while its siblings fan out
+  wide, asserting the physical execution count never exceeds `runs + jobs`; run under `-race`.
 - **Isolation:** two plans on one model in one process on two goroutines, under `-race`, with
   the resolver and semantic model per worker; the gRPC service serves concurrent runtime requests
   on one model.
