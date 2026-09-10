@@ -182,11 +182,11 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if err := h.flow.validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
 	}
-	if err := h.flow.checkNodeResultParameters(block.Graph); err != nil {
+	h.flow.graph = block.Graph
+	if err := h.flow.checkResultParameters(); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
 	}
 	root := h.flow.root
-	h.flow.graph = block.Graph
 	h.flow.features = h.flow.performanceFeatures()
 	root.graph = block.Graph
 	root.connections = block.Graph.Connections
