@@ -380,9 +380,12 @@ runtime's step kin (`OPENSYSML_MAX_STEPS`, `OPENSYSML_MAX_ACTION_STEPS`, `OPENSY
 `OPENSYSML_MAX_DO_STEPS`, `OPENSYSML_MAX_CALC_DEPTH`), which this note leaves open. What the
 framework adds is the two that only make sense once several runs share a machine: `Jobs`, and a
 `Deadline` that applies to the plan. Cancellation is the `context.Context` that `RunSweep`
-already threads through: `Registry.Answer` derives the plan's context from `Deadline`, every
-engine's `Run` observes the context between units of work and returns its error, and a deadline
-met is an error that stops the plan on the step that met it, not a *not covered* result. The
+already threads through: `Registry.Answer` derives the plan's context from `Deadline` and
+checks it before it consults each engine and before it takes an engine's answer, every engine's
+`Run` observes the context between units of work and returns its error, and a deadline met is
+an error that stops the plan on the step that met it, not a *not covered* result; an answer that
+arrives after the deadline is not taken. A unit of work itself — one evaluation, one row, one
+run — is bounded by the runtime's own per-run limits, not by the clock. The
 `all` coordinator of the surface and parallel-runs stages is what returns what it has — so
 `-engine all` with a solver that will not answer still returns when the `explore` half is done —
 by composing the finished engines' results around the stopped step.
@@ -591,9 +594,10 @@ reached.
 - **Isolation:** two plans on one model in one process on two goroutines, under `-race`, with
   the resolver and semantic model per worker; the gRPC service serves concurrent runtime requests
   on one model.
-- **Cancellation:** a deadline already past fails a plan before its first engine runs; a
-  deadline met mid-plan stops it, the step that met it carrying `context.DeadlineExceeded`; a
-  budget without one leaves the caller's context as it is. Under `all`, the coordinator returns
+- **Cancellation:** a deadline already past fails a plan before its first engine is consulted,
+  whether it would have run or refused; a deadline met mid-plan stops it, the step that met it
+  carrying `context.DeadlineExceeded`, an answer arriving after it dropped; a budget without one
+  leaves the caller's context as it is. Under `all`, the coordinator returns
   every finished engine's result, every cancelled engine marked as such with the bound it
   reached, and the composed result at the strength the finished runs earned.
 - **Tools:** the `AnalysisAnnotation` fixture against a stand-in executable, with the

@@ -129,6 +129,46 @@ func TestAPastDeadlineFailsBeforeTheFirstEngineRuns(t *testing.T) {
 	}
 }
 
+func TestAPastDeadlineFailsAPlanEveryEngineWouldRefuse(t *testing.T) {
+	r := registered(t,
+		fakeEngine{name: "strong", kinds: []Kind{Holds}, authority: Proved, refusal: errFixtureRefusal},
+		fakeEngine{name: "weak", kinds: []Kind{Holds}, authority: Observed, refusal: errFixtureRefusal},
+	)
+	budget := Budget{Deadline: time.Now().Add(-time.Second)}
+	plan, err := r.Answer(context.Background(), nil, Question{Kind: Holds, Subject: "R"}, budget)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("answer: %v, want the deadline exceeded, not a plan of refusals", err)
+	}
+	if !sameNames(stepNames(plan), []string{"strong"}) || plan.Steps[0].Refusal != nil || !errors.Is(plan.Steps[0].Err, context.DeadlineExceeded) {
+		t.Fatalf("steps %+v, want the first engine's step carrying the deadline before it was consulted", plan.Steps)
+	}
+	if plan.Refused() != nil || len(plan.Refusals()) != 0 {
+		t.Fatalf("refused %v, want none: no engine was consulted", plan.Refused())
+	}
+}
+
+func TestAnAnswerAfterTheDeadlineIsNotTaken(t *testing.T) {
+	var weakRan int
+	r := registered(t,
+		fakeEngine{name: "strong", kinds: []Kind{Holds}, authority: Proved, run: func(ctx context.Context) (Result, error) {
+			<-ctx.Done()
+			return Result{Claim: ClaimHolds, Strength: Proved}, nil
+		}},
+		fakeEngine{name: "weak", kinds: []Kind{Holds}, authority: Observed, result: Result{Claim: ClaimHolds, Strength: Observed}, ran: &weakRan},
+	)
+	budget := Budget{Deadline: time.Now().Add(20 * time.Millisecond)}
+	plan, err := r.Answer(context.Background(), nil, Question{Kind: Holds, Subject: "R"}, budget)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("answer: %v, want the deadline exceeded although the engine answered", err)
+	}
+	if !sameNames(stepNames(plan), []string{"strong"}) || !errors.Is(plan.Steps[0].Err, context.DeadlineExceeded) || plan.Steps[0].Result != nil || weakRan != 0 {
+		t.Fatalf("steps %+v (weak ran %d), want strong's step carrying the deadline, its late answer dropped", plan.Steps, weakRan)
+	}
+	if plan.Result.Covered() {
+		t.Fatalf("result %+v, want none: the answer came after the deadline", plan.Result)
+	}
+}
+
 func TestADeadlineMetMidPlanStopsThePlanOnThatStep(t *testing.T) {
 	var weakRan int
 	r := registered(t,

@@ -25,7 +25,8 @@ type Step struct {
 	Refusal error
 	// Result is what Run answered, nil when the engine refused or faulted.
 	Result *Result
-	// Err is the fault Run reported, which stopped the plan.
+	// Err is the fault that stopped the plan at this engine: what Run reported, or the
+	// context's error when it was met before the engine ran or before its answer was taken.
 	Err error
 }
 
@@ -75,7 +76,8 @@ func (e *RefusedError) Unwrap() []error { return e.Refusals }
 
 // Answer answers q under `auto`: engines of q's kind strongest first, a refusal or a
 // not-covered result advancing (and kept in the plan), an error from Run stopping the plan.
-// A Deadline in the budget bounds the plan through ctx; meeting it is an error like any other.
+// A Deadline in the budget bounds the plan through ctx; meeting it is an error like any other,
+// checked before each engine is consulted and before an answer is taken from it.
 func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget Budget) (Plan, error) {
 	candidates := r.ranked(q.Kind)
 	if len(candidates) == 0 {
@@ -89,16 +91,19 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 	plan := Plan{Question: q}
 	var last *Result
 	for _, e := range candidates {
+		if err := ctx.Err(); err != nil {
+			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
+			return plan, err
+		}
 		coverage := e.Covers(model, q)
 		if !coverage.Covered {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Refusal: coverage.Refusal})
 			continue
 		}
-		if err := ctx.Err(); err != nil {
-			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
-			return plan, err
-		}
 		result, err := e.Run(ctx, model, q, budget)
+		if err == nil {
+			err = ctx.Err()
+		}
 		if err != nil {
 			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
 			return plan, err
