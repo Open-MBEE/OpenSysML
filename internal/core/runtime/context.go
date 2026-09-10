@@ -6,18 +6,19 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Context carries runtime execution state. One per workspace session.
+// Context is the run-derived state of one execution over a Model: the objects
+// it created, their values and lifetimes, the messages in flight, the clock, the
+// executors' progress. A snapshot captures it; the Model it runs over is shared
+// with every other run of the same model and is not part of it.
 type Context struct {
-	model    *semantics.Model
-	resolver *resolve.Resolver
+	// model is the model-derived part every context over one model shares.
+	model *Model
 	// ids hands out instance identities. Contexts holding the same objects share
 	// one sequence, so no two of them name different objects alike.
 	ids       *idSequence
@@ -38,66 +39,13 @@ type Context struct {
 	// what its memory grows with, unlike a step.
 	maxElements int64
 
-	features map[*symbols.Symbol][]EffectiveFeature
-
-	// arrayFeatures memoizes the declarations of Collections::Array's features
-	// by name; see arrayFeatureSymbols.
-	arrayFeatures map[*symbols.Symbol]string
-
-	// frameFeatures memoizes the declarations of the MeasurementReferences features
-	// a coordinate frame, scale or transformation is read by; see frameFeatureSymbols.
-	frameFeatures map[*symbols.Symbol]string
 	// framesReading holds the frame each object being read is (nil for a
 	// transformation), so `target = that` finds it and a cycle is reported.
 	framesReading map[int64]*CoordinateFrame
 
-	// denotedFeatures memoizes, per type, the name of its feature each declared
-	// feature symbol denotes on an object of that type: itself or a redefinition.
-	denotedFeatures map[*symbols.Symbol]map[*symbols.Symbol]string
-
-	// holders memoizes, per type, the features whose stated value lists each
-	// named feature of the type.
-	holders map[*symbols.Symbol]map[string][]string
-
-	// returnedParams memoizes, per calc shape, the parameters its result passes on;
-	// returnedStack is the shapes under analysis, returnedProvisional those awaiting
-	// the root of their call cycle.
-	returnedParams      map[*calcShape]*returnedAnalysis
-	returnedStack       []*returnedAnalysis
-	returnedProvisional []*returnedAnalysis
-
-	// redefined memoizes, per feature of a type, the features it redefines
-	// transitively; callers read the shared slice and never append to it.
-	redefined map[featureOfType][]*symbols.Symbol
-
-	// writeTargets memoizes the declaration an assignment's target names, per
-	// scope the statement was written in: what a value written must conform to.
-	writeTargets map[writeTargetKey]*writeTarget
-
-	// calcShapes memoizes resolved calc invocation interfaces (parameters,
-	// defaults, result expression) per calc symbol.
-	calcShapes map[*symbols.Symbol]*calcShape
-
-	// predicateShapes memoizes the invocation interfaces of constraints and
-	// requirements applied as predicates.
-	predicateShapes map[*symbols.Symbol]*calcShape
-
 	// evaluations is the log of the case run under way (evaluation_log.go), nil
 	// outside one.
 	evaluations *evaluationLog
-
-	// libraryPerformances memoizes, per model calc, the inherited library function a
-	// call of it applies; nil for a calc that computes on its own.
-	libraryPerformances map[*symbols.Symbol]*libraryPerformance
-
-	// invocationTargets memoizes what each invocation expression denotes in the
-	// scope it is evaluated in; the model does not change under one context.
-	invocationTargets map[invocationKey]*invocationTarget
-
-	// integerLiterals and realLiterals memoize the value each numeric literal
-	// node spells, so a literal in a recursion is parsed once per context.
-	integerLiterals map[*ast.LiteralInteger]int64
-	realLiterals    map[*ast.LiteralReal]float64
 
 	// calcUsageRunning holds the calc usages whose bodies are running, so a body
 	// reading its own usage is a recursion rather than a nested evaluation.
@@ -118,11 +66,6 @@ type Context struct {
 	// is named by the element it annotates and its place among that element's
 	// annotations, so a reanalysis can rebind it.
 	metadataObjects map[metadataAnnotation]int64
-	// behaving memoizes runsBehaviors per type; the model is fixed for the context's life.
-	behaving map[*symbols.Symbol]bool
-	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
-	behavingFeatures map[*symbols.Symbol][]int
-	redefGroups      map[*symbols.Symbol][][]string
 
 	// variantObjects holds the object a variant stands for per owner that
 	// selected it, so repeated reads of one selection read the same object.
@@ -137,23 +80,10 @@ type Context struct {
 	// so a connector reached from its own end is reported as a cycle.
 	materializingConnectors map[connectorRef]bool
 
-	// objectConns memoizes the connections declared by each type an object is
-	// of, which a behavior that object performs routes over.
-	objectConns map[*symbols.Symbol][]lower.Connection
-
-	// objectBindings memoizes binding connectors declared by each materialized
-	// object type, including bindings inherited from its supertypes.
-	bindingIR map[*symbols.Symbol][]lower.Binding
-
 	// resolvingBindings guards binding endpoint resolution for one instance
 	// feature, so a valueless binding cycle is reported rather than recursed.
 	resolvingBindings map[featureValueRef]bool
 	bindingOwners     map[featureValueRef]*ast.Usage
-	bindingFeatures   map[*symbols.Symbol]map[string][]lower.Binding
-
-	// classifierBehaviors memoizes the behaviors each type binds to its objects:
-	// the machines it exhibits and the actions it performs.
-	classifierBehaviors map[*symbols.Symbol][]classifierBehaviorDecl
 
 	// pendingBehaviors are the object behaviors attached but not yet run, drained
 	// by the outermost materialization so a start reached from inside a running
@@ -278,16 +208,6 @@ type Context struct {
 	// readingSubsetted holds the optional features whose subsetted collections are
 	// being read ahead of them, so two subsetting each other do not recurse.
 	readingSubsetted map[featureValueRef]bool
-
-	// sources holds the text of the files the model was read from, by name, so an
-	// error about a declaration can say where it was written. A file no caller
-	// registered is reported by name and byte offset instead.
-	sources map[string]*source.SourceFile
-
-	// scopes holds the scope trees the caller resolves references in; declared
-	// maps each declaration node to the symbol they declare for it, built on first use.
-	scopes   []*symbols.Scope
-	declared map[ast.Node]*symbols.Symbol
 }
 
 // featureValueRef identifies one feature value of one instance.
@@ -315,39 +235,26 @@ type connectorRef struct {
 	connector *symbols.Symbol
 }
 
-// NewContext creates a runtime context backed by the given semantic model.
+// NewContext creates a run's context over the model-derived part model.
 // maxSteps sets the runaway guard (step counter limit); the executor bounds take
 // their defaults, which SetBudgets replaces.
 // It panics if maxSteps <= 0: the limit is a programmer-supplied invariant, not
 // user input, so callers must pass a positive value.
-func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int64) *Context {
+func NewContext(model *Model, maxSteps int64) *Context {
 	if maxSteps <= 0 {
 		panic(fmt.Sprintf("runtime: maxSteps must be > 0, got %d", maxSteps))
 	}
-	if model != nil {
-		// Calls the model selects on its own (document queries, signal payloads) then
-		// pick the overload the checker's argument typing picks.
-		model.SetArgumentTyper(passes.NewArgumentTyper(resolver, model))
+	if model == nil {
+		panic("runtime: NewContext needs a Model")
 	}
 	return &Context{
-		model:               model,
-		resolver:            resolver,
-		ids:                 &idSequence{next: 1}, // IDs start at 1 (0 = invalid)
-		maxSteps:            maxSteps,
-		instances:           make(map[int64]*Instance),
-		lives:               make(map[int64]life),
-		features:            make(map[*symbols.Symbol][]EffectiveFeature),
-		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
-		holders:             make(map[*symbols.Symbol]map[string][]string),
-		returnedParams:      make(map[*calcShape]*returnedAnalysis),
-		calcShapes:          make(map[*symbols.Symbol]*calcShape),
-		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
-		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
+		model:     model,
+		ids:       &idSequence{next: 1}, // IDs start at 1 (0 = invalid)
+		maxSteps:  maxSteps,
+		instances: make(map[int64]*Instance),
+		lives:     make(map[int64]life),
 
-		invocationTargets: make(map[invocationKey]*invocationTarget),
-		integerLiterals:   make(map[*ast.LiteralInteger]int64),
-		realLiterals:      make(map[*ast.LiteralReal]float64),
-		compileCalcs:      CalcCompileFromEnv(),
+		compileCalcs: CalcCompileFromEnv(),
 
 		run:              &runState{calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun)},
 		calcUsageRunning: make(map[calcUsageKey]*calcShape),
@@ -361,64 +268,27 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 
 		occurrences:      make(map[*symbols.Symbol]int64),
 		metadataObjects:  make(map[metadataAnnotation]int64),
-		behaving:         make(map[*symbols.Symbol]bool),
-		behavingFeatures: make(map[*symbols.Symbol][]int),
-		redefGroups:      make(map[*symbols.Symbol][][]string),
 		variantObjects:   make(map[variantObject]int64),
 		selectedVariants: make(map[variantSelection]string),
 
 		materializingConnectors: make(map[connectorRef]bool),
-		objectConns:             make(map[*symbols.Symbol][]lower.Connection),
-		bindingIR:               make(map[*symbols.Symbol][]lower.Binding),
-		classifierBehaviors:     make(map[*symbols.Symbol][]classifierBehaviorDecl),
 		derivingFeatureValues:   make(map[featureValueRef]bool),
 		resolvingBindings:       make(map[featureValueRef]bool),
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
-		bindingFeatures:         make(map[*symbols.Symbol]map[string][]lower.Binding),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
-		redefined:               make(map[featureOfType][]*symbols.Symbol),
-		sources:                 make(map[string]*source.SourceFile),
 	}
 }
 
-// RegisterSource gives the context the text of a file the model was read from,
-// so an error about a declaration in it reports a line and column.
-func (ctx *Context) RegisterSource(sf *source.SourceFile) {
-	if sf == nil {
-		return
-	}
-	ctx.sources[sf.Name()] = sf
+// Model returns the model-derived part this context runs over.
+func (ctx *Context) Model() *Model {
+	return ctx.model
 }
 
-// RegisterScope gives the context a scope tree the caller resolves references
-// in, so a declaration carried over by Adopt is rebound to the symbol that tree
-// declares for it rather than to the index's own.
-func (ctx *Context) RegisterScope(scope *symbols.Scope) {
-	if scope == nil {
-		return
-	}
-	ctx.scopes = append(ctx.scopes, scope)
-	ctx.declared = nil
-}
-
-// declaredSymbol is the symbol a registered scope tree declares for the
-// declaration sym stands for, or sym itself when none does (a library declaration,
-// or a context resolving in the index's tree alone).
+// declaredSymbol is the symbol a scope tree registered with the model declares
+// for the declaration sym stands for, or sym itself when none does.
 func (ctx *Context) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil || sym.Decl == nil || len(ctx.scopes) == 0 {
-		return sym
-	}
-	if ctx.declared == nil {
-		ctx.declared = make(map[ast.Node]*symbols.Symbol)
-		for _, scope := range ctx.scopes {
-			collectDeclared(scope, ctx.declared)
-		}
-	}
-	if local, ok := ctx.declared[sym.Decl]; ok {
-		return local
-	}
-	return sym
+	return ctx.model.declaredSymbol(sym)
 }
 
 // collectDeclared records the symbol declared by each node under scope.
@@ -442,7 +312,7 @@ func (ctx *Context) sourceLocation(file string, span source.Span) string {
 	if file == "" {
 		return ""
 	}
-	sf, ok := ctx.sources[file]
+	sf, ok := ctx.model.sources[file]
 	if !ok || span.End() > sf.Len() {
 		if span.Len == 0 && span.Offset == 0 {
 			return file
@@ -512,16 +382,16 @@ func (ctx *Context) scheduling() *scheduler {
 	return ctx.run.scheduler
 }
 
-// Model returns the semantic model this context operates over.
-func (ctx *Context) Model() *semantics.Model {
-	return ctx.model
+// Semantics returns the semantic model this context operates over.
+func (ctx *Context) Semantics() *semantics.Model {
+	return ctx.model.semantics
 }
 
 // conforms is the model's conformance across scope trees: the index and a
 // document each build a symbol of their own for one declaration, so a symbol
 // conforms to another declared by the same node as it or one of its supertypes.
 func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
-	if ctx.model.Conforms(a, b) {
+	if ctx.model.semantics.Conforms(a, b) {
 		return true
 	}
 	if a == nil || b == nil || b.Decl == nil {
@@ -530,7 +400,7 @@ func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
 	if a.Decl == b.Decl {
 		return true
 	}
-	for _, sup := range ctx.model.AllSupertypes(a) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(a) {
 		if sup != nil && sup.Decl == b.Decl {
 			return true
 		}
@@ -540,7 +410,7 @@ func (ctx *Context) conforms(a, b *symbols.Symbol) bool {
 
 // Resolver returns the name resolver this context resolves references with.
 func (ctx *Context) Resolver() *resolve.Resolver {
-	return ctx.resolver
+	return ctx.model.resolver
 }
 
 // SourceLocation renders where a span in a file was written, as `file:line:col`,
@@ -1230,7 +1100,7 @@ type scopedMember struct {
 // library's supertype contributes as a model's does.
 func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []scopedMember {
 	var out []scopedMember
-	supers := ctx.model.MemberSources(sym)
+	supers := ctx.model.semantics.MemberSources(sym)
 	for i := len(supers) - 1; i >= 0; i-- {
 		link := supers[i]
 		if link == nil || ctx.frameDeclared(link) {

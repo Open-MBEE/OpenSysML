@@ -139,7 +139,7 @@ func (ctx *Context) shapeHoldsValue(typ *symbols.Symbol) bool {
 	if len(features) == 0 {
 		return false
 	}
-	if !ctx.model.ValueHeld(typ) {
+	if !ctx.model.semantics.ValueHeld(typ) {
 		return true
 	}
 	for _, feat := range features {
@@ -232,9 +232,9 @@ func (ctx *Context) newFeatureValue(inst *Instance, feat *EffectiveFeature) *Fea
 // default is folded eagerly, any other default is left for GetFeatureValue to evaluate and report.
 func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) {
 	*fv = FeatureValue{Feature: feat}
-	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.IsVariationFeature(feat.Symbol) &&
+	if ctx.valueBinds(feat) && feat.Scalar() && !ctx.model.semantics.IsVariationFeature(feat.Symbol) &&
 		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) {
-		if semVal, ok := ctx.model.Eval(feat.DefaultValue); ok {
+		if semVal, ok := ctx.model.semantics.Eval(feat.DefaultValue); ok {
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
 				fv.Value = val
@@ -397,7 +397,7 @@ func (ctx *Context) namesOneObject(sym *symbols.Symbol) bool {
 	}
 	// A variation classifies its variants abstractly, so it is no object of
 	// itself: it holds nothing until it is bound to one.
-	if ctx.model.IsVariationFeature(sym) {
+	if ctx.model.semantics.IsVariationFeature(sym) {
 		return false
 	}
 	return isOccurrenceUsage(sym) || ctx.namesStructuredValue(sym)
@@ -421,7 +421,7 @@ func (ctx *Context) namesStructuredValue(sym *symbols.Symbol) bool {
 		return false
 	}
 	typ := ctx.extractType(sym)
-	if typ == nil || ctx.model.PrimTypeOf(typ) != semantics.PrimUnknown {
+	if typ == nil || ctx.model.semantics.PrimTypeOf(typ) != semantics.PrimUnknown {
 		return false
 	}
 	return ctx.shapeHoldsValue(sym)
@@ -612,7 +612,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 
 	// A variation holds the variant it was bound to, and nothing until it is
 	// bound: it classifies its variants abstractly, so it is no object of itself.
-	if ctx.model.IsVariationFeature(fv.Feature.Symbol) {
+	if ctx.model.semantics.IsVariationFeature(fv.Feature.Symbol) {
 		if fv.Feature.DefaultValue == nil {
 			return nil, fmt.Errorf("%w: %s.%s", ErrVariationUnselected, inst.Type.Name, name)
 		}
@@ -683,13 +683,13 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	// An abstract feature has no values of its own (KerML 1.0 §7.3.3.1) and an
 	// optional one demands none: each, a connector included, holds only contributions —
 	// unless the declaration's body binds a feature of the one object it then holds.
-	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.IsConnectorUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
+	if fv.Feature.HoldsOnlyContributions() && !ctx.bodyBindsAFeature(fv.Feature) && (ctx.model.semantics.IsConnectorUsage(fv.Feature.Symbol) || ctx.CompositeTypeOf(fv.Feature) != nil) {
 		return inst.holdContributions(ctx, fv, name)
 	}
 
 	// A connector holds the features it connects at its ends rather than objects
 	// of its own, so it is materialized from what the `connect` clause names.
-	if ctx.model.IsConnectorUsage(fv.Feature.Symbol) {
+	if ctx.model.semantics.IsConnectorUsage(fv.Feature.Symbol) {
 		if err := ctx.materializeConnectorFeatureValue(inst, fv, name); err != nil {
 			return nil, err
 		}
@@ -838,7 +838,7 @@ func (ctx *Context) CompositeTypeOf(feat *EffectiveFeature) *symbols.Symbol {
 	}
 	// A variation is materialized from the variant it is bound to, never from
 	// itself: it is an abstract classifier of its variants.
-	if ctx.model.IsVariationFeature(feat.Symbol) {
+	if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 		return nil
 	}
 	// A subject is a reference usage (SysML.xtext SubjectUsage): it holds what
@@ -987,7 +987,7 @@ func (ctx *Context) bindsAFeature(sym *symbols.Symbol) bool {
 	}
 	for _, member := range sym.Scope.AllMembers() {
 		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || !holdsRecordField(member) || ctx.model.FrameFeature(member) {
+		if !ok || !holdsRecordField(member) || ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if usage.Value != nil {

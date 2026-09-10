@@ -134,7 +134,7 @@ func (ctx *Context) appendMemberConditions(out []Condition, sym *symbols.Symbol,
 // appendResultConflict appends the marker for a second owned or inherited result
 // expression of sym, which no body of the runtime's choosing may stand in for.
 func (ctx *Context) appendResultConflict(out []Condition, sym *symbols.Symbol, required bool) []Condition {
-	conflict := ctx.model.ResultExpressionConflict(sym)
+	conflict := ctx.model.semantics.ResultExpressionConflict(sym)
 	if conflict == nil {
 		return out
 	}
@@ -160,7 +160,7 @@ func (ctx *Context) namedConstraintOf(member scopedMember) *symbols.Symbol {
 
 // effectiveMembers is the set of members sym has: MembersOf as a set.
 func (ctx *Context) effectiveMembers(sym *symbols.Symbol) map[*symbols.Symbol]bool {
-	members := ctx.model.MembersOf(sym)
+	members := ctx.model.semantics.MembersOf(sym)
 	set := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		set[member] = true
@@ -380,14 +380,14 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 // member decl reference-subsets, and returns nil when the reference names
 // anything else or does not resolve.
 func (ctx *Context) referencedRequirement(scope *symbols.Scope, decl ast.Node, ref ast.Node) *symbols.Symbol {
-	if ctx.resolver == nil {
+	if ctx.model.resolver == nil {
 		return nil
 	}
-	sym, ok := ctx.resolver.ResolveReferenceTarget(scope, decl, ref)
+	sym, ok := ctx.model.resolver.ResolveReferenceTarget(scope, decl, ref)
 	if !ok || sym == nil {
 		return nil
 	}
-	if canonical, ok := ctx.resolver.ResolveAliasTarget(sym); ok {
+	if canonical, ok := ctx.model.resolver.ResolveAliasTarget(sym); ok {
 		sym = canonical
 	}
 	if RequireRequirement(sym) != nil && RequireConstraint(sym) != nil {
@@ -492,7 +492,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	roots := []*Instance{self}
 	if self == nil {
 		roots = ctx.rootInstances()
-	} else if ctx.model.Conforms(self.Type, owner) {
+	} else if ctx.model.semantics.Conforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
 	carriers := ctx.carriersUnder(roots, owner)
@@ -616,7 +616,7 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 		seen[inst.ID] = true
 		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if ctx.model.Conforms(inst.Type, owner) && !declared[occurrence] {
+		if ctx.model.semantics.Conforms(inst.Type, owner) && !declared[occurrence] {
 			declared[occurrence] = true
 			out = append(out, carrier{instance: inst, root: root, features: features})
 		}
@@ -800,7 +800,7 @@ func (ctx *Context) definitionOf(sym *symbols.Symbol) *symbols.Symbol {
 	if _, ok := sym.Decl.(*ast.Definition); ok {
 		return sym
 	}
-	for _, super := range ctx.model.AllSupertypes(sym) {
+	for _, super := range ctx.model.semantics.AllSupertypes(sym) {
 		if _, ok := super.Decl.(*ast.Definition); ok {
 			return super
 		}

@@ -203,7 +203,7 @@ func TestProcessNextEventTakesAPendingSignalBeforeALaterTimer(t *testing.T) {
 		}
 		attribute def Kick;
 	`)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	exec, err := ctx.CreateStateExecutorFor(resolveSymbol(t, root, "Waiter"), nil)
 	if err != nil {
 		t.Fatalf("CreateStateExecutorFor: %v", err)
@@ -244,7 +244,7 @@ func TestRunToCompletionTakesAPendingSignalBeforeALaterTimer(t *testing.T) {
 		}
 		attribute def Kick;
 	`)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	exec, err := ctx.CreateStateExecutorFor(resolveSymbol(t, root, "Waiter"), nil)
 	if err != nil {
 		t.Fatalf("CreateStateExecutorFor: %v", err)
@@ -1564,7 +1564,7 @@ const adoptLinkedSrc = `package Demo {
 // materializes the same connector, not a new one.
 func TestPreviewsLeaveACarriedObjectsConnectorIdentitiesKept(t *testing.T) {
 	prev := contextOver(t, adoptLinkedSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Sys"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Sys"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1588,7 +1588,7 @@ func TestPreviewsLeaveACarriedObjectsConnectorIdentitiesKept(t *testing.T) {
 	if !ok {
 		t.Fatal("the carried object runs no machine")
 	}
-	goMsg, err := ctx.SignalMessage(lookupOne(t, ctx.resolver.Index(), "Demo::Go"), nil, obj)
+	goMsg, err := ctx.SignalMessage(lookupOne(t, ctx.model.resolver.Index(), "Demo::Go"), nil, obj)
 	if err != nil {
 		t.Fatalf("SignalMessage(Go): %v", err)
 	}

@@ -191,7 +191,7 @@ func (ctx *Context) ExhibitsState(member, sym *symbols.Symbol) bool {
 func (ctx *Context) behaviorKinds(chain []*symbols.Symbol) []*symbols.Symbol {
 	var kinds []*symbols.Symbol
 	for _, sym := range chain {
-		for _, sup := range ctx.model.AllSupertypes(sym) {
+		for _, sup := range ctx.model.semantics.AllSupertypes(sym) {
 			if !slices.Contains(chain, sup) && !slices.Contains(kinds, sup) {
 				kinds = append(kinds, sup)
 			}
@@ -223,11 +223,11 @@ func (ctx *Context) classifierBehaviorsOf(typeSym *symbols.Symbol) []classifierB
 	if typeSym == nil {
 		return nil
 	}
-	if cached, ok := ctx.classifierBehaviors[typeSym]; ok {
+	if cached, ok := ctx.model.classifierBehaviors[typeSym]; ok {
 		return cached
 	}
 	var out []classifierBehaviorDecl
-	for _, member := range ctx.model.MembersOf(typeSym) {
+	for _, member := range ctx.model.semantics.MembersOf(typeSym) {
 		if member.Decl == nil {
 			continue
 		}
@@ -235,7 +235,7 @@ func (ctx *Context) classifierBehaviorsOf(typeSym *symbols.Symbol) []classifierB
 			out = append(out, classifierBehaviorDecl{behavior: behavior, member: member})
 		}
 	}
-	ctx.classifierBehaviors[typeSym] = out
+	ctx.model.classifierBehaviors[typeSym] = out
 	return out
 }
 
@@ -453,17 +453,17 @@ func (ctx *Context) materializeBehavingParts(inst *Instance) error {
 // behavingParts returns the positions in FeaturesOf(typeSym) of the required
 // composite parts whose objects run behaviors, memoized per type.
 func (ctx *Context) behavingParts(typeSym *symbols.Symbol) []int {
-	if parts, ok := ctx.behavingFeatures[typeSym]; ok {
+	if parts, ok := ctx.model.behavingFeatures[typeSym]; ok {
 		return parts
 	}
 	features := ctx.FeaturesOf(typeSym)
 	parts := []int{}
 	for i := range features {
-		if !ctx.model.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
+		if !ctx.model.semantics.IsConnectorUsage(features[i].Symbol) && ctx.holdsBehavingPart(&features[i]) {
 			parts = append(parts, i)
 		}
 	}
-	ctx.behavingFeatures[typeSym] = parts
+	ctx.model.behavingFeatures[typeSym] = parts
 	return parts
 }
 
@@ -493,7 +493,7 @@ func (ctx *Context) requiredPartType(feat *EffectiveFeature) *symbols.Symbol {
 // it would run does not count. A type on the path being decided answers false: a
 // composition cycle has no finite object, so nothing is lost by cutting it.
 func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols.Symbol]bool) bool {
-	if known, ok := ctx.behaving[typeSym]; ok {
+	if known, ok := ctx.model.behaving[typeSym]; ok {
 		return known
 	}
 	if visiting[typeSym] {
@@ -507,14 +507,14 @@ func (ctx *Context) runsBehaviors(typeSym *symbols.Symbol, visiting map[*symbols
 		if runs {
 			break
 		}
-		if ctx.model.IsConnectorUsage(features[i].Symbol) {
+		if ctx.model.semantics.IsConnectorUsage(features[i].Symbol) {
 			continue
 		}
 		if composite := ctx.requiredPartType(&features[i]); composite != nil && ctx.runsBehaviors(composite, visiting) {
 			runs = true
 		}
 	}
-	ctx.behaving[typeSym] = runs
+	ctx.model.behaving[typeSym] = runs
 	return runs
 }
 
@@ -883,14 +883,14 @@ func (ctx *Context) classifierBehaviorChain(decl classifierBehaviorDecl) ([]*sym
 // reference-subsets, the type it states, or — for `exhibit m;`, whose name is
 // the state usage declared elsewhere — that usage.
 func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
-	if ref := ctx.model.ReferencedFeature(sym); ref != nil {
+	if ref := ctx.model.semantics.ReferencedFeature(sym); ref != nil {
 		return ref
 	}
 	if typ := ctx.extractType(sym); typ != nil {
 		return typ
 	}
 	if sym.Name != "" && sym.OwnerScope != nil {
-		if named, ok := ctx.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok {
+		if named, ok := ctx.model.resolver.LookupNameExcluding(sym.OwnerScope, sym.Name, sym.Decl); ok {
 			return named
 		}
 	}
@@ -923,7 +923,7 @@ func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierB
 // argumentParameter names the behavior parameter an argument binds: the feature
 // its declaration redefines (`in <a> :>> x = 4` binds x), else its own name.
 func (ctx *Context) argumentParameter(scope *symbols.Scope, arg lower.Attribute) string {
-	for _, redefined := range ctx.model.RedefinedFeatures(memberSymbol(scope, arg.Node)) {
+	for _, redefined := range ctx.model.semantics.RedefinedFeatures(memberSymbol(scope, arg.Node)) {
 		if redefined.Name != "" {
 			return redefined.Name
 		}
@@ -993,10 +993,10 @@ func assignPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, 
 // written, denotes a feature of the object performing the behavior under any of
 // its types: the performer is not a namespace the body's names are looked up in.
 func namesPerformerFeature(ctx *Context, self *Instance, scope *symbols.Scope, name string) bool {
-	if ctx == nil || ctx.resolver == nil || self == nil || scope == nil {
+	if ctx == nil || ctx.model.resolver == nil || self == nil || scope == nil {
 		return false
 	}
-	sym, ok := ctx.resolver.LookupName(scope, name)
+	sym, ok := ctx.model.resolver.LookupName(scope, name)
 	if !ok || sym == nil {
 		return false
 	}
@@ -1021,7 +1021,7 @@ func (ctx *Context) typeHoldsFeature(typeSym, feature *symbols.Symbol) bool {
 	if owner == typeSym {
 		return true
 	}
-	for _, super := range ctx.model.AllSupertypes(typeSym) {
+	for _, super := range ctx.model.semantics.AllSupertypes(typeSym) {
 		if super == owner {
 			return true
 		}

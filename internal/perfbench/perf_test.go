@@ -265,7 +265,7 @@ func BenchmarkFeaturesOf(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		r := resolve.New(idx)
 		m := semantics.NewModel(r)
-		ctx := runtime.NewContext(m, r, 100000)
+		ctx := runtime.NewContext(runtime.NewModel(m, r), 100000)
 		for _, t := range types {
 			_ = ctx.FeaturesOf(t)
 		}
@@ -338,7 +338,7 @@ func newRT(tb testing.TB, src []byte) *rt {
 	idx.ExpandWildcardImports()
 	r := resolve.New(idx)
 	m := semantics.NewModel(r)
-	ctx := runtime.NewContext(m, r, 10_000_000)
+	ctx := runtime.NewContext(runtime.NewModel(m, r), 10_000_000)
 	return &rt{idx: idx, res: r, sem: m, ctx: ctx, root: idx.DocumentRoot("m.sysml")}
 }
 
@@ -405,7 +405,7 @@ func BenchmarkExecuteActionFreshContext(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ctx := runtime.NewContext(r.sem, r.res, 10_000_000)
+		ctx := runtime.NewContext(runtime.NewModel(r.sem, r.res), 10_000_000)
 		if _, err := ctx.ExecuteAction(act); err != nil {
 			b.Fatal(err)
 		}
@@ -499,7 +499,7 @@ func BenchmarkBatchSatisfy(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ctx := runtime.NewContext(r.sem, r.res, 10_000_000)
+		ctx := runtime.NewContext(runtime.NewModel(r.sem, r.res), 10_000_000)
 		for _, a := range assertions {
 			if _, err := ctx.EvaluateSatisfaction(a); err != nil && !strings.Contains(err.Error(), "evaluated to false") {
 				b.Fatalf("satisfy: %v", err)
@@ -518,7 +518,7 @@ func BenchmarkInstantiate(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ctx := runtime.NewContext(r.sem, r.res, 10_000_000)
+		ctx := runtime.NewContext(runtime.NewModel(r.sem, r.res), 10_000_000)
 		for _, s := range syms {
 			if _, err := ctx.Instantiate(s); err != nil {
 				b.Fatal(err)

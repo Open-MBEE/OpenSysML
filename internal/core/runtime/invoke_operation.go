@@ -75,7 +75,7 @@ func (ctx *Context) InvokeOperation(inst *Instance, name string, args map[string
 // reports a member that states no executable behavior.
 func (ctx *Context) operationOf(inst *Instance, name string) (*symbols.Symbol, error) {
 	var member *symbols.Symbol
-	for _, candidate := range ctx.model.MembersOf(inst.Type) {
+	for _, candidate := range ctx.model.semantics.MembersOf(inst.Type) {
 		if candidate.Name == name {
 			member = candidate
 			break

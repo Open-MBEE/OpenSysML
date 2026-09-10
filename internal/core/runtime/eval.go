@@ -205,8 +205,8 @@ func (ec *EvalContext) lookupSubaction(name string) (perf *actionFrame, declared
 		return nil, false, nil
 	}
 	var decl ast.Node
-	if ec.ctx.resolver != nil {
-		if sym, ok := ec.ctx.resolver.LookupName(ec.scope, name); ok && sym != nil {
+	if ec.ctx.model.resolver != nil {
+		if sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name); ok && sym != nil {
 			if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind != ast.UsageAction && !lower.IsCaseNode(usage) {
 				return nil, false, nil
 			}
@@ -391,14 +391,14 @@ func (ctx *Context) EvalWithScopeOn(node ast.Node, scope *symbols.Scope, self *I
 // evalLiteralInteger evaluates an integer literal, reporting one outside the
 // Integer range rather than clamping it.
 func (ec *EvalContext) evalLiteralInteger(n *ast.LiteralInteger) (Value, error) {
-	val, ok := ec.ctx.integerLiterals[n]
+	val, ok := ec.ctx.model.integerLiterals[n]
 	if !ok {
 		var err error
 		if val, err = strconv.ParseInt(n.Value, 10, 64); err != nil {
 			return Value{}, fmt.Errorf("%w: literal %s is outside the Integer range",
 				semantics.ErrArithmeticOverflow, n.Value)
 		}
-		ec.ctx.integerLiterals[n] = val
+		ec.ctx.model.integerLiterals[n] = val
 	}
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: val}}, nil
 }
@@ -406,13 +406,13 @@ func (ec *EvalContext) evalLiteralInteger(n *ast.LiteralInteger) (Value, error) 
 // evalLiteralReal evaluates a real literal, reporting one outside the Real
 // range rather than carrying it as an infinity.
 func (ec *EvalContext) evalLiteralReal(n *ast.LiteralReal) (Value, error) {
-	val, ok := ec.ctx.realLiterals[n]
+	val, ok := ec.ctx.model.realLiterals[n]
 	if !ok {
 		var err error
 		if val, err = semantics.ParseReal(n.Value); err != nil {
 			return Value{}, fmt.Errorf("%w: literal %s is outside the Real range", err, n.Value)
 		}
-		ec.ctx.realLiterals[n] = val
+		ec.ctx.model.realLiterals[n] = val
 	}
 	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: val}}, nil
 }
@@ -456,18 +456,18 @@ func (ec *EvalContext) declaredElements(node ast.Node, val Value, err error) (Va
 // statically declared to yield, in their coherent unit; false where the
 // declarations fix no dimension or a dimensionless one.
 func (ctx *Context) emptyOfDeclared(scope *symbols.Scope, node ast.Node) (Value, bool) {
-	if ctx.model == nil || scope == nil {
+	if ctx.model.semantics == nil || scope == nil {
 		return Value{}, false
 	}
-	return ctx.emptyOfDimension(ctx.model.DimensionOfExpr(scope, node))
+	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfExpr(scope, node))
 }
 
 // emptyOfFeature is emptyOfDeclared for the values a feature declares it holds.
 func (ctx *Context) emptyOfFeature(feat *EffectiveFeature) (Value, bool) {
-	if ctx.model == nil || feat == nil {
+	if ctx.model.semantics == nil || feat == nil {
 		return Value{}, false
 	}
-	return ctx.emptyOfDimension(ctx.model.DimensionOfFeature(feat.heldBy()))
+	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfFeature(feat.heldBy()))
 }
 
 // emptyOfDimension is the empty sequence of quantities of a dimension, in its
@@ -476,7 +476,7 @@ func (ctx *Context) emptyOfDimension(dim semantics.Dimension, ok bool) (Value, b
 	if !ok || dim.Term.Dimensionless() {
 		return Value{}, false
 	}
-	unit, ok := ctx.model.CoherentUnit(dim)
+	unit, ok := ctx.model.semantics.CoherentUnit(dim)
 	if !ok {
 		return Value{}, false
 	}
@@ -614,7 +614,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		// evaluated in the scope it was declared in, so the imports in force there
 		// — rather than the ones in force here — answer the names it uses.
 		if ec.scope != nil && !ec.resolving[name] {
-			if sym, ok := ec.ctx.resolver.LookupName(ec.scope, name); ok && sym != nil {
+			if sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name); ok && sym != nil {
 				// An inherited expression reads the feature as the running behavior
 				// inherits it: through the redefinition, when it states one.
 				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
@@ -623,7 +623,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 				if semantics.EnumerationOwning(sym) != nil {
 					return ec.enumLiteralValue(sym)
 				}
-				if ec.ctx.model.VariationPointOwning(sym) != nil {
+				if ec.ctx.model.semantics.VariationPointOwning(sym) != nil {
 					return variantReference(sym), nil
 				}
 				// A feature of an enclosing type, named from a nested usage, is read
@@ -676,7 +676,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 				}
 				// A variation holds nothing until it is bound, whether it is read
 				// through an object or through its declaration.
-				if ec.ctx.model.IsVariationFeature(sym) {
+				if ec.ctx.model.semantics.IsVariationFeature(sym) {
 					return Value{}, fmt.Errorf("%w: %s", ErrVariationUnselected, name)
 				}
 				return Value{}, ec.resolvedWithoutValue(sym, qn)
@@ -692,8 +692,8 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		if _, declared := ec.features[name]; declared {
 			return Value{}, &NoValueError{Feature: name, Ref: qn}
 		}
-		if ec.ctx.resolver != nil && ec.scope != nil {
-			return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedName(ec.scope, name, qn))
+		if ec.ctx.model.resolver != nil && ec.scope != nil {
+			return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, name, qn))
 		}
 		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
@@ -702,7 +702,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	// visibility, aliases and inherited members included — so the two agree. It
 	// is read in this evaluation's scope, since one expression may be evaluated
 	// in several.
-	reading := ec.ctx.resolver.ReadQualified(ec.scope, qn)
+	reading := ec.ctx.model.resolver.ReadQualified(ec.scope, qn)
 
 	// A path starting at a node of an action performance on the stack reads
 	// through that node's performance: `p.v`, `leg.inner.v`.
@@ -764,13 +764,13 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		if semantics.EnumerationOwning(currentSym) != nil {
 			return ec.enumLiteralValue(currentSym)
 		}
-		if ec.ctx.model.VariationPointOwning(currentSym) != nil {
+		if ec.ctx.model.semantics.VariationPointOwning(currentSym) != nil {
 			return variantReference(currentSym), nil
 		}
 		if decl.Value != nil {
 			return ec.declaredValue(currentSym, decl.Value)
 		}
-		if ec.ctx.model.IsVariationFeature(currentSym) {
+		if ec.ctx.model.semantics.IsVariationFeature(currentSym) {
 			return Value{}, fmt.Errorf("%w: %s", ErrVariationUnselected, qualifiedNameToString(qn))
 		}
 		// A part, item or structured value names an object, read as that object.
@@ -885,12 +885,12 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 			return fmt.Errorf("%w: %s is not a literal of %s (%s)",
 				ErrNotALiteral, memberName, owner.Name, ec.ctx.enumerationSummary(owner))
 		}
-		if ec.ctx.model.IsVariationFeature(owner) {
+		if ec.ctx.model.semantics.IsVariationFeature(owner) {
 			return fmt.Errorf("%w: %s is not a variant of %s (%s)",
 				ErrNotAVariant, memberName, owner.Name, ec.ctx.variantSummary(owner))
 		}
-		if ec.ctx.resolver != nil {
-			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
+		if ec.ctx.model.resolver != nil {
+			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
 		}
 		break
 	}
@@ -932,7 +932,7 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 // emptyDeclaredFeature reads a valueless feature declaration whose lower bound is
 // zero as the empty sequence. A variation is a choice, not an empty feature.
 func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
-	if !ec.ctx.optionalValueless(sym) || ec.ctx.model.IsVariationFeature(sym) {
+	if !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return Value{}, false
 	}
 	return sequenceOf(nil), true
@@ -944,8 +944,8 @@ func (ec *EvalContext) namesSelf(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.resolver.LookupName(ec.scope, name)
-	return ok && ec.ctx.model.IsSelf(sym)
+	sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name)
+	return ok && ec.ctx.model.semantics.IsSelf(sym)
 }
 
 // namesOccurrenceThis reports whether the name resolves to the library's
@@ -954,14 +954,14 @@ func (ec *EvalContext) namesOccurrenceThis(name string) bool {
 	if ec.scope == nil {
 		return false
 	}
-	sym, ok := ec.ctx.resolver.LookupName(ec.scope, name)
-	return ok && ec.ctx.resolver.IsOccurrenceThis(sym)
+	sym, ok := ec.ctx.model.resolver.LookupName(ec.scope, name)
+	return ok && ec.ctx.model.resolver.IsOccurrenceThis(sym)
 }
 
 // thisValue is the object owning the performance being evaluated. A body no
 // object owns has none: `this` there is the performance itself.
 func (ec *EvalContext) thisValue() (Value, error) {
-	object := ec.ctx.resolver.ThisContext(ec.scope)
+	object := ec.ctx.model.resolver.ThisContext(ec.scope)
 	if object == nil {
 		return Value{}, fmt.Errorf("%w: this names the performance itself, which no object owns",
 			ErrThisNotAnObject)
@@ -1077,10 +1077,10 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 // `wheels.nonexistent` is unresolved rather than unset when wheels has no value.
 func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegment) error {
 	ref, ok := base.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || ec.ctx.resolver == nil {
+	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
 		return nil
 	}
-	cur, ok := ec.ctx.resolver.ResolveQualified(ec.scope, ref.Name)
+	cur, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, ref.Name)
 	if !ok || cur == nil {
 		return nil
 	}
@@ -1102,7 +1102,7 @@ func (ctx *Context) declaredMember(sym *symbols.Symbol, name string) (*symbols.S
 			return feat.Symbol, true
 		}
 	}
-	return ctx.model.LookupMember(sym, name)
+	return ctx.model.semantics.LookupMember(sym, name)
 }
 
 // chainBase flattens a nested feature chain: `lander.mass.mDry` is one chain of
@@ -1206,7 +1206,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if !ok {
 		// A calc usage is an evaluation rather than a feature value, so its outputs are
 		// read from a run of it against this object.
-		if sym, found := ec.ctx.model.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
+		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
 			return ec.calcUsageMemberValue(sym, inst, parts[1:])
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
@@ -1302,7 +1302,7 @@ func (ctx *Context) enumLiteralObject(literal *symbols.Symbol) (*Instance, error
 // enumerationSummary names the literals an enumeration declares, for a report
 // about a qualified name that is none of them.
 func (ctx *Context) enumerationSummary(enum *symbols.Symbol) string {
-	literals := ctx.model.LiteralsOf(enum)
+	literals := ctx.model.semantics.LiteralsOf(enum)
 	if len(literals) == 0 {
 		return "it declares no literals"
 	}
@@ -1327,7 +1327,7 @@ var unimplementedOperators = map[ast.OperatorKind]string{
 // an operand that depends on a parameter does not make the operator fail.
 func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 	// Try constant folding first
-	if semVal, ok := ec.ctx.model.Eval(n); ok {
+	if semVal, ok := ec.ctx.model.semantics.Eval(n); ok {
 		return Value{Kind: ValConst, Const: semVal}, nil
 	}
 
@@ -1383,11 +1383,11 @@ func (ec *EvalContext) classifiesValue(n *ast.OperatorExpr) bool {
 // resolveClassificationType resolves the type a classification names, seeing
 // through an alias to the type it stands for.
 func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-	target, ok := ec.ctx.resolver.ResolveQualified(ec.scope, qn)
+	target, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn)
 	if !ok || target == nil {
 		return nil, false
 	}
-	if canonical, ok := ec.ctx.resolver.ResolveAliasTarget(target); ok {
+	if canonical, ok := ec.ctx.model.resolver.ResolveAliasTarget(target); ok {
 		target = canonical
 	}
 	return target, true
@@ -1454,7 +1454,7 @@ func (ec *EvalContext) valueHasType(value Value, target *symbols.Symbol, exact b
 	// istype reads a composed target as a cast does, weighing the value's types
 	// together; hastype stays on identity with one of them.
 	if !exact {
-		return ec.ctx.model.ClassifiesTypes(direct, target) == semantics.ClassifiesAll, nil
+		return ec.ctx.model.semantics.ClassifiesTypes(direct, target) == semantics.ClassifiesAll, nil
 	}
 	return slices.Contains(direct, target), nil
 }
@@ -1586,7 +1586,7 @@ func (ec *EvalContext) evalClassification(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	classified, err := ec.ctx.model.EvalClassification(ec.scope, n, elem)
+	classified, err := ec.ctx.model.semantics.EvalClassification(ec.scope, n, elem)
 	if err != nil {
 		return Value{}, err
 	}
@@ -1613,7 +1613,7 @@ func (ec *EvalContext) classifiedElement(n *ast.OperatorExpr) (*symbols.Symbol, 
 	// A name is the element it names: what `p @ Safety` classifies is the
 	// declaration p, the same element a filter condition would be judged for.
 	if qn := subjectName(subject); qn != nil {
-		if sym, ok := ec.ctx.resolver.ResolveQualified(ec.scope, qn); ok && sym != nil {
+		if sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn); ok && sym != nil {
 			return sym, nil
 		}
 	}
@@ -2352,11 +2352,11 @@ type invocationTarget struct {
 // library built-in is registered by.
 func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget {
 	key := invocationKey{node: n, scope: ec.scope, running: ec.runningBehavior()}
-	if target, ok := ec.ctx.invocationTargets[key]; ok {
+	if target, ok := ec.ctx.model.invocationTargets[key]; ok {
 		return target
 	}
 	target := &invocationTarget{qualName: qualifiedNameToString(n.Type)}
-	if sel := passes.SelectInvocation(ec.ctx.resolver, ec.ctx.model, ec.scope, n, semantics.PerformsBehavior); sel.Ambiguous {
+	if sel := passes.SelectInvocation(ec.ctx.model.resolver, ec.ctx.model.semantics, ec.scope, n, semantics.PerformsBehavior); sel.Ambiguous {
 		target.ambiguous = sel.Tied
 	} else if sym := sel.Called(); sym != nil {
 		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.running, sym))
@@ -2364,7 +2364,7 @@ func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget
 	if len(n.NamedArgs) > 0 {
 		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, target.calc, n.NamedArgs)
 	}
-	ec.ctx.invocationTargets[key] = target
+	ec.ctx.model.invocationTargets[key] = target
 	return target
 }
 
@@ -2383,10 +2383,10 @@ func (ec *EvalContext) runningBehavior() *symbols.Symbol {
 // it: a feature redefined there answers to the redefinition (KerML §7.3.4.5).
 func (ctx *Context) inheritedFeature(running, sym *symbols.Symbol) *symbols.Symbol {
 	for b := running; b != nil && sym != nil; b = enclosingBehavior(b) {
-		if !ctx.model.InheritanceMasked(b, sym) {
+		if !ctx.model.semantics.InheritanceMasked(b, sym) {
 			continue
 		}
-		if redefiner := ctx.model.NamingRedefiner(b, sym); redefiner != nil {
+		if redefiner := ctx.model.semantics.NamingRedefiner(b, sym); redefiner != nil {
 			return redefiner
 		}
 	}
@@ -2404,10 +2404,10 @@ func (ctx *Context) boundParameterNames(scope *symbols.Scope, callee *symbols.Sy
 			continue
 		}
 		names[i] = semantics.QualifiedNameText(arg.Name)
-		if callee == nil || ctx.model == nil {
+		if callee == nil || ctx.model.semantics == nil {
 			continue
 		}
-		if name, ok := ctx.model.BoundParameter(scope, callee, arg.Name); ok {
+		if name, ok := ctx.model.semantics.BoundParameter(scope, callee, arg.Name); ok {
 			names[i] = name
 		} else {
 			unbound[i] = fmt.Errorf("%w: %s has no parameter named %q",
@@ -2453,16 +2453,16 @@ func ambiguousInvocationError(qualName string, candidates []*symbols.Symbol) err
 // same "did you mean" hint the validator gives a reference: for a qualified
 // name, the quoted member the segment past the deepest resolved one may start.
 func (ec *EvalContext) unresolvedInvocation(qn *ast.QualifiedName, written string) error {
-	if qn == nil || ec.ctx.resolver == nil {
+	if qn == nil || ec.ctx.model.resolver == nil {
 		return fmt.Errorf("%w: %s", ErrUnresolvedReference, written)
 	}
 	if len(qn.Parts) == 1 && !qn.Global {
-		return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedName(ec.scope, written, qn))
+		return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, written, qn))
 	}
-	reading := ec.ctx.resolver.ReadQualified(ec.scope, qn)
+	reading := ec.ctx.model.resolver.ReadQualified(ec.scope, qn)
 	for i := len(qn.Parts) - 2; i >= 0; i-- {
 		if owner, ok := reading.Part(i); ok {
-			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
+			return fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedMember(ec.scope, qn, owner, i+1))
 		}
 	}
 	return fmt.Errorf("%w: %s", ErrUnresolvedReference, written)
@@ -2588,7 +2588,7 @@ func (ec *EvalContext) chainCallee(chain *ast.FeatureChainExpr) (Value, error) {
 	if id, isObject := receiver.Object(); isObject {
 		if inst, ok := ec.ctx.instances[id]; ok {
 			if _, held := inst.FeatureValues[name]; !held {
-				if sym, found := ec.ctx.model.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
+				if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
 					return NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
 				}
 			}

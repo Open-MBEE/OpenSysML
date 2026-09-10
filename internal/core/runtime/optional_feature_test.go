@@ -369,7 +369,7 @@ func TestRedefinitionChainReachesPastOwnRestatement(t *testing.T) {
 		part deep : Leaf { :>> slots = (1, 2, 3); }
 	}`))
 	deep := oneSymbol(t, idx, "test::deep")
-	slots, ok := ctx.model.LookupMember(deep, "slots")
+	slots, ok := ctx.model.semantics.LookupMember(deep, "slots")
 	if !ok {
 		t.Fatal("deep declares no slots")
 	}

@@ -394,14 +394,14 @@ func (ctx *Context) objectConnections(typeSym *symbols.Symbol) []lower.Connectio
 	if typeSym == nil {
 		return nil
 	}
-	if conns, ok := ctx.objectConns[typeSym]; ok {
+	if conns, ok := ctx.model.objectConns[typeSym]; ok {
 		return conns
 	}
 	conns := []lower.Connection{}
-	for _, decl := range append([]*symbols.Symbol{typeSym}, ctx.model.AllSupertypes(typeSym)...) {
+	for _, decl := range append([]*symbols.Symbol{typeSym}, ctx.model.semantics.AllSupertypes(typeSym)...) {
 		conns = append(conns, lower.ToObjectConnections(decl.Decl, declScope(decl))...)
 	}
-	ctx.objectConns[typeSym] = conns
+	ctx.model.objectConns[typeSym] = conns
 	return conns
 }
 
@@ -517,7 +517,7 @@ func (ctx *Context) endReceives(scope *symbols.Scope, end string) bool {
 	if !ok {
 		return true
 	}
-	features := ctx.model.PortFeatures(sym)
+	features := ctx.model.semantics.PortFeatures(sym)
 	if len(features) == 0 {
 		return true
 	}
@@ -536,7 +536,7 @@ func (ctx *Context) endReceivesMessage(scope *symbols.Scope, end string, msg Mes
 	if !ok {
 		return true, false
 	}
-	features := ctx.model.PortFeatures(sym)
+	features := ctx.model.semantics.PortFeatures(sym)
 	if len(features) == 0 {
 		return true, false
 	}
@@ -579,7 +579,7 @@ func (ctx *Context) endReceivesMessage(scope *symbols.Scope, end string, msg Mes
 // resolveType resolves a routed message type through the sender's scope,
 // returning nil when the type is unavailable for conservative routing.
 func (ctx *Context) resolveType(scope *symbols.Scope, name string) *symbols.Symbol {
-	if ctx.resolver == nil || name == "" {
+	if ctx.model.resolver == nil || name == "" {
 		return nil
 	}
 	parts := strings.Split(name, "::")
@@ -593,14 +593,14 @@ func (ctx *Context) resolveType(scope *symbols.Scope, name string) *symbols.Symb
 // resolveTypeRef resolves a type reference as written — the global qualifier
 // and segment boundaries intact — returning nil when the type is unavailable.
 func (ctx *Context) resolveTypeRef(scope *symbols.Scope, qn *ast.QualifiedName) *symbols.Symbol {
-	if ctx.resolver == nil || qn == nil || len(qn.Parts) == 0 {
+	if ctx.model.resolver == nil || qn == nil || len(qn.Parts) == 0 {
 		return nil
 	}
-	sym, ok := ctx.resolver.ResolveQualified(scope, qn)
+	sym, ok := ctx.model.resolver.ResolveQualified(scope, qn)
 	if !ok || sym == nil {
 		return nil
 	}
-	if canonical, ok := ctx.resolver.ResolveAliasTarget(sym); ok {
+	if canonical, ok := ctx.model.resolver.ResolveAliasTarget(sym); ok {
 		return canonical
 	}
 	return sym
@@ -616,15 +616,15 @@ func (ctx *Context) portSymbol(scope *symbols.Scope, path string) (*symbols.Symb
 // pathSymbol resolves the first segment in scope and every later one as a member
 // of the one before it, whichever separator the segments were written with.
 func (ctx *Context) pathSymbol(scope *symbols.Scope, segments []string) (*symbols.Symbol, bool) {
-	if scope == nil || ctx.resolver == nil || len(segments) == 0 || segments[0] == "" {
+	if scope == nil || ctx.model.resolver == nil || len(segments) == 0 || segments[0] == "" {
 		return nil, false
 	}
-	sym, ok := ctx.resolver.LookupName(scope, segments[0])
+	sym, ok := ctx.model.resolver.LookupName(scope, segments[0])
 	for _, segment := range segments[1:] {
 		if !ok || sym == nil {
 			return nil, false
 		}
-		sym, ok = ctx.model.LookupMember(sym, segment)
+		sym, ok = ctx.model.semantics.LookupMember(sym, segment)
 	}
 	if !ok || sym == nil {
 		return nil, false
@@ -658,5 +658,5 @@ func (ctx *Context) joinsTarget(conn lower.Connection, want string, target *symb
 	if !ok || sym == nil {
 		return true
 	}
-	return sym == target || ctx.model.Conforms(sym, target) || ctx.model.Conforms(target, sym)
+	return sym == target || ctx.model.semantics.Conforms(sym, target) || ctx.model.semantics.Conforms(target, sym)
 }

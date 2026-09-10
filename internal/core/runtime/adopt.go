@@ -58,7 +58,7 @@ func (ctx *Context) ShapesOfType(sym *symbols.Symbol) *Shapes {
 // shapes for. They were recorded outwards, so reading them back names the one
 // that changed rather than one that only holds it.
 func (ctx *Context) Changed(shapes *Shapes) (string, bool) {
-	if shapes == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if shapes == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return "", false
 	}
 	for i := len(shapes.types) - 1; i >= 0; i-- {
@@ -73,7 +73,7 @@ func (ctx *Context) Changed(shapes *Shapes) (string, bool) {
 // resolvesTo reports whether some declaration of the qualified name still has
 // the recorded shape.
 func (ctx *Context) resolvesTo(fqn, digest string) bool {
-	for _, cand := range ctx.resolver.Index().LookupQualified(fqn) {
+	for _, cand := range ctx.model.resolver.Index().LookupQualified(fqn) {
 		if ctx.ShapeDigest(cand) == digest {
 			return true
 		}
@@ -191,7 +191,7 @@ func (ctx *Context) derivedFeatureValue(s *FeatureValue) bool {
 	if s.Written || s.Feature == nil || !ctx.valueBinds(s.Feature) {
 		return false
 	}
-	return !ctx.model.IsVariationFeature(s.Feature.Symbol)
+	return !ctx.model.semantics.IsVariationFeature(s.Feature.Symbol)
 }
 
 // collectedFeatureValue reports whether the feature value holds values copied out of the features
@@ -223,7 +223,7 @@ func carriedObject(v Value) (int64, bool) {
 // connectorFeatureValue reports whether the feature value holds the object of a connector, whose
 // ends a new context attaches again rather than keeping what they read before.
 func (ctx *Context) connectorFeatureValue(s *FeatureValue) bool {
-	return s.Feature != nil && ctx.model.IsConnectorUsage(s.Feature.Symbol)
+	return s.Feature != nil && ctx.model.semantics.IsConnectorUsage(s.Feature.Symbol)
 }
 
 // HoldsObject reports whether the value is, or carries, an object of this context:
@@ -331,7 +331,7 @@ func (ctx *Context) writeShape(b *strings.Builder, sym *symbols.Symbol, open map
 	for i := range features {
 		feat := &features[i]
 		fmt.Fprintf(b, "%s:%s..%s", feat.Name, bound(feat.Multiplicity.Lower), bound(feat.Multiplicity.Upper))
-		if ctx.model.IsVariationFeature(feat.Symbol) {
+		if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 			b.WriteString("|variation")
 		}
 		if feat.DefaultValue != nil {
@@ -398,7 +398,7 @@ func (ctx *Context) declText(owner *symbols.Symbol, span source.Span) string {
 // textIn renders the text the named document wrote at the given span, falling
 // back to the span for a document whose text this context was not given.
 func (ctx *Context) textIn(file string, span source.Span) string {
-	if sf, ok := ctx.sources[file]; ok && span.End() <= sf.Len() {
+	if sf, ok := ctx.model.sources[file]; ok && span.End() <= sf.Len() {
 		return strings.Join(strings.Fields(sf.Text(span)), " ")
 	}
 	return fmt.Sprintf("%s#%d+%d", file, span.Offset, span.Len)
@@ -410,14 +410,14 @@ func (ctx *Context) libraryShapeIdentity(sym *symbols.Symbol) (string, bool) {
 	if !ctx.libraryTier(sym).Library() {
 		return "", false
 	}
-	return ctx.resolver.Index().LibraryIdentity()
+	return ctx.model.resolver.Index().LibraryIdentity()
 }
 
 func (ctx *Context) fqnOf(sym *symbols.Symbol) string {
-	if sym == nil || ctx.resolver == nil {
+	if sym == nil || ctx.model.resolver == nil {
 		return ""
 	}
-	idx := ctx.resolver.Index()
+	idx := ctx.model.resolver.Index()
 	if idx == nil {
 		return ""
 	}
@@ -723,7 +723,7 @@ func (a *adoption) planUnit(unit Unit) error {
 			if err != nil {
 				return err
 			}
-			if reduces, err = a.ctx.model.UnitTermOf(found); err != nil {
+			if reduces, err = a.ctx.model.semantics.UnitTermOf(found); err != nil {
 				return &AdoptError{Type: a.ctx.fqnOf(found), Reason: what + " no longer reduces: " + err.Error()}
 			}
 		case power.Reduces != nil:
@@ -816,7 +816,7 @@ func (a *adoption) rebind(sym *symbols.Symbol, what string) (*symbols.Symbol, er
 	if fqn == "" {
 		return nil, &AdoptError{Reason: what + " has no qualified name"}
 	}
-	idx := a.ctx.resolver.Index()
+	idx := a.ctx.model.resolver.Index()
 	var found *symbols.Symbol
 	for _, cand := range idx.LookupQualified(fqn) {
 		if cand.Kind != sym.Kind {

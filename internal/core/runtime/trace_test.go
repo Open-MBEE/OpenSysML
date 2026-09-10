@@ -131,7 +131,7 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	mustSchedule(t, ctx, casePolicy(t, expected, policy))
 
 	// Find behavioral symbol and execute with trace

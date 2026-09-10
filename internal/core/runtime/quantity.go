@@ -31,7 +31,7 @@ func quantityResult(q semantics.Quantity, err error) (Value, error) {
 // composed, re-expressed in the coherent unit the library declares for its dimension.
 func (ctx *Context) coherentResult(q semantics.Quantity, err error) (Value, error) {
 	if err == nil && ctx != nil {
-		q, err = ctx.model.CoherentQuantity(q, nil)
+		q, err = ctx.model.semantics.CoherentQuantity(q, nil)
 	}
 	return quantityResult(q, err)
 }
@@ -56,7 +56,7 @@ func (ec *EvalContext) evalIndexExpr(n *ast.IndexExpr) (Value, error) {
 	} else if ok {
 		return ec.framedQuantity(n, frame)
 	}
-	term, err := ec.ctx.model.UnitTermOfExpr(ec.scope, n.Index)
+	term, err := ec.ctx.model.semantics.UnitTermOfExpr(ec.scope, n.Index)
 	if err != nil {
 		return Value{}, ec.notAQuantityError(n, err)
 	}
@@ -69,7 +69,7 @@ func (ec *EvalContext) evalIndexExpr(n *ast.IndexExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: magnitude of a quantity is %s, want a number or a vector", ErrNotAQuantity, magnitude.Kind)
 	}
 
-	product, err := ec.ctx.model.UnitProductOfExpr(ec.scope, n.Index)
+	product, err := ec.ctx.model.semantics.UnitProductOfExpr(ec.scope, n.Index)
 	if err != nil {
 		return Value{}, fmt.Errorf("%w: %w", ErrNotAQuantity, err)
 	}
@@ -106,16 +106,16 @@ func (ec *EvalContext) declaredCollection(operand ast.Node) (string, bool) {
 	case *ast.FeatureReference:
 		qn = node.Name
 	}
-	if qn == nil || ec.ctx.resolver == nil {
+	if qn == nil || ec.ctx.model.resolver == nil {
 		return "", false
 	}
-	sym, ok := ec.ctx.resolver.ResolveQualified(ec.scope, qn)
+	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, qn)
 	if !ok || sym == nil || !semantics.IsShapeFeature(sym) {
 		return "", false
 	}
 	if typ := ec.ctx.extractType(sym); typ != nil {
 		for _, lib := range []struct{ fqn, what string }{{vectorTypeFQN, "a vector"}, {arrayTypeFQN, "an array"}} {
-			if libSym := ec.ctx.librarySymbol(lib.fqn); libSym != nil && ec.ctx.model.Conforms(typ, libSym) {
+			if libSym := ec.ctx.librarySymbol(lib.fqn); libSym != nil && ec.ctx.model.semantics.Conforms(typ, libSym) {
 				return lib.what, true
 			}
 		}

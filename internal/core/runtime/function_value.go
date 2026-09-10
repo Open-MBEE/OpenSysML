@@ -188,7 +188,7 @@ func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedNa
 // qualifiedBoundFunction reads what the innermost run of the qualifying calc
 // (`Apply::f(2.0)`), or of one specializing it, bound the calc-typed callee to.
 func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.QualifiedName) (Value, bool, error) {
-	qualifier, ok := ec.ctx.resolver.ReadQualified(ec.scope, qn).Part(len(qn.Parts) - 2)
+	qualifier, ok := ec.ctx.model.resolver.ReadQualified(ec.scope, qn).Part(len(qn.Parts) - 2)
 	if !ok {
 		return Value{}, false, nil
 	}

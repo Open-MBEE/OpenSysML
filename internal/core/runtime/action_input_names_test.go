@@ -22,7 +22,7 @@ const inputNamesModel = `action bump {
 // reported, not bound into the feature space and answered as an output.
 func TestUnknownActionInputIsReported(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, inputNamesModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	bump := resolveSymbol(t, root, "bump")
 
 	outputs, err := ctx.ExecuteActionWithInputs(bump, map[string]Value{"nope": constInt(7)})
@@ -50,7 +50,7 @@ const outputParameterModel = `action measure {
 // binding it as an input is reported rather than silently overwritten.
 func TestSeedingAnOutputParameterIsReported(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, outputParameterModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	measure := resolveSymbol(t, root, "measure")
 
 	outputs, err := ctx.ExecuteActionWithInputs(measure, map[string]Value{"total": constInt(99)})
@@ -74,7 +74,7 @@ func TestSeedingAnOutputParameterIsReported(t *testing.T) {
 // feature the caller may seed.
 func TestDeclaredActionInputsBind(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, inputNamesModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	bump := resolveSymbol(t, root, "bump")
 
 	outputs, err := ctx.ExecuteActionWithInputs(bump, map[string]Value{

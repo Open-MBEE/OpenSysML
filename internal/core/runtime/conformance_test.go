@@ -373,7 +373,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	fresh := func() *Context { return NewContext(model, resolver, 10000) }
+	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
 		t.Fatalf("schedule: %v", err)

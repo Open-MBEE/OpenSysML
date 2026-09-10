@@ -38,22 +38,22 @@ type writeTargetKey struct {
 // statement was written in, memoized per scope and name. A name declaring no
 // feature there — a value the body merely holds — states nothing to conform to.
 func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarget, bool) {
-	if ctx.resolver == nil || scope == nil || name == "" {
+	if ctx.model.resolver == nil || scope == nil || name == "" {
 		return nil, false
 	}
 	key := writeTargetKey{scope: scope, name: name}
-	if cached, ok := ctx.writeTargets[key]; ok {
+	if cached, ok := ctx.model.writeTargets[key]; ok {
 		return cached, cached != nil
 	}
 	var target *writeTarget
-	if sym, ok := ctx.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
+	if sym, ok := ctx.model.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
 		mult, _ := ctx.extractMultiplicity(sym)
 		target = &writeTarget{name: name, typ: ctx.extractType(sym), mult: mult}
 	}
-	if ctx.writeTargets == nil {
-		ctx.writeTargets = make(map[writeTargetKey]*writeTarget)
+	if ctx.model.writeTargets == nil {
+		ctx.model.writeTargets = make(map[writeTargetKey]*writeTarget)
 	}
-	ctx.writeTargets[key] = target
+	ctx.model.writeTargets[key] = target
 	return target, target != nil
 }
 
@@ -128,13 +128,13 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *
 // spellForDeclared re-spells the quantities a value holds by the coherent unit
 // the declared type's measurement reference prefers, leaving the magnitude as is.
 func (ctx *Context) spellForDeclared(value *Value, declared *symbols.Symbol) {
-	if declared == nil || ctx.model == nil {
+	if declared == nil || ctx.model.semantics == nil {
 		return
 	}
 	switch value.Kind {
 	case ValQuantity:
 		if q := value.Quantity(); q != nil {
-			if spelt := ctx.model.CoherentSpelling(*q, declared); spelt.Unit.Text != q.Unit.Text {
+			if spelt := ctx.model.semantics.CoherentSpelling(*q, declared); spelt.Unit.Text != q.Unit.Text {
 				*value = NewQuantityValue(&spelt)
 			}
 		}
@@ -223,7 +223,7 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		}
 		return ctx.instanceConforms(inst, declared), "", nil
 	}
-	prim := ctx.model.PrimTypeOf(declared)
+	prim := ctx.model.semantics.PrimTypeOf(declared)
 	if got := valuePrimType(value); prim != semantics.PrimUnknown && got != semantics.PrimUnknown {
 		return semantics.PrimConforms(got, prim), "", nil
 	}
@@ -233,11 +233,11 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 	if err != nil {
 		return false, "", err
 	}
-	if ctx.model.Conforms(direct, declared) {
+	if ctx.model.semantics.Conforms(direct, declared) {
 		return true, "", nil
 	}
 	if prim == semantics.PrimUnknown && isScalarConstant(value) {
-		return ctx.model.Conforms(declared, direct), "", nil
+		return ctx.model.semantics.Conforms(declared, direct), "", nil
 	}
 	return false, "", nil
 }
@@ -263,15 +263,15 @@ func (ctx *Context) structuredConforms(scope *symbols.Scope, value Value, declar
 	if err != nil {
 		return false, "", err
 	}
-	if !ctx.model.Conforms(direct, declared) {
+	if !ctx.model.semantics.Conforms(direct, declared) {
 		base, err := ctx.structuredBaseType(value)
 		if err != nil {
 			return false, "", err
 		}
-		if !ctx.model.Conforms(declared, base) {
+		if !ctx.model.semantics.Conforms(declared, base) {
 			return false, "", nil
 		}
-		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.model.Conforms(declared, scalar) {
+		if scalar := ctx.librarySymbol(scalarValueTypeFQN); scalar != nil && ctx.model.semantics.Conforms(declared, scalar) {
 			return false, fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it is a %s, which holds one scalar",
 				FormatValue(value), describeValue(value), symbolText(declared), symbolText(scalar)), nil
 		}
@@ -310,7 +310,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 		return fmt.Sprintf("cannot write %s (%s) to a feature typed by %s: it declares %s",
 			FormatValue(value), describeValue(value), symbolText(declared), declares)
 	}
-	for _, member := range ctx.model.MembersOfIncludingRedefined(declared) {
+	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(declared) {
 		if !semantics.IsShapeFeature(member) {
 			continue
 		}
@@ -319,7 +319,7 @@ func (ctx *Context) shapeRefusal(value Value, declared *symbols.Symbol) string {
 			continue
 		}
 		if feature == arrayDimensionsFeature {
-			if mult, stated := ctx.model.MultiplicityOf(member); stated && mult.CountViolation(int64(len(dims))) != "" {
+			if mult, stated := ctx.model.semantics.MultiplicityOf(member); stated && mult.CountViolation(int64(len(dims))) != "" {
 				return refuse(fmt.Sprintf("%s : Positive%s, got %d dimension(s)", member.Name, mult.Text(), len(dims)))
 			}
 		}
@@ -371,7 +371,7 @@ func (ctx *Context) constantIntegers(member, owner *symbols.Symbol) ([]int64, bo
 	}
 	out := make([]int64, 0, len(elements))
 	for _, e := range elements {
-		c, ok := ctx.model.Eval(e)
+		c, ok := ctx.model.semantics.Eval(e)
 		if !ok {
 			return nil, false
 		}
@@ -467,14 +467,14 @@ func equalInt64s(a, b []int64) bool {
 // target declaring a quantity value type by the dimension that type's mRef
 // fixes. A target fixing no dimension, and a unit fixing none, are not judged.
 func (ctx *Context) quantityConforms(value Value, declared *symbols.Symbol) (bool, string, error) {
-	if prim := ctx.model.PrimTypeOf(declared); prim != semantics.PrimUnknown {
+	if prim := ctx.model.semantics.PrimTypeOf(declared); prim != semantics.PrimUnknown {
 		return semantics.PrimConforms(semantics.PrimRational, prim), "", nil
 	}
-	want, ok := ctx.model.DimensionOfType(declared)
+	want, ok := ctx.model.semantics.DimensionOfType(declared)
 	if !ok || value.Quantity() == nil {
 		return true, "", nil
 	}
-	got, ok := ctx.model.DimensionOfUnit(value.Quantity().Unit.Term)
+	got, ok := ctx.model.semantics.DimensionOfUnit(value.Quantity().Unit.Term)
 	if !ok || want.Term.Commensurable(got.Term) {
 		return true, "", nil
 	}

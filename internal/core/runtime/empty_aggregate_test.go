@@ -159,8 +159,8 @@ func TestEmptiedQuantityCollectionKeepsItsKind(t *testing.T) {
 // so a sum over it there is still a zero of that kind.
 func TestAdoptKeepsTheKindOfAWrittenEmptyQuantityCollection(t *testing.T) {
 	prev, scope := emptyAggregateContext(t)
-	prev.RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "test::Rig"))
+	prev.Model().RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "test::Rig"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestAdoptKeepsTheKindOfAWrittenEmptyQuantityCollection(t *testing.T) {
 	shapes := prev.ShapesOf(obj)
 
 	ctx, scope := emptyAggregateContext(t)
-	ctx.RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
+	ctx.Model().RegisterSource(source.New("<test>", []byte(emptyAggregateModel)))
 	if _, err := ctx.Adopt(prev, shapes, obj); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}

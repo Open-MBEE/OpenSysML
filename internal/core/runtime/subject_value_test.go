@@ -30,7 +30,7 @@ func TestRequirementSubjectDeclarationValue(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 
 	for _, tt := range []struct {
@@ -98,7 +98,7 @@ func nestedSubjectFixture(t *testing.T, src string) (*Context, *symbols.Scope) {
 	if len(root.Children()) == 0 {
 		t.Fatal("no package indexed")
 	}
-	return NewContext(semantics.NewModel(resolver), resolver, 100000), root.Children()[0]
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 100000), root.Children()[0]
 }
 
 // memberPath looks a member up along a path of names, as `Leaf::small` is.
