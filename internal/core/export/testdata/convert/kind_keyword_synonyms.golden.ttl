@@ -346,8 +346,8 @@ elmt:Synonyms__Vehicle___400
     sysml:owningRelationship elmt:Synonyms__Vehicle___400_om ;
     sysml:owningMembership elmt:Synonyms__Vehicle___400_om ;
     sysx:declaredKeyword "exhibit" ;
-    sysml:references "idling" ;
     sysml:type elmt:Synonyms__Idle ;
+    sysml:references "idling" ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        exhibit idling : Idle;\n" .
 

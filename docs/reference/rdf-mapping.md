@@ -228,7 +228,16 @@ triples come); a set of classes with no such member is refused, naming the subje
   carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
-  was written as, typed `sysx:Expression` to tell the two apart. Reading a graph
+  was written as, typed `sysx:Expression` to tell the two apart. These
+  properties are written in one canonical order whatever order the clauses were
+  spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
+  `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
+  `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
+  (`internal/core/export/kinds.go` `relationshipOrder`, the same order the
+  clauses are written back in) — with the targets of one property in the order
+  they were written; so `attribute :>> num : Real;` and `attribute : Real
+  redefines num;` give byte-identical Turtle, and a `.ttl` kept under version
+  control does not churn with the spelling of a head. Reading a graph
   back, a literal that is neither — a number, a boolean, a language-tagged
   string, an empty or broken qualified name — is refused rather than written
   into the notation as it stands. A feature
@@ -954,6 +963,14 @@ notation offers a choice and the model does not:
   element, so no spelling is recorded and the writer uses one form. This differs
   from `sysx:declaredKeyword`, which is kept where the notation's synonyms name
   *different* declarations (`datatype` and `attribute`).
+- The clauses of a head come back in the canonical order of [What each element
+  carries](#what-each-element-carries) — typing first, then `specializes`,
+  `subsets`, `redefines`, `references`, and so on — however they were written
+  (`snapshot s :> context : Ctx` comes back as `snapshot s : Ctx subsets
+  context`). The order of the clauses states nothing about the model, and the
+  graph does not record it: the properties are the same set either way, and
+  the writer emits them in the canonical order, so a spelling could only be
+  restored from the source text, which is what `sysx:sourceText` is for.
 - The modifiers of a usage are written in the grammar's order (`end #derive r1
   : R;`, `end ref cause : S[*];`), and a multiplicity goes with the typing
   clause it qualifies, or with the name when there is none (`composite

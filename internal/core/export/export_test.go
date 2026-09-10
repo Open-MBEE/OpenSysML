@@ -1,8 +1,10 @@
 package export_test
 
 import (
+	"bytes"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -145,11 +147,42 @@ func structuralRoundTrip(t *testing.T, name string, first []byte) []byte {
 	if err != nil {
 		t.Fatalf("to turtle again from the mapping alone: %v", err)
 	}
-	if lost, gained := tripleSetDiff(t, withoutSourceText(t, first), withoutSourceText(t, again)); len(lost)+len(gained) > 0 {
-		t.Errorf("the mapping alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
-			fromGraph, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
-	}
+	requireSameGraphBytes(t, fromGraph, first, again)
 	return fromGraph
+}
+
+// requireSameGraphBytes requires two hops' Turtle, source text stripped, to be
+// the same triple set and then the same bytes; notation is the second hop's input.
+func requireSameGraphBytes(t *testing.T, notation, first, second []byte) {
+	t.Helper()
+	first, second = withoutSourceText(t, first), withoutSourceText(t, second)
+	if lost, gained := tripleSetDiff(t, first, second); len(lost)+len(gained) > 0 {
+		t.Errorf("the mapping alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
+			notation, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
+		return
+	}
+	if !bytes.Equal(first, second) {
+		t.Errorf("the same graph was written in a different order\n--- notation ---\n%s\n--- first difference ---\n%s",
+			notation, firstLineDifference(first, second))
+	}
+}
+
+// firstLineDifference reports the first line two documents disagree on.
+func firstLineDifference(first, second []byte) string {
+	a, b := strings.Split(string(first), "\n"), strings.Split(string(second), "\n")
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var left, right string
+		if i < len(a) {
+			left = a[i]
+		}
+		if i < len(b) {
+			right = b[i]
+		}
+		if left != right {
+			return fmt.Sprintf("line %d:\n- %s\n+ %s", i+1, left, right)
+		}
+	}
+	return ""
 }
 
 // withoutSourceText strips the triples that carry notation rather than structure.
@@ -626,10 +659,7 @@ func TestFixturesComeBackFromTheGraphAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if lost, gained := tripleSetDiff(t, withoutSourceText(t, first), withoutSourceText(t, second)); len(lost)+len(gained) > 0 {
-				t.Errorf("the second hop changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
-					back, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
-			}
+			requireSameGraphBytes(t, back, first, second)
 		})
 	}
 }
