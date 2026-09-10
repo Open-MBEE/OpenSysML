@@ -69,7 +69,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return false, err
 	}
 
-	candidates, err := e.chooseTransitions(selected)
+	candidates, err := e.chooseTransitions(selected, nil)
 	if err != nil {
 		e.changeWaits = poll.waits
 		return false, err

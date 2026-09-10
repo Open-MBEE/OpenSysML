@@ -73,6 +73,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_follows_the_choice_branch_taken", testStateDoBodyAcceptFollowsTheChoiceBranchTaken)
 	t.Run("state_do_body_accept_yields_to_a_transition_into_its_region", testStateDoBodyAcceptYieldsToATransitionIntoItsRegion)
 	t.Run("state_do_body_accept_keeps_the_route_chosen", testStateDoBodyAcceptKeepsTheRouteChosen)
+	t.Run("state_choice_route_reads_the_accepted_payload", testStateChoiceRouteReadsTheAcceptedPayload)
 	t.Run("state_do_body_accept_shares_the_dispatch_with_a_region", testStateDoBodyAcceptSharesTheDispatchWithARegion)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
@@ -13123,6 +13124,61 @@ func testStateDoBodyAcceptSharesTheDispatchWithARegion(t *testing.T) {
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
 		t.Errorf("total = %v after running on, want 11 still", total)
+	}
+}
+
+// testStateChoiceRouteReadsTheAcceptedPayload: a choice guard along the chosen
+// transition's route reads the payload the accept binds, so the route is settled
+// with the payload bound and the branch the payload selects is the one entered.
+func testStateChoiceRouteReadsTheAcceptedPayload(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go { attribute level : Integer; }
+	state def Waiter {
+		attribute total : Integer = 0;
+		entry; then left;
+		state left;
+		choice pick;
+		transition route first left accept g : Go then pick;
+		transition first pick if g.level > 0 then right;
+		transition first pick then stopped;
+		state right { entry assign total := total + 1; }
+		state stopped { entry assign total := total + 100; }
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "w.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("w.sysml")
+	box, err := ctx.Instantiate(resolveSymbol(t, root, "Box"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := box.ExhibitedState()
+	if !ok {
+		t.Fatal("the box exhibits no machine")
+	}
+	exec := behavior.State
+	goMsg, err := ctx.SignalMessage(resolveSymbol(t, root, "Go"), map[string]Value{"level": integerValue(1)}, box)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	want := Decision{Fires: []string{"transition route"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) = %+v, want %+v", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the message: %v", err)
+	}
+	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
+		t.Errorf("state %s with %d messages in flight, want right with the one message consumed: g.level was 1 when the choice was routed", activeLeaf(exec), len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of right", total)
 	}
 }
 

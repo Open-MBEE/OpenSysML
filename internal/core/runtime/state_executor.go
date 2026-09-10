@@ -714,7 +714,7 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	if err != nil {
 		return false, nil, err
 	}
-	candidates, err := e.chooseTransitions(selected)
+	candidates, err := e.chooseTransitions(selected, event)
 	if err != nil {
 		return false, nil, err
 	}
@@ -842,15 +842,15 @@ func (e *StateExecutor) selectCandidates(
 // one, each with the one of its enabled transitions that fires drawn once here and
 // its route through any pseudostates settled against the pre-dispatch data, for
 // the do behaviors taking the occurrence, the firing and the preview alike. A
-// state outranked by a nested one draws nothing.
-func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate) ([]dispatchCandidate, error) {
+// state outranked by a nested one draws nothing. event is nil for a change poll.
+func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event *Event) ([]dispatchCandidate, error) {
 	chosen := make([]dispatchCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if e.losesToNestedTransition(candidates, candidate) {
 			continue
 		}
 		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
-		route, err := e.resolveRoute(candidate.chosen)
+		route, err := e.resolveRouteFor(candidate.chosen, event)
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
 		}
@@ -858,6 +858,20 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate) ([]dis
 		chosen = append(chosen, candidate)
 	}
 	return chosen, nil
+}
+
+// resolveRouteFor resolves trans's route with the trigger's arguments bound, so a
+// pseudostate guard along it reads them as the transition's own guard does.
+func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (*ast.StateNode, error) {
+	if event == nil {
+		return e.resolveRoute(trans)
+	}
+	unbind, err := e.bindTriggerArguments(trans, event)
+	defer unbind()
+	if err != nil {
+		return nil, err
+	}
+	return e.resolveRoute(trans)
 }
 
 // chooseTransition resolves which of the candidate's enabled transitions fires,
@@ -2748,7 +2762,7 @@ func (e *StateExecutor) decide(m Message) (Decision, error) {
 		if err != nil {
 			return Decision{}, err
 		}
-		if candidates, err = e.chooseTransitions(selected); err != nil {
+		if candidates, err = e.chooseTransitions(selected, &event); err != nil {
 			return Decision{}, err
 		}
 	}
