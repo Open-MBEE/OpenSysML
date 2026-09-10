@@ -240,8 +240,9 @@ func TestW7GACastAndBodyEnumeratedValuesAreTyped(t *testing.T) {
 // elements of xs, so it types the value as xs is typed — through a chain, an
 // alias, a feature typed only by its own value or subsetting/redefining one, a
 // nested selection or an indexed element — and `xs.{…}` is typed as its body's
-// result is, Anything where that is untyped, while `,` yields Anything (pilot
-// 2026-07 agrees on every case but the typed collect bodies, which it leaves Anything).
+// result is, an untyped parameter taking the elements' type, Anything where the
+// collection itself is untyped, while `,` yields Anything (pilot 2026-07 agrees
+// on every case but the collect bodies, which it leaves Anything).
 func TestW7GASelectedEnumeratedValueKeepsItsOperandType(t *testing.T) {
 	const src = `package T {
 		private import ScalarValues::*;
@@ -254,6 +255,7 @@ func TestW7GASelectedEnumeratedValueKeepsItsOperandType(t *testing.T) {
 		attribute zs = xs;
 		attribute zz :> zs;
 		attribute z1 = 1.5;
+		attribute anys;
 		part others : Other[0..*];
 		part w : W;
 		part w2 : W2;
@@ -274,6 +276,8 @@ func TestW7GASelectedEnumeratedValueKeepsItsOperandType(t *testing.T) {
 			n = w2.qq.?{in r : Real; r > 1.0};
 			q = xs.{in r : Real; r};
 			r = others.{in o : Other; o};
+			t = xs.{in r; r};
+			u = others.?{in o; true};
 		}
 		enum def WrongNum :> Real {
 			o = ns.?{in n : Natural; n > 1};
@@ -281,7 +285,7 @@ func TestW7GASelectedEnumeratedValueKeepsItsOperandType(t *testing.T) {
 			s = ns.{in n : Natural; n};
 		}
 		enum def Right {
-			ok1 = xs.{in r; r};
+			ok1 = anys.{in r; r};
 			ok2 = Right::ok1.?{in l : Right; true};
 		}
 		enum def RightNum :> Real {
@@ -309,7 +313,7 @@ func TestW7GASelectedEnumeratedValueKeepsItsOperandType(t *testing.T) {
 		}
 		got = append(got, strings.Fields(src[d.Span.Offset:d.Span.End()])[0])
 	}
-	want := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "q", "r", "o", "p", "s"}
+	want := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "q", "r", "t", "u", "o", "p", "s"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Fatalf("selected enumerated values typed outside their enumeration: got %v, want %v", got, want)
 	}
