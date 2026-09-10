@@ -10,6 +10,11 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   register against, one scale for the strength of an answer (proved, bounded, witnessed,
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel
+- **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
+  protocol under which a user's own engine, scheduling policy, sampler or tool registers with
+  the analysis framework as a process, a WebAssembly module or Go over the public package; every
+  external witness replays through the interpreter, and a universal claim is printed *observed*
+  until the site admits more against a referee record
 - **[Bounded model checking of behaviors](bounded-model-checking.md)** — a proposal: explore
   every admissible interleaving up to a bound with partial-order reduction, and report the
   requirement violations, deadlocks and schedule-dependent outcomes it finds

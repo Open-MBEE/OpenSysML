@@ -281,8 +281,10 @@ Two things the registry deliberately is not:
   requires the plugin and host to be built with identical toolchains and dependencies, and
   cannot unload; a plugin
   ABI would be a compatibility surface the wire contract does not want. In-process engines are
-  compiled in; out-of-process engines are processes with a protocol. A WebAssembly or gRPC
-  engine host is compatible with the contract and left to a later note.
+  compiled in; out-of-process engines are processes with a protocol. How a user brings an
+  engine, a strategy or a tool of their own — a process speaking the protocol, a WebAssembly
+  module, or Go over the public package — and the standing its answers are given is
+  [its own note](bring-your-own-engines.md).
 - **Not global mutable state a test can trip over.** There is no package-level registry; the
   binaries own theirs, and a test builds its own with `NewRegistry()` and passes it to the
   coordinator, so a test that registers a fake engine cannot see or disturb another's.
