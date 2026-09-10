@@ -423,7 +423,8 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
 
 - **`SchedulePolicy`** — How the executors resolve a run's choice points (several steppable
   tokens in one step, several holding guards at a decision, several enabled transitions for one
-  event, several executors due at one instant of the clock; which same-step write to one feature
+  event, several regions reacting to one event, several executors due at one instant of the
+  clock; which same-step write to one feature
   stands follows from the token order). The zero
   value and `DefaultSchedulePolicy` are `reverse`, what every run did before policies were
   selectable; every `.expected.json` and `.trace.golden` recorded under it still holds

@@ -138,6 +138,28 @@ func (e *StateExecutor) ProcessNextEvent() error {
 
 **Key insight:** Events broadcast to all regions. Each region processes event independently (run-to-completion per region).
 
+**As implemented (`state_executor.go`):** the order the regions react in is not the map's
+iteration order above, nor declaration order by rule. `broadcastEvent` first selects one
+candidate per active leaf against the configuration the event was dequeued for
+(`selectTransitions`: the innermost state on the leaf's parent chain with an enabled transition,
+so a state the event enters never reacts to it), drops the candidates a nested transition
+outranks, then hands the survivors to `dispatchInOrder`. That loop fires them one at a time: before
+each firing it discards the candidates whose leaf is no longer active — a reaction may have left
+a sibling's leaf — and draws which of the rest fires next through `chooseRegion`, which asks the
+run's scheduling policy and, when two or more remain, records a `ChoicePoint` of kind
+`ChoiceRegionOrder` ahead of the firing's own notes (in a trace,
+`choice on go: states left, right react (unordered; took right first)`). Each
+`StateTransitionPerformance` is ordered against its own source and target only
+(`StatePerformances.kerml`), and UML 2.5.1 §14.2.3.9.4 leaves the firing order of the transitions
+selected for one event undefined, so the order is a genuine opening the run reports rather than a
+rule: under `reverse` and `declared` the draw is declaration order and is still reported,
+`seed:<n>` varies and replays it, and `explore` enumerates every order. The choice is labelled by
+the occurrence dispatched (`on go`, `on change`), not by the trigger of whichever region was
+drawn first, so the label reads the same under every policy. Change triggers
+(`state_change_trigger.go`, `pollChangeEvents`) select their candidates by the guards that came to
+hold and dispatch through the same loop. See
+[scheduling policies, choice points and exploration](scheduling.md).
+
 ### 4. State Entry/Exit with Regions
 
 **Entering composite state with regions:**

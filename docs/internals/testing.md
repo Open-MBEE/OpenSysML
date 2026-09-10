@@ -11,8 +11,9 @@ internal/core/
 │   ├── negative_test.go            # Malformed input handling
 │   └── testdata/parse/             # Test fixtures + goldens
 ├── runtime/
-│   ├── conformance_test.go         # Execution outcome verification
+│   ├── conformance_test.go         # Execution outcome verification, under every policy
 │   ├── trace_test.go               # Execution ordering/scheduling
+│   ├── explore_test.go             # Every linearization within a budget
 │   ├── robustness_test.go          # Failure mode handling
 │   └── testdata/conformance/       # Behavioral test cases
 └── libs/
@@ -111,6 +112,9 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 - **Format:** `.sysml` + `.expected.json` pairs
 - **Schema:** `internal/core/runtime/testdata/conformance/README.md`
 - **Allowlist:** `known_failures.txt` (currently empty)
+- **Admissible outcomes:** a case whose model admits several complete results lists them under `outcomes`, each with an `admissible` citation into [the semantic oracle](../project/behavior-semantic-oracle.md) deriving why the library leaves the order open; the observed run must match exactly one. The case is also explored (`explore` policy): every listed outcome must be reached, nothing unlisted may be, and the exploration must complete within the case's `exploreBudget`
+- **Policy sweep:** `TestExecutionConformanceUnderPolicies` runs the whole suite under `declared` and `seed:1`. A case with no `schedule` pin was recorded under the default and must hold under any policy; one that differs was pinning a scheduling artefact and fails rather than being skipped. Pinning `schedule: "reverse"` declares the result one linearization, kept only until its admissible set is derived or the bug it pins is fixed
+- **Design:** [scheduling policies, choice points and exploration](design/scheduling.md)
 
 **Coverage (all passing, by fixture prefix; counts in [the measured counts](../project/spec-compliance.md)):**
 - Calc: parameter binding, return values, defaults, inherited parameters, unary ops, qualified names, type coercion, body-local usages, statement bodies, nested and from-constraint invocation
@@ -128,13 +132,15 @@ go test -v -run TestExecutionConformance ./internal/core/runtime
 **Purpose:** verify *how* execution proceeds (ordering, scheduling), not only the final result
 
 - **Test:** `TestExecutionTrace` (internal/core/runtime/)
-- **Format:** `.trace.golden` files
-- **Determinism:** Token sorting by ID, fixed event queue tie-breaking
+- **Format:** `.trace.golden` files, one linearization each; a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy beside the default one
+- **Order constraints:** a `.trace.order` file states the partial order a trace must respect, one `a < b` per line — the first trace entry mentioning `a` before the first mentioning `b`; labels the same entry first mentions are unordered, and a label no entry mentions fails. It is checked beside a golden, or instead of one where every linearization is admissible; `TestTraceOrderViolationFails` proves a violated constraint fails
+- **Determinism:** Token sorting by ID, fixed event queue tie-breaking; each `choice` the run made is a trace line naming the alternatives and the one taken
 - **Coverage:** `.trace.golden` files for action, calc, state, constraint, accept and string execution
 
 **Trace format examples:**
 - Action: `step 1: token T1@node1, token T2@node2` (sorted)
 - State: `entry: StateName [hasEntryAction]`, `transition: From -> To [event]`, `exit: StateName [hasExitAction]`
+- Choice: `choice step 2: tokens 3@left, 4@right (unordered; took 4@right first)`
 
 **Generate traces:**
 ```bash
