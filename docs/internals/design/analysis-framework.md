@@ -22,7 +22,11 @@ parallel execution, external tools and the user surface still describe a design.
 the implementation took where the note left room: the `%run` in the migration table is the REPL
 commands that share the CLI flags' code (there is no meta-command of that name), and a `solve`
 question is one per element with that element's condition sets as its queries, so the solver is
-found once per element and its absence is reported once, as before.
+found once per element and its absence is reported once, as before. Of the `Budget`, the
+fields whose limits an engine builds for itself are applied by it — `Runs` and `Depth` by
+`explore`, `Solver` by `solve` — while `Steps` and `Memory` are the limits the surface's runtime
+context already enforces, carried so a result can name them; `Deadline` and `Jobs` are carried
+unread until the parallel-runs stage gives them a coordinator.
 
 This is the framework that the two model-checking designs are written into:
 [bounded model checking](bounded-model-checking.md) explores the executor and

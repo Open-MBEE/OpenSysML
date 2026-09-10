@@ -367,7 +367,10 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 	}
 
 	if len(req.Arguments) == 0 {
-		outputs, handled, cerr := v.calcUsageOutputs(sym)
+		outputs, handled, cerr := v.calcUsageOutputs(ctx, req.SymbolId, sym)
+		if gone := callerGone(ctx, cerr); gone != nil {
+			return nil, gone
+		}
 		if cerr != nil {
 			return &pb.EvaluateCalcResponse{
 				Error:         cerr.Error(),
@@ -416,12 +419,16 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 // calcUsageOutputs evaluates a calc usage from its own member values. It reports
 // handled=false when sym is not a calc usage, or is one computing no output
 // features, so those are invoked as calculations instead.
-func (v *verifyContext) calcUsageOutputs(sym *symbols.Symbol) ([]*pb.CalcOutput, bool, error) {
+func (v *verifyContext) calcUsageOutputs(ctx context.Context, subject string, sym *symbols.Symbol) ([]*pb.CalcOutput, bool, error) {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.Kind != ast.UsageCalc {
 		return nil, false, nil
 	}
-	outputs, err := v.runtime.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	outputs, err := perform(ctx, v, subject, func(rt *runtime.Context) ([]runtime.CalcOutputValue, error) {
+		return rt.CalcUsageOutputs(sym, sym.OwnerScope, nil)
+	}, func(outputs []runtime.CalcOutputValue, err error) analysis.Answer {
+		return analysis.ValuesAnswer(analysis.OutputValues(outputs), err)
+	})
 	if err != nil {
 		return nil, true, fmt.Errorf("calc usage evaluation failed: %w", err)
 	}

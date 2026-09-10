@@ -216,8 +216,8 @@ func (r Result) Table() runtime.SweepTable {
 	return table
 }
 
-// Budget is what a run may spend. A zero field is a limit the engine takes
-// from its own default, as the environment names it.
+// Budget is what a run may spend; a zero field is the engine's own default. An engine applies
+// the limits it builds itself (explore: Runs, Depth; solve: Solver); the rest name the context's.
 type Budget struct {
 	// Deadline is the wall clock for the whole plan; zero means none.
 	Deadline time.Time
