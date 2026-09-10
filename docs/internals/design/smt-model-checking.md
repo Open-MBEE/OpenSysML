@@ -553,6 +553,12 @@ add what `explore` cannot: scale and inputs.
 - **The SMT layer's contracts.** Verdicts stay distinct, refusals stay whole-query, backends stay
   external processes, `Rounded` stays reported.
 
+Under the [analysis framework](analysis-framework.md) this checker is the `smt` engine: the
+referee and the fallback above become the framework's `-engine all` and `auto` dispatch, the
+four verdicts map onto its strength scale (*proved*, *bounded*, *witnessed*, *not covered*), and
+`-check-engine explore|smt|both` is written `-engine explore|smt|all`. The encoding, the
+verdicts, the bounds and the stages here are unchanged by it.
+
 ## Alternatives considered
 
 - **Path-wise symbolic execution: `explore` the schedules, solve the data.** Each explored run

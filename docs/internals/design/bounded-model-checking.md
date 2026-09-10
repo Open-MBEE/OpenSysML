@@ -469,6 +469,11 @@ where most systems models live (a state machine per component) and should follow
 - The SMT layer. Scheduling and value nondeterminism remain separate questions with separate
   tools here; composing them is [its own note](smt-model-checking.md).
 
+Under the [analysis framework](analysis-framework.md) this checker is the `check` engine,
+selected by `-engine check`; its verdicts are *bounded* within the state and depth budgets it
+names and *witnessed* for a violation it replays, and `explore` beside it under `-engine all`
+is its referee.
+
 ## Alternatives considered
 
 - **A race detector only.** Record, during the single default run, the unordered pairs of
