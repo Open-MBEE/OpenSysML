@@ -600,6 +600,43 @@ func (e *ActionExecutor) HasPendingSignal() bool {
 // hasPendingSignal reports whether a message in flight would let a parked token
 // of perf's flow (of the whole action for nil) proceed, without consuming it.
 func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
+	pending := e.ctx.PendingMessages()
+	return e.parkedAcceptTakes(perf, func(matches func(Message) bool, failed *error) bool {
+		for _, msg := range pending {
+			// A port that fails to resolve counts as pending: the step this
+			// provokes surfaces the failure.
+			if matches(msg) || *failed != nil {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// acceptsMessage reports whether a token parked at a signal accept, or an action
+// performed for a paused token, would take m; a port failing to resolve is the error.
+func (e *ActionExecutor) acceptsMessage(m Message) (bool, error) {
+	var err error
+	if e.parkedAcceptTakes(nil, func(matches func(Message) bool, failed *error) bool {
+		accepted := matches(m)
+		err = *failed
+		return accepted || err != nil
+	}) {
+		return err == nil, err
+	}
+	for _, token := range e.tokens {
+		if held, ok := token.heldWaiter().(messageAcceptor); ok {
+			if accepted, err := held.acceptsMessage(m); err != nil || accepted {
+				return accepted, err
+			}
+		}
+	}
+	return false, nil
+}
+
+// parkedAcceptTakes calls takes with the predicate of each signal accept a token of
+// perf's flow (of the whole action for nil) is parked at, until one reports true.
+func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(matches func(Message) bool, failed *error) bool) bool {
 	for _, token := range e.tokens {
 		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
@@ -612,13 +649,8 @@ func (e *ActionExecutor) hasPendingSignal(perf *actionFrame) bool {
 		if !isAccept || accept.Trigger != nil {
 			continue
 		}
-		matches, failed := e.acceptMatch(token.frame, accept, usage)
-		for _, msg := range e.ctx.PendingMessages() {
-			// A port that fails to resolve counts as pending: the step this
-			// provokes surfaces the failure.
-			if matches(msg) || *failed != nil {
-				return true
-			}
+		if takes(e.acceptMatch(token.frame, accept, usage)) {
+			return true
 		}
 	}
 	return false

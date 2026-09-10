@@ -416,6 +416,25 @@ func TestSendDefersWhatTheActiveStateDefers(t *testing.T) {
 	wants(t, run(t, s, "%events"), "Event queue empty")
 }
 
+// TestSendReachesADoBehaviorParkedAtItsAccept: a signal no transition accepts
+// but the active state's do behavior is parked at an accept for is sent, saying
+// what goes on with it, and the step dispatching it lets the behavior finish.
+func TestSendReachesADoBehaviorParkedAtItsAccept(t *testing.T) {
+	s := loadFixture(t, "testdata/state_do_accept.sysml")
+	run(t, s, "%instantiate Waiting::box")
+	wants(t, run(t, s, "%state Waiting::box"), `✓ Debugging state machine "w"`, "Current state: active")
+
+	wants(t, run(t, s, "%send Noise"), `accepts no signal Noise now: state machine "Waiter" in state active`)
+	wants(t, run(t, s, "%send Go"), "✓ Sent Go",
+		`Accepted by state machine "Waiter" in state active: the do behavior of state active goes on from its accept`,
+		"Use %step or %advance <time> to dispatch it")
+	wants(t, run(t, s, "%events"), "Signals in flight: 1", "  Go")
+	wants(t, run(t, s, "%step"), "✓ Ran 1 do action(s)", "Current state: active")
+	rejects(t, run(t, s, "%events"), "Signals in flight")
+	wants(t, run(t, s, "%step"), "Current state: finished")
+	wants(t, run(t, s, "%events"), "Event queue empty")
+}
+
 // TestStateOnASecondMachineFollowsItOverARestart: a session attached to the
 // second of an object's machines stays on that machine when an unrelated
 // declaration restarts the object's machines, rather than falling back to the

@@ -106,6 +106,24 @@ func (run *doRun) end(ctx *Context) {
 	run.body.end(ctx)
 }
 
+// messageAcceptor is an executor a message in flight may let go on from an accept
+// it is parked at.
+type messageAcceptor interface {
+	acceptsMessage(m Message) (bool, error)
+}
+
+// acceptsMessage reports whether the run, paused at an accept of its flow or of
+// the action it performs, would take m; a port failing to resolve is the error.
+func (run *doRun) acceptsMessage(m Message) (bool, error) {
+	if accepted, err := run.host.flow.acceptsMessage(m); err != nil || accepted {
+		return accepted, err
+	}
+	if held, ok := run.body.paused.held.(messageAcceptor); ok {
+		return held.acceptsMessage(m)
+	}
+	return false, nil
+}
+
 // clockWaits lists the waits the run is paused on: its flow's, and those of the
 // action it performs where that is what waits.
 func (run *doRun) clockWaits() []ClockWait {

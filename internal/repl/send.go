@@ -208,11 +208,22 @@ func (d machineDecision) text() string {
 	if d.decision.Deferred {
 		return fmt.Sprintf("Deferred by %s, to be dispatched once it leaves", where)
 	}
-	return fmt.Sprintf("Accepted by %s: %s fires on it", where, strings.Join(d.decision.Fires, " and "))
+	resumes := ""
+	if len(d.decision.Resumes) > 0 {
+		resumes = fmt.Sprintf("the %s goes on from its accept", strings.Join(d.decision.Resumes, " and the "))
+	}
+	if len(d.decision.Fires) == 0 {
+		return fmt.Sprintf("Accepted by %s: %s", where, resumes)
+	}
+	if resumes != "" {
+		resumes = ", and " + resumes
+	}
+	return fmt.Sprintf("Accepted by %s: %s fires on it%s", where, strings.Join(d.decision.Fires, " and "), resumes)
 }
 
 // decideMachines decides the message with each machine as its dispatch would,
-// keeping the machines that would fire a transition on it or defer it.
+// keeping the machines that would fire a transition on it, defer it, or let a do
+// behavior go on with it.
 func decideMachines(machines []*runtime.StateExecutor, msg runtime.Message) ([]machineDecision, error) {
 	var out []machineDecision
 	for _, m := range machines {

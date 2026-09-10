@@ -7,8 +7,11 @@
   node no succession leads to where no `first` says (two such nodes or a cycle are still reported,
   naming them), and the body runs as one performance that may pause: an `accept after`/`accept at`
   parks it on the shared clock — `%advance`/`-advance` move it and list it under `Waiting on the
-  clock` — and an `accept Sig` parks it until a matching signal is sent, while the machine's
-  transitions and its other regions' do behaviors go on around it. Leaving the state ends the
+  clock` — and an `accept Sig` parks it until a matching signal is sent (`%send Sig` takes it,
+  reporting `the do behavior of state <s> goes on from its accept`, rather than refusing it because
+  no transition fires), while the machine's transitions and its other regions' do behaviors go on
+  around it. A nested action node stating its flow in declaration order starts at its one
+  unpreceded node as the body does, rather than being reported as a flow without a start. Leaving the state ends the
   performance: its wait leaves the clock, nothing after the wait runs, and a signal sent later
   wakes nothing. A typed usage whose body declares only the pins of the action it performs
   performs that action, an `inout` pin bound to a feature (`inout n = ticks`) writing back when the

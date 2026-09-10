@@ -59,8 +59,12 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("action_flow_with_two_starts", testActionFlowWithTwoStarts)
 	t.Run("action_flow_cycle_without_start", testActionFlowCycleWithoutStart)
 	t.Run("state_do_body_nested_node_dangling_succession", testStateDoBodyNestedNodeDanglingSuccession)
+	t.Run("state_do_body_nested_node_starts_at_its_unpreceded_step", testStateDoBodyNestedNodeStartsAtItsUnprecededStep)
+	t.Run("action_nested_node_starts_at_its_unpreceded_step", testActionNestedNodeStartsAtItsUnprecededStep)
+	t.Run("action_nested_node_with_two_starts", testActionNestedNodeWithTwoStarts)
 	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
 	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
+	t.Run("state_do_body_accept_is_decided_for_a_send", testStateDoBodyAcceptIsDecidedForASend)
 	t.Run("state_do_body_nested_accept_cancelled_on_exit", testStateDoBodyNestedAcceptCancelledOnExit)
 	t.Run("state_do_typed_action_input_unbound", testStateDoTypedActionInputUnbound)
 	t.Run("state_do_typed_action_pin_bound_to_missing_feature", testStateDoTypedActionPinBoundToMissingFeature)
@@ -11461,8 +11465,9 @@ func testPerformanceOccurrenceWriteOfAWrongTypedValue(t *testing.T) {
 	}
 }
 
-// testNestedFlowWithoutAnInitialNode: a node stating a flow that names no node
-// to start at is reported at initialize(), not run as a leaf.
+// testNestedFlowWithoutAnInitialNode: a node stating a flow with no node to
+// start at — a cycle, every node preceded — is reported at initialize(), not
+// run as a leaf.
 func testNestedFlowWithoutAnInitialNode(t *testing.T) {
 	src := `
 		package test {
@@ -11472,6 +11477,7 @@ func testNestedFlowWithoutAnInitialNode(t *testing.T) {
 					action a;
 					action b;
 					succession first a then b;
+					succession first b then a;
 				}
 			}
 		}
@@ -12393,6 +12399,69 @@ func testStateDoBodyNestedNodeDanglingSuccession(t *testing.T) {
 	}
 }
 
+// testStateDoBodyNestedNodeStartsAtItsUnprecededStep: a node of an inline do
+// body stating its flow in declaration order, with no `first`, starts at the one
+// node no succession leads to, as the body itself does.
+func testStateDoBodyNestedNodeStartsAtItsUnprecededStep(t *testing.T) {
+	exec := stateWithDoBody(t, `
+		action inner {
+			action a { assign total := total + 1; }
+			action b { assign total := total * 10; }
+			succession first a then b;
+		}
+	`)
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(10)) {
+		t.Errorf("total = %v, want 10: a then b", total)
+	}
+}
+
+// testActionNestedNodeStartsAtItsUnprecededStep: a node of an action definition
+// stating its flow the same way starts there too.
+func testActionNestedNodeStartsAtItsUnprecededStep(t *testing.T) {
+	outputs, err := executeActionSource(t, "Count", `package P {
+		private import ScalarValues::*;
+		action def Count {
+			attribute total : Integer = 1;
+			action inner {
+				action a { assign total := total + 1; }
+				action b { assign total := total * 10; }
+				succession first a then b;
+			}
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	assertIntOutput(t, outputs, "total", 20)
+}
+
+// testActionNestedNodeWithTwoStarts: a nested flow leaving two nodes unpreceded
+// states no start, and is an invalid flow at initialization naming the node.
+func testActionNestedNodeWithTwoStarts(t *testing.T) {
+	_, err := executeActionSource(t, "Count", `package P {
+		private import ScalarValues::*;
+		action def Count {
+			attribute total : Integer = 0;
+			action inner {
+				action a { assign total := total + 1; }
+				action b { assign total := total + 1; }
+				action c { assign total := total + 1; }
+				succession first a then c;
+				succession first b then c;
+			}
+		}
+	}`)
+	if !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "no initial node found in action node inner") {
+		t.Errorf("error %q does not name the node without a start", err)
+	}
+}
+
 // testStateEntryBodyDanglingSuccession: an inline entry body's flow is built the
 // same way, so its dangling succession is reported on entering the state.
 func testStateEntryBodyDanglingSuccession(t *testing.T) {
@@ -12468,6 +12537,83 @@ func testStateDoBodyAcceptWaitsForTheMessage(t *testing.T) {
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(9)) {
 		t.Errorf("total = %v, want 9: the accepted value", total)
+	}
+}
+
+// testStateDoBodyAcceptIsDecidedForASend: a signal a do body is parked at an
+// accept for is one the machine takes, though no transition fires on it: the
+// previews say so, without moving the body, and the dispatch lets it go on.
+func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
+	src := `
+	private import ScalarValues::*;
+	attribute def Go;
+	attribute def Other;
+	state def Waiter {
+		attribute total : Integer = 0;
+		entry; then active;
+		state active {
+			do action work {
+				first start;
+				then action reader accept Go;
+				then action count assign total := total + 1;
+				then done;
+			}
+		}
+		succession first active then finished;
+		state finished;
+	}
+	part def Box { exhibit state w : Waiter; }
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "w.sysml", parseAndBuild(t, src))
+	root := idx.DocumentRoot("w.sysml")
+	box, err := ctx.Instantiate(resolveSymbol(t, root, "Box"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := box.ExhibitedState()
+	if !ok {
+		t.Fatal("the box exhibits no machine")
+	}
+	exec := behavior.State
+	if activeLeaf(exec) != "active" || exec.HasPendingDoWork() {
+		t.Fatalf("state %s with pending do work %v, want parked in active", activeLeaf(exec), exec.HasPendingDoWork())
+	}
+	other, err := ctx.SignalMessage(resolveSymbol(t, root, "Other"), nil, box)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accepted, err := exec.AcceptsMessage(other); err != nil || accepted {
+		t.Errorf("AcceptsMessage(Other) = %v, %v; want false: the accept names Go", accepted, err)
+	}
+	goMsg, err := ctx.SignalMessage(resolveSymbol(t, root, "Go"), nil, box)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accepted, err := exec.AcceptsMessage(goMsg); err != nil || !accepted {
+		t.Errorf("AcceptsMessage(Go) = %v, %v; want true: the do body is parked at accept Go", accepted, err)
+	}
+	decision, err := exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go): %v", err)
+	}
+	if len(decision.Fires) != 0 || decision.Deferred || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
+		t.Errorf("Decide(Go) = %+v, want only the do behavior of active resumed", decision)
+	}
+	if activeLeaf(exec) != "active" || exec.HasPendingDoWork() || len(ctx.PendingMessages()) != 0 {
+		t.Fatal("the previews must leave the machine, the body and the bus as they were")
+	}
+	ctx.PostMessage(goMsg)
+	if !exec.HasPendingDoWork() {
+		t.Fatal("the message in flight must make the parked do body due")
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run after the message: %v", err)
+	}
+	if activeLeaf(exec) != "finished" || len(ctx.PendingMessages()) != 0 {
+		t.Errorf("state %s with %d messages in flight, want finished with the message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
+	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the body went on past its accept once", total)
 	}
 }
 

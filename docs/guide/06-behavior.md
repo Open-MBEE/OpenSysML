@@ -312,7 +312,8 @@ in *when* they run: entry and exit are performed whole at the instant the state 
 left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
 with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
 one action per round, and may wait. An `accept after` in a do body parks it on the shared clock
-and `%advance` moves it; an `accept Sig` parks it until a matching signal is sent. A do behavior
+and `%advance` moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig`
+takes it though no transition fires on it, reporting that the do behavior goes on. A do behavior
 performs once — when its body ends, the state has completed and a completion transition out of
 it, if any, fires — and leaving the state for any other reason abandons what is left of it: its
 waits leave the clock, nothing after the wait runs, and an `inout` pin writes its value back to

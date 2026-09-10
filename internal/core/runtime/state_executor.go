@@ -2439,11 +2439,41 @@ func (e *StateExecutor) siblingsAccepting(m Message) []*StateExecutor {
 		if sibling == nil || sibling == e || behavior.Object != e.self {
 			continue
 		}
-		if accepted, err := sibling.acceptableMessage(m); err != nil || accepted {
+		if accepted, err := sibling.reactsTo(m); err != nil || accepted {
 			siblings = append(siblings, sibling)
 		}
 	}
 	return siblings
+}
+
+// reactsTo reports whether a message in flight is one this machine would act on:
+// its configuration accepts or defers it, or a do behavior under way is parked at
+// an accept for it, which takes the message from the bus itself when resumed.
+func (e *StateExecutor) reactsTo(m Message) (bool, error) {
+	if accepted, err := e.acceptableMessage(m); err != nil || accepted {
+		return accepted, err
+	}
+	resumes, err := e.doBehaviorsAccepting(m)
+	return len(resumes) > 0, err
+}
+
+// doBehaviorsAccepting names the states whose do behavior, parked at an accept,
+// would go on with the message; a port failing to resolve on the way is the error.
+func (e *StateExecutor) doBehaviorsAccepting(m Message) ([]string, error) {
+	var names []string
+	for _, act := range e.doActions {
+		if act.run == nil {
+			continue
+		}
+		accepted, err := act.run.acceptsMessage(m)
+		if err != nil {
+			return nil, err
+		}
+		if accepted {
+			names = append(names, "do behavior of state "+getNodeName(act.state))
+		}
+	}
+	return names, nil
 }
 
 // acceptableMessage reports whether a message in flight is one this machine can
@@ -2473,13 +2503,14 @@ func (e *StateExecutor) HasPendingSignal() bool {
 	return e.hasPendingSignal()
 }
 
-// AcceptsMessage reports whether the active configuration would take a message in
-// flight: it reaches this machine and triggers a transition out of an active
-// state, or is deferred by one. Whether a transition fires is decided by its
-// guard; see Decide. Resolving the port a trigger accepts `via` may fail; a port
-// it materializes on the way is discarded, as everything the preview builds.
+// AcceptsMessage reports whether the machine would take a message in flight: it
+// reaches this machine and triggers a transition out of an active state, is
+// deferred by one, or lets a do behavior parked at an accept go on. Whether a
+// transition fires is decided by its guard; see Decide. Resolving the port a
+// trigger accepts `via` may fail; a port it materializes on the way is discarded,
+// as everything the preview builds.
 func (e *StateExecutor) AcceptsMessage(m Message) (accepted bool, err error) {
-	e.preview(func() { accepted, err = e.acceptableMessage(m) })
+	e.preview(func() { accepted, err = e.reactsTo(m) })
 	return accepted, err
 }
 
@@ -2490,15 +2521,17 @@ func (e *StateExecutor) preview(fn func()) {
 }
 
 // Decision is what dispatching a message now would do: the transitions that
-// would fire on it, or that the active state would defer it.
+// would fire on it, that the active state would defer it, or the do behaviors
+// parked at an accept it lets go on.
 type Decision struct {
 	Fires    []string
 	Deferred bool
+	Resumes  []string
 }
 
 // Enabled reports whether dispatching the message would do something with it.
 func (d Decision) Enabled() bool {
-	return len(d.Fires) > 0 || d.Deferred
+	return len(d.Fires) > 0 || d.Deferred || len(d.Resumes) > 0
 }
 
 // Decide decides a message as the step dispatching it would — the payload bound,
@@ -2511,6 +2544,7 @@ func (d Decision) Enabled() bool {
 // sent. So is a port materialized to tell whether the message reaches the machine
 // at all. A payload or guard error is returned. Among several enabled transitions
 // it names the one this machine's own run would fire, its scheduler left in place.
+// A do behavior parked at an accept the message would let go on is named too.
 func (e *StateExecutor) Decide(m Message) (decision Decision, err error) {
 	defer e.ctx.previewExecutorRun(&e.driven)()
 	e.preview(func() { decision, err = e.decide(m) })
@@ -2519,15 +2553,19 @@ func (e *StateExecutor) Decide(m Message) (decision Decision, err error) {
 
 // decide is Decide under the preview that discards what it builds.
 func (e *StateExecutor) decide(m Message) (Decision, error) {
-	if accepted, err := e.acceptableMessage(m); err != nil || !accepted {
+	resumes, err := e.doBehaviorsAccepting(m)
+	if err != nil {
 		return Decision{}, err
+	}
+	decision := Decision{Resumes: resumes}
+	if accepted, err := e.acceptableMessage(m); err != nil || !accepted {
+		return decision, err
 	}
 	event := Event{Type: EventAccept, Timestamp: e.ctx.clock.now, Payload: m}
 	candidates, err := e.selectTransitions(&event)
 	if err != nil {
 		return Decision{}, err
 	}
-	var decision Decision
 	for _, candidate := range candidates {
 		if !e.losesToNestedTransition(candidates, candidate) {
 			trans, _ := e.chooseTransition(candidate)
