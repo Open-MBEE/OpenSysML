@@ -36,7 +36,7 @@ func (ec *EvalContext) evalCast(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.castValue(value, target, ec.declaredCastTypes(n.Operands[0]))
+	return ec.castValue(soleElement(value), target, ec.declaredCastTypes(n.Operands[0]))
 }
 
 // castEntries casts one entry of a written sequence, answering the values target

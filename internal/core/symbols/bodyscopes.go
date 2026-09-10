@@ -11,6 +11,9 @@ type ExprWalker struct {
 	Body func(parent *Scope, body *ast.BodyExpr) *Scope
 	// Members is called for each member list reached, with its scope.
 	Members func(scope *Scope, members []ast.Node)
+	// Applied, when set, is called for each body expression written as the argument
+	// of an operation (`xs.{…}`, `xs.?{…}`, `xs->f {…}`), with the operation's scope.
+	Applied func(scope *Scope, op ast.Node, body *ast.BodyExpr)
 }
 
 // buildBodyScopes links the scope each body expression declares its parameters
@@ -18,7 +21,11 @@ type ExprWalker struct {
 // Body expressions sit inside expressions, which the declaration builder does
 // not walk, so this second pass walks them once the declarations exist.
 func buildBodyScopes(scope *Scope, members []ast.Node) {
-	w := ExprWalker{Body: newBodyExprScope, Members: buildBodyScopes}
+	ExprWalker{Body: newBodyExprScope, Members: buildBodyScopes}.WalkMembers(scope, members)
+}
+
+// WalkMembers walks the declaration each member wraps, in scope.
+func (w ExprWalker) WalkMembers(scope *Scope, members []ast.Node) {
 	for _, m := range members {
 		decl, _ := unwrapMember(m)
 		if decl == nil {
@@ -347,16 +354,20 @@ func (w ExprWalker) Expr(scope *Scope, e ast.Node) {
 	case *ast.InvocationExpr:
 		w.Expr(scope, v.Operand)
 		for _, a := range v.Args {
+			w.applied(scope, v, a)
 			w.Expr(scope, a)
 		}
 		for _, na := range v.NamedArgs {
+			w.applied(scope, v, na.Value)
 			w.Expr(scope, na.Value)
 		}
 	case *ast.CollectExpr:
 		w.Expr(scope, v.Operand)
+		w.applied(scope, v, v.Body)
 		w.Expr(scope, v.Body)
 	case *ast.SelectExpr:
 		w.Expr(scope, v.Operand)
+		w.applied(scope, v, v.Body)
 		w.Expr(scope, v.Body)
 	case *ast.ConstructorExpr:
 		for _, a := range v.Args {
@@ -376,5 +387,12 @@ func (w ExprWalker) Expr(scope *Scope, e ast.Node) {
 		for _, el := range v.Elements {
 			w.Expr(scope, el)
 		}
+	}
+}
+
+// applied reports arg to Applied when it is a body expression op is passed.
+func (w ExprWalker) applied(scope *Scope, op ast.Node, arg ast.Node) {
+	if body, ok := arg.(*ast.BodyExpr); ok && w.Applied != nil {
+		w.Applied(scope, op, body)
 	}
 }

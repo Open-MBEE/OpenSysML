@@ -71,16 +71,16 @@
         "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
       }
     ],
-    "recorded": "2026-09-09"
+    "recorded": "2026-09-10"
   },
   "totals": {
     "files": 369,
-    "filesFullyAgreeing": 338,
+    "filesFullyAgreeing": 337,
     "agreement": 34,
     "severityMismatch": 2,
-    "openSysMLOnly": 21,
+    "openSysMLOnly": 23,
     "pilotOnly": 600,
-    "openSysMLDiagnostics": 57,
+    "openSysMLDiagnostics": 59,
     "pilotDiagnostics": 636
   },
   "roots": [
@@ -219,12 +219,12 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "totals": {
         "files": 58,
-        "filesFullyAgreeing": 50,
+        "filesFullyAgreeing": 49,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 4,
+        "openSysMLOnly": 6,
         "pilotOnly": 6,
-        "openSysMLDiagnostics": 4,
+        "openSysMLDiagnostics": 6,
         "pilotDiagnostics": 6
       },
       "files": [
@@ -295,6 +295,26 @@
               "count": 1
             }
           ]
+        },
+        {
+          "path": "Simple Tests/Expressions.kerml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 15,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 16,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": []
         },
         {
           "path": "Simple Tests/FeatureChains.kerml",
@@ -3545,6 +3565,11 @@
       "count": 2
     },
     {
+      "side": "opensysml",
+      "message": "operator '+' is not defined for String and Natural",
+      "count": 2
+    },
+    {
       "side": "pilot",
       "message": "Only one objective is allowed.",
       "count": 2
@@ -3763,12 +3788,12 @@
     ],
     "totals": {
       "files": 369,
-      "filesFullyAgreeing": 339,
+      "filesFullyAgreeing": 338,
       "agreement": 34,
       "severityMismatch": 2,
-      "openSysMLOnly": 20,
+      "openSysMLOnly": 22,
       "pilotOnly": 600,
-      "openSysMLDiagnostics": 56,
+      "openSysMLDiagnostics": 58,
       "pilotDiagnostics": 636
     },
     "findings": [

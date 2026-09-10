@@ -171,29 +171,223 @@ func TestCollectionArgumentNotations(t *testing.T) {
 	wantValueTypes(t, m, s, "fromFunction", "MassValue")
 }
 
-// A body whose result the model cannot type — its parameter declares no type, so
-// the member is unresolved — leaves the result the library's Anything, not a guess.
+// An untyped parameter of a body a collection function applies is bound to each element
+// of the collection (KerML 8.3.4.8), so it is of the elements' type: `x.mass` resolves and
+// types the body's result in every notation, the receiver, prefix and named ones alike.
+func TestCollectionUntypedBodyParameterTakesElementType(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute masses = cs->collect { in x; x.mass };
+		attribute masses2 = cs.{ in x; x.mass };
+		attribute names = collect(cs, { in x; x.name });
+		attribute named = collect(mapper = { in x; x.name }, collection = cs);
+		attribute heavy = cs->select { in x; x.mass > 1 [kg] };
+		attribute heavy2 = cs.?{ in x; x.mass > 1 [kg] };
+		attribute heavy3 = select(selector = { in x; x.mass > 1 [kg] }, collection = cs);
+		attribute light = cs->reject { in x; x.mass > 1 [kg] };
+		attribute one = cs->selectOne { in x; x.mass > 1 [kg] };
+		attribute all = cs->forAll { in x; x.mass > 1 [kg] };
+		attribute some = cs->exists { in x; x.mass > 1 [kg] };
+		attribute ints : Integer[*];
+		attribute least = ints->minimize { in x; x + 1 };
+		attribute most = ints->maximize { in x; x + 1 };
+		attribute total = cs->collect { in x; x.mass }->reduce '+';`)
+	wantValueTypes(t, m, s, "masses", "MassValue")
+	wantValueTypes(t, m, s, "masses2", "MassValue")
+	wantValueTypes(t, m, s, "names", "String")
+	wantValueTypes(t, m, s, "named", "String")
+	wantValueTypes(t, m, s, "heavy", "C")
+	wantValueTypes(t, m, s, "heavy2", "C")
+	wantValueTypes(t, m, s, "heavy3", "C")
+	wantValueTypes(t, m, s, "light", "C")
+	wantValueTypes(t, m, s, "one", "C")
+	wantValueTypes(t, m, s, "all", "Boolean")
+	wantValueTypes(t, m, s, "some", "Boolean")
+	wantValueTypes(t, m, s, "least", "ScalarValue")
+	wantValueTypes(t, m, s, "most", "ScalarValue")
+	wantValueTypes(t, m, s, "total", "ScalarValue")
+	for _, name := range []string{"masses", "masses2", "names", "named", "heavy", "heavy2", "heavy3", "light", "one", "all", "some", "least", "most"} {
+		wantBodyParameterTypes(t, m, s, name, "x", elementTypeOf(name))
+	}
+}
+
+// elementTypeOf is the element type the parameter x of the named attribute's body takes in
+// TestCollectionUntypedBodyParameterTakesElementType: Integer over ints, C over cs.
+func elementTypeOf(name string) string {
+	if name == "least" || name == "most" {
+		return "Integer"
+	}
+	return "C"
+}
+
+// wantBodyParameterTypes checks the types the named parameter of the body the attribute's
+// value applies takes, through BodyParameterElementTypes and the specialization graph alike.
+func wantBodyParameterTypes(t *testing.T, m *Model, scope *symbols.Scope, name, param string, want ...string) {
+	t.Helper()
+	body := appliedBody(t, valueOf(t, scope, name))
+	p := sym(t, symbols.BodyExprScope(scope, body), param)
+	var got, supers []string
+	for _, typ := range m.BodyParameterElementTypes(p) {
+		got = append(got, leafName(typ.Name))
+	}
+	for _, typ := range m.DirectSupertypes(p) {
+		supers = append(supers, leafName(typ.Name))
+	}
+	if !slices.Equal(got, want) || !slices.Equal(supers, want) {
+		t.Errorf("%s: parameter %s typed %v, supertypes %v, want %v", name, param, got, supers, want)
+	}
+}
+
+// appliedBody is the body expression a collection value applies.
+func appliedBody(t *testing.T, value ast.Node) *ast.BodyExpr {
+	t.Helper()
+	var arg ast.Node
+	switch v := value.(type) {
+	case *ast.CollectExpr:
+		arg = v.Body
+	case *ast.SelectExpr:
+		arg = v.Body
+	case *ast.InvocationExpr:
+		for _, a := range v.Args {
+			if _, ok := a.(*ast.BodyExpr); ok {
+				arg = a
+			}
+		}
+		for _, a := range v.NamedArgs {
+			if _, ok := a.Value.(*ast.BodyExpr); ok {
+				arg = a.Value
+			}
+		}
+	}
+	body, ok := arg.(*ast.BodyExpr)
+	if !ok {
+		t.Fatalf("value %T applies no body", value)
+	}
+	return body
+}
+
+// A reducer's second parameter takes the elements' type; its first, which holds the reducer's
+// result from the second fold on, only where that result conforms to it.
+func TestCollectionReduceUntypedParametersTakeElementType(t *testing.T) {
+	m, s := collectionModel(t, `
+		part def D :> C { part next : D[0..1]; }
+		part ds : D[*];
+		part one : C;
+		attribute either = cs->reduce { in a; in b; a };
+		attribute other = cs->reduce { in a; in b; b };
+		attribute named = reduce(reducer = { in a; in b; one }, collection = cs);
+		attribute special = cs->reduce { in a; in b; ds#(1) };
+		attribute chained = ds->reduce { in a; in b; a.next };
+		attribute total = cs->reduce { in a; in b; a.mass };
+		attribute label = reduce(reducer = { in a; in b; b.name }, collection = cs);
+		attribute heaviest = cs->reduce { in a; in b; if a.mass > b.mass ? a else b };
+		attribute general = ds->reduce { in a; in b; one };`)
+	wantValueTypes(t, m, s, "either", "C")
+	wantValueTypes(t, m, s, "chained", "D")
+	for _, name := range []string{"either", "other", "named", "special"} {
+		wantBodyParameterTypes(t, m, s, name, "a", "C")
+		wantBodyParameterTypes(t, m, s, name, "b", "C")
+	}
+	wantBodyParameterTypes(t, m, s, "chained", "a", "D")
+	wantBodyParameterTypes(t, m, s, "chained", "b", "D")
+	for _, name := range []string{"total", "label", "heaviest"} {
+		wantBodyParameterTypes(t, m, s, name, "a")
+		wantBodyParameterTypes(t, m, s, name, "b", "C")
+	}
+	wantBodyParameterTypes(t, m, s, "general", "a")
+	wantBodyParameterTypes(t, m, s, "general", "b", "D")
+	if c := m.ExprConformsToLibrary(s, valueOf(t, s, "heaviest"), fqnString); !c.Known || c.Holds || c.Untyped || c.Found != "C" {
+		t.Errorf("heaviest as String: %+v, want known, not holding, found C", c)
+	}
+	elements, ok := m.CollectionElements(s, valueOf(t, s, "label"))
+	if !ok || len(elements) != 2 || len(elements[0].Types) != 1 || leafName(elements[0].Types[0].Name) != "String" ||
+		len(elements[1].Types) != 1 || leafName(elements[1].Types[0].Name) != "C" {
+		t.Errorf("label: elements %v, want the reducer's String then the collection's C", elements)
+	}
+}
+
+// The guard's decision is memoized as the first parameter's supertypes, never the assumption.
+func TestCollectionReduceGuardMemoizesDecision(t *testing.T) {
+	m, s := collectionModel(t, `
+		attribute total = cs->reduce { in a; in b; a.mass };
+		attribute either = cs->reduce { in a; in b; a };`)
+	for i := 0; i < 2; i++ {
+		wantBodyParameterTypes(t, m, s, "total", "a")
+		wantBodyParameterTypes(t, m, s, "either", "a", "C")
+		wantValueTypes(t, m, s, "total", "Anything")
+		wantValueTypes(t, m, s, "either", "C")
+	}
+	a := sym(t, symbols.BodyExprScope(s, appliedBody(t, valueOf(t, s, "total"))), "a")
+	if len(m.AllSupertypes(a)) != 0 || len(m.MembersOf(a)) != 0 {
+		t.Errorf("total: a has supertypes %v and members %v after the guard, want none", m.AllSupertypes(a), m.MembersOf(a))
+	}
+}
+
+// A nested body's parameter is bound to the elements of the collection its own operation is
+// applied to, which the outer parameter's type decides: `x.parts` holds Cs, so `p` is a C.
+func TestCollectionNestedUntypedBodyParameters(t *testing.T) {
+	m, s := collectionModel(t, `
+		part def Assembly { part parts : C[*]; }
+		part assemblies : Assembly[*];
+		attribute nested = assemblies.{ in x; x.parts.{ in p; p.mass } };
+		attribute nested2 = assemblies->collect { in x; x.parts->select { in p; p.mass > 1 [kg] } };
+		attribute nested3 = assemblies->forAll { in x; x.parts->exists { in p; p.mass > 1 [kg] } };`)
+	wantValueTypes(t, m, s, "nested", "MassValue")
+	wantValueTypes(t, m, s, "nested2", "C")
+	wantValueTypes(t, m, s, "nested3", "Boolean")
+	wantBodyParameterTypes(t, m, s, "nested", "x", "Assembly")
+	outer := appliedBody(t, valueOf(t, s, "nested"))
+	inner := appliedBody(t, outer.Result)
+	p := sym(t, symbols.BodyExprScope(symbols.BodyExprScope(s, outer), inner), "p")
+	if types := m.BodyParameterElementTypes(p); len(types) != 1 || leafName(types[0].Name) != "C" {
+		t.Errorf("nested: inner parameter p typed %v, want C", types)
+	}
+}
+
+// A body whose parameter declares its own type keeps it, whatever the elements; one applied
+// over a collection whose elements cannot be typed stays untyped — the library's Anything, not
+// a guess — as does a body that is not the argument of a collection function.
 func TestCollectionUntypedBodyFallsBackToLibraryResult(t *testing.T) {
 	m, s := collectionModel(t, `
-		attribute unknown = cs->collect { in x; x.mass };
-		attribute unknown2 = cs.{ in x; x.mass };
+		attribute anys;
+		attribute unknown = anys->collect { in x; x.mass };
+		attribute unknown2 = anys.{ in x; x.mass };
+		attribute declared = cs->collect { in x : String; x };
 		attribute body = cs->collect { in x : C; { in y; y } };`)
 	wantValueTypes(t, m, s, "unknown", "Anything")
 	wantValueTypes(t, m, s, "unknown2", "Anything")
+	wantValueTypes(t, m, s, "declared", "String")
 	wantValueTypes(t, m, s, "body", "Evaluation")
+	wantBodyParameterTypes(t, m, s, "unknown", "x")
+	wantBodyParameterTypes(t, m, s, "unknown2", "x")
+	if got := m.BodyParameterElementTypes(sym(t, symbols.BodyExprScope(s, appliedBody(t, valueOf(t, s, "declared"))), "x")); got != nil {
+		t.Errorf("declared: element types %v for a parameter declaring its type, want none", got)
+	}
 }
 
-// A body that names the feature it values leads the typer back to itself; typing terminates.
+// A body that names the feature it values leads the typer back to itself, as does an untyped
+// parameter over the feature the body values; typing terminates.
 func TestCollectionSelfReferentialBodyTerminates(t *testing.T) {
 	m, s := collectionModel(t, `
 		attribute total :> ISQ::mass = cs->collect { in x : C; total }->reduce '+';
 		attribute loop = cs->collect { in x : C; loop };
 		attribute loop2 = cs.{ in x : C; loop2 };
-		attribute kept = cs->select { in x : C; kept == x };`)
+		attribute loop3 = loop3.{ in x; x.mass };
+		attribute loop4 = cs.{ in x; (x, loop4) };
+		attribute loop5 = loop5->reduce { in a; in b; a };
+		attribute kept = cs->select { in x : C; kept == x };
+		attribute kept2 = cs->select { in x; kept2 == x };`)
 	wantValueTypes(t, m, s, "total", "ScalarValue")
 	wantValueTypes(t, m, s, "loop", "Anything")
 	wantValueTypes(t, m, s, "loop2", "Anything")
+	wantValueTypes(t, m, s, "loop3", "Anything")
+	wantValueTypes(t, m, s, "loop4", "Anything")
+	wantValueTypes(t, m, s, "loop5", "Anything")
 	wantValueTypes(t, m, s, "kept", "C")
+	wantValueTypes(t, m, s, "kept2", "C")
+	wantBodyParameterTypes(t, m, s, "loop3", "x")
+	wantBodyParameterTypes(t, m, s, "loop4", "x", "C")
+	wantBodyParameterTypes(t, m, s, "loop5", "a")
+	wantBodyParameterTypes(t, m, s, "kept2", "x", "C")
 }
 
 // Conformance judges the specialized result: a collect of masses is a MassValue and
@@ -205,11 +399,12 @@ func TestCollectionResultConformance(t *testing.T) {
 		attribute masses = cs->collect { in x : C; x.mass };
 		attribute masses2 = cs.{ in x : C; x.mass };
 		attribute heavy = cs->select { in x : C; x.mass > 1 [kg] };
-		attribute unknown = cs.{ in x; x.mass };
+		attribute anys;
+		attribute unknown = anys.{ in x; x.mass };
 		attribute pairs = cs->collect { in x : C; (x.mass, x.mass) };
 		attribute mixed = cs.{ in x : C; (true, 1) };
-		attribute partly = cs.{ in x; (x, 1) };
-		attribute partly2 = cs->collect { in x; (x, 1) };`)
+		attribute partly = anys.{ in x; (x, 1) };
+		attribute partly2 = anys->collect { in x; (x, 1) };`)
 	for name, want := range map[string]string{"pairs": "ISQ::MassValue", "mixed": "Base::Anything"} {
 		if c := m.ExprConformsToLibrary(s, valueOf(t, s, name), want); !c.Known || !c.Holds {
 			t.Errorf("%s as %s: %+v, want it to hold", name, want, c)

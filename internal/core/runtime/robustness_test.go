@@ -262,6 +262,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_unreachable_receiver", testRoutedSendUnreachableReceiver)
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
+	t.Run("two_valued_member_in_scalar_context", testTwoValuedMemberInScalarContext)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
@@ -4351,6 +4352,56 @@ func testRoutedSendReceiverNameMismatchDeadlock(t *testing.T) {
 	}
 	if !errors.Is(err, ErrAcceptDeadlock) {
 		t.Fatalf("expected ErrAcceptDeadlock, got: %v", err)
+	}
+}
+
+// testTwoValuedMemberInScalarContext: a `[0..*]` member holding two values is
+// not the one value an operator, a `[1]` parameter or a library function takes;
+// each refuses it with a typed error rather than a panic, a hang or a guess.
+func testTwoValuedMemberInScalarContext(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		expr string
+		want error
+	}{
+		{"arithmetic", "q.zs + 1.0", ErrTypeMismatch},
+		{"negation", "-q.zs", ErrTypeMismatch},
+		{"calc parameter", "Inc(q.zs)", ErrMultiplicityViolation},
+		{"library function", "RealFunctions::sqrt(q.zs)", ErrTypeMismatch},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+				private import ScalarValues::*;
+				calc def Inc { in x : Real; x + 1.0 }
+				part def Holder { attribute zs : Real[0..*]; }
+				calc def Two {
+					attribute q : Holder = new Holder(zs = (1.0, 2.0));
+					return r = ` + tc.expr + `;
+				}
+			}`
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			pkg := resolveSymbol(t, idx.DocumentRoot("<test>"), "test")
+			sym := resolveSymbol(t, pkg.Scope, "Two")
+
+			done := make(chan error, 1)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						done <- fmt.Errorf("panic: %v", r)
+					}
+				}()
+				_, err := ctx.InvokeCalc(sym, nil, pkg.Scope)
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				if !errors.Is(err, tc.want) {
+					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("evaluating the two-valued member did not terminate")
+			}
+		})
 	}
 }
 
