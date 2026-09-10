@@ -1043,7 +1043,7 @@ func TestStringFunctionErrors(t *testing.T) {
 		{"substring at a non-integer position", "StringFunctions::Substring",
 			[]Value{strValue("abc"), strValue("a"), constInt(2)}, ErrTypeMismatch},
 		{"substring of a collection", "StringFunctions::Substring",
-			[]Value{vec(strValue("a")), constInt(1), constInt(1)}, ErrTypeMismatch},
+			[]Value{vec(strValue("a"), strValue("b")), constInt(1), constInt(1)}, ErrTypeMismatch},
 		{"length without an argument", "StringFunctions::Length", nil, ErrCalcArity},
 		{"concatenation of three strings", "StringFunctions::+",
 			[]Value{strValue("a"), strValue("b"), strValue("c")}, ErrCalcArity},
