@@ -92,6 +92,9 @@ public final class Capabilities {
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";
 
+  /** {@code ListEngines}, the {@code engine} field selecting an analysis engine, and {@code engine}, {@code strength} and {@code bounds} on the answers. */
+  public static final String ENGINES = "engines";
+
   private final String serviceVersion;
   private final Set<String> names;
 

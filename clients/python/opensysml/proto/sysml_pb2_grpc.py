@@ -5,7 +5,7 @@ import warnings
 
 from . import sysml_pb2 as sysml__pb2
 
-GRPC_GENERATED_VERSION = '1.83.0'
+GRPC_GENERATED_VERSION = '1.83.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -119,6 +119,11 @@ class SysMLServiceStub:
                 '/sysml.SysMLService/RunSweep',
                 request_serializer=sysml__pb2.RunSweepRequest.SerializeToString,
                 response_deserializer=sysml__pb2.RunSweepResponse.FromString,
+                _registered_method=True)
+        self.ListEngines = channel.unary_unary(
+                '/sysml.SysMLService/ListEngines',
+                request_serializer=sysml__pb2.ListEnginesRequest.SerializeToString,
+                response_deserializer=sysml__pb2.ListEnginesResponse.FromString,
                 _registered_method=True)
         self.Query = channel.unary_unary(
                 '/sysml.SysMLService/Query',
@@ -270,6 +275,17 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListEngines(self, request, context):
+        """List the analysis engines this build registers, as the CLI's -engines and
+        the REPL's %engines do: each with the questions it answers, the strongest
+        evidence it can produce and whether it can run. Reported as the "engines"
+        capability, which also names the `engine` request fields and the `engine`,
+        `strength` and `bounds` response fields of the verification RPCs.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def Query(self, request, context):
         """Run a SysML v2 API & Services Query over a parsed model: scope/select/where
         as the standard defines them, so a client that speaks that API can filter a
@@ -383,6 +399,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.RunSweep,
                     request_deserializer=sysml__pb2.RunSweepRequest.FromString,
                     response_serializer=sysml__pb2.RunSweepResponse.SerializeToString,
+            ),
+            'ListEngines': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListEngines,
+                    request_deserializer=sysml__pb2.ListEnginesRequest.FromString,
+                    response_serializer=sysml__pb2.ListEnginesResponse.SerializeToString,
             ),
             'Query': grpc.unary_unary_rpc_method_handler(
                     servicer.Query,
@@ -860,6 +881,33 @@ class SysMLService:
             '/sysml.SysMLService/RunSweep',
             sysml__pb2.RunSweepRequest.SerializeToString,
             sysml__pb2.RunSweepResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListEngines(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/ListEngines',
+            sysml__pb2.ListEnginesRequest.SerializeToString,
+            sysml__pb2.ListEnginesResponse.FromString,
             options,
             channel_credentials,
             insecure,

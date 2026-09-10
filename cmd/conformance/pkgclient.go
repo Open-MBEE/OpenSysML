@@ -58,6 +58,8 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 	switch method {
 	case "GetServerInfo":
 		return c.serverInfo(ctx)
+	case "ListEngines":
+		return c.listEngines(ctx)
 	case "ParseFile":
 		return c.parseFile(ctx, request)
 	case "ParseSources":
@@ -105,6 +107,27 @@ func (c *pkgClient) serverInfo(ctx context.Context) (proto.Message, error) {
 		return nil, apiError(err)
 	}
 	return &pb.ServerInfoResponse{Version: info.Version, Capabilities: info.Capabilities}, nil
+}
+
+func (c *pkgClient) listEngines(ctx context.Context) (proto.Message, error) {
+	engines, err := c.api.ListEngines(ctx)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.ListEnginesResponse{}
+	for _, engine := range engines {
+		response.Engines = append(response.Engines, &pb.EngineInfo{
+			Name:         engine.Name,
+			Authority:    engine.Authority,
+			Answers:      engine.Answers,
+			Bounds:       engine.Bounds,
+			Process:      engine.Process,
+			ProcessFound: engine.ProcessFound,
+			Ready:        engine.Ready,
+			Unavailable:  engine.Unavailable,
+		})
+	}
+	return response, nil
 }
 
 func (c *pkgClient) parseFile(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
@@ -325,7 +348,7 @@ func (c *pkgClient) verifyConstraint(ctx context.Context, request protoreflect.M
 		return nil, err
 	}
 	verification, err := c.api.VerifyConstraint(ctx, c.model(req.ModelHash), req.SymbolId,
-		opensysml.Against(req.SubjectSymbolId))
+		opensysml.Against(req.SubjectSymbolId), opensysml.WithEngine(req.Engine))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.VerifyConstraintResponse{
@@ -349,7 +372,7 @@ func (c *pkgClient) verifyRequirement(ctx context.Context, request protoreflect.
 		return nil, err
 	}
 	verification, err := c.api.VerifyRequirement(ctx, c.model(req.ModelHash), req.SymbolId,
-		opensysml.Against(req.SubjectSymbolId))
+		opensysml.Against(req.SubjectSymbolId), opensysml.WithEngine(req.Engine))
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.VerifyRequirementResponse{
@@ -372,7 +395,8 @@ func (c *pkgClient) verifySatisfaction(ctx context.Context, request protoreflect
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	satisfaction, err := c.api.VerifySatisfaction(ctx, c.model(req.ModelHash), req.SymbolId)
+	satisfaction, err := c.api.VerifySatisfaction(ctx, c.model(req.ModelHash), req.SymbolId,
+		opensysml.WithEngine(req.Engine))
 	var verifyErr *opensysml.VerifyError
 	if errors.As(err, &verifyErr) {
 		return &pb.VerifySatisfactionResponse{
@@ -422,6 +446,9 @@ func (c *pkgClient) evaluateCalc(ctx context.Context, request protoreflect.Messa
 	response := &pb.EvaluateCalcResponse{
 		Result:      valueToProto(calculation.Result),
 		Diagnostics: diagnosticsToProto(calculation.Diagnostics),
+		Engine:      calculation.Standing.Engine,
+		Strength:    calculation.Standing.Strength,
+		Bounds:      boundsToProto(calculation.Standing.Bounds),
 	}
 	for _, output := range calculation.Outputs {
 		response.Outputs = append(response.Outputs, &pb.CalcOutput{
@@ -437,7 +464,9 @@ func (c *pkgClient) runAnalysis(ctx context.Context, request protoreflect.Messag
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	opts := []opensysml.AnalysisOption{opensysml.Subject(req.SubjectSymbolId), opensysml.Schedule(req.Schedule)}
+	opts := []opensysml.AnalysisOption{
+		opensysml.Subject(req.SubjectSymbolId), opensysml.Schedule(req.Schedule), opensysml.Engine(req.Engine),
+	}
 	for _, argument := range req.Arguments {
 		converted, ok := valueFromProto(argument)
 		if !ok {
@@ -467,6 +496,9 @@ func (c *pkgClient) runAnalysis(ctx context.Context, request protoreflect.Messag
 	response := &pb.RunAnalysisResponse{
 		Instances:   instancesToProto(analysis.Instances),
 		Diagnostics: diagnosticsToProto(analysis.Diagnostics),
+		Engine:      analysis.Standing.Engine,
+		Strength:    analysis.Standing.Strength,
+		Bounds:      boundsToProto(analysis.Standing.Bounds),
 	}
 	for _, output := range analysis.Outputs {
 		response.Outputs = append(response.Outputs, &pb.CalcOutput{
@@ -987,7 +1019,21 @@ func verdictToProto(verdict *opensysml.Verdict) *pb.Verdict {
 		InstanceTypeId: verdict.InstanceTypeID,
 		Error:          verdict.Error,
 		FailureReason:  pb.FailureReason(verdict.Reason),
+		Engine:         verdict.Standing.Engine,
+		Strength:       verdict.Standing.Strength,
+		Bounds:         boundsToProto(verdict.Standing.Bounds),
 	}
+}
+
+func boundsToProto(bounds []opensysml.Bound) []*pb.Bound {
+	if len(bounds) == 0 {
+		return nil
+	}
+	out := make([]*pb.Bound, 0, len(bounds))
+	for _, bound := range bounds {
+		out = append(out, &pb.Bound{Name: bound.Name, Limit: bound.Limit, Reached: bound.Reached})
+	}
+	return out
 }
 
 // queryFromProto reads a scenario's query into the public builders. It reports

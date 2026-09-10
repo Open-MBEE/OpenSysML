@@ -411,6 +411,11 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void theServiceAdvertisesItsAnalysisEngines() {
+    assertTrue(connection.capabilities().has(Capabilities.ENGINES));
+  }
+
+  @Test
   void theServiceAdvertisesTheFinalClockInstantOfItsExecutionResponses() {
     assertTrue(connection.capabilities().has(Capabilities.FINAL_TIME));
   }

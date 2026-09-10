@@ -927,6 +927,38 @@ test("a verdict holds, fails or is undecided, and always names its subject", () 
   assert.equal(undecided.cause, "evaluation");
 });
 
+test("a verdict carries its standing, empty from a service without engines", () => {
+  const bare = decodeVerdict(
+    create(VerdictSchema, { kind: "constraint", elementId: "S::C", element: "S::C", holds: true }),
+  );
+  assert.deepEqual(bare.standing, { engine: "", strength: "", bounds: [] });
+
+  const explored = decodeVerdict(
+    create(VerdictSchema, {
+      kind: "requirement",
+      elementId: "S::R",
+      element: "S::R",
+      holds: false,
+      condition: "mass < 1000",
+      engine: "explore",
+      strength: "witnessed",
+      bounds: [
+        { name: "runs", limit: 64n, reached: true },
+        { name: "depth", limit: 8n, reached: false },
+      ],
+    }),
+  );
+  assert.equal(explored.kind, "fails");
+  assert.deepEqual(explored.standing, {
+    engine: "explore",
+    strength: "witnessed",
+    bounds: [
+      { name: "runs", limit: 64n, reached: true },
+      { name: "depth", limit: 8n, reached: false },
+    ],
+  });
+});
+
 test("every failure reason has a name", () => {
   assert.equal(failureCause(FailureReason.UNSPECIFIED), "unspecified");
   assert.equal(failureCause(FailureReason.EVALUATION), "evaluation");

@@ -23,6 +23,10 @@ type Client interface {
 	// ServerInfo reports the implementation's version and capabilities.
 	ServerInfo(ctx context.Context) (*ServerInfo, error)
 
+	// ListEngines lists the analysis engines the service answers with, in name
+	// order, as `sysml -engines` does. Requires the engines capability.
+	ListEngines(ctx context.Context) ([]EngineInfo, error)
+
 	// ParseFile parses the model file at path. Diagnostics, including syntax
 	// errors, arrive on the returned Model; only an unreadable path or an
 	// invalid request fails the call.
@@ -88,17 +92,23 @@ type Client interface {
 	ExploreAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Exploration, error)
 
 	// VerifyConstraint evaluates the named constraint, optionally Against a
-	// part to instantiate and check. Requires the verification capability.
+	// part to instantiate and check, WithEngine naming the engine that answers.
+	// Requires the verification capability, and engines for a named engine,
+	// checked before anything is sent.
 	VerifyConstraint(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Verification, error)
 
 	// VerifyRequirement evaluates the named requirement, optionally Against a
-	// part to instantiate and check. Requires the verification capability.
+	// part to instantiate and check, WithEngine naming the engine that answers.
+	// Requires the verification capability, and engines for a named engine,
+	// checked before anything is sent.
 	VerifyRequirement(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Verification, error)
 
 	// VerifySatisfaction evaluates the satisfaction assertions the model
-	// states — every one, or those of the symbol named. Requires the
-	// verification capability.
-	VerifySatisfaction(ctx context.Context, model *Model, symbolID string) (*Satisfaction, error)
+	// states — every one, or those of the symbol named — WithEngine naming the
+	// engine that answers; the assertions name their own subjects, so Against
+	// is an invalid argument. Requires the verification capability, and engines
+	// for a named engine, checked before anything is sent.
+	VerifySatisfaction(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Satisfaction, error)
 
 	// EvaluateCalc invokes the named calculation with positional arguments, or,
 	// given none, evaluates a calc usage from its own members. Requires the
@@ -112,10 +122,11 @@ type Client interface {
 	// reports its outputs with the verdict of its objective and of each
 	// assertion in its body. Positional arguments bind its inputs in
 	// declaration order; Against names its subject and Binding a parameter by
-	// name; Schedule selects the scheduling policy. Requires the verification
-	// capability, the complex_values or structured_values capability for a
-	// Complex or a structured argument and the schedule capability for a
-	// policy, checked before anything is sent.
+	// name; Schedule selects the scheduling policy and Engine the engine that
+	// answers. Requires the verification capability, the complex_values or
+	// structured_values capability for a Complex or a structured argument, the
+	// schedule capability for a policy and engines for a named engine, checked
+	// before anything is sent.
 	RunAnalysis(ctx context.Context, model *Model, symbolID string, opts ...AnalysisOption) (*Analysis, error)
 
 	// Query selects the model's elements the query matches, in declaration
@@ -237,6 +248,7 @@ func WithSubject(symbolID string) EvaluateOption {
 // one service implementation.
 type caller interface {
 	serverInfo(ctx context.Context) (*pb.ServerInfoResponse, error)
+	listEngines(ctx context.Context, req *pb.ListEnginesRequest) (*pb.ListEnginesResponse, error)
 	parseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.ParseFileResponse, error)
 	parseSources(ctx context.Context, req *pb.ParseSourcesRequest) (*pb.ParseSourcesResponse, error)
 	getSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error)

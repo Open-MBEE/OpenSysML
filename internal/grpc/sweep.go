@@ -23,7 +23,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash)
+	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -104,15 +104,18 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	}
 
 	schedule := v.runtime.Schedule()
-	table, err := s.engines.Sweep(ctx, analysis.Held(v.runtime, nil), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep))
+	answered, err := s.engines.Sweep(ctx, analysis.Held(v.runtime, nil), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep), v.engine)
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return sweepFailure(err), nil
+		failed := sweepFailure(err)
+		st := s.standingOf(answered)
+		failed.Engine, failed.Strength, failed.Bounds = st.engine, st.strength, st.bounds
+		return failed, nil
 	}
-	return v.sweepResponse(table), nil
+	return v.sweepResponse(answered.Result.Table(), s.standingOf(answered)), nil
 }
 
 // sweepArguments reads the arguments every row of the sweep binds, the named
@@ -212,13 +215,16 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 }
 
 // sweepResponse spells a table on the wire: one row per run, in the order the
-// runs were made.
-func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResponse {
+// runs were made, under the standing of the plan that ran it.
+func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb.RunSweepResponse {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
 		Sampled:    table.Sampled,
 		Seed:       table.Seed,
 		Rows:       make([]*pb.SweepRow, 0, len(table.Rows)),
+		Engine:     st.engine,
+		Strength:   st.strength,
+		Bounds:     st.bounds,
 	}
 	seen := make(map[int64]bool)
 	evaluations := v.service.capabilities.has(CapabilityCaseEvaluations)
@@ -247,7 +253,7 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable) *pb.RunSweepResp
 			})
 		}
 		for j := range row.Verdicts {
-			out.Verdicts = append(out.Verdicts, v.analysisVerdict(&row.Verdicts[j], row.Subject))
+			out.Verdicts = append(out.Verdicts, st.stamp(v.analysisVerdict(&row.Verdicts[j], row.Subject)))
 		}
 		var reported []runtime.AnalysisEvaluation
 		if evaluations {

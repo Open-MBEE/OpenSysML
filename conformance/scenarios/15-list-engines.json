@@ -1,0 +1,44 @@
+{
+  "scenarios": [
+    {
+      "id": "list_engines/names_every_engine_with_its_authority_and_what_it_answers",
+      "description": "The engines `-engine <name>` can select, in name order, each with the strongest strength it may claim and the question kinds it answers; solve's readiness follows whether its solver is found, so only its presence is required.",
+      "rpc": "ListEngines",
+      "requires_capabilities": [
+        "engines"
+      ],
+      "request": {},
+      "expect": {
+        "min_counts": {
+          "engines": 4
+        },
+        "non_empty": [
+          "engines.0.authority",
+          "engines.0.answers"
+        ],
+        "contains_all": {
+          "engines.*.name": [
+            "explore",
+            "run",
+            "solve",
+            "sweep"
+          ],
+          "engines.*.authority": [
+            "observed",
+            "proved"
+          ],
+          "engines.*.answers.*": [
+            "evaluate",
+            "outcomes",
+            "satisfiable",
+            "sweep"
+          ]
+        }
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "engines"
+      }
+    }
+  ]
+}

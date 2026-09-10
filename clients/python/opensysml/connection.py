@@ -19,6 +19,7 @@ from opensysml.capabilities import (
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
     CAPABILITY_DOCUMENT_QUERY,
+    CAPABILITY_ENGINES,
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
@@ -77,6 +78,7 @@ from opensysml.values import (
     _Infinity,
     value_to_python,
 )
+from opensysml.engines import ENGINE_AUTO, EngineInfo, Standing
 from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, Verdict,
     VerificationVerdict,
@@ -225,6 +227,18 @@ def _evaluations_of(response, resolve_instance):
 def _explores(schedule):
     """Whether a schedule spelling names the exploring policy, options or not."""
     return bool(schedule) and (schedule == "explore" or schedule.startswith("explore:"))
+
+
+def _explore_engine(engine):
+    """Whether an engine selection is the explore engine, a synonym of the exploring schedule."""
+    return engine == "explore"
+
+
+def _engine_field(engine):
+    """The engine field as sent: empty for auto, which every service reads as such."""
+    if not engine or engine == ENGINE_AUTO:
+        return ""
+    return engine
 
 
 def _refuse_exploring(schedule, method):
@@ -1428,7 +1442,25 @@ class Connection:
             diagnostics=[Diagnostic(d) for d in pb.diagnostics],
         )
     
-    def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None):
+    def list_engines(self):
+        """List the analysis engines the service answers with, as ``sysml -engines`` does.
+
+        Returns:
+            list[EngineInfo]: One per engine, in name order, with the strength
+                it may claim, the questions it answers and whether it can run
+
+        Raises:
+            MissingCapabilityError: If the service predates ``engines``;
+                nothing is sent
+        """
+        self._require_engines()
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal((CAPABILITY_ENGINES,))
+        ):
+            response = self._stub.ListEngines(sysml_pb2.ListEnginesRequest())
+        return [EngineInfo.of(pb) for pb in response.engines]
+
+    def verify_constraint(self, symbol_id, model_hash, subject_symbol_id=None, engine=None):
         """Ask whether a constraint holds, as the REPL's ``%constraint`` does.
 
         Args:
@@ -1437,6 +1469,10 @@ class Connection:
             subject_symbol_id (str, optional): FQN of a part/usage to
                 instantiate and evaluate against, so the verdict is about
                 concrete values rather than declared defaults
+            engine (str, optional): The engine to ask, as ``sysml -engine``
+                spells it: ``"auto"`` (the default) for the strongest covering
+                engine, ``"all"`` for every covering one composed, or one by
+                name, whose refusal is then the answer
 
         Returns:
             Verdict: The answer. A condition that evaluated to false is that
@@ -1448,22 +1484,28 @@ class Connection:
                 constraint, which is a wrong request rather than a verdict
             ExecutionError: If the request could not be answered at all — an
                 unknown symbol, a subject that could not be instantiated
-            MissingCapabilityError: If the service cannot verify
+            MissingCapabilityError: If the service cannot verify, or an engine
+                is given and the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_engine(engine)
         request = sysml_pb2.VerifyConstraintRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
+            engine=_engine_field(engine),
         )
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal((CAPABILITY_VERIFICATION,))
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+            )
         ):
             response = self._stub.VerifyConstraint(request)
         return self._verdict_of(response)
 
-    def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None):
+    def verify_requirement(self, symbol_id, model_hash, subject_symbol_id=None, engine=None):
         """Ask whether a requirement is satisfied, as ``%requirement`` does.
 
         Args:
@@ -1471,6 +1513,8 @@ class Connection:
             model_hash (str): Hash from ParseFile response
             subject_symbol_id (str, optional): FQN of a part/usage to
                 instantiate and evaluate against
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             Verdict: The answer
@@ -1479,22 +1523,28 @@ class Connection:
             WrongKindError: If symbol_id names an element that is not a
                 requirement
             ExecutionError: If the request could not be answered at all
-            MissingCapabilityError: If the service cannot verify
+            MissingCapabilityError: If the service cannot verify, or an engine
+                is given and the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_engine(engine)
         request = sysml_pb2.VerifyRequirementRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject_symbol_id or "",
+            engine=_engine_field(engine),
         )
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal((CAPABILITY_VERIFICATION,))
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+            )
         ):
             response = self._stub.VerifyRequirement(request)
         return self._verdict_of(response)
 
-    def verify_satisfaction(self, model_hash, symbol_id=None):
+    def verify_satisfaction(self, model_hash, symbol_id=None, engine=None):
         """Ask whether the model's satisfaction assertions hold, as ``%satisfy`` does.
 
         Each assertion is evaluated against an object of its subject, built for
@@ -1506,6 +1556,8 @@ class Connection:
                 stated within that element, or to that element itself when it is
                 a named satisfaction assertion. Omitted evaluates every
                 assertion the model states.
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             list[Verdict]: One verdict per assertion, in declaration order. A
@@ -1517,16 +1569,22 @@ class Connection:
             WrongKindError: If symbol_id names an element that can state no
                 satisfaction assertion
             ExecutionError: If the request could not be answered at all
-            MissingCapabilityError: If the service cannot verify
+            MissingCapabilityError: If the service cannot verify, or an engine
+                is given and the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_engine(engine)
         request = sysml_pb2.VerifySatisfactionRequest(
             model_hash=model_hash,
             symbol_id=symbol_id or "",
+            engine=_engine_field(engine),
         )
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal((CAPABILITY_VERIFICATION,))
+            unimplemented=self._capability_refusal(
+                (CAPABILITY_VERIFICATION,) + self._engine_capabilities(engine)
+            )
         ):
             response = self._stub.VerifySatisfaction(request)
 
@@ -1549,7 +1607,7 @@ class Connection:
             for pb_verdict in response.verdicts
         ]
 
-    def calc(self, symbol_id, model_hash, arguments=None):
+    def calc(self, symbol_id, model_hash, arguments=None, engine=None):
         """Invoke a calculation, as the REPL's ``%calc`` does.
 
         Arguments are bound positionally. A calc usage named with no arguments
@@ -1560,6 +1618,8 @@ class Connection:
             symbol_id (str): FQN of the calc definition or usage
             model_hash (str): Hash from ParseFile response
             arguments (list, optional): Positional arguments, as Python values
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             CalcResult: The value an invocation returned, or the output features
@@ -1574,15 +1634,19 @@ class Connection:
                 the service predates ``structured_values``, a measurement
                 reference and the service predates ``measurement_refs``, a
                 function and the service predates ``function_values``, a set
-                and the service predates ``set_values``, or a tensor quantity
-                and the service predates ``tensor_values``; nothing is sent
+                and the service predates ``set_values``, a tensor quantity
+                and the service predates ``tensor_values``, or an engine is
+                given and the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_engine(engine)
         request = sysml_pb2.EvaluateCalcRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
+            engine=_engine_field(engine),
         )
         with translate_rpc_errors(
             unimplemented=self._capability_refusal((
@@ -1593,7 +1657,7 @@ class Connection:
                 CAPABILITY_FUNCTION_VALUES,
                 CAPABILITY_SET_VALUES,
                 CAPABILITY_TENSOR_VALUES,
-            ))
+            ) + self._engine_capabilities(engine))
         ):
             response = self._stub.EvaluateCalc(request)
 
@@ -1612,10 +1676,10 @@ class Connection:
         value = None
         if not outputs and response.HasField('result'):
             value = self._value_to_python(response.result)
-        return CalcResult(value, outputs, diagnostics=diagnostics)
+        return CalcResult(value, outputs, diagnostics=diagnostics, standing=Standing.of(response))
 
     def run_analysis(self, symbol_id, model_hash, subject=None, arguments=None,
-                     named_arguments=None, schedule=None):
+                     named_arguments=None, schedule=None, engine=None):
         """Run an analysis case, as the REPL's ``%analysis`` does.
 
         The subject named is instantiated and bound as the case's subject; a
@@ -1636,6 +1700,9 @@ class Connection:
                 performs resolve their choice points under, as for
                 :meth:`execute_action`; ``"explore"`` belongs to
                 :meth:`explore_analysis`
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`; ``"explore"`` is the exploring
+                schedule by another name and belongs to :meth:`explore_analysis`
 
         Returns:
             AnalysisResult: The outputs the case computed and the verdict of
@@ -1643,7 +1710,7 @@ class Connection:
                 study made of an alternative
 
         Raises:
-            ValueError: If the schedule explores
+            ValueError: If the schedule or the engine explores
             WrongKindError: If symbol_id names an element that is not an
                 analysis case
             AnalysisRunError: If the case could not run to its end and left
@@ -1657,14 +1724,21 @@ class Connection:
                 ``complex_values``, an array, vector or vector quantity and
                 the service predates ``structured_values``, a set and the
                 service predates ``set_values``, a tensor quantity and the
-                service predates ``tensor_values``, or a schedule is given
-                and the service predates ``schedule``; nothing is sent
-            InvalidRequestError: If the schedule names no policy
+                service predates ``tensor_values``, a schedule is given and
+                the service predates ``schedule``, or an engine is given and
+                the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the schedule names no policy, or the
+                engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         _refuse_exploring(schedule, "explore_analysis")
+        if _explore_engine(engine):
+            raise ValueError(
+                "engine 'explore' answers with every outcome, not one run's "
+                "result: use explore_analysis"
+            )
         response = self._run_analysis(
-            symbol_id, model_hash, subject, arguments, named_arguments, schedule
+            symbol_id, model_hash, subject, arguments, named_arguments, schedule, engine
         )
 
         diagnostics = [Diagnostic(d) for d in response.diagnostics]
@@ -1695,6 +1769,7 @@ class Connection:
             diagnostics=diagnostics,
             verifications=_verifications_of(response),
             evaluations=_evaluations_of(response, resolve),
+            standing=Standing.of(response),
         )
         if response.error:
             raise AnalysisRunError(response.error, result, diagnostics=diagnostics)
@@ -1738,21 +1813,23 @@ class Connection:
         """
         _require_exploring(schedule)
         response = self._run_analysis(
-            symbol_id, model_hash, subject, arguments, named_arguments, schedule
+            symbol_id, model_hash, subject, arguments, named_arguments, schedule, None
         )
         return self._exploration_of(response, response.failure_reason)
 
     def _run_analysis(self, symbol_id, model_hash, subject, arguments,
-                      named_arguments, schedule):
+                      named_arguments, schedule, engine):
         """Send a RunAnalysis request, its capabilities checked first."""
         self._require_verification()
         self._require_schedule(schedule)
+        self._require_engine(engine)
         request = sysml_pb2.RunAnalysisRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
             subject_symbol_id=subject or "",
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
             schedule=schedule or "",
+            engine=_engine_field(engine),
         )
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))
@@ -1764,12 +1841,12 @@ class Connection:
                 CAPABILITY_MEASUREMENT_REFS,
                 CAPABILITY_SET_VALUES,
                 CAPABILITY_TENSOR_VALUES,
-            ) + self._schedule_capabilities(schedule))
+            ) + self._schedule_capabilities(schedule) + self._engine_capabilities(engine))
         ):
             return self._stub.RunAnalysis(request)
 
     def run_sweep(self, symbol_id, model_hash, ranges, subject=None,
-                  arguments=None, named_arguments=None, samples=0, seed=0):
+                  arguments=None, named_arguments=None, samples=0, seed=0, engine=None):
         """Run an analysis case or calc once per row of a parameter sweep.
 
         Every row is an ordinary run of that target with the swept parameters
@@ -1794,6 +1871,8 @@ class Connection:
             named_arguments (dict, optional): Arguments by name every row binds
             samples (int, optional): Rows to draw rather than step through
             seed (int, optional): Seed the draws are taken from
+            engine (str, optional): The engine to ask, as for
+                :meth:`verify_constraint`
 
         Returns:
             SweepTable: One row per run, in the order the runs were made
@@ -1803,11 +1882,15 @@ class Connection:
                 calc
             ExecutionError: If no run followed from the request — a parameter
                 the target does not declare, a range no values follow from, a
-                sample count of none, more runs than the service's budget
-            MissingCapabilityError: If the service cannot verify; nothing is sent
+                sample count of none, more runs than the service's budget, an
+                engine that does not answer sweeps
+            MissingCapabilityError: If the service cannot verify, or an engine
+                is given and the service predates ``engines``; nothing is sent
+            InvalidRequestError: If the engine names none the service registers
             ModelNotFoundError: If the service no longer holds the model
         """
         self._require_verification()
+        self._require_engine(engine)
         request = sysml_pb2.RunSweepRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
@@ -1815,6 +1898,7 @@ class Connection:
             arguments=[self._python_to_value(arg) for arg in (arguments or [])],
             samples=samples,
             seed=seed,
+            engine=_engine_field(engine),
         )
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))
@@ -1823,6 +1907,7 @@ class Connection:
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(
                 (CAPABILITY_VERIFICATION, CAPABILITY_COMPLEX_VALUES, CAPABILITY_STRUCTURED_VALUES)
+                + self._engine_capabilities(engine)
             )
         ):
             response = self._stub.RunSweep(request)
@@ -1840,6 +1925,7 @@ class Connection:
         return SweepTable(
             rows, list(response.parameters), sampled=response.sampled,
             seed=response.seed, instances=instances, diagnostics=diagnostics,
+            standing=Standing.of(response),
         )
 
     def _sweep_range(self, name, bounds):
@@ -1885,6 +1971,24 @@ class Connection:
             CAPABILITY_VERIFICATION,
             upgrade_remedy(CAPABILITY_VERIFICATION),
         )
+
+    def _require_engines(self):
+        """Refuse to ask about engines a service without ``engines`` does not list."""
+        require(self.server_info(), CAPABILITY_ENGINES, upgrade_remedy(CAPABILITY_ENGINES))
+
+    def _require_engine(self, engine):
+        """Refuse to send an engine selection a service without ``engines`` would run under auto."""
+        for capability in self._engine_capabilities(engine):
+            require(self.server_info(), capability, upgrade_remedy(capability))
+
+    @staticmethod
+    def _engine_capabilities(engine):
+        """The capabilities an engine selection needs of the service: none for auto."""
+        if not _engine_field(engine):
+            return ()
+        if _explore_engine(engine):
+            return (CAPABILITY_ENGINES, CAPABILITY_SCHEDULE_EXPLORE)
+        return (CAPABILITY_ENGINES,)
 
     def _capability_refusal(self, capabilities):
         """Translate a capability-gated UNIMPLEMENTED into the preflight error."""

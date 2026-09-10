@@ -34,7 +34,8 @@
             "feature_values",
             "document_query",
             "render_document",
-            "schedule"
+            "schedule",
+            "engines"
           ]
         }
       }
