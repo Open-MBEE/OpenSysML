@@ -196,4 +196,26 @@ org.openmbee.opensysml.proto.Value defaultValue);
    */
   com.google.protobuf.ByteString
       getScheduleBytes();
+
+  /**
+   * <pre>
+   * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+   * asks what "explore" as the schedule asks, and the response answers alike.
+   * </pre>
+   *
+   * <code>string engine = 7 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine the case is put to; see VerifyConstraintRequest.engine. "explore"
+   * asks what "explore" as the schedule asks, and the response answers alike.
+   * </pre>
+   *
+   * <code>string engine = 7 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
 }

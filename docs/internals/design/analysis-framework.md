@@ -11,14 +11,14 @@ engine contract, the registry, how a question chooses engines, what a composed r
 claim, how runs are isolated so they can be parallel, and how the existing surfaces migrate
 without changing what they mean.
 
-**Status.** Stage 1 of the [stages](#stages) below is implemented: `internal/core/analysis`
+**Status.** Stages 1, 2 and 4 of the [stages](#stages) below are implemented: `internal/core/analysis`
 holds the contract (`Question`, `Engine`, `Result`, `Claim`, `Strength`, `Bounds`, `Budget`),
 the registry and `auto` dispatch, and the `run`, `explore`, `sweep` and `solve` engines as
 adapters over the interpreter, `runtime.Explore`, `Context.RunSweep` and `internal/core/solve`.
 The REPL session and the gRPC service each own a `Default()` registry and put every question the
-migration table lists to it; nothing a user sees has changed. Stages 2 to 6 — isolation, parallel
-runs, the user surface, tools and the model checkers — are not implemented, so the sections on
-parallel execution, external tools and the user surface still describe a design. Two readings
+migration table lists to it, each plan on a worker of its own. Stages 3, 5 and 6 — parallel
+runs, tools and the model checkers — are not implemented, so the sections on parallel execution
+beyond one worker per plan and on external tools still describe a design. Two readings
 the implementation took where the note left room: the `%run` in the migration table is the REPL
 commands that share the CLI flags' code (there is no meta-command of that name), and a `solve`
 question is one per element with that element's condition sets as its queries, so the solver is
@@ -28,9 +28,9 @@ runs, `sweep`'s rows (the limit `Context.RunSweep` now takes in place of the con
 `solve`'s queries (the rest left unasked and the set *not covered*), `Depth` by `explore`,
 `Solver` by `solve` — and each result names the bound it ran under; `Deadline` is applied by
 `Registry.Answer`, which bounds the plan's context by it so an engine that meets it returns
-`context.DeadlineExceeded` and stops the plan on that step; `Steps` and `Memory` are the limits
-the surface's runtime context already enforces, carried so a result can name them, until the
-isolation stage's run-owned context takes them at construction; `Jobs` is carried unread until
+`context.DeadlineExceeded` and stops the plan on that step; `Steps` and `Memory` are taken by a
+run-owned context at construction and are the limits a context the surface holds already
+enforces, carried so a result can name them; `Jobs` is carried unread until
 the parallel-runs stage gives it a coordinator. `BudgetOf` fills `Runs` in the unit of the
 question's kind, so a sweep asked under an exploring schedule is bounded by
 `OPENSYSML_MAX_SWEEP_RUNS`, not by the schedule's exploration runs.
@@ -349,6 +349,10 @@ user may have expected — the SMT design's *not covered → run explore* row is
 `all` is the referee mode. It is what the SMT design's referee section runs over the conformance
 corpus, and what an engineer runs when a proof matters enough to be cross-checked: `smt` proves,
 `explore` enumerates, and the composed result carries both strengths or the disagreement.
+Until the parallel-runs stage puts `all` on its work queue, the surface stage runs the covering
+engines one after another in name order; the composition, the marking of a cancelled engine and
+the disagreement result are defined over the set of results and do not depend on the order the
+engines ran or finished, so moving `all` onto the queue changes no answer.
 
 Explicit selection is never overridden: `-engine smt` on a model `smt` refuses prints the
 refusal and stops. The framework's job is to make the answer's standing legible, not to be
@@ -671,7 +675,19 @@ behavior unchanged until stage 4.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or
-   minor under the versioning rule.
+   minor under the versioning rule. *Implemented:* `Selection` and `Registry.AnswerWith` in
+   `internal/core/analysis`, with `all` running the covering engines one after another in name
+   order and `Compose` deciding the composed result, the demotion and the disagreement over the
+   set of results; a cancelled engine kept in the plan as a step marked cancelled with the
+   bound it reached; `Result.Standing` and `Plan.Standing` for the standing line the REPL, the
+   CLI report and `-json` print after every verdict; `-engines`, `-engine`, `%engines`,
+   `%engine`, `ListEngines`, the `engine` request field and the `engine`, `strength` and
+   `bounds` response fields with the `engines` capability; the `-json` `plan` and `results[]`
+   keys; the strength-scale, dispatch and cancellation tests of the test contract, the
+   disagreement test over a test engine claiming *proved* in the shape `smt` will fill. The
+   patch-or-minor question the `-json` keys raise is an item of the release checklist in
+   `CONTRIBUTING.md`, undecided here; no version was bumped. Running `all` concurrently, `-jobs`
+   and `%jobs` remain with the parallel-runs stage.
 5. **Tools.** The manifest, the `tool:<name>` engine and its protocol, the `AnalysisAnnotation`
    fixture and the stand-in.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as

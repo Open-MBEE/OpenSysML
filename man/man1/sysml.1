@@ -66,6 +66,17 @@ Write a table of contents ahead of the content (\-doc\-form html or pdf)
 .BI \-e " value"
 Evaluate expression and exit (shorthand)
 .TP
+.BI \-engine " value"
+Analysis engine every check is put to: auto (default) picks the strongest
+engine covering the question, all puts it to every covering engine in name
+order and composes their answers, or an engine by name (run, explore, sweep,
+solve), whose refusal is then the answer; \-engine explore is \-schedule
+explore
+.TP
+.B \-engines
+List the analysis engines this build knows \(em name, authority, the questions
+each answers and whether its process is found \(em and exit
+.TP
 .BI \-eval " value"
 Evaluate expression and exit (can be specified multiple times)
 .TP
@@ -312,6 +323,38 @@ sysml \-satisfy \-json model.sysml
 .RE
 .PP
 Each check flag may be repeated.
+.SH ANALYSIS ENGINES
+.RS 2
+.nf
+# List the engines, their authority and status
+sysml \-engines
+# The same as \-schedule explore
+sysml \-engine explore \-action Drive m.sysml
+# Every engine that covers the question
+sysml \-engine all \-requirement R m.sysml
+# One engine; the plan in the report
+sysml \-engine run \-json \-constraint C m.sysml
+.fi
+.RE
+.PP
+Every check is a question put to an analysis engine: run executes the model
+once under \-schedule, explore runs every linearization, sweep runs the rows
+of \-sweep, and solve puts condition sets to an SMT solver. \-engine auto (the
+default) picks the engine of highest authority that covers the question and
+falls back to the next when it refuses or covers nothing; \-engine <name> puts
+the question to that engine alone, and its refusal is the answer; \-engine all
+puts it to every engine that covers it, one after another in name order, and
+composes their answers: a witnessed violation stands over any universal claim,
+and a contradiction is reported as a disagreement decided in the interpreter's
+favor.
+.PP
+Every verdict is followed by its standing: the claim, the strength of the
+evidence \(em observed (one run), witnessed (a replayed execution), bounded
+(every case within a budget), proved (every case) \(em and what earned it, as
+`holds (observed: 1 run under reverse)`. A budget the engine reached lowers
+the strength and is named. Under \-json each check carries the plan and one
+results[] entry per engine that answered, with its engine, claim, strength,
+bounds and witness.
 .SH SWEEPING AND SAMPLING A PARAMETER
 .RS 2
 .nf

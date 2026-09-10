@@ -220,6 +220,22 @@ func (tr *TraceRecorder) EndEval(label string, value Value, err error) {
 	tr.record(fmt.Sprintf("eval %s -> %s", label, FormatTraceValue(value)))
 }
 
+// nesting is the depth the next entry is recorded at, 0 for no recorder.
+func (tr *TraceRecorder) nesting() int {
+	if tr == nil {
+		return 0
+	}
+	return tr.depth
+}
+
+// setNesting sets the depth the next entry is recorded at: work pausing mid-entry
+// closes the levels it holds open while other work records, reopening them when resumed.
+func (tr *TraceRecorder) setNesting(depth int) {
+	if tr != nil {
+		tr.depth = max(depth, 0)
+	}
+}
+
 // closeLevel closes the innermost nesting level an entry opened.
 func (tr *TraceRecorder) closeLevel() {
 	if tr.depth > 0 {

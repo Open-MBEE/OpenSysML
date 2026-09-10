@@ -235,4 +235,24 @@ org.openmbee.opensysml.proto.Value defaultValue);
    * @return The seed.
    */
   long getSeed();
+
+  /**
+   * <pre>
+   * The engine the sweep is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 9 [json_name = "engine"];</code>
+   * @return The engine.
+   */
+  java.lang.String getEngine();
+  /**
+   * <pre>
+   * The engine the sweep is put to; see VerifyConstraintRequest.engine.
+   * </pre>
+   *
+   * <code>string engine = 9 [json_name = "engine"];</code>
+   * @return The bytes for engine.
+   */
+  com.google.protobuf.ByteString
+      getEngineBytes();
 }

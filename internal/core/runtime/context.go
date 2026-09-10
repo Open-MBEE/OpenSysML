@@ -187,6 +187,9 @@ type Context struct {
 	// pausable is the body run on the stack a breakpoint or a wait on the clock
 	// pauses (action_body_run.go), nil while none is.
 	pausable *bodyRun
+	// clockHeldBy names the behavior on the stack that must end at the instant it
+	// runs at, so no wait on the clock under it may advance the clock; "" for none.
+	clockHeldBy string
 	// idleBody is the body coroutine no step's work is on, kept for the next step
 	// until the outermost run leaves; bodyCoroutinesMade counts the ones made.
 	idleBody           *bodyCoroutine
@@ -256,6 +259,9 @@ type Context struct {
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
 	messages []Message
+	// mail, while a state's do behavior runs, is where its accepts look in place
+	// of the bus: the message its machine dispatched to it, none between dispatches.
+	mail *[]Message
 
 	// clock is the simulation time every executor of this context shares, and
 	// clockRun the run an advance of it draws its due-order choices from.

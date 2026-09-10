@@ -29,7 +29,7 @@ func transitionBetween(t *testing.T, exec *StateExecutor, source, target string)
 
 func fire(t *testing.T, exec *StateExecutor, source, target string) {
 	t.Helper()
-	fired, err := exec.fireTransition(transitionBetween(t, exec, source, target))
+	fired, err := exec.resolveAndFire(nil, transitionBetween(t, exec, source, target))
 	if err != nil {
 		t.Fatalf("fire %s -> %s: %v", source, target, err)
 	}
@@ -210,7 +210,12 @@ func advanceRegion(t *testing.T, exec *StateExecutor, regionName, source, target
 		if region.Name != regionName {
 			continue
 		}
-		fired, err := exec.fireTransitionInRegion(region, transitionBetween(t, exec, source, target))
+		trans := transitionBetween(t, exec, source, target)
+		route, err := exec.resolveRoute(trans)
+		if err != nil {
+			t.Fatalf("advance region %s: %v", regionName, err)
+		}
+		fired, err := exec.fireTransitionInRegion(region, trans, route)
 		if err != nil {
 			t.Fatalf("advance region %s: %v", regionName, err)
 		}

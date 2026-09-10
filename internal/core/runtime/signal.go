@@ -138,6 +138,37 @@ func (ctx *Context) PendingMessages() []Message {
 	return out
 }
 
+// readingMail has the accepts of the do behavior about to run read mail, its
+// machine's dispatch to it, in place of the bus, until the returned func is called.
+func (ctx *Context) readingMail(mail *[]Message) func() {
+	saved := ctx.mail
+	ctx.mail = mail
+	return func() { ctx.mail = saved }
+}
+
+// acceptable returns the messages an accept may take now, oldest first: those
+// in flight on the bus, or the mail a do behavior under way was dispatched.
+func (ctx *Context) acceptable() []Message {
+	if ctx.mail != nil {
+		return slices.Clone(*ctx.mail)
+	}
+	return ctx.PendingMessages()
+}
+
+// takeAcceptable is TakeMessage over the messages an accept may take now.
+func (ctx *Context) takeAcceptable(match func(Message) bool) (Message, bool) {
+	if ctx.mail == nil {
+		return ctx.TakeMessage(match)
+	}
+	for i, msg := range *ctx.mail {
+		if match(msg) {
+			*ctx.mail = slices.Delete(*ctx.mail, i, i+1)
+			return msg, true
+		}
+	}
+	return Message{}, false
+}
+
 // SignalDefinitionKinds are the definitions a signal is declared as: what an
 // accept may be typed by and a send may carry. A behavior definition is neither.
 var SignalDefinitionKinds = []symbols.SymbolKind{

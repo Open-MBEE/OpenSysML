@@ -18,14 +18,42 @@ func transientPseudostate(kind ast.PseudostateKind) bool {
 	return false
 }
 
-// transitionTarget returns the state a transition ends at, following any chain of
-// transient pseudostates on the way.
-func (e *StateExecutor) transitionTarget(trans *lower.Transition) (*ast.StateNode, error) {
+// resolveRoute settles the state a transition ends at before anything moves: its
+// target, or the one a chain of transient pseudostates, a synchronized join or an
+// unrecorded history routes on to. It is nil for a fork, a recorded history and a
+// join still waiting, whose firing takes the configuration from the graph instead.
+func (e *StateExecutor) resolveRoute(trans *lower.Transition) (*ast.StateNode, error) {
 	switch target := trans.Target.(type) {
 	case *ast.StateNode:
 		return target, nil
 	case *ast.PseudostateNode:
-		return e.pseudostateTarget(target)
+		switch target.Kind {
+		case ast.PseudostateFork:
+			return nil, nil
+		case ast.PseudostateJoin:
+			sources, err := e.joinSources(target)
+			if err != nil {
+				return nil, err
+			}
+			if !e.allActive(sources) {
+				return nil, nil
+			}
+		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
+			owner := e.graph.PseudostateOwner[target]
+			if owner == nil || e.history[owner] != nil {
+				return nil, nil
+			}
+			state, err := e.pseudostateTarget(target)
+			if err != nil {
+				return nil, fmt.Errorf("history %s has no default transition and %s has no recorded configuration: %w", target.Name, owner.Name, err)
+			}
+			return state, nil
+		}
+		state, err := e.pseudostateTarget(target)
+		if err != nil {
+			return nil, fmt.Errorf("evaluate pseudostate: %w", err)
+		}
+		return state, nil
 	default:
 		return nil, fmt.Errorf("transition target must be a state or pseudostate, got %T", trans.Target)
 	}
@@ -185,11 +213,11 @@ func (e *StateExecutor) runEffect(trans *lower.Transition) error {
 // a target outside it leaves the whole region set, which is what makes a
 // transition through a choice, junction or entry/exit point reachable from
 // inside a region.
-func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition) (bool, error) {
+func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition, route *ast.StateNode) (bool, error) {
 	// Fork, join and history replace the entire active configuration rather than
 	// move one region, so they are fired whole.
 	if isSynchronizationTarget(trans.Target) {
-		return e.fireTransition(trans)
+		return e.fireTransition(trans, route)
 	}
 
 	pass, err := e.passesGuard(trans)
@@ -198,22 +226,29 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	}
 	e.transitionDecided()
 
-	target, err := e.transitionTarget(trans)
-	if err != nil {
-		return false, err
-	}
-	if target == nil {
+	if route == nil {
 		return false, fmt.Errorf("transition out of region %s has no target state", region.Name)
 	}
 
 	source := e.activeConfig.regionStates[region]
+	sourceRegion, targetRegion := e.regionMove(region, route)
+	if targetRegion == nil {
+		return true, e.leaveRegion(region, trans, route)
+	}
+	return true, e.moveBetweenRegions(sourceRegion, targetRegion, source, trans, route)
+}
+
+// regionMove is the region a transition out of region's active state leaves and
+// the one it moves within to reach target: region itself for a target inside it,
+// the concurrent pair otherwise, and nil when target lies outside the region set.
+func (e *StateExecutor) regionMove(region *ast.StateRegion, target *ast.StateNode) (*ast.StateRegion, *ast.StateRegion) {
 	if e.regionContains(region, target) {
-		return true, e.moveBetweenRegions(region, region, source, trans, target)
+		return region, region
 	}
 	if exit, sibling := e.concurrentRegionsFor(region, target); sibling != nil {
-		return true, e.moveBetweenRegions(exit, e.innermostActiveRegion(sibling, target), source, trans, target)
+		return exit, e.innermostActiveRegion(sibling, target)
 	}
-	return true, e.leaveRegion(region, trans, target)
+	return nil, nil
 }
 
 // concurrentRegionsFor finds the level at which target lies in a region concurrent
@@ -310,18 +345,7 @@ func (e *StateExecutor) moveBetweenRegions(
 	trans *lower.Transition,
 	target *ast.StateNode,
 ) error {
-	// Entering the target replaces its region's active state, so that region is
-	// left only down to the deepest state it keeps active — its own boundary when
-	// it shares none with the target. The state owning the region stays active.
-	keep := e.getLCA(e.activeConfig.regionStates[targetRegion], target)
-	// A transition out of a composite state is external even inside a region: the
-	// source is exited and re-entered when it encloses the target.
-	if declared, isState := trans.Source.(*ast.StateNode); isState && e.encloses(declared, target) {
-		keep = e.graph.ParentState[declared]
-	}
-	if !e.regionContains(targetRegion, keep) {
-		keep = e.graph.RegionOwner[targetRegion]
-	}
+	keep := e.regionKeep(targetRegion, trans, target)
 
 	if sourceRegion == targetRegion {
 		if err := e.exitRegionTo(sourceRegion, keep); err != nil {
@@ -379,20 +403,45 @@ func (e *StateExecutor) moveBetweenRegions(
 	return nil
 }
 
-// exitRegionTo exits region's active state and the states between it and stop,
-// which stays active; a nil stop leaves the region entirely, up to its own
-// boundary. The region is left without an active state.
-func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNode) error {
+// regionKeep is the deepest state targetRegion keeps active when a transition
+// enters target in it: what its active state shares with the target, the parent
+// of a source enclosing the target (an external transition even inside a region),
+// or the region's owner when nothing inside it is shared.
+func (e *StateExecutor) regionKeep(targetRegion *ast.StateRegion, trans *lower.Transition, target *ast.StateNode) *ast.StateNode {
+	keep := e.getLCA(e.activeConfig.regionStates[targetRegion], target)
+	if declared, isState := trans.Source.(*ast.StateNode); isState && e.encloses(declared, target) {
+		keep = e.graph.ParentState[declared]
+	}
+	if !e.regionContains(targetRegion, keep) {
+		keep = e.graph.RegionOwner[targetRegion]
+	}
+	return keep
+}
+
+// regionExitPath lists the states exitRegionTo exits, innermost first: region's
+// active state and its ancestors up to stop, within the region.
+func (e *StateExecutor) regionExitPath(region *ast.StateRegion, stop *ast.StateNode) []*ast.StateNode {
 	active, ok := e.activeConfig.regionStates[region]
 	if !ok {
 		return nil
 	}
+	return e.exitPath(active, stop, region)
+}
+
+// exitRegionTo exits region's active state and the states between it and stop,
+// which stays active; a nil stop leaves the region entirely, up to its own
+// boundary. The region is left without an active state.
+func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNode) error {
+	if _, ok := e.activeConfig.regionStates[region]; !ok {
+		return nil
+	}
+	path := e.regionExitPath(region, stop)
 	delete(e.activeConfig.regionStates, region)
 	if stop == nil {
 		// The region keeps no active state, so it has none to restore either.
 		e.forgetRegionHistory(region)
 	}
-	for current := active; current != nil && current != stop && e.regionContains(region, current); current = e.graph.ParentState[current] {
+	for _, current := range path {
 		if err := e.exitState(current); err != nil {
 			return fmt.Errorf("exit state: %w", err)
 		}
@@ -416,7 +465,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 	// exits its regions' active states, as exiting a KerML StatePerformance ends
 	// its subperformances.
 	lca := e.getLCA(owner, target)
-	for current := owner; current != nil && current != lca; current = e.graph.ParentState[current] {
+	for _, current := range e.exitPath(owner, lca, nil) {
 		// Clear the region current is active in first — a region's active state may
 		// be nested below current — or an enclosing state exits current again.
 		if declaring := e.enclosingRegion(current); declaring != nil {

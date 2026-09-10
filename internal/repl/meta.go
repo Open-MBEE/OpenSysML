@@ -147,6 +147,8 @@ var metaCommandTable = []metaCommand{
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
+	{name: "%engines", desc: "list the analysis engines, with the authority of each, the questions it answers and whether it can run"},
+	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
 	{name: "%quit", desc: "exit the REPL"},
 	{name: "%exit", desc: "exit the REPL", alias: true},
 
@@ -322,6 +324,10 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
+	case "%engines":
+		return metaOut(s.doEngines(), false, nil), true
+	case "%engine":
+		return metaOut(s.doEngine(fields[1:]), false, nil), true
 	case "%search":
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %search <substring>"}, false, nil), true
@@ -1698,30 +1704,41 @@ func formatValue(ctx *runtime.Context, val runtime.Value) string {
 // so it is evaluated as a usage and every output feature it computes is listed
 // from that one run (SysML 7.17).
 func (s *Session) doCalc(calcName, argText string) ([]string, bool, error) {
-	return errorLines(s.evalCalc(calcName, argText))
+	return s.calcVerdict(calcName, argText).Lines, false, nil
 }
 
-// evalCalc carries out %calc, reporting what stopped an evaluation as an error
-// rather than as a line of output, so a caller outside the prompt — the command
-// line — can tell an evaluated calculation from one that could not be run.
-func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, error) {
+// calcVerdict carries out %calc: what the calculation computed with its standing,
+// or, for one that could not be run, what stopped it, as the prompt reports any
+// command it could not carry out.
+func (s *Session) calcVerdict(calcName, argText string) Verdict {
+	lines, values, plan, err := s.evalCalc(calcName, argText)
+	if err != nil {
+		return standing(unresolvedVerdict(calcName, err.Error()), plan)
+	}
+	return standing(Verdict{Subject: calcName, Status: VerdictHolds, Lines: lines, Values: values}, plan)
+}
+
+// evalCalc evaluates a calc at the prompt, reporting what stopped an evaluation
+// as an error rather than as a line of output, so a caller outside the prompt —
+// the command line — can tell an evaluated calculation from one that could not be run.
+func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *analysis.Plan, error) {
 	sym, err := s.calcSymbol(calcName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	lines, outputs, err := s.evalCalcIn(ctx, sym, calcName, argText)
+	lines, outputs, plan, err := s.evalCalcIn(s.dispatched(), ctx, sym, calcName, argText)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, plan, err
 	}
 	values := make([]NamedValue, 0, len(outputs))
 	for _, out := range outputs {
 		values = append(values, NamedValue{Name: out.Name, Value: formatValue(ctx, out.Value)})
 	}
-	return lines, values, nil
+	return lines, values, plan, nil
 }
 
 // calcSymbol resolves the calc %calc names. It is resolved before the runtime is
@@ -1738,18 +1755,19 @@ func (s *Session) calcSymbol(calcName string) (*symbols.Symbol, error) {
 	return sym, nil
 }
 
-// evalCalcIn evaluates a calc in ctx: a calc usage's outputs from its own member
-// values when it is called without arguments, else the value it returns for them.
-func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName, argText string) ([]string, []runtime.CalcOutputValue, error) {
+// evalCalcIn evaluates a calc in ctx as x makes runs: a calc usage's outputs from
+// its own member values when it is called without arguments, else the value it
+// returns for them. The plan is how the engines answered, nil for a direct run.
+func (s *Session) evalCalcIn(x execution, ctx *runtime.Context, sym *symbols.Symbol, calcName, argText string) ([]string, []runtime.CalcOutputValue, *analysis.Plan, error) {
 	if strings.TrimSpace(argText) == "" {
-		if lines, outputs, handled, err := s.calcUsageOutputs(ctx, sym, calcName); handled {
-			return lines, outputs, err
+		if lines, outputs, plan, handled, err := s.calcUsageOutputs(x, ctx, sym, calcName); handled {
+			return lines, outputs, plan, err
 		}
 	}
 
 	exprs, err := s.argExprs(argText)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Arguments are evaluated where the prompt evaluates any expression, so a
@@ -1760,13 +1778,13 @@ func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName
 	for i, arg := range exprs {
 		val, err := ctx.EvalWithScope(arg.expr, scope)
 		if err != nil {
-			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+			return nil, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
 		}
 		argValues[i] = val
 		argTexts[i] = arg.text
 	}
 
-	result, err := evaluate(s, calcName, ctx, func(ctx *runtime.Context) (runtime.Value, error) {
+	result, plan, err := evaluate(x, calcName, ctx, func(ctx *runtime.Context) (runtime.Value, error) {
 		return ctx.InvokeCalc(sym, argValues, scope)
 	}, func(result runtime.Value, err error) analysis.Answer {
 		return analysis.ValuesAnswer([]analysis.Evaluation{{Name: calcResultName, Value: result}}, err)
@@ -1775,43 +1793,43 @@ func (s *Session) evalCalcIn(ctx *runtime.Context, sym *symbols.Symbol, calcName
 		// A name of another kind is a wrong argument, so it is reported as
 		// itself rather than as a calculation that failed.
 		if errors.Is(err, runtime.ErrNotACalc) {
-			return nil, nil, err
+			return nil, nil, plan, err
 		}
-		return nil, nil, fmt.Errorf("calc invocation failed: %w", err)
+		return nil, nil, plan, fmt.Errorf("calc invocation failed: %w", err)
 	}
 
 	return []string{
 		fmt.Sprintf("✓ %s(%s)", calcName, strings.Join(argTexts, ", ")),
 		fmt.Sprintf("  = %s", formatValue(ctx, result)),
-	}, []runtime.CalcOutputValue{{Name: calcResultName, Value: result}}, nil
+	}, []runtime.CalcOutputValue{{Name: calcResultName, Value: result}}, plan, nil
 }
 
 // calcUsageOutputs lists the outputs of a calc usage evaluated from its own
 // member values. It reports handled=false when the name is not a calc usage, or
 // is one that computes no output features, so those keep being invoked as
 // calculations with an empty argument list.
-func (s *Session) calcUsageOutputs(ctx *runtime.Context, sym *symbols.Symbol, calcName string) ([]string, []runtime.CalcOutputValue, bool, error) {
+func (s *Session) calcUsageOutputs(x execution, ctx *runtime.Context, sym *symbols.Symbol, calcName string) ([]string, []runtime.CalcOutputValue, *analysis.Plan, bool, error) {
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || usage.Kind != ast.UsageCalc {
-		return nil, nil, false, nil
+		return nil, nil, nil, false, nil
 	}
-	outputs, err := evaluate(s, calcName, ctx, func(ctx *runtime.Context) ([]runtime.CalcOutputValue, error) {
+	outputs, plan, err := evaluate(x, calcName, ctx, func(ctx *runtime.Context) ([]runtime.CalcOutputValue, error) {
 		return ctx.CalcUsageOutputs(sym, sym.OwnerScope, nil)
 	}, func(outputs []runtime.CalcOutputValue, err error) analysis.Answer {
 		return analysis.ValuesAnswer(analysis.OutputValues(outputs), err)
 	})
 	if err != nil {
-		return nil, nil, true, fmt.Errorf("calc usage evaluation failed: %w", err)
+		return nil, nil, plan, true, fmt.Errorf("calc usage evaluation failed: %w", err)
 	}
 	if len(outputs) == 0 {
-		return nil, nil, false, nil
+		return nil, nil, nil, false, nil
 	}
 	lines := make([]string, 0, len(outputs)+1)
 	lines = append(lines, fmt.Sprintf("✓ %s", calcName))
 	for _, out := range outputs {
 		lines = append(lines, fmt.Sprintf("  %s = %s", out.Name, formatValue(ctx, out.Value)))
 	}
-	return lines, outputs, true, nil
+	return lines, outputs, plan, true, nil
 }
 
 // splitCalcArgs splits `%calc`'s tail into the calc's name and its argument
@@ -2157,25 +2175,31 @@ func (s *Session) satisfyVerdict(ctx *runtime.Context, a *runtime.SatisfyAsserti
 			subject, owner = inst, s.keepSubject(a, inst)
 		}
 	}
-	result, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
+	result, plan, err := s.check(satisfyText(a), ctx, func(ctx *runtime.Context) (runtime.CheckResult, error) {
 		return ctx.CheckSatisfactionOn(a, subject)
 	})
 	subject, owner = s.reportedSubject(result, subject, owner)
 	// A `satisfy requirement r by p` declares its requirement rather than
 	// referencing one, so the assertion names it.
 	req := a.AssertedRequirement()
+	verdict := s.withVerifications(satisfactionVerdict(a, result, err, subject, owner), ctx, req)
+	return standing(verdict, plan)
+}
+
+// satisfactionVerdict reports what checking a satisfaction assertion decided.
+func satisfactionVerdict(a *runtime.SatisfyAssertion, result runtime.CheckResult, err error, subject *runtime.Instance, owner string) Verdict {
 	if unevaluable(err) {
-		return s.withVerifications(unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner), ctx, req)
+		return unevaluableVerdict(satisfyText(a), satisfyText(a), err, subject, owner)
 	}
 	if err != nil || !result.Holds {
-		return s.withVerifications(Verdict{Subject: satisfyText(a), Status: VerdictFails, Lines: []string{
+		return Verdict{Subject: satisfyText(a), Status: VerdictFails, Lines: []string{
 			fmt.Sprintf("✗ %s fails%s", satisfyText(a), onInstance(subject, owner)),
 			"  " + verdictDetail("Required condition", err),
-		}}, ctx, req)
+		}}
 	}
-	return s.withVerifications(Verdict{Subject: satisfyText(a), Status: VerdictHolds, Lines: []string{
+	return Verdict{Subject: satisfyText(a), Status: VerdictHolds, Lines: []string{
 		fmt.Sprintf("✓ %s holds%s", satisfyText(a), onInstance(subject, owner)),
-	}}, ctx, req)
+	}}
 }
 
 // subjectInstance returns the object the session has already created for an
@@ -2954,10 +2978,7 @@ func (s *Session) stateStep(exec *runtime.StateExecutor) (string, error) {
 		if err := exec.ProcessNextEvent(); err != nil {
 			return "", fmt.Errorf("event processing failed: %w", err)
 		}
-		if note := droppedSignalNote(exec); note != "" {
-			return "Event dispatched, but " + note, nil
-		}
-		return "Event dispatched", nil
+		return "Event dispatched" + dispatchedEventNote(exec), nil
 	}
 	if exec.HasPendingDoWork() {
 		ran, err := exec.RunDoRound()

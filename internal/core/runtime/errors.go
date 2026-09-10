@@ -214,6 +214,11 @@ var (
 	// action-step budget.
 	ErrDoStepLimitExceeded = errors.New("state do-step limit exceeded")
 
+	// ErrStateBehaviorWaits is returned when an entry or exit behavior, or a
+	// transition effect, waits for the clock: those are performed whole at the
+	// instant they are triggered, and only a do behavior pauses on the clock.
+	ErrStateBehaviorWaits = errors.New("state behavior waits for the clock")
+
 	// ErrActionArity is returned when an action invocation passes more
 	// positional arguments than the action declares input parameters.
 	ErrActionArity = errors.New("action argument count mismatch")

@@ -59,6 +59,45 @@ func TestActionNodeSubflowsNest(t *testing.T) {
 	}
 }
 
+// A nested flow written in declaration order, with no `first`, starts at its one
+// unpreceded node, as the flow of a whole action does.
+func TestActionNodeSubflowStartsAtItsOneUnprecededStep(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action test {
+			out attribute legs : Integer;
+			first leg;
+			action leg {
+				action a { assign legs := 1; }
+				then action b { assign legs := legs + 1; }
+			}
+		}
+	`)
+
+	sub := subflowOf(t, graph, "leg")
+	if a := nodeNamed(t, sub, "a"); sub.Initial != a {
+		t.Errorf("subflow initial = %v, want a", sub.Initial)
+	}
+}
+
+// A nested flow leaving two nodes unpreceded, or closing a cycle over them all,
+// states no start: its Initial stays nil for the executor to report.
+func TestActionNodeSubflowWithoutOneStartKeepsNoInitial(t *testing.T) {
+	for name, leg := range map[string]string{
+		"two starts": `action a; action b; action c; succession first a then c; succession first b then c;`,
+		"cycle":      `action a; action b; succession first a then b; succession first b then a;`,
+	} {
+		graph := actionGraphFor(t, `
+			action test {
+				first leg;
+				action leg { `+leg+` }
+			}
+		`)
+		if sub := subflowOf(t, graph, "leg"); sub.Initial != nil {
+			t.Errorf("%s: subflow initial = %v, want none", name, sub.Initial)
+		}
+	}
+}
+
 // A node stating no flow keeps its leaf lowering: its statements are its body.
 func TestActionNodeWithoutFlowStaysALeaf(t *testing.T) {
 	graph := actionGraphFor(t, `

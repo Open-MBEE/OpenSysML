@@ -54,6 +54,8 @@ export const CAPABILITY_APPLY_EDITS = "apply_edits";
 export const CAPABILITY_SCHEDULE = "schedule";
 /** The `explore` scheduling policy, answering with every `outcomes` entry and an `exploration` status. Not used by this version; see the README. */
 export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
+/** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. Not used by this version; see the README. */
+export const CAPABILITY_ENGINES = "engines";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

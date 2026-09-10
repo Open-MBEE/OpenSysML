@@ -39,6 +39,15 @@ some order is an `Outcome` whose `Error` is set, not a failure of the call. The 
 refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
 `schedule_explore` capability alongside `schedule`.
 
+`ListEngines` names the analysis engines the service answers with, as `EngineInfo` in name order.
+`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take `WithEngine(name)` and
+`RunAnalysis` and `ExploreAnalysis` take `Engine(name)`, and `Calculate` (`EvaluateCalc` with
+options, its arguments under `CalcArguments`) takes `CalcEngine(name)`, to put the question to one engine,
+`EngineAll` to ask every engine that covers it, or `EngineAuto` (the default) to leave the choice
+to the service; a name the service does not register is `CodeInvalidArgument`, and a named engine
+needs the `engines` capability. `Verdict`, `Calculation` and `Analysis` each carry a `Standing`:
+the `Engine` that answered, the `Strength` of its evidence and the `Bounds` it ran under.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {

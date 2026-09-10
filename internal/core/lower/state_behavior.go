@@ -61,6 +61,15 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 	case *ast.Usage:
 		behavior.Name, _ = ast.EffectiveName(node)
 		switch {
+		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node) && declaresOnlyFeatures(node.Members):
+			// The body binds the pins of the action performed: the usage is the one
+			// node of the behavior's flow, performed as a node of an action body is.
+			behavior.Body = []Statement{Block{
+				Node:  node,
+				Scope: scope,
+				Graph: lowerBlockFlow([]ast.Node{node}, scope, false),
+				Own:   true,
+			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node):
 			// Which of the two the behavior performs would be a silent pick.
 			behavior.Body = []Statement{Unsupported{
@@ -87,7 +96,8 @@ func lowerStateBehavior(action ast.Node, scope *symbols.Scope) StateBehavior {
 
 // lowerBehaviorBody lowers an inline action body of a behavior. A body stating
 // successions or control nodes is the token flow a standalone action's body is
-// (ToActionGraph); one stating none runs its statements in declaration order.
+// (ToActionGraph), starting at its one unpreceded node where no `first` says;
+// one stating none runs its statements in declaration order.
 func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope) Statement {
 	if !statesOwnFlow(node.Members) {
 		return lowerBlock(node, node.Members, scope)
@@ -100,6 +110,7 @@ func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope) Statement {
 			Scope:       scope,
 		}
 	}
+	StartFlow(graph)
 	return Block{Node: node, Scope: scope, Graph: graph, Own: true, Stated: true}
 }
 
@@ -115,6 +126,21 @@ func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) [
 		// A step stating neither states no behavior, which executes as nothing.
 		return []Statement{}
 	}
+}
+
+// declaresOnlyFeatures reports whether a body declares parameters and attributes
+// alone (`inout n = ticks;`), stating no step of its own.
+func declaresOnlyFeatures(members []ast.Node) bool {
+	for _, member := range members {
+		actual := unwrapMembership(member)
+		if actual == nil || statesNoStep(actual) {
+			continue
+		}
+		if m, ok := actual.(*ast.Usage); !ok || !DeclaresNodeFeature(m) {
+			return false
+		}
+	}
+	return true
 }
 
 // performsAction reports whether a nested action usage names the action it

@@ -25,7 +25,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -41,19 +41,21 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		return resp, err
 	}
 
-	if _, explores := schedule.Exploration(); explores {
-		return s.exploreAnalysis(ctx, schedule, v, req, sym)
+	if policy, explores := analysis.Explores(v.engine, schedule); explores {
+		return s.exploreAnalysis(ctx, policy, v, req, sym)
 	}
 	if err := v.runtime.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	// The choices a run made are reported with its outcome, failed or not.
-	result, verdicts, err := v.runCase(ctx, sym, args)
+	run, plan, err := v.runCase(ctx, sym, args)
 	if gone := callerGone(ctx, err); gone != nil {
 		return nil, gone
 	}
-	resp = &pb.RunAnalysisResponse{}
+	result, verdicts := run.result, run.verdicts()
+	st := s.standingOf(plan)
+	resp = analysisResponse(&pb.RunAnalysisResponse{}, st)
 	if err != nil {
 		resp.Error = err.Error()
 		resp.FailureReason = failureReason(err)
@@ -74,7 +76,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 		})
 	}
 	for i := range result.Verdicts {
-		resp.Verdicts = append(resp.Verdicts, v.analysisVerdict(&result.Verdicts[i], subject))
+		resp.Verdicts = append(resp.Verdicts, st.stamp(v.analysisVerdict(&result.Verdicts[i], subject)))
 	}
 	// A case run for itself answers for no requirement, so nothing associates it.
 	resp.VerificationVerdicts = v.verificationVerdicts(verdicts, "")
@@ -86,6 +88,12 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	}
 	resp.Instances = v.instanceGraphs(v.runRoots(subject, result.Outputs, evaluations))
 	return resp, nil
+}
+
+// analysisResponse writes on a case's response the standing of the plan that ran it.
+func analysisResponse(resp *pb.RunAnalysisResponse, st standing) *pb.RunAnalysisResponse {
+	resp.Engine, resp.Strength, resp.Bounds = st.engine, st.strength, st.bounds
+	return resp
 }
 
 // analysisArgs reads the request's subject and arguments on the context's own
@@ -163,18 +171,17 @@ func (v *verifyContext) runCaseOn(sym *symbols.Symbol, args runtime.AnalysisArgs
 }
 
 // runCase puts one run of the case on the context's runtime to the engines.
-func (v *verifyContext) runCase(ctx context.Context, sym *symbols.Symbol, args runtime.AnalysisArgs) (runtime.AnalysisResult, []runtime.VerificationVerdict, error) {
-	run, err := perform(ctx, v, v.cached.Index.GetFQN(sym), func(*runtime.Context) (caseRun, error) {
+func (v *verifyContext) runCase(ctx context.Context, sym *symbols.Symbol, args runtime.AnalysisArgs) (caseRun, analysis.Plan, error) {
+	return perform(ctx, v, v.cached.Index.GetFQN(sym), func(*runtime.Context) (caseRun, error) {
 		return v.runCaseOn(sym, args)
 	}, caseRun.answer)
-	return run.result, run.verdicts(), err
 }
 
 // exploreAnalysis runs the case once per linearization on a context of its own
 // and answers every distinct outcome of outputs and verdicts.
 func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.SchedulePolicy, v *verifyContext, req *pb.RunAnalysisRequest, sym *symbols.Symbol) (*pb.RunAnalysisResponse, error) {
-	outcomes, status, err := s.explore(ctx, v.cached.Index.GetFQN(sym), schedule, v.cached, func(rt *runtime.Context) (runtime.Outcome, error) {
-		fresh := &verifyContext{service: s, cached: v.cached, runtime: rt}
+	x, err := s.explore(ctx, v.cached.Index.GetFQN(sym), schedule, v.engine, v.cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+		fresh := &verifyContext{service: s, cached: v.cached, runtime: rt, engine: v.engine}
 		args, resp, err := fresh.analysisArgs(req)
 		if err != nil {
 			return runtime.Outcome{}, err
@@ -191,7 +198,7 @@ func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.Schedule
 	if err != nil {
 		return nil, err
 	}
-	return &pb.RunAnalysisResponse{Outcomes: outcomes, Exploration: status}, nil
+	return analysisResponse(&pb.RunAnalysisResponse{Outcomes: x.outcomes, Exploration: x.status}, s.standingOf(x.plan)), nil
 }
 
 // runRoots are the objects a case run reports: its subject and every object an

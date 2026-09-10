@@ -15,8 +15,9 @@ func Held(ctx *runtime.Context) *Model {
 	return &Model{Context: func() (*runtime.Context, error) { return ctx, nil }}
 }
 
-// Perform puts one execution (call, in the model's context) to the registry under auto;
-// answer says what it established. A dispatch fault or refusal is the execution's error.
+// Perform puts one execution (call, in the model's context) to the registry under the
+// selection; answer says what it established. A dispatch fault or refusal is the
+// execution's error, and the plan is how it was answered.
 func Perform[T any](
 	ctx context.Context,
 	r *Registry,
@@ -24,12 +25,13 @@ func Perform[T any](
 	subject string,
 	schedule runtime.SchedulePolicy,
 	budget Budget,
+	selection Selection,
 	call func(*runtime.Context) (T, error),
 	answer func(T, error) Answer,
-) (T, error) {
+) (T, Plan, error) {
 	var out T
 	var err error
-	plan, fault := r.Answer(ctx, model, Question{
+	plan, fault := r.AnswerWith(ctx, model, Question{
 		Kind:     Evaluate,
 		Subject:  subject,
 		Schedule: schedule,
@@ -37,14 +39,14 @@ func Perform[T any](
 			out, err = call(rctx)
 			return answer(out, err), nil
 		},
-	}, budget)
+	}, budget, selection)
 	if fault != nil {
-		return out, fault
+		return out, plan, fault
 	}
 	if refused := plan.Refused(); refused != nil {
-		return out, refused
+		return out, plan, refused
 	}
-	return out, err
+	return out, plan, err
 }
 
 // CheckAnswer is what a constraint, requirement or satisfaction check established. A
@@ -114,8 +116,9 @@ func VerificationAnswer(result runtime.VerificationResult, err error) Answer {
 	return answer
 }
 
-// Explore puts a behavior's outcomes to the registry under auto: run performs
-// it once per linearization policy asks for, each in a context the model makes.
+// Explore puts a behavior's outcomes to the registry under the selection: run performs
+// it once per linearization policy asks for, each in a context the model makes. The
+// plan's result holds the Exploration reached.
 func (r *Registry) Explore(
 	ctx context.Context,
 	model *Model,
@@ -123,25 +126,26 @@ func (r *Registry) Explore(
 	policy runtime.SchedulePolicy,
 	run Linearization,
 	budget Budget,
-) (*runtime.Exploration, error) {
-	plan, err := r.Answer(ctx, model, Question{
+	selection Selection,
+) (Plan, error) {
+	plan, err := r.AnswerWith(ctx, model, Question{
 		Kind:      Outcomes,
 		Subject:   subject,
 		Schedule:  policy,
 		Free:      FreeSchedule,
 		Linearize: run,
-	}, budget)
+	}, budget, selection)
 	if err != nil {
-		return nil, err
+		return plan, err
 	}
 	if refused := plan.Refused(); refused != nil {
-		return nil, refused
+		return plan, refused
 	}
-	return plan.Result.Exploration(), nil
+	return plan, nil
 }
 
-// Sweep puts a domain to the registry under auto: row runs the subject once per
-// row of the plan in the model's context, and the table is the rows in plan order.
+// Sweep puts a domain to the registry under the selection: row runs the subject once
+// per row of the plan in the model's context; the answered plan's result tables the rows.
 func (r *Registry) Sweep(
 	ctx context.Context,
 	model *Model,
@@ -150,36 +154,38 @@ func (r *Registry) Sweep(
 	plan runtime.SweepPlan,
 	row runtime.SweepRun,
 	budget Budget,
-) (runtime.SweepTable, error) {
-	answered, err := r.Answer(ctx, model, Question{
+	selection Selection,
+) (Plan, error) {
+	answered, err := r.AnswerWith(ctx, model, Question{
 		Kind:     Sweep,
 		Subject:  subject,
 		Schedule: schedule,
 		Sweep:    &SweepAsk{Plan: plan, Row: row},
-	}, budget)
+	}, budget, selection)
 	if err != nil {
-		return runtime.SweepTable{}, err
+		return answered, err
 	}
 	if refused := answered.Refused(); refused != nil {
-		return runtime.SweepTable{}, refused
+		return answered, refused
 	}
-	return answered.Result.Table(), nil
+	return answered, nil
 }
 
-// Solve puts an element's condition sets to the registry under auto, ask being the
-// operation made of each, and returns the answers in order; the error is an absent solver.
-func (r *Registry) Solve(ctx context.Context, subject string, queries []*solve.Query, ask Asking, budget Budget) ([]Evaluation, error) {
-	plan, err := r.Answer(ctx, nil, Question{
+// Solve puts an element's condition sets to the registry under the selection, ask being
+// the operation made of each; the plan's result holds the answers in order, and the
+// error is an absent solver.
+func (r *Registry) Solve(ctx context.Context, subject string, queries []*solve.Query, ask Asking, budget Budget, selection Selection) (Plan, error) {
+	plan, err := r.AnswerWith(ctx, nil, Question{
 		Kind:    Satisfiable,
 		Subject: subject,
 		Free:    FreeInputs,
 		Solve:   &SolveAsk{Queries: queries, Ask: ask},
-	}, budget)
+	}, budget, selection)
 	if err != nil {
-		return nil, err
+		return plan, err
 	}
 	if refused := plan.Refused(); refused != nil {
-		return nil, refused
+		return plan, refused
 	}
-	return plan.Result.Values, nil
+	return plan, nil
 }

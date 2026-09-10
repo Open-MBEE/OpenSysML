@@ -164,7 +164,7 @@ var capabilities = []string{
 	CapabilityMeasurementRefs, CapabilityFunctionValues, CapabilitySetValues,
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
-	CapabilityScheduleExplore, CapabilityFinalTime,
+	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
 }
 
 type capabilityAvailability struct {
@@ -845,7 +845,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	if _, explores := schedule.Exploration(); explores {
 		// Inputs are read again on each run's own context, so an object among them
 		// belongs to the run that binds it.
-		outcomes, status, err := s.explore(ctx, req.ActionSymbolId, schedule, cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+		x, err := s.explore(ctx, req.ActionSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			inputs, resp, err := readInputs(rt)
 			if err != nil {
 				return runtime.Outcome{}, err
@@ -862,14 +862,14 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		if err != nil {
 			return nil, err
 		}
-		return &pb.ExecuteActionResponse{Outcomes: outcomes, Exploration: status}, nil
+		return &pb.ExecuteActionResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	// Execute action with the supplied inputs
-	outputs, err := performOn(ctx, s, runtimeCtx, req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
+	outputs, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.ActionSymbolId, func(rt *runtime.Context) (map[string]runtime.Value, error) {
 		return rt.ExecuteActionWithInputs(action, inputs)
 	}, heldAnswer)
 	if gone := callerGone(ctx, err); gone != nil {
@@ -930,13 +930,13 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	stateMachine := syms[0]
 
 	if _, explores := schedule.Exploration(); explores {
-		outcomes, status, err := s.explore(ctx, req.StateMachineSymbolId, schedule, cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			return rt.StateOutcomeWithEvents(stateMachine, req.Events)
 		})
 		if err != nil {
 			return nil, err
 		}
-		return &pb.ExecuteStateResponse{Outcomes: outcomes, Exploration: status}, nil
+		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 
 	runtimeCtx := s.newRuntime(cached)
@@ -946,7 +946,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 
 	// Execute state machine, injecting the requested events and capturing the
 	// real ordered state-visit trace.
-	ran, err := performOn(ctx, s, runtimeCtx, req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
+	ran, _, err := performOn(ctx, s, runtimeCtx, analysis.Auto(), req.StateMachineSymbolId, func(rt *runtime.Context) (stateRun, error) {
 		final, visited, err := rt.ExecuteStateWithEvents(stateMachine, req.Events)
 		return stateRun{final: final, visited: visited}, err
 	}, func(ran stateRun, err error) analysis.Answer { return heldAnswer(ran.final, err) })

@@ -30,11 +30,8 @@ func (s *Session) optimizeSolve(name string) []SolveReport {
 	if err != nil {
 		return []SolveReport{unavailableReport(name, err.Error())}
 	}
-	optimized, err := s.solveWith(name, []*solve.Query{query}, optimizeExact)
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	return []SolveReport{optimizeQueryReport(name, query, optimized[0])}
+	plan, err := s.solveWith(name, []*solve.Query{query}, optimizeExact)
+	return solveReports(name, []*solve.Query{query}, plan, err, optimizeQueryReport)
 }
 
 // optimizeExact asks the solver for the query's optima, withholding a query the evaluator

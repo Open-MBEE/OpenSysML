@@ -121,6 +121,14 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -215,6 +223,14 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -308,6 +324,14 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>
@@ -402,6 +426,14 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "engines"      - the ListEngines RPC lists the analysis engines; the
+   * verification and sweep requests take an `engine`, the
+   * engine the question is put to, unset meaning "auto"; and
+   * their responses and every Verdict report the `engine` that
+   * answered with the `strength` of its evidence and the
+   * `bounds` it ran under. Without it a service drops the
+   * request field and answers under "auto", so a client must
+   * not send one.
    * </pre>
    *
    * <code>repeated string capabilities = 2 [json_name = "capabilities"];</code>

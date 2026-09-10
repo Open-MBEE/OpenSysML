@@ -287,11 +287,7 @@ func (s *Session) RunCalc(invocation string) Verdict {
 		return s.exploreCalc(invocation)
 	}
 	name, argText := splitCalcArgs(invocation)
-	lines, values, err := s.evalCalc(name, argText)
-	if err != nil {
-		return s.withTrace(unresolvedVerdict(name, err.Error()))
-	}
-	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values})
+	return s.withTrace(s.calcVerdict(name, argText))
 }
 
 // RunAnalysis runs an analysis case outside the prompt and returns what it
@@ -322,7 +318,7 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
 	}
-	done, err := evaluate(s, name, ctx, func(*runtime.Context) (performed, error) {
+	done, plan, err := evaluate(s.dispatched(), name, ctx, func(*runtime.Context) (performed, error) {
 		started, err := s.startAction(name, performer)
 		if err != nil {
 			return performed{}, err
@@ -337,14 +333,14 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 		return behaviorAnswer(exec.State() == runtime.StateCompleted, "stopped at "+exec.State().String(), exec.Results(), nil)
 	})
 	if err != nil {
-		return s.withTrace(unresolvedVerdict(name, err.Error()))
+		return s.withTrace(standing(unresolvedVerdict(name, err.Error()), plan))
 	}
 	lines, values := done.lines, done.values
 	if state := s.actionExec.executor.State(); state != runtime.StateCompleted {
 		lines = append(lines, fmt.Sprintf("error: action %s stopped at %s without completing", name, state))
-		return s.withTrace(Verdict{Subject: name, Status: VerdictUnresolved, Lines: lines, Values: values})
+		return s.withTrace(standing(Verdict{Subject: name, Status: VerdictUnresolved, Lines: lines, Values: values}, plan))
 	}
-	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values})
+	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
 }
 
 // RunStateMachine starts a state machine outside the prompt, taking only its
@@ -436,10 +432,11 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 	var (
 		moved  advanceOutcome
 		failed []string
+		plan   *analysis.Plan
 		err    error
 	)
 	if len(contexts) > 0 {
-		moved, failed, err = s.advanceFor(strings.Join(names, ", "), contexts, duration)
+		moved, failed, plan, err = s.advanceFor(strings.Join(names, ", "), contexts, duration)
 	}
 
 	// The drain is one operation over every behavior, so what it did is reported
@@ -450,7 +447,7 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 			v.Status = VerdictUnresolved
 			v.Lines = append(v.Lines, failed...)
 			v.Lines = append(v.Lines, "error: "+err.Error())
-			verdicts[r.at] = v
+			verdicts[r.at] = standing(v, plan)
 			continue
 		}
 		if i == 0 {
@@ -490,7 +487,7 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 			v.Lines = append(v.Lines, s.advanceReportLines(moved, contexts)...)
 		}
 		v.Lines = append(v.Lines, outcome...)
-		verdicts[r.at] = v
+		verdicts[r.at] = standing(v, plan)
 	}
 	if len(verdicts) > 0 {
 		verdicts[0] = s.withTrace(verdicts[0])
@@ -506,7 +503,7 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 	if err != nil {
 		return s.withTrace(unresolvedVerdict(name, fmt.Errorf("%w: %w", errRuntimeInit, err).Error()))
 	}
-	lines, err := evaluate(s, name, ctx, func(*runtime.Context) ([]string, error) {
+	lines, plan, err := evaluate(s.dispatched(), name, ctx, func(*runtime.Context) ([]string, error) {
 		lines, err := s.startStateMachine(name, performer)
 		if err != nil {
 			return nil, err
@@ -526,7 +523,7 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 		return behaviorAnswer(true, "", s.stateExec.executor.StateData(), nil)
 	})
 	if err != nil {
-		return s.withTrace(unresolvedVerdict(name, err.Error()))
+		return s.withTrace(standing(unresolvedVerdict(name, err.Error()), plan))
 	}
 	exec := s.stateExec.executor
 	values := []NamedValue{
@@ -534,5 +531,5 @@ func (s *Session) runStateMachine(name string, duration *float64, performer []st
 		{Name: "time", Value: semantics.FormatReal(exec.CurrentTime())},
 	}
 	values = append(values, namedValues(s.stateExec.contextOf(), exec.StateData())...)
-	return s.withTrace(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values})
+	return s.withTrace(standing(Verdict{Subject: name, Status: VerdictHolds, Lines: lines, Values: values}, plan))
 }

@@ -28,15 +28,10 @@ func (s *Session) solveValues(name string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	solved, err := s.solveWith(name, queries, synthesise)
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	reports := make([]SolveReport, 0, len(queries))
-	for i, q := range queries {
-		reports = append(reports, synthesisReport(name, q, solved[i], unfixed))
-	}
-	return reports
+	plan, err := s.solveWith(name, queries, synthesise)
+	return solveReports(name, queries, plan, err, func(name string, q *solve.Query, solved analysis.Evaluation) SolveReport {
+		return synthesisReport(name, q, solved, unfixed)
+	})
 }
 
 // synthesise asks the solver for one satisfying assignment and, when none is consistent
@@ -289,15 +284,10 @@ func (s *Session) configureVariants(name string, args []string) []SolveReport {
 	if bad != nil {
 		return []SolveReport{*bad}
 	}
-	configured, err := s.solveWith(name, queries, request.ask(name))
-	if err != nil {
-		return []SolveReport{unavailableReport(name, err.Error())}
-	}
-	reports := make([]SolveReport, 0, len(queries))
-	for i, q := range queries {
-		reports = append(reports, configureReport(name, q, configured[i], request))
-	}
-	return reports
+	plan, err := s.solveWith(name, queries, request.ask(name))
+	return solveReports(name, queries, plan, err, func(name string, q *solve.Query, configured analysis.Evaluation) SolveReport {
+		return configureReport(name, q, configured, request)
+	})
 }
 
 // configureRequest is what a %configure asked for: the variants chosen, whether

@@ -40,6 +40,7 @@ const (
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 	CapabilityCaseEvaluations      = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime            = sysmlgrpc.CapabilityFinalTime
+	CapabilityEngines              = sysmlgrpc.CapabilityEngines
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

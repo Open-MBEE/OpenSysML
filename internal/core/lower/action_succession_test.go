@@ -180,3 +180,35 @@ func namedActionNode(t *testing.T, graph *ActionGraph, name string) ast.Node {
 	t.Fatalf("node %s not found in graph", name)
 	return nil
 }
+
+// StartFlow gives an action performed whole its one unpreceded step to start at,
+// keeps an explicit start, and leaves an ambiguous or cyclic flow without one.
+func TestStartFlow(t *testing.T) {
+	for _, tc := range []struct {
+		name, body, start string
+	}{
+		{"one unpreceded step", `action alpha; then action beta;`, "alpha"},
+		{"explicit first", `action alpha; action beta; first beta then alpha;`, "beta"},
+		{"explicit start node", `first start; then action alpha; action beta;`, "start"},
+		{"two unpreceded steps", `action alpha; action beta; action gamma; succession first alpha then gamma; succession first beta then gamma;`, ""},
+		{"a cycle", `action alpha; action beta; succession first alpha then beta; succession first beta then alpha;`, ""},
+	} {
+		graph := actionGraphFor(t, `action seq { `+tc.body+` }`)
+		StartFlow(graph)
+		if tc.start == "" {
+			if graph.Initial != nil {
+				t.Errorf("%s: initial node = %v, want none", tc.name, graph.Initial)
+			}
+			continue
+		}
+		if tc.start == "start" {
+			if _, ok := graph.Initial.(*ast.InitialNode); !ok {
+				t.Errorf("%s: initial node = %T, want the start node", tc.name, graph.Initial)
+			}
+			continue
+		}
+		if graph.Initial != nodeNamed(t, graph, tc.start) {
+			t.Errorf("%s: initial node = %v, want %s", tc.name, graph.Initial, tc.start)
+		}
+	}
+}

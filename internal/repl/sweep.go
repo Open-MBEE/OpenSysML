@@ -8,6 +8,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -105,18 +106,18 @@ func (s *Session) sweepFromText(invocation string, ranges []string, draws sweepD
 // satisfied holds; any failed run or unsatisfied objective fails it.
 func (s *Session) sweepVerdict(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) Verdict {
 	label := sweepLabel(inv, draws)
-	table, ctx, err := s.runSweep(inv, specs, draws)
+	table, ctx, plan, err := s.runSweep(inv, specs, draws)
 	if err != nil {
-		return unresolvedVerdict(label, err.Error())
+		return standing(unresolvedVerdict(label, err.Error()), plan)
 	}
 	status, rows := sweepStatus(ctx, table)
-	return Verdict{
+	return standing(Verdict{
 		Subject: label,
 		Status:  status,
 		Lines:   sweepTableLines(ctx, table),
 		Values:  sweepValues(table, rows),
 		Rows:    rows,
-	}
+	}, plan)
 }
 
 // sweepLabel names what was run, as the caller wrote it.
@@ -133,43 +134,43 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 
 // runSweep resolves the target an invocation names, binds its ordinary
 // arguments once, and makes one ordinary analysis or calc run per row.
-func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *runtime.Context, error) {
+func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *runtime.Context, *analysis.Plan, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {
-		return runtime.SweepTable{}, nil, errors.New("no declarations loaded")
+		return runtime.SweepTable{}, nil, nil, errors.New("no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, nil, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, nil, err
 	}
 
 	parsed, err := parseAnalysisArgs(inv.argText)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, nil, err
 	}
 	scope := s.promptScope()
 	var positional []runtime.Value
 	for _, arg := range parsed.positional {
 		val, err := ctx.EvalWithScope(arg.expr, scope)
 		if err != nil {
-			return runtime.SweepTable{}, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+			return runtime.SweepTable{}, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
 		}
 		positional = append(positional, val)
 	}
 	named, err := s.evalArguments(ctx, parsed.named)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, nil, err
 	}
 
 	plan, err := s.sweepPlan(ctx, specs, draws)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, nil, err
 	}
 	namedNames := make([]string, 0, len(named))
 	for name := range named {
@@ -177,17 +178,17 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	}
 	plan, err = ctx.ResolveSweepPlan(sym, plan, len(positional), namedNames)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, nil, err
 	}
 
-	analysis := runtime.IsRunnableCaseSymbol(sym)
+	isCase := runtime.IsRunnableCaseSymbol(sym)
 	var subject *runtime.Instance
 	if inv.object != "" {
-		if !analysis {
-			return runtime.SweepTable{}, nil, fmt.Errorf("%s is a calc, which has no subject", inv.name)
+		if !isCase {
+			return runtime.SweepTable{}, nil, nil, fmt.Errorf("%s is a calc, which has no subject", inv.name)
 		}
 		if subject, _, err = s.resolveObject(inv.object); err != nil {
-			return runtime.SweepTable{}, nil, err
+			return runtime.SweepTable{}, nil, nil, err
 		}
 	}
 	var self *runtime.Instance
@@ -204,7 +205,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		for _, b := range bindings {
 			bound[b.Param] = b.Value
 		}
-		if !analysis {
+		if !isCase {
 			value, err := ctx.InvokeCalcWith(sym, positional, bound, runScope)
 			if err != nil {
 				return runtime.SweepRunResult{}, err
@@ -223,11 +224,11 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		}, err
 	}
 
-	table, err := s.sweep(fqn, ctx, plan, run)
+	answered, err := s.sweep(fqn, ctx, plan, run)
 	if err != nil {
-		return runtime.SweepTable{}, nil, err
+		return runtime.SweepTable{}, nil, &answered, err
 	}
-	return table, ctx, nil
+	return answered.Result.Table(), ctx, &answered, nil
 }
 
 // calcResultName names a calc's returned value in a table, so a calc row and an

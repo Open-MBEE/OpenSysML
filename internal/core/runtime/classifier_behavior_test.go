@@ -1120,6 +1120,88 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 	}
 }
 
+// An object whose exhibited machine has a do behavior parked at an accept is woken
+// by the message a sibling sends: the message is work of that object, which
+// dispatching it to the do behavior takes off the bus.
+func TestStateDoBehaviorAwaitingAMessageIsWokenByASibling(t *testing.T) {
+	src := `
+		package test {
+			part def Waiter {
+				attribute woken: Integer = 0;
+				exhibit state waiting {
+					entry; then active;
+					state active {
+						do action await {
+							first start;
+							then action heard accept g : Integer;
+							then action mark assign woken := 1;
+							then done;
+						}
+					}
+				}
+			}
+
+			part def Sender {
+				exhibit state sending {
+					entry; then sent;
+					state sent { entry send 5 to w; }
+				}
+			}
+
+			part def Pair {
+				part w : Waiter;
+				part s : Sender;
+			}
+		}
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	pkg := resolveSymbol(t, root, "test")
+
+	alone := NewContext(model, resolver, 10000)
+	waiter, err := alone.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	behavior, ok := waiter.ExhibitedState()
+	if !ok {
+		t.Fatalf("object exhibits no machine, behaviors: %v", waiter.Behaviors())
+	}
+	if behavior.hasPendingWork() {
+		t.Error("a do behavior parked at its accept is not work while no message is in flight")
+	}
+	if got := featureInt(t, alone, waiter, "woken"); got != 0 {
+		t.Errorf("woken = %d before any message, want 0", got)
+	}
+	five := integerValue(5)
+	alone.PostMessage(Message{SignalType: "Integer", Value: &five})
+	if !behavior.hasPendingWork() {
+		t.Fatal("the message in flight is work of the object whose do behavior is parked at an accept for it")
+	}
+	if err := alone.drainObjectBehaviors(); err != nil {
+		t.Fatalf("run the object's behaviors: %v", err)
+	}
+	if got := featureInt(t, alone, waiter, "woken"); got != 1 {
+		t.Errorf("woken = %d, want 1 once the do behavior went on from its accept", got)
+	}
+	if left := alone.PendingMessages(); len(left) != 0 {
+		t.Errorf("%d messages left in flight, want the one taken by the do behavior", len(left))
+	}
+
+	ctx := NewContext(model, resolver, 10000)
+	pair, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Pair"))
+	if err != nil {
+		t.Fatalf("Instantiate Pair: %v", err)
+	}
+	nested := instanceAtPath(t, ctx, pair, "w")
+	instanceAtPath(t, ctx, pair, "s")
+	if got := featureInt(t, ctx, nested, "woken"); got != 1 {
+		t.Errorf("woken = %d, want 1 once the sibling's message arrived", got)
+	}
+	if left := ctx.PendingMessages(); len(left) != 0 {
+		t.Errorf("%d messages left in flight, want the sibling's taken by the do behavior", len(left))
+	}
+}
+
 // A failed materialization leaves no behavior of the object behind, so the next
 // object materialized runs its own behaviors and nothing else.
 func TestFailedMaterializationLeavesNoBehaviorBehind(t *testing.T) {

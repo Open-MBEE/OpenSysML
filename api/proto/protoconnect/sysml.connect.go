@@ -78,6 +78,9 @@ const (
 	SysMLServiceRunAnalysisProcedure = "/sysml.SysMLService/RunAnalysis"
 	// SysMLServiceRunSweepProcedure is the fully-qualified name of the SysMLService's RunSweep RPC.
 	SysMLServiceRunSweepProcedure = "/sysml.SysMLService/RunSweep"
+	// SysMLServiceListEnginesProcedure is the fully-qualified name of the SysMLService's ListEngines
+	// RPC.
+	SysMLServiceListEnginesProcedure = "/sysml.SysMLService/ListEngines"
 	// SysMLServiceQueryProcedure is the fully-qualified name of the SysMLService's Query RPC.
 	SysMLServiceQueryProcedure = "/sysml.SysMLService/Query"
 	// SysMLServiceRunDocumentQueryProcedure is the fully-qualified name of the SysMLService's
@@ -134,6 +137,12 @@ type SysMLServiceClient interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// List the analysis engines this build registers, as the CLI's -engines and
+	// the REPL's %engines do: each with the questions it answers, the strongest
+	// evidence it can produce and whether it can run. Reported as the "engines"
+	// capability, which also names the `engine` request fields and the `engine`,
+	// `strength` and `bounds` response fields of the verification RPCs.
+	ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -260,6 +269,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
 			connect.WithClientOptions(opts...),
 		),
+		listEngines: connect.NewClient[proto.ListEnginesRequest, proto.ListEnginesResponse](
+			httpClient,
+			baseURL+SysMLServiceListEnginesProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("ListEngines")),
+			connect.WithClientOptions(opts...),
+		),
 		query: connect.NewClient[proto.QueryRequest, proto.QueryResponse](
 			httpClient,
 			baseURL+SysMLServiceQueryProcedure,
@@ -300,6 +315,7 @@ type sysMLServiceClient struct {
 	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
 	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
 	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
+	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
 	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
@@ -390,6 +406,11 @@ func (c *sysMLServiceClient) RunSweep(ctx context.Context, req *connect.Request[
 	return c.runSweep.CallUnary(ctx, req)
 }
 
+// ListEngines calls sysml.SysMLService.ListEngines.
+func (c *sysMLServiceClient) ListEngines(ctx context.Context, req *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
+	return c.listEngines.CallUnary(ctx, req)
+}
+
 // Query calls sysml.SysMLService.Query.
 func (c *sysMLServiceClient) Query(ctx context.Context, req *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error) {
 	return c.query.CallUnary(ctx, req)
@@ -451,6 +472,12 @@ type SysMLServiceHandler interface {
 	// swept parameter bound to that row's value. Reported as the "verification"
 	// capability.
 	RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error)
+	// List the analysis engines this build registers, as the CLI's -engines and
+	// the REPL's %engines do: each with the questions it answers, the strongest
+	// evidence it can produce and whether it can run. Reported as the "engines"
+	// capability, which also names the `engine` request fields and the `engine`,
+	// `strength` and `bounds` response fields of the verification RPCs.
+	ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error)
 	// Run a SysML v2 API & Services Query over a parsed model: scope/select/where
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
@@ -573,6 +600,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RunSweep")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceListEnginesHandler := connect.NewUnaryHandler(
+		SysMLServiceListEnginesProcedure,
+		svc.ListEngines,
+		connect.WithSchema(sysMLServiceMethods.ByName("ListEngines")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceQueryHandler := connect.NewUnaryHandler(
 		SysMLServiceQueryProcedure,
 		svc.Query,
@@ -627,6 +660,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRunAnalysisHandler.ServeHTTP(w, r)
 		case SysMLServiceRunSweepProcedure:
 			sysMLServiceRunSweepHandler.ServeHTTP(w, r)
+		case SysMLServiceListEnginesProcedure:
+			sysMLServiceListEnginesHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
 			sysMLServiceQueryHandler.ServeHTTP(w, r)
 		case SysMLServiceRunDocumentQueryProcedure:
@@ -708,6 +743,10 @@ func (UnimplementedSysMLServiceHandler) RunAnalysis(context.Context, *connect.Re
 
 func (UnimplementedSysMLServiceHandler) RunSweep(context.Context, *connect.Request[proto.RunSweepRequest]) (*connect.Response[proto.RunSweepResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RunSweep is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) ListEngines(context.Context, *connect.Request[proto.ListEnginesRequest]) (*connect.Response[proto.ListEnginesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ListEngines is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) Query(context.Context, *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error) {
