@@ -97,6 +97,29 @@ func TestUnresolvedNameOffersOnlyAReachablePath(t *testing.T) {
 	}
 }
 
+// The declaring path resolves as a reference would: its qualifier may be a name an
+// alias binds, and the declared name may be borne by several overloads at once.
+func TestUnresolvedNameOffersAPathThroughAnAliasOrToOverloads(t *testing.T) {
+	got := unresolvedMessage(t, `package Real { part def 'SA-506'; }
+	package U {
+		alias Real for $::Real;
+		part d : SA;
+	}`, "SA")
+	want := "unresolved reference: SA — did you mean Real::'SA-506'? " + quotingRule
+	if got != want {
+		t.Errorf("aliased qualifier: diagnostic = %q, want %q", got, want)
+	}
+	got = unresolvedMessage(t, `package Math {
+		calc def 'Delta-V' { in x : ScalarValues::Real; return : ScalarValues::Real = x; }
+		calc def 'Delta-V' { in x : ScalarValues::Integer; return : ScalarValues::Integer = x; }
+	}
+	package U { calc c : Delta; }`, "Delta")
+	want = "unresolved reference: Delta — did you mean Math::'Delta-V'? " + quotingRule
+	if got != want {
+		t.Errorf("overloaded name: diagnostic = %q, want %q", got, want)
+	}
+}
+
 // A `$::`-rooted name is offered rooted: the bare spelling would start at a
 // local namespace of the same name.
 func TestUnresolvedGlobalMemberIsOfferedRooted(t *testing.T) {

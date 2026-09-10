@@ -88,7 +88,8 @@ func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 }
 
 // pathReaches reports whether the registered fqn, ending in the declared name,
-// resolves segment by segment from scope as a reference written there would.
+// resolves segment by segment from scope as a reference written there would:
+// each qualifier to one namespace, through an alias; the name to a member of it.
 func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string) bool {
 	path, ok := strings.CutSuffix(fqn, "::"+name)
 	if !ok {
@@ -99,17 +100,25 @@ func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string) bool {
 	if cur == nil {
 		cur = r.lookupGlobalTop(scope, segs[0])
 	}
-	for _, seg := range append(segs[1:], name) {
+	for _, seg := range segs[1:] {
 		if cur == nil || r.AliasNamesNothing(cur) {
 			return false
 		}
-		all := r.membersNamed(scope, cur, seg, false)
+		all := r.membersNamed(scope, r.AliasedElement(cur), seg, false)
 		if len(all) != 1 {
 			return false
 		}
 		cur = all[0]
 	}
-	return cur != nil && !r.AliasNamesNothing(cur)
+	if cur == nil || r.AliasNamesNothing(cur) {
+		return false
+	}
+	for _, sym := range r.membersNamed(scope, r.AliasedElement(cur), name, false) {
+		if !r.AliasNamesNothing(sym) {
+			return true
+		}
+	}
+	return false
 }
 
 // memberKey identifies a member hint by the namespace and the segment written
