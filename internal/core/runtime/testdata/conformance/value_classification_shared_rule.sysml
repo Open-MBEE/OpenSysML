@@ -4,8 +4,10 @@
 // an Integer; a quotient is a Rational (IntegerFunctions::'/'); a quantity is a
 // ScalarQuantityValue and, through the feature holding it, a LengthValue; an
 // enumeration literal, an object and a sequence are of their own types; an empty
-// value of every type. `hastype` is the direct type alone; a cast keeps what
-// `istype` affirms and cannot decide `5 as Even`.
+// value of every type; `*` is a Positive (§8.4.4.6) and so a Natural and Integer.
+// `hastype` is the direct type alone; a cast keeps what `istype` affirms and
+// cannot decide `5 as Even` or `* as Boundless`, while a feature declared of
+// either subtype holds the value.
 private import ScalarValues::*;
 private import ISQ::*;
 private import SI::*;
@@ -16,6 +18,7 @@ package test {
 	part def Vehicle;
 	part def Car :> Vehicle;
 	attribute def Even :> Integer;
+	attribute def Boundless :> Positive;
 
 	attribute n : Integer = 4;
 	attribute r : Real = 4.0;
@@ -27,6 +30,7 @@ package test {
 	attribute mixed : Real[*] = (1, 2.5, 3);
 	attribute none : Integer[0..1];
 	attribute e : Even = 4;
+	attribute limit : Boundless = *;
 
 	calc classify {
 		return : Boolean[*] nonunique = (
@@ -42,7 +46,10 @@ package test {
 			seq istype Integer, seq @ Integer, seq istype Real, seq hastype Real,
 			mixed istype Real, mixed istype Integer, mixed @ Integer,
 			none istype Integer, none hastype Integer, none @ Integer,
-			e istype Even, e hastype Even, e istype Integer, e hastype Integer
+			e istype Even, e hastype Even, e istype Integer, e hastype Integer,
+			limit istype Boundless, limit hastype Boundless, limit @ Boundless,
+			limit istype Positive, limit hastype Positive, limit istype Integer, limit istype String,
+			* istype Boundless, * hastype Boundless, * istype Natural
 		);
 	}
 
@@ -61,4 +68,8 @@ package test {
 	attribute noneAsInteger : Integer[0..1] = none as Integer;
 	attribute eAsEven : Even[0..1] = e as Even;
 	attribute fiveAsEven : Even[0..1] = 5 as Even;
+	attribute limitAsBoundless : Boundless[0..1] = limit as Boundless;
+	attribute limitAsInteger : Integer[0..1] = limit as Integer;
+	attribute unboundedAsString : String[0..1] = * as String;
+	attribute unboundedAsBoundless : Boundless[0..1] = * as Boundless;
 }

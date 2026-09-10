@@ -52,6 +52,16 @@
       {"type": "Boolean", "value": true},
       {"type": "Boolean", "value": false},
       {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": false},
       {"type": "Boolean", "value": true}
     ]
   },
@@ -74,6 +84,10 @@
     ]},
     "test::noneAsInteger": {"type": "Sequence", "elements": []},
     "test::eAsEven": {"type": "Integer", "value": 4},
-    "test::fiveAsEven": {"error": "classification of a value cannot be decided: whether 5 (an Integer) is a value of Even is not stated by the value"}
+    "test::fiveAsEven": {"error": "classification of a value cannot be decided: whether 5 (an Integer) is a value of Even is not stated by the value"},
+    "test::limitAsBoundless": {"type": "Infinity"},
+    "test::limitAsInteger": {"type": "Infinity"},
+    "test::unboundedAsString": {"type": "Sequence", "elements": []},
+    "test::unboundedAsBoundless": {"error": "classification of a value cannot be decided: whether * (an infinity) is a value of Boundless is not stated by the value"}
   }
 }

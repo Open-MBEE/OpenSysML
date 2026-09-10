@@ -162,16 +162,21 @@ func (ctx *Context) scalarLibraryType(value Value) *symbols.Symbol {
 
 // representationClassifies reads a scalar target narrower than a scalar's types off its
 // representation (KerML 1.0 §8.4.4.9.2): a finite real is a Rational and no Integer
-// whatever number it holds; an integer is an Integer. A target the lattice does not place
-// (`Natural`, `Positive`, a subtype a model declares) marks no evaluated value, so it stays
-// undecided unless its nearest lattice ancestor or the Natural and Positive bounds
-// (§9.3.2.2.4, §9.3.2.2.7) exclude the value. False second for a target above no scalar.
+// whatever number it holds; an integer is an Integer; `*` is a Positive (§8.4.4.6). A
+// target the lattice does not place (`Natural`, `Positive`, a subtype a model declares)
+// marks no evaluated value, so it stays undecided unless its nearest lattice ancestor or
+// the Natural and Positive bounds (§9.3.2.2.4, §9.3.2.2.7) exclude the value. False
+// second for a target above no scalar.
 func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol) (semantics.TypeClassification, bool) {
 	prim := ctx.model.PrimTypeOf(target)
 	if prim == semantics.PrimUnknown {
 		return semantics.ClassifiesNone, false
 	}
 	got := representationPrim(value)
+	if value.Kind == ValConst && value.Const.IsUnbounded() {
+		// `*` is the Positive exceeding every bound (KerML 8.4.4.6), so its lattice place decides.
+		got = semantics.PrimNatural
+	}
 	switch {
 	case got == semantics.PrimUnknown:
 		return semantics.ClassifiesNone, true
