@@ -216,10 +216,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 49 | 6 | 6 | 0 | 0 | 6 | 6 |
-| `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
+| `testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
 | `examples` | 35 | 26 | 2 | 575 | 0 | 1 | 1 | 574 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **369** | **337** | **59** | **636** | **34** | **2** | **23** | **600** |
+| **Total** | **370** | **337** | **64** | **636** | **34** | **2** | **28** | **600** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -245,6 +245,25 @@ reference corpora is **13** — of which three, the `Behaviors.kerml` advisory a
 `Expressions.kerml` operator errors, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
+
+### Value uniqueness round
+
+A multi-valued feature not declared `nonunique` now refuses two equal values: a const-decidable
+repeat in a literal is a static error, a repeat only a run decides is a typed runtime error, and
+nothing is silently deduplicated ([spec-compliance.md](spec-compliance.md),
+[omg-issues.md](omg-issues.md)). The differential moves by one file and nothing else:
+`testdata/passes/unique_values.sysml` joins `testdata` to draw the five static diagnostics
+adjudicated in [Value uniqueness](#value-uniqueness--only-ours-5), one-sided by construction since
+the pilot has no value-level uniqueness constraint. No corpus root moves and no other file changes
+what it reports.
+
+| Count | Before | Now |
+|---|---:|---:|
+| files | 369 | **370** |
+| overall: fully agreeing | 337 | **337** |
+| overall: our diagnostics | 59 | **64** |
+| overall: only ours | 23 | **28** |
+| `testdata`: only ours | 3 | **8** |
 
 ### The unbound-parameter advisory
 
@@ -551,7 +570,7 @@ Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 `units`, 1 `kind-mismatch`; `kerml-examples` 5 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 2
+[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
 `examples` 10 syntax, 15 `unmapped`, 262 `kind-mismatch`, 287 `unresolved-reference` — of which
@@ -628,11 +647,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **337 / 23 / 59** |
+| overall: fully agreeing / only ours / our diagnostics | **337 / 28 / 64** |
 | only pilot | **600** |
 | pilot diagnostics | **636** |
 | severity-only | **2** |
-| unmapped, our side | **21** |
+| unmapped, our side | **26** |
 | kerml-examples: only ours | **6** |
 | pilot-examples: only ours | **7** |
 | examples: only pilot | **574** |
