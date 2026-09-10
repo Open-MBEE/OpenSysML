@@ -205,7 +205,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 // the body's flow, else what is around it.
 func (h *stateStmtHost) setFeature(name string, value Value) error {
 	if root := h.perfs.root; root.holds(name) {
-		if err := h.exec.ctx.checkNamedWrite(root.scope, h.describe(), name, value); err != nil {
+		if err := h.exec.ctx.checkNamedWrite(root.scope, h.describe(), name, &value); err != nil {
 			return err
 		}
 		root.data[root.key(name)] = value
