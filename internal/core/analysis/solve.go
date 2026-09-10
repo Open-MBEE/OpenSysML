@@ -69,8 +69,9 @@ func (e solveEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run asks each query in turn under the budget's solver time and judges the set: satisfiable
-// when every query is, unsatisfiable when any is, not covered while any is undecided.
+// Run asks the queries in turn, each under the budget's solver time and no more of them than
+// its runs, and judges the set: satisfiable when every query is, unsatisfiable when any is,
+// not covered while any is undecided or unasked.
 func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budget) (Result, error) {
 	solver, err := e.discover()
 	if err != nil {
@@ -83,11 +84,17 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 	if timeout <= 0 {
 		timeout = solve.DefaultTimeout
 	}
+	asked := len(q.Solve.Queries)
+	if budget.Runs > 0 && budget.Runs < asked {
+		asked = budget.Runs
+	}
 	started := time.Now()
 	values := make([]Evaluation, len(q.Solve.Queries))
 	for i, query := range q.Solve.Queries {
-		solved, err := q.Solve.Ask(solver, ctx, query)
-		values[i] = Evaluation{Name: query.Element, Solved: solved, Err: err}
+		values[i] = Evaluation{Name: query.Element}
+		if i < asked {
+			values[i].Solved, values[i].Err = q.Solve.Ask(solver, ctx, query)
+		}
 	}
 	result := Result{
 		Question: q,
@@ -96,7 +103,10 @@ func (e solveEngine) Run(ctx context.Context, _ *Model, q Question, budget Budge
 		Elapsed:  time.Since(started),
 	}
 	result.Claim, result.Strength, result.Reason = judgeSolved(values)
-	result.Bounds = Bounds{{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)}}
+	if budget.Runs > 0 {
+		result.Bounds = Bounds{{Name: "runs", Limit: int64(budget.Runs), Reached: asked < len(values)}}
+	}
+	result.Bounds = append(result.Bounds, Bound{Name: "solver", Limit: timeout.Milliseconds(), Reached: anyTimedOut(values)})
 	return result, nil
 }
 
@@ -123,7 +133,7 @@ func judgeOne(v Evaluation) (Claim, Strength, string) {
 	case v.Err != nil:
 		return ClaimNone, NotCovered, v.Err.Error()
 	case v.Solved == nil:
-		return ClaimNone, NotCovered, v.Name + " was not put to the solver"
+		return ClaimNone, NotCovered, v.Name + " was left unasked by the runs budget"
 	}
 	switch v.Solved.Status {
 	case solve.StatusUnsat:

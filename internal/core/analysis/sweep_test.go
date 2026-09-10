@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -67,6 +68,23 @@ func TestSweepObservesATable(t *testing.T) {
 	}
 }
 
+func TestSweepTakesTheBudgetsRuns(t *testing.T) {
+	f := parseFixture(t)
+	ctx := f.context(t)
+	q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
+	result := answered(t, Default(), Held(ctx, nil), q, Budget{Runs: 5}).Result
+	if len(result.Values) != 3 {
+		t.Fatalf("values %+v, want the 3 rows within 5 runs", result.Values)
+	}
+	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 5 || result.Bounds.Reached() {
+		t.Fatalf("bounds %s, want the budget's 5 runs unreached", result.Bounds)
+	}
+	_, err := Default().Answer(context.Background(), Held(ctx, nil), q, Budget{Runs: 2})
+	if !errors.Is(err, runtime.ErrSweepBudget) || !strings.Contains(err.Error(), "at most 2 allowed") {
+		t.Fatalf("3 rows within 2 runs: %v, want the runtime's refusal of the budget's 2", err)
+	}
+}
+
 func TestRegistrySweepIsTheRuntimesSweep(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
@@ -74,7 +92,7 @@ func TestRegistrySweepIsTheRuntimesSweep(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
-	direct, err := ctx.RunSweep(context.Background(), "test::Double", doublePlan(t, f, ctx), doubleRow(t, f, ctx))
+	direct, err := ctx.RunSweep(context.Background(), "test::Double", doublePlan(t, f, ctx), 0, doubleRow(t, f, ctx))
 	if err != nil {
 		t.Fatalf("direct sweep: %v", err)
 	}
@@ -96,7 +114,7 @@ func TestSweepRefusalIsTheRuntimes(t *testing.T) {
 	if !errors.Is(err, runtime.ErrSweepRange) {
 		t.Fatalf("sweep with a zero step: %v, want the runtime's range refusal", err)
 	}
-	_, direct := ctx.RunSweep(context.Background(), "test::Double", plan, doubleRow(t, f, ctx))
+	_, direct := ctx.RunSweep(context.Background(), "test::Double", plan, 0, doubleRow(t, f, ctx))
 	if direct == nil || err.Error() != direct.Error() {
 		t.Fatalf("sweep: %v, want the runtime's own %v", err, direct)
 	}

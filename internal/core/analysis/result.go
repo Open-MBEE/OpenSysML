@@ -216,8 +216,8 @@ func (r Result) Table() runtime.SweepTable {
 	return table
 }
 
-// Budget is what a run may spend; a zero field is the engine's own default. An engine applies
-// the limits it builds itself (explore: Runs, Depth; solve: Solver); the rest name the context's.
+// Budget is what a run may spend; a zero field is the engine's own default. Runs, Depth and
+// Solver are applied by the engines in their own units; Steps and Memory name the context's.
 type Budget struct {
 	// Deadline is the wall clock for the whole plan; zero means none.
 	Deadline time.Time
@@ -236,12 +236,21 @@ type Budget struct {
 	Memory int
 }
 
-// BudgetOf is the budget a run under limits has: their step and element
-// bounds, and the exploration bounds when the policy explores.
-func BudgetOf(limits runtime.Budgets, policy runtime.SchedulePolicy) Budget {
+// BudgetOf is the budget a question of kind has under limits and policy, its Runs in the
+// kind's own unit: an exploring policy's runs for outcomes, the sweep runs for a sweep.
+func BudgetOf(limits runtime.Budgets, policy runtime.SchedulePolicy, kind Kind) Budget {
 	budget := Budget{Steps: int(limits.MaxSteps), Memory: int(limits.MaxElements)}
-	if exploring, ok := policy.Exploration(); ok {
-		budget.Runs, budget.Depth = exploring.Runs, exploring.Depth
+	exploring, ok := policy.Exploration()
+	if ok {
+		budget.Depth = exploring.Depth
+	}
+	switch kind {
+	case Outcomes:
+		if ok {
+			budget.Runs = exploring.Runs
+		}
+	case Sweep:
+		budget.Runs = int(limits.MaxSweepRuns)
 	}
 	return budget
 }

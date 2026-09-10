@@ -23,10 +23,14 @@ the implementation took where the note left room: the `%run` in the migration ta
 commands that share the CLI flags' code (there is no meta-command of that name), and a `solve`
 question is one per element with that element's condition sets as its queries, so the solver is
 found once per element and its absence is reported once, as before. Of the `Budget`, the
-fields whose limits an engine builds for itself are applied by it — `Runs` and `Depth` by
-`explore`, `Solver` by `solve` — while `Steps` and `Memory` are the limits the surface's runtime
-context already enforces, carried so a result can name them; `Deadline` and `Jobs` are carried
-unread until the parallel-runs stage gives them a coordinator.
+fields whose limits an engine applies in its own unit are applied by it — `Runs` as `explore`'s
+runs, `sweep`'s rows (the limit `Context.RunSweep` now takes in place of the context's) and
+`solve`'s queries (the rest left unasked and the set *not covered*), `Depth` by `explore`,
+`Solver` by `solve` — and each result names the bound it ran under; `Steps` and `Memory` are the
+limits the surface's runtime context already enforces, carried so a result can name them;
+`Deadline` and `Jobs` are carried unread until the parallel-runs stage gives them a coordinator.
+`BudgetOf` fills `Runs` in the unit of the question's kind, so a sweep asked under an exploring
+schedule is bounded by `OPENSYSML_MAX_SWEEP_RUNS`, not by the schedule's exploration runs.
 
 This is the framework that the two model-checking designs are written into:
 [bounded model checking](bounded-model-checking.md) explores the executor and
@@ -86,8 +90,9 @@ turns a question into the engines that can answer it.
   backend is asked once what it supports (models, unsat cores, incremental checks, datatypes,
   strings, nonlinear arithmetic, optimization) and a query that needs more is refused with a
   typed error before it is sent. The engine contract generalizes exactly this.
-- **`Context.RunSweep(stop, target, plan, run)`** already separates the plan (the rows) from the
-  run (one execution of a row) and checks a `context.Context` between rows. Its rows are
+- **`Context.RunSweep(stop, target, plan, runs, run)`** already separates the plan (the rows)
+  from the run (one execution of a row), bounds the rows by `runs` (the context's
+  `OPENSYSML_MAX_SWEEP_RUNS` when zero) and checks a `context.Context` between rows. Its rows are
   independent by construction; only the loop is sequential.
 - **The frozen symbol index.** `symbols.Index.Freeze` bars an index from writes so that every
   model shares one copy of the standard library, and `NewOverlay` builds a writable index over a

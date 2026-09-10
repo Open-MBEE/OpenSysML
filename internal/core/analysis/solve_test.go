@@ -125,7 +125,7 @@ func TestSolveGradesEachVerdict(t *testing.T) {
 		{"unknown", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusUnknown, Reason: "timeout"}}, ClaimNone, NotCovered, "timeout"},
 		{"silent unknown", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusUnknown}}, ClaimNone, NotCovered, "the solver did not decide C"},
 		{"failed", Evaluation{Name: "C", Err: errors.New("the solver exited")}, ClaimNone, NotCovered, "the solver exited"},
-		{"not asked", Evaluation{Name: "C"}, ClaimNone, NotCovered, "C was not put to the solver"},
+		{"unasked", Evaluation{Name: "C"}, ClaimNone, NotCovered, "C was left unasked by the runs budget"},
 		{"attained", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumAttained, Value: "3"}}}}, ClaimSatisfiable, Witnessed, ""},
 		{"unbounded", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumUnbounded}}}}, ClaimUnbounded, Proved, ""},
 		{"bounded", Evaluation{Name: "C", Solved: &solve.Result{Query: exact, Status: solve.StatusSat, Optima: []solve.Optimum{{Objective: objective, Status: solve.OptimumBounded, Detail: "approaches 2"}}}}, ClaimNone, NotCovered, "m: approaches 2"},
@@ -178,6 +178,41 @@ func TestSolveTakesTheBudgetsSolverTime(t *testing.T) {
 	timedOut := []Evaluation{{Name: "C", Solved: &solve.Result{Status: solve.StatusUnknown, TimedOut: true}}}
 	if !anyTimedOut(timedOut) || anyTimedOut(nil) {
 		t.Fatal("a timed-out verdict must reach the solver bound")
+	}
+}
+
+// The budget's runs are the queries solve asks: the rest are left unasked, which the
+// set's verdict and the runs bound both report.
+func TestSolveAsksNoMoreQueriesThanTheBudgetsRuns(t *testing.T) {
+	present := func() (*solve.Solver, error) { return &solve.Solver{Name: "z3", Path: "/usr/bin/z3"}, nil }
+	var asked []string
+	sat := func(_ *solve.Solver, _ context.Context, query *solve.Query) (*solve.Result, error) {
+		asked = append(asked, query.Element)
+		return &solve.Result{Query: query, Status: solve.StatusSat}, nil
+	}
+	queries := []*solve.Query{intQuery("A", 2, 5), intQuery("B", 2, 5), intQuery("C", 2, 5)}
+	q := Question{Kind: Satisfiable, Subject: "test::C", Free: FreeInputs, Solve: &SolveAsk{Queries: queries, Ask: sat}}
+	result := answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 2}).Result
+	if len(asked) != 2 || asked[0] != "A" || asked[1] != "B" {
+		t.Fatalf("asked %v, want A and B only", asked)
+	}
+	if result.Claim != ClaimNone || result.Strength != NotCovered || result.Reason != "C was left unasked by the runs budget" {
+		t.Fatalf("result %+v, want not covered for the unasked C", result)
+	}
+	if len(result.Values) != 3 || result.Values[2].Solved != nil || result.Values[2].Err != nil || result.Values[2].Name != "C" {
+		t.Fatalf("values %+v, want C's unasked entry in place", result.Values)
+	}
+	if runs, ok := result.Bounds.Limit("runs"); !ok || runs != 2 || !result.Bounds.Reached() {
+		t.Fatalf("bounds %s, want the budget's 2 runs reached", result.Bounds)
+	}
+	asked = nil
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{Runs: 3}).Result
+	if len(asked) != 3 || result.Claim != ClaimSatisfiable || result.Bounds.Reached() {
+		t.Fatalf("asked %v, result %+v; want every query asked within 3 runs", asked, result)
+	}
+	result = answered(t, registered(t, NewSolve(present)), nil, q, Budget{}).Result
+	if _, ok := result.Bounds.Limit("runs"); ok || result.Claim != ClaimSatisfiable {
+		t.Fatalf("result %+v, want no runs bound without a runs budget", result)
 	}
 }
 
