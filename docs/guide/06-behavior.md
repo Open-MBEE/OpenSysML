@@ -317,7 +317,9 @@ takes it though no transition fires on it, reporting that the do behavior goes o
 performs once — when its body ends, the state has completed and a completion transition out of
 it, if any, fires — and leaving the state for any other reason abandons what is left of it: its
 waits leave the clock, nothing after the wait runs, and an `inout` pin writes its value back to
-the bound attribute only when the performance ends. `Poll` below counts once at `t=3.0`, the
+the bound attribute only when the performance ends (an `inout` pin valued by an enumeration
+literal or another constant, `inout mode = Mode::idle`, starts from that value and writes back
+nowhere). `Poll` below counts once at `t=3.0`, the
 state is left at `t=10.0`, and `ticks` reads `1`:
 
 ```sysml

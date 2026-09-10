@@ -852,6 +852,9 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		}
 		name := simpleEndName(end.Other)
 		if name == "" {
+			if end.FromValue {
+				continue // a qualified value (`Mode::idle`) initialized the pin, and holds nothing
+			}
 			return fmt.Errorf("%w: %s is bound to %s, which names no feature to hold its value",
 				ErrBindingEnd, end.pinText(), bindingEndText(end.Other))
 		}
@@ -859,7 +862,7 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 		if err != nil {
 			return err
 		}
-		if !written {
+		if !written && !end.FromValue {
 			return fmt.Errorf("%w: %s is bound to %s, which no enclosing action holds",
 				ErrBindingEnd, end.pinText(), name)
 		}

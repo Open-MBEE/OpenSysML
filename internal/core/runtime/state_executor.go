@@ -2299,14 +2299,15 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 }
 
 // doBehaviorsTaking lists the do behaviors the message being dispatched lets go on:
-// those parked at an accept for it, except under a leaf that selected a transition
-// for it — along one active leaf's chain the transition is the message's only
-// taker, as the innermost enabled transition is among transitions. A port failing
-// to resolve on the way is the error.
+// those parked at an accept for it, except in a state a transition selected for it
+// leaves — the transition ending the state is the message's only taker there, as
+// the innermost enabled transition is among transitions, while one moving between
+// the state's own substates leaves its do behavior to go on. A port failing to
+// resolve on the way is the error.
 func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandidate) ([]*doAction, error) {
 	var taking []*doAction
 	for _, act := range e.doActions {
-		if act.run == nil || e.transitionSelectedUnder(act.state, candidates) {
+		if act.run == nil || e.leftBySelected(act.state, candidates) {
 			continue
 		}
 		accepted, err := act.run.acceptsMessage(m)
@@ -2320,15 +2321,70 @@ func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandid
 	return taking, nil
 }
 
-// transitionSelectedUnder reports whether a candidate was selected for an active
-// leaf the state is or encloses.
-func (e *StateExecutor) transitionSelectedUnder(state *ast.StateNode, candidates []dispatchCandidate) bool {
+// leftBySelected reports whether a transition a candidate may fire leaves the
+// state: one of those enabled, to any state its target may lead on to.
+func (e *StateExecutor) leftBySelected(state *ast.StateNode, candidates []dispatchCandidate) bool {
 	for _, candidate := range candidates {
-		if slices.Contains(e.getParentChain(candidate.leaf), state) {
-			return true
+		transitions := e.graph.Transitions[candidate.source]
+		for _, i := range candidate.enabled {
+			targets, ok := e.statesReached(transitions[i].Target, make(map[*ast.PseudostateNode]bool))
+			if !ok {
+				return true
+			}
+			for _, target := range targets {
+				if e.leaves(candidate.source, target, state) {
+					return true
+				}
+			}
 		}
 	}
 	return false
+}
+
+// leaves reports whether a transition from source to target exits state, as
+// transitionToInto exits: the source and, unless the target lies inside it, the
+// states enclosing the source up to the innermost one enclosing the target too.
+func (e *StateExecutor) leaves(source, target, state *ast.StateNode) bool {
+	outermost := source
+	if !e.encloses(source, target) {
+		for parent := e.graph.ParentState[source]; parent != nil && !e.isBelowOrEqual(target, parent); parent = e.graph.ParentState[parent] {
+			outermost = parent
+		}
+	}
+	return e.isBelowOrEqual(state, outermost)
+}
+
+// statesReached lists the states a transition target may enter: the state itself,
+// every state the transitions out of a pseudostate lead on to, or the owner a
+// history pseudostate restores; false when a route reaches no state.
+func (e *StateExecutor) statesReached(target ast.Node, visited map[*ast.PseudostateNode]bool) ([]*ast.StateNode, bool) {
+	switch t := target.(type) {
+	case *ast.StateNode:
+		return []*ast.StateNode{t}, true
+	case *ast.PseudostateNode:
+		if t.Kind == ast.PseudostateShallowHistory || t.Kind == ast.PseudostateDeepHistory {
+			owner := e.graph.PseudostateOwner[t]
+			return []*ast.StateNode{owner}, owner != nil
+		}
+		if visited[t] {
+			return nil, true
+		}
+		visited[t] = true
+		outgoing := e.graph.Transitions[t]
+		if len(outgoing) == 0 {
+			return nil, false
+		}
+		var states []*ast.StateNode
+		for _, trans := range outgoing {
+			reached, ok := e.statesReached(trans.Target, visited)
+			if !ok {
+				return nil, false
+			}
+			states = append(states, reached...)
+		}
+		return states, true
+	}
+	return nil, false
 }
 
 // resumeDoBehaviors lets the do behaviors taking the message being dispatched go

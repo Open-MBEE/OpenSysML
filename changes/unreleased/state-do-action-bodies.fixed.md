@@ -11,16 +11,19 @@
   reporting `the do behavior of state <s> goes on from its accept`, rather than refusing it because
   no transition fires; a signal sent from a sibling object wakes it too), while the machine's
   transitions and its other regions' do behaviors go on around it. `%send`'s preview and the
-  dispatch select the signal's takers by one rule: a transition out of the state whose do behavior
-  is parked for the signal is its only taker there, while a do behavior in one region and a
-  transition in a sibling region share the one dispatch; the step reports `Event dispatched,
+  dispatch select the signal's takers by one rule: a transition leaving the state whose do behavior
+  is parked for the signal is its only taker there, while a transition between that state's own
+  substates, or one in a sibling region, shares the one dispatch with the do behavior; the step reports `Event dispatched,
   letting the do behavior of state <s> go on from its accept`, and such a signal is neither deferred
   nor counted as dropped. A nested action node stating its flow in declaration order starts at its one
   unpreceded node as the body does, rather than being reported as a flow without a start. Leaving the state ends the
   performance: its wait leaves the clock, nothing after the wait runs, and a signal sent later
   wakes nothing. A typed usage whose body declares only the pins of the action it performs
   performs that action, an `inout` pin bound to a feature (`inout n = ticks`) writing back when the
-  performance ends and not when the state's exit abandons it; an `in` pin nothing binds, or one
+  performance ends and not when the state's exit abandons it, and one valued by an enumeration
+  literal or another name no enclosing feature answers (`inout mode = Mode::idle`) starting from
+  that value and writing nowhere, rather than being refused as an output bound to no feature; an
+  `in` pin nothing binds, or one
   bound to a feature the state does not declare, is a typed error naming the pin. Which of two
   regions' do behaviors due at one instant acts first in a round is a choice point (`choice do
   round at t=2.0: states lwork, rwork react`), explored and seeded as the other choice points are.

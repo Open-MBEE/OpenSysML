@@ -400,6 +400,9 @@ type PinBinding struct {
 	OtherFeature string
 	Scope        *symbols.Scope // the scope the binding was written in
 	Decl         *ast.Usage
+	// FromValue marks the binding a pin's own value states (`inout n = ticks;`): the
+	// value is the pin's initial value alone when no feature around the node holds it.
+	FromValue bool
 }
 
 // ObjectFlow represents a data flow edge between pins.
@@ -851,12 +854,13 @@ func lowerFeatures(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 
 // inoutValueBinding lowers the value of a node's `inout` pin that names a feature
 // (`inout n = ticks;`) to the binding between the two it states; a value that is
-// an expression of another kind is the pin's initial value alone.
+// an expression of another kind is the pin's initial value alone. Which of the two
+// a name is (`ticks`, or the literal `Mode::idle`) is settled where the node performs.
 func inoutValueBinding(node, pin *ast.Usage, name string, scope *symbols.Scope) (PinBinding, bool) {
 	if pin.Direction != ast.DirInOut || pin.Value == nil || len(endSegments(pin.Value)) == 0 {
 		return PinBinding{}, false
 	}
-	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin}
+	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin, FromValue: true}
 	if chain, feature, ok := assignTarget(pin.Value); ok {
 		binding.OtherChain, binding.OtherFeature = chain, feature
 	}
