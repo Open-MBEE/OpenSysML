@@ -13,6 +13,10 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
 - **[Pseudostates](pseudostates.md)** — choice, junction, fork, join, entry/exit points
   and history
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
+- **[SMT bounded model checking of behaviors](smt-model-checking.md)** — a proposal: unroll an
+  action's token flow to a bounded number of moves and ask an SMT solver whether any schedule and
+  any input violates a requirement, with every witness replayed in the interpreter and `explore`
+  as the referee
 - **[Transport evaluation](transport-evaluation.md)** — Connect and stdio measured beside gRPC,
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the
