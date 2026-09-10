@@ -44,7 +44,7 @@ func TestExternalScalarNamesOnlyFromPrimitiveLibraries(t *testing.T) {
         <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Integer"/>
       </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_c" name="score">
-        <type href="Shared%20Types.mdzip#Integer"/>
+        <type href="Shared%20Types.xmi#Integer"/>
       </ownedAttribute>
     </packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "attribute count : ScalarValues::Integer;")
@@ -373,6 +373,34 @@ func TestRequirementTagsComeOnlyFromStandardStereotypes(t *testing.T) {
 			wantNoLine(t, r.Notation, "doc /* Custom text. */")
 			wantLine(t, r.Notation, "applied stereotype «Requirement»: Id = X9; Text = Custom text.")
 		})
+	}
+}
+
+// The Papyrus serialization of the SysML profile classifies as the OMG one does;
+// a tool's customization layer over SysML is any other profile: a comment.
+func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="Pump">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="throughput" type="_v"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:DataType" xmi:id="_v" name="Rate"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`, `
+  <Blocks:Block xmlns:Blocks="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Blocks" xmi:id="_s1" base_Class="_b"/>
+  <Blocks:ValueType xmlns:Blocks="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Blocks" xmi:id="_s2" base_DataType="_v"/>
+  <Requirements:Requirement xmlns:Requirements="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Requirements" xmi:id="_s3" base_Class="_r" id="R1" text="Shall pump."/>
+  <vendor:ValueProperty xmlns:vendor="http://www.example.com/tool/customization/SysML" xmi:id="_c1" base_Property="_p"/>
+  <vendor:performanceRequirement xmlns:vendor="http://www.example.com/tool/customization/SysML" xmi:id="_c2" base_Class="_r"/>`)
+	wantLine(t, r.Notation, "part def Pump {")
+	wantLine(t, r.Notation, "attribute def Rate;")
+	wantLine(t, r.Notation, "attribute throughput : Rate {")
+	wantLine(t, r.Notation, "requirement def <R1> Req {")
+	wantLine(t, r.Notation, "applied stereotype «ValueProperty»")
+	wantLine(t, r.Notation, "applied stereotype «performanceRequirement»")
+	for id, kind := range map[string]string{"_b": "«Block» Class", "_r": "«Requirement» Class", "_p": "«ValueProperty» Property"} {
+		es := entriesFor(r, id)
+		if len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Kind != kind {
+			t.Errorf("%s entries = %+v, want one mapped %s", id, es, kind)
+		}
 	}
 }
 

@@ -2916,7 +2916,7 @@ func TestFormatDetection(t *testing.T) {
 		"model.ttl":        export.FormatTurtle,
 		"dir/model.turtle": export.FormatTurtle,
 		"Model.xmi":        export.FormatXMI,
-		"Model.mdzip":      export.FormatXMI,
+		"Model.uml":        export.FormatXMI,
 	}
 	for path, want := range cases {
 		got, err := export.FormatOfPath(path)
@@ -2933,7 +2933,7 @@ func TestFormatDetection(t *testing.T) {
 	if _, err := export.FormatOfPath("model"); err == nil {
 		t.Error("expected an error for a missing extension")
 	}
-	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "mdzip"} {
+	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml"} {
 		if _, err := export.ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}
@@ -2950,7 +2950,7 @@ func TestFormatDetection(t *testing.T) {
 // migrates to notation and to Turtle, the report comes back from Migrate, and
 // nothing writes XMI.
 func TestConvertFromXMI(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "cameo", "vehicle.xmi"))
+	data, err := os.ReadFile(filepath.Join("..", "migrate", "testdata", "xmi", "vehicle.xmi"))
 	if err != nil {
 		t.Fatal(err)
 	}

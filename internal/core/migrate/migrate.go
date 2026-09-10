@@ -22,8 +22,8 @@ type Result struct {
 	Report   *Report
 }
 
-// Migrate reads a Cameo/MagicDraw XMI document or .mdzip archive and writes it
-// as SysML v2 notation. name labels the source in the report.
+// Migrate reads a SysML v1 model as UML XMI and writes it as SysML v2
+// notation. name labels the source in the report.
 func Migrate(name string, data []byte) (*Result, error) {
 	model, err := xmi.Parse(data)
 	if err != nil {
@@ -439,7 +439,8 @@ func joinNotes(a, b string) string {
 	return a + "; " + b
 }
 
-// requirementID reads the requirement's Id tag, as SysML or MagicDraw spell it.
+// requirementID reads the requirement's id tag in the profile's spelling or
+// the capitalized one some tools write.
 func requirementID(e *xmi.Element) string {
 	return requirementTag(e, "Id", "id", "ID")
 }
@@ -1630,16 +1631,14 @@ func prefixFirst(prefix string, lines []string) []string {
 	return out
 }
 
-// classifyingStereotypes are the SysML and MagicDraw stereotypes the mapping
+// classifyingStereotypes are the SysML profile stereotypes the mapping
 // consumes; any other applied stereotype is kept as a comment.
 var classifyingStereotypes = map[string]bool{
 	"Block": true, "InterfaceBlock": true, "ConstraintBlock": true, "ValueType": true, "Unit": true,
 	"QuantityKind": true, "Requirement": true, "AbstractRequirement": true, "Satisfy": true, "Verify": true,
 	"DeriveReqt": true, "Refine": true, "Trace": true, "Copy": true, "Allocate": true, "TestCase": true,
 	"FlowPort": true, "FullPort": true, "ProxyPort": true, "FlowProperty": true, "BindingConnector": true,
-	"NestedConnectorEnd": true, "ItemFlow": true, "PartProperty": true, "ValueProperty": true,
-	"ReferenceProperty": true, "SharedProperty": true, "ConstraintProperty": true, "ConstraintParameter": true,
-	"Stakeholder": true, "View": true, "Viewpoint": true,
+	"NestedConnectorEnd": true, "ItemFlow": true, "Stakeholder": true, "View": true, "Viewpoint": true,
 }
 
 // consumedTags are the tags of the classifying stereotypes the mapping reads;

@@ -4,12 +4,11 @@
          xmlns:uml="http://www.omg.org/spec/UML/20161101"
          xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
          xmlns:StandardProfile="http://www.omg.org/spec/UML/20161101/StandardProfile"
-         xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML"
          xmlns:Safety="http://example.com/profiles/Safety">
-  <xmi:Documentation exporter="MagicDraw UML" exporterVersion="2022x Refresh2"/>
-  <uml:Model xmi:type="uml:Model" xmi:id="eee_1045467100313_135436_1" name="Model">
-    <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_model" body="Author:jason.&#10;Created:9/5/26 10:00 AM&#10;Title:&#10;Comment:&#10;">
-      <annotatedElement xmi:idref="eee_1045467100313_135436_1"/>
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_model" name="Model">
+    <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_model" body="Author: demo team&#10;Created: 2026-09-05&#10;">
+      <annotatedElement xmi:idref="_model"/>
     </ownedComment>
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_design" name="Vehicle Design">
       <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_pkg" body="&lt;html&gt;&lt;body&gt;&lt;p&gt;Structural model of the &lt;b&gt;demo&lt;/b&gt; vehicle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;">
@@ -194,7 +193,7 @@
     <profileApplication xmi:type="uml:ProfileApplication" xmi:id="_pa_sysml">
       <appliedProfile href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#_0"/>
     </profileApplication>
-    <xmi:Extension extender="MagicDraw UML 2022x">
+    <xmi:Extension extender="Example UML Tool 1.0">
       <modelExtension>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle BDD"/>
       </modelExtension>
@@ -237,13 +236,12 @@
     <propertyPath xmi:idref="_prop_piston"/>
   </sysml:NestedConnectorEnd>
   <sysml:ItemFlow xmi:id="_st_if" base_InformationFlow="_if_fuel"/>
-  <sysml:Requirement xmi:id="_st_req_mass" base_Class="_req_mass" Id="R1" Text="The vehicle shall have a mass of less than 1500 kg."/>
-  <sysml:Requirement xmi:id="_st_req_mass_1" base_Class="_req_mass_1" Id="R1.1">
-    <Text>The chassis shall have a mass of less than 400 kg.</Text>
+  <sysml:Requirement xmi:id="_st_req_mass" base_Class="_req_mass" id="R1" text="The vehicle shall have a mass of less than 1500 kg."/>
+  <sysml:Requirement xmi:id="_st_req_mass_1" base_Class="_req_mass_1" id="R1.1">
+    <text>The chassis shall have a mass of less than 400 kg.</text>
   </sysml:Requirement>
   <sysml:Requirement xmi:id="_st_req_speed" base_Class="_req_speed" Id="R2" Text="The vehicle shall reach 100 km/h &quot;quickly&quot;."/>
-  <MD_Customization_for_SysML__additional_stereotypes:performanceRequirement xmi:id="_st_req_speed_perf" base_Class="_req_speed"/>
-  <sysml:Requirement xmi:id="_st_req_derived" base_Class="_req_derived" Id="R1.2" Text="The engine shall have a mass of less than 300 kg."/>
+  <sysml:Requirement xmi:id="_st_req_derived" base_Class="_req_derived" id="R1.2" text="The engine shall have a mass of less than 300 kg."/>
   <sysml:Satisfy xmi:id="_st_satisfy" base_Abstraction="_dep_satisfy"/>
   <sysml:Satisfy xmi:id="_st_satisfy_prop" base_Abstraction="_dep_satisfy_prop"/>
   <sysml:DeriveReqt xmi:id="_st_derive" base_Abstraction="_dep_derive"/>
@@ -254,11 +252,5 @@
   <sysml:Allocate xmi:id="_st_allocate" base_Abstraction="_dep_allocate"/>
   <sysml:Allocate xmi:id="_st_allocate_blocks" base_Abstraction="_dep_allocate_blocks"/>
   <sysml:TestCase xmi:id="_st_tc" base_Behavior="_tc_mass"/>
-  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_st_pp_engine" base_Property="_prop_engine"/>
   <Safety:Critical xmi:id="_st_critical" base_Class="_blk_engine" level="high"/>
-  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_st_vp_mass" base_Property="_prop_mass"/>
-  <MD_Customization_for_SysML__additional_stereotypes:ReferenceProperty xmi:id="_st_rp_driver" base_Property="_prop_driver"/>
-  <MD_Customization_for_SysML__additional_stereotypes:ConstraintProperty xmi:id="_st_cp_limit" base_Property="_prop_limit"/>
-  <MD_Customization_for_SysML__additional_stereotypes:ConstraintParameter xmi:id="_st_cpar_m" base_Property="_cp_m"/>
-  <MD_Customization_for_SysML__additional_stereotypes:ConstraintParameter xmi:id="_st_cpar_limit" base_Property="_cp_limit"/>
 </xmi:XMI>

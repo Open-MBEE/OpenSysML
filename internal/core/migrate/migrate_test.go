@@ -18,7 +18,7 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the golden migration outputs")
 
-const fixture = "testdata/cameo/vehicle.xmi"
+const fixture = "testdata/xmi/vehicle.xmi"
 
 func migrateFixture(t *testing.T) *migrate.Result {
 	t.Helper()
@@ -52,12 +52,12 @@ func checkGolden(t *testing.T, path string, got []byte) {
 
 func TestGoldenNotation(t *testing.T) {
 	r := migrateFixture(t)
-	checkGolden(t, "testdata/cameo/vehicle.golden.sysml", r.Notation)
+	checkGolden(t, "testdata/xmi/vehicle.golden.sysml", r.Notation)
 	var report bytes.Buffer
 	if err := r.Report.WriteText(&report); err != nil {
 		t.Fatal(err)
 	}
-	checkGolden(t, "testdata/cameo/vehicle.golden.report.txt", report.Bytes())
+	checkGolden(t, "testdata/xmi/vehicle.golden.report.txt", report.Bytes())
 }
 
 // errors returns the error diagnostics the analyser reports for notation.
@@ -222,7 +222,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 			t.Errorf("%s: a %s verdict needs a note", id, v)
 		}
 	}
-	if r.Report.Exporter != "MagicDraw UML" {
+	if r.Report.Exporter != "Example UML Tool" {
 		t.Errorf("exporter %q", r.Report.Exporter)
 	}
 	var js bytes.Buffer
@@ -254,36 +254,27 @@ func TestUnmappedElementsAreWrittenAsComments(t *testing.T) {
 	}
 }
 
-func TestMigratesMdzipArchive(t *testing.T) {
+// A tool's zipped project is not an XMI document; the error says to export XMI.
+func TestRejectsProjectArchive(t *testing.T) {
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	entries := map[string][]byte{
-		"com.nomagic.ci.metamodel.project":      []byte("<?xml version=\"1.0\"?><project/>"),
-		"com.nomagic.magicdraw.uml_model.model": data,
+	w, err := zw.Create("model.xmi")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, name := range []string{"com.nomagic.ci.metamodel.project", "com.nomagic.magicdraw.uml_model.model"} {
-		w, err := zw.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := w.Write(entries[name]); err != nil {
-			t.Fatal(err)
-		}
+	if _, err := w.Write(data); err != nil {
+		t.Fatal(err)
 	}
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	zipped, err := migrate.Migrate("vehicle.mdzip", buf.Bytes())
-	if err != nil {
-		t.Fatalf("Migrate(.mdzip): %v", err)
-	}
-	plain := migrateFixture(t)
-	if !bytes.Equal(zipped.Notation, plain.Notation) {
-		t.Error("the archive migrates differently from the document it holds")
+	_, err = migrate.Migrate("vehicle.zip", buf.Bytes())
+	if err == nil || !strings.Contains(err.Error(), "zip archive") {
+		t.Errorf("Migrate(zip) = %v, want an archive error", err)
 	}
 }
 

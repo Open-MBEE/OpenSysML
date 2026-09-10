@@ -118,7 +118,7 @@ var (
 	blankLines = regexp.MustCompile(`\n{3,}`)
 )
 
-// commentText prepares a v1 comment body for a v2 comment: MagicDraw stores
+// commentText prepares a v1 comment body for a v2 comment: some tools store
 // documentation as HTML, whose tags are dropped and entities decoded.
 func commentText(body string) string {
 	text := body

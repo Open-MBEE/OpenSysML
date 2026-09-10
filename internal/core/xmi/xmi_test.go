@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const fixture = "../migrate/testdata/cameo/vehicle.xmi"
+const fixture = "../migrate/testdata/xmi/vehicle.xmi"
 
 func readFixture(t *testing.T) *Model {
 	t.Helper()
@@ -25,7 +25,7 @@ func readFixture(t *testing.T) *Model {
 
 func TestParseTree(t *testing.T) {
 	m := readFixture(t)
-	if m.Exporter != "MagicDraw UML" {
+	if m.Exporter != "Example UML Tool" {
 		t.Errorf("exporter = %q", m.Exporter)
 	}
 	if len(m.Roots) != 2 || m.Roots[0].Type != "Model" || m.Roots[0].Name != "Model" {
@@ -87,33 +87,29 @@ func TestStereotypes(t *testing.T) {
 		t.Errorf("namespace = %q", block.Namespace)
 	}
 	req := m.Lookup("_req_mass_1").Stereotype("Requirement")
-	if req == nil || req.Tag("Id") != "R1.1" || req.Tag("Text") != "The chassis shall have a mass of less than 400 kg." {
+	if req == nil || req.Tag("id") != "R1.1" || req.Tag("text") != "The chassis shall have a mass of less than 400 kg." {
 		t.Errorf("Requirement tags = %+v", req)
 	}
 	nested := m.Lookup("_ce_nested_2").Stereotype("NestedConnectorEnd")
 	if nested == nil || len(nested.Tags["propertyPath"]) != 2 || nested.Tags["propertyPath"][1] != "_prop_piston" {
 		t.Errorf("propertyPath = %+v", nested)
 	}
-	if !m.Lookup("_req_speed").HasStereotype("performanceRequirement") {
-		t.Error("MagicDraw customization stereotype not applied")
+	critical := m.Lookup("_blk_engine").Stereotype("Critical")
+	if critical == nil || critical.Tag("level") != "high" || !strings.Contains(critical.Namespace, "example.com") {
+		t.Errorf("user profile stereotype = %+v", critical)
 	}
 }
 
-func TestParseArchive(t *testing.T) {
+// A zip archive is a tool's project container, not XMI; the reader names the
+// remedy rather than guessing at the archive's layout.
+func TestParseRejectsArchive(t *testing.T) {
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	for _, name := range []string{"PROJECT_MANIFEST", "com.nomagic.magicdraw.core.project.options"} {
-		w, err := zw.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _ = w.Write([]byte("<options/>"))
-	}
-	w, err := zw.Create("com.nomagic.magicdraw.uml_model.model")
+	w, err := zw.Create("model.xmi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,23 +117,8 @@ func TestParseArchive(t *testing.T) {
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	m, err := Parse(buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if m.Lookup("_blk_vehicle") == nil {
-		t.Error("archive model entry was not read")
-	}
-}
-
-func TestParseArchiveWithoutModel(t *testing.T) {
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	w, _ := zw.Create("readme.txt")
-	_, _ = w.Write([]byte("nothing"))
-	_ = zw.Close()
-	_, err := Parse(buf.Bytes())
-	if err == nil || !strings.Contains(err.Error(), "readme.txt") {
+	_, err = Parse(buf.Bytes())
+	if err == nil || !strings.Contains(err.Error(), "zip archive") || !strings.Contains(err.Error(), "XMI 2.5.1") {
 		t.Errorf("err = %v", err)
 	}
 }
@@ -164,84 +145,24 @@ func TestParseBareModelRoot(t *testing.T) {
 	}
 }
 
-func archive(t *testing.T, entries map[string][]byte) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for name, content := range entries {
-		w, err := zw.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _ = w.Write(content)
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return buf.Bytes()
-}
-
 const wrapperOnly = `<?xml version="1.0"?>
 <xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001">
-  <xmi:Documentation exporter="MagicDraw UML"/>
+  <xmi:Documentation exporter="Example UML Tool"/>
 </xmi:XMI>`
 
-func TestParseArchiveIgnoresUnrelatedXML(t *testing.T) {
+func TestParseRejectsWrapperWithoutModel(t *testing.T) {
+	if _, err := Parse([]byte(wrapperOnly)); err == nil || !strings.Contains(err.Error(), "no model") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestParseRejectsTruncatedDocument(t *testing.T) {
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Fatal(err)
 	}
-	metadata := []byte(`<?xml version="1.0"?><project><option name="x">1</option></project>`)
-	t.Run("project entry", func(t *testing.T) {
-		m, err := Parse(archive(t, map[string][]byte{
-			"com.nomagic.magicdraw.uml_model.model": data,
-			"metadata/settings.xml":                 metadata,
-			"broken.xmi":                            []byte("<xmi:XMI"),
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if m.Lookup("_blk_vehicle") == nil {
-			t.Error("project model entry was not read")
-		}
-	})
-	t.Run("xmi fallback", func(t *testing.T) {
-		m, err := Parse(archive(t, map[string][]byte{
-			"model.xmi":    data,
-			"settings.xml": metadata,
-		}))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if m.Lookup("_blk_vehicle") == nil {
-			t.Error(".xmi entry was not read")
-		}
-	})
-	t.Run("malformed project entry", func(t *testing.T) {
-		_, err := Parse(archive(t, map[string][]byte{
-			"com.nomagic.magicdraw.uml_model.model": append(data[:len(data)/2:len(data)/2], []byte("<broken")...),
-		}))
-		if err == nil || !strings.Contains(err.Error(), "uml_model.model") {
-			t.Errorf("err = %v", err)
-		}
-	})
-	t.Run("malformed xmi fallback", func(t *testing.T) {
-		_, err := Parse(archive(t, map[string][]byte{
-			"model.xmi": data[:len(data)/2],
-		}))
-		if err == nil || !strings.Contains(err.Error(), "model.xmi") {
-			t.Errorf("err = %v", err)
-		}
-	})
-}
-
-func TestParseRejectsWrapperWithoutModel(t *testing.T) {
-	if _, err := Parse([]byte(wrapperOnly)); err == nil || !strings.Contains(err.Error(), "no model") {
-		t.Errorf("direct: err = %v", err)
-	}
-	_, err := Parse(archive(t, map[string][]byte{"com.nomagic.magicdraw.uml_model.model": []byte(wrapperOnly)}))
-	if err == nil || !strings.Contains(err.Error(), "no model") {
-		t.Errorf("archive: err = %v", err)
+	if _, err := Parse(data[:len(data)/2]); err == nil {
+		t.Error("truncated document accepted")
 	}
 }
 
