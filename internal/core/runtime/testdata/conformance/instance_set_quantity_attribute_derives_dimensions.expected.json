@@ -1,0 +1,11 @@
+{
+  "type": "instance",
+  "instantiate": "test::Rocket",
+  "libraries": true,
+  "slots": {
+    "engine.mass": {"type": "Quantity", "value": 100, "unit": "kg"},
+    "dimensions": {"type": "Sequence", "elements": []},
+    "unit": {"type": "MeasurementRef", "unit": "kg"}
+  },
+  "materialization": {}
+}

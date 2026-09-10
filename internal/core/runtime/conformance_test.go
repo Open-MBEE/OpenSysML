@@ -191,6 +191,16 @@ type ExpectedOutcome struct {
 	// exhibits or performs them, one entry per object whose performance the case
 	// states.
 	Objects []ObjectRun `json:"objects,omitempty"`
+	// Materialization states what reading every feature value of the instance,
+	// and of the objects those hold, reports — the check `-instantiate` makes.
+	Materialization *ExpectedMaterialization `json:"materialization,omitempty"`
+}
+
+// ExpectedMaterialization is the report of reading an instance's feature values in full:
+// the errors in order, each matched as a substring, and whether the walk was bounded.
+type ExpectedMaterialization struct {
+	Errors  []string `json:"errors,omitempty"`
+	Bounded bool     `json:"bounded,omitempty"`
 }
 
 // ObjectRun is the performance a case expects of one materialized object's
@@ -1411,6 +1421,7 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, expe
 
 	validateIdentity(t, ctx, inst, expected)
 	validateObjectRuns(t, ctx, typeSym, inst, expected)
+	validateMaterialization(t, ctx, inst, expected.Materialization)
 
 	for name, wantSatisfied := range expected.Constraints {
 		feat := featureNamed(ctx, typeSym, name)
@@ -1426,6 +1437,26 @@ func runInstanceConformance(t *testing.T, ctx *Context, idx *symbols.Index, expe
 		if satisfied != wantSatisfied {
 			t.Errorf("constraint %q: satisfied = %v, want %v", name, satisfied, wantSatisfied)
 		}
+	}
+}
+
+// validateMaterialization checks what reading every feature value of the
+// instance reports against what the case states, when it states it.
+func validateMaterialization(t *testing.T, ctx *Context, inst *Instance, expected *ExpectedMaterialization) {
+	t.Helper()
+	if expected == nil {
+		return
+	}
+	errs, bounded := ctx.MaterializationErrors(inst)
+	if bounded != expected.Bounded {
+		t.Errorf("materialization: bounded = %v, want %v", bounded, expected.Bounded)
+	}
+	if len(errs) != len(expected.Errors) {
+		t.Errorf("materialization: %d error(s) %v, want %d %v", len(errs), errs, len(expected.Errors), expected.Errors)
+		return
+	}
+	for i, want := range expected.Errors {
+		requireError(t, fmt.Sprintf("materialization error %d", i+1), errs[i], want)
 	}
 }
 
