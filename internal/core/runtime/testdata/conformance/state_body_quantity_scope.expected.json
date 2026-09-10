@@ -7,7 +7,7 @@
 		"speed": {"type": "Quantity", "value": 1.5, "unit": "m/s"},
 		"margin": {"type": "Quantity", "value": 1.5, "unit": "m/s"},
 		"verdict": {"type": "String", "value": "fast"},
-		"touchdown": {"type": "Quantity", "value": 2.0, "unit": "m/s"},
-		"logged": {"type": "Quantity", "value": 1.75, "unit": "m/s"}
+		"touchdown": {"type": "Quantity", "value": 2.0, "unit": "SI::'m/s'"},
+		"logged": {"type": "Quantity", "value": 1.75, "unit": "SI::'m/s'"}
 	}
 }

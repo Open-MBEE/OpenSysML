@@ -67,7 +67,7 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 	exploration := func(budget Budget) func(t *testing.T) Plan {
 		return func(t *testing.T) Plan {
 			q := Question{Kind: Outcomes, Subject: "test::race", Schedule: policy(t, "explore"), Free: FreeSchedule, Linearize: raceRun(t, f)}
-			return answered(t, Default(), &Model{Fresh: f.fresh}, q, budget)
+			return answered(t, Default(), f.building(), q, budget)
 		}
 	}
 	solving := func(status solve.Status, reason string, optima ...solve.Optimum) func(t *testing.T) Plan {
@@ -107,7 +107,7 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 		{SweepEngineName, ClaimTable, Observed, "table (observed: 3 rows)", func(t *testing.T) Plan {
 			ctx := f.context(t)
 			q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
-			return answered(t, Default(), Held(ctx, nil), q, Budget{})
+			return answered(t, Default(), Held(ctx), q, Budget{})
 		}},
 		{SolveEngineName, ClaimSatisfiable, Witnessed, "satisfiable (witnessed: 1 query by solve)", solving(solve.StatusSat, "")},
 		{SolveEngineName, ClaimUnsatisfiable, Proved, "unsatisfiable (proved over inputs: 1 query by solve)", solving(solve.StatusUnsat, "")},
@@ -139,8 +139,8 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 func TestABudgetReachedLowersTheStrengthAndPrintsTheBound(t *testing.T) {
 	f := parseFixture(t)
 	q := Question{Kind: Outcomes, Subject: "test::race", Schedule: policy(t, "explore"), Free: FreeSchedule, Linearize: raceRun(t, f)}
-	complete := answered(t, Default(), &Model{Fresh: f.fresh}, q, Budget{}).Result
-	cut := answered(t, Default(), &Model{Fresh: f.fresh}, q, Budget{Runs: 1}).Result
+	complete := answered(t, Default(), f.building(), q, Budget{}).Result
+	cut := answered(t, Default(), f.building(), q, Budget{Runs: 1}).Result
 	if complete.Strength != Proved || complete.Bounds.Reached() {
 		t.Fatalf("complete %+v, want proved with no bound reached", complete)
 	}

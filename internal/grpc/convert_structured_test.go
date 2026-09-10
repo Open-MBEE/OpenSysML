@@ -244,7 +244,7 @@ func TestVectorQuantityRoundTrip(t *testing.T) {
 	}{
 		{"composed unit", runtime.NewVectorQuantityValue(
 			[]semantics.Value{realConst(3).Const, realConst(4).Const},
-			[]runtime.Unit{speed.Unit, speed.Unit}), "⟨3.0, 4.0⟩ [SI::m/SI::s]"},
+			[]runtime.Unit{speed.Unit, speed.Unit}), "⟨3.0, 4.0⟩ [SI::'m/s']"},
 		{"integer magnitudes", runtime.NewVectorQuantityValue(
 			[]semantics.Value{intConst(3).Const, intConst(4).Const},
 			[]runtime.Unit{metre.Unit, metre.Unit}), "⟨3, 4⟩ [SI::m]"},

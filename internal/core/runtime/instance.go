@@ -236,7 +236,7 @@ func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *Eff
 		ctx.restatedInValuedBody(feat) == "" && !ctx.defaultYieldsToSubsetters(inst, feat) {
 		if semVal, ok := ctx.model.Eval(feat.DefaultValue); ok {
 			val := Value{Kind: ValConst, Const: semVal}
-			if ctx.checkDefault(inst, fv, feat.Name, val, admitDeclared) == nil {
+			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
 				fv.Value = val
 				fv.Materialized = true
 			}
@@ -451,14 +451,14 @@ func (ctx *Context) optionalValueless(sym *symbols.Symbol) bool {
 
 // checkDefault reports a value the feature does not admit: a count outside its
 // multiplicity (1..1 when none is declared) or an element outside its type.
-func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, val Value, how admission) error {
+func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, val *Value, how admission) error {
 	return ctx.checkAdmits(fv.Feature, fmt.Sprintf("feature value %s.%s", inst.Type.Name, name), val, how)
 }
 
 // checkAdmits reports a value the feature does not admit, by count or by type,
 // naming the value as what.
-func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val Value, how admission) error {
-	if msg := feat.Multiplicity.CountViolation(elementCount(&val)); msg != "" {
+func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val *Value, how admission) error {
+	if msg := feat.Multiplicity.CountViolation(elementCount(val)); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
 	return ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how)
@@ -533,7 +533,7 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 	}
 	// Checked before the write, so a value the feature does not admit leaves it
 	// holding what it held.
-	if err := ctx.checkDefault(inst, fv, name, value, admitWritten); err != nil {
+	if err := ctx.checkDefault(inst, fv, name, &value, admitWritten); err != nil {
 		return err
 	}
 	value, err := ctx.admitted(fv.Feature, value, admitWritten)
@@ -656,7 +656,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		if err != nil {
 			return nil, err
 		}
-		if err := ctx.checkDefault(inst, fv, name, val, admitDeclared); err != nil {
+		if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 			return nil, err
 		}
 		if val, err = ctx.admitted(fv.Feature, val, admitDeclared); err != nil {
@@ -808,7 +808,7 @@ func (inst *Instance) holdContributions(ctx *Context, fv *FeatureValue, name str
 // once they conform to its multiplicity and type and are classified as its values.
 func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name string, contributed []Value) (*FeatureValue, error) {
 	val := sequenceOf(contributed)
-	if err := ctx.checkDefault(inst, fv, name, val, admitDeclared); err != nil {
+	if err := ctx.checkDefault(inst, fv, name, &val, admitDeclared); err != nil {
 		return nil, err
 	}
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)

@@ -75,16 +75,16 @@
       {"type": "Quantity", "value": 8.0, "unit": "Pa"}
     ]},
     "stretched": {"type": "TensorQuantity", "dimensions": [2, 2], "elements": [
-      {"type": "Quantity", "value": 3.0, "unit": "Pa*m"},
-      {"type": "Quantity", "value": 6.0, "unit": "Pa*m"},
-      {"type": "Quantity", "value": 9.0, "unit": "Pa*m"},
-      {"type": "Quantity", "value": 12.0, "unit": "Pa*m"}
+      {"type": "Quantity", "value": 3.0, "unit": "SI::'kg⋅s⁻²'"},
+      {"type": "Quantity", "value": 6.0, "unit": "SI::'kg⋅s⁻²'"},
+      {"type": "Quantity", "value": 9.0, "unit": "SI::'kg⋅s⁻²'"},
+      {"type": "Quantity", "value": 12.0, "unit": "SI::'kg⋅s⁻²'"}
     ]},
     "stretchedRight": {"type": "TensorQuantity", "dimensions": [2, 2], "elements": [
-      {"type": "Quantity", "value": 3.0, "unit": "Pa*m"},
-      {"type": "Quantity", "value": 6.0, "unit": "Pa*m"},
-      {"type": "Quantity", "value": 9.0, "unit": "Pa*m"},
-      {"type": "Quantity", "value": 12.0, "unit": "Pa*m"}
+      {"type": "Quantity", "value": 3.0, "unit": "SI::'kg⋅s⁻²'"},
+      {"type": "Quantity", "value": 6.0, "unit": "SI::'kg⋅s⁻²'"},
+      {"type": "Quantity", "value": 9.0, "unit": "SI::'kg⋅s⁻²'"},
+      {"type": "Quantity", "value": 12.0, "unit": "SI::'kg⋅s⁻²'"}
     ]},
     "zero": {"type": "Boolean", "value": false},
     "isZero": {"type": "Boolean", "value": true},

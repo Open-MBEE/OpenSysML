@@ -23,11 +23,10 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunSweepResponse{Error: err.Error()}, nil
@@ -104,7 +103,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	}
 
 	schedule := v.runtime.Schedule()
-	answered, err := s.engines.Sweep(ctx, analysis.Held(v.runtime, nil), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep), v.engine)
+	answered, err := s.engines.Sweep(ctx, analysis.Held(v.runtime), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep), v.engine)
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {
@@ -199,7 +198,7 @@ func (v *verifyContext) sweepValue(val *pb.Value, what string) (runtime.Value, *
 	if err := v.service.requireValueCapabilities(val); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	out, err := ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem)
+	out, err := ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem())
 	if err != nil {
 		return runtime.Value{}, &pb.RunSweepResponse{
 			Error:         fmt.Sprintf("sweep %s could not be read: %v", what, err),

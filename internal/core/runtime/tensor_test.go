@@ -52,7 +52,7 @@ func TestTensorQuantityFormats(t *testing.T) {
 	for src, want := range map[string]string{
 		"TensorCalculations::'['((1.0, 2.0, 3.0, 4.0), stressRef)": "Tensor(2, 2)[1.0, 2.0, 3.0, 4.0] [Pa]",
 		"TensorCalculations::'['((1, 2, 3, 4), mixedRef)":          "Tensor(2, 2)[1 [Pa], 2 [kPa], 3 [Pa], 4 [Pa]]",
-		"scalarQuantityTensorMult(2 [m], stress)":                  "Tensor(2, 2)[2.0, 4.0, 6.0, 8.0] [Pa*m]",
+		"scalarQuantityTensorMult(2 [m], stress)":                  "Tensor(2, 2)[2.0, 4.0, 6.0, 8.0] [SI::'kg⋅s⁻²']",
 	} {
 		val := tensorEval(t, ctx, scope, src)
 		if val.Kind != ValTensorQuantity {
@@ -132,7 +132,7 @@ func TestTensorQuantityFeatures(t *testing.T) {
 		"stress#(2, 1)":                     "3.0 [Pa]",
 		"(2 * stress).mRef":                 "Array(2, 2)[Pa, Pa, Pa, Pa]",
 		"(stress + stress).mRef.dimensions": "[2, 2]",
-		"(stress * (2 [m])).mRef":           "Array(2, 2)[Pa*m, Pa*m, Pa*m, Pa*m]",
+		"(stress * (2 [m])).mRef":           "Array(2, 2)[SI::'kg⋅s⁻²', SI::'kg⋅s⁻²', SI::'kg⋅s⁻²', SI::'kg⋅s⁻²']",
 	} {
 		if got := FormatValue(tensorEval(t, ctx, scope, src)); got != want {
 			t.Errorf("%s = %s, want %s", src, got, want)

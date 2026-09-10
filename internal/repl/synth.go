@@ -19,8 +19,7 @@ import (
 // is synthesised. Experimental: SysML v2 defines no solving, and the runtime
 // evaluator remains normative. Read-only: no object is created.
 func (s *Session) SolveValues(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.solveValues(name)
 }
 
@@ -272,8 +271,7 @@ func plural(n int, one, many string) string {
 // consistent selections up to the bound (limit, when a count follows `all`).
 // Experimental, and read-only: no object is created and no variant is bound.
 func (s *Session) ConfigureVariants(name string, args []string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.configureVariants(name, args)
 }
 

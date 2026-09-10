@@ -207,7 +207,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
-		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, value); err != nil {
+		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
 		h.env.data.set(name, value)

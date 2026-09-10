@@ -100,7 +100,7 @@ func TestQuantityCrossesTheWire(t *testing.T) {
 		// A prefixed unit reduces to its base unit and a scale: kg is 1000 grams.
 		{expr: "5.0 [SI::kg]", unit: "SI::kg", real: 5.0, reduction: "1000/1·SI::gram", wantScaled: true},
 		{expr: "3 [SI::m]", unit: "SI::m", intVal: 3, isInt: true, reduction: "SI::metre"},
-		{expr: "10.0 [SI::m] / 2.0 [SI::s]", unit: "SI::m/SI::s", real: 5.0, reduction: "SI::metre·SI::second^-1"},
+		{expr: "10.0 [SI::m] / 2.0 [SI::s]", unit: "SI::'m/s'", real: 5.0, reduction: "SI::metre·SI::second^-1"},
 		{expr: "5.4 [SI::km/SI::h]", unit: "SI::km/SI::h", real: 5.4, reduction: "5/18·SI::metre·SI::second^-1", wantScaled: true},
 		// Grouping the notation needs survives, so the text reads back as the unit written.
 		{expr: "3.0 [SI::m/(SI::s*SI::kg)]", unit: "SI::m/(SI::s*SI::kg)", real: 3.0, reduction: "1/1000·SI::gram^-1·SI::metre·SI::second^-1", wantScaled: true},
@@ -329,7 +329,7 @@ func TestQuantityFeatureValuesAndNestedQuantities(t *testing.T) {
 
 	for name, want := range map[string]string{
 		"m":            "5 [SI::kg] = 1000/1·SI::gram",
-		"derivedSpeed": "5 [SI::m/SI::s] = SI::metre·SI::second^-1",
+		"derivedSpeed": "5 [SI::'m/s'] = SI::metre·SI::second^-1",
 		"writtenSpeed": "5.4 [SI::km/SI::h] = 5/18·SI::metre·SI::second^-1",
 		"count":        "3 [SI::m] = SI::metre",
 	} {
@@ -448,57 +448,58 @@ package Imperial {
 	}
 
 	speed := mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m] / 1.0 [SI::s]")
-	if speed.GetUnit() != "SI::m/SI::s" {
-		t.Fatalf("speed crosses the wire in %q, want SI::m/SI::s", speed.GetUnit())
+	if speed.GetUnit() != "SI::'m/s'" {
+		t.Fatalf("speed crosses the wire in %q, want SI::'m/s'", speed.GetUnit())
 	}
 	dist := evaluate("Q::Dist", speed, mustEvaluateQuantity(t, srv, hash, "2.0 [SI::s]"))
 	if got := describeQuantity(dist); got != "6 [SI::m] = SI::metre" {
 		t.Errorf("m/s * s over the wire = %s, want 6 [SI::m] = SI::metre", got)
 	}
 
-	// A scaled named unit stays the unit it was written in, as it does locally.
+	// A scaled named unit composed folds its scale into the magnitude, as it does
+	// locally: two kilometres squared are four million square metres.
 	byHand := &pb.Quantity{
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 2},
 		Unit:      "SI::km",
 		UnitTerm:  mustEvaluateQuantity(t, srv, hash, "1.0 [SI::km]").GetUnitTerm(),
 	}
 	area := evaluate("Q::Area", byHand, byHand)
-	if got := describeQuantity(area); got != "4 [SI::km**2] = 1e+06/1·SI::metre^2" {
-		t.Errorf("km * km over the wire = %s, want 4 [SI::km**2] = 1e+06/1·SI::metre^2", got)
+	if got := describeQuantity(area); got != "4e+06 [SI::'m²'] = SI::metre^2" {
+		t.Errorf("km * km over the wire = %s, want 4e+06 [SI::'m²'] = SI::metre^2", got)
 	}
 
-	// A unit whose name the notation quotes stays one unit when composed: `'A/m'`
-	// times `m` is `'A/m'*m`, not the quotient `A/m*m`.
+	// A unit whose name the notation quotes is one unit when composed: `'A/m'`
+	// times `m` reduces to the ampere, and squared to a base-unit product.
 	density := mustEvaluateQuantity(t, srv, hash, "2.0 [SI::'A/m']")
 	if density.GetUnit() != "SI::'A/m'" {
 		t.Fatalf("a quoted unit crosses the wire in %q, want SI::'A/m'", density.GetUnit())
 	}
-	if got := describeQuantity(evaluate("Q::Area", density, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m]"))); got != "6 [SI::'A/m'*SI::m] = SI::ampere" {
-		t.Errorf("'A/m' * m over the wire = %s, want 6 [SI::'A/m'*SI::m] = SI::ampere", got)
+	if got := describeQuantity(evaluate("Q::Area", density, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m]"))); got != "6 [SI::A] = SI::ampere" {
+		t.Errorf("'A/m' * m over the wire = %s, want 6 [SI::A] = SI::ampere", got)
 	}
-	if got := describeQuantity(evaluate("Q::Area", density, density)); got != "4 [SI::'A/m'**2] = SI::ampere^2·SI::metre^-2" {
-		t.Errorf("'A/m' * 'A/m' over the wire = %s, want 4 [SI::'A/m'**2] = SI::ampere^2·SI::metre^-2", got)
+	if got := describeQuantity(evaluate("Q::Area", density, density)); got != "4 [A**2/m**2] = SI::ampere^2·SI::metre^-2" {
+		t.Errorf("'A/m' * 'A/m' over the wire = %s, want 4 [A**2/m**2] = SI::ampere^2·SI::metre^-2", got)
 	}
 
 	// A unit named through an alias is the unit the alias stands for: SI::'m/s²'
-	// merges with SI::'m⋅s⁻²' and composes with SI::s, keeping the spelling sent.
+	// reduces as SI::'m⋅s⁻²' does and composes with SI::s to a coherent speed.
 	accel := mustEvaluateQuantity(t, srv, hash, "2.0 [SI::'m/s²']")
 	if accel.GetUnit() != "SI::'m/s²'" {
 		t.Fatalf("an aliased unit crosses the wire in %q, want SI::'m/s²'", accel.GetUnit())
 	}
-	if got := describeQuantity(evaluate("Q::Area", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::'m⋅s⁻²']"))); got != "6 [SI::'m/s²'**2] = SI::metre^2·SI::second^-4" {
-		t.Errorf("'m/s²' * 'm⋅s⁻²' over the wire = %s, want 6 [SI::'m/s²'**2] = SI::metre^2·SI::second^-4", got)
+	if got := describeQuantity(evaluate("Q::Area", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::'m⋅s⁻²']"))); got != "6 [m**2/s**4] = SI::metre^2·SI::second^-4" {
+		t.Errorf("'m/s²' * 'm⋅s⁻²' over the wire = %s, want 6 [m**2/s**4] = SI::metre^2·SI::second^-4", got)
 	}
-	if got := describeQuantity(evaluate("Q::Dist", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 [SI::'m/s²'*SI::s] = SI::metre·SI::second^-1" {
-		t.Errorf("'m/s²' * s over the wire = %s, want 6 [SI::'m/s²'*SI::s] = SI::metre·SI::second^-1", got)
+	if got := describeQuantity(evaluate("Q::Dist", accel, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 [SI::'m/s'] = SI::metre·SI::second^-1" {
+		t.Errorf("'m/s²' * s over the wire = %s, want 6 [SI::'m/s'] = SI::metre·SI::second^-1", got)
 	}
 	shortAlias := &pb.Quantity{
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 2},
 		Unit:      "'m/s²'*s",
 		UnitTerm:  speed.GetUnitTerm(),
 	}
-	if got := describeQuantity(evaluate("Q::Dist", shortAlias, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 ['m/s²'*s**2] = SI::metre" {
-		t.Errorf("short 'm/s²'*s over the wire * s = %s, want 6 ['m/s²'*s**2] = SI::metre", got)
+	if got := describeQuantity(evaluate("Q::Dist", shortAlias, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::s]"))); got != "6 [SI::m] = SI::metre" {
+		t.Errorf("short 'm/s²'*s over the wire * s = %s, want 6 [SI::m] = SI::metre", got)
 	}
 
 	// Unit text that is no unit expression is one opaque unit: still a quantity
@@ -531,8 +532,8 @@ package Imperial {
 		t.Fatalf("a quantity written under an import crosses the wire in %q, want m", metre.GetUnit())
 	}
 	got = describeQuantity(evaluate("Q::Area", metre, mustEvaluateQuantity(t, srv, hash, "3.0 [SI::m]")))
-	if got != "6 [m**2] = SI::metre^2" {
-		t.Errorf("m * SI::m over the wire = %s, want 6 [m**2] = SI::metre^2", got)
+	if got != "6 [SI::'m²'] = SI::metre^2" {
+		t.Errorf("m * SI::m over the wire = %s, want 6 [SI::'m²'] = SI::metre^2", got)
 	}
 
 	// A short name the model does not declare, or declares as a unit the
@@ -565,7 +566,7 @@ package Imperial {
 
 	// A derived unit the model declares outside its base unit's namespace keeps
 	// its identity when written short: `cable` is Nautical::cable, the one unit of
-	// that name whose reduction is the one sent, so it merges with itself.
+	// that name whose reduction is the one sent, so squared it folds to an area.
 	fathom := evaluate("Nautical::Fathom")
 	if fathom.GetUnit() != "fathom" {
 		t.Fatalf("a custom unit written under its package crosses the wire in %q, want fathom", fathom.GetUnit())
@@ -582,8 +583,8 @@ package Imperial {
 		t.Fatalf("a custom unit written under its package crosses the wire in %q, want cable", cable.GetUnit())
 	}
 	got = describeQuantity(evaluate("Q::Area", cable, inFull("Nautical::cable", cable.GetUnitTerm())))
-	if got != "2 [cable**2] = 33445.0944/1·SI::metre^2" {
-		t.Errorf("cable * Nautical::cable over the wire = %s, want 2 [cable**2] = 33445.0944/1·SI::metre^2", got)
+	if got != "66890.1888 [SI::'m²'] = SI::metre^2" {
+		t.Errorf("cable * Nautical::cable over the wire = %s, want 66890.1888 [SI::'m²'] = SI::metre^2", got)
 	}
 	// Two packages declaring one short name for the same unit is an ambiguity the
 	// reduction cannot settle: the text stays opaque rather than picked at random.
@@ -593,19 +594,20 @@ package Imperial {
 	}
 	// One short name written twice may name two units, each read where the
 	// reduction puts it: `cable*cable` over both cables is Nautical::cable times
-	// Imperial::cable, and each cancels against its own unit written in full.
+	// Imperial::cable, folding to the area their two lengths span; dividing by
+	// either cable written in full leaves the other's length.
 	imperialCable := evaluate("Imperial::Cable")
 	cables := evaluate("Q::Area", cable, imperialCable)
-	if cables.GetUnit() != "cable*cable" {
-		t.Fatalf("two cables cross the wire in %q, want cable*cable", cables.GetUnit())
+	if got := describeQuantity(cables); got != "33891.028992 [SI::'m²'] = SI::metre^2" {
+		t.Fatalf("two cables cross the wire as %s, want 33891.028992 [SI::'m²'] = SI::metre^2", got)
 	}
 	for _, tc := range []struct {
 		by   string
 		term *pb.UnitTerm
 		want string
 	}{
-		{"Nautical::cable", cable.GetUnitTerm(), "0.5 [cable] = 33891.028992/182.88·SI::metre"},
-		{"Imperial::cable", imperialCable.GetUnitTerm(), "0.5 [cable] = 33891.028992/185.3184·SI::metre"},
+		{"Nautical::cable", cable.GetUnitTerm(), "92.6592 [SI::m] = SI::metre"},
+		{"Imperial::cable", imperialCable.GetUnitTerm(), "91.44 [SI::m] = SI::metre"},
 	} {
 		got = describeQuantity(evaluate("Q::Per", cables, inFull(tc.by, tc.term)))
 		if got != tc.want {
@@ -626,7 +628,7 @@ package Imperial {
 		want string
 	}{
 		{"speed times seconds", "Q::Dist", []*pb.Quantity{unnamed(speed.GetUnitTerm()), second}, "2 [SI::metre] = SI::metre"},
-		{"speed times a metre", "Q::Area", []*pb.Quantity{unnamed(speed.GetUnitTerm()), metre}, "4 [m**2/SI::second] = SI::metre^2·SI::second^-1"},
+		{"speed times a metre", "Q::Area", []*pb.Quantity{unnamed(speed.GetUnitTerm()), metre}, "4 [SI::'m²⋅s⁻¹'] = SI::metre^2·SI::second^-1"},
 		{"kilometres times a metre", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), metre}, "4 ['1000·metre'*m] = 1000/1·SI::metre^2"},
 		{"kilometres alone", "Q::Area", []*pb.Quantity{unnamed(byHand.GetUnitTerm()), unnamed(byHand.GetUnitTerm())}, "4 ['1000·metre'**2] = 1e+06/1·SI::metre^2"},
 	} {

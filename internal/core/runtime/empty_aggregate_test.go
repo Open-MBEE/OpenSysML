@@ -95,7 +95,7 @@ func TestEmptyQuantityAggregateKeepsTheDeclaredKind(t *testing.T) {
 		{"500 [g] + sum(rig.masses)", "500.0 [g]"},
 		{"rig.total", "10 [kg]"},
 		{"rig.grams", "500.0 [g]"},
-		{"rig.area", "0 [m**2]"},
+		{"rig.area", "0 [SI::'m²']"},
 		{"rig.mapped", "0 [kg]"},
 		{"rig.mappedTotal", "10 [kg]"},
 		{"rig.inverted", "10 [kg]"},

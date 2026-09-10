@@ -42,10 +42,14 @@ func (e sweepEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run tables the plan in the model's context within the budget's runs (else the context's),
+// Run tables the plan in the surface's context within the budget's runs (else the context's),
 // one evaluation per row (a failed row carrying its error); a plan of more rows than that,
-// or a caller that went away, is the error.
+// or a caller that went away, is the error. Row takes no context, so the rows are the surface's
+// closures over its own and a model holding none is the typed fault NoRuntimeError.
 func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
+	if !model.holds() {
+		return Result{}, &NoRuntimeError{Engine: e.Name()}
+	}
 	rctx, err := model.Context()
 	if err != nil {
 		return Result{}, err

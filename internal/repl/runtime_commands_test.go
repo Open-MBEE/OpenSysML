@@ -914,12 +914,12 @@ func TestPromptScopeIsTheLastNamespaceDeclared(t *testing.T) {
 // spaces — a quantity, a parenthesized expression, a nested call — survives.
 func TestCalcParsesExpressionArguments(t *testing.T) {
 	s := quantitySession(t)
-	wants(t, run(t, s, "%calc Fall -15.0 [m/s] 8.5 [s]"), "✓ Fall(-15.0 [m/s], 8.5 [s])", "= -127.5 [m]")
+	wants(t, run(t, s, "%calc Fall -15.0 [m/s] 8.5 [s]"), "✓ Fall(-15.0 [m/s], 8.5 [s])", "= -127.5 [SI::m]")
 	// The same invocation written the way the notation writes one.
-	wants(t, run(t, s, "%calc Fall(-15.0 [m/s], 8.5 [s])"), "= -127.5 [m]")
+	wants(t, run(t, s, "%calc Fall(-15.0 [m/s], 8.5 [s])"), "= -127.5 [SI::m]")
 	// A parenthesized subexpression, and a call standing as an argument.
-	wants(t, run(t, s, "%calc Fall (-5.0 [m/s] - 10.0 [m/s]) 8.5 [s]"), "= -127.5 [m]")
-	wants(t, run(t, s, "%calc Fall -15.0 [m/s] (4.0 [s] + 4.5 [s])"), "= -127.5 [m]")
+	wants(t, run(t, s, "%calc Fall (-5.0 [m/s] - 10.0 [m/s]) 8.5 [s]"), "= -127.5 [SI::m]")
+	wants(t, run(t, s, "%calc Fall -15.0 [m/s] (4.0 [s] + 4.5 [s])"), "= -127.5 [SI::m]")
 	// Named arguments are a different production; the limitation is reported.
 	wants(t, run(t, s, "%calc Fall v0=-15.0 [m/s] tb=8.5 [s]"), "named arguments are not supported")
 }
@@ -977,7 +977,7 @@ func TestFormatValueQuantityUsesRealFormatting(t *testing.T) {
 	wants(t, run(t, s, "%eval -15.200531548598184 [m/s]"), "= -15.200531548598184 [m/s]")
 	wants(t, run(t, s, "%eval 32.99999999999993 [s]"), "= 32.99999999999993 [s]")
 	// A whole magnitude keeps its ".0", as a bare Real does.
-	wants(t, run(t, s, "%eval 2.0 [m] * 3.0 [m]"), "= 6.0 [m**2]")
+	wants(t, run(t, s, "%eval 2.0 [m] * 3.0 [m]"), "= 6.0 [SI::'m²']")
 	// A magnitude below what two decimals can show reads as itself, not as zero.
 	wants(t, run(t, s, "%eval 0.0001 [m]"), "= 0.0001 [m]")
 }

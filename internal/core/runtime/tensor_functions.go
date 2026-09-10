@@ -315,7 +315,7 @@ func tensorAdditive(op ast.OperatorKind) libraryApply {
 func (ctx *Context) scaleTensor(name string, x *Quantity, t tensorOperand) (Value, error) {
 	components := make([]Value, t.size())
 	for i := range components {
-		component, err := scaleQuantities(ast.OpMul, x, t.component(i))
+		component, err := ctx.scaleQuantities(ast.OpMul, x, t.component(i))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}

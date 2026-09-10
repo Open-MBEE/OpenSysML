@@ -71,8 +71,7 @@ func (r SolveReport) Satisfiable() bool { return r.Status == SolveSat }
 // CheckSolve asks a solver whether the named constraint, requirement or
 // satisfaction can be satisfied at all. Experimental: SysML v2 defines no solving.
 func (s *Session) CheckSolve(name string) []SolveReport {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	return s.checkSolve(name)
 }
 

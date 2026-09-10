@@ -1009,22 +1009,22 @@ func complexEquals(name string, _ *Context, args []Value) (Value, error) {
 
 // complexSum is ComplexFunctions::sum: the sum of the collection's elements, and
 // `rect(0.0, 0.0)` for an empty collection, as the library's `sum0` computes.
-func complexSum(name string, _ *Context, args []Value) (Value, error) {
-	return aggregateComplex(name, args[0], ast.OpAdd)
+func complexSum(name string, ctx *Context, args []Value) (Value, error) {
+	return ctx.aggregateComplex(name, args[0], ast.OpAdd)
 }
 
 // complexProduct is ComplexFunctions::product, with `rect(1.0, 0.0)` for an
 // empty collection, as the library's `product1` computes.
-func complexProduct(name string, _ *Context, args []Value) (Value, error) {
-	return aggregateComplex(name, args[0], ast.OpMul)
+func complexProduct(name string, ctx *Context, args []Value) (Value, error) {
+	return ctx.aggregateComplex(name, args[0], ast.OpMul)
 }
 
 // aggregateComplex folds a collection under sum or product from its identity; like the
 // library's `reduce '+'`, only a collection holding a Complex (or none) folds to a Complex.
-func aggregateComplex(name string, collection Value, operator ast.OperatorKind) (Value, error) {
+func (ctx *Context) aggregateComplex(name string, collection Value, operator ast.OperatorKind) (Value, error) {
 	elements := elementsOf(collection)
 	if len(elements) > 0 && !holdsComplex(elements) {
-		return aggregate(name, []Value{collection}, operator, false)
+		return ctx.aggregate(name, []Value{collection}, operator, false)
 	}
 	acc := complex(0, 0)
 	if operator == ast.OpMul {

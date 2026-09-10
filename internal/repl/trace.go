@@ -43,8 +43,7 @@ const tracePrefix = "[trace] "
 
 // Tracing reports whether execution steps are being recorded.
 func (s *Session) Tracing() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.reading()()
 	return s.trace != nil
 }
 
@@ -52,8 +51,7 @@ func (s *Session) Tracing() bool {
 // once, on the session's runtime context and on a debugging session already
 // under way as well as on everything created afterwards.
 func (s *Session) SetTracing(on bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	s.setTracing(on)
 }
 

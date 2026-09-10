@@ -21,8 +21,7 @@ const runQueryUsage = "usage: %run-query <name> [<parameter>=<expression> ...]"
 // parameters and executes it. invocation is what `%run-query` takes: a name
 // followed by `<parameter>=<expression>` bindings.
 func (s *Session) RunDocumentQuery(invocation string) Verdict {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer s.enter()()
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 {
 		return s.withTrace(unresolvedVerdict(invocation, "a document query to run must be named"))

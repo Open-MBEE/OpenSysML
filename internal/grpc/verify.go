@@ -41,33 +41,32 @@ func failureReason(err error) pb.FailureReason {
 }
 
 // verifyContext is everything a verification RPC needs from a cached model: the
-// runtime it evaluates in and the index its names resolve against.
+// runtime it evaluates in, on a worker of the request's own, and the index its names
+// resolve against.
 type verifyContext struct {
 	service *Service
 	cached  *CachedModel
 	runtime *runtime.Context
-	sem     *semantics.Model
-	// sems is the shared semantics runtime was built over, held for the request.
-	sems *runtimeSemantics
 	// engine is the selection the request's questions are put to the engines under.
 	engine analysis.Selection
 }
 
 // newVerifyContext reads the request's engine, looks the model up and builds a
-// runtime over it, the same way every other runtime RPC in this service does;
-// the caller defers release.
-func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, func(), error) {
+// runtime over it, the same way every other runtime RPC in this service does.
+func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, error) {
 	selection, err := s.engineSelection(engine)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	cached, ok := s.cache.Get(modelHash)
 	if !ok {
-		return nil, nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
+		return nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
 	}
-	rs, release := cached.RuntimeSemantics()
-	return &verifyContext{service: s, cached: cached, runtime: s.newRuntimeOver(rs), sem: rs.Model, sems: rs, engine: selection}, release, nil
+	return &verifyContext{service: s, cached: cached, runtime: s.newRuntime(cached), engine: selection}, nil
 }
+
+// sem is the semantic model the request's runtime evaluates against.
+func (v *verifyContext) sem() *semantics.Model { return v.runtime.Model() }
 
 // lookup resolves an FQN to the symbol it names.
 func (v *verifyContext) lookup(symbolID string) (*symbols.Symbol, error) {
@@ -173,11 +172,10 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
@@ -206,11 +204,10 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
@@ -243,11 +240,10 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
 
 	// Every document of the model states assertions, unless one scope is named.
 	scopes := v.cached.DocumentRoots()
@@ -364,11 +360,10 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.EvaluateCalcResponse{Error: err.Error()}, nil
@@ -397,7 +392,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		if err := s.requireValueCapabilities(arg); err != nil {
 			return nil, err
 		}
-		val, cerr := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem)
+		val, cerr := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
 		if cerr != nil {
 			return &pb.EvaluateCalcResponse{
 				Error:         fmt.Sprintf("calc argument could not be read: %v", cerr),

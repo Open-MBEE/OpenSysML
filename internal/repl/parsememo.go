@@ -1,9 +1,12 @@
 package repl
 
+import "sync"
+
 // parseMemo remembers what command text parsed to, keyed by the exact text.
 // Command text is literal, so its parse depends on nothing the session holds;
-// only evaluation does, and that still happens on every call.
+// only evaluation does, and that still happens on every call. It locks itself.
 type parseMemo[T any] struct {
+	mu      sync.Mutex
 	entries map[string]T
 }
 
@@ -12,6 +15,8 @@ const parseMemoLimit = 256
 
 // get returns what text parsed to, parsing it on the first request.
 func (m *parseMemo[T]) get(text string, parse func(string) T) T {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if v, ok := m.entries[text]; ok {
 		return v
 	}

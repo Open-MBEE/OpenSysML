@@ -25,11 +25,10 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, release, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
 	sym, err := v.lookup(req.SymbolId)
 	if err != nil {
 		return &pb.RunAnalysisResponse{Error: err.Error()}, nil
@@ -181,8 +180,8 @@ func (v *verifyContext) runCase(ctx context.Context, sym *symbols.Symbol, args r
 // exploreAnalysis runs the case once per linearization on a context of its own
 // and answers every distinct outcome of outputs and verdicts.
 func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.SchedulePolicy, v *verifyContext, req *pb.RunAnalysisRequest, sym *symbols.Symbol) (*pb.RunAnalysisResponse, error) {
-	x, err := s.explore(ctx, v.cached.Index.GetFQN(sym), schedule, v.engine, v.cached, v.sems, func(rt *runtime.Context) (runtime.Outcome, error) {
-		fresh := &verifyContext{service: s, cached: v.cached, runtime: rt, sem: v.sem, sems: v.sems, engine: v.engine}
+	x, err := s.explore(ctx, v.cached.Index.GetFQN(sym), schedule, v.engine, v.cached, func(rt *runtime.Context) (runtime.Outcome, error) {
+		fresh := &verifyContext{service: s, cached: v.cached, runtime: rt, engine: v.engine}
 		args, resp, err := fresh.analysisArgs(req)
 		if err != nil {
 			return runtime.Outcome{}, err
@@ -324,7 +323,7 @@ func (v *verifyContext) analysisArgument(arg *pb.Value) (runtime.Value, *pb.RunA
 	if err := v.service.requireValueCapabilities(arg); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	val, err := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem)
+	val, err := ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
 	if err != nil {
 		return runtime.Value{}, &pb.RunAnalysisResponse{
 			Error:         fmt.Sprintf("analysis argument could not be read: %v", err),

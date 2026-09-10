@@ -355,7 +355,7 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 				ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
 		}
 		value = fv.HeldValue()
-	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, "state machine "+symbolText(e.stateMachine), name, value); err != nil {
+	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, "state machine "+symbolText(e.stateMachine), name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		return err

@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
@@ -36,40 +37,21 @@ type CachedModel struct {
 
 	symCtxOnce sync.Once
 	symCtx     *SymbolContext
-
-	rtSemOnce sync.Once
-	rtSem     *runtimeSemantics
 }
 
-// runtimeSemantics is the resolver and semantic model the runtime RPCs over one
-// cached model evaluate against. Both memoize into plain maps, so the holder of
-// the lock has exclusive use of them for the length of its request.
-type runtimeSemantics struct {
-	mu       sync.Mutex
-	Resolver *resolve.Resolver
-	Model    *semantics.Model
+// worker builds a resolver and semantic model of one request's or plan's own over the
+// shared index: both memoize into plain maps, so nothing mutable is shared between requests.
+func (m *CachedModel) worker() *analysis.Worker {
+	resolver := resolve.New(m.Index)
+	sem := semantics.NewModel(resolver)
+	sem.SetSourceText(cachedSourceText(m))
+	return &analysis.Worker{Resolver: resolver, Model: sem}
 }
 
-// RuntimeSemantics locks and returns the model's shared runtime resolver and
-// semantic model, built on first use, with the function releasing them.
-func (m *CachedModel) RuntimeSemantics() (*runtimeSemantics, func()) {
-	m.rtSemOnce.Do(func() {
-		resolver := resolve.New(m.Index)
-		sem := semantics.NewModel(resolver)
-		sem.SetSourceText(cachedSourceText(m))
-		m.rtSem = &runtimeSemantics{Resolver: resolver, Model: sem}
-	})
-	rs := m.rtSem
-	rs.mu.Lock()
-	// A name a request fails to resolve is that request's error, not a model
-	// diagnostic: drop what it appended so the shared list does not grow.
-	diags := len(rs.Resolver.Diagnostics)
-	return rs, func() {
-		if len(rs.Resolver.Diagnostics) > diags {
-			rs.Resolver.Diagnostics = rs.Resolver.Diagnostics[:diags]
-		}
-		rs.mu.Unlock()
-	}
+// Semantics is worker as an analysis.Model builds one.
+func (m *CachedModel) Semantics() (*resolve.Resolver, *semantics.Model, error) {
+	w := m.worker()
+	return w.Resolver, w.Model, nil
 }
 
 // Primary is the document a model is named by: the only one of a single-document

@@ -53,8 +53,8 @@ func TestQuantityEvaluation(t *testing.T) {
 		{"1.5 [m/s]", "1.5 [m/s]"},
 		{"1.5 [m/s] + 1.8 [km/h]", "2.0 [m/s]"},
 		{"3.0 [km] + 500.0 [m]", "3.5 [km]"},
-		{"10.0 [m] / 2.0 [s]", "5.0 [m/s]"},
-		{"2.0 [m] * 3.0 [m]", "6.0 [m**2]"},
+		{"10.0 [m] / 2.0 [s]", "5.0 [SI::'m/s']"},
+		{"2.0 [m] * 3.0 [m]", "6.0 [SI::'m²']"},
 		{"-2.5 [m/s]", "-2.5 [m/s]"},
 		{"3.0 [m] * 2.0", "6.0 [m]"},
 	}
@@ -208,10 +208,10 @@ func TestQuantityExponentiation(t *testing.T) {
 		want     string // rendered value
 		wantKind semantics.ValueKind
 	}{
-		{"(2 [m]) ** 3", "8 [m**3]", semantics.ValInt},
-		{"(2.0 [m]) ** 3", "8.0 [m**3]", semantics.ValReal},
-		{"(3.0 [m/s]) ** 2.0", "9.0 [m**2/s**2]", semantics.ValReal},
-		{"(2.0 [m]) ** -1", "0.5 [1/m]", semantics.ValReal},
+		{"(2 [m]) ** 3", "8 [SI::'m³']", semantics.ValInt},
+		{"(2.0 [m]) ** 3", "8.0 [SI::'m³']", semantics.ValReal},
+		{"(3.0 [m/s]) ** 2.0", "9.0 [SI::'m²⋅s⁻²']", semantics.ValReal},
+		{"(2.0 [m]) ** -1", "0.5 [SI::'m⁻¹']", semantics.ValReal},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -285,8 +285,8 @@ func TestBareNumberSum(t *testing.T) {
 	}
 }
 
-// TestComposedUnitCanonical: a composed unit displays canonically (`m*m`, `(m)**2`,
-// `(m*m)/m` read `m**2`, `m**2`, `m`) while a written unit (`N*m`, `km/h`) keeps its spelling.
+// TestComposedUnitCanonical: a composed unit displays in the coherent unit of its
+// dimension, its scale folded, while a written unit (`N*m`, `km/h`) keeps its spelling.
 func TestComposedUnitCanonical(t *testing.T) {
 	ctx, scope := quantityContext(t)
 
@@ -294,39 +294,39 @@ func TestComposedUnitCanonical(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"3 [m] * 3 [m]", "9 [m**2]"},
-		{"(3 [m]) ** 2", "9 [m**2]"},
-		{"3 [m] * 3 [m] / 3 [m]", "3.0 [m]"},
-		{"(3 [m]) ** 2 / 3 [m]", "3.0 [m]"},
-		{"2 [m] * 2 [SI::m]", "4 [m**2]"},
-		{"2 [SI::m] * 2 [m]", "4 [m**2]"},
-		{"2 [SI::metre] * 2 [SI::m]", "4 [SI::m**2]"},
-		{"2 [metre] * 2 [SI::m]", "4 [metre**2]"},
-		{"1 [N] * 2 [m]", "2 [N*m]"},
+		{"3 [m] * 3 [m]", "9 [SI::'m²']"},
+		{"(3 [m]) ** 2", "9 [SI::'m²']"},
+		{"3 [m] * 3 [m] / 3 [m]", "3.0 [SI::m]"},
+		{"(3 [m]) ** 2 / 3 [m]", "3.0 [SI::m]"},
+		{"2 [m] * 2 [SI::m]", "4 [SI::'m²']"},
+		{"2 [SI::m] * 2 [m]", "4 [SI::'m²']"},
+		{"2 [SI::metre] * 2 [SI::m]", "4 [SI::'m²']"},
+		{"2 [metre] * 2 [SI::m]", "4 [SI::'m²']"},
+		{"1 [N] * 2 [m]", "2 [SI::'kg⋅m²⋅s⁻²']"},
 		{"2 [N*m]", "2 [N*m]"},
-		{"1 [N*m] * 2 [m]", "2 [N*m**2]"},
-		{"36 [km/h] / 2 [h]", "18.0 [km/h**2]"},
-		{"1 [m/s] * 1 [kg/s]", "1 [kg*m/s**2]"},
+		{"1 [N*m] * 2 [m]", "2 [kg*m**3/s**2]"},
+		{"36 [km/h] / 2 [h]", "0.001388888888888889 [SI::'m⋅s⁻²']"},
+		{"1 [m/s] * 1 [kg/s]", "1 [SI::N]"},
 		{"1 [m/s] / 1 [kg/s]", "1.0 [m/kg]"},
 		{"6 [m] / 2 [s] / 3 [kg]", "1.0 [m/(kg*s)]"},
-		{"2 [m] * 1 [N]", "2 [N*m]"},
+		{"2 [m] * 1 [N]", "2 [SI::'kg⋅m²⋅s⁻²']"},
 		{"2 [rad] * 3 [m]", "6 [m*rad]"},
 		{"2 [rad] * 3", "6 [rad]"},
-		{"(2.0 [m]) ** -1", "0.5 [1/m]"},
+		{"(2.0 [m]) ** -1", "0.5 [SI::'m⁻¹']"},
 		{"(4 [m*m]) ** 0.5", "2.0 [m]"},
-		{"2 [m/s] * 2", "4 [m/s]"},
-		{"2 * 2 [m/s]", "4 [m/s]"},
-		{"2 [m/s] / 2", "1.0 [m/s]"},
+		{"2 [m/s] * 2", "4 [SI::'m/s']"},
+		{"2 * 2 [m/s]", "4 [SI::'m/s']"},
+		{"2 [m/s] / 2", "1.0 [SI::'m/s']"},
 		{"1 [m] + 2 [m]", "3 [m]"},
 		{"1 [km] + 500 [m]", "1.5 [km]"},
 		{"1 [km] + 1000 [m]", "2.0 [km]"},
 		{"-(2 [m])", "-2 [m]"},
 		{"1 ['A/m']", "1 ['A/m']"},
-		{"1 ['A/m'] * 2 [m]", "2 ['A/m'*m]"},
-		{"(2 ['A/m']) ** 2", "4 ['A/m'**2]"},
-		{"6 [m] / 2 ['A/m']", "3.0 [m/'A/m']"},
-		{"1 [SI::'A/m'] * 2 [m]", "2 [SI::'A/m'*m]"},
-		{"1 ['A/m²'] * 2 ['A/m']", "2 ['A/m'*'A/m²']"},
+		{"1 ['A/m'] * 2 [m]", "2 [SI::A]"},
+		{"(2 ['A/m']) ** 2", "4 [A**2/m**2]"},
+		{"6 [m] / 2 ['A/m']", "3.0 [m**2/A]"},
+		{"1 [SI::'A/m'] * 2 [m]", "2 [SI::A]"},
+		{"1 ['A/m²'] * 2 ['A/m']", "2 [A**2/m**3]"},
 		{"90 ['°'] * 2 ['°']", "180 ['°'**2]"},
 	}
 	for _, tc := range cases {
