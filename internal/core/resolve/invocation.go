@@ -23,6 +23,8 @@ func (r *Resolver) InvocationCandidates(scope *symbols.Scope, qn *ast.QualifiedN
 	if qn == nil || len(qn.Parts) == 0 {
 		return nil
 	}
+	journalNew(r, r.invocationNames, qn, qn)
+	r.invocationNames[qn] = true
 	if len(qn.Parts) != 1 || qn.Global || scope == nil {
 		var out []*symbols.Symbol
 		r.aside(func() { out = r.qualifiedCandidates(scope, qn) })
@@ -36,8 +38,6 @@ func (r *Resolver) InvocationCandidates(scope *symbols.Scope, qn *ast.QualifiedN
 // qualifiedCandidates resolves qn as an invocation name and widens the last
 // segment to every member it names under its qualifier, or at the root for `$::f`.
 func (r *Resolver) qualifiedCandidates(scope *symbols.Scope, qn *ast.QualifiedName) []*symbols.Symbol {
-	journalNew(r, r.invocationNames, qn, qn)
-	r.invocationNames[qn] = true
 	sym, ok := r.resolveQualified(scope, qn, nil)
 	if !ok || sym == nil {
 		return nil

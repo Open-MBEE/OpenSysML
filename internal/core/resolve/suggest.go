@@ -9,11 +9,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// suggestKey identifies a suggestion by the name that did not resolve and the
-// scope it was written in, which is what decides how a candidate is reached.
+// suggestKey identifies a suggestion by the name that did not resolve, the scope
+// it was written in, which is what decides how a candidate is reached, and
+// whether an invocation called it, which lets several declarations answer.
 type suggestKey struct {
 	scope *symbols.Scope
 	name  string
+	call  bool
 }
 
 // suggestion is what an unresolvable name may have meant, as registered: near
@@ -29,7 +31,7 @@ func (r *Resolver) suggestionFor(scope *symbols.Scope, name string, at ast.Node)
 	if r.idx == nil || name == "" {
 		return suggestion{}
 	}
-	key := suggestKey{scope: scope, name: name}
+	key := suggestKey{scope: scope, name: name, call: r.called(at)}
 	if s, ok := r.suggestions[key]; ok {
 		return s
 	}
@@ -53,10 +55,16 @@ func (r *Resolver) suggestionFor(scope *symbols.Scope, name string, at ast.Node)
 			cands = append(cands, c)
 		}
 	}
-	out := suggestion{spellings: suggest.Rank(cands), unquoted: r.unquotedFor(scope, name)}
+	out := suggestion{spellings: suggest.Rank(cands), unquoted: r.unquotedFor(scope, name, key.call)}
 	journalNew(r, r.suggestions, key, at)
 	r.suggestions[key] = out
 	return out
+}
+
+// called reports whether at is a name an invocation calls (see ResolveInvocationName).
+func (r *Resolver) called(at ast.Node) bool {
+	qn, ok := at.(*ast.QualifiedName)
+	return ok && r.invocationNames[qn]
 }
 
 // namesSomething reports whether the declaration registered under fqn is a spelling
@@ -69,7 +77,7 @@ func (r *Resolver) namesSomething(fqn string) bool {
 // unquotedFor returns the declared names name is the unquoted start of, as typed
 // from scope: bare when they resolve there, else by the path declaring them,
 // when that path resolves from scope too — a private member's does not.
-func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
+func (r *Resolver) unquotedFor(scope *symbols.Scope, name string, call bool) []string {
 	table := r.suggestTable()
 	var cands []suggest.Candidate
 	for _, full := range table.Unquoted(name) {
@@ -78,7 +86,7 @@ func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 			continue
 		}
 		for _, fqn := range table.Declared(full) {
-			if r.importable(fqn) && r.namesSomething(fqn) && r.pathReaches(scope, fqn, full) {
+			if r.importable(fqn) && r.namesSomething(fqn) && r.pathReaches(scope, fqn, full, call) {
 				cands = append(cands, suggest.Candidate{Spelling: suggest.Spelled(fqn, full), Library: r.libraryFQN(fqn)})
 				break
 			}
@@ -87,10 +95,9 @@ func (r *Resolver) unquotedFor(scope *symbols.Scope, name string) []string {
 	return suggest.Rank(cands)
 }
 
-// pathReaches reports whether the registered fqn, ending in the declared name,
-// resolves segment by segment from scope as a reference written there would:
-// each qualifier to one namespace, through an alias; the name to a member of it.
-func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string) bool {
+// pathReaches reports whether the registered fqn, ending in the declared name, resolves
+// from scope as a reference there would: each qualifier to one namespace, the name as denoted.
+func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string, call bool) bool {
 	path, ok := strings.CutSuffix(fqn, "::"+name)
 	if !ok {
 		return false
@@ -113,7 +120,16 @@ func (r *Resolver) pathReaches(scope *symbols.Scope, fqn, name string) bool {
 	if cur == nil || r.AliasNamesNothing(cur) {
 		return false
 	}
-	for _, sym := range r.membersNamed(scope, r.AliasedElement(cur), name, false) {
+	return r.denoted(r.membersNamed(scope, r.AliasedElement(cur), name, false), call)
+}
+
+// denoted reports whether the members a last segment names denote something:
+// one that is not an alias of nothing, or several only where a call selects among them.
+func (r *Resolver) denoted(all []*symbols.Symbol, call bool) bool {
+	if len(all) > 1 && !call {
+		return false
+	}
+	for _, sym := range all {
 		if !r.AliasNamesNothing(sym) {
 			return true
 		}
@@ -130,7 +146,7 @@ type memberKey struct {
 
 // unquotedMembers returns the members of owner, qualified by prefix, that the
 // segment written under it is the unquoted start of and that resolve from scope.
-func (r *Resolver) unquotedMembers(scope *symbols.Scope, owner *symbols.Symbol, prefix, segment string, global bool) []string {
+func (r *Resolver) unquotedMembers(scope *symbols.Scope, owner *symbols.Symbol, prefix, segment string, global, call bool) []string {
 	if owner == nil {
 		return nil
 	}
@@ -163,7 +179,7 @@ func (r *Resolver) unquotedMembers(scope *symbols.Scope, owner *symbols.Symbol, 
 	sort.Strings(names)
 	var out []string
 	for _, name := range suggest.Unquoted(segment, names) {
-		if len(r.membersNamed(scope, owner, name, global)) == 0 {
+		if !r.denoted(r.membersNamed(scope, owner, name, global), call) {
 			continue
 		}
 		out = append(out, prefix+"::"+suggest.Name(name))
@@ -258,7 +274,7 @@ func (r *Resolver) UnresolvedMember(scope *symbols.Scope, qn *ast.QualifiedName,
 	}
 	prefix := qnText(&ast.QualifiedName{Global: qn.Global, Parts: qn.Parts[:i]})
 	return suggest.Hint(written, written, nil,
-		r.unquotedMembers(scope, owner, prefix, qn.Parts[i].Text, qn.Global))
+		r.unquotedMembers(scope, owner, prefix, qn.Parts[i].Text, qn.Global, r.invocationNames[qn]))
 }
 
 // unresolvedReferencePrefix is how a reference that resolves to nothing reads.

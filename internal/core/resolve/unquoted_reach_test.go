@@ -98,8 +98,8 @@ func TestUnresolvedNameOffersOnlyAReachablePath(t *testing.T) {
 }
 
 // The declaring path resolves as a reference would: its qualifier may be a name an
-// alias binds, and the declared name may be borne by several overloads at once.
-func TestUnresolvedNameOffersAPathThroughAnAliasOrToOverloads(t *testing.T) {
+// alias binds.
+func TestUnresolvedNameOffersAPathThroughAnAlias(t *testing.T) {
 	got := unresolvedMessage(t, `package Real { part def 'SA-506'; }
 	package U {
 		alias Real for $::Real;
@@ -107,16 +107,30 @@ func TestUnresolvedNameOffersAPathThroughAnAliasOrToOverloads(t *testing.T) {
 	}`, "SA")
 	want := "unresolved reference: SA — did you mean Real::'SA-506'? " + quotingRule
 	if got != want {
-		t.Errorf("aliased qualifier: diagnostic = %q, want %q", got, want)
+		t.Errorf("diagnostic = %q, want %q", got, want)
 	}
-	got = unresolvedMessage(t, `package Math {
+}
+
+// A name several overloads bear is offered only where the spelling would resolve:
+// to an invocation, which selects among them; a reference to it is ambiguous.
+func TestUnresolvedNameOffersOverloadsOnlyToAnInvocation(t *testing.T) {
+	const overloads = `package Math {
 		calc def 'Delta-V' { in x : ScalarValues::Real; return : ScalarValues::Real = x; }
 		calc def 'Delta-V' { in x : ScalarValues::Integer; return : ScalarValues::Integer = x; }
 	}
-	package U { calc c : Delta; }`, "Delta")
-	want = "unresolved reference: Delta — did you mean Math::'Delta-V'? " + quotingRule
-	if got != want {
-		t.Errorf("overloaded name: diagnostic = %q, want %q", got, want)
+	`
+	hint := " — did you mean Math::'Delta-V'? " + quotingRule
+	if got := unresolvedMessage(t, overloads+`package U { calc c : Delta; }`, "Delta"); got != "unresolved reference: Delta" {
+		t.Errorf("bare reference: diagnostic = %q, want no spelling offered", got)
+	}
+	if got := unresolvedMessage(t, overloads+`package U { attribute a = Delta(1); }`, "Delta"); got != "unresolved reference: Delta"+hint {
+		t.Errorf("bare invocation: diagnostic = %q, want %q", got, "unresolved reference: Delta"+hint)
+	}
+	if got := unresolvedMessage(t, overloads+`package U { calc c : Math::Delta; }`, "Math::Delta"); got != "unresolved reference: Math::Delta" {
+		t.Errorf("qualified reference: diagnostic = %q, want no spelling offered", got)
+	}
+	if got := unresolvedMessage(t, overloads+`package U { attribute a = Math::Delta(1); }`, "Math::Delta"); got != "unresolved reference: Math::Delta"+hint {
+		t.Errorf("qualified invocation: diagnostic = %q, want %q", got, "unresolved reference: Math::Delta"+hint)
 	}
 }
 
