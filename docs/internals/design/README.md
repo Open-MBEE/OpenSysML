@@ -11,6 +11,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
   implemented (`internal/core/analysis`), the rest is a proposal
+- **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
+  protocol under which a user's own engine, scheduling policy, sampler or tool registers with
+  the analysis framework as a process, a WebAssembly module or Go over the public package; every
+  external witness is checked by the interpreter against the claim it supports, and a universal
+  claim is *observed* only over executions the interpreter replayed, otherwise *not covered*
+  until the site admits more against a referee record
 - **[Bounded model checking of behaviors](bounded-model-checking.md)** — a proposal: explore
   every admissible interleaving up to a bound with partial-order reduction, and report the
   requirement violations, deadlocks and schedule-dependent outcomes it finds
