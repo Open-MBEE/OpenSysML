@@ -109,7 +109,7 @@ subset it or none does (and folds a `default null` one to `0`). See
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
   committed baseline holds (`369 file(s), 338 fully agreeing; 34 agreed
-  diagnostic(s), 21 only ours, 600 only the pilot's` after the expressions example joined `examples/` — read it from the baseline JSON, not from this line, since each
+  diagnostic(s), 21 only ours, 671 only the pilot's` after the self-model's analysis framework section joined `examples/` — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

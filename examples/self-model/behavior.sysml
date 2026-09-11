@@ -319,6 +319,7 @@ package OpenSysMLBehavior {
     action def AnswerQuestion {
         attribute selectsAuto : Boolean = true;
         attribute selectsAll : Boolean = false;
+        attribute enginesLeft : Integer = 4;
         attribute covered : Boolean = true;
         attribute concluded : Boolean = true;
         attribute faulted : Boolean = false;
@@ -330,8 +331,9 @@ package OpenSysMLBehavior {
         first start;
 
         action rankByAuthority;
-        action pickNamed;
-        action askCoverage;
+        action listByName;
+        action pickNamed { assign enginesLeft := 1; }
+        action askCoverage { assign enginesLeft := enginesLeft - 1; }
         action recordRefusal;
         action runEngine;
         action recordResult;
@@ -344,10 +346,12 @@ package OpenSysMLBehavior {
         // Auto ranks the covering engines strongest first; all consults each in
         // name order; a name consults exactly one.
         decide selectionGate;
-        if selectsAuto or selectsAll then rankByAuthority;
+        if selectsAuto then rankByAuthority;
+        if selectsAll and not selectsAuto then listByName;
         else pickNamed;
 
         succession first rankByAuthority then askCoverage;
+        succession first listByName then askCoverage;
         succession first pickNamed then askCoverage;
         succession first askCoverage then coverageGate;
 
@@ -371,7 +375,7 @@ package OpenSysMLBehavior {
         // Auto stops at the first answer that is a claim and moves on from one that is
         // not; all goes on to every engine and composes at the end; a name is done.
         decide standingGate;
-        if selectsAll or (selectsAuto and not concluded) then nextEngine;
+        if enginesLeft > 0 and (selectsAll or (selectsAuto and not concluded)) then nextEngine;
         else compose;
 
         succession first nextEngine then askCoverage;
@@ -383,7 +387,8 @@ package OpenSysMLBehavior {
     action def ExploreOutcomes {
         attribute jobs : Integer = 1;
         attribute runsLeft : Integer = 1024;
-        attribute queueEmpty : Boolean = false;
+        attribute queued : Integer = 1;
+        attribute choicesMet : Integer = 0;
         attribute complete : Boolean = true;
 
         in item question : AnalysisQuestion;
@@ -392,11 +397,11 @@ package OpenSysMLBehavior {
         first start;
 
         action warmWorker;
-        action takePrefix;
+        action takePrefix { assign queued := queued - 1; }
         action freshContext;
-        action runLinearization;
-        action queueChoices;
-        action sortOutcomes;
+        action runLinearization { assign runsLeft := runsLeft - 1; }
+        action queueChoices { assign queued := queued + choicesMet; }
+        action sortOutcomes { assign complete := queued == 0; }
         action claimProved;
         action claimObserved;
 
@@ -407,8 +412,10 @@ package OpenSysMLBehavior {
         succession first runLinearization then queueChoices;
         succession first queueChoices then queueGate;
 
+        // The queue starts with the empty prefix; every choice a run meets queues one
+        // more, and exploration ends when the queue is drained or the runs are spent.
         decide queueGate;
-        if queueEmpty or runsLeft <= 0 then sortOutcomes;
+        if queued == 0 or runsLeft <= 0 then sortOutcomes;
         else takePrefix;
 
         succession first sortOutcomes then completionGate;
