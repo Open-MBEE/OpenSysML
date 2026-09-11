@@ -6,8 +6,10 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -431,4 +433,71 @@ func errorText(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+// One image serves two sweeps at once: each on a goroutine of its own materializes it
+// into eight contexts, each over a model of its own on the shared index as the parallel
+// sweep's jobs are, and runs the copies concurrently; the source — the digest of its
+// objects and the state of its machine — is as it was before.
+func TestHeldImageServesConcurrentSweeps(t *testing.T) {
+	idx, _, src := buildRuntimeWithLibraries(t, "lamp.sysml", parseAndBuild(t, lampSource))
+	root := idx.DocumentRoot("lamp.sysml")
+	bulb, err := src.Instantiate(resolveSymbol(t, root, "Bulb"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	dispatchTo(t, root, src, bulb, "go", nil)
+	img, err := src.Image(bulb)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+	before := heldDigest(src, everyObject)
+	dim := resolveSymbol(t, root, "Dim")
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 16)
+	for sweep := 0; sweep < 2; sweep++ {
+		for row := 0; row < 8; row++ {
+			wg.Add(1)
+			go func(level int64) {
+				defer wg.Done()
+				resolver := resolve.New(idx)
+				dst := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+				if err := img.Materialize(dst); err != nil {
+					errs <- fmt.Errorf("Materialize: %w", err)
+					return
+				}
+				copied, held := dst.Instance(bulb.ID)
+				if !held {
+					errs <- fmt.Errorf("the copy holds no #%d", bulb.ID)
+					return
+				}
+				msg, err := dst.SignalMessage(dim, map[string]Value{"level": integerValue(level)}, copied)
+				if err != nil {
+					errs <- err
+					return
+				}
+				dst.PostMessage(msg)
+				behavior, _ := copied.ExhibitedState()
+				if err := behavior.State.ProcessNextEvent(); err != nil {
+					errs <- err
+					return
+				}
+				if got := FormatValue(behavior.State.StateData()["brightness"]); got != fmt.Sprint(level) {
+					errs <- fmt.Errorf("a row dimmed to %d reads brightness %s", level, got)
+				}
+			}(int64(sweep*8 + row + 1))
+		}
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Error(err)
+	}
+	if got := lampLeaf(t, bulb); got != "on" {
+		t.Errorf("the source is at %s after the sweeps, want on", got)
+	}
+	if after := heldDigest(src, everyObject); after != before {
+		t.Errorf("the sweeps changed the source:\n%s\nwas\n%s", after, before)
+	}
 }

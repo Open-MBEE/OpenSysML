@@ -2,16 +2,20 @@ package repl
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 )
 
 // sweepRowsModel declares what the parallel-row tests run: a case whose body writes a
 // feature of its subject, an operation that writes a held object, a part reached only
-// through another with a case nested under it, a part whose type exhibits a state, a
+// through another with a case nested under it, a part whose type exhibits a state whose
+// transition writes a feature, one whose state runs a body that waits on the clock, a
 // calc whose work grows steeply with its input, and a calc and a case taking arguments.
 const sweepRowsModel = `package Rows {
 	private import ScalarValues::*;
+	private import SI::*;
+	attribute def Lit;
 	part def Ship {
 		attribute cost : Real = 5.0;
 		action bump {
@@ -28,11 +32,27 @@ const sweepRowsModel = `package Rows {
 	part fleet : Fleet;
 	part def Beacon :> Ship {
 		exhibit state blinking {
-			entry; then on;
+			entry; then off;
+			state off;
+			transition first off accept Lit do assign cost := cost + 10.0 then on;
 			state on;
+			transition first on accept after 5 [s] then off;
 		}
 	}
 	part beacon : Beacon;
+	part def Watcher :> Ship {
+		exhibit state w {
+			entry; then watching;
+			state watching {
+				do action poll {
+					first start;
+					then action wait accept after 3 [s];
+					then done;
+				}
+			}
+		}
+	}
+	part watcher : Watcher;
 	analysis def Bump {
 		subject s : Ship;
 		in tax : Real;
@@ -73,11 +93,10 @@ var cellPadding = regexp.MustCompile(` +\|`)
 // run times and the padding they set masked.
 func onOneJobAndOnEight(t *testing.T, s *Session, command string) (string, string) {
 	t.Helper()
-	table := func(out string) string { return cellPadding.ReplaceAllString(sweepTable(out), " |") }
 	run(t, s, "%jobs 1")
-	one := table(run(t, s, command))
+	one := tableOf(run(t, s, command))
 	run(t, s, "%jobs 8")
-	eight := table(run(t, s, command))
+	eight := tableOf(run(t, s, command))
 	return one, eight
 }
 
@@ -136,40 +155,127 @@ func TestSweepRowsWritingTheSubjectKeepTheWritesToThemselves(t *testing.T) {
 	wants(t, run(t, s, "%features Rows::ship"), "ID: 1", "cost = 5.0")
 }
 
-// A sweep runs its rows on objects of the held object's declaration, so it refuses an
-// object that a fresh one would not stand for — named by its identity, written by a
-// run, or reached through an object written by a run — naming the reason, and leaves
-// the held object as it is. One whose state machine stands where its start left it
-// is as its declaration made it, and sweeps.
-func TestSweepOverAnObjectNotAsItsDeclarationMadeItIsRefused(t *testing.T) {
+// tableOf is a sweep's table with its run times and the padding they set masked.
+func tableOf(out string) string { return cellPadding.ReplaceAllString(sweepTable(out), " |") }
+
+// sweepsAlike runs a sweep on one job and on eight and checks both tables read the same
+// and hold the fragments.
+func sweepsAlike(t *testing.T, s *Session, command string, fragments ...string) string {
+	t.Helper()
+	one, eight := onOneJobAndOnEight(t, s, command)
+	if one != eight {
+		t.Errorf("%s reads differently on eight jobs than on one:\n%s\nagainst\n%s", command, eight, one)
+	}
+	wants(t, one, fragments...)
+	return one
+}
+
+// A sweep over a held object no longer as its declaration made it — named by its
+// identity, written by a run, or reached through an object written by a run — runs each
+// row on an object made from an image of the held graph as the sweep found it, so the
+// rows read as the prompt's run on the held object would, on one job and on eight, and
+// the held objects stay as they were. One whose state machine stands where its start
+// left it is as its declaration made it, and sweeps from the declaration.
+func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) {
 	s := loadSource(t, sweepRowsModel)
 	run(t, s, "%instantiate Rows::ship")
 	run(t, s, "%instantiate Rows::Fleet")
 	run(t, s, "%instantiate Rows::beacon")
-	refusal := "each row of a sweep runs on an object of its own, made from the declaration"
-	out := run(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0")
-	wants(t, out, "it is named by its identity, not by a declaration", refusal)
-	rejects(t, out, "run(s)")
-	out = run(t, s, "%sweep Rows::Bump Rows::beacon tax=1.0..3.0:1.0")
-	wants(t, out, "3 run(s)", "1.0 | 6.0", "3.0 | 8.0")
-	wants(t, run(t, s, "%features Rows::beacon"), "cost = 5.0")
+	fresh := []string{"3 run(s)", "1.0 | 6.0 |", "2.0 | 7.0 |", "3.0 | 8.0 |"}
+	sweepsAlike(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0", fresh...)
+	wants(t, run(t, s, "%features Rows::ship"), "ID: 1", "cost = 5.0")
+	sweepsAlike(t, s, "%sweep Rows::Bump Rows::beacon tax=1.0..3.0:1.0", fresh...)
+	wants(t, run(t, s, "%features Rows::beacon"), "cost = 5.0", "current state off")
+
 	wants(t, run(t, s, "%invoke Rows::ship bump"), "Invoked bump on object #1")
-	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
-	out = run(t, s, "%sweep Rows::Bump Rows::ship tax=1.0..3.0:1.0")
-	wants(t, out, "object #1 (ship) had cost written by a run", refusal)
-	rejects(t, out, "run(s)")
-	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
+	before := run(t, s, "%features Rows::ship all json")
+	wants(t, before, `"realValue": 7`)
+	bumped := []string{"3 run(s)", "1.0 | 8.0 |", "2.0 | 9.0 |", "3.0 | 10.0 |"}
+	for _, object := range []string{"Rows::ship", "#1", "ship"} {
+		sweepsAlike(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0", bumped...)
+	}
+	if after := run(t, s, "%features Rows::ship all json"); after != before {
+		t.Errorf("the sweeps left the held ship as\n%s\nwas\n%s", after, before)
+	}
 
 	wants(t, run(t, s, "%invoke Rows::Fleet.flagship bump"), "Invoked bump on object #")
-	written := "(flagship) had cost written by a run"
-	for _, object := range []string{"Rows::Fleet.flagship", "Rows::Fleet"} {
+	before = run(t, s, "%features Rows::Fleet all json")
+	held := s.heldIDs()
+	for _, command := range []string{
+		"%sweep Rows::Bump Rows::Fleet.flagship tax=1.0..3.0:1.0",
+		"%sweep Rows::Fleet::flagship::audit tax=1.0..3.0:1.0",
+	} {
+		sweepsAlike(t, s, command, bumped...)
+	}
+	if after := run(t, s, "%features Rows::Fleet all json"); after != before {
+		t.Errorf("the sweeps left the held fleet as\n%s\nwas\n%s", after, before)
+	}
+	if ids := s.heldIDs(); !slices.Equal(ids, held) {
+		t.Errorf("the sweeps changed the session's held objects: %v, was %v", ids, held)
+	}
+
+	// The fleet is no Ship: its rows fail as the prompt's run on it does.
+	mismatch := `argument for parameter "s": type mismatch`
+	table := sweepsAlike(t, s, "%sweep Rows::Bump Rows::Fleet tax=1.0..3.0:1.0", "3 run(s)", "error 1: analysis Rows::Bump: "+mismatch, "error 3:")
+	rejects(t, table, "| 6.0 |")
+	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::Fleet"), mismatch)
+
+	// The prompt's own run writes the held object, as a sweep never does.
+	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::ship"), "total = 8.0")
+	wants(t, run(t, s, "%features Rows::ship"), "cost = 8.0")
+}
+
+// A held object whose state machine has moved — a transition fired, writing a feature,
+// and a timer set by the state entered — is swept from an image of that state: each row
+// starts where the machine stands, on one job and on eight, as the prompt's run on the
+// held object does, and the held object is byte for byte as it was before the sweep,
+// with a debugger attached to its machine.
+func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
+	s := loadSource(t, sweepRowsModel)
+	run(t, s, "%instantiate Rows::beacon")
+	wants(t, run(t, s, "%send Lit to beacon"), "✓ Sent Lit to object #1", "transition off -> on fires on it")
+	wants(t, run(t, s, "%state beacon"), "Current state: off")
+	wants(t, run(t, s, "%advance 1"), "Current state: on", "t=5.0: state machine blinking of object #1, time -> off")
+	before := run(t, s, "%features Rows::beacon all json")
+	wants(t, before, `"realValue": 15`)
+	wants(t, run(t, s, "%features Rows::beacon"), "cost = 15.0", "current state on")
+	held := s.heldIDs()
+
+	lit := []string{"3 run(s)", "1.0 | 16.0 |", "2.0 | 17.0 |", "3.0 | 18.0 |"}
+	for _, object := range []string{"Rows::beacon", "#1"} {
+		sweepsAlike(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0", lit...)
+	}
+	if after := run(t, s, "%features Rows::beacon all json"); after != before {
+		t.Errorf("the sweeps left the held beacon as\n%s\nwas\n%s", after, before)
+	}
+	wants(t, run(t, s, "%current"), "Current state: on")
+	wants(t, run(t, s, "%events"), "Event queue: 1 events")
+	if ids := s.heldIDs(); !slices.Equal(ids, held) {
+		t.Errorf("the sweeps changed the session's held objects: %v, was %v", ids, held)
+	}
+	wants(t, run(t, s, "%analysis Rows::Bump(tax=1.0) Rows::beacon"), "total = 16.0")
+	wants(t, run(t, s, "%advance 5"), "Current state: off")
+}
+
+// A held object whose state cannot be imaged — its machine runs a body paused at a wait
+// inside a statement — refuses the sweep with the typed reason, names the object, runs no
+// row and leaves the object as it is. Fresh from its declaration the same object sweeps,
+// since the rows then make their own from the declaration.
+func TestSweepOverAnObjectNoImageCarriesIsRefused(t *testing.T) {
+	s := loadSource(t, sweepRowsModel)
+	run(t, s, "%instantiate Rows::watcher")
+	sweepsAlike(t, s, "%sweep Rows::Bump Rows::watcher tax=1.0..3.0:1.0", "3 run(s)", "1.0 | 6.0 |", "3.0 | 8.0 |")
+	wants(t, run(t, s, "%invoke Rows::watcher bump"), "Invoked bump on object #1")
+	before := run(t, s, "%features Rows::watcher all json")
+	for _, object := range []string{"Rows::watcher", "#1"} {
 		out := run(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0")
-		wants(t, out, object+": object #", written, refusal)
+		wants(t, out, "error: "+object+": image of object #1 (watcher): exhibited state machine w: snapshot of a body paused mid-statement: do behavior of state watching of w; each row of a sweep runs on an object of its own", "this one cannot be imaged")
 		rejects(t, out, "run(s)")
 	}
-	out = run(t, s, "%sweep Rows::Fleet::flagship::audit tax=1.0..3.0:1.0")
-	wants(t, out, "Rows::Fleet.flagship: object #", written, refusal)
-	rejects(t, out, "run(s)")
+	if after := run(t, s, "%features Rows::watcher all json"); after != before {
+		t.Errorf("the refused sweeps left the held watcher as\n%s\nwas\n%s", after, before)
+	}
+	wants(t, run(t, s, "%features Rows::watcher"), "cost = 7.0", "current state watching")
 }
 
 // A sweep over an object reached through another's feature — as its subject, or as the
@@ -242,10 +348,18 @@ func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
 	wants(t, out, "2 run(s)", "1.0   | 12.0  |", "2.0   | 24.0  |")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 5.0")
 
+	// An argument naming an object a run wrote binds the row's copy of it, imaged as
+	// the sweep found it; the write of the row's case stays with the copy.
 	wants(t, run(t, s, "%invoke Rows::fleet.flagship bump"), "Invoked bump on object #3")
-	out = run(t, s, "%sweep Rows::Compare(rival = fleet.flagship) Rows::ship scale=1.0..2.0:1.0")
-	wants(t, out, "argument rival cannot be carried into a row of the sweep", "(flagship) had cost written by a run")
-	rejects(t, out, "run(s)")
+	one, eight = onOneJobAndOnEight(t, s, "%sweep Rows::Compare(rival = fleet.flagship) Rows::ship scale=1.0..2.0:1.0")
+	for _, table := range []string{one, eight} {
+		wants(t, table, "2 run(s)", "1.0 | 13.0 |", "2.0 | 26.0 |")
+	}
+	if one != eight {
+		t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
+	}
+	wants(t, run(t, s, "%features Rows::fleet.flagship"), "ID: 3", "cost = 7.0")
+	wants(t, run(t, s, "%features Rows::ship"), "cost = 5.0")
 	out = run(t, s, "%sweep Rows::Price(base = fleet.flagship.cost) n=1.0..2.0:1.0")
 	wants(t, out, "2 run(s)", "1.0 | 7.0    |", "2.0 | 14.0   |")
 }

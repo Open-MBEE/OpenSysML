@@ -35,9 +35,12 @@ type HeldImageError struct {
 	Err  error
 }
 
-// Error names the object and the reason.
+// Error names what was being done to the object and the reason it could not be.
 func (e *HeldImageError) Error() string {
-	return fmt.Sprintf("object #%d (%s): %s: %v", e.ID, symbolText(e.Type), e.What, e.Err)
+	if e.ID == 0 {
+		return fmt.Sprintf("%s: %v", e.What, e.Err)
+	}
+	return fmt.Sprintf("%s of object #%d (%s): %v", e.What, e.ID, symbolText(e.Type), e.Err)
 }
 
 // Unwrap exposes the typed reason.
@@ -158,7 +161,9 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		if held, ok := ctx.instances[inst.ID]; !ok || held != inst {
 			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: ErrImageRoot}
 		}
-		img.roots = append(img.roots, inst.ID)
+		if !slices.Contains(img.roots, inst.ID) {
+			img.roots = append(img.roots, inst.ID)
+		}
 		t.reach(inst.ID)
 	}
 	if err := t.close(); err != nil {

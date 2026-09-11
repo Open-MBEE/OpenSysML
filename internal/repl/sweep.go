@@ -148,9 +148,10 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 // runSweep resolves the target an invocation names, evaluates its arguments and
 // ranges once where the prompt does, and makes one analysis or calc run per row, each
 // in a context of the row's own: the argument values are carried there, and the
-// objects they name, the subject and the owner of a nested case are objects of their
-// declarations made there. The session's state is released while the rows run, as it
-// is for an exploration.
+// objects they name, the subject and the owner of a nested case are made there — of
+// their declarations while every held object is as its declaration made it, else of
+// an image of the held graph taken once here. The session's state is released while
+// the rows run, as it is for an exploration.
 func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {
@@ -204,10 +205,17 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 			return runtime.SweepTable{}, nil, err
 		}
 	}
+	image, err := s.sweptImage(ctx, subject, owner, args.objects)
+	if err != nil {
+		return runtime.SweepTable{}, nil, err
+	}
 	runScope := declaringScope(sym, doc.Scope)
 
 	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		row := s.rowObjects(rt, args.objects)
+		row, err := s.rowObjects(rt, args.objects, image)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
 		positional, named, err := args.in(row)
 		if err != nil {
 			return runtime.SweepRunResult{}, err
@@ -339,13 +347,65 @@ func (s *Session) sweptValue(ctx *runtime.Context, args *sweptArgs, val runtime.
 }
 
 // sweptHeld resolves the held object with id, under the label the session reaches
-// it by, to what each row makes of it; one reached by no declaration is refused.
+// it by, to what each row makes of it; one reached from no declaration the session
+// holds an object of is taken from the image of the held graph.
 func (s *Session) sweptHeld(ctx *runtime.Context, id int64) (freshRef, error) {
 	label, ok := s.heldLabel(id)
 	if !ok {
-		return freshRef{}, &SweptObjectError{Ref: fmt.Sprintf("#%d", id), Reason: "it is reached from no declaration the session holds an object of"}
+		return freshRef{name: fmt.Sprintf("#%d", id), root: id, held: id, imaged: true}, nil
 	}
 	return s.sweptObject(ctx, label)
+}
+
+// sweptImage images the held graph once, for every row to materialize, when an object
+// the sweep names must be taken from it: one named by its identity, or no longer as its
+// declaration made it. Where every object is as its declaration made it the rows make
+// theirs from the declarations, and no image is taken.
+func (s *Session) sweptImage(ctx *runtime.Context, subject, owner freshRef, objects map[int64]freshRef) (*runtime.HeldImage, error) {
+	refs := []freshRef{subject, owner}
+	for _, id := range slices.Sorted(maps.Keys(objects)) {
+		refs = append(refs, objects[id])
+	}
+	var roots []*runtime.Instance
+	for _, ref := range refs {
+		if !ref.imaged {
+			continue
+		}
+		for _, id := range []int64{ref.root, ref.held} {
+			inst, ok := ctx.Instance(id)
+			if !ok {
+				return nil, &UnknownObjectIDError{ID: id, Known: s.heldIDs()}
+			}
+			roots = append(roots, inst)
+		}
+	}
+	if len(roots) == 0 {
+		return nil, nil
+	}
+	image, err := ctx.Image(roots...)
+	if err != nil {
+		return nil, &SweptObjectError{Ref: imageErrorRef(refs, err), Reason: err.Error(), Err: err}
+	}
+	return image, nil
+}
+
+// imageErrorRef labels the reference an image error is reported under: the one
+// naming the object the error is about when it names one, else the first imaged.
+func imageErrorRef(refs []freshRef, err error) string {
+	var about *runtime.HeldImageError
+	if errors.As(err, &about) {
+		for _, ref := range refs {
+			if ref.held == about.ID || ref.root == about.ID {
+				return ref.name
+			}
+		}
+	}
+	for _, ref := range refs {
+		if ref.imaged {
+			return ref.name
+		}
+	}
+	return "the held objects"
 }
 
 // in is the arguments carried into one row's context, positional then named in name
@@ -371,16 +431,25 @@ func (a sweptArgs) in(row *rowObjects) ([]runtime.Value, map[string]runtime.Valu
 }
 
 // rowObjects are the objects one row makes for those the session holds, each once,
-// by the id of the held object stood for: a root of a declaration, or one reached from it.
+// by the id of the held object stood for: a root of a declaration, or one reached
+// from it — or, with an image, the object of the same identity materialized from it.
 type rowObjects struct {
-	s    *Session
-	ctx  *runtime.Context
-	refs map[int64]freshRef
-	made map[int64]*runtime.Instance
+	s     *Session
+	ctx   *runtime.Context
+	refs  map[int64]freshRef
+	made  map[int64]*runtime.Instance
+	image *runtime.HeldImage
 }
 
-func (s *Session) rowObjects(ctx *runtime.Context, refs map[int64]freshRef) *rowObjects {
-	return &rowObjects{s: s, ctx: ctx, refs: refs, made: make(map[int64]*runtime.Instance)}
+// rowObjects prepares a row's context to make the objects the sweep names: an image
+// of the held graph is materialized into it here, once, before the row runs.
+func (s *Session) rowObjects(ctx *runtime.Context, refs map[int64]freshRef, image *runtime.HeldImage) (*rowObjects, error) {
+	if image != nil {
+		if err := image.Materialize(ctx); err != nil {
+			return nil, fmt.Errorf("the held objects could not be materialized in the row's context: %w", err)
+		}
+	}
+	return &rowObjects{s: s, ctx: ctx, refs: refs, made: make(map[int64]*runtime.Instance), image: image}, nil
 }
 
 // bring is the row's object for the held one with id, as a Bring.
@@ -392,11 +461,19 @@ func (r *rowObjects) bring(id int64) (*runtime.Instance, error) {
 	return r.object(ref)
 }
 
-// object makes the object of the reference in the row's context: one of its
-// declaration, walked along its path to the object meant; none for an empty reference.
+// object makes the object of the reference in the row's context: the one of the same
+// identity where the held graph was imaged, else one of its declaration, walked along
+// its path to the object meant; none for an empty reference.
 func (r *rowObjects) object(ref freshRef) (*runtime.Instance, error) {
-	if ref.sym == nil {
+	if ref.held == 0 {
 		return nil, nil
+	}
+	if ref.imaged {
+		inst, ok := r.ctx.Instance(ref.held)
+		if !ok || r.image == nil || !r.image.Holds(ref.held) {
+			return nil, &SweptObjectError{Ref: ref.name, Reason: "the image of the held graph does not reach it"}
+		}
+		return inst, nil
 	}
 	if inst, ok := r.made[ref.held]; ok {
 		return inst, nil
@@ -417,19 +494,25 @@ func (r *rowObjects) object(ref freshRef) (*runtime.Instance, error) {
 	return inst, nil
 }
 
-// SweptObjectError reports a held object no row of a sweep can make its own of: one not
-// reached from a declaration, or reached from one no longer as the declaration made it.
+// SweptObjectError reports a held object no row of a sweep can make its own of: one
+// whose state the image of the held graph cannot carry into a context of its own. Err
+// is the runtime's reason where it gave one (runtime.ErrSnapshotMidRun,
+// runtime.ErrSnapshotPausedBody, a runtime.NotPortableError).
 type SweptObjectError struct {
 	Ref    string
 	Reason string
+	Err    error
 }
 
 func (e *SweptObjectError) Error() string {
-	return fmt.Sprintf("%s: %s; each row of a sweep runs on an object of its own, made from the declaration, so the held object and the object it is reached through must be as the declaration made them", e.Ref, e.Reason)
+	return fmt.Sprintf("%s: %s; each row of a sweep runs on an object of its own, made in the row's context from an image of the held objects as the sweep found them, and this one cannot be imaged", e.Ref, e.Reason)
 }
 
+func (e *SweptObjectError) Unwrap() error { return e.Err }
+
 // sweptObject resolves the object a sweep names to what each row makes of it: one of the
-// declaration it is reached from, walked to along the same features; `#id` is refused.
+// declaration it is reached from, walked to along the same features, or the object of
+// the same identity in the image of the held graph, which one named by `#id` always is.
 func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, error) {
 	held, label, err := s.resolveObject(text)
 	if err != nil {
@@ -440,7 +523,7 @@ func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, erro
 		return freshRef{}, err
 	}
 	if ref.id > 0 {
-		return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is named by its identity, not by a declaration"}
+		return freshRef{name: label, root: ref.id, held: held.ID, imaged: true}, nil
 	}
 	root, fqn, path, err := s.namedRoot(ref)
 	if err != nil {
@@ -463,17 +546,18 @@ func (s *Session) sweptOwner(ctx *runtime.Context, fqn string) (freshRef, error)
 }
 
 // sweptRef is the declaration at fqn, held as root, and the path from it to held, as the
-// rows make them; the root must be pristine or a row's walk would reach another object.
+// rows make them; a root no longer as its declaration made it — a row's walk from a
+// fresh one would reach another object — asks for the image of the held graph instead.
 func (s *Session) sweptRef(ctx *runtime.Context, root, held *runtime.Instance, label, fqn string, path []objectSegment) (freshRef, error) {
-	if err := ctx.Pristine(root); err != nil {
-		return freshRef{}, &SweptObjectError{Ref: label, Reason: err.Error()}
-	}
 	name := s.declaredName(fqn)
 	sym, _, err := s.lookupSymbol(name)
 	if err != nil {
 		return freshRef{}, err
 	}
-	return freshRef{sym: sym, fqn: fqn, name: name, path: path, root: root.ID, held: held.ID}, nil
+	return freshRef{
+		sym: sym, fqn: fqn, name: name, path: path, root: root.ID, held: held.ID,
+		imaged: ctx.Pristine(root) != nil,
+	}, nil
 }
 
 // calcResultName names a calc's returned value in a table, so a calc row and an
