@@ -76,20 +76,20 @@ func TestSweepOverAMovedPerformedActionRunsOnItsImage(t *testing.T) {
 	run(t, s, "%instantiate Held::tug")
 	wants(t, run(t, s, "%state tug"), `Debugging state machine "lamp" exhibited by object #1`)
 	wants(t, run(t, s, "%advance 1"), "Advanced to 1.0", "t=2.0: action tow of object #1")
-	before := run(t, s, "%features Held::tug all json")
+	before := heldGraph(t, s, "Held::tug")
 	sweepsAlike(t, s, "%sweep Held::Quote tug tax=0.0..0.5:0.25", heldQuoteTable...)
-	if after := run(t, s, "%features Held::tug all json"); after != before {
+	if after := heldGraph(t, s, "Held::tug"); after != before {
 		t.Errorf("the sweeps left the held tug as\n%s\nwas\n%s", after, before)
 	}
 
 	wants(t, run(t, s, "%advance 1"), "Advanced to 2.0", "Action steps taken: 3")
 	wants(t, run(t, s, "%features Held::tug"), "cost = 6.0", "tow: performed action, completed")
-	before = run(t, s, "%features Held::tug all json")
+	before = heldGraph(t, s, "Held::tug")
 	held := s.heldIDs()
 	for _, object := range []string{"Held::tug", "#1"} {
 		sweepsAlike(t, s, "%sweep Held::Quote "+object+" tax=0.0..0.5:0.25", "3 run(s)", "0.0 | 6.0 |", "0.25 | 7.5 |", "0.5 | 9.0 |")
 	}
-	if after := run(t, s, "%features Held::tug all json"); after != before {
+	if after := heldGraph(t, s, "Held::tug"); after != before {
 		t.Errorf("the sweeps left the held tug as\n%s\nwas\n%s", after, before)
 	}
 	if ids := s.heldIDs(); !slices.Equal(ids, held) {

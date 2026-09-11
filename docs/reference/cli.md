@@ -581,8 +581,8 @@ afresh for it and the arguments, evaluated once, are carried in — one naming a
 object binds the row's own — so a case that writes a feature of its subject writes its own row's
 object and no row sees another's. Rows run [`-jobs`](#running-in-parallel) at a time and the table
 is in range order whatever order they finish in; the `time` column is each row's own wall time. An
-`-instantiate`d subject whose type exhibits or performs a behavior is refused as a sweep's subject,
-naming the behavior: its execution is one no row's context carries.
+`-instantiate`d subject whose type exhibits or performs a behavior sweeps as any other: its
+execution, fresh from `-instantiate`, is as its start left it, and each row's subject starts so.
 
 **Ranges.** `<from>`, `<to>` and `<step>` carry the literal syntax an argument carries, units
 included; a quantity range's endpoints and step must be compatible, and the values are converted

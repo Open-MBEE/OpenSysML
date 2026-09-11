@@ -23,8 +23,9 @@ func (e *HeldStateError) Error() string {
 
 // Pristine reports whether inst stands as its declaration materializes it — nothing
 // written to it or to an object it holds, every behavior it runs as its start left it,
-// not destroyed — so a fresh object of the declaration is inst as it stands. Otherwise
-// the HeldStateError names the first thing inst carries that a fresh object would not.
+// no message posted to it awaiting, not destroyed — so a fresh object of the
+// declaration is inst as it stands. Otherwise the HeldStateError names the first
+// thing inst carries that a fresh object would not.
 func (ctx *Context) Pristine(inst *Instance) error {
 	return ctx.pristine(inst, make(map[int64]bool))
 }
@@ -46,6 +47,11 @@ func (ctx *Context) pristine(inst *Instance, seen map[int64]bool) error {
 			name = symbolText(b.Symbol)
 		}
 		return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, an execution that has moved since its start", b.Kind, name)}
+	}
+	for _, msg := range ctx.messages {
+		if msg.Object == inst.ID {
+			return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("has a %s posted to it awaiting dispatch", msg.SignalType)}
+		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
 		fv := inst.FeatureValues[name]

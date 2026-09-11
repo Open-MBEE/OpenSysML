@@ -216,9 +216,9 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 	}
 }
 
-// An image is refused, by its typed reason, where the state cannot be carried:
-// a context inside a step, an object of another context, and a destination
-// already holding the identity.
+// An image is refused, by its typed reason, where the state cannot be carried: a
+// context inside a step, an object of another context, a destination holding the
+// identity or past the image's instant, a feature being written, a value of a body.
 func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	_, src, bulb := lampBulb(t)
 	src.runDepth++
@@ -244,6 +244,21 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	if err := img.Materialize(src); !errors.Is(err, ErrImageIdentityTaken) {
 		t.Errorf("Materialize into the source = %v, want ErrImageIdentityTaken", err)
 	}
+	ahead := NewContext(src.Model(), 10000)
+	ahead.clock.now = 5
+	if err := img.Materialize(ahead); !errors.Is(err, ErrImageClock) {
+		t.Errorf("Materialize into a context at t=5 = %v, want ErrImageClock", err)
+	}
+	if n := len(ahead.instances); n != 0 {
+		t.Errorf("the refused materialization left %d objects behind", n)
+	}
+
+	// A feature being written is state bound to the context writing it.
+	src.instances[bulb.ID].FeatureValues["lamp"].changing = true
+	if _, err := src.Image(bulb); !errors.Is(err, ErrImageBound) || !errors.As(err, &hie) || hie.ID != bulb.ID {
+		t.Errorf("Image over a feature being written = %v, want ErrImageBound naming #%d", err, bulb.ID)
+	}
+	src.instances[bulb.ID].FeatureValues["lamp"].changing = false
 
 	// A value closed over the run that made it names what no other context holds.
 	inBody := Value{Kind: ValFunction, ref: &functionValue{

@@ -1,11 +1,25 @@
 package repl
 
 import (
+	"bytes"
+	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 )
+
+// heldGraph is the object's whole graph as %features lists it in JSON, compacted:
+// protojson spaces its output at random, so the bytes compare only compacted.
+func heldGraph(t *testing.T, s *Session, object string) string {
+	t.Helper()
+	out := run(t, s, "%features "+object+" all json")
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, []byte(out)); err != nil {
+		t.Fatalf("%%features %s all json is no JSON: %v\n%.400s", object, err, out)
+	}
+	return compact.String()
+}
 
 // sweepRowsModel declares what the parallel-row tests run: a case whose body writes a
 // feature of its subject, an operation that writes a held object, a part reached only
@@ -188,18 +202,18 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) 
 	wants(t, run(t, s, "%features Rows::beacon"), "cost = 5.0", "current state off")
 
 	wants(t, run(t, s, "%invoke Rows::ship bump"), "Invoked bump on object #1")
-	before := run(t, s, "%features Rows::ship all json")
-	wants(t, before, `"realValue": 7`)
+	before := heldGraph(t, s, "Rows::ship")
+	wants(t, before, `"realValue":7`)
 	bumped := []string{"3 run(s)", "1.0 | 8.0 |", "2.0 | 9.0 |", "3.0 | 10.0 |"}
 	for _, object := range []string{"Rows::ship", "#1", "ship"} {
 		sweepsAlike(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0", bumped...)
 	}
-	if after := run(t, s, "%features Rows::ship all json"); after != before {
+	if after := heldGraph(t, s, "Rows::ship"); after != before {
 		t.Errorf("the sweeps left the held ship as\n%s\nwas\n%s", after, before)
 	}
 
 	wants(t, run(t, s, "%invoke Rows::Fleet.flagship bump"), "Invoked bump on object #")
-	before = run(t, s, "%features Rows::Fleet all json")
+	before = heldGraph(t, s, "Rows::Fleet")
 	held := s.heldIDs()
 	for _, command := range []string{
 		"%sweep Rows::Bump Rows::Fleet.flagship tax=1.0..3.0:1.0",
@@ -207,7 +221,7 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) 
 	} {
 		sweepsAlike(t, s, command, bumped...)
 	}
-	if after := run(t, s, "%features Rows::Fleet all json"); after != before {
+	if after := heldGraph(t, s, "Rows::Fleet"); after != before {
 		t.Errorf("the sweeps left the held fleet as\n%s\nwas\n%s", after, before)
 	}
 	if ids := s.heldIDs(); !slices.Equal(ids, held) {
@@ -229,15 +243,23 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItRunsOnItsImage(t *testing.T) 
 // and a timer set by the state entered — is swept from an image of that state: each row
 // starts where the machine stands, on one job and on eight, as the prompt's run on the
 // held object does, and the held object is byte for byte as it was before the sweep,
-// with a debugger attached to its machine.
+// with a debugger attached to its machine. A signal posted to the object and not yet
+// dispatched is imaged with it, and the sweep leaves it posted.
 func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
 	s := loadSource(t, sweepRowsModel)
 	run(t, s, "%instantiate Rows::beacon")
 	wants(t, run(t, s, "%send Lit to beacon"), "✓ Sent Lit to object #1", "transition off -> on fires on it")
 	wants(t, run(t, s, "%state beacon"), "Current state: off")
+	posted := run(t, s, "%events")
+	wants(t, posted, "Lit")
+	sweepsAlike(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0", "3 run(s)", "1.0 | 6.0 |", "2.0 | 7.0 |", "3.0 | 8.0 |")
+	if again := run(t, s, "%events"); again != posted {
+		t.Errorf("the sweep left the posted signal as\n%s\nwas\n%s", again, posted)
+	}
+	wants(t, run(t, s, "%current"), "Current state: off")
 	wants(t, run(t, s, "%advance 1"), "Current state: on", "t=5.0: state machine blinking of object #1, time -> off")
-	before := run(t, s, "%features Rows::beacon all json")
-	wants(t, before, `"realValue": 15`)
+	before := heldGraph(t, s, "Rows::beacon")
+	wants(t, before, `"realValue":15`)
 	wants(t, run(t, s, "%features Rows::beacon"), "cost = 15.0", "current state on")
 	held := s.heldIDs()
 
@@ -245,7 +267,7 @@ func TestSweepOverAMovedStateMachineRunsOnItsImage(t *testing.T) {
 	for _, object := range []string{"Rows::beacon", "#1"} {
 		sweepsAlike(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0", lit...)
 	}
-	if after := run(t, s, "%features Rows::beacon all json"); after != before {
+	if after := heldGraph(t, s, "Rows::beacon"); after != before {
 		t.Errorf("the sweeps left the held beacon as\n%s\nwas\n%s", after, before)
 	}
 	wants(t, run(t, s, "%current"), "Current state: on")
@@ -266,13 +288,13 @@ func TestSweepOverAnObjectNoImageCarriesIsRefused(t *testing.T) {
 	run(t, s, "%instantiate Rows::watcher")
 	sweepsAlike(t, s, "%sweep Rows::Bump Rows::watcher tax=1.0..3.0:1.0", "3 run(s)", "1.0 | 6.0 |", "3.0 | 8.0 |")
 	wants(t, run(t, s, "%invoke Rows::watcher bump"), "Invoked bump on object #1")
-	before := run(t, s, "%features Rows::watcher all json")
+	before := heldGraph(t, s, "Rows::watcher")
 	for _, object := range []string{"Rows::watcher", "#1"} {
 		out := run(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0")
 		wants(t, out, "error: "+object+": image of object #1 (watcher): exhibited state machine w: snapshot of a body paused mid-statement: do behavior of state watching of w; each row of a sweep runs on an object of its own", "this one cannot be imaged")
 		rejects(t, out, "run(s)")
 	}
-	if after := run(t, s, "%features Rows::watcher all json"); after != before {
+	if after := heldGraph(t, s, "Rows::watcher"); after != before {
 		t.Errorf("the refused sweeps left the held watcher as\n%s\nwas\n%s", after, before)
 	}
 	wants(t, run(t, s, "%features Rows::watcher"), "cost = 7.0", "current state watching")
