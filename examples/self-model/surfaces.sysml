@@ -11,10 +11,22 @@ package OpenSysMLSurfaces {
         port pipeline : RequestPort;
     }
 
-    #Surface part def Repl :> Interface {
+    // A surface that asks questions of the model puts every one through the
+    // analysis framework, choosing the engines and the width of the fleet.
+    abstract part def AskingInterface :> Interface {
+        attribute engineSelector : String;
+        attribute jobsSetting : String;
+        attribute engineListing : String;
+        port questions : RequestPort;
+    }
+
+    #Surface part def Repl :> AskingInterface {
         attribute :>> goPackage = "internal/repl";
         attribute :>> entrypoint = "cmd/sysml";
         attribute :>> protocol = "terminal";
+        attribute :>> engineSelector = "%engine";
+        attribute :>> jobsSetting = "%jobs";
+        attribute :>> engineListing = "%engines";
         attribute stateful : Boolean = true;
         attribute adoptsInstancesOnReanalysis : Boolean = true;
     }
@@ -56,10 +68,14 @@ package OpenSysMLSurfaces {
 
     // One hand-written service behind two generated transports: gRPC over
     // HTTP/2 with reflection, and Connect over plain HTTP for browsers.
-    #Surface part def ModelService :> Interface {
+    #Surface part def ModelService :> AskingInterface {
         attribute :>> goPackage = "internal/grpc";
         attribute :>> entrypoint = "cmd/sysml-grpc";
         attribute :>> protocol = "grpc, connect";
+        attribute :>> engineSelector = "engine";
+        attribute :>> jobsSetting = "OPENSYSML_JOBS";
+        attribute :>> engineListing = "ListEngines";
+        attribute enginesCapability : String = "engines";
         attribute reflectionEnabled : Boolean = true;
         attribute handWrittenService : Boolean = true;
         attribute connectAdapter : String = "internal/grpc/connect.go";
@@ -76,10 +92,13 @@ package OpenSysMLSurfaces {
     }
 
     // The non-interactive side of the REPL binary: convert, query, render.
-    #Surface part def CommandLine :> Interface {
+    #Surface part def CommandLine :> AskingInterface {
         attribute :>> goPackage = "internal/repl";
         attribute :>> entrypoint = "cmd/sysml";
         attribute :>> protocol = "flags";
+        attribute :>> engineSelector = "-engine";
+        attribute :>> jobsSetting = "-jobs";
+        attribute :>> engineListing = "-engines";
         attribute exitStatusIsContract : Boolean = true;
     }
 
@@ -499,6 +518,10 @@ package OpenSysMLSurfaces {
         connection lspDrives : ArtifactChannel connect lsp.pipeline to pipeline.textIn;
         connection serviceDrives : ArtifactChannel connect service.pipeline to pipeline.textIn;
         connection cliDrives : ArtifactChannel connect cli.pipeline to pipeline.textIn;
+
+        connection replAsks : RequestChannel connect repl.questions to pipeline.questionsIn;
+        connection serviceAsks : RequestChannel connect service.questions to pipeline.questionsIn;
+        connection cliAsks : RequestChannel connect cli.questions to pipeline.questionsIn;
 
         connection goCalls : ArtifactChannel connect goClient.service to service.pipeline;
         connection pythonCalls : ArtifactChannel connect python.service to service.pipeline;
