@@ -345,7 +345,7 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 	case runtime.ValMetaobject:
 		meta := metaobjectToProto(val, idx)
 		if meta == nil {
-			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: metaobject of an unresolved element"}}
+			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: metaobject of an element with no qualified name"}}
 		}
 		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: meta}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
@@ -370,18 +370,18 @@ func functionToProto(val runtime.Value, idx *symbols.Index) *pb.Function {
 }
 
 // metaobjectToProto names a metaobject by the element it reflects, which is its
-// identity, and by that element's own metaclass. Nil for an unresolved element.
+// identity, and by that element's own metaclass. Nil when either is unnamed: an
+// anonymous element has no qualified name a receiver could bind.
 func metaobjectToProto(val runtime.Value, idx *symbols.Index) *pb.Metaobject {
 	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
-	if element == nil || metaclass == nil {
+	if element == nil || metaclass == nil || element.Name == "" || metaclass.Name == "" {
 		return nil
 	}
-	meta := &pb.Metaobject{ElementId: element.Name, MetaclassId: metaclass.Name}
+	elementID, metaclassID := element.Name, metaclass.Name
 	if idx != nil {
-		meta.ElementId = idx.GetFQN(element)
-		meta.MetaclassId = idx.GetFQN(metaclass)
+		elementID, metaclassID = idx.GetFQN(element), idx.GetFQN(metaclass)
 	}
-	return meta
+	return &pb.Metaobject{ElementId: elementID, MetaclassId: metaclassID}
 }
 
 // enumLiteralToProto names a literal by the declaration it is, which is its
@@ -628,6 +628,10 @@ var (
 	// or one no reflective metaclass of the model's libraries classifies.
 	ErrMetaobjectUnbound = errors.New("metaobject names no element of this model")
 
+	// ErrMetaobjectAmbiguous reports a Metaobject whose element_id names more than
+	// one element of the model, so it identifies none of them.
+	ErrMetaobjectAmbiguous = errors.New("metaobject names more than one element of this model")
+
 	// ErrMetaclassMismatch reports a Metaobject sent with a metaclass_id other
 	// than the one the model classifies its element by.
 	ErrMetaclassMismatch = errors.New("metaclass_id is not the element's metaclass")
@@ -842,9 +846,10 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 	return runtime.Value{}, fmt.Errorf("%w: %s is not a calc", ErrFunctionUnbound, fn.GetCalcId())
 }
 
-// metaobjectFromProto binds a metaobject to the element its element_id names,
-// reflected on as the metaclass the model classifies it by; a metaclass_id sent
-// naming another is refused rather than read as a cast.
+// metaobjectFromProto binds a metaobject to the one element its element_id
+// names, reflected on as the metaclass the model classifies it by. A name two
+// declarations share identifies neither, and a metaclass_id naming another
+// metaclass is refused rather than read as a cast.
 func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	if meta == nil || meta.GetElementId() == "" {
 		return runtime.Value{}, fmt.Errorf("%w: element_id is empty", ErrMetaobjectUnbound)
@@ -854,10 +859,14 @@ func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics
 	}
 	var element, metaclass *symbols.Symbol
 	for _, sym := range idx.LookupQualified(meta.GetElementId()) {
-		if mc := sem.MetaclassOf(sym); mc != nil {
-			element, metaclass = sym, mc
-			break
+		mc := sem.MetaclassOf(sym)
+		if mc == nil || sym == element {
+			continue
 		}
+		if element != nil {
+			return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectAmbiguous, meta.GetElementId())
+		}
+		element, metaclass = sym, mc
 	}
 	if element == nil {
 		return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectUnbound, meta.GetElementId())

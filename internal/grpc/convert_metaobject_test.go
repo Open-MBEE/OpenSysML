@@ -139,6 +139,57 @@ func TestMalformedMetaobjectsAreRejected(t *testing.T) {
 	}
 }
 
+// A metaobject of an anonymous element has no qualified name to send, so it
+// crosses as the unsupported null rather than as an arm no receiver could bind;
+// a named sibling of the same owner still crosses under its own name.
+func TestUnnamedMetaobjectCrossesAsUnsupportedNull(t *testing.T) {
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, `
+package M {
+  part def V;
+  part outer : V { part : V; part named : V; }
+  attribute features [*] = (outer meta KerML::Type).ownedFeature;
+}
+`)
+	elems := mustEvaluate(t, srv, modelHash, "M::features").GetSequence().GetElements()
+	if len(elems) != 2 {
+		t.Fatalf("M::features crossed as %v, want two elements", elems)
+	}
+	if got := elems[0].GetNull(); got != "unsupported: metaobject of an element with no qualified name" {
+		t.Errorf("anonymous part crossed as %v, want the unsupported null", elems[0])
+	}
+	if got := elems[1].GetMetaobject(); got.GetElementId() != "M::outer::named" || got.GetMetaclassId() != "SysML::Systems::PartUsage" {
+		t.Errorf("named part crossed as %v, want M::outer::named : SysML::Systems::PartUsage", elems[1])
+	}
+}
+
+// An element_id two documents both declare identifies neither declaration, so
+// it is refused as ambiguous rather than bound to whichever the index lists first.
+func TestAmbiguousMetaobjectIsRejected(t *testing.T) {
+	srv := mustNewService(t, 4)
+	resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+		Documents: inlineDocuments("a.sysml", "package M { part def V; part seatBelt : V; }", "b.sysml", "package M { part def W; part seatBelt : W; }"),
+	})
+	if err != nil || resp.Error != "" {
+		t.Fatalf("ParseSources: err = %v, error = %q", err, resp.GetError())
+	}
+	cached, ok := srv.cache.Get(resp.ModelHash)
+	if !ok {
+		t.Fatal("parsed model is not cached")
+	}
+	idx, sem := cached.Index, NewSymbolContext(cached.Index).Semantics
+	if n := len(idx.LookupQualified("M::seatBelt")); n != 2 {
+		t.Fatalf("M::seatBelt resolves to %d elements, want the two declarations", n)
+	}
+	_, err = ProtoToValueIn(metaobjectValue("M::seatBelt", ""), idx, sem)
+	if !errors.Is(err, ErrMetaobjectAmbiguous) || !strings.Contains(err.Error(), "M::seatBelt") {
+		t.Fatalf("ProtoToValueIn = %v, want %v naming M::seatBelt", err, ErrMetaobjectAmbiguous)
+	}
+	if _, err := ProtoToValueIn(metaobjectValue("M::V", ""), idx, sem); err != nil {
+		t.Errorf("ProtoToValueIn(M::V), declared once: %v", err)
+	}
+}
+
 // A metaobject sent as a calc argument binds to the element it names, so the
 // calc reads that element's features and finds it identical to the model's own.
 func TestMetaobjectCrossesAsCalcArgument(t *testing.T) {

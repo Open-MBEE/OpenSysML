@@ -607,9 +607,13 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
   `(Meta::seatBelt meta KerML::Feature)#(1).qualifiedName` is `{"stringValue":"Meta::seatBelt"}` —
   and a feature the engine does not derive is an evaluation failure naming the feature, not a
   guess.
-- A metaobject of an element the service cannot name — one with no qualified name to send —
-  is the unsupported null `{"null":"unsupported: metaobject of an unresolved element"}`, under
-  the `null` arm's rule.
+- A metaobject of an anonymous element — one with no qualified name to send, such as an
+  unnamed part among a type's `ownedFeature` — is the unsupported null
+  `{"null":"unsupported: metaobject of an element with no qualified name"}`, under the `null`
+  arm's rule. A named element nested in an anonymous one keeps its name (`Mid::inner`).
+- An `element_id` sent that two declarations of the model share (the same qualified name in two
+  documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
+  index lists first.
 - The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
   A service without it sends every metaobject, at any depth, as
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
