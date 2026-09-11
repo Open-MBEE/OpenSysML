@@ -121,7 +121,7 @@ type Context struct {
 	// tools runs the external tool a ToolExecution names; nil refuses every such action.
 	tools ToolRunner
 	// toolExecutions memoizes toolExecutionOf per action; the model is fixed for the context's life.
-	toolExecutions map[*symbols.Symbol]toolExecution
+	toolExecutions map[*symbols.Symbol]*toolExecution
 	// toolUnits memoizes the units tool answers spell, per scope they are read in.
 	toolUnits map[toolUnitKey]semantics.Unit
 	// behaving memoizes runsBehaviors per type; the model is fixed for the context's life.
@@ -367,7 +367,7 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 
 		occurrences:      make(map[*symbols.Symbol]int64),
 		metadataObjects:  make(map[metadataAnnotation]int64),
-		toolExecutions:   make(map[*symbols.Symbol]toolExecution),
+		toolExecutions:   make(map[*symbols.Symbol]*toolExecution),
 		toolUnits:        make(map[toolUnitKey]semantics.Unit),
 		behaving:         make(map[*symbols.Symbol]bool),
 		behavingFeatures: make(map[*symbols.Symbol][]int),
@@ -1385,14 +1385,14 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, self, inputs, (*ActionExecutor).initialize)
+	return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
 }
 
-// performActionStep runs action as a step of an enclosing behavior. A step
-// stating no flow performs none: it takes its inputs, binds its computed
-// outputs and ends at once, as an object performing such an action does.
-func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, self, inputs, func(exec *ActionExecutor) error {
+// performActionStep runs action as a step of an enclosing behavior, the step as named
+// being performed. A step stating no flow performs none: it takes its inputs, binds
+// its computed outputs and ends at once, as an object performing such an action does.
+func (ctx *Context) performActionStep(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	return ctx.performActionFrom(performed, action, self, inputs, func(exec *ActionExecutor) error {
 		if !exec.hasFlow() {
 			return exec.completeWithoutFlow()
 		}
@@ -1400,12 +1400,13 @@ func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, in
 	})
 }
 
-// performActionFrom creates the executor for action, seeds its inputs, starts
-// it with start, and runs it to completion; the clock drives it no further.
-func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+// performActionFrom creates the executor for a performance of performed running
+// action, seeds its inputs, starts it with start, and runs it to completion; the
+// clock drives it no further.
+func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	defer ctx.beginRun()()
 
-	exec, err := newActionExecutor(ctx, action, self)
+	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
@@ -1430,15 +1431,15 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 }
 
 // startAction begins an executor however its action is performed: one a ToolExecution
-// annotates is performed by its tool, which completes it; any other is begun by begin,
-// which initializes its flow. Every way of starting an action passes through here.
+// annotates, on the action as named or a type of it, is performed by its tool, which
+// completes it; any other is begun by begin. Every way of starting an action passes through here.
 func (ctx *Context) startAction(exec *ActionExecutor, begin func(*ActionExecutor) error) error {
-	tool, uri, err := ctx.toolExecutionOf(exec.action)
+	execution, err := ctx.toolExecutionOf(exec.performed)
 	if err != nil {
 		return fmt.Errorf("initialize action: %w", err)
 	}
-	if tool != "" {
-		if err := exec.performByTool(tool, uri); err != nil {
+	if execution != nil {
+		if err := exec.performByTool(execution); err != nil {
 			return fmt.Errorf("perform action by tool: %w", err)
 		}
 		return nil

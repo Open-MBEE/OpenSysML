@@ -204,40 +204,44 @@ func (ctx *Context) ToolRunner() ToolRunner {
 	return ctx.tools
 }
 
-// toolExecution is the ToolExecution an action carries, as its performances read it.
+// toolExecution is the ToolExecution an action carries, as its performances read it:
+// the tool and URI its bindings state, and the action or supertype annotated.
 type toolExecution struct {
 	tool, uri string
+	on        *symbols.Symbol
 }
 
 // toolExecutionOf reads the ToolExecution annotating an action, or the definition it is
-// typed by: the tool and URI its bindings state. Empty for an action carrying none.
-func (ctx *Context) toolExecutionOf(action *symbols.Symbol) (tool, uri string, err error) {
+// typed by. Nil for an action carrying none; an annotation is one whatever its toolName.
+func (ctx *Context) toolExecutionOf(action *symbols.Symbol) (*toolExecution, error) {
 	if ctx.model == nil || action == nil {
-		return "", "", nil
+		return nil, nil
 	}
 	if held, ok := ctx.toolExecutions[action]; ok {
-		return held.tool, held.uri, nil
+		return held, nil
 	}
-	inst, typ, err := ctx.annotationObject(action, fqnToolExecution)
+	inst, typ, on, err := ctx.annotationObject(action, fqnToolExecution)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
+	var held *toolExecution
 	if inst != nil {
-		if tool, err = ctx.metadataString(inst, typ, toolExecutionTool); err != nil {
-			return "", "", err
+		held = &toolExecution{on: on}
+		if held.tool, err = ctx.metadataString(inst, typ, toolExecutionTool); err != nil {
+			return nil, err
 		}
-		if uri, err = ctx.metadataString(inst, typ, toolExecutionURI); err != nil {
-			return "", "", err
+		if held.uri, err = ctx.metadataString(inst, typ, toolExecutionURI); err != nil {
+			return nil, err
 		}
 	}
-	ctx.toolExecutions[action] = toolExecution{tool: tool, uri: uri}
-	return tool, uri, nil
+	ctx.toolExecutions[action] = held
+	return held, nil
 }
 
 // toolVariableOf reads the ToolVariable annotating a parameter, or one it redefines: the
 // name the tool calls it. False for a parameter carrying none.
 func (ctx *Context) toolVariableOf(param *symbols.Symbol) (string, bool, error) {
-	inst, typ, err := ctx.annotationObject(param, fqnToolVariable)
+	inst, typ, _, err := ctx.annotationObject(param, fqnToolVariable)
 	if err != nil || inst == nil {
 		return "", false, err
 	}
@@ -249,8 +253,9 @@ func (ctx *Context) toolVariableOf(param *symbols.Symbol) (string, bool, error) 
 }
 
 // annotationObject is the object of the first annotation of the library metadata type fqn
-// on an element, else on its supertypes nearest first; nil when none carries one.
-func (ctx *Context) annotationObject(element *symbols.Symbol, fqn string) (*Instance, *symbols.Symbol, error) {
+// on an element, else on its supertypes nearest first, with the annotation's type and the
+// element carrying it; nil when none does.
+func (ctx *Context) annotationObject(element *symbols.Symbol, fqn string) (*Instance, *symbols.Symbol, *symbols.Symbol, error) {
 	elements := append([]*symbols.Symbol{element}, ctx.model.AllSupertypes(element)...)
 	for _, sym := range elements {
 		for i, annotation := range ctx.model.ElementMetadataOf(sym) {
@@ -259,12 +264,12 @@ func (ctx *Context) annotationObject(element *symbols.Symbol, fqn string) (*Inst
 			}
 			inst, err := ctx.metadataObject(sym, i, annotation)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
-			return inst, annotation.Type, nil
+			return inst, annotation.Type, sym, nil
 		}
 	}
-	return nil, nil, nil
+	return nil, nil, nil, nil
 }
 
 // metadataIs reports whether a metadata type is, or specializes, the library type named.
@@ -318,8 +323,13 @@ func (ctx *Context) metadataString(inst *Instance, typ *symbols.Symbol, feature 
 // performByTool performs an action a ToolExecution annotates: its inputs are bound as any
 // performance's are, the tool the metadata names is invoked once with them, and its outputs
 // stand as the action's; the action's own flow is never run.
-func (e *ActionExecutor) performByTool(tool, uri string) error {
+func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	tool := execution.tool
+	// An annotation naming no tool names none registered; the body never stands in.
+	if tool == "" {
+		return &ToolNotRegisteredError{Tool: tool}
+	}
 	if err := e.checkResultParameters(); err != nil {
 		return err
 	}
@@ -328,7 +338,7 @@ func (e *ActionExecutor) performByTool(tool, uri string) error {
 	if err := e.bindInputs(); err != nil {
 		return err
 	}
-	call, err := e.toolCall(tool, uri)
+	call, err := e.toolCall(execution)
 	if err != nil {
 		return err
 	}
@@ -345,23 +355,24 @@ func (e *ActionExecutor) performByTool(tool, uri string) error {
 	if answer.Diverged {
 		e.ctx.note(ToolDivergence{
 			Tool:   tool,
-			Action: e.ctx.qualifiedSymbolName(e.action),
-			File:   e.action.DocName,
-			Span:   e.action.DeclSpan,
+			Action: e.ctx.qualifiedSymbolName(execution.on),
+			File:   execution.on.DocName,
+			Span:   execution.on.DeclSpan,
 		})
 	}
 	e.state = StateCompleted
 	return nil
 }
 
-// toolCall is the performance as the tool sees it: every `in` and `inout` parameter carrying
-// a ToolVariable is an input, every `out` and `inout` one an output. An input bound to no
-// value is ErrUnboundParameter unless the parameter is optional, which the call then omits;
-// a ToolVariable name two parameters carry is a ToolError, since the protocol keys by it.
-func (e *ActionExecutor) toolCall(tool, uri string) (*ToolCall, error) {
-	call := &ToolCall{Action: e.action, ToolName: tool, URI: uri, exec: e}
+// toolCall is the performance as the tool sees it: of the action performed, every `in`/`inout`
+// parameter carrying a ToolVariable is an input, every `out`/`inout` one an output. An unbound
+// input is ErrUnboundParameter unless optional, which the call omits; a ToolVariable name two
+// parameters carry is a ToolError, since the protocol keys by it.
+func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
+	tool := execution.tool
+	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, exec: e}
 	namedBy := make(map[string]string)
-	for _, param := range e.ctx.model.BehaviorParametersOf(e.action) {
+	for _, param := range e.ctx.model.BehaviorParametersOf(e.performed) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
 		}
@@ -374,7 +385,7 @@ func (e *ActionExecutor) toolCall(tool, uri string) (*ToolCall, error) {
 		}
 		if other, taken := namedBy[variable]; taken {
 			return nil, &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
-				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.action))}
+				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.performed))}
 		}
 		namedBy[variable] = param.Symbol.Name
 		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
@@ -383,7 +394,7 @@ func (e *ActionExecutor) toolCall(tool, uri string) (*ToolCall, error) {
 			held, bound := e.root.data[e.root.key(param.Symbol.Name)]
 			if !bound && !e.ctx.model.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-					ErrUnboundParameter, symbolText(e.action), param.Symbol.Name)
+					ErrUnboundParameter, symbolText(e.performed), param.Symbol.Name)
 			}
 			if bound {
 				sent, err := toolInput(tool, param.Symbol, held)

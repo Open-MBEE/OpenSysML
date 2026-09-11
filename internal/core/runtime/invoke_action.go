@@ -32,6 +32,17 @@ type actionInvocation struct {
 	// referrer is the usage owning a reference subsetting, whose own effective
 	// name is the one the target names (see resolve.ResolveReferenceTarget).
 	referrer ast.Node
+	// step is the usage declaring the invocation, whose metadata and parameters
+	// bind the performance; nil for an invocation no usage of the body declares.
+	step *symbols.Symbol
+}
+
+// performed is what the invocation performs: the step declaring it, else the callee itself.
+func (inv actionInvocation) performed(callee *symbols.Symbol) *symbols.Symbol {
+	if inv.step != nil {
+		return inv.step
+	}
+	return callee
 }
 
 // nestedInvocation reports the action a nested usage performs, if any. A usage
@@ -170,7 +181,7 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.performActionStep(sym, self, inputs)
+	callee, err := ctx.performActionStep(inv.performed(sym), sym, self, inputs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
 	}

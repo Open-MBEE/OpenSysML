@@ -380,3 +380,134 @@ func TestToolExecutionThroughTheDebuggerExecutor(t *testing.T) {
 		t.Fatalf("CreateActionExecutor without a runner = %v, want ErrToolNotRegistered", err)
 	}
 }
+
+// annotatedUsageModel carries ToolExecution on performed usages rather than definitions,
+// on a definition whose toolName is empty, and on the action an object performs.
+const annotatedUsageModel = `package test {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+
+	action def Plain { in k : Real; out y : Real; }
+	action def Stepped { in k : Real; out y : Real; first start; then done; }
+
+	action def UsageOfPlain {
+		out y : Real;
+		action s : Plain {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in k :>> k = 2.0 { @ToolVariable { name = "k"; } }
+			out y :>> y      { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+	action def UsageOfStepped {
+		out y : Real;
+		action s : Stepped {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in k :>> k = 2.0 { @ToolVariable { name = "k"; } }
+			out y :>> y      { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+
+	action def Nameless {
+		metadata ToolExecution { toolName = ""; uri = "u"; }
+		out y : Real = 1.0;
+		first start; then done;
+	}
+
+	action def Doubling {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in k : Real = 2.0 { @ToolVariable { name = "k"; } }
+		out y : Real     { @ToolVariable { name = "y"; } }
+	}
+	part def Rig { perform action scale : Doubling; }
+	part def AnnotatedRig {
+		perform action scale : Stepped {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in k :>> k = 2.0 { @ToolVariable { name = "k"; } }
+			out y :>> y      { @ToolVariable { name = "y"; } }
+		}
+	}
+}`
+
+// A ToolExecution on a usage typed by a definition holds whether the definition states a
+// body or not: the usage's own parameters name the variables, and the body never runs.
+func TestToolExecutionOnATypedUsage(t *testing.T) {
+	for _, driver := range []string{"UsageOfPlain", "UsageOfStepped"} {
+		t.Run(driver, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, annotatedUsageModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+			ctx.SetToolRunner(runner)
+			out, err := ctx.ExecuteAction(calcNamed(t, scope, driver))
+			if err != nil {
+				t.Fatalf("ExecuteAction: %v", err)
+			}
+			if len(runner.calls) != 1 {
+				t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+			}
+			call := runner.calls[0]
+			if call.Action.Name != "s" || len(call.Inputs) != 1 || call.Inputs[0].Variable != "k" || !nearly(call.Inputs[0].Value.Value, toolReal(2)) {
+				t.Fatalf("call %+v, want s sending k = 2.0", call)
+			}
+			if got := FormatValue(out["y"]); got != "4.0" {
+				t.Fatalf("y = %s, want 4.0", got)
+			}
+
+			bare, bareScope := analysisFixture(t, annotatedUsageModel)
+			if _, err := bare.ExecuteAction(calcNamed(t, bareScope, driver)); !errors.Is(err, ErrToolNotRegistered) {
+				t.Fatalf("ExecuteAction without a runner = %v, want ErrToolNotRegistered", err)
+			}
+		})
+	}
+}
+
+// A ToolExecution naming no tool is still one: the action is refused as not registered,
+// with or without a runner, and its body does not stand in.
+func TestToolExecutionWithAnEmptyNameRunsNoBody(t *testing.T) {
+	for _, withRunner := range []bool{true, false} {
+		ctx, scope := analysisFixture(t, annotatedUsageModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{}}
+		if withRunner {
+			ctx.SetToolRunner(runner)
+		}
+		out, err := ctx.ExecuteAction(calcNamed(t, scope, "Nameless"))
+		var refused *ToolNotRegisteredError
+		if !errors.As(err, &refused) || refused.Tool != "" {
+			t.Fatalf("runner attached %v: ExecuteAction = %v, %v; want tool '' not registered", withRunner, out, err)
+		}
+		if len(runner.calls) != 0 {
+			t.Fatalf("tool invoked %d times for an empty toolName", len(runner.calls))
+		}
+	}
+}
+
+// An object performing an annotated action performs it by the tool, the annotation on the
+// definition it names or on the performed usage itself; without a runner it is not created.
+func TestToolExecutionOfAPerformedAction(t *testing.T) {
+	for _, rig := range []string{"Rig", "AnnotatedRig"} {
+		t.Run(rig, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, annotatedUsageModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+			ctx.SetToolRunner(runner)
+			inst, err := ctx.Instantiate(calcNamed(t, scope, rig))
+			if err != nil {
+				t.Fatalf("Instantiate: %v", err)
+			}
+			if len(runner.calls) != 1 {
+				t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+			}
+			behavior, ok := inst.Behavior("scale")
+			if !ok || behavior.Action == nil || behavior.Action.State() != StateCompleted {
+				t.Fatalf("scale is not a completed performance: %v", inst.Behaviors())
+			}
+			if got := FormatValue(performedFeature(t, ctx, inst, "scale", "y")); got != "4.0" {
+				t.Fatalf("scale.y = %s, want 4.0", got)
+			}
+
+			bare, bareScope := analysisFixture(t, annotatedUsageModel)
+			if _, err := bare.Instantiate(calcNamed(t, bareScope, rig)); !errors.Is(err, ErrToolNotRegistered) {
+				t.Fatalf("Instantiate without a runner = %v, want ErrToolNotRegistered", err)
+			}
+		})
+	}
+}

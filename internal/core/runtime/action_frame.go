@@ -1066,6 +1066,7 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 	if err != nil {
 		return err
 	}
+	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	if e.ctx.actionDepth >= maxActionNestingDepth {
 		return fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
@@ -1097,7 +1098,7 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 		return err
 	}
 
-	callee, err := e.ctx.performActionStep(sym, e.self, inputs)
+	callee, err := e.ctx.performActionStep(inv.performed(sym), sym, e.self, inputs)
 	if err != nil {
 		return fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
 	}

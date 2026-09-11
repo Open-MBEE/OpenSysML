@@ -25,7 +25,9 @@ type ActionExecutor struct {
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
 	performances
-	action *symbols.Symbol
+	// action states the body performed; performed is the action as named, a usage
+	// stating no body of its own or the action itself, whose metadata binds the performance.
+	action, performed *symbols.Symbol
 	// occurrence is the action performance materialized for a performed usage. It
 	// holds what the action's own features hold, and data mirrors it.
 	occurrence *Instance
@@ -103,15 +105,14 @@ func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
 // newActionExecutor creates an action executor. self is the object performing
 // the action, nil for an action no object performs.
 func newActionExecutor(ctx *Context, action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
-	return newActionExecutorForOccurrence(ctx, action, self, nil)
+	return newActionExecutorOf(ctx, action, action, self, nil)
 }
 
-// newActionExecutorForOccurrence creates an executor whose action's own features
-// are held by the given performance occurrence, nil for an action performed
-// through no usage of an object.
-func newActionExecutorForOccurrence(
+// newActionExecutorOf creates an executor performing performed, the action as named, by
+// running action's body; occurrence holds the performance's own features, nil without one.
+func newActionExecutorOf(
 	ctx *Context,
-	action *symbols.Symbol,
+	performed, action *symbols.Symbol,
 	self *Instance,
 	occurrence *Instance,
 ) (*ActionExecutor, error) {
@@ -137,6 +138,7 @@ func newActionExecutorForOccurrence(
 	exec := &ActionExecutor{
 		performances: performances{ctx: ctx, self: self},
 		action:       action,
+		performed:    performed,
 		occurrence:   occurrence,
 		graph:        graph,
 		tokens:       make([]Token, 0),

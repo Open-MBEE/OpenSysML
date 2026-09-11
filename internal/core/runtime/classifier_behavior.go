@@ -740,7 +740,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		if err != nil {
 			return nil, err
 		}
-		exec, err := newActionExecutorForOccurrence(ctx, sym, inst, occurrence)
+		exec, err := newActionExecutorOf(ctx, decl.member, sym, inst, occurrence)
 		if err != nil {
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
@@ -749,11 +749,11 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		}
 		// An action stating no flow performs no step; the object still performs it,
 		// completed at once, rather than failing to be created.
-		start := exec.completeWithoutFlow
+		begin := (*ActionExecutor).completeWithoutFlow
 		if exec.hasFlow() {
-			start = exec.initialize
+			begin = (*ActionExecutor).initialize
 		}
-		if err := start(); err != nil {
+		if err := ctx.startAction(exec, begin); err != nil {
 			exec.Release()
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
