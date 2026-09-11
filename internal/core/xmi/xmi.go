@@ -12,6 +12,7 @@
 package xmi
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/xml"
 	"errors"
@@ -207,7 +208,7 @@ func (e *Element) Path() []string {
 
 // Parse reads an XMI document into a Model.
 func Parse(data []byte) (*Model, error) {
-	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
+	if isArchive(data) {
 		return nil, errArchive
 	}
 	m := &Model{byID: map[string]*Element{}, proxies: map[string]*Element{}}
@@ -226,6 +227,13 @@ var errNoModel = errors.New("the XMI document holds no model: expected a uml:Mod
 
 // errArchive reports a zip archive: a tool's project container, not an XMI document.
 var errArchive = errors.New("the input is a zip archive, not an XMI document: export the model as XMI 2.5.1 and migrate that file")
+
+// isArchive reports whether data is a zip archive, by its central directory
+// rather than a leading local-file header: empty and stub-prefixed zips count.
+func isArchive(data []byte) bool {
+	_, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	return err == nil
+}
 
 // local returns the local part of an "prefix:name" value.
 func local(s string) string {

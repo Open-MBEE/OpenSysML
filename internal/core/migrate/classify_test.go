@@ -386,7 +386,8 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
     <packagedElement xmi:type="uml:DataType" xmi:id="_v" name="Rate"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_plain" name="Plain"/>
-    <packagedElement xmi:type="uml:Class" xmi:id="_nested" name="Nested"/>`, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_nested" name="Nested"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_look" name="Lookalike"/>`, `
   <Blocks:Block xmlns:Blocks="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Blocks" xmi:id="_s1" base_Class="_b"/>
   <Blocks:ValueType xmlns:Blocks="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Blocks" xmi:id="_s2" base_DataType="_v"/>
   <Requirements:Requirement xmlns:Requirements="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Requirements" xmi:id="_s3" base_Class="_r" id="R1" text="Shall pump."/>
@@ -394,7 +395,8 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
   <vendor:performanceRequirement xmlns:vendor="http://www.example.com/tool/customization/SysML" xmi:id="_c2" base_Class="_r"/>
   <acme:Block xmlns:acme="http://www.eclipse.org/papyrus/acme/profile" xmi:id="_c3" base_Class="_plain"/>
   <acme:Block xmlns:acme="http://www.eclipse.org/papyrus/acme/profile" xmi:id="_c4" base_Class="_b"/>
-  <nested:Requirement xmlns:nested="http://www.eclipse.org/papyrus/acme/sysml/profile" xmi:id="_c5" base_Class="_nested" id="X1" text="Not ours."/>`)
+  <nested:Requirement xmlns:nested="http://www.eclipse.org/papyrus/acme/sysml/profile" xmi:id="_c5" base_Class="_nested" id="X1" text="Not ours."/>
+  <look:Requirement xmlns:look="https://profiles.example/UML/Profile/Standard/acme" xmi:id="_c6" base_Class="_look" id="X2" text="Not ours either."/>`)
 	wantLine(t, r.Notation, "part def Pump {")
 	wantLine(t, r.Notation, "attribute def Rate;")
 	wantLine(t, r.Notation, "attribute throughput : Rate {")
@@ -404,14 +406,17 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
 	wantLine(t, r.Notation, "part def Plain {")
 	wantLine(t, r.Notation, "applied stereotype «Block»")
 	wantLine(t, r.Notation, "part def Nested {")
+	wantLine(t, r.Notation, "part def Lookalike {")
 	wantLine(t, r.Notation, "applied stereotype «Requirement»")
+	wantNoLine(t, r.Notation, "<X1>")
+	wantNoLine(t, r.Notation, "<X2>")
 	for id, kind := range map[string]string{"_b": "«Block» Class", "_r": "«Requirement» Class", "_p": "«ValueProperty» Property"} {
 		es := entriesFor(r, id)
 		if len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Kind != kind {
 			t.Errorf("%s entries = %+v, want one mapped %s", id, es, kind)
 		}
 	}
-	for id, kind := range map[string]string{"_plain": "«Block» Class", "_nested": "«Requirement» Class"} {
+	for id, kind := range map[string]string{"_plain": "«Block» Class", "_nested": "«Requirement» Class", "_look": "«Requirement» Class"} {
 		es := entriesFor(r, id)
 		if len(es) != 1 || es[0].Verdict != migrate.Approximated || es[0].Kind != kind {
 			t.Errorf("%s entries = %+v, want one approximated plain class %s", id, es, kind)

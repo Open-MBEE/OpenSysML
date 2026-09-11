@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/xmi"
@@ -89,30 +90,29 @@ var libraryRoots = map[string]bool{
 	"Libraries":            true,
 }
 
-// standardStereotypeNamespaces are the XML namespaces of the profiles whose
-// stereotypes the mapping reads: the OMG SysML and UML standard profiles and
-// Eclipse UML2's serialization of the UML standard profile.
-var standardStereotypeNamespaces = []string{
-	"omg.org/spec/SysML", "omg.org/spec/UML/", "/UML/Profile/Standard",
-}
-
 // isStandard reports whether s comes from a standard profile rather than a
 // user's own, whose same-named stereotypes carry no SysML meaning.
 func isStandard(s *xmi.Stereotype) bool {
-	for _, ns := range standardStereotypeNamespaces {
-		if strings.Contains(s.Namespace, ns) {
-			return true
-		}
-	}
-	return isPapyrusSysML(s.Namespace)
+	return isStandardNamespace(s.Namespace)
 }
 
-// isPapyrusSysML recognizes Papyrus' SysML profile namespaces
-// (…/papyrus/sysml/1.6/SysML/Blocks) and not another profile Papyrus hosts.
-func isPapyrusSysML(ns string) bool {
-	const host = "eclipse.org/papyrus/"
-	i := strings.Index(ns, host)
-	return i >= 0 && strings.HasPrefix(strings.ToLower(ns[i+len(host):]), "sysml/")
+// isStandardNamespace matches, by host and path, the OMG SysML and UML profiles,
+// Eclipse UML2's UML standard profile and Papyrus' SysML profile; nothing else.
+func isStandardNamespace(ns string) bool {
+	u, err := url.Parse(ns)
+	if err != nil {
+		return false
+	}
+	host := strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
+	path := u.Path
+	switch {
+	case host == "omg.org" || strings.HasSuffix(host, ".omg.org"):
+		return strings.HasPrefix(path, "/spec/SysML/") || strings.HasPrefix(path, "/spec/UML/")
+	case host == "eclipse.org" || strings.HasSuffix(host, ".eclipse.org"):
+		return (strings.HasPrefix(path, "/uml2/") && strings.Contains(path, "/UML/Profile/Standard")) ||
+			strings.HasPrefix(strings.ToLower(path), "/papyrus/sysml/")
+	}
+	return false
 }
 
 // stereo returns e's application of the named standard-profile stereotype, or nil.

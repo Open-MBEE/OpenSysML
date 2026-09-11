@@ -107,19 +107,34 @@ func TestParseRejectsArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	w, err := zw.Create("model.xmi")
-	if err != nil {
-		t.Fatal(err)
+	// archive zips the entries after a prefix, as a self-extracting stub is.
+	archive := func(prefix string, entries map[string][]byte) []byte {
+		var buf bytes.Buffer
+		buf.WriteString(prefix)
+		zw := zip.NewWriter(&buf)
+		zw.SetOffset(int64(len(prefix)))
+		for name, body := range entries {
+			w, err := zw.Create(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = w.Write(body)
+		}
+		if err := zw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buf.Bytes()
 	}
-	_, _ = w.Write(data)
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
-	_, err = Parse(buf.Bytes())
-	if err == nil || !strings.Contains(err.Error(), "zip archive") || !strings.Contains(err.Error(), "XMI 2.5.1") {
-		t.Errorf("err = %v", err)
+	model := map[string][]byte{"model.xmi": data}
+	for name, in := range map[string][]byte{
+		"model entry":   archive("", model),
+		"empty":         archive("", nil),
+		"stub-prefixed": archive("#!/bin/sh\nexit 0\n", model),
+	} {
+		_, err := Parse(in)
+		if err == nil || !strings.Contains(err.Error(), "zip archive") || !strings.Contains(err.Error(), "XMI 2.5.1") {
+			t.Errorf("%s: err = %v", name, err)
+		}
 	}
 }
 
