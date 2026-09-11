@@ -221,8 +221,8 @@ func documentValue(idx *symbols.Index, value queryexec.Value) *pb.DocumentValue 
 		integer, _ := value.Integer()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: integer}}
 	case queryexec.ValueReal:
-		real, _ := value.Real()
-		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: real}}
+		realVal, _ := value.Real()
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: realVal}}
 	case queryexec.ValueBoolean:
 		boolean, _ := value.Boolean()
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BoolValue{BoolValue: boolean}}

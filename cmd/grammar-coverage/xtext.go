@@ -287,7 +287,7 @@ func (p *grammarParser) skipQualifiedName() string {
 	return strings.Join(parts, "")
 }
 
-func (p *grammarParser) skipBalanced(open, close string) error {
+func (p *grammarParser) skipBalanced(open, closer string) error {
 	if err := p.expect(tokPunct, open); err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (p *grammarParser) skipBalanced(open, close string) error {
 			return fmt.Errorf("unterminated %q", open)
 		case t.kind == tokPunct && t.text == open:
 			depth++
-		case t.kind == tokPunct && t.text == close:
+		case t.kind == tokPunct && t.text == closer:
 			depth--
 		}
 	}

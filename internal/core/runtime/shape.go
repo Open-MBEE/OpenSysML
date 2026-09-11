@@ -17,12 +17,12 @@ type EffectiveFeature struct {
 	DefaultValue ast.Node        // value-binding expression (nil if none)
 	DefaultDecl  *symbols.Symbol // feature the DefaultValue was written on (nil if none)
 	HoldsSet     bool            // values form a set: a Collection's unordered unique elements
+	Unique       bool            // holds no two equal values (KerML isUnique, the default)
 }
 
-// Scalar reports whether the feature holds at most one value. An unbounded
-// upper bound carries Value 0, so the infinite flag has to be tested separately.
+// Scalar reports whether the feature holds at most one value.
 func (f *EffectiveFeature) Scalar() bool {
-	return !f.Multiplicity.Upper.Infinite && f.Multiplicity.Upper.Value <= 1
+	return f.Multiplicity.AtMostOne()
 }
 
 // DefaultIsFallback reports whether DefaultValue was written with `default`: a
@@ -119,6 +119,7 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		DefaultValue: defaultVal,
 		DefaultDecl:  defaultDecl,
 		HoldsSet:     ctx.holdsSet(memberSym, typeSym, mult),
+		Unique:       ctx.model.semantics.IsUnique(memberSym),
 	}
 }
 

@@ -41,6 +41,8 @@ func measurementRefContext(t *testing.T) (*Context, *symbols.Scope) {
 			attribute inferred = m * m;
 			attribute inferredAgain = inferred;
 			attribute celsius : IntervalScale = SI::'°C_abs';
+			attribute units : MeasurementUnit[0..*] = (m);
+			attribute scales : ScalarMeasurementReference[0..*] = (Time::UTC);
 			attribute vq : Quantities::VectorQuantityValue = VectorFunctions::VectorOf((1.0, 2.0, 3.0)) [m];
 			attribute scaled = VectorFunctions::VectorOf((1.0, 2.0)) [m] * (2 [s]);
 			package Imperial {
@@ -142,6 +144,11 @@ func TestMeasurementRefValues(t *testing.T) {
 		{"ConvertQuantity(273.15 [K], SI::'°C_abs')", "0.0 ['°C_abs']"},
 		{"ConvertQuantity(0.0 ['°C_abs'], K)", "273.15 [K]"},
 		{"ConvertQuantity(100.0 ['°C_abs'], K)", "373.15 [K]"},
+		{"MeasurementRefCalculations::'*'(units, s)", "m*s"},
+		{"MeasurementRefCalculations::'**'(units, (2))", "m**2"},
+		{"ToString(units)", `"m"`},
+		{"'['(2, units)", "2 [m]"},
+		{"MeasurementRefCalculations::ToString(scales)", `"UTC"`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -285,7 +292,9 @@ func TestMeasurementRefEquality(t *testing.T) {
 }
 
 // TestMeasurementRefClassification: a reference is of its declaration's type; a
-// composed unit is a DerivedUnit, a unit of powers of other units.
+// composed unit is a DerivedUnit, and a unit definition fixing its dimension
+// (AreaUnit's quantityDimension) classifies the composed unit of that dimension,
+// as a feature of that type holds it.
 func TestMeasurementRefClassification(t *testing.T) {
 	ctx, scope := measurementRefContext(t)
 
@@ -305,7 +314,9 @@ func TestMeasurementRefClassification(t *testing.T) {
 		{"(m * s) istype MeasurementReferences::DerivedUnit", "true"},
 		{"m istype MeasurementReferences::DerivedUnit", "false"},
 		{"(m * s) istype LengthUnit", "false"},
-		{"(m * m) istype AreaUnit", "false"},
+		{"(m * m) istype AreaUnit", "true"},
+		{"(m * s) istype AreaUnit", "false"},
+		{"(m * m) hastype AreaUnit", "false"},
 		{"(m * m) @ MeasurementReferences::MeasurementUnit", "true"},
 		{"m istype ScalarValues::Real", "false"},
 	}

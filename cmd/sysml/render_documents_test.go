@@ -281,16 +281,16 @@ func TestRenderDocumentsRejectsDanglingAliasedTargets(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	real := filepath.Join(t.TempDir(), "real")
-	if err := os.MkdirAll(real, 0o750); err != nil {
+	realDir := filepath.Join(t.TempDir(), "real")
+	if err := os.MkdirAll(realDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	alias := filepath.Join(t.TempDir(), "alias")
-	if err := os.Symlink(real, alias); err != nil {
+	if err := os.Symlink(realDir, alias); err != nil {
 		t.Fatal(err)
 	}
 	pairs := map[string]string{
-		"Reports-MainReport.md": filepath.Join(real, "shared.md"),
+		"Reports-MainReport.md": filepath.Join(realDir, "shared.md"),
 		"Reports-Appendix.md":   filepath.Join(alias, "shared.md"),
 	}
 	for name, target := range pairs {
@@ -303,7 +303,7 @@ func TestRenderDocumentsRejectsDanglingAliasedTargets(t *testing.T) {
 	if got.status != 2 || !strings.Contains(got.stderr, "both resolve to") {
 		t.Fatalf("exit = %d stderr = %q", got.status, got.stderr)
 	}
-	if _, err := os.Stat(filepath.Join(real, "shared.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(realDir, "shared.md")); !os.IsNotExist(err) {
 		t.Errorf("a rejected set wrote the shared file: %v", err)
 	}
 }

@@ -96,7 +96,7 @@ package W6D {
     part sysNone : SysNone;
 
     // KerML function library: VectorFunctions and ComplexFunctions.
-    calc def VecElements { return : Real[*] = CartesianThreeVectorOf((1.0, 2.0, 2.0)).elements; }
+    calc def VecElements { return : Real[*] nonunique = CartesianThreeVectorOf((1.0, 2.0, 2.0)).elements; }
     calc def VecIsZero { return : Boolean = isCartesianZeroVector(CartesianThreeVectorOf((0.0, 0.0, 0.0))); }
     calc def VecNormCartesian { return : Real = cartesianNorm(CartesianThreeVectorOf((1.0, 2.0, 2.0))); }
     calc def VecNormAbstract { return : Real = norm(CartesianThreeVectorOf((1.0, 2.0, 2.0))); }

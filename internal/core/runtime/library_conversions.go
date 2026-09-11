@@ -362,6 +362,7 @@ func naturalValue(name string, x int64) (Value, error) {
 
 // booleanArg reads a Boolean parameter.
 func booleanArg(name, param string, val Value) (bool, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf(
 			"%w: function %s parameter %q requires a Boolean value, got %s",
@@ -373,6 +374,7 @@ func booleanArg(name, param string, val Value) (bool, error) {
 
 // numericArg reads an Integer or Real parameter.
 func numericArg(name, param string, val Value) (semantics.Value, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || !val.Const.IsNumeric() {
 		return semantics.Value{}, fmt.Errorf(
 			"%w: function %s parameter %q requires a numeric value, got %s",
@@ -384,6 +386,7 @@ func numericArg(name, param string, val Value) (semantics.Value, error) {
 
 // integerArg reads an Integer parameter; a Real does not conform to it.
 func integerArg(name, param string, val Value) (int64, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
 		return 0, fmt.Errorf(
 			"%w: function %s parameter %q requires an Integer value, got %s",

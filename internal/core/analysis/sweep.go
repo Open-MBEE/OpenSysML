@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
 // SweepEngineName is the name of the engine that runs a domain row by row.
 const SweepEngineName = "sweep"
 
-// sweepEngine answers Sweep questions with one run per row of the plan, the
-// rows in the order the plan draws them.
+// sweepEngine answers Sweep questions with one run per row of the plan, each in a context
+// of its own on one of the plan's workers, the rows tabled in the order the plan draws them.
 type sweepEngine struct{}
 
 // NewSweep returns the sweep engine.
@@ -42,24 +44,26 @@ func (e sweepEngine) Covers(_ *Model, q Question) Coverage {
 	return covered
 }
 
-// Run tables the plan in the surface's context within the budget's runs (else the context's),
-// one evaluation per row (a failed row carrying its error); a plan of more rows than that,
-// or a caller that went away, is the error. Row takes no context, so the rows are the surface's
-// closures over its own and a model holding none is the typed fault NoRuntimeError.
+// Run tables the plan within the budget's runs (else the row contexts'), the rows on the
+// budget's jobs, each in a context of its own under the budget on the worker of the job
+// making it; one evaluation per row (a failed row carrying its error), and a plan of more
+// rows than that, or a caller that went away, is the error. A model that builds no context
+// of a run's own is the typed fault NoRuntimeError.
 func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
-	if !model.holds() {
+	if !model.builds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
 	}
-	rctx, err := model.Context()
+	first, err := model.NewContextOn(0, budget)
 	if err != nil {
 		return Result{}, err
 	}
 	runs := int64(budget.Runs)
 	if runs <= 0 {
-		runs = rctx.SweepRunBudget()
+		runs = first.SweepRunBudget()
 	}
+	fresh := func(job int) (*runtime.Context, error) { return model.NewContextOn(job, budget) }
 	started := time.Now()
-	table, err := rctx.RunSweep(ctx, q.Subject, q.Sweep.Plan, runs, q.Sweep.Row)
+	table, err := runtime.RunSweepWith(ctx, first, q.Subject, q.Sweep.Plan, runs, budget.Jobs, fresh, q.Sweep.Row)
 	if err != nil {
 		return Result{}, err
 	}

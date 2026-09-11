@@ -135,6 +135,12 @@ func (m *Model) EffectiveMultiplicityOf(sym *symbols.Symbol) Range {
 	return AssumedRange()
 }
 
+// AtMostOne reports whether the range is known to admit no more than one value,
+// as `[1]` and `[0..1]` do; an unknown or unbounded upper bound is not.
+func (r Range) AtMostOne() bool {
+	return r.Upper.Known && !r.Upper.Infinite && r.Upper.Value <= 1
+}
+
 // AllowsNone reports whether the range admits no value at all: a known lower
 // bound of 0, as `[0..1]` and `[*]` declare.
 func (r Range) AllowsNone() bool {

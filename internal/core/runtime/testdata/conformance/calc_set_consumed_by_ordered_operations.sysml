@@ -19,6 +19,6 @@ package test {
 		attribute second : Integer = s.elements#(2);
 		attribute asWritten : Boolean = s.elements == (30, 10, 20);
 		attribute asEnumerated : Boolean = s.elements == (10, 20, 30);
-		return : Integer[*] ordered = (scaled#(1), scaled#(2), scaled#(3), least, rest#(1), rest#(2), second, if asWritten ? 1 else 0, if asEnumerated ? 1 else 0);
+		return : Integer[*] ordered nonunique = (scaled#(1), scaled#(2), scaled#(3), least, rest#(1), rest#(2), second, if asWritten ? 1 else 0, if asEnumerated ? 1 else 0);
 	}
 }

@@ -154,8 +154,9 @@ sysml> %view Demo::summary
 ```
 
 `%engines` lists the analysis engines the build answers checks with — `run` for one execution,
-`explore` for every linearization, `sweep` for a table, `solve` for the SMT solver, each with
-the strongest evidence it can produce and whether its process was found — and `%engine` picks
+`explore` for every linearization, `sweep` for a table, `solve` for the SMT solver, one
+`tool:<name>` per external tool the manifest directory `OPENSYSML_TOOLS` names, each with the
+strongest evidence it can produce and whether its process was found — and `%engine` picks
 the one the checks that follow are put to (`%engine solve`, `%engine all` for every engine that
 covers the question, `%engine auto` for the default). Every verdict is followed by its
 `standing:` line, saying which engine answered and how strong the evidence is

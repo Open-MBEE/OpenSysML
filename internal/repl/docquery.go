@@ -368,8 +368,8 @@ func formatQueryValue(value queryexec.Value) string {
 	if integer, ok := value.Integer(); ok {
 		return strconv.FormatInt(integer, 10)
 	}
-	if real, ok := value.Real(); ok {
-		return semantics.FormatReal(real)
+	if realVal, ok := value.Real(); ok {
+		return semantics.FormatReal(realVal)
 	}
 	if boolean, ok := value.Boolean(); ok {
 		return strconv.FormatBool(boolean)

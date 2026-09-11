@@ -1,0 +1,35 @@
+model: cmd/pilot-exec-diff/testdata/models/scalar_classification.sysml
+
+# A scalar is of the type its representation states and of that type's
+# supertypes (KerML 1.0 §8.4.4.9.2: a finite real literal is a Rational; a
+# quotient is what IntegerFunctions::'/' returns, a Rational), so `4.0` and
+# `6 / 3` are no Integer, and `hastype` names that one type. The pilot cannot
+# resolve ScalarValues names inside a bare %eval, so each case reads a
+# model-level attribute bound to the expression.
+int-hastype-rational ::  :: Scalars::intHasRational
+int-istype-rational ::  :: Scalars::intIsRational
+whole-istype-integer ::  :: Scalars::wholeIsInteger
+whole-hastype-integer ::  :: Scalars::wholeHasInteger
+whole-hastype-rational ::  :: Scalars::wholeHasRational
+whole-hastype-real ::  :: Scalars::wholeHasReal
+real-istype-rational ::  :: Scalars::realIsRational
+real-hastype-rational ::  :: Scalars::realHasRational
+real-hastype-real ::  :: Scalars::realHasReal
+quotient-istype-integer ::  :: Scalars::quotientIsInteger
+quotient-istype-rational ::  :: Scalars::quotientIsRational
+quotient-hastype-rational ::  :: Scalars::quotientHasRational
+intdiv-hastype-rational ::  :: Scalars::intDivHasRational
+intdiv-hastype-real ::  :: Scalars::intDivHasReal
+realdiv-hastype-rational ::  :: Scalars::realDivHasRational
+rational-feature-istype-integer ::  :: Scalars::ratIsInteger
+rational-feature-hastype-integer ::  :: Scalars::ratHasInteger
+rational-feature-hastype-rational ::  :: Scalars::ratHasRational
+natural-feature-istype-natural ::  :: Scalars::natIsNatural
+natural-feature-hastype-natural ::  :: Scalars::natHasNatural
+natural-feature-hastype-integer ::  :: Scalars::natHasInteger
+infinity-istype-integer ::  :: Scalars::infIsInteger
+infinity-hastype-positive ::  :: Scalars::infHasPositive
+infinity-hastype-natural ::  :: Scalars::infHasNatural
+empty-istype-integer ::  :: Scalars::noneIsInteger
+int-as-rational ::  :: Scalars::intAsRational
+real-as-real ::  :: Scalars::realAsReal

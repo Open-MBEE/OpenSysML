@@ -105,9 +105,10 @@ func steppedRange(param string, from, to, step Value) SweepRange {
 	return SweepRange{Param: param, From: from, To: to, Step: step, HasStep: true}
 }
 
-// sweepCalcRun makes one ordinary calc run per row with the swept parameters bound.
-func sweepCalcRun(ctx *Context, sym *symbols.Symbol, scope *symbols.Scope) SweepRun {
-	return func(bindings []SweepBinding) (SweepRunResult, error) {
+// sweepCalcRun makes one ordinary calc run per row, in the row's context, with the
+// swept parameters bound.
+func sweepCalcRun(sym *symbols.Symbol, scope *symbols.Scope) SweepRun {
+	return func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
 		bound := make(map[string]Value, len(bindings))
 		for _, b := range bindings {
 			bound[b.Param] = b.Value
@@ -118,6 +119,11 @@ func sweepCalcRun(ctx *Context, sym *symbols.Symbol, scope *symbols.Scope) Sweep
 		}
 		return SweepRunResult{Outputs: []CalcOutputValue{{Name: "result", Value: value}}}, nil
 	}
+}
+
+// sweepIn is the one-job sweep with every row in ctx, as a test of a plan's rows takes it.
+func sweepIn(ctx *Context, stop context.Context, target string, plan SweepPlan, runs int64, run SweepRun) (SweepTable, error) {
+	return RunSweepWith(stop, ctx, target, plan, runs, 1, func(int) (*Context, error) { return ctx, nil }, run)
 }
 
 // resolvedPlan is the plan as the named calc's parameters type it, failing the
@@ -137,7 +143,7 @@ func runSweepOver(t *testing.T, ctx *Context, scope *symbols.Scope, name string,
 	t.Helper()
 	sym := calcNamed(t, scope, name)
 	plan = resolvedPlan(t, ctx, scope, name, plan)
-	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, 0, sweepCalcRun(ctx, sym, scope))
+	table, err := sweepIn(ctx, context.Background(), "test::"+name, plan, 0, sweepCalcRun(sym, scope))
 	if err != nil {
 		t.Fatalf("sweep of %s: %v", name, err)
 	}
@@ -154,10 +160,10 @@ func refuseSweep(t *testing.T, ctx *Context, scope *symbols.Scope, name string, 
 		return err
 	}
 	runs := 0
-	run := sweepCalcRun(ctx, sym, scope)
-	table, err := ctx.RunSweep(context.Background(), "test::"+name, plan, 0, func(bindings []SweepBinding) (SweepRunResult, error) {
+	run := sweepCalcRun(sym, scope)
+	table, err := sweepIn(ctx, context.Background(), "test::"+name, plan, 0, func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
 		runs++
-		return run(bindings)
+		return run(ctx, bindings)
 	})
 	if err == nil {
 		t.Fatalf("sweep of %s ran %d row(s); want a refusal", name, len(table.Rows))
@@ -464,20 +470,20 @@ func TestSweepTakesTheStatedRunLimit(t *testing.T) {
 	sym := calcNamed(t, scope, "Twice")
 	plan := resolvedPlan(t, ctx, scope, "Twice", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(3))}})
 	runs := 0
-	counted := func(bindings []SweepBinding) (SweepRunResult, error) {
+	counted := func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
 		runs++
-		return sweepCalcRun(ctx, sym, scope)(bindings)
+		return sweepCalcRun(sym, scope)(ctx, bindings)
 	}
-	_, err := ctx.RunSweep(context.Background(), "test::Twice", plan, 2, counted)
+	_, err := sweepIn(ctx, context.Background(), "test::Twice", plan, 2, counted)
 	if !errors.Is(err, ErrSweepBudget) || strings.Contains(err.Error(), MaxSweepRunsEnvVar) || runs != 0 {
 		t.Errorf("err = %v after %d run(s); want an ErrSweepBudget of 2 before any run, not naming %s", err, runs, MaxSweepRunsEnvVar)
 	}
-	table, err := ctx.RunSweep(context.Background(), "test::Twice", plan, 3, counted)
+	table, err := sweepIn(ctx, context.Background(), "test::Twice", plan, 3, counted)
 	if err != nil || len(table.Rows) != 3 {
 		t.Fatalf("sweep within 3 runs: %v, %d row(s); want the 3 rows", err, len(table.Rows))
 	}
 	sampled := resolvedPlan(t, ctx, scope, "Twice", SweepPlan{Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(9))}, Sampled: true, Samples: 3, Seed: 1})
-	if _, err := ctx.RunSweep(context.Background(), "test::Twice", sampled, 2, counted); !errors.Is(err, ErrSweepBudget) {
+	if _, err := sweepIn(ctx, context.Background(), "test::Twice", sampled, 2, counted); !errors.Is(err, ErrSweepBudget) {
 		t.Errorf("3 samples within 2 runs: %v; want ErrSweepBudget", err)
 	}
 }
@@ -1134,18 +1140,18 @@ func TestSamplesOverWideIntegerRangesSpreadOverThem(t *testing.T) {
 func TestSweepStopsWhenItsCallerGoesAway(t *testing.T) {
 	ctx, scope := sweepFixture(t)
 	sym := calcNamed(t, scope, "Twice")
-	run := sweepCalcRun(ctx, sym, scope)
+	run := sweepCalcRun(sym, scope)
 	stop, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ran := 0
-	counted := func(bindings []SweepBinding) (SweepRunResult, error) {
+	counted := func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
 		ran++
 		if ran == 2 {
 			cancel()
 		}
-		return run(bindings)
+		return run(ctx, bindings)
 	}
-	table, err := ctx.RunSweep(stop, "test::Twice", SweepPlan{
+	table, err := sweepIn(ctx, stop, "test::Twice", SweepPlan{
 		Ranges: []SweepRange{rangeOf("n", intOf(1), intOf(20))},
 	}, 0, counted)
 	if !errors.Is(err, context.Canceled) {
@@ -1376,7 +1382,7 @@ func TestSweepRefusesWideRealRangesPromptly(t *testing.T) {
 			SweepPlan{Ranges: []SweepRange{r, steppedRange("b", realOf(1), realOf(1), realOf(1))}})
 		done := make(chan error, 1)
 		go func() {
-			_, err := ctx.RunSweep(context.Background(), "test::Ratio", plan, 0, sweepCalcRun(ctx, sym, scope))
+			_, err := sweepIn(ctx, context.Background(), "test::Ratio", plan, 0, sweepCalcRun(sym, scope))
 			done <- err
 		}()
 		select {

@@ -1,7 +1,6 @@
 package semantics
 
 import (
-	"math"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -94,31 +93,6 @@ func PrimWiden(a, b PrimType) PrimType {
 	return b
 }
 
-// PrimTypeOfValue returns the narrowest scalar type a constant is a value of;
-// a whole number is an Integer (or Natural) whatever kind computed it.
-func PrimTypeOfValue(v Value) PrimType {
-	switch v.Kind {
-	case ValBool:
-		return PrimBoolean
-	case ValInt, ValReal:
-		if whole, ok := v.WholeNumber(); ok {
-			if whole >= 0 {
-				return PrimNatural
-			}
-			return PrimInteger
-		}
-		// A finite float is a ratio; an infinity is a Real only.
-		switch {
-		case math.IsNaN(v.Real):
-			return PrimUnknown
-		case math.IsInf(v.Real, 0):
-			return PrimReal
-		}
-		return PrimRational
-	}
-	return PrimUnknown
-}
-
 // scalarFQNs maps stdlib scalar qualified names to their lattice element.
 var scalarFQNs = map[string]PrimType{
 	"ScalarValues::Boolean":  PrimBoolean,
@@ -160,28 +134,6 @@ func (m *Model) ScalarLatticeElement(sym *symbols.Symbol) (PrimType, bool) {
 	}
 	prim, ok := m.scalarTable()[sym]
 	return prim, ok
-}
-
-// PositiveScalar reports whether sym is `ScalarValues::Positive`, whose values
-// exclude zero — a bound the lattice element it shares with Natural cannot carry.
-func (m *Model) PositiveScalar(sym *symbols.Symbol) bool {
-	if m == nil || sym == nil {
-		return false
-	}
-	for _, positive := range m.scalarSymbols("ScalarValues::Positive") {
-		if positive == sym {
-			return true
-		}
-	}
-	return false
-}
-
-// scalarSymbols are the library symbols the given qualified name indexes.
-func (m *Model) scalarSymbols(fqn string) []*symbols.Symbol {
-	if m.resolver == nil || m.resolver.Index() == nil {
-		return nil
-	}
-	return m.resolver.Index().LookupQualified(fqn)
 }
 
 // ScalarSymbol returns the library definition a lattice element stands for

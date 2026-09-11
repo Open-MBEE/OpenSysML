@@ -13,5 +13,5 @@
   bound it reached, and a run serving a universal claim is not cancelled by a witness. A count
   below one, or one that is no integer, is refused before anything runs. `-json` checks carry
   `workers` and `warming` (the milliseconds spent building them) under `plan`; the
-  human-readable report does not print them. Sweep rows still run one after another, in plan
-  order. The gRPC service takes its count from `OPENSYSML_JOBS`; no request field changed.
+  human-readable report does not print them. The gRPC service takes its count from
+  `OPENSYSML_JOBS`; no request field changed.

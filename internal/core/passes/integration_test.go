@@ -77,3 +77,7 @@ func TestPassesGoldenImportNoVisibility(t *testing.T) {
 // validator reports on the same fixture, at the same positions (matched run,
 // w6c): a regression in the conjugated end or portion prefix would add more.
 func TestPassesGoldenCorpusNotation(t *testing.T) { runPassesGolden(t, "corpus_notation") }
+
+// A multi-valued feature is unique unless declared nonunique: a const-decidable
+// repeat is a diagnostic, one only a run decides is left to the runtime.
+func TestPassesGoldenUniqueValues(t *testing.T) { runPassesGolden(t, "unique_values") }

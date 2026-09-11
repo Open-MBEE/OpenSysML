@@ -144,8 +144,9 @@ func (r *Registry) Explore(
 	return plan, nil
 }
 
-// Sweep puts a domain to the registry under the selection: row runs the subject once
-// per row of the plan in the model's context; the answered plan's result tables the rows.
+// Sweep puts a domain to the registry under the selection: row runs the subject once per
+// row of the plan, each in a context of its own the model builds; the answered plan's
+// result tables the rows.
 func (r *Registry) Sweep(
 	ctx context.Context,
 	model *Model,

@@ -1,0 +1,6 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "error": "type mismatch: operator '+' is not defined for a sequence and a Real"
+}
