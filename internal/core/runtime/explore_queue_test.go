@@ -330,3 +330,27 @@ func TestExploreWithFailsWhenFreshFails(t *testing.T) {
 		t.Fatalf("exploration %v, %v; want nil and fresh's error", x, err)
 	}
 }
+
+// A run that does not reach the choice points its prefix planned is a divergence, reported
+// at the run's position in plan order whatever job it ran on.
+func TestExploreWithReportsADivergedReplayAtItsRun(t *testing.T) {
+	idx, path := parseIndex(t, threeWritersModel)
+	run := actionRun(t, idx, path, "race")
+	var runs atomic.Int64
+	diverging := func(ctx *Context) (Outcome, error) {
+		if runs.Add(1) > 1 {
+			return Outcome{ctx: ctx}, nil
+		}
+		return run(ctx)
+	}
+	for _, jobs := range []int{1, exploreJobs} {
+		runs.Store(0)
+		x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), jobs, newExploreWorkers(idx).fresh, diverging)
+		if !errors.Is(err, ErrExplorationDiverged) || x != nil {
+			t.Fatalf("%d jobs: exploration %v, %v; want nil and a divergence", jobs, x, err)
+		}
+		if !strings.Contains(err.Error(), "run 2:") {
+			t.Fatalf("%d jobs: %v; want the divergence at run 2", jobs, err)
+		}
+	}
+}
