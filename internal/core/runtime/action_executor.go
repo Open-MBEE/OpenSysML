@@ -126,11 +126,9 @@ func newActionExecutorOf(
 		return nil, err
 	}
 
-	// A usage stating no body of its own performs the body of the action it
-	// names — the definition typing it — as a classifier behavior binding does.
-	action = ctx.actionBodySymbol(action)
-
-	tool, err := ctx.toolExecutionOf(performed)
+	// A usage stating no body of its own performs the body of the action it names — the
+	// definition typing it — as a classifier behavior binding does; under a tool, none.
+	action, tool, err := ctx.performanceBody(performed, action)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +159,8 @@ func newActionExecutorOf(
 	return exec, nil
 }
 
-// lowerPerformance lowers what a performance of action runs, in the scope the body was
-// written in: its token flow, or under a tool only its interface, the body never running.
+// lowerPerformance lowers what a performance of action runs, in the scope it was written
+// in: its token flow, or under a tool only its own interface, the body never running.
 func lowerPerformance(action *symbols.Symbol, tool *toolExecution) (*lower.ActionGraph, error) {
 	if tool != nil {
 		graph, err := lower.ToActionInterface(action.Decl, declScope(action))

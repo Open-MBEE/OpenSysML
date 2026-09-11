@@ -368,12 +368,11 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 // parameter carrying a ToolVariable is an input, every `out`/`inout` one an output. An unbound
 // input is ErrUnboundParameter unless optional, which the call omits; a ToolVariable name two
 // parameters carry is a ToolError, since the protocol keys by it. The performed declaration
-// names and types each parameter; the performance holds it under the body's name.
+// names and types each parameter, and the performance holds it under that name.
 func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	tool := execution.tool
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, exec: e}
 	namedBy := make(map[string]string)
-	bodyNames := e.bodyParameterNames()
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.performed) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
@@ -390,25 +389,25 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.performed))}
 		}
 		namedBy[variable] = param.Symbol.Name
-		heldAs := e.ctx.bodyParameterName(bodyNames, param.Symbol)
+		name := param.Symbol.Name
 		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
-			held, bound := e.root.data[e.root.key(heldAs)]
+			held, bound := e.root.data[e.root.key(name)]
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
-					ErrUnboundParameter, symbolText(e.performed), param.Symbol.Name)
+					ErrUnboundParameter, symbolText(e.performed), name)
 			}
 			if bound {
 				sent, err := toolInput(tool, param.Symbol, held)
 				if err != nil {
 					return nil, err
 				}
-				call.Inputs = append(call.Inputs, ToolInput{Variable: variable, Parameter: heldAs, Value: sent})
+				call.Inputs = append(call.Inputs, ToolInput{Variable: variable, Parameter: name, Value: sent})
 			}
 		}
 		if writes {
-			call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: heldAs, Declared: param.Symbol})
+			call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: name, Declared: param.Symbol})
 		}
 	}
 	sort.Slice(call.Inputs, func(i, j int) bool { return call.Inputs[i].Variable < call.Inputs[j].Variable })
@@ -416,44 +415,31 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	return call, nil
 }
 
-// bodyParameterNames is the set of parameter names the lowered body declares, which the
-// performance's frame is keyed by; empty when the performed declaration is the body.
-func (e *ActionExecutor) bodyParameterNames() map[string]bool {
-	if e.action == nil || e.action == e.performed {
-		return nil
+// performanceBody is the action a performance of performed, of the callee it names, holds
+// the features of: the body callee states, or performed itself under a tool, which runs
+// no body — the parameters a specialization adds are then the tool's to bind.
+func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols.Symbol, *toolExecution, error) {
+	tool, err := ctx.toolExecutionOf(performed)
+	if err != nil {
+		return nil, nil, err
 	}
-	names := make(map[string]bool)
-	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
-		if param.Symbol != nil && param.Symbol.Name != "" {
-			names[param.Symbol.Name] = true
-		}
+	if tool != nil {
+		return performed, tool, nil
 	}
-	return names
+	return ctx.actionBodySymbol(callee), nil, nil
 }
 
-// bodyParameterName is the name the body holds param under: the body parameter it
-// redefines (`in kk :>> k` is held as `k`), else its own name.
-func (ctx *Context) bodyParameterName(bodyNames map[string]bool, param *symbols.Symbol) string {
-	if bodyNames == nil || bodyNames[param.Name] {
-		return param.Name
+// performanceParameters are the parameters a performance of performed, of callee, takes
+// from its caller: performed's own under a tool, else callee's.
+func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]actionParameter, error) {
+	tool, err := ctx.toolExecutionOf(performed)
+	if err != nil {
+		return nil, err
 	}
-	seen := map[*symbols.Symbol]bool{param: true}
-	queue := []*symbols.Symbol{param}
-	for len(queue) > 0 {
-		sym := queue[0]
-		queue = queue[1:]
-		for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
-			if redefined == nil || seen[redefined] {
-				continue
-			}
-			if bodyNames[redefined.Name] {
-				return redefined.Name
-			}
-			seen[redefined] = true
-			queue = append(queue, redefined)
-		}
+	if tool != nil {
+		return ctx.actionParametersOf(performed), nil
 	}
-	return param.Name
+	return ctx.actionParametersOf(callee), nil
 }
 
 // toolInput is one parameter's value as the protocol carries it: a number, truth or string

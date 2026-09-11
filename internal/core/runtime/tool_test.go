@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -290,7 +291,7 @@ const scaleModel = `package test {
 	}
 	action def Scaled { out y : Real; action s : Scale { in k = 2.0; } bind y = s.y; }
 	action def Biased { out y : Real; action s : Scale { in k = 2.0; in bias = 1.0; } bind y = s.y; }
-	action def Unscaled { out y : Real; action s : Scale { in bias = 1.0; } bind y = s.y; }
+	action def Unscaled { out y : Real; action s : Scale { in bias :>> bias = 1.0; } bind y = s.y; }
 
 	action def TwoInputs {
 		metadata ToolExecution { toolName = "MC"; uri = "u"; }
@@ -515,9 +516,9 @@ func TestToolExecutionOnATypedUsage(t *testing.T) {
 	}
 }
 
-// A usage redefining the parameters under new names (`in kk :>> k`) is performed as the
-// body it names, whose frame holds them under the body's names: the tool still receives
-// the redefined input's value and its answer reaches the caller under either name.
+// A usage redefining the parameters under new names (`in kk :>> k`) holds them under its
+// own names: the tool receives the redefined input's value under the variable the
+// redefined parameter names, and its answer reaches the caller under either name.
 func TestToolExecutionOnRenamedParameters(t *testing.T) {
 	cases := []struct {
 		driver, input, output string
@@ -538,13 +539,13 @@ func TestToolExecutionOnRenamedParameters(t *testing.T) {
 				t.Fatalf("tool invoked %d times, want once", len(runner.calls))
 			}
 			call := runner.calls[0]
-			if len(call.Inputs) != 1 || call.Inputs[0].Variable != tc.input || call.Inputs[0].Parameter != "k" ||
+			if len(call.Inputs) != 1 || call.Inputs[0].Variable != tc.input || call.Inputs[0].Parameter != "kk" ||
 				!nearly(call.Inputs[0].Value.Value, toolReal(3)) {
-				t.Fatalf("inputs %+v, want %s = 3.0 held as k", call.Inputs, tc.input)
+				t.Fatalf("inputs %+v, want %s = 3.0 held as kk", call.Inputs, tc.input)
 			}
-			if len(call.Outputs) != 1 || call.Outputs[0].Variable != tc.output || call.Outputs[0].Parameter != "y" ||
+			if len(call.Outputs) != 1 || call.Outputs[0].Variable != tc.output || call.Outputs[0].Parameter != "yy" ||
 				call.Outputs[0].Declared == nil || call.Outputs[0].Declared.Name != "yy" {
-				t.Fatalf("outputs %+v, want %s held as y, declared by yy", call.Outputs, tc.output)
+				t.Fatalf("outputs %+v, want %s held as yy, declared by yy", call.Outputs, tc.output)
 			}
 			for _, name := range []string{"y", "s.yy"} {
 				if got := FormatValue(out[name]); got != "4.0" {
@@ -553,6 +554,103 @@ func TestToolExecutionOnRenamedParameters(t *testing.T) {
 			}
 		})
 	}
+}
+
+// specializedModel annotates specializations of actions stating a body, each adding
+// parameters of its own after the inherited ones it restates.
+const specializedModel = `package test {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+
+	action def Base { first start; then done; }
+	action def Sized { in n : Real { @ToolVariable { name = "n"; } } first start; then done; }
+
+	action def Run : Base {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in x : Real  { @ToolVariable { name = "x"; } }
+		out y : Real { @ToolVariable { name = "y"; } }
+	}
+	action def RunSized : Sized {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in n :>> n;
+		in x : Real  { @ToolVariable { name = "x"; } }
+		out y : Real { @ToolVariable { name = "y"; } }
+	}
+	action def Driving {
+		in a : Real = 2.0;
+		out y : Real;
+		action s : RunSized { in n = 7.0; in x = a; }
+		bind y = s.y;
+	}
+	action def DrivingUsage {
+		in a : Real = 2.0;
+		out y : Real;
+		action s : Base {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in x : Real = a { @ToolVariable { name = "x"; } }
+			out y : Real   { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+}`
+
+// An annotated action inheriting its body from a general one performs its own interface,
+// the parameters it adds included: directly and as a step, each is bound, sent to the tool
+// and answered under its own name.
+func TestToolExecutionOnASpecializationAddingParameters(t *testing.T) {
+	cases := map[string]struct {
+		driver string
+		inputs map[string]Value
+		sent   []string
+	}{
+		"direct":           {"Run", map[string]Value{"x": realOf(2)}, []string{"x"}},
+		"direct inherited": {"RunSized", map[string]Value{"x": realOf(2), "n": realOf(7)}, []string{"n", "x"}},
+		"nested":           {"Driving", nil, []string{"n", "x"}},
+		"nested usage":     {"DrivingUsage", nil, []string{"x"}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, specializedModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+			ctx.SetToolRunner(runner)
+			out, err := ctx.ExecuteActionWithInputs(calcNamed(t, scope, tc.driver), tc.inputs)
+			if err != nil {
+				t.Fatalf("ExecuteActionWithInputs: %v", err)
+			}
+			if len(runner.calls) != 1 {
+				t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+			}
+			call := runner.calls[0]
+			var sent []string
+			for _, in := range call.Inputs {
+				if in.Variable != in.Parameter {
+					t.Fatalf("input %+v held under another name than its own", in)
+				}
+				sent = append(sent, in.Variable)
+			}
+			if !slices.Equal(sent, tc.sent) {
+				t.Fatalf("inputs %+v, want %v", call.Inputs, tc.sent)
+			}
+			if len(call.Outputs) != 1 || call.Outputs[0].Variable != "y" || call.Outputs[0].Parameter != "y" {
+				t.Fatalf("outputs %+v, want y held as y", call.Outputs)
+			}
+			if got := FormatValue(out["y"]); got != "4.0" {
+				t.Fatalf("y = %s, want 4.0", got)
+			}
+		})
+	}
+	t.Run("added input unbound", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, specializedModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+		ctx.SetToolRunner(runner)
+		_, err := ctx.ExecuteActionWithInputs(calcNamed(t, scope, "RunSized"), map[string]Value{"n": realOf(7)})
+		if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), "input parameter x is bound by no argument") {
+			t.Fatalf("ExecuteActionWithInputs = %v, want ErrUnboundParameter for x", err)
+		}
+		if len(runner.calls) != 0 {
+			t.Fatalf("tool ran %d times for an action missing a required input", len(runner.calls))
+		}
+	})
 }
 
 // An answered value the parameter's declaration cannot hold is a malformed answer, whatever

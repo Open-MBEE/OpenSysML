@@ -157,7 +157,10 @@ func invokeBoundAction(
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 
-	params := ctx.actionParametersOf(sym)
+	params, err := ctx.performanceParameters(inv.performed(sym), sym)
+	if err != nil {
+		return nil, nil, err
+	}
 	in, out := parameterNames(params)
 	inputs := make(map[string]Value, len(in))
 	for _, name := range in {

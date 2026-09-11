@@ -375,7 +375,12 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 		if err != nil {
 			return nodePins{}, err
 		}
-		e.addFeatureDirections(pins.directions, &pins.aliases, e.ctx.actionBodySymbol(sym))
+		inv.step, _ = stepSymbol(graph, node)
+		held, _, err := e.ctx.performanceBody(inv.performed(sym), sym)
+		if err != nil {
+			return nodePins{}, err
+		}
+		e.addFeatureDirections(pins.directions, &pins.aliases, held)
 		for _, param := range e.ctx.actionParametersOf(sym) {
 			if param.IsResult && pins.result == "" {
 				pins.result = param.Name
@@ -1076,7 +1081,10 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 	e.ctx.actionDepth++
 	defer func() { e.ctx.actionDepth-- }()
 
-	params := e.ctx.actionParametersOf(sym)
+	params, err := e.ctx.performanceParameters(inv.performed(sym), sym)
+	if err != nil {
+		return err
+	}
 	in, out := parameterNames(params)
 	inputs := make(map[string]Value, len(in))
 	for _, name := range in {
