@@ -252,6 +252,15 @@ func (p *Parser) checkConstantSpelling(t lexer.Token) {
 	}
 }
 
+// checkVariationNotation rejects `variation` in a KerML file: the prefix is
+// SysML.xtext BasicDefinitionPrefix/RefPrefix only, absent from KerML.xtext.
+func (p *Parser) checkVariationNotation(t lexer.Token) {
+	if p.src.Kind() == source.KindKerML {
+		p.error(t.Span, "`variation` is SysML notation: the KerML grammar has no such prefix, "+
+			"so move the declaration to a .sysml file")
+	}
+}
+
 // prefixConflict reports t written after a prefix keyword the grammar makes it an
 // alternative of (SysML.xtext BasicDefinitionPrefix/RefPrefix, KerML.xtext BasicFeaturePrefix).
 func (p *Parser) prefixConflict(t lexer.Token, prior, alternatives string) {
@@ -266,9 +275,27 @@ func (m *featureMods) noteUsageOnly(t lexer.Token) {
 	}
 }
 
+// checkDefinitionPrefix rejects the usage-only prefix a definition was written with:
+// DefinitionPrefix admits `abstract`/`variation` (SysML.xtext:498), TypePrefix `abstract` (KerML.xtext:313).
+func (p *Parser) checkDefinitionPrefix(mods featureMods) {
+	if mods.usageOnly.Span.Len == 0 {
+		return
+	}
+	admitted := "'abstract' or 'variation'"
+	if p.src.Kind() == source.KindKerML {
+		admitted = "'abstract'"
+	}
+	p.error(mods.usageOnly.Span, fmt.Sprintf("'%s' is a usage prefix: a definition prefix admits only %s",
+		p.src.Text(mods.usageOnly.Span), admitted))
+}
+
 // abstractOrVariation names the prefix keyword of the pair already read.
 func (m *featureMods) abstractOrVariation() string {
-	if m.isVariation {
+	return abstractOrVariationWord(m.isVariation)
+}
+
+func abstractOrVariationWord(isVariation bool) string {
+	if isVariation {
 		return "variation"
 	}
 	return "abstract"
@@ -362,21 +389,33 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			return
 		}
 		switch t.KeywordID {
-		case "in":
-			cross.Direction = ast.DirIn
-		case "out":
-			cross.Direction = ast.DirOut
-		case "inout":
-			cross.Direction = ast.DirInOut
+		case "in", "out", "inout":
+			if cross.Direction != ast.DirNone {
+				p.prefixConflict(t, cross.Direction.String(), "one direction ('in', 'out' or 'inout')")
+			}
+			cross.Direction = directionOf(t.KeywordID)
 		case "derived":
 			cross.IsDerived = true
 		case "abstract":
+			if cross.IsAbstract || cross.IsVariation {
+				p.prefixConflict(t, abstractOrVariationWord(cross.IsVariation), "'abstract' or 'variation'")
+			}
 			cross.IsAbstract = true
 		case "variation":
+			p.checkVariationNotation(t)
+			if cross.IsAbstract || cross.IsVariation {
+				p.prefixConflict(t, abstractOrVariationWord(cross.IsVariation), "'abstract' or 'variation'")
+			}
 			cross.IsVariation = true
 		case "composite":
+			if cross.IsPortion {
+				p.prefixConflict(t, "portion", "'composite' or 'portion'")
+			}
 			cross.IsComposite = true
 		case "portion":
+			if cross.IsComposite {
+				p.prefixConflict(t, "composite", "'composite' or 'portion'")
+			}
 			cross.IsComposite = true
 			cross.IsPortion = true
 		case "constant", "const":
@@ -1009,6 +1048,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			if isModifier {
 				m.isVariable = true
 				m.prefixKeyword = varPrefixWord
+				m.noteUsageOnly(t)
 				p.advance()
 				continue
 			}
@@ -1024,6 +1064,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			m.isAbstract = true
 		case "variation":
+			p.checkVariationNotation(t)
 			if m.isAbstract || m.isVariation {
 				p.prefixConflict(t, m.abstractOrVariation(), "'abstract' or 'variation'")
 			}
@@ -1040,6 +1081,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		case "constant", "const":
 			p.checkConstantSpelling(t)
 			m.isConstant = true
+			m.noteUsageOnly(t)
 		case "event":
 			// Check if standalone usage: event <name>; (no typing/body)
 			// If followed by identifier/qualified name (not keyword), it's usage keyword
@@ -1049,6 +1091,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 				return
 			}
 			m.isEvent = true
+			m.noteUsageOnly(t)
 		case "individual":
 			// `individual` is a modifier orthogonal to the kind keyword (SysML v2
 			// §8.3.9.11), except before `def` or a typing/specialization token,
@@ -1071,6 +1114,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 				return
 			}
 			m.portion = ast.PortionSnapshot
+			m.noteUsageOnly(t)
 		case "public":
 			m.visibility = ast.VisibilityPublic
 		case "protected":
@@ -1179,6 +1223,7 @@ func (p *Parser) parsePortionPrefix(start int, mods *featureMods, prefixes *[]*a
 			p.error(tok.Span, "a usage declares at most one portion kind ('snapshot' or 'timeslice')")
 		}
 		mods.portion = portion
+		mods.noteUsageOnly(tok)
 		// The portion kind is part of the usage prefix, so prefix metadata may
 		// still follow it: `snapshot #Classified part s;`.
 		*prefixes = append(*prefixes, p.parsePrefixMetadata()...)
@@ -1316,12 +1361,20 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 		// (VariantMembership, SysML v2 §7.20).
 		if kw == "variant" {
 			mods.isVariant = true
+			mods.noteUsageOnly(t)
 			// The variant element carries its own usage prefix (SysML.xtext
 			// VariantUsageElement → OccurrenceUsagePrefix): `variant ref port a;`.
 			p.parseMoreFeatureModifiers(&mods)
 			prefixes = append(prefixes, p.parsePrefixMetadata()...)
 			if u := p.parsePortionPrefix(start, &mods, &prefixes); u != nil {
 				return applyPrefixes(u)
+			}
+			// `variant part def D;`: a VariantUsageElement is a usage (SysML.xtext:700),
+			// so the definition is read and rejected at `variant`.
+			if p.isKindKeyword(p.peek()) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "def" {
+				defKw := p.advance().KeywordID
+				p.advance() // 'def'
+				return applyPrefixes(p.parseDefinition(start, p.definitionKindOf(defKw), defKw, mods, false, true))
 			}
 		}
 		isAll := p.acceptSufficientAll()
@@ -1629,6 +1682,11 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 	if kw == "assoc" && kindKeyword == "struct" {
 		keyword = "assoc struct"
 	}
+	// A KerML classifier is read as a usage and classified later, but its
+	// prefix is still TypePrefix (KerML.xtext:313).
+	if p.src.Kind() == source.KindKerML && isKerMLClassifierDefinitionKeyword(kw) {
+		p.checkDefinitionPrefix(mods)
+	}
 	return applyPrefixes(p.parseUsage(start, p.usageKindOf(kw), keyword, mods, isAll))
 }
 
@@ -1637,15 +1695,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 // canonical one. defKeywordConsumed distinguishes SysML <kind> def from
 // KerML classifier declarations, which share DefinitionKind values.
 func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll bool, defKeywordConsumed bool) *ast.Definition {
-	// DefinitionPrefix admits only `abstract`/`variation` (SysML.xtext:498),
-	// TypePrefix only `abstract` (KerML.xtext:313); `ref`, a direction, … are usage prefixes.
-	if mods.usageOnly.Span.Len > 0 {
-		admitted := "'abstract' or 'variation'"
-		if p.src.Kind() == source.KindKerML {
-			admitted = "'abstract'"
-		}
-		p.error(mods.usageOnly.Span, fmt.Sprintf("'%s' is a usage prefix: a definition prefix admits only %s", mods.usageOnly.KeywordID, admitted))
-	}
+	p.checkDefinitionPrefix(mods)
 	def := &ast.Definition{
 		Kind:          kind,
 		Keyword:       keyword,

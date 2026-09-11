@@ -153,9 +153,6 @@ func (p *Parser) fill(n int) {
 			}
 			tok = p.lx.Next()
 		}
-		if tok.BadEscape {
-			p.reportBadEscapes(tok)
-		}
 		p.buf = append(p.buf, p.unreserved(tok))
 		if tok.Kind == lexer.EOF {
 			// keep EOF sticky: stop growing further with real tokens
@@ -164,8 +161,8 @@ func (p *Parser) fill(n int) {
 	}
 }
 
-// reportBadEscapes reports each backslash escape in a quoted token outside the
-// set its terminal admits (KerMLExpressions.xtext STRING_VALUE, UNRESTRICTED_NAME).
+// reportBadEscapes reports each escape a quoted token's terminal does not admit
+// (KerMLExpressions.xtext STRING_VALUE, UNRESTRICTED_NAME); it runs on consumption, not buffering.
 func (p *Parser) reportBadEscapes(tok lexer.Token) {
 	terminal := "a string"
 	if tok.Kind == lexer.UnrestrictedName {
@@ -235,6 +232,9 @@ func (p *Parser) advance() lexer.Token {
 	tok := p.buf[p.pos-p.base]
 	if tok.Kind != lexer.EOF {
 		p.pos++
+		if tok.BadEscape {
+			p.reportBadEscapes(tok)
+		}
 	}
 	return tok
 }

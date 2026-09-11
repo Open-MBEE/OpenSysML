@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "cmd/pilot-reject/testdata/negative",
         "origin": "ours",
-        "files": 296,
-        "digest": "sha256:470e64a554ace4709aff1c61d9d6fc31e8afa2fb6da9c2bad4aed2e761c047f0"
+        "files": 300,
+        "digest": "sha256:be4baab7b6f534dbf262c761d48abc367fe8b3d440390a232af1f0f66dde1df1"
       }
     ],
     "recorded": "2026-09-11"
   },
   "totals": {
-    "cases": 296,
-    "bothReject": 287,
+    "cases": 300,
+    "bothReject": 291,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -57,8 +57,8 @@
     },
     {
       "source": "grammar",
-      "cases": 101,
-      "bothReject": 101,
+      "cases": 105,
+      "bothReject": 105,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -870,6 +870,24 @@
       "pilotErrors": 3
     },
     {
+      "path": "grammar/g78-constant-on-definition.sysml",
+      "source": "grammar",
+      "rule": "'constant' is a usage prefix (SysML.xtext:560 RefPrefix); a definition prefix admits only 'abstract' or 'variation' (SysML.xtext:490 BasicDefinitionPrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g79-cross-feature-repeated-direction.sysml",
+      "source": "grammar",
+      "rule": "A cross feature's prefix writes a direction at most once; 'inout' is the single keyword for both (SysML.xtext:588 OwnedCrossFeature, :554 RefPrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 4
+    },
+    {
       "path": "grammar/k01-specializes-without-target.kerml",
       "source": "grammar",
       "rule": "OwnedSpecialization requires a general type after 'specializes' (KerML.xtext SpecializationPart).",
@@ -1080,6 +1098,24 @@
       "path": "grammar/k24-constant-in-kerml.kerml",
       "source": "grammar",
       "rule": "'constant' is the SysML spelling; the KerML feature prefix is 'const' (KerML.xtext:514 BasicFeaturePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/k25-const-on-classifier.kerml",
+      "source": "grammar",
+      "rule": "'const' is a feature prefix (KerML.xtext:514 BasicFeaturePrefix); a classifier's TypePrefix admits only 'abstract' (KerML.xtext:313).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 9
+    },
+    {
+      "path": "grammar/k26-variation-in-kerml.kerml",
+      "source": "grammar",
+      "rule": "'variation' is a SysML prefix (SysML.xtext:490 BasicDefinitionPrefix); no KerML prefix spells it (KerML.xtext:313 TypePrefix).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -2819,8 +2855,8 @@
       }
     ],
     "totals": {
-      "cases": 296,
-      "bothReject": 287,
+      "cases": 300,
+      "bothReject": 291,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

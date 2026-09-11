@@ -45,12 +45,13 @@ mandatory header — `// Invalid: <rule> (<citation>).` — naming the one rule 
 where that rule comes from; the harness refuses a corpus file without it. Cases were derived
 systematically from four sources, one subdirectory each:
 
-1. **`grammar/` — grammar mutation** (101 cases: 20 original, 45 added along the *unreached* axis
+1. **`grammar/` — grammar mutation** (105 cases: 20 original, 45 added along the *unreached* axis
    described below, 13 from a second sweep, 7 body-position cases
    `g61`–`g67` from the constraint census described under `semantic/`, the two second-result-expression
-   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the ten prefix and
-   body-context cases `g71`–`g77`, `k22`–`k24`: exclusive prefix alternatives written together
-   (`abstract variation`, `composite portion`), a repeated direction, `ref` on a definition, an
+   bodies `g69`/`k20`, the two name-before-keyword members `g70`/`k21`, and the fourteen prefix and
+   body-context cases `g71`–`g79`, `k22`–`k26`: exclusive prefix alternatives written together
+   (`abstract variation`, `composite portion`), a repeated direction (on an ordinary and on a
+   cross feature), `ref`, `constant` and `const` on a definition, `variation` in KerML, an
    invalid string escape, a signed multiplicity bound, a `transition` in a part def body and the
    SysML `constant` spelling in KerML). For productions our corpus exercises in the
    pinned Xtext grammars (`build/pilot-grammars/`, see the `testing-grammar-coverage` skill), the
@@ -115,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 296
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 300
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -163,14 +164,14 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-296 case(s): 287 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+300 case(s): 291 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
 | extensions | 9 | 9 | 0 | 0 | 0 |
-| grammar | 101 | 101 | 0 | 0 | 0 |
+| grammar | 105 | 105 | 0 | 0 | 0 |
 | semantic | 151 | 142 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
@@ -214,8 +215,8 @@ ends (`k55`–`k73`: a `subtype`, `subclassifier`, `typing`, `subset`, `redefini
 `inverse`, `disjoint` or `featuring` member whose source or target names a package, or a class or
 feature where the metaclass admits only a feature or a classifier — the pilot's typed
 cross-references fail to link, `Couldn't resolve reference to Type|Classifier|Feature '…'`, and the
-type tier now judges both ends of the member by the kinds the declaration clauses already require), and to 296 with the prefix and body-context cases (`g71`–`g77`, `k22`–`k24`, `x09`:
-the exclusive prefix alternatives, a repeated direction, `ref` on a definition, an invalid string
+type tier now judges both ends of the member by the kinds the declaration clauses already require), and to 300 with the prefix and body-context cases (`g71`–`g79`, `k22`–`k26`, `x09`:
+the exclusive prefix alternatives, a repeated direction (on an ordinary and a cross feature), `ref`, `constant` or `const` on a definition, `variation` in KerML, an invalid string
 escape, a signed multiplicity bound, `transition` in a part def body, the SysML `constant` spelling
 in KerML — each a syntax error in both tools — `expose` in a view def body, a notation extension
 the default mode reports as a `nonstandard-notation` warning and strict mode as an error; a
@@ -264,7 +265,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 296 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 300 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 
