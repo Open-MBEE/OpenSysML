@@ -10,6 +10,9 @@
   (KerML 1.0 §7.4.9.2): a bare `3` is an `Integer` and no `Level`, while a `Level` literal —
   written, held by a `Level` feature or produced by `3 as Level` — is a `Level` and not directly
   an `Integer`; a scalar-valued literal keeps that identity on the scalar it evaluates to, so
-  `Level::high hastype Level` is `true` (it was `false`) and `Level::high == 3` still holds. A
+  `Level::high hastype Level` is `true` (it was `false`) and `Level::high == 3` still holds; a
+  literal of another enumeration cast or written to `Level` takes the equal `Level` literal's
+  identity. Unnamed enumerated values (`enum def Size :> Real { = 60.0; }`) count, and an
+  enumeration with none refuses every constant. A
   plain `enum def Color { red; green; blue; }` classifies by identity with its literals, and a
   user-defined subtype such as `Even :> Integer` stays undecided against a bare `5`.

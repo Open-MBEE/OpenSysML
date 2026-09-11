@@ -1971,12 +1971,15 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		enum def Level :> Integer { low = 1; high = 3; }
 		enum def Grade :> Real { a = 4.0; b = 3.0; }
 		enum def Color { red; green; blue; }
+		enum def Rank :> Integer { one = 1; three = 3; }
+		enum def Size :> Real { = 60.0; = 70.0; }
 		attribute def Even :> Integer;
 		attribute two : Integer = 2;
 		attribute three : Integer = 3;
 		attribute lvl : Level = Level::high;
 		attribute held : Level = three;
 		attribute cast : Level[0..1] = 3 as Level;
+		attribute ranked : Rank = Level::high;
 		attribute c : Color = Color::red;
 	}`)
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
@@ -1991,6 +1994,10 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		"Level::high istype Integer": true, "Level::high istype Level": true, "Level::high istype Even": false,
 		"lvl hastype Level": true, "lvl hastype Integer": false, "lvl istype Integer": true,
 		"held hastype Level": true, "cast hastype Level": true,
+		"Level::high istype Rank": true, "Level::high hastype Rank": false,
+		"(Level::high as Rank) hastype Rank": true, "(Level::high as Rank) hastype Level": false,
+		"ranked hastype Rank": true, "ranked hastype Level": false, "Level::low istype Rank": true,
+		"60.0 istype Size": true, "65.0 istype Size": false, "(60.0 as Size) hastype Size": true, "60.0 hastype Size": false,
 		"(3 as Level) hastype Level": true, "(3 as Level) hastype Integer": false, "(3 as Level) == 3": true,
 		"Level::high == 3": true, "Level::high + 1 == 4": true, "(Level::high + 1) hastype Integer": true,
 		"4 istype Grade": true, "4.0 istype Grade": true, "2.5 istype Grade": false, "3 istype Grade": true,

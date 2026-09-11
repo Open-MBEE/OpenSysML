@@ -79,6 +79,16 @@ func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
 		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
 	wantOneValueDiag(t, level+`package P { attribute l : L::Level = "x"; }`,
 		"cannot bind String value to a feature typed by Integer")
+	wantOneValueDiag(t, `package L { enum def Flag :> ScalarValues::Boolean { off = false; on = true; } }
+		package P { attribute f : L::Flag = 1; }`,
+		"cannot bind Natural value to a feature typed by Boolean")
+	wantOneValueDiag(t, `package L { enum def Empty :> ScalarValues::Integer {} }
+		package P { attribute e : L::Empty = 1; }`,
+		"cannot bind 1 (an Integer) to a feature typed by Empty, which enumerates no values")
+	const size = `package L { enum def Size :> ScalarValues::Real { = 60.0; = 70.0; } }`
+	wantNoValueDiags(t, size+`package P { attribute s : L::Size = 60.0; }`)
+	wantOneValueDiag(t, size+`package P { attribute s : L::Size = 65.0; }`,
+		"cannot bind 65.0 (a Real) to a feature typed by Size, whose values are 60.0, 70.0")
 }
 
 func TestValueSubtypeInstanceConforms(t *testing.T) {

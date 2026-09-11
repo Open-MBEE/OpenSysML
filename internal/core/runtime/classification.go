@@ -110,7 +110,7 @@ func (ctx *Context) classifyNarrower(
 // enumeratedValue is the enumeration's literal value equal to value, if any: the enumerated
 // values are an enumeration's only instances (SysML v2 §8.3.7 EnumerationDefinition).
 func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, bool, error) {
-	for _, literal := range ctx.model.semantics.LiteralsOf(enum) {
+	for _, literal := range ctx.model.semantics.EnumeratedValuesOf(enum) {
 		enumerated, err := NewEvalContext(ctx, declScope(literal)).enumLiteralValue(literal)
 		if err != nil {
 			return Value{}, false, err
@@ -125,8 +125,10 @@ func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, b
 // asEnumerated holds a bare scalar as the enumerated value it equals when declared by an
 // enumeration, and any other value as it is; false when no enumerated value equals it.
 func (ctx *Context) asEnumerated(value Value, declared *symbols.Symbol) (Value, bool, error) {
-	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef ||
-		!isScalar(value) || value.EnumerationLiteral() != nil {
+	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef || !isScalar(value) {
+		return value, true, nil
+	}
+	if literal := value.EnumerationLiteral(); literal != nil && semantics.EnumerationOwning(literal) == declared {
 		return value, true, nil
 	}
 	return ctx.enumeratedValue(value, declared)

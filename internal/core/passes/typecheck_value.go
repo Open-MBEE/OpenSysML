@@ -99,10 +99,15 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 	if !ok {
 		return
 	}
+	literals := ec.model.EnumeratedValuesOf(enum)
+	if len(literals) == 0 {
+		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, which enumerates no values", got.text, enum.Name)
+		return
+	}
 	// A value of another kind than the enumerated ones is the lattice rules' to report.
 	var enumerated []string
 	sameKind := false
-	for _, literal := range ec.model.LiteralsOf(enum) {
+	for _, literal := range literals {
 		declared := semantics.LiteralValue(literal)
 		if declared == nil {
 			return
@@ -114,14 +119,22 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 		if want.equal(got) {
 			return
 		}
-		sameKind = sameKind || (want.scalar.Kind == semantics.ValInvalid) == (got.scalar.Kind == semantics.ValInvalid)
-		enumerated = append(enumerated, enum.Name+"::"+literal.Name+" = "+want.valueText())
+		sameKind = sameKind || want.comparableKind() == got.comparableKind()
+		enumerated = append(enumerated, enumeratedText(enum, literal, want))
 	}
 	if !sameKind {
 		return
 	}
 	ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are %s",
 		got.text, enum.Name, strings.Join(enumerated, ", "))
+}
+
+// enumeratedText names one enumerated value, `Level::high = 3`, or just `60.0` when unnamed.
+func enumeratedText(enum, literal *symbols.Symbol, want constElement) string {
+	if literal.Name == "" {
+		return want.valueText()
+	}
+	return enum.Name + "::" + literal.Name + " = " + want.valueText()
 }
 
 // literalPrimType returns the scalar type of a literal value, or PrimUnknown
@@ -203,6 +216,20 @@ func (e constElement) equal(o constElement) bool {
 		return ok && eq.Kind == semantics.ValBool && eq.Bool
 	}
 	return e.str == o.str
+}
+
+// comparableKind partitions elements into those equality can relate: numbers with
+// numbers, booleans with booleans, strings with strings, literals with literals.
+func (e constElement) comparableKind() string {
+	switch {
+	case e.literal != nil:
+		return "literal"
+	case e.scalar.Kind == semantics.ValBool:
+		return "boolean"
+	case e.scalar.Kind != semantics.ValInvalid:
+		return "number"
+	}
+	return "string"
 }
 
 // valueText is the element's value as written, without its kind.
