@@ -93,7 +93,7 @@ that a condition holds, and a run that shows it false is a *witnessed* violation
 a question put to an analysis engine — `run` here; `-engines` lists them and `-engine` picks
 one, or `all` to have every engine that covers the question answer it and compare their
 answers ([Analysis engines](../reference/cli.md#analysis-engines)). `-jobs <n>` (or
-`OPENSYSML_JOBS`) lets `n` runs of one check go at once — an exploration's linearizations, the
+`OPENSYSML_JOBS`) lets `n` runs of one check go at once — an exploration's linearizations, a sweep's rows, the
 engines `all` consults — without changing what is reported: the result is the same at any count
 ([Running in parallel](../reference/cli.md#running-in-parallel)).
 

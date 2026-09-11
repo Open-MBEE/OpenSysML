@@ -177,7 +177,7 @@ The engines this note names, each an adapter over code that exists or is designe
 |--------|---------|------|-----------|--------------|
 | `run` | `evaluate`, `sweep` (one row) | the interpreter under a fixed scheduling policy | *observed* | `runtime.Context`, `RunAnalysis`, `CheckConstraintOn`, the evaluator |
 | `explore` | `outcomes`, `holds` (concrete inputs), `sensitive` (from the outcome table) | every linearization within `runs`/`depth` | *proved* over schedules on `complete`; *witnessed* for a violation | `runtime.Explore` |
-| `sweep` | `sweep` | one `run` per row, rows in parallel | *observed* per row | `Context.RunSweep`'s plan; the row loop moves to the coordinator |
+| `sweep` | `sweep` | one `run` per row, rows in parallel | *observed* per row | `runtime.RunSweepWith`'s plan and work queue of rows, each row in a context of its own |
 | `solve` | `satisfiable` and its variants (explain, synthesize, configure, optimize) | an external SMT process | *proved* for `unsat` over the encoded fragment; *witnessed* for a `sat` model the evaluator confirms | `internal/core/solve`, `SolveReport`; the evaluator's confirmation of a `sat` model is the one addition |
 | `smt` | `holds`, `sensitive`, `outcomes` (as a bounded enumeration) | schedules and free inputs symbolically, within `k` moves | *proved* (with induction), *bounded*, *witnessed* | the [SMT design](smt-model-checking.md) |
 | `check` | `outcomes`, `holds`, deadlock | the executor with snapshots and partial-order reduction | *bounded*; *witnessed* | the [explicit-state design](bounded-model-checking.md) |
@@ -453,16 +453,32 @@ the first, and a state lock for the readers that run beside a command — comple
 getters — which an exploration releases while its plan runs on a worker and contexts of its own.
 What the explored runs name — the performers and subjects to instantiate, the held object owning
 a nested case, the exhibits declared — is resolved into a plan before the release, so a run reads
-nothing the state lock guards. A prompt run in the session's own context (`%run`, `%check`, `%sweep` on held objects) keeps
+nothing the state lock guards. A prompt run in the session's own context (`%run`, `%check`) keeps
 the state lock: its context is what the readers read, and releasing it there would be a shared
-`Context`.
+`Context`. A sweep releases it as an exploration does: what its rows name is resolved into a
+plan first, and every row runs in a context of its own — the subject, `self` and the argument
+objects instantiated there, the outputs, verdicts, subject and evaluations read back through
+it (`SweepRow.Context`), never through the session's. A `%sweep` on an object the session holds
+runs each row on an object of the held object's *declaration*, materialized afresh in the row's
+context, which is the held state as it was when the sweep began exactly when the held closure is
+**pristine**: named by a plain declaration (not `#id`, not a feature path through another
+object), not destroyed, no behavior started on it, no feature of it or of an object it holds
+written since it was materialized (`Context.Pristine`). Anything else is refused with the typed
+`SweptObjectError` naming the reason; the sweep never falls back to the session's context. A
+`Snapshot` cannot carry a held object across contexts — `Restore` restores its source context
+alone, and `Adopt` moves an object out of the session's — so the declaration is what a row can
+reproduce, and what it cannot reproduce it does not pretend to.
 
 ### Units of work
 
 A run is the unit the coordinator schedules. Each engine says what its runs are:
 
-- **`sweep`**: one row. Rows are independent by construction; the table is assembled in plan
-  order, never arrival order, so the output is the sequential output.
+- **`sweep`**: one row. Rows are independent by construction — the bindings are enumerated
+  once, in plan order, and each row runs in a fresh run-owned context over the plan's worker
+  (`SweepRun` takes the row's context); the table is assembled in plan order, never arrival
+  order, so the output is the sequential output. A row's context is kept with its row
+  (`SweepRow.Context`), so a reader — the REPL table, the gRPC response, `-json` — reads the
+  row's outputs, verdicts, subject and evaluations through the context that produced them.
 - **`explore`**: one linearization. `Explore` finds the next prefix from the choice points the
   last run recorded, which is sequential as written; the parallel form is a **work queue of
   prefixes**. The first run records every choice point it passed; every untried alternative at
@@ -496,7 +512,9 @@ A run is the unit the coordinator schedules. Each engine says what its runs are:
 
 The result of a plan does not depend on `Jobs`. This is a test, not an aspiration: every engine
 that fans out runs `-jobs 1` and `-jobs N` on the conformance corpus and the two `-json` reports
-are byte-identical. What makes it hold: results are assembled in plan order; `explore` keeps the
+are byte-identical apart from the figures that describe the run rather than the answer — the
+plan's `workers` and `warming`, a row's `milliseconds` and the table padding that follows it.
+What makes it hold: results are assembled in plan order; `explore` keeps the
 least witness; seeds are fixed in the plan; solver processes are given the same query text and a
 solver's `unknown` on one run and `unsat` on another (a timeout hit differently) is the one
 admitted source of variation, and it is reported as *not covered* with the timeout, so the
@@ -711,13 +729,42 @@ behavior unchanged until stage 4.
    siblings, a conformance case whose slow body is a bounded recursion) on one job against
    eight, in the runtime and through the CLI's `-json`, with the physical count bounded by
    `runs + jobs`; the cancellation bullet under concurrent `all`; the isolation bullet with
-   `Jobs` workers per plan; `make man-check`. **Known limitation:** `sweep` rows stay
-   sequential. Stage 2 fixed a row as the surface's closure over its own context (`SweepRun`
-   takes none), and every surface runs its rows in the one context it holds and reads their
-   outputs back through it; putting rows on the queue needs `SweepRun` to take a context per
-   row, the surfaces to re-instantiate the subject and arguments per row, and a rule for `%sweep`
-   on held objects, none of which this note yet fixes. The sweep determinism test holds as the
-   table is assembled in plan order regardless.
+   `Jobs` workers per plan; `make man-check`. *Implemented:* `sweep` rows on the work queue.
+   `SweepRun` takes the row's context, superseding stage 2's closure over the surface's;
+   `runtime.RunSweepWith(stop, first, target, plan, runs, jobs, fresh, run)` enumerates the
+   bindings once, hands rows to `Jobs` workers in plan order, runs the first row in the context
+   the bindings were enumerated in and every other in one `fresh(job)` builds, and tables each
+   row where the plan puts it, so the table does not depend on `Jobs` and `jobs=1` is the
+   former loop; `Runs` remains the row limit. A row keeps its context (`SweepRow.Context`) for
+   its readers. The `sweep` engine builds its contexts through the worker
+   (`Model.NewContextOn(job, budget)`), counted in `Workers` and `Warming`, and refuses a model
+   that can build none with the typed `NoRuntimeError`. The REPL, gRPC and CLI paths instantiate
+   a row's subject, `self`, positional and named arguments in the row's context and read its
+   outputs, verdicts, subject, evaluations and the objects they name back through it (gRPC's
+   `instances` table is shared by the rows and keyed by object identity, as before; rows
+   materialize the same graph, so their identities agree). `%sweep` on a held object follows the
+   rule under *What may be shared*: the declaration materialized afresh per row when the held
+   closure is pristine (`Context.Pristine`, `HeldStateError`), the typed `SweptObjectError`
+   otherwise, and the session's state lock released while the rows run. Cancellation: no row
+   starts once the caller's context is done; the rows in flight finish — the runtime has no hook
+   to interrupt a body, as under `ExploreWith` — and are discarded; the sweep's result is the
+   caller's error and no table, which is what one job reports when it meets the deadline
+   between two rows: an answer or an honest absence, never a partial table (*Determinism*).
+   Tests: every REPL, CLI and gRPC sweep golden and the trade-study sweeps on one job against
+   eight, in text and `-json`, apart from the run figures named under *Determinism*; a sweep of
+   a bounded recursion descending in its input, so rows arrive out of plan order; a case whose
+   body writes a feature of its subject and a `%sweep` on a held object whose rows write it,
+   every row seeing the declaration's value and the held object as it was; the refusals of an
+   object named by identity, reached through a feature, written by a run or running a behavior;
+   a deadline met mid-sweep carrying `context.DeadlineExceeded` and no rows; two sweeps on one
+   model on two goroutines under `-race`; a debugger session surviving a sweep. **Known
+   limitation:** `Context.Pristine` refuses every object running a behavior its type exhibits or
+   performs, one fresh from `%instantiate` included, because the runtime does not yet tell an
+   execution still as its start left it from one that has moved (an event taken, a step made, the
+   clock advanced past a wait); so a `%sweep`, or the CLI's `-instantiate` followed by `-sweep`,
+   on such an object is refused where the sequential form ran it in the session's context.
+   Admitting the unmoved case needs the executors to record the fact, which is a stage of its
+   own; the refusal names the behavior.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or

@@ -1126,6 +1126,19 @@ than the end of it, and [reference/repl-commands.md](../reference/repl-commands.
 refusal. Sampling is uniform over the range — the bundled library defines no probability
 distribution, so a distribution asked for by name is refused naming what is missing.
 
+Every row is a run of its own: it gets a fresh context, instantiates the case's subject and
+arguments there, and no row sees a value another row wrote. Rows run `%jobs` at a time and the
+table comes out in range order whatever order they finish in, so the table is the same at any
+count — only the `time` column, which is each row's own wall time, varies. A sweep on an object
+the session holds, as `An::ship` above, runs each row on a fresh `An::Ship` made from the same
+declaration, not on the held object, and the held object is untouched afterwards. That stands
+for the held object exactly while it is as its declaration made it, so a sweep over an object
+named by `#<id>` or reached through a feature of another object, or over one a run has written a
+feature of or destroyed, is refused naming the reason rather than run on shared state —
+`%instantiate` it afresh, or name it by its declaration, and sweep that. An object running a
+behavior its type exhibits or performs is refused too: its execution is one no other context
+carries, so no row could stand for it.
+
 ### Trade studies
 
 A trade study is an analysis case the library defines (`TradeStudies::TradeStudy`, SysML v2
