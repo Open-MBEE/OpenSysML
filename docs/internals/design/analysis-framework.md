@@ -692,8 +692,10 @@ behavior unchanged until stage 4.
    exploration takes them, committed and speculative runs, at most `Jobs` speculative runs
    discarded in a plan's lifetime, never more than `Runs + Jobs` executions and no more than
    `Runs` jobs put to work (the queue never holds more prefixes), the table merged by outcome
-   identity with the least witness. The witness cut of *Stopping early* is not applied:
-   `explore` answers `outcomes` alone, a universal question whose answer is every
+   identity with the least witness; a run's context is let go once its prefix is folded or
+   dropped, so the queue holds one per job in flight besides the witnesses' the result keeps,
+   and `Memory` times `Jobs` is indeed the fleet. The witness cut of *Stopping early* is not
+   applied: `explore` answers `outcomes` alone, a universal question whose answer is every
    linearization's outcome, so a violating run is an outcome of the table as under one job and
    cancels nothing; the cut is the mechanism the `Runs` cut already is (`insert` drops what moves
    past it, a started run among it discarded), for the existential questions a later stage puts
