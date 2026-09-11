@@ -78,9 +78,9 @@
     "filesFullyAgreeing": 337,
     "agreement": 34,
     "severityMismatch": 2,
-    "openSysMLOnly": 28,
+    "openSysMLOnly": 32,
     "pilotOnly": 671,
-    "openSysMLDiagnostics": 64,
+    "openSysMLDiagnostics": 68,
     "pilotDiagnostics": 707
   },
   "roots": [
@@ -222,9 +222,9 @@
         "filesFullyAgreeing": 49,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 6,
+        "openSysMLOnly": 10,
         "pilotOnly": 6,
-        "openSysMLDiagnostics": 6,
+        "openSysMLDiagnostics": 10,
         "pilotDiagnostics": 6
       },
       "files": [
@@ -302,6 +302,12 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
+              "line": 12,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
               "line": 15,
               "severity": "error",
               "category": "unmapped",
@@ -310,6 +316,24 @@
             {
               "line": 16,
               "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 41,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 42,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 43,
+              "severity": "warning",
               "category": "unmapped",
               "count": 1
             }
@@ -3972,6 +3996,11 @@
     },
     {
       "side": "opensysml",
+      "message": "comparing String with Natural is always false",
+      "count": 3
+    },
+    {
+      "side": "opensysml",
       "message": "1 (an Integer) is written at positions 1 and 2 of a unique feature",
       "count": 2
     },
@@ -4048,6 +4077,11 @@
     {
       "side": "opensysml",
       "message": "Duplicate of inherited member name 'start' from StateAction",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "operator '-' requires a numeric operand, found String",
       "count": 1
     },
     {
@@ -4247,9 +4281,9 @@
       "filesFullyAgreeing": 338,
       "agreement": 34,
       "severityMismatch": 2,
-      "openSysMLOnly": 27,
+      "openSysMLOnly": 31,
       "pilotOnly": 671,
-      "openSysMLDiagnostics": 63,
+      "openSysMLDiagnostics": 67,
       "pilotDiagnostics": 707
     },
     "findings": [

@@ -2327,16 +2327,17 @@ type invocationKey struct {
 // invocationTarget is what an invocation expression denotes, resolved once per
 // context; at most one implementation is set, in the order they are tried.
 type invocationTarget struct {
-	qualName    string
-	ambiguous   []*symbols.Symbol // the equally specific declarations the written name denotes
-	calc        *symbols.Symbol   // the declaration the written name resolves to, nil for none
-	builtin     builtinFunc       // the built-in the name denotes: the library declaration calc is
-	builtinName string            // the built-in's registered name, keying its declared signature
-	library     *libraryFunction  // the library function the name denotes: the library declaration calc is
-	shape       *calcShape        // calc's invocation interface, nil when it has none
-	predicate   bool              // calc is a constraint or requirement, applied as a predicate
-	names       []string          // the parameter each named argument binds, as calc's signature spells it
-	unbound     []error           // per named argument, why calc has no parameter for it; nil when it binds
+	qualName     string
+	ambiguous    []*symbols.Symbol // the equally specific declarations the written name denotes
+	undetermined []*symbols.Symbol // the declarations the static argument types leave open, settled by the values
+	calc         *symbols.Symbol   // the declaration the written name resolves to, nil for none
+	builtin      builtinFunc       // the built-in the name denotes: the library declaration calc is
+	builtinName  string            // the built-in's registered name, keying its declared signature
+	library      *libraryFunction  // the library function the name denotes: the library declaration calc is
+	shape        *calcShape        // calc's invocation interface, nil when it has none
+	predicate    bool              // calc is a constraint or requirement, applied as a predicate
+	names        []string          // the parameter each named argument binds, as calc's signature spells it
+	unbound      []error           // per named argument, why calc has no parameter for it; nil when it binds
 }
 
 // invocationTarget resolves what n denotes in this context's scope, memoized
@@ -2351,9 +2352,14 @@ func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget
 		return target
 	}
 	target := &invocationTarget{qualName: qualifiedNameToString(n.Type)}
-	if sel := passes.SelectInvocation(ec.ctx.model.resolver, ec.ctx.model.semantics, ec.scope, n, semantics.PerformsBehavior); sel.Ambiguous {
+	sel := passes.SelectInvocation(ec.ctx.model.resolver, ec.ctx.model.semantics, ec.scope, n, semantics.PerformsBehavior)
+	switch {
+	case sel.Ambiguous && sel.Undetermined:
+		target.undetermined = sel.Tied
+	case sel.Ambiguous:
 		target.ambiguous = sel.Tied
-	} else if sym := sel.Called(); sym != nil {
+	case sel.Called() != nil:
+		sym := sel.Called()
 		ec.ctx.implementInvocation(target, ec.ctx.inheritedFeature(key.running, sym))
 	}
 	if len(n.NamedArgs) > 0 {
@@ -2474,6 +2480,9 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	if len(target.ambiguous) > 0 {
 		return Value{}, ambiguousInvocationError(qualName, target.ambiguous)
 	}
+	if len(target.undetermined) > 0 {
+		return ec.evalUndeterminedInvocation(n, target)
+	}
 
 	// A receiver binds by position, so it has no meaning beside arguments that
 	// bind by name: reported rather than evaluated and dropped.
@@ -2527,8 +2536,13 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	if target.calc == nil && target.library == nil {
 		return Value{}, ec.unresolvedInvocation(n.Type, qualName)
 	}
-	// Every invocation goes through the one calc path, so an expression and a
-	// direct InvokeCalc bind parameters and trace identically.
+	return ec.applyInvocation(target, callArgs)
+}
+
+// applyInvocation applies target to arguments already evaluated. Every invocation goes
+// through the one calc path, so an expression and a direct InvokeCalc bind parameters
+// and trace identically.
+func (ec *EvalContext) applyInvocation(target *invocationTarget, callArgs calcArgs) (Value, error) {
 	if target.library != nil {
 		return target.library.invoke(ec.ctx, callArgs)
 	}
@@ -2603,6 +2617,92 @@ func chainText(n ast.Node) string {
 	return TraceLabel(n)
 }
 
+// evalUndeterminedInvocation evaluates a call the static argument types left open among
+// target.undetermined: the values' types select, as the checker's would had it known them.
+// A tie they leave is the run's to report; values fitting none run the first as a
+// mismatch would.
+func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target *invocationTarget) (Value, error) {
+	qualName := target.qualName
+	if n.Operand != nil && len(n.NamedArgs) > 0 {
+		return Value{}, fmt.Errorf("%w: %s is called with a receiver and named arguments", ErrReceiverWithNamedArgs, qualName)
+	}
+	exprs := passes.InvocationArgs(n)
+	positional := make([]Value, len(exprs))
+	namedValues := make([]Value, len(n.NamedArgs))
+	args := make([]semantics.Argument, 0, len(exprs)+len(n.NamedArgs))
+	for i, expr := range exprs {
+		val, err := ec.Eval(expr)
+		if err != nil {
+			return Value{}, err
+		}
+		positional[i] = val
+		args = append(args, ec.valueArgument(val, nil))
+	}
+	for i, named := range n.NamedArgs {
+		val, err := ec.Eval(named.Value)
+		if err != nil {
+			return Value{}, err
+		}
+		namedValues[i] = val
+		if named.Name != nil && len(named.Name.Parts) > 0 {
+			args = append(args, ec.valueArgument(val, named.Name))
+		}
+	}
+	sel := ec.ctx.model.semantics.SelectAmongArguments(ec.scope, target.undetermined, args, semantics.PerformsBehavior)
+	if sel.Ambiguous {
+		return Value{}, ambiguousInvocationError(qualName, sel.Tied)
+	}
+	settled := &invocationTarget{qualName: qualName}
+	ec.ctx.implementInvocation(settled, ec.ctx.inheritedFeature(ec.runningBehavior(), sel.Called()))
+	callee := settled.calc
+	fn, applied, err := ec.boundFunction(settled.calc, n.Type)
+	if err != nil {
+		return Value{}, err
+	}
+	if applied {
+		callee = fn.Function()
+	}
+	if len(n.NamedArgs) > 0 {
+		settled.names, settled.unbound = ec.ctx.boundParameterNames(ec.scope, callee, n.NamedArgs)
+	}
+	callArgs, err := bindEvaluatedArgs(qualName, positional, namedValues, settled)
+	if err != nil {
+		return Value{}, err
+	}
+	if applied {
+		return ec.invokeFunction(qualName, fn, callArgs)
+	}
+	return ec.applyInvocation(settled, callArgs)
+}
+
+// valueArgument types an evaluated argument for overload selection as the checker types a
+// literal: by the type the runtime classifies each element by (the one its write
+// conformance reads), a collection by the type they share; unknown when none can be named.
+func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semantics.Argument {
+	arg := semantics.Argument{Name: name}
+	elements := elementsOf(val)
+	if len(elements) == 0 {
+		arg.Empty = true
+		return arg
+	}
+	var common *symbols.Symbol
+	for _, el := range elements {
+		types, err := ec.ctx.valueTypes(ec.scope, el)
+		if err != nil || len(types) == 0 {
+			return arg
+		}
+		switch elem := types[0]; {
+		case common == nil, ec.ctx.model.semantics.Conforms(common, elem):
+			common = elem
+		case !ec.ctx.model.semantics.Conforms(elem, common):
+			return arg
+		}
+	}
+	arg.Type = common
+	arg.Prim = ec.ctx.model.semantics.PrimTypeOf(common)
+	return arg
+}
+
 // evalInvocationArgs evaluates an invocation's arguments in source order into the
 // calc arguments they bind: positional, or named against target's parameter names.
 // The notation keeps the two forms mutually exclusive.
@@ -2620,15 +2720,9 @@ func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, nam
 	}
 	named := make(map[string]Value, len(namedArgs))
 	for i, arg := range namedArgs {
-		name := target.names[i]
-		if name == "" {
-			return calcArgs{}, fmt.Errorf("unnamed argument in invocation of %s", qualName)
-		}
-		if err := target.unbound[i]; err != nil {
+		name, err := target.namedBinding(qualName, i, named)
+		if err != nil {
 			return calcArgs{}, err
-		}
-		if _, dup := named[name]; dup {
-			return calcArgs{}, fmt.Errorf("%w: %s binds parameter %q twice", ErrCalcArity, qualName, name)
 		}
 		val, err := ec.Eval(arg.Value)
 		if err != nil {
@@ -2637,6 +2731,39 @@ func (ec *EvalContext) evalInvocationArgs(qualName string, exprs []ast.Node, nam
 		named[name] = val
 	}
 	return calcArgs{named: named}, nil
+}
+
+// bindEvaluatedArgs binds arguments already evaluated in source order, as
+// evalInvocationArgs binds the ones it evaluates.
+func bindEvaluatedArgs(qualName string, positional, namedValues []Value, target *invocationTarget) (calcArgs, error) {
+	if len(namedValues) == 0 {
+		return calcArgs{positional: positional}, nil
+	}
+	named := make(map[string]Value, len(namedValues))
+	for i, val := range namedValues {
+		name, err := target.namedBinding(qualName, i, named)
+		if err != nil {
+			return calcArgs{}, err
+		}
+		named[name] = val
+	}
+	return calcArgs{named: named}, nil
+}
+
+// namedBinding is the parameter the i-th named argument binds, or why it binds none:
+// unnamed, no such parameter of the target, or a parameter already bound in named.
+func (target *invocationTarget) namedBinding(qualName string, i int, named map[string]Value) (string, error) {
+	name := target.names[i]
+	if name == "" {
+		return "", fmt.Errorf("unnamed argument in invocation of %s", qualName)
+	}
+	if err := target.unbound[i]; err != nil {
+		return "", err
+	}
+	if _, dup := named[name]; dup {
+		return "", fmt.Errorf("%w: %s binds parameter %q twice", ErrCalcArity, qualName, name)
+	}
+	return name, nil
 }
 
 // invokeCalcShapeStacked evaluates exprs onto the context's argument stack and

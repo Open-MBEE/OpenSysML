@@ -17,13 +17,15 @@ import (
 const msgBoundValueType = "cannot bind a value of type %s to a feature typed by %s"
 
 // checkValueConformance checks a bound value against the declaring feature's
-// type and multiplicity for the cases the scalar lattice does not cover: values
-// typed by a user-declared type, enumeration literals, and collections.
+// type for the cases the scalar lattice does not cover: values typed by a
+// user-declared type, enumeration literals, collections, and computed values —
+// an invocation's result, an operator's — judged by their static result types.
+// latticeTyped holds the elements the lattice typed, which are its to report.
 //
 // Like the scalar rules, every check is one-sided — it reports only when both
 // the expected and the actual property are known — so a partially typed model
 // never produces a false positive.
-func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
+func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node, latticeTyped map[ast.Node]bool) {
 	wants := ec.declaredTypeSymbols(declScope, d.relationships)
 	if len(wants) == 0 {
 		return
@@ -59,9 +61,14 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			}
 			continue
 		}
-		if result := ec.invocationResultParameter(valueScope, value); result != nil {
-			gots := ec.featureValueTypes(result)
-			if len(gots) > 0 && !(scalar && ec.anyScalar(gots)) && !ec.boundTypesConform(result, gots, wants) {
+		if computesValue(value) && !ec.composesMeasurementRef(valueScope, value) {
+			// The result the declaration types, none for a behavior declaring no
+			// result or a selection that settled on none: the value stays unjudged.
+			gots := ec.model.ExprResultTypes(valueScope, value)
+			if len(gots) == 0 || (scalar && ec.anyScalar(gots) && latticeTyped[value]) {
+				continue
+			}
+			if !ec.boundTypesConform(nil, gots, wants) {
 				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
 			}
 			continue
@@ -369,21 +376,42 @@ func (ec *exprChecker) anyScalar(types []*symbols.Symbol) bool {
 	return false
 }
 
-// boundTypesConform reports whether a bound feature, typed by gots, may be bound to
-// a feature typed by wants: the feature itself conforms to a want, or some got and
-// some want conform one way or the other (KerML 8.3.4.3, one compatible pairing).
+// boundTypesConform reports whether a value typed by gots may be bound to a feature
+// typed by wants: the bound feature itself conforms to a want, or some want
+// classifies the value — all of it or, its type being wider, some of it (KerML
+// 8.3.4.3, one compatible pairing). This is the run time's write-conformance
+// rule, so a value rejected here is one the run time would refuse too.
 func (ec *exprChecker) boundTypesConform(feature *symbols.Symbol, gots, wants []*symbols.Symbol) bool {
 	for _, want := range wants {
 		if ec.model.Conforms(feature, want) {
 			return true
 		}
-		for _, got := range gots {
-			if ec.model.Conforms(got, want) || ec.model.Conforms(want, got) {
-				return true
-			}
+		if ec.model.ClassifiesTypes(gots, want) != semantics.ClassifiesNone {
+			return true
 		}
 	}
 	return false
+}
+
+// computesValue reports whether value is computed — called or built by an
+// operator — so that it is judged by its static result type rather than by
+// a declaration of its own.
+func computesValue(value ast.Node) bool {
+	switch value.(type) {
+	case *ast.InvocationExpr, *ast.OperatorExpr:
+		return true
+	}
+	return false
+}
+
+// composesMeasurementRef reports an operator expression composing a unit or a
+// coordinate frame, which the dimension check judges against the target.
+func (ec *exprChecker) composesMeasurementRef(scope *symbols.Scope, value ast.Node) bool {
+	e, ok := value.(*ast.OperatorExpr)
+	if !ok {
+		return false
+	}
+	return ec.model.MeasurementRefExprType(scope, e) != nil || ec.model.CoordinateFrameExprType(scope, e) != nil
 }
 
 // unboundElementTypes is the types of those elements of a collection value none of whose

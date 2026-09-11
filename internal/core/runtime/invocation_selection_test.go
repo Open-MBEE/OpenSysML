@@ -35,6 +35,7 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 	t.Run("calc_call_typed_parameter_beats_untyped", testCalcCallTypedParameterBeatsUntyped)
 	t.Run("calc_call_explicit_anything_ties_with_untyped", testCalcCallExplicitAnythingTiesWithUntyped)
 	t.Run("calc_call_crossed_specificity_is_ambiguous", testCalcCallCrossedSpecificityIsAmbiguous)
+	t.Run("calc_call_undetermined_statically_is_settled_by_the_values", testCalcCallUndeterminedStaticallyIsSettledByTheValues)
 	t.Run("calc_call_repeated_named_argument_is_refused", testCalcCallRepeatedNamedArgumentIsRefused)
 	t.Run("calc_call_names_a_parameter_as_the_checker_does", testCalcCallNamesAParameterAsTheCheckerDoes)
 	t.Run("calc_call_selects_among_owned_inherited_and_recursive_import", testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport)
@@ -1262,6 +1263,64 @@ func testCalcCallCrossedSpecificityIsAmbiguous(t *testing.T) {
 	for _, want := range []string{"A::pick", "B::pick"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not name candidate %s", err, want)
+		}
+	}
+}
+
+// An argument of statically unknown type leaves the overloads tied for the checker;
+// the run selects by the values' types, and refuses values that still tie.
+func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
+	src := `
+		package A { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 1; } }
+		package B { private import ScalarValues::*; calc def pick { in x : String; return : Integer = 2; } }
+		package C { private import ScalarValues::*; calc def pick { in x : Integer; in y : Real; return : Integer = 3; } }
+		package D { private import ScalarValues::*; calc def pick { in x : Real; in y : Integer; return : Integer = 4; } }
+		package test {
+			private import A::*;
+			private import B::*;
+			private import C::*;
+			private import D::*;
+			calc choose { in v; pick(v) }
+			calc choosePair { in v; in w; pick(v, w) }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	rootScope := idx.DocumentRoot("<test>")
+	choose := findSymbolByName(rootScope, "choose", ast.DefCalc)
+	choosePair := findSymbolByName(rootScope, "choosePair", ast.DefCalc)
+	if choose == nil || choosePair == nil {
+		t.Fatal("choose calcs not found")
+	}
+	intVal := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
+	strVal := NewStringValue("s")
+	for _, tc := range []struct {
+		name string
+		arg  Value
+		want int64
+	}{{"integer", intVal, 1}, {"string", strVal, 2}} {
+		result, err := ctx.InvokeCalc(choose, []Value{tc.arg}, rootScope)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if result.Kind != ValConst || result.Const.Int != tc.want {
+			t.Fatalf("%s: result = %+v, want %d", tc.name, result, tc.want)
+		}
+	}
+	result, err := ctx.InvokeCalc(choosePair, []Value{intVal, intVal}, rootScope)
+	if err == nil {
+		t.Fatalf("expected an ambiguity error, calc returned %+v", result)
+	}
+	if !errors.Is(err, ErrAmbiguousInvocation) {
+		t.Fatalf("expected ErrAmbiguousInvocation, got: %v", err)
+	}
+	for _, want := range []string{"C::pick", "D::pick"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name candidate %s", err, want)
+		}
+	}
+	for _, unwanted := range []string{"A::pick", "B::pick"} {
+		if strings.Contains(err.Error(), unwanted) {
+			t.Errorf("error %q names %s, which the values do not fit", err, unwanted)
 		}
 	}
 }

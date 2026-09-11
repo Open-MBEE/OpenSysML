@@ -127,6 +127,9 @@ func (ec *exprChecker) markPerformed(inv *ast.InvocationExpr) {
 func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node, node *symbols.Symbol) {
 	reported := len(ec.diags)
 	want := ec.declaredPrimType(declScope, d.relationships)
+	// The elements the lattice typed are its to judge; the rest are judged by
+	// their static result types.
+	latticeTyped := make(map[ast.Node]bool)
 	// A collection literal binds elementwise, so each element is checked
 	// against the feature's type rather than the sequence as a whole.
 	for _, element := range valueElements(value) {
@@ -148,9 +151,10 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 		} else {
 			got = ec.infer(valueScope, element)
 		}
+		latticeTyped[element] = got != semantics.PrimUnknown
 		ec.checkScalarBinding(element, got, want)
 	}
-	ec.checkValueConformance(valueScope, declScope, d, value)
+	ec.checkValueConformance(valueScope, declScope, d, value, latticeTyped)
 	ec.checkValueDimension(valueScope, declScope, d, value)
 	ec.checkValueCount(valueScope, declScope, d, value)
 	// Uniqueness is judged last, as the run time judges it: a value refused for
@@ -542,6 +546,8 @@ func (ec *exprChecker) checkBodyMembers(scope *symbols.Scope, body *ast.BodyExpr
 	}
 }
 
+// inferQualified types a name as the scalar type it resolves to, or as the
+// effective type of the feature it names (declared, redefined, or read from its value).
 func (ec *exprChecker) inferQualified(scope *symbols.Scope, qn *ast.QualifiedName) semantics.PrimType {
 	if qn == nil {
 		return semantics.PrimUnknown
@@ -550,7 +556,7 @@ func (ec *exprChecker) inferQualified(scope *symbols.Scope, qn *ast.QualifiedNam
 	if !ok || sym == nil {
 		return semantics.PrimUnknown
 	}
-	return ec.model.PrimTypeOf(sym)
+	return ec.featurePrimType(sym)
 }
 
 // inferFeatureChain types a feature chain (`c.a`) as the feature its last
@@ -586,18 +592,16 @@ func chainHead(e *ast.FeatureChainExpr) ast.Node {
 	}
 }
 
-// featurePrimType returns the scalar type of the feature sym declares, falling
-// back to the type of the value it is bound to when it declares none: an `out a
-// = n + 1` of a calc carries its type in its default.
+// featurePrimType returns the scalar type sym declares, else that of its value
+// (`out a = n + 1`), else that of the features it redefines or subsets (`attribute :>> u;`).
 func (ec *exprChecker) featurePrimType(sym *symbols.Symbol) semantics.PrimType {
+	if alias, ok := ec.resolver.ResolveAliasTarget(sym); ok {
+		sym = alias
+	}
 	if prim := ec.model.PrimTypeOf(sym); prim != semantics.PrimUnknown {
 		return prim
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Value == nil || sym.OwnerScope == nil {
-		return semantics.PrimUnknown
-	}
-	if ec.chaining[sym] {
+	if !sym.IsFeature() || ec.chaining[sym] {
 		return semantics.PrimUnknown
 	}
 	if ec.chaining == nil {
@@ -605,11 +609,24 @@ func (ec *exprChecker) featurePrimType(sym *symbols.Symbol) semantics.PrimType {
 	}
 	ec.chaining[sym] = true
 	defer delete(ec.chaining, sym)
-	// The value belongs to the declaring scope, and is checked there in its own
-	// right, so this only reads its type: diagnostics raised here would be
-	// reported once per reader.
-	silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining}
-	return silent.infer(sym.OwnerScope, usage.Value)
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Value != nil && sym.OwnerScope != nil {
+		// The value belongs to the declaring scope, and is checked there in its own
+		// right, so this only reads its type: diagnostics raised here would be
+		// reported once per reader.
+		silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining}
+		if prim := silent.infer(sym.OwnerScope, usage.Value); prim != semantics.PrimUnknown {
+			return prim
+		}
+	}
+	for _, super := range ec.model.DirectSupertypes(sym) {
+		if !super.IsFeature() {
+			continue
+		}
+		if prim := ec.featurePrimType(super); prim != semantics.PrimUnknown {
+			return prim
+		}
+	}
+	return semantics.PrimUnknown
 }
 
 func (ec *exprChecker) inferOperator(scope *symbols.Scope, e *ast.OperatorExpr) semantics.PrimType {
@@ -870,14 +887,22 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 		return semantics.PrimUnknown
 	}
 	if sel.Ambiguous {
-		ec.diags = append(ec.diags, Diagnostic{
+		// A tie the argument types leave open is settled by the values at run time, so it
+		// advises; one between incomparable candidates is the model's to break.
+		diag := Diagnostic{
 			Severity: SeverityError,
 			Span:     e.Type.Span(),
 			Message: fmt.Sprintf("call of %s is ambiguous between %s",
 				e.Type.Parts[len(e.Type.Parts)-1].Text, candidateNames(sel.Tied)),
 			Code:   "invocation-ambiguous",
 			Source: "type",
-		})
+		}
+		if sel.Undetermined {
+			diag.Severity = SeverityWarning
+			diag.Message = fmt.Sprintf("call of %s is undetermined between %s: the argument types do not select one",
+				e.Type.Parts[len(e.Type.Parts)-1].Text, candidateNames(sel.Tied))
+		}
+		ec.diags = append(ec.diags, diag)
 		return semantics.PrimUnknown
 	}
 	// With no candidate the arguments fit, the first is checked as before and
@@ -914,11 +939,11 @@ func (ec *exprChecker) inferNodeInvocation(scope *symbols.Scope, e *ast.Invocati
 	if isInvocationBehaviorKind(sym.Kind) && !isBehaviorKind(sym.Kind) {
 		return semantics.PrimUnknown
 	}
-	params, ok := ec.effectiveInParameters(sym, node)
-	if !ok {
-		return semantics.PrimUnknown
+	// The result is typed by the declaration whether or not its input signature
+	// can be determined; only the arguments go unchecked when it cannot.
+	if params, ok := ec.effectiveInParameters(sym, node); ok {
+		ec.checkArguments(scope, invocation{e, sym, args, params}, considered)
 	}
-	ec.checkArguments(scope, invocation{e, sym, args, params}, considered)
 	if considered != nil {
 		return semantics.PrimUnknown
 	}
@@ -948,11 +973,9 @@ func (ec *exprChecker) inferChainInvocation(scope *symbols.Scope, e *ast.Invocat
 	if isInvocationBehaviorKind(sym.Kind) && !isBehaviorKind(sym.Kind) {
 		return semantics.PrimUnknown
 	}
-	params, ok := ec.effectiveInParameters(sym, node)
-	if !ok {
-		return semantics.PrimUnknown
+	if params, ok := ec.effectiveInParameters(sym, node); ok {
+		ec.checkArguments(scope, invocation{e, sym, args, params}, nil)
 	}
-	ec.checkArguments(scope, invocation{e, sym, args, params}, nil)
 	return ec.model.PrimTypeOf(ec.model.ResultParameterOf(sym))
 }
 

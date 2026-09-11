@@ -405,14 +405,48 @@ func TestInvocationOverloadRedeclaredLibraryInputs(t *testing.T) {
 		CodeUnboundParameter, "Required leaves parameter seq unbound")
 }
 
-// An argument of unknown type binds to any parameter, so the first candidate
-// in lookup order is kept and nothing new is reported.
+// An argument of unknown type keeps every candidate applicable: the call is selected only
+// when one remains or specificity settles it, else an advisory names the ones left open
+// (KerML 1.1 §8.3.4.8.8 binds each input to an argument; the types must decide which).
 func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
-	wantLibraryClean(t, `package P {`+numericImports+`
+	wantLibraryWarning(t, `package P {`+numericImports+`
 		attribute untyped;
 		attribute a = abs(untyped);
+	}`, "invocation-ambiguous",
+		"call of abs is undetermined between IntegerFunctions::abs, RealFunctions::abs, RationalFunctions::abs, ComplexFunctions::abs")
+	wantLibraryWarning(t, `package P {`+numericImports+`
+		attribute untyped;
 		attribute m = max(untyped, 2);
-	}`)
+	}`, "invocation-ambiguous",
+		"call of max is undetermined between IntegerFunctions::max, RealFunctions::max, RationalFunctions::max")
+
+	const model = `package P {
+		private import ScalarValues::*;
+		package A { calc def pick { in x : Integer; in n : Integer; return : Integer = 1; } }
+		package B { calc def pick { in x : Real; in n : Integer; return : Integer = 2; } }
+		package F { calc def pick { in x : Integer; in flag : Boolean; return : Integer = 3; } }
+		package D { calc def scale { in x; in by : Integer; return : Integer = 1; } }
+		package E { calc def scale { in x; in by : Real; return : Integer = 2; } }
+		package C {
+			private import A::*;
+			private import B::*;
+			private import F::*;
+			private import D::*;
+			private import E::*;
+			attribute untyped;
+			attribute %s
+		}
+	}`
+	// A known argument fitting one candidate alone selects it.
+	wantLibraryClean(t, fmt.Sprintf(model, `one = pick(untyped, true);`))
+	// Both fit the known argument; the unknown one settles nothing, so they tie.
+	wantLibraryWarning(t, fmt.Sprintf(model, `two = pick(untyped, 3);`), "invocation-ambiguous",
+		"call of pick is undetermined between P::A::pick, P::B::pick")
+	// Candidates typing the unknown argument alike are ordered by the known one.
+	wantLibraryClean(t, fmt.Sprintf(model, `s : Integer = scale(untyped, 3);`))
+	// Under an unknown argument the result type is unknown: no binding is judged.
+	wantLibraryWarning(t, fmt.Sprintf(model, `r : String = pick(untyped, 3);`), "invocation-ambiguous",
+		"call of pick is undetermined")
 }
 
 // A parameter declared without a type is typed Anything, the least specific type: a
@@ -490,8 +524,10 @@ func TestInvocationOverloadCrossedSpecificityIsAmbiguous(t *testing.T) {
 		"type.expr", "cannot bind String value to a feature typed by Integer")
 }
 
-// A calc the model declares under a library function's name shadows every
-// library declaration, imported or not, however its arguments are typed.
+// A called name is resolved as any name is (KerML 1.1 §8.2.3.5.4): the namespace
+// owning a calc of the name hides the library's imported into it (§7.2.5.4), while
+// an import in a nested namespace is that namespace's local resolution, ahead of
+// the enclosing model's calc — the library has no standing of its own either way.
 func TestInvocationOverloadModelShadowsLibrary(t *testing.T) {
 	wantLibraryDiag(t, `package P {`+numericImports+`
 		calc def abs { in x : String; return : String = x; }
@@ -502,6 +538,22 @@ func TestInvocationOverloadModelShadowsLibrary(t *testing.T) {
 		calc def sqrt { in x : String; return : String = x; }
 		attribute a = sqrt("x");
 	}`)
+	wantLibraryClean(t, `package P {
+		private import ScalarValues::*;
+		calc def abs { in x : String; return : String = x; }
+		package Inner {
+			private import RealFunctions::*;
+			attribute a : Real = abs(-2.5);
+		}
+	}`)
+	wantLibraryDiag(t, `package P {
+		private import ScalarValues::*;
+		calc def abs { in x : String; return : String = x; }
+		package Inner {
+			private import RealFunctions::*;
+			attribute a : Real = abs("x");
+		}
+	}`, "type.expr", "argument 1 of abs expects Real, found String")
 }
 
 // An action performed as a usage's value selects among actions only: a same-named
@@ -864,7 +916,8 @@ func TestInvocationOverloadCandidatesThroughInheritedImports(t *testing.T) {
 }
 
 // A collection literal is typed by the type its elements share, so overloads
-// differing by element type select; a mixed one selects as an unknown type does.
+// differing by element type select; a mixed one is of unknown type, which keeps
+// every candidate open.
 func TestInvocationOverloadSelectsByCollectionLiteralElementType(t *testing.T) {
 	const src = `package P {
 		private import ScalarValues::*;
@@ -878,8 +931,11 @@ func TestInvocationOverloadSelectsByCollectionLiteralElementType(t *testing.T) {
 	}`
 	wantLibraryClean(t, fmt.Sprintf(src, `("a", "b")`))
 	wantLibraryClean(t, fmt.Sprintf(src, `(1, 2, 3)`))
-	wantLibraryClean(t, fmt.Sprintf(src, `(1, "b")`))
+	wantLibraryWarning(t, fmt.Sprintf(src, `(1, "b")`), "invocation-ambiguous",
+		"call of count is undetermined between P::A::count, P::B::count")
+	// An empty sequence has no element to type: every candidate takes it alike.
 	wantLibraryClean(t, fmt.Sprintf(src, `()`))
+	wantLibraryClean(t, fmt.Sprintf(src, `null`))
 	wantLibraryDiag(t, fmt.Sprintf(src, `(true, false)`),
 		"type.expr", "argument 1 of count expects String, found Boolean (candidates: P::A::count, P::B::count)")
 

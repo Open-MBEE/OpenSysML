@@ -9,17 +9,19 @@ import (
 )
 
 // Argument is one invocation argument as the checker types it; Exact holds of
-// a literal, whose type is written out rather than only bounded.
+// a literal, whose type is written out rather than only bounded, and Empty of `null`
+// or `()`, which has no element to type and so fits every candidate alike.
 type Argument struct {
 	Prim  PrimType
 	Type  *symbols.Symbol // the declared type of the feature or result named, nil when none
 	Exact bool
+	Empty bool
 	Name  *ast.QualifiedName // the name a named argument binds, as written; nil for positional
 }
 
 // known reports whether the checker knows anything about the argument's type.
 func (a Argument) known() bool {
-	return a.Prim != PrimUnknown || a.Type != nil
+	return a.Prim != PrimUnknown || a.Type != nil || a.Empty
 }
 
 // ArgumentTyper types a call's arguments as the checker does, so a call read
@@ -73,6 +75,16 @@ func (m *Model) SelectCallAmong(scope *symbols.Scope, e *ast.InvocationExpr, nam
 		return &InvocationSelection{}
 	}
 	return m.selectAmong(scope, named, m.callArguments(scope, e), performs)
+}
+
+// SelectAmongArguments selects among named, in that order, for arguments typed as given:
+// how a run settles a call the static argument types left Undetermined, by the types of
+// the values. Not memoized.
+func (m *Model) SelectAmongArguments(scope *symbols.Scope, named []*symbols.Symbol, args []Argument, performs Performs) *InvocationSelection {
+	if m == nil {
+		return &InvocationSelection{}
+	}
+	return m.selectAmong(scope, named, args, performs)
 }
 
 // callArguments types e's arguments as the checker does when its typing is
@@ -171,7 +183,10 @@ type InvocationSelection struct {
 	Selected   *symbols.Symbol   // the one called; nil when none applies or they tie
 	Ambiguous  bool              // several applicable candidates are equally specific
 	Tied       []*symbols.Symbol // the applicable candidates none is more specific than, when Ambiguous
-	callable   *symbols.Symbol   // the first candidate the call site can run, when any is
+	// Undetermined holds of an Ambiguous selection an argument of unknown type leaves open,
+	// for the values to settle; false when candidates the known types fit tie.
+	Undetermined bool
+	callable     *symbols.Symbol // the first candidate the call site can run, when any is
 }
 
 // Resolved reports whether the name denotes at least one declaration.
@@ -204,7 +219,7 @@ type invocationKey struct {
 }
 
 // SelectInvocation chooses the declaration e calls: the most specific candidate the arguments
-// fit, or the first in lookup order when an argument's type is unknown. Memoized per node/scope.
+// fit, a tie the types cannot break left Ambiguous. Memoized per node/scope.
 func (m *Model) SelectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, args []Argument, performs Performs) *InvocationSelection {
 	if m == nil || e == nil || e.Type == nil {
 		return &InvocationSelection{}
@@ -296,19 +311,30 @@ func (m *Model) selectAmong(scope *symbols.Scope, named []*symbols.Symbol, args 
 		sel.Selected = applicable[0]
 		return sel
 	}
-	if !strict || !argumentsKnown(args) {
+	// An argument of unknown type keeps every applicable candidate: specificity selects among
+	// them all, or the values do at run time. With the types known, specificity decides among
+	// the candidates the arguments surely fit: exact matches, else widenings when no candidate
+	// takes them through an undetermined type; else lookup order.
+	undetermined := !argumentsKnown(args)
+	var decisive []int
+	switch {
+	case undetermined:
+		decisive = make([]int, len(applicable))
+		for i := range decisive {
+			decisive[i] = i
+		}
+	case !strict:
 		sel.Selected = applicable[0]
 		return sel
-	}
-	// Specificity decides only among candidates the arguments surely fit: exact matches, else
-	// widenings when no candidate takes them through an undetermined type; else lookup order.
-	decisive := indicesWithFit(fits, fitExact)
-	if len(decisive) == 0 && !containsFit(fits, fitOpen) {
-		decisive = indicesWithFit(fits, fitWiden)
-	}
-	if len(decisive) == 0 {
-		sel.Selected = applicable[0]
-		return sel
+	default:
+		decisive = indicesWithFit(fits, fitExact)
+		if len(decisive) == 0 && !containsFit(fits, fitOpen) {
+			decisive = indicesWithFit(fits, fitWiden)
+		}
+		if len(decisive) == 0 {
+			sel.Selected = applicable[0]
+			return sel
+		}
 	}
 	decisiveSigs := make([]invocationSignature, len(decisive))
 	for i, k := range decisive {
@@ -319,6 +345,7 @@ func (m *Model) selectAmong(scope *symbols.Scope, named []*symbols.Symbol, args 
 		return sel
 	}
 	sel.Ambiguous = true
+	sel.Undetermined = undetermined
 	for _, k := range m.unbeaten(scope, decisiveSigs, args) {
 		sel.Tied = append(sel.Tied, applicable[decisive[k]])
 	}
@@ -687,7 +714,8 @@ func (m *Model) unbeaten(scope *symbols.Scope, sigs []invocationSignature, args 
 }
 
 // atLeastAsSpecific reports whether a's parameter types conform to b's at every
-// parameter the arguments bind; an unknown signature is the most general.
+// parameter the arguments bind; an unknown signature is the most general. A parameter
+// an argument is not surely bound to settles nothing unless both candidates type it alike.
 func (m *Model) atLeastAsSpecific(scope *symbols.Scope, a, b invocationSignature, args []Argument) bool {
 	if !b.known {
 		return true
@@ -710,8 +738,19 @@ func (m *Model) atLeastAsSpecific(scope *symbols.Scope, a, b invocationSignature
 		if !m.parameterConforms(a.params[pa], b.params[pb]) {
 			return false
 		}
+		if !m.surelyBinds(arg, a.params[pa]) || !m.surelyBinds(arg, b.params[pb]) {
+			if !m.parameterConforms(b.params[pb], a.params[pa]) {
+				return false
+			}
+		}
 	}
 	return true
+}
+
+// surelyBinds reports whether arg's static type proves it binds p.
+func (m *Model) surelyBinds(arg Argument, p signatureParameter) bool {
+	fit, ok := m.argumentBinds(arg, p, bindStrict)
+	return ok && fit != fitOpen
 }
 
 // parameterConforms reports whether a's type conforms to b's: by declared type where
