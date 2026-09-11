@@ -208,7 +208,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-07`, 369 files)
+## Results (pilot `2026-07`, 370 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -217,9 +217,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 50 | 4 | 6 | 0 | 0 | 4 | 6 |
 | `testdata` | 17 | 10 | 38 | 55 | 34 | 1 | 3 | 20 |
-| `examples` | 35 | 26 | 2 | 575 | 0 | 1 | 1 | 574 |
+| `examples` | 36 | 26 | 8 | 1016 | 0 | 2 | 6 | 1014 |
 | `cmd/pilot-diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **369** | **338** | **57** | **636** | **34** | **2** | **21** | **600** |
+| **Total** | **370** | **338** | **63** | **1077** | **34** | **3** | **26** | **1040** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -381,9 +381,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **600** |
-| pilot diagnostics | 123 | **636** |
-| severity-only | 9 | **2** |
+| only pilot | 82 | **1040** |
+| pilot diagnostics | 123 | **1077** |
+| severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -510,10 +510,11 @@ Xpect assertions not present in these seven differential roots.
 
 Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 `units`, 1 `kind-mismatch`; `kerml-examples` 3 `unmapped`, 1 `multiplicity` (the
-[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax; `testdata` 2
+[unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
+1 `multiplicity` (the five warnings the MOSA demo draws on purpose, below); `testdata` 2
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 15 `unmapped`, 262 `kind-mismatch`, 287 `unresolved-reference` — of which
+`examples` 10 syntax, 15 `unmapped`, 510 `kind-mismatch`, 479 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -556,6 +557,22 @@ cousins, 7 of them warnings). The `examples` only-pilot column moves 302 → 572
 stays at 20 and our diagnostics at 65: two files the reference has no library for, plus the 48
 rows the other files carry.
 
+**`mosa-demo/mosa-demo.sysml` adds 440 pilot-only rows for the same reason: the reference has no
+`MOSA` library.** The modular ground vehicle imports the Modular Open Systems Approach vocabulary
+this project bundles ([the design record](mosa-library.md)), so every `#majorSystemComponent`,
+`#modularSystemInterface`, `#consensusStandard` or `#conformance` prefix, every `@DataRights` or
+`@InterfaceControl` annotation and every `: MajorSystemComponent` typing the reference cannot
+resolve cascades into 192 `unresolved-reference` and 248 `kind-mismatch` (23 of them warnings).
+The file parses cleanly on both sides. Our side reports the six warnings the demo is written to
+draw — a component without data rights, a proprietary item without a rationale, an interface
+satisfying no requirement, one naming no control authority, one conforming to no standard, and a
+connector between two components not designated an interface — five of them only-ours (4
+`unmapped`, 1 `multiplicity`) and the sixth a severity-only pair: the reference also flags the
+line of the interface without a standard, as an error, for the `#modularSystemInterface` prefix it
+cannot resolve. The `examples` only-pilot column moves 574 → 1014, only-ours 1 → 6, our
+diagnostics 2 → 8 and severity-only 1 → 2: three files the reference has no library for, plus the
+48 rows the other files carry.
+
 **`pilot-examples` is the row to read carefully: its total falls 68 → 63 and its mix barely
 resembles the old one.** All 31 syntax rows are gone, and `pilot-validation`'s 7 with them — the parser now
 parses notation we used to reject. But `unresolved-reference` rises 27 → 36, `unmapped` 5 → 17 and
@@ -587,14 +604,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **338 / 21 / 57** |
-| only pilot | **600** |
-| pilot diagnostics | **636** |
-| severity-only | **2** |
-| unmapped, our side | **19** |
+| overall: fully agreeing / only ours / our diagnostics | **338 / 26 / 63** |
+| only pilot | **1040** |
+| pilot diagnostics | **1077** |
+| severity-only | **3** |
+| unmapped, our side | **23** |
 | kerml-examples: only ours | **4** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **574** |
+| examples: only pilot | **1014** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **4** only-ours against 6
 only-pilot — the only root where the reference reports more than we do — with 50 of 58 files fully
@@ -735,6 +752,16 @@ root, 368 → **369** overall, and pilot diagnostics 632 → **636** / only pilo
 of them the `kind-mismatch` rows adjudicated below where a `calc def` is passed as an argument.
 Nothing else moves: the file draws no diagnostic from this implementation, so `fully agreeing`,
 `only ours` and `agreed` stay where the analysis walkthrough left them.
+
+### MOSA library round
+
+`examples/mosa-demo/mosa-demo.sysml` is one file added to the `examples` root: files 35 → **36** on
+the root, 369 → **370** overall. Our diagnostics rise 57 → **63** and only-ours 21 → **26**: the six
+warnings the demo draws on purpose from the warning-only MOSA checks, five of them only-ours and
+the sixth a severity-only pair (2 → **3**). Pilot diagnostics rise 636 → **1077** / only pilot
+600 → **1040**, all of it the reference's cascade from a `MOSA` library it does not ship, read
+the same way as the `OOSEM` cascade in the [Step 3 obligation round](#step-3-obligation-round).
+`fully agreeing` and `agreed` do not move.
 
 ## Adjudications
 
