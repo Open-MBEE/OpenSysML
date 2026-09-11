@@ -607,16 +607,16 @@ func (s *Session) joined() string {
 // second result reports whether any snippet of that language survives.
 func (s *Session) joinedFor(name string) (string, bool) {
 	parts := make([]string, len(s.snippets))
-	any := false
+	found := false
 	for i, sn := range s.snippets {
 		if sn.open || parseDocName(sn.origin) != name {
 			parts[i] = maskedText(sn.src)
 			continue
 		}
-		any = true
+		found = true
 		parts[i] = sn.src
 	}
-	return strings.Join(parts, "\n"), any
+	return strings.Join(parts, "\n"), found
 }
 
 // text is the buffer as it was submitted, masking nothing: what %save writes
@@ -832,7 +832,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	over := s.recordCarryover()
 	sysml, _ := s.joinedFor(docName)
 	s.ws.Open(docName, []byte(sysml), s.version)
-	if kerml, any := s.joinedFor(kermlDocName); any {
+	if kerml, found := s.joinedFor(kermlDocName); found {
 		s.ws.Open(kermlDocName, []byte(kerml), s.version)
 	} else {
 		s.ws.Remove(kermlDocName)

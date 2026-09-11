@@ -883,18 +883,18 @@ func scanObjectSegment(ref, rest string) (objectSegment, string, error) {
 	if !strings.HasPrefix(rest, "[") {
 		return seg, rest, nil
 	}
-	close := strings.IndexByte(rest, ']')
-	if close < 0 {
+	closeAt := strings.IndexByte(rest, ']')
+	if closeAt < 0 {
 		return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("the index after %s is not closed with ]", seg.text)}
 	}
-	digits := rest[1:close]
+	digits := rest[1:closeAt]
 	index, err := strconv.Atoi(digits)
 	if digits == "" || leadingDigits(digits) != digits || err != nil || index < 1 {
 		return seg, "", &ObjectRefError{Ref: ref, Detail: fmt.Sprintf("%s[%s] is not an index: elements are counted from 1", seg.text, digits)}
 	}
 	seg.index = index
-	seg.text += rest[:close+1]
-	return seg, rest[close+1:], nil
+	seg.text += rest[:closeAt+1]
+	return seg, rest[closeAt+1:], nil
 }
 
 // resolveObject is the one path every object-taking command resolves its

@@ -141,14 +141,14 @@ func diffReport(path, current, generated string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "--- %s (current)\n+++ %s (generated)\n", path, path)
 	for i := 0; i < len(currentLines) || i < len(generatedLines); i++ {
-		var old, new string
+		var old, fresh string
 		if i < len(currentLines) {
 			old = currentLines[i]
 		}
 		if i < len(generatedLines) {
-			new = generatedLines[i]
+			fresh = generatedLines[i]
 		}
-		if old == new {
+		if old == fresh {
 			continue
 		}
 		fmt.Fprintf(&b, "@@ line %d @@\n", i+1)
@@ -156,7 +156,7 @@ func diffReport(path, current, generated string) string {
 			fmt.Fprintf(&b, "-%s\n", old)
 		}
 		if i < len(generatedLines) {
-			fmt.Fprintf(&b, "+%s\n", new)
+			fmt.Fprintf(&b, "+%s\n", fresh)
 		}
 	}
 	return b.String()
