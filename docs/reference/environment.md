@@ -19,6 +19,8 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown` |
 | `OPENSYSML_SMT_CORE_BUDGET` | `30s` | How long `%explain` may spend reducing an unsat core to a minimal one, as a Go duration; past it the solver's own core is reported, said not to be necessarily minimal |
 | `OPENSYSML_SMT_MAX_CONFIGURATIONS` | `32` | How many variant selections `%configure … all` may report before saying the enumeration was cut short at the bound |
+| `OPENSYSML_TOOLS` | unset (no tools) | Directory of the **tool manifest**: one JSON file per external tool, each registering a `tool:<name>` analysis engine that runs the tool for the `ToolExecution`-annotated actions naming it; see [External tools](#external-tools) |
+| `OPENSYSML_TOOL_TIMEOUT` | `10s` | How long one tool process may take, as a Go duration (`5s`, `500ms`), after which the performance fails with a timeout; a value that is not a positive duration is the default |
 | `OPENSYSML_GRPC_INDEX_POOL` | `4` | Whether `sysml-grpc` builds the one shared standard library index ahead of the requests needing it; any positive value prewarms, `0` builds it on the first request instead |
 
 Every variable above uses the `OPENSYSML_` prefix. The eight that predate it
@@ -42,6 +44,93 @@ input, not only those two. The feature subset a backend must support, what z3 an
 measured to support, and how a backend that lacks a feature is reported are described in
 [1. Install: solver compatibility](../guide/01-install.md#solver-compatibility--pointing-the-driver-at-another-solver).
 Nothing else in the toolchain reads these variables, and the concrete evaluator needs no solver.
+
+## External tools
+
+An action of an analysis case carrying the `AnalysisTooling::ToolExecution` metadata (its
+`toolName` and `uri`), with `ToolVariable` on the parameters the tool knows by other names, is
+performed by that tool rather than by its body. The tools a `sysml` or `sysml-grpc` process may
+run are the entries of the directory `OPENSYSML_TOOLS` names, read once at startup; each
+becomes an engine `tool:<toolName>` that `-engines`, `%engines` and `ListEngines` list with its
+status, and a manifest that cannot be read is reported at startup, as a bad run bound is.
+
+**Manifest.** One JSON object per file, `*.json`; other files and subdirectories are ignored.
+
+```json
+{
+  "toolName": "ModelCenter",
+  "version": "14.1",
+  "executable": "/opt/modelcenter/bin/mc-batch",
+  "variables": ["deltaT", "power", "C_D", "C_F", "mass", "v0", "x0", "a", "v", "x"]
+}
+```
+
+`toolName` is the name a `ToolExecution` gives, matched exactly, and two files naming the same
+tool are refused. `version`, optional, is what the status column shows beside the executable's
+path.
+`executable` is a path — relative to the manifest file when it has a directory part — or a bare
+name looked up on `PATH`; an executable that is not found keeps the engine registered and listed
+as `unavailable: tool 'ModelCenter': executable … not found`, and a performance naming the
+tool is refused with that reason. `variables` are the `ToolVariable` names the tool accepts,
+non-empty and distinct; a parameter whose variable is not among them refuses the performance
+before the process is started. Unknown keys are refused.
+
+```bash
+$ OPENSYSML_TOOLS=~/tools sysml -engines
+engine            authority  answers      status
+explore           proved     outcomes     ready
+run               observed   evaluate     ready
+solve             proved     satisfiable  ready (z3 at /usr/bin/z3)
+sweep             observed   sweep        ready
+tool:ModelCenter  observed   compute      ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)
+```
+
+**Protocol.** Each performance of the annotated action starts the executable once, with no
+arguments, writes one JSON object to its standard input and reads one JSON object from its
+standard output. The request carries `toolName` and `uri` exactly as the model spells them, and
+`inputs` keyed by the `ToolVariable` name of each `in` and `inout` parameter (a parameter
+carrying no `ToolVariable` takes no part in the exchange), each a `value` — a JSON number,
+`true`/`false` or a string — and, for a quantity, the `unit` by its short name, unconverted
+(`s`, `kg`, `km/h` for a value the model wrote as `36 [SI::km / SI::h]`):
+
+```json
+{"toolName": "ModelCenter", "uri": "aserv://localhost/Vehicle/Equation1",
+ "inputs": {"deltaT": {"value": 1, "unit": "s"}, "mass": {"value": 1500, "unit": "kg"},
+            "v0": {"value": 36, "unit": "km/h"}, "C_D": {"value": 0.3}}}
+```
+
+The reply is `outputs`, keyed the same way with one entry per `out` and `inout` parameter, or
+`error` with a message:
+
+```json
+{"outputs": {"a": {"value": 3.0, "unit": "m/s**2"}, "v": {"value": 12.0, "unit": "m/s"}}}
+```
+
+```json
+{"error": "license server unreachable"}
+```
+
+An output `unit` is a SysML unit expression read in the action's scope, then in `SI` (`m/s`,
+`SI::km`, `'m⋅s⁻²'`); the value is converted to the coherent unit of the parameter's declared
+quantity kind (`36 km/h` bound to a `SpeedValue` is `10.0 [SI::'m/s']`). A unit the model does
+not declare, one of another dimension, one on a parameter that is no quantity (a `Real`), or
+one on a string or a truth is refused. The process
+must exit 0 within `OPENSYSML_TOOL_TIMEOUT` (default `10s`). A non-zero exit (its standard
+error is quoted), a reply that is not exactly one JSON object of this shape, a missing output,
+an output no parameter receives, a key repeated at any depth, a member not of this shape
+(`units` for `unit`), a `null` in place of a member, an `error` beside `outputs`, more
+than 16 MiB on either standard stream, or the timeout is a typed error that fails the performance, and with it the action, sweep row or analysis case
+performing it; no default value is ever invented, and nothing falls back to the action's body.
+The body is never run when the metadata is present: with `OPENSYSML_TOOLS` unset or the tool
+absent from it, the performance fails with `tool 'ModelCenter' is not registered; set
+OPENSYSML_TOOLS`.
+
+A tool's answer stands as the value of that performance at strength *observed*: nothing in
+OpenSysML knows what the tool should have computed. Two invocations with equal inputs answering
+different outputs are reported as a divergence in the run's notes (`%trace` summarizes them), so
+an exploration over a non-deterministic tool says its outcome table is not reproducible. See
+[Analysis engines](cli.md#analysis-engines) and the design note
+[`docs/internals/design/analysis-framework.md`](../internals/design/analysis-framework.md#external-tools).
 
 The budgets are what turn a run that would never finish into a reported error instead
 of a hang. They count different things (expression evaluations, action token

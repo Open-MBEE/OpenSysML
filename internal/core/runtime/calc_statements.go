@@ -134,7 +134,7 @@ func (h *calcStmtHost) effect(s lower.Effect) error {
 	if h.perfs == nil || s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%w: a calculation cannot state '%s'", ErrCalcSideEffect, s.Kind)
 	}
-	inv, ok := performedInvocation(s.Node)
+	inv, ok := performedInvocation(s)
 	if !ok {
 		return fmt.Errorf("%s: 'perform' names no action to perform", h.describe())
 	}

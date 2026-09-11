@@ -25,6 +25,9 @@ type Model struct {
 	// owns its own, and mu guards them as the plan's runs build them concurrently.
 	mu      sync.Mutex
 	workers []*workerSlot
+	// tools is the plan's tool runner and where it is attached, shared by the plan's fleets;
+	// nil for none.
+	tools *toolPlan
 }
 
 // Engine is one registered way of answering questions about a model.

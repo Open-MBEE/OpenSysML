@@ -378,10 +378,10 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 	}
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
-	idx := m.resolver.Index()
-	if idx == nil {
+	if m.resolver == nil || m.resolver.Index() == nil {
 		return m.aboutAnnots
 	}
+	idx := m.resolver.Index()
 	var seen map[*symbols.Symbol]bool
 	for _, doc := range idx.Documents() {
 		// A frozen document — the shared standard library above all — cached

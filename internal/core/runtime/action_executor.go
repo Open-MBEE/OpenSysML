@@ -25,7 +25,12 @@ type ActionExecutor struct {
 	// its subperformances; self is the object performing the action, whose
 	// connections route what it sends.
 	performances
-	action *symbols.Symbol
+	// action states the body performed; performed is the action as named, a usage
+	// stating no body of its own or the action itself, whose metadata binds the performance.
+	action, performed *symbols.Symbol
+	// tool is the ToolExecution annotating performed, whose tool performs the action in
+	// place of its body; nil for an action performed by its body.
+	tool *toolExecution
 	// occurrence is the action performance materialized for a performed usage. It
 	// holds what the action's own features hold, and data mirrors it.
 	occurrence *Instance
@@ -103,15 +108,14 @@ func (e *ActionExecutor) SetInputs(inputs map[string]Value) {
 // newActionExecutor creates an action executor. self is the object performing
 // the action, nil for an action no object performs.
 func newActionExecutor(ctx *Context, action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
-	return newActionExecutorForOccurrence(ctx, action, self, nil)
+	return newActionExecutorOf(ctx, action, action, self, nil)
 }
 
-// newActionExecutorForOccurrence creates an executor whose action's own features
-// are held by the given performance occurrence, nil for an action performed
-// through no usage of an object.
-func newActionExecutorForOccurrence(
+// newActionExecutorOf creates an executor performing performed, the action as named, by
+// running action's body; occurrence holds the performance's own features, nil without one.
+func newActionExecutorOf(
 	ctx *Context,
-	action *symbols.Symbol,
+	performed, action *symbols.Symbol,
 	self *Instance,
 	occurrence *Instance,
 ) (*ActionExecutor, error) {
@@ -122,21 +126,22 @@ func newActionExecutorForOccurrence(
 		return nil, err
 	}
 
-	// A usage stating no body of its own performs the body of the action it
-	// names — the definition typing it — as a classifier behavior binding does.
-	action = ctx.actionBodySymbol(action)
-
-	// Lower AST to execution graph, in the scope the action's body was written
-	// in, so that everything the graph carries is evaluated where it was declared.
-	graph, err := lower.ToActionGraph(action.Decl, declScope(action))
+	// A usage stating no body of its own performs the body of the action it names — the
+	// definition typing it — as a classifier behavior binding does; under a tool, none.
+	action, tool, err := ctx.performanceBody(performed, action)
 	if err != nil {
-		return nil, fmt.Errorf("lower action graph: %w", err)
+		return nil, err
 	}
-	lower.StartFlow(graph)
+	graph, err := lowerPerformance(action, tool)
+	if err != nil {
+		return nil, err
+	}
 
 	exec := &ActionExecutor{
 		performances: performances{ctx: ctx, self: self},
 		action:       action,
+		performed:    performed,
+		tool:         tool,
 		occurrence:   occurrence,
 		graph:        graph,
 		tokens:       make([]Token, 0),
@@ -152,6 +157,24 @@ func newActionExecutorForOccurrence(
 	ctx.clock.attach(exec)
 
 	return exec, nil
+}
+
+// lowerPerformance lowers what a performance of action runs, in the scope it was written
+// in: its token flow, or under a tool only its own interface, the body never running.
+func lowerPerformance(action *symbols.Symbol, tool *toolExecution) (*lower.ActionGraph, error) {
+	if tool != nil {
+		graph, err := lower.ToActionInterface(action.Decl, declScope(action))
+		if err != nil {
+			return nil, fmt.Errorf("lower action interface: %w", err)
+		}
+		return graph, nil
+	}
+	graph, err := lower.ToActionGraph(action.Decl, declScope(action))
+	if err != nil {
+		return nil, fmt.Errorf("lower action graph: %w", err)
+	}
+	lower.StartFlow(graph)
+	return graph, nil
 }
 
 // performanceFeatures lists the graph's attributes, then the inherited ones none

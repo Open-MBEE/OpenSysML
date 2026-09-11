@@ -80,6 +80,18 @@ func (p UnitProduct) Clone() UnitProduct {
 	return out
 }
 
+// ShortSpelling respells each declared unit by its short name (`km/h` for `SI::km/SI::h`),
+// so the spelling does not depend on the scope that named it; an undeclared one keeps its text.
+func (p UnitProduct) ShortSpelling() UnitProduct {
+	out := p.Clone()
+	for i, f := range out.Powers {
+		if f.Unit != nil {
+			out.Powers[i].Name = unitNameSpelling(unitShortName(f.Unit))
+		}
+	}
+	return out
+}
+
 // Times returns the product of two unit products.
 func (p UnitProduct) Times(q UnitProduct) UnitProduct { return combineProducts(p, q, 1) }
 
@@ -289,6 +301,20 @@ func (m *Model) UnitProductOfExpr(scope *symbols.Scope, node ast.Node) (UnitProd
 		}
 		return sym, true
 	})
+}
+
+// UnitOfExpr reads a unit expression as a quantity carries it: its text, the named units
+// it is a product of, and its reduction to base units.
+func (m *Model) UnitOfExpr(scope *symbols.Scope, node ast.Node) (Unit, error) {
+	term, err := m.UnitTermOfExpr(scope, node)
+	if err != nil {
+		return Unit{}, err
+	}
+	product, err := m.UnitProductOfExpr(scope, node)
+	if err != nil {
+		return Unit{}, err
+	}
+	return Unit{Text: UnitExprText(node), Product: product, Term: term}, nil
 }
 
 // UnitProductOfExprBy reads a unit expression, identifying each named unit by

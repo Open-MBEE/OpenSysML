@@ -38,6 +38,19 @@ func (m *Model) CoherentUnit(dim Dimension) (Unit, bool) {
 	return Unit{Text: product.String(), Product: product, Term: term}, true
 }
 
+// CoherentUnitFor is the coherent unit of dim spelt by the declared unit the
+// feature's type admits (`SI::m`, `SI::'m/s'`), else over the base units.
+func (m *Model) CoherentUnitFor(dim Dimension, declared *symbols.Symbol) (Unit, bool) {
+	coherent, ok := m.CoherentUnit(dim)
+	if !ok {
+		return Unit{}, false
+	}
+	if synonym, ok := m.coherentSynonym(coherent.Term, declared); ok {
+		return synonym, true
+	}
+	return coherent, true
+}
+
 // systemBaseUnits maps each base quantity to the base unit SI::si measures it in,
 // read once from the library's `baseUnits` list.
 func (m *Model) systemBaseUnits() map[*symbols.Symbol]*symbols.Symbol {

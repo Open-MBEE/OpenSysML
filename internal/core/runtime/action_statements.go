@@ -96,7 +96,7 @@ func (h *actionStmtHost) effect(s lower.Effect) error {
 	if s.Kind != lower.EffectPerform {
 		return fmt.Errorf("%s: '%s' in a body is not executable", h.describe(), s.Kind)
 	}
-	inv, ok := performedInvocation(s.Node)
+	inv, ok := performedInvocation(s)
 	if !ok {
 		return fmt.Errorf("%s: 'perform' names no action to perform", h.describe())
 	}
