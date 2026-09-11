@@ -700,6 +700,30 @@ func TestSnapshotRestoreForgetsCalcOutputsWorkedOutSince(t *testing.T) {
 	snapshot.Release()
 }
 
+// Restoring a snapshot brings the trace back to the mark: entries cleared since
+// return, recording turned off since is on again, and the next entry is recorded
+// at the nesting the statement open at the mark holds.
+func TestSnapshotRestoreBringsTheTraceBackToTheMark(t *testing.T) {
+	ctx, _ := contextForSource(t, sharedIdentitiesSrc)
+	tr := NewTraceRecorder()
+	ctx.SetTrace(tr)
+	tr.RecordStatement("first")
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	tr.RecordStatement("second")
+	tr.Clear()
+	tr.Disable()
+	snapshot.Restore()
+	tr.RecordStatement("third")
+	want := "stmt first\n" + traceIndent + "stmt third"
+	if got := tr.String(); got != want {
+		t.Fatalf("trace after restore:\n%s\nwant:\n%s", got, want)
+	}
+	snapshot.Release()
+}
+
 func TestSnapshotRefusesMidRun(t *testing.T) {
 	resolver := resolve.New(symbols.NewIndex())
 	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10)

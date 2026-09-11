@@ -51,13 +51,33 @@ type runCapture struct {
 	activations, runs  int64
 	run                *runState
 	trace              *TraceRecorder
-	traceEntries       int
-	traceDepth         int
+	traced             traceCapture
 	evaluations        *evaluationLog
 	pendingBehaviors   []*ObjectBehavior
 	heldBehaviors      mapState[*ObjectBehavior, bool]
 	clockRun           *runState
 	bodyCoroutinesMade int
+}
+
+// traceCapture is a recorder's state at the mark. Entries are only appended to or
+// replaced wholesale, so the slice header at the mark still reads what they were.
+type traceCapture struct {
+	entries []string
+	enabled bool
+	depth   int
+}
+
+func captureTrace(tr *TraceRecorder) traceCapture {
+	if tr == nil {
+		return traceCapture{}
+	}
+	return traceCapture{entries: tr.entries, enabled: tr.enabled, depth: tr.depth}
+}
+
+func (c traceCapture) restore(tr *TraceRecorder) {
+	if tr != nil {
+		tr.entries, tr.enabled, tr.depth = c.entries, c.enabled, c.depth
+	}
 }
 
 // runStateCapture is one run's state by value: its budget spent, its notes, its
@@ -227,14 +247,12 @@ func (ctx *Context) captureRun() runCapture {
 		activations: ctx.activations, runs: ctx.runs,
 		run:                ctx.run,
 		trace:              ctx.trace,
+		traced:             captureTrace(ctx.trace),
 		evaluations:        ctx.evaluations,
 		pendingBehaviors:   slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:      captureMap(ctx.heldBehaviors),
 		clockRun:           ctx.clockRun.state,
 		bodyCoroutinesMade: ctx.bodyCoroutinesMade,
-	}
-	if ctx.trace != nil {
-		c.traceEntries, c.traceDepth = len(ctx.trace.entries), ctx.trace.depth
 	}
 	return c
 }
@@ -249,12 +267,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.activations, ctx.runs = c.activations, c.runs
 	ctx.run = c.run
 	ctx.trace = c.trace
-	if c.trace != nil && len(c.trace.entries) > c.traceEntries {
-		c.trace.entries = c.trace.entries[:c.traceEntries]
-	}
-	if c.trace != nil {
-		c.trace.depth = c.traceDepth
-	}
+	c.traced.restore(c.trace)
 	ctx.evaluations = c.evaluations
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
