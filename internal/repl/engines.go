@@ -11,7 +11,7 @@ import (
 
 // budgetFor is the session's bounds as a question of kind under policy states them.
 func (s *Session) budgetFor(policy runtime.SchedulePolicy, kind analysis.Kind) analysis.Budget {
-	return analysis.BudgetOf(s.budgets, policy, kind)
+	return analysis.BudgetOf(s.budgets, policy, kind, s.jobs)
 }
 
 // Engine returns the engine selection every question the session asks is made under.

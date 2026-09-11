@@ -88,14 +88,14 @@ func (s *Session) refuseExplore() error {
 
 // exploreVerdict explores one behavior, run performing it on a context of its
 // own, and tables every distinct outcome with the witness run's trace. The
-// session's state is released while the plan runs, so run may read only what the
-// command lock keeps still: declarations and settings, never the session's objects.
-// What a run names is resolved into a freshPlan before the release.
+// session's state is released while the plan runs, and its runs go concurrently on the
+// session's jobs, so run may read only what the command lock keeps still: declarations
+// and settings, never the session's objects. What a run names is resolved into a
+// freshPlan before the release.
 func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (runtime.Outcome, error)) Verdict {
 	policy, _ := s.exploring()
 	s.browseIndex()
 	s.nameTable()
-	var traces [][]string
 	model := &analysis.Model{
 		Semantics: func() (*runtime.Model, error) {
 			model, err := s.runtimeModel()
@@ -115,26 +115,32 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 			return ctx, nil
 		},
 	}
-	traced := func(ctx *runtime.Context) (runtime.Outcome, error) {
-		outcome, err := run(ctx)
-		if rec := ctx.Trace(); rec != nil {
-			traces = append(traces, rec.Entries())
-		}
-		return outcome, err
-	}
 	selection := s.engine
 	s.state.Unlock()
-	plan, err := s.explore(subject, policy, selection, model, traced)
+	plan, err := s.explore(subject, policy, selection, model, run)
 	s.state.Lock()
 	if err != nil {
 		return standing(unresolvedVerdict(subject, err.Error()), &plan)
 	}
-	return standing(explorationVerdict(subject, plan.Result.Exploration(), traces), &plan)
+	return standing(explorationVerdict(subject, plan.Result.Exploration()), &plan)
+}
+
+// witnessTrace is the trace the witness run of an outcome recorded, none when it kept none.
+func witnessTrace(o runtime.ExploredOutcome) []string {
+	ctx := o.Outcome.Context()
+	if ctx == nil {
+		return nil
+	}
+	rec := ctx.Trace()
+	if rec == nil {
+		return nil
+	}
+	return rec.Entries()
 }
 
 // explorationVerdict tables one row per distinct outcome, then how it ended;
 // a failed run or a budget hit leaves it unresolved.
-func explorationVerdict(subject string, x *runtime.Exploration, traces [][]string) Verdict {
+func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 	if x == nil {
 		return unresolvedVerdict(subject, "exploration of "+subject+" reached no outcome")
 	}
@@ -170,11 +176,12 @@ func explorationVerdict(subject string, x *runtime.Exploration, traces [][]strin
 	lines = append(lines, tableLines(cells)...)
 	lines = append(lines, x.Status())
 	for i, o := range x.Outcomes {
-		if o.WitnessRun > len(traces) || len(traces[o.WitnessRun-1]) == 0 {
+		trace := witnessTrace(o)
+		if len(trace) == 0 {
 			continue
 		}
 		lines = append(lines, fmt.Sprintf("trace of outcome %d's witness (run %d):", i+1, o.WitnessRun))
-		for _, entry := range traces[o.WitnessRun-1] {
+		for _, entry := range trace {
 			lines = append(lines, tracePrefix+entry)
 		}
 	}

@@ -2,6 +2,9 @@ package analysis
 
 import (
 	"errors"
+	"fmt"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -9,7 +12,7 @@ import (
 
 // Worker is one model-derived runtime part — resolver, semantic model and the runtime's memo
 // tables — over the shared frozen index; all memoize into plain maps, so a worker serves one
-// plan's runs and never another plan's, and every run of the plan reuses what it memoized.
+// plan's runs, one at a time, and never another plan's.
 type Worker struct {
 	Model *runtime.Model
 	// Warming is the time building the worker took: the cost of one more worker.
@@ -32,12 +35,25 @@ func (e *NoRuntimeError) Error() string {
 // Is matches ErrNoRuntime.
 func (e *NoRuntimeError) Is(target error) bool { return target == ErrNoRuntime }
 
-// plan is the model as one plan holds it: the same surface, a worker of the plan's own.
+// plan is the model as one plan holds it: the same surface and tool runner, workers of the
+// plan's own.
 func (m *Model) plan() *Model {
 	if m == nil {
 		return nil
 	}
-	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh}
+	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh, tools: m.tools}
+}
+
+// ErrJob is the typed error for a run asking for a worker at a negative job index.
+var ErrJob = errors.New("job index must not be negative")
+
+// toolPlan is the tool runner one plan puts on every context its runs use, and the surface
+// contexts carrying it, shared by every fleet the plan makes; mu guards the attachments.
+type toolPlan struct {
+	runner runtime.ToolRunner
+
+	mu       sync.Mutex
+	attached []toolAttachment
 }
 
 // toolAttachment is a surface context carrying the plan's tool runner, and the one it carried.
@@ -49,31 +65,35 @@ type toolAttachment struct {
 // compute sets the plan's tool runner, put on every context its runs use.
 func (m *Model) compute(tools runtime.ToolRunner) {
 	if m != nil {
-		m.tools = tools
+		m.tools = &toolPlan{runner: tools}
 	}
 }
 
 // attach puts the plan's tool runner on a context the surface holds, remembering what it
 // carried so release can give it back.
 func (m *Model) attach(ctx *runtime.Context) {
-	for _, held := range m.attached {
+	m.tools.mu.Lock()
+	defer m.tools.mu.Unlock()
+	for _, held := range m.tools.attached {
 		if held.ctx == ctx {
 			return
 		}
 	}
-	m.attached = append(m.attached, toolAttachment{ctx: ctx, previous: ctx.ToolRunner()})
-	ctx.SetToolRunner(m.tools)
+	m.tools.attached = append(m.tools.attached, toolAttachment{ctx: ctx, previous: ctx.ToolRunner()})
+	ctx.SetToolRunner(m.tools.runner)
 }
 
 // release gives every surface context its own tool runner back when the plan ends.
 func (m *Model) release() {
-	if m == nil {
+	if m == nil || m.tools == nil {
 		return
 	}
-	for _, held := range m.attached {
+	m.tools.mu.Lock()
+	defer m.tools.mu.Unlock()
+	for _, held := range m.tools.attached {
 		held.ctx.SetToolRunner(held.previous)
 	}
-	m.attached = nil
+	m.tools.attached = nil
 }
 
 // builds reports whether the model can make a context of a run's own.
@@ -81,27 +101,55 @@ func (m *Model) builds() bool {
 	return m != nil && m.Semantics != nil && m.Fresh != nil
 }
 
-// Worker is the plan's worker, built on first use and shared by every run of the plan.
-func (m *Model) Worker() (*Worker, error) {
-	if m.worker != nil {
-		return m.worker, nil
+// Worker is the plan's first worker, the one every run of a plan under one job is made on.
+func (m *Model) Worker() (*Worker, error) { return m.WorkerAt(0) }
+
+// WorkerAt is the plan's worker for job, built on first use and kept for every later run
+// under that job; the plan's jobs run concurrently, each on a worker of its own.
+func (m *Model) WorkerAt(job int) (*Worker, error) {
+	if job < 0 {
+		return nil, fmt.Errorf("%w: %d", ErrJob, job)
 	}
 	if !m.builds() {
 		return nil, ErrNoRuntime
+	}
+	m.mu.Lock()
+	for len(m.workers) <= job {
+		m.workers = append(m.workers, &workerSlot{})
+	}
+	slot := m.workers[job]
+	m.mu.Unlock()
+	slot.mu.Lock()
+	defer slot.mu.Unlock()
+	if slot.worker != nil {
+		return slot.worker, nil
 	}
 	started := time.Now()
 	model, err := m.Semantics()
 	if err != nil {
 		return nil, err
 	}
-	m.worker = &Worker{Model: model, Warming: time.Since(started)}
-	return m.worker, nil
+	slot.worker = &Worker{Model: model, Warming: time.Since(started)}
+	return slot.worker, nil
 }
 
-// NewContext builds a run's own context on the plan's worker, taking the budget's Steps as
-// MaxSteps and Memory as MaxElements; a zero field, like every other bound, keeps Fresh's.
+// workerSlot is one job's place in the plan's fleet: its worker once built, and the lock
+// under which the job that first asks builds it while the other jobs warm theirs.
+type workerSlot struct {
+	mu     sync.Mutex
+	worker *Worker
+}
+
+// NewContext builds a run's own context on the plan's first worker, taking the budget's Steps
+// as MaxSteps and Memory as MaxElements; a zero field, like every other bound, keeps Fresh's.
 func (m *Model) NewContext(budget Budget) (*runtime.Context, error) {
-	worker, err := m.Worker()
+	return m.NewContextOn(0, budget)
+}
+
+// NewContextOn builds a run's own context on the plan's worker for job, under the budget as
+// NewContext takes it.
+func (m *Model) NewContextOn(job int, budget Budget) (*runtime.Context, error) {
+	worker, err := m.WorkerAt(job)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +168,7 @@ func (m *Model) NewContext(budget Budget) (*runtime.Context, error) {
 		return nil, err
 	}
 	if m.tools != nil {
-		ctx.SetToolRunner(m.tools)
+		ctx.SetToolRunner(m.tools.runner)
 	}
 	return ctx, nil
 }
@@ -144,10 +192,22 @@ func (m *Model) running(engine string, budget Budget) (*runtime.Context, error) 
 	return m.NewContext(budget)
 }
 
-// warmed is how many workers the plan built and the time that took.
+// warmed is how many workers the plan built and the time that took, summed over them.
 func (m *Model) warmed() (int, time.Duration) {
-	if m == nil || m.worker == nil {
+	if m == nil {
 		return 0, 0
 	}
-	return 1, m.worker.Warming
+	m.mu.Lock()
+	slots := slices.Clone(m.workers)
+	m.mu.Unlock()
+	count, warming := 0, time.Duration(0)
+	for _, slot := range slots {
+		slot.mu.Lock()
+		if slot.worker != nil {
+			count++
+			warming += slot.worker.Warming
+		}
+		slot.mu.Unlock()
+	}
+	return count, warming
 }

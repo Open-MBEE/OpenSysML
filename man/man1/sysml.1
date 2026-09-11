@@ -119,6 +119,12 @@ default, modern, print or report (default: the default stylesheet alone)
 Create an object of this definition before the checks, so a verdict is about
 it (repeatable)
 .TP
+.BI \-jobs " value"
+Runs of one check that may go concurrently \(em the linearizations of an
+exploration, the engines \-engine all consults \(em each on a worker of its
+own over the shared model; the result is the same at any count. Default
+OPENSYSML_JOBS, else the number of CPUs
+.TP
 .B \-json
 Report checks as one JSON document rather than as lines
 .TP
@@ -617,6 +623,12 @@ recursion spends. Default 10000, ceiling 25000.
 .B OPENSYSML_MAX_SWEEP_RUNS
 Runs one parameter sweep or sample may make, each a whole analysis or calc run
 of its own with its own budgets. Default 1000.
+.TP
+.B OPENSYSML_JOBS
+Runs of one check that may go concurrently \(em the linearizations of an
+exploration, the engines \-engine all consults \(em each on a worker of its
+own over the shared model; \-jobs and %jobs override it. Default the number of
+CPUs.
 .TP
 .B OPENSYSML_TOOLS
 Directory of the tool manifest: one JSON file per external tool (toolName,

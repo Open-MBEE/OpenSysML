@@ -218,6 +218,9 @@ type Service struct {
 	// budgets bounds every runtime context the service creates, read once from
 	// the environment at construction.
 	budgets runtime.Budgets
+	// jobs is how many runs of one plan go concurrently, OPENSYSML_JOBS read once at
+	// construction; no request sets it.
+	jobs int
 	// engines answers every analysis question the runtime RPCs put, under auto.
 	engines *analysis.Registry
 	// version is the build version GetServerInfo reports, informational only.
@@ -228,8 +231,8 @@ type Service struct {
 
 // NewService creates a gRPC service with specified cache size, reporting
 // version as its build version. It returns an error if cacheSize is not
-// positive, if a budget variable holds anything but a positive integer, or if
-// the prewarm setting is not a non-negative integer. It does not load the
+// positive, if a budget variable or OPENSYSML_JOBS holds anything but a positive
+// integer, or if the prewarm setting is not a non-negative integer. It does not load the
 // standard library: call Prewarm to have that happen in the background, ahead of
 // the requests that need it.
 func NewService(cacheSize int, version string) (*Service, error) {
@@ -255,6 +258,10 @@ func newService(cacheSize int, version string, unavailable []string) (*Service, 
 	if err != nil {
 		return nil, err
 	}
+	jobs, err := analysis.JobsFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	prewarm, err := indexPrewarmFromEnv()
 	if err != nil {
 		return nil, err
@@ -268,6 +275,7 @@ func newService(cacheSize int, version string, unavailable []string) (*Service, 
 		libIndexes:   newLibraryBase(buildLibraryIndex),
 		prewarm:      prewarm > 0,
 		budgets:      budgets,
+		jobs:         jobs,
 		engines:      engines,
 		version:      version,
 		capabilities: availability,

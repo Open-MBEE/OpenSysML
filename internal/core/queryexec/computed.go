@@ -363,15 +363,14 @@ func (e *executor) applyQuantityOperator(
 		}
 		operands[i] = quantity
 	}
+	// The runtime's operators, so a point on a measurement scale computes as evaluation does.
+	reader := e.derived.get(e.context)
 	var result semantics.Quantity
 	var err error
 	if len(operands) == 1 {
-		result, err = semantics.QuantityUnary(op, operands[0])
+		result, err = reader.QuantityUnary(op, operands[0])
 	} else {
-		result, err = semantics.QuantityBinary(op, operands[0], operands[1])
-	}
-	if err == nil && (op == ast.OpMul || op == ast.OpDiv) {
-		result, err = e.context.Model.CoherentQuantity(result, nil)
+		result, err = reader.QuantityBinary(op, operands[0], operands[1])
 	}
 	switch {
 	case err == nil:

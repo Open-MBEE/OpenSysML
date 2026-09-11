@@ -794,7 +794,7 @@ func (e *performances) bindInputPins(perf *actionFrame, activation int64) error 
 			return err
 		}
 		if alreadyBound {
-			if held := perf.data[perf.key(end.Pin)]; !equalValues(held, value) {
+			if held := perf.data[perf.key(end.Pin)]; !e.ctx.equalValues(held, value) {
 				return &BindingConflictError{
 					Target:     end.pinText(),
 					Left:       bindingEndText(earlier.Other),
@@ -832,7 +832,7 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 			if !ok {
 				continue
 			}
-			if other, held := e.otherEndHeld(perf, end); held && equalValues(other, value) {
+			if other, held := e.otherEndHeld(perf, end); held && e.ctx.equalValues(other, value) {
 				continue
 			}
 		default:

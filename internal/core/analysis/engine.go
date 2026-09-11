@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
@@ -20,12 +21,13 @@ type Model struct {
 	// Fresh builds a run's own context on a worker, under the surface's limits.
 	Fresh func(*Worker) (*runtime.Context, error)
 
-	// worker is the plan's, built on first use; a plan's copy of the model owns its own.
-	worker *Worker
-	// tools is the plan's tool runner, put on every context its runs use; nil for none.
-	tools runtime.ToolRunner
-	// attached are the surface contexts carrying tools for the plan, released when it ends.
-	attached []toolAttachment
+	// workers are the plan's, one per job built on first use; a plan's copy of the model
+	// owns its own, and mu guards them as the plan's runs build them concurrently.
+	mu      sync.Mutex
+	workers []*workerSlot
+	// tools is the plan's tool runner and where it is attached, shared by the plan's fleets;
+	// nil for none.
+	tools *toolPlan
 }
 
 // Engine is one registered way of answering questions about a model.

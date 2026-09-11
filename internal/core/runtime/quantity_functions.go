@@ -211,14 +211,15 @@ func quantityMagnitudeUnary(apply func([]semantics.Value) (semantics.Value, erro
 // quantityAdditive is '+' or '-': the binary operator, or with y omitted the
 // unary one.
 func quantityAdditive(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, err := quantityArg(name, "x", args[0])
 		if err != nil {
 			return Value{}, err
 		}
 		if argumentOmitted(args[1]) {
 			if op == ast.OpSub {
-				return negateQuantity(x)
+				val, err := ctx.negateQuantity(x)
+				return val, functionError(name, err)
 			}
 			return inUnit(x.Num, x.Unit)
 		}
@@ -226,7 +227,7 @@ func quantityAdditive(op ast.OperatorKind) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := addQuantities(op, x, y)
+		val, err := ctx.addQuantities(op, x, y)
 		return val, functionError(name, err)
 	}
 }
@@ -259,23 +260,23 @@ func quantityPower(name string, ctx *Context, args []Value) (Value, error) {
 
 // quantityComparison is one of the four orderings, in the left operand's unit.
 func quantityComparison(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, y, err := quantityArgs(name, args)
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := compareQuantities(op, x, y)
+		val, err := ctx.compareQuantities(op, x, y)
 		return val, functionError(name, err)
 	}
 }
 
 // quantityEquality is '==', in the left operand's unit.
-func quantityEquality(name string, _ *Context, args []Value) (Value, error) {
+func quantityEquality(name string, ctx *Context, args []Value) (Value, error) {
 	x, y, err := quantityArgs(name, args)
 	if err != nil {
 		return Value{}, err
 	}
-	val, err := equalQuantities(ast.OpEq, x, y)
+	val, err := ctx.equalQuantities(ast.OpEq, x, y)
 	return val, functionError(name, err)
 }
 
@@ -283,15 +284,17 @@ func quantityEquality(name string, _ *Context, args []Value) (Value, error) {
 // `max(1 [m], 200 [cm])` being `200 [cm]`, and the first where the two are equal.
 // Its result names a unit, so unlike a comparison a bare zero adopts none here.
 func quantityExtremum(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		x, y, err := quantityArgs(name, args)
 		if err != nil {
 			return Value{}, err
 		}
-		if _, err := y.ConvertTo(x.Unit); err != nil {
-			return Value{}, fmt.Errorf("function %s: %w", name, err)
+		if isBareZero(*x) || isBareZero(*y) {
+			if _, err := y.ConvertTo(x.Unit); err != nil {
+				return Value{}, fmt.Errorf("function %s: %w", name, err)
+			}
 		}
-		yWins, err := compareQuantities(op, y, x)
+		yWins, err := ctx.compareQuantities(op, y, x)
 		if err != nil {
 			return Value{}, fmt.Errorf("function %s: %w", name, err)
 		}

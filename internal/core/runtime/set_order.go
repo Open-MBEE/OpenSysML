@@ -9,7 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// canonicalLess is the total order a set enumerates its elements in, so that
+// canonicalCompare is the total order a set enumerates its elements in, so that
 // every operation consuming a set — a trace rendering it, `collect` over it, a
 // sequence it flows into — sees equal sets alike. Values order by class first
 // (null, Booleans, numbers, complex numbers, strings, quantities, enumeration
@@ -17,14 +17,9 @@ import (
 // order where they have one (numeric, lexicographic, dimension then magnitude,
 // declaration, object identity), and otherwise by kind and then by what
 // valueEqual compares, so that only equal values compare as neither before nor
-// after, whichever kind carries them.
-func canonicalLess(a, b Value) bool {
-	return canonicalCompare(a, b) < 0
-}
-
-// canonicalCompare orders a before b as negative, after as positive, and equal
-// values — valueEqual ones, whose position a set never depends on — as zero.
-func canonicalCompare(a, b Value) int {
+// after, whichever kind carries them. It orders a before b as negative, after as
+// positive, and equal values — valueEqual ones — as zero.
+func (ctx *Context) canonicalCompare(a, b Value) int {
 	a, b = canonicalRepresentative(a), canonicalRepresentative(b)
 	ca, cb := canonicalClass(a), canonicalClass(b)
 	if ca != cb {
@@ -46,11 +41,11 @@ func canonicalCompare(a, b Value) int {
 	case classString:
 		return strings.Compare(a.Str(), b.Str())
 	case classQuantity:
-		qa, qb := a.Quantity(), b.Quantity()
+		qa, qb := ctx.canonicalQuantity(*a.Quantity()), ctx.canonicalQuantity(*b.Quantity())
 		if c := strings.Compare(qa.Unit.Term.DimensionKey(), qb.Unit.Term.DimensionKey()); c != 0 {
 			return c
 		}
-		if c, err := semantics.CompareMagnitudes(*qa, *qb); err == nil {
+		if c, err := semantics.CompareMagnitudes(qa, qb); err == nil {
 			return c
 		}
 	case classEnumLiteral:
@@ -67,7 +62,32 @@ func canonicalCompare(a, b Value) int {
 	if a.Kind != b.Kind {
 		return cmp.Compare(a.Kind, b.Kind)
 	}
-	return compareContents(a, b)
+	return ctx.compareContents(a, b)
+}
+
+// canonicalCompare is the canonical order judged with no context.
+func canonicalCompare(a, b Value) int {
+	return (*Context)(nil).canonicalCompare(a, b)
+}
+
+// canonicalQuantity is the quantity as its reference measures it: a point on an interval
+// scale carried through its anchor as `==` does; a point on any other scale stays as written.
+func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
+	if ctx == nil || ctx.model == nil {
+		return q
+	}
+	if scale, ok, err := ctx.pointOf(&q); err != nil || (ok && !ctx.isIntervalScale(scale)) {
+		return q
+	}
+	if ratio, err := ctx.toRatioReference(q); err == nil {
+		return ratio
+	}
+	return q
+}
+
+// canonicalMagnitudes compares two quantities as their references measure them.
+func (ctx *Context) canonicalMagnitudes(a, b Quantity) (int, error) {
+	return semantics.CompareMagnitudes(ctx.canonicalQuantity(a), ctx.canonicalQuantity(b))
 }
 
 // canonicalRepresentative is the value valueEqual reads v as, so equal values
@@ -88,27 +108,27 @@ func canonicalRepresentative(v Value) Value {
 // compareContents orders two structured values of one kind by what valueEqual
 // compares: shape and elements, components, unit, reference key, or the calc,
 // object and run a function is a value of.
-func compareContents(a, b Value) int {
+func (ctx *Context) compareContents(a, b Value) int {
 	if a.ref == nil || b.ref == nil {
 		return compareBool(a.ref != nil, b.ref != nil)
 	}
 	switch a.Kind {
 	case ValSequence, ValSet:
-		return compareElements(elementsOf(a), elementsOf(b))
+		return ctx.compareElements(elementsOf(a), elementsOf(b))
 	case ValArray:
 		x, y := a.Array(), b.Array()
-		return cmp.Or(compareInt64s(x.Dimensions, y.Dimensions), compareElements(x.Elements, y.Elements))
+		return cmp.Or(compareInt64s(x.Dimensions, y.Dimensions), ctx.compareElements(x.Elements, y.Elements))
 	case ValVector:
-		return compareElements(constValues(a.Vector().Elements), constValues(b.Vector().Elements))
+		return ctx.compareElements(constValues(a.Vector().Elements), constValues(b.Vector().Elements))
 	case ValVectorQuantity:
 		x, y := a.VectorQuantity(), b.VectorQuantity()
 		return cmp.Or(
-			compareElements(vectorComponents(x), vectorComponents(y)),
+			ctx.compareElements(vectorComponents(x), vectorComponents(y)),
 			strings.Compare(x.Frame.key(), y.Frame.key()),
 		)
 	case ValTensorQuantity:
 		x, y := a.TensorQuantity(), b.TensorQuantity()
-		return cmp.Or(compareInt64s(x.Dimensions, y.Dimensions), compareElements(x.components(), y.components()))
+		return cmp.Or(compareInt64s(x.Dimensions, y.Dimensions), ctx.compareElements(x.components(), y.components()))
 	case ValQuantity:
 		// Two quantities of one dimension whose magnitudes will not compare: by
 		// unit, then by the number written.
@@ -171,9 +191,9 @@ func compareInt64s(a, b []int64) int {
 }
 
 // compareElements orders two element lists lexicographically, a shorter prefix first.
-func compareElements(a, b []Value) int {
+func (ctx *Context) compareElements(a, b []Value) int {
 	for i := 0; i < len(a) && i < len(b); i++ {
-		if c := canonicalCompare(a[i], b[i]); c != 0 {
+		if c := ctx.canonicalCompare(a[i], b[i]); c != 0 {
 			return c
 		}
 	}

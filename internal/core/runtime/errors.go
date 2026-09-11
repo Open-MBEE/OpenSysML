@@ -279,6 +279,10 @@ var (
 	// has none: `sqrt(9 [m])`, since no unit squares to a metre.
 	ErrUnitRoot = errors.New("unit has no root")
 
+	// ErrScalePoint is returned when an operation is asked of a point on a
+	// measurement scale that has no meaning for a point (its multiple, the sum of two).
+	ErrScalePoint = errors.New("operation is not defined on a point of a measurement scale")
+
 	// ErrNotASatisfaction is returned when a satisfaction assertion is asked of
 	// an element that states none.
 	ErrNotASatisfaction = errors.New("not a satisfaction assertion")

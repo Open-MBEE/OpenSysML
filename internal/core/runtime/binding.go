@@ -330,7 +330,7 @@ func (ctx *Context) resolveBindingSet(owner, targetInst *Instance, target *Featu
 	// two of them must agree on its values, a sequence like a scalar.
 	if len(attempts) > 1 {
 		for _, attempt := range attempts[1:] {
-			if !equalValues(attempts[0].value, attempt.value) {
+			if !ctx.equalValues(attempts[0].value, attempt.value) {
 				return result, &BindingConflictError{
 					Target:     bindingLocationText(bindingLocation{instance: targetInst, name: key.feature}),
 					Left:       attempts[0].contributor,
@@ -581,7 +581,7 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 			}
 			return attempt
 		}
-		if !equalValues(leftValue, rightValue) {
+		if !ctx.equalValues(leftValue, rightValue) {
 			attempt.err = &BindingConflictError{
 				Left: ctx.bindingEndpointText(binding, 0), Right: ctx.bindingEndpointText(binding, 1),
 				LeftValue: leftValue, RightValue: rightValue,

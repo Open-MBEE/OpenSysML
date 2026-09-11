@@ -113,7 +113,7 @@ func (ctx *Context) framedVectorQuantity(num []semantics.Value, frame *Coordinat
 // composeFrame is `frame * unit` or `frame / unit` (MeasurementRefCalculations::
 // 'CoordinateFrame*' and 'CoordinateFrame/'): the frame whose every axis is the
 // axis times or over the unit, of the same dimensions; false for other operands.
-func composeFrame(op ast.OperatorKind, left, right Value) (Value, bool, error) {
+func (ctx *Context) composeFrame(op ast.OperatorKind, left, right Value) (Value, bool, error) {
 	if left.Kind != ValCoordinateFrame || (op != ast.OpMul && op != ast.OpDiv) {
 		return Value{}, false, nil
 	}
@@ -129,6 +129,10 @@ func composeFrame(op ast.OperatorKind, left, right Value) (Value, bool, error) {
 	unit := right.MeasurementRef().Unit
 	axes := make([]Unit, len(frame.Axes))
 	for i, axis := range frame.Axes {
+		if scale, ok := ctx.model.semantics.MeasurementScaleOf(axis.Term); ok {
+			return Value{}, true, fmt.Errorf("%w: MeasurementRefCalculations::'CoordinateFrame%s': axis %d of %s is on the measurement scale %s, whose points are not in a unit to compose",
+				ErrUnevaluableLibraryFunction, op.String(), i+1, frame.Name(), unitSymbolName(scale))
+		}
 		if op == ast.OpMul {
 			axes[i] = Unit{Product: axis.Product.Times(unit.Product), Term: axis.Term.Times(unit.Term)}
 		} else {
@@ -149,7 +153,7 @@ func composeFrame(op ast.OperatorKind, left, right Value) (Value, bool, error) {
 // frameArithmetic is MeasurementRefCalculations::'CoordinateFrame*' and
 // 'CoordinateFrame/' called by name: x a CoordinateFrame, y a MeasurementUnit.
 func frameArithmetic(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		if args[0].Kind != ValCoordinateFrame {
 			return Value{}, fmt.Errorf("%w: function %s parameter %q requires a coordinate frame, a usage typed CoordinateFrame with its mRefs, got %s",
 				ErrTypeMismatch, name, "x", describeValue(args[0]))
@@ -157,7 +161,7 @@ func frameArithmetic(op ast.OperatorKind) libraryApply {
 		if _, err := measurementRefArg(name, "y", args[1]); err != nil {
 			return Value{}, err
 		}
-		val, _, err := composeFrame(op, args[0], args[1])
+		val, _, err := ctx.composeFrame(op, args[0], args[1])
 		return val, functionError(name, err)
 	}
 }

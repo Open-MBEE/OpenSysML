@@ -15,6 +15,14 @@ func BudgetEnvironment() []Item {
 	}
 }
 
+// JobsEnvironment describes the setting the binaries that answer analysis questions
+// read for how many runs of one plan go concurrently.
+func JobsEnvironment() []Item {
+	return []Item{
+		{"OPENSYSML_JOBS", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; -jobs and %jobs override it. Default the number of CPUs."},
+	}
+}
+
 // LegacyPrefixNote states how the superseded variable names are still read, and
 // belongs with any list of them.
 const LegacyPrefixNote = "Each variable above also answers to its legacy " +

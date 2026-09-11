@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,10 @@ type Plan struct {
 	// Disagreements are the contradictions the composition under all resolved,
 	// each in the interpreter's favor; empty under auto or a named engine.
 	Disagreements []Disagreement
+	// Workers is how many workers the plan built over every fleet its engines ran on, and
+	// Warming the time building them took, summed.
+	Workers int
+	Warming time.Duration
 }
 
 // Step is one engine's part in a plan: a refusal before running, the result it
@@ -37,7 +42,7 @@ type Step struct {
 	// context's error when it was met before the engine ran or before its answer was taken.
 	Err error
 	// Cancelled marks an engine the plan under all stopped before it answered: the one
-	// that met the deadline, and every one behind it in name order.
+	// that met the deadline, and every one not finished by then.
 	Cancelled bool
 	// Bounds is the bound a cancelled engine reached: the plan's deadline, when one was set.
 	Bounds Bounds
@@ -143,11 +148,13 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 
 // AnswerWith answers q under the selection: as Answer does under auto; putting it to one
 // engine alone under a named selection, whose refusal or not-covered result is the result;
-// and under all to every covering engine one after another in name order, composing what
-// they answered. Under all a deadline met cancels the engine that met it and every one
-// behind it, each named in the plan with the bound it reached, and the finished engines'
-// results stand composed; only a plan no engine finished fails with the deadline. The plan
-// works on a copy of model, so its worker is its own and model is never written.
+// and under all to every covering engine, up to the budget's Jobs of them at once with the
+// Jobs shared out among them, composing what they answered as if they had run one after
+// another in name order. Under all a deadline met cancels the engine that met it and every
+// one not finished, each named in the plan with the bound it reached, and the finished
+// engines' results stand composed; only a plan no engine finished fails with the deadline.
+// The plan works on copies of model, one fleet of workers per engine under all, so model is
+// never written.
 func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, budget Budget, selection Selection) (Plan, error) {
 	if !budget.Deadline.IsZero() {
 		var cancel context.CancelFunc
@@ -162,8 +169,8 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 
 // answer answers q on the plan's copy of the model, whose tool runner puts every
 // tool-computed performance of its runs back through here as a Compute question.
-func (r *Registry) answer(ctx context.Context, held *Model, q Question, budget Budget, selection Selection) (Plan, error) {
-	plan := Plan{Question: q, Selection: selection}
+func (r *Registry) answer(ctx context.Context, held *Model, q Question, budget Budget, selection Selection) (plan Plan, err error) {
+	plan = Plan{Question: q, Selection: selection}
 	candidates, err := r.candidates(q.Kind, selection)
 	if err != nil {
 		return plan, err
@@ -171,6 +178,7 @@ func (r *Registry) answer(ctx context.Context, held *Model, q Question, budget B
 	if selection.Mode == SelectAll {
 		return r.answerAll(ctx, held, q, budget, plan, candidates)
 	}
+	defer func() { plan.Workers, plan.Warming = held.warmed() }()
 	var last *Result
 	for _, e := range candidates {
 		if err := ctx.Err(); err != nil {
@@ -198,43 +206,169 @@ func (r *Registry) answer(ctx context.Context, held *Model, q Question, budget B
 	return plan, nil
 }
 
-// answerAll runs every candidate in turn on the plan's copy of the model and
-// composes the finished results.
+// answerAll puts q to the candidates, min(Jobs, candidates) of them at once, each on a fleet
+// of its own with an equal share of Jobs, and composes the finished results; the plan reads as
+// the sequential one in name order would.
 func (r *Registry) answerAll(ctx context.Context, model *Model, q Question, budget Budget, plan Plan, candidates []Engine) (Plan, error) {
-	started := time.Now()
-	var finished []Result
-	var last *Result
+	jobs := max(min(budget.Jobs, len(candidates)), 1)
+	budget.Jobs = max(budget.Jobs/jobs, 1)
+	c := &allCoordinator{ctx: ctx, model: model, q: q, budget: budget, started: time.Now(), fault: len(candidates)}
+	c.runs = make([]allRun, len(candidates))
 	for i, e := range candidates {
-		if err := ctx.Err(); err != nil {
-			plan.Steps = append(plan.Steps, cancelled(candidates[i:], err, budget, started)...)
-			break
+		c.runs[i].engine = e
+	}
+	var wg sync.WaitGroup
+	for job := 0; job < jobs; job++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.work()
+		}()
+	}
+	wg.Wait()
+	return c.assemble(plan)
+}
+
+// allRun is one engine's part in a plan under all: its step once made, and the cancellation
+// of its run while one is in flight.
+type allRun struct {
+	engine Engine
+	fleet  *Model
+	cancel context.CancelFunc
+	step   Step
+}
+
+// allCoordinator hands the engines out in name order and keeps what each made of the plan.
+type allCoordinator struct {
+	ctx     context.Context
+	model   *Model
+	q       Question
+	budget  Budget
+	started time.Time
+
+	mu   sync.Mutex
+	runs []allRun
+	next int // the next engine to hand out
+	// fault is the position of the first engine in name order whose Run faulted; the plan
+	// stops there, so no engine behind it is started and those in flight are cancelled.
+	fault int
+}
+
+// work is one job: it consults engines as the coordinator hands them out until none is left.
+func (c *allCoordinator) work() {
+	for {
+		i, ok := c.take()
+		if !ok {
+			return
 		}
-		coverage := e.Covers(model, q)
-		if !coverage.Covered {
-			plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Refusal: coverage.Refusal})
-			continue
-		}
-		result, err := run(ctx, e, model, q, budget)
-		if err != nil {
-			if ctx.Err() == nil {
-				plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Err: err})
-				return plan, err
-			}
-			plan.Steps = append(plan.Steps, cancelled(candidates[i:], err, budget, started)...)
-			break
-		}
-		plan.Steps = append(plan.Steps, Step{Engine: e.Name(), Result: &result})
-		if result.Covered() {
-			finished = append(finished, result)
-		} else {
-			last = &result
+		c.consult(i)
+	}
+}
+
+// take hands out the next engine in name order, none once every one is handed out or the
+// plan has stopped at a fault before it.
+func (c *allCoordinator) take() (int, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.next >= len(c.runs) || c.next > c.fault {
+		return 0, false
+	}
+	i := c.next
+	c.next++
+	return i, true
+}
+
+// consult puts the question to engine i: cancelled when the plan's context is done, refused
+// when it does not cover the question, else run on a fleet of its own.
+func (c *allCoordinator) consult(i int) {
+	e := c.runs[i].engine
+	if err := c.ctx.Err(); err != nil {
+		c.record(i, cancelled(e, err, c.budget, c.started))
+		return
+	}
+	if coverage := e.Covers(c.model, c.q); !coverage.Covered {
+		c.record(i, Step{Engine: e.Name(), Refusal: coverage.Refusal})
+		return
+	}
+	runCtx, cancel := context.WithCancel(c.ctx)
+	defer cancel()
+	fleet := c.model.plan()
+	c.mu.Lock()
+	c.runs[i].fleet, c.runs[i].cancel = fleet, cancel
+	if i > c.fault {
+		cancel()
+	}
+	c.mu.Unlock()
+	result, err := run(runCtx, e, fleet, c.q, c.budget)
+	switch {
+	case err == nil:
+		c.record(i, Step{Engine: e.Name(), Result: &result})
+	case c.ctx.Err() != nil:
+		c.record(i, cancelled(e, err, c.budget, c.started))
+	case runCtx.Err() != nil:
+		// The plan stopped at a fault before this engine, so its run was dropped.
+		c.record(i, Step{Engine: e.Name(), Err: err})
+	default:
+		c.faulted(i, err)
+	}
+}
+
+// record keeps engine i's step.
+func (c *allCoordinator) record(i int, step Step) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.runs[i].step = step
+}
+
+// faulted stops the plan at engine i when no engine before it has faulted, cancelling every
+// run in flight behind it; the engines before it finish as they would have run first.
+func (c *allCoordinator) faulted(i int, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.runs[i].step = Step{Engine: c.runs[i].engine.Name(), Err: err}
+	if i >= c.fault {
+		return
+	}
+	c.fault = i
+	for _, r := range c.runs[i+1:] {
+		if r.cancel != nil {
+			r.cancel()
 		}
 	}
-	if len(finished) == 0 {
-		if last == nil && ctx.Err() != nil {
-			return plan, ctx.Err()
+}
+
+// assemble is the plan in name order: up to the first fault, which fails it; else every
+// step, the finished results composed, only a plan no engine finished failing with the deadline.
+func (c *allCoordinator) assemble(plan Plan) (Plan, error) {
+	runs := c.runs
+	if c.fault < len(runs) {
+		runs = runs[:c.fault+1]
+	}
+	var finished []Result
+	var last *Result
+	for _, r := range runs {
+		plan.Steps = append(plan.Steps, r.step)
+		if r.fleet != nil {
+			workers, warming := r.fleet.warmed()
+			plan.Workers += workers
+			plan.Warming += warming
 		}
-		plan.Result = uncovered(q, plan.Steps, last)
+		switch {
+		case r.step.Result == nil:
+		case r.step.Result.Covered():
+			finished = append(finished, *r.step.Result)
+		default:
+			last = r.step.Result
+		}
+	}
+	if c.fault < len(c.runs) {
+		return plan, runs[c.fault].step.Err
+	}
+	if len(finished) == 0 {
+		if last == nil && c.ctx.Err() != nil {
+			return plan, c.ctx.Err()
+		}
+		plan.Result = uncovered(c.q, plan.Steps, last)
 		return plan, nil
 	}
 	plan.Result, plan.Disagreements = Compose(finished)
@@ -280,18 +414,14 @@ func run(ctx context.Context, e Engine, model *Model, q Question, budget Budget)
 	return result, nil
 }
 
-// cancelled is the steps of the engines a done context stopped: each marked
-// cancelled with the context's error and the deadline it reached, when one was set.
-func cancelled(engines []Engine, err error, budget Budget, started time.Time) []Step {
+// cancelled is the step of an engine a done context stopped: marked cancelled with the
+// context's error and the deadline it reached, when one was set.
+func cancelled(e Engine, err error, budget Budget, started time.Time) Step {
 	var bounds Bounds
 	if !budget.Deadline.IsZero() {
 		bounds = Bounds{{Name: "deadline", Limit: budget.Deadline.Sub(started).Milliseconds(), Reached: true}}
 	}
-	steps := make([]Step, len(engines))
-	for i, e := range engines {
-		steps[i] = Step{Engine: e.Name(), Err: err, Cancelled: true, Bounds: bounds}
-	}
-	return steps
+	return Step{Engine: e.Name(), Err: err, Cancelled: true, Bounds: bounds}
 }
 
 // uncovered is the result of a plan no engine covered: the last not-covered
