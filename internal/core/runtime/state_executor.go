@@ -103,6 +103,9 @@ type StateExecutor struct {
 	driven executorRun
 	// inRun is set while a run loop of this machine is on the stack.
 	inRun bool
+	// moved is set once an event was queued or dispatched, a transition fired, a do
+	// step ran or a value written, and cleared when the start attaching it settles.
+	moved bool
 
 	// timerScheduled holds the time-triggered transitions whose timer is already
 	// running, so a state's timer is not restarted while it stays active.
@@ -556,6 +559,7 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 
 	event := e.eventQueue.Pop()
+	e.moved = true
 	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
 	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
 	e.lastEventAt = e.ctx.clock.now
@@ -2329,6 +2333,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 // stepDoAction performs one action of a do behavior: the behavior under way goes
 // on as told, else the next behavior begins.
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
+	e.moved = true
 	if e.trace() != nil {
 		e.trace().RecordDoStep(act.state.Name)
 	}
@@ -2563,6 +2568,7 @@ func (e *StateExecutor) SendSignal(signalType string, args map[string]Value) {
 // InvokeOperation injects a call event for the named operation. Transitions
 // triggered by that operation fire; transitions triggered by another do not.
 func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value) {
+	e.moved = true
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
@@ -2574,6 +2580,7 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 
 // enqueueSignal queues a message as an accept event, to fire immediately.
 func (e *StateExecutor) enqueueSignal(msg Message) {
+	e.moved = true
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventAccept,
@@ -3302,6 +3309,7 @@ func (e *StateExecutor) invokeNested(inv actionInvocation) error {
 // writeStateValue writes a value a performed action returned to the machine's
 // attribute of that name, or to its state data where it declares none.
 func (e *StateExecutor) writeStateValue(name string, value Value) error {
+	e.moved = true
 	if e.declaresAttribute(name) {
 		return e.assignAttribute(name, value)
 	}

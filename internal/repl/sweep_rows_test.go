@@ -138,25 +138,24 @@ func TestSweepRowsWritingTheSubjectKeepTheWritesToThemselves(t *testing.T) {
 
 // A sweep runs its rows on objects of the held object's declaration, so it refuses an
 // object that a fresh one would not stand for — named by its identity, written by a
-// run, running a behavior, or reached through an object written by a run — naming the
-// reason, and leaves the held object as it is.
+// run, or reached through an object written by a run — naming the reason, and leaves
+// the held object as it is. One whose state machine stands where its start left it
+// is as its declaration made it, and sweeps.
 func TestSweepOverAnObjectNotAsItsDeclarationMadeItIsRefused(t *testing.T) {
 	s := loadSource(t, sweepRowsModel)
 	run(t, s, "%instantiate Rows::ship")
 	run(t, s, "%instantiate Rows::Fleet")
 	run(t, s, "%instantiate Rows::beacon")
 	refusal := "each row of a sweep runs on an object of its own, made from the declaration"
-	for _, tc := range []struct{ object, reason string }{
-		{"#1", "it is named by its identity, not by a declaration"},
-		{"Rows::beacon", "runs exhibited state machine blinking, an execution no other context carries"},
-	} {
-		out := run(t, s, "%sweep Rows::Bump "+tc.object+" tax=1.0..3.0:1.0")
-		wants(t, out, tc.reason, refusal)
-		rejects(t, out, "run(s)")
-	}
+	out := run(t, s, "%sweep Rows::Bump #1 tax=1.0..3.0:1.0")
+	wants(t, out, "it is named by its identity, not by a declaration", refusal)
+	rejects(t, out, "run(s)")
+	out = run(t, s, "%sweep Rows::Bump Rows::beacon tax=1.0..3.0:1.0")
+	wants(t, out, "3 run(s)", "1.0 | 6.0", "3.0 | 8.0")
+	wants(t, run(t, s, "%features Rows::beacon"), "cost = 5.0")
 	wants(t, run(t, s, "%invoke Rows::ship bump"), "Invoked bump on object #1")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
-	out := run(t, s, "%sweep Rows::Bump Rows::ship tax=1.0..3.0:1.0")
+	out = run(t, s, "%sweep Rows::Bump Rows::ship tax=1.0..3.0:1.0")
 	wants(t, out, "object #1 (ship) had cost written by a run", refusal)
 	rejects(t, out, "run(s)")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")

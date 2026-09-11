@@ -22,9 +22,9 @@ func (e *HeldStateError) Error() string {
 }
 
 // Pristine reports whether inst stands as its declaration materializes it — nothing
-// written to it or to an object it holds, no behavior running, not destroyed — so a
-// fresh object of the declaration is inst as it stands. Otherwise the HeldStateError
-// names the first thing inst carries that a fresh object would not.
+// written to it or to an object it holds, every behavior it runs as its start left it,
+// not destroyed — so a fresh object of the declaration is inst as it stands. Otherwise
+// the HeldStateError names the first thing inst carries that a fresh object would not.
 func (ctx *Context) Pristine(inst *Instance) error {
 	return ctx.pristine(inst, make(map[int64]bool))
 }
@@ -37,13 +37,15 @@ func (ctx *Context) pristine(inst *Instance, seen map[int64]bool) error {
 	if l, ok := ctx.lives[inst.ID]; ok && l.destroyed {
 		return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: "was destroyed"}
 	}
-	if len(inst.behaviors) > 0 {
-		b := inst.behaviors[0]
+	for _, b := range inst.behaviors {
+		if !b.Moved() {
+			continue
+		}
 		name := b.Name
 		if name == "" {
 			name = symbolText(b.Symbol)
 		}
-		return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, an execution no other context carries", b.Kind, name)}
+		return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, an execution that has moved since its start", b.Kind, name)}
 	}
 	for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
 		fv := inst.FeatureValues[name]

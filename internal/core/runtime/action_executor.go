@@ -69,6 +69,9 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
+	// moved is set once a step got somewhere or the body wrote a feature, and
+	// cleared when the start that attached the execution to its object settles.
+	moved bool
 	// awaiting is the subflow whose parked tokens a run waits on the clock for,
 	// nil for the action's own.
 	awaiting *actionFrame
@@ -325,6 +328,9 @@ func (e *ActionExecutor) Step() error {
 	// 3. All tokens consumed (completion)
 	if len(e.tokens) == 0 {
 		progressMade = true
+	}
+	if progressMade {
+		e.moved = true
 	}
 
 	// If no progress and tokens remain, either the action is suspended waiting
@@ -925,6 +931,7 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 		return err
 	}
 	e.root.data[e.root.key(name)] = value
+	e.moved = true
 	return nil
 }
 

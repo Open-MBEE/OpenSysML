@@ -545,7 +545,8 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 }
 
 // holdDrivenWork marks, at an outermost start, the behaviors already holding
-// work: a driver put it in flight, so the start leaves it to that driver.
+// work: a driver put it in flight, so the start leaves it to that driver. Once
+// the start returns, the behaviors it attached are as their start left them.
 func (ctx *Context) holdDrivenWork() func() {
 	if ctx.behaviorRunDepth > 0 || ctx.heldBehaviors != nil {
 		return func() { /* an outer start already holds them */ }
@@ -559,7 +560,36 @@ func (ctx *Context) holdDrivenWork() func() {
 	}
 	ctx.behaviorRunDepth--
 	ctx.heldBehaviors = held
-	return func() { ctx.heldBehaviors = nil }
+	attached := len(ctx.objectBehaviors)
+	return func() {
+		ctx.heldBehaviors = nil
+		for _, behavior := range ctx.objectBehaviors[min(attached, len(ctx.objectBehaviors)):] {
+			behavior.settle()
+		}
+	}
+}
+
+// settle records the execution as its start left it: what it does from here on
+// is a move, and an object whose executions are all unmoved is pristine.
+func (b *ObjectBehavior) settle() {
+	switch {
+	case b.State != nil:
+		b.State.moved = false
+	case b.Action != nil:
+		b.Action.moved = false
+	}
+}
+
+// Moved reports whether the execution has left the state its start put it in.
+func (b *ObjectBehavior) Moved() bool {
+	switch {
+	case b.State != nil:
+		return b.State.moved
+	case b.Action != nil:
+		return b.Action.moved
+	default:
+		return false
+	}
 }
 
 // runAttachedBehaviors runs everything attached, at the outermost start: a start

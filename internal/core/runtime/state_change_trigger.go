@@ -103,6 +103,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return fired, err
 	}
 	if fired {
+		e.moved = true
 		// The configuration changed, so a state left by this step no longer holds
 		// back the events it deferred.
 		e.recallDeferredEvents()
