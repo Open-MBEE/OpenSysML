@@ -2013,6 +2013,8 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		"viaBody(3) hastype Level": true, "viaBody(3) hastype Integer": false,
 		"Level::high.n == 9": true, "lvl.n == 9": true, "(3 as Level).n == 9": true,
 		"Level::high @ Hot": true, "Level::low @ Hot": false,
+		"Level::high === 3": false, "Level::high === Level::high": true, "Level::high === Rank::three": false,
+		"lvl === Level::high": true, "(3 as Level) === Level::high": true, "Level::high !== 3": true,
 	} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
 		if err != nil || val.Kind != ValConst || val.Const.Kind != semantics.ValBool {

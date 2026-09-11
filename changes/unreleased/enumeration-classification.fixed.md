@@ -12,7 +12,8 @@
   an `Integer`; a scalar-valued literal keeps that identity on the scalar it evaluates to, so
   `Level::high hastype Level` is `true` (it was `false`), `Level::high == 3` still holds, and the
   literal's own features and metadata are read from it (`Level::high.n`, `Level::high @ Hot`)
-  where a chain through it used to fail as a chain through a constant; a
+  where a chain through it used to fail as a chain through a constant, while `===` tells it from
+  the bare `3` and from another enumeration's literal of that value; a
   literal of another enumeration cast or written to `Level` takes the equal `Level` literal's
   identity, as does a scalar bound to an enumeration-typed calculation parameter or result
   (`calc def asLevel { in n : Integer; return : Level = n; }`, so `asLevel(3) hastype Level`).
