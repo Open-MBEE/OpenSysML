@@ -2,14 +2,24 @@
 
 import difflib
 
+from opensysml.capabilities import CAPABILITY_QUERY
 from opensysml.symbol import Symbol
 from opensysml.conversion import FORMAT_SYSML, FORMAT_TURTLE, format_of_path
 from opensysml.diagnostic import Diagnostic
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, SymbolNotFoundError
+from opensysml.query import TYPE_PRIMITIVE_CONSTRAINT
 
 #: Severity the service reports for a diagnostic that makes a model unusable.
 _SEVERITY_ERROR = "error"
+
+#: The query property that is an element's effective name, what ``Symbol.name`` reports.
+_PROPERTY_NAME = "name"
+
+
+def _depth(fqn):
+    """Nesting depth of a qualified name: how many namespaces enclose it."""
+    return fqn.count("::")
 
 
 class Model:
@@ -309,39 +319,30 @@ class Model:
         return self.connection.render_document(self._hash, document_id)
 
     def find(self, name):
-        """Find symbol by short name or fully-qualified name (breadth-first).
+        """Find symbol by short name or fully-qualified name.
 
         A symbol's own ``id`` is accepted as well as its short name, so the
         identifier a symbol reports can be round-tripped back into ``find``.
+        Several symbols may share a short name; the outermost wins, and among
+        those the one declared first. A name declared in the model wins over a
+        library symbol whose id it is, as ``Base`` is both a library package and
+        a common name. Lookups are answered from the service's index, in one or
+        two round trips whatever the size of the model.
 
         Args:
             name (str): Short name ("Vehicle") or FQN ("Demo::Vehicle")
 
         Returns:
-            Symbol or None: First matching symbol, or None if not found. Use
+            Symbol or None: The matching symbol, or None if not found. Use
             ``model[name]`` where a missing symbol is a failure, so it is
             reported as one instead of as an AttributeError on None.
         """
-        def matches(symbol):
-            return symbol.name == name or symbol.id == name
-
-        # Check root first
-        if matches(self.root):
+        if self.root.name == name or self.root.id == name:
             return self.root
+        if "::" in name:
+            return self._symbol_by_id(name) or self._symbol_named(name)
+        return self._symbol_named(name) or self._symbol_by_id(name)
 
-        # Breadth-first search
-        queue = [self.root]
-        while queue:
-            current = queue.pop(0)
-
-            # Check each child
-            for child in current.children():
-                if matches(child):
-                    return child
-                queue.append(child)
-
-        return None
-    
     def get(self, fqn):
         """Get symbol by fully-qualified name (e.g., "Demo::Vehicle").
 
@@ -353,16 +354,58 @@ class Model:
         """
         if self.root.id == fqn:
             return self.root
+        return self._symbol_by_id(fqn)
 
+    def _symbol_by_id(self, fqn):
+        """The symbol whose id is ``fqn``, fetched in one call, or None.
+
+        The service resolves a qualified name the way the notation does, through
+        imports and aliases, so it may answer with a symbol of another id. Only
+        the symbol that carries this id is what an id lookup names.
+        """
+        info = self._client.get_symbol(self._hash, fqn)
+        if info is None or info.id != fqn:
+            return None
+        return Symbol(info, self._client, self._hash)
+
+    def _symbol_named(self, name):
+        """The outermost, first-declared symbol whose short name is ``name``.
+
+        A service that can query answers which elements carry a name in one
+        call. Without that, or when an erroring model may hold a name the query
+        cannot see (one taken from an unresolved redefinition), the tree is
+        walked symbol by symbol.
+        """
+        if not self._client.server_info().has(CAPABILITY_QUERY):
+            return self._walk_to(name)
+        named = self._client.query(
+            self._hash,
+            select=[_PROPERTY_NAME],
+            where={
+                "@type": TYPE_PRIMITIVE_CONSTRAINT,
+                "operator": "=",
+                "property": _PROPERTY_NAME,
+                "value": name,
+            },
+        )
+        for fqn in sorted((element.id for element in named), key=_depth):
+            symbol = self._symbol_by_id(fqn)
+            if symbol is not None:
+                return symbol
+        return None if self.ok else self._walk_to(name)
+
+    def _walk_to(self, name):
+        """The first symbol named ``name`` in breadth-first order, or None."""
+        return next((s for s in self._walk() if s.name == name), None)
+
+    def _walk(self):
+        """Every symbol below the root, breadth-first, one call per symbol."""
         queue = [self.root]
         while queue:
             current = queue.pop(0)
             for child in current.children():
-                if child.id == fqn:
-                    return child
+                yield child
                 queue.append(child)
-
-        return None
 
     def eval(self, expression, context_symbol_id=None, subject=None):
         """Evaluate a SysML expression against this model.
@@ -758,16 +801,19 @@ class Model:
         Both short names and FQNs are candidates, since either is accepted by a
         lookup and either may have been mistyped.
         """
+        if self._client.server_info().has(CAPABILITY_QUERY):
+            declared = [
+                (element.id, element.get(_PROPERTY_NAME, ""))
+                for element in self._client.query(self._hash, select=[_PROPERTY_NAME])
+            ]
+        else:
+            declared = [(child.id, child.name) for child in self._walk()]
         candidates = []
-        queue = [self.root]
-        while queue:
-            current = queue.pop(0)
-            for child in current.children():
-                if child.name:
-                    candidates.append(child.name)
-                if child.id and child.id != child.name:
-                    candidates.append(child.id)
-                queue.append(child)
+        for fqn, short_name in declared:
+            if short_name:
+                candidates.append(short_name)
+            if fqn and fqn != short_name:
+                candidates.append(fqn)
         return difflib.get_close_matches(name, candidates, n=3)
 
     def __str__(self):
