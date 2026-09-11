@@ -18,6 +18,7 @@ library package MOSA {
 	 * libraries, re-exported here.
 	 */
 
+	private import ScalarValues::Integer;
 	private import ScalarValues::String;
 	private import Metaobjects::SemanticMetadata;
 	private import KerML::Root::Element;
@@ -354,16 +355,17 @@ library package MOSA {
 		render asElementTable;
 	}
 
-	/* Document queries: the registers an interface control document tabulates. Each walks the
-	 * members owned below root, so a document binds root to a usage that declares the elements. */
+	/* Document queries: the registers an interface control document tabulates. Each walks depth
+	 * ownership levels below root and omits what lies deeper; a document binds root and, if need be, depth. */
 
 	calc def ModularSystemInterfaces :> Query {
 		doc /* The modular system interfaces declared below root: every interface definition or usage
 		 * that conforms to ModularSystemInterface, whether it carries the keyword itself or is typed by
 		 * a definition that does. */
 		in root : Element;
+		in depth : Integer = 16;
 		WhereType(
-			source = Descendants(source = root, maxDepth = 16),
+			source = Descendants(source = root, maxDepth = depth),
 			type = "MOSA::ModularSystemInterface"
 		)
 	}
@@ -371,8 +373,9 @@ library package MOSA {
 	calc def InterfaceRegister :> Query {
 		doc /* One row per modular system interface below root: name, type, characteristics and documentation. */
 		in root : Element;
+		in depth : Integer = 16;
 		Project(
-			source = ModularSystemInterfaces(root = root),
+			source = ModularSystemInterfaces(root = root, depth = depth),
 			properties = ("name", "type", "characteristics", "documentation")
 		)
 	}
@@ -380,8 +383,9 @@ library package MOSA {
 	calc def Standards :> Query {
 		doc /* The standards declared below root: every item that conforms to Standard. */
 		in root : Element;
+		in depth : Integer = 16;
 		WhereType(
-			source = Descendants(source = root, maxDepth = 16),
+			source = Descendants(source = root, maxDepth = depth),
 			type = "MOSA::Standard"
 		)
 	}
@@ -389,8 +393,9 @@ library package MOSA {
 	calc def StandardsRegister :> Query {
 		doc /* One row per standard below root: name, organisation, identifier, version and registry entry. */
 		in root : Element;
+		in depth : Integer = 16;
 		Project(
-			source = Standards(root = root),
+			source = Standards(root = root, depth = depth),
 			properties = ("name", "organization", "identifier", "version", "registry")
 		)
 	}
@@ -398,8 +403,9 @@ library package MOSA {
 	calc def ProprietaryElements :> Query {
 		doc /* The elements below root marked proprietary. */
 		in root : Element;
+		in depth : Integer = 16;
 		WhereMetadata(
-			source = Descendants(source = root, maxDepth = 16),
+			source = Descendants(source = root, maxDepth = depth),
 			'metadata' = "MOSA::Proprietary"
 		)
 	}
@@ -407,8 +413,9 @@ library package MOSA {
 	calc def ProprietaryRegister :> Query {
 		doc /* One row per proprietary element below root: name, type and documentation. */
 		in root : Element;
+		in depth : Integer = 16;
 		Project(
-			source = ProprietaryElements(root = root),
+			source = ProprietaryElements(root = root, depth = depth),
 			properties = ("name", "type", "documentation")
 		)
 	}
@@ -416,9 +423,10 @@ library package MOSA {
 	calc def DataRightsRegister :> Query {
 		doc /* One row per element below root whose data rights are recorded: name, type and documentation. */
 		in root : Element;
+		in depth : Integer = 16;
 		Project(
 			source = WhereMetadata(
-				source = Descendants(source = root, maxDepth = 16),
+				source = Descendants(source = root, maxDepth = depth),
 				'metadata' = "MOSA::DataRights"
 			),
 			properties = ("name", "type", "documentation")

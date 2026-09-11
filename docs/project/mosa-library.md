@@ -102,7 +102,10 @@ whose sections tabulate the registers: a model specialises it and binds each reg
 to the usage that owns the elements (`calc rows : InterfaceRegister { in :>> root = vehicle; }`).
 The registers walk the descendants of `root`, select by conformance to the library's definitions
 (`WhereType`) or by annotation (`WhereMetadata`), and project the columns; `sysml -render-document`
-writes the document as Markdown, HTML or PDF.
+writes the document as Markdown, HTML or PDF. Each register also takes a `depth` — the number of
+ownership levels walked below `root`, sixteen by default — and lists nothing that nests deeper, so
+a document whose elements do binds it too (`in :>> depth = 24;`); the query executor's visit budget
+still caps the work however deep the walk.
 
 **Checks.** `passes.MOSAPass` (constraint tier, source `mosa`) audits a model against the
 openness the approach asks of it. Every finding is a **warning** — an incomplete model is a normal

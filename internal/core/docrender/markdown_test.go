@@ -216,6 +216,24 @@ func TestMarkdownDefaultedQueryParameters(t *testing.T) {
 	}
 }
 
+// TestMarkdownMOSARegisterDepth renders a MOSA register over an interface nested
+// seventeen levels below root: the default depth omits it, a bound depth reaches it.
+func TestMarkdownMOSARegisterDepth(t *testing.T) {
+	got := renderFixtureDocument(t,
+		filepath.Join("testdata", "mosa_registers.sysml"),
+		"Registers::RegisterReport")
+	defaulted, deepened, ok := strings.Cut(got, "*Twenty levels*")
+	if !ok {
+		t.Fatalf("rendered Markdown lacks the second table:\n%s", got)
+	}
+	if !strings.Contains(defaulted, "| shallow |") || strings.Contains(defaulted, "| deep |") {
+		t.Errorf("default depth should list shallow and omit deep:\n%s", defaulted)
+	}
+	if !strings.Contains(deepened, "| shallow |") || !strings.Contains(deepened, "| deep |") {
+		t.Errorf("depth 20 should list both interfaces:\n%s", deepened)
+	}
+}
+
 // TestMarkdownEscaping checks the escaping contract on raw content: table
 // cells and prose with every metacharacter class render without opening
 // Markdown or HTML structure.
