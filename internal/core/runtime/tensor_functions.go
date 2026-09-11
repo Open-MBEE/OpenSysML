@@ -174,7 +174,7 @@ func (ctx *Context) tensorMRefArg(name, param string, val Value) (*Array, error)
 		arr := val.Array()
 		if arr.Object != 0 {
 			inst, ok := ctx.instances[arr.Object]
-			if refSym := ctx.librarySymbol(tensorMRefTypeFQN); !ok || refSym == nil || !ctx.model.Conforms(ctx.objectType(inst), refSym) {
+			if refSym := ctx.librarySymbol(tensorMRefTypeFQN); !ok || refSym == nil || !ctx.model.semantics.Conforms(ctx.objectType(inst), refSym) {
 				return nil, fmt.Errorf("%w: function %s parameter %q requires a %s, got %s",
 					ErrTypeMismatch, name, param, tensorMRefTypeFQN, describeValue(val))
 			}
@@ -202,7 +202,7 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 		return false, err
 	}
 	if !stated {
-		member, ok := ctx.model.LookupMember(ctx.objectType(inst), mRefIsBoundFeature)
+		member, ok := ctx.model.semantics.LookupMember(ctx.objectType(inst), mRefIsBoundFeature)
 		if !ok || member == nil {
 			return false, fmt.Errorf("%w: function %s: %s declares no isBound", ErrNoSuchFeature, name, symbolText(inst.Type))
 		}
@@ -214,7 +214,7 @@ func (ctx *Context) tensorMRefIsBound(name string, object int64) (bool, error) {
 			return false, fmt.Errorf("%w: function %s: %s states no isBound and its type declares no default",
 				ErrUnevaluableLibraryFunction, name, symbolText(inst.Type))
 		}
-		c, ok := ctx.model.Eval(value)
+		c, ok := ctx.model.semantics.Eval(value)
 		if !ok {
 			return false, fmt.Errorf("%w: function %s: the default of %s::isBound is not a constant",
 				ErrUnevaluableLibraryFunction, name, symbolText(inst.Type))

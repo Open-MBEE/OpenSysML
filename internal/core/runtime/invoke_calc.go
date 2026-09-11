@@ -198,7 +198,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	if sym == nil || sym.Decl == nil {
 		return nil, fmt.Errorf("%w: invalid symbol", ErrNotACalc)
 	}
-	if cached, ok := ctx.calcShapes[sym]; ok {
+	if cached, ok := ctx.model.calcShapes[sym]; ok {
 		return cached, nil
 	}
 
@@ -211,7 +211,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	// Most general first, so an inherited parameter keeps the position it has in
 	// the calc that declares it and a redeclaration refines it in place.
 	chain := ctx.calcChain(sym)
-	if conflict := ctx.model.ResultExpressionConflict(sym); conflict != nil {
+	if conflict := ctx.model.semantics.ResultExpressionConflict(sym); conflict != nil {
 		if conflict.Stated > 1 {
 			return nil, fmt.Errorf("%w: %s states %d result expressions",
 				ErrConflictingResultExpressions, label, conflict.Stated)
@@ -258,7 +258,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoResultExpression, label, unboundResultHint(chain))
 	}
 
-	ctx.calcShapes[sym] = shape
+	ctx.model.calcShapes[sym] = shape
 	return shape, nil
 }
 
@@ -292,7 +292,7 @@ func resultBindingExpr(bindings []lower.Binding) ast.Node {
 // it references), most general first, then sym. Non-calc links and the library's
 // frame contribute nothing; a domain library's calc contributes as a model's does.
 func (ctx *Context) calcChain(sym *symbols.Symbol) []*symbols.Symbol {
-	supers := ctx.model.MemberSources(sym)
+	supers := ctx.model.semantics.MemberSources(sym)
 	chain := make([]*symbols.Symbol, 0, len(supers)+1)
 	for i := len(supers) - 1; i >= 0; i-- {
 		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
@@ -356,7 +356,7 @@ func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, n
 	if at, seen := index[name]; seen {
 		return at, true
 	}
-	for _, redefined := range ctx.model.RedefinedFeatures(sym) {
+	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
 		if at, seen := index[redefined.Name]; seen {
 			return at, true
 		}
@@ -973,14 +973,14 @@ type libraryPerformance struct {
 // sym applies: the nearest one sym specializes, when neither sym nor a model calc
 // between them states a computation of its own; nil otherwise.
 func (ctx *Context) libraryCalcPerformed(sym *symbols.Symbol) *libraryPerformance {
-	if sym == nil || ctx.model == nil || ctx.libraryDeclared(sym) {
+	if sym == nil || ctx.model.semantics == nil || ctx.libraryDeclared(sym) {
 		return nil
 	}
-	if cached, ok := ctx.libraryPerformances[sym]; ok {
+	if cached, ok := ctx.model.libraryPerformances[sym]; ok {
 		return cached
 	}
 	perf := ctx.resolveLibraryPerformance(sym)
-	ctx.libraryPerformances[sym] = perf
+	ctx.model.libraryPerformances[sym] = perf
 	return perf
 }
 
@@ -1003,7 +1003,7 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	}
 	perf.signature = &calcShape{Sym: sym, Name: ctx.qualifiedSymbolName(sym)}
 	perf.signature.Kind, perf.signature.Label = calcKindLabel(sym, perf.signature.Name)
-	for _, p := range ctx.model.BehaviorParametersOf(sym) {
+	for _, p := range ctx.model.semantics.BehaviorParametersOf(sym) {
 		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
 			continue
 		}
@@ -1023,7 +1023,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 	if effective, _ := ast.EffectiveName(sym.Decl.(*ast.Usage)); effective != "" {
 		param.Name = effective
 	}
-	for _, link := range ctx.model.ParameterRedefinitionChain(sym) {
+	for _, link := range ctx.model.semantics.ParameterRedefinitionChain(sym) {
 		owner := link.OwnerScope.Owner()
 		param.Decl = param.Decl.redeclaring(ctx.calcMemberDeclFor(owner, link, param.Name))
 		if at := indexOfSymbol(libInputs, link); at >= 0 {
@@ -1042,7 +1042,7 @@ func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols
 // implementedLibraryCalc returns the nearest library calc sym specializes that
 // this runtime implements, or nil when none is.
 func (ctx *Context) implementedLibraryCalc(sym *symbols.Symbol) *symbols.Symbol {
-	for _, super := range ctx.model.AllSupertypes(sym) {
+	for _, super := range ctx.model.semantics.AllSupertypes(sym) {
 		if super == nil || !isCalcDecl(super.Decl) || !ctx.libraryDeclared(super) {
 			continue
 		}
@@ -1285,8 +1285,8 @@ func (ctx *Context) qualifiedSymbolName(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}
-	if ctx.resolver != nil {
-		if idx := ctx.resolver.Index(); idx != nil {
+	if ctx.model.resolver != nil {
+		if idx := ctx.model.resolver.Index(); idx != nil {
 			if fqn := idx.GetFQN(sym); fqn != "" {
 				return fqn
 			}

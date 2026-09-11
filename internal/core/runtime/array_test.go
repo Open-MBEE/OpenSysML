@@ -116,7 +116,7 @@ func TestAbandonedArrayObjectIsForgottenByItsHolders(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildLibraryModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	holder, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "holder"))
 	if err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestAbandonedVectorObjectIsForgottenByItsHolders(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildLibraryModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	holder, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "holder"))
 	if err != nil {
 		t.Fatal(err)
@@ -211,7 +211,7 @@ func TestVectorObjectMemberReadsFollowTheDeclaration(t *testing.T) {
 	`
 	model, resolver, root := parseAndBuildLibraryModel(t, src)
 	pkg := resolveSymbol(t, root, "test")
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	for _, tc := range []struct{ expr, want string }{
 		{"two", "⟨1, 2⟩"},
 		{"two.dimension", "2"},

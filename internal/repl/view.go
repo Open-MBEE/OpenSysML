@@ -47,7 +47,7 @@ func (s *Session) view(name string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	exposed, err := model.ExposedElements(sym)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", notationName(fqn), err)
@@ -333,7 +333,7 @@ func (e concernEvaluator) EvaluateConcern(concern, element *symbols.Symbol) (boo
 		Subject:    element,
 		SubjectRef: e.session.viewElementName(element),
 	}
-	if requirement := e.ctx.Model().FramedConcernTarget(concern); requirement != nil {
+	if requirement := e.ctx.Semantics().FramedConcernTarget(concern); requirement != nil {
 		// Named only when it resolved, so a reference naming nothing is reported
 		// as unresolved rather than as this concern's own conditions.
 		assertion.Requirement = requirement
@@ -392,14 +392,15 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 		return nil, fmt.Errorf("no document loaded")
 	}
 	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-	model.SetSourceText(r.session.sessionSourceText())
-	ctx := runtime.NewContext(model, resolver, r.session.budgets.MaxSteps)
+	sem := semantics.NewModel(resolver)
+	sem.SetSourceText(r.session.sessionSourceText())
+	model := runtime.NewModel(sem, resolver)
+	for _, doc := range r.session.sessionDocs() {
+		model.RegisterSource(source.New(doc.Name, doc.Content))
+	}
+	ctx := runtime.NewContext(model, r.session.budgets.MaxSteps)
 	if err := ctx.SetBudgets(r.session.budgets); err != nil {
 		return nil, err
-	}
-	for _, doc := range r.session.sessionDocs() {
-		ctx.RegisterSource(source.New(doc.Name, doc.Content))
 	}
 	// Recorded like the session's own evaluation, so a trace does not depend on
 	// which objects the report had to materialize.

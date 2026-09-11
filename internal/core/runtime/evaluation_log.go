@@ -23,7 +23,7 @@ type evaluationLog struct {
 // run's log until endEvaluationLog restores it.
 func (ctx *Context) beginEvaluationLog(caseSym *symbols.Symbol) *evaluationLog {
 	log := &evaluationLog{calcs: map[*symbols.Symbol]bool{}, enclosing: ctx.evaluations}
-	for _, member := range ctx.model.MembersOfIncludingRedefined(caseSym) {
+	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(caseSym) {
 		if isCalcSymbol(member) {
 			log.calcs[member] = true
 		}

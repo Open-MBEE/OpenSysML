@@ -13,14 +13,14 @@ import (
 func (ec *EvalContext) frameIndex(index ast.Node) (*CoordinateFrame, bool, error) {
 	switch n := index.(type) {
 	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
-		if ec.ctx.resolver == nil {
+		if ec.ctx.model.resolver == nil {
 			return nil, false, nil
 		}
-		sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, index)
+		sym, ok := ec.ctx.model.resolver.ResolveTarget(ec.scope, index)
 		if !ok || sym == nil {
 			return nil, false, nil
 		}
-		if alias, ok := ec.ctx.resolver.ResolveAliasTarget(sym); ok {
+		if alias, ok := ec.ctx.model.resolver.ResolveAliasTarget(sym); ok {
 			sym = alias
 		}
 		if !ec.ctx.isFrameType(ec.ctx.extractType(sym)) {
@@ -28,7 +28,7 @@ func (ec *EvalContext) frameIndex(index ast.Node) (*CoordinateFrame, bool, error
 		}
 	case *ast.OperatorExpr:
 		// `spatialCF / s`: a frame the checker proves 'CoordinateFrame/' composes.
-		if ec.ctx.model.CoordinateFrameExprType(ec.scope, n) == nil {
+		if ec.ctx.model.semantics.CoordinateFrameExprType(ec.scope, n) == nil {
 			return nil, false, nil
 		}
 	default:
@@ -230,12 +230,12 @@ func (ctx *Context) frameConforms(frame *CoordinateFrame, declared *symbols.Symb
 // its type, or what the checker knows of a composed frame; false where it conforms.
 func (ctx *Context) frameRefusal(frame *CoordinateFrame, declared *symbols.Symbol) (string, bool) {
 	if frame.Type != nil {
-		if ctx.model.Conforms(frame.Type, declared) {
+		if ctx.model.semantics.Conforms(frame.Type, declared) {
 			return "", false
 		}
 		return "a " + symbolText(frame.Type), true
 	}
-	c := ctx.model.ComposedFrameConforms(ctx.composedFrame(frame), declared)
+	c := ctx.model.semantics.ComposedFrameConforms(ctx.composedFrame(frame), declared)
 	if !c.Known || c.Holds {
 		return "", false
 	}
@@ -246,7 +246,7 @@ func (ctx *Context) frameRefusal(frame *CoordinateFrame, declared *symbols.Symbo
 // frames the declared type's `mRef` admits, as the checker judges `(1, 2, 3) [cf]`.
 func (ctx *Context) framedQuantityConforms(value Value, declared *symbols.Symbol) (bool, string) {
 	frame := value.VectorQuantity().Frame
-	for _, admitted := range ctx.model.AdmittedMeasurementRefs(declared) {
+	for _, admitted := range ctx.model.semantics.AdmittedMeasurementRefs(declared) {
 		if found, refused := ctx.frameRefusal(frame, admitted); refused {
 			return false, fmt.Sprintf("cannot write %s (a vector quantity over the coordinate frame %s, %s) to a feature typed by %s, whose mRef admits %s",
 				FormatValue(value), frame, found, symbolText(declared), symbolText(admitted))
@@ -261,7 +261,7 @@ func (ctx *Context) composedFrame(frame *CoordinateFrame) semantics.ComposedFram
 	composed := semantics.ComposedFrame{Dimensions: frame.Dimensions, HasDimensions: true}
 	axes := make([]semantics.UnitTerm, 0, len(frame.Axes))
 	for _, axis := range frame.Axes {
-		dim, ok := ctx.model.DimensionOfUnit(axis.Term)
+		dim, ok := ctx.model.semantics.DimensionOfUnit(axis.Term)
 		if !ok {
 			return composed
 		}
@@ -280,7 +280,7 @@ func (ctx *Context) transformationConforms(t *CoordinateTransformation, declared
 			return false, "", err
 		}
 	}
-	if ctx.model.Conforms(typ, declared) {
+	if ctx.model.semantics.Conforms(typ, declared) {
 		return true, "", nil
 	}
 	return false, fmt.Sprintf("cannot write the coordinate transformation %s, a %s, to a feature typed by %s",
@@ -351,7 +351,7 @@ func (ctx *Context) transformationFeature(val Value, name string) (Value, bool, 
 // supplies (`target = that`): the frame it is read through, or none standalone.
 func (ec *EvalContext) featuringReferenceValue(sym *symbols.Symbol) (Value, bool, error) {
 	for inst := ec.self; inst != nil; inst, _ = inst.Owner() {
-		if !ec.ctx.isTransformationType(ec.ctx.objectType(inst)) || !ec.ctx.model.RestatesFeaturingReference(inst.Type, sym) {
+		if !ec.ctx.isTransformationType(ec.ctx.objectType(inst)) || !ec.ctx.model.semantics.RestatesFeaturingReference(inst.Type, sym) {
 			continue
 		}
 		val, ok, err := ec.ctx.referenceValueOfObject(inst)

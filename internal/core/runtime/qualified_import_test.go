@@ -71,7 +71,7 @@ func qualifiedImportRuntime(t *testing.T) (*Context, *symbols.Scope, []string) {
 	t.Helper()
 	file := parseAndBuild(t, qualifiedImportModel)
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
-	ctx.resolver.ResolveDocument("<test>", file)
+	ctx.model.resolver.ResolveDocument("<test>", file)
 	root := idx.DocumentRoot("<test>")
 	probes, ok := root.LookupLocal("probes")
 	if !ok || probes.Decl == nil {
@@ -79,7 +79,7 @@ func qualifiedImportRuntime(t *testing.T) (*Context, *symbols.Scope, []string) {
 	}
 	within := probes.Decl.Span()
 	var checked []string
-	for _, d := range ctx.resolver.Diagnostics {
+	for _, d := range ctx.model.resolver.Diagnostics {
 		if d.Span.Offset >= within.Offset && d.Span.End() <= within.End() {
 			checked = append(checked, d.Message)
 		}
@@ -282,7 +282,7 @@ func TestQualifiedNameEvaluatedInSeveralScopes(t *testing.T) {
 		package Two { package A { attribute x = 2; } }
 	`)
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
-	ctx.resolver.ResolveDocument("<test>", file)
+	ctx.model.resolver.ResolveDocument("<test>", file)
 	root := idx.DocumentRoot("<test>")
 	scopes := map[string]*symbols.Scope{}
 	for _, name := range []string{"One", "Two"} {
@@ -306,7 +306,7 @@ func TestQualifiedNameEvaluatedInSeveralScopes(t *testing.T) {
 			}
 		}
 	}
-	if n := len(ctx.resolver.Diagnostics); n != 0 {
-		t.Errorf("evaluation reported %d resolver diagnostics: %v", n, ctx.resolver.Diagnostics)
+	if n := len(ctx.model.resolver.Diagnostics); n != 0 {
+		t.Errorf("evaluation reported %d resolver diagnostics: %v", n, ctx.model.resolver.Diagnostics)
 	}
 }

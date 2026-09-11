@@ -37,13 +37,13 @@ package Demo {
 	var last *runtime.Context
 	for i := 0; i < 3; i++ {
 		ctx := srv.newRuntime(cached)
-		if last != nil && (ctx.Model() == last.Model() || ctx.Resolver() == last.Resolver()) {
+		if last != nil && (ctx.Semantics() == last.Semantics() || ctx.Resolver() == last.Resolver()) {
 			t.Fatalf("runtime %d: shares its resolver or semantic model with the one before", i)
 		}
-		if ctx.Model().SourceText() == nil {
+		if ctx.Semantics().SourceText() == nil {
 			t.Fatalf("runtime %d: worker's model has no source lookup", i)
 		}
-		if got := ctx.Model().DocumentationOf(syms[0]); len(got) != 1 || got[0] != "The crew shall return safely." {
+		if got := ctx.Semantics().DocumentationOf(syms[0]); len(got) != 1 || got[0] != "The crew shall return safely." {
 			t.Fatalf("runtime %d: DocumentationOf = %q, want the doc body", i, got)
 		}
 		last = ctx

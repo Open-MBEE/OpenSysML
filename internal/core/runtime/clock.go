@@ -79,13 +79,6 @@ func (c *Clock) forgetFinished() {
 	c.waiters = slices.DeleteFunc(c.waiters, clockWaiter.finished)
 }
 
-// snapshot returns what restores the clock to its current state, for a probe
-// whose preview created executors or moved time.
-func (c *Clock) snapshot() func() {
-	now, waiters := c.now, slices.Clone(c.waiters)
-	return func() { c.now, c.waiters = now, waiters }
-}
-
 // Clock returns the simulation clock every executor of this context shares.
 func (ctx *Context) Clock() *Clock {
 	return &ctx.clock
@@ -148,7 +141,7 @@ func (ctx *Context) timeMagnitude(val Value, what string) (float64, error) {
 // judgeTimeTriggerType refuses, before evaluating it, the trigger argument
 // validation refuses; one the declarations leave open is left to its value.
 func (ctx *Context) judgeTimeTriggerType(scope *symbols.Scope, t *ast.TimeEvent) error {
-	c := ctx.model.TimeEventConforms(scope, t)
+	c := ctx.model.semantics.TimeEventConforms(scope, t)
 	if !c.Known || c.Holds {
 		return nil
 	}
@@ -181,15 +174,15 @@ func (ctx *Context) durationInClockUnits(q *Quantity, what string) (float64, err
 // clockUnit is the second as the Quantities and Units library reduces it, so a
 // duration converts by the same reduction every other quantity uses.
 func (ctx *Context) clockUnit() (Unit, error) {
-	if ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return Unit{}, fmt.Errorf("%w: no library to reduce %s in", semantics.ErrNotAUnit, secondFQN)
 	}
-	matches := ctx.resolver.Index().LookupQualified(secondFQN)
+	matches := ctx.model.resolver.Index().LookupQualified(secondFQN)
 	if len(matches) != 1 {
 		return Unit{}, fmt.Errorf("%w: %s names %d elements, so no clock unit is determined",
 			semantics.ErrNotAUnit, secondFQN, len(matches))
 	}
-	term, err := ctx.model.UnitTermOf(matches[0])
+	term, err := ctx.model.semantics.UnitTermOf(matches[0])
 	if err != nil {
 		return Unit{}, err
 	}

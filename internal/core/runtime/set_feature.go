@@ -21,7 +21,7 @@ const (
 // which inherits the nonunique root, and not OrderedSet's or OrderedMap's —
 // unless the feature itself is declared ordered or nonunique.
 func (ctx *Context) holdsSet(feat, typeSym *symbols.Symbol, mult semantics.Range) bool {
-	if feat == nil || ctx.model == nil || !mult.Upper.Infinite && mult.Upper.Value <= 1 {
+	if feat == nil || ctx.model.semantics == nil || !mult.Upper.Infinite && mult.Upper.Value <= 1 {
 		return false
 	}
 	if declaredOrderedOrNonunique(feat) {
@@ -35,7 +35,7 @@ func (ctx *Context) holdsSet(feat, typeSym *symbols.Symbol, mult semantics.Range
 		return false
 	}
 	redefined := ctx.libraryDeclared(feat) && feat != root
-	for _, sup := range ctx.model.AllSupertypes(feat) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(feat) {
 		if sup == root || !ctx.libraryDeclared(sup) || !ctx.specializes(sup, root) {
 			continue
 		}
@@ -62,7 +62,7 @@ func (ctx *Context) specializes(sym, general *symbols.Symbol) bool {
 	if sym == general {
 		return true
 	}
-	for _, sup := range ctx.model.AllSupertypes(sym) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(sym) {
 		if sup == general {
 			return true
 		}
