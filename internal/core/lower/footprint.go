@@ -72,8 +72,9 @@ type Footprint struct {
 	Dynamic bool
 }
 
-// Dependent reports whether the two moves may not commute: a data race, a send
-// meeting an accept, convergence on one join or merge, or a dynamic target.
+// Dependent reports whether the two moves may not commute: a data race, both
+// touching the bus (a send meeting an accept, two accepts competing for one message,
+// two sends ordering it), convergence on one join or merge, or a dynamic target.
 func (f Footprint) Dependent(g Footprint) bool {
 	if f.Dynamic || g.Dynamic {
 		return true
@@ -81,7 +82,7 @@ func (f Footprint) Dependent(g Footprint) bool {
 	if placesMeet(f.Writes, g.Reads) || placesMeet(f.Writes, g.Writes) || placesMeet(g.Writes, f.Reads) {
 		return true
 	}
-	if (len(f.Sends) > 0 && len(g.Accepts) > 0) || (len(g.Sends) > 0 && len(f.Accepts) > 0) {
+	if f.messages() && g.messages() {
 		return true
 	}
 	for _, node := range f.Control {
@@ -92,6 +93,11 @@ func (f Footprint) Dependent(g Footprint) bool {
 		}
 	}
 	return false
+}
+
+// messages reports whether the move sends or accepts a message.
+func (f Footprint) messages() bool {
+	return len(f.Sends) > 0 || len(f.Accepts) > 0
 }
 
 func placesMeet(as, bs []Place) bool {

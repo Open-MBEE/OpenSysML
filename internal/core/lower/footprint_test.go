@@ -424,6 +424,10 @@ func TestFootprintStringAndClauses(t *testing.T) {
 	if !empty.Dependent(Footprint{Dynamic: true}) {
 		t.Error("an empty footprint is independent of a dynamic move")
 	}
+	bus := Footprint{Accepts: []Channel{{Signal: "Go"}}}
+	if !bus.Dependent(Footprint{Accepts: []Channel{{}}}) || !bus.Dependent(Footprint{Sends: []Channel{{Signal: "Stop"}}}) {
+		t.Error("two moves on the bus are independent")
+	}
 	if !(Footprint{Control: []ast.Node{join}}).Dependent(Footprint{Control: []ast.Node{join}}) {
 		t.Error("two arrivals at one join are independent")
 	}
