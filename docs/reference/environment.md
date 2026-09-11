@@ -112,10 +112,12 @@ The reply is `outputs`, keyed the same way with one entry per `out` and `inout` 
 An output `unit` is a SysML unit expression read in the action's scope, then in `SI` (`m/s`,
 `SI::km`, `'m⋅s⁻²'`); the value is converted to the coherent unit of the parameter's declared
 quantity kind (`36 km/h` bound to a `SpeedValue` is `10.0 [SI::'m/s']`). A unit the model does
-not declare, one of another dimension, or one on a string or a truth is refused. The process
+not declare, one of another dimension, one on a parameter that is no quantity (a `Real`), or
+one on a string or a truth is refused. The process
 must exit 0 within `OPENSYSML_TOOL_TIMEOUT` (default `10s`). A non-zero exit (its standard
 error is quoted), a reply that is not exactly one JSON object of this shape, a missing output,
-an output no parameter receives, a key repeated at any depth, an `error` beside `outputs`, more
+an output no parameter receives, a key repeated at any depth, a member not of this shape
+(`units` for `unit`), a `null` in place of a member, an `error` beside `outputs`, more
 than 16 MiB on either standard stream, or the timeout is a typed error that fails the performance, and with it the action, sweep row or analysis case
 performing it; no default value is ever invented, and nothing falls back to the action's body.
 The body is never run when the metadata is present: with `OPENSYSML_TOOLS` unset or the tool

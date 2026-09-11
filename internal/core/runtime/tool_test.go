@@ -203,6 +203,46 @@ func TestToolExecutionRefusesBadAnswers(t *testing.T) {
 	})
 }
 
+// A unit on an answer is read against the parameter: a Real is no quantity, so a measured
+// number is a malformed answer, while a ScalarQuantityValue of no fixed dimension keeps the
+// unit as answered.
+func TestToolOutputUnitsFollowTheParameterType(t *testing.T) {
+	t.Run("real measured", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, scaleModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4), Unit: "kg"}}})
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "Scaled"))
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMalformed {
+			t.Fatalf("ExecuteAction = %v, want a malformed ToolError", err)
+		}
+		if want := "y: y is not a quantity to be measured in kg"; failure.Detail != want {
+			t.Fatalf("detail %q, want %q", failure.Detail, want)
+		}
+	})
+	t.Run("any quantity", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, quantityOutputModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{"q": {Value: toolReal(4), Unit: "km"}}})
+		out, err := ctx.ExecuteAction(calcNamed(t, scope, "Measured"))
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := FormatValue(out["q"]); got != "4.0 [km]" {
+			t.Fatalf("q = %s, want 4.0 [km]", got)
+		}
+	})
+}
+
+const quantityOutputModel = `package test {
+	private import Quantities::ScalarQuantityValue;
+	private import AnalysisTooling::*;
+
+	action def Measure {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		out q : ScalarQuantityValue { @ToolVariable { name = "q"; } }
+	}
+	action def Measured { out q : ScalarQuantityValue; action s : Measure; bind q = s.q; }
+}`
+
 // A runner reporting that equal inputs were answered differently leaves the run a note.
 func TestToolExecutionNotesDivergence(t *testing.T) {
 	ctx, scope := analysisFixture(t, toolModel)

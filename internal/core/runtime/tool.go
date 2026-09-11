@@ -469,7 +469,7 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 
 // toolOutput reads one answered value as the parameter's: a string or bare number as is,
 // a quantity converted to the coherent unit of the parameter's declared quantity kind,
-// spelt as the declared type prefers.
+// spelt as the declared type prefers. A unit is refused unless the parameter is a quantity.
 func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolValue) (Value, error) {
 	malformed := func(format string, args ...any) error {
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
@@ -492,18 +492,37 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 		return Value{}, malformed("%v", err)
 	}
 	q := Quantity{Num: answered.Value, Unit: unit}
-	if dim, ok := e.ctx.model.DimensionOfFeature(out.Declared); ok {
-		coherent, ok := e.ctx.model.CoherentUnitFor(dim, out.Declared)
-		if !ok {
-			return NewQuantityValue(&q), nil
+	dim, ok := e.ctx.model.DimensionOfFeature(out.Declared)
+	if !ok {
+		if !e.ctx.quantityTyped(out.Declared) {
+			return Value{}, malformed("%s is not a quantity to be measured in %s", out.Parameter, answered.Unit)
 		}
-		converted, err := semantics.ConvertQuantity(q, coherent)
-		if err != nil {
-			return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
-		}
-		q = converted
+		return quantityResult(q, nil)
 	}
-	return quantityResult(q, nil)
+	coherent, ok := e.ctx.model.CoherentUnitFor(dim, out.Declared)
+	if !ok {
+		return NewQuantityValue(&q), nil
+	}
+	converted, err := semantics.ConvertQuantity(q, coherent)
+	if err != nil {
+		return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
+	}
+	return quantityResult(converted, nil)
+}
+
+// quantityTyped reports a feature one of whose types is a scalar quantity value type, so it
+// holds a measured number; ScalarQuantityValue itself counts, fixing no dimension.
+func (ctx *Context) quantityTyped(feature *symbols.Symbol) bool {
+	scalar := ctx.librarySymbol(scalarQuantityTypeFQN)
+	if scalar == nil {
+		return false
+	}
+	for _, typ := range ctx.model.FeatureTypes(feature) {
+		if ctx.model.Conforms(typ, scalar) {
+			return true
+		}
+	}
+	return false
 }
 
 // toolUnitKey names a unit spelling read in one scope.

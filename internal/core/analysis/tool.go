@@ -224,10 +224,16 @@ type toolRequest struct {
 	Inputs   map[string]protocolValue `json:"inputs"`
 }
 
-// toolReply is the JSON object the tool writes back: outputs, or an error.
+// toolReply is the JSON object the tool writes back: outputs, or an error. Both are kept
+// raw so a member written as null is told apart from one not written.
 type toolReply struct {
 	Outputs json.RawMessage `json:"outputs"`
-	Error   *string         `json:"error"`
+	Error   json.RawMessage `json:"error"`
+}
+
+// jsonNull reports a raw member written as the literal null.
+func jsonNull(raw json.RawMessage) bool {
+	return bytes.Equal(bytes.TrimSpace(raw), []byte("null"))
 }
 
 // protocolValue is one value on the wire: a JSON number, boolean or string, and for a
@@ -290,19 +296,25 @@ func ToolReplyOf(tool string, stdout []byte) (map[string]runtime.ToolValue, erro
 	if path, twice := repeatedKey(stdout); twice {
 		return nil, malformed("the reply names "+path+" twice", nil)
 	}
-	if bytes.Equal(bytes.TrimSpace(reply.Outputs), []byte("null")) {
+	if jsonNull(reply.Outputs) {
 		reply.Outputs = nil
 	}
 	switch {
 	case reply.Error != nil && reply.Outputs != nil:
 		return nil, malformed("the reply carries both outputs and an error", nil)
+	case jsonNull(reply.Error):
+		return nil, malformed("the reply's error is null, not a message", nil)
 	case reply.Error != nil:
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolRefused, Detail: *reply.Error}
+		var message string
+		if err := json.Unmarshal(reply.Error, &message); err != nil {
+			return nil, malformed("the reply's error is not a message", err)
+		}
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolRefused, Detail: message}
 	case reply.Outputs == nil:
 		return nil, malformed("the reply carries neither outputs nor an error", nil)
 	}
 	var wired map[string]protocolValue
-	if err := json.Unmarshal(reply.Outputs, &wired); err != nil {
+	if err := decodeOne(reply.Outputs, &wired); err != nil {
 		return nil, malformed("outputs is not an object of values", err)
 	}
 	outputs := make(map[string]runtime.ToolValue, len(wired))

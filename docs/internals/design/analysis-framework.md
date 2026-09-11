@@ -719,10 +719,11 @@ behavior unchanged until stage 4.
    The protocol is the three steps above with the request `{toolName, uri, inputs}` and the
    reply `{outputs}` or `{error}`, values as JSON numbers, truths or text with an optional
    `unit` spelt as a SysML unit expression (`m/s`, `SI::km`); an output quantity is converted
-   to the coherent unit of the parameter's declared kind and spelt as that kind prefers, text
-   and truths admit no unit, and a key repeated at any depth, a `null`, an `error` beside
-   `outputs`, a trailing JSON value or more than `ToolOutputLimit` bytes on either standard
-   stream are malformed. `ToolError{Kind}` distinguishes a failed process, a malformed reply,
+   to the coherent unit of the parameter's declared kind and spelt as that kind prefers, a
+   parameter that is no quantity (a `Real`) admits no unit, text and truths admit none, and a
+   key repeated at any depth, a `null`, a member the shape does not name (`units`), an `error`
+   beside `outputs`, a trailing JSON value or more than `ToolOutputLimit` bytes on either
+   standard stream are malformed. `ToolError{Kind}` distinguishes a failed process, a malformed reply,
    a missing output, an unknown output, a timeout and the tool's own `error`;
    `OPENSYSML_TOOL_TIMEOUT` (default `solve.DefaultTimeout`, 10 s; an unset, unparsable or
    non-positive value is the default) bounds one process. Two
