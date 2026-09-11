@@ -147,6 +147,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%strict", args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%schedule", args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%budget", desc: "show the bounds one run may spend, and the variable raising each"},
+	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 	{name: "%engines", desc: "list the analysis engines, with the authority of each, the questions it answers and whether it can run"},
 	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
 	{name: "%quit", desc: "exit the REPL"},
@@ -324,6 +325,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doSchedule(fields[1:]), false, nil), true
 	case "%budget":
 		return metaOut(s.doBudget(), false, nil), true
+	case "%jobs":
+		return metaOut(s.doJobs(fields[1:]), false, nil), true
 	case "%engines":
 		return metaOut(s.doEngines(), false, nil), true
 	case "%engine":

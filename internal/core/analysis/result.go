@@ -292,7 +292,8 @@ func (r Result) Table() runtime.SweepTable {
 type Budget struct {
 	// Deadline is the wall clock for the whole plan, met as context.DeadlineExceeded; zero means none.
 	Deadline time.Time
-	// Jobs is how many runs may go concurrently; zero means one.
+	// Jobs is how many runs may go concurrently, as -jobs, %jobs or OPENSYSML_JOBS set it
+	// and BudgetOf fills it; zero means one. Memory times Jobs is what the fleet may hold.
 	Jobs int
 	// Runs is how many runs an exploration, rows a sweep or queries a solver
 	// may make; the unit is the engine's.
@@ -307,10 +308,14 @@ type Budget struct {
 	Memory int
 }
 
-// BudgetOf is the budget a question of kind has under limits and policy, its Runs in the
-// kind's own unit: an exploring policy's runs for outcomes, the sweep runs for a sweep.
-func BudgetOf(limits runtime.Budgets, policy runtime.SchedulePolicy, kind Kind) Budget {
-	budget := Budget{Steps: int(limits.MaxSteps), Memory: int(limits.MaxElements)}
+// BudgetOf is the budget a question of kind has under limits, policy and jobs, its Runs in
+// the kind's own unit: an exploring policy's runs for outcomes, the sweep runs for a sweep.
+// Jobs is the surface's setting, DefaultJobs when it is not positive.
+func BudgetOf(limits runtime.Budgets, policy runtime.SchedulePolicy, kind Kind, jobs int) Budget {
+	if jobs <= 0 {
+		jobs = DefaultJobs()
+	}
+	budget := Budget{Jobs: jobs, Steps: int(limits.MaxSteps), Memory: int(limits.MaxElements)}
 	exploring, ok := policy.Exploration()
 	if ok {
 		budget.Depth = exploring.Depth

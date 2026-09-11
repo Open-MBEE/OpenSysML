@@ -81,8 +81,9 @@ each answers and whether its process is found \(em and exit
 Evaluate expression and exit (can be specified multiple times)
 .TP
 .BI \-from " string"
-Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi/mdzip for a
-SysML v1 model to migrate (experimental; default: from the input's extension)
+Input format for \-convert: sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip
+for a SysML v1 model to migrate (experimental; default: from the input's
+extension)
 .TP
 .B \-h
 Show this help (shorthand)
@@ -118,6 +119,12 @@ default, modern, print or report (default: the default stylesheet alone)
 .BI \-instantiate " value"
 Create an object of this definition before the checks, so a verdict is about
 it (repeatable)
+.TP
+.BI \-jobs " value"
+Runs of one check that may go concurrently \(em the linearizations of an
+exploration, the engines \-engine all consults \(em each on a worker of its
+own over the shared model; the result is the same at any count. Default
+OPENSYSML_JOBS, else the number of CPUs
 .TP
 .B \-json
 Report checks as one JSON document rather than as lines
@@ -617,6 +624,12 @@ recursion spends. Default 10000, ceiling 25000.
 .B OPENSYSML_MAX_SWEEP_RUNS
 Runs one parameter sweep or sample may make, each a whole analysis or calc run
 of its own with its own budgets. Default 1000.
+.TP
+.B OPENSYSML_JOBS
+Runs of one check that may go concurrently \(em the linearizations of an
+exploration, the engines \-engine all consults \(em each on a worker of its
+own over the shared model; \-jobs and %jobs override it. Default the number of
+CPUs.
 .TP
 .B OPENSYSML_SMT
 Executable the %check, %explain, %solve, %configure and %optimize commands

@@ -398,7 +398,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		if items[i].set {
 			if firstKey.Kind() == "" {
 				firstKey = items[i].key
-			} else if !orderedKeysCompatible(firstKey, items[i].key) {
+			} else if !e.orderedKeysCompatible(firstKey, items[i].key) {
 				return sequence{}, e.invalidOrder(expression, property, firstKey, items[i].key)
 			}
 		}
@@ -419,7 +419,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		if !left.set {
 			return false
 		}
-		comparison, err := compareOrdered(left.key, right.key)
+		comparison, err := e.compareOrdered(left.key, right.key)
 		if err != nil {
 			sortErr = err
 			sortKeys = [2]Value{left.key, right.key}
@@ -760,8 +760,8 @@ func compareOrdinal(comparison int, operator string) (bool, error) {
 }
 
 // compareOrdered orders two keys orderedKeysCompatible admitted; quantities
-// compare in the left key's unit.
-func compareOrdered(left, right Value) (int, error) {
+// compare on the left key's reference, a point on a scale through its anchor.
+func (e *executor) compareOrdered(left, right Value) (int, error) {
 	if numericKind(left.Kind()) && numericKind(right.Kind()) {
 		return compareNumeric(left, right), nil
 	}
@@ -772,7 +772,7 @@ func compareOrdered(left, right Value) (int, error) {
 	case ValueQuantity:
 		l, _ := left.Quantity()
 		r, _ := right.Quantity()
-		return semantics.CompareMagnitudes(l, r)
+		return e.derived.get(e.context).CompareMagnitudes(l, r)
 	case ValueString:
 		l, _ := left.String()
 		r, _ := right.String()
@@ -850,12 +850,13 @@ func compareFloat(left, right float64) int {
 }
 
 // orderedKeysCompatible reports whether two sort keys are comparable: values of
-// one kind, numbers of any kind, or quantities in commensurable units.
-func orderedKeysCompatible(left, right Value) bool {
+// one kind, numbers of any kind, or quantities the runtime can order.
+func (e *executor) orderedKeysCompatible(left, right Value) bool {
 	if left.Kind() == ValueQuantity && right.Kind() == ValueQuantity {
 		l, _ := left.Quantity()
 		r, _ := right.Quantity()
-		return l.Unit.Term.Commensurable(r.Unit.Term)
+		_, err := e.derived.get(e.context).CompareMagnitudes(l, r)
+		return err == nil
 	}
 	if left.Kind() == right.Kind() {
 		return true

@@ -21,7 +21,7 @@ reading order.
   C or shell client with no generated library: the session, every `Value` arm, errors, answers
 - **[RDF mapping](rdf-mapping.md)** — which triples a model becomes, what is not mapped, and
   why the mapping is experimental
-- **[SysML v1 migration](sysml-v1-migration.md)** — reading Cameo/MagicDraw XMI and `.mdzip`, what
+- **[SysML v1 migration](sysml-v1-migration.md)** — reading OMG UML/SysML XMI, Eclipse `.uml` and `.mdzip`, what
   each v1 construct becomes, and the migration report
 - **[OSLC Query text](oslc-query.md)** — element-identification query syntax and semantics
 - **[Grammar](grammar/README.md)** — how each grammar production maps to the parser

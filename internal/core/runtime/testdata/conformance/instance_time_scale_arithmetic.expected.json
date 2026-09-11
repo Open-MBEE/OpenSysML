@@ -1,0 +1,31 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Mission",
+  "slots": {
+    "launch": {"type": "Quantity", "value": 5.0, "unit": "UTC"},
+    "afterBurn": {"type": "Quantity", "value": 8.0, "unit": "UTC"},
+    "beforeBurn": {"type": "Quantity", "value": 2.0, "unit": "UTC"},
+    "burnFirst": {"type": "Quantity", "value": 8.0, "unit": "UTC"},
+    "afterMinute": {"type": "Quantity", "value": 65.0, "unit": "UTC"},
+    "afterHour": {"type": "Quantity", "value": 3605.0, "unit": "UTC"},
+    "burnTime": {"type": "Quantity", "value": 3.0, "unit": "s"},
+    "countdown": {"type": "Quantity", "value": -3.0, "unit": "s"},
+    "stillLaunch": {"type": "Quantity", "value": 5.0, "unit": "UTC"},
+    "launched": {"type": "Boolean", "value": true},
+    "onTime": {"type": "Boolean", "value": true},
+    "notLate": {"type": "Boolean", "value": true},
+    "earliest": {"type": "Quantity", "value": 5.0, "unit": "UTC"},
+    "latest": {"type": "Quantity", "value": 8.0, "unit": "UTC"},
+    "totalBurn": {"type": "Quantity", "value": 5.0, "unit": "s"},
+    "doubled": {"error": "operation is not defined on a point of a measurement scale: operator '*' on a point of the interval scale Time::UTC: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first"},
+    "perSecond": {"error": "operation is not defined on a point of a measurement scale: operator '*' on a point of the interval scale Time::UTC"},
+    "halved": {"error": "operation is not defined on a point of a measurement scale: operator '/' on a point of the interval scale Time::UTC"},
+    "rate": {"error": "operation is not defined on a point of a measurement scale: operator '/' on a point of the interval scale Time::UTC"},
+    "negated": {"error": "operation is not defined on a point of a measurement scale: negation on a point of the interval scale Time::UTC: a point has no negative; negate a difference between points instead"},
+    "summed": {"error": "operation is not defined on a point of a measurement scale: operator '+' on a point of the interval scale Time::UTC: two points have no sum; their difference `x - y` is a magnitude in s, which a point adds"},
+    "fromDuration": {"error": "operation is not defined on a point of a measurement scale: subtracting a point from a magnitude on a point of the interval scale Time::UTC: a magnitude in s minus a point is neither a point nor a magnitude; write `point - magnitude`"},
+    "againstDuration": {"error": "library function is not evaluable: Time::UTC states neither a transformation placing it on another reference nor a quantityValueMapping, so its magnitudes convert to no other reference"},
+    "instantSum": {"error": "QuantityCalculations::sum: operation is not defined on a point of a measurement scale: QuantityCalculations::sum on a point of the interval scale Time::UTC: points have no sum or product to fold; fold their differences from one point instead"}
+  }
+}

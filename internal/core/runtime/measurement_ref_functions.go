@@ -60,7 +60,7 @@ func convertQuantity(name string, ctx *Context, args []Value) (Value, error) {
 // measurementRefArithmetic is MeasurementRefCalculations::'*', '/', '**' and '^'
 // over MeasurementUnits: the composed unit, as a quantity's unit composes.
 func measurementRefArithmetic(op ast.OperatorKind) libraryApply {
-	return func(name string, _ *Context, args []Value) (Value, error) {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
 		if _, err := measurementRefArg(name, "x", args[0]); err != nil {
 			return Value{}, err
 		}
@@ -71,12 +71,12 @@ func measurementRefArithmetic(op ast.OperatorKind) libraryApply {
 		} else if _, err := measurementRefArg(name, "y", args[1]); err != nil {
 			return Value{}, err
 		}
-		ref, ok := composeMeasurementRefs(op, args[0], args[1])
+		ref, ok, err := ctx.composeMeasurementRefs(op, args[0], args[1])
 		if !ok {
 			return Value{}, fmt.Errorf("%w: function %s is not defined over %s and %s",
 				ErrTypeMismatch, name, describeValue(args[0]), describeValue(args[1]))
 		}
-		return ref, nil
+		return ref, err
 	}
 }
 
