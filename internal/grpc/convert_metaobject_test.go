@@ -205,6 +205,13 @@ func TestMetaobjectCapability(t *testing.T) {
 		}
 	}
 
+	// A set of two metaobjects is named as two, not as one null the set collapsed.
+	set := setOf(metaobjectValue("M::seatBelt", "SysML::Systems::PartUsage"), metaobjectValue("M::Vehicle", "SysML::Systems::PartDefinition"))
+	without.filterValueCapabilities(set)
+	if want := "unsupported: set Set{meta(M::Vehicle : SysML::Systems::PartDefinition), meta(M::seatBelt : SysML::Systems::PartUsage)} holding metaobject M::seatBelt : SysML::Systems::PartUsage"; set.GetNull() != want {
+		t.Errorf("set of metaobjects without %s = %q, want %q", CapabilityMetaobjectValues, set.GetNull(), want)
+	}
+
 	if !ValueCarriesMetaobject(sequenceValue(intValue(1), setOf(metaobjectValue("M::seatBelt", "")))) {
 		t.Error("ValueCarriesMetaobject misses a metaobject nested in a set in a sequence")
 	}

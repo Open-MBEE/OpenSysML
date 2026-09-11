@@ -189,6 +189,8 @@ func displayValue(pv *pb.Value) runtime.Value {
 			units = append(units, q.Unit)
 		}
 		return runtime.NewTensorQuantityValue(k.TensorQuantity.GetDimensions(), num, units)
+	case *pb.Value_Metaobject:
+		return runtime.NewMetaobject(&symbols.Symbol{Name: k.Metaobject.GetElementId()}, &symbols.Symbol{Name: k.Metaobject.GetMetaclassId()})
 	default:
 		return protoToScalar(pv)
 	}
