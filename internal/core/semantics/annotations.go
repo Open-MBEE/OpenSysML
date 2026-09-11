@@ -846,6 +846,75 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	return ""
 }
 
+// MetaclassOf is the reflective metaclass classifying sym's declaration — the
+// library element `x meta T` yields an instance of — or nil where none is known.
+func (m *Model) MetaclassOf(sym *symbols.Symbol) *symbols.Symbol {
+	if m == nil || sym == nil {
+		return nil
+	}
+	return m.metaclassOf(sym)
+}
+
+// ReflectiveElements reads an element-valued metaclass feature of sym as the
+// elements it holds, in model order; ok is false where the feature is not derived.
+func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	if m == nil || sym == nil {
+		return nil, false
+	}
+	switch feature {
+	case "owner":
+		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
+			return nil, true
+		}
+		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+	case "ownedMember":
+		return ownedMembersOf(sym), true
+	case "ownedFeature":
+		var features []*symbols.Symbol
+		for _, member := range ownedMembersOf(sym) {
+			if member.IsFeature() {
+				features = append(features, member)
+			}
+		}
+		return features, true
+	case "type":
+		if !sym.IsFeature() {
+			return nil, false
+		}
+		return m.FeatureTypeSet(sym), true
+	}
+	return nil, false
+}
+
+// ownedMembersOf is every element sym's own body declares, in declaration order:
+// an alias is a membership rather than an element, and a name registered twice
+// (short and primary) is one element.
+func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Scope == nil {
+		return nil
+	}
+	var members []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.Kind != symbols.SymbolAlias && !seen[member] {
+			seen[member] = true
+			members = append(members, member)
+		}
+		return true
+	})
+	return members
+}
+
+// ReflectiveDirection is the direction sym's feature declaration states
+// (Feature::direction); ok is false where sym declares no feature.
+func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
+	traits, ok := featureTraitsOf(sym)
+	if !ok {
+		return ast.DirNone, false
+	}
+	return traits.Direction, true
+}
+
 // ReflectiveFeatureValue reads a metaclass feature derived from the
 // candidate's declaration; ok is false where none is derived.
 func (m *Model) ReflectiveFeatureValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {

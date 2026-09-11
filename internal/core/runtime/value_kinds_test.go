@@ -67,6 +67,7 @@ func kindSamples() map[ValueKind][2]Value {
 		},
 		ValMeasurementRef:  {NewMeasurementRefValue(metre), NewMeasurementRefValue(second)},
 		ValFunction:        {functionOf("a", symA), functionOf("b", symB)},
+		ValMetaobject:      {NewMetaobject(symA, symB), NewMetaobject(symB, symA)},
 		ValCoordinateFrame: {NewCoordinateFrameValue(spatial), NewCoordinateFrameValue(temporal)},
 		ValCoordinateTransformation: {
 			NewCoordinateTransformationValue(placementOf(spatial, temporal, 1)),

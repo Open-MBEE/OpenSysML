@@ -125,6 +125,11 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 		if !s.capabilities.has(CapabilityTensorValues) {
 			value.Kind = unsupportedShown(displayValue(value))
 		}
+	case *pb.Value_Metaobject:
+		if !s.capabilities.has(CapabilityMetaobjectValues) {
+			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValMetaobject.String() + " " +
+				kind.Metaobject.GetElementId() + " : " + kind.Metaobject.GetMetaclassId()}
+		}
 	}
 }
 

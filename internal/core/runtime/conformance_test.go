@@ -1839,6 +1839,8 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 		t.Fatalf("a %s is declared by the model, so it cannot be built from a case value", ev.Type)
 	case "Function":
 		t.Fatalf("a function is a calc the model declares, so it cannot be built from a case value")
+	case "Metaobject":
+		t.Fatalf("a metaobject denotes an element the model declares, so it cannot be built from a case value")
 	case "Complex":
 		v, ok := ev.Value.(float64)
 		if !ok || ev.Im == nil {
@@ -2049,6 +2051,14 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		}
 		if want := expected.Value.(string); actual.FunctionName() != want {
 			t.Errorf("%s: function = %q, want %q", name, actual.FunctionName(), want)
+		}
+	case "Metaobject":
+		if actual.Kind != ValMetaobject || actual.MetaobjectElement() == nil {
+			t.Errorf("%s: type = %v, want Metaobject", name, actual.Kind)
+			return
+		}
+		if want, pinned := expected.Value.(string); pinned && actual.MetaobjectText() != want {
+			t.Errorf("%s: metaobject = %q, want %q", name, actual.MetaobjectText(), want)
 		}
 	case "CoordinateFrame":
 		actual = denotedObjectValue(t, ctx, name, actual)

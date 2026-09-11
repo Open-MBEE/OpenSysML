@@ -1078,7 +1078,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1139,7 +1139,29 @@ pub mod value {
         /// shape and one Quantity per component
         #[prost(message, tag="19")]
         TensorQuantity(super::TensorQuantity),
+        /// an element reflected on as its metaclass
+        #[prost(message, tag="20")]
+        Metaobject(super::Metaobject),
     }
+}
+/// Metaobject is an element of the model held as an instance of its reflective
+/// metaclass: what `x meta KerML::Feature`, or the last element of
+/// `x.metadata`, evaluates to (KerML 7.4.9.2, 8.3.4.8.15). It crosses as the
+/// element it reflects, which is its identity: two metaobjects are the same
+/// exactly when element_id is, whatever type each was cast to. Its features
+/// (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Metaobject {
+    /// FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+    #[prost(string, tag="1")]
+    pub element_id: ::prost::alloc::string::String,
+    /// FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
+    /// the most specific metaclass of the KerML or SysML library classifying it;
+    /// not the type it was cast to. The service always sends it; a client may omit
+    /// it, in which case the model's is used, but one sent must be the model's or
+    /// the value is rejected.
+    #[prost(string, tag="2")]
+    pub metaclass_id: ::prost::alloc::string::String,
 }
 /// Function is a calc held as a value: a calc definition, or a calc usage with
 /// an input no read could supply, as `Sq` in `Fn(Sq, 3.0)` or the `f` of
@@ -1424,6 +1446,13 @@ pub struct ServerInfoResponse {
     ///                   unsupported null, and one is accepted as an action input
     ///                   or calc argument; without it, one is refused with
     ///                   UNIMPLEMENTED rather than read as another value.
+    ///    "metaobject_values" - a Value carries an element reflected on as an
+    ///                   instance of its metaclass (`x meta T`, the last element
+    ///                   of `x.metadata`) as metaobject, named by the element and
+    ///                   its metaclass, rather than reporting it as an unsupported
+    ///                   null, and one is accepted as an action input or calc
+    ///                   argument; without it, one is refused with UNIMPLEMENTED
+    ///                   rather than read as another value.
     ///    "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
     ///                   preserving everything the edit did not touch.
     ///    "document_query" - the RunDocumentQuery RPC runs a named document query

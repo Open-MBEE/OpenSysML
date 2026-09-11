@@ -211,18 +211,44 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 209 committed cases, the original 32, the 62 the
+prints the current ones. State of the 223 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
-the 27 of `scalar_classification.cases` and the 24 of `literal_types.cases`:
+the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases` and the 14 of
+`metadata_access.cases`:
 
 ```
-agree: 125 · kind-only: 1 · order-only: 0 · disagree: 5
+agree: 139 · kind-only: 1 · order-only: 0 · disagree: 5
 pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
+
+The fourteen `metadata_access.cases` referee `x.metadata` and the `meta` cast, added with the
+evaluation they referee, and all fourteen agree. They were run *before* the runtime changed, to
+settle what `.metadata` answers: KerML 1.0 §8.3.4.8.15 states that the result of a
+MetadataAccessExpression is the metadata annotations of the referenced element followed by one
+reflective metaobject of the element's own metaclass, and the pilot (`0.61.0`) reads it the same
+way — `seatBelt.metadata->size()` on a part annotated once is `2` and `chassis.metadata->size()`
+on a part nothing annotates is `1`, where the runtime then answered `1` and `0` (the two
+`disagree` of that run; every `meta` case was `ours-error`, the operator refused). The pilot and
+the spec text agree, so the runtime now appends the reflective metaobject and the two committed
+`.metadata` conformance fixtures moved with it: `metadata_access_annotations` expects the
+two annotation objects then `meta(test::seatBelt : SysML::Systems::PartUsage)` (and the metaobject
+alone for the element nothing annotates, where it expected `()`), and
+`metadata_access_textual_order` expects its four annotations then the metaobject. The `meta`
+cases fix the cast as `x.metadata as T` (§7.4.9.2): `(seatBelt meta KerML::Feature)->size()` is
+`1` (the metaobject alone — a `Safety` annotation is not a `Feature`), `(seatBelt meta
+Safety)->size()` `1` with `.level` `4`, `(chassis meta SysML::PartDefinition)->size()` `0` for a
+part usage and `(chassis meta SysML::PartUsage)->size()` `1`; the reflective features read
+alike on both sides — `.name` `"seatBelt"`, `.declaredName` `"chassis"`, `.qualifiedName`
+`"Meta::chassis"`, `.ownedFeature->size()` `2` (the nested part and the attribute),
+`(Vehicle meta SysML::PartDefinition).declaredName` `"Vehicle"`, `.isAbstract` `false` — and
+`(chassis meta KerML::Feature) === (chassis meta KerML::Type)` is `true` on both, so a
+metaobject's identity is the element's whatever metaclass it is cast to. Each case reads a
+model-level attribute bound to the expression because the pilot resolves no library name
+(`KerML::Feature`, `SysML::PartUsage`) inside a bare `%eval`.
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the

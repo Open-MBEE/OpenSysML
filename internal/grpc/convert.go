@@ -342,6 +342,12 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: tensor quantity with a non-numeric component"}}
 		}
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: ptq}}
+	case runtime.ValMetaobject:
+		meta := metaobjectToProto(val, idx)
+		if meta == nil {
+			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: metaobject of an unresolved element"}}
+		}
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: meta}}
 	case runtime.ValCoordinateFrame, runtime.ValCoordinateTransformation:
 		// No wire arm carries a frame's axes or a transformation's placement.
 		return &pb.Value{Kind: unsupportedShown(val)}
@@ -361,6 +367,21 @@ func functionToProto(val runtime.Value, idx *symbols.Index) *pb.Function {
 		fn.SelfId = self.ID
 	}
 	return fn
+}
+
+// metaobjectToProto names a metaobject by the element it reflects, which is its
+// identity, and by that element's own metaclass. Nil for an unresolved element.
+func metaobjectToProto(val runtime.Value, idx *symbols.Index) *pb.Metaobject {
+	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
+	if element == nil || metaclass == nil {
+		return nil
+	}
+	meta := &pb.Metaobject{ElementId: element.Name, MetaclassId: metaclass.Name}
+	if idx != nil {
+		meta.ElementId = idx.GetFQN(element)
+		meta.MetaclassId = idx.GetFQN(metaclass)
+	}
+	return meta
 }
 
 // enumLiteralToProto names a literal by the declaration it is, which is its
@@ -603,6 +624,14 @@ var (
 	// a function, or an object the runtime does not hold.
 	ErrFunctionUnbound = errors.New("function names no calc of this model")
 
+	// ErrMetaobjectUnbound reports a Metaobject naming no element of the model,
+	// or one no reflective metaclass of the model's libraries classifies.
+	ErrMetaobjectUnbound = errors.New("metaobject names no element of this model")
+
+	// ErrMetaclassMismatch reports a Metaobject sent with a metaclass_id other
+	// than the one the model classifies its element by.
+	ErrMetaclassMismatch = errors.New("metaclass_id is not the element's metaclass")
+
 	// ErrSetElementRepeated reports a set sent with an element twice, which a
 	// set holds once; a sender meaning both meant a sequence.
 	ErrSetElementRepeated = errors.New("set element is repeated")
@@ -652,6 +681,15 @@ func ValueCarriesMeasurementRef(pv *pb.Value) bool {
 func ValueCarriesFunction(pv *pb.Value) bool {
 	return valueCarries(pv, func(v *pb.Value) bool {
 		_, ok := v.GetKind().(*pb.Value_Function)
+		return ok
+	})
+}
+
+// ValueCarriesMetaobject reports whether a value, or any value nested in it, is
+// a Metaobject: the kind metaobject_values governs.
+func ValueCarriesMetaobject(pv *pb.Value) bool {
+	return valueCarries(pv, func(v *pb.Value) bool {
+		_, ok := v.GetKind().(*pb.Value_Metaobject)
 		return ok
 	})
 }
@@ -739,6 +777,8 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 		return enumLiteralFromProto(k.EnumLiteral, idx)
 	case *pb.Value_Function:
 		return functionFromProto(rt, k.Function, idx)
+	case *pb.Value_Metaobject:
+		return metaobjectFromProto(k.Metaobject, idx, sem)
 	case *pb.Value_Sequence:
 		seq := runtime.NewSequence()
 		if k.Sequence != nil {
@@ -800,6 +840,33 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 		return val, nil
 	}
 	return runtime.Value{}, fmt.Errorf("%w: %s is not a calc", ErrFunctionUnbound, fn.GetCalcId())
+}
+
+// metaobjectFromProto binds a metaobject to the element its element_id names,
+// reflected on as the metaclass the model classifies it by; a metaclass_id sent
+// naming another is refused rather than read as a cast.
+func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+	if meta == nil || meta.GetElementId() == "" {
+		return runtime.Value{}, fmt.Errorf("%w: element_id is empty", ErrMetaobjectUnbound)
+	}
+	if idx == nil || sem == nil {
+		return runtime.Value{}, fmt.Errorf("%w: metaobject %s: no model to resolve it against", ErrMetaobjectUnbound, meta.GetElementId())
+	}
+	var element, metaclass *symbols.Symbol
+	for _, sym := range idx.LookupQualified(meta.GetElementId()) {
+		if mc := sem.MetaclassOf(sym); mc != nil {
+			element, metaclass = sym, mc
+			break
+		}
+	}
+	if element == nil {
+		return runtime.Value{}, fmt.Errorf("%w: %s", ErrMetaobjectUnbound, meta.GetElementId())
+	}
+	if meta.GetMetaclassId() != "" && meta.GetMetaclassId() != idx.GetFQN(metaclass) {
+		return runtime.Value{}, fmt.Errorf("%w: %s is classified by %s, not %s",
+			ErrMetaclassMismatch, meta.GetElementId(), idx.GetFQN(metaclass), meta.GetMetaclassId())
+	}
+	return runtime.NewMetaobject(element, metaclass), nil
 }
 
 // protoToSet rebuilds a set from elements sent in any order, refusing one sent

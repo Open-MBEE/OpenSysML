@@ -159,6 +159,11 @@ func (ctx *Context) compareContents(a, b Value) int {
 			cmp.Compare(instanceID(a.FunctionSelf()), instanceID(b.FunctionSelf())),
 			cmp.Compare(a.functionRun(), b.functionRun()),
 		)
+	case ValMetaobject:
+		return cmp.Or(
+			compareSymbols(a.MetaobjectElement(), b.MetaobjectElement()),
+			compareSymbols(a.MetaobjectClass(), b.MetaobjectClass()),
+		)
 	}
 	return 0
 }
