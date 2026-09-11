@@ -95,8 +95,8 @@ func cellTexts(t *testing.T, result *RowSet, column int) []string {
 			out = append(out, text)
 			continue
 		}
-		if real, ok := value.Real(); ok {
-			out = append(out, semantics.FormatReal(real))
+		if realVal, ok := value.Real(); ok {
+			out = append(out, semantics.FormatReal(realVal))
 			continue
 		}
 		t.Fatalf("cell %d holds an unexpected %s", column, value.Kind())

@@ -61,9 +61,9 @@ type operand struct {
 	elements string
 }
 
-// at writes the operand where it must bind at least as tightly as min.
-func (o operand) at(min int) string {
-	if o.binding < min {
+// at writes the operand where it must bind at least as tightly as floor.
+func (o operand) at(floor int) string {
+	if o.binding < floor {
 		return "(" + o.text + ")"
 	}
 	return o.text

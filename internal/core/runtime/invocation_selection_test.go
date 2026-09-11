@@ -898,7 +898,7 @@ func testCalcCallBindsALibraryFunctionThroughRedeclaredInputs(t *testing.T) {
 	`
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	rootScope := idx.DocumentRoot("<test>")
-	real := func(f float64) Value {
+	realVal := func(f float64) Value {
 		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
 	}
 	boolean := func(b bool) Value {
@@ -908,21 +908,21 @@ func testCalcCallBindsALibraryFunctionThroughRedeclaredInputs(t *testing.T) {
 		calc string
 		want Value
 	}{
-		{"renamedNamed", real(4)},
-		{"renamedPositional", real(4)},
-		{"defaulted0", real(4)},
-		{"defaultedGiven", real(5)},
-		{"byPosition", real(2)},
-		{"floorApplies", real(0)},
-		{"floorGiven", real(7)},
+		{"renamedNamed", realVal(4)},
+		{"renamedPositional", realVal(4)},
+		{"defaulted0", realVal(4)},
+		{"defaultedGiven", realVal(5)},
+		{"byPosition", realVal(2)},
+		{"floorApplies", realVal(0)},
+		{"floorGiven", realVal(7)},
 		{"emptyOmitted", boolean(true)},
 		{"emptyGiven", boolean(false)},
-		{"narrowedFits", real(2)},
-		{"nextDefault", real(3)},
-		{"nextGiven", real(2)},
-		{"ownBody", real(16)},
-		{"featureNamed", real(4)},
-		{"featureDefault", real(4)},
+		{"narrowedFits", realVal(2)},
+		{"nextDefault", realVal(3)},
+		{"nextGiven", realVal(2)},
+		{"ownBody", realVal(16)},
+		{"featureNamed", realVal(4)},
+		{"featureDefault", realVal(4)},
 	} {
 		sym := findSymbolByName(rootScope, tc.calc, ast.DefCalc)
 		if sym == nil {
@@ -957,29 +957,29 @@ func testCalcCallBindsALibraryFunctionThroughRedeclaredInputs(t *testing.T) {
 	}
 
 	renamed := findSymbolByName(rootScope, "Renamed", ast.DefCalc)
-	if result, err := ctx.InvokeCalcNamed(renamed, map[string]Value{"y": real(9)}, rootScope); err != nil || !valueEqual(result, real(3)) {
+	if result, err := ctx.InvokeCalcNamed(renamed, map[string]Value{"y": realVal(9)}, rootScope); err != nil || !valueEqual(result, realVal(3)) {
 		t.Fatalf("InvokeCalcNamed(Renamed, y = 9) = %+v, %v; want 3", result, err)
 	}
-	if result, err := ctx.InvokeCalc(renamed, []Value{real(9)}, rootScope); err != nil || !valueEqual(result, real(3)) {
+	if result, err := ctx.InvokeCalc(renamed, []Value{realVal(9)}, rootScope); err != nil || !valueEqual(result, realVal(3)) {
 		t.Fatalf("InvokeCalc(Renamed, 9) = %+v, %v; want 3", result, err)
 	}
-	if _, err := ctx.InvokeCalcNamed(renamed, map[string]Value{"x": real(9)}, rootScope); !errors.Is(err, ErrUnknownParameter) {
+	if _, err := ctx.InvokeCalcNamed(renamed, map[string]Value{"x": realVal(9)}, rootScope); !errors.Is(err, ErrUnknownParameter) {
 		t.Fatalf("InvokeCalcNamed(Renamed, x = 9) error = %v, want ErrUnknownParameter", err)
 	}
 	defaulted := findSymbolByName(rootScope, "Defaulted", ast.DefCalc)
-	if result, err := ctx.InvokeCalc(defaulted, nil, rootScope); err != nil || !valueEqual(result, real(4)) {
+	if result, err := ctx.InvokeCalc(defaulted, nil, rootScope); err != nil || !valueEqual(result, realVal(4)) {
 		t.Fatalf("InvokeCalc(Defaulted) = %+v, %v; want 4", result, err)
 	}
 	floor := findSymbolByName(rootScope, "Floor", ast.DefCalc)
-	if result, err := ctx.InvokeCalcNamed(floor, map[string]Value{"x": real(-3)}, rootScope); err != nil || !valueEqual(result, real(0)) {
+	if result, err := ctx.InvokeCalcNamed(floor, map[string]Value{"x": realVal(-3)}, rootScope); err != nil || !valueEqual(result, realVal(0)) {
 		t.Fatalf("InvokeCalcNamed(Floor, x = -3) = %+v, %v; want 0", result, err)
 	}
 	narrowed := findSymbolByName(rootScope, "Narrowed", ast.DefCalc)
-	if _, err := ctx.InvokeCalc(narrowed, []Value{real(2.5)}, rootScope); !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "calc test::Narrowed") {
+	if _, err := ctx.InvokeCalc(narrowed, []Value{realVal(2.5)}, rootScope); !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "calc test::Narrowed") {
 		t.Fatalf("InvokeCalc(Narrowed, 2.5) error = %v, want ErrTypeMismatch from test::Narrowed", err)
 	}
 	next := findSymbolByName(rootScope, "AtLeastNext", ast.DefCalc)
-	if result, err := ctx.InvokeCalcNamed(next, map[string]Value{"x": real(2)}, rootScope); err != nil || !valueEqual(result, real(3)) {
+	if result, err := ctx.InvokeCalcNamed(next, map[string]Value{"x": realVal(2)}, rootScope); err != nil || !valueEqual(result, realVal(3)) {
 		t.Fatalf("InvokeCalcNamed(AtLeastNext, x = 2) = %+v, %v; want 3", result, err)
 	}
 }
@@ -1209,9 +1209,9 @@ func testCalcCallExplicitAnythingTiesWithUntyped(t *testing.T) {
 	if sym == nil {
 		t.Fatal("choose calc not found")
 	}
-	real := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1.5}}
+	realVal := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1.5}}
 	integer := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-	result, err := ctx.InvokeCalc(sym, []Value{real, integer}, rootScope)
+	result, err := ctx.InvokeCalc(sym, []Value{realVal, integer}, rootScope)
 	if err == nil {
 		t.Fatalf("expected an ambiguity error, calc returned %+v", result)
 	}
@@ -1251,8 +1251,8 @@ func testCalcCallCrossedSpecificityIsAmbiguous(t *testing.T) {
 		t.Fatalf("instantiate Foo: %v", err)
 	}
 	foo := Value{Kind: ValInstance, Instance: inst.ID}
-	real := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1.5}}
-	result, err := ctx.InvokeCalc(sym, []Value{foo, real}, rootScope)
+	realVal := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1.5}}
+	result, err := ctx.InvokeCalc(sym, []Value{foo, realVal}, rootScope)
 	if err == nil {
 		t.Fatalf("expected an ambiguity error, calc returned %+v", result)
 	}

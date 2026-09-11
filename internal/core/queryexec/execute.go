@@ -442,11 +442,11 @@ func (e *executor) evaluateLiteral(expression queryplan.Expression) (sequence, e
 		}
 		value = IntegerValue(integer)
 	case queryplan.LiteralReal:
-		real, err := strconv.ParseFloat(strings.ReplaceAll(raw, "_", ""), 64)
-		if err != nil || math.IsInf(real, 0) || math.IsNaN(real) {
+		realVal, err := strconv.ParseFloat(strings.ReplaceAll(raw, "_", ""), 64)
+		if err != nil || math.IsInf(realVal, 0) || math.IsNaN(realVal) {
 			return sequence{}, e.invalidArgument(expression, "", raw)
 		}
-		value = RealValue(real)
+		value = RealValue(realVal)
 	case queryplan.LiteralBoolean:
 		boolean, err := strconv.ParseBool(raw)
 		if err != nil {

@@ -62,8 +62,8 @@ func TestHTMLDefinitions(t *testing.T) {
 	if groups := strings.Count(got, `<div class="sysml-entry"`); groups != 4 {
 		t.Errorf("got %d entry groups, want 4", groups)
 	}
-	if open, close := strings.Count(got, "<dt "), strings.Count(got, "</dt>"); open != close || open != 4 {
-		t.Errorf("%d terms opened, %d closed, want 4", open, close)
+	if open, closed := strings.Count(got, "<dt "), strings.Count(got, "</dt>"); open != closed || open != 4 {
+		t.Errorf("%d terms opened, %d closed, want 4", open, closed)
 	}
 	// An empty result keeps its list, as an empty <ul> does, so the block stays
 	// addressable by name and query; it just has no groups.

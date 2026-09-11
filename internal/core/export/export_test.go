@@ -3307,12 +3307,12 @@ func TestWriteFileFallsBackWhenTheDirectoryIsClosed(t *testing.T) {
 // rather than replacing the link with a regular file.
 func TestWriteFileWritesThroughSymlink(t *testing.T) {
 	dir := t.TempDir()
-	real := filepath.Join(dir, "real.sysml")
+	target := filepath.Join(dir, "real.sysml")
 	link := filepath.Join(dir, "link.sysml")
-	if err := os.WriteFile(real, []byte("package P;\n"), 0o644); err != nil {
+	if err := os.WriteFile(target, []byte("package P;\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
 	replaced, err := export.WriteFile(link, []byte("package Q;\n"))
@@ -3322,7 +3322,7 @@ func TestWriteFileWritesThroughSymlink(t *testing.T) {
 	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
 		t.Errorf("the symlink was replaced by a regular file (%v)", err)
 	}
-	data, err := os.ReadFile(real)
+	data, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatal(err)
 	}
