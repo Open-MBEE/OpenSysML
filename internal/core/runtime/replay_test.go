@@ -69,6 +69,23 @@ func TestParseChoicesRejectsWhatSpellsNoChoice(t *testing.T) {
 	}
 }
 
+// A witness file may carry the run's trace after its header, separated by one blank
+// line: the header is read and the trace, which spells no choice, is ignored.
+func TestParseChoicesStopsAtBlankLine(t *testing.T) {
+	text := "\n\nstep 1: 2@b first of 1@a, 2@b\nstep 2: decision d -> 1->x\n\n" +
+		"[step 1] token 2 at b\n[step 2] decision d took 1->x\nnonsense that is no choice\n"
+	choices, err := ParseChoices(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if FormatChoices(choices) != "step 1: 2@b first of 1@a, 2@b; step 2: decision d -> 1->x" {
+		t.Fatalf("read %v", choices)
+	}
+	if _, err := ParseChoices("step 1: 2@b first of 1@a, 2@b\nnonsense\n"); err == nil {
+		t.Fatal("a line spelling no choice inside the header was accepted")
+	}
+}
+
 // `replay:<file>` reads the file when the policy is parsed: a missing file, an
 // unreadable line or no file at all is a typed policy error; the policy spells
 // its file back and hands out its witness.

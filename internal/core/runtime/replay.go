@@ -90,14 +90,21 @@ type replayScript struct {
 	choices []ChoiceTaken
 }
 
-// ParseChoices reads a witness: one choice per line as ChoiceTaken.String spells
-// it, or several on one line joined by `; ` as FormatChoices writes them. Blank
-// lines and the `no choice points` FormatChoices writes for none are skipped.
+// ParseChoices reads a witness header: choices as ChoiceTaken.String spells them, one
+// per line or joined by `; `, ending at the first blank line after it; what follows is ignored.
 func ParseChoices(text string) ([]ChoiceTaken, error) {
 	var choices []ChoiceTaken
+	begun := false
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || line == "no choice points" {
+		if line == "" {
+			if begun {
+				break
+			}
+			continue
+		}
+		begun = true
+		if line == "no choice points" {
 			continue
 		}
 		for _, part := range strings.Split(line, "; ") {
