@@ -1,8 +1,10 @@
 package runtime
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -151,5 +153,51 @@ func TestScalarDirectTypeIsTheLibraryDefinition(t *testing.T) {
 		if user == nil || user == want {
 			t.Errorf("resolveType(Shadow, %s) = %s, want the type Shadow declares", name, symbolText(user))
 		}
+	}
+}
+
+// A model that declares a scalar type under a library name stands in for the library
+// only while no library is loaded at all; with any library document present, a scalar
+// whose ScalarValues definition is missing is of no determinable type.
+func TestUserScalarTypeStandsInOnlyWithoutALibrary(t *testing.T) {
+	const model = `
+		package Shadow {
+			attribute def Integer;
+			attribute def Real;
+		}
+	`
+	build := func(t *testing.T, lib string) (*Context, *symbols.Scope) {
+		t.Helper()
+		idx := symbols.NewIndex()
+		idx.AddDocument("<test>", parseAndBuild(t, model))
+		if lib != "" {
+			idx.AddDocument("<lib>", parseAndBuild(t, lib))
+			idx.MarkLibrary("<lib>")
+		}
+		resolver := resolve.New(idx)
+		sem := semantics.NewModel(resolver)
+		ctx := NewContext(NewModel(sem, resolver), 10000)
+		pkg, ok := idx.DocumentRoot("<test>").LookupLocal("Shadow")
+		if !ok || pkg.Scope == nil {
+			t.Fatal("package Shadow not indexed")
+		}
+		return ctx, pkg.Scope
+	}
+
+	ctx, shadow := build(t, "")
+	if got := evalBoolIn(t, ctx, shadow, "2 istype Integer"); !got {
+		t.Errorf("without a library, 2 istype Integer = false, want the model's Integer to stand in")
+	}
+	typ, err := ctx.directValueType(shadow, intArg(2))
+	if err != nil || typ != ctx.resolveType(shadow, "Integer") {
+		t.Errorf("without a library, directValueType(2) = %s, %v, want Shadow::Integer", symbolText(typ), err)
+	}
+
+	ctx, shadow = build(t, "package Base { class Anything; }")
+	if _, err := ctx.directValueType(shadow, intArg(2)); !errors.Is(err, ErrUndeterminedValueType) {
+		t.Errorf("with a library lacking ScalarValues, directValueType(2) error = %v, want ErrUndeterminedValueType", err)
+	}
+	if _, err := evalIn(t, ctx, shadow, "2 istype Integer"); !errors.Is(err, ErrUndeterminedValueType) {
+		t.Errorf("with a library lacking ScalarValues, 2 istype Integer error = %v, want ErrUndeterminedValueType", err)
 	}
 }

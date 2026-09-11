@@ -1561,10 +1561,12 @@ func (ctx *Context) scalarValueType(scope *symbols.Scope, value Value) (*symbols
 	if scalar := ctx.scalarLibraryType(value); scalar != nil {
 		return scalar, nil
 	}
-	// With no library loaded, a same-named type the model declares stands in for it.
 	fqn := semantics.ScalarFQN(prim)
-	if typ := ctx.resolveType(scope, fqn[strings.LastIndex(fqn, "::")+2:]); typ != nil {
-		return typ, nil
+	// Only in a library-free model may a same-named type the model declares stand in.
+	if !ctx.libraryLoaded() {
+		if typ := ctx.resolveType(scope, fqn[strings.LastIndex(fqn, "::")+2:]); typ != nil {
+			return typ, nil
+		}
 	}
 	return nil, fmt.Errorf("%w: direct type %q", ErrUndeterminedValueType, fqn)
 }

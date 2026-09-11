@@ -6,4 +6,5 @@
   `ScalarValues`, and a model's own `attribute def Integer` where one was declared. A written
   `istype Integer` still resolves to the type the scope sees, so `2 istype Integer` beside such a
   declaration is `false` and `2 istype ScalarValues::Integer` `true`, as the pilot answers. A model
-  built without the library keeps its same-named types as the stand-in.
+  built with no library document at all keeps its same-named types as the stand-in; with any
+  library present, a scalar whose `ScalarValues` definition is missing has no determinable type.
