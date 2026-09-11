@@ -348,11 +348,57 @@ func (m *Model) selectAmong(scope *symbols.Scope, named []*symbols.Symbol, args 
 		return sel
 	}
 	sel.Ambiguous = true
-	sel.Undetermined = undetermined
-	for _, k := range m.unbeaten(scope, decisiveSigs, args) {
+	tied := m.unbeaten(scope, decisiveSigs, args)
+	tiedSigs := make([]invocationSignature, len(tied))
+	for i, k := range tied {
 		sel.Tied = append(sel.Tied, applicable[decisive[k]])
+		tiedSigs[i] = decisiveSigs[k]
 	}
+	sel.Undetermined = undetermined && m.valuesMaySettle(scope, tiedSigs, args)
 	return sel
+}
+
+// valuesMaySettle reports whether the values of the unknown arguments may still break a
+// tie between sigs: two of them type an unknown argument's parameter differently.
+func (m *Model) valuesMaySettle(scope *symbols.Scope, sigs []invocationSignature, args []Argument) bool {
+	positional := 0
+	for _, arg := range args {
+		at := positional
+		if arg.Name == nil {
+			positional++
+		}
+		if arg.known() {
+			continue
+		}
+		for i, a := range sigs {
+			pa, ok := m.boundParameter(scope, a, arg, at)
+			if !ok {
+				continue
+			}
+			for _, b := range sigs[i+1:] {
+				pb, ok := m.boundParameter(scope, b, arg, at)
+				if ok && !(m.parameterConforms(pa, pb) && m.parameterConforms(pb, pa)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// boundParameter is the parameter of sig that arg, the at-th positional one unless named, binds.
+func (m *Model) boundParameter(scope *symbols.Scope, sig invocationSignature, arg Argument, at int) (signatureParameter, bool) {
+	if !sig.known {
+		return signatureParameter{}, false
+	}
+	i := at
+	if arg.Name != nil {
+		i = m.parameterIndex(scope, sig, arg.Name)
+	}
+	if i < 0 || i >= len(sig.params) {
+		return signatureParameter{}, false
+	}
+	return sig.params[i], true
 }
 
 // bindMode is how closely an argument's type must fit its parameter's.

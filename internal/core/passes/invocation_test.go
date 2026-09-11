@@ -446,6 +446,33 @@ func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
 	// Under an unknown argument the result type is unknown: no binding is judged.
 	wantLibraryWarning(t, fmt.Sprintf(model, `r : String = pick(untyped, 3);`), "invocation-ambiguous",
 		"call of pick is undetermined")
+
+	// A tie no value can break — the tied candidates type the unknown argument alike — is
+	// the error it is under known arguments, not an advisory the run would only repeat.
+	const alike = `package P {
+		private import ScalarValues::*;
+		package A { calc def pick { in x : Integer; return : Integer = 1; } }
+		package B { calc def pick { in x : Integer; return : Integer = 2; } }
+		package D { calc def cross { in x : Integer; in y : Real; in z : Integer; return : Integer = 1; } }
+		package E { calc def cross { in x : Real; in y : Integer; in z : Integer; return : Integer = 2; } }
+		package F { calc def cross { in x : Integer; in y : Real; in z : String; return : Integer = 3; } }
+		package C {
+			private import A::*;
+			private import B::*;
+			private import D::*;
+			private import E::*;
+			attribute untyped;
+			attribute %s
+		}
+	}`
+	wantLibraryDiag(t, fmt.Sprintf(alike, `same = pick(untyped);`), "invocation-ambiguous",
+		"call of pick is ambiguous between P::A::pick, P::B::pick")
+	wantLibraryDiag(t, fmt.Sprintf(alike, `crossed = cross(1, 2, untyped);`), "invocation-ambiguous",
+		"call of cross is ambiguous between P::D::cross, P::E::cross")
+	// Differing where the unknown argument binds, a value may still single one out.
+	wantLibraryWarning(t, fmt.Sprintf(strings.Replace(alike, "private import E::*;", "private import F::*;", 1),
+		`crossed = cross(1, 2, untyped);`), "invocation-ambiguous",
+		"call of cross is undetermined between P::D::cross, P::F::cross")
 }
 
 // A parameter declared without a type is typed Anything, the least specific type: a

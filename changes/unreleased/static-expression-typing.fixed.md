@@ -21,8 +21,10 @@
   nested action's — by the values it is given: a scalar as the literal spelling it would be, so
   a positive value selects a `Natural` overload as `pick(1)` does, an object by every type it is
   classified by, an argument a candidate takes as an `expr` left unevaluated; it reports
-  `ambiguous invocation` when they tie still. A settled action node holds the pins of the action
-  performed alone and is read as a value by its result, not by a pin another candidate declares. The first visible candidate is no longer chosen silently. A called name is resolved as KerML 1.1
-  §8.2.3.5 resolves any name — an owned declaration hides an imported one, a nested namespace's
-  import stands ahead of an enclosing declaration — with no rule of its own for library
-  functions.
+  `ambiguous invocation` when they tie still. A tie no value could break — the tied candidates
+  type the unknown argument alike — stays the `ambiguous` error. A settled action node holds
+  the pins of the action performed alone and is read as a value by its result, not by a pin
+  another candidate declares. The first visible candidate is no longer chosen silently. A
+  called name is resolved as KerML 1.1 §8.2.3.5 resolves any name — an owned declaration hides
+  an imported one, a nested namespace's import stands ahead of an enclosing declaration — with
+  no rule of its own for library functions.
