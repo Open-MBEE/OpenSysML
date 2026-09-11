@@ -236,7 +236,7 @@ public final class Protos {
         literal.getLiteralId(),
         literal.getEnumerationId(),
         literal.getName(),
-        literal.hasValue() ? value(literal.getValue()) : Optional.empty());
+        literal.hasValue() ? Optional.of(readable(literal.getValue())) : Optional.empty());
   }
 
   /**

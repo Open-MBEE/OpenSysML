@@ -110,7 +110,7 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 	for _, literal := range literals {
 		declared := semantics.LiteralValue(literal)
 		if declared == nil {
-			return
+			continue // identified by itself, so equal to no constant
 		}
 		want, ok := ec.constElement(literal.OwnerScope, declared)
 		if !ok {

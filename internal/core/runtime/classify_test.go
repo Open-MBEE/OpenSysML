@@ -1974,6 +1974,7 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		enum def Color { red; green; blue; }
 		enum def Rank :> Integer { one = 1; three = 3; }
 		enum def Size :> Real { = 60.0; = 70.0; }
+		enum def Wide :> Size { = 80.0; }
 		attribute def Even :> Integer;
 		attribute two : Integer = 2;
 		attribute three : Integer = 3;
@@ -2002,6 +2003,7 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		"(Level::high as Rank) hastype Rank": true, "(Level::high as Rank) hastype Level": false,
 		"ranked hastype Rank": true, "ranked hastype Level": false, "Level::low istype Rank": true,
 		"60.0 istype Size": true, "65.0 istype Size": false, "(60.0 as Size) hastype Size": true, "60.0 hastype Size": false,
+		"60.0 istype Wide": true, "80.0 istype Wide": true, "65.0 istype Wide": false, "(60.0 as Wide) istype Wide": true, "(60.0 as Wide) hastype Size": true,
 		"(3 as Level) hastype Level": true, "(3 as Level) hastype Integer": false, "(3 as Level) == 3": true,
 		"Level::high == 3": true, "Level::high + 1 == 4": true, "(Level::high + 1) hastype Integer": true,
 		"4 istype Grade": true, "4.0 istype Grade": true, "2.5 istype Grade": false, "3 istype Grade": true,

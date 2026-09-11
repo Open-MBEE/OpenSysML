@@ -89,6 +89,14 @@ func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
 	wantNoValueDiags(t, size+`package P { attribute s : L::Size = 60.0; }`)
 	wantOneValueDiag(t, size+`package P { attribute s : L::Size = 65.0; }`,
 		"cannot bind 65.0 (a Real) to a feature typed by Size, whose values are 60.0, 70.0")
+	const wide = size + `package W { enum def Wide :> L::Size { = 80.0; } }`
+	wantNoValueDiags(t, wide+`package P { attribute s : W::Wide = 60.0; attribute w : W::Wide = 80.0; }`)
+	wantOneValueDiag(t, wide+`package P { attribute s : W::Wide = 65.0; }`,
+		"cannot bind 65.0 (a Real) to a feature typed by Wide, whose values are 80.0, 60.0, 70.0")
+	const mixed = `package L { enum def Level :> ScalarValues::Integer { unknown; high = 3; } }`
+	wantNoValueDiags(t, mixed+`package P { attribute l : L::Level = 3; }`)
+	wantOneValueDiag(t, mixed+`package P { attribute l : L::Level = 2; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::high = 3")
 }
 
 func TestValueSubtypeInstanceConforms(t *testing.T) {

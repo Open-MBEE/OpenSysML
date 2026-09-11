@@ -57,6 +57,17 @@ class ProtosTest {
             new Value.EnumerationValue(
                 new org.openmbee.opensysml.EnumLiteral("D::Color::red", "D::Color", "Color::red"))),
         Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(red).build()));
+    // A scalar that is present but of no known kind is malformed, not absent.
+    var unreadable =
+        org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
+            .setLiteralId("D::Level::high")
+            .setValue(org.openmbee.opensysml.proto.Value.newBuilder())
+            .build();
+    assertThrows(
+        TransportException.class,
+        () ->
+            Protos.value(
+                org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(unreadable).build()));
   }
 
   @Test

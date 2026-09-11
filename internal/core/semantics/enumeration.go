@@ -42,13 +42,25 @@ func LiteralValue(sym *symbols.Symbol) ast.Node {
 }
 
 // EnumeratedValuesOf returns every literal an enumeration definition has, the unnamed
-// ones (`enum def Size :> Real { = 60.0; }`) included: together they are its only instances.
+// ones (`enum def Size :> Real { = 60.0; }`) included, its own and those inherited from
+// the enumerations it specializes: together they are its only instances.
 func (m *Model) EnumeratedValuesOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Kind != symbols.SymbolEnumerationDef || sym.Scope == nil {
 		return nil
 	}
 	out := m.LiteralsOf(sym)
-	for _, member := range sym.Scope.AnonymousMembers() {
+	out = appendAnonymousLiterals(out, sym.Scope)
+	for _, src := range m.MemberSources(sym) {
+		out = appendAnonymousLiterals(out, src.Scope)
+	}
+	return out
+}
+
+func appendAnonymousLiterals(out []*symbols.Symbol, scope *symbols.Scope) []*symbols.Symbol {
+	if scope == nil {
+		return out
+	}
+	for _, member := range scope.AnonymousMembers() {
 		if EnumerationOwning(member) != nil {
 			out = append(out, member)
 		}

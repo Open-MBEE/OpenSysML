@@ -119,6 +119,10 @@ type EnumLiteral struct {
 	EnumerationID string
 	// Name is the literal as a reader writes it ("Color::red").
 	Name string
+	// Value is the scalar the literal equals — Int(3) for `high = 3` of an
+	// enumeration specializing Integer — or nil for a literal that is only its
+	// identity. It describes the literal and is no part of its identity.
+	Value Value
 }
 
 // Array is a Collections::Array: its elements in row-major order under its
