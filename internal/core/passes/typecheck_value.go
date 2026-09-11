@@ -16,11 +16,9 @@ import (
 // feature's; its arguments are the value's type names and the feature's.
 const msgBoundValueType = "cannot bind a value of type %s to a feature typed by %s"
 
-// checkValueConformance checks a bound value against the declaring feature's
-// type for the cases the scalar lattice does not cover: values typed by a
-// user-declared type, enumeration literals, collections, and computed values —
-// an invocation's result, an operator's — judged by their static result types.
-// latticeTyped holds the elements the lattice typed, which are its to report.
+// checkValueConformance checks a bound value against the declaring feature's type where
+// the scalar lattice does not: declared types, enumeration literals, collections, and
+// computed values by their static result types; latticeTyped elements are the lattice's.
 //
 // Like the scalar rules, every check is one-sided — it reports only when both
 // the expected and the actual property are known — so a partially typed model
@@ -376,11 +374,8 @@ func (ec *exprChecker) anyScalar(types []*symbols.Symbol) bool {
 	return false
 }
 
-// boundTypesConform reports whether a value typed by gots may be bound to a feature
-// typed by wants: the bound feature itself conforms to a want, or some want
-// classifies the value — all of it or, its type being wider, some of it (KerML
-// 8.3.4.3, one compatible pairing). This is the run time's write-conformance
-// rule, so a value rejected here is one the run time would refuse too.
+// boundTypesConform reports whether a value typed by gots may be bound to a feature typed
+// by wants — the run time's write-conformance rule, so a rejection here is one there too.
 func (ec *exprChecker) boundTypesConform(feature *symbols.Symbol, gots, wants []*symbols.Symbol) bool {
 	for _, want := range wants {
 		if ec.model.Conforms(feature, want) {
@@ -393,9 +388,8 @@ func (ec *exprChecker) boundTypesConform(feature *symbols.Symbol, gots, wants []
 	return false
 }
 
-// computesValue reports whether value is computed — called or built by an
-// operator — so that it is judged by its static result type rather than by
-// a declaration of its own.
+// computesValue reports whether value is an invocation or an operator expression,
+// judged by its static result type rather than by a declaration of its own.
 func computesValue(value ast.Node) bool {
 	switch value.(type) {
 	case *ast.InvocationExpr, *ast.OperatorExpr:

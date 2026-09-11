@@ -405,9 +405,8 @@ func TestInvocationOverloadRedeclaredLibraryInputs(t *testing.T) {
 		CodeUnboundParameter, "Required leaves parameter seq unbound")
 }
 
-// An argument of unknown type keeps every candidate applicable: the call is selected only
-// when one remains or specificity settles it, else an advisory names the ones left open
-// (KerML 1.1 §8.3.4.8.8 binds each input to an argument; the types must decide which).
+// An argument of unknown type keeps every candidate applicable: the call selects only when
+// one remains or specificity settles it, else an advisory names the ones left open.
 func TestInvocationOverloadUnknownArgumentType(t *testing.T) {
 	wantLibraryWarning(t, `package P {`+numericImports+`
 		attribute untyped;
@@ -524,10 +523,8 @@ func TestInvocationOverloadCrossedSpecificityIsAmbiguous(t *testing.T) {
 		"type.expr", "cannot bind String value to a feature typed by Integer")
 }
 
-// A called name is resolved as any name is (KerML 1.1 §8.2.3.5.4): the namespace
-// owning a calc of the name hides the library's imported into it (§7.2.5.4), while
-// an import in a nested namespace is that namespace's local resolution, ahead of
-// the enclosing model's calc — the library has no standing of its own either way.
+// A called name resolves as any name does (KerML 1.1 §8.2.3.5.4, §7.2.5.4): an owned calc
+// hides the library's import, a nested import stands ahead of the enclosing calc.
 func TestInvocationOverloadModelShadowsLibrary(t *testing.T) {
 	wantLibraryDiag(t, `package P {`+numericImports+`
 		calc def abs { in x : String; return : String = x; }

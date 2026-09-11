@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// Argument is one invocation argument as the checker types it; Exact holds of
-// a literal, whose type is written out rather than only bounded, and Empty of `null`
-// or `()`, which has no element to type and so fits every candidate alike.
+// Argument is one invocation argument as the checker types it: Exact for a literal,
+// Empty for `null` or `()`, which has no element to type and fits every candidate alike.
 type Argument struct {
 	Prim  PrimType
 	Type  *symbols.Symbol // the declared type of the feature or result named, nil when none
@@ -77,9 +76,8 @@ func (m *Model) SelectCallAmong(scope *symbols.Scope, e *ast.InvocationExpr, nam
 	return m.selectAmong(scope, named, m.callArguments(scope, e), performs)
 }
 
-// SelectAmongArguments selects among named, in that order, for arguments typed as given:
-// how a run settles a call the static argument types left Undetermined, by the types of
-// the values. Not memoized.
+// SelectAmongArguments selects among named, in that order, for arguments typed as given —
+// how a run settles a call left Undetermined, by the values' types. Not memoized.
 func (m *Model) SelectAmongArguments(scope *symbols.Scope, named []*symbols.Symbol, args []Argument, performs Performs) *InvocationSelection {
 	if m == nil {
 		return &InvocationSelection{}
@@ -178,15 +176,13 @@ func calcLike(sym *symbols.Symbol) bool {
 // InvocationSelection is which declaration an invocation calls, out of every
 // declaration its written name is visible as.
 type InvocationSelection struct {
-	Candidates []*symbols.Symbol // what the name denotes, in lookup order, aliases followed
-	Applicable []*symbols.Symbol // the candidates the arguments bind to
-	Selected   *symbols.Symbol   // the one called; nil when none applies or they tie
-	Ambiguous  bool              // several applicable candidates are equally specific
-	Tied       []*symbols.Symbol // the applicable candidates none is more specific than, when Ambiguous
-	// Undetermined holds of an Ambiguous selection an argument of unknown type leaves open,
-	// for the values to settle; false when candidates the known types fit tie.
-	Undetermined bool
-	callable     *symbols.Symbol // the first candidate the call site can run, when any is
+	Candidates   []*symbols.Symbol // what the name denotes, in lookup order, aliases followed
+	Applicable   []*symbols.Symbol // the candidates the arguments bind to
+	Selected     *symbols.Symbol   // the one called; nil when none applies or they tie
+	Ambiguous    bool              // several applicable candidates are equally specific
+	Tied         []*symbols.Symbol // the applicable candidates none is more specific than, when Ambiguous
+	Undetermined bool              // Ambiguous only because an argument's type is unknown; the values settle it
+	callable     *symbols.Symbol   // the first candidate the call site can run, when any is
 }
 
 // Resolved reports whether the name denotes at least one declaration.
@@ -311,10 +307,8 @@ func (m *Model) selectAmong(scope *symbols.Scope, named []*symbols.Symbol, args 
 		sel.Selected = applicable[0]
 		return sel
 	}
-	// An argument of unknown type keeps every applicable candidate: specificity selects among
-	// them all, or the values do at run time. With the types known, specificity decides among
-	// the candidates the arguments surely fit: exact matches, else widenings when no candidate
-	// takes them through an undetermined type; else lookup order.
+	// An unknown argument keeps every applicable candidate for specificity or the run to settle;
+	// known types select among the candidates surely fit: exact, else widening, else lookup order.
 	undetermined := !argumentsKnown(args)
 	var decisive []int
 	switch {
@@ -713,9 +707,8 @@ func (m *Model) unbeaten(scope *symbols.Scope, sigs []invocationSignature, args 
 	return out
 }
 
-// atLeastAsSpecific reports whether a's parameter types conform to b's at every
-// parameter the arguments bind; an unknown signature is the most general. A parameter
-// an argument is not surely bound to settles nothing unless both candidates type it alike.
+// atLeastAsSpecific reports whether a's parameter types conform to b's at every bound
+// parameter; an unknown signature is the most general, an unsure binding settles nothing.
 func (m *Model) atLeastAsSpecific(scope *symbols.Scope, a, b invocationSignature, args []Argument) bool {
 	if !b.known {
 		return true

@@ -2539,9 +2539,8 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 	return ec.applyInvocation(target, callArgs)
 }
 
-// applyInvocation applies target to arguments already evaluated. Every invocation goes
-// through the one calc path, so an expression and a direct InvokeCalc bind parameters
-// and trace identically.
+// applyInvocation applies target to arguments already evaluated, through the one calc
+// path, so an expression and a direct InvokeCalc bind parameters and trace identically.
 func (ec *EvalContext) applyInvocation(target *invocationTarget, callArgs calcArgs) (Value, error) {
 	if target.library != nil {
 		return target.library.invoke(ec.ctx, callArgs)
@@ -2617,10 +2616,8 @@ func chainText(n ast.Node) string {
 	return TraceLabel(n)
 }
 
-// evalUndeterminedInvocation evaluates a call the static argument types left open among
-// target.undetermined: the values' types select, as the checker's would had it known them.
-// A tie they leave is the run's to report; values fitting none run the first as a
-// mismatch would.
+// evalUndeterminedInvocation evaluates a call left open among target.undetermined: the
+// values' types select; a tie they leave is reported, values fitting none run the first.
 func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target *invocationTarget) (Value, error) {
 	qualName := target.qualName
 	if n.Operand != nil && len(n.NamedArgs) > 0 {
@@ -2675,9 +2672,8 @@ func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target 
 	return ec.applyInvocation(settled, callArgs)
 }
 
-// valueArgument types an evaluated argument for overload selection as the checker types a
-// literal: by the type the runtime classifies each element by (the one its write
-// conformance reads), a collection by the type they share; unknown when none can be named.
+// valueArgument types an evaluated argument for overload selection by the type write
+// conformance classifies it by, a collection by its elements' shared type; else unknown.
 func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semantics.Argument {
 	arg := semantics.Argument{Name: name}
 	elements := elementsOf(val)

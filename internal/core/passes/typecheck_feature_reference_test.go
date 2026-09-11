@@ -2,9 +2,8 @@ package passes
 
 import "testing"
 
-// A bare feature reference is typed by the effective type of the feature it
-// names — declared, inherited, redefined, subsetted or given by its value — so
-// a scalar-typed operand is judged statically like a literal of that type.
+// A bare feature reference is typed by the effective type of the feature it names —
+// declared, inherited, redefined, subsetted or valued — and judged as a literal would be.
 func TestBareFeatureReferenceIsTypedByItsFeature(t *testing.T) {
 	for _, tc := range []struct{ name, src string }{
 		{"declared", `attribute s : ScalarValues::String; attribute r = -s;`},
@@ -53,9 +52,8 @@ func TestBareFeatureReferenceConditionIsJudgedStatically(t *testing.T) {
 	}`)
 }
 
-// A computed value — an invocation's result or an operator's — is judged
-// against a scalar-typed feature by the classification rule the runtime's
-// write conformance applies: only a statically disjoint type is reported.
+// A computed value is judged against a scalar-typed feature by the runtime's write
+// conformance classification: only a statically disjoint type is reported.
 func TestComputedValueConformanceToScalarFeature(t *testing.T) {
 	wantOneDiag(t, `package P {
 		calc def GetReal { return : ScalarValues::Real = 1.0; }

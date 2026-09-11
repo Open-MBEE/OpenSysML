@@ -610,9 +610,8 @@ func (ec *exprChecker) featurePrimType(sym *symbols.Symbol) semantics.PrimType {
 	ec.chaining[sym] = true
 	defer delete(ec.chaining, sym)
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Value != nil && sym.OwnerScope != nil {
-		// The value belongs to the declaring scope, and is checked there in its own
-		// right, so this only reads its type: diagnostics raised here would be
-		// reported once per reader.
+		// The value is checked in its declaring scope; this only reads its type,
+		// so no diagnostic is raised once per reader.
 		silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining}
 		if prim := silent.infer(sym.OwnerScope, usage.Value); prim != semantics.PrimUnknown {
 			return prim
