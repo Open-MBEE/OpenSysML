@@ -37,7 +37,7 @@ func TestCalcInvocation_SimpleCalc(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Find the default value expression from Result.sum
 	// Navigate: root -> test package -> Result part def -> sum attribute -> default expr

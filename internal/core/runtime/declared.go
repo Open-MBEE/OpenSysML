@@ -17,7 +17,7 @@ type DeclaredReader struct {
 
 // NewDeclaredReader creates a reader over a fresh, behavior-free runtime context.
 func NewDeclaredReader(model *semantics.Model, resolver *resolve.Resolver) *DeclaredReader {
-	ctx := NewContext(model, resolver, DefaultMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), DefaultMaxSteps)
 	ctx.declarative = true
 	return &DeclaredReader{ctx: ctx, objects: make(map[*symbols.Symbol]*Instance)}
 }

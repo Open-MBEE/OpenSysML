@@ -195,23 +195,23 @@ func resolveActionSymbol(
 		return nil, fmt.Errorf("empty action reference")
 	}
 	name := qualifiedNameText(target)
-	if scope == nil || ctx.resolver == nil {
+	if scope == nil || ctx.model.resolver == nil {
 		return nil, fmt.Errorf("cannot resolve action %s: no scope", name)
 	}
 	var sym *symbols.Symbol
 	var ok bool
 	switch {
 	case inv.referrer != nil:
-		sym, ok = ctx.resolver.ResolveReferenceTarget(scope, inv.referrer, target)
+		sym, ok = ctx.model.resolver.ResolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
-		sel := passes.SelectInvocation(ctx.resolver, ctx.model, scope, inv.expr, semantics.PerformsAction)
+		sel := passes.SelectInvocation(ctx.model.resolver, ctx.model.semantics, scope, inv.expr, semantics.PerformsAction)
 		if sel.Ambiguous {
 			return nil, ambiguousInvocationError(name, sel.Tied)
 		}
 		sym = sel.Called()
 		ok = sym != nil
 	default:
-		sym, ok = ctx.resolver.ResolveQualified(scope, target)
+		sym, ok = ctx.model.resolver.ResolveQualified(scope, target)
 	}
 	if !ok || sym == nil {
 		return nil, fmt.Errorf("unresolved action reference: %s", name)
@@ -219,7 +219,7 @@ func resolveActionSymbol(
 	if inv.referrer != nil && sym.Decl == inv.referrer {
 		return nil, fmt.Errorf("unresolved action reference: %s (a perform statement cannot perform itself)", name)
 	}
-	if !ctx.model.Performable(semantics.PerformsAction, sym) {
+	if !ctx.model.semantics.Performable(semantics.PerformsAction, sym) {
 		return nil, fmt.Errorf("%s is not an action (%v)", name, sym.Kind)
 	}
 	return sym, nil
@@ -293,14 +293,14 @@ type actionParameter struct {
 // the inherited ones none redefines (KerML 7.4.7.2) — the signature the type checker uses.
 func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 	var params []actionParameter
-	for _, param := range ctx.model.BehaviorParametersOf(sym) {
+	for _, param := range ctx.model.semantics.BehaviorParametersOf(sym) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
 		}
 		params = append(params, actionParameter{
 			Name:      param.Symbol.Name,
 			Direction: param.Direction,
-			Optional:  ctx.model.OptionalParameter(param.Symbol),
+			Optional:  ctx.model.semantics.OptionalParameter(param.Symbol),
 			IsResult:  param.IsResult,
 		})
 	}

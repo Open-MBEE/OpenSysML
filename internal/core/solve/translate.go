@@ -176,7 +176,7 @@ type translator struct {
 func newTranslator(ctx *runtime.Context, subject Subject) *translator {
 	return &translator{
 		ctx:       ctx,
-		model:     ctx.Model(),
+		model:     ctx.Semantics(),
 		subject:   subject,
 		features:  effectiveFeatures(ctx, subject.Symbol),
 		vars:      map[string]*Var{},

@@ -32,7 +32,7 @@ package Demo {
 func frameKindContext(t *testing.T) (*Context, *symbols.Scope) {
 	t.Helper()
 	ctx := libraryContextOver(t, frameKindSrc)
-	return ctx, lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	return ctx, lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 }
 
 // TestCoordinateFrameDescribed: the kinds describe, render and trace themselves,

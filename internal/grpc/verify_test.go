@@ -652,7 +652,8 @@ func TestVerifyConstraintConcurrentRequestsShareTheModel(t *testing.T) {
 		t.Error(e)
 	}
 	cached, _ := srv.cache.Get(hash)
-	if resolver, _, _ := cached.Semantics(); len(resolver.Diagnostics) != 0 || resolver.MemoSize() != 0 {
+	model, _ := cached.Semantics()
+	if resolver := model.Resolver(); len(resolver.Diagnostics) != 0 || resolver.MemoSize() != 0 {
 		t.Errorf("a worker built after the requests carries %d diagnostics and %d resolutions of theirs", len(resolver.Diagnostics), resolver.MemoSize())
 	}
 }

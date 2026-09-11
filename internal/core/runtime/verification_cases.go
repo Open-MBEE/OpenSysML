@@ -78,7 +78,7 @@ func (ctx *Context) verifiedIn(objective *symbols.Symbol) []*symbols.Symbol {
 			continue
 		}
 		if usage.DeclaresRequirement {
-			if types := ctx.model.FeatureTypes(member); len(types) > 0 {
+			if types := ctx.model.semantics.FeatureTypes(member); len(types) > 0 {
 				out = append(out, types...)
 			} else {
 				out = append(out, member)
@@ -89,7 +89,7 @@ func (ctx *Context) verifiedIn(objective *symbols.Symbol) []*symbols.Symbol {
 			if rel == nil || rel.Kind != ast.RelSubsets || rel.Target == nil {
 				continue
 			}
-			if target, ok := ctx.resolver.ResolveTarget(member.OwnerScope, rel.Target); ok && target != nil {
+			if target, ok := ctx.model.resolver.ResolveTarget(member.OwnerScope, rel.Target); ok && target != nil {
 				out = append(out, target)
 			}
 		}

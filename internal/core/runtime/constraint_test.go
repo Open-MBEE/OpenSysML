@@ -33,7 +33,7 @@ func TestConstraintEvaluation_Assert(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve constraint
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -80,7 +80,7 @@ func TestConstraintEvaluation_AssertWithLiteral(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve constraints
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -138,7 +138,7 @@ func TestConstraintEvaluation_Assume(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve constraint
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -180,7 +180,7 @@ func TestConstraintEvaluation_Negation(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve constraint
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -216,7 +216,7 @@ func TestConstraintWithoutConditionsIsNotAVerdict(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 	rig, ok := testPkg.LookupLocal("Rig")
@@ -260,7 +260,7 @@ func TestConstraintBodyStatementIsNotAVerdict(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 	reassigned, ok := testPkg.LookupLocal("Reassigned")
@@ -341,7 +341,7 @@ func TestConstraintBodyPerformIsNotAVerdict(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 	performed, ok := testPkg.LookupLocal("Performed")
@@ -412,7 +412,7 @@ func TestConstraintBodyActionFlowIsNotAVerdict(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 	flowed, ok := testPkg.LookupLocal("Flowed")
@@ -476,7 +476,7 @@ func TestConstraintBodySuccessionAloneIsNotAVerdict(t *testing.T) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("test.sysml", file)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	testPkg := idx.DocumentRoot("test.sysml").Children()[0]
 	rig, ok := testPkg.LookupLocal("Rig")

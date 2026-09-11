@@ -149,10 +149,10 @@ func (l *stepWriteLedger) noteChoices(ctx *Context) {
 // featureLocation locates the declaration of the feature name resolves to in
 // scope, for a diagnostic about a write to it; "" when none resolves.
 func (ctx *Context) featureLocation(scope *symbols.Scope, name string) (string, source.Span) {
-	if ctx.resolver == nil || scope == nil {
+	if ctx.model.resolver == nil || scope == nil {
 		return "", source.Span{}
 	}
-	sym, ok := ctx.resolver.LookupName(scope, name)
+	sym, ok := ctx.model.resolver.LookupName(scope, name)
 	if !ok || sym == nil {
 		return "", source.Span{}
 	}
