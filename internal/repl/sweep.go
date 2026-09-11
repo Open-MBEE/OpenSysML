@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
@@ -103,21 +102,33 @@ func (s *Session) sweepFromText(invocation string, ranges []string, draws sweepD
 
 // sweepVerdict runs a sweep and reports its table. A plan that could not be run
 // at all is unresolved; a table whose runs all held and whose objectives were
-// satisfied holds; any failed run or unsatisfied objective fails it.
+// satisfied holds; any failed run or unsatisfied objective fails it. The rows'
+// traces lead the report in plan order, as one run's trace leads its verdict.
 func (s *Session) sweepVerdict(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) Verdict {
 	label := sweepLabel(inv, draws)
-	table, ctx, plan, err := s.runSweep(inv, specs, draws)
+	table, plan, err := s.runSweep(inv, specs, draws)
 	if err != nil {
 		return standing(unresolvedVerdict(label, err.Error()), plan)
 	}
-	status, rows := sweepStatus(ctx, table)
+	status, rows := sweepStatus(table)
 	return standing(Verdict{
 		Subject: label,
 		Status:  status,
-		Lines:   sweepTableLines(ctx, table),
+		Lines:   append(sweepTraces(table), sweepTableLines(table)...),
 		Values:  sweepValues(table, rows),
 		Rows:    rows,
 	}, plan)
+}
+
+// sweepTraces is what the rows' runs traced, in plan order, as trace lines print.
+func sweepTraces(table runtime.SweepTable) []string {
+	var lines []string
+	for _, row := range table.Rows {
+		for _, e := range recordedTrace(row.Context) {
+			lines = append(lines, tracePrefix+e)
+		}
+	}
+	return lines
 }
 
 // sweepLabel names what was run, as the caller wrote it.
@@ -132,45 +143,40 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 	return "sweep " + label
 }
 
-// runSweep resolves the target an invocation names, binds its ordinary
-// arguments once, and makes one ordinary analysis or calc run per row.
-func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *runtime.Context, *analysis.Plan, error) {
+// runSweep resolves the target an invocation names, evaluates its arguments and
+// ranges once where the prompt does, and makes one analysis or calc run per row, each
+// in a context of the row's own: the arguments are evaluated again there, and the
+// subject and the owner of a nested case are objects of their declarations made there.
+// The session's state is released while the rows run, as it is for an exploration.
+func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {
-		return runtime.SweepTable{}, nil, nil, errors.New("no declarations loaded")
+		return runtime.SweepTable{}, nil, errors.New("no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
 	if err != nil {
-		return runtime.SweepTable{}, nil, nil, err
+		return runtime.SweepTable{}, nil, err
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return runtime.SweepTable{}, nil, nil, err
+		return runtime.SweepTable{}, nil, err
 	}
 
 	parsed, err := parseAnalysisArgs(inv.argText)
 	if err != nil {
-		return runtime.SweepTable{}, nil, nil, err
+		return runtime.SweepTable{}, nil, err
 	}
 	scope := s.promptScope()
-	var positional []runtime.Value
-	for _, arg := range parsed.positional {
-		val, err := ctx.EvalWithScope(arg.expr, scope)
-		if err != nil {
-			return runtime.SweepTable{}, nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
-		}
-		positional = append(positional, val)
-	}
-	named, err := s.evalArguments(ctx, parsed.named)
+	positional, named, err := evalInvocationArgs(ctx, scope, parsed)
 	if err != nil {
-		return runtime.SweepTable{}, nil, nil, err
+		return runtime.SweepTable{}, nil, err
 	}
 
 	plan, err := s.sweepPlan(ctx, specs, draws)
 	if err != nil {
-		return runtime.SweepTable{}, nil, nil, err
+		return runtime.SweepTable{}, nil, err
 	}
 	namedNames := make([]string, 0, len(named))
 	for name := range named {
@@ -178,26 +184,31 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	}
 	plan, err = ctx.ResolveSweepPlan(sym, plan, len(positional), namedNames)
 	if err != nil {
-		return runtime.SweepTable{}, nil, nil, err
+		return runtime.SweepTable{}, nil, err
 	}
 
 	isCase := runtime.IsRunnableCaseSymbol(sym)
-	var subject *runtime.Instance
+	var subject, owner freshRef
 	if inv.object != "" {
 		if !isCase {
-			return runtime.SweepTable{}, nil, nil, fmt.Errorf("%s is a calc, which has no subject", inv.name)
+			return runtime.SweepTable{}, nil, fmt.Errorf("%s is a calc, which has no subject", inv.name)
 		}
-		if subject, _, err = s.resolveObject(inv.object); err != nil {
-			return runtime.SweepTable{}, nil, nil, err
+		if subject, err = s.sweptObject(ctx, inv.object); err != nil {
+			return runtime.SweepTable{}, nil, err
 		}
 	}
-	var self *runtime.Instance
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageAnalysisCase {
-		self, _ = s.owningInstance(fqn)
+	if isNestedCase(sym) {
+		if owner, err = s.sweptOwner(ctx, fqn); err != nil {
+			return runtime.SweepTable{}, nil, err
+		}
 	}
 	runScope := declaringScope(sym, doc.Scope)
 
-	run := func(bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		positional, named, err := evalInvocationArgs(rt, scope, parsed)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
 		bound := make(map[string]runtime.Value, len(named)+len(bindings))
 		for name, value := range named {
 			bound[name] = value
@@ -206,7 +217,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 			bound[b.Param] = b.Value
 		}
 		if !isCase {
-			value, err := ctx.InvokeCalcWith(sym, positional, bound, runScope)
+			value, err := rt.InvokeCalcWith(sym, positional, bound, runScope)
 			if err != nil {
 				return runtime.SweepRunResult{}, err
 			}
@@ -214,8 +225,15 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 				Outputs: []runtime.CalcOutputValue{{Name: calcResultName, Value: value}},
 			}, nil
 		}
-		args := runtime.AnalysisArgs{Subject: subject, Positional: positional, Named: bound}
-		result, err := ctx.RunAnalysis(sym, args, runScope, self)
+		args := runtime.AnalysisArgs{Positional: positional, Named: bound}
+		if args.Subject, err = subject.instantiate(rt); err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		self, err := owner.instantiate(rt)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		result, err := rt.RunAnalysis(sym, args, runScope, self)
 		return runtime.SweepRunResult{
 			Outputs:     result.Outputs,
 			Verdicts:    result.Verdicts,
@@ -224,11 +242,110 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 		}, err
 	}
 
-	answered, err := s.sweep(fqn, ctx, plan, run)
+	model := s.freshModel()
+	s.state.Unlock()
+	answered, err := s.sweep(fqn, model, plan, run)
+	s.state.Lock()
 	if err != nil {
-		return runtime.SweepTable{}, nil, &answered, err
+		return runtime.SweepTable{}, &answered, err
 	}
-	return answered.Result.Table(), ctx, &answered, nil
+	return answered.Result.Table(), &answered, nil
+}
+
+// evalInvocationArgs evaluates an invocation's positional and named arguments in ctx,
+// where scope names what the prompt reaches.
+func evalInvocationArgs(ctx *runtime.Context, scope *symbols.Scope, parsed analysisArgs) ([]runtime.Value, map[string]runtime.Value, error) {
+	var positional []runtime.Value
+	for _, arg := range parsed.positional {
+		val, err := ctx.EvalWithScope(arg.expr, scope)
+		if err != nil {
+			return nil, nil, fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+		}
+		positional = append(positional, val)
+	}
+	named, err := evalArgumentsIn(ctx, scope, parsed.named)
+	if err != nil {
+		return nil, nil, err
+	}
+	return positional, named, nil
+}
+
+// SweptObjectError reports an object of the session a sweep cannot run its rows on:
+// each row runs on a fresh object of the held object's declaration, which stands for
+// the held one only while that one is as its declaration made it, named plainly.
+type SweptObjectError struct {
+	Ref    string
+	Reason string
+}
+
+func (e *SweptObjectError) Error() string {
+	return fmt.Sprintf("%s: %s; each row of a sweep runs on an object of its own, made from the declaration, so the held object must be as the declaration made it", e.Ref, e.Reason)
+}
+
+// sweptObject resolves the object a sweep names as its subject to the declaration each
+// row instantiates: the held object must be named by its declaration and be pristine.
+func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, error) {
+	inst, label, err := s.resolveObject(text)
+	if err != nil {
+		return freshRef{}, err
+	}
+	ref, err := parseObjectRef(text)
+	if err != nil {
+		return freshRef{}, err
+	}
+	if ref.id > 0 {
+		return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is named by its identity, not by a declaration"}
+	}
+	for _, seg := range ref.segments {
+		if seg.index > 0 || seg.dotted {
+			return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is reached through a feature of another object, not by a declaration of its own"}
+		}
+	}
+	sym, fqn, err := s.lookupSymbol(joinTyped(ref.segments))
+	if err != nil {
+		return freshRef{}, err
+	}
+	return s.sweptRef(ctx, inst, label, sym, fqn)
+}
+
+// sweptOwner resolves the object owning the case usage at fqn, when the session holds
+// one, to the declaration each row instantiates as the case's owner; a nested case the
+// session holds no owner for runs on none, as the prompt's run does.
+func (s *Session) sweptOwner(ctx *runtime.Context, fqn string) (freshRef, error) {
+	held, label := s.owningInstance(fqn)
+	if held == nil {
+		return freshRef{}, nil
+	}
+	segments := strings.Split(fqn, "::")
+	sym, ownerFQN, err := s.lookupSymbol(strings.Join(segments[:len(segments)-1], "::"))
+	if err != nil {
+		return freshRef{}, err
+	}
+	return s.sweptRef(ctx, held, label, sym, ownerFQN)
+}
+
+// sweptRef is the declaration at fqn as the rows instantiate it for held, which must be
+// the object the session holds under fqn and stand as the declaration made it.
+func (s *Session) sweptRef(ctx *runtime.Context, held *runtime.Instance, label string, sym *symbols.Symbol, fqn string) (freshRef, error) {
+	if s.instances[fqn] != held {
+		return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is reached through a feature of another object, not by a declaration of its own"}
+	}
+	if err := ctx.Pristine(held); err != nil {
+		return freshRef{}, &SweptObjectError{Ref: label, Reason: err.Error()}
+	}
+	return freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn)}, nil
+}
+
+// instantiate makes the object of the reference in ctx, none for an empty reference.
+func (r freshRef) instantiate(ctx *runtime.Context) (*runtime.Instance, error) {
+	if r.sym == nil {
+		return nil, nil
+	}
+	inst, err := ctx.Instantiate(r.sym)
+	if err != nil {
+		return nil, fmt.Errorf("instantiation of %s failed: %w", r.name, err)
+	}
+	return inst, nil
 }
 
 // calcResultName names a calc's returned value in a table, so a calc row and an
@@ -281,7 +398,7 @@ func (s *Session) evalRangeBound(ctx *runtime.Context, scope *symbols.Scope, spe
 // sweepStatus judges a table and reports each of its runs: a run that failed or
 // an objective that was not satisfied fails the table, an undecided one leaves
 // it unresolved.
-func sweepStatus(ctx *runtime.Context, table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
+func sweepStatus(table runtime.SweepTable) (VerdictStatus, []VerdictRow) {
 	status := VerdictHolds
 	rows := make([]VerdictRow, 0, len(table.Rows))
 	for _, row := range table.Rows {
@@ -296,7 +413,7 @@ func sweepStatus(ctx *runtime.Context, table runtime.SweepTable) (VerdictStatus,
 			}
 		}
 		for _, o := range row.Outputs {
-			out.Outputs = append(out.Outputs, NamedValue{Name: o.Name, Value: objectText(ctx, o.Value)})
+			out.Outputs = append(out.Outputs, NamedValue{Name: o.Name, Value: objectText(row.Context, o.Value)})
 		}
 		// A failed run's error is what the table holds against it; the verdicts
 		// it left undecided are reported with it, not counted again.
@@ -315,7 +432,7 @@ func sweepStatus(ctx *runtime.Context, table runtime.SweepTable) (VerdictStatus,
 			}
 		}
 		for _, e := range row.Evaluations {
-			evaluation, _ := evaluationOf(ctx, table.Target, e)
+			evaluation, _ := evaluationOf(row.Context, table.Target, e)
 			out.Evaluations = append(out.Evaluations, evaluation)
 		}
 		rows = append(rows, out)
@@ -586,8 +703,9 @@ func distributionCall(text string) (string, bool) {
 }
 
 // sweepTableLines renders a table: a header naming what was run, its ranges and,
-// for a sampled table, the seed it was drawn from, then one row per run.
-func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
+// for a sampled table, the seed it was drawn from, then one row per run, each read
+// through the context that ran it.
+func sweepTableLines(table runtime.SweepTable) []string {
 	header := fmt.Sprintf("sweep %s — %d run(s)", table.Target, len(table.Rows))
 	if table.Sampled {
 		header = fmt.Sprintf("samples %s — %d run(s), seed %d", table.Target, len(table.Rows), table.Seed)
@@ -596,7 +714,7 @@ func sweepTableLines(ctx *runtime.Context, table runtime.SweepTable) []string {
 	cells := make([][]string, 0, len(table.Rows)+1)
 	cells = append(cells, columns.titles())
 	for _, row := range table.Rows {
-		cells = append(cells, columns.row(ctx, table.Target, row))
+		cells = append(cells, columns.row(table.Target, row))
 	}
 	notes := footnoteErrors(columns, cells)
 	widths := make([]int, len(cells[0]))
@@ -691,8 +809,9 @@ func (c sweepColumns) titles() []string {
 	return titles
 }
 
-// row renders one run under the columns.
-func (c sweepColumns) row(ctx *runtime.Context, target string, row runtime.SweepRow) []string {
+// row renders one run under the columns, in the context that made it.
+func (c sweepColumns) row(target string, row runtime.SweepRow) []string {
+	ctx := row.Context
 	cells := make([]string, 0, len(c.params)+len(c.outputs)+4)
 	bound := make(map[string]runtime.Value, len(row.Bindings))
 	for _, b := range row.Bindings {

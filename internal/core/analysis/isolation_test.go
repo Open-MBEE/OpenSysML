@@ -162,7 +162,8 @@ func TestExploreBuildsEachRunUnderTheBudget(t *testing.T) {
 }
 
 // The surface's own context is not a run's: its limits stand whatever the budget says,
-// and no worker is built to run in it. Sweep rows run there too, and solve builds none.
+// and no worker is built to run in it. Sweep rows never run there: each is a context of
+// its own under the budget on the plan's worker, and solve builds none.
 func TestTheSurfacesContextKeepsItsLimits(t *testing.T) {
 	f := parseFixture(t)
 	ctx := f.context(t)
@@ -183,10 +184,32 @@ func TestTheSurfacesContextKeepsItsLimits(t *testing.T) {
 		t.Fatalf("workers %d warming %s, want none for a run in the surface's context", result.Workers, result.Warming)
 	}
 
-	sweep := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
-	result = answered(t, Default(), Held(ctx), sweep, Budget{Steps: 7, Memory: 9}).Result
-	if ctx.Budgets() != before || result.Workers != 0 {
-		t.Fatalf("after a sweep, limits %+v and %d workers; want %+v and none", ctx.Budgets(), result.Workers, before)
+	var mu sync.Mutex
+	var rows []runtime.Budgets
+	double := doubleRow(t, f)
+	sweep := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx),
+		Row: func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+			if rctx == ctx {
+				t.Error("a sweep row ran in the surface's context")
+			}
+			mu.Lock()
+			rows = append(rows, rctx.Budgets())
+			mu.Unlock()
+			return double(rctx, bindings)
+		}}}
+	if _, err := Default().Answer(context.Background(), Held(ctx), sweep, Budget{Steps: 7, Memory: 9}); !errors.Is(err, ErrNoRuntime) {
+		t.Fatalf("sweep on a held context alone: %v, want ErrNoRuntime", err)
+	}
+	result = answered(t, Default(), f.building(), sweep, Budget{Steps: 7, Memory: 9, Jobs: 2}).Result
+	want := before
+	want.MaxSteps, want.MaxElements = 7, 9
+	if ctx.Budgets() != before || result.Workers < 1 || result.Workers > 2 || len(rows) != 3 {
+		t.Fatalf("after a sweep, limits %+v, %d workers and %d rows; want %+v, one or two and 3", ctx.Budgets(), result.Workers, len(rows), before)
+	}
+	for i, limits := range rows {
+		if limits != want {
+			t.Fatalf("row %d's limits %+v, want %+v", i, limits, want)
+		}
 	}
 
 	requireSolver(t)
@@ -208,9 +231,9 @@ func TestARunNeedsAModelThatBuildsItsContext(t *testing.T) {
 	if _, err := Default().Answer(context.Background(), Held(ctx), outcomes, Budget{}); !errors.Is(err, ErrNoRuntime) {
 		t.Fatalf("explore on a held context alone: %v, want ErrNoRuntime", err)
 	}
-	sweep := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
-	if _, err := Default().Answer(context.Background(), f.building(), sweep, Budget{}); !errors.Is(err, ErrNoRuntime) {
-		t.Fatalf("sweep on a model holding no context: %v, want ErrNoRuntime", err)
+	sweep := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f)}}
+	if _, err := Default().Answer(context.Background(), nil, sweep, Budget{}); !errors.Is(err, ErrNoRuntime) {
+		t.Fatalf("sweep on no model: %v, want ErrNoRuntime", err)
 	}
 	var typed *NoRuntimeError
 	if _, err := (&Model{}).Worker(); !errors.Is(err, ErrNoRuntime) || errors.As(err, &typed) {

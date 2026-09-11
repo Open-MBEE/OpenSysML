@@ -106,8 +106,8 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 		{ExploreEngineName, ClaimOutcomes, Observed, "outcomes (observed: 1 linearization, inputs as written, runs=1 (reached))", exploration(Budget{Runs: 1})},
 		{SweepEngineName, ClaimTable, Observed, "table (observed: 3 rows)", func(t *testing.T) Plan {
 			ctx := f.context(t)
-			q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f, ctx)}}
-			return answered(t, Default(), Held(ctx), q, Budget{})
+			q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f)}}
+			return answered(t, Default(), f.building(), q, Budget{})
 		}},
 		{SolveEngineName, ClaimSatisfiable, Witnessed, "satisfiable (witnessed: 1 query by solve)", solving(solve.StatusSat, "")},
 		{SolveEngineName, ClaimUnsatisfiable, Proved, "unsatisfiable (proved over inputs: 1 query by solve)", solving(solve.StatusUnsat, "")},

@@ -94,9 +94,24 @@ func (s *Session) refuseExplore() error {
 // freshPlan before the release.
 func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (runtime.Outcome, error)) Verdict {
 	policy, _ := s.exploring()
+	model := s.freshModel()
+	selection := s.engine
+	s.state.Unlock()
+	plan, err := s.explore(subject, policy, selection, model, run)
+	s.state.Lock()
+	if err != nil {
+		return standing(unresolvedVerdict(subject, err.Error()), &plan)
+	}
+	return standing(explorationVerdict(subject, plan.Result.Exploration()), &plan)
+}
+
+// freshModel is the model a plan builds its runs' contexts over while the session's state
+// is released: a worker's own model-derived part over the index and name table warmed here,
+// and a context of each run's own on it, tracing when the session traces.
+func (s *Session) freshModel() *analysis.Model {
 	s.browseIndex()
 	s.nameTable()
-	model := &analysis.Model{
+	return &analysis.Model{
 		Semantics: func() (*runtime.Model, error) {
 			model, err := s.runtimeModel()
 			if err != nil {
@@ -115,19 +130,10 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 			return ctx, nil
 		},
 	}
-	selection := s.engine
-	s.state.Unlock()
-	plan, err := s.explore(subject, policy, selection, model, run)
-	s.state.Lock()
-	if err != nil {
-		return standing(unresolvedVerdict(subject, err.Error()), &plan)
-	}
-	return standing(explorationVerdict(subject, plan.Result.Exploration()), &plan)
 }
 
-// witnessTrace is the trace the witness run of an outcome recorded, none when it kept none.
-func witnessTrace(o runtime.ExploredOutcome) []string {
-	ctx := o.Outcome.Context()
+// recordedTrace is the trace a run's context recorded, none when it kept none.
+func recordedTrace(ctx *runtime.Context) []string {
 	if ctx == nil {
 		return nil
 	}
@@ -136,6 +142,11 @@ func witnessTrace(o runtime.ExploredOutcome) []string {
 		return nil
 	}
 	return rec.Entries()
+}
+
+// witnessTrace is the trace the witness run of an outcome recorded, none when it kept none.
+func witnessTrace(o runtime.ExploredOutcome) []string {
+	return recordedTrace(o.Outcome.Context())
 }
 
 // explorationVerdict tables one row per distinct outcome, then how it ended;

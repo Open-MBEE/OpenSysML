@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -16,9 +17,12 @@ import (
 const sweepResultName = "result"
 
 // RunSweep runs one analysis case or calc once per row of a parameter sweep, as
-// the CLI's -sweep and the REPL's %sweep do: every row is an ordinary run with
-// the swept parameters bound to that row's values. A run that failed is that
-// row's error; only a plan that no run follows from fails the table.
+// the CLI's -sweep and the REPL's %sweep do: every row is an ordinary run, in a
+// context of its own, with the swept parameters bound to that row's values. A
+// run that failed is that row's error; only a plan that no run follows from
+// fails the table. The request's subject and arguments are read once on the
+// request's runtime, which answers one that cannot be read, and again in every
+// row's, which is what the row's run binds.
 func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.RunSweepResponse, error) {
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
@@ -49,8 +53,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 			return sweepFailure(fmt.Errorf("%s is a calc, which has no subject", req.SymbolId)), nil
 		}
 	}
-	subject, err := v.subject(req.SubjectSymbolId)
-	if err != nil {
+	if _, err := v.subject(req.SubjectSymbolId); err != nil {
 		return &pb.RunSweepResponse{Error: err.Error()}, nil
 	}
 
@@ -73,7 +76,19 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	}
 
 	scope := v.declaringScope(sym)
-	run := func(bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		row := v.on(rt)
+		subject, err := row.subject(req.SubjectSymbolId)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		positional, named, resp, err := row.sweepArguments(req)
+		if err != nil {
+			return runtime.SweepRunResult{}, err
+		}
+		if resp != nil {
+			return runtime.SweepRunResult{}, errors.New(resp.Error)
+		}
 		bound := make(map[string]runtime.Value, len(named)+len(bindings))
 		for name, value := range named {
 			bound[name] = value
@@ -82,7 +97,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 			bound[b.Param] = b.Value
 		}
 		if !isCase {
-			value, err := v.runtime.InvokeCalcWith(sym, positional, bound, scope)
+			value, err := rt.InvokeCalcWith(sym, positional, bound, scope)
 			if err != nil {
 				return runtime.SweepRunResult{}, err
 			}
@@ -91,7 +106,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 			}, nil
 		}
 		args := runtime.AnalysisArgs{Subject: subject, Positional: positional, Named: bound}
-		result, err := v.runtime.RunAnalysis(sym, args, scope, nil)
+		result, err := rt.RunAnalysis(sym, args, scope, nil)
 		// The case reports the subject it ran on: the one supplied, or the one
 		// the usage or the enclosing case bound.
 		return runtime.SweepRunResult{
@@ -103,7 +118,7 @@ func (s *Service) RunSweep(ctx context.Context, req *pb.RunSweepRequest) (*pb.Ru
 	}
 
 	schedule := v.runtime.Schedule()
-	answered, err := s.engines.Sweep(ctx, analysis.Held(v.runtime), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep, s.jobs), v.engine)
+	answered, err := s.engines.Sweep(ctx, s.model(v.cached), req.SymbolId, schedule, plan, run, analysis.BudgetOf(s.budgets, schedule, analysis.Sweep, s.jobs), v.engine)
 	if err != nil {
 		// A caller that went away is the call failing, not a table reporting it.
 		if ctx.Err() != nil {
@@ -213,8 +228,9 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 	return &pb.RunSweepResponse{Error: err.Error(), FailureReason: failureReason(err)}
 }
 
-// sweepResponse spells a table on the wire: one row per run, in the order the
-// runs were made, under the standing of the plan that ran it.
+// sweepResponse spells a table on the wire: one row per run, in plan order, under
+// the standing of the plan that ran it. A row's values and objects are read through
+// the row's own context, the one that produced them.
 func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb.RunSweepResponse {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
@@ -229,11 +245,12 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb
 	evaluations := v.service.capabilities.has(CapabilityCaseEvaluations)
 	for i := range table.Rows {
 		row := &table.Rows[i]
+		in := v.on(row.Context)
 		out := &pb.SweepRow{ElapsedMicros: row.Elapsed.Microseconds()}
 		for _, binding := range row.Bindings {
 			out.Inputs = append(out.Inputs, &pb.CalcOutput{
 				Name:  binding.Param,
-				Value: v.service.valueToProto(v.runtime, binding.Value, v.cached.Index),
+				Value: in.service.valueToProto(in.runtime, binding.Value, in.cached.Index),
 			})
 		}
 		if row.Err != nil {
@@ -248,18 +265,18 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb
 		for _, output := range row.Outputs {
 			out.Outputs = append(out.Outputs, &pb.CalcOutput{
 				Name:  output.Name,
-				Value: v.service.valueToProto(v.runtime, output.Value, v.cached.Index),
+				Value: in.service.valueToProto(in.runtime, output.Value, in.cached.Index),
 			})
 		}
 		for j := range row.Verdicts {
-			out.Verdicts = append(out.Verdicts, st.stamp(v.analysisVerdict(&row.Verdicts[j], row.Subject)))
+			out.Verdicts = append(out.Verdicts, st.stamp(in.analysisVerdict(&row.Verdicts[j], row.Subject)))
 		}
 		var reported []runtime.AnalysisEvaluation
 		if evaluations {
 			reported = row.Evaluations
-			out.Evaluations = v.caseEvaluations(reported)
+			out.Evaluations = in.caseEvaluations(reported)
 		}
-		resp.Instances = appendInstances(resp.Instances, seen, v.instanceGraphs(v.runRoots(row.Subject, row.Outputs, reported)))
+		resp.Instances = appendInstances(resp.Instances, seen, in.instanceGraphs(in.runRoots(row.Subject, row.Outputs, reported)))
 		resp.Rows = append(resp.Rows, out)
 	}
 	return resp
