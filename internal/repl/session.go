@@ -135,6 +135,9 @@ type Session struct {
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
 
+	// jobs is how many runs of one plan go concurrently.
+	jobs int
+
 	// engines answers every check, run, exploration, sweep and solve the session
 	// makes, dispatching each to the engine that covers it.
 	engines *analysis.Registry
@@ -265,6 +268,7 @@ func NewSession() *Session {
 		ws:        model.NewWorkspace(),
 		instances: make(map[string]*runtime.Instance),
 		budgets:   runtime.DefaultBudgets(),
+		jobs:      analysis.DefaultJobs(),
 		engines:   analysis.Default(),
 		verbosity: VerbosityNormal,
 	}

@@ -126,7 +126,8 @@ type checkResult struct {
 }
 
 // checkPlan is how a check was answered in the JSON report: the selection made,
-// every engine consulted in order, the standing that stood and the disagreements resolved.
+// every engine consulted in order, the standing that stood, the disagreements resolved
+// and what the plan's workers cost.
 type checkPlan struct {
 	// Engine is the selection: auto, all, or the engine named.
 	Engine   string      `json:"engine"`
@@ -134,6 +135,10 @@ type checkPlan struct {
 	Steps    []checkStep `json:"steps"`
 	// Disagreements are the contradictions all resolved, each in the interpreter's favor.
 	Disagreements []checkDisagreement `json:"disagreements,omitempty"`
+	// Workers is how many workers the plan built for its engines' runs, and Warming the
+	// wall time in milliseconds building them took; the human-readable report omits both.
+	Workers int     `json:"workers"`
+	Warming float64 `json:"warming"`
 }
 
 // checkStep is one engine's part in the plan.
@@ -210,7 +215,13 @@ func checkPlanOf(plan *analysis.Plan) *checkPlan {
 	if plan == nil {
 		return nil
 	}
-	out := &checkPlan{Engine: plan.Selection.String(), Standing: plan.Standing(), Steps: make([]checkStep, 0, len(plan.Steps))}
+	out := &checkPlan{
+		Engine:   plan.Selection.String(),
+		Standing: plan.Standing(),
+		Steps:    make([]checkStep, 0, len(plan.Steps)),
+		Workers:  plan.Workers,
+		Warming:  float64(plan.Warming.Nanoseconds()) / 1e6,
+	}
 	for _, step := range plan.Steps {
 		s := checkStep{Engine: step.Engine}
 		switch {
