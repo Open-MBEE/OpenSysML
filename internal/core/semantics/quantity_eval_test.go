@@ -422,6 +422,7 @@ func TestPointDimensions(t *testing.T) {
 		scale *symbols.Symbol
 	}{
 		{"26.85 [SI::'°C_abs']", "Θ", celsius},
+		{"+(26.85 [SI::'°C_abs'])", "Θ", celsius},
 		{"26.85 [SI::'°C_abs'] + 10.0 [SI::'°C']", "Θ", celsius},
 		{"26.85 [SI::'°C_abs'] - 10.0 [K]", "Θ", celsius},
 		{"10.0 [K] + 26.85 [SI::'°C_abs']", "Θ", celsius},

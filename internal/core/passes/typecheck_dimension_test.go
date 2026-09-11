@@ -264,6 +264,8 @@ func TestPointOnMeasurementScale(t *testing.T) {
 		"operator '<' combines incommensurable quantities: SI::'°C_abs' (dimension Θ) and m (dimension L)")
 	wantOneDimensionWarning(t, warm+`attribute a = 26.85 [SI::'°C_abs'] + 1.0 [m];`,
 		"operator '+' combines incommensurable quantities: SI::'°C_abs' (dimension Θ) and m (dimension L)")
+	wantOneDimensionWarning(t, warm+`attribute a = +(26.85 [SI::'°C_abs']) + 1.0 [m];`,
+		"operator '+' combines incommensurable quantities: SI::'°C_abs' (dimension Θ) and m (dimension L)")
 	wantOneDimensionWarning(t, warm+`attribute a = 26.85 [SI::'°C_abs'] + 10.0 [SI::'°C_abs'];`,
 		"operator '+' adds two points on the measurement scale SI::'°C_abs', which have no sum; their difference is a magnitude in the scale's unit")
 	wantOneDimensionWarning(t, warm+`attribute a = 300.0 [K] - 26.85 [SI::'°C_abs'];`,

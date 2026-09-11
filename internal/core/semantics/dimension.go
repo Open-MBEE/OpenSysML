@@ -225,8 +225,9 @@ func (m *Model) dimensionOfName(scope *symbols.Scope, qn *ast.QualifiedName) (Di
 func (m *Model) dimensionOfOperator(scope *symbols.Scope, e *ast.OperatorExpr) (Dimension, bool) {
 	switch e.Operator {
 	case ast.OpNeg, ast.OpPos:
+		// `+point` is the point; `-point` is refused, so its dimension is unknown.
 		if len(e.Operands) == 1 {
-			if dim, ok := m.DimensionOfExpr(scope, e.Operands[0]); ok && !dim.IsPoint() {
+			if dim, ok := m.DimensionOfExpr(scope, e.Operands[0]); ok && (e.Operator == ast.OpPos || !dim.IsPoint()) {
 				return dim, true
 			}
 		}
