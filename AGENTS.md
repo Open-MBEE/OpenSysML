@@ -139,7 +139,7 @@ Then update `docs/project/spec-compliance.md` mapping: semantic rule → impleme
 
 ## 6. Development Workflow
 
-1. **Branch from `develop`, target `develop`.** `develop` is the default and integration branch; `main` is release-only (`release/x.y.z` and `hotfix/` PRs, cut by a maintainer). Cut every branch from `origin/develop` and open every pull request against `develop` — never `main`. Branch names are git-flow style, `<type>/<short-slug>` (see CONTRIBUTING.md § Branches).
+1. **Branch from `develop`, target `develop`.** `develop` is the default and integration branch; `main` is release-only (`release/x.y.z` and `hotfix/` PRs, cut by a maintainer). Cut ordinary development branches from `origin/develop` and open their pull requests against `develop` — never `main`. Only `release/x.y.z` (cut from `develop`) and `hotfix/` (cut from `main`) branches target `main`; see `docs/project/releasing.md`. Branch names are git-flow style, `<type>/<short-slug>` (see CONTRIBUTING.md § Branches).
 2. **Understand first.** Grep/read the relevant package and its tests. Diff the branch against `develop` to see what changed and why.
 3. **Reproduce.** Run the failing test(s) and read the exact error before changing anything.
 4. **Locate the root cause** in the correct layer (lexer vs parser vs lower vs runtime). Bugs in specialized layers are often upstream of where they surface.
