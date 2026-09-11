@@ -1396,31 +1396,37 @@ func (e *ActionExecutor) fused(i int) bool {
 // eligible, and an accept it sits at is answered — or fails, which stepping it
 // raises as the typed error — under a readiness probe that leaves the run as it was.
 func (e *ActionExecutor) enabled(id int64, eligible func(Token) bool) bool {
+	ready, _ := e.readiness(id, eligible)
+	return ready
+}
+
+// readiness is enabled along with the typed error a failing accept would raise.
+func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready bool, fails error) {
 	i := e.tokenIndex(id)
 	if i < 0 || e.moving(e.tokens[i]) || !eligible(e.tokens[i]) {
-		return false
+		return false, nil
 	}
 	t := e.tokens[i]
 	usage, ok := t.Location.(*ast.Usage)
 	if !ok || t.body != nil {
-		return true
+		return true, nil
 	}
 	accept, isAccept := e.graphOf(t.frame).Accepts[usage]
 	if !isAccept {
-		return true
+		return true, nil
 	}
 	defer e.ctx.beginProbe()()
 	if accept.Trigger != nil {
 		// triggerHolds may park the token's copy; the probe asks, it does not park.
 		holds, err := e.triggerHolds(&t, accept)
-		return holds || err != nil
+		return holds || err != nil, err
 	}
 	pending := e.ctx.acceptable()
 	if len(pending) == 0 {
-		return false
+		return false, nil
 	}
 	matches, failed := e.acceptMatch(t.frame, accept, usage)
-	return slices.ContainsFunc(pending, matches) || *failed != nil
+	return slices.ContainsFunc(pending, matches) || *failed != nil, *failed
 }
 
 // tokenLabel names a token as the trace does, by ID and node.
