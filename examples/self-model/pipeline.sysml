@@ -170,7 +170,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/core/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 54;
+        attribute passCount : Integer = 55;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -274,6 +274,7 @@ package OpenSysMLPipeline {
             attribute :>> elementScoped = true;
         }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
+        part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;
@@ -312,7 +313,7 @@ package OpenSysMLPipeline {
     // snapshot when that matches the files, and parsed from the files otherwise.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/core/libs";
-        attribute bundledFileCount : Integer = 98;
+        attribute bundledFileCount : Integer = 99;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/core/libs/stdlib.snapshot";
         attribute snapshotEmbedded : Boolean = true;
