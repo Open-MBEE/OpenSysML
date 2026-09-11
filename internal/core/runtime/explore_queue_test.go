@@ -296,6 +296,37 @@ func TestExploreWithBuildsEachRunOnItsJob(t *testing.T) {
 	}
 }
 
+// A job count past the runs budget puts no more jobs to work than the budget admits runs:
+// a vast count starts no fleet of that size.
+func TestExploreWithPutsNoMoreJobsToWorkThanRuns(t *testing.T) {
+	idx, path := parseIndex(t, threeWritersModel)
+	workers := newExploreWorkers(idx)
+	var mu sync.Mutex
+	seen := make(map[int]bool)
+	fresh := func(job int) (*Context, error) {
+		mu.Lock()
+		seen[job] = true
+		mu.Unlock()
+		return workers.fresh(job)
+	}
+	policy, err := ExplorePolicy(ExploreBudget{Runs: 2, Depth: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := ExploreWith(context.Background(), policy, 1<<30, fresh, actionRun(t, idx, path, "race"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if x.Runs != 2 || strings.Join(x.BudgetsHit, ",") != "runs" {
+		t.Fatalf("%d runs hitting %v, want 2 at the runs cut", x.Runs, x.BudgetsHit)
+	}
+	for job := range seen {
+		if job < 0 || job >= 2 {
+			t.Errorf("fresh built a context for job %d, want 0 or 1", job)
+		}
+	}
+}
+
 // A caller that goes away ends the exploration with its error once the runs in flight are done.
 func TestExploreWithStopsWhenTheCallerGoesAway(t *testing.T) {
 	idx, path := parseIndex(t, threeWritersModel)

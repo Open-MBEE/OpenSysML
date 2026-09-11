@@ -12,15 +12,14 @@ import (
 //
 // The prefixes form a work queue in plan order, the order one job visits them, and the runs
 // budget is a cut in that order. A run is committed once every prefix before it has completed;
-// one started earlier is speculative, and at most jobs of those are discarded in all.
+// one started earlier is speculative, and at most jobs of those are discarded in all. The queue
+// never holds more than runs prefixes, so no more than runs jobs are ever put to work.
 func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	budget, ok := policy.Exploration()
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotExploring, policy)
 	}
-	if jobs < 1 {
-		jobs = 1
-	}
+	jobs = max(min(jobs, budget.Runs), 1)
 	q := &exploreQueue{
 		stop:    stop,
 		policy:  policy,

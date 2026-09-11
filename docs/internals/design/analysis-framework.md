@@ -684,8 +684,9 @@ behavior unchanged until stage 4.
    summed construction. `runtime.ExploreWith` is the work queue of prefixes described under
    *Units of work*, with `Explore` its one-job form: prefixes ordered as the sequential
    exploration takes them, committed and speculative runs, at most `Jobs` speculative runs
-   discarded in a plan's lifetime, never more than `Runs + Jobs` executions, the table merged by
-   outcome identity with the least witness. The witness cut of *Stopping early* is not applied:
+   discarded in a plan's lifetime, never more than `Runs + Jobs` executions and no more than
+   `Runs` jobs put to work (the queue never holds more prefixes), the table merged by outcome
+   identity with the least witness. The witness cut of *Stopping early* is not applied:
    `explore` answers `outcomes` alone, a universal question whose answer is every
    linearization's outcome, so a violating run is an outcome of the table as under one job and
    cancels nothing; the cut is the mechanism the `Runs` cut already is (`insert` drops what moves
