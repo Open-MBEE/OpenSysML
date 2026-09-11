@@ -536,6 +536,10 @@ var (
 	// measurement unit, which nothing is measured in.
 	ErrNotAMeasurementUnit = errors.New("not a measurement unit")
 
+	// ErrScaleNotAFactor reports a reduction composing a measurement scale with
+	// other factors, a scale or a power: a point on a scale is no unit to compose.
+	ErrScaleNotAFactor = errors.New("measurement scale is not a unit factor")
+
 	// ErrUnitScaleUnusable reports a unit reduction whose scale is zero, undefined
 	// or not finite, which no magnitude can be converted through.
 	ErrUnitScaleUnusable = errors.New("unit scale is not a usable ratio")
@@ -801,7 +805,7 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 // protoToSet rebuilds a set from elements sent in any order, refusing one sent
 // twice rather than reading the two as one.
 func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
-	set := runtime.NewSet()
+	set := runtime.NewSetIn(rt)
 	for i, elem := range ps.GetElements() {
 		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {
@@ -1083,7 +1087,7 @@ func unitProductOfText(text string, term semantics.UnitTerm, idx *symbols.Index,
 		if len(matches) != 1 {
 			return nil, false
 		}
-		return sem.MeasurementUnitOf(matches[0])
+		return measurementRefOf(matches[0], sem)
 	}
 	var short []*ast.QualifiedName
 	product, err := sem.UnitProductOfExprBy(expr, func(qn *ast.QualifiedName) (*symbols.Symbol, bool) {
@@ -1185,6 +1189,10 @@ func partialUnitProduct(
 			unread = append(unread, i)
 			continue
 		}
+		// A scale composed with anything is text no reduction is; nothing of it is read.
+		if sem.IsMeasurementScale(f.Unit) {
+			return opaque
+		}
 		factor, err := sem.UnitTermOf(f.Unit)
 		if err != nil {
 			return opaque
@@ -1250,17 +1258,38 @@ func shortUnitReadings(names []*ast.QualifiedName, idx *symbols.Index, sem *sema
 	return readings
 }
 
-// unitsNamed lists, once each in qualified-name order, the units under a short name.
+// unitsNamed lists, once each in qualified-name order, the units and measurement
+// scales under a short name.
 func unitsNamed(name string, idx *symbols.Index, sem *semantics.Model) []*symbols.Symbol {
 	var units []*symbols.Symbol
 	for _, fqn := range idx.FQNsEndingIn(name, math.MaxInt) {
 		for _, sym := range idx.LookupQualified(fqn) {
-			if unit, ok := sem.MeasurementUnitOf(sym); ok && !slices.Contains(units, unit) {
+			if unit, ok := measurementRefOf(sym, sem); ok && !slices.Contains(units, unit) {
 				units = append(units, unit)
 			}
 		}
 	}
 	return units
+}
+
+// measurementRefOf is the measurement unit or scale sym names; false for anything else.
+func measurementRefOf(sym *symbols.Symbol, sem *semantics.Model) (*symbols.Symbol, bool) {
+	if unit, ok := sem.MeasurementUnitOf(sym); ok {
+		return unit, true
+	}
+	if sem.IsMeasurementScale(sym) {
+		return sym, true
+	}
+	return nil, false
+}
+
+// termOfMeasurementRef reduces a unit to base units, and a measurement scale to
+// itself: a point on it is commensurable with nothing but another point on it.
+func termOfMeasurementRef(sym *symbols.Symbol, sem *semantics.Model) (semantics.UnitTerm, error) {
+	if sem.IsMeasurementScale(sym) {
+		return semantics.UnitTerm{Scale: semantics.UnitScale(1), Factors: []semantics.UnitFactor{{Unit: sym, Exponent: 1}}}, nil
+	}
+	return sem.UnitTermOf(sym)
 }
 
 // impliedTerm reduces a product of resolved units; false if one is unresolved or unreducible.
@@ -1270,7 +1299,7 @@ func impliedTerm(product semantics.UnitProduct, sem *semantics.Model) (semantics
 		if f.Unit == nil {
 			return semantics.UnitTerm{}, false
 		}
-		factor, err := sem.UnitTermOf(f.Unit)
+		factor, err := termOfMeasurementRef(f.Unit, sem)
 		if err != nil {
 			return semantics.UnitTerm{}, false
 		}
@@ -1347,6 +1376,7 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 		return semantics.UnitTerm{}, fmt.Errorf("%w: %g/%g", ErrUnitScaleUnusable, scale.Num, scale.Den)
 	}
 	term := semantics.UnitTerm{Scale: scale}
+	var pointOn *symbols.Symbol
 	for _, f := range pt.GetFactors() {
 		// An empty name is a lookup of the document root, so it is rejected here
 		// rather than resolved to a symbol that measures nothing.
@@ -1359,7 +1389,11 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 		}
 		unit, ok := sem.MeasurementUnitOf(matches[0])
 		if !ok {
-			return semantics.UnitTerm{}, fmt.Errorf("%w: %s", ErrNotAMeasurementUnit, f.GetUnitId())
+			// A point on a measurement scale reduces to the scale alone.
+			if !sem.IsMeasurementScale(matches[0]) {
+				return semantics.UnitTerm{}, fmt.Errorf("%w: %s", ErrNotAMeasurementUnit, f.GetUnitId())
+			}
+			unit, pointOn = matches[0], matches[0]
 		}
 		term.Factors = append(term.Factors, semantics.UnitFactor{
 			Unit:     unit,
@@ -1372,6 +1406,11 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 	for _, f := range term.Factors {
 		if !finite(f.Exponent) {
 			return semantics.UnitTerm{}, fmt.Errorf("%w: %s**%g", ErrUnitExponentUnusable, symbols.FQNOf(f.Unit), f.Exponent)
+		}
+	}
+	if pointOn != nil {
+		if _, ok := sem.MeasurementScaleOf(term); !ok {
+			return semantics.UnitTerm{}, fmt.Errorf("%w: %s in %s", ErrScaleNotAFactor, symbols.FQNOf(pointOn), term)
 		}
 	}
 	return term, nil

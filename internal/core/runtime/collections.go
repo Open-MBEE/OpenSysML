@@ -554,7 +554,7 @@ func builtinSequenceIncludes(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::includes", args, 2); err != nil {
 		return Value{}, err
 	}
-	return boolValue(includesAll(elementsOf(args[0]), elementsOf(args[1]))), nil
+	return boolValue(ec.ctx.includesAll(elementsOf(args[0]), elementsOf(args[1]))), nil
 }
 
 // builtinSequenceExcludes is SequenceFunctions::excludes: no element of the
@@ -565,7 +565,7 @@ func builtinSequenceExcludes(ec *EvalContext, args []Value) (Value, error) {
 	}
 	seq1, seq2 := elementsOf(args[0]), elementsOf(args[1])
 	for _, elem := range seq2 {
-		if containsValue(seq1, elem) {
+		if ec.ctx.containsValue(seq1, elem) {
 			return boolValue(false), nil
 		}
 	}
@@ -580,7 +580,7 @@ func builtinSequenceIncludesOnly(ec *EvalContext, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	seq1, seq2 := elementsOf(args[0]), elementsOf(args[1])
-	return boolValue(includesAll(seq1, seq2) && includesAll(seq2, seq1)), nil
+	return boolValue(ec.ctx.includesAll(seq1, seq2) && ec.ctx.includesAll(seq2, seq1)), nil
 }
 
 // builtinSequenceEquals is SequenceFunctions::equals: the sequences have the
@@ -590,14 +590,14 @@ func builtinSequenceEquals(ec *EvalContext, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if args[0].Kind == ValSet && args[1].Kind == ValSet {
-		return boolValue(args[0].Set().Equal(args[1].Set())), nil
+		return boolValue(ec.ctx.setsEqual(args[0].Set(), args[1].Set())), nil
 	}
 	x, y := elementsOf(args[0]), elementsOf(args[1])
 	if len(x) != len(y) {
 		return boolValue(false), nil
 	}
 	for i := range x {
-		if !valueEqual(x[i], y[i]) {
+		if !ec.ctx.valueEqual(x[i], y[i]) {
 			return boolValue(false), nil
 		}
 	}
@@ -670,7 +670,7 @@ func builtinSequenceIntersection(ec *EvalContext, args []Value) (Value, error) {
 	seq1, seq2 := elementsOf(args[0]), elementsOf(args[1])
 	var common []Value
 	for _, elem := range seq1 {
-		if containsValue(seq2, elem) {
+		if ec.ctx.containsValue(seq2, elem) {
 			common = append(common, elem)
 		}
 	}
@@ -696,7 +696,7 @@ func builtinSequenceExcluding(ec *EvalContext, args []Value) (Value, error) {
 	seq, values := elementsOf(args[0]), elementsOf(args[1])
 	var kept []Value
 	for _, elem := range seq {
-		if !containsValue(values, elem) {
+		if !ec.ctx.containsValue(values, elem) {
 			kept = append(kept, elem)
 		}
 	}
@@ -841,7 +841,7 @@ func builtinCollectionContains(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("CollectionFunctions::contains", args, 2); err != nil {
 		return Value{}, err
 	}
-	return boolValue(includesAll(elementsOf(args[0]), elementsOf(args[1]))), nil
+	return boolValue(ec.ctx.includesAll(elementsOf(args[0]), elementsOf(args[1]))), nil
 }
 
 // builtinCollectionContainsAll is CollectionFunctions::containsAll, contains of
@@ -854,7 +854,7 @@ func builtinCollectionContainsAll(ec *EvalContext, args []Value) (Value, error) 
 	if err != nil {
 		return Value{}, err
 	}
-	return boolValue(includesAll(elementsOf(args[0]), collectionElements(col2))), nil
+	return boolValue(ec.ctx.includesAll(elementsOf(args[0]), collectionElements(col2))), nil
 }
 
 // builtinControlSelect is ControlFunctions::select, the elements the selector
@@ -1198,13 +1198,17 @@ func typedZero(unit Unit, real bool) Value {
 
 // aggregateQuantities folds a collection holding a quantity in the unit of its
 // first element, as the binary operator does. A bare number is a magnitude of
-// dimension one, so mixing one in reports incommensurable units.
+// dimension one, so mixing one in reports incommensurable units. Points on a
+// measurement scale have no sum or product, so a fold over them is refused.
 func (ctx *Context) aggregateQuantities(op string, elements []Value, operator ast.OperatorKind) (Value, error) {
 	var acc Value
 	for i, elem := range elements {
 		q, ok := asQuantity(elem)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: %s requires numeric elements, got %s", ErrTypeMismatch, op, describeValue(elem))
+		}
+		if err := ctx.refusePoints(op, "points have no sum or product to fold; fold their differences from one point instead", q); err != nil {
+			return Value{}, fmt.Errorf("%s: %w", op, err)
 		}
 		if i == 0 {
 			acc = NewQuantityValue(q)
@@ -1216,7 +1220,7 @@ func (ctx *Context) aggregateQuantities(op string, elements []Value, operator as
 			err  error
 		)
 		if operator == ast.OpAdd {
-			next, err = addQuantities(operator, accQ, q)
+			next, err = ctx.addQuantities(operator, accQ, q)
 		} else {
 			next, err = ctx.scaleQuantities(operator, accQ, q)
 		}
@@ -1268,9 +1272,9 @@ func foldNumeric(op string, operator ast.OperatorKind, acc, elem semantics.Value
 
 // includesAll reports whether every element of want is an element of have,
 // which is what SequenceFunctions::includes computes.
-func includesAll(have, want []Value) bool {
+func (ctx *Context) includesAll(have, want []Value) bool {
 	for _, elem := range want {
-		if !containsValue(have, elem) {
+		if !ctx.containsValue(have, elem) {
 			return false
 		}
 	}
@@ -1278,9 +1282,9 @@ func includesAll(have, want []Value) bool {
 }
 
 // containsValue reports whether elements holds a value equal to val.
-func containsValue(elements []Value, val Value) bool {
+func (ctx *Context) containsValue(elements []Value, val Value) bool {
 	for _, elem := range elements {
-		if valueEqual(elem, val) {
+		if ctx.valueEqual(elem, val) {
 			return true
 		}
 	}

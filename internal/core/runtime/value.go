@@ -486,21 +486,28 @@ func (s *Sequence) Elements() []Value {
 // enumerate alike, whatever order their elements were added in.
 type Set struct {
 	elements map[valueKey][]Value
-	order    []Value // insertion order, the tie-break canonical order falls back to
-	sorted   []Value // canonical order, built on the first read after an Add
+	order    []Value  // insertion order, the tie-break canonical order falls back to
+	sorted   []Value  // canonical order, built on the first read after an Add
+	ctx      *Context // judges membership; nil compares values with no context
 }
 
-// NewSet creates an empty Set.
+// NewSet creates an empty Set whose membership needs no context.
 func NewSet() *Set {
-	return &Set{elements: make(map[valueKey][]Value)}
+	return NewSetIn(nil)
+}
+
+// NewSetIn creates an empty Set judging membership in ctx: a point on a scale is
+// the member its magnitude on the reference is. A nil ctx judges with no context.
+func NewSetIn(ctx *Context) *Set {
+	return &Set{elements: make(map[valueKey][]Value), ctx: ctx}
 }
 
 // Add inserts a value into the set (deduplicates by exact value equality).
 func (s *Set) Add(val Value) {
-	key := valueKeyFunc(val)
+	key := s.ctx.valueKey(val)
 	bucket := s.elements[key]
 	for _, elem := range bucket {
-		if valueEqual(elem, val) {
+		if s.ctx.valueEqual(elem, val) {
 			return
 		}
 	}
@@ -511,8 +518,8 @@ func (s *Set) Add(val Value) {
 
 // Contains checks if the value is in the set.
 func (s *Set) Contains(val Value) bool {
-	for _, elem := range s.elements[valueKeyFunc(val)] {
-		if valueEqual(elem, val) {
+	for _, elem := range s.elements[s.ctx.valueKey(val)] {
+		if s.ctx.valueEqual(elem, val) {
 			return true
 		}
 	}
@@ -531,30 +538,69 @@ func (s *Set) Size() int {
 func (s *Set) Elements() []Value {
 	if s.sorted == nil && len(s.order) > 0 {
 		s.sorted = append([]Value(nil), s.order...)
-		sort.SliceStable(s.sorted, func(i, j int) bool { return canonicalLess(s.sorted[i], s.sorted[j]) })
+		sort.SliceStable(s.sorted, func(i, j int) bool { return s.ctx.canonicalCompare(s.sorted[i], s.sorted[j]) < 0 })
 	}
 	return append([]Value(nil), s.sorted...)
 }
 
 // Equal holds when the sets have the same members, in whatever order.
 func (s *Set) Equal(other *Set) bool {
+	if s == nil {
+		return other.Size() == 0
+	}
+	return s.ctx.setsEqual(s, other)
+}
+
+// setsEqual holds when the sets have the same members in the context. A set
+// bucketed under another context may store two elements the context makes one,
+// so members are counted as the context tells them apart, not as stored.
+func (ctx *Context) setsEqual(s, other *Set) bool {
 	if s == nil || other == nil {
 		return s.Size() == 0 && other.Size() == 0
 	}
-	if s.Size() != other.Size() {
-		return false
+	if s.ctx == ctx && other.ctx == ctx {
+		return s.Size() == other.Size() && ctx.membersWithin(s, other)
 	}
+	return ctx.membersWithin(s, other) && ctx.membersWithin(other, s)
+}
+
+// membersWithin holds when every member of s is one of other in the context.
+func (ctx *Context) membersWithin(s, other *Set) bool {
 	for _, elem := range s.order {
-		if !other.Contains(elem) {
+		if !ctx.contains(other, elem) {
 			return false
 		}
 	}
 	return true
 }
 
-// setOf builds a set value holding the distinct elements.
+// contains is Set.Contains judged in the context rather than the set's own.
+// A set bucketed under another context is scanned, since its keys may differ.
+func (ctx *Context) contains(s *Set, val Value) bool {
+	if s.ctx != ctx {
+		for _, elem := range s.order {
+			if ctx.valueEqual(elem, val) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, elem := range s.elements[ctx.valueKey(val)] {
+		if ctx.valueEqual(elem, val) {
+			return true
+		}
+	}
+	return false
+}
+
+// setOf builds a set value holding the distinct elements, judged with no context.
 func setOf(elements []Value) Value {
-	set := NewSet()
+	return (*Context)(nil).setOf(elements)
+}
+
+// setOf builds a set value holding the elements distinct in the context.
+func (ctx *Context) setOf(elements []Value) Value {
+	set := NewSetIn(ctx)
 	for _, elem := range elements {
 		set.Add(elem)
 	}

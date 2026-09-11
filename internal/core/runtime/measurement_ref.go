@@ -161,30 +161,55 @@ func unitSymbolName(sym *symbols.Symbol) string {
 }
 
 // composeMeasurementRefs is the unit a `*`, `/` or `**`/`^` (Real exponent) of
-// references names, as MeasurementRefCalculations declares; false otherwise.
-func composeMeasurementRefs(op ast.OperatorKind, left, right Value) (Value, bool) {
+// references names, as MeasurementRefCalculations declares; false for other
+// operands. A measurement scale is no unit factor: composing one is an error.
+func (ctx *Context) composeMeasurementRefs(op ast.OperatorKind, left, right Value) (Value, bool, error) {
 	if left.Kind != ValMeasurementRef {
-		return Value{}, false
+		return Value{}, false, nil
 	}
 	x := left.MeasurementRef().Unit
+	var result Unit
 	switch op {
 	case ast.OpMul, ast.OpDiv:
 		if right.Kind != ValMeasurementRef {
-			return Value{}, false
+			return Value{}, false, nil
 		}
 		y := right.MeasurementRef().Unit
-		if op == ast.OpMul {
-			return measurementRefOf(Unit{Product: x.Product.Times(y.Product), Term: x.Term.Times(y.Term)}), true
+		if err := ctx.refuseScaleFactor(op, x, y); err != nil {
+			return Value{}, true, err
 		}
-		return measurementRefOf(Unit{Product: x.Product.DividedBy(y.Product), Term: x.Term.DividedBy(y.Term)}), true
+		if op == ast.OpMul {
+			result = Unit{Product: x.Product.Times(y.Product), Term: x.Term.Times(y.Term)}
+		} else {
+			result = Unit{Product: x.Product.DividedBy(y.Product), Term: x.Term.DividedBy(y.Term)}
+		}
 	case ast.OpPow:
 		if right.Kind != ValConst || !right.Const.IsNumeric() {
-			return Value{}, false
+			return Value{}, false, nil
+		}
+		if err := ctx.refuseScaleFactor(op, x); err != nil {
+			return Value{}, true, err
 		}
 		exponent := right.Const.AsReal()
-		return measurementRefOf(Unit{Product: x.Product.Pow(exponent), Term: x.Term.Pow(exponent)}), true
+		result = Unit{Product: x.Product.Pow(exponent), Term: x.Term.Pow(exponent)}
+	default:
+		return Value{}, false, nil
 	}
-	return Value{}, false
+	return measurementRefOf(result), true, nil
+}
+
+// refuseScaleFactor is the error for composing a unit from a measurement scale.
+func (ctx *Context) refuseScaleFactor(op ast.OperatorKind, units ...Unit) error {
+	if ctx == nil || ctx.model == nil {
+		return nil
+	}
+	for _, unit := range units {
+		if scale, ok := ctx.model.semantics.MeasurementScaleOf(unit.Term); ok {
+			return fmt.Errorf("%w: MeasurementRefCalculations::'%s': %s is a measurement scale, whose points are on the scale and not in a unit to compose",
+				ErrUnevaluableLibraryFunction, op.String(), unitSymbolName(scale))
+		}
+	}
+	return nil
 }
 
 // Library types and features a measurement reference or scalar quantity answers.

@@ -18,7 +18,11 @@ const msgIncommensurableBinding = "cannot bind %s to a feature typed by %s"
 // error. It stays silent whenever either dimension is not statically determined,
 // so a unit that only evaluation knows is never guessed at.
 func (ec *exprChecker) checkDimensions(scope *symbols.Scope, e *ast.OperatorExpr) {
-	if ec.model == nil || !commensurabilityRequired(e.Operator) || len(e.Operands) != 2 {
+	if ec.model == nil {
+		return
+	}
+	ec.checkPointOperands(scope, e)
+	if !commensurabilityRequired(e.Operator) || len(e.Operands) != 2 {
 		return
 	}
 	// A bare zero is the null quantity of every dimension, so a comparison reads
@@ -39,6 +43,48 @@ func (ec *exprChecker) checkDimensions(scope *symbols.Scope, e *ast.OperatorExpr
 	}
 	ec.warnf(e.Span(), "operator '%s' combines incommensurable quantities: %s and %s",
 		e.Operator, describeDimension(lhs), describeDimension(rhs))
+}
+
+// checkPointOperands warns of an operation on a point of a measurement scale
+// that evaluation refuses: point + point, magnitude − point, multiple, power, negative.
+func (ec *exprChecker) checkPointOperands(scope *symbols.Scope, e *ast.OperatorExpr) {
+	switch e.Operator {
+	case ast.OpNeg:
+		if len(e.Operands) == 1 {
+			if dim, ok := ec.model.DimensionOfExpr(scope, e.Operands[0]); ok && dim.IsPoint() {
+				ec.warnf(e.Span(), "operator '-' negates a point on the measurement scale %s, which has no negative; negate a difference between points instead", dim.Unit)
+			}
+		}
+		return
+	case ast.OpAdd, ast.OpSub, ast.OpMul, ast.OpDiv, ast.OpPow:
+	default:
+		return
+	}
+	if len(e.Operands) != 2 {
+		return
+	}
+	lhs, lhsOK := ec.model.DimensionOfExpr(scope, e.Operands[0])
+	rhs, rhsOK := ec.model.DimensionOfExpr(scope, e.Operands[1])
+	lpoint, rpoint := lhsOK && lhs.IsPoint(), rhsOK && rhs.IsPoint()
+	if !lpoint && !rpoint {
+		return
+	}
+	switch e.Operator {
+	case ast.OpAdd:
+		if lpoint && rpoint {
+			ec.warnf(e.Span(), "operator '+' adds two points on the measurement scale %s, which have no sum; their difference is a magnitude in the scale's unit", lhs.Unit)
+		}
+	case ast.OpSub:
+		if lhsOK && lhs.IsMagnitude() {
+			ec.warnf(e.Span(), "operator '-' subtracts a point on the measurement scale %s from a magnitude, which is neither a point nor a magnitude; write `point - magnitude`", rhs.Unit)
+		}
+	default:
+		point := lhs
+		if !lpoint {
+			point = rhs
+		}
+		ec.warnf(e.Span(), "operator '%s' on a point on the measurement scale %s: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first", e.Operator, point.Unit)
+	}
 }
 
 // checkValueDimension reports a bound value measured in a dimension the
