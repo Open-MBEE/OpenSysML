@@ -2753,6 +2753,10 @@ func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
 		{"null >= 1", ">=", "null and an Integer", oneVal},
 		{"true < false", "<", "a Boolean and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
 		{"1 < true", "<", "an Integer and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"2 [m] < true", "<", "a quantity and a Boolean", "ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean"},
+		{"2 [m] < *", "<", "a quantity and an infinity", "QuantityCalculations::'%s' takes ScalarQuantityValue operands and an infinity is none"},
+		{"* >= side", ">=", "an infinity and a quantity", "QuantityCalculations::'%s' takes ScalarQuantityValue operands and an infinity is none"},
+		{"side < Color::red", "<", "a quantity and the enumeration literal Color::red", color},
 		{"m < s", "<", "a measurement reference and a measurement reference", "DataFunctions::'%s' is abstract and no library function declares '%s' for a measurement reference, which is no ScalarValue"},
 	}
 	for _, tt := range refused {
@@ -2769,6 +2773,9 @@ func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
 		}
 		if strings.Contains(err.Error(), "must be constants") {
 			t.Errorf("%s: %q claims the operands are not constants", tt.expr, err)
+		}
+		if opErr.Span == (source.Span{}) {
+			t.Errorf("%s: the error carries no span to locate the operator", tt.expr)
 		}
 	}
 	ordered := map[string]bool{

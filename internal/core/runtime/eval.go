@@ -2026,22 +2026,38 @@ func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, spa
 		return boolValue(ordered), nil
 	}
 
-	// Past quantities and Strings only the numeric libraries declare an ordering,
-	// so any other operand names the library function that would have to.
-	for _, val := range []Value{left, right} {
-		if val.Kind == ValConst {
-			continue
-		}
+	// Numbers, Strings and quantities are ordered, so the operand blamed is the
+	// other one, or the pairing when a quantity meets the unbounded value.
+	refuse := func(library string) (Value, error) {
 		return Value{}, &OperandTypeError{
 			Op:      op.String(),
 			Left:    describeOperand(left),
 			Right:   describeOperand(right),
-			Library: ctx.orderingGap(op, val),
+			Library: library,
 			Span:    span,
+		}
+	}
+	for _, val := range []Value{left, right} {
+		if val.Kind != ValConst && val.Kind != ValQuantity {
+			return refuse(ctx.orderingGap(op, val))
+		}
+	}
+	if left.Kind == ValQuantity || right.Kind == ValQuantity {
+		for _, val := range []Value{left, right} {
+			if val.Kind == ValConst && val.Const.Kind == semantics.ValBool {
+				return refuse(booleanOrderingGap(op))
+			}
+			if val.Kind == ValConst {
+				return refuse(fmt.Sprintf("QuantityCalculations::'%s' takes ScalarQuantityValue operands and %s is none", op, describeOperand(val)))
+			}
 		}
 	}
 
 	result, err := constComparison(op, left.Const, right.Const)
+	var mismatch *OperandTypeError
+	if errors.As(err, &mismatch) {
+		mismatch.Span = span
+	}
 	if err != nil {
 		return Value{}, err
 	}
