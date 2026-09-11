@@ -4,16 +4,14 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
-// Worker is one resolver and semantic model over the shared frozen index; both memoize
-// into plain maps, so a worker serves one plan's runs and never another plan's.
+// Worker is one model-derived runtime part — resolver, semantic model and the runtime's memo
+// tables — over the shared frozen index; all memoize into plain maps, so a worker serves one
+// plan's runs and never another plan's, and every run of the plan reuses what it memoized.
 type Worker struct {
-	Resolver *resolve.Resolver
-	Model    *semantics.Model
+	Model *runtime.Model
 	// Warming is the time building the worker took: the cost of one more worker.
 	Warming time.Duration
 }
@@ -92,11 +90,11 @@ func (m *Model) Worker() (*Worker, error) {
 		return nil, ErrNoRuntime
 	}
 	started := time.Now()
-	resolver, model, err := m.Semantics()
+	model, err := m.Semantics()
 	if err != nil {
 		return nil, err
 	}
-	m.worker = &Worker{Resolver: resolver, Model: model, Warming: time.Since(started)}
+	m.worker = &Worker{Model: model, Warming: time.Since(started)}
 	return m.worker, nil
 }
 

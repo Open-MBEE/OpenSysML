@@ -599,7 +599,7 @@ func (t SweepType) admitMagnitude(ctx *Context, param, what string, value Value)
 		return nil
 	}
 	magnitude := constValue(q.Num)
-	prim := ctx.model.PrimTypeOf(t.num)
+	prim := ctx.model.semantics.PrimTypeOf(t.num)
 	if prim.IsNumeric() && semantics.PrimConforms(valuePrimType(&magnitude), prim) {
 		return nil
 	}
@@ -612,7 +612,7 @@ func (ctx *Context) numTypeText(num *symbols.Symbol, prim semantics.PrimType) st
 	if prim != semantics.PrimUnknown {
 		return prim.String()
 	}
-	if types := ctx.model.FeatureTypes(num); len(types) > 0 {
+	if types := ctx.model.semantics.FeatureTypes(num); len(types) > 0 {
 		return symbolText(types[0])
 	}
 	return unknownText
@@ -927,13 +927,13 @@ func (ctx *Context) sweepTypeOf(decl calcMemberDecl) SweepType {
 		t.Untyped = true
 		return t
 	}
-	prim := ctx.model.PrimTypeOf(typ)
+	prim := ctx.model.semantics.PrimTypeOf(typ)
 	if prim == semantics.PrimUnknown {
 		num, ok := ctx.quantityNumber(typ)
 		if !ok {
 			return t
 		}
-		typ, prim = num, ctx.model.PrimTypeOf(num)
+		typ, prim = num, ctx.model.semantics.PrimTypeOf(num)
 		t.num = num
 	}
 	t.Numbers = sweepNumbersOf(prim)
@@ -956,17 +956,17 @@ func sweepNumbersOf(prim semantics.PrimType) SweepNumbers {
 // positiveScalar reports a type that is, or specializes, ScalarValues::Positive.
 func (ctx *Context) positiveScalar(typ *symbols.Symbol) bool {
 	positive := ctx.librarySymbol("ScalarValues::Positive")
-	return positive != nil && ctx.model.Conforms(typ, positive)
+	return positive != nil && ctx.model.semantics.Conforms(typ, positive)
 }
 
 // quantityNumber is the feature holding a scalar quantity type's magnitude, the
 // `num` a quantity value's number is bound to; false for any other type.
 func (ctx *Context) quantityNumber(typ *symbols.Symbol) (*symbols.Symbol, bool) {
 	scalar := ctx.librarySymbol(scalarQuantityTypeFQN)
-	if scalar == nil || !ctx.model.Conforms(typ, scalar) {
+	if scalar == nil || !ctx.model.semantics.Conforms(typ, scalar) {
 		return nil, false
 	}
-	num, ok := ctx.model.LookupMember(typ, vectorQuantityNumFeature)
+	num, ok := ctx.model.semantics.LookupMember(typ, vectorQuantityNumFeature)
 	if !ok || num == nil {
 		return nil, false
 	}

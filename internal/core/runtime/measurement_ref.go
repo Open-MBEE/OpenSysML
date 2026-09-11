@@ -96,16 +96,16 @@ func (r *MeasurementRef) namesDimensionOne() bool {
 // instead (false). A measurement scale (`UTC`, `'°C_abs'`) is the one-axis
 // frame its declaration describes.
 func (ctx *Context) MeasurementUnitValue(sym *symbols.Symbol) (Value, bool, error) {
-	if sym == nil || ctx.model == nil {
+	if sym == nil || ctx.model.semantics == nil {
 		return Value{}, false, nil
 	}
-	if !ctx.model.IsMeasurementUnit(sym) {
+	if !ctx.model.semantics.IsMeasurementUnit(sym) {
 		return ctx.measurementScaleValue(sym)
 	}
 	if !ctx.libraryDeclared(sym) && ctx.extractDefaultValue(sym) != nil {
 		return Value{}, false, nil
 	}
-	term, err := ctx.model.UnitTermOf(sym)
+	term, err := ctx.model.semantics.UnitTermOf(sym)
 	if err != nil {
 		return Value{}, true, fmt.Errorf("%w: %s: %w", ErrNotAQuantity, sym.Name, err)
 	}
@@ -125,7 +125,7 @@ func DeclaredMeasurementRef(sym *symbols.Symbol, text string, term semantics.Uni
 // measurementScaleValue is the scale a measurement scale declaration (`SI::'°C_abs'`,
 // `Time::UTC`) evaluates to: its object, read as the one-axis frame it is.
 func (ctx *Context) measurementScaleValue(sym *symbols.Symbol) (Value, bool, error) {
-	if !ctx.model.IsMeasurementScale(sym) {
+	if !ctx.model.semantics.IsMeasurementScale(sym) {
 		return Value{}, false, nil
 	}
 	if !ctx.libraryDeclared(sym) && ctx.extractDefaultValue(sym) != nil {
@@ -230,7 +230,7 @@ func (ctx *Context) measurementRefFeature(val Value, name string) (Value, bool, 
 	if member, ok, err := ctx.declarationMember(decl, name); ok || err != nil {
 		return member, ok, err
 	}
-	if _, ok := ctx.model.LookupMember(decl, name); !ok {
+	if _, ok := ctx.model.semantics.LookupMember(decl, name); !ok {
 		return Value{}, false, nil
 	}
 	// A valued member the unit's own declaration states (`K.temperatureOfWaterAtTriplePointInK`)
@@ -279,7 +279,7 @@ func (ctx *Context) unitObjectValue(inst *Instance) (Value, bool, error) {
 // declaresUnit reports whether sym declares a measurement unit: a usage typed by a
 // unit definition (`attribute <m> metre : LengthUnit`), which a reference names.
 func (ctx *Context) declaresUnit(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Kind == symbols.SymbolAttributeUsage && ctx.model != nil && ctx.model.IsMeasurementUnit(sym)
+	return sym != nil && sym.Kind == symbols.SymbolAttributeUsage && ctx.model.semantics != nil && ctx.model.semantics.IsMeasurementUnit(sym)
 }
 
 // libraryTypeDeclares reports whether the loaded library type has a member name.
@@ -288,13 +288,13 @@ func (ctx *Context) libraryTypeDeclares(fqn, name string) bool {
 	if typ == nil {
 		return false
 	}
-	_, ok := ctx.model.LookupMember(typ, name)
+	_, ok := ctx.model.semantics.LookupMember(typ, name)
 	return ok
 }
 
 // ownMember is the member decl's own body declares, not one its type contributes.
 func (ctx *Context) ownMember(decl *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	member, ok := ctx.model.LookupMember(decl, name)
+	member, ok := ctx.model.semantics.LookupMember(decl, name)
 	if !ok || member.OwnerScope == nil || member.OwnerScope.Owner() != decl {
 		return nil, false
 	}
@@ -382,7 +382,7 @@ func (ctx *Context) measurementRefConforms(ref *MeasurementRef, declared *symbol
 	if err != nil {
 		return false, "", err
 	}
-	c := ctx.model.MeasurementRefConforms(typ, ref.Unit.Term, declared)
+	c := ctx.model.semantics.MeasurementRefConforms(typ, ref.Unit.Term, declared)
 	if !c.Known || c.Holds {
 		return true, "", nil
 	}

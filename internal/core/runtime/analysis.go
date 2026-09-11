@@ -173,7 +173,7 @@ func (ctx *Context) placeObjective(out []Objective, obj Objective) []Objective {
 
 // redefines reports whether obj redefines prev, by clause, position or role.
 func (ctx *Context) redefines(obj, prev Objective) bool {
-	return slices.Contains(ctx.model.AllRedefinedFeatures(obj.Symbol), prev.Symbol)
+	return slices.Contains(ctx.model.semantics.AllRedefinedFeatures(obj.Symbol), prev.Symbol)
 }
 
 // objectiveOf reads one objective usage: its direction from the definition it is
@@ -183,7 +183,7 @@ func (ctx *Context) redefines(obj, prev Objective) bool {
 func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
 	typ := ctx.extractType(objSym)
 	obj := Objective{
-		Name:      ctx.model.EffectiveNameOf(objSym),
+		Name:      ctx.model.semantics.EffectiveNameOf(objSym),
 		Symbol:    objSym,
 		Type:      typ,
 		Direction: ctx.objectiveDirection(typ),
@@ -193,7 +193,7 @@ func (ctx *Context) objectiveOf(objSym, owner *symbols.Symbol) Objective {
 	tradeStudy := ctx.specializesLibraryType(typ, tradeStudyObjectiveFQN)
 	if tradeStudy {
 		obj.ReboundBest = ctx.reboundBestOf(objSym)
-		if best, ok := ctx.model.LookupMember(objSym, objectiveBestName); ok {
+		if best, ok := ctx.model.semantics.LookupMember(objSym, objectiveBestName); ok {
 			obj.Best = best
 		}
 	}
@@ -234,9 +234,9 @@ func (ctx *Context) restatedObjectives(objSym, owner *symbols.Symbol) []*symbols
 	}
 	add(ctx.relatedFeatures(objSym, owner, ast.RelRedefines))
 	for i := 0; i < len(out); i++ {
-		add(ctx.model.AllRedefinedFeatures(out[i]))
+		add(ctx.model.semantics.AllRedefinedFeatures(out[i]))
 	}
-	add(ctx.model.AllRedefinedFeatures(objSym))
+	add(ctx.model.semantics.AllRedefinedFeatures(objSym))
 	return out
 }
 
@@ -338,11 +338,11 @@ func restatesFeatureNamed(sym *symbols.Symbol, name string) bool {
 // name states, or specializes it, matched by identity so a type merely named
 // alike is not one.
 func (ctx *Context) specializesLibraryType(typ *symbols.Symbol, fqn string) bool {
-	if typ == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if typ == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return false
 	}
 	stated := make(map[*symbols.Symbol]bool, 1)
-	for _, sym := range ctx.resolver.Index().LookupQualified(fqn) {
+	for _, sym := range ctx.model.resolver.Index().LookupQualified(fqn) {
 		if sym != nil {
 			stated[sym] = true
 		}
@@ -350,7 +350,7 @@ func (ctx *Context) specializesLibraryType(typ *symbols.Symbol, fqn string) bool
 	if stated[typ] {
 		return true
 	}
-	for _, super := range ctx.model.AllSupertypes(typ) {
+	for _, super := range ctx.model.semantics.AllSupertypes(typ) {
 		if stated[super] {
 			return true
 		}
@@ -362,10 +362,10 @@ func (ctx *Context) specializesLibraryType(typ *symbols.Symbol, fqn string) bool
 // library: the nearest of MinimizeObjective and MaximizeObjective it
 // specializes, matched by identity so a type merely named alike is not one.
 func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
-	if typ == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if typ == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return NoDirection
 	}
-	idx := ctx.resolver.Index()
+	idx := ctx.model.resolver.Index()
 	directions := make(map[*symbols.Symbol]ObjectiveDirection, 2)
 	for fqn, direction := range map[string]ObjectiveDirection{
 		minimizeObjectiveFQN: Minimize,
@@ -382,7 +382,7 @@ func (ctx *Context) objectiveDirection(typ *symbols.Symbol) ObjectiveDirection {
 	}
 	// AllSupertypes is breadth-first over declaration order, so the nearest
 	// trade-study ancestor is found first.
-	for _, super := range ctx.model.AllSupertypes(typ) {
+	for _, super := range ctx.model.semantics.AllSupertypes(typ) {
 		if direction, ok := directions[super]; ok {
 			return direction
 		}
@@ -400,7 +400,7 @@ func (ctx *Context) objectiveConditionsOf(sym *symbols.Symbol) (model, library [
 	// body, where the `best` it inherits answers that name.
 	body := bodyScope(sym, sym.OwnerScope)
 	var members, libraryMembers []scopedMember
-	supers := ctx.model.AllSupertypes(sym)
+	supers := ctx.model.semantics.AllSupertypes(sym)
 	for i := len(supers) - 1; i >= 0; i-- {
 		link := supers[i]
 		if link == nil || ctx.frameDeclared(link) {

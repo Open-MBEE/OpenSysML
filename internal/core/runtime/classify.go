@@ -14,7 +14,7 @@ import (
 // a feature it was held as a value of (KerML 1.0 §7.3.4.1: a feature's values are instances of its types).
 func (ctx *Context) instanceConforms(inst *Instance, typ *symbols.Symbol) bool {
 	// All of the object's types at once: a difference reads the types it subtracts too.
-	return ctx.model.ClassifiesTypes(inst.types(), typ) == semantics.ClassifiesAll
+	return ctx.model.semantics.ClassifiesTypes(inst.types(), typ) == semantics.ClassifiesAll
 }
 
 // isDirectTypeOf reports whether typ is already a direct type of an object: one it was
@@ -46,14 +46,14 @@ func (ctx *Context) canClassify(inst *Instance, typ *symbols.Symbol) bool {
 // comparableTypes reports whether one of typ and other specializes the other. A
 // feature stands for the types it is typed by, implicit base included.
 func (ctx *Context) comparableTypes(typ, other *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
-	if typ == nil || other == nil || ctx.model.Conforms(typ, other) || ctx.model.Conforms(other, typ) {
+	if typ == nil || other == nil || ctx.model.semantics.Conforms(typ, other) || ctx.model.semantics.Conforms(other, typ) {
 		return true
 	}
 	if !semantics.IsShapeFeature(typ) || seen[typ] {
 		return false
 	}
 	seen[typ] = true
-	for _, super := range ctx.model.DirectSupertypes(typ) {
+	for _, super := range ctx.model.semantics.DirectSupertypes(typ) {
 		if !ctx.comparableTypes(super, other, seen) {
 			return false
 		}
@@ -146,7 +146,7 @@ func (ctx *Context) refineFeatureValue(inst *Instance, fv *FeatureValue, feat *E
 		return nil
 	}
 	if !slices.Contains(ctx.redefinedFeatures(feat.Symbol, typ), have.Symbol) &&
-		(!ctx.model.Conforms(typ, have.OwnerType) || slices.Contains(ctx.redefinedFeatures(have.Symbol, have.OwnerType), feat.Symbol)) {
+		(!ctx.model.semantics.Conforms(typ, have.OwnerType) || slices.Contains(ctx.redefinedFeatures(have.Symbol, have.OwnerType), feat.Symbol)) {
 		return nil
 	}
 	ctx.noteProbeWrite(fv)
@@ -191,7 +191,7 @@ func declaredBy[T any](ctx *Context, types []*symbols.Symbol, of func(*symbols.S
 			}
 		}
 		covered[declScope(typ)] = true
-		for _, sup := range ctx.model.AllSupertypes(typ) {
+		for _, sup := range ctx.model.semantics.AllSupertypes(typ) {
 			covered[declScope(sup)] = true
 		}
 	}

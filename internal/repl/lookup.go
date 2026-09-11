@@ -153,7 +153,7 @@ func (s *Session) featureChainSymbol(name string) (*symbols.Symbol, string) {
 	if idx == nil || err != nil {
 		return nil, ""
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	// The longest prefix a declaration answers to is the chain's root, so a
 	// nested feature is preferred over the type it happens to share a name with.
 	for i := len(segments) - 1; i > 0; i-- {
@@ -225,7 +225,7 @@ func (s *Session) carrierInstances(sym *symbols.Symbol) []string {
 	if err != nil {
 		return nil
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	var names []string
 	// A feature is read from the outermost object carrying it; its own nested
 	// objects are of other types and are not searched again.
@@ -665,7 +665,7 @@ func (s *Session) notInstantiated(sym *symbols.Symbol, fqn string) error {
 	if err != nil {
 		return e
 	}
-	model := ctx.Model()
+	model := ctx.Semantics()
 	var definition *symbols.Symbol
 	switch sym.Decl.(type) {
 	case *ast.Usage:

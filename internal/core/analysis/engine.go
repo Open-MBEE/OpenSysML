@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // Model is the model a question is about, reached through the runtime contexts a surface
@@ -16,8 +14,9 @@ import (
 type Model struct {
 	// Context is the surface's own runtime over the model; nil when the surface holds none.
 	Context func() (*runtime.Context, error)
-	// Semantics builds a worker's own resolver and semantic model over the shared frozen index.
-	Semantics func() (*resolve.Resolver, *semantics.Model, error)
+	// Semantics builds a worker's own model-derived part — resolver, semantic model and
+	// the runtime's memo tables — over the shared frozen index.
+	Semantics func() (*runtime.Model, error)
 	// Fresh builds a run's own context on a worker, under the surface's limits.
 	Fresh func(*Worker) (*runtime.Context, error)
 

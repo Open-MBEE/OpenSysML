@@ -340,20 +340,20 @@ func (ctx *Context) libraryFunctionFor(sym *symbols.Symbol) (*libraryFunction, b
 // libraryDeclared reports whether sym was declared by one of the library
 // documents rather than by the model under evaluation.
 func (ctx *Context) libraryDeclared(sym *symbols.Symbol) bool {
-	if ctx == nil || ctx.resolver == nil {
+	if ctx == nil || ctx.model.resolver == nil {
 		return false
 	}
-	idx := ctx.resolver.Index()
+	idx := ctx.model.resolver.Index()
 	return idx != nil && idx.Library(sym)
 }
 
 // frameDeclared reports a library declaration the runtime realizes rather than
 // executes as written: the semantic libraries, and a calc it implements natively.
 func (ctx *Context) frameDeclared(sym *symbols.Symbol) bool {
-	if ctx == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if ctx == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return false
 	}
-	tier := ctx.resolver.Index().LibraryTier(sym)
+	tier := ctx.model.resolver.Index().LibraryTier(sym)
 	if !tier.Library() {
 		return false
 	}
@@ -370,10 +370,10 @@ func (ctx *Context) frameDeclared(sym *symbols.Symbol) bool {
 // librarySymbol is the declaration the bundled library makes under fqn, nil
 // where it is not loaded.
 func (ctx *Context) librarySymbol(fqn string) *symbols.Symbol {
-	if ctx == nil || ctx.resolver == nil || ctx.resolver.Index() == nil {
+	if ctx == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return nil
 	}
-	for _, sym := range ctx.resolver.Index().LookupQualified(fqn) {
+	for _, sym := range ctx.model.resolver.Index().LookupQualified(fqn) {
 		if ctx.libraryDeclared(sym) {
 			return sym
 		}

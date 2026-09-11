@@ -174,13 +174,13 @@ func parsePilot(t *testing.T) *pilot {
 	return &pilot{idx: idx, pkg: pkg.Scope}
 }
 
-func (p *pilot) semantics() (*resolve.Resolver, *semantics.Model, error) {
+func (p *pilot) semantics() (*runtime.Model, error) {
 	resolver := resolve.New(p.idx)
-	return resolver, semantics.NewModel(resolver), nil
+	return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
 }
 
 func (p *pilot) fresh(w *Worker) (*runtime.Context, error) {
-	return runtime.NewContext(w.Model, w.Resolver, fixtureSteps), nil
+	return runtime.NewContext(w.Model, fixtureSteps), nil
 }
 
 // building is the model as a surface holding no context supplies it.
@@ -188,8 +188,8 @@ func (p *pilot) building() *Model { return &Model{Semantics: p.semantics, Fresh:
 
 // context is a runtime a surface would hold over the fixture.
 func (p *pilot) context() *runtime.Context {
-	resolver := resolve.New(p.idx)
-	return runtime.NewContext(semantics.NewModel(resolver), resolver, fixtureSteps)
+	model, _ := p.semantics()
+	return runtime.NewContext(model, fixtureSteps)
 }
 
 func (p *pilot) action(t *testing.T, name string) *symbols.Symbol {

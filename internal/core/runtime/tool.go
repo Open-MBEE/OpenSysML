@@ -217,7 +217,7 @@ func (ctx *Context) toolExecutionOf(action *symbols.Symbol) (*toolExecution, err
 	if ctx.model == nil || action == nil {
 		return nil, nil
 	}
-	if held, ok := ctx.toolExecutions[action]; ok {
+	if held, ok := ctx.model.toolExecutions[action]; ok {
 		return held, nil
 	}
 	inst, typ, on, err := ctx.annotationObject(action, fqnToolExecution)
@@ -234,7 +234,7 @@ func (ctx *Context) toolExecutionOf(action *symbols.Symbol) (*toolExecution, err
 			return nil, err
 		}
 	}
-	ctx.toolExecutions[action] = held
+	ctx.model.toolExecutions[action] = held
 	return held, nil
 }
 
@@ -256,9 +256,9 @@ func (ctx *Context) toolVariableOf(param *symbols.Symbol) (string, bool, error) 
 // on an element, else on its supertypes nearest first, with the annotation's type and the
 // element carrying it; nil when none does.
 func (ctx *Context) annotationObject(element *symbols.Symbol, fqn string) (*Instance, *symbols.Symbol, *symbols.Symbol, error) {
-	elements := append([]*symbols.Symbol{element}, ctx.model.AllSupertypes(element)...)
+	elements := append([]*symbols.Symbol{element}, ctx.model.semantics.AllSupertypes(element)...)
 	for _, sym := range elements {
-		for i, annotation := range ctx.model.ElementMetadataOf(sym) {
+		for i, annotation := range ctx.model.semantics.ElementMetadataOf(sym) {
 			if !ctx.metadataIs(annotation.Type, fqn) {
 				continue
 			}
@@ -280,7 +280,7 @@ func (ctx *Context) metadataIs(typ *symbols.Symbol, fqn string) bool {
 	if symbols.FQNOf(typ) == fqn {
 		return true
 	}
-	for _, super := range ctx.model.AllSupertypes(typ) {
+	for _, super := range ctx.model.semantics.AllSupertypes(typ) {
 		if symbols.FQNOf(super) == fqn {
 			return true
 		}
@@ -372,7 +372,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	tool := execution.tool
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, exec: e}
 	namedBy := make(map[string]string)
-	for _, param := range e.ctx.model.BehaviorParametersOf(e.performed) {
+	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.performed) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
 		}
@@ -392,7 +392,7 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
 			held, bound := e.root.data[e.root.key(param.Symbol.Name)]
-			if !bound && !e.ctx.model.OptionalParameter(param.Symbol) {
+			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
 					ErrUnboundParameter, symbolText(e.performed), param.Symbol.Name)
 			}
@@ -492,14 +492,14 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 		return Value{}, malformed("%v", err)
 	}
 	q := Quantity{Num: answered.Value, Unit: unit}
-	dim, ok := e.ctx.model.DimensionOfFeature(out.Declared)
+	dim, ok := e.ctx.model.semantics.DimensionOfFeature(out.Declared)
 	if !ok {
 		if !e.ctx.quantityTyped(out.Declared) {
 			return Value{}, malformed("%s is not a quantity to be measured in %s", out.Parameter, answered.Unit)
 		}
 		return quantityResult(q, nil)
 	}
-	coherent, ok := e.ctx.model.CoherentUnitFor(dim, out.Declared)
+	coherent, ok := e.ctx.model.semantics.CoherentUnitFor(dim, out.Declared)
 	if !ok {
 		return NewQuantityValue(&q), nil
 	}
@@ -517,8 +517,8 @@ func (ctx *Context) quantityTyped(feature *symbols.Symbol) bool {
 	if scalar == nil {
 		return false
 	}
-	for _, typ := range ctx.model.FeatureTypes(feature) {
-		if ctx.model.Conforms(typ, scalar) {
+	for _, typ := range ctx.model.semantics.FeatureTypes(feature) {
+		if ctx.model.semantics.Conforms(typ, scalar) {
 			return true
 		}
 	}
@@ -536,18 +536,18 @@ type toolUnitKey struct {
 // memoized per scope since resolution memoizes per parsed name.
 func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
 	key := toolUnitKey{scope: e.root.scope, text: text}
-	if unit, ok := e.ctx.toolUnits[key]; ok {
+	if unit, ok := e.ctx.model.toolUnits[key]; ok {
 		return unit, nil
 	}
 	expr, ok := parseToolUnit(text)
 	if !ok {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit expression", text)
 	}
-	unit, err := e.ctx.model.UnitOfExpr(e.root.scope, expr)
+	unit, err := e.ctx.model.semantics.UnitOfExpr(e.root.scope, expr)
 	if errors.Is(err, semantics.ErrNotAUnit) {
 		if si := e.ctx.librarySymbol(fqnSIPackage); si != nil && si.Scope != nil {
 			expr, _ = parseToolUnit(text)
-			if inSI, siErr := e.ctx.model.UnitOfExpr(si.Scope, expr); siErr == nil {
+			if inSI, siErr := e.ctx.model.semantics.UnitOfExpr(si.Scope, expr); siErr == nil {
 				unit, err = inSI, nil
 			}
 		}
@@ -555,7 +555,7 @@ func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
 	if err != nil {
 		return semantics.Unit{}, fmt.Errorf("%q is not a unit: %w", text, err)
 	}
-	e.ctx.toolUnits[key] = unit
+	e.ctx.model.toolUnits[key] = unit
 	return unit, nil
 }
 

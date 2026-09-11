@@ -14,7 +14,7 @@ package Demo {
 	item def Foo { attribute v : Real; attribute w : Real; }
 	attribute made : Real = new Foo(2.0, 3.0).w;
 }`)
-	scope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	scope := lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 	for expr, want := range map[string]string{
 		"new Foo(2.0).v":          "2.0",
 		"new Foo(w = 3.0).w":      "3.0",

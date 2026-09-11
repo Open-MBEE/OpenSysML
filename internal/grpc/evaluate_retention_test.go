@@ -73,18 +73,19 @@ package Demo {
 
 	// Nothing a request resolved is the cached model's: a worker built after them
 	// starts with no resolutions and no selections.
-	resolver, sem, err := cached.Semantics()
+	worker, err := cached.Semantics()
 	if err != nil {
 		t.Fatalf("Semantics: %v", err)
 	}
+	resolver, sem := worker.Resolver(), worker.Semantics()
 	if got, gotSel := resolver.MemoSize(), sem.MemoSize(); got != 0 || gotSel != 0 {
 		t.Fatalf("a new worker starts with %d resolutions and %d selections, want none", got, gotSel)
 	}
-	other, _, err := cached.Semantics()
+	otherModel, err := cached.Semantics()
 	if err != nil {
 		t.Fatalf("Semantics: %v", err)
 	}
-	if other == resolver || other.Index() != resolver.Index() || resolver.Index() != cached.Index {
+	if other := otherModel.Resolver(); other == resolver || other.Index() != resolver.Index() || resolver.Index() != cached.Index {
 		t.Fatal("two workers over one model: want distinct resolvers over the one cached index")
 	}
 }
@@ -132,7 +133,7 @@ package Demo {
 
 	// The selection lives on the worker that made it, which the request built.
 	rt := srv.newRuntime(cached)
-	if got := rt.Model().MemoSize(); got != 0 {
+	if got := rt.Semantics().MemoSize(); got != 0 {
 		t.Fatalf("a request's worker starts with %d selections, want none", got)
 	}
 	doubled := cached.Index.LookupQualified("Demo::Vehicle::doubled")
@@ -142,7 +143,7 @@ package Demo {
 	if _, err := rt.EvalDeclaredValue(doubled[0]); err != nil {
 		t.Fatalf("doubled on the worker: %v", err)
 	}
-	if got := rt.Model().MemoSize(); got == 0 {
+	if got := rt.Semantics().MemoSize(); got == 0 {
 		t.Fatal("evaluating doubled selected no invocation, or the selection was not kept on the worker")
 	}
 }

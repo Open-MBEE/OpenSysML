@@ -145,7 +145,7 @@ func TestElementBudgetIsReleasedByEveryStep(t *testing.T) {
 // session evaluating many collections is not stopped by the ones before.
 func TestElementBudgetIsPerRun(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, `part def Simple {}`)
-	ctx := NewContext(model, resolver, DefaultMaxSteps)
+	ctx := NewContext(NewModel(model, resolver), DefaultMaxSteps)
 	ctx.maxElements = 4
 
 	for i := 0; i < 3; i++ {

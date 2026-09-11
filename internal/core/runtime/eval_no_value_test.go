@@ -29,7 +29,7 @@ package test {
 // is reserved for names no declaration answers.
 func TestDeclaredFeatureWithoutValueIsNotUnresolved(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, valuelessFeaturesModel)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	pkg, _ := root.LookupLocal("test")
 	car, _ := pkg.Scope.LookupLocal("Car")
 	scope := car.Scope
@@ -67,7 +67,7 @@ func TestDeclaredFeatureWithoutValueIsNotUnresolved(t *testing.T) {
 // missing value.
 func TestChainOverValuelessOperandResolvesItsMembers(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, valuelessFeaturesModel)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	pkg, _ := root.LookupLocal("test")
 	car, _ := pkg.Scope.LookupLocal("Car")
 	scope := car.Scope
@@ -100,7 +100,7 @@ package test {
 	part car : Car { attribute unsetMass : Real; }
 }
 `)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	pkg, _ := root.LookupLocal("test")
 	scope := pkg.Scope
 

@@ -29,7 +29,7 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 	var features []*symbols.Symbol
 	for _, rel := range relationshipsOfKind(sym, kind) {
 		qn := ast.AsQualifiedName(rel.Target)
-		resolved := ctx.model.RelationshipTarget(sym, rel)
+		resolved := ctx.model.semantics.RelationshipTarget(sym, rel)
 		if resolved != nil && resolved != sym {
 			if ctx.isFeatureOf(owner, resolved, sym) {
 				features = append(features, resolved)
@@ -48,7 +48,7 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 		if len(qn.Parts) != 1 {
 			continue
 		}
-		if member, found := ctx.model.LookupMember(owner, qn.Parts[0].Text); found && member != nil && member != sym {
+		if member, found := ctx.model.semantics.LookupMember(owner, qn.Parts[0].Text); found && member != nil && member != sym {
 			features = append(features, member)
 		}
 	}
@@ -58,7 +58,7 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 // redefinesTransitively reports whether sym redefines feature, directly or through
 // the features those redefine.
 func (ctx *Context) redefinesTransitively(sym, feature *symbols.Symbol) bool {
-	for _, redefined := range ctx.model.AllRedefinedFeatures(sym) {
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(sym) {
 		if redefined == feature {
 			return true
 		}
@@ -71,7 +71,7 @@ func (ctx *Context) inheritsDeclaration(owner, feature *symbols.Symbol) bool {
 	if feature.OwnerScope == nil {
 		return false
 	}
-	for _, src := range ctx.model.MemberSources(owner) {
+	for _, src := range ctx.model.semantics.MemberSources(owner) {
 		if src.Scope == feature.OwnerScope {
 			return true
 		}
@@ -86,11 +86,11 @@ func (ctx *Context) ownDeclarationNamed(owner, sym *symbols.Symbol, names ...str
 		if name == "" {
 			continue
 		}
-		member, found := ctx.model.LookupMember(owner, name)
+		member, found := ctx.model.semantics.LookupMember(owner, name)
 		if !found || member == nil || member == sym {
 			continue
 		}
-		if contributed, ok := ctx.model.LookupContributedMember(owner, name); ok && contributed == member {
+		if contributed, ok := ctx.model.semantics.LookupContributedMember(owner, name); ok && contributed == member {
 			continue
 		}
 		return member, true
@@ -120,10 +120,10 @@ func (ctx *Context) isFeatureOf(owner, feature, masking *symbols.Symbol) bool {
 	carries := func(member *symbols.Symbol, ok bool) bool {
 		return ok && (member == feature || member == masking)
 	}
-	if carries(ctx.model.LookupMember(owner, feature.Name)) {
+	if carries(ctx.model.semantics.LookupMember(owner, feature.Name)) {
 		return true
 	}
-	return carries(ctx.model.LookupContributedMember(owner, feature.Name))
+	return carries(ctx.model.semantics.LookupContributedMember(owner, feature.Name))
 }
 
 // relatedFeatureNames is relatedFeatures by name.
@@ -174,7 +174,7 @@ func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.S
 // which is the order the features are computed in. The answer is memoized per
 // type; callers read it and never write it.
 func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
-	if groups, ok := ctx.redefGroups[typ]; ok {
+	if groups, ok := ctx.model.redefGroups[typ]; ok {
 		return groups
 	}
 	features := ctx.FeaturesOf(typ)
@@ -222,7 +222,7 @@ func (ctx *Context) redefinitionGroups(typ *symbols.Symbol) [][]string {
 		index[root] = len(groups)
 		groups = append(groups, []string{feat.Name})
 	}
-	ctx.redefGroups[typ] = groups
+	ctx.model.redefGroups[typ] = groups
 	return groups
 }
 
@@ -295,11 +295,11 @@ func (ctx *Context) redefinedNames(sym, owner *symbols.Symbol) []string {
 // through a redefinition of a redefinition, in breadth-first order.
 func (ctx *Context) redefinedFeatures(sym, owner *symbols.Symbol) []*symbols.Symbol {
 	key := featureOfType{feature: sym, owner: owner}
-	if features, ok := ctx.redefined[key]; ok {
+	if features, ok := ctx.model.redefined[key]; ok {
 		return features
 	}
 	features := ctx.collectRedefinedFeatures(sym, owner)
-	ctx.redefined[key] = features
+	ctx.model.redefined[key] = features
 	return features
 }
 
@@ -314,8 +314,8 @@ func (ctx *Context) collectRedefinedFeatures(sym, owner *symbols.Symbol) []*symb
 		// the one its owner inherits, without naming it: the two names read one
 		// feature value as an explicit redefinition's do.
 		redefines := append(ctx.relatedFeatures(cur, owner, ast.RelRedefines),
-			ctx.model.ImplicitEndRedefinitions(cur)...)
-		redefines = append(redefines, ctx.model.ImplicitRoleRedefinitions(cur)...)
+			ctx.model.semantics.ImplicitEndRedefinitions(cur)...)
+		redefines = append(redefines, ctx.model.semantics.ImplicitRoleRedefinitions(cur)...)
 		for _, redefined := range redefines {
 			if seen[redefined] {
 				continue
@@ -395,7 +395,7 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 func (ctx *Context) fillsFromSubsetted(feat *EffectiveFeature) bool {
 	lower := feat.Multiplicity.Lower
 	return lower.Known && !lower.Infinite && lower.Value == 0 &&
-		!ctx.model.IsConnectorUsage(feat.Symbol) && ctx.CompositeTypeOf(feat) != nil
+		!ctx.model.semantics.IsConnectorUsage(feat.Symbol) && ctx.CompositeTypeOf(feat) != nil
 }
 
 // materializeSubsettedCollections reads the collections an optional feature subsets before the

@@ -555,10 +555,13 @@ Registered KerML builtins:
 
 Tier 1-3 (Instances & Expressions):
 ```go
+// The model-derived part (memoized shapes, targets, literals) is built once and
+// shared by every context over it; a context is one run's own state.
+shared := runtime.NewModel(model, resolver)
 // Honour the OPENSYSML_MAX_* budgets instead of the defaults with:
 //   budgets, err := runtime.BudgetsFromEnv()
 //   err = ctx.SetBudgets(budgets)
-ctx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+ctx := runtime.NewContext(shared, runtime.DefaultMaxSteps)
 inst, _ := ctx.Instantiate(wheelSym)
 fv, _ := inst.GetFeatureValue(ctx, "diameter")
 result, _ := ctx.InvokeCalc(addSym, []Value{v1, v2}, scope)
@@ -580,7 +583,7 @@ results, err = ctx.ExecuteAction(myActionSym) // the same run on every call
 // Or every run: one fresh context per linearization over the shared model
 explore, _ := runtime.ParseSchedulePolicy("explore:runs=64")
 exploration, err := runtime.Explore(context.Background(), explore,
-    func() (*runtime.Context, error) { return runtime.NewContext(model, resolver, runtime.DefaultMaxSteps), nil },
+    func() (*runtime.Context, error) { return runtime.NewContext(shared, runtime.DefaultMaxSteps), nil },
     func(c *runtime.Context) (runtime.Outcome, error) {
         outputs, err := c.ExecuteAction(myActionSym)
         return c.ActionOutcome(outputs), err
@@ -1042,7 +1045,7 @@ import (
     "github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
-rtCtx := runtime.NewContext(model, resolver, runtime.DefaultMaxSteps)
+rtCtx := runtime.NewContext(runtime.NewModel(model, resolver), runtime.DefaultMaxSteps)
 inst, _ := rtCtx.Instantiate(wheelSym)
 diameter, _ := inst.GetFeatureValue(rtCtx, "diameter")
 fmt.Println(diameter.Value) // Value{Kind: ValConst, Real: 16.0}
