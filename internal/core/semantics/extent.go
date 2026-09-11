@@ -30,21 +30,37 @@ func ExtentTypeName(node ast.Node) *ast.QualifiedName {
 	return nil
 }
 
-// ExtentType is the type an extent expression `all T` names, an alias followed.
-// Nil where node is no extent expression or the name resolves to nothing.
-func (m *Model) ExtentType(scope *symbols.Scope, node ast.Node) *symbols.Symbol {
+// ExtentOperand is the element an extent expression `all T` names, an alias followed,
+// whatever it is; false where node is no extent expression or the name resolves to nothing.
+func (m *Model) ExtentOperand(scope *symbols.Scope, node ast.Node) (*symbols.Symbol, bool) {
 	qn := ExtentTypeName(node)
 	if m == nil || m.resolver == nil || qn == nil {
-		return nil
+		return nil, false
 	}
 	sym, ok := m.resolver.ResolveQualified(scope, qn)
 	if !ok || sym == nil {
-		return nil
+		return nil, false
 	}
 	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok && alias != nil {
 		sym = alias
 	}
+	return sym, true
+}
+
+// ExtentType is the type an extent expression `all T` names. Nil where the name
+// resolves to nothing or to an element that is no type, such as a package.
+func (m *Model) ExtentType(scope *symbols.Scope, node ast.Node) *symbols.Symbol {
+	sym, ok := m.ExtentOperand(scope, node)
+	if !ok || !IsType(sym) {
+		return nil
+	}
 	return sym
+}
+
+// IsType reports whether sym declares a KerML Type, which alone has an extent: a
+// classifier or a feature (KerML 1.0 §8.3.3), never a package, relationship or comment.
+func IsType(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Kind.IsDefinition() || sym.IsFeature())
 }
 
 // extentTypes are the types every element of `all T` is of; nil for any other node.

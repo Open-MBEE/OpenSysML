@@ -7,7 +7,12 @@
   for an ordinary definition it is every object the run has materialized or the current context
   reaches that the definition classifies, nested usages included; for an enumeration it is the
   declared literals. A data type with no enumerated values (`all Integer`, `all String`) is
-  refused with the typed `ErrUnboundedExtent`, an operand that is not a type name with
-  `ErrTypeMismatch`, and a name that resolves to nothing with `ErrUnresolvedType`. The native
+  refused with the typed `ErrUnboundedExtent`, an operand that is not a type (a package, a
+  relationship, a comment, or no name at all) with `ErrTypeMismatch`, and a name that resolves to
+  nothing with `ErrUnresolvedType`. An extent that a package-level usage of several occurrences
+  (`part wheels : Wheel[2];`) may contribute to is refused with the typed `ErrExtentUnavailable`
+  naming the usage, since the runtime denotes no object of such a usage yet, rather than answered
+  without them. `all T` is never model-level evaluable, so a `filter` or metadata value built on
+  it is diagnosed. The native
   compiler keeps refusing `all` with a typed `UnsupportedError` (`operator 'all'`), since a
   compiled program has no run whose extent it could report.

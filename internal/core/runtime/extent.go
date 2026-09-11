@@ -17,9 +17,13 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: 'all' requires the name of a type", ErrTypeMismatch)
 	}
 	sem := ec.ctx.model.semantics
-	target := sem.ExtentType(ec.scope, n)
-	if target == nil {
+	target, ok := sem.ExtentOperand(ec.scope, n)
+	if !ok {
 		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedType, qualifiedNameToString(qn))
+	}
+	if !semantics.IsType(target) {
+		return Value{}, fmt.Errorf("%w: 'all' requires a type, %s is a %s",
+			ErrTypeMismatch, qualifiedNameToString(qn), target.Notation())
 	}
 	switch {
 	case target.Kind == symbols.SymbolEnumerationDef:
@@ -138,7 +142,8 @@ func (ctx *Context) materializedObjects(inst *Instance) []heldObject {
 // extentRoots is the objects an extent is searched from, in declaration order: those the run
 // materialized standing on their own (not held, not read through), the outermost holder of the
 // object evaluating, and the occurrences the enclosing namespaces declare that may hold a
-// target — materialized now, as reading them would be.
+// target — materialized now, as reading them would be. A namespace usage that may hold a
+// target but denotes no object the run can reach refuses the extent rather than shrinking it.
 func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) {
 	ctx := ec.ctx
 	var roots []*Instance
@@ -154,9 +159,16 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 			add(top)
 		}
 	}
-	for _, sym := range ctx.namespaceOccurrences(ec.scope) {
+	for _, sym := range ctx.namespaceUsages(ec.scope) {
 		if !ctx.mayHold(sym, target, make(map[*symbols.Symbol]bool)) {
 			continue
+		}
+		if !ctx.namesOneObject(sym) {
+			if ctx.optionalValueless(sym) {
+				continue
+			}
+			return nil, fmt.Errorf("%w: usage %s declares %s occurrences, which the run denotes no object of",
+				ErrExtentUnavailable, symbolText(sym), ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Text())
 		}
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
@@ -176,16 +188,20 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 	return roots, nil
 }
 
-// namespaceOccurrences is the usages denoting one object each that the namespaces enclosing
-// scope declare, innermost first — the objects a value written there reaches by name.
-func (ctx *Context) namespaceOccurrences(scope *symbols.Scope) []*symbols.Symbol {
+// namespaceUsages is the usages standing for objects that the namespaces enclosing scope
+// declare, innermost first — what a value written there reaches by name — whether the run
+// denotes an object of each (one occurrence) or not (several); a variation stands for none.
+func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for ; scope != nil; scope = scope.Parent() {
 		if typeScope(scope) {
 			continue
 		}
 		scope.ForEachMember(func(sym *symbols.Symbol) bool {
-			if ctx.namesOneObject(sym) {
+			if ctx.model.semantics.IsVariationFeature(sym) {
+				return true
+			}
+			if isOccurrenceUsage(sym) || ctx.namesOneObject(sym) {
 				out = append(out, sym)
 			}
 			return true

@@ -301,6 +301,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
+	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
@@ -4575,8 +4576,15 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 		part def Wheel;
 		part def Car { part wheels : Wheel[2]; }
 		part car : Car;
+		package Spares;
+		dependency Supply from Spares to Car;
+		comment Note about Car /* wheels */
 		calc missing { return : Natural = size(all MissingType); }
 		calc noName { return : Natural = size(all (1 + 2)); }
+		calc ofPackage { return : Natural = size(all Spares); }
+		calc ofQualifiedPackage { return : Natural = size(all P::Spares); }
+		calc ofRelationship { return : Natural = size(all Supply); }
+		calc ofComment { return : Natural = size(all Note); }
 		calc unbounded { return : Natural = size(all Integer); }
 		calc unboundedString { return : Natural = size(all String); }
 		calc counted { return : Natural = size(all Wheel); }
@@ -4590,6 +4598,10 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 	}{
 		{"missing", ErrUnresolvedType, "MissingType"},
 		{"noName", ErrTypeMismatch, "requires the name of a type"},
+		{"ofPackage", ErrTypeMismatch, "Spares is a package"},
+		{"ofQualifiedPackage", ErrTypeMismatch, "P::Spares is a package"},
+		{"ofRelationship", ErrTypeMismatch, "Supply is a dependency"},
+		{"ofComment", ErrTypeMismatch, "Note is a comment"},
 		{"unbounded", ErrUnboundedExtent, "Integer"},
 		{"unboundedString", ErrUnboundedExtent, "String"},
 	} {
@@ -4607,6 +4619,62 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "counted"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Wheel) = %s, %v; want 2", FormatValue(got), err)
+	}
+}
+
+// testExtentReachingANamespaceCollection: a namespace-level usage of several occurrences
+// (`part wheels : Wheel[2]` in a package) denotes no object the run reaches — reading it
+// yields nothing — so an extent it may contribute to is refused rather than answered short;
+// one it cannot contribute to, and one a `[0..*]` usage would hold nothing of, are answered.
+func testExtentReachingANamespaceCollection(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Hub { part wheel : Wheel; }
+		part def Seat;
+		part wheels : Wheel[2];
+		part hubs : Hub[1..*];
+		part spares : Wheel[0..*];
+		part seat : Seat;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc hubCount { return : Natural = size(all Hub); }
+		calc seatCount { return : Natural = size(all Seat); }
+		package Q {
+			part seat2 : Seat;
+			part spares : Wheel[0..*];
+			calc seatCount { return : Natural = size(all Seat); }
+			calc wheelCount { return : Natural = size(all Wheel); }
+		}
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for _, tc := range []struct{ calc, usage, mult string }{
+		{"wheelCount", "wheels", "[2]"},
+		{"hubCount", "hubs", "[1..*]"},
+	} {
+		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
+		if !errors.Is(err, ErrExtentUnavailable) {
+			t.Fatalf("%s: err = %v, want %v", tc.calc, err, ErrExtentUnavailable)
+		}
+		for _, want := range []string{tc.usage, tc.mult} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%s: error = %v, want %q named", tc.calc, err, want)
+			}
+		}
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("size(all Seat) = %s, %v; want 1: the wheel collections hold no Seat", FormatValue(got), err)
+	}
+	q := resolveSymbol(t, pkg.Scope, "Q")
+	got, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "seatCount"), nil, q.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("Q: size(all Seat) = %s, %v; want 2", FormatValue(got), err)
+	}
+	_, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "wheels") {
+		t.Errorf("Q: size(all Wheel) = %v, want the enclosing package's wheels refused", err)
 	}
 }
 

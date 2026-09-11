@@ -117,6 +117,10 @@ var (
 	// run enumerates: a data type declaring no literals (`all Integer`).
 	ErrUnboundedExtent = errors.New("unbounded extent")
 
+	// ErrExtentUnavailable is returned when `all T` would have to count objects
+	// the run cannot denote: a namespace-level usage of several occurrences.
+	ErrExtentUnavailable = errors.New("extent unavailable")
+
 	// ErrUndeterminedValueType is returned when a value classification has no
 	// direct runtime type to compare.
 	ErrUndeterminedValueType = errors.New("value type cannot be determined")
