@@ -470,7 +470,7 @@ func (s *Session) RunFor(actions, states []Behavior, duration float64) []Verdict
 			exec := r.action.executor
 			v.Lines = append(v.Lines, actionStatusLines(exec)...)
 			if exec.State() == runtime.StateCompleted {
-				outcome = append([]string{"✓ Action completed"}, renderResults(r.action.contextOf(), exec.Results())...)
+				outcome = append([]string{actionCompletedText}, renderResults(r.action.contextOf(), exec.Results())...)
 				v.Values = namedValues(r.action.contextOf(), exec.Results())
 			} else {
 				v.Status = VerdictUnresolved

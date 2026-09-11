@@ -1762,11 +1762,11 @@ func (c *compiler) bindingValue(
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		real, err := strconv.ParseFloat(expression.Value, 64)
+		realVal, err := strconv.ParseFloat(expression.Value, 64)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: real, origin: origin}, nil
+		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
 	case *ast.LiteralBool:
 		return BindingValue{kind: BindingBoolean, boolean: expression.Value, origin: origin}, nil
 	case *ast.OperatorExpr:
@@ -1800,11 +1800,11 @@ func (c *compiler) signedBinding(
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		real, err := strconv.ParseFloat(sign+operand.Value, 64)
+		realVal, err := strconv.ParseFloat(sign+operand.Value, 64)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: real, origin: origin}, nil
+		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
 	default:
 		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 	}

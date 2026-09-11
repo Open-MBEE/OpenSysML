@@ -273,11 +273,11 @@ func (e *executor) applyColumnOperator(
 			}
 			return IntegerValue(integer), nil
 		case ValueReal:
-			real, _ := values[0].Real()
+			realVal, _ := values[0].Real()
 			if operator == "-" {
-				real = -real
+				realVal = -realVal
 			}
-			return RealValue(real), nil
+			return RealValue(realVal), nil
 		default:
 			return Value{}, mismatch()
 		}
@@ -404,8 +404,8 @@ func quantityOperand(value Value) (semantics.Quantity, bool) {
 		integer, _ := value.Integer()
 		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValInt, Int: integer}, Unit: semantics.UnitOne()}, true
 	case ValueReal:
-		real, _ := value.Real()
-		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: real}, Unit: semantics.UnitOne()}, true
+		realVal, _ := value.Real()
+		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: realVal}, Unit: semantics.UnitOne()}, true
 	}
 	return semantics.Quantity{}, false
 }
@@ -434,8 +434,8 @@ func realOperand(value Value) float64 {
 	if integer, ok := value.Integer(); ok {
 		return float64(integer)
 	}
-	real, _ := value.Real()
-	return real
+	realVal, _ := value.Real()
+	return realVal
 }
 
 func (e *executor) columnError(

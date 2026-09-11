@@ -139,13 +139,13 @@ func TestIsModelFile(t *testing.T) {
 // files it points at.
 func TestExpandFollowsASymlinkedDirectory(t *testing.T) {
 	dir := t.TempDir()
-	real := filepath.Join(dir, "real")
-	if err := os.Mkdir(real, 0o755); err != nil {
+	target := filepath.Join(dir, "real")
+	if err := os.Mkdir(target, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	write(t, filepath.Join(real, "a.sysml"), "package X { }\n")
+	write(t, filepath.Join(target, "a.sysml"), "package X { }\n")
 	link := filepath.Join(dir, "link")
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
 
