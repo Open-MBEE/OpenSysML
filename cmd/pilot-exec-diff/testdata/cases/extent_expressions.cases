@@ -1,0 +1,15 @@
+model: cmd/pilot-exec-diff/testdata/models/extent_expressions.sysml
+
+# `all T` is the extent of T (KerML 1.0 §7.4.9.2 ExtentExpression, BaseFunctions::'all'): the
+# instances of the named type. The pilot does not evaluate the operator — it returns the
+# `OperatorExpression all` node unreduced — so the extent cases below land in
+# pilot-unevaluated whatever T is, and `size(all T)` counts that one node as 1 on the pilot's
+# side, whatever the extent's true size (0 for Boat, which nothing instantiates). Ours
+# enumerates the run's extent: an enumeration's literals, a variation's variants, and the
+# objects of an ordinary definition the context reaches, nested ones included.
+extent-enum-literals ::  :: Extent::sizes
+extent-nested-objects ::  :: Extent::wheels
+extent-root-objects ::  :: Extent::cars
+extent-uninstantiated-definition ::  :: Extent::boats
+extent-variation-count ::  :: Extent::gearboxCount
+extent-uninstantiated-count ::  :: Extent::boatCount

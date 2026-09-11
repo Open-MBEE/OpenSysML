@@ -113,6 +113,10 @@ var (
 	// resolvable type.
 	ErrUnresolvedType = errors.New("unresolved type")
 
+	// ErrUnboundedExtent is returned when `all T` names a type whose instances no
+	// run enumerates: a data type declaring no literals (`all Integer`).
+	ErrUnboundedExtent = errors.New("unbounded extent")
+
 	// ErrUndeterminedValueType is returned when a value classification has no
 	// direct runtime type to compare.
 	ErrUndeterminedValueType = errors.New("value type cannot be determined")

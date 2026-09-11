@@ -300,6 +300,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("two_valued_member_in_scalar_context", testTwoValuedMemberInScalarContext)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
+	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
@@ -4562,6 +4563,50 @@ func testCastToAnUnresolvedType(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "MissingType") {
 		t.Errorf("error = %v, want unresolved type name", err)
+	}
+}
+
+// `all T` names a type: a name resolving to nothing, an operand that is no name, and a
+// data type declaring no values are each a typed error, and none disturbs the run.
+func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Car { part wheels : Wheel[2]; }
+		part car : Car;
+		calc missing { return : Natural = size(all MissingType); }
+		calc noName { return : Natural = size(all (1 + 2)); }
+		calc unbounded { return : Natural = size(all Integer); }
+		calc unboundedString { return : Natural = size(all String); }
+		calc counted { return : Natural = size(all Wheel); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	for _, tc := range []struct {
+		calc string
+		want error
+		name string
+	}{
+		{"missing", ErrUnresolvedType, "MissingType"},
+		{"noName", ErrTypeMismatch, "requires the name of a type"},
+		{"unbounded", ErrUnboundedExtent, "Integer"},
+		{"unboundedString", ErrUnboundedExtent, "String"},
+	} {
+		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
+		if !errors.Is(err, tc.want) {
+			t.Fatalf("%s: err = %v, want %v", tc.calc, err, tc.want)
+		}
+		if !strings.Contains(err.Error(), tc.name) {
+			t.Errorf("%s: error = %v, want %q named", tc.calc, err, tc.name)
+		}
+	}
+	if _, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "car")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "counted"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "2" {
+		t.Errorf("size(all Wheel) = %s, %v; want 2", FormatValue(got), err)
 	}
 }
 

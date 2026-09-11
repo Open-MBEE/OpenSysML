@@ -19,16 +19,18 @@ const (
 
 // collectionSource is what the elements of a collection function's result are: an
 // expression in its scope — the result of the body applied, or the collection kept —
-// or the result parameter of the function applied by name.
+// the result parameter of the function applied by name, or the type an extent is of.
 type collectionSource struct {
 	scope  *symbols.Scope
 	node   ast.Node
 	result *symbols.Symbol
+	extent *symbols.Symbol
 }
 
-// CollectionResultTypes is the types every element of a collection value — `xs.{…}` or a call
-// of a ControlFunctions collection function — has, and whether its arguments decide the value
-// rather than the declared result alone; nil types where they are unknown or say nothing.
+// CollectionResultTypes is the types every element of a collection value — `xs.{…}`, a call
+// of a ControlFunctions collection function or an extent `all T` — has, and whether its
+// arguments decide the value rather than the declared result alone; nil types where they are
+// unknown or say nothing.
 func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*symbols.Symbol, bool) {
 	if m == nil || m.resolver == nil || node == nil {
 		return nil, false
@@ -40,20 +42,22 @@ func (m *Model) CollectionResultTypes(scope *symbols.Scope, node ast.Node) ([]*s
 	return m.sourcesTypes(srcs), true
 }
 
-// CollectionValues is how many values a collection value — `xs.{…}`, `xs.?{…}` or a call of a
-// ControlFunctions collection function — holds, where the value is one and its size is known.
+// CollectionValues is how many values a collection value — `xs.{…}`, `xs.?{…}`, a call of a
+// ControlFunctions collection function or an extent `all T` — holds, where the value is one
+// and its size is known.
 func (m *Model) CollectionValues(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	if m == nil || m.resolver == nil || node == nil {
 		return Range{}, false
 	}
-	if _, ok := m.collectionOf(scope, node); !ok {
+	if _, ok := m.collectionOf(scope, node); !ok && !IsExtentExpr(node) {
 		return Range{}, false
 	}
 	return m.valuesHeldBy(scope, node)
 }
 
 // sourcesOf is the sources typing a collection value: `xs.{…}` by its body, `xs.?{…}` by xs, a
-// collection function call by its arguments; not ok for any other value.
+// collection function call by its arguments, an extent by the type it names; not ok for any
+// other value.
 func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSource, bool) {
 	switch n := node.(type) {
 	case *ast.CollectExpr:
@@ -62,6 +66,13 @@ func (m *Model) sourcesOf(scope *symbols.Scope, node ast.Node) ([]collectionSour
 		return m.keptSources(scope, n.Operand)
 	case *ast.InvocationExpr:
 		return m.invocationSources(scope, n, m.invocationCallee(scope, n))
+	case *ast.OperatorExpr:
+		if IsExtentExpr(n) {
+			if sym := m.ExtentType(scope, n); sym != nil {
+				return []collectionSource{{extent: sym}}, true
+			}
+			return nil, false
+		}
 	}
 	return nil, false
 }
@@ -78,7 +89,7 @@ func (m *Model) heldSourcesOf(scope *symbols.Scope, node ast.Node) ([]collection
 	}
 	held := make([]collectionSource, 0, len(srcs))
 	for _, src := range srcs {
-		if src.result != nil && m.resultHoldsNothing(src.result) || src.result == nil && m.holdsNothing(src.scope, src.node) {
+		if src.result != nil && m.resultHoldsNothing(src.result) || src.node != nil && m.holdsNothing(src.scope, src.node) {
 			continue
 		}
 		held = append(held, src)
@@ -193,11 +204,15 @@ func (m *Model) holdsNothing(scope *symbols.Scope, collection ast.Node) bool {
 // valuesHeldBy is how many values a collection expression holds: `()` none, a literal one, a
 // sequence the sum over its elements, a feature or chain the multiplicity governing it, a chain
 // holding through each value of its operand the values of its last feature, a collection
-// operation what it maps to, keeps or reduces; not ok where unknown.
+// operation what it maps to, keeps or reduces, an extent any number; not ok where unknown.
 func (m *Model) valuesHeldBy(scope *symbols.Scope, node ast.Node) (Range, bool) {
 	switch n := node.(type) {
 	case *ast.NullExpr:
 		return CountRange(0), true
+	case *ast.OperatorExpr:
+		if IsExtentExpr(n) {
+			return ExtentRange(), true
+		}
 	case *ast.CollectExpr:
 		return m.valuesMappedBy(scope, n.Operand, n.Body)
 	case *ast.SelectExpr:
@@ -578,6 +593,10 @@ func (m *Model) sourcesElements(srcs []collectionSource) []CollectionElement {
 	for _, src := range srcs {
 		if src.result != nil {
 			out = append(out, CollectionElement{Types: informativeTypes(m.featureResultTypes(src.result))})
+			continue
+		}
+		if src.extent != nil {
+			out = append(out, CollectionElement{Types: informativeTypes(m.instanceTypes(src.extent))})
 			continue
 		}
 		out = append(out, m.elementsOf(src.scope, src.node)...)

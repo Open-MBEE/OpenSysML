@@ -211,18 +211,34 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 209 committed cases, the original 32, the 62 the
+prints the current ones. State of the 215 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
-the 27 of `scalar_classification.cases` and the 24 of `literal_types.cases`:
+the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases` and the 6 of
+`extent_expressions.cases`:
 
 ```
-agree: 125 · kind-only: 1 · order-only: 0 · disagree: 5
-pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
+agree: 125 · kind-only: 1 · order-only: 0 · disagree: 7
+pilot-unevaluated: 63 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
+
+The six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
+`ExtentExpression`, `BaseFunctions::'all'`), added with the evaluation they were meant to referee
+and could not: the pilot does not evaluate the operator, as Table 5 of §8.2.5.8.1 foretells by
+marking `all` not model-level evaluable. The four extents — `all Size`
+over an enumeration, `all Wheel` and `all Car` over definitions a package-level `part car : Car`
+instantiates, `all Boat` over one nothing instantiates — come back as the unevaluated
+`OperatorExpression all` and land in `pilot-unevaluated`, where we answer the three literals, the
+two wheels `car` holds, `car`, and the empty sequence. The two counts are the `disagree` cases
+`extent-variation-count` and `extent-uninstantiated-count`: `size(all Gearbox)` over a variation
+with two variants and `size(all Boat)` over a definition with no instance both answer `1` from the
+pilot, against our `2` and `0`. The `1` is the size of the one unevaluated node `size` was handed,
+not a count of instances — no reading of the extent gives a type with no instances the same size
+as one with two — so neither is a verdict against us. The extent semantics are self-assessed in
+the extent row of [spec-compliance.md](spec-compliance.md).
 
 The twelve `tensor_quantities.cases` probe `TensorCalculations` over a 2×2 stress tensor built
 by `TensorCalculations::'['` on a model-declared `TensorMeasurementReference`, added with the
@@ -385,14 +401,14 @@ The one `kind-only` is `2 ** 40` (above). The `pilot-error`, `pilot-unevaluated`
 buckets — 26 cases, more than a quarter of the corpus — are the pilot's limits rather than
 disagreements, which is the central finding of this page restated as a count.
 
-The first `disagree` is `w6d:complex-is-zero-qualified`: the pilot answers `false` for
-`ComplexFunctions::isZero(rect(0.0, 0.0))` where we answer `true`. It is not a value verdict against
-us — the pilot's `re`/`im` have no evaluable body, and the same run answers `false` for
-`isZero(rect(3.0, 4.0))` too, so its result folds against unevaluated operands rather than deciding
-zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
+Of the `disagree` cases not yet accounted for, the first is `w6d:complex-is-zero-qualified`: the
+pilot answers `false` for `ComplexFunctions::isZero(rect(0.0, 0.0))` where we answer `true`. It is
+not a value verdict against us — the pilot's `re`/`im` have no evaluable body, and the same run
+answers `false` for `isZero(rect(3.0, 4.0))` too, so its result folds against unevaluated operands
+rather than deciding zero. Read it as unrefereeable, and see the `ComplexFunctions` row of
 [spec-compliance.md](spec-compliance.md) for the adjudication.
 
-The other three are the subsetting-membership cases added with the fix they were meant to
+The remaining three are the subsetting-membership cases added with the fix they were meant to
 referee, and they are unrefereeable in the same way. `w6d:subsetting-defaulted-count` asks
 `size(subsystem)` of a `part subsystem : Sub[*] default null;` that `part a : Sub :> subsystem;`
 and `part b : Sub :> subsystem;` subset: we answer `2`, the pilot `0`. Its `0` is the folded

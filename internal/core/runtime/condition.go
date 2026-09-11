@@ -692,10 +692,15 @@ func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
 // holdsObjects reports whether a feature holds objects rather than values: a
 // nested part has features and conditions of its own, an attribute has neither.
 func holdsObjects(feat *EffectiveFeature) bool {
-	if feat.Symbol == nil {
+	return objectFeature(feat.Symbol)
+}
+
+// objectFeature reports whether sym declares a feature whose values are objects.
+func objectFeature(sym *symbols.Symbol) bool {
+	if sym == nil {
 		return false
 	}
-	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok {
 		return false
 	}

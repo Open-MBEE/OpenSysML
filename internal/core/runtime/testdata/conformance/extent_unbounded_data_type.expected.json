@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "instantiate": "test::counter",
+  "libraries": true,
+  "slots": {
+    "integers": {"error": "unbounded extent: Integer declares no values to enumerate"},
+    "strings": {"error": "unbounded extent: String declares no values to enumerate"}
+  }
+}

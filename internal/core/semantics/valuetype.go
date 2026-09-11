@@ -209,6 +209,10 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 			// `x as T` results in T (KerML checkCastExpressionResultSpecialization).
 			return m.namedType(scope, n.TypeRef)
 		}
+		if types := m.extentTypes(scope, n); len(types) > 0 {
+			// `all T` results in instances of T (KerML 1.0 §7.4.9.2, BaseFunctions::'all').
+			return types[0]
+		}
 		if unit := m.MeasurementRefExprType(scope, n); unit != nil {
 			return unit
 		}

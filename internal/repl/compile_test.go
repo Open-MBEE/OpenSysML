@@ -477,6 +477,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"Narrowed", "a Real bound to x, which is Integer"},
 		{"RecordParam", "type Refused::Point is not Integer, Real or Boolean"},
 		{"EnumParam", "type Refused::Color is not Integer, Real or Boolean"},
+		{"Extent", "operator 'all'"},
 		{"RealIntIdentity", "'===' between Real and Integer"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},
