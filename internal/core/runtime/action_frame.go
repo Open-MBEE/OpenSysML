@@ -285,6 +285,7 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	if !performs || inv.expr == nil || lower.IsCaseNode(usage) {
 		return nil
 	}
+	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	scope := nodeScope(perf.flow, perf.node)
 	ec := e.evalContextAround(perf, scope)
 	ec.inBehaviorBody = true

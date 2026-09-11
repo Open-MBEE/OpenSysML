@@ -747,10 +747,13 @@ behavior unchanged until stage 4.
    listing and `Covers` carry. The runtime side is `runtime.ToolCall`, `ToolRunner` and
    `ActionExecutor.performByTool` (`runtime/tool.go`): a performance of an action carrying
    `ToolExecution` — read from the semantic side tables with `ToolVariable` on its parameters
-   and their supertypes — lowers only the interface of the declaration performed
-   (`lower.ToActionInterface`), the parameters a specialization or a usage adds to what it
-   inherits included, never a body, so a body no token flow can be lowered from does not keep
-   the tool from performing the action, and never initializes the action's flow; with no
+   and their supertypes — lowers only the interface of the declaration the tool binds
+   (`lower.ToActionInterface`): the step performed where it or a supertype carries the
+   annotation, the parameters a specialization or a usage adds to what it inherits included,
+   else the callee it names (`action s = Callee(3.0)`); a `Callee(...)` step binds its
+   arguments to that interface too. It lowers no body, so a body no token flow can be lowered
+   from does not keep the tool from performing the action, and never initializes the action's
+   flow; with no
    runner attached, or a `toolName` no engine answers, it fails with `ToolNotRegisteredError`
    (*tool 'ModelCenter' is not registered; set OPENSYSML_TOOLS*), else it binds the outputs into the action's own
    data so the enclosing action adopts them as it adopts any `out`. Every start of an action

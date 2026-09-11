@@ -78,8 +78,8 @@ func expressionInvocation(e *ast.InvocationExpr) actionInvocation {
 	return actionInvocation{target: e.Type, args: args, named: e.NamedArgs, expr: e}
 }
 
-// invocationArguments evaluates the arguments of a `Callee(...)` invocation in ec, the
-// caller's context, keyed by the callee's input parameter they bind; nil for the other forms.
+// invocationArguments evaluates the arguments of a `Callee(...)` invocation in ec, the caller's
+// context, keyed by the input parameter of performanceInterface they bind; nil for the other forms.
 func invocationArguments(
 	ctx *Context, scope *symbols.Scope, inv actionInvocation, ec *EvalContext,
 ) (map[string]Value, error) {
@@ -96,9 +96,13 @@ func invocationArguments(
 	if err != nil {
 		return nil, err
 	}
-	in, _ := parameterNames(ctx.actionParametersOf(sym))
+	held, err := ctx.performanceInterface(inv.performed(sym), sym)
+	if err != nil {
+		return nil, err
+	}
+	in, _ := parameterNames(ctx.actionParametersOf(held))
 	arguments := make(map[string]Value, len(inv.args)+len(inv.named))
-	if err := bindArgumentList(ec, inv, sym, in, arguments); err != nil {
+	if err := bindArgumentList(ec, inv, held, in, arguments); err != nil {
 		return nil, err
 	}
 	return arguments, nil

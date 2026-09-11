@@ -653,6 +653,124 @@ func TestToolExecutionOnASpecializationAddingParameters(t *testing.T) {
 	})
 }
 
+// expressionCallModel performs annotated actions as `Callee(...)` invocations: of an
+// annotated definition, and of a usage carrying the annotation and parameters of its own.
+const expressionCallModel = `package test {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+
+	action def Doubling {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in k : Real { @ToolVariable { name = "k"; } }
+		out y : Real { @ToolVariable { name = "y"; } }
+	}
+	action def Base { first start; then done; }
+
+	action def CallingTheDefinition {
+		out y : Real;
+		action s = Doubling(3.0);
+		bind y = s.y;
+	}
+	action def CallingWithAnAddedInput {
+		out y : Real;
+		action s = Base(5.0) {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in x : Real { @ToolVariable { name = "x"; } }
+			out y : Real { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+	action def CallingWithAnAddedInputByName {
+		out y : Real;
+		action s = Base(x = 5.0) {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in x : Real { @ToolVariable { name = "x"; } }
+			out y : Real { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+	action def CallingWithTooManyArguments {
+		out y : Real;
+		action s = Base(5.0, 6.0) {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in x : Real { @ToolVariable { name = "x"; } }
+			out y : Real { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+	action def CallingAnUnknownParameter {
+		out y : Real;
+		action s = Base(z = 5.0) {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in x : Real { @ToolVariable { name = "x"; } }
+			out y : Real { @ToolVariable { name = "y"; } }
+		}
+		bind y = s.y;
+	}
+}`
+
+// A `Callee(...)` step binds its arguments to the parameters the tool binds: the callee's
+// where the callee is annotated, the step's own where the step is — so an input the step
+// adds takes a positional or named argument the callee has no parameter for.
+func TestToolExecutionOnAnExpressionCall(t *testing.T) {
+	cases := map[string]struct {
+		driver, variable string
+		value            float64
+	}{
+		"annotated definition": {"CallingTheDefinition", "k", 3},
+		"added input":          {"CallingWithAnAddedInput", "x", 5},
+		"added input by name":  {"CallingWithAnAddedInputByName", "x", 5},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, expressionCallModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+			ctx.SetToolRunner(runner)
+			out, err := ctx.ExecuteAction(calcNamed(t, scope, tc.driver))
+			if err != nil {
+				t.Fatalf("ExecuteAction: %v", err)
+			}
+			if len(runner.calls) != 1 {
+				t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+			}
+			call := runner.calls[0]
+			if len(call.Inputs) != 1 || call.Inputs[0].Variable != tc.variable || call.Inputs[0].Parameter != tc.variable ||
+				!nearly(call.Inputs[0].Value.Value, toolReal(tc.value)) {
+				t.Fatalf("inputs %+v, want %s = %v", call.Inputs, tc.variable, tc.value)
+			}
+			if len(call.Outputs) != 1 || call.Outputs[0].Variable != "y" || call.Outputs[0].Parameter != "y" {
+				t.Fatalf("outputs %+v, want y held as y", call.Outputs)
+			}
+			for _, name := range []string{"y", "s.y"} {
+				if got := FormatValue(out[name]); got != "4.0" {
+					t.Fatalf("%s = %s, want 4.0", name, got)
+				}
+			}
+		})
+	}
+	refusals := map[string]struct {
+		driver string
+		want   error
+	}{
+		"too many arguments": {"CallingWithTooManyArguments", ErrActionArity},
+		"unknown parameter":  {"CallingAnUnknownParameter", ErrUnknownParameter},
+	}
+	for name, tc := range refusals {
+		t.Run(name, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, expressionCallModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+			ctx.SetToolRunner(runner)
+			_, err := ctx.ExecuteAction(calcNamed(t, scope, tc.driver))
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("ExecuteAction = %v, want %v", err, tc.want)
+			}
+			if len(runner.calls) != 0 {
+				t.Fatalf("tool ran %d times for a call binding no argument list", len(runner.calls))
+			}
+		})
+	}
+}
+
 // An answered value the parameter's declaration cannot hold is a malformed answer, whatever
 // its kind: the refusal is a ToolError, not the frame's type error.
 func TestToolOutputMustFitTheParameter(t *testing.T) {

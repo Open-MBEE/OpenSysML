@@ -367,13 +367,13 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 // toolCall is the performance as the tool sees it: of the action performed, every `in`/`inout`
 // parameter carrying a ToolVariable is an input, every `out`/`inout` one an output. An unbound
 // input is ErrUnboundParameter unless optional, which the call omits; a ToolVariable name two
-// parameters carry is a ToolError, since the protocol keys by it. The performed declaration
-// names and types each parameter, and the performance holds it under that name.
+// parameters carry is a ToolError, since the protocol keys by it. The declaration the tool
+// binds (e.action) names and types each parameter, and the performance holds it under that name.
 func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	tool := execution.tool
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, exec: e}
 	namedBy := make(map[string]string)
-	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.performed) {
+	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
 		}
@@ -415,10 +415,9 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	return call, nil
 }
 
-// performanceBody is the action a performance of performed, of the callee it names, holds
-// the features of: the body callee states, or performed itself under a tool, which runs
-// no body — the parameters a specialization adds are then the tool's to bind.
-func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols.Symbol, *toolExecution, error) {
+// toolPerformance is the declaration a tool binds for a performance of performed, of callee:
+// performed where it or a supertype carries the ToolExecution, else callee where it does; nil without one.
+func (ctx *Context) toolPerformance(performed, callee *symbols.Symbol) (*symbols.Symbol, *toolExecution, error) {
 	tool, err := ctx.toolExecutionOf(performed)
 	if err != nil {
 		return nil, nil, err
@@ -426,20 +425,50 @@ func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols
 	if tool != nil {
 		return performed, tool, nil
 	}
+	if performed != callee {
+		if tool, err = ctx.toolExecutionOf(callee); err != nil {
+			return nil, nil, err
+		}
+		if tool != nil {
+			return callee, tool, nil
+		}
+	}
+	return nil, nil, nil
+}
+
+// performanceBody is the action a performance of performed, of callee, holds the features
+// of: the body callee states, or under a tool, which runs no body, the declaration it binds.
+func (ctx *Context) performanceBody(performed, callee *symbols.Symbol) (*symbols.Symbol, *toolExecution, error) {
+	held, tool, err := ctx.toolPerformance(performed, callee)
+	if err != nil {
+		return nil, nil, err
+	}
+	if tool != nil {
+		return held, tool, nil
+	}
 	return ctx.actionBodySymbol(callee), nil, nil
 }
 
-// performanceParameters are the parameters a performance of performed, of callee, takes
-// from its caller: performed's own under a tool, else callee's.
-func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]actionParameter, error) {
-	tool, err := ctx.toolExecutionOf(performed)
+// performanceInterface is the declaration whose parameters a performance of performed, of
+// callee, takes and binds arguments by: the tool's under a tool, else callee.
+func (ctx *Context) performanceInterface(performed, callee *symbols.Symbol) (*symbols.Symbol, error) {
+	held, tool, err := ctx.toolPerformance(performed, callee)
 	if err != nil {
 		return nil, err
 	}
 	if tool != nil {
-		return ctx.actionParametersOf(performed), nil
+		return held, nil
 	}
-	return ctx.actionParametersOf(callee), nil
+	return callee, nil
+}
+
+// performanceParameters are the parameters of performanceInterface(performed, callee).
+func (ctx *Context) performanceParameters(performed, callee *symbols.Symbol) ([]actionParameter, error) {
+	held, err := ctx.performanceInterface(performed, callee)
+	if err != nil {
+		return nil, err
+	}
+	return ctx.actionParametersOf(held), nil
 }
 
 // toolInput is one parameter's value as the protocol carries it: a number, truth or string
