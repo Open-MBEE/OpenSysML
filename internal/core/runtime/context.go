@@ -118,6 +118,12 @@ type Context struct {
 	// is named by the element it annotates and its place among that element's
 	// annotations, so a reanalysis can rebind it.
 	metadataObjects map[metadataAnnotation]int64
+	// tools runs the external tool a ToolExecution names; nil refuses every such action.
+	tools ToolRunner
+	// toolExecutions memoizes toolExecutionOf per action; the model is fixed for the context's life.
+	toolExecutions map[*symbols.Symbol]toolExecution
+	// toolUnits memoizes the units tool answers spell, per scope they are read in.
+	toolUnits map[toolUnitKey]semantics.Unit
 	// behaving memoizes runsBehaviors per type; the model is fixed for the context's life.
 	behaving map[*symbols.Symbol]bool
 	// behavingFeatures memoizes behavingParts and redefGroups redefinitionGroups, per type.
@@ -361,6 +367,8 @@ func NewContext(model *semantics.Model, resolver *resolve.Resolver, maxSteps int
 
 		occurrences:      make(map[*symbols.Symbol]int64),
 		metadataObjects:  make(map[metadataAnnotation]int64),
+		toolExecutions:   make(map[*symbols.Symbol]toolExecution),
+		toolUnits:        make(map[toolUnitKey]semantics.Unit),
 		behaving:         make(map[*symbols.Symbol]bool),
 		behavingFeatures: make(map[*symbols.Symbol][]int),
 		redefGroups:      make(map[*symbols.Symbol][][]string),
@@ -1406,6 +1414,17 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 	// Bind inputs before initialization so they seed the initial token.
 	if len(inputs) > 0 {
 		exec.SetInputs(inputs)
+	}
+
+	tool, uri, err := ctx.toolExecutionOf(action)
+	if err != nil {
+		return nil, fmt.Errorf("initialize action: %w", err)
+	}
+	if tool != "" {
+		if err := exec.performByTool(tool, uri); err != nil {
+			return nil, fmt.Errorf("perform action by tool: %w", err)
+		}
+		return exec, nil
 	}
 
 	if err := start(exec); err != nil {
