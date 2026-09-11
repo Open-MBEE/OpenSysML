@@ -269,6 +269,21 @@ func (v Value) ofLiteral(sym *symbols.Symbol) Value {
 	return v
 }
 
+// EnumeratedValue is scalar as the value of the enumeration literal sym: what
+// `high = 3` evaluates to, rebuilt from a wire form that carries both.
+func EnumeratedValue(sym *symbols.Symbol, scalar Value) Value {
+	return scalar.ofLiteral(sym)
+}
+
+// Scalar is v shorn of any enumeration literal identity: the bare scalar a
+// scalar-valued literal equals, or v itself for any other value.
+func (v Value) Scalar() Value {
+	if e, ok := v.ref.(*enumerated); ok {
+		v.ref = e.payload
+	}
+	return v
+}
+
 // EnumerationLiteral is the literal a value is: a ValEnumLiteral itself, or
 // the literal a scalar was evaluated from. Nil for a value that is no literal.
 func (v Value) EnumerationLiteral() *symbols.Symbol {

@@ -234,6 +234,9 @@ func (s *Session) bindingValues(ctx *runtime.Context, param, expr string) ([]que
 // queryValues converts an evaluated prompt value into query binding values. A
 // collection binds its elements in order; a null binds nothing.
 func queryValues(value runtime.Value) ([]queryexec.Value, error) {
+	if lit := value.EnumerationLiteral(); lit != nil {
+		return []queryexec.Value{queryexec.ElementValue(lit)}, nil
+	}
 	switch value.Kind {
 	case runtime.ValConst:
 		switch value.Const.Kind {
@@ -249,8 +252,6 @@ func queryValues(value runtime.Value) ([]queryexec.Value, error) {
 		return []queryexec.Value{queryexec.StringValue(value.Str())}, nil
 	case runtime.ValNull:
 		return nil, nil
-	case runtime.ValEnumLiteral:
-		return []queryexec.Value{queryexec.ElementValue(value.Literal())}, nil
 	case runtime.ValSequence:
 		if value.Sequence() == nil {
 			return nil, nil

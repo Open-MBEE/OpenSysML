@@ -1136,6 +1136,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return value, nil
 	}
+	name, rest := parts[0].Text, parts[1:]
 
 	if literal := value.EnumerationLiteral(); literal != nil {
 		// A literal is an occurrence of its enumeration, so its own features are
@@ -1155,14 +1156,14 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		if inst, ok := ec.ctx.structuredObject(value); ok && isStructuredValue(&value) {
 			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 		}
-		member, ok, err := ec.ctx.structuredFeature(value, parts[0].Text)
+		member, ok, err := ec.ctx.structuredFeature(value, name)
 		if err != nil {
 			return Value{}, err
 		}
 		if !ok {
-			return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), parts[0].Text)
+			return Value{}, fmt.Errorf("%w: %s has no feature %s", ErrTypeMismatch, describeValue(value), name)
 		}
-		return ec.chainMemberValue(member, parts[1:], from)
+		return ec.chainMemberValue(member, rest, from)
 	case ValInstance, ValVariant:
 		// handled below
 	default:
@@ -1184,7 +1185,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if !ok {
 		return Value{}, fmt.Errorf("instance ID %d not found for member %s", id, from)
 	}
-	name := parts[0].Text
 	// A frame, scale or transformation object answers its members from the value it is.
 	if ref, isRef, err := ec.ctx.referenceValueOfObject(inst); isRef {
 		if err != nil {
@@ -1203,7 +1203,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(answer, parts[1:], name)
+			return ec.chainMemberValue(answer, rest, name)
 		}
 	}
 	fvDecl, ok := inst.FeatureValues[name]
@@ -1211,13 +1211,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		// A calc usage is an evaluation rather than a feature value, so its outputs are
 		// read from a run of it against this object.
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-			return ec.calcUsageMemberValue(sym, inst, parts[1:])
+			return ec.calcUsageMemberValue(sym, inst, rest)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
-	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, parts[1:]); ok {
+	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
 		if len(rest) == 0 {
 			return variantReference(variant), nil
 		}
@@ -1238,7 +1238,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(member, parts[1:], name)
+	return ec.chainMemberValue(member, rest, name)
 }
 
 // chainOverElements reads the rest of a chain from every element of a

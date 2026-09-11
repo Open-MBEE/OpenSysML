@@ -266,6 +266,9 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 	if rt != nil && rt.HoldsNoValue(val) {
 		return &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
 	}
+	if val.EnumerationLiteral() != nil {
+		return enumLiteralValueToProto(val, idx)
+	}
 	switch val.Kind {
 	case runtime.ValConst:
 		// Map semantics.Value to protobuf based on type
@@ -312,11 +315,7 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		}
 		return &pb.Value{Kind: &pb.Value_Quantity{Quantity: pq}}
 	case runtime.ValEnumLiteral:
-		lit := enumLiteralToProto(val, idx)
-		if lit == nil {
-			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: unresolved enumeration literal"}}
-		}
-		return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: lit}}
+		return enumLiteralValueToProto(val, idx)
 	case runtime.ValComplex:
 		return &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(val.Complex())}}
 	case runtime.ValArray:
@@ -363,18 +362,33 @@ func functionToProto(val runtime.Value, idx *symbols.Index) *pb.Function {
 	return fn
 }
 
+// enumLiteralValueToProto sends a value that is an enumeration literal — its
+// identity alone, or a scalar the literal equals — through the enum_literal arm.
+func enumLiteralValueToProto(val runtime.Value, idx *symbols.Index) *pb.Value {
+	lit := enumLiteralToProto(val, idx)
+	if lit == nil {
+		return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: unresolved enumeration literal"}}
+	}
+	return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: lit}}
+}
+
 // enumLiteralToProto names a literal by the declaration it is, which is its
-// identity, and by the enumeration declaring it. Nil for an unresolved literal.
+// identity, and by the enumeration declaring it, carrying the scalar a valued
+// literal equals. Nil for an unresolved literal.
 func enumLiteralToProto(val runtime.Value, idx *symbols.Index) *pb.EnumLiteral {
-	if val.Literal() == nil {
+	sym := val.EnumerationLiteral()
+	if sym == nil {
 		return nil
 	}
 	lit := &pb.EnumLiteral{
-		LiteralId: idx.GetFQN(val.Literal()),
-		Name:      val.LiteralText(),
+		LiteralId: idx.GetFQN(sym),
+		Name:      runtime.NewEnumLiteral(sym).LiteralText(),
 	}
-	if enum := semantics.EnumerationOwning(val.Literal()); enum != nil {
+	if enum := semantics.EnumerationOwning(sym); enum != nil {
 		lit.EnumerationId = idx.GetFQN(enum)
+	}
+	if val.Kind != runtime.ValEnumLiteral {
+		lit.Value = ValueToProto(val.Scalar(), idx)
 	}
 	return lit
 }
@@ -736,7 +750,7 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 	case *pb.Value_Quantity:
 		return ProtoToQuantity(k.Quantity, idx, sem)
 	case *pb.Value_EnumLiteral:
-		return enumLiteralFromProto(k.EnumLiteral, idx)
+		return enumLiteralFromProto(rt, k.EnumLiteral, idx, sem)
 	case *pb.Value_Function:
 		return functionFromProto(rt, k.Function, idx)
 	case *pb.Value_Sequence:
@@ -1421,7 +1435,9 @@ func finite(x float64) bool { return !math.IsNaN(x) && !math.IsInf(x, 0) }
 
 // enumLiteralFromProto resolves a literal against the model, since a literal is
 // the declaration it names: one the model does not declare has no identity here.
-func enumLiteralFromProto(lit *pb.EnumLiteral, idx *symbols.Index) (runtime.Value, error) {
+// The model says what a valued literal equals; the wire's value is consulted
+// only when no runtime is at hand to evaluate the declaration.
+func enumLiteralFromProto(rt *runtime.Context, lit *pb.EnumLiteral, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
 	if lit == nil || lit.GetLiteralId() == "" {
 		return runtime.Value{}, fmt.Errorf("enumeration literal: literal_id names no declaration")
 	}
@@ -1429,9 +1445,21 @@ func enumLiteralFromProto(lit *pb.EnumLiteral, idx *symbols.Index) (runtime.Valu
 		return runtime.Value{}, fmt.Errorf("enumeration literal %s: no model to resolve it against", lit.GetLiteralId())
 	}
 	for _, sym := range idx.LookupQualified(lit.GetLiteralId()) {
-		if semantics.EnumerationOwning(sym) != nil {
+		if semantics.EnumerationOwning(sym) == nil {
+			continue
+		}
+		if rt != nil {
+			val, _, err := rt.EnumerationLiteralValue(sym)
+			return val, err
+		}
+		if lit.GetValue() == nil {
 			return runtime.NewEnumLiteral(sym), nil
 		}
+		scalar, err := ProtoToValueIn(lit.GetValue(), idx, sem)
+		if err != nil {
+			return runtime.Value{}, fmt.Errorf("enumeration literal %s: %w", lit.GetLiteralId(), err)
+		}
+		return runtime.EnumeratedValue(sym, scalar), nil
 	}
 	return runtime.Value{}, fmt.Errorf("%s is not an enumeration literal of this model", lit.GetLiteralId())
 }

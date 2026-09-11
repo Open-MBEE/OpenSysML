@@ -1105,7 +1105,7 @@ pub mod value {
         #[prost(message, tag="8")]
         Quantity(super::Quantity),
         #[prost(message, tag="9")]
-        EnumLiteral(super::EnumLiteral),
+        EnumLiteral(::prost::alloc::boxed::Box<super::EnumLiteral>),
         /// A valueless feature of a value type: materialized, holding no value.
         /// Always true when set; a value the server sends, never one it accepts.
         #[prost(bool, tag="10")]
@@ -1229,7 +1229,7 @@ pub struct Complex {
 /// EnumLiteral is one literal of an enumeration definition. A literal is its own
 /// identity, so it travels as the declaration it names rather than as a number
 /// or a string: two values are the same literal exactly when `literal_id` is.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EnumLiteral {
     /// FQN of the literal's declaration ("D::Color::red"). Its identity.
     #[prost(string, tag="1")]
@@ -1240,6 +1240,10 @@ pub struct EnumLiteral {
     /// The literal as a reader writes it ("Color::red").
     #[prost(string, tag="3")]
     pub name: ::prost::alloc::string::String,
+    /// The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+    /// literal that is only its identity. Identity stays `literal_id`.
+    #[prost(message, optional, boxed, tag="4")]
+    pub value: ::core::option::Option<::prost::alloc::boxed::Box<Value>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ValueSequence {

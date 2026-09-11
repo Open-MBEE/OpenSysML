@@ -210,7 +210,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `sequence` | object | `{"result":{"sequence":{"elements":[{"stringValue":"nav"},{"stringValue":"sci"}]}}}` | Ordered collection; `elements` are `Value`s |
 | `null` | string | `{"result":{"null":""}}` | The SysML `null`, or an unsupported value (non-empty string) |
 | `quantity` | object | `{"result":{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
-| `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal |
+| `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal; a scalar-valued one (`high = 3`) also carries `value` |
 | `unset` | boolean | `{"result":{"unset":true}}` | A feature that exists and has no value |
 | `complex` | object | `{"result":{"complex":{"real":1.5,"imaginary":-2}}}` | Complex number |
 | `array` | object | `{"result":{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"},…,{"intValue":"6"}]}}}` | Multi-dimensional array; `elements` are `Value`s in row-major order |
@@ -277,7 +277,8 @@ decode(v):
   null         → if v.null == "" then the language's null, else an error naming v.null
   unset        → the language's "unset" sentinel, distinct from null and from false
   quantity     → see below
-  enumLiteral  → identity is literalId; enumerationId is its type; name is for display
+  enumLiteral  → identity is literalId; enumerationId is its type; name is for display;
+                 value, when present, is the scalar Value the literal equals
   complex      → complex(v.complex.real or 0, v.complex.imaginary or 0)
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
@@ -405,6 +406,14 @@ display label. Compare literals by `literalId`. `name` is what the model author 
 reference site relative to a scope (`Mode::idle` here, but `idle` or `Rover::Mode::idle` from
 another scope for the same literal), so two equal literals can carry different `name`s and two
 literals of different enumerations can carry the same one.
+
+A literal of an enumeration that specializes a scalar type (`enum def Level :> Integer { low = 1;
+high = 3; }`) is still a literal on the wire — `Level::high`, a feature `l : Level = Level::high`
+and a successful `3 as Level` all arrive as `enumLiteral` — and additionally carries `value`, the
+scalar `Value` it equals: `{"enumLiteral":{"literalId":"D::Level::high","enumerationId":"D::Level",
+"name":"Level::high","value":{"intValue":"3"}}}`. `value` is absent for a literal that is only its
+identity (`Mode::idle`). A client that computes with the scalar reads `value`; one that only
+compares identity ignores it. A bare `3` that no enumeration value holds stays `intValue`.
 
 **`complex`.** `real` and `imaginary`, both doubles, **either omitted when zero**:
 `rect(0.0, 2.0)` is `{"result":{"complex":{"imaginary":2}}}`. Read each with a default of 0.

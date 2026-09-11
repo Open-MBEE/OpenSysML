@@ -89,6 +89,34 @@ def test_a_literal_is_sent_as_a_literal():
     assert value_to_python(pb_value) == literal
 
 
+HIGH = sysml_pb2.EnumLiteral(
+    literal_id="D::Level::high", enumeration_id="D::Level", name="Level::high",
+    value=sysml_pb2.Value(int_value=3),
+)
+
+
+def test_a_scalar_valued_literal_carries_its_scalar():
+    """`high = 3` arrives as the literal, with the 3 it equals recoverable."""
+    got = value_to_python(sysml_pb2.Value(enum_literal=HIGH))
+
+    assert got == EnumLiteral("D::Level::high")
+    assert got.value == 3
+    assert got != 3
+    assert value_to_python(sysml_pb2.Value(enum_literal=RED)).value is None
+
+
+def test_a_scalar_valued_literal_round_trips_its_scalar():
+    literal = EnumLiteral("D::Level::high", "D::Level", "Level::high", 3)
+
+    # The scalar is encoded recursively, so a connection object without a service.
+    pb_value = Connection.__new__(Connection)._python_to_value(literal)
+
+    assert pb_value.enum_literal.value.int_value == 3
+    assert value_to_python(pb_value).value == 3
+    assert not Connection.__new__(Connection)._python_to_value(
+        EnumLiteral("D::Color::red")).enum_literal.HasField("value")
+
+
 def test_a_service_without_the_capability_still_reports_unsupported():
     """An older service sends a null naming the reason, which stays an error."""
     unsupported = sysml_pb2.Value(null="unsupported")

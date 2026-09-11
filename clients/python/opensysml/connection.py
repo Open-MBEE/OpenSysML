@@ -2166,11 +2166,14 @@ class Connection:
             self._require_tensor_values()
             return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
         elif isinstance(py_value, EnumLiteral):
-            return sysml_pb2.Value(enum_literal=sysml_pb2.EnumLiteral(
+            literal = sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,
                 enumeration_id=py_value.enumeration_id,
                 name=py_value.name,
-            ))
+            )
+            if py_value.value is not None:
+                literal.value.CopyFrom(self._python_to_value(py_value.value))
+            return sysml_pb2.Value(enum_literal=literal)
         elif isinstance(py_value, list):
             elements = [self._python_to_value(v) for v in py_value]
             return sysml_pb2.Value(sequence=sysml_pb2.ValueSequence(elements=elements))

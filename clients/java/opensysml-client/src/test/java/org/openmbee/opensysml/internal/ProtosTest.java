@@ -32,6 +32,34 @@ import org.junit.jupiter.api.Test;
 class ProtosTest {
 
   @Test
+  void aScalarValuedEnumLiteralKeepsTheScalarItEquals() {
+    var high =
+        org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
+            .setLiteralId("D::Level::high")
+            .setEnumerationId("D::Level")
+            .setName("Level::high")
+            .setValue(org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(3))
+            .build();
+    var red =
+        org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
+            .setLiteralId("D::Color::red")
+            .setEnumerationId("D::Color")
+            .setName("Color::red")
+            .build();
+    assertEquals(
+        Optional.of(
+            new Value.EnumerationValue(
+                new org.openmbee.opensysml.EnumLiteral(
+                    "D::Level::high", "D::Level", "Level::high", Optional.of(new Value.IntegerValue(3))))),
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(high).build()));
+    assertEquals(
+        Optional.of(
+            new Value.EnumerationValue(
+                new org.openmbee.opensysml.EnumLiteral("D::Color::red", "D::Color", "Color::red"))),
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setEnumLiteral(red).build()));
+  }
+
+  @Test
   void aValueOfNoKindIsAbsentRatherThanGuessed() {
     assertEquals(Optional.empty(), Protos.value(org.openmbee.opensysml.proto.Value.getDefaultInstance()));
   }
