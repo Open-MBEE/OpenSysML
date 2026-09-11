@@ -19,19 +19,29 @@ func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh fu
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotExploring, policy)
 	}
-	jobs = max(min(jobs, budget.Runs), 1)
+	return newExploreQueue(stop, policy, budget, jobs).explore(fresh, run)
+}
+
+// newExploreQueue is the queue over an exploration's prefixes under budget, the root prefix
+// queued, for min(jobs, runs) jobs.
+func newExploreQueue(stop context.Context, policy SchedulePolicy, budget ExploreBudget, jobs int) *exploreQueue {
 	q := &exploreQueue{
 		stop:    stop,
 		policy:  policy,
 		budget:  budget,
-		jobs:    jobs,
+		jobs:    max(min(jobs, budget.Runs), 1),
 		result:  &Exploration{Budget: budget},
 		reached: make(map[string]int),
 	}
 	q.wake = sync.NewCond(&q.mu)
 	q.insert(0, []*explorePrefix{{}})
+	return q
+}
+
+// explore puts the jobs to work on the queue and assembles the exploration once it is over.
+func (q *exploreQueue) explore(fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	var wg sync.WaitGroup
-	for job := 0; job < jobs; job++ {
+	for job := 0; job < q.jobs; job++ {
 		wg.Add(1)
 		go func(job int) {
 			defer wg.Done()
@@ -62,7 +72,8 @@ const (
 	prefixDropped             // past the runs cut; a run of it is discarded
 )
 
-// explorePrefix is one prefix on the queue: its position in plan order and, once run, the result.
+// explorePrefix is one prefix on the queue: its position in plan order and, once run, the result,
+// held only until the run is folded or dropped so the queue keeps no context but the witnesses'.
 type explorePrefix struct {
 	prefix   []exploreSlot
 	index    int
@@ -237,7 +248,9 @@ func (q *exploreQueue) insert(at int, prefixes []*explorePrefix) {
 				q.forget(p)
 			}
 			p.state = prefixDropped
+			p.release()
 		}
+		clear(q.order[q.budget.Runs:])
 		q.order = q.order[:q.budget.Runs]
 	}
 	for i := at; i < len(q.order); i++ {
@@ -261,20 +274,25 @@ func (q *exploreQueue) fold() {
 			return
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
-		if i, seen := q.reached[p.identity]; seen {
-			if !p.replay.duplicate {
-				q.result.Outcomes[i].Linearizations++
-			}
-			continue
+		if i, seen := q.reached[p.identity]; !seen {
+			q.reached[p.identity] = len(q.result.Outcomes)
+			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{
+				Outcome:        p.outcome,
+				Linearizations: 1,
+				Witness:        p.replay.choices(),
+				WitnessRun:     q.frontier,
+			})
+		} else if !p.replay.duplicate {
+			q.result.Outcomes[i].Linearizations++
 		}
-		q.reached[p.identity] = len(q.result.Outcomes)
-		q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{
-			Outcome:        p.outcome,
-			Linearizations: 1,
-			Witness:        p.replay.choices(),
-			WitnessRun:     q.frontier,
-		})
+		p.release()
 	}
+}
+
+// release lets go of the prefix's run, its replay and the outcome's context, once the result
+// has what it keeps of it.
+func (p *explorePrefix) release() {
+	p.replay, p.outcome, p.err = nil, Outcome{}, nil
 }
 
 // forget takes a prefix off the pending list.

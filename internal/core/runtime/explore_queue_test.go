@@ -327,6 +327,34 @@ func TestExploreWithPutsNoMoreJobsToWorkThanRuns(t *testing.T) {
 	}
 }
 
+// The queue keeps no run's context past its folding: the witnesses' live on in the result,
+// every other run's is let go, so a plan holds a worker's memory per job, not per run.
+func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {
+	idx, path := indexFile(t, slowFirstWriterPath)
+	fresh := newExploreWorkers(idx).fresh
+	run := actionRun(t, idx, path, "race")
+	for _, jobs := range []int{1, exploreJobs} {
+		q := newExploreQueue(context.Background(), mustPolicy(t, "explore"), ExploreBudget{Runs: 1024, Depth: 64}, jobs)
+		x, err := q.explore(fresh, run)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if x.Runs < 2 || len(x.Outcomes) >= x.Runs {
+			t.Fatalf("%d runs for %d outcomes on %d jobs, want linearizations sharing an outcome", x.Runs, len(x.Outcomes), jobs)
+		}
+		for _, o := range x.Outcomes {
+			if o.Outcome.Context() == nil {
+				t.Errorf("witness of %s on %d jobs has no context", o.Outcome, jobs)
+			}
+		}
+		for i, p := range q.order {
+			if p.replay != nil || p.outcome.ctx != nil || p.outcome.Outputs != nil {
+				t.Errorf("run %d of %d on %d jobs is held by the queue after folding", i+1, x.Runs, jobs)
+			}
+		}
+	}
+}
+
 // A caller that goes away ends the exploration with its error once the runs in flight are done.
 func TestExploreWithStopsWhenTheCallerGoesAway(t *testing.T) {
 	idx, path := parseIndex(t, threeWritersModel)
