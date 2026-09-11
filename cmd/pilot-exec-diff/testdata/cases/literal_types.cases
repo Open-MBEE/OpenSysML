@@ -1,0 +1,32 @@
+model: cmd/pilot-exec-diff/testdata/models/literal_types.sysml
+
+# A literal is of its ScalarValues type (KerML 1.0 §8.4.4.9.2: a LiteralInteger
+# an Integer, a LiteralRational a Rational) wherever it is evaluated: in a scope
+# that imports nothing from ScalarValues, and beside a model's own type declared
+# under the library name, which a written `Integer` still resolves to and which
+# the literal is not of. The pilot cannot resolve ScalarValues names inside a
+# bare %eval, so each case reads a model-level attribute bound to the expression.
+unimported-int-istype-integer ::  :: Unimported::intIsInteger
+unimported-int-hastype-integer ::  :: Unimported::intHasInteger
+unimported-int-istype-real ::  :: Unimported::intIsReal
+unimported-int-hastype-real ::  :: Unimported::intHasReal
+unimported-int-istype-natural ::  :: Unimported::intIsNatural
+unimported-real-istype-real ::  :: Unimported::realIsReal
+unimported-real-hastype-real ::  :: Unimported::realHasReal
+unimported-real-istype-rational ::  :: Unimported::realIsRational
+unimported-real-hastype-rational ::  :: Unimported::realHasRational
+unimported-bool-istype-boolean ::  :: Unimported::boolIsBoolean
+unimported-bool-hastype-boolean ::  :: Unimported::boolHasBoolean
+unimported-string-istype-string ::  :: Unimported::stringIsString
+unimported-string-hastype-string ::  :: Unimported::stringHasString
+shadowed-int-istype-own-integer ::  :: Shadowed::intIsOwnInteger
+shadowed-int-hastype-own-integer ::  :: Shadowed::intHasOwnInteger
+shadowed-int-istype-integer ::  :: Shadowed::intIsInteger
+shadowed-int-hastype-integer ::  :: Shadowed::intHasInteger
+shadowed-real-istype-own-real ::  :: Shadowed::realIsOwnReal
+shadowed-real-hastype-own-real ::  :: Shadowed::realHasOwnReal
+shadowed-real-istype-real ::  :: Shadowed::realIsReal
+shadowed-bool-istype-own-boolean ::  :: Shadowed::boolIsOwnBoolean
+shadowed-bool-istype-boolean ::  :: Shadowed::boolIsBoolean
+shadowed-string-istype-own-string ::  :: Shadowed::stringIsOwnString
+shadowed-string-istype-string ::  :: Shadowed::stringIsString
