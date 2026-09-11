@@ -12,8 +12,7 @@ import (
 
 // Worker is one model-derived runtime part — resolver, semantic model and the runtime's memo
 // tables — over the shared frozen index; all memoize into plain maps, so a worker serves one
-// plan's runs, one at a time, and never another plan's, and every run of the plan on it
-// reuses what it memoized.
+// plan's runs, one at a time, and never another plan's.
 type Worker struct {
 	Model *runtime.Model
 	// Warming is the time building the worker took: the cost of one more worker.
