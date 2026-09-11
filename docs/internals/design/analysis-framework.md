@@ -728,14 +728,17 @@ behavior unchanged until stage 4.
    to the coherent unit of the parameter's declared kind and spelt as that kind prefers, a
    parameter that is no quantity (a `Real`) admits no unit, text and truths admit none, a value
    the parameter's declaration cannot hold (a truth for an `Integer`, typed as the scalar
-   library types JSON literals) is malformed, and a key repeated at any depth, a `null`, a member the shape does not name (`units`), an `error`
+   library types JSON literals) is malformed, and a key repeated at any depth, a `null` (an
+   `error` or a `unit` so written), a member the shape does not name (`units`), an `error`
    beside `outputs`, a trailing JSON value or more than `ToolOutputLimit` bytes on either
    standard stream are malformed. `ToolError{Kind}` distinguishes a failed process, a malformed reply,
    a missing output, an unknown output, a timeout and the tool's own `error`;
    `OPENSYSML_TOOL_TIMEOUT` (default `solve.DefaultTimeout`, 10 s; an unset, unparsable or
    non-positive value is the default) bounds one process. Two
    invocations with equal inputs answering unequal outputs set the `ToolDivergence` run note
-   the REPL trace summarizes. The stand-in is a Go program
+   the REPL trace summarizes; the request and the reply compare as the tool read and wrote
+   them, keyed by tool variable (`Result.Reply`), so two actions binding one answer under
+   different parameter names or units do not diverge. The stand-in is a Go program
    (`analysis/testdata/toolstandin`) the fixture test compiles once, its failure modes chosen by
    an environment variable; the pilot's `AnalysisAnnotation` runs against it for the protocol,
    the missing output, the ill-typed output, the non-zero exit, the timeout, the unregistered

@@ -305,6 +305,9 @@ func TestToolReplyIsOneObjectOfOutputsOrAnError(t *testing.T) {
 		"huge number":        {`{"outputs":{"a":{"value":1e999}}}`, runtime.ToolMalformed, "not a finite number"},
 		"measured truth":     {`{"outputs":{"a":{"value":true,"unit":"m"}}}`, runtime.ToolMalformed, "boolean has no unit"},
 		"measured text":      {`{"outputs":{"a":{"value":"x","unit":"m"}}}`, runtime.ToolMalformed, "string has no unit"},
+		"null unit":          {`{"outputs":{"a":{"value":4,"unit":null}}}`, runtime.ToolMalformed, "unit is null"},
+		"numeric unit":       {`{"outputs":{"a":{"value":4,"unit":7}}}`, runtime.ToolMalformed, "unit 7 is not a unit expression"},
+		"blank unit":         {`{"outputs":{"a":{"value":4,"unit":" "}}}`, runtime.ToolMalformed, "unit is empty"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

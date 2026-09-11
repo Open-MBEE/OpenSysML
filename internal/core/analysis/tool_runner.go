@@ -3,8 +3,6 @@ package analysis
 import (
 	"context"
 	"errors"
-	"sort"
-	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -59,7 +57,7 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	for _, v := range plan.Result.Values {
 		outputs[v.Name] = v.Value
 	}
-	diverged, err := t.remember(call, outputs)
+	diverged, err := t.remember(call, plan.Result.Reply)
 	if err != nil {
 		return runtime.ToolAnswer{}, err
 	}
@@ -82,14 +80,14 @@ func refusalOf(plan Plan, tool string) error {
 	return &runtime.ToolNotRegisteredError{Tool: tool}
 }
 
-// remember records what the call was answered and reports whether an earlier call with
-// the same request was answered differently.
-func (t *toolRunner) remember(call *runtime.ToolCall, outputs map[string]runtime.Value) (bool, error) {
+// remember records the reply the call's request was answered with and reports whether an
+// earlier call with the same request was answered another; the reply is compared as the
+// tool wrote it, not as any one action binds it.
+func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, error) {
 	request, err := ToolRequestOf(call)
 	if err != nil {
 		return false, err
 	}
-	answer := renderOutputs(outputs)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	earlier, seen := t.answered[string(request)]
@@ -98,14 +96,4 @@ func (t *toolRunner) remember(call *runtime.ToolCall, outputs map[string]runtime
 		return false, nil
 	}
 	return earlier != answer, nil
-}
-
-// renderOutputs spells bound outputs in one order, so two answers compare as text.
-func renderOutputs(outputs map[string]runtime.Value) string {
-	parts := make([]string, 0, len(outputs))
-	for name, value := range outputs {
-		parts = append(parts, name+"="+runtime.FormatValue(value))
-	}
-	sort.Strings(parts)
-	return strings.Join(parts, " ")
 }

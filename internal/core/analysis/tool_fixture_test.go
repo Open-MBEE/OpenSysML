@@ -30,9 +30,12 @@ const (
 )
 
 // pilotDriver performs the fixture's action with fixed inputs and adopts its outputs; Twice
-// performs it twice with equal inputs, so a tool answering differently is seen in one run.
+// performs it twice with equal inputs, so a tool answering differently is seen in one run;
+// Alike asks the same of it through two actions naming their parameters differently.
 const pilotDriver = `package Drive {
 	private import AnalysisAnnotation::ComputeDynamics;
+	private import AnalysisTooling::*;
+	private import ScalarValues::Real;
 	private import ISQ::*;
 
 	action def Once {
@@ -67,6 +70,39 @@ const pilotDriver = `package Drive {
 		}
 		bind a1 = stepA.a_out;
 		bind a2 = stepB.a_out;
+	}
+
+	action def SameDynamics {
+		metadata ToolExecution {
+			toolName = "ModelCenter";
+			uri = "aserv://localhost/Vehicle/Equation1";
+		}
+		in deltaT : TimeValue         { @ToolVariable { name = "deltaT"; } }
+		in power : PowerValue         { @ToolVariable { name = "power"; } }
+		in dragC : Real               { @ToolVariable { name = "C_D"; } }
+		in frictionC : Real           { @ToolVariable { name = "C_F"; } }
+		in mass : MassValue           { @ToolVariable { name = "mass"; } }
+		in speed0 : SpeedValue        { @ToolVariable { name = "v0"; } }
+		in position0 : LengthValue    { @ToolVariable { name = "x0"; } }
+		out acceleration : AccelerationValue { @ToolVariable { name = "a"; } }
+		out speed : SpeedValue        { @ToolVariable { name = "v"; } }
+		out position : LengthValue    { @ToolVariable { name = "x"; } }
+	}
+
+	action def Alike {
+		out a1 : AccelerationValue;
+		out a2 : AccelerationValue;
+		first start;
+		then action stepA : ComputeDynamics {
+			in dt = 1 [SI::s]; in whlpwr = 2 [SI::kW]; in Cd = 0.3; in Cf = 0.01;
+			in tm = 1500 [SI::kg]; in v_in = 36 [SI::km / SI::h]; in x_in = 100 [SI::m];
+		}
+		then action stepB : SameDynamics {
+			in deltaT = 1 [SI::s]; in power = 2 [SI::kW]; in dragC = 0.3; in frictionC = 0.01;
+			in mass = 1500 [SI::kg]; in speed0 = 36 [SI::km / SI::h]; in position0 = 100 [SI::m];
+		}
+		bind a1 = stepA.a_out;
+		bind a2 = stepB.acceleration;
 	}
 }`
 
@@ -402,6 +438,22 @@ func TestPilotFixtureRefusesAnAbsentExecutable(t *testing.T) {
 	}
 	if len(out) != 0 {
 		t.Errorf("outputs %v, want none", out)
+	}
+}
+
+// Two actions asking the tool the same request and binding its one answer under different
+// parameter names are not a divergence: the replies compare as the tool wrote them.
+func TestPilotFixtureComparesRepliesNotBindings(t *testing.T) {
+	p := parsePilot(t)
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	ctx := p.context()
+	out, _, err := p.perform(t, r, ctx, "Alike")
+	if err != nil {
+		t.Fatalf("perform: %v", err)
+	}
+	wantValues(t, out, map[string]string{"a1": "3.0 [SI::'m⋅s⁻²']", "a2": "3.0 [SI::'m⋅s⁻²']"})
+	if notes := ctx.Notes(); len(notes) != 0 {
+		t.Fatalf("notes %v, want none: equal replies bound under different names", notes)
 	}
 }
 

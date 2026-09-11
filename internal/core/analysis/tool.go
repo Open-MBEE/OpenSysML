@@ -148,9 +148,30 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		Claim:    ClaimValue,
 		Strength: Observed,
 		Values:   values,
+		Reply:    renderReply(reply),
 		Bounds:   Bounds{{Name: "tool", Limit: timeout.Milliseconds()}},
 		Elapsed:  time.Since(started),
 	}, nil
+}
+
+// renderReply spells the tool's reply canonically, by variable name, as it was written and
+// before binding: two invocations of equal inputs compare by it.
+func renderReply(reply map[string]runtime.ToolValue) string {
+	parts := make([]string, 0, len(reply))
+	for variable, v := range reply {
+		part := variable + "="
+		if v.Value.Kind == semantics.ValInvalid {
+			part += strconv.Quote(v.Text)
+		} else {
+			part += semantics.FormatConst(v.Value)
+		}
+		if v.Unit != "" {
+			part += " [" + v.Unit + "]"
+		}
+		parts = append(parts, part)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, " ")
 }
 
 // invoke runs the executable once under the timeout and reads its reply.
@@ -243,6 +264,13 @@ type protocolValue struct {
 	Unit  string          `json:"unit,omitempty"`
 }
 
+// wiredValue is a protocolValue as the tool wrote it, the unit kept raw so one written as
+// null or as no text is told apart from one omitted.
+type wiredValue struct {
+	Value json.RawMessage `json:"value"`
+	Unit  json.RawMessage `json:"unit"`
+}
+
 // ToolRequestOf is the JSON object the protocol writes to the tool for one call: the
 // toolName and uri passed through, the inputs keyed by ToolVariable name. Its bytes are
 // the same for equal inputs, so two invocations compare by them.
@@ -313,7 +341,7 @@ func ToolReplyOf(tool string, stdout []byte) (map[string]runtime.ToolValue, erro
 	case reply.Outputs == nil:
 		return nil, malformed("the reply carries neither outputs nor an error", nil)
 	}
-	var wired map[string]protocolValue
+	var wired map[string]wiredValue
 	if err := decodeOne(reply.Outputs, &wired); err != nil {
 		return nil, malformed("outputs is not an object of values", err)
 	}
@@ -378,10 +406,15 @@ func repeatedKey(document []byte) (string, bool) {
 }
 
 // decodeValue reads one wire value: a JSON number as an Integer when it is one and fits,
-// else a finite Real; a boolean as a truth; a string as text. Only a number carries a unit.
-func decodeValue(raw protocolValue) (runtime.ToolValue, error) {
+// else a finite Real; a boolean as a truth; a string as text. Only a number carries a unit,
+// which when written is a string of text.
+func decodeValue(raw wiredValue) (runtime.ToolValue, error) {
 	if len(raw.Value) == 0 {
 		return runtime.ToolValue{}, errors.New("no value")
+	}
+	unit, err := decodeUnit(raw.Unit)
+	if err != nil {
+		return runtime.ToolValue{}, err
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw.Value))
 	dec.UseNumber()
@@ -389,7 +422,7 @@ func decodeValue(raw protocolValue) (runtime.ToolValue, error) {
 	if err := dec.Decode(&decoded); err != nil {
 		return runtime.ToolValue{}, err
 	}
-	out := runtime.ToolValue{Unit: strings.TrimSpace(raw.Unit)}
+	out := runtime.ToolValue{Unit: unit}
 	switch v := decoded.(type) {
 	case json.Number:
 		if i, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
@@ -415,6 +448,25 @@ func decodeValue(raw protocolValue) (runtime.ToolValue, error) {
 		return runtime.ToolValue{}, fmt.Errorf("%s is not a number, boolean or string", strings.TrimSpace(string(raw.Value)))
 	}
 	return out, nil
+}
+
+// decodeUnit reads a wire value's unit: none when omitted, else a string of unit expression
+// text; null or another kind of value is malformed.
+func decodeUnit(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 {
+		return "", nil
+	}
+	if jsonNull(raw) {
+		return "", errors.New("unit is null, not a unit expression")
+	}
+	var unit string
+	if err := json.Unmarshal(raw, &unit); err != nil {
+		return "", fmt.Errorf("unit %s is not a unit expression", strings.TrimSpace(string(raw)))
+	}
+	if strings.TrimSpace(unit) == "" {
+		return "", errors.New("unit is empty")
+	}
+	return strings.TrimSpace(unit), nil
 }
 
 // ErrWrongTool is the typed error a tool engine refuses with for a call naming another tool.
