@@ -92,13 +92,29 @@ var mosaKindNames = map[mosaKind]string{
 	mosaInterfaceRequirement:   "interface requirement",
 }
 
+// mosaMetadataKind is a MOSA metadata family, told by conformance to its library definition.
+type mosaMetadataKind int
+
 const (
-	mosaDataRightsFQN          = "MOSA::DataRights"
-	mosaProprietaryFQN         = "MOSA::Proprietary"
-	mosaInterfaceControlFQN    = "MOSA::InterfaceControl"
-	mosaConformanceMetadataFQN = "MOSA::StandardConformanceMetadata"
-	mosaConformantMetadataFQN  = "MOSA::ConformantMetadata"
+	mosaNoMetadata mosaMetadataKind = iota
+	mosaDataRights
+	mosaProprietary
+	mosaInterfaceControl
+	mosaConformanceMetadata
+	mosaConformantMetadata
 )
+
+// mosaMetadataDefinitions lists the library metadata definition each family conforms to.
+var mosaMetadataDefinitions = []struct {
+	kind mosaMetadataKind
+	fqn  string
+}{
+	{mosaDataRights, "MOSA::DataRights"},
+	{mosaProprietary, "MOSA::Proprietary"},
+	{mosaInterfaceControl, "MOSA::InterfaceControl"},
+	{mosaConformanceMetadata, "MOSA::StandardConformanceMetadata"},
+	{mosaConformantMetadata, "MOSA::ConformantMetadata"},
+}
 
 // mosaMarks are the MOSA annotations an element carries.
 type mosaMarks struct {
@@ -108,8 +124,11 @@ type mosaMarks struct {
 type mosaAudit struct {
 	ctx   *Context
 	model *semantics.Model
-	// definitions holds the library definition of each MOSA kind.
+	// definitions and metadata hold the library definition of each MOSA kind and metadata family.
 	definitions map[mosaKind]*symbols.Symbol
+	metadata    map[mosaMetadataKind]*symbols.Symbol
+	// metadataKinds memoizes metadataKindOf by the annotation type's qualified name.
+	metadataKinds map[string]mosaMetadataKind
 	// present records the kinds the workspace declares at all.
 	present map[mosaKind]bool
 	// marks caches each element's annotations; anyMarks records those stated anywhere.
@@ -128,28 +147,67 @@ type mosaAudit struct {
 // workspace package of the same name is not the approach's vocabulary.
 func newMOSAAudit(ctx *Context) *mosaAudit {
 	a := &mosaAudit{
-		ctx:         ctx,
-		model:       ctx.Model(),
-		definitions: map[mosaKind]*symbols.Symbol{},
-		present:     map[mosaKind]bool{},
-		marks:       map[*symbols.Symbol]mosaMarks{},
-		conformant:  map[symbols.ElementKey]bool{},
-		satisfiers:  map[symbols.ElementKey]bool{},
-		kinds:       map[*symbols.Symbol]mosaKind{},
-		typeKinds:   map[*symbols.Symbol]mosaKind{},
+		ctx:           ctx,
+		model:         ctx.Model(),
+		definitions:   map[mosaKind]*symbols.Symbol{},
+		metadata:      map[mosaMetadataKind]*symbols.Symbol{},
+		metadataKinds: map[string]mosaMetadataKind{},
+		present:       map[mosaKind]bool{},
+		marks:         map[*symbols.Symbol]mosaMarks{},
+		conformant:    map[symbols.ElementKey]bool{},
+		satisfiers:    map[symbols.ElementKey]bool{},
+		kinds:         map[*symbols.Symbol]mosaKind{},
+		typeKinds:     map[*symbols.Symbol]mosaKind{},
 	}
 	for _, entry := range mosaKindDefinitions {
-		for _, def := range ctx.Index.LookupQualified(entry.fqn) {
-			if def != nil && ctx.Index.Library(def) {
-				a.definitions[entry.kind] = def
-				break
-			}
+		if def := mosaLibraryDefinition(ctx, entry.fqn); def != nil {
+			a.definitions[entry.kind] = def
 		}
 	}
-	if len(a.definitions) == 0 {
+	for _, entry := range mosaMetadataDefinitions {
+		if def := mosaLibraryDefinition(ctx, entry.fqn); def != nil {
+			a.metadata[entry.kind] = def
+		}
+	}
+	if len(a.definitions) == 0 && len(a.metadata) == 0 {
 		return nil
 	}
 	return a
+}
+
+// mosaLibraryDefinition returns the bundled library element registered under fqn, or nil.
+func mosaLibraryDefinition(ctx *Context, fqn string) *symbols.Symbol {
+	for _, def := range ctx.Index.LookupQualified(fqn) {
+		if def != nil && ctx.Index.Library(def) {
+			return def
+		}
+	}
+	return nil
+}
+
+// metadataKindOf classifies an annotation by its type's qualified name: the
+// family whose library definition the type is or conforms to.
+func (a *mosaAudit) metadataKindOf(typeFQN string) mosaMetadataKind {
+	if kind, ok := a.metadataKinds[typeFQN]; ok {
+		return kind
+	}
+	kind := mosaNoMetadata
+	types := a.ctx.Index.LookupQualified(typeFQN)
+families:
+	for _, entry := range mosaMetadataDefinitions {
+		def := a.metadata[entry.kind]
+		if def == nil {
+			continue
+		}
+		for _, t := range types {
+			if t == def || a.model.Conforms(t, def) {
+				kind = entry.kind
+				break families
+			}
+		}
+	}
+	a.metadataKinds[typeFQN] = kind
+	return kind
 }
 
 // kindOf classifies sym: a usage by the types it has, a definition by itself.
@@ -199,12 +257,12 @@ func (a *mosaAudit) marksOf(sym *symbols.Symbol) mosaMarks {
 	}
 	var m mosaMarks
 	for _, facts := range a.model.AnnotationFactsOf(sym) {
-		switch facts.TypeFQN {
-		case mosaDataRightsFQN:
+		switch a.metadataKindOf(facts.TypeFQN) {
+		case mosaDataRights:
 			m.dataRights = true
-		case mosaProprietaryFQN:
+		case mosaProprietary:
 			m.proprietary = true
-		case mosaInterfaceControlFQN:
+		case mosaInterfaceControl:
 			m.interfaceControl = true
 		}
 	}
@@ -252,12 +310,12 @@ func (a *mosaAudit) gather(root *symbols.Scope) {
 // gatherConformance records the elements at the `#conformant` ends of a
 // `#conformance` connection.
 func (a *mosaAudit) gatherConformance(sym *symbols.Symbol) {
-	if !a.annotatedWith(sym, mosaConformanceMetadataFQN) {
+	if !a.annotatedWith(sym, mosaConformanceMetadata) {
 		return
 	}
 	for _, end := range a.bodyEnds(sym) {
 		u, ok := end.Decl.(*ast.Usage)
-		if !ok || !a.annotatedWith(end, mosaConformantMetadataFQN) {
+		if !ok || !a.annotatedWith(end, mosaConformantMetadata) {
 			continue
 		}
 		for _, target := range a.referents(end, u) {
@@ -322,9 +380,10 @@ func (a *mosaAudit) referents(sym *symbols.Symbol, usage *ast.Usage) []*symbols.
 	return out
 }
 
-func (a *mosaAudit) annotatedWith(sym *symbols.Symbol, fqn string) bool {
+// annotatedWith reports whether sym carries an annotation of the metadata family.
+func (a *mosaAudit) annotatedWith(sym *symbols.Symbol, kind mosaMetadataKind) bool {
 	for _, facts := range a.model.AnnotationFactsOf(sym) {
-		if facts.TypeFQN == fqn {
+		if a.metadataKindOf(facts.TypeFQN) == kind {
 			return true
 		}
 	}
@@ -355,7 +414,7 @@ func (a *mosaAudit) check(root *symbols.Scope) {
 // checkProprietary expects a @Proprietary annotation to state its rationale.
 func (a *mosaAudit) checkProprietary(sym *symbols.Symbol) {
 	for _, facts := range a.model.AnnotationFactsOf(sym) {
-		if facts.TypeFQN != mosaProprietaryFQN {
+		if a.metadataKindOf(facts.TypeFQN) != mosaProprietary {
 			continue
 		}
 		if mosaStatesString(facts, "rationale") {
@@ -423,15 +482,25 @@ func (a *mosaAudit) anyOf(sym *symbols.Symbol, set map[symbols.ElementKey]bool) 
 	return false
 }
 
+// mosaAttachment is one feature a connector end attaches to, with the scope it is named in.
+type mosaAttachment struct {
+	node  ast.Node
+	scope *symbols.Scope
+}
+
 // checkBoundary expects a connector joining two distinct components to be a
 // modular system interface, once the model designates any.
 func (a *mosaAudit) checkBoundary(sym *symbols.Symbol, usage *ast.Usage) {
-	if !a.present[mosaModularSystemInterface] || len(usage.ConnectorEnds) == 0 {
+	if !a.present[mosaModularSystemInterface] {
+		return
+	}
+	attachments := a.attachments(sym, usage)
+	if len(attachments) == 0 {
 		return
 	}
 	parties := map[*symbols.Symbol]bool{}
-	for _, att := range a.model.ConnectorEndAttachments(sym) {
-		party := a.boundaryParty(sym, att.Attachment)
+	for _, att := range attachments {
+		party := a.boundaryParty(att)
 		if party == nil {
 			return
 		}
@@ -444,18 +513,45 @@ func (a *mosaAudit) checkBoundary(sym *symbols.Symbol, usage *ast.Usage) {
 		"This connection joins two major system components (or modular systems) but is not a modular system interface: MOSA expects the boundary between them to be designated one, so type it by a #modularSystemInterface definition or mark it #modularSystemInterface.")
 }
 
+// attachments lists what a connector's ends attach to: the `connect` clause's
+// targets, else what its body `end` members reference or subset.
+func (a *mosaAudit) attachments(sym *symbols.Symbol, usage *ast.Usage) []mosaAttachment {
+	var out []mosaAttachment
+	if len(usage.ConnectorEnds) > 0 {
+		for _, att := range a.model.ConnectorEndAttachments(sym) {
+			out = append(out, mosaAttachment{node: att.Attachment, scope: sym.OwnerScope})
+		}
+		return out
+	}
+	for _, end := range a.bodyEnds(sym) {
+		u, ok := end.Decl.(*ast.Usage)
+		if !ok {
+			continue
+		}
+		for _, rel := range u.Relationships {
+			if rel == nil || rel.Target == nil {
+				continue
+			}
+			if rel.Kind == ast.RelReferences || rel.Kind == ast.RelSubsets {
+				out = append(out, mosaAttachment{node: rel.Target, scope: end.OwnerScope})
+			}
+		}
+	}
+	return out
+}
+
 // boundaryParty is the component a connector end attaches to: the shortest
 // prefix of the end's feature chain that names one.
-func (a *mosaAudit) boundaryParty(connector *symbols.Symbol, attachment ast.Node) *symbols.Symbol {
-	if attachment == nil {
+func (a *mosaAudit) boundaryParty(att mosaAttachment) *symbols.Symbol {
+	if att.node == nil {
 		return nil
 	}
-	prefixes := []ast.Node{attachment}
-	if chain, ok := attachment.(*ast.FeatureChainExpr); ok {
-		prefixes = append(chainSteps(chain), attachment)
+	prefixes := []ast.Node{att.node}
+	if chain, ok := att.node.(*ast.FeatureChainExpr); ok {
+		prefixes = append(chainSteps(chain), att.node)
 	}
 	for _, prefix := range prefixes {
-		target, ok := a.ctx.Resolver().ResolveTarget(connector.OwnerScope, prefix)
+		target, ok := a.ctx.Resolver().ResolveTarget(att.scope, prefix)
 		if !ok || target == nil {
 			continue
 		}

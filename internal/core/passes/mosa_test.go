@@ -159,6 +159,50 @@ func TestMOSABoundaryNotDesignated(t *testing.T) {
 		part v { part a : A; part b : A; connect a.p to b.p; }`), CodeMOSABoundaryNotDesignated)
 }
 
+// A connector stating its ends as body members is judged like one with a
+// `connect` clause, whichever way the ends name their features.
+func TestMOSABoundaryNotDesignatedWithBodyEnds(t *testing.T) {
+	src := mosaModel(mosaPlatform + `
+		#majorSystemPlatform part v {
+			part l : A; part r : B;
+			#modularSystem part m { port p : P; port q : P; }
+			port p : P;
+			interface link : Link connect l.p to r.p;
+			connection c1 { end ::> l.p; end ::> r.p; }
+			connection c2 { end x ::> l.p; end y ::> m.p; }
+			interface i1 { end ::> l.p; end ::> r.p; }
+			connection { end ::> m.p; end ::> m.q; }
+			connection { end ::> l.p; end ::> p; }
+			interface designated : Link { end ::> l.p; end ::> r.p; }
+		}`)
+	w8dWantLines(t, src, CodeMOSABoundaryNotDesignated, 12, 13, 14)
+}
+
+// Metadata specializing a MOSA metadata definition counts as that metadata:
+// a program's own rights, control, proprietary and conformance keywords are recognised.
+func TestMOSASpecializedMetadataIsRecognised(t *testing.T) {
+	src := mosaModel(mosaPlatform + `
+		metadata def ProgramRights :> DataRights;
+		metadata def ProgramControl :> InterfaceControl;
+		metadata def VendorOwned :> Proprietary;
+		metadata def <verifiedAgainst> Verified :> StandardConformanceMetadata;
+		metadata def <subject> Subject :> ConformantMetadata;
+		#technicalStandard item std : Standard;
+		part v {
+			part a : A { @ProgramRights { kind = DataRightsKind::limited; } }
+			part b : B;
+			interface l1 : Link connect a.p to b.p { @ProgramControl { authority = "ICWG"; } }
+			interface l2 : Link connect a.p to b.p { @VendorOwned { rationale = "qualified"; } }
+			interface l3 : Link connect a.p to b.p { @VendorOwned; }
+			interface l4 : Link connect a.p to b.p;
+			#verifiedAgainst connection { end #subject ::> l4; end #conformsTo ::> std; }
+		}`)
+	w8dWantLines(t, src, CodeMOSAComponentNoDataRights, 15)
+	w8dWantLines(t, src, CodeMOSAInterfaceNoControl, 17, 18, 19)
+	w8dWantLines(t, src, CodeMOSAProprietaryNoRationale, 18)
+	w8dWantLines(t, src, CodeMOSAInterfaceNoStandard, 16)
+}
+
 // A usage typed by a #modularSystemInterface definition and a #keyInterface
 // usage are both modular system interfaces.
 func TestMOSAKeyInterfaceIsAModularSystemInterface(t *testing.T) {

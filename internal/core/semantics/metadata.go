@@ -178,7 +178,9 @@ func (m *Model) isSemanticMetadata(def *symbols.Symbol) bool {
 // resolving the meta-cast operand of `:>> baseType = causes meta SysML::Usage`
 // (§7.27.3). The binding is model-level evaluated, so a conditional binding is
 // decided against the element being annotated. A definition binding no baseType
-// of its own inherits its supertypes' binding. Returns nil when none names a type.
+// of its own inherits its supertypes' binding; one that binds it, even to a value
+// that does not resolve, replaces the inherited binding. Returns nil when the
+// binding in force names no type.
 func (m *Model) baseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
 	return m.baseTypeOfWithin(def, annotated, map[*symbols.Symbol]bool{})
 }
@@ -188,7 +190,7 @@ func (m *Model) baseTypeOfWithin(def, annotated *symbols.Symbol, seen map[*symbo
 		return nil
 	}
 	seen[def] = true
-	if base := m.ownBaseTypeOf(def, annotated); base != nil {
+	if base, bound := m.ownBaseTypeOf(def, annotated); bound {
 		return base
 	}
 	for _, super := range m.DirectSupertypes(def) {
@@ -199,12 +201,14 @@ func (m *Model) baseTypeOfWithin(def, annotated *symbols.Symbol, seen map[*symbo
 	return nil
 }
 
-// ownBaseTypeOf returns the type def's own body binds baseType to for annotated.
-func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
+// ownBaseTypeOf returns the type def's own body binds baseType to for annotated,
+// and whether the body binds baseType at all.
+func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) (*symbols.Symbol, bool) {
 	decl, ok := def.Decl.(*ast.Definition)
 	if !ok || def.Scope == nil {
-		return nil
+		return nil, false
 	}
+	bound := false
 	// The binding is an anonymous member, so it is reached through the AST
 	// rather than through the (name-keyed) scope.
 	for _, member := range decl.Members {
@@ -215,17 +219,18 @@ func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
 		if !ok || !redefinesBaseType(usage) || usage.Value == nil {
 			continue
 		}
+		bound = true
 		name := metaCastOperand(m.baseTypeBinding(def, annotated, usage.Value))
 		if name == nil {
 			continue
 		}
 		if base, ok := m.resolver.ResolveQualified(def.Scope, name); ok {
 			if resolved, aliasOK := m.resolver.ResolveAliasTarget(base); aliasOK {
-				return resolved
+				return resolved, true
 			}
 		}
 	}
-	return nil
+	return nil, bound
 }
 
 // baseTypeBinding reduces a baseType binding to the branch that applies to the

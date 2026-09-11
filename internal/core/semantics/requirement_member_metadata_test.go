@@ -287,8 +287,16 @@ func TestSemanticMetadataInheritsBaseType(t *testing.T) {
 		metadata def truck :> vehicle {
 			:>> baseType = trucks meta SysML::Usage;
 		}
+		metadata def boat :> vehicle {
+			:>> baseType = boats meta SysML::Usage;
+		}
+		metadata def van :> vehicle {
+			:>> baseType = if annotatedElement istype SysML::PortUsage ? trucks meta SysML::Usage else null;
+		}
 		#car part c : Vehicle;
 		#truck part t : Vehicle;
+		#boat part b : Vehicle;
+		#van part v : Vehicle;
 	}`)
 	if got := supertypeNames(m, lookupFQN(t, idx, "P::c")); !containsName(got, "P::vehicles") {
 		t.Errorf("supertypes of P::c = %v, want the inherited base P::vehicles", got)
@@ -296,5 +304,12 @@ func TestSemanticMetadataInheritsBaseType(t *testing.T) {
 	got := supertypeNames(m, lookupFQN(t, idx, "P::t"))
 	if !containsName(got, "P::trucks") || containsName(got, "P::vehicles") {
 		t.Errorf("supertypes of P::t = %v, want the rebound base P::trucks only", got)
+	}
+	// An own binding that resolves to nothing, or whose branch is not taken,
+	// still replaces the inherited one rather than falling back to it.
+	for _, fqn := range []string{"P::b", "P::v"} {
+		if got := supertypeNames(m, lookupFQN(t, idx, fqn)); containsName(got, "P::vehicles") || containsName(got, "P::trucks") {
+			t.Errorf("supertypes of %s = %v, want no base from the rebound baseType", fqn, got)
+		}
 	}
 }
