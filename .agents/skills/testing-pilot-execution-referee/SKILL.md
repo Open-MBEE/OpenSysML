@@ -63,9 +63,9 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (185 cases, all eleven default
+Reference values at the current implementation (209 cases, all twelve default
 fixtures):
-`agree 101 · kind-only 1 · order-only 0 · disagree 5 · pilot-unevaluated 59 ·
+`agree 125 · kind-only 1 · order-only 0 · disagree 5 · pilot-unevaluated 59 ·
 pilot-silent 7 · pilot-error 2 · ours-error 2 · both-error 8 ·
 nondeterministic 0`.
 Four of the five `disagree` are unrefereeable rather than verdicts against us:
@@ -112,7 +112,7 @@ answers `nat istype Natural` `true` where the pilot reads the literal's type alo
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
   committed baseline holds (`370 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 28 only ours, 600 only the pilot's` after the value uniqueness round — read it from the baseline JSON, not from this line, since each
+  diagnostic(s), 28 only ours, 671 only the pilot's` after the value uniqueness and analysis framework rounds — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

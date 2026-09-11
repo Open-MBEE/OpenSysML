@@ -14821,13 +14821,13 @@ func testSweepOverAParameterTypedByAPart(t *testing.T) {
 // fractional step or endpoint, so the plan is refused rather than half its
 // rows failing one by one.
 func testSweepOverAnIntegerParameterByAFraction(t *testing.T) {
-	real := func(f float64) Value {
+	realVal := func(f float64) Value {
 		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
 	}
 	ctx, scope := analysisFixture(t, sweepRobustnessModel)
 	sym, _ := scope.LookupLocal("Sq")
 	plan, err := ctx.ResolveSweepPlan(sym, SweepPlan{Ranges: []SweepRange{{
-		Param: "x", From: real(1), To: real(3), Step: real(0.5), HasStep: true,
+		Param: "x", From: realVal(1), To: realVal(3), Step: realVal(0.5), HasStep: true,
 	}}}, 0, nil)
 	if err != nil {
 		t.Fatalf("resolving x: %v", err)
@@ -14839,7 +14839,7 @@ func testSweepOverAnIntegerParameterByAFraction(t *testing.T) {
 	if !errors.Is(err, ErrSweepRange) || !strings.Contains(err.Error(), "x : Integer") {
 		t.Fatalf("error = %v, want ErrSweepRange naming x : Integer", err)
 	}
-	for _, err := range refusedSweepPlan(t, "Sq", SweepPlan{Ranges: []SweepRange{{Param: "x", From: real(1.5), To: real(3)}}}) {
+	for _, err := range refusedSweepPlan(t, "Sq", SweepPlan{Ranges: []SweepRange{{Param: "x", From: realVal(1.5), To: realVal(3)}}}) {
 		if !strings.Contains(err.Error(), "x : Integer") {
 			t.Errorf("error = %v, want it to name x : Integer", err)
 		}

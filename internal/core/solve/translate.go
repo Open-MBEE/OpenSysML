@@ -450,14 +450,14 @@ func (t *translator) quantity(n *ast.IndexExpr, scope *symbols.Scope) (*Term, er
 	if !magnitude.Sort.Numeric() {
 		return nil, t.refuse(n, "quantity", "its magnitude yields "+magnitude.Sort.Name+" rather than a number")
 	}
-	real := ToReal(magnitude)
-	if real.Op == OpReal {
-		return RealTerm(new(big.Rat).Mul(real.Real, scale)), nil
+	realMagnitude := ToReal(magnitude)
+	if realMagnitude.Op == OpReal {
+		return RealTerm(new(big.Rat).Mul(realMagnitude.Real, scale)), nil
 	}
 	if scale.Cmp(big.NewRat(1, 1)) == 0 {
-		return real, nil
+		return realMagnitude, nil
 	}
-	return Binary(OpMul, Real, real, RealTerm(scale)), nil
+	return Binary(OpMul, Real, realMagnitude, RealTerm(scale)), nil
 }
 
 // ratOfScale converts a unit's scale factor to an exact ratio.

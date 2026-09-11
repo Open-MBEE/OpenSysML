@@ -211,15 +211,15 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 185 committed cases, the original 32, the 62 the
+prints the current ones. State of the 209 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
-`tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`
-and the 27 of `scalar_classification.cases`:
+`tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
+the 27 of `scalar_classification.cases` and the 24 of `literal_types.cases`:
 
 ```
-agree: 101 · kind-only: 1 · order-only: 0 · disagree: 5
+agree: 125 · kind-only: 1 · order-only: 0 · disagree: 5
 pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
@@ -303,6 +303,19 @@ hastype Integer` `true`. The values of a feature are instances of all its types 
 Feature, `type`), so the feature's typing is a type its value is of and the verdict stays ours;
 no evaluation produces a value whose own type is `Natural`, which is why `hastype Natural` is false
 on both sides and why a bare `7 istype Natural` is false on both (`w6d:istype-int-natural`).
+
+The 24 `literal_types.cases` all agree, and they pin the rule the runtime's two typing paths now
+share: a literal's own type is its `ScalarValues` definition, found in the library and not by its
+simple name in the evaluating scope. `scalar_classification.cases` could not see the difference
+because its model imports `ScalarValues::*`. In a package that imports nothing from
+`ScalarValues`, `2 istype ScalarValues::Integer` and `2.5 istype ScalarValues::Real` are `true`
+(the direct-type path once failed both, unable to determine the direct type `"Integer"`), `2
+istype ScalarValues::Real` is `true` and `2 hastype ScalarValues::Real` and `2 istype
+ScalarValues::Natural` are `false`; `2.5` `hastype ScalarValues::Rational` and not `Real`, as the
+paragraph above states. Beside a model's own `attribute def Integer` (and `Real`, `Boolean`,
+`String`), the written `istype Integer` still resolves to the type the scope sees, so `2 istype
+Integer` and `2 hastype Integer` are `false` while `2 istype ScalarValues::Integer` is `true` —
+where the direct-type path once took the model's `Integer` for the literal's type.
 
 The three `contextual_names.cases` all agree, and they were added with the parser fix they
 referee: `chain` is the feature chain modifier only when a name follows it, so `attribute chain =

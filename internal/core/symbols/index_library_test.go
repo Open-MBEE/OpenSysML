@@ -37,6 +37,30 @@ func TestLibraryProvenance(t *testing.T) {
 	}
 }
 
+// HasLibrary follows the library marks: none until a document is marked, none again
+// once every marked document is unmarked or removed.
+func TestHasLibrary(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "lib.sysml", "package Lib { part def Widget; }")
+	addDoc(t, idx, "user.sysml", "package Mine { part def Gadget; }")
+	if idx.HasLibrary() {
+		t.Fatal("HasLibrary() = true before any document is marked library")
+	}
+	idx.MarkLibrary("lib.sysml")
+	if !idx.HasLibrary() {
+		t.Fatal("HasLibrary() = false with lib.sysml marked library")
+	}
+	idx.MarkLibraryTier("lib.sysml", TierNone)
+	if idx.HasLibrary() {
+		t.Fatal("HasLibrary() = true after lib.sysml was unmarked")
+	}
+	idx.MarkLibrary("lib.sysml")
+	idx.RemoveDocument("lib.sysml")
+	if idx.HasLibrary() {
+		t.Fatal("HasLibrary() = true after the only library document was removed")
+	}
+}
+
 // declaring returns the symbol fqn declares, failing the test when there is none.
 func declaring(t *testing.T, idx *Index, fqn string) *Symbol {
 	t.Helper()

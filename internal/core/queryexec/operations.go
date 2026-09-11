@@ -733,11 +733,11 @@ func parseNumericValue(text string) (Value, error) {
 	if integer, err := strconv.ParseInt(text, 10, 64); err == nil {
 		return IntegerValue(integer), nil
 	}
-	real, err := strconv.ParseFloat(text, 64)
-	if err != nil || math.IsNaN(real) || math.IsInf(real, 0) {
+	realVal, err := strconv.ParseFloat(text, 64)
+	if err != nil || math.IsNaN(realVal) || math.IsInf(realVal, 0) {
 		return Value{}, strconv.ErrSyntax
 	}
-	return RealValue(real), nil
+	return RealValue(realVal), nil
 }
 
 func compareOrdinal(comparison int, operator string) (bool, error) {
@@ -823,9 +823,9 @@ func compareNumeric(left, right Value) int {
 	return 0
 }
 
-func compareIntReal(integer int64, real float64) int {
+func compareIntReal(integer int64, realVal float64) int {
 	left := new(big.Rat).SetInt64(integer)
-	right := new(big.Rat).SetFloat64(real)
+	right := new(big.Rat).SetFloat64(realVal)
 	return left.Cmp(right)
 }
 

@@ -74,6 +74,9 @@ var DefaultExploreSchedulePolicy = SchedulePolicy{kind: scheduleExplore, budget:
 // file of choice lines.
 var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>", "explore[:runs=<n>,depth=<d>]", "replay:<file>"}
 
+// exploreOptionsPrefix opens the `explore` spelling that carries options.
+const exploreOptionsPrefix = "explore:"
+
 // ParseSchedulePolicy reads `declared`, `reverse`, `seed:<n>`,
 // `explore[:runs=<n>,depth=<d>]` (either option, either order) or `replay:<file>`,
 // whose file is read here (see ParseChoices); "" is the default.
@@ -100,8 +103,8 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: "seed: needs a number"}
 	case spelling == "explore":
 		return DefaultExploreSchedulePolicy, nil
-	case strings.HasPrefix(spelling, "explore:"):
-		budget, reason := parseExploreOptions(spelling[len("explore:"):])
+	case strings.HasPrefix(spelling, exploreOptionsPrefix):
+		budget, reason := parseExploreOptions(spelling[len(exploreOptionsPrefix):])
 		if reason != "" {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: reason}
 		}
@@ -193,7 +196,7 @@ func (p SchedulePolicy) String() string {
 		if len(options) == 0 {
 			return "explore"
 		}
-		return "explore:" + strings.Join(options, ",")
+		return exploreOptionsPrefix + strings.Join(options, ",")
 	default:
 		return "reverse"
 	}

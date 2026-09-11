@@ -163,8 +163,8 @@ func (m Model) memberInsertion(owner ast.Node, text string) (source.Span, string
 	ownerIndent := lineIndent(m.Source.Bytes(), owner.Span().Offset)
 	indent := m.memberIndent(owner.Span())
 	if hasBody {
-		close := lastToken(m.Source, body, lexer.RBrace)
-		closeOffset := close.Span.Offset
+		rbrace := lastToken(m.Source, body, lexer.RBrace)
+		closeOffset := rbrace.Span.Offset
 		lineStart := closeOffset
 		for lineStart > 0 && m.Source.Bytes()[lineStart-1] != '\n' {
 			lineStart--

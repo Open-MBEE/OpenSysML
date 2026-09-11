@@ -377,8 +377,8 @@ func valueText(value queryexec.Value) string {
 	if integer, ok := value.Integer(); ok {
 		return strconv.FormatInt(integer, 10)
 	}
-	if real, ok := value.Real(); ok {
-		return strconv.FormatFloat(real, 'g', -1, 64)
+	if realVal, ok := value.Real(); ok {
+		return strconv.FormatFloat(realVal, 'g', -1, 64)
 	}
 	if boolean, ok := value.Boolean(); ok {
 		return strconv.FormatBool(boolean)
