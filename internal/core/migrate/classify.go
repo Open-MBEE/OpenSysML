@@ -91,9 +91,9 @@ var libraryRoots = map[string]bool{
 
 // standardStereotypeNamespaces are the XML namespaces of the profiles whose
 // stereotypes the mapping reads: the OMG SysML and UML standard profiles and
-// Papyrus' serialization of them.
+// Eclipse UML2's serialization of the UML standard profile.
 var standardStereotypeNamespaces = []string{
-	"omg.org/spec/SysML", "omg.org/spec/UML/", "eclipse.org/papyrus/", "/UML/Profile/Standard",
+	"omg.org/spec/SysML", "omg.org/spec/UML/", "/UML/Profile/Standard",
 }
 
 // isStandard reports whether s comes from a standard profile rather than a
@@ -104,7 +104,18 @@ func isStandard(s *xmi.Stereotype) bool {
 			return true
 		}
 	}
-	return false
+	return isPapyrusSysML(s.Namespace)
+}
+
+// isPapyrusSysML recognizes Papyrus' SysML profile namespaces
+// (…/papyrus/sysml/1.6/SysML/Blocks) and not another profile Papyrus hosts.
+func isPapyrusSysML(ns string) bool {
+	i := strings.Index(ns, "eclipse.org/papyrus/")
+	if i < 0 {
+		return false
+	}
+	rest := strings.ToLower(ns[i+len("eclipse.org/papyrus/"):])
+	return strings.HasPrefix(rest, "sysml/") || strings.Contains(rest, "/sysml/")
 }
 
 // stereo returns e's application of the named standard-profile stereotype, or nil.

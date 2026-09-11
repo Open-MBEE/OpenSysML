@@ -384,23 +384,31 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="throughput" type="_v"/>
     </packagedElement>
     <packagedElement xmi:type="uml:DataType" xmi:id="_v" name="Rate"/>
-    <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>`, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_r" name="Req"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_plain" name="Plain"/>`, `
   <Blocks:Block xmlns:Blocks="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Blocks" xmi:id="_s1" base_Class="_b"/>
   <Blocks:ValueType xmlns:Blocks="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Blocks" xmi:id="_s2" base_DataType="_v"/>
   <Requirements:Requirement xmlns:Requirements="http://www.eclipse.org/papyrus/sysml/1.6/SysML/Requirements" xmi:id="_s3" base_Class="_r" id="R1" text="Shall pump."/>
   <vendor:ValueProperty xmlns:vendor="http://www.example.com/tool/customization/SysML" xmi:id="_c1" base_Property="_p"/>
-  <vendor:performanceRequirement xmlns:vendor="http://www.example.com/tool/customization/SysML" xmi:id="_c2" base_Class="_r"/>`)
+  <vendor:performanceRequirement xmlns:vendor="http://www.example.com/tool/customization/SysML" xmi:id="_c2" base_Class="_r"/>
+  <acme:Block xmlns:acme="http://www.eclipse.org/papyrus/acme/profile" xmi:id="_c3" base_Class="_plain"/>
+  <acme:Block xmlns:acme="http://www.eclipse.org/papyrus/acme/profile" xmi:id="_c4" base_Class="_b"/>`)
 	wantLine(t, r.Notation, "part def Pump {")
 	wantLine(t, r.Notation, "attribute def Rate;")
 	wantLine(t, r.Notation, "attribute throughput : Rate {")
 	wantLine(t, r.Notation, "requirement def <R1> Req {")
 	wantLine(t, r.Notation, "applied stereotype «ValueProperty»")
 	wantLine(t, r.Notation, "applied stereotype «performanceRequirement»")
+	wantLine(t, r.Notation, "part def Plain {")
+	wantLine(t, r.Notation, "applied stereotype «Block»")
 	for id, kind := range map[string]string{"_b": "«Block» Class", "_r": "«Requirement» Class", "_p": "«ValueProperty» Property"} {
 		es := entriesFor(r, id)
 		if len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Kind != kind {
 			t.Errorf("%s entries = %+v, want one mapped %s", id, es, kind)
 		}
+	}
+	if es := entriesFor(r, "_plain"); len(es) != 1 || es[0].Verdict != migrate.Approximated || es[0].Kind != "«Block» Class" {
+		t.Errorf("_plain entries = %+v, want one approximated plain class", es)
 	}
 }
 

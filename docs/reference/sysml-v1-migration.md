@@ -51,10 +51,10 @@ returned over the service yet.
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
-- Only stereotypes from the OMG SysML and UML standard profiles, in the OMG or Papyrus
-  namespaces, classify elements; any other profile's «Block» or «Requirement» — a user's own,
-  or a tool's customization layer over SysML — is preserved as an applied-stereotype comment
-  like any other.
+- Only stereotypes from the OMG SysML and UML standard profiles, in the OMG namespaces or
+  Papyrus' `…/papyrus/sysml/…` ones, classify elements; any other profile's «Block» or
+  «Requirement» — a user's own, a tool's customization layer over SysML, or another profile
+  Papyrus hosts — is preserved as an applied-stereotype comment like any other.
 - A requirement's `id` and `text` tags are read in the profile's spelling and in the
   capitalized `Id`/`Text` some exporters write.
 - Multiplicity follows UML's defaults: an omitted bound is 1, and a bound element without a
