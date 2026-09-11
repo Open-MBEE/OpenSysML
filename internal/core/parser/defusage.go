@@ -1827,7 +1827,7 @@ func defBodyContext(kind ast.DefinitionKind) bodyContext {
 		return bodyAction
 	case ast.DefState:
 		return bodyState
-	case ast.DefCalc:
+	case ast.DefCalc, ast.DefConstraint: // ConstraintDefinition opens a CalculationBody (SysML.xtext)
 		return bodyCalc
 	case ast.DefCase, ast.DefAnalysisCase, ast.DefVerificationCase, ast.DefUseCase:
 		return bodyCase
@@ -1849,7 +1849,7 @@ func usageBodyContext(kind ast.UsageKind) bodyContext {
 		return bodyAction
 	case ast.UsageState:
 		return bodyState
-	case ast.UsageCalc:
+	case ast.UsageCalc, ast.UsageConstraint:
 		return bodyCalc
 	case ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
 		return bodyCase
@@ -2512,7 +2512,9 @@ func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 		p.inEnumBody = true
 		member := p.parseBodyMember()
 		p.inEnumBody = outer
-		p.checkEnumerationMember(def, member)
+		if member != nil {
+			p.checkEnumerationMember(def, member)
+		}
 		body.add(member)
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 			p.advance()

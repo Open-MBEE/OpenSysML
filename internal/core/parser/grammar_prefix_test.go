@@ -131,6 +131,9 @@ func TestPrefixAlternativesStillAccepted(t *testing.T) {
 		{"multiplicity_feature_bound", "a.sysml", "package P { attribute n : Integer; part def D; part many [n] : D; }"},
 		{"multiplicity_arithmetic_bound", "a.sysml", "package P { attribute n : Integer; part def D; part many [n+1] : D; }"},
 		{"multiplicity_range", "a.sysml", "package P { part def D; part many [0..*] : D; }"},
+		// A constraint body is a CalculationBody, so it reads the transition extension a calc body does.
+		{"transition_in_constraint_def", "a.sysml", "package P { constraint def C { action a; action b; transition first a then b; } }"},
+		{"transition_in_constraint_usage", "a.sysml", "package P { constraint c { action a; action b; transition first a then b; } }"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -160,6 +163,9 @@ func TestNegativeBodyContext(t *testing.T) {
 			"'transition' declares a transition between states and is only allowed in a state body; move it into the state it belongs to"},
 		{"transition_in_package", "package P { state s1; state s2; transition first s1 then s2; }", "transition",
 			"'transition' declares a transition between states and is only allowed in a state body; move it into the state it belongs to"},
+		// A member that fails to parse inside an enumeration body is reported, not dereferenced.
+		{"enum_direction_only_member", "package P { enum def E { in; } }", ";",
+			"expected a feature after 'in': write `in <name> : <Type>`"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
