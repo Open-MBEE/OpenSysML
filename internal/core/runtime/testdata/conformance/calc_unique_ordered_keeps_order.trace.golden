@@ -1,0 +1,112 @@
+enter calc test::walk
+  stmt declare scaled
+      enter calc ControlFunctions::collect
+            eval literal 30 -> 30
+            eval literal 10 -> 10
+            eval literal 20 -> 20
+          eval sequence of 3 -> (30, 10, 20)
+        eval feature xs -> (30, 10, 20)
+        eval body -> expr(body)
+        bind collection = (30, 10, 20) [argument]
+        bind mapper = expr(body) [argument]
+          eval feature x -> 30
+          eval literal 5 -> 5
+        eval operator - -> 25
+          eval feature x -> 10
+          eval literal 5 -> 5
+        eval operator - -> 5
+          eval feature x -> 20
+          eval literal 5 -> 5
+        eval operator - -> 15
+      exit calc ControlFunctions::collect -> (25, 5, 15)
+    eval invoke collect -> (25, 5, 15)
+  stmt declare fromSet
+materialize: os #1
+              eval literal 30 -> 30
+              eval literal 10 -> 10
+              eval literal 20 -> 20
+            eval sequence of 3 -> (30, 10, 20)
+          eval feature xs -> (30, 10, 20)
+          eval literal 3 -> 3
+        eval index -> 20
+              eval literal 30 -> 30
+              eval literal 10 -> 10
+              eval literal 20 -> 20
+            eval sequence of 3 -> (30, 10, 20)
+          eval feature xs -> (30, 10, 20)
+          eval literal 1 -> 1
+        eval index -> 30
+              eval literal 30 -> 30
+              eval literal 10 -> 10
+              eval literal 20 -> 20
+            eval sequence of 3 -> (30, 10, 20)
+          eval feature xs -> (30, 10, 20)
+          eval literal 2 -> 2
+        eval index -> 10
+      eval sequence of 3 -> (20, 30, 10)
+    eval chain elements -> (20, 30, 10)
+  stmt return
+            eval literal 30 -> 30
+            eval literal 10 -> 10
+            eval literal 20 -> 20
+          eval sequence of 3 -> (30, 10, 20)
+        eval feature xs -> (30, 10, 20)
+        eval literal 1 -> 1
+      eval index -> 30
+            eval literal 30 -> 30
+            eval literal 10 -> 10
+            eval literal 20 -> 20
+          eval sequence of 3 -> (30, 10, 20)
+        eval feature xs -> (30, 10, 20)
+        eval literal 2 -> 2
+      eval index -> 10
+            eval literal 30 -> 30
+            eval literal 10 -> 10
+            eval literal 20 -> 20
+          eval sequence of 3 -> (30, 10, 20)
+        eval feature xs -> (30, 10, 20)
+        eval literal 3 -> 3
+      eval index -> 20
+        eval feature fromSet -> (20, 30, 10)
+        eval literal 1 -> 1
+      eval index -> 20
+        eval feature fromSet -> (20, 30, 10)
+        eval literal 2 -> 2
+      eval index -> 30
+        eval feature fromSet -> (20, 30, 10)
+        eval literal 3 -> 3
+      eval index -> 10
+        eval feature scaled -> (25, 5, 15)
+        eval literal 1 -> 1
+      eval index -> 25
+        eval feature scaled -> (25, 5, 15)
+        eval literal 3 -> 3
+      eval index -> 15
+materialize: list #2
+                  eval literal 30 -> 30
+                  eval literal 10 -> 10
+                  eval literal 20 -> 20
+                eval sequence of 3 -> (30, 10, 20)
+              eval feature xs -> (30, 10, 20)
+              eval literal 1 -> 1
+            eval index -> 30
+                  eval literal 30 -> 30
+                  eval literal 10 -> 10
+                  eval literal 20 -> 20
+                eval sequence of 3 -> (30, 10, 20)
+              eval feature xs -> (30, 10, 20)
+              eval literal 1 -> 1
+            eval index -> 30
+                  eval literal 30 -> 30
+                  eval literal 10 -> 10
+                  eval literal 20 -> 20
+                eval sequence of 3 -> (30, 10, 20)
+              eval feature xs -> (30, 10, 20)
+              eval literal 2 -> 2
+            eval index -> 10
+          eval sequence of 3 -> (30, 30, 10)
+        eval chain elements -> (30, 30, 10)
+        eval literal 2 -> 2
+      eval index -> 30
+    eval sequence of 9 -> (30, 10, 20, 20, 30, 10, 25, 15, 30)
+exit calc test::walk -> (30, 10, 20, 20, 30, 10, 25, 15, 30)

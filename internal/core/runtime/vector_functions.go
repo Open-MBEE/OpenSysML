@@ -338,6 +338,7 @@ func argumentOmitted(val Value) bool {
 // scalarArg reads a scalar numeric argument: the NumericalValue a scalar-vector
 // product or a Complex component is declared as.
 func scalarArg(name, param string, val Value) (semantics.Value, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || !val.Const.IsNumeric() {
 		return semantics.Value{}, fmt.Errorf(
 			"%w: function %s parameter %q requires a numeric value",

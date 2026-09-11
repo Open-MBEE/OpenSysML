@@ -1,0 +1,20 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::h",
+  "slots": {
+    "repeated.elements": {"error": "uniqueness violation: 1 (an Integer) is written at positions 1 and 2 of a unique feature"},
+    "valid.elements": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 3},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2}
+    ]},
+    "count": {"type": "Integer", "value": 3},
+    "list.elements": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 1},
+      {"type": "Integer", "value": 2}
+    ]},
+    "listCount": {"type": "Integer", "value": 3}
+  }
+}

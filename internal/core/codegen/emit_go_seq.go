@@ -113,9 +113,33 @@ func sysmlCheck[T sysmlElem](s sysmlSeq[T], lo, hi int64, where string) sysmlSeq
 	return s
 }
 
-func sysmlNonNegativeSeq(s sysmlSeq[int64], typ string) sysmlSeq[int64] {
+// sysmlElemKind is the interpreter's description of an element's type.
+func sysmlElemKind[T sysmlElem](v T) string {
+	switch any(v).(type) {
+	case int64:
+		return "an Integer"
+	case float64:
+		return "a Real"
+	}
+	return "a Boolean"
+}
+
+// sysmlUnique refuses the first element of s equal to an earlier one, as a
+// write to a unique feature at where does.
+func sysmlUnique[T sysmlElem](s sysmlSeq[T], where string) sysmlSeq[T] {
+	seen := make(map[T]int, len(s.data))
+	for i, v := range s.data {
+		if first, dup := seen[v]; dup {
+			sysmlFailf("%s: uniqueness violation: %s (%s) is written at positions %d and %d of a unique feature", where, sysmlFormat(v), sysmlElemKind(v), first+1, i+1)
+		}
+		seen[v] = i
+	}
+	return s
+}
+
+func sysmlAtLeastSeq(s sysmlSeq[int64], lo int64, typ string) sysmlSeq[int64] {
 	for _, v := range s.data {
-		sysmlNonNegative(v, typ)
+		sysmlAtLeast(v, lo, typ)
 	}
 	return s
 }
@@ -452,7 +476,7 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		}
 		return fmt.Sprintf("sysmlScalar(%s, %s, %t, %s)", e.expr(x.X), strconv.Quote(x.Fail), x.Bare, other), true
 	case Let:
-		return fmt.Sprintf("func() %s { %s := %s; return %s }()", goType(x.In.Type()), goLocal(x.Name), e.expr(x.Value), e.expr(x.In)), true
+		return fmt.Sprintf("func() %s { %s := %s; _ = %s; return %s }()", goType(x.In.Type()), goLocal(x.Name), e.expr(x.Value), goLocal(x.Name), e.expr(x.In)), true
 	case Checked:
 		return e.checked(x), true
 	case Coalesce:
@@ -475,8 +499,23 @@ func (e *goEmitter) seqExpr(x Expr) (string, bool) {
 		return e.seqCall(x, v), true
 	case Fold:
 		return e.fold(x), true
+	case Framed:
+		return fmt.Sprintf("func() %s { sysmlEnter(); r := %s; sysmlLeave(); return r }()", goType(x.Type()), e.expr(x.X)), true
+	case Sampled:
+		return fmt.Sprintf("func() %s { %s; return %s }()", goType(x.Type()), e.sample(x.S), e.expr(x.In)), true
 	}
 	return "", false
+}
+
+// sample declares a Sample's two variables and fills them one frame deeper; the domain is an
+// argument, evaluated before the frame. Each pair is the three elements a collected SamplePair is.
+func (e *goEmitter) sample(s Sample) string {
+	dom, rng := goLocal(s.Dom), goLocal(s.Rng)
+	x := goLocal(s.Body.Params[0].Name)
+	var b strings.Builder
+	fmt.Fprintf(&b, "var %s = %s{sysmlMany, nil}; var %s = %s{sysmlMany, nil}; ", dom, goSeqType(s.DomType()), rng, goSeqType(s.RngType()))
+	fmt.Fprintf(&b, "{ s := %s; sysmlEnter(); for _, %s := range s.data { y := %s; sysmlPush(&%s, %s); sysmlPush(&%s, y); sysmlCharge(1) }; sysmlLeave() }", e.expr(s.Seq), x, e.expr(s.Body.Body), dom, x, rng)
+	return b.String()
 }
 
 // seqLit concatenates the operands' elements, evaluated left to right.
@@ -496,14 +535,18 @@ func (e *goEmitter) seqLit(x SeqLit) string {
 	return fmt.Sprintf("sysmlConcat[%s](%s)", elem, strings.Join(parts, ", "))
 }
 
-// checked binds a collection: multiplicity first, then the elements' range.
+// checked binds a collection: multiplicity first, then the elements' range,
+// then their uniqueness.
 func (e *goEmitter) checked(x Checked) string {
 	v := e.expr(x.X)
 	if x.M != MultAny {
 		v = fmt.Sprintf("sysmlCheck(%s, %d, %d, %s)", v, x.M.Lower, x.M.Upper, strconv.Quote(x.Where))
 	}
 	if x.R != RangeAny {
-		v = fmt.Sprintf("sysmlNonNegativeSeq(%s, %q)", v, x.R.String())
+		v = fmt.Sprintf("sysmlAtLeastSeq(%s, %d, %q)", v, x.R.Lower(), x.R.String())
+	}
+	if x.Unique {
+		v = fmt.Sprintf("sysmlUnique(%s, %s)", v, strconv.Quote(x.Where))
 	}
 	return v
 }

@@ -14,7 +14,7 @@ package test {
 
 	action race {
 		attribute x : Integer = 0;
-		attribute y : Integer = 0;
+		attribute y : Rational = 0;
 		attribute w : Integer = 0;
 
 		first start;

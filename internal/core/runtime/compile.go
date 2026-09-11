@@ -104,6 +104,8 @@ type scalarCheck struct {
 	countOK bool
 	// Whether the declared type holds a value of each lattice type a scalar has.
 	boolOK, naturalOK, integerOK, rationalOK, realOK bool
+	// least is the smallest integer a Natural-holding declaration takes: 1 for Positive.
+	least int64
 }
 
 // accepts reports whether the declaration surely holds v, deciding on the
@@ -114,20 +116,16 @@ func (c *scalarCheck) accepts(v scalar) bool {
 	}
 	switch v.kind {
 	case scalarInt:
-		return c.integerOK || (c.naturalOK && v.int() >= 0)
+		return c.integerOK || (c.naturalOK && v.int() >= c.least)
 	case scalarBool:
 		return c.boolOK
 	}
 	return c.acceptsReal(v)
 }
 
-// acceptsReal places a Real on the lattice by its value, as the evaluator does.
+// acceptsReal places a Real on the lattice by its representation, as the evaluator does.
 func (c *scalarCheck) acceptsReal(v scalar) bool {
-	switch semantics.PrimTypeOfValue(v.semantic()) {
-	case semantics.PrimNatural:
-		return c.naturalOK
-	case semantics.PrimInteger:
-		return c.integerOK
+	switch representationPrim(v.boxed()) {
 	case semantics.PrimRational:
 		return c.rationalOK
 	case semantics.PrimReal:
@@ -380,6 +378,9 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.integerOK = holds(semantics.PrimInteger)
 	check.rationalOK = holds(semantics.PrimRational)
 	check.realOK = holds(semantics.PrimReal)
+	if c.ctx.positiveScalar(decl.Target.typ) {
+		check.least = 1
+	}
 	return check, true
 }
 

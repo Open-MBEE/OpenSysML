@@ -382,6 +382,15 @@ supertype for good. The pinned validator has no cycle check, as above. Locked by
 `TestDirectSupertypesKeptAcrossOwnerCycleGuard` and `TestConstraintNestedMemberSpecializationCycle`;
 the committed baseline is not re-recorded here, as a separate `scope` movement is still being adjudicated.
 
+One **arithmetic operand** row joined when an untyped collection-body parameter began taking the
+element type of the collection its body is applied to: `ParsingTests_Expressions.kerml.xt`:40
+declares the file clean, and its `c = x->collect {in xx; xx + 1};` and `c1 = x.{in xx; xx + 1};`
+(lines 55–56) now draw `operator '+' is not defined for String and Natural`, because `x` is the
+`String` that `ToString` returns. The same body written `in xx : String` drew that error already;
+the adjudication is in
+[pilot-differential.md](pilot-differential.md#collection-body-element-typing-round). The
+committed baseline is likewise not re-recorded for it.
+
 The two former unresolved-reference rows were checked independently before Step 2 and were already
 closed at its merge base. `AllocationTest.sysml.xt:31` was the n-ary connector-end parser defect;
 `KernelLibraryTest.sysml.xt:72` was recursive import re-export traversal. Neither depends on prefix

@@ -156,15 +156,3 @@ func complexIntPow(x complex128, n int64) complex128 {
 	}
 	return acc
 }
-
-// complexPrimType classifies a complex number in the ScalarValues lattice: one
-// off the real axis is a Complex, one on it is the Real it equals.
-func complexPrimType(z complex128) semantics.PrimType {
-	if imag(z) != 0 {
-		if math.IsNaN(real(z)) || math.IsNaN(imag(z)) {
-			return semantics.PrimUnknown
-		}
-		return semantics.PrimComplex
-	}
-	return semantics.PrimTypeOfValue(semantics.Value{Kind: semantics.ValReal, Real: real(z)})
-}

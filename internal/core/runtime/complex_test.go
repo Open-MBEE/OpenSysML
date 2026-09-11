@@ -173,23 +173,24 @@ func TestEqualNumbersShareOneSetMember(t *testing.T) {
 	}
 }
 
-// A Complex off the real axis is a Complex in the scalar lattice; one on it is
-// the Real it equals: a Rational, or an Integer or Natural where it is whole.
-func TestComplexPrimType(t *testing.T) {
+// A Complex is represented as a Complex whether or not it lies on the real axis: what
+// ComplexFunctions return is a Complex, not the Real it may equal (KerML 1.0 §8.4.4.9.2).
+func TestComplexRepresentationPrim(t *testing.T) {
 	for _, tc := range []struct {
 		z    complex128
 		want semantics.PrimType
 	}{
 		{complex(0, 1), semantics.PrimComplex},
 		{complex(2.5, -1), semantics.PrimComplex},
-		{complex(2.5, 0), semantics.PrimRational},
-		{complex(-2, 0), semantics.PrimInteger},
-		{complex(2, 0), semantics.PrimNatural},
+		{complex(2.5, 0), semantics.PrimComplex},
+		{complex(-2, 0), semantics.PrimComplex},
+		{complex(2, 0), semantics.PrimComplex},
+		{complex(math.Inf(1), 0), semantics.PrimComplex},
 		{complex(math.NaN(), 1), semantics.PrimUnknown},
 	} {
 		z := NewComplex(tc.z)
-		if got := valuePrimType(&z); got != tc.want {
-			t.Errorf("valuePrimType(%s) = %v, want %v", FormatComplex(tc.z), got, tc.want)
+		if got := representationPrim(z); got != tc.want {
+			t.Errorf("representationPrim(%s) = %v, want %v", FormatComplex(tc.z), got, tc.want)
 		}
 	}
 }

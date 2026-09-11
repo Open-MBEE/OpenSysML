@@ -114,7 +114,7 @@ func TestAssignOfAnUnknownTypeStaysSilent(t *testing.T) {
 func TestAssignMustSatisfyMultiplicity(t *testing.T) {
 	wantOneDiag(t, `package P {
 		action def Set {
-			attribute samples : ScalarValues::Integer[2] = (0, 0);
+			attribute samples : ScalarValues::Integer[2] nonunique = (0, 0);
 			action step {
 				assign samples := (1, 2, 3);
 			}

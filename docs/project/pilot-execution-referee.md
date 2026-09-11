@@ -211,14 +211,15 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 154 committed cases, the original 32, the 62 the
-expression round added, the 10 of `value_classification.cases`, the 3 of `contextual_names.cases`,
-the 14 of `rational_terms.cases`, the 5 the empty-aggregate and subsetting round added to
-`w6d_expr_depth.cases` the 12 of `tensor_quantities.cases`, the 9 of
-`coordinate_frames.cases` and the 7 of `cast_expressions.cases`:
+prints the current ones. State of the 185 committed cases, the original 32, the 62 the
+expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
+`value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
+the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
+`tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`
+and the 27 of `scalar_classification.cases`:
 
 ```
-agree: 71 · kind-only: 1 · order-only: 0 · disagree: 4
+agree: 101 · kind-only: 1 · order-only: 0 · disagree: 5
 pilot-unevaluated: 59 · pilot-silent: 7 · pilot-error: 2 · ours-error: 2 · both-error: 8
 nondeterministic: 0
 ```
@@ -253,24 +254,55 @@ thirteen land in `pilot-unevaluated` and only `quotient-by-operator` (`6 / 4`, `
 semantics are therefore self-assessed, in
 [exact-rational-evaluation.md](exact-rational-evaluation.md#rationalfunctionsrat-numer-and-denom-over-a-binary64-rational).
 
-The ten `value_classification.cases` all agree, and they were added with the fix they referee:
-`x @ T` with a value subject is the classification test `x istype T` — `a : Integer = 3` answers
-`a @ Integer` and `a @ Real` `true` and `a @ String` `false`, `car : Car` answers `car @ Vehicle`
-`true` — where before the runtime judged every `@` against the subject's metadata annotations and
-reported a scalar as classifying no element. `x @ Safety` with a metadata type keeps that
-metadata reading, which the pilot does not share (its `@` is `istype` throughout, so it answers
-`false`); no committed case probes it, since the corpus was written model-level and the
-annotation forms are pinned by the runtime conformance fixtures instead.
+The fourteen `value_classification.cases` all agree, and they were added with the fixes they
+referee: `x @ T` with a value subject is a classification test like `x istype T` — `a : Integer =
+3` answers `a @ Integer` and `a @ Real` `true` and `a @ String` `false`, `car : Car` answers `car
+@ Vehicle` `true` — where before the runtime judged every `@` against the subject's metadata
+annotations and reported a scalar as classifying no element. The two operators part over a
+collection (KerML 1.0 §7.4.9.2): `istype` holds when every value is classified, `@` when at least
+one is, so `mixed : Real[*] = (1, 2.5, 3)` answers `mixed istype Integer` `false` and `mixed @
+Integer` `true`, and `()` answers `@ Integer` `false` (and `istype Integer` `true`, the
+`empty-istype-integer` of `scalar_classification.cases`); the pilot's `IsTypeFunction` tests every
+value and its `AtFunction` any, and both sides agree on all of them.
+A feature declared `Integer[0..1]` with no value is not probed: the pilot evaluates the bare
+feature reference to the feature itself, one element whose type is `Integer`, and answers `none @
+Integer` `true` and `none @ String` `false`, where the runtime holds the empty collection and
+answers `@` `false` — pinned by `conformance/value_classification_shared_rule.sysml`. `x @
+Safety` with a metadata type keeps the metadata reading, which the pilot does not share (its `@`
+classifies the value alone, so it answers `false`); no committed case probes it, since the corpus
+was written model-level and the annotation forms are pinned by the runtime conformance fixtures
+instead.
 
 The seven `cast_expressions.cases` probe `x as T`, added with the evaluation they referee. Two
 agree: `n as Real` on `n : Integer = 7` answers `7` on both sides, and `(1, 2.5, 3) as Integer`
 answers `(1, 3)` on both — the cast selects element-wise and converts nothing. Three are
 `pilot-silent`: `n as Natural`, `2.5 as Integer` and `4.0 as Integer` draw no output at all from
-the pilot, so its reading of a value the target does not classify (we answer the empty sequence
-for `2.5 as Integer`) and of an integral `Real` cast to `Integer` (we keep `4.0`) is unobservable
-here. The two part cases, `car as Vehicle` and `car as Car`, land in `pilot-unevaluated`: the
-pilot answers with the unevaluated `PartUsage car`, which names the same value we select but is
-not an evaluation of the cast.
+the pilot, so its reading of a cast is unobservable here; we answer the empty sequence for both
+`2.5 as Integer` and `4.0 as Integer`, and the typed `ErrUndecidedClassification` for `n as
+Natural`, because a cast keeps exactly the values `istype` affirms and the pilot's `istype`
+verdicts below fix those. The two part cases, `car as Vehicle` and `car as Car`, land in
+`pilot-unevaluated`: the pilot answers with the unevaluated `PartUsage car`, which names the same
+value we select but is not an evaluation of the cast.
+
+The 27 `scalar_classification.cases` referee the rule the cast borrows — which ScalarValues types
+a scalar value is of — through `istype` and `hastype`, which the pilot does evaluate. 26 agree,
+and together they fix the rule as the one KerML states: a value is of the type its representation
+states and of that type's supertypes, whatever number it holds. An integer is an `Integer`
+(`n hastype Rational` false, `n istype Rational` true); a finite real is a `Rational`, whole or not
+(`w : Real = 4.0` answers `w istype Integer` false, `w hastype Rational` true and `w hastype Real`
+false — KerML 1.0 §8.4.4.9.2: only the rational subset of the reals has a finite literal, so a
+`LiteralRational`'s result is classified in `Rational`); a quotient is what `IntegerFunctions::'/'`
+returns, a `Rational` (§9.4.11.1), so `6 / 3 istype Integer` and `(7 / 2) hastype Real` are false
+and `(7 / 2) hastype Rational` true; an integer written to a `Rational` feature stays the `Integer`
+it is (`rat : Rational = 4` answers `rat hastype Integer` true, `rat hastype Rational` false); `*`
+is a `Positive` (§8.4.4.9.2) and the empty sequence is of every type. `n as Rational` keeps the
+integer `4` and `r as Real` the rational `2.5`, converting neither. The one `disagree` is
+`natural-feature-istype-natural`: `nat : Natural = 7` answers `nat istype Natural` `true` here and
+`false` from the pilot, which reads the literal's type alone — the same evaluator answers `nat
+hastype Integer` `true`. The values of a feature are instances of all its types (§8.3.3.3.4
+Feature, `type`), so the feature's typing is a type its value is of and the verdict stays ours;
+no evaluation produces a value whose own type is `Natural`, which is why `hastype Natural` is false
+on both sides and why a bare `7 istype Natural` is false on both (`w6d:istype-int-natural`).
 
 The three `contextual_names.cases` all agree, and they were added with the parser fix they
 referee: `chain` is the feature chain modifier only when a name follows it, so `attribute chain =
@@ -288,36 +320,49 @@ These counts were lost once and regained. When the expression type checker
 `ours-error` — `agree: 37 · ours-error: 21` — without a single referee case changing. All 20 draw on
 `expr_values.sysml`, and the checker refused that whole model on one declaration, `calc def IntDiv {
 return : Integer = 7 / 2; }`, with `cannot bind Rational value to a feature typed by Integer`. The
-rejection was a false positive from partial information: the checker types a whole-number quotient
-as `Rational` because that is what the reference evaluates it to (see
-[omg-issues.md](omg-issues.md)), but an expression's static type only bounds its values, and `4 / 2`
-is whole. The fix is in the checker, not the cases: a binding is now refused only when the value's
-type and the feature's are disjoint (`String` to `Integer`, `Boolean` to `Real`) or when the value
-is a literal, signed or not, whose type is exact (`2.5` or `-3` to `Natural`). A quotient, a call or
-a `Real` feature bound to an `Integer` is left to evaluation. `divisionResult` still types integer
-division as `Rational`, so `constraint def c { 7 / 2 }` is still reported as not Boolean. After that
-fix the count read `agree: 56 · ours-error: 1`; each of the 20 returned to the bucket it held before.
+first fix was in the checker: a binding was refused only when the value's type and the feature's
+were disjoint (`String` to `Integer`, `Boolean` to `Real`) or when the value was a literal whose
+type is exact (`2.5` or `-3` to `Natural`), and a quotient, a call or a `Real` feature bound to an
+`Integer` was left to evaluation, which then judged the value by its magnitude — `4 / 2`, evaluating
+to `2.0`, was held by an `Integer` feature and `7 / 2` was not. After that fix the count read
+`agree: 56 · ours-error: 1`; each of the 20 returned to the bucket it held before, and `intdiv`
+alone was `ours-error`, refused at run time.
 
-Deferring to evaluation is only honest if evaluation judges. A feature value and a calculation
-argument are bindings (KerML 1.0 §7.4.9: a `BindingConnector` requires the same values at both
-ends, and a feature's values are instances of its types), and until this round the run time checked
-neither — an `Integer` feature materialized its default as `3.5` and a calc took `1.5` for an
-`Integer` parameter, with no diagnostic from either tier. Now a default a declaration binds, whether
-folded ahead of time or evaluated on first read, an argument or default bound to a calc parameter,
-including one inherited or redefined, and a calc's result, are checked against the declaration
-before the value is held (`runtime/write_conformance.go`, `runtime/instance.go`,
-`runtime/invoke_calc.go`, `runtime/calc_statements.go`). The judgement is by value: a constant is
-an instance of the narrowest scalar type that holds it (`semantics.PrimTypeOfValue`), so `4 / 2`,
-which evaluates to the real `2.0`, is an `Integer` and a `Natural`, `-4 / 2` an `Integer` only, and
-`7 / 2` a `Rational` that no `Integer` feature holds. Nothing is truncated: a sequence index that
-evaluates to `2.0` names the second element and one that evaluates to `1.5` names none, as before.
-The static rule for an index is unchanged, so `xs#(4 / 2)` is still reported where it is written;
-the run-time acceptance matters for an index that reaches evaluation untyped.
+That by-magnitude reading is superseded. The `scalar_classification.cases` above fix what a scalar
+value is of, and a feature write is the same judgement: a feature value and a calculation argument
+are bindings (KerML 1.0 §7.4.9: a `BindingConnector` requires the same values at both ends), and
+the values of a feature must be instances of all its types (§8.3.3.3.4), so a feature holds a value
+exactly when `istype` would affirm the feature's type of it. A quotient is a `Rational` whatever it
+divides (§9.4.11.1), a finite real is a `Rational` whatever number it holds (§8.4.4.9.2), and neither
+is an `Integer`: `attribute whole : Integer = 4 / 2` and an `Integer` parameter fed the real `2.0`
+are now the typed `ErrTypeMismatch` that `7 / 2` and `3.5` already were, and a model that means the
+whole number converts with `RationalFunctions::ToInteger`, `RealFunctions::ToInteger` or
+`IntegerFunctions::ToNatural` — the library functions that convert — or declares the feature
+`Rational` or `Real`. One shared classification (`runtime/classification.go` `classifyValue`)
+answers `as`, `istype`, `hastype`, `@` and `write_conformance.go` `valueConforms`, so no two of
+them can judge the same value and type differently. The static checker follows the same rule
+where the value's type is settled at its spelling: a literal's type is exact, and a quotient's is
+`Rational` however whole or signed, so `Integer = 7 / 2`, `Integer = -(4 / 2)`, `Natural = i / 2`
+and an argument `add(4 / 2)` to an `Integer` parameter are refused where they are written
+(`passes/typecheck_expr.go` `bindable`, `isQuotient`); a call or a `Real` feature bound to an
+`Integer` is still left to evaluation, since their static type only bounds their values (a `Real`
+feature may hold an integer, as `rat : Rational = 4` shows). Nothing is truncated: a sequence
+index that evaluates to `2.0` names the second element and one that evaluates to `1.5` names none,
+as before.
 
-That moves `intdiv` — `Probe::IntDiv()`, the very declaration above — from `agree` to `ours-error`:
-we now report `calc Probe::IntDiv: result: type mismatch: cannot write 3.5 (a Real) to a feature
-typed by Integer` where the pilot answers `3.5`. The counts above are as remeasured after both
-fixes, `agree: 55 · ours-error: 2`, and the second `ours-error` is adjudicated in the table below.
+The fixtures that relied on the by-magnitude write were re-adjudicated one by one rather than
+relaxed: an `Integer` or `Natural` feature or parameter that a quotient or a whole real reached
+is declared `Rational` or `Real` where the model computes such a value (the REPL, gRPC and LSP
+fixtures, the compiled-calculation and choice-point fixtures; the disposal-robot demo computes
+no such value and runs unchanged), converts with
+`ToInteger` where it means the integer (`value_conformance_test.go`, the checker's own tests), or
+pins the typed error where the write is the point of the fixture (`runtime/robustness_test.go`, the
+coordinate-frame failure modes, `calc_cast_scalar_values`). Each movement is cited in the
+feature-write conformance row of [spec-compliance.md](spec-compliance.md).
+
+`intdiv` is now refused by the checker rather than at run time — `cannot bind Rational value to a
+feature typed by Integer` where the pilot answers `3.5` — and is kept in a model of its own,
+`integer_quotient.cases`, so the static refusal leaves the other `expr_values` probes evaluable.
 The pilot's answer is not a reading of the specification we differ on: its evaluator computes the
 result expression and does not check what the result parameter is typed by, so it would answer
 `3.5` for `return : String = 7 / 2` too. Reporting the binding is stricter than the reference, not
@@ -367,7 +412,7 @@ The two remaining `ours-error` cases are adjudicated divergences:
 | Case | Ours | Read |
 |---|---|---|
 | `w6d:held-undeclared-multi` | `multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1` | **Deliberately ours.** `attribute xs = (1.0, 2.0)` declares no multiplicity, so the assumed `1..1` makes the default a violation (KerML 1.0 §7.4.5, and the multiplicity row of [spec-compliance.md](spec-compliance.md)); the pilot returns both values. An adjudicated divergence, not a defect |
-| `intdiv` | `calc Probe::IntDiv: result: type mismatch: cannot write 3.5 (a Real) to a feature typed by Integer` | **Deliberately ours.** `calc def IntDiv { return : Integer = 7 / 2; }` binds a value that is no `Integer` to its result parameter; the type checker lets it through, since a quotient may be whole, and evaluation finds that this one is not (KerML 1.0 §7.4.9, and the feature-write conformance row of [spec-compliance.md](spec-compliance.md)). The pilot answers `3.5`, checking nothing against the parameter's type. Stricter than the reference, not a defect in either |
+| `intdiv` | `integer_quotient.sysml:6:42: error: cannot bind Rational value to a feature typed by Integer` | **Deliberately ours.** `calc def IntDiv { return : Integer = 7 / 2; }` binds a `Rational` — what `IntegerFunctions::'/'` returns, KerML 1.0 §9.4.11.1 — to an `Integer` result parameter, and a feature's values must be instances of its types (§8.3.3.3.4, §7.4.9; the feature-write conformance row of [spec-compliance.md](spec-compliance.md)). The pilot answers `3.5`, checking nothing against the parameter's type. Stricter than the reference, not a defect in either |
 
 The cases that were `ours-error` before that round, and what closed them:
 

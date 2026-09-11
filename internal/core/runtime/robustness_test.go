@@ -297,6 +297,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_unreachable_receiver", testRoutedSendUnreachableReceiver)
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
+	t.Run("two_valued_member_in_scalar_context", testTwoValuedMemberInScalarContext)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
@@ -410,6 +411,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("second_instantiation_of_one_type", testSecondInstantiationOfOneType)
 	t.Run("write_of_a_wrong_typed_value_leaves_the_feature", testWriteOfAWrongTypedValueLeavesTheFeature)
 	t.Run("write_of_too_many_values_leaves_the_feature", testWriteOfTooManyValuesLeavesTheFeature)
+	t.Run("write_of_a_repeated_value_leaves_the_feature", testWriteOfARepeatedValueLeavesTheFeature)
 	t.Run("write_of_no_value_where_one_is_required", testWriteOfNoValueWhereOneIsRequired)
 	t.Run("state_entry_write_of_a_wrong_typed_value", testStateEntryWriteOfAWrongTypedValue)
 	t.Run("performer_feature_write_of_a_wrong_typed_value", testPerformerFeatureWriteOfAWrongTypedValue)
@@ -1542,7 +1544,8 @@ func testTensorQuantityFailureModes(t *testing.T) {
 // CoordinateTransformation the library gives no shape, a placement whose origin
 // is no vector quantity or whose basis is singular, a translation in an
 // incommensurable unit, a scale placed on two references at odds, and matrices,
-// sequences and placements missing what they declare.
+// sequences and placements missing what they declare. A scalar written where a
+// reference, vector or step is declared is refused by the write itself.
 func testCoordinateFrameFailureModes(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
@@ -1561,7 +1564,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"frame whose dimensions overflow", `attribute bad : CoordinateFrame { :>> dimensions : Positive[2] = (4611686018427387904, 4); :>> mRefs = (m, m, m); }`,
 			"CoordinateFrame", "bad", semantics.ErrArithmeticOverflow, "bad: flattenedSize of dimensions [4611686018427387904, 4] exceeds the Integer range"},
 		{"frame whose mRef is a number", `attribute bad : CoordinateFrame { :>> mRefs = (m, 2); }`,
-			"CoordinateFrame", "bad", ErrTypeMismatch, "mRefs#(2) is an Integer, want a ScalarMeasurementReference"},
+			"CoordinateFrame", "bad", ErrTypeMismatch, "bad.mRefs: type mismatch: cannot write 2 (an Integer) to a feature typed by ScalarMeasurementReference"},
 		{"vector short of an axis", ``,
 			"Position3dVector", "(1.0, 2.0) [spatialCF]", ErrMultiplicityViolation, "2 elements over the coordinate frame spatialCF, whose flattenedSize is 3; elements: Number[1..n] with n = mRef.flattenedSize"},
 		{"vector of a number too many", ``,
@@ -1598,7 +1601,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrUnevaluableLibraryFunction, "transformation is a Bespoke, a CoordinateTransformation of no shape the library gives a meaning"},
 		{"placement whose origin is a string", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : CoordinateFramePlacement { :>> source = datum; :>> origin = "2024-01-01T00:00:00Z"; } }`,
-			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, "origin is string, not a vector quantity over datum"},
+			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, `transformation.origin: type mismatch: cannot write "2024-01-01T00:00:00Z" (string) to a feature typed by VectorQuantityValue`},
 		{"placement whose origin is missing", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : CoordinateFramePlacement { :>> source = datum; } }`,
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrNoValue, "states no origin; CoordinateFramePlacement declares origin: VectorQuantityValue[1]"},
@@ -1636,7 +1639,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrNoValue, "states no elements; TranslationRotationSequence declares elements: TranslationOrRotation[1..*]"},
 		{"sequence whose element is a number", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : TranslationRotationSequence { :>> source = datum; :>> elements = (1, 2); } }`,
-			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, "want a Translation or a Rotation"},
+			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", ErrTypeMismatch, "transformation.elements: type mismatch: cannot write 1 (an Integer) to a feature typed by TranslationOrRotation"},
 		{"rotation about the zero vector", `
 			attribute odd : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); :>> transformation : TranslationRotationSequence { :>> source = datum; :>> elements = (new Rotation((0.0, 0.0, 0.0) [datum], 90 ['°'])); } }`,
 			"Position3dVector", "transform(odd.transformation, (1.0, 2.0, 3.0) [datum])", semantics.ErrArithmeticDomain, "axisDirection is the zero vector, which points nowhere"},
@@ -1705,7 +1708,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"scale whose origin is a string", `
 			attribute def Muddled :> Time::TimeScale { :>> unit = s; :>> transformation : CoordinateFramePlacement { :>> source = Time::UTC; :>> origin = "2024-01-01T00:00:00Z"; } }
 			attribute muddled : Muddled;`,
-			"ISQ::DurationValue", "ConvertQuantity(3.0 [Time::UTC], muddled)", ErrUnevaluableLibraryFunction, "muddled: the origin of its transformation transformation is string, not a quantity on UTC"},
+			"ISQ::DurationValue", "ConvertQuantity(3.0 [Time::UTC], muddled)", ErrTypeMismatch, `transformation.origin: type mismatch: cannot write "2024-01-01T00:00:00Z" (string) to a feature typed by VectorQuantityValue`},
 		{"scale whose one basis direction is the identity in another unit", `
 			attribute shifted : IntervalScale { :>> unit = m; :>> transformation : CoordinateFramePlacement { :>> source = m; :>> origin = 10.0 [m]; :>> basisDirections = 1000.0 [mm]; } }`,
 			"LengthValue", "ConvertQuantity(3.0 [shifted], m)", nil, ""},
@@ -4444,6 +4447,56 @@ func testRoutedSendReceiverNameMismatchDeadlock(t *testing.T) {
 	}
 }
 
+// testTwoValuedMemberInScalarContext: a `[0..*]` member holding two values is
+// not the one value an operator, a `[1]` parameter or a library function takes;
+// each refuses it with a typed error rather than a panic, a hang or a guess.
+func testTwoValuedMemberInScalarContext(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		expr string
+		want error
+	}{
+		{"arithmetic", "q.zs + 1.0", ErrTypeMismatch},
+		{"negation", "-q.zs", ErrTypeMismatch},
+		{"calc parameter", "Inc(q.zs)", ErrMultiplicityViolation},
+		{"library function", "RealFunctions::sqrt(q.zs)", ErrTypeMismatch},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+				private import ScalarValues::*;
+				calc def Inc { in x : Real; x + 1.0 }
+				part def Holder { attribute zs : Real[0..*]; }
+				calc def Two {
+					attribute q : Holder = new Holder(zs = (1.0, 2.0));
+					return r = ` + tc.expr + `;
+				}
+			}`
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			pkg := resolveSymbol(t, idx.DocumentRoot("<test>"), "test")
+			sym := resolveSymbol(t, pkg.Scope, "Two")
+
+			done := make(chan error, 1)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						done <- fmt.Errorf("panic: %v", r)
+					}
+				}()
+				_, err := ctx.InvokeCalc(sym, nil, pkg.Scope)
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				if !errors.Is(err, tc.want) {
+					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("evaluating the two-valued member did not terminate")
+			}
+		})
+	}
+}
+
 func testTypeClassificationUnresolvedType(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `package P {
 		item def Integer;
@@ -4463,10 +4516,13 @@ func testTypeClassificationUnresolvedType(t *testing.T) {
 	}
 }
 
+// A value whose type the model cannot name is a typed error; `null` is the empty
+// sequence (KerML 8.3.4.8.16), of every type, so it is not that value.
 func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `package P {
 		item def Integer;
-		calc classify { return : Boolean = null istype Integer; }
+		calc classify { return : Boolean = 1.5 istype Integer; }
+		calc empty { return : Boolean = null istype Integer; }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "classify")
@@ -4477,8 +4533,16 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	if !errors.Is(err, ErrUndeterminedValueType) {
 		t.Fatalf("expected ErrUndeterminedValueType, got: %v", err)
 	}
-	if !strings.Contains(err.Error(), "null") {
-		t.Errorf("error = %v, want undecidable value description", err)
+	if !strings.Contains(err.Error(), "Rational") {
+		t.Errorf("error = %v, want the type the model has no name for", err)
+	}
+	empty := resolveSymbol(t, pkg.Scope, "empty")
+	got, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(empty, nil, pkg.Scope)
+	if err != nil {
+		t.Fatalf("null istype Integer: %v", err)
+	}
+	if FormatValue(got) != "true" {
+		t.Errorf("null istype Integer = %s, want true", FormatValue(got))
 	}
 }
 
@@ -11022,7 +11086,7 @@ func testObjectExhibitedMachineAttributeWriteViolatesMultiplicity(t *testing.T) 
 	src := `
 	package test {
 		state def Modes {
-			attribute samples : Integer[2] = (0, 0);
+			attribute samples : Integer[2] nonunique = (0, 0);
 			entry; then active;
 			state active {
 				entry action record {
@@ -11049,7 +11113,7 @@ func testObjectPerformedActionAttributeWriteViolatesMultiplicity(t *testing.T) {
 	src := `
 	package test {
 		action def Record {
-			attribute samples : Integer[2] = (0, 0);
+			attribute samples : Integer[2] nonunique = (0, 0);
 			action step {
 				assign samples := 1;
 			}
@@ -11293,6 +11357,112 @@ func testWriteOfTooManyValuesLeavesTheFeature(t *testing.T) {
 	}
 	if got := len(elementsOf(fv.HeldValue())); got != 2 {
 		t.Errorf("samples holds %d value(s), want the 2 it held before the rejected write", got)
+	}
+}
+
+// testWriteOfARepeatedValueLeavesTheFeature: a repeat written to a unique feature
+// is refused after count and type, leaving its value; nonunique takes it, a set drops it.
+func testWriteOfARepeatedValueLeavesTheFeature(t *testing.T) {
+	src := `
+	package test {
+		private import ScalarValues::*;
+		private import Collections::*;
+		part def Rig {
+			attribute xs : Integer[*] = (1, 2);
+			attribute ordered : Integer[*] ordered = (1, 2);
+			attribute bounded : Integer[0..2] = (1, 2);
+			attribute repeats : Integer[*] nonunique = (1, 1);
+			attribute members : Set { :>> elements = (1, 2); }
+		}
+	}`
+	ctx, inst, err := instantiateWithLibraries(t, src, "test::Rig")
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	repeated := sequenceOf([]Value{constInt(3), constInt(4), constInt(3)})
+	for _, feature := range []string{"xs", "ordered"} {
+		err := inst.SetFeatureValue(ctx, feature, repeated)
+		if !errors.Is(err, ErrUniquenessViolation) {
+			t.Fatalf("%s: error = %v, want ErrUniquenessViolation", feature, err)
+		}
+		if want := "3 (an Integer) is written at positions 1 and 3 of a unique feature"; !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: error = %v, want it to say %q", feature, err, want)
+		}
+		fv, err := inst.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Fatalf("read %s after the rejected write: %v", feature, err)
+		}
+		if got := intsOf(t, fv.HeldValue()); !equalInts(got, []int64{1, 2}) {
+			t.Errorf("%s = %v, want the (1, 2) it held before the rejected write", feature, got)
+		}
+	}
+	if err := inst.SetFeatureValue(ctx, "bounded", repeated); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("bounded: error = %v, want ErrMultiplicityViolation before the repeat is judged", err)
+	}
+	wrongType := sequenceOf([]Value{NewStringValue("a"), NewStringValue("a")})
+	if err := inst.SetFeatureValue(ctx, "xs", wrongType); !errors.Is(err, ErrTypeMismatch) {
+		t.Errorf("xs: error = %v, want ErrTypeMismatch before the repeat is judged", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "repeats", repeated); err != nil {
+		t.Errorf("repeats: error = %v, want a nonunique feature to take the repeat", err)
+	}
+	if err := inst.SetFeatureValue(ctx, "ordered", sequenceOf([]Value{constInt(3), constInt(1), constInt(2)})); err != nil {
+		t.Fatalf("ordered: error = %v, want distinct values to be written", err)
+	}
+	if fv, _ := inst.GetFeatureValue(ctx, "ordered"); !equalInts(intsOf(t, fv.HeldValue()), []int64{3, 1, 2}) {
+		t.Errorf("ordered = %s, want (3, 1, 2) in the order written", FormatValue(fv.HeldValue()))
+	}
+	members, err := inst.GetFeatureValue(ctx, "members")
+	if err != nil {
+		t.Fatalf("members: %v", err)
+	}
+	set, ok := members.HeldValue().Object()
+	if !ok {
+		t.Fatalf("members = %s, want a Set object", FormatValue(members.HeldValue()))
+	}
+	if err := ctx.instances[set].SetFeatureValue(ctx, "elements", repeated); err != nil {
+		t.Errorf("members.elements: error = %v, want a set to drop the repeat", err)
+	}
+	if fv, _ := ctx.instances[set].GetFeatureValue(ctx, "elements"); fv.HeldValue().Kind != ValSet || len(elementsOf(fv.HeldValue())) != 2 {
+		t.Errorf("members.elements = %s, want the set {3, 4}", FormatValue(fv.HeldValue()))
+	}
+
+	actionSrc := `
+	package test {
+		private import ScalarValues::*;
+		action w {
+			attribute xs : Integer[*] ordered = (1, 2);
+			attribute n : Integer = 5;
+			first start;
+			action step { assign xs := (n, 6, n); }
+			done;
+			succession first start then step;
+			succession first step then done;
+		}
+	}`
+	idx, _, actx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, actionSrc))
+	if _, err := actx.ExecuteAction(findSymbolByName(idx.DocumentRoot("<test>"), "w", ast.DefAction)); !errors.Is(err, ErrUniquenessViolation) {
+		t.Errorf("assign: error = %v, want ErrUniquenessViolation", err)
+	}
+
+	calcSrc := `
+	package test {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		calc def Pass { in xs : Integer[*]; return : Integer[*] = xs; }
+		calc def Twice { in x : Integer; return : Integer[*] = (x, x); }
+		calc def Local { in xs : Integer[*] nonunique; attribute ys : Integer[*] = xs; return : Integer = size(ys); }
+		calc def LocalRepeats { in xs : Integer[*] nonunique; attribute ys : Integer[*] nonunique = xs; return : Integer = size(ys); }
+	}`
+	for name, args := range map[string][]Value{"Pass": {repeated}, "Twice": {constInt(7)}, "Local": {repeated}} {
+		if err := calcErrorWithLibraries(t, calcSrc, name, args, 10000); !errors.Is(err, ErrUniquenessViolation) {
+			t.Errorf("%s: error = %v, want ErrUniquenessViolation", name, err)
+		}
+	}
+	cidx, _, cctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcSrc))
+	sym, scope := calcByName(t, cidx.DocumentRoot("<test>"), "test", "LocalRepeats")
+	if result, err := cctx.InvokeCalc(sym, []Value{repeated}, scope); err != nil || FormatTraceValue(result) != "3" {
+		t.Errorf("LocalRepeats = %s, %v; want 3: a nonunique local takes the repeat", FormatTraceValue(result), err)
 	}
 }
 

@@ -75,9 +75,8 @@ func (m Mult) Admits(n int64) bool {
 	return n >= m.Lower && (m.Upper < 0 || n <= m.Upper)
 }
 
-// Range narrows an Integer to the values its declared library subtype admits.
-// The interpreter judges Positive as Natural, so both admit every non-negative
-// Integer and differ only in the type the refusal names.
+// Range narrows an Integer to the values its declared library subtype admits:
+// Natural the non-negative Integers, Positive those above zero.
 type Range int
 
 const (
@@ -95,6 +94,14 @@ func (r Range) String() string {
 		return "Positive"
 	}
 	return ""
+}
+
+// Lower is the least Integer the range admits.
+func (r Range) Lower() int64 {
+	if r == RangePositive {
+		return 1
+	}
+	return 0
 }
 
 // Program is a set of compiled functions with one entry point. Collections
@@ -118,13 +125,14 @@ type Func struct {
 	Body        []Stmt
 }
 
-// Param is one input parameter; Range and, for a collection, Mult are
-// checked on entry.
+// Param is one input parameter; Range and, for a collection, Mult and Unique
+// are checked on entry.
 type Param struct {
-	Name  string
-	Type  Type
-	Range Range
-	Mult  Mult
+	Name   string
+	Type   Type
+	Range  Range
+	Mult   Mult
+	Unique bool
 }
 
 // Expr is a typed expression.
@@ -213,12 +221,14 @@ type ToOne struct {
 }
 
 // Checked binds a collection to a feature of multiplicity M and range R at
-// Where, failing as the interpreter's binding does.
+// Where, refusing a repeated element when Unique, failing as the interpreter's
+// binding does.
 type Checked struct {
-	X     Expr
-	M     Mult
-	R     Range
-	Where string
+	X      Expr
+	M      Mult
+	R      Range
+	Unique bool
+	Where  string
 }
 
 // Let evaluates Value into the temporary Name, then In, which reads it as a Var.
@@ -275,6 +285,17 @@ type Fold struct {
 	T    Type
 }
 
+// Framed evaluates X as the inlined body of a library calc: one frame
+// deeper against the recursion budget, left once X has answered.
+type Framed struct{ X Expr }
+
+// Sampled takes the sample S for the duration of In, which reads S.Dom and
+// S.Rng as Vars.
+type Sampled struct {
+	S  Sample
+	In Expr
+}
+
 func (IntLit) Type() Type    { return TypeInt }
 func (RealLit) Type() Type   { return TypeReal }
 func (BoolLit) Type() Type   { return TypeBool }
@@ -302,14 +323,16 @@ func (i Index) Type() Type    { return i.Seq.Type().Elem() }
 func (RangeExpr) Type() Type  { return TypeSeqInt }
 func (s SeqCall) Type() Type  { return s.T }
 func (f Fold) Type() Type     { return f.T }
+func (f Framed) Type() Type   { return f.X.Type() }
+func (s Sampled) Type() Type  { return s.In.Type() }
 
 // Stmt is a statement of a function body.
 type Stmt interface{ stmt() }
 
 // Declare introduces a body-local variable with its initial value, null (a
-// collection) when Init is nil. The interpreter does not judge an
-// initializer against the variable's range or multiplicity, so neither does
-// generated code; later assignments are checked.
+// collection) when Init is nil. The interpreter judges an initializer's
+// uniqueness but not its range or multiplicity, so neither does generated
+// code; later assignments are checked in full.
 type Declare struct {
 	Name string
 	T    Type
@@ -347,6 +370,18 @@ type ForEach struct {
 	Body []Stmt
 }
 
+// Sample takes `Sample(f, Seq)` one frame deeper: Dom gets the domain values,
+// Rng Body at each in order, every sample charged as the interpreter's pair is.
+type Sample struct {
+	Dom, Rng string
+	Seq      Expr
+	Body     Lambda
+}
+
+// DomType and RngType are the collection types of Dom and Rng.
+func (s Sample) DomType() Type { return s.Seq.Type() }
+func (s Sample) RngType() Type { return s.Body.Body.Type().Seq() }
+
 // Return answers the function's result.
 type Return struct{ Value Expr }
 
@@ -355,4 +390,5 @@ func (Assign) stmt()  { /* marker: Stmt */ }
 func (If) stmt()      { /* marker: Stmt */ }
 func (While) stmt()   { /* marker: Stmt */ }
 func (ForEach) stmt() { /* marker: Stmt */ }
+func (Sample) stmt()  { /* marker: Stmt */ }
 func (Return) stmt()  { /* marker: Stmt */ }

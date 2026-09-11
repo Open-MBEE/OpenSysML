@@ -8,7 +8,7 @@ package test {
 	}
 
 	part def Rig {
-		attribute samples : Integer[2] = (0, 0);
+		attribute samples : Integer[2] nonunique = (0, 0);
 		part source : Source;
 
 		exhibit state run {

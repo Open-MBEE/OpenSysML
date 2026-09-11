@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::c",
+  "outputs": {
+    "difference": {"type": "Real", "value": 2.0},
+    "product": {"type": "Real", "value": 8.0},
+    "interpolated": {"type": "Real", "value": 5.0}
+  }
+}
