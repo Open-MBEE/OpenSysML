@@ -21,11 +21,8 @@ func (e *HeldStateError) Error() string {
 	return fmt.Sprintf("object #%d (%s) %s", e.ID, symbolText(e.Type), e.Reason)
 }
 
-// Pristine reports whether inst stands as its declaration materializes it — nothing
-// written to it or to an object it holds, every behavior it runs as its start left it,
-// no message posted to it awaiting, not destroyed — so a fresh object of the
-// declaration is inst as it stands. Otherwise the HeldStateError names the first
-// thing inst carries that a fresh object would not.
+// Pristine reports whether inst is as its declaration materializes it: nothing written, no
+// behavior moved, no message awaiting, not destroyed. Else a HeldStateError names the reason.
 func (ctx *Context) Pristine(inst *Instance) error {
 	return ctx.pristine(inst, make(map[int64]bool))
 }

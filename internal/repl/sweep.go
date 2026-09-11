@@ -145,13 +145,9 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 	return "sweep " + label
 }
 
-// runSweep resolves the target an invocation names, evaluates its arguments and
-// ranges once where the prompt does, and makes one analysis or calc run per row, each
-// in a context of the row's own: the argument values are carried there, and the
-// objects they name, the subject and the owner of a nested case are made there — of
-// their declarations while every held object is as its declaration made it, else of
-// an image of the held graph taken once here. The session's state is released while
-// the rows run, as it is for an exploration.
+// runSweep resolves the invocation, its arguments and ranges once at the prompt and runs one
+// row per value in a context of its own, held objects made there from their declarations or
+// from one image of the held graph; the session's state is released while the rows run.
 func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {
@@ -357,10 +353,8 @@ func (s *Session) sweptHeld(ctx *runtime.Context, id int64) (freshRef, error) {
 	return s.sweptObject(ctx, label)
 }
 
-// sweptImage images the held graph once, for every row to materialize, when an object
-// the sweep names must be taken from it: one named by its identity, or no longer as its
-// declaration made it. Where every object is as its declaration made it the rows make
-// theirs from the declarations, and no image is taken.
+// sweptImage images the held graph once, for every row to materialize, when a named object
+// must be taken from it; none is taken while every object is as its declaration made it.
 func (s *Session) sweptImage(ctx *runtime.Context, subject, owner freshRef, objects map[int64]freshRef) (*runtime.HeldImage, error) {
 	refs := []freshRef{subject, owner}
 	for _, id := range slices.Sorted(maps.Keys(objects)) {
@@ -494,10 +488,8 @@ func (r *rowObjects) object(ref freshRef) (*runtime.Instance, error) {
 	return inst, nil
 }
 
-// SweptObjectError reports a held object no row of a sweep can make its own of: one
-// whose state the image of the held graph cannot carry into a context of its own. Err
-// is the runtime's reason where it gave one (runtime.ErrSnapshotMidRun,
-// runtime.ErrSnapshotPausedBody, a runtime.NotPortableError).
+// SweptObjectError reports a held object no row can make its own of: its state cannot be
+// imaged into a context of its own. Err is the runtime's reason where it gave one.
 type SweptObjectError struct {
 	Ref    string
 	Reason string

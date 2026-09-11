@@ -46,16 +46,8 @@ func (e *HeldImageError) Error() string {
 // Unwrap exposes the typed reason.
 func (e *HeldImageError) Unwrap() error { return e.Err }
 
-// HeldImage is the state of a closure of held objects by value, taken between steps
-// of the context holding them: the objects, their lifetimes, the executions of their
-// behaviors and the messages in flight to them. It materializes into other contexts
-// over the same declarations, each getting objects of its own under the same
-// identities, so a run there writes nothing of the context imaged.
-//
-// Adopt is no substitute: it registers the very *Instance structures in the taker,
-// shares the identity sequence and restarts every behavior from its initial state.
-// Snapshot.Restore is no substitute either: its captures point at the executors,
-// frames and journal of the context they were taken in.
+// HeldImage is a closure of held objects by value — objects, lifetimes, executions, messages
+// in flight — that materializes into other contexts under the same identities (see Image).
 type HeldImage struct {
 	roots   []int64
 	objects []imagedObject // in the creation order of the context imaged
@@ -132,12 +124,8 @@ func (img *HeldImage) Holds(id int64) bool { return img.held[id] }
 // Roots are the identities the image was taken of, in the order asked.
 func (img *HeldImage) Roots() []int64 { return slices.Clone(img.roots) }
 
-// Image takes the state of the given objects and everything they hold, own or name,
-// by value: the closure of the objects, the executions of their behaviors and the
-// messages bound for them. It refuses, typed, a context inside a step
-// (ErrSnapshotMidRun), a body paused mid-statement (ErrSnapshotPausedBody), a value
-// no other context carries (NotPortableError) and execution state bound to this
-// context (ErrImageBound), each wrapped in a HeldImageError naming the object.
+// Image takes the objects and everything they hold, own or name by value. It refuses, in a
+// HeldImageError, ErrSnapshotMidRun, ErrSnapshotPausedBody, NotPortableError and ErrImageBound.
 func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 	if ctx.midRun() {
 		return nil, ErrSnapshotMidRun
@@ -476,12 +464,8 @@ func (t *imaging) locate(fv *FeatureValue) (imagedFeatureRef, bool) {
 	return imagedFeatureRef{}, false
 }
 
-// Materialize gives dst objects of its own for the image: the same identities,
-// types, owners, feature values, lifetimes and behavior executions, standing where
-// the imaged ones stood, with dst's identity sequence advanced past them. It
-// refuses, typed, an identity dst already holds (ErrImageIdentityTaken) and a clock
-// already past the image's instant (ErrImageClock); it fails whole, leaving dst as
-// it was, when anything of the image does not materialize.
+// Materialize gives dst objects of its own for the image under the same identities, advancing
+// dst's sequence past them; ErrImageIdentityTaken and ErrImageClock refuse, leaving dst as it was.
 func (img *HeldImage) Materialize(dst *Context) error {
 	if dst.midRun() {
 		return ErrSnapshotMidRun
