@@ -1426,7 +1426,7 @@ func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error
 // valuesClassified reports whether target classifies every value of value — or, for `@`, any
 // (KerML 1.0 §7.4.9.2) — so an empty value satisfies `istype` and `hastype` and fails `@`.
 func (ec *EvalContext) valuesClassified(
-	value Value, target *symbols.Symbol, declared []*symbols.Symbol, by classifiedBy, any bool,
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol, by classifiedBy, anyOf bool,
 ) (bool, error) {
 	var elements []Value
 	switch value.Kind {
@@ -1440,11 +1440,11 @@ func (ec *EvalContext) valuesClassified(
 		if err != nil {
 			return false, err
 		}
-		if (verdict == semantics.ClassifiesAll) == any {
-			return any, nil
+		if (verdict == semantics.ClassifiesAll) == anyOf {
+			return anyOf, nil
 		}
 	}
-	return !any, nil
+	return !anyOf, nil
 }
 
 // directValueTypes names the types a value is of, resolved in the scope reading it:

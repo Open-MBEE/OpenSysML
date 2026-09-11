@@ -122,8 +122,8 @@ func TestHTMLSemanticStructure(t *testing.T) {
 		t.Error("rendering writes a heading level HTML has not")
 	}
 	// Sections nest as elements, so every one that opens is closed.
-	if open, close := strings.Count(got, "<section "), strings.Count(got, "</section>"); open != close {
-		t.Errorf("%d sections opened, %d closed", open, close)
+	if open, closed := strings.Count(got, "<section "), strings.Count(got, "</section>"); open != closed {
+		t.Errorf("%d sections opened, %d closed", open, closed)
 	}
 }
 
