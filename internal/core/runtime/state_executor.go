@@ -29,10 +29,10 @@ type stateTypes struct {
 }
 
 func (ctx *Context) stateTypes() lower.EndpointResolver {
-	if ctx.resolver == nil {
+	if ctx.model.resolver == nil {
 		return nil
 	}
-	return &stateTypes{Resolver: ctx.resolver, frame: ctx.librarySymbol(stateActionFQN)}
+	return &stateTypes{Resolver: ctx.model.resolver, frame: ctx.librarySymbol(stateActionFQN)}
 }
 
 // WithholdsStateType reports the library's StateAction, whose content lowering

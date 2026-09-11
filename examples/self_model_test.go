@@ -337,22 +337,22 @@ func TestSelfModelLibraryMatchesImplementation(t *testing.T) {
 }
 
 // TestSelfModelEvaluatorMatchesImplementation checks the evaluator's memoization
-// claim against runtime.Context, which must key a side table by syntax node.
+// claim against runtime.Model, which must key a side table by syntax node.
 func TestSelfModelEvaluatorMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	evaluator := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "Evaluator")
 
 	node := reflect.TypeOf((*ast.Node)(nil)).Elem()
 	keyedByNode := false
-	contextType := reflect.TypeOf(runtime.Context{})
-	for i := 0; i < contextType.NumField(); i++ {
-		field := contextType.Field(i).Type
+	modelType := reflect.TypeOf(runtime.Model{})
+	for i := 0; i < modelType.NumField(); i++ {
+		field := modelType.Field(i).Type
 		if field.Kind() == reflect.Map && field.Key().Implements(node) {
 			keyedByNode = true
 		}
 	}
 	if keyedByNode != evaluator.boolean("memoized") {
-		t.Errorf("pipeline.sysml says the evaluator is memoized = %t, runtime.Context keyed a side table by syntax node: %t",
+		t.Errorf("pipeline.sysml says the evaluator is memoized = %t, runtime.Model keyed a side table by syntax node: %t",
 			evaluator.boolean("memoized"), keyedByNode)
 	}
 }
@@ -791,7 +791,7 @@ func analyseSelfModel(t *testing.T) (*symbols.Index, *runtime.Context) {
 		idx.AddDocument(name, parser.New(source.New(name, content)).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	return idx, runtime.NewContext(semantics.NewModel(resolver), resolver, 100000)
+	return idx, runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 100000)
 }
 
 // modelInstance is an instantiated definition of the self-model, read by feature.

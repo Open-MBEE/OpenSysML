@@ -64,7 +64,7 @@ func (s *Session) evaluateDocument(invocation string) (*docir.Document, error) {
 		return nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
-	sem, resolver := ctx.Model(), ctx.Resolver()
+	sem, resolver := ctx.Semantics(), ctx.Resolver()
 	if !docplan.IsDocumentDefinition(idx, sem, sym) {
 		return nil, fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", notationName(fqn))
 	}
@@ -113,7 +113,7 @@ func (s *Session) renderDocumentSet(
 		return nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
-	sem, resolver := ctx.Model(), ctx.Resolver()
+	sem, resolver := ctx.Semantics(), ctx.Resolver()
 	syms := s.symbolsInLoadOrder(func(scope *symbols.Scope) []*symbols.Symbol {
 		return model.DeclaredDocumentDefinitions(idx, sem, scope)
 	})

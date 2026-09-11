@@ -15,7 +15,7 @@ package D {
 }
 attribute test = D::Color::red;
 `)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	sym := resolveSymbol(t, root, "test")
 	val, err := ctx.Eval(sym.Decl.(*ast.Usage).Value)
 	if err != nil {

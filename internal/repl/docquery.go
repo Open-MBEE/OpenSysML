@@ -157,7 +157,7 @@ func (s *Session) runDocumentQuery(name string, args []string) ([]string, []Name
 		return nil, nil, fmt.Errorf("runtime init: %w", err)
 	}
 	idx := s.browseIndex()
-	model, resolver := ctx.Model(), ctx.Resolver()
+	model, resolver := ctx.Semantics(), ctx.Resolver()
 	if !queryplan.IsQueryDefinition(idx, model, sym) {
 		return nil, nil, fmt.Errorf("%s is not a document query: one is a calc def specializing DocumentQueries::Query", notationName(fqn))
 	}

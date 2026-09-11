@@ -171,7 +171,7 @@ func (e *performances) addFeatureDirections(
 	if action == nil {
 		return
 	}
-	for _, member := range e.ctx.model.MembersOf(action) {
+	for _, member := range e.ctx.model.semantics.MembersOf(action) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || !lower.DeclaresNodeFeature(usage) {
 			continue
@@ -199,7 +199,7 @@ func (ctx *Context) aliasRedefinitions(aliases *map[string]string, sym *symbols.
 	seen := map[*symbols.Symbol]bool{sym: true}
 	var visit func(*symbols.Symbol)
 	visit = func(s *symbols.Symbol) {
-		for _, redefined := range ctx.model.RedefinedFeatures(s) {
+		for _, redefined := range ctx.model.semantics.RedefinedFeatures(s) {
 			if redefined == nil || seen[redefined] {
 				continue
 			}

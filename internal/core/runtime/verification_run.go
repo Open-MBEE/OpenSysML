@@ -195,7 +195,7 @@ func (ctx *Context) isVerdictKind(enum *symbols.Symbol) bool {
 	if ctx.qualifiedSymbolName(enum) == verdictKindName {
 		return true
 	}
-	for _, super := range ctx.model.MemberSources(enum) {
+	for _, super := range ctx.model.semantics.MemberSources(enum) {
 		if super != nil && ctx.qualifiedSymbolName(super) == verdictKindName {
 			return true
 		}

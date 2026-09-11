@@ -17,11 +17,11 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 	if err != nil {
 		return Value{}, err
 	}
-	if ec.ctx.model == nil {
+	if ec.ctx.model.semantics == nil {
 		return Value{}, fmt.Errorf("%w: no model holds the metadata of %s",
 			ErrTypeMismatch, ec.ctx.qualifiedSymbolName(sym))
 	}
-	annotations := ec.ctx.model.ElementMetadataOf(sym)
+	annotations := ec.ctx.model.semantics.ElementMetadataOf(sym)
 	// One access answers every annotation or none: what a failing one wrote, made
 	// or started, here or in a behavior it woke, is undone with it.
 	commit, rollback := ec.ctx.beginJournal()
@@ -51,14 +51,14 @@ func (ec *EvalContext) metadataSubject(n *ast.MetadataAccessExpr) (*symbols.Symb
 	if name == "" {
 		return nil, fmt.Errorf("%w: metadata access names no element", ErrTypeMismatch)
 	}
-	if ec.ctx == nil || ec.ctx.resolver == nil {
+	if ec.ctx == nil || ec.ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
-	sym, ok := ec.ctx.resolver.ResolveQualified(ec.scope, n.Ref)
+	sym, ok := ec.ctx.model.resolver.ResolveQualified(ec.scope, n.Ref)
 	if !ok || sym == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnresolvedReference, name)
 	}
-	if resolved, aliasOK := ec.ctx.resolver.ResolveAliasTarget(sym); aliasOK {
+	if resolved, aliasOK := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliasOK {
 		sym = resolved
 	}
 	if sym.Decl == nil {
@@ -90,10 +90,10 @@ type metadataAnnotation struct {
 // reordered or retyped is not taken for the one an object was made for. The
 // empty string says this context has no annotation there.
 func (ctx *Context) metadataAnnotationDigest(element *symbols.Symbol, index int) string {
-	if ctx.model == nil || element == nil {
+	if ctx.model.semantics == nil || element == nil {
 		return ""
 	}
-	annotations := ctx.model.ElementMetadataOf(element)
+	annotations := ctx.model.semantics.ElementMetadataOf(element)
 	if index < 0 || index >= len(annotations) {
 		return ""
 	}

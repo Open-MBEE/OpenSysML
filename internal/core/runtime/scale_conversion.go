@@ -23,7 +23,7 @@ func (ctx *Context) scaleOfUnit(unit Unit) (*CoordinateFrame, bool, error) {
 		return nil, false, nil
 	}
 	decl := term.Factors[0].Unit
-	if decl == nil || !ctx.model.IsMeasurementScale(decl) {
+	if decl == nil || !ctx.model.semantics.IsMeasurementScale(decl) {
 		return nil, false, nil
 	}
 	val, ok, err := ctx.measurementScaleValue(decl)

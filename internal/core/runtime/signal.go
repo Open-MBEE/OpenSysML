@@ -739,7 +739,7 @@ func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments 
 			return up, segments, true, nil
 		}
 	}
-	if scope == nil || ctx.resolver == nil {
+	if scope == nil || ctx.model.resolver == nil {
 		return nil, nil, false, nil
 	}
 	for n := 1; n <= len(segments); n++ {
@@ -943,14 +943,14 @@ func lastSegment(path string) string {
 // it names, through an alias.
 func (ctx *Context) featureSymbol(scope *symbols.Scope, path string) (*symbols.Symbol, bool) {
 	segments := strings.Split(path, ".")
-	if ctx.resolver == nil || (ctx.model == nil && len(segments) > 1) {
+	if ctx.model.resolver == nil || (ctx.model.semantics == nil && len(segments) > 1) {
 		return nil, false
 	}
 	sym, ok := ctx.pathSymbol(scope, segments)
 	if !ok {
 		return nil, false
 	}
-	return ctx.resolver.AliasedElement(sym), true
+	return ctx.model.resolver.AliasedElement(sym), true
 }
 
 // messageMatches reports whether a message satisfies an accept whose parameter
@@ -962,7 +962,7 @@ func (ctx *Context) messageMatches(m Message, want *ast.QualifiedName, scope *sy
 	if want == nil || len(want.Parts) == 0 {
 		return true
 	}
-	if m.Signal != nil && ctx.model != nil {
+	if m.Signal != nil && ctx.model.semantics != nil {
 		if wantSym := ctx.resolveTypeRef(scope, want); wantSym != nil {
 			return ctx.conforms(m.Signal, wantSym)
 		}
@@ -1130,14 +1130,14 @@ func (e *EvalContext) invokesCalc(scope *symbols.Scope, invocation *ast.Invocati
 	if invocation.Type == nil {
 		return false
 	}
-	if e.ctx == nil || e.ctx.resolver == nil || e.ctx.model == nil || scope == nil {
+	if e.ctx == nil || e.ctx.model.resolver == nil || e.ctx.model.semantics == nil || scope == nil {
 		return false
 	}
-	sel := passes.SelectInvocation(e.ctx.resolver, e.ctx.model, scope, invocation, semantics.PerformsBehavior)
+	sel := passes.SelectInvocation(e.ctx.model.resolver, e.ctx.model.semantics, scope, invocation, semantics.PerformsBehavior)
 	if sel.Ambiguous {
 		return true
 	}
-	return e.ctx.model.Evaluates(sel.Called())
+	return e.ctx.model.semantics.Evaluates(sel.Called())
 }
 
 // buildInvokedMessage builds the message of `send shutDown(7) to self`: the
@@ -1207,10 +1207,10 @@ func (e *EvalContext) evalConstructor(constructor *ast.ConstructorExpr) (Value, 
 // checkConstructorArity rejects positional arguments beyond the constructed
 // type's constructible features.
 func (e *EvalContext) checkConstructorArity(typ *symbols.Symbol, constructor *ast.ConstructorExpr, what string) error {
-	if e.ctx.model == nil {
+	if e.ctx.model.semantics == nil {
 		return nil
 	}
-	if n := len(e.ctx.model.ConstructibleFeatures(typ)); len(constructor.Args) > n {
+	if n := len(e.ctx.model.semantics.ConstructibleFeatures(typ)); len(constructor.Args) > n {
 		return fmt.Errorf("%s: new %s takes %d argument(s), found %d", what, typ.Name, n, len(constructor.Args))
 	}
 	return nil
@@ -1228,10 +1228,10 @@ func (e *EvalContext) constructedType(scope *symbols.Scope, typeRef *ast.Qualifi
 	if name == "" {
 		return nil, fmt.Errorf("%s: the constructor names no type", prefix)
 	}
-	if scope == nil || e.ctx == nil || e.ctx.resolver == nil {
+	if scope == nil || e.ctx == nil || e.ctx.model.resolver == nil {
 		return nil, fmt.Errorf("%s %s: no scope resolves the type", prefix, name)
 	}
-	sym, ok := e.ctx.resolver.ResolveQualified(scope, typeRef)
+	sym, ok := e.ctx.model.resolver.ResolveQualified(scope, typeRef)
 	if !ok || sym == nil {
 		return nil, fmt.Errorf("%s %s: unresolved reference: %s", prefix, name, name)
 	}
@@ -1279,8 +1279,8 @@ func (e *EvalContext) buildTypedMessage(scope *symbols.Scope, signalType string,
 	msg := Message{SignalType: signalType, Signal: signal, Target: target,
 		Payload: make(map[string]Value, len(args)+len(named))}
 	var slots []*symbols.Symbol
-	if signal != nil && e.ctx != nil && e.ctx.model != nil {
-		slots = e.ctx.model.ConstructibleFeatures(signal)
+	if signal != nil && e.ctx != nil && e.ctx.model.semantics != nil {
+		slots = e.ctx.model.semantics.ConstructibleFeatures(signal)
 	}
 	bound := make(map[*symbols.Symbol]string, len(args)+len(named))
 	for i, arg := range args {
@@ -1323,24 +1323,24 @@ func (e *EvalContext) buildTypedMessage(scope *symbols.Scope, signalType string,
 // label names (resolved as the checker does); a foreign, masked or rebound feature is an error.
 func (e *EvalContext) constructorLabel(scope *symbols.Scope, signal *symbols.Symbol, typeRef, qn *ast.QualifiedName, bound map[*symbols.Symbol]string) (string, error) {
 	label := ast.QualifiedText(qn)
-	if signal == nil || e.ctx == nil || e.ctx.resolver == nil || e.ctx.model == nil {
+	if signal == nil || e.ctx == nil || e.ctx.model.resolver == nil || e.ctx.model.semantics == nil {
 		if len(qn.Parts) != 1 {
 			return "", fmt.Errorf("%s is not a feature of %s", label, ast.SimpleName(typeRef))
 		}
 		return qn.Parts[0].Text, nil
 	}
-	feature, ok := e.ctx.resolver.ResolveReference(resolve.Reference{Scope: scope, QN: qn, Constructed: typeRef})
-	if !ok || feature == nil || !slices.Contains(e.ctx.model.MembersOf(signal), feature) {
+	feature, ok := e.ctx.model.resolver.ResolveReference(resolve.Reference{Scope: scope, QN: qn, Constructed: typeRef})
+	if !ok || feature == nil || !slices.Contains(e.ctx.model.semantics.MembersOf(signal), feature) {
 		return "", fmt.Errorf("%s is not a feature of %s", label, signal.Name)
 	}
-	shape := e.ctx.model.ShapeFeatures(signal)
+	shape := e.ctx.model.semantics.ShapeFeatures(signal)
 	i := slices.IndexFunc(shape, func(f semantics.ShapeFeature) bool {
 		return f.Declared == feature || f.Symbol == feature
 	})
 	if i < 0 {
 		return "", fmt.Errorf("%s is not a feature of %s", label, signal.Name)
 	}
-	slot := e.ctx.model.ConstructibleFeatureFor(signal, shape[i].Declared)
+	slot := e.ctx.model.semantics.ConstructibleFeatureFor(signal, shape[i].Declared)
 	if slot == nil {
 		return "", fmt.Errorf("%s is not a feature a constructor of %s binds", label, signal.Name)
 	}
@@ -1456,10 +1456,10 @@ func (e *EvalContext) namedType(scope *symbols.Scope, expr ast.Node) (*symbols.S
 // definitionNamed resolves a name to the definition it reaches (resolution
 // already follows an alias to its element) or reports that it names none.
 func (e *EvalContext) definitionNamed(scope *symbols.Scope, qname *ast.QualifiedName) (*symbols.Symbol, bool) {
-	if qname == nil || scope == nil || e.ctx == nil || e.ctx.resolver == nil {
+	if qname == nil || scope == nil || e.ctx == nil || e.ctx.model.resolver == nil {
 		return nil, false
 	}
-	sym, ok := e.ctx.resolver.ResolveQualified(scope, qname)
+	sym, ok := e.ctx.model.resolver.ResolveQualified(scope, qname)
 	if !ok || sym == nil {
 		return nil, false
 	}
@@ -1473,13 +1473,13 @@ func (e *EvalContext) definitionNamed(scope *symbols.Scope, qname *ast.Qualified
 // materializes, which is the type an accept of it matches by conformance.
 func (ctx *Context) objectSignalSymbol(id int64) *symbols.Symbol {
 	inst, ok := ctx.instances[id]
-	if !ok || inst == nil || ctx.model == nil {
+	if !ok || inst == nil || ctx.model.semantics == nil {
 		return nil
 	}
 	if isDefinitionSymbol(inst.Type) {
 		return inst.Type
 	}
-	for _, sup := range ctx.model.AllSupertypes(inst.Type) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(inst.Type) {
 		if isDefinitionSymbol(sup) {
 			return sup
 		}

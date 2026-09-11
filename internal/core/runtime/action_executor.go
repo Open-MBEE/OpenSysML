@@ -163,7 +163,7 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 	for i, attr := range features {
 		declared[attr.Name] = i
 	}
-	for _, member := range e.ctx.model.MembersOf(e.action) {
+	for _, member := range e.ctx.model.semantics.MembersOf(e.action) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || !lower.DeclaresNodeFeature(usage) || e.ctx.libraryDeclared(member) {
 			continue
@@ -177,12 +177,12 @@ func (e *ActionExecutor) performanceFeatures() []lower.Attribute {
 		}
 		if i, ok := declared[name]; ok {
 			if features[i].Value == nil && features[i].Node == ast.Node(usage) {
-				features[i].Value, features[i].Scope = e.ctx.model.ParameterDefault(member)
+				features[i].Value, features[i].Scope = e.ctx.model.semantics.ParameterDefault(member)
 			}
 			continue
 		}
 		declared[name] = len(features)
-		value, scope := e.ctx.model.ParameterDefault(member)
+		value, scope := e.ctx.model.semantics.ParameterDefault(member)
 		features = append(features, lower.Attribute{Name: name, Value: value, Node: usage, Scope: scope})
 	}
 	return features

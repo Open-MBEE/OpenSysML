@@ -22,7 +22,7 @@ func conditionFixture(t *testing.T, src string) (*Context, *symbols.Scope) {
 	idx.AddDocument("test.sysml", file)
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	return ctx, idx.DocumentRoot("test.sysml").Children()[0]
 }
 

@@ -16,7 +16,7 @@ func TestUnimplementedOperatorReportsWhy(t *testing.T) {
 	const src = `calc def complement { in n : Integer; return : Integer = ~n; }`
 
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	complement := resolveSymbol(t, root, "complement")
 
 	_, err := ctx.InvokeCalc(complement, []Value{constInt(1)}, root)
@@ -91,7 +91,7 @@ func evalTypeClassificationExpr(t *testing.T, expr string) (bool, error) {
 	pkg := resolveSymbol(t, root, "test")
 	result := resolveSymbol(t, pkg.Scope, "result")
 	decl := result.Decl.(*ast.Usage)
-	value, err := NewEvalContext(NewContext(model, resolver, 10000), pkg.Scope).Eval(decl.Value)
+	value, err := NewEvalContext(NewContext(NewModel(model, resolver), 10000), pkg.Scope).Eval(decl.Value)
 	if err != nil {
 		return false, err
 	}
@@ -115,7 +115,7 @@ func TestTypeClassificationFollowsSelectedVariant(t *testing.T) {
 		attribute declared = garage.chosen hastype Vehicle;
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	for _, tt := range []struct {
 		name string
 		want bool
@@ -159,7 +159,7 @@ func TestClassificationWeighsEveryTypeOfAnObject(t *testing.T) {
 		attribute burnerCast = (shop.retrofit as CombustionVehicle) == ();
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	for _, tt := range []struct {
 		name string
 		want bool
@@ -213,7 +213,7 @@ package test {
 	if !ok {
 		t.Fatalf("result declares %T, want a usage", sym.Decl)
 	}
-	ec := NewEvalContext(NewContext(model, resolver, 10000), pkg.Scope)
+	ec := NewEvalContext(NewContext(NewModel(model, resolver), 10000), pkg.Scope)
 
 	type outcome struct {
 		value Value
@@ -318,7 +318,7 @@ package test {
 	calc def remainder { in a : Real; in b : Real; return : Real = a % b; }
 }`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 	for _, name := range []string{"quotient", "remainder"} {
 		sym := resolveSymbol(t, root, "test")
 		if sym.Scope == nil {
@@ -347,7 +347,7 @@ func TestComposedCastUndecidedWhenNoOperandExcludes(t *testing.T) {
 		attribute subtracted = 5 as OddInteger;
 	`
 	model, resolver, root := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	for _, name := range []string{"intersected", "subtracted"} {
 		t.Run(name, func(t *testing.T) {
 			sym := resolveSymbol(t, root, name)

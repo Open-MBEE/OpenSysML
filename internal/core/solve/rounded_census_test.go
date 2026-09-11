@@ -171,9 +171,9 @@ func workspaceOf(t *testing.T, paths []string, libraries bool) (*runtime.Context
 		idx.ExpandWildcardImports()
 	}
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
 	for _, sf := range sources {
-		ctx.RegisterSource(sf)
+		ctx.Model().RegisterSource(sf)
 	}
 	return ctx, idx
 }
@@ -185,7 +185,7 @@ func censusLibrary(t *testing.T, solver *Solver, s *censusSummary) {
 	parseLibraries(t, idx)
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
 	for _, doc := range libraryDocuments(idx) {
 		s.files++
 		censusDocument(t, solver, s, ctx, idx, doc)

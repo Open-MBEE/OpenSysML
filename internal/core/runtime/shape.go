@@ -78,12 +78,12 @@ func (ctx *Context) FeaturesOf(typeSym *symbols.Symbol) []EffectiveFeature {
 	}
 
 	// Memoization
-	if cached, ok := ctx.features[typeSym]; ok {
+	if cached, ok := ctx.model.features[typeSym]; ok {
 		return cached
 	}
 
 	features := ctx.buildFeatures(typeSym)
-	ctx.features[typeSym] = features
+	ctx.model.features[typeSym] = features
 	return features
 }
 
@@ -91,7 +91,7 @@ func (ctx *Context) FeaturesOf(typeSym *symbols.Symbol) []EffectiveFeature {
 func (ctx *Context) buildFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 	// Redefined features stay in the shape: a redefinition shares its target's
 	// feature value, which both names read (see subsetting_test.go).
-	shape := ctx.model.ShapeFeatures(typeSym)
+	shape := ctx.model.semantics.ShapeFeatures(typeSym)
 	result := make([]EffectiveFeature, 0, len(shape))
 	seenNames := make(map[string]bool, len(shape))
 	for _, f := range shape {
@@ -127,8 +127,8 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 func (ctx *Context) parameterFeatures(typeSym *symbols.Symbol) []EffectiveFeature {
 	var order []string
 	byName := make(map[string]*symbols.Symbol)
-	for _, member := range ctx.model.MembersOfIncludingRedefined(typeSym) {
-		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.FrameFeature(member) {
+	for _, member := range ctx.model.semantics.MembersOfIncludingRedefined(typeSym) {
+		if member.Name == "" || !isInputParameter(member) || semantics.IsShapeFeature(member) && !ctx.model.semantics.FrameFeature(member) {
 			continue
 		}
 		if _, seen := byName[member.Name]; !seen {
@@ -156,7 +156,7 @@ func (ctx *Context) extractType(featureSym *symbols.Symbol) *symbols.Symbol {
 	if typ := ctx.declaredType(featureSym); typ != nil {
 		return typ
 	}
-	for _, sup := range ctx.model.AllSupertypes(featureSym) {
+	for _, sup := range ctx.model.semantics.AllSupertypes(featureSym) {
 		if typ := ctx.declaredType(sup); typ != nil {
 			return typ
 		}
@@ -176,7 +176,7 @@ func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
 				target = fr.Name
 			}
 			if qn, ok := target.(*ast.QualifiedName); ok {
-				if resolved, ok := ctx.resolver.ResolveQualified(featureSym.OwnerScope, qn); ok {
+				if resolved, ok := ctx.model.resolver.ResolveQualified(featureSym.OwnerScope, qn); ok {
 					return resolved
 				}
 			}
@@ -188,8 +188,8 @@ func (ctx *Context) declaredType(featureSym *symbols.Symbol) *symbols.Symbol {
 // extractMultiplicity returns the multiplicity governing a feature. stated is
 // false when it declares none and the assumed 1..1 governs it instead.
 func (ctx *Context) extractMultiplicity(featureSym *symbols.Symbol) (r semantics.Range, stated bool) {
-	_, stated = ctx.model.MultiplicityOf(featureSym)
-	return ctx.model.EffectiveMultiplicityOf(featureSym), stated
+	_, stated = ctx.model.semantics.MultiplicityOf(featureSym)
+	return ctx.model.semantics.EffectiveMultiplicityOf(featureSym), stated
 }
 
 // extractDefaultValue returns the default-value expression for a feature (nil if none).
@@ -233,7 +233,7 @@ func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*
 			if path[general] {
 				continue
 			}
-			generalMult, stated := ctx.model.MultiplicityOf(general)
+			generalMult, stated := ctx.model.semantics.MultiplicityOf(general)
 			if !stated {
 				path[general] = true
 				inherited, ok := ctx.inheritedMultiplicity(general, owner, path)
@@ -263,7 +263,7 @@ func (ctx *Context) redefinedDefault(sym, owner *symbols.Symbol) (ast.Node, *sym
 		cur := queue[0]
 		queue = queue[1:]
 		targets := ctx.relatedFeatures(cur, owner, ast.RelRedefines)
-		targets = append(targets, ctx.model.ImplicitParameterRedefinitions(cur)...)
+		targets = append(targets, ctx.model.semantics.ImplicitParameterRedefinitions(cur)...)
 		for _, redefined := range targets {
 			if seen[redefined] {
 				continue
