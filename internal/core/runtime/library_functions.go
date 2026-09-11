@@ -368,6 +368,14 @@ func (ctx *Context) frameDeclared(sym *symbols.Symbol) bool {
 	return ok
 }
 
+// libraryLoaded reports whether any bundled library document is loaded.
+func (ctx *Context) libraryLoaded() bool {
+	if ctx == nil || ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
+		return false
+	}
+	return ctx.model.resolver.Index().HasLibrary()
+}
+
 // librarySymbol is the declaration the bundled library makes under fqn, nil
 // where it is not loaded.
 func (ctx *Context) librarySymbol(fqn string) *symbols.Symbol {

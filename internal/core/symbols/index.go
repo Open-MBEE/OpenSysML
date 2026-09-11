@@ -886,6 +886,11 @@ func (idx *Index) takeLibraryIdentity() {
 	idx.libraryIdentity.taken = true
 }
 
+// HasLibrary reports whether the index holds any bundled library document.
+func (idx *Index) HasLibrary() bool {
+	return len(idx.libraryDocs.keys()) > 0
+}
+
 // Library reports whether sym is declared by bundled library content.
 func (idx *Index) Library(sym *Symbol) bool {
 	return idx.LibraryTier(sym).Library()
