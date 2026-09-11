@@ -176,6 +176,17 @@ func TestMOSAProprietaryNoRationale(t *testing.T) {
 	w8dWantLines(t, src, CodeMOSAProprietaryNoRationale, 3, 5, 7)
 }
 
+// An element with several @Proprietary annotations is judged by all of them:
+// one stating a rationale suffices in either order, none stating one warns once.
+func TestMOSAProprietaryRationaleAcrossAnnotations(t *testing.T) {
+	src := mosaModel(`
+		part a { @Proprietary { rationale = "qualified"; } @Proprietary { owner = "vendor"; } }
+		part b { @Proprietary { owner = "vendor"; } @Proprietary { rationale = "qualified"; } }
+		part c { @Proprietary { owner = "vendor"; } @Proprietary { owner = "vendor"; } }
+		part d { @Proprietary { owner = "vendor"; } @Proprietary { rationale = ""; } }`)
+	w8dWantLines(t, src, CodeMOSAProprietaryNoRationale, 5, 6)
+}
+
 // An undesignated connector between two distinct components is reported once
 // the model designates any; those within one component or to a platform are not.
 func TestMOSABoundaryNotDesignated(t *testing.T) {

@@ -427,8 +427,10 @@ func (a *mosaAudit) check(root *symbols.Scope) {
 	})
 }
 
-// checkProprietary expects a @Proprietary annotation to state its rationale.
+// checkProprietary expects an element marked @Proprietary to state a rationale
+// in at least one of its @Proprietary annotations, whatever their order.
 func (a *mosaAudit) checkProprietary(sym *symbols.Symbol) {
+	proprietary := false
 	for _, facts := range a.model.AnnotationFactsOf(sym) {
 		if a.metadataKindOf(facts.TypeFQN) != mosaProprietary {
 			continue
@@ -436,10 +438,13 @@ func (a *mosaAudit) checkProprietary(sym *symbols.Symbol) {
 		if mosaStatesString(facts, "rationale") {
 			return
 		}
-		a.report(sym, CodeMOSAProprietaryNoRationale,
-			"This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.")
+		proprietary = true
+	}
+	if !proprietary {
 		return
 	}
+	a.report(sym, CodeMOSAProprietaryNoRationale,
+		"This element is marked @Proprietary with no rationale: MOSA expects the justification for each proprietary element to be recorded, so give the annotation a `rationale`.")
 }
 
 // mosaStatesString reports whether an annotation binds feature to a non-empty string.
