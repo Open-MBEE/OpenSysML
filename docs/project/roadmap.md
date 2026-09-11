@@ -17,7 +17,8 @@ Read `AGENTS.md` first; it governs everything below.
 > Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
 > execution, `V` the validation census, `I` the language integrations, `B` the bindings from
-> modeled elements to external data and services, and `M` the embedded target. Each is stated in
+> modeled elements to external data and services, `H` model hygiene and refactoring, and `M` the
+> embedded target. Each is stated in
 > full where it is introduced, and a reader who wants only the gap can ignore the label.
 >
 > **Status words.** *Landed* means merged to `main` at the baseline — the commit named above, not
@@ -881,6 +882,23 @@ Scope, in order:
 After D3's identity work, which it extends, and before D11, whose `api-json` payloads are the
 first surface where a foreign reader would compare our library ids to its own; independent of
 D1, D2 and D7. Targeted at `0.8.0`.
+
+## D13 — a compact binary form of the API elements, with deltas
+
+The API element form of D11 is verbose: a model of 23,000 elements is about 9 MB of minified JSON
+and the whole standard library as elements about 35 MB, which is what a browser client (I8) or an
+offline copy of a Flexo project pays to fetch. A CBOR encoding of the same objects — the
+metamodel's property names as small integers from a table generated from the pinned metamodel,
+references as indices into the payload's own id list, ids elided where a reader can re-derive them
+(D12's normative ones, and children positional under their owner) — is 9–15 times smaller before
+compression and 2–5 times after, decodes no slower than JSON, and gives the commit model of the
+SysML v2 API a natural wire unit: a *delta* is the elements added, changed and removed against a
+base payload's digest, and a *patch* is one element's changed properties. `sysml-toolkit`'s
+`.s2c` is exactly this encoding; the item adopts its layout where the two agree on the element
+form so its files are readable, and states the differences where they are not. It is not an OMG
+format — no other tool reads it — so it is an optional codec beside `api-json` in `Convert`
+(`api-cbor`), in the I8 package and in D9's Flexo read, never the only form. Strictly after D11,
+whose element objects it encodes, and D12, whose ids it elides; about one session. Not started.
 
 ---
 
@@ -1768,6 +1786,28 @@ R, Julia and C can integrate *today* with their HTTP and JSON libraries and no g
 is missing is the contract that makes such a client correct rather than lucky, and a thin package
 per language so nobody re-derives it.
 
+The other thing missing is the kernel *without* the service, for every language but Go. The Go
+package has it — `opensysml.New()` in `client/opensysml` is the engine linked into the calling
+binary behind the same `Client` interface as the remote one, same cache keying, same failures —
+but every other client joins a `sysml-grpc` process (the Python package spawns one when no
+address is named), so the cheapest
+evaluation costs a round trip (about 0.2 ms on the loopback, 1–8 ms for a feature value with a
+subject, since the subject is instantiated per call), the package needs a matching binary on
+disk, and nothing runs where a native process is not allowed: a browser, VS Code for the Web, a
+sandboxed notebook. The kernel itself has no such limit. It is pure Go, so `go build
+-buildmode=c-shared` produces a 12.6 MB library that a Python `ctypes` load opens in under a
+millisecond and that answers a first evaluation — bundled library index, parse, resolve,
+instantiate a subject — in about 40 ms, with evaluations of a feature value at 2–30 µs
+thereafter; and `GOOS=wasip1 GOARCH=wasm` compiles everything under `internal/core` except
+`project` (which pulls in a terminal line editor) into a 21.7 MB module, 5.7 MB gzipped, that Node's
+WASI compiles in about 40 ms. `Open-MBEE/sysml-toolkit`, the Rust SysML v2 toolkit that ships as
+an in-process Python module and a `@sysml/wasm` npm package, is the reference point: it has
+neither a runtime nor a service, and where it and OpenSysML answer the same question — load a
+model and its library, evaluate a feature — the in-process OpenSysML build is about five times
+faster to first answer and three to thirty times faster per evaluation. I6–I8 make that build a
+shipped artifact rather than a build flag, and I9 lets whatever integrated against the toolkit's
+surfaces move to it.
+
 ## I1 — the wire contract, written down
 
 There was no page a hand-written client can be built from: which field names (proto3
@@ -1804,8 +1844,9 @@ C is two different things. A **C client** is I3 for C — an HTTP+JSON client ov
 JSON library, and the natural base for anything that embeds by FFI. A **C ABI** is in-process:
 calling a compiled calc (N2.4) or, later, an embedded state machine (M4) through a stable header
 with no service. The client depends only on I1/I2; the ABI depends on N2.4's design and is the same
-artifact as M4's host interface, so design it once and let the three consumers (host tools, the C
-client's optional in-process mode, the embedded target) restrict it. The client comes first.
+artifact as M4's host interface, so design it once and let the four consumers (host tools, the C
+client's optional in-process mode, the whole-kernel library of I6, the embedded target) restrict
+it. The client comes first.
 
 ## I5 — the conformance suite as a kernel contract
 
@@ -1826,6 +1867,95 @@ from them (the `.expected.json` becomes the `response`) turns the wire suite int
 without writing a second corpus, and any implementation's report then reads as a fraction of the
 same cases the interpreter passes. Depends on I1 and I2; the generator is a session, and it is
 refereed by running the generated scenarios against `sysml-grpc` itself, which must pass them all.
+
+## I6 — the kernel as a library: a C ABI over the service messages
+
+`libopensysml` (`.so`, `.dylib`, `.dll`) and one header, `opensysml.h`, built with
+`-buildmode=c-shared` from a `cmd/libopensysml` that wraps the in-process Go client
+(`client/opensysml`'s `New`) and exports the service's operations and nothing else. The calling
+convention is deliberately narrow so it never needs a second contract: `opensysml_call(op, request, request_len, &response, &response_len)` takes the
+operation's name and its request as a serialized `sysml.proto` message and returns the response
+message the same way, so every message shape, `Value` arm and error form is the one
+[wire-contract.md](../reference/wire-contract.md) already fixes, and every existing client's
+converters are reused unchanged. Beside it, a session handle: `opensysml_open`, `opensysml_update`
+(one document changed), `opensysml_close`, so an embedding host that edits a model incrementally
+keeps the index, the resolver's memo tables and the instantiated subjects across calls instead of
+reloading — the same lifetime the service's model cache gives its clients, made explicit. Memory
+is the caller's: responses are freed with `opensysml_free`, and the library holds no reference to
+a request after the call returns. The budgets (`MaxSteps` and the rest) are set per session, as
+`sysml-grpc` sets them per process.
+
+The gate is the conformance suite of I5: `cmd/conformance` gains an `-inprocess` mode that
+loads the library and drives the same scenarios through `opensysml_call`, and the report says
+the library passes exactly the cases the service passes, or it names the difference. Depends on
+I1 (landed) and on the ABI seam N2.4 / I4 / M4 share — this item is where that seam is first
+built, so it settles it for the other two rather than waiting on them. About a session, including
+the CI job that builds the library for the five release platforms.
+
+## I7 — `opensysml` in-process: the same package, no sidecar
+
+The Python package keeps its API — `Model`, `Editor`, `Instance`, the query and document
+surfaces, the `Value` decoding — and gains a second transport under it. `Connection` today
+spawns or joins a `sysml-grpc`; with I6 it can instead load `libopensysml` bundled inside the
+wheel and hand each call's serialized request to `opensysml_call`. Nothing above the transport
+changes, so every existing test and tour runs over both and the choice is a keyword:
+`opensysml.connect()` in-process by default when the wheel carries the library for the platform,
+`opensysml.connect("host:port")` for a shared server, and the old spawn path when neither applies
+(a platform without a wheel build). Wheels for Linux, macOS and Windows on both architectures
+replace today's pure-Python wheel plus downloaded binary; the wheel job joins the release
+workflow (R2's PyPI account is the one it publishes with). What the user sees: `pip install
+opensysml` and a first answer in tens of milliseconds, evaluations in microseconds, no
+`~/.opensysml/bin`, no process to leave running. The Node, Java and Rust clients get the same
+option later by the same recipe (their FFI over the library); none is in this item. Depends on
+I6; one to two sessions, the second being the platform matrix.
+
+## I8 — `@opensysml/wasm`, and the language server in a browser worker
+
+The same kernel compiled with `GOOS=wasip1 GOARCH=wasm`, its exports declared with
+`//go:wasmexport` (Go 1.24), and the bundled standard library inside the module, published as
+`@opensysml/wasm` with a JavaScript `Session` whose methods mirror the Python package's
+(`fromSources`, `evaluate`, `instantiate`, `verify*`, `query`, `convert`, `render`) and decode
+`Value` by the I1 rules. It runs in Node and in a browser with no server and no install. On top
+of it, `sysml-lsp` as a web worker: the LSP handler already speaks over any byte stream, so the
+worker is the stdio transport replaced by `postMessage`, and the VS Code extension gains a
+`browser` entry beside its `main` so the same extension works on the desktop (native binary) and
+in VS Code for the Web, github.dev, Theia and Eclipse Che (the wasm worker) with one semantics.
+Size is the cost to watch: 5.7 MB gzipped is fine for a worker fetched once and cached and heavy
+for a page; `-ldflags=-s -w`, dropping the packages a browser never calls (the PDF and Flexo
+paths) and Brotli on the CDN are the levers, and the item records what each gives. Gate: the I2
+fixtures replayed from a Node test over the wasm build, and the extension's existing GUI tests
+run once against the worker. Depends on I6 for the export surface (the same `call` contract,
+since `wasmexport` takes only numbers and the request is passed as bytes in linear memory); the
+worker and the web extension are a second session after the package.
+
+## I9 — compatibility with `sysml-toolkit`'s surfaces
+
+Anything that integrated against `Open-MBEE/sysml-toolkit` reaches it through one of three narrow
+surfaces, and each can be reproduced over the library of I6 so that such a user changes an
+install line and nothing else, with OpenSysML's semantics behind it (its stricter resolution, its
+syntax, its values). The surfaces, and what each shim is:
+
+1. **The `sysmlv2` command.** Its verbs (`check`, `eval`, `verify`, `fmt`, `lint`, `viz`,
+   `convert`, `lsp`, `deps`), their flags (`--strict`, `--library`, `--format`, `--flexo`,
+   `--solve`, …), exit codes and the shape of its diagnostic lines, as a thin wrapper binary that
+   maps each onto `sysml`'s flags and `sysml-lsp`. `lsp` needs no mapping at all, being plain
+   LSP over stdio. Half a session.
+2. **`import sysmlv2`.** The Python module's `Session` (`from_files`, `from_sources`,
+   `from_interchange_json`, `load_library`, `resolve`, `query`, `evaluate`, `members`, `features`,
+   `typings`, `conforms`, `references`, `edit`/`commit`, `to_compact_json`/`to_full_json`,
+   `to_plantuml`), `Element`, `Reference`, `Finding`, `EditBatch` and `check`, as a pure-Python
+   package over the I7 transport that returns the toolkit's types built from our answers. Its
+   binding is under a thousand lines, so the shim is about one session including a test that
+   replays the toolkit's own Python examples.
+3. **`@sysml/wasm`.** The same `Session` shape in JavaScript, over I8. Half a session.
+
+The interchange *files* are the part a shim cannot fake: the toolkit's compact and full API
+element JSON, its `.s2c` CBOR and `.kpar` archives, and the Flexo change records it emits are
+readable by OpenSysML only once D11 (the element form), D12 (the library's normative ids) and
+D13 (CBOR) exist, and unnamed elements' positional ids will still differ, as they do between any
+two conforming tools. Those items are the same work whether or not anyone migrates, so I9's
+only addition there is keeping the toolkit's file layouts as accepted inputs. After I7 and I8;
+not started.
 
 ---
 
@@ -1982,6 +2112,60 @@ rendering model, only writers over it. Targeted at `0.8.0`.
 
 ---
 
+# Track H — model hygiene and refactoring
+
+Every diagnostic OpenSysML reports is a conformance question: the text is or is not the
+language, the reference does or does not resolve, the type does or does not conform. Nothing
+reports that a private import is never used, that a definition is declared and never referenced,
+that a usage carries no type, that `Real` is written `ScalarValues::Real` where `Real` alone
+resolves, or that a project's naming convention is broken — the hygiene findings a reviewer
+raises and a large model accumulates. And every edit the tool performs is a leaf edit:
+`ApplyEdits` (the `Editor` of the Python client, `Edit` values of the Go one) sets a value, renames,
+adds a member, deletes; the LSP renames. The structural refactorings a modeler performs by hand —
+lift this usage's body into a definition and type the usage by it, fold that definition back
+into its only usage, move a member to another owner and fix every reference, retarget a
+specialization — are not offered. `sysml-toolkit` has both as `sysmlv2 lint` (with `--fix`) and
+its `transform` SDK; the two items bring them over as OpenSysML features, on the layers that
+already exist for them.
+
+## H1 — lint rules, and their fixes
+
+A `hygiene` diagnostic family beside `nonstandard-notation`, reported by a pass at the constraint
+tier with severity *hint* by default and configurable per rule and per project (a `[lint]` table
+in the project file, `-lint-rule name=off|hint|warning|error` on the command line), so no rule
+changes a clean model's exit status unless asked. The first rules, each with a fix where one is
+unambiguous: unused private import (fix: remove it); unused definition and unused parameter
+(no fix); untyped usage (no fix); qualification that resolves unqualified (fix: shorten), and its
+inverse, a name that a project rule says must be qualified; naming convention per element kind
+(fix: rename through the existing rename edit); unit spelling (`kg` vs `SI::kg` where the shorter
+resolves) and dimensional consistency of a quantity expression (the runtime's unit algebra
+already decides it; the rule reports what the runtime would refuse). Fixes are
+`quickfix.Fix` values, which is what the LSP already renders as code actions, so `sysml -lint
+[-fix]` is the batch surface over the same edits. Gate: every
+rule has a positive and a negative fixture, and a run over `examples/` and the four corpora with
+all rules on reports the counts as a ratchet — a hygiene rule that fires on the standard library
+is wrong, not the library. One to two sessions.
+
+## H2 — structural refactorings as edit operations
+
+New arms of `EditOperation` beside `set_value`, `rename`, `add_member` and `delete`:
+`extract_definition` (a usage's body becomes a new definition; the usage is typed by it and
+keeps what the definition cannot carry), `inline_definition` (the inverse, refused when the
+definition has more than one usage), `move_member` (to a new owner, every reference re-qualified
+or re-imported so it still resolves), `retarget` (a specialization, typing or redefinition to
+another element), `insert_member`/`replace_member` from notation text, and
+`minimize_qualifications` (H1's shortening applied to a scope). Each is computed on the symbol
+table and applied as text edits through the formatter, so the result is what a modeler would
+have typed, and each is re-parsed and re-analyzed before it is committed: an operation whose
+result does not resolve is refused with the diagnostic, not written. The model hash the
+`Editor` already carries is the stale-edit guard — an operation against a model that changed
+since it was read is refused. Surfaces: the RPC and the five clients, and the LSP's code actions (*Extract definition*, *Inline*, *Move to…*) on the selection. Gate:
+round-trip fixtures per operation (before, operation, after), the refusal cases, and the
+formatter goldens unchanged. Two sessions; after H1 for the shared shortening, independent of
+everything else.
+
+---
+
 # Track M — an embedded, RTOS-compatible target
 
 The question was whether OpenSysML models could run on a microcontroller under an RTOS, and what
@@ -2106,7 +2290,11 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   `main` (#127) and the next tag is the first to publish one; the hand-typed test figures in `README.md` and
   `spec-compliance.md` are still hand-typed (see the Track-local orders).
 - **Tracks D, N, M, I, V, B** — as the tracks state them; nothing in them moved since the tag
-  except that Track I's clients now carry the four new `Value` arms (#113, #121, #122).
+  except that Track I's clients now carry the four new `Value` arms (#113, #121, #122). Track I
+  gained I6–I9 (the kernel as a library, the in-process Python transport, the wasm package and
+  browser language server, the `sysml-toolkit` compatibility shims) and Track D gained D13 (the
+  CBOR form of the API elements), all not started.
+- **Track H** — new; H1 and H2 not started.
 
 ## Cross-cutting order
 
@@ -2141,7 +2329,9 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
    and state phases start from the same IR rather than a second one. M3 and M5 prove it; M6 last.
 9. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
-   contract exists to design against rather than three.
+   contract exists to design against rather than three — unless step 12's I6 has already shipped
+   the whole-kernel library, in which case its `opensysml_call` and session handles are that
+   contract and N2.4 and M4 are the restrictions of it an embedded target can afford.
 10. **Track E** — F and S have landed on `main`; the release that ships them has not been tagged.
     E is next once it has, in the track's own order below, and its loops now also carry A5's clock.
 11. **B1, then B2** — the binding vocabulary, then the provider contract in the runtime and Go
@@ -2153,6 +2343,13 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
     loops that carry the clock (A5) and the choice points (S2), and drains events into them. **B3**
     follows the transport decision, **I5** goes with step 5 since it is built from the same
     fixtures, and **B4**/**B5** come whenever a model needs them.
+12. **I6, then I7 and I8, then I9** — the kernel as a C library, the Python package over it and
+    the wasm package with the browser language server, then the toolkit-shaped shims. I6 builds the
+    ABI seam step 9 was to design after M1; taking it here settles that seam for N2.4 and M4 rather
+    than the other way round, which is safe because the library's contract is the wire contract
+    (I1) and not a new one. Independent of every step above, so it runs beside them; I7 and I8 in
+    parallel once I6 exists. **H1 and H2** likewise depend on nothing outstanding and run beside
+    any step. **D13** waits for D11 and D12 in step 6's track-local order.
 
 ## Track-local orders
 
@@ -2176,7 +2373,9 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   only becomes conformant behind D1 and D2; **D12** (the standard library's normative element
   ids) next, targeted at `0.8.0`, since it depends on nothing open and D11 wants it landed first;
   **D11** (the API element
-  form) after D1, D2 and D12, and before D9.2 if the branch read is to offer it; **D10**
+  form) after D1, D2 and D12, and before D9.2 if the branch read is to offer it; **D13** (the CBOR
+  form and its deltas) strictly after D11 and D12, and only alongside `api-json`, never instead;
+  **D10**
   (write-through from a view-only project) after D9.1 and D9.2, which it reads and writes through.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
@@ -2200,4 +2399,9 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   and HTTP providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
 - **Track W.** W1 (`dot`), then W2 (`plantuml`), W3 alongside each; targeted at `0.8.0`, and
   independent of every other track, so it can run beside any step above.
-- **Track Q, I, M.** Entirely given by the cross-cutting order above.
+- **Track I.** I2, I3 and I4's client as step 5; **I6** first among the in-process items, since
+  I7, I8 and I9 all call through it; **I7** and **I8** in parallel after it; **I9** last, and only
+  its CLI and Python shims until D11–D13 make the toolkit's interchange files readable.
+- **Track H.** H1 before H2, for the shortening rule H2's `minimize_qualifications` reuses;
+  independent of every other track.
+- **Track Q, M.** Entirely given by the cross-cutting order above.
