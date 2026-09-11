@@ -110,12 +110,9 @@ func isStandard(s *xmi.Stereotype) bool {
 // isPapyrusSysML recognizes Papyrus' SysML profile namespaces
 // (…/papyrus/sysml/1.6/SysML/Blocks) and not another profile Papyrus hosts.
 func isPapyrusSysML(ns string) bool {
-	i := strings.Index(ns, "eclipse.org/papyrus/")
-	if i < 0 {
-		return false
-	}
-	rest := strings.ToLower(ns[i+len("eclipse.org/papyrus/"):])
-	return strings.HasPrefix(rest, "sysml/") || strings.Contains(rest, "/sysml/")
+	const host = "eclipse.org/papyrus/"
+	i := strings.Index(ns, host)
+	return i >= 0 && strings.HasPrefix(strings.ToLower(ns[i+len(host):]), "sysml/")
 }
 
 // stereo returns e's application of the named standard-profile stereotype, or nil.
