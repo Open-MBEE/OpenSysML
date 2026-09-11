@@ -74,7 +74,7 @@ because each retires or narrows a roadmap line.
 - *Queries, documents and migration.* Queries project `shortName`, `declaredShortName` and
   `documentation`, read quantity-valued and derived attribute values, and documents render query
   rows as prose; `-html-mermaid` and `-html-theme` for the HTML backend; SysML v1 models exported
-  from Cameo/MagicDraw migrate to v2 (experimental).
+  as OMG XMI migrate to v2 (experimental).
 - *Release.* Windows releases ship an installer and the Scoop, winget and MSYS2 manifests are
   maintained as templates (R4); the Linux `amd64` binaries are static and no longer require glibc
   2.34; pull requests run one CI (GitHub Actions) and CircleCI runs on `main` and tags; the

@@ -303,6 +303,19 @@ func (m *Model) IsMeasurementScale(sym *symbols.Symbol) bool {
 	return scale != nil && m.Conforms(sym, scale)
 }
 
+// MeasurementScaleOf is the scale a unit term is a point on (`26.85 ['°C_abs']`):
+// its one unscaled factor at power one, when that is a scale; false for a unit.
+func (m *Model) MeasurementScaleOf(term UnitTerm) (*symbols.Symbol, bool) {
+	if len(term.Factors) != 1 || term.Factors[0].Exponent != 1 || term.Scale != UnitScale(1) {
+		return nil, false
+	}
+	decl := term.Factors[0].Unit
+	if !m.IsMeasurementScale(decl) {
+		return nil, false
+	}
+	return decl, true
+}
+
 // MeasurementUnitOf is the measurement unit sym names: sym itself, or the unit
 // an alias such as SI::'m/s²' stands for; false for anything else.
 func (m *Model) MeasurementUnitOf(sym *symbols.Symbol) (*symbols.Symbol, bool) {
@@ -599,6 +612,10 @@ func (m *Model) unitTermOfName(scope *symbols.Scope, qn *ast.QualifiedName) (Uni
 	}
 	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = alias
+	}
+	if m.IsMeasurementScale(sym) {
+		return UnitTerm{}, fmt.Errorf("%w: %s is a measurement scale; a point on it is no magnitude in a unit to compose",
+			ErrNotAUnit, QualifiedNameText(qn))
 	}
 	if !m.IsMeasurementUnit(sym) {
 		return UnitTerm{}, m.shadowedUnit(qn, sym)

@@ -13,6 +13,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MAX_ELEMENTS` | `1000000` | Collection elements one evaluation may hold — the bound on the memory a run holds rather than on the work it does |
 | `OPENSYSML_MAX_CALC_DEPTH` | `10000` (ceiling `25000`) | Nested `calc` invocations one run may hold on the stack, which is what a recursion spends |
 | `OPENSYSML_MAX_SWEEP_RUNS` | `1000` | Runs one parameter sweep or sample may make (`-sweep`/`-samples`, `%sweep`/`%samples`, `RunSweep`), each a whole analysis or calc run with the budgets above of its own |
+| `OPENSYSML_JOBS` | the number of CPUs | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
 | `OPENSYSML_CALC_COMPILE` | unset (on) | Set to `0`, `false`, `off` or `no` to run every `calc` on the reference evaluator, instead of compiling a pure scalar body to a closure fast path on its first invocation; results, errors and step counts are the same either way, so this is a bisecting aid |
 | `OPENSYSML_SMT` | unset (look for `z3`, then `cvc5`, on `PATH`) | Executable `%check`, `%explain`, `%solve`, `%configure` and `%optimize` drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental); `%optimize` needs `z3` in particular, as `(minimize …)`/`(maximize …)` is a z3 extension cvc5 does not implement |
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown` |
@@ -49,6 +50,11 @@ so raising one says nothing about the others, and each has its own variable.
 `OPENSYSML_MAX_SWEEP_RUNS` counts runs rather than work inside a run: a plan whose
 ranges would make more runs than it allows is refused before the first one is
 made, naming the count the plan asks for and the bound it exceeds.
+`OPENSYSML_JOBS` is no budget at all but the width of the fleet: how many of one check's
+runs — an exploration's linearizations, the engines `-engine all` consults — may go at
+once. A value that is not a positive integer is refused at startup; `-jobs` and `%jobs`
+override it for one invocation or session. See
+[Running in parallel](cli.md#running-in-parallel).
 
 A budget bounds **one run** (one `%eval`, one `%instantiate`, one `%calc`, one
 action, one state machine), not a whole session, so a long REPL session of small

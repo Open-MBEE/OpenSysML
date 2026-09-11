@@ -28,6 +28,12 @@ type valueKey struct {
 // equal share a key: a whole number has the Integer's whatever kind carries it,
 // every empty value has null's, and a set hashes its members in canonical order.
 func valueKeyFunc(v Value) valueKey {
+	return (*Context)(nil).valueKey(v)
+}
+
+// valueKey is valueKeyFunc in the context: a point on a measurement scale keys
+// by its magnitude on the ratio reference, as ctx.valueEqual compares it.
+func (ctx *Context) valueKey(v Value) valueKey {
 	if isEmptyValue(v) {
 		return valueKey{kind: ValNull}
 	}
@@ -59,18 +65,19 @@ func valueKeyFunc(v Value) valueKey {
 	case ValInstance:
 		key.instID = v.Instance
 	case ValSequence, ValSet:
-		key.colHash = hashElements(elementsOf(v))
+		key.colHash = ctx.hashElements(elementsOf(v))
 	case ValVariant:
 		key.variant = v.Variant()
 	case ValEnumLiteral:
 		key.literal = v.Literal()
 	case ValQuantity:
 		if v.Quantity() != nil {
-			key.realVal = v.Quantity().BaseMagnitude()
-			key.strVal = v.Quantity().Unit.Term.DimensionKey()
+			q := ctx.canonicalQuantity(*v.Quantity())
+			key.realVal = q.BaseMagnitude()
+			key.strVal = q.Unit.Term.DimensionKey()
 		}
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
-		key.colHash = structuredKey(v)
+		key.colHash = ctx.structuredKey(v)
 	case ValMeasurementRef:
 		key.strVal = v.MeasurementRef().key()
 	case ValCoordinateFrame:
@@ -87,10 +94,10 @@ func valueKeyFunc(v Value) valueKey {
 }
 
 // hashElements computes a content-based hash over elements in order.
-func hashElements(elements []Value) uint64 {
+func (ctx *Context) hashElements(elements []Value) uint64 {
 	h := fnv.New64a()
 	for _, elem := range elements {
-		k := valueKeyFunc(elem)
+		k := ctx.valueKey(elem)
 		// #nosec G115 G104 -- truncation is deliberate for a hash, and
 		// hash.Hash.Write is documented never to return an error.
 		h.Write([]byte{byte(k.kind)})

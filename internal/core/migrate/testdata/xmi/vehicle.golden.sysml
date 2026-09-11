@@ -1,7 +1,5 @@
-doc /* Author:jason.
- * Created:9/5/26 10:00 AM
- * Title:
- * Comment:
+doc /* Author: demo team
+ * Created: 2026-09-05
  */
 package 'Vehicle Design' {
     doc /* Structural model of the demo vehicle. */
@@ -107,7 +105,6 @@ package Requirements {
     }
     requirement def <R2> 'Speed Requirement' {
         doc /* The vehicle shall reach 100 km/h "quickly". */
-        /* «performanceRequirement» */
     }
     requirement def <'R1.2'> 'Engine Mass Requirement' {
         doc /* The engine shall have a mass of less than 300 kg. */

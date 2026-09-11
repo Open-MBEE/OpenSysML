@@ -114,6 +114,7 @@ var (
 	schedule        schedulePolicy
 	listEngines     bool
 	engine          engineSelection
+	jobsFlag        jobsSetting
 	convertFormat   string
 	queryText       string
 	outputPath      string
@@ -152,6 +153,28 @@ var (
 
 // budgets holds the run bounds the environment resolves to, read once at startup.
 var budgets = runtime.DefaultBudgets()
+
+// jobs is how many runs of one plan go concurrently: -jobs when given, else
+// OPENSYSML_JOBS, else one per CPU; read once at startup.
+var jobs = analysis.DefaultJobs()
+
+// jobsSetting is -jobs as written, rejected where it is parsed so a value below one is
+// reported at startup rather than at the first check.
+type jobsSetting struct {
+	value int
+	text  string
+}
+
+func (j *jobsSetting) String() string { return j.text }
+
+func (j *jobsSetting) Set(value string) error {
+	n, err := analysis.ParseJobs("-jobs", value)
+	if err != nil {
+		return err
+	}
+	j.value, j.text = n, value
+	return nil
+}
 
 // schedulePolicy is -schedule as written: the policy every run resolves its
 // choice points under, rejected where it is parsed so a misspelling is reported
@@ -203,6 +226,15 @@ func (s *stringSlice) Set(value string) error {
 
 func main() {
 	os.Exit(runCLI())
+}
+
+// resolveJobs is the jobs the run goes under: -jobs when given, else what
+// OPENSYSML_JOBS holds, reported when that is not a positive integer.
+func resolveJobs() (int, error) {
+	if flagGiven("jobs") {
+		return jobsFlag.value, nil
+	}
+	return analysis.JobsFromEnv()
 }
 
 // flagGiven reports whether the run named this flag, which an empty value
@@ -535,6 +567,11 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 2
 	}
+	jobs, err = resolveJobs()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
 
 	// Checking mode: load, check what was named, and exit on the verdict.
 	if modelChecks.requested() {
@@ -572,6 +609,11 @@ func newSession() *repl.Session {
 	}
 	if err := sess.SetEngine(engine.text); err != nil {
 		// Unreachable: the selection was validated against the same engines when parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetJobs(jobs); err != nil {
+		// Unreachable: jobs were validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}

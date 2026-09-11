@@ -54,6 +54,7 @@ func TestPlansOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 	w := &workers{}
 	model := f.recording(w)
 	q := Question{Kind: Outcomes, Subject: "test::race", Schedule: policy(t, "explore"), Free: FreeSchedule, Linearize: raceRun(t, f)}
+	plans := make([]Plan, 2)
 	results := make([]Result, 2)
 	errs := make([]error, 2)
 	var wg sync.WaitGroup
@@ -62,7 +63,7 @@ func TestPlansOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			plan, err := Default().Answer(context.Background(), model, q, Budget{})
-			results[i], errs[i] = plan.Result, err
+			plans[i], results[i], errs[i] = plan, plan.Result, err
 		}(i)
 	}
 	wg.Wait()
@@ -77,12 +78,15 @@ func TestPlansOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 		if results[i].Workers != 1 {
 			t.Fatalf("plan %d built %d workers, want one", i, results[i].Workers)
 		}
+		if plans[i].Workers != 1 || plans[i].Warming != results[i].Warming {
+			t.Fatalf("plan %d reports %d workers warming %s, want the result's one warming %s", i, plans[i].Workers, plans[i].Warming, results[i].Warming)
+		}
 	}
 	resolvers, models := w.distinct()
 	if w.asked != 2 || resolvers != 2 || models != 2 || len(w.built) != 12 {
 		t.Fatalf("%d workers built, %d resolvers and %d semantic models over %d runs; want 2, 2, 2 and 12", w.asked, resolvers, models, len(w.built))
 	}
-	if model.worker != nil {
+	if model.workers != nil {
 		t.Fatal("the caller's model was given a worker, want the plan's copy to hold it")
 	}
 }

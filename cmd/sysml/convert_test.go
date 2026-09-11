@@ -277,7 +277,7 @@ func run(t *testing.T, binary string, args ...string) string {
 func TestConvertMigratesXMI(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
-	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "cameo", "vehicle.xmi")
+	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
 	model := filepath.Join(dir, "model.sysml")
 	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
 		t.Fatal(err)
@@ -317,7 +317,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 	if err := json.Unmarshal(raw, &report); err != nil {
 		t.Fatalf("JSON report does not decode: %v\n%s", err, raw)
 	}
-	if report.Exporter != "MagicDraw UML" || len(report.Entries) == 0 {
+	if report.Exporter != "Example UML Tool" || len(report.Entries) == 0 {
 		t.Errorf("JSON report is incomplete: exporter %q, %d entries", report.Exporter, len(report.Entries))
 	}
 	// The written notation must be what the ttl was built from.
@@ -375,7 +375,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 
 func TestLoadingXMIDirectlyPointsAtMigration(t *testing.T) {
 	binary := buildCLI(t)
-	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "cameo", "vehicle.xmi")
+	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
 	for _, args := range [][]string{
 		{xmi, "-validate"},
 		{xmi, "-eval", "1"},

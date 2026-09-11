@@ -87,7 +87,7 @@ func (tq *TensorQuantity) format(element func(semantics.Value) string) string {
 
 // tensorQuantityEqual holds for tensor quantities of the same dimensions whose
 // components are equal quantities.
-func tensorQuantityEqual(a, b *TensorQuantity) bool {
+func (ctx *Context) tensorQuantityEqual(a, b *TensorQuantity) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -95,7 +95,7 @@ func tensorQuantityEqual(a, b *TensorQuantity) bool {
 		return false
 	}
 	for i := range a.Num {
-		if !valueEqual(NewQuantityValue(a.component(i)), NewQuantityValue(b.component(i))) {
+		if !ctx.valueEqual(NewQuantityValue(a.component(i)), NewQuantityValue(b.component(i))) {
 			return false
 		}
 	}

@@ -9,21 +9,27 @@ import (
 )
 
 // scaleAnchor places a scale's zero on the reference it is defined against: a
-// magnitude x on the scale is `x [scale.unit]` converted to origin's unit, plus origin.
+// magnitude x on the scale is `x [scale.unit]` converted to the source's
+// difference unit, plus origin, a point on the source.
 type scaleAnchor struct {
 	source *CoordinateFrame
 	origin Quantity
 }
 
+// differenceUnit is the unit two points on a one-axis reference differ in: a
+// scale's declared unit, or the unit a ratio reference is.
+func differenceUnit(frame *CoordinateFrame) Unit {
+	if frame.IsScale() {
+		return frame.Scale.Unit
+	}
+	return frame.Axes[0]
+}
+
 // scaleOfUnit is the measurement scale a quantity's unit anchors to (`3 [UTC]`),
 // false for a unit.
 func (ctx *Context) scaleOfUnit(unit Unit) (*CoordinateFrame, bool, error) {
-	term := unit.Term
-	if len(term.Factors) != 1 || term.Factors[0].Exponent != 1 || term.Scale != semantics.UnitScale(1) {
-		return nil, false, nil
-	}
-	decl := term.Factors[0].Unit
-	if decl == nil || !ctx.model.semantics.IsMeasurementScale(decl) {
+	decl, ok := ctx.model.semantics.MeasurementScaleOf(unit.Term)
+	if !ok {
 		return nil, false, nil
 	}
 	val, ok, err := ctx.measurementScaleValue(decl)
@@ -151,7 +157,7 @@ func (ctx *Context) mappingAnchor(name string, scale *CoordinateFrame) (*scaleAn
 	if err != nil {
 		return nil, fmt.Errorf("%s: quantityValueMapping: %w", name, err)
 	}
-	mappedOnSource, err := semantics.ConvertQuantity(Quantity{Num: m.Mapped.Num, Unit: scale.Scale.Unit}, m.Reference.Unit)
+	mappedOnSource, err := semantics.ConvertQuantity(Quantity{Num: m.Mapped.Num, Unit: scale.Scale.Unit}, differenceUnit(source))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: its quantityValueMapping maps %s to %s: %w",
 			ErrIncommensurableUnits, name, m.Mapped.String(), m.Reference.String(), err)
@@ -213,7 +219,7 @@ func (ctx *Context) toRatioReference(q Quantity) (Quantity, error) {
 		if err != nil {
 			return Quantity{}, err
 		}
-		onSource, err := semantics.ConvertQuantity(Quantity{Num: q.Num, Unit: scale.Scale.Unit}, anchor.origin.Unit)
+		onSource, err := semantics.ConvertQuantity(Quantity{Num: q.Num, Unit: scale.Scale.Unit}, differenceUnit(anchor.source))
 		if err != nil {
 			return Quantity{}, fmt.Errorf("%w: %s: its unit %s: %w", ErrIncommensurableUnits, ctx.scaleName(scale), scale.Scale.Unit, err)
 		}
@@ -247,7 +253,7 @@ func (ctx *Context) onScale(q Quantity, scale *CoordinateFrame) (Quantity, error
 	if err != nil {
 		return Quantity{}, err
 	}
-	inUnit, err := semantics.ConvertQuantity(Quantity{Num: diff, Unit: anchor.origin.Unit}, scale.Scale.Unit)
+	inUnit, err := semantics.ConvertQuantity(Quantity{Num: diff, Unit: differenceUnit(anchor.source)}, scale.Scale.Unit)
 	if err != nil {
 		return Quantity{}, fmt.Errorf("%w: %s: its unit %s: %w", ErrIncommensurableUnits, ctx.scaleName(scale), scale.Scale.Unit, err)
 	}

@@ -283,7 +283,7 @@ func doc() usage.Doc {
 		}, {
 			Title:      "Environment",
 			ManOnly:    true,
-			Items:      append(usage.BudgetEnvironment(), solverEnvironment()...),
+			Items:      append(append(usage.BudgetEnvironment(), usage.JobsEnvironment()...), solverEnvironment()...),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {
 			Title:   "Files",
@@ -331,11 +331,12 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&schedule, "schedule", "Scheduling policy every run resolves its choice points under (concurrent tokens, overlapping guards, competing transitions): declared, reverse (default), seed:<n> for a reproducible pseudo-random order, or explore[:runs=N,depth=D] to run every linearization within the budget and table the distinct outcomes")
 	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows — name, authority, the questions each answers and whether its process is found — and exit")
 	fs.Var(&engine, "engine", "Analysis engine every check is put to: auto (default) picks the strongest engine covering the question, all puts it to every covering engine in name order and composes their answers, or an engine by name (run, explore, sweep, solve), whose refusal is then the answer; -engine explore is -schedule explore")
+	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; the result is the same at any count. Default OPENSYSML_JOBS, else the number of CPUs")
 	fs.StringVar(&convertFormat, "convert", "", "Convert the model to this format instead of running it: sysml, kerml, ttl, turtle or rdf (RDF is experimental)")
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")
 	fs.StringVar(&outputPath, "output", "", "Write conversion output to this file (default: stdout)")
 	fs.StringVar(&outputPath, "o", "", "Write conversion output to this file (shorthand)")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi: write the element-by-element migration report to this file (JSON when it ends in .json, text otherwise)")
 	fs.StringVar(&renderView, "render", "", "Render this view of the model (every file named, loaded as one) instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")

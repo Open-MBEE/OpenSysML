@@ -683,7 +683,7 @@ func (m *Model) evalComparison(p *symbols.FilterPredicate, cand *symbols.Symbol)
 		return boolValue(same == (p.Op == symbols.FilterEq)), nil
 	}
 	if left.Kind == symbols.FilterValueQuantity || right.Kind == symbols.FilterValueQuantity {
-		return compareQuantityValues(p, left, right)
+		return m.compareQuantityValues(p, left, right)
 	}
 	l, lok := numericValue(left)
 	r, rok := numericValue(right)
@@ -712,14 +712,29 @@ func (m *Model) evalComparison(p *symbols.FilterPredicate, cand *symbols.Symbol)
 
 // compareQuantityValues compares a quantity with another quantity or a bare
 // number in the left operand's unit; incommensurable units are unevaluable,
-// never an inequality decided over magnitudes.
-func compareQuantityValues(p *symbols.FilterPredicate, left, right symbols.FilterValue) (symbols.FilterValue, error) {
+// never an inequality decided over magnitudes. Points on two measurement
+// scales, or on one and in a unit, meet only through the scale's anchor, a
+// value the runtime reads; the filter leaves them unevaluated.
+func (m *Model) compareQuantityValues(p *symbols.FilterPredicate, left, right symbols.FilterValue) (symbols.FilterValue, error) {
 	lq, lok := asQuantity(left)
 	rq, rok := asQuantity(right)
 	if !lok || !rok {
 		return symbols.FilterValue{}, &FilterError{
 			Err:    ErrFilterUnevaluable,
 			Reason: fmt.Sprintf("comparing %s with %s", describeValueKind(left.Kind), describeValueKind(right.Kind)),
+			Span:   p.Span,
+		}
+	}
+	lscale, lpoint := m.MeasurementScaleOf(lq.Unit.Term)
+	rscale, rpoint := m.MeasurementScaleOf(rq.Unit.Term)
+	if (lpoint || rpoint) && lscale != rscale && !isBareZero(*lq) && !isBareZero(*rq) {
+		scale, other := lscale, rq.Unit
+		if scale == nil {
+			scale, other = rscale, lq.Unit
+		}
+		return symbols.FilterValue{}, &FilterError{
+			Err:    ErrFilterUnevaluable,
+			Reason: fmt.Sprintf("comparing a point on the measurement scale %s with %s: the scale's anchor is a value only the runtime reads", m.fqnOf(scale), other),
 			Span:   p.Span,
 		}
 	}

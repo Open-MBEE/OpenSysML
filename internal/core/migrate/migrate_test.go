@@ -18,7 +18,7 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the golden migration outputs")
 
-const fixture = "testdata/cameo/vehicle.xmi"
+const fixture = "testdata/xmi/vehicle.xmi"
 
 func migrateFixture(t *testing.T) *migrate.Result {
 	t.Helper()
@@ -52,12 +52,12 @@ func checkGolden(t *testing.T, path string, got []byte) {
 
 func TestGoldenNotation(t *testing.T) {
 	r := migrateFixture(t)
-	checkGolden(t, "testdata/cameo/vehicle.golden.sysml", r.Notation)
+	checkGolden(t, "testdata/xmi/vehicle.golden.sysml", r.Notation)
 	var report bytes.Buffer
 	if err := r.Report.WriteText(&report); err != nil {
 		t.Fatal(err)
 	}
-	checkGolden(t, "testdata/cameo/vehicle.golden.report.txt", report.Bytes())
+	checkGolden(t, "testdata/xmi/vehicle.golden.report.txt", report.Bytes())
 }
 
 // errors returns the error diagnostics the analyser reports for notation.
@@ -222,7 +222,7 @@ func TestReportAccountsForEveryElement(t *testing.T) {
 			t.Errorf("%s: a %s verdict needs a note", id, v)
 		}
 	}
-	if r.Report.Exporter != "MagicDraw UML" {
+	if r.Report.Exporter != "Example UML Tool" {
 		t.Errorf("exporter %q", r.Report.Exporter)
 	}
 	var js bytes.Buffer
