@@ -8,20 +8,21 @@ import (
 )
 
 // uniquenessRefusal says which value repeats in a sequence written to a unique
-// feature, by set equality, or is empty; a set-held feature drops repeats instead.
+// feature, by set equality judged in the context, or is empty; a set-held
+// feature drops repeats instead.
 func (ctx *Context) uniquenessRefusal(unique, holdsSet bool, value *Value) string {
 	if !unique || holdsSet || value.Kind != ValSequence {
 		return ""
 	}
 	elements := elementsOf(*value)
-	seen := NewSet()
+	seen := NewSetIn(ctx)
 	for i, element := range elements {
 		if !seen.Contains(element) {
 			seen.Add(element)
 			continue
 		}
 		first := 0
-		for first < i && !valueEqual(elements[first], element) {
+		for first < i && !ctx.valueEqual(elements[first], element) {
 			first++
 		}
 		return semantics.UniquenessViolation(ctx.elementText(element), first+1, i+1)
