@@ -609,11 +609,11 @@ func (ec *exprChecker) featurePrimType(sym *symbols.Symbol) semantics.PrimType {
 	}
 	ec.chaining[sym] = true
 	defer delete(ec.chaining, sym)
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Value != nil && sym.OwnerScope != nil {
+	if value := typingValue(sym); value != nil {
 		// The value is checked in its declaring scope; this only reads its type,
 		// so no diagnostic is raised once per reader.
 		silent := exprChecker{resolver: ec.resolver, model: ec.model, lang: ec.lang, chaining: ec.chaining}
-		if prim := silent.infer(sym.OwnerScope, usage.Value); prim != semantics.PrimUnknown {
+		if prim := silent.infer(sym.OwnerScope, value); prim != semantics.PrimUnknown {
 			return prim
 		}
 	}
@@ -626,6 +626,22 @@ func (ec *exprChecker) featurePrimType(sym *symbols.Symbol) semantics.PrimType {
 		}
 	}
 	return semantics.PrimUnknown
+}
+
+// typingValue is the value that types a usage declaring no type of its own (KerML §8.3.3.3
+// checkFeatureValuationSpecialization): a non-default one beside no generalization; a
+// `default =` only falls back where nothing overrides it, so it fixes no type.
+func typingValue(sym *symbols.Symbol) ast.Node {
+	u, ok := sym.Decl.(*ast.Usage)
+	if !ok || u.Value == nil || u.ValueIsDefault || sym.OwnerScope == nil {
+		return nil
+	}
+	for _, rel := range u.Relationships {
+		if rel != nil && semantics.GeneralizationKind(rel.Kind) {
+			return nil
+		}
+	}
+	return u.Value
 }
 
 func (ec *exprChecker) inferOperator(scope *symbols.Scope, e *ast.OperatorExpr) semantics.PrimType {

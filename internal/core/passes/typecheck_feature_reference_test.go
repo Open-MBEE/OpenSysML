@@ -21,6 +21,15 @@ func TestBareFeatureReferenceIsTypedByItsFeature(t *testing.T) {
 				"operator '-' requires a numeric operand, found String")
 		})
 	}
+	// A `default =` fixes no type — an overriding value may be of another — and neither does
+	// a value beside a generalization (KerML §8.3.3.3 checkFeatureValuationSpecialization).
+	wantNoDiags(t, `package P {
+		attribute x default = "fallback";
+		attribute y = -x;
+		attribute u;
+		attribute v :> u = "x";
+		attribute w = -v;
+	}`)
 }
 
 func TestBareFeatureReferenceComparisonIsJudged(t *testing.T) {

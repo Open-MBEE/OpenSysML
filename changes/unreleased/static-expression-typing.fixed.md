@@ -1,7 +1,8 @@
 - **A bare feature reference or feature chain is typed statically by the feature it names.**
-  The checker reads a name's effective scalar type — declared, given by its value, or reached
-  through the features it redefines or subsets and the types it inherits, an alias followed to
-  its target — so `while total { … }` over `total : Integer`, `-s` over `s : String` and
+  The checker reads a name's effective scalar type — declared, given by its value (a
+  non-default one beside no generalization, as KerML 1.1 §8.3.3.3 has a value type a feature;
+  a `default =` fixes none), or reached through the features it redefines or subsets and the
+  types it inherits, an alias followed to its target — so `while total { … }` over `total : Integer`, `-s` over `s : String` and
   `s == 1` are judged before execution as a literal of that type would be; the executor's own
   check now stands only for a condition whose type is genuinely unknown. The pilot corpora
   move by four diagnostics, all on `kerml-examples/Simple Tests/Expressions.kerml` and each
