@@ -50,6 +50,9 @@ const (
 	// scheduleReplay follows a witness move for move, then behaves as reverse; a
 	// move the run cannot make is refused (replay.go).
 	scheduleReplay
+	// scheduleCheck makes the one move the model checker selected for the step; it
+	// has no spelling and is constructed by the checker alone (check_schedule.go).
+	scheduleCheck
 )
 
 // SchedulePolicy names how the executors resolve the choice points of a run.
@@ -59,6 +62,7 @@ type SchedulePolicy struct {
 	seed   uint64
 	budget ExploreBudget
 	replay *replayScript
+	check  *checkScript
 }
 
 // DefaultSchedulePolicy is the policy runs use unless one is set: `reverse`.
@@ -194,6 +198,8 @@ func (p SchedulePolicy) String() string {
 			return "explore"
 		}
 		return "explore:" + strings.Join(options, ",")
+	case scheduleCheck:
+		return "check"
 	default:
 		return "reverse"
 	}
@@ -218,6 +224,8 @@ func (p SchedulePolicy) start() *scheduler {
 		s.rng = rand.New(s.pcg)
 	case scheduleReplay:
 		s.replay = &replayRun{choices: p.replay.choices}
+	case scheduleCheck:
+		s.check = &checkRun{script: p.check}
 	}
 	return s
 }
@@ -232,6 +240,7 @@ type scheduler struct {
 	rng     *rand.Rand
 	explore *exploreRun
 	replay  *replayRun
+	check   *checkRun
 }
 
 // stepTokens are the tokens one step may try, in spawn order; parked ones cannot
@@ -252,6 +261,7 @@ type tokenSchedule struct {
 	next    int
 	explore *exploreStep
 	replay  *replayMove
+	check   *checkMove
 }
 
 // Next is the token to try next; false once the step tried them all.
@@ -261,6 +271,9 @@ func (ts *tokenSchedule) Next() (int64, bool) {
 	}
 	if ts.replay != nil {
 		return ts.replay.nextToken()
+	}
+	if ts.check != nil {
+		return ts.check.nextToken()
 	}
 	if ts.next >= len(ts.order) {
 		return 0, false
@@ -278,6 +291,9 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 	if ts.replay != nil {
 		ts.replay.acted(acted)
 	}
+	if ts.check != nil {
+		ts.check.acted(id, acted)
+	}
 }
 
 // Choice is the token-order pick an exploring or replaying step resolved, as the
@@ -287,6 +303,9 @@ func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
 	if ts.replay != nil {
 		return ts.replay.reported()
 	}
+	if ts.check != nil {
+		return ts.check.reported()
+	}
 	if ts.explore == nil || ts.explore.choice == nil {
 		return nil, 0, false
 	}
@@ -294,9 +313,15 @@ func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
 }
 
 // oneMove reports whether a step is one token's move — the exploration's pick among
-// every token able to act, or the witness's — rather than a sweep giving each token its turn.
+// every token able to act, the witness's or the checker's — rather than a sweep
+// giving each token its turn.
 func (s *scheduler) oneMove() bool {
-	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replaying()
+	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replaying() || s.checking()
+}
+
+// checking reports whether the run makes the moves the model checker selects.
+func (s *scheduler) checking() bool {
+	return s.policy.kind == scheduleCheck && s.check != nil
 }
 
 // replaying reports whether the run still has witness moves to follow.
@@ -309,6 +334,9 @@ func (s *scheduler) replaying() bool {
 func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
 	if s.replaying() {
 		return &tokenSchedule{replay: s.replay.beginStep(tokens)}
+	}
+	if s.checking() {
+		return &tokenSchedule{check: s.check.beginStep(tokens)}
 	}
 	if s.oneMove() {
 		return &tokenSchedule{explore: s.explore.beginStep(tokens)}
@@ -370,6 +398,10 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 		if s.replaying() {
 			return s.replay.choose(c, whereOf)
 		}
+	case scheduleCheck:
+		if s.checking() {
+			return s.check.choose(c, whereOf)
+		}
 	}
 	if c.Kind == ChoiceDueOrder {
 		return n - 1
@@ -377,8 +409,12 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 	return 0
 }
 
-// refusal is the witness move a replaying run could not follow, nil for none.
+// refusal is the witness move a replaying run could not follow, or the move the
+// checker selected and the run could not make; nil for none.
 func (s *scheduler) refusal() error {
+	if s.check != nil {
+		return s.check.refused
+	}
 	if s.replay == nil {
 		return nil
 	}
@@ -407,6 +443,9 @@ func (s *scheduler) mark() func() {
 	}
 	if s.replay != nil {
 		return s.replay.mark()
+	}
+	if s.check != nil {
+		return s.check.mark()
 	}
 	if s.pcg == nil {
 		return func() {
