@@ -240,6 +240,60 @@ func TestBoundMeasurementScale(t *testing.T) {
 		"cannot bind a value of type IntervalScale to a feature typed by ThermodynamicTemperatureUnit")
 }
 
+// TestPointOnMeasurementScale: the checker admits a point's affine arithmetic and
+// comparisons, warns of what evaluation refuses, and leaves a typed feature undecided.
+func TestPointOnMeasurementScale(t *testing.T) {
+	const warm = `attribute warm : ThermodynamicTemperatureValue = 26.85 [SI::'°C_abs'];
+		attribute t0 : Time::TimeInstantValue = 5.0 [Time::UTC];
+		`
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = 26.85 [SI::'°C_abs'] + 10.0 [SI::'°C'];`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = 10.0 [K] + 26.85 [SI::'°C_abs'];`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = 26.85 [SI::'°C_abs'] - 10.0 [K];`)
+	wantNoDimensionDiags(t, warm+`attribute d : ThermodynamicTemperatureValue = 26.85 [SI::'°C_abs'] - 20.0 [SI::'°C_abs'];`)
+	wantNoDimensionDiags(t, warm+`attribute d : DurationValue = 5.0 [Time::UTC] - 3.0 [Time::UTC];`)
+	wantNoDimensionDiags(t, warm+`attribute t : Time::TimeInstantValue = 5.0 [Time::UTC] + 3.0 [s];`)
+	wantNoDimensionDiags(t, warm+`attribute b : Boolean = 26.85 [SI::'°C_abs'] < 300.0 [K];`)
+	wantNoDimensionDiags(t, warm+`attribute b : Boolean = 300.0 [K] == 26.85 [SI::'°C_abs'];`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = warm + 10.0 [SI::'°C'];`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = warm - 20.0 [SI::'°C_abs'];`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = 300.0 [K] - warm;`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = warm + 20.0 [SI::'°C_abs'];`)
+	wantNoDimensionDiags(t, warm+`attribute a : ThermodynamicTemperatureValue = 2 * warm;`)
+	wantNoDimensionDiags(t, warm+`attribute b : Boolean = warm < 300.0 [K];`)
+	wantOneDimensionWarning(t, warm+`attribute b = 26.85 [SI::'°C_abs'] < 1.0 [m];`,
+		"operator '<' combines incommensurable quantities: SI::'°C_abs' (dimension Θ) and m (dimension L)")
+	wantOneDimensionWarning(t, warm+`attribute a = 26.85 [SI::'°C_abs'] + 1.0 [m];`,
+		"operator '+' combines incommensurable quantities: SI::'°C_abs' (dimension Θ) and m (dimension L)")
+	wantOneDimensionWarning(t, warm+`attribute a = 26.85 [SI::'°C_abs'] + 10.0 [SI::'°C_abs'];`,
+		"operator '+' adds two points on the measurement scale SI::'°C_abs', which have no sum; their difference is a magnitude in the scale's unit")
+	wantOneDimensionWarning(t, warm+`attribute a = 300.0 [K] - 26.85 [SI::'°C_abs'];`,
+		"operator '-' subtracts a point on the measurement scale SI::'°C_abs' from a magnitude, which is neither a point nor a magnitude; write `point - magnitude`")
+	wantOneDimensionWarning(t, warm+`attribute a = 2 * 26.85 [SI::'°C_abs'];`,
+		"operator '*' on a point on the measurement scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
+	wantOneDimensionWarning(t, warm+`attribute a = 26.85 [SI::'°C_abs'] * 2.0 [s];`,
+		"operator '*' on a point on the measurement scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
+	wantOneDimensionWarning(t, warm+`attribute a = 2.0 [s] / 5.0 [Time::UTC];`,
+		"operator '/' on a point on the measurement scale Time::UTC: a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
+	wantOneDimensionWarning(t, warm+`attribute a = 26.85 [SI::'°C_abs'] ** 2;`,
+		"operator '**' on a point on the measurement scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose; convert it to a unit with ConvertQuantity first")
+	wantOneDimensionWarning(t, warm+`attribute a = -(26.85 [SI::'°C_abs']);`,
+		"operator '-' negates a point on the measurement scale SI::'°C_abs', which has no negative; negate a difference between points instead")
+}
+
+func wantOneDimensionWarning(t *testing.T, body, want string) {
+	t.Helper()
+	diags := dimensionDiags(t, body)
+	if len(diags) != 1 {
+		t.Fatalf("want exactly one type diagnostic, got %v", diags)
+	}
+	if diags[0].Severity != SeverityWarning {
+		t.Errorf("diagnostic is %v, want a warning: %s", diags[0].Severity, diags[0].Message)
+	}
+	if diags[0].Message != want {
+		t.Errorf("message = %q, want %q", diags[0].Message, want)
+	}
+}
+
 // TestBoundComposedCoordinateFrame: a frame divided or multiplied by a unit is the
 // CoordinateFrame the frame calcs compose, so it binds to a frame type whose axes
 // measure in the composed dimension (Annex A's `velocityCF = spatialCF / s`), is

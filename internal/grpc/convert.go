@@ -536,6 +536,10 @@ var (
 	// measurement unit, which nothing is measured in.
 	ErrNotAMeasurementUnit = errors.New("not a measurement unit")
 
+	// ErrScaleNotAFactor reports a reduction composing a measurement scale with
+	// other factors, a scale or a power: a point on a scale is no unit to compose.
+	ErrScaleNotAFactor = errors.New("measurement scale is not a unit factor")
+
 	// ErrUnitScaleUnusable reports a unit reduction whose scale is zero, undefined
 	// or not finite, which no magnitude can be converted through.
 	ErrUnitScaleUnusable = errors.New("unit scale is not a usable ratio")
@@ -1347,6 +1351,7 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 		return semantics.UnitTerm{}, fmt.Errorf("%w: %g/%g", ErrUnitScaleUnusable, scale.Num, scale.Den)
 	}
 	term := semantics.UnitTerm{Scale: scale}
+	var pointOn *symbols.Symbol
 	for _, f := range pt.GetFactors() {
 		// An empty name is a lookup of the document root, so it is rejected here
 		// rather than resolved to a symbol that measures nothing.
@@ -1359,7 +1364,11 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 		}
 		unit, ok := sem.MeasurementUnitOf(matches[0])
 		if !ok {
-			return semantics.UnitTerm{}, fmt.Errorf("%w: %s", ErrNotAMeasurementUnit, f.GetUnitId())
+			// A point on a measurement scale reduces to the scale alone.
+			if !sem.IsMeasurementScale(matches[0]) {
+				return semantics.UnitTerm{}, fmt.Errorf("%w: %s", ErrNotAMeasurementUnit, f.GetUnitId())
+			}
+			unit, pointOn = matches[0], matches[0]
 		}
 		term.Factors = append(term.Factors, semantics.UnitFactor{
 			Unit:     unit,
@@ -1372,6 +1381,11 @@ func protoToUnitTerm(pt *pb.UnitTerm, idx *symbols.Index, sem *semantics.Model) 
 	for _, f := range term.Factors {
 		if !finite(f.Exponent) {
 			return semantics.UnitTerm{}, fmt.Errorf("%w: %s**%g", ErrUnitExponentUnusable, symbols.FQNOf(f.Unit), f.Exponent)
+		}
+	}
+	if pointOn != nil {
+		if _, ok := sem.MeasurementScaleOf(term); !ok {
+			return semantics.UnitTerm{}, fmt.Errorf("%w: %s in %s", ErrScaleNotAFactor, symbols.FQNOf(pointOn), term)
 		}
 	}
 	return term, nil

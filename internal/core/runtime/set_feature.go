@@ -71,9 +71,9 @@ func (ctx *Context) specializes(sym, general *symbols.Symbol) bool {
 }
 
 // collectionOf is the collection a multi-valued feature holds the elements as.
-func collectionOf(feat *EffectiveFeature, elements []Value) Value {
+func (ctx *Context) collectionOf(feat *EffectiveFeature, elements []Value) Value {
 	if feat.HoldsSet {
-		return setOf(elements)
+		return ctx.setOf(elements)
 	}
 	return sequenceOf(elements)
 }
@@ -90,7 +90,7 @@ func (ctx *Context) declaredCollection(sym *symbols.Symbol, val Value) Value {
 		return val
 	}
 	if holds := ctx.holdsSet(sym, ctx.findOwnerType(sym), mult); holds != (val.Kind == ValSet) {
-		return collectionOf(&EffectiveFeature{HoldsSet: holds}, elementsOf(val))
+		return ctx.collectionOf(&EffectiveFeature{HoldsSet: holds}, elementsOf(val))
 	}
 	return val
 }

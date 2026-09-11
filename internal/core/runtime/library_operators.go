@@ -157,7 +157,7 @@ func arithmeticForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 			if op == ast.OpSub {
 				unary = ast.OpNeg
 			}
-			val, err := unaryValue(unary, args[0])
+			val, err := ctx.unaryValue(unary, args[0])
 			return operatorResult(name, val, err)
 		}
 		val, err := ctx.arithmeticValues(op, args[0], args[1], source.Span{})
@@ -193,7 +193,7 @@ func comparisonForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := comparisonValues(op, args[0], args[1], source.Span{})
+		val, err := ctx.comparisonValues(op, args[0], args[1], source.Span{})
 		return operatorResult(name, val, err)
 	}
 }
@@ -225,7 +225,7 @@ func unaryForm(op ast.OperatorKind, domain operandDomain) libraryApply {
 		if err != nil {
 			return Value{}, err
 		}
-		val, err := unaryValue(op, args[0])
+		val, err := ctx.unaryValue(op, args[0])
 		return operatorResult(name, val, err)
 	}
 }
@@ -280,7 +280,7 @@ func genericExtremum(larger bool) libraryApply {
 		case x.Kind == ValConst && x.Const.IsNumeric() && y.Kind == ValConst && y.Const.IsNumeric():
 			return extremum(name, ctx, args)
 		case x.Kind == ValString && y.Kind == ValString, x.Kind == ValQuantity && y.Kind == ValQuantity:
-			less, err := comparisonValues(ast.OpLt, x, y, source.Span{})
+			less, err := ctx.comparisonValues(ast.OpLt, x, y, source.Span{})
 			if err != nil {
 				return Value{}, fmt.Errorf("function %s: %w", name, err)
 			}

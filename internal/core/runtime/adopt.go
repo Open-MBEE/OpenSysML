@@ -1081,7 +1081,7 @@ func (a *adoption) rewrite(val Value) Value {
 		if val.Set() == nil {
 			return val
 		}
-		set := NewSet()
+		set := a.ctx.newSet()
 		for _, elem := range val.Set().Elements() {
 			set.Add(a.rewrite(elem))
 		}

@@ -110,7 +110,7 @@ func (ec *EvalContext) castValue(
 			}
 		}
 		if value.Kind == ValSet {
-			set := NewSet()
+			set := ec.ctx.newSet()
 			for _, element := range kept {
 				set.Add(element)
 			}

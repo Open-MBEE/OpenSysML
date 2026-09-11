@@ -153,7 +153,7 @@ func (ctx *Context) spellForDeclared(value *Value, declared *symbols.Symbol) {
 			*value = sequenceOf(elements)
 			return
 		}
-		*value = setOf(elements)
+		*value = ctx.setOf(elements)
 	}
 }
 

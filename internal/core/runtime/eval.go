@@ -1798,11 +1798,11 @@ func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, spa
 	}
 
 	// A product, quotient or power of measurement references is the unit it composes.
-	if ref, ok := composeMeasurementRefs(op, left, right); ok {
-		return ref, nil
+	if ref, ok, err := ctx.composeMeasurementRefs(op, left, right); ok {
+		return ref, err
 	}
 	// A coordinate frame times or over a unit is the frame of composed axes.
-	if frame, ok, err := composeFrame(op, left, right); ok {
+	if frame, ok, err := ctx.composeFrame(op, left, right); ok {
 		return frame, err
 	}
 
@@ -1811,7 +1811,7 @@ func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, spa
 	if lq, rq, ok := quantityOperands(left, right); ok {
 		switch op {
 		case ast.OpAdd, ast.OpSub:
-			return addQuantities(op, lq, rq)
+			return ctx.addQuantities(op, lq, rq)
 		case ast.OpMul, ast.OpDiv:
 			return ctx.scaleQuantities(op, lq, rq)
 		case ast.OpPow:
@@ -1963,7 +1963,7 @@ func (ctx *Context) equalityValues(op ast.OperatorKind, left, right Value) (Valu
 	// Quantities compare in a common unit; incommensurable ones are an error,
 	// not an inequality.
 	if lq, rq, ok := quantityOperands(left, right); ok {
-		return equalQuantities(op, lq, rq)
+		return ctx.equalQuantities(op, lq, rq)
 	}
 
 	// Two Collection objects compare by their elements (CollectionFunctions::'==').
@@ -1977,7 +1977,7 @@ func (ctx *Context) equalityValues(op ast.OperatorKind, left, right Value) (Valu
 		}
 	}
 
-	equal := equalValues(left, right)
+	equal := ctx.equalValues(left, right)
 	if op == ast.OpNeq {
 		equal = !equal
 	}
@@ -1999,16 +1999,16 @@ func (ec *EvalContext) evalComparison(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return comparisonValues(n.Operator, left, right, n.Span())
+	return ec.ctx.comparisonValues(n.Operator, left, right, n.Span())
 }
 
 // comparisonValues applies an ordering operator to two evaluated operands; the
 // operator notation and the library's `'<'` forms both use it.
-func comparisonValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
-	// Quantities are ordered in a common unit, so a magnitude is never compared
-	// across units without conversion.
+func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
+	// Quantities are ordered on a common reference, so a magnitude is never
+	// compared across units or scales without conversion.
 	if lq, rq, ok := quantityOperands(left, right); ok {
-		return compareQuantities(op, lq, rq)
+		return ctx.compareQuantities(op, lq, rq)
 	}
 
 	// StringFunctions declares the comparisons over two String operands, so a
@@ -2207,12 +2207,12 @@ func (ec *EvalContext) evalUnary(n *ast.OperatorExpr) (Value, error) {
 			return vectorSubtract("VectorFunctions::'-'", ec.ctx, []Value{operand, nullValue()})
 		}
 	}
-	return unaryValue(n.Operator, operand)
+	return ec.ctx.unaryValue(n.Operator, operand)
 }
 
 // unaryValue applies `not`, `-` or `+` to an evaluated operand; the operator
 // notation and the library's `'not'` forms both use it.
-func unaryValue(op ast.OperatorKind, operand Value) (Value, error) {
+func (ctx *Context) unaryValue(op ast.OperatorKind, operand Value) (Value, error) {
 	switch op {
 	case ast.OpNot:
 		if operand.Kind != ValConst {
@@ -2223,7 +2223,7 @@ func unaryValue(op ast.OperatorKind, operand Value) (Value, error) {
 			if op == ast.OpPos {
 				return operand, nil
 			}
-			return negateQuantity(operand.Quantity())
+			return ctx.negateQuantity(operand.Quantity())
 		}
 		if operand.Kind == ValComplex {
 			if op == ast.OpPos {
@@ -2686,16 +2686,28 @@ func qualifiedNameToString(qn *ast.QualifiedName) string {
 
 // equalValues is `==` over two operands: a set meeting a sequence flows into the
 // ordered context and is compared as its canonical sequence; otherwise valueEqual.
-func equalValues(a, b Value) bool {
+func (ctx *Context) equalValues(a, b Value) bool {
 	if a.Kind == ValSet && b.Kind == ValSequence || a.Kind == ValSequence && b.Kind == ValSet {
-		return sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
+		return ctx.sequenceEqual(sequenceOf(elementsOf(a)).Sequence(), sequenceOf(elementsOf(b)).Sequence())
 	}
-	return valueEqual(a, b)
+	return ctx.valueEqual(a, b)
+}
+
+// equalValues is `==` with no context, for values that carry no scale point.
+func equalValues(a, b Value) bool {
+	return (*Context)(nil).equalValues(a, b)
+}
+
+// valueEqual is deep equality with no context: a point on a scale is one value
+// with a magnitude on that scale only.
+func valueEqual(a, b Value) bool {
+	return (*Context)(nil).valueEqual(a, b)
 }
 
 // valueEqual checks deep equality of two runtime values: whether they are one
 // value, as a set's membership judges. A set is never the sequence of its members.
-func valueEqual(a, b Value) bool {
+// With a context a point on a scale equals the magnitude it is on its reference.
+func (ctx *Context) valueEqual(a, b Value) bool {
 	if isEmptyValue(a) || isEmptyValue(b) {
 		return isEmptyValue(a) && isEmptyValue(b)
 	}
@@ -2718,9 +2730,9 @@ func valueEqual(a, b Value) bool {
 	case ValInstance:
 		return a.Instance == b.Instance
 	case ValSequence:
-		return sequenceEqual(a.Sequence(), b.Sequence())
+		return ctx.sequenceEqual(a.Sequence(), b.Sequence())
 	case ValSet:
-		return a.Set().Equal(b.Set())
+		return ctx.setsEqual(a.Set(), b.Set())
 	case ValVariant:
 		// A variation compares equal to the variant it selected.
 		return a.Variant() == b.Variant()
@@ -2731,16 +2743,16 @@ func valueEqual(a, b Value) bool {
 	case ValQuantity:
 		// Incommensurable units are not equal here: an equality that has to hold
 		// or fail (a set member, a sequence element) has no error to report.
-		c, err := semantics.CompareMagnitudes(*a.Quantity(), *b.Quantity())
+		c, err := ctx.canonicalMagnitudes(*a.Quantity(), *b.Quantity())
 		return err == nil && c == 0
 	case ValArray:
-		return arrayEqual(a.Array(), b.Array())
+		return ctx.arrayEqual(a.Array(), b.Array())
 	case ValVector:
-		return vectorEqual(a.Vector(), b.Vector())
+		return ctx.vectorEqual(a.Vector(), b.Vector())
 	case ValVectorQuantity:
-		return vectorQuantityEqual(a.VectorQuantity(), b.VectorQuantity())
+		return ctx.vectorQuantityEqual(a.VectorQuantity(), b.VectorQuantity())
 	case ValTensorQuantity:
-		return tensorQuantityEqual(a.TensorQuantity(), b.TensorQuantity())
+		return ctx.tensorQuantityEqual(a.TensorQuantity(), b.TensorQuantity())
 	case ValMeasurementRef:
 		return a.MeasurementRef().equal(b.MeasurementRef())
 	case ValCoordinateFrame:
@@ -2758,7 +2770,7 @@ func valueEqual(a, b Value) bool {
 }
 
 // arrayEqual holds for arrays of the same dimensions with equal elements.
-func arrayEqual(a, b *Array) bool {
+func (ctx *Context) arrayEqual(a, b *Array) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -2771,7 +2783,7 @@ func arrayEqual(a, b *Array) bool {
 		}
 	}
 	for i := range a.Elements {
-		if !valueEqual(a.Elements[i], b.Elements[i]) {
+		if !ctx.valueEqual(a.Elements[i], b.Elements[i]) {
 			return false
 		}
 	}
@@ -2779,7 +2791,7 @@ func arrayEqual(a, b *Array) bool {
 }
 
 // vectorEqual holds for vectors of one dimension whose numbers are equal.
-func vectorEqual(a, b *Vector) bool {
+func (ctx *Context) vectorEqual(a, b *Vector) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -2787,7 +2799,7 @@ func vectorEqual(a, b *Vector) bool {
 		return false
 	}
 	for i := range a.Elements {
-		if !valueEqual(constValue(a.Elements[i]), constValue(b.Elements[i])) {
+		if !ctx.valueEqual(constValue(a.Elements[i]), constValue(b.Elements[i])) {
 			return false
 		}
 	}
@@ -2795,7 +2807,7 @@ func vectorEqual(a, b *Vector) bool {
 }
 
 // vectorQuantityEqual holds for vector quantities whose axes are equal quantities.
-func vectorQuantityEqual(a, b *VectorQuantity) bool {
+func (ctx *Context) vectorQuantityEqual(a, b *VectorQuantity) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -2807,7 +2819,7 @@ func vectorQuantityEqual(a, b *VectorQuantity) bool {
 		return false
 	}
 	for i := 0; i < a.Dimension(); i++ {
-		if !valueEqual(NewQuantityValue(a.component(i)), NewQuantityValue(b.component(i))) {
+		if !ctx.valueEqual(NewQuantityValue(a.component(i)), NewQuantityValue(b.component(i))) {
 			return false
 		}
 	}
@@ -2823,7 +2835,7 @@ func sameVectorFrame(a, b *VectorQuantity) bool {
 }
 
 // sequenceEqual checks structural equality of sequences (element-wise).
-func sequenceEqual(a, b *Sequence) bool {
+func (ctx *Context) sequenceEqual(a, b *Sequence) bool {
 	if a == nil || b == nil {
 		return a == b
 	}
@@ -2833,7 +2845,7 @@ func sequenceEqual(a, b *Sequence) bool {
 	for i := 0; i < a.Size(); i++ {
 		aElem, _ := a.At(i)
 		bElem, _ := b.At(i)
-		if !valueEqual(aElem, bElem) {
+		if !ctx.valueEqual(aElem, bElem) {
 			return false
 		}
 	}

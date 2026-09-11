@@ -106,6 +106,12 @@ func TestQuantityCrossesTheWire(t *testing.T) {
 		{expr: "3.0 [SI::m/(SI::s*SI::kg)]", unit: "SI::m/(SI::s*SI::kg)", real: 3.0, reduction: "1/1000·SI::gram^-1·SI::metre·SI::second^-1", wantScaled: true},
 		{expr: "4.0 [(SI::m*SI::s)**2]", unit: "(SI::m*SI::s)**2", real: 4.0, reduction: "SI::metre^2·SI::second^2"},
 		{expr: "8.0 [(SI::m**2)**3]", unit: "(SI::m**2)**3", real: 8.0, reduction: "SI::metre^6"},
+		// A point on a measurement scale carries the scale by name and as its one
+		// factor: a point reduces to no unit, so the scale itself is the reduction.
+		{expr: "26.85 [SI::'°C_abs']", unit: "'°C_abs'", real: 26.85, reduction: "SI::degree celsius (absolute temperature scale)"},
+		{expr: "26.85 [SI::'°C_abs'] + 10.0 [SI::'°C']", unit: "'°C_abs'", real: 36.85, reduction: "SI::degree celsius (absolute temperature scale)"},
+		{expr: "30.0 [SI::'°C_abs'] - 20.0 [SI::'°C_abs']", unit: "'°C'", real: 10.0, reduction: "SI::kelvin"},
+		{expr: "5.0 [Time::UTC] + 3.0 [SI::s]", unit: "UTC", real: 8.0, reduction: "Time::Coordinated Universal Time"},
 	}
 
 	for _, tc := range tests {
@@ -150,6 +156,8 @@ func TestQuantityRoundTrip(t *testing.T) {
 		"8.0 [(SI::m**2)**3]",
 		"6.0 [SI::m/SI::s/SI::kg]",
 		"2.0 [SI::'m/s²'] * 3.0 [SI::s]",
+		"26.85 [SI::'°C_abs']",
+		"5.0 [Time::UTC] + 3.0 [SI::s]",
 	} {
 		t.Run(expr, func(t *testing.T) {
 			sent := mustEvaluateQuantity(t, srv, modelHash, expr)
@@ -308,6 +316,30 @@ func TestQuantityOverSomethingThatIsNotAUnit(t *testing.T) {
 	}
 	if _, err := ProtoToQuantity(unnamed, idx, sem); !errors.Is(err, ErrUnknownBaseUnit) {
 		t.Errorf("over an unnamed factor: err = %v, want ErrUnknownBaseUnit", err)
+	}
+
+	// A measurement scale is the whole reduction of a point on it, never a factor
+	// beside a unit or under a power.
+	scaleTimesUnit := &pb.Quantity{
+		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1},
+		Unit:      "'°C_abs'*s",
+		UnitTerm: &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{
+			{UnitId: "SI::degree celsius (absolute temperature scale)", Exponent: 1},
+			{UnitId: "SI::second", Exponent: 1},
+		}},
+	}
+	if _, err := ProtoToQuantity(scaleTimesUnit, idx, sem); !errors.Is(err, ErrScaleNotAFactor) {
+		t.Errorf("over a scale times a unit: err = %v, want ErrScaleNotAFactor", err)
+	}
+	scaleSquared := &pb.Quantity{
+		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1},
+		Unit:      "'°C_abs'**2",
+		UnitTerm: &pb.UnitTerm{ScaleNum: 1, ScaleDen: 1, Factors: []*pb.UnitFactor{
+			{UnitId: "SI::degree celsius (absolute temperature scale)", Exponent: 2},
+		}},
+	}
+	if _, err := ProtoToQuantity(scaleSquared, idx, sem); !errors.Is(err, ErrScaleNotAFactor) {
+		t.Errorf("over a scale squared: err = %v, want ErrScaleNotAFactor", err)
 	}
 }
 

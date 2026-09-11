@@ -1754,6 +1754,60 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 				:>> quantityValueMapping = m;
 			}`,
 			"ThermodynamicTemperatureValue", "ConvertQuantity(3.0 [K], a)", ErrCyclicFeatureValue, "coordinate frame a is defined in terms of itself"},
+		// A point on an interval scale has the affine operations and no other: the
+		// refusal names the operation and the scale.
+		{"point added to a point", ``,
+			"ThermodynamicTemperatureValue", "warm + 10.0 [SI::'°C_abs']", ErrScalePoint, "operator '+' on a point of the interval scale SI::'°C_abs': two points have no sum"},
+		{"time instant added to a time instant", ``,
+			"Time::TimeInstantValue", "5.0 [Time::UTC] + 3.0 [Time::UTC]", ErrScalePoint, "operator '+' on a point of the interval scale Time::UTC: two points have no sum; their difference `x - y` is a magnitude in s"},
+		{"point taken from a magnitude", ``,
+			"ThermodynamicTemperatureValue", "300.0 [K] - warm", ErrScalePoint, "subtracting a point from a magnitude on a point of the interval scale SI::'°C_abs'"},
+		{"point scaled by a number", ``,
+			"ThermodynamicTemperatureValue", "2 * warm", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs': a point has no multiple"},
+		{"number scaled by a point", ``,
+			"ThermodynamicTemperatureValue", "warm * 2.0", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs'"},
+		{"time instant scaled by a number", ``,
+			"Time::TimeInstantValue", "2 * 5.0 [Time::UTC]", ErrScalePoint, "operator '*' on a point of the interval scale Time::UTC"},
+		{"point multiplied by a quantity", ``,
+			"ScalarQuantityValue", "warm * 2.0 [s]", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs': a point has no multiple and its scale is no unit to compose"},
+		{"quantity multiplied by a point", ``,
+			"ScalarQuantityValue", "2.0 [s] * warm", ErrScalePoint, "operator '*' on a point of the interval scale SI::'°C_abs'"},
+		{"point divided by a number", ``,
+			"ThermodynamicTemperatureValue", "warm / 2", ErrScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
+		{"point divided by a quantity", ``,
+			"ScalarQuantityValue", "warm / 2.0 [s]", ErrScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
+		{"quantity divided by a point", ``,
+			"ScalarQuantityValue", "2.0 [s] / warm", ErrScalePoint, "operator '/' on a point of the interval scale SI::'°C_abs'"},
+		{"point raised to a power", ``,
+			"ScalarQuantityValue", "warm ** 2", ErrScalePoint, "operator '**' on a point of the interval scale SI::'°C_abs'"},
+		{"point raised to a power by exponentiation", ``,
+			"ScalarQuantityValue", "warm ^ 2", ErrScalePoint, "operator '**' on a point of the interval scale SI::'°C_abs'"},
+		{"square root of a point", ``,
+			"ScalarQuantityValue", "sqrt(warm)", ErrScalePoint, "sqrt on a point of the interval scale SI::'°C_abs'"},
+		{"negated point", ``,
+			"ThermodynamicTemperatureValue", "-warm", ErrScalePoint, "negation on a point of the interval scale SI::'°C_abs': a point has no negative"},
+		{"points summed", ``,
+			"ThermodynamicTemperatureValue", "sum((warm, 20.0 [SI::'°C_abs']))", ErrScalePoint, "QuantityCalculations::sum on a point of the interval scale SI::'°C_abs': points have no sum or product to fold"},
+		{"points multiplied together", ``,
+			"ScalarQuantityValue", "product((warm, 20.0 [SI::'°C_abs']))", ErrScalePoint, "QuantityCalculations::product on a point of the interval scale SI::'°C_abs'"},
+		{"point moved by a magnitude of another dimension", ``,
+			"ThermodynamicTemperatureValue", "warm + 1.0 [m]", ErrIncommensurableUnits, "a point on the interval scale SI::'°C_abs' moves by a magnitude in its unit '°C'"},
+		{"point compared with a magnitude of another dimension", ``,
+			"Boolean", "warm < 1.0 [m]", ErrIncommensurableUnits, ""},
+		{"point equated with a magnitude of another dimension", ``,
+			"Boolean", "warm == 1.0 [m]", ErrIncommensurableUnits, ""},
+		{"point on an unanchored scale compared with a magnitude", ``,
+			"Boolean", "5.0 [Time::UTC] == 5.0 [s]", ErrUnevaluableLibraryFunction, "Time::UTC states neither a transformation placing it on another reference nor a quantityValueMapping"},
+		{"point on an ordinal scale moved by a magnitude", `attribute mohs : OrdinalScale { :>> unit = K; }`,
+			"ScalarQuantityValue", "7 [mohs] + 1 [K]", ErrScalePoint, "operator '+' on a point of the ordinal scale test::Holder::mohs: only an IntervalScale relates its points by differences in its unit"},
+		{"points on an ordinal scale subtracted", `attribute mohs : OrdinalScale { :>> unit = K; }`,
+			"ScalarQuantityValue", "9 [mohs] - 7 [mohs]", ErrScalePoint, "operator '-' on a point of the ordinal scale test::Holder::mohs"},
+		{"point on an ordinal scale compared with a magnitude", `attribute mohs : OrdinalScale { :>> unit = K; }`,
+			"Boolean", "7 [mohs] < 300.0 [K]", ErrScalePoint, "comparison with another reference on a point of the ordinal scale test::Holder::mohs"},
+		{"point on a cyclic ratio scale scaled", `attribute compass : CyclicRatioScale { :>> unit = rad; :>> modulus = 6.283185307179586; }`,
+			"ScalarQuantityValue", "2 * 1.0 [compass]", ErrScalePoint, "operator '*' on a point of the cyclic ratio scale test::Holder::compass"},
+		{"point on a logarithmic scale moved by a magnitude", `attribute decibel : LogarithmicScale { :>> unit = W; :>> logarithmBase = 10; :>> factor = 10; :>> exponent = 1; }`,
+			"ScalarQuantityValue", "30.0 [decibel] + 1.0 [W]", ErrScalePoint, "operator '+' on a point of the logarithmic scale test::Holder::decibel: only an IntervalScale relates its points by differences in its unit"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`
@@ -1767,6 +1821,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 					part def Holder {
 						attribute spatialCF : CartesianSpatial3dCoordinateFrame { :>> mRefs = (m, m, m); }
 						attribute datum : CartesianSpatial3dCoordinateFrame { :>> mRefs = (mm, mm, mm); }
+						attribute warm : ThermodynamicTemperatureValue = ConvertQuantity(300.0 [K], SI::'°C_abs');
 						%s
 						attribute value : %s = %s;
 					}

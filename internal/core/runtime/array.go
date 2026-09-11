@@ -655,7 +655,7 @@ func valueHash(v Value) uint64 {
 }
 
 // structuredKey is the content hash a structured value's valueKey carries.
-func structuredKey(v Value) uint64 {
+func (ctx *Context) structuredKey(v Value) uint64 {
 	h := fnv.New64a()
 	write := func(k valueKey) {
 		// #nosec G104 -- hash.Hash.Write is documented never to return an error.
@@ -667,7 +667,7 @@ func structuredKey(v Value) uint64 {
 			write(valueKeyFunc(integerValue(d)))
 		}
 		for _, e := range v.Array().Elements {
-			write(valueKeyFunc(e))
+			write(ctx.valueKey(e))
 		}
 	case ValVector:
 		for _, e := range v.Vector().Elements {
@@ -676,7 +676,7 @@ func structuredKey(v Value) uint64 {
 	case ValVectorQuantity:
 		vq := v.VectorQuantity()
 		for i := range vq.Num {
-			write(valueKeyFunc(NewQuantityValue(vq.component(i))))
+			write(ctx.valueKey(NewQuantityValue(vq.component(i))))
 		}
 	case ValTensorQuantity:
 		tq := v.TensorQuantity()
@@ -684,7 +684,7 @@ func structuredKey(v Value) uint64 {
 			write(valueKeyFunc(integerValue(d)))
 		}
 		for _, component := range tq.components() {
-			write(valueKeyFunc(component))
+			write(ctx.valueKey(component))
 		}
 	}
 	return h.Sum64()

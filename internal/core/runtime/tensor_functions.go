@@ -285,7 +285,7 @@ func (ctx *Context) combineTensors(name string, op ast.OperatorKind, x, y tensor
 	}
 	components := make([]Value, x.size())
 	for i := range components {
-		component, err := addQuantities(op, x.component(i), y.component(i))
+		component, err := ctx.addQuantities(op, x.component(i), y.component(i))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}

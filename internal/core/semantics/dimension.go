@@ -31,7 +31,19 @@ type Dimension struct {
 	// Unit is the unit as written or the operand's quantity type, for the
 	// diagnostic; empty for a computed dimension, described by Term alone.
 	Unit string
+	// Scale is the measurement scale the value is a point on (`[SI::'°C_abs']`);
+	// nil for a magnitude in a unit.
+	Scale *symbols.Symbol
+	// MaybePoint marks a feature's value, which its quantity value type leaves
+	// free to be a point on a scale or a magnitude in a unit of the dimension.
+	MaybePoint bool
 }
+
+// IsPoint reports a value on a measurement scale rather than in a unit.
+func (d Dimension) IsPoint() bool { return d.Scale != nil }
+
+// IsMagnitude reports a value known to be in a unit and on no scale.
+func (d Dimension) IsMagnitude() bool { return d.Scale == nil && !d.MaybePoint }
 
 // String renders the dimension over its base quantities ("M", "L·T^-1"), or "1"
 // for the dimension of a count. Base quantities are named as declared (ISQ's L,
@@ -153,13 +165,43 @@ func (m *Model) dimensionOfQuantity(scope *symbols.Scope, n *ast.IndexExpr) (Dim
 	}
 	term, err := m.UnitTermOfExpr(scope, n.Index)
 	if err != nil {
-		return Dimension{}, false
+		return m.dimensionOfPoint(scope, n)
 	}
 	dim, ok := m.dimensionOfUnitTerm(term)
 	if !ok {
 		return Dimension{}, false
 	}
 	return Dimension{Term: dim, Unit: UnitExprText(n.Index)}, true
+}
+
+// dimensionOfPoint reports the dimension of a point on a measurement scale
+// (`26.85 [SI::'°C_abs']`): that of the scale's unit, marked as on the scale.
+func (m *Model) dimensionOfPoint(scope *symbols.Scope, n *ast.IndexExpr) (Dimension, bool) {
+	var qn *ast.QualifiedName
+	switch index := n.Index.(type) {
+	case *ast.FeatureReference:
+		qn = index.Name
+	case *ast.QualifiedName:
+		qn = index
+	}
+	if qn == nil || m.resolver == nil {
+		return Dimension{}, false
+	}
+	sym, ok := m.resolver.ResolveQualified(scope, qn)
+	if !ok || sym == nil {
+		return Dimension{}, false
+	}
+	if alias, ok := m.resolver.ResolveAliasTarget(sym); ok {
+		sym = alias
+	}
+	if !m.IsMeasurementScale(sym) {
+		return Dimension{}, false
+	}
+	dim, ok := m.scaleDimension(sym)
+	if !ok {
+		return Dimension{}, false
+	}
+	return Dimension{Term: dim, Unit: UnitExprText(n.Index), Scale: sym}, true
 }
 
 // dimensionOfName reports the dimension of the feature a name refers to.
@@ -184,16 +226,19 @@ func (m *Model) dimensionOfOperator(scope *symbols.Scope, e *ast.OperatorExpr) (
 	switch e.Operator {
 	case ast.OpNeg, ast.OpPos:
 		if len(e.Operands) == 1 {
-			return m.DimensionOfExpr(scope, e.Operands[0])
+			if dim, ok := m.DimensionOfExpr(scope, e.Operands[0]); ok && !dim.IsPoint() {
+				return dim, true
+			}
 		}
 	case ast.OpAdd, ast.OpSub:
 		lhs, rhs, ok := m.operandDimensions(scope, e)
-		if ok && lhs.Term.Commensurable(rhs.Term) {
-			return lhs, true
+		if !ok || !lhs.Term.Commensurable(rhs.Term) {
+			return Dimension{}, false
 		}
+		return pointSumDimension(e.Operator, lhs, rhs)
 	case ast.OpMul, ast.OpDiv:
 		lhs, rhs, ok := m.operandDimensions(scope, e)
-		if !ok {
+		if !ok || lhs.IsPoint() || rhs.IsPoint() {
 			return Dimension{}, false
 		}
 		if e.Operator == ast.OpMul {
@@ -205,7 +250,7 @@ func (m *Model) dimensionOfOperator(scope *symbols.Scope, e *ast.OperatorExpr) (
 			return Dimension{}, false
 		}
 		base, ok := m.DimensionOfExpr(scope, e.Operands[0])
-		if !ok {
+		if !ok || base.IsPoint() {
 			return Dimension{}, false
 		}
 		exp, ok := m.Eval(e.Operands[1])
@@ -215,6 +260,30 @@ func (m *Model) dimensionOfOperator(scope *symbols.Scope, e *ast.OperatorExpr) (
 		return Dimension{Term: base.Term.Pow(exp.AsReal())}, true
 	}
 	return Dimension{}, false
+}
+
+// pointSumDimension is the dimension of a sum or difference involving a point:
+// point ± magnitude is the point, point − point a magnitude, point + point none.
+func pointSumDimension(op ast.OperatorKind, lhs, rhs Dimension) (Dimension, bool) {
+	switch {
+	case lhs.IsPoint() && rhs.IsPoint():
+		if op == ast.OpAdd {
+			return Dimension{}, false
+		}
+		return Dimension{Term: lhs.Term}, true
+	case rhs.IsPoint():
+		if op == ast.OpSub {
+			if lhs.IsMagnitude() {
+				return Dimension{}, false
+			}
+			return Dimension{Term: lhs.Term}, true
+		}
+		return rhs, true
+	case lhs.IsPoint() && op == ast.OpSub && rhs.MaybePoint:
+		return Dimension{Term: lhs.Term, MaybePoint: true}, true
+	default:
+		return lhs, true
+	}
 }
 
 // operandDimensions reports the dimensions of a binary expression's two
@@ -259,7 +328,7 @@ func (m *Model) dimensionOfQuantityType(typ *symbols.Symbol) (Dimension, bool) {
 	if !ok {
 		return Dimension{}, false
 	}
-	return Dimension{Term: term, Unit: leafName(typ.Name)}, true
+	return Dimension{Term: term, Unit: leafName(typ.Name), MaybePoint: true}, true
 }
 
 // FixesMeasurementReference reports whether a quantity type states a measurement
@@ -384,6 +453,14 @@ func (m *Model) scaleDimension(sym *symbols.Symbol) (UnitTerm, bool) {
 	unit, ok := m.LookupMember(sym, memberUnit)
 	if !ok {
 		return UnitTerm{}, false
+	}
+	// `:>> unit = '°C'` names the unit; `:>> unit : DurationUnit` only types it.
+	if named := usageValue(unit); named != nil && m.resolver != nil {
+		if bound, ok := m.resolver.ResolveTarget(scopeOf(unit), named); ok && bound != nil {
+			if term, err := m.UnitTermOf(bound); err == nil {
+				return m.dimensionOfUnitTerm(term)
+			}
+		}
 	}
 	return m.dimensionOf(unit)
 }

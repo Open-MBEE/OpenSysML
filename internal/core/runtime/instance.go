@@ -111,7 +111,7 @@ func (s *FeatureValue) ReadValue(name string) (Value, error) {
 		return value, nil
 	}
 	if lower := s.Feature.Multiplicity.Lower; lower.Known && !lower.Infinite && lower.Value == 0 {
-		return collectionOf(s.Feature, nil), nil
+		return (*Context)(nil).collectionOf(s.Feature, nil), nil
 	}
 	return Value{}, fmt.Errorf("%w: %s", ErrUninitializedFeatureValue, name)
 }
@@ -483,7 +483,7 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 		if err := ctx.chargeElements(int64(len(elements))); err != nil {
 			return Value{}, err
 		}
-		val = collectionOf(feat, elements)
+		val = ctx.collectionOf(feat, elements)
 	} else if feat.Scalar() && (val.Kind == ValSequence || val.Kind == ValSet) {
 		// A scalar feature holds the one element of a one-element collection.
 		if elements := elementsOf(val); len(elements) == 1 {
@@ -771,7 +771,7 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 				seq.Append(Value{Kind: ValInstance, Instance: childInst.ID})
 				children = append(children, childInst)
 			}
-			fv.Values = collectionOf(fv.Feature, seq.Elements())
+			fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
 			fv.Materialized = true
 			if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 				return fail(err)
