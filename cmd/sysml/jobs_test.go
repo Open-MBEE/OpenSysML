@@ -138,6 +138,60 @@ func TestJSONIsTheSameOnOneJobAsOnEight(t *testing.T) {
 	}
 }
 
+// cellPadding matches the padding before a column rule of a table, which in the time
+// column and its header follows the width of the longest time run.
+var cellPadding = regexp.MustCompile(` +\|`)
+
+// TestSweepReportsAreTheSameOnOneJobAsOnEight checks that every sweep the CLI tests run —
+// the calc sweeps and their product, a sample, a case on the object -instantiate made, a
+// verification on its subject, a trade study with a failing row — reports the same
+// human-readable table and the same -json document under -jobs 1 as under -jobs 8,
+// apart from the figures that describe the run: rows in plan order, the same outputs,
+// verdicts, evaluations, subjects and failed-row errors, and the same exit status.
+func TestSweepReportsAreTheSameOnOneJobAsOnEight(t *testing.T) {
+	binary := buildCLI(t)
+	cases := []struct {
+		name  string
+		model string
+		args  []string
+		want  string
+	}{
+		{"calc", sweepCLIModel, []string{"-calc", "Sw::Twice", "-sweep", "n=1..4"}, "4 | 8 "},
+		{"failing row", sweepCLIModel, []string{"-calc", "Sw::Ratio(a = 4.0)", "-sweep", "b=-1..1"}, "division by zero"},
+		{"product", sweepCLIModel, []string{"-calc", "Sw::Ratio", "-sweep", "a=1.0..2.0:1.0", "-sweep", "b=2.0..4.0:2.0"}, "2.0 | 4.0 | 0.5 "},
+		{"samples", sweepCLIModel, []string{"-calc", "Sw::Twice", "-samples", "5", "-seed", "42", "-sweep", "n=1..100"}, "5 run(s), seed 42"},
+		{"case on an object", sweepCLIModel, []string{"-instantiate", "Sw::ship", "-analysis", "Sw::Priced Sw::ship", "-sweep", "tax=0.0..1.0:0.5"}, "1.0 | 10.0 | obj: not satisfied "},
+		{"verification", sweepVerificationModel, []string{"-analysis", "Sw::checkScout", "-sweep", "limit=1.0..2.0:0.5"}, "1.0 | VerdictKind::fail | obj: not satisfied "},
+		{"trade study", tradeStudyModel, []string{"-analysis", "Trade::perOffset", "-sweep", "offset=3..4"}, "evaluationFunction(Trade::a (object #1)) = 10.0 [selected]; evaluationFunction(Trade::b (object #2)) = 10.0 [tied]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			report := func(jobs string, json bool) (string, int) {
+				args := []string{"-jobs", jobs}
+				if json {
+					args = append(args, "-json")
+				}
+				got := check(t, binary, tc.model, append(args, tc.args...)...)
+				out := runFigures.ReplaceAllString(got.output(), "")
+				return cellPadding.ReplaceAllString(out, " |"), got.status
+			}
+			one, oneStatus := report("1", false)
+			eight, eightStatus := report("8", false)
+			if !strings.Contains(one, tc.want) {
+				t.Fatalf("-jobs 1 does not report %s:\n%s", tc.want, one)
+			}
+			if one != eight || oneStatus != eightStatus {
+				t.Errorf("-jobs 1 reported %d\n%s\n-jobs 8 reported %d\n%s", oneStatus, one, eightStatus, eight)
+			}
+			one, oneStatus = report("1", true)
+			eight, eightStatus = report("8", true)
+			if one != eight || oneStatus != eightStatus {
+				t.Errorf("-jobs 1 -json reported %d\n%s\n-jobs 8 -json reported %d\n%s", oneStatus, one, eightStatus, eight)
+			}
+		})
+	}
+}
+
 // TestJSONReportsThePlanWorkers checks that -json carries under plan how many
 // workers a plan built and how long their warming took, that an exploration under
 // -jobs 1 and -jobs 8 reports the same document apart from those two figures,

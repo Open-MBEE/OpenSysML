@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"google.golang.org/protobuf/proto"
 )
 
 const sweepModelSource = `package Sw {
@@ -613,5 +614,52 @@ func TestRunSweepRefusesSamplingANonFiniteRange(t *testing.T) {
 	if !strings.Contains(resp.Error, "finite") || len(resp.Rows) != 0 {
 		t.Errorf("error = %q with %d row(s); want a refusal naming a non-finite number",
 			resp.Error, len(resp.Rows))
+	}
+}
+
+// TestRunSweepAnswersAlikeOnOneJobAndOnEight verifies every sweep the service
+// answers — a calc over a range, a failing row, a product, a sample, a case on a
+// held object, trade studies and a case whose outputs nest objects — is the same
+// response on eight jobs as on one apart from the time each row took: rows in plan
+// order, the same inputs, outputs, verdicts, evaluations, errors and instances.
+func TestRunSweepAnswersAlikeOnOneJobAndOnEight(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	sweep := mustVerifyModel(t, srv, sweepModelSource, "sweep-jobs")
+	trade := mustVerifyModel(t, srv, tradeStudyModelSource, "sweep-jobs-trade")
+	nested := mustVerifyModel(t, srv, nestedObjectsModelSource, "sweep-jobs-nested")
+
+	requests := []*pb.RunSweepRequest{
+		{ModelHash: sweep, SymbolId: "Sw::Twice", Ranges: []*pb.SweepRange{intRange("n", 1, 12)}},
+		{ModelHash: sweep, SymbolId: "Sw::Ratio", NamedArguments: map[string]*pb.Value{"a": realProto(4)},
+			Ranges: []*pb.SweepRange{intRange("b", -1, 1)}},
+		{ModelHash: sweep, SymbolId: "Sw::Plus", Ranges: []*pb.SweepRange{intRange("a", 1, 3), intRange("b", 10, 12)}},
+		{ModelHash: sweep, SymbolId: "Sw::Twice", Ranges: []*pb.SweepRange{intRange("n", 0, 1_000_000)}, Samples: 8, Seed: 7},
+		{ModelHash: sweep, SymbolId: "Sw::CostAnalysis", SubjectSymbolId: "Sw::ship",
+			Ranges: []*pb.SweepRange{{Parameter: "limit", Start: realProto(2), End: realProto(30), Step: realProto(4)}}},
+		{ModelHash: trade, SymbolId: "Trade::weighted",
+			Ranges: []*pb.SweepRange{{Parameter: "cylinderWeight", Start: realProto(0), End: realProto(20), Step: realProto(5)}}},
+		{ModelHash: trade, SymbolId: "Trade::perOffset", Ranges: []*pb.SweepRange{intRange("offset", 3, 4)}},
+		{ModelHash: nested, SymbolId: "Nested::grouping",
+			Ranges: []*pb.SweepRange{{Parameter: "k", Start: realProto(1), End: realProto(4), Step: realProto(1)}}},
+	}
+	for _, req := range requests {
+		t.Run(req.SymbolId, func(t *testing.T) {
+			answer := func(jobs int) *pb.RunSweepResponse {
+				srv.jobs = jobs
+				resp := runSweep(t, srv, req)
+				for _, row := range resp.Rows {
+					row.ElapsedMicros = 0
+				}
+				return resp
+			}
+			one, eight := answer(1), answer(8)
+			if one.Error != "" || len(one.Rows) == 0 {
+				t.Fatalf("one job answered %q with %d row(s)", one.Error, len(one.Rows))
+			}
+			if !proto.Equal(one, eight) {
+				t.Errorf("one job answered\n%v\neight jobs answered\n%v", one, eight)
+			}
+		})
 	}
 }

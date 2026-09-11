@@ -91,6 +91,55 @@ func TestPlansOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 	}
 }
 
+// Two sweeps on one model, on two goroutines, each build workers of their own — one per job
+// that got a row — and a context per row, and table the rows in plan order; the model
+// handed in is never written. Run under -race, this is the isolation test for sweep.
+func TestSweepsOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
+	f := parseFixture(t)
+	w := &workers{}
+	model := f.recording(w)
+	ctx := f.context(t)
+	q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f)}}
+	plans := make([]Plan, 2)
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	for i := range plans {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			plans[i], errs[i] = Default().Answer(context.Background(), model, q, Budget{Jobs: 3})
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("plan %d: %v", i, err)
+		}
+		table := plans[i].Result.Table()
+		if len(table.Rows) != 3 {
+			t.Fatalf("plan %d tabled %d rows, want 3", i, len(table.Rows))
+		}
+		for j, row := range table.Rows {
+			if row.Err != nil || row.Outputs[0].Value.Const.Int != int64(2*(j+1)) {
+				t.Fatalf("plan %d row %d %+v, want result = %d in plan order", i, j, row, 2*(j+1))
+			}
+			if row.Context == nil || row.Context == ctx {
+				t.Fatalf("plan %d row %d ran in %p, want a context of its own", i, j, row.Context)
+			}
+		}
+		if built := plans[i].Result.Workers; built < 1 || built > 3 || plans[i].Workers != built {
+			t.Fatalf("plan %d reports %d workers over %d, want one to three, one per job that got a row", i, plans[i].Workers, built)
+		}
+	}
+	resolvers, models := w.distinct()
+	if want := plans[0].Result.Workers + plans[1].Result.Workers; w.asked != want || resolvers != want || models != want || len(w.built) != 6 {
+		t.Fatalf("%d models asked, %d resolvers and %d semantic models over %d contexts; want %d, %d, %d and one context per row, 6", w.asked, resolvers, models, len(w.built), want, want, want)
+	}
+	if model.workers != nil {
+		t.Fatal("the caller's model was given a worker, want the plan's copy to hold it")
+	}
+}
+
 // A run-owned context takes Steps and Memory from the budget at construction, as the
 // evaluation-step and element limits alone; a zero field, and every other bound, is what
 // the surface built.
