@@ -98,6 +98,12 @@
       text-decoration: underline;
     }
 
+    /* The showcase: one terminal window whose contents cycle through the toolchain's
+       surfaces. Every pane is a real session — the commands and their output are the
+       ones the guide and the document manual show. The panes are stacked in one grid
+       cell so the window keeps the height of the tallest and the copy beside it never
+       shifts; the tabs below select a pane and stop the rotation. Without script only
+       the first pane shows, which is the terminal the page always had. */
     .osml-terminal {
       background: rgba(0, 0, 0, .38);
       border: 1px solid rgba(255, 255, 255, .18);
@@ -107,6 +113,7 @@
     }
     .osml-terminal__bar {
       display: flex;
+      align-items: center;
       gap: .32rem;
       padding: .5rem .7rem;
       background: rgba(255, 255, 255, .08);
@@ -116,6 +123,27 @@
       height: .5rem;
       border-radius: 50%;
       background: rgba(255, 255, 255, .35);
+    }
+    .osml-terminal__title {
+      flex: 1;
+      margin-left: .4rem;
+      font-size: .6rem;
+      letter-spacing: .02em;
+      text-align: center;
+      opacity: .7;
+    }
+    .osml-terminal__panes {
+      display: grid;
+    }
+    .osml-pane {
+      grid-area: 1 / 1;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity .35s;
+    }
+    .osml-pane.is-active {
+      visibility: visible;
+      opacity: 1;
     }
     .osml-terminal pre {
       margin: 0;
@@ -127,7 +155,56 @@
     }
     .osml-terminal .osml-prompt { color: #90caf9; }
     .osml-terminal .osml-ok     { color: #a5d6a7; }
+    .osml-terminal .osml-err    { color: #ef9a9a; }
     .osml-terminal .osml-dim    { opacity: .68; }
+    .osml-terminal .osml-hl     { color: #ffe082; }
+    .osml-showcase__tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .3rem;
+      margin: .7rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .osml-showcase__tab {
+      padding: .3rem .6rem;
+      border: 1px solid rgba(255, 255, 255, .3);
+      border-radius: 1rem;
+      background: transparent;
+      color: #fff;
+      font: inherit;
+      font-size: .62rem;
+      line-height: 1.3;
+      cursor: pointer;
+      opacity: .8;
+      transition: background-color .2s, border-color .2s, opacity .2s;
+    }
+    .osml-showcase__tab:hover,
+    .osml-showcase__tab:focus-visible {
+      opacity: 1;
+      border-color: #fff;
+    }
+    .osml-showcase__tab[aria-selected="true"] {
+      opacity: 1;
+      background: #fff;
+      border-color: #fff;
+      color: var(--osml-hero-from);
+    }
+    .osml-pane__more {
+      display: block;
+      padding: .45rem 1rem .6rem;
+      font-size: .62rem;
+      color: #fff;
+      opacity: .75;
+      text-decoration: underline;
+    }
+    .osml-pane__more:hover,
+    .osml-pane__more:focus {
+      opacity: 1;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .osml-pane { transition: none; }
+    }
 
     /* The numbers strip: what a real model costs, in one row, between the refereed
        band and the feature cards. Each figure links to the measurement behind it. */
@@ -364,14 +441,25 @@
         <a href="#numbers">parses the Apollo 11 model in 8 ms</a>
       </p>
     </div>
-    <div class="osml-terminal">
-      <div class="osml-terminal__bar"><span></span><span></span><span></span></div>
+    <div class="osml-showcase" data-osml-showcase>
+      <div class="osml-terminal">
+        <div class="osml-terminal__bar"><span></span><span></span><span></span>
+          <span class="osml-terminal__title" data-osml-title>sysml — REPL</span></div>
+        <div class="osml-terminal__panes">
+
+<div class="osml-pane is-active" id="osml-pane-repl" role="tabpanel" aria-labelledby="osml-tab-repl" data-title="sysml — REPL">
 <pre><code><span class="osml-prompt">sysml&gt;</span> part def Wheel { attribute diameter = 16.0; }
 <span class="osml-ok">✓ part def Wheel</span>
 
 <span class="osml-prompt">sysml&gt;</span> %instantiate Wheel
 <span class="osml-ok">✓ Created instance of Wheel</span>
   <span class="osml-dim">ID: 1</span>
+
+<span class="osml-prompt">sysml&gt;</span> %features Wheel
+Instance: Wheel (ID: 1)
+Features:
+  diameter = 16.0
+  <span class="osml-dim">…</span>
 
 <span class="osml-prompt">sysml&gt;</span> calc add { in x; in y; x + y }
 <span class="osml-ok">✓ calc add</span>
@@ -380,9 +468,181 @@
 <span class="osml-ok">✓ add(10, 20)</span>
   <span class="osml-dim">= 30</span>
 </code></pre>
+<a class="osml-pane__more" href="{{ 'guide/04-repl/'|url }}">The REPL, in the guide</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-docs" role="tabpanel" aria-labelledby="osml-tab-docs" data-title="sysml — documents from the model">
+<pre><code><span class="osml-prompt">$</span> sysml rover.sysml -render-document Hello::RoverReport
+<span class="osml-ok">✓ package Hello</span>
+<span class="osml-hl"># Rover Parts</span>
+
+The rover's top-level parts, from the model:
+
+<span class="osml-dim">*Top-level parts*</span>
+
+| name    |
+| ---     |
+| arm     |
+| chassis |
+| mast    |
+
+<span class="osml-prompt">$</span> sysml rover.sysml -render-document Hello::RoverReport <span class="osml-hl">-doc-form html</span> -o rover.html
+<span class="osml-ok">✓ package Hello</span>
+wrote rover.html (html, 4983 bytes)   <span class="osml-dim"># or -doc-form pdf</span>
+</code></pre>
+<a class="osml-pane__more" href="{{ 'manual/'|url }}">The document generation manual</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-check" role="tabpanel" aria-labelledby="osml-tab-check" data-title="sysml — checking a model">
+<pre><code><span class="osml-prompt">$</span> sysml -validate vehicles.sysml
+<span class="osml-err">vehicles.sysml:6:16: error: unresolved reference: Whel — did you mean Wheel?</span>
+        part spare : Whel;
+                     <span class="osml-err">^~~~</span>
+sysml: vehicles.sysml did not analyse cleanly; no check was made
+
+<span class="osml-prompt">$</span> echo $?
+2
+
+<span class="osml-prompt">$</span> sed -i 's/Whel/Wheel/' vehicles.sysml &amp;&amp; sysml -validate vehicles.sysml
+<span class="osml-ok">✓ package Vehicles</span>
+<span class="osml-ok">✓ vehicles.sysml: no errors</span>
+</code></pre>
+<a class="osml-pane__more" href="{{ 'guide/05-checking/'|url }}">Checking a model, in the guide</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-run" role="tabpanel" aria-labelledby="osml-tab-run" data-title="sysml — running a state machine">
+<pre><code><span class="osml-prompt">sysml&gt;</span> state def TrafficLight {
+<span class="osml-prompt">  ...&gt;</span>     entry; then green;
+<span class="osml-prompt">  ...&gt;</span>     state green  { accept after 25 [SI::s] then yellow; }
+<span class="osml-prompt">  ...&gt;</span>     state yellow { accept after 5 [SI::s] then red; }
+<span class="osml-prompt">  ...&gt;</span>     state red    { accept after 30 [SI::s] then done; }
+<span class="osml-prompt">  ...&gt;</span> }
+<span class="osml-ok">✓ state def TrafficLight</span>
+
+<span class="osml-prompt">sysml&gt;</span> %state TrafficLight
+<span class="osml-ok">✓ Started state machine executor for "TrafficLight"</span>
+  <span class="osml-dim">Current state: green</span>
+
+<span class="osml-prompt">sysml&gt;</span> %advance 25
+<span class="osml-ok">✓ Advanced to 25.0 (1 event(s) processed)</span>
+  <span class="osml-dim">Current state: yellow</span>
+
+<span class="osml-prompt">sysml&gt;</span> %advance 35
+<span class="osml-ok">✓ Advanced to 60.0 (2 event(s) processed)</span>
+<span class="osml-ok">✓ State machine completed (a transition reached `done`)</span>
+</code></pre>
+<a class="osml-pane__more" href="{{ 'guide/06-behavior/'|url }}">Executing behavior, in the guide</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-rdf" role="tabpanel" aria-labelledby="osml-tab-rdf" data-title="sysml — the model as RDF">
+<pre><code><span class="osml-prompt">$</span> sysml vehicles.sysml -convert ttl -o vehicles.ttl
+<span class="osml-prompt">$</span> grep -A5 '^elmt:Vehicles__Wheel$' vehicles.ttl
+<span class="osml-hl">elmt:Vehicles__Wheel</span>
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Vehicles::Wheel" ;
+    sysml:elementId "Vehicles__Wheel" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Vehicles ;
+
+<span class="osml-prompt">$</span> sysml vehicles.ttl -convert sysml   <span class="osml-dim"># and back again</span>
+
+<span class="osml-prompt">$</span> sysml -query 'oslc.where=sysml:name="wheels"' vehicles.sysml
+<span class="osml-ok">✓ package Vehicles</span>
+Vehicles::Car::wheels  PartUsage
+</code></pre>
+<a class="osml-pane__more" href="{{ 'guide/07-saving-and-rdf/'|url }}">Saving and RDF, in the guide</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-python" role="tabpanel" aria-labelledby="osml-tab-python" data-title="python — the opensysml client">
+<pre><code><span class="osml-prompt">$</span> pip install opensysml
+<span class="osml-prompt">$</span> python
+<span class="osml-prompt">&gt;&gt;&gt;</span> import opensysml
+<span class="osml-prompt">&gt;&gt;&gt;</span> model = opensysml.load("vehicle.sysml")
+<span class="osml-prompt">&gt;&gt;&gt;</span> model.ok
+<span class="osml-ok">True</span>
+<span class="osml-prompt">&gt;&gt;&gt;</span> model.eval("mass", subject="Demo::sedan")
+<span class="osml-ok">1800.0</span>
+<span class="osml-prompt">&gt;&gt;&gt;</span> vehicle = model.get("Demo::Vehicle")
+<span class="osml-prompt">&gt;&gt;&gt;</span> vehicle.kind, vehicle.id
+<span class="osml-ok">('partDef', 'Demo::Vehicle')</span>
+<span class="osml-prompt">&gt;&gt;&gt;</span> built = model.instantiate("Demo::Vehicle")
+<span class="osml-prompt">&gt;&gt;&gt;</span> built.mass
+<span class="osml-ok">1500.0</span>
+</code></pre>
+<a class="osml-pane__more" href="{{ 'guide/09-clients/'|url }}">The clients, in the guide</a>
+</div>
+
+        </div>
+      </div>
+      <ul class="osml-showcase__tabs" role="tablist" aria-label="What the toolchain does">
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-repl" aria-controls="osml-pane-repl" aria-selected="true">REPL</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-docs" aria-controls="osml-pane-docs" aria-selected="false" tabindex="-1">Documents</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-check" aria-controls="osml-pane-check" aria-selected="false" tabindex="-1">Check</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-run" aria-controls="osml-pane-run" aria-selected="false" tabindex="-1">Run</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-rdf" aria-controls="osml-pane-rdf" aria-selected="false" tabindex="-1">RDF</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-python" aria-controls="osml-pane-python" aria-selected="false" tabindex="-1">Python</button></li>
+      </ul>
     </div>
   </div>
 </section>
+<script>
+(function () {
+  var INTERVAL = 7000;
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function setUp(root) {
+    var tabs = Array.prototype.slice.call(root.querySelectorAll("[role=tab]"));
+    var panes = Array.prototype.slice.call(root.querySelectorAll("[role=tabpanel]"));
+    var title = root.querySelector("[data-osml-title]");
+    var current = 0;
+    var timer = null;
+
+    function show(index, focus) {
+      current = (index + panes.length) % panes.length;
+      panes.forEach(function (pane, i) {
+        pane.classList.toggle("is-active", i === current);
+      });
+      tabs.forEach(function (tab, i) {
+        var active = i === current;
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+        tab.tabIndex = active ? 0 : -1;
+        if (active && focus) tab.focus();
+      });
+      if (title) title.textContent = panes[current].getAttribute("data-title") || "";
+    }
+
+    function stop() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+
+    function start() {
+      stop();
+      if (reduceMotion.matches) return;
+      timer = setInterval(function () {
+        if (!root.isConnected) { stop(); return; }
+        if (root.matches(":hover") || root.contains(document.activeElement)) return;
+        show(current + 1, false);
+      }, INTERVAL);
+    }
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener("click", function () { stop(); show(i, false); });
+      tab.addEventListener("keydown", function (event) {
+        var step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (step === 0 && event.key !== "Home" && event.key !== "End") return;
+        event.preventDefault();
+        stop();
+        show(event.key === "Home" ? 0 : event.key === "End" ? panes.length - 1 : i + step, true);
+      });
+    });
+
+    show(0, false);
+    start();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-osml-showcase]"), setUp);
+})();
+</script>
 
 <section class="osml-referee" id="refereed">
   <div class="osml-referee__inner">
