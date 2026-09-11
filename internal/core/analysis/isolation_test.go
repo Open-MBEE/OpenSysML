@@ -82,7 +82,7 @@ func TestPlansOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 	if w.asked != 2 || resolvers != 2 || models != 2 || len(w.built) != 12 {
 		t.Fatalf("%d workers built, %d resolvers and %d semantic models over %d runs; want 2, 2, 2 and 12", w.asked, resolvers, models, len(w.built))
 	}
-	if model.worker != nil {
+	if model.workers != nil {
 		t.Fatal("the caller's model was given a worker, want the plan's copy to hold it")
 	}
 }

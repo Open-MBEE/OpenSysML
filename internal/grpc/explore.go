@@ -9,13 +9,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 )
 
-// exploredRun is what one explored run left for the response: its outcome's
-// values and its notes, spelled while the run's own context was at hand.
-type exploredRun struct {
-	outputs     map[string]*pb.Value
-	diagnostics []*pb.Diagnostic
-}
-
 // explored is what an exploration answered for the wire: its outcomes, how it
 // ended, and the plan that ran it.
 type explored struct {
@@ -25,25 +18,11 @@ type explored struct {
 }
 
 // explore puts the behavior's outcomes to the engines under selection, run
-// performing it once per linearization on a context of its own on the plan's
-// worker; a failed run is an outcome, a diverging replay an error.
+// performing it once per linearization on a context of its own on one of the plan's
+// workers; a failed run is an outcome, a diverging replay an error. An outcome's values
+// and notes are spelled from its witness run's context, which the outcome keeps.
 func (s *Service) explore(ctx context.Context, subject string, policy runtime.SchedulePolicy, selection analysis.Selection, cached *CachedModel, run func(*runtime.Context) (runtime.Outcome, error)) (explored, error) {
-	var runs []exploredRun
-	recorded := func(rt *runtime.Context) (runtime.Outcome, error) {
-		outcome, err := run(rt)
-		rec := exploredRun{
-			diagnostics: s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(rt.Notes(), cached)),
-		}
-		if err == nil && len(outcome.Outputs) > 0 {
-			rec.outputs = make(map[string]*pb.Value, len(outcome.Outputs))
-			for name, val := range outcome.Outputs {
-				rec.outputs[name] = s.valueToProto(rt, val, cached.Index)
-			}
-		}
-		runs = append(runs, rec)
-		return outcome, err
-	}
-	plan, err := s.engines.Explore(ctx, s.model(cached), subject, policy, recorded, analysis.BudgetOf(s.budgets, policy, analysis.Outcomes, s.jobs), selection)
+	plan, err := s.engines.Explore(ctx, s.model(cached), subject, policy, run, analysis.BudgetOf(s.budgets, policy, analysis.Outcomes, s.jobs), selection)
 	if err != nil {
 		// A caller that went away is the call failing, not a precondition unmet.
 		if ctx.Err() != nil {
@@ -57,13 +36,19 @@ func (s *Service) explore(ctx context.Context, subject string, policy runtime.Sc
 	}
 	outcomes := make([]*pb.Outcome, 0, len(x.Outcomes))
 	for _, o := range x.Outcomes {
-		witness := runs[o.WitnessRun-1]
 		out := &pb.Outcome{
-			Outputs:        witness.outputs,
 			FinalState:     o.Outcome.FinalState,
 			StatesVisited:  o.Outcome.StateVisits,
 			Linearizations: int32Clamp(o.Linearizations),
-			Diagnostics:    witness.diagnostics,
+		}
+		if rt := o.Outcome.Context(); rt != nil {
+			out.Diagnostics = s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(rt.Notes(), cached))
+			if o.Outcome.Err == nil && len(o.Outcome.Outputs) > 0 {
+				out.Outputs = make(map[string]*pb.Value, len(o.Outcome.Outputs))
+				for name, val := range o.Outcome.Outputs {
+					out.Outputs[name] = s.valueToProto(rt, val, cached.Index)
+				}
+			}
 		}
 		if o.Outcome.Err != nil {
 			out.Error = o.Outcome.Err.Error()

@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 144}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}}},
+		{"outputs": {"x": {"type": "Integer", "value": 3}}}
+	],
+	"admissible": "Three concurrent writers of one feature: six orders, three values"
+}

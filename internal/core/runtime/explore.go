@@ -119,73 +119,23 @@ func (x *Exploration) Status() string {
 	return fmt.Sprintf("incomplete: %s hit after %d runs", strings.Join(named, " and "), x.Runs)
 }
 
-// Explore runs a behavior once per linearization within the policy's budget:
-// fresh builds each run's context, run performs it and reports the outcome. A run
-// that failed is an outcome; a caller that goes away between runs takes the
-// exploration with it, its error being stop's.
+// Explore runs a behavior once per linearization within the policy's budget, one run
+// at a time in plan order: fresh builds each run's context, run performs it and reports
+// the outcome. A run that failed is an outcome; a caller that goes away between runs
+// takes the exploration with it, its error being stop's. It is ExploreWith on one job.
 func Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
-	budget, ok := policy.Exploration()
-	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrNotExploring, policy)
-	}
-	result := &Exploration{Budget: budget}
-	reached := make(map[string]int)
-	var prefix []exploreSlot
-	depthHit := false
-	for {
-		if result.Runs == budget.Runs {
-			result.BudgetsHit = append(result.BudgetsHit, "runs")
-			break
-		}
-		if err := stop.Err(); err != nil {
-			return nil, err
-		}
-		ctx, err := fresh()
-		if err != nil {
-			return nil, err
-		}
-		replay := &exploreRun{prefix: prefix, depth: budget.Depth}
-		ctx.beginExploration(policy, replay)
-		outcome, runErr := run(ctx)
-		result.Runs++
-		if runErr != nil {
-			outcome = Outcome{Err: runErr}
-		}
-		if err := replay.followed(); err != nil {
-			return nil, fmt.Errorf("%w: run %d: %v", ErrExplorationDiverged, result.Runs, err)
-		}
-		depthHit = depthHit || replay.depthHit
-		key := outcome.identity()
-		if i, seen := reached[key]; seen {
-			if !replay.duplicate {
-				result.Outcomes[i].Linearizations++
-			}
-		} else {
-			reached[key] = len(result.Outcomes)
-			result.Outcomes = append(result.Outcomes, ExploredOutcome{
-				Outcome:        outcome,
-				Linearizations: 1,
-				Witness:        replay.choices(),
-				WitnessRun:     result.Runs,
-			})
-		}
-		next, more := replay.nextPrefix()
-		if !more {
-			break
-		}
-		prefix = next
-	}
-	if depthHit {
-		result.BudgetsHit = append(result.BudgetsHit, "depth")
-	}
-	sort.SliceStable(result.Outcomes, func(i, j int) bool {
-		a, b := result.Outcomes[i].Outcome, result.Outcomes[j].Outcome
+	return ExploreWith(stop, policy, 1, func(int) (*Context, error) { return fresh() }, run)
+}
+
+// sortOutcomes puts an exploration's outcomes in canonical order.
+func sortOutcomes(outcomes []ExploredOutcome) {
+	sort.SliceStable(outcomes, func(i, j int) bool {
+		a, b := outcomes[i].Outcome, outcomes[j].Outcome
 		if as, bs := a.String(), b.String(); as != bs {
 			return as < bs
 		}
 		return a.identity() < b.identity()
 	})
-	return result, nil
 }
 
 // slotKind is what an exploration slot resolves: a pick among alternatives given
@@ -453,20 +403,23 @@ func (s exploreSlot) describePlan() string {
 	return fmt.Sprintf("alternative %d of %d", s.taken+1, s.alternatives)
 }
 
-// nextPrefix is the record up to the last choice with an untried alternative,
-// taking the next one; nil when every alternative within depth was tried.
-func (r *exploreRun) nextPrefix() ([]exploreSlot, bool) {
-	for i := len(r.record) - 1; i >= 0; i-- {
+// unexplored is the prefixes this run leaves to explore, deepest first: for each choice
+// the run owns — the last its prefix planned and every one it made below — the record up
+// to that choice taking its next alternative, when one is untried within depth. The
+// choices before the last planned one belong to the runs that planned them.
+func (r *exploreRun) unexplored() [][]exploreSlot {
+	var next [][]exploreSlot
+	for i := len(r.record) - 1; i >= 0 && i >= len(r.prefix)-1; i-- {
 		slot := r.record[i]
 		if slot.beyond || slot.taken+1 >= slot.alternatives {
 			continue
 		}
-		next := make([]exploreSlot, i+1)
-		copy(next, r.record[:i+1])
-		next[i].taken++
-		return next, true
+		prefix := make([]exploreSlot, i+1)
+		copy(prefix, r.record[:i+1])
+		prefix[i].taken++
+		next = append(next, prefix)
 	}
-	return nil, false
+	return next
 }
 
 // mark returns what a probe restores: the run's position, so previewing does
