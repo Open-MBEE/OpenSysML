@@ -466,7 +466,7 @@ package OpenSysMLBehavior {
         transition first idle if built then ready;
         transition first warming then ready;
         transition first ready if runsPending > 0 then running;
-        transition first running then ready;
+        transition first running do assign runsPending := runsPending - 1 then ready;
         transition first ready if runsPending <= 0 then released;
     }
 
