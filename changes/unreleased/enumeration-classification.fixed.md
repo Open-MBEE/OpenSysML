@@ -12,7 +12,9 @@
   an `Integer`; a scalar-valued literal keeps that identity on the scalar it evaluates to, so
   `Level::high hastype Level` is `true` (it was `false`) and `Level::high == 3` still holds; a
   literal of another enumeration cast or written to `Level` takes the equal `Level` literal's
-  identity. Unnamed enumerated values (`enum def Size :> Real { = 60.0; }`) count, and an
+  identity, as does a scalar bound to an enumeration-typed calculation parameter or result
+  (`calc def asLevel { in n : Integer; return : Level = n; }`, so `asLevel(3) hastype Level`).
+  Unnamed enumerated values (`enum def Size :> Real { = 60.0; }`) count, and an
   enumeration with none refuses every constant. A
   plain `enum def Color { red; green; blue; }` classifies by identity with its literals, and a
   user-defined subtype such as `Even :> Integer` stays undecided against a bare `5`.

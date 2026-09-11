@@ -1981,6 +1981,9 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		attribute cast : Level[0..1] = 3 as Level;
 		attribute ranked : Rank = Level::high;
 		attribute c : Color = Color::red;
+		calc def isLevel { in x : Level; return : Boolean = x hastype Level; }
+		calc def asLevel { in n : Integer; return : Level = n; }
+		calc def viaBody { in n : Integer; attribute doubled = n + n; return : Level = doubled - n; }
 	}`)
 	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
 	if !ok || pkg.Scope == nil {
@@ -2005,6 +2008,8 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		"3 istype Color": false, "Color::red istype Color": true, "Color::red hastype Color": true,
 		"c hastype Color": true, "Color::red istype Level": false, "Level::high istype Color": false,
 		"(Color::red as Color) hastype Color": true,
+		"isLevel(3)":                          true, "isLevel(three)": true, "asLevel(3) hastype Level": true, "asLevel(3) hastype Integer": false,
+		"viaBody(3) hastype Level": true, "viaBody(3) hastype Integer": false,
 	} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
 		if err != nil || val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
@@ -2028,6 +2033,11 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 	}
 	if _, err := evalIn(t, ctx, pkg.Scope, "5 as Even"); !errors.Is(err, ErrUndecidedClassification) {
 		t.Errorf("5 as Even: %v, want ErrUndecidedClassification", err)
+	}
+	for _, src := range []string{"isLevel(2)", "asLevel(2)"} {
+		if _, err := evalIn(t, ctx, pkg.Scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: %v, want ErrTypeMismatch", src, err)
+		}
 	}
 }
 

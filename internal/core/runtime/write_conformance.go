@@ -140,6 +140,12 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *
 	if refusal, refused := ctx.writeTypeRefusal(scope, declared, value, how); refused {
 		return fmt.Errorf("%s: %w: %s", what, ErrTypeMismatch, refusal)
 	}
+	return ctx.holdForDeclared(value, declared)
+}
+
+// holdForDeclared shapes an admitted value as the declared type holds it: quantities in
+// its preferred unit, scalars an enumeration admits as the enumerated value they equal.
+func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
 	ctx.spellForDeclared(value, declared)
 	return ctx.holdAsEnumerated(value, declared)
 }
