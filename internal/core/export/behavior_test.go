@@ -151,8 +151,6 @@ func TestStateMembersRoundTrip(t *testing.T) {
 		"junction":             "junction meet;",
 		"fork pseudostate":     "fork split;",
 		"join pseudostate":     "join sync;",
-		"entry point":          "entry point way_in;",
-		"exit point":           "exit point way_out;",
 		"shallow history":      "shallow history last;",
 		"deep history":         "deep history deepest;",
 		"history synonym":      "history last;",
@@ -213,6 +211,10 @@ func TestUnsupportedBehavioralShapesAreReported(t *testing.T) {
 		"a pseudostate of no stated kind": {
 			src:   prologue + member("pick", "sysx:Pseudostate", ""),
 			names: "sysx:pseudostateKind",
+		},
+		"a pseudostate of a kind no notation writes": {
+			src:   prologue + member("into", "sysx:Pseudostate", "    sysx:pseudostateKind \"entry\" ;\n"),
+			names: `sysx:pseudostateKind "entry"`,
 		},
 	}
 	for name, model := range models {

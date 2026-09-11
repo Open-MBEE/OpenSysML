@@ -1,6 +1,6 @@
 (RootNamespace
   (Membership visibility="default"
-    (Package name="HistoryAndPoints" library=false standard=false
+    (Package name="History" library=false standard=false
       (Membership visibility="default"
         (Usage kind="state" name="Controller" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
           (EntryMember)
@@ -11,9 +11,7 @@
               (SubstateMember name="first")
               (SubstateMember name="second")
               (PseudostateNode kind="shallow history" name="resume")
-              (PseudostateNode kind="deep history" name="resumeDeep")
-              (PseudostateNode kind="entry" name="into")
-              (PseudostateNode kind="exit" name="outOf")))
+              (PseudostateNode kind="deep history" name="resumeDeep")))
           (SubstateMember name="away")
           (Membership visibility="default"
             (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false

@@ -8,11 +8,11 @@ import (
 )
 
 // transientPseudostate reports whether a pseudostate merely routes a transition
-// onwards — choice, junction, entry point and exit point — as opposed to fork,
-// join and history, which rewrite the whole active configuration.
+// onwards — choice and junction — as opposed to fork, join and history, which
+// rewrite the whole active configuration.
 func transientPseudostate(kind ast.PseudostateKind) bool {
 	switch kind {
-	case ast.PseudostateChoice, ast.PseudostateJunction, ast.PseudostateEntry, ast.PseudostateExit:
+	case ast.PseudostateChoice, ast.PseudostateJunction:
 		return true
 	}
 	return false
@@ -60,7 +60,7 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (*ast.StateNode, e
 }
 
 // pseudostateTarget follows the outgoing transitions of a transient pseudostate
-// until a state is reached, so a chain such as exit point → junction → state ends
+// until a state is reached, so a chain such as choice → junction → state ends
 // at the state the compound transition actually enters.
 //
 // A choice's guards are evaluated when it is reached and a junction's when its
@@ -211,8 +211,7 @@ func (e *StateExecutor) runEffect(trans *lower.Transition) error {
 // fireTransitionInRegion fires a transition whose source is the active state of
 // an orthogonal region. A target inside the same region moves only that region;
 // a target outside it leaves the whole region set, which is what makes a
-// transition through a choice, junction or entry/exit point reachable from
-// inside a region.
+// transition through a choice or junction reachable from inside a region.
 func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition, route *ast.StateNode) (bool, error) {
 	// Fork, join and history replace the entire active configuration rather than
 	// move one region, so they are fired whole.

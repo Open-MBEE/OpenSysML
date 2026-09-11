@@ -28,7 +28,7 @@ var stdlibSnapshot []byte
 // whenever the stream layout does, so a stale blob is refused, not misread.
 const (
 	snapshotMagic         = "OpenSysML library snapshot\n"
-	snapshotFormatVersion = 13
+	snapshotFormatVersion = 14
 )
 
 // snapshotCRC checksums the index stream, so a damaged byte that still parses

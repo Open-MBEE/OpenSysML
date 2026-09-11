@@ -74,8 +74,8 @@ func TestContextualWordsRemainUsableAsNames(t *testing.T) {
 	}
 	// And the words are still offered as syntax, the declarations above winning
 	// the label where they collide.
-	if _, ok := f9CompletionAt(t, "/tmp/f9_names2.sysml", src)["point"]; !ok {
-		t.Error("`point` is not offered at all")
+	if _, ok := f9CompletionAt(t, "/tmp/f9_names2.sysml", src)["defer"]; !ok {
+		t.Error("`defer` is not offered at all")
 	}
 }
 

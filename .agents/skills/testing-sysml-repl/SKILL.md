@@ -5,6 +5,23 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Unicode unit expressions in a GUI terminal
+
+Synthetic keyboard typing can corrupt middle dots and superscript minus signs
+in unit names before the REPL receives them. Use a UTF-8 clipboard instead:
+`printf '%s\n' "<command>" | xclip -selection primary`, then middle-click the
+xterm. Compare exact-input CLI results before treating a GUI parse failure as
+a product bug. If xclip is absent and system installs are unavailable,
+`apt-get download xclip` and `dpkg-deb -x <deb> <scratch-dir>` provide a local
+binary without changing the system. Maximize the active window with
+`wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz`; shell startup may
+overwrite xterm's requested title, so title-based matching can fail.
+
+Coherent-quantity probes should distinguish named-unit selection from fallback:
+an untyped inverse second may remain `1/s` because Hz and Bq measure different
+kinds; an unlisted dimension stays a base-unit product. Include both prefixed
+and unprefixed inputs to check the magnitude, not just the displayed unit.
+
 ## Exploration scheduling
 
 Use `internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml`
