@@ -2026,9 +2026,19 @@ func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, spa
 		return boolValue(ordered), nil
 	}
 
-	// Both must be ValConst
-	if left.Kind != ValConst || right.Kind != ValConst {
-		return Value{}, fmt.Errorf("comparison operands must be constants, got %s and %s", left.Kind, right.Kind)
+	// Past quantities and Strings only the numeric libraries declare an ordering,
+	// so any other operand names the library function that would have to.
+	for _, val := range []Value{left, right} {
+		if val.Kind == ValConst {
+			continue
+		}
+		return Value{}, &OperandTypeError{
+			Op:      op.String(),
+			Left:    describeOperand(left),
+			Right:   describeOperand(right),
+			Library: ctx.orderingGap(op, val),
+			Span:    span,
+		}
 	}
 
 	result, err := constComparison(op, left.Const, right.Const)
@@ -2038,9 +2048,63 @@ func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, spa
 	return boolValue(result), nil
 }
 
+// orderingGap says which Kernel Function Library function would have to declare
+// the ordering operator op for val, and why none does: DataFunctions::'<' and
+// ScalarFunctions::'<' are abstract, declared concretely by the numeric libraries
+// and StringFunctions alone.
+func (ctx *Context) orderingGap(op ast.OperatorKind, val Value) string {
+	fn := func(pkg string) string { return fmt.Sprintf("%s::'%s'", pkg, op) }
+	notScalar := func(what string) string {
+		return fmt.Sprintf("%s is abstract and no library function declares '%s' for %s, which is no ScalarValue", fn("DataFunctions"), op, what)
+	}
+	switch val.Kind {
+	case ValComplex:
+		return fmt.Sprintf("%s is abstract and ComplexFunctions declares no '%s' for Complex", fn("NumericalFunctions"), op)
+	case ValEnumLiteral:
+		enum := semantics.EnumerationOwning(val.Literal())
+		if enum == nil {
+			return notScalar(val.LiteralText())
+		}
+		if ctx.conformsToLibrary(enum, "ScalarValues::ScalarValue") {
+			return fmt.Sprintf("the library orders %s by value and %s declares none", enum.Name, val.LiteralText())
+		}
+		return notScalar("the enumeration " + enum.Name)
+	case ValNull, ValSequence, ValSet:
+		return fmt.Sprintf("%s takes one DataValue per operand", fn("DataFunctions"))
+	case ValInstance, ValVariant:
+		what := describeOperand(val)
+		if types, err := ctx.directValueTypes(nil, val); err == nil && len(types) > 0 {
+			what = fmt.Sprintf("an instance of the %s %s", ast.Notation(types[0].Decl), types[0].Name)
+		}
+		if ctx.isDataValue(val) {
+			return notScalar(what)
+		}
+		return fmt.Sprintf("%s takes DataValue operands and %s is none", fn("DataFunctions"), what)
+	case ValFunction, ValExpr:
+		return fmt.Sprintf("%s takes DataValue operands and %s is none", fn("DataFunctions"), describeOperand(val))
+	}
+	return notScalar(describeOperand(val))
+}
+
+// booleanOrderingGap is orderingGap for a Boolean, which the compiled tier
+// reports without a Context.
+func booleanOrderingGap(op ast.OperatorKind) string {
+	return fmt.Sprintf("ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean", op, op)
+}
+
 // constComparison orders two scalar constants, the core the evaluator and the
 // compiled calc tier share.
 func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, error) {
+	// A Boolean is a ScalarValue no library orders, so it is refused rather
+	// than read as a number.
+	if left.Kind == semantics.ValBool || right.Kind == semantics.ValBool {
+		return false, &OperandTypeError{
+			Op:      op.String(),
+			Left:    describeValue(Value{Kind: ValConst, Const: left}),
+			Right:   describeValue(Value{Kind: ValConst, Const: right}),
+			Library: booleanOrderingGap(op),
+		}
+	}
 	// The unbounded `*` orders above every finite number and equals itself.
 	if left.IsUnbounded() || right.IsUnbounded() {
 		order, ok := semantics.UnboundedOrder(left, right)
