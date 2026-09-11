@@ -671,6 +671,11 @@ func (m *Model) measurementReference(scope *symbols.Scope, unit ast.Node) *symbo
 // coordinate frame by a unit the frame MeasurementRefCalculations compose.
 func (m *Model) operatorConformance(scope *symbols.Scope, e *ast.OperatorExpr, want *symbols.Symbol, byUnit bool) Conformance {
 	switch e.Operator {
+	case ast.OpAll:
+		// `all T` holds instances of T (KerML 1.0 §7.4.9.2): judged as the collection it is.
+		if c, ok := m.collectionConformance(scope, e, want, byUnit); ok {
+			return c
+		}
 	case ast.OpConditional, ast.OpNullCoalesce:
 		c := m.typeConformance(m.libSymbol(fqnAnything), want)
 		if c.Known && !c.Holds {

@@ -248,6 +248,29 @@ func TestExprBooleanConstraintOK(t *testing.T) {
 	wantNoDiags(t, `package P { constraint def c { 1 < 2 } }`)
 }
 
+// A condition `all T` holds instances of T, which is no Boolean unless T is one; a
+// variation's extent holds values of the usage, typed as it is.
+func TestExprExtentConditionMustBeBoolean(t *testing.T) {
+	wantOneDiag(t,
+		`package P { enum def Color { red; } assert constraint c { all Color } }`,
+		"constraint expression must be Boolean, found Color")
+	wantOneDiag(t,
+		`package P { part def Car; constraint def c { all Car } }`,
+		"constraint expression must be Boolean, found Car")
+	wantOneDiag(t,
+		`package P {
+	part def Engine;
+	variation part engineChoice : Engine { variant part v4 : Engine; }
+	constraint def c { all engineChoice }
+}`,
+		"constraint expression must be Boolean, found Engine")
+	wantNoDiags(t, `package P { constraint def c { all ScalarValues::Boolean } }`)
+	wantNoDiags(t, `package P {
+	attribute def Flag :> ScalarValues::Boolean;
+	constraint def c { all Flag }
+}`)
+}
+
 func TestExprTransitionGuardMustBeBoolean(t *testing.T) {
 	wantOneDiag(t, `package P {
 		part def M {

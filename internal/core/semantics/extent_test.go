@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // `all T` is typed T[0..*]: every element is an instance of T — the type a classifier is, the
@@ -54,5 +55,43 @@ func TestExtentExpressionTypes(t *testing.T) {
 	}
 	if ExtentTypeName(valueOf(t, s, "everyC")) == nil || ExtentTypeName(&ast.LiteralInteger{}) != nil {
 		t.Error("ExtentTypeName: names the operand of `all` alone")
+	}
+}
+
+// An extent conforms to a type as every instance of its type does: `all C` holds no String,
+// `all choice` holds values of the variation, C's; one of a name resolving to no type is unknown.
+func TestExtentExpressionConformance(t *testing.T) {
+	m, s := collectionModel(t, `
+		variation part choice : C { variant part small; variant part large; }
+		attribute everyC = all C;
+		attribute everyChoice = all choice;
+		attribute everyString = all String;
+		attribute nothing = all Missing;`)
+	types := map[string]*symbols.Symbol{
+		"C":        sym(t, s.Parent(), "C"),
+		"String":   m.libSymbol(fqnString),
+		"Integer":  m.libSymbol(fqnInteger),
+		"Anything": m.libSymbol(fqnAnything),
+	}
+	for _, tc := range []struct {
+		name, want   string
+		known, holds bool
+	}{
+		{"everyC", "C", true, true},
+		{"everyC", "Anything", true, true},
+		{"everyC", "String", true, false},
+		{"everyChoice", "C", true, true},
+		{"everyChoice", "String", true, false},
+		{"everyString", "String", true, true},
+		{"everyString", "Integer", true, false},
+		{"nothing", "String", false, false},
+	} {
+		want := types[tc.want]
+		if want == nil {
+			t.Fatalf("%s: no such type", tc.want)
+		}
+		if got := m.ExprConformsTo(s, valueOf(t, s, tc.name), want); got.Known != tc.known || got.Holds != tc.holds {
+			t.Errorf("%s conforms to %s: %+v, want known=%v holds=%v", tc.name, tc.want, got, tc.known, tc.holds)
+		}
 	}
 }

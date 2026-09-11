@@ -739,8 +739,17 @@ func (m *Model) sourcesConformance(srcs []collectionSource, want *symbols.Symbol
 		func(scope *symbols.Scope, node ast.Node) Conformance {
 			return m.elementConformance(scope, node, want, byUnit)
 		},
-		func(result *symbols.Symbol) Conformance { return m.featureConformance(result, want) })
+		func(result *symbols.Symbol) Conformance { return m.featureConformance(result, want) },
+		func(extent *symbols.Symbol) Conformance { return m.instanceConformance(extent, want) })
 	return decided(everyHolds(judged))
+}
+
+// instanceConformance judges an instance of sym: a value of the feature, else one of the classifier.
+func (m *Model) instanceConformance(sym, want *symbols.Symbol) Conformance {
+	if sym.IsFeature() {
+		return m.featureConformance(sym, want)
+	}
+	return m.typeConformance(sym, want)
 }
 
 // collectionCastConformance judges a collection value cast to T by the elements it holds: sound
@@ -757,17 +766,29 @@ func (m *Model) collectionCastConformance(scope *symbols.Scope, operand ast.Node
 		func(scope *symbols.Scope, node ast.Node) Conformance { return m.castConformance(scope, node, target) },
 		func(result *symbols.Symbol) Conformance {
 			return m.castTypesConformance(m.featureResultTypes(result), target)
+		},
+		func(extent *symbols.Symbol) Conformance {
+			return m.castTypesConformance(m.instanceTypes(extent), target)
 		})
 	return decided(anyHolds(judged))
 }
 
-// judgeSources judges each element of every source: a result parameter as the feature, an
-// expression by itself, a sequence `(a, b)` element by element, one holding nothing not at all.
-func (m *Model) judgeSources(srcs []collectionSource, byNode func(*symbols.Scope, ast.Node) Conformance, byResult func(*symbols.Symbol) Conformance) []Conformance {
+// judgeSources judges each element of every source: a result parameter as the feature, an extent
+// as an instance of its type, an expression by itself, a sequence `(a, b)` element by element,
+// one holding nothing not at all.
+func (m *Model) judgeSources(
+	srcs []collectionSource,
+	byNode func(*symbols.Scope, ast.Node) Conformance,
+	byResult, byExtent func(*symbols.Symbol) Conformance,
+) []Conformance {
 	var out []Conformance
 	for _, src := range srcs {
 		if src.result != nil {
 			out = append(out, byResult(src.result))
+			continue
+		}
+		if src.extent != nil {
+			out = append(out, byExtent(src.extent))
 			continue
 		}
 		out = append(out, m.elementJudgements(src.scope, src.node, byNode)...)
