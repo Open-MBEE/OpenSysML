@@ -302,6 +302,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
+	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
@@ -4623,9 +4624,10 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 }
 
 // testExtentReachingANamespaceCollection: a namespace-level usage of several occurrences
-// (`part wheels : Wheel[2]` in a package) denotes no object the run reaches — reading it
-// yields nothing — so an extent it may contribute to is refused rather than answered short;
-// one it cannot contribute to, and one a `[0..*]` usage would hold nothing of, are answered.
+// (`part wheels : Wheel[2]` in a package), or a namespace-level port, denotes no object the run
+// reaches — reading it yields nothing — so an extent it may contribute to is refused rather than
+// answered short; one it cannot contribute to, one a `[0..*]` usage would hold nothing of, and
+// one a port nested in a part contributes to, are answered.
 func testExtentReachingANamespaceCollection(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
@@ -4633,12 +4635,15 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 		part def Wheel;
 		part def Hub { part wheel : Wheel; }
 		part def Seat;
+		port def Link;
 		part wheels : Wheel[2];
 		part hubs : Hub[1..*];
 		part spares : Wheel[0..*];
 		part seat : Seat;
+		port link : Link;
 		calc wheelCount { return : Natural = size(all Wheel); }
 		calc hubCount { return : Natural = size(all Hub); }
+		calc linkCount { return : Natural = size(all Link); }
 		calc seatCount { return : Natural = size(all Seat); }
 		package Q {
 			part seat2 : Seat;
@@ -4646,12 +4651,25 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 			calc seatCount { return : Natural = size(all Seat); }
 			calc wheelCount { return : Natural = size(all Wheel); }
 		}
+	}
+	package R {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Rig { port p : P::Link; }
+		part rig : Rig;
+		port spare : P::Link[0..1];
+		calc linkCount { return : Natural = size(all P::Link); }
+		package S {
+			port links : P::Link[2];
+			calc linkCount { return : Natural = size(all P::Link); }
+		}
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(NewModel(model, resolver), 1000)
 	for _, tc := range []struct{ calc, usage, mult string }{
 		{"wheelCount", "wheels", "[2]"},
 		{"hubCount", "hubs", "[1..*]"},
+		{"linkCount", "link", "port"},
 	} {
 		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
 		if !errors.Is(err, ErrExtentUnavailable) {
@@ -4675,6 +4693,37 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	_, err = ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
 	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "wheels") {
 		t.Errorf("Q: size(all Wheel) = %v, want the enclosing package's wheels refused", err)
+	}
+	r := resolveSymbol(t, root, "R")
+	got, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("R: size(all Link) = %s, %v; want 1: the rig's port, an optional one holding nothing", FormatValue(got), err)
+	}
+	s := resolveSymbol(t, r.Scope, "S")
+	_, err = ctx.InvokeCalc(resolveSymbol(t, s.Scope, "linkCount"), nil, s.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "links") || !strings.Contains(err.Error(), "[2]") {
+		t.Errorf("S: size(all Link) = %v, want the two-port usage refused", err)
+	}
+}
+
+// testExtentOverAnObjectThatCannotBeRead: an extent materializes the nested usages it walks,
+// so a usage that cannot be materialized — five wheels under a budget of three elements — ends
+// the extent with that usage's typed error, never an extent short of what stands behind it.
+func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Car { part wheels : Wheel[5]; }
+		part car : Car;
+		calc wheelCount { return : Natural = size(all Wheel); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	ctx.maxElements = 3
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "wheels") {
+		t.Fatalf("size(all Wheel) = %s, %v; want %v naming wheels", FormatValue(got), err, ErrElementLimitExceeded)
 	}
 }
 

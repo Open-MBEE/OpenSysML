@@ -73,9 +73,9 @@ func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symb
 }
 
 // objectsOf is this run's objects of target under roots: each root, then what its features
-// hold in declaration order; reading a feature materializes it, so unread usages are reached too.
-// A declaration already on the path is not materialized under again, so recursive composition
-// ends, but the objects it already holds are still walked.
+// hold in declaration order, materialized as reading them would (a read that fails ends the
+// extent). A declaration already on the path is not materialized under again, so recursive
+// composition ends, but the objects it already holds are still walked.
 func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value, error) {
 	var values []Value
 	seen := make(map[int64]bool)
@@ -99,7 +99,10 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 				path[inst.Type] = true
 				defer delete(path, inst.Type)
 			}
-			children = ctx.nestedObjects(inst)
+			var err error
+			if children, err = ctx.heldObjectsOf(inst, true); err != nil {
+				return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
+			}
 		}
 		for _, child := range children {
 			if err := descend(child.instance); err != nil {
@@ -167,8 +170,7 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 			if ctx.optionalValueless(sym) {
 				continue
 			}
-			return nil, fmt.Errorf("%w: usage %s declares %s occurrences, which the run denotes no object of",
-				ErrExtentUnavailable, symbolText(sym), ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Text())
+			return nil, ctx.undenotedUsage(sym)
 		}
 		inst, err := ctx.occurrenceOf(sym)
 		if err != nil {
@@ -188,9 +190,20 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 	return roots, nil
 }
 
+// undenotedUsage refuses an extent for a namespace usage the run denotes no object of:
+// several occurrences, or a port, at namespace level.
+func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
+	if !ctx.occursOnce(sym) {
+		return fmt.Errorf("%w: usage %s declares %s occurrences, which the run denotes no object of",
+			ErrExtentUnavailable, symbolText(sym), ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Text())
+	}
+	return fmt.Errorf("%w: usage %s is a %s at namespace level, which the run denotes no object of",
+		ErrExtentUnavailable, symbolText(sym), sym.Notation())
+}
+
 // namespaceUsages is the usages standing for objects that the namespaces enclosing scope
 // declare, innermost first — what a value written there reaches by name — whether the run
-// denotes an object of each (one occurrence) or not (several); a variation stands for none.
+// denotes an object of each or not; a variation, or a usage given a value, stands for none.
 func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for ; scope != nil; scope = scope.Parent() {
@@ -201,13 +214,23 @@ func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
 			if ctx.model.semantics.IsVariationFeature(sym) {
 				return true
 			}
-			if isOccurrenceUsage(sym) || ctx.namesOneObject(sym) {
+			if valuelessObjectUsage(sym) || ctx.namesOneObject(sym) {
 				out = append(out, sym)
 			}
 			return true
 		})
 	}
 	return out
+}
+
+// valuelessObjectUsage reports whether sym is an object-holding usage (ports included)
+// without a value, so the objects it stands for are its own.
+func valuelessObjectUsage(sym *symbols.Symbol) bool {
+	if !objectFeature(sym) {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.Value == nil
 }
 
 // typeScope reports whether scope is the body of a definition or usage rather than a namespace.

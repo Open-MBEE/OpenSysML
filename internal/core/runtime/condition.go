@@ -666,9 +666,15 @@ type heldObject struct {
 
 // nestedObjects returns the objects the object-valued features of inst hold,
 // materializing a lazy one as reading its feature value does. A feature value that cannot be read
-// yields no object: one that is not there is no subject either. The names a redefinition
-// chain gives one feature value hold its objects once, under the first.
+// yields no object: one that is not there is no subject either.
 func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
+	out, _ := ctx.heldObjectsOf(inst, false)
+	return out
+}
+
+// heldObjectsOf is nestedObjects where a feature that cannot be read is skipped or, where
+// every object counts, ends the walk with its error. A redefined feature value is read once.
+func (ctx *Context) heldObjectsOf(inst *Instance, everyObject bool) ([]heldObject, error) {
 	var out []heldObject
 	read := map[*FeatureValue]bool{}
 	for _, of := range ctx.FeaturesOfObject(inst) {
@@ -676,7 +682,13 @@ func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
 			continue
 		}
 		fv, err := inst.GetFeatureValue(ctx, of.Name)
-		if err != nil || fv == nil || read[fv] {
+		if err != nil {
+			if everyObject {
+				return nil, fmt.Errorf("feature %s: %w", of.Name, err)
+			}
+			continue
+		}
+		if fv == nil || read[fv] {
 			continue
 		}
 		read[fv] = true
@@ -686,7 +698,7 @@ func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 // holdsObjects reports whether a feature holds objects rather than values: a
