@@ -7,14 +7,12 @@ import (
 	"sync"
 )
 
-// The parallel `explore` is a work queue of prefixes in plan order, the order Explore on one
-// job visits them, with the runs budget a cut in that order rather than a count of runs made.
-
-// ExploreWith explores as Explore does with up to jobs runs going concurrently: fresh builds
-// a run's context for the job making it, so no two runs share a job's worker; run must be
-// safe to call concurrently. The result does not depend on jobs: a run is committed once every
-// prefix before it has completed, one started earlier is speculative, at most jobs of those
-// are discarded over the exploration, and outcomes are folded in plan order as prefixes commit.
+// ExploreWith explores as Explore does with up to jobs runs going concurrently, fresh building
+// each run's context for the job making it; the result does not depend on jobs.
+//
+// The prefixes form a work queue in plan order, the order one job visits them, and the runs
+// budget is a cut in that order. A run is committed once every prefix before it has completed;
+// one started earlier is speculative, and at most jobs of those are discarded in all.
 func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh func(job int) (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error) {
 	budget, ok := policy.Exploration()
 	if !ok {
@@ -65,20 +63,18 @@ const (
 	prefixDropped             // past the runs cut; a run of it is discarded
 )
 
-// explorePrefix is one prefix on the queue: the choices its run must follow, its
-// position in plan order and, once run, what the run made of it.
+// explorePrefix is one prefix on the queue: its position in plan order and, once run, the result.
 type explorePrefix struct {
 	prefix   []exploreSlot
 	index    int
 	state    prefixState
-	replay   *exploreRun
+	replay   *exploreRun // nil when fresh failed
 	outcome  Outcome
 	identity string
 	err      error // fresh failed, or the run diverged
 }
 
-// exploreQueue coordinates the jobs: the prefixes discovered within the runs cut in plan
-// order, the frontier up to which they are folded into the result, and the speculation.
+// exploreQueue coordinates the jobs over the prefixes discovered within the runs cut.
 type exploreQueue struct {
 	mu   sync.Mutex
 	wake *sync.Cond
@@ -142,7 +138,7 @@ func (q *exploreQueue) watch(wg *sync.WaitGroup) {
 }
 
 // next hands a job the least prefix it may start, waiting until there is one; nil once the
-// queue is over, which is only after every run in flight has completed.
+// queue is over, which is after every run in flight has completed.
 func (q *exploreQueue) next() *explorePrefix {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -173,8 +169,8 @@ func (q *exploreQueue) next() *explorePrefix {
 	}
 }
 
-// startable is the least queued prefix a job may start: the committed one at the
-// frontier, or a speculative one while the discards it could add stay within jobs.
+// startable is the least queued prefix a job may start: the one at the frontier, or a
+// speculative one while the discards it could add stay within jobs.
 func (q *exploreQueue) startable() *explorePrefix {
 	for i := q.frontier; i < len(q.order); i++ {
 		p := q.order[i]
@@ -201,7 +197,7 @@ func (q *exploreQueue) speculative() int {
 }
 
 // finish records a run's result, queues the prefixes it leaves right after it and folds
-// the prefixes now committed; a run dropped meanwhile is discarded.
+// what is now committed; a run dropped meanwhile is discarded.
 func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outcome, err error) {
 	if err == nil {
 		if err = replay.followed(); err == nil {
@@ -227,8 +223,8 @@ func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outc
 	q.fold()
 }
 
-// insert queues prefixes at position at, in the order given, moving what follows back;
-// whatever moves past the runs cut is dropped, a started run among it discarded.
+// insert queues prefixes at position at, moving what follows back; whatever moves past the
+// runs cut is dropped, a started run among it discarded.
 func (q *exploreQueue) insert(at int, prefixes []*explorePrefix) {
 	if len(prefixes) == 0 {
 		return
@@ -250,8 +246,8 @@ func (q *exploreQueue) insert(at int, prefixes []*explorePrefix) {
 	}
 }
 
-// fold takes every done prefix at the frontier into the result, in plan order; the first
-// that failed fails the exploration at its run.
+// fold takes every done prefix at the frontier into the result in plan order; the first that
+// failed fails the exploration at its run.
 func (q *exploreQueue) fold() {
 	for q.frontier < len(q.order) && q.order[q.frontier].state == prefixDone {
 		p := q.order[q.frontier]
