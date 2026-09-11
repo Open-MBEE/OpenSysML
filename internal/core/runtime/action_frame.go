@@ -74,6 +74,9 @@ type actionFrame struct {
 	began int64
 	// run is the identity of this performance among the context's runs (Context.newRun).
 	run int64
+	// callee is the action a `Callee(...)` node performs, resolved or settled by its
+	// arguments' values as they were bound; nil for a node performing no such call.
+	callee *symbols.Symbol
 	// performs is the flow of the action a typed or invoked node performed, whose
 	// subactions the node's performance adopted as its own. nil otherwise.
 	performs *lower.ActionGraph
@@ -290,10 +293,11 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	ec := e.evalContextAround(perf, scope)
 	ec.inBehaviorBody = true
 	ec.activation = activation
-	arguments, err := invocationArguments(e.ctx, scope, inv, ec)
+	arguments, callee, err := invocationArguments(e.ctx, scope, inv, ec)
 	if err != nil {
 		return err
 	}
+	perf.callee = callee
 	for name, value := range arguments {
 		if err := e.setFrameFeature(perf, name, value); err != nil {
 			return err
@@ -372,19 +376,25 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 		}
 	}
 	if inv, performs := nestedInvocation(usage); performs && !lower.IsCaseNode(usage) {
-		sym, err := resolveActionSymbol(e.ctx, nodeScope(graph, node), inv)
+		sym, tied, err := actionCandidates(e.ctx, nodeScope(graph, node), inv)
 		if err != nil {
 			return nodePins{}, err
 		}
 		inv.step, _ = stepSymbol(graph, node)
-		held, _, err := e.ctx.performanceBody(inv.performed(sym), sym)
-		if err != nil {
-			return nodePins{}, err
+		// A call its arguments' values settle holds the pins of every action still tied.
+		if sym != nil {
+			tied = []*symbols.Symbol{sym}
 		}
-		e.addFeatureDirections(pins.directions, &pins.aliases, held)
-		for _, param := range e.ctx.actionParametersOf(sym) {
-			if param.IsResult && pins.result == "" {
-				pins.result = param.Name
+		for _, callee := range tied {
+			held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
+			if err != nil {
+				return nodePins{}, err
+			}
+			e.addFeatureDirections(pins.directions, &pins.aliases, held)
+			for _, param := range e.ctx.actionParametersOf(callee) {
+				if param.IsResult && pins.result == "" {
+					pins.result = param.Name
+				}
 			}
 		}
 	}
@@ -1067,10 +1077,12 @@ func bindingEndText(end ast.Node) string {
 // pins (its arguments among them) bind the callee's inputs, its final values become the node's,
 // and its outputs return to enclosing features when the node's own performance ends.
 func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation) error {
-	scope := nodeScope(perf.flow, perf.node)
-	sym, err := resolveActionSymbol(e.ctx, scope, inv)
-	if err != nil {
-		return err
+	sym := perf.callee
+	if sym == nil {
+		var err error
+		if sym, err = resolveActionSymbol(e.ctx, nodeScope(perf.flow, perf.node), inv); err != nil {
+			return err
+		}
 	}
 	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	if e.ctx.actionDepth >= maxActionNestingDepth {

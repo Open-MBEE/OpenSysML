@@ -12,7 +12,8 @@ import (
 // Empty for `null` or `()`, which has no element to type and fits every candidate alike.
 type Argument struct {
 	Prim  PrimType
-	Type  *symbols.Symbol // the declared type of the feature or result named, nil when none
+	Type  *symbols.Symbol   // the declared type of the feature or result named, nil when none
+	Also  []*symbols.Symbol // the further types a run's value is classified by, beside Type
 	Exact bool
 	Empty bool
 	Name  *ast.QualifiedName // the name a named argument binds, as written; nil for positional
@@ -21,6 +22,14 @@ type Argument struct {
 // known reports whether the checker knows anything about the argument's type.
 func (a Argument) known() bool {
 	return a.Prim != PrimUnknown || a.Type != nil || a.Empty
+}
+
+// types lists every type the argument is known to be of, Type first.
+func (a Argument) types() []*symbols.Symbol {
+	if a.Type == nil {
+		return nil
+	}
+	return append([]*symbols.Symbol{a.Type}, a.Also...)
 }
 
 // ArgumentTyper types a call's arguments as the checker does, so a call read
@@ -624,11 +633,11 @@ func (m *Model) parameterIndex(scope *symbols.Scope, sig invocationSignature, na
 func (m *Model) argumentBinds(arg Argument, p signatureParameter, mode bindMode) (bindFit, bool) {
 	if arg.Type != nil && p.typ != nil {
 		switch {
-		case m.Conforms(arg.Type, p.typ):
+		case m.anyConforms(arg.types(), p.typ):
 			return fitExact, true
 		case IsElementType(p.typ):
 			return fitWiden, true
-		case mode == bindLoose && (!arg.Exact && m.Conforms(p.typ, arg.Type) || IsCollection(p.typ)):
+		case mode == bindLoose && (!arg.Exact && m.anyConformedTo(p.typ, arg.types()) || IsCollection(p.typ)):
 			return fitOpen, true
 		}
 		return fitOpen, false
@@ -649,6 +658,16 @@ func (m *Model) argumentBinds(arg Argument, p signatureParameter, mode bindMode)
 		return fitOpen, true
 	}
 	return fitOpen, false
+}
+
+// anyConformedTo reports whether from conforms to one of types.
+func (m *Model) anyConformedTo(from *symbols.Symbol, types []*symbols.Symbol) bool {
+	for _, t := range types {
+		if m.Conforms(from, t) {
+			return true
+		}
+	}
+	return false
 }
 
 func argumentsKnown(args []Argument) bool {

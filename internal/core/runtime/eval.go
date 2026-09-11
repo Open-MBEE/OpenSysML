@@ -2624,26 +2624,28 @@ func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target 
 		return Value{}, fmt.Errorf("%w: %s is called with a receiver and named arguments", ErrReceiverWithNamedArgs, qualName)
 	}
 	exprs := passes.InvocationArgs(n)
-	positional := make([]Value, len(exprs))
-	namedValues := make([]Value, len(n.NamedArgs))
-	args := make([]semantics.Argument, 0, len(exprs)+len(n.NamedArgs))
-	for i, expr := range exprs {
-		val, err := ec.Eval(expr)
+	// An argument some candidate takes as an `expr` stays unevaluated, unknown to the
+	// selection, so a short-circuiting built-in never sees a branch it would not have run.
+	written := writtenArguments(exprs, n.NamedArgs)
+	deferred := ec.deferredArguments(target.undetermined, exprs, n.NamedArgs)
+	args := make([]semantics.Argument, 0, len(written))
+	for k, w := range written {
+		var name *ast.QualifiedName
+		if k >= len(exprs) {
+			name = n.NamedArgs[k-len(exprs)].Name
+			if name == nil || len(name.Parts) == 0 {
+				continue
+			}
+		}
+		if deferred[k] {
+			args = append(args, semantics.Argument{Name: name})
+			continue
+		}
+		val, err := w.eval(ec)
 		if err != nil {
 			return Value{}, err
 		}
-		positional[i] = val
-		args = append(args, ec.valueArgument(val, nil))
-	}
-	for i, named := range n.NamedArgs {
-		val, err := ec.Eval(named.Value)
-		if err != nil {
-			return Value{}, err
-		}
-		namedValues[i] = val
-		if named.Name != nil && len(named.Name.Parts) > 0 {
-			args = append(args, ec.valueArgument(val, named.Name))
-		}
+		args = append(args, ec.valueArgument(val, name))
 	}
 	sel := ec.ctx.model.semantics.SelectAmongArguments(ec.scope, target.undetermined, args, semantics.PerformsBehavior)
 	if sel.Ambiguous {
@@ -2662,7 +2664,25 @@ func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target 
 	if len(n.NamedArgs) > 0 {
 		settled.names, settled.unbound = ec.ctx.boundParameterNames(ec.scope, callee, n.NamedArgs)
 	}
-	callArgs, err := bindEvaluatedArgs(qualName, positional, namedValues, settled)
+	if settled.builtin != nil && !applied {
+		return ec.invokeBuiltinWith(settled.builtinName, settled.builtin, exprs, n.NamedArgs, settled.names, settled.unbound,
+			func(params []declaredParam, param, at int) (Value, error) {
+				w := written[at]
+				if _, body := w.expr.(*ast.BodyExpr); !body && param < len(params) && params[param].deferred {
+					return NewExprValue(w.expr, ec.closure()), nil
+				}
+				return w.eval(ec)
+			})
+	}
+	values := make([]Value, len(written))
+	for k, w := range written {
+		val, err := w.eval(ec)
+		if err != nil {
+			return Value{}, err
+		}
+		values[k] = val
+	}
+	callArgs, err := bindEvaluatedArgs(qualName, values[:len(exprs)], values[len(exprs):], settled)
 	if err != nil {
 		return Value{}, err
 	}
@@ -2672,8 +2692,71 @@ func (ec *EvalContext) evalUndeterminedInvocation(n *ast.InvocationExpr, target 
 	return ec.applyInvocation(settled, callArgs)
 }
 
-// valueArgument types an evaluated argument for overload selection by the type write
-// conformance classifies it by, a collection by its elements' shared type; else unknown.
+// writtenArgument is one argument of a call as written, and its value once evaluated.
+type writtenArgument struct {
+	expr      ast.Node
+	value     Value
+	evaluated bool
+}
+
+// writtenArguments lists a call's arguments in source order, the positional ones first.
+func writtenArguments(exprs []ast.Node, named []ast.NamedArg) []*writtenArgument {
+	written := make([]*writtenArgument, 0, len(exprs)+len(named))
+	for _, expr := range exprs {
+		written = append(written, &writtenArgument{expr: expr})
+	}
+	for _, arg := range named {
+		written = append(written, &writtenArgument{expr: arg.Value})
+	}
+	return written
+}
+
+// eval evaluates the argument once in ec; a later ask reads the value.
+func (w *writtenArgument) eval(ec *EvalContext) (Value, error) {
+	if w.evaluated {
+		return w.value, nil
+	}
+	val, err := ec.Eval(w.expr)
+	if err != nil {
+		return Value{}, err
+	}
+	w.value, w.evaluated = val, true
+	return val, nil
+}
+
+// deferredArguments marks, per argument written, whether any of the candidates binds it to
+// an `expr` parameter of a built-in, which takes the expression rather than its value.
+func (ec *EvalContext) deferredArguments(candidates []*symbols.Symbol, exprs []ast.Node, named []ast.NamedArg) []bool {
+	deferred := make([]bool, len(exprs)+len(named))
+	for _, c := range candidates {
+		var candidate invocationTarget
+		ec.ctx.implementInvocation(&candidate, ec.ctx.inheritedFeature(ec.runningBehavior(), c))
+		if candidate.builtin == nil {
+			continue
+		}
+		params := builtinSignatures[candidate.builtinName]
+		for i := range exprs {
+			if i < len(params) && params[i].deferred {
+				deferred[i] = true
+			}
+		}
+		if len(named) == 0 {
+			continue
+		}
+		names, _ := ec.ctx.boundParameterNames(ec.scope, candidate.calc, named)
+		for j, name := range names {
+			for _, p := range params {
+				if p.name == name && p.deferred {
+					deferred[len(exprs)+j] = true
+				}
+			}
+		}
+	}
+	return deferred
+}
+
+// valueArgument types an evaluated argument for overload selection by the types write
+// conformance classifies it by, a collection by the ones its elements share; else unknown.
 func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semantics.Argument {
 	arg := semantics.Argument{Name: name}
 	elements := elementsOf(val)
@@ -2681,22 +2764,49 @@ func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semanti
 		arg.Empty = true
 		return arg
 	}
-	var common *symbols.Symbol
-	for _, el := range elements {
+	var common []*symbols.Symbol
+	for i, el := range elements {
 		types, err := ec.ctx.valueTypes(ec.scope, el)
 		if err != nil || len(types) == 0 {
 			return arg
 		}
-		switch elem := types[0]; {
-		case common == nil, ec.ctx.model.semantics.Conforms(common, elem):
-			common = elem
-		case !ec.ctx.model.semantics.Conforms(elem, common):
+		if i == 0 {
+			common = types
+			continue
+		}
+		if common = ec.sharedTypes(common, types); len(common) == 0 {
 			return arg
 		}
 	}
-	arg.Type = common
-	arg.Prim = ec.ctx.model.semantics.PrimTypeOf(common)
+	arg.Type, arg.Also = common[0], common[1:]
+	arg.Prim = ec.ctx.model.semantics.PrimTypeOf(common[0])
 	return arg
+}
+
+// sharedTypes narrows the types the elements so far share to those an element of types
+// also is: a type it conforms to stays, one it generalizes widens to the element's, else drops.
+func (ec *EvalContext) sharedTypes(common, types []*symbols.Symbol) []*symbols.Symbol {
+	model := ec.ctx.model.semantics
+	var shared []*symbols.Symbol
+	for _, c := range common {
+		kept := c
+		found := false
+		for _, t := range types {
+			switch {
+			case model.Conforms(t, c):
+				kept, found = c, true
+			case model.Conforms(c, t):
+				kept, found = t, true
+			}
+			if found {
+				break
+			}
+		}
+		if found && !slices.Contains(shared, kept) {
+			shared = append(shared, kept)
+		}
+	}
+	return shared
 }
 
 // evalInvocationArgs evaluates an invocation's arguments in source order into the

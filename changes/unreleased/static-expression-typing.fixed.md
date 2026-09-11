@@ -17,9 +17,10 @@
 - **An argument of statically unknown type keeps every overload applicable.** A call such an
   argument leaves open selects only where one candidate remains or the known arguments prove a
   unique winner; otherwise the `invocation-ambiguous` warning `call of abs is undetermined
-  between …` names the candidates left open, and the runtime settles the call by the types of
-  the values it is given, reporting `ambiguous invocation` when they tie still. The first
-  visible candidate is no longer chosen silently. A called name is resolved as KerML 1.1
+  between …` names the candidates left open, and the runtime settles the call — a calc's or a
+  nested action's — by every type the values it is given are classified by, an argument a
+  candidate takes as an `expr` left unevaluated, reporting `ambiguous invocation` when they tie
+  still. The first visible candidate is no longer chosen silently. A called name is resolved as KerML 1.1
   §8.2.3.5 resolves any name — an owned declaration hides an imported one, a nested namespace's
   import stands ahead of an enclosing declaration — with no rule of its own for library
   functions.

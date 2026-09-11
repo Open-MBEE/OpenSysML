@@ -36,6 +36,8 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 	t.Run("calc_call_explicit_anything_ties_with_untyped", testCalcCallExplicitAnythingTiesWithUntyped)
 	t.Run("calc_call_crossed_specificity_is_ambiguous", testCalcCallCrossedSpecificityIsAmbiguous)
 	t.Run("calc_call_undetermined_statically_is_settled_by_the_values", testCalcCallUndeterminedStaticallyIsSettledByTheValues)
+	t.Run("calc_call_undetermined_statically_keeps_a_deferred_argument_unevaluated", testCalcCallUndeterminedStaticallyKeepsADeferredArgumentUnevaluated)
+	t.Run("calc_call_undetermined_statically_is_settled_by_every_classifier", testCalcCallUndeterminedStaticallyIsSettledByEveryClassifier)
 	t.Run("calc_call_repeated_named_argument_is_refused", testCalcCallRepeatedNamedArgumentIsRefused)
 	t.Run("calc_call_names_a_parameter_as_the_checker_does", testCalcCallNamesAParameterAsTheCheckerDoes)
 	t.Run("calc_call_selects_among_owned_inherited_and_recursive_import", testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport)
@@ -43,6 +45,8 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 	t.Run("calc_call_selects_by_collection_literal_element_type", testCalcCallSelectsByCollectionLiteralElementType)
 	t.Run("action_call_selects_by_argument_type", testActionCallSelectsByArgumentType)
 	t.Run("action_call_ambiguous_between_two_imports", testActionCallAmbiguousBetweenTwoImports)
+	t.Run("action_call_undetermined_statically_is_settled_by_the_values", testActionCallUndeterminedStaticallyIsSettledByTheValues)
+	t.Run("action_call_undetermined_statically_reports_a_tie_the_values_leave", testActionCallUndeterminedStaticallyReportsATieTheValuesLeave)
 	t.Run("action_call_selects_an_action_over_a_more_specific_calc", testActionCallSelectsAnActionOverAMoreSpecificCalc)
 	t.Run("action_call_naming_only_a_calc_is_not_an_action", testActionCallNamingOnlyACalcIsNotAnAction)
 	t.Run("action_call_receiver_binds_first_input", testActionCallReceiverBindsFirstInput)
@@ -509,6 +513,85 @@ func testActionCallArgumentCannotNameAFeatureOutOfScope(t *testing.T) {
 // Two imported actions taking the same argument type are refused as ambiguous.
 func testActionCallAmbiguousBetweenTwoImports(t *testing.T) {
 	outputs, err := runOverloadedAction(t, "Integer", "3")
+	if err == nil {
+		t.Fatalf("expected an ambiguity error, action returned %v", outputs)
+	}
+	if !errors.Is(err, ErrAmbiguousInvocation) {
+		t.Fatalf("expected ErrAmbiguousInvocation, got: %v", err)
+	}
+	for _, want := range []string{"A::tag", "B::tag"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not name candidate %s", err, want)
+		}
+	}
+}
+
+// undeterminedActionsSrc calls same-named imported actions with arguments the checker
+// cannot type: untyped calcs yield them, so only the run's values tell the overloads apart.
+const undeterminedActionsSrc = `
+	package A {
+		private import ScalarValues::*;
+		action def tag { in x : Integer; in y : Real; out code : Integer; first start; action set { assign code := 1; } done; succession first start then set; succession first set then done; }
+	}
+	package B {
+		private import ScalarValues::*;
+		action def tag { in x : Real; in y : Integer; out code : Integer; first start; action set { assign code := 2; } done; succession first start then set; succession first set then done; }
+	}
+	package test {
+		private import ScalarValues::*;
+		private import A::*;
+		private import B::*;
+		calc def same { in v; v }
+		action def Outer {
+			attribute code : Integer = 0;
+			attribute p = same(%s);
+			attribute q = same(%s);
+			first start;
+			action call = tag(%s);
+			done;
+			succession first start then call;
+			succession first call then done;
+		}
+	}
+`
+
+func runUndeterminedAction(t *testing.T, p, q, args string) (map[string]Value, error) {
+	t.Helper()
+	src := fmt.Sprintf(undeterminedActionsSrc, p, q, args)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	outer := findSymbolByName(idx.DocumentRoot("<test>"), "Outer", ast.DefAction)
+	if outer == nil {
+		t.Fatal("Outer action not found")
+	}
+	return ctx.ExecuteAction(outer)
+}
+
+// An action call the checker leaves tied on arguments of unknown type runs the action
+// the values fit exactly, bound positionally or by name.
+func testActionCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
+	cases := []struct {
+		p, q, args string
+		want       int64
+	}{
+		{"1", "2.5", "p, q", 1},
+		{"1.5", "2", "p, q", 2},
+		{"1", "2.5", "x = p, y = q", 1},
+		{"2", "1.5", "y = p, x = q", 2},
+	}
+	for _, c := range cases {
+		outputs, err := runUndeterminedAction(t, c.p, c.q, c.args)
+		if err != nil {
+			t.Fatalf("tag(%s) with p = %s, q = %s: %v", c.args, c.p, c.q, err)
+		}
+		if got := intOutput(t, outputs, "code"); got != c.want {
+			t.Errorf("tag(%s) with p = %s, q = %s: code = %d, want %d", c.args, c.p, c.q, got, c.want)
+		}
+	}
+}
+
+// Values that still fit the tied actions equally leave the call ambiguous.
+func testActionCallUndeterminedStaticallyReportsATieTheValuesLeave(t *testing.T) {
+	outputs, err := runUndeterminedAction(t, "1", "2", "p, q")
 	if err == nil {
 		t.Fatalf("expected an ambiguity error, action returned %v", outputs)
 	}
@@ -1322,6 +1405,90 @@ func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
 		if strings.Contains(err.Error(), unwanted) {
 			t.Errorf("error %q names %s, which the values do not fit", err, unwanted)
 		}
+	}
+}
+
+// Among candidates left tied by the checker, an argument one of them takes as an
+// `expr` is not evaluated to settle the call: the short-circuiting built-in it
+// selects never runs the branch, and a calc selected instead evaluates it once.
+func testCalcCallUndeterminedStaticallyKeepsADeferredArgumentUnevaluated(t *testing.T) {
+	src := `
+		package A { private import ScalarValues::*; calc def 'and' { in x : Integer; in y : Integer; return : Integer = x + y; } }
+		package test {
+			private import ScalarValues::*;
+			private import ControlFunctions::*;
+			private import A::*;
+			calc def remainder { in n; 10 % n }
+			calc choose { in v; in w; 'and'(v, remainder(w)) }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	rootScope := idx.DocumentRoot("<test>")
+	choose := findSymbolByName(rootScope, "choose", ast.DefCalc)
+	if choose == nil {
+		t.Fatal("choose calc not found")
+	}
+	intVal := func(n int64) Value {
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+	}
+	result, err := ctx.InvokeCalc(choose, []Value{{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: false}}, intVal(0)}, rootScope)
+	if err != nil {
+		t.Fatalf("false and 10 %% 0: %v", err)
+	}
+	if result.Kind != ValConst || result.Const.Kind != semantics.ValBool || result.Const.Bool {
+		t.Fatalf("false and 10 %% 0 = %s, want false", FormatValue(result))
+	}
+	result, err = ctx.InvokeCalc(choose, []Value{intVal(2), intVal(3)}, rootScope)
+	if err != nil {
+		t.Fatalf("2 'and' 10 %% 3: %v", err)
+	}
+	if result.Kind != ValConst || result.Const.Int != 3 {
+		t.Fatalf("2 'and' 10 %% 3 = %s, want 3", FormatValue(result))
+	}
+	_, err = ctx.InvokeCalc(choose, []Value{intVal(2), intVal(0)}, rootScope)
+	if !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("2 'and' 10 %% 0 = %v, want ErrDivisionByZero", err)
+	}
+}
+
+// An object classified by several types fits a parameter any of them conforms to,
+// not only the one the run lists first: the exact fit beats the loose one found first.
+func testCalcCallUndeterminedStaticallyIsSettledByEveryClassifier(t *testing.T) {
+	src := `
+		package P { private import ScalarValues::*; item def A; item def B :> A; calc def pick { in v : B; return : Integer = 1; } }
+		package Q { private import ScalarValues::*; item def C :> P::A; calc def pick { in v : C; return : Integer = 2; } }
+		package test {
+			private import Q::*;
+			private import P::*;
+			item def Rack {
+				item x : A [1];
+				item b : B [1] = x;
+			}
+			item rack : Rack;
+			calc choose { in v; pick(v) }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	rootScope := idx.DocumentRoot("<test>")
+	choose := findSymbolByName(rootScope, "choose", ast.DefCalc)
+	if choose == nil {
+		t.Fatal("choose calc not found")
+	}
+	rack := instantiateQualified(t, ctx, idx, "test::rack")
+	if _, err := rack.GetFeatureValue(ctx, "b"); err != nil {
+		t.Fatalf("GetFeatureValue(b): %v", err)
+	}
+	x := readInstance(t, ctx, rack, "x")
+	types, err := ctx.valueTypes(rootScope, Value{Kind: ValInstance, Instance: x.ID})
+	if b := idx.LookupQualified("P::B"); err != nil || len(b) != 1 || len(types) < 2 || types[0] == b[0] {
+		t.Fatalf("x is of %v (%v), want several types with B not first", types, err)
+	}
+	result, err := ctx.InvokeCalc(choose, []Value{{Kind: ValInstance, Instance: x.ID}}, rootScope)
+	if err != nil {
+		t.Fatalf("pick(x): %v", err)
+	}
+	if result.Kind != ValConst || result.Const.Int != 1 {
+		t.Fatalf("pick(x) = %s, want 1 from P::pick", FormatValue(result))
 	}
 }
 
