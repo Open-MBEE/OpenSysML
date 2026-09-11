@@ -250,9 +250,8 @@ func NewContext(model *Model, maxSteps int64) *Context {
 	if model == nil {
 		panic("runtime: NewContext needs a Model")
 	}
-	return &Context{
+	ctx := &Context{
 		model:     model,
-		ids:       &idSequence{next: 1}, // IDs start at 1 (0 = invalid)
 		maxSteps:  maxSteps,
 		instances: make(map[int64]*Instance),
 		lives:     make(map[int64]life),
@@ -281,6 +280,8 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 	}
+	ctx.ids = newIDSequence(ctx)
+	return ctx
 }
 
 // Model returns the model-derived part this context runs over.
@@ -423,9 +424,23 @@ func (ctx *Context) SourceLocation(file string, span source.Span) string {
 }
 
 // idSequence hands out instance identities, one per object over the contexts
-// sharing it.
+// sharing it, which are its holders.
 type idSequence struct {
-	next int64
+	next    int64
+	holders []*Context
+}
+
+// newIDSequence starts the identities of one context at 1; 0 is no identity.
+func newIDSequence(ctx *Context) *idSequence {
+	return &idSequence{next: 1, holders: []*Context{ctx}}
+}
+
+// share hands the sequence to ctx as well, raised past what ctx handed out so far.
+func (s *idSequence) share(ctx *Context) {
+	s.atLeast(ctx.ids.next)
+	ctx.ids.holders = slices.DeleteFunc(ctx.ids.holders, func(h *Context) bool { return h == ctx })
+	s.holders = append(s.holders, ctx)
+	ctx.ids = s
 }
 
 func (s *idSequence) take() int64 {
@@ -441,9 +456,14 @@ func (s *idSequence) atLeast(id int64) {
 	}
 }
 
-// release hands out id next again, once every identity taken from it on is
-// abandoned: what a probe made and undid never happened.
+// release hands out id next again when no context sharing the sequence holds an
+// identity from id on: what a probe made and undid never happened.
 func (s *idSequence) release(id int64) {
+	for _, ctx := range s.holders {
+		if ctx.holdsIdentityFrom(id) {
+			return
+		}
+	}
 	if id < s.next {
 		s.next = id
 	}
@@ -591,7 +611,7 @@ func (ctx *Context) beginProbe() func() {
 		rollback()
 		endBoundary()
 		restoreSchedule()
-		if ctx.ids == ids && !ctx.holdsIdentityFrom(nextID) {
+		if ctx.ids == ids {
 			ids.release(nextID)
 		}
 		ctx.probes--

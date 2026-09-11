@@ -524,7 +524,109 @@ func TestSnapshotRestoresTwice(t *testing.T) {
 	})
 }
 
-// TestSnapshotRefusesMidRun pins that a snapshot is taken between steps only.
+// A usage instantiated again after the snapshot denotes the new object; restoring
+// makes it denote the object it denoted at the snapshot, not none and not a third.
+func TestSnapshotRestoresAnOverwrittenOccurrence(t *testing.T) {
+	ctx, idx := contextForSource(t, `package Demo {
+	part def Car { attribute wheels = 4; }
+	part car : Car;
+}`)
+	car := lookupOne(t, idx, "Demo::car")
+	first, err := ctx.Instantiate(car)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	second, err := ctx.Instantiate(car)
+	if err != nil {
+		t.Fatalf("Instantiate again: %v", err)
+	}
+	if second.ID == first.ID {
+		t.Fatalf("second Instantiate answered the first object #%d", first.ID)
+	}
+	for round := 1; round <= 2; round++ {
+		snapshot.Restore()
+		denoted, err := ctx.occurrenceOf(car)
+		if err != nil {
+			t.Fatalf("restore %d: occurrenceOf: %v", round, err)
+		}
+		if denoted != first {
+			t.Fatalf("restore %d: Demo::car denotes #%d, want the snapshotted #%d", round, denoted.ID, first.ID)
+		}
+		if _, live := ctx.instances[second.ID]; live {
+			t.Fatalf("restore %d: the object made after the snapshot, #%d, is still held", round, second.ID)
+		}
+	}
+	snapshot.Release()
+}
+
+const sharedIdentitiesSrc = `package Demo {
+	part def Car;
+	part car : Car;
+}`
+
+// instantiateCar materializes Demo::car in ctx and answers its identity.
+func instantiateCar(t *testing.T, ctx *Context, idx *symbols.Index) int64 {
+	t.Helper()
+	inst, err := ctx.Instantiate(lookupOne(t, idx, "Demo::car"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	return inst.ID
+}
+
+// Restoring a snapshot never hands out again an identity a context sharing the
+// sequence took since: the other context keeps its object, so this one takes the next.
+func TestSnapshotRestoreKeepsIdentitiesASharingContextTook(t *testing.T) {
+	prev, prevIdx := contextForSource(t, sharedIdentitiesSrc)
+	ctx, idx := contextForSource(t, sharedIdentitiesSrc)
+	ctx.AdoptIdentities(prev)
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	taken := instantiateCar(t, prev, prevIdx)
+	snapshot.Restore()
+	if got := instantiateCar(t, ctx, idx); got <= taken {
+		t.Fatalf("after restore the context handed out #%d, which the sharing context took #%d at or past", got, taken)
+	}
+	snapshot.Release()
+}
+
+// A context that takes over another's identity sequence after the snapshot keeps
+// the shared sequence on restore rather than the one it had, so the two never
+// name one identity for two objects.
+func TestSnapshotRestoreKeepsAnAdoptedIdentitySequence(t *testing.T) {
+	prev, prevIdx := contextForSource(t, sharedIdentitiesSrc)
+	ctx, idx := contextForSource(t, sharedIdentitiesSrc)
+	own := instantiateCar(t, ctx, idx)
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	made := instantiateCar(t, ctx, idx)
+	taken := instantiateCar(t, prev, prevIdx)
+	ctx.AdoptIdentities(prev)
+	snapshot.Restore()
+	if ctx.ids != prev.ids {
+		t.Fatalf("restore reinstalled the sequence the context had before it adopted the other's")
+	}
+	if _, live := ctx.instances[made]; live {
+		t.Fatalf("restore kept #%d, made after the snapshot", made)
+	}
+	got := instantiateCar(t, ctx, idx)
+	if got <= taken || got <= made {
+		t.Fatalf("after restore the context handed out #%d; it holds #%d, the other context #%d, and #%d was handed out since", got, own, taken, made)
+	}
+	if _, live := prev.instances[got]; live {
+		t.Fatalf("#%d names an object in both contexts", got)
+	}
+	snapshot.Release()
+}
+
 func TestSnapshotRefusesMidRun(t *testing.T) {
 	resolver := resolve.New(symbols.NewIndex())
 	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10)

@@ -185,6 +185,13 @@ func (ctx *Context) Instantiate(sym *symbols.Symbol) (*Instance, error) {
 	inst.explicit = true
 	prior, hadPrior := ctx.occurrences[sym]
 	if ctx.registersOccurrence(sym) {
+		ctx.noteProbeUndo(func() {
+			if hadPrior {
+				ctx.occurrences[sym] = prior
+			} else {
+				delete(ctx.occurrences, sym)
+			}
+		})
 		ctx.occurrences[sym] = inst.ID
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {

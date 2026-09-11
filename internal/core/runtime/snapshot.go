@@ -237,8 +237,11 @@ func (ctx *Context) captureRun() runCapture {
 	return c
 }
 
+// restore rewinds the run bookkeeping to the capture. Identities stay monotone
+// across contexts: a sequence handed to another context since (AdoptIdentities)
+// is kept, and one is rewound only past what every context sharing it holds.
 func (c runCapture) restore(ctx *Context) {
-	if ctx.ids == c.ids && !ctx.holdsIdentityFrom(c.nextID) {
+	if ctx.ids == c.ids {
 		c.ids.release(c.nextID)
 	}
 	ctx.activations, ctx.runs = c.activations, c.runs

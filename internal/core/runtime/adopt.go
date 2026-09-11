@@ -842,8 +842,7 @@ func (ctx *Context) AdoptIdentities(prev *Context) {
 	if prev == nil || prev == ctx || prev.ids == nil || prev.ids == ctx.ids {
 		return
 	}
-	prev.ids.atLeast(ctx.ids.next)
-	ctx.ids = prev.ids
+	prev.ids.share(ctx)
 }
 
 // commit moves the planned objects into this context, rebinding what each of
