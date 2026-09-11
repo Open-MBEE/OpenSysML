@@ -81,16 +81,18 @@ class MainTest {
       }
     }
     Main.Options options = Main.parse(new String[] {"-dir", directory.toString()});
+    PrintStream out = new PrintStream(new ByteArrayOutputStream());
     IllegalArgumentException refused =
-        assertThrows(IllegalArgumentException.class, () -> Main.run(options, new PrintStream(new ByteArrayOutputStream())));
+        assertThrows(IllegalArgumentException.class, () -> Main.run(options, out));
     assertTrue(refused.getMessage().startsWith("no fixtures directory at "), refused.getMessage());
   }
 
   @Test
   void aServiceAddressWithoutAPortIsRefused() {
     Main.Options options = Main.parse(new String[] {"-service", "localhost", "-allow-skips"});
+    PrintStream out = new PrintStream(new ByteArrayOutputStream());
     IllegalArgumentException refused =
-        assertThrows(IllegalArgumentException.class, () -> Main.run(options, new PrintStream(new ByteArrayOutputStream())));
+        assertThrows(IllegalArgumentException.class, () -> Main.run(options, out));
     assertEquals("-service wants host:port, got localhost", refused.getMessage());
   }
 
