@@ -343,7 +343,7 @@ package OpenSysMLBehavior {
         action recordResult { assign steps := steps + 1; }
         action nextEngine;
         action compose;
-        action recordFault;
+        action recordFault { assign steps := steps + 1; }
 
         succession first start then selectionGate;
 
@@ -391,10 +391,17 @@ package OpenSysMLBehavior {
     action def ExploreOutcomes {
         attribute jobs : Integer = 1;
         attribute runsLeft : Integer = 1024;
+        attribute depth : Integer = 64;
         attribute queued : Integer = 1;
+        // The choice tree the runs walk: the choices still ahead, each met by the run
+        // below the alternative the run before it left, and the alternatives each offers.
+        attribute choicesAhead : Integer = 0;
+        attribute alternatives : Integer = 2;
+        attribute met : Integer = 0;
         // The prefixes the run just made leaves to explore, one per alternative it
         // did not take; a run below every choice leaves none.
         attribute unexplored : Integer = 0;
+        attribute depthHit : Boolean = false;
         attribute complete : Boolean = true;
 
         in item question : AnalysisQuestion;
@@ -406,11 +413,22 @@ package OpenSysMLBehavior {
         action takePrefix { assign queued := queued - 1; }
         action freshContext;
         action runLinearization { assign runsLeft := runsLeft - 1; }
+        action meetChoice {
+            assign unexplored := alternatives - 1;
+            assign met := met + 1;
+            assign choicesAhead := choicesAhead - 1;
+        }
+        action passBeyond {
+            assign depthHit := true;
+            assign met := met + choicesAhead;
+            assign choicesAhead := 0;
+        }
+        action runLeaf;
         action queueChoices {
             assign queued := queued + unexplored;
             assign unexplored := 0;
         }
-        action sortOutcomes { assign complete := queued == 0; }
+        action sortOutcomes { assign complete := queued == 0 and not depthHit; }
         action claimProved;
         action claimObserved;
 
@@ -418,7 +436,21 @@ package OpenSysMLBehavior {
         succession first warmWorker then takePrefix;
         succession first takePrefix then freshContext;
         succession first freshContext then runLinearization;
-        succession first runLinearization then queueChoices;
+        succession first runLinearization then choiceGate;
+
+        // A run meets the next choice within the depth bound and leaves its other
+        // alternatives; beyond the bound it takes the first of every choice left.
+        decide choiceGate;
+        if choicesAhead > 0 and met < depth then meetChoice;
+        if choicesAhead > 0 and met >= depth then passBeyond;
+        else runLeaf;
+
+        succession first meetChoice then runMade;
+        succession first passBeyond then runMade;
+        succession first runLeaf then runMade;
+
+        merge runMade;
+        succession first runMade then queueChoices;
         succession first queueChoices then queueGate;
 
         // The queue starts with the empty prefix and grows by what each run leaves
@@ -429,8 +461,8 @@ package OpenSysMLBehavior {
 
         succession first sortOutcomes then completionGate;
 
-        // Every prefix visited is a proof over every schedule; a budget reached is
-        // the concrete runs that were made and no more.
+        // Every prefix visited within the bounds is a proof over every schedule; a
+        // bound reached is the concrete runs that were made and no more.
         decide completionGate;
         if complete then claimProved;
         else claimObserved;
