@@ -11,14 +11,17 @@ engine contract, the registry, how a question chooses engines, what a composed r
 claim, how runs are isolated so they can be parallel, and how the existing surfaces migrate
 without changing what they mean.
 
-**Status.** Stages 1, 2 and 4 of the [stages](#stages) below are implemented: `internal/core/analysis`
+**Status.** Stages 1, 2, 4 and 5 of the [stages](#stages) below are implemented: `internal/core/analysis`
 holds the contract (`Question`, `Engine`, `Result`, `Claim`, `Strength`, `Bounds`, `Budget`),
-the registry and `auto` dispatch, and the `run`, `explore`, `sweep` and `solve` engines as
-adapters over the interpreter, `runtime.Explore`, `Context.RunSweep` and `internal/core/solve`.
-The REPL session and the gRPC service each own a `Default()` registry and put every question the
-migration table lists to it, each plan on a worker of its own. Stages 3, 5 and 6 — parallel
-runs, tools and the model checkers — are not implemented, so the sections on parallel execution
-beyond one worker per plan and on external tools still describe a design. Two readings
+the registry and `auto` dispatch, the `run`, `explore`, `sweep` and `solve` engines as
+adapters over the interpreter, `runtime.Explore`, `Context.RunSweep` and `internal/core/solve`,
+and one `tool:<name>` engine per entry of the manifest `OPENSYSML_TOOLS` names. The CLI (and
+the REPL session it opens) and the gRPC service each resolve a `DefaultFromEnv()` registry at
+startup and put every question the migration table lists to it, each plan on a worker of its
+own. Stages 3 and 6 — parallel
+runs and the model checkers — are not implemented, so the section on parallel execution
+beyond one worker per plan still describes a design, and the `smt` clause under [External
+tools](#external-tools) is the contract that engine will meet. Two readings
 the implementation took where the note left room: the `%run` in the migration table is the REPL
 commands that share the CLI flags' code (there is no meta-command of that name), and a `solve`
 question is one per element with that element's condition sets as its queries, so the solver is
@@ -689,7 +692,40 @@ behavior unchanged until stage 4.
    `CONTRIBUTING.md`, undecided here; no version was bumped. Running `all` concurrently, `-jobs`
    and `%jobs` remain with the parallel-runs stage.
 5. **Tools.** The manifest, the `tool:<name>` engine and its protocol, the `AnalysisAnnotation`
-   fixture and the stand-in.
+   fixture and the stand-in. *Implemented:* `analysis.LoadManifest` and `ToolsFromEnv` read
+   the manifest — one JSON file per tool under `OPENSYSML_TOOLS`, `{"toolName", "version",
+   "executable", "variables": […]}`, JSON being the format the repository already reads for
+   conformance expectations and writes for `-json` — and `DefaultFromEnv` registers each entry
+   as a `toolEngine` (`analysis/tool.go`): answers `compute`, authority *observed*, one process
+   per `Run`, `Process()` reporting the executable found or the typed `ProcessAbsentError` the
+   listing and `Covers` carry. The runtime side is `runtime.ToolCall`, `ToolRunner` and
+   `ActionExecutor.performByTool` (`runtime/tool.go`): a performance of an action carrying
+   `ToolExecution` — read from the semantic side tables with `ToolVariable` on its parameters
+   and their supertypes — never initializes the action's flow; with no runner attached, or a
+   `toolName` no engine answers, it fails with `ToolNotRegisteredError` (*tool 'ModelCenter'
+   is not registered; set OPENSYSML_TOOLS*), else it binds the outputs into the action's own
+   data so the enclosing action adopts them as it adopts any `out`. `Registry.AnswerWith`
+   installs a plan-scoped runner (`analysis/tool_runner.go`) on every context the plan builds
+   (`Model.running`, `NewContext`, the sweep's rows), which puts each invocation to the registry
+   as a `compute` question under the plan's selection, so `-engine <name>` on another engine
+   refuses it, and `auto` stops at the tool's failure because nothing else answers `compute`.
+   The protocol is the three steps above with the request `{toolName, uri, inputs}` and the
+   reply `{outputs}` or `{error}`, values as JSON numbers, truths or text with an optional
+   `unit` spelt as a SysML unit expression (`m/s`, `SI::km`); an output quantity is converted
+   to the coherent unit of the parameter's declared kind and spelt as that kind prefers, text
+   and truths admit no unit, and a duplicate key, a `null`, an `error` beside `outputs` or a
+   trailing JSON value are malformed. `ToolError{Kind}` distinguishes a failed process, a
+   malformed reply, a missing output, an unknown output, a timeout and the tool's own `error`;
+   `OPENSYSML_TOOL_TIMEOUT` (default `solve.DefaultTimeout`, 10 s) bounds one process. Two
+   invocations with equal inputs answering unequal outputs set the `ToolDivergence` run note
+   the REPL trace summarizes. The stand-in is a Go program
+   (`analysis/testdata/toolstandin`) the fixture test compiles once, its failure modes chosen by
+   an environment variable; the pilot's `AnalysisAnnotation` runs against it for the protocol,
+   the missing output, the non-zero exit, the timeout, the unregistered `toolName` and the
+   non-deterministic answer, and the registry and dispatch bullets are covered by
+   `analysis/tool_test.go`. The `smt` clause — a tool output is a free input in its declared
+   domain, a witness the tool does not reproduce fails replay as *not covered* — is the contract
+   that engine meets when it registers; nothing here encodes it.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as
    an engine from its first stage, with `all` as their referee harness.
 

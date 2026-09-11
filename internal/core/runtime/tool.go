@@ -439,7 +439,8 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 }
 
 // toolOutput reads one answered value as the parameter's: a string or bare number as is,
-// a quantity converted to the coherent unit of the parameter's declared quantity kind.
+// a quantity converted to the coherent unit of the parameter's declared quantity kind,
+// spelt as the declared type prefers.
 func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolValue) (Value, error) {
 	malformed := func(format string, args ...any) error {
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
@@ -463,7 +464,7 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 	}
 	q := Quantity{Num: answered.Value, Unit: unit}
 	if dim, ok := e.ctx.model.DimensionOfFeature(out.Declared); ok {
-		coherent, ok := e.ctx.model.CoherentUnit(dim)
+		coherent, ok := e.ctx.model.CoherentUnitFor(dim, out.Declared)
 		if !ok {
 			return NewQuantityValue(&q), nil
 		}

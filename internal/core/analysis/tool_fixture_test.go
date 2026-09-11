@@ -263,7 +263,7 @@ func TestPilotFixtureRunsAgainstTheStandIn(t *testing.T) {
 	if plan.Result.Engine != RunEngineName || plan.Result.Strength != Observed {
 		t.Fatalf("plan result %+v, want the run engine's observed value", plan.Result)
 	}
-	wantValues(t, out, map[string]string{"a": "3.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']", "x": "110.0 [m]"})
+	wantValues(t, out, map[string]string{"a": "3.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']", "x": "110.0 [SI::m]"})
 
 	seen := requests(t, record)
 	if len(seen) != 1 {

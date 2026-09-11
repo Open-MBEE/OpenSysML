@@ -48,7 +48,7 @@ func run() error {
 		return err
 	}
 	if record := os.Getenv(RecordEnv); record != "" {
-		f, err := os.OpenFile(record, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		f, err := os.OpenFile(record, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304 -- the test names the record file
 		if err != nil {
 			return err
 		}
@@ -148,9 +148,10 @@ func count() (int, error) {
 		return 0, fmt.Errorf("%s is not set", CounterEnv)
 	}
 	n := 0
+	// #nosec G304 -- the test names the counter file
 	if data, err := os.ReadFile(path); err == nil {
 		n, _ = strconv.Atoi(string(data))
 	}
 	n++
-	return n, os.WriteFile(path, []byte(strconv.Itoa(n)), 0o644)
+	return n, os.WriteFile(path, []byte(strconv.Itoa(n)), 0o600)
 }

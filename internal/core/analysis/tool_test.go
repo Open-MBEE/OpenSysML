@@ -69,6 +69,7 @@ func TestManifestFaultsAreTyped(t *testing.T) {
 		"blank toolName":  {`{"toolName":"  ","executable":"a","variables":[]}`, "toolName is empty"},
 		"spaced toolName": {`{"toolName":"Model Center","executable":"a","variables":[]}`, "has whitespace"},
 		"no executable":   {`{"toolName":"A","variables":["x"]}`, "executable is empty"},
+		"no variables":    {`{"toolName":"A","executable":"a"}`, "variables is missing"},
 		"empty variable":  {`{"toolName":"A","executable":"a","variables":["x",""]}`, "empty name"},
 		"twice variable":  {`{"toolName":"A","executable":"a","variables":["x","x"]}`, `lists "x" twice`},
 	}

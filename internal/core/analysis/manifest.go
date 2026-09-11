@@ -41,15 +41,12 @@ type ToolEntry struct {
 	// Executable runs the tool: an absolute path, a path relative to the manifest directory,
 	// or a name looked up on PATH.
 	Executable string `json:"executable"`
-	// Variables are the ToolVariable names the tool accepts; nil accepts any, an empty list none.
+	// Variables are the ToolVariable names the tool accepts.
 	Variables []string `json:"variables"`
 }
 
 // Accepts reports whether the tool accepts the tool variable named.
 func (e ToolEntry) Accepts(variable string) bool {
-	if e.Variables == nil {
-		return true
-	}
 	for _, v := range e.Variables {
 		if v == variable {
 			return true
@@ -89,8 +86,8 @@ func (e *ManifestError) Unwrap() error { return e.Err }
 
 // LoadManifest reads the tool manifest in dir: every `.json` file is one entry. A directory
 // that cannot be read, an entry that is not one JSON object of the manifest's fields, an
-// entry without a toolName or executable, one listing a variable twice, or two entries
-// naming one tool is a ManifestError. Entries come back in tool-name order.
+// entry without a toolName, executable or variables, one listing a variable twice, or two
+// entries naming one tool is a ManifestError. Entries come back in tool-name order.
 func LoadManifest(dir string) ([]ToolEntry, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -119,7 +116,7 @@ func LoadManifest(dir string) ([]ToolEntry, error) {
 
 // readEntry reads one manifest entry, resolving a relative executable against the entry's directory.
 func readEntry(path string) (ToolEntry, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- an entry of the manifest directory OPENSYSML_TOOLS names
 	if err != nil {
 		return ToolEntry{}, &ManifestError{Path: path, Detail: "cannot read the entry", Err: err}
 	}
@@ -138,6 +135,8 @@ func readEntry(path string) (ToolEntry, error) {
 		return ToolEntry{}, &ManifestError{Path: path, Detail: fmt.Sprintf("toolName %q has whitespace in it", entry.ToolName)}
 	case entry.Executable == "":
 		return ToolEntry{}, &ManifestError{Path: path, Detail: "executable is empty"}
+	case entry.Variables == nil:
+		return ToolEntry{}, &ManifestError{Path: path, Detail: "variables is missing"}
 	}
 	seen := make(map[string]bool, len(entry.Variables))
 	for _, v := range entry.Variables {

@@ -766,6 +766,13 @@ solve    proved     satisfiable  ready (z3 at /usr/bin/z3)
 sweep    observed   sweep        ready
 ```
 
+Every tool the manifest directory `OPENSYSML_TOOLS` names adds a `tool:<name>` engine, listed
+the same way with its executable's status (`tool:ModelCenter  observed  compute  ready
+(ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)`); it answers the `compute` a performance
+of an action annotated `ToolExecution` asks, and nothing else does, so a tool that is
+unregistered or fails stops that performance rather than falling back to the action's body
+([External tools](environment.md#external-tools)).
+
 `-engine` selects. `auto`, the default, is the dispatch every check has always had: the engine
 of highest authority that covers the question answers it, and one that refuses or answers *not
 covered* is passed over for the next, each kept in the plan with its reason. `-engine <name>`

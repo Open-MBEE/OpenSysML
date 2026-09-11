@@ -120,7 +120,7 @@ func TestToolExecutionPerformsThroughTheRunner(t *testing.T) {
 	if len(call.Outputs) != 3 {
 		t.Fatalf("outputs asked: %v", call.Outputs)
 	}
-	for name, w := range map[string]string{"a": "2.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']", "x": "110.0 [m]"} {
+	for name, w := range map[string]string{"a": "2.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']", "x": "110.0 [SI::m]"} {
 		got, ok := out[name]
 		if !ok {
 			t.Fatalf("output %s not propagated; got %v", name, out)
