@@ -245,6 +245,66 @@ func TestPointsInSets(t *testing.T) {
 	}
 }
 
+// TestAnchoredOrdinalPointsInSets: a set keeps an ordinal point apart from the
+// magnitude its mapping would carry it to, as `==` does.
+func TestAnchoredOrdinalPointsInSets(t *testing.T) {
+	ctx, idx := libraryModelContext(t, `package test {
+		public import SI::*;
+		private import Collections::*;
+		private import SequenceFunctions::*;
+		private import MeasurementReferences::*;
+		attribute mohs : OrdinalScale {
+			:>> unit = SI::K;
+			private attribute talc : DefinitionalQuantityValue { :>> num = 1; :>> definition = "talc"; }
+			private attribute talcInKelvin : QuantityValueMapping {
+				:>> mappedQuantityValue = talc;
+				:>> referenceQuantityValue = K.temperatureOfWaterAtTriplePointInK;
+			}
+			attribute :>> definitionalQuantityValues = (talc);
+			attribute :>> quantityValueMapping = talcInKelvin;
+		}
+		attribute hardnesses : Set { :>> elements = (7 [mohs], 279.16 [K], 7 [mohs]); }
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok {
+		t.Fatal("package test not found")
+	}
+	scope := pkg.Scope
+	if ratio, err := ctx.toRatioReference(*evalQuantity(t, ctx, scope, "7 [mohs]")); err != nil || ratio.String() != "279.16 [K]" {
+		t.Fatalf("the mapping does not anchor mohs on K: %v, %v", ratio, err)
+	}
+	if _, err := evalIn(t, ctx, scope, "7 [mohs] == 279.16 [K]"); !errors.Is(err, ErrScalePoint) {
+		t.Errorf("7 [mohs] == 279.16 [K]: err = %v, want ErrScalePoint", err)
+	}
+	got, err := evalIn(t, ctx, scope, "hardnesses.elements")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Kind != ValSet || len(got.Set().Elements()) != 2 {
+		t.Fatalf("set is %s, want the ordinal point and the kelvin magnitude apart", FormatTraceValue(got))
+	}
+	for src, want := range map[string]bool{
+		"(7 [mohs], 1 [mohs])->includes(279.16 [K])": false,
+		"(7 [mohs], 1 [mohs])->includes(7 [mohs])":   true,
+		"(279.16 [K], 1 [mohs])->includes(7 [mohs])": false,
+	} {
+		got, err := evalIn(t, ctx, scope, src)
+		if err != nil || got.Kind != ValConst || got.Const.Bool != want {
+			t.Errorf("%s = %v, %v; want %v", src, got, err, want)
+		}
+	}
+}
+
+// evalQuantity evaluates src in scope and requires a quantity.
+func evalQuantity(t *testing.T, ctx *Context, scope *symbols.Scope, src string) *Quantity {
+	t.Helper()
+	v, err := evalIn(t, ctx, scope, src)
+	if err != nil || v.Kind != ValQuantity {
+		t.Fatalf("%s = %v, %v; want a quantity", src, v, err)
+	}
+	return v.Quantity()
+}
+
 // TestPointsInQuantityOperators exercises the operator table directly, so a
 // caller of the operators with an operator kind gets the same verdicts as the
 // expression path.

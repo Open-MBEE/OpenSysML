@@ -70,10 +70,13 @@ func canonicalCompare(a, b Value) int {
 	return (*Context)(nil).canonicalCompare(a, b)
 }
 
-// canonicalQuantity is the quantity as its reference measures it: a point on a
-// scale carried through its anchor, so it and the magnitude equal to it take one place.
+// canonicalQuantity is the quantity as its reference measures it: a point on an interval
+// scale carried through its anchor as `==` does; a point on any other scale stays as written.
 func (ctx *Context) canonicalQuantity(q Quantity) Quantity {
 	if ctx == nil || ctx.model == nil {
+		return q
+	}
+	if scale, ok, err := ctx.pointOf(&q); err != nil || (ok && !ctx.isIntervalScale(scale)) {
 		return q
 	}
 	if ratio, err := ctx.toRatioReference(q); err == nil {
