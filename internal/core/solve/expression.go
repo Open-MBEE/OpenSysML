@@ -142,6 +142,17 @@ func (x *Translator) Domains() []Assertion {
 	return domains
 }
 
+// Literal renders a value the evaluator holds for v as a term of v's sort, as a
+// pinned value is rendered. A value the term language has no literal for
+// refuses with a PinError naming the feature.
+func (x *Translator) Literal(v *Var, value runtime.Value) (*Term, error) {
+	if v == nil {
+		return nil, fmt.Errorf("solve: a literal of no variable")
+	}
+	term, _, err := x.t.pinTerm(Pin{Feature: v.Symbol, Name: v.Name, Value: value, Source: PinHeld}, v)
+	return term, err
+}
+
 // Substitute returns t with every variable replaced by what replace returns for
 // it, sharing the subterms that read no variable. A replacement must yield the
 // variable's sort; replace returning nil keeps the variable.
