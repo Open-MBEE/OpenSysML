@@ -10,6 +10,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"google.golang.org/protobuf/proto"
 )
 
 const sweepModelSource = `package Sw {
@@ -613,5 +614,146 @@ func TestRunSweepRefusesSamplingANonFiniteRange(t *testing.T) {
 	if !strings.Contains(resp.Error, "finite") || len(resp.Rows) != 0 {
 		t.Errorf("error = %q with %d row(s); want a refusal naming a non-finite number",
 			resp.Error, len(resp.Rows))
+	}
+}
+
+// TestRunSweepAnswersAlikeOnOneJobAndOnEight verifies every sweep the service
+// answers — a calc over a range, a failing row, a product, a sample, a case on a
+// held object, trade studies and a case whose outputs nest objects — is the same
+// response on eight jobs as on one apart from the time each row took: rows in plan
+// order, the same inputs, outputs, verdicts, evaluations, errors and instances.
+func TestRunSweepAnswersAlikeOnOneJobAndOnEight(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	sweep := mustVerifyModel(t, srv, sweepModelSource, "sweep-jobs")
+	trade := mustVerifyModel(t, srv, tradeStudyModelSource, "sweep-jobs-trade")
+	nested := mustVerifyModel(t, srv, nestedObjectsModelSource, "sweep-jobs-nested")
+
+	requests := []*pb.RunSweepRequest{
+		{ModelHash: sweep, SymbolId: "Sw::Twice", Ranges: []*pb.SweepRange{intRange("n", 1, 12)}},
+		{ModelHash: sweep, SymbolId: "Sw::Ratio", NamedArguments: map[string]*pb.Value{"a": realProto(4)},
+			Ranges: []*pb.SweepRange{intRange("b", -1, 1)}},
+		{ModelHash: sweep, SymbolId: "Sw::Plus", Ranges: []*pb.SweepRange{intRange("a", 1, 3), intRange("b", 10, 12)}},
+		{ModelHash: sweep, SymbolId: "Sw::Twice", Ranges: []*pb.SweepRange{intRange("n", 0, 1_000_000)}, Samples: 8, Seed: 7},
+		{ModelHash: sweep, SymbolId: "Sw::CostAnalysis", SubjectSymbolId: "Sw::ship",
+			Ranges: []*pb.SweepRange{{Parameter: "limit", Start: realProto(2), End: realProto(30), Step: realProto(4)}}},
+		{ModelHash: trade, SymbolId: "Trade::weighted",
+			Ranges: []*pb.SweepRange{{Parameter: "cylinderWeight", Start: realProto(0), End: realProto(20), Step: realProto(5)}}},
+		{ModelHash: trade, SymbolId: "Trade::perOffset", Ranges: []*pb.SweepRange{intRange("offset", 3, 4)}},
+		{ModelHash: nested, SymbolId: "Nested::grouping",
+			Ranges: []*pb.SweepRange{{Parameter: "k", Start: realProto(1), End: realProto(4), Step: realProto(1)}}},
+	}
+	for _, req := range requests {
+		t.Run(req.SymbolId, func(t *testing.T) {
+			answer := func(jobs int) *pb.RunSweepResponse {
+				srv.jobs = jobs
+				resp := runSweep(t, srv, req)
+				for _, row := range resp.Rows {
+					row.ElapsedMicros = 0
+				}
+				return resp
+			}
+			one, eight := answer(1), answer(8)
+			if one.Error != "" || len(one.Rows) == 0 {
+				t.Fatalf("one job answered %q with %d row(s)", one.Error, len(one.Rows))
+			}
+			if !proto.Equal(one, eight) {
+				t.Errorf("one job answered\n%v\neight jobs answered\n%v", one, eight)
+			}
+		})
+	}
+}
+
+// sweepWritesModelSource is a case whose body writes its subject and reports it,
+// through a value, a verdict, a function read off it and a sequence holding it.
+const sweepWritesModelSource = `package Rows {
+	private import ScalarValues::*;
+	part def Ship {
+		attribute cost : Real = 5.0;
+		calc weigh { in x : Real; return : Real = cost * x; }
+	}
+	part ship : Ship;
+	analysis def Bump {
+		subject s : Ship;
+		in tax : Real;
+		action raise { assign s.cost := s.cost + tax; }
+		out total : Real = s.cost;
+		out who : Ship = s;
+		out scale = s.weigh;
+		out crew : Ship[*] = (s, s);
+		objective cheap { require constraint { total <= 7.0 } }
+	}
+}
+`
+
+// TestRunSweepRowsNameTheirOwnObjects verifies a table whose rows ran in contexts
+// of their own, each numbering its objects from 1, still names every object once:
+// each row's outputs, verdict, function and sequence resolve to the object that
+// row wrote, not to another row's, and the ids differ from row to row.
+func TestRunSweepRowsNameTheirOwnObjects(t *testing.T) {
+	for _, jobs := range []int{1, 8} {
+		t.Run(strconv.Itoa(jobs)+" jobs", func(t *testing.T) {
+			srv := mustNewService(t, 10)
+			srv.jobs = jobs
+			hash := mustVerifyModel(t, srv, sweepWritesModelSource, "sweep-writes")
+			resp := runSweep(t, srv, &pb.RunSweepRequest{
+				ModelHash: hash, SymbolId: "Rows::Bump", SubjectSymbolId: "Rows::ship",
+				Ranges: []*pb.SweepRange{{Parameter: "tax", Start: realProto(1), End: realProto(3), Step: realProto(1)}},
+			})
+			if resp.Error != "" || len(resp.Rows) != 3 {
+				t.Fatalf("RunSweep = %q with %d row(s); want three rows: %s", resp.Error, len(resp.Rows), rowText(resp))
+			}
+			byID := make(map[int64]*pb.Instance, len(resp.Instances))
+			for _, inst := range resp.Instances {
+				if byID[inst.Id] != nil {
+					t.Fatalf("object %d is in the table twice", inst.Id)
+				}
+				byID[inst.Id] = inst
+			}
+			if len(resp.Instances) != 3 {
+				t.Errorf("the table carries %d object(s), want one ship per row", len(resp.Instances))
+			}
+			seen := make(map[int64]int)
+			for i, row := range resp.Rows {
+				want := 6.0 + float64(i)
+				var ids []int64
+				for _, out := range row.Outputs {
+					switch out.Name {
+					case "total":
+						if got := out.GetValue().GetRealValue(); got != want {
+							t.Errorf("row %d total = %v, want %v", i, got, want)
+						}
+					case "who", "scale", "crew":
+						ids = append(ids, idsOf(out.GetValue())...)
+					}
+				}
+				if len(row.Verdicts) != 1 || row.Verdicts[0].InstanceId == 0 {
+					t.Fatalf("row %d verdicts = %v, want one about the subject", i, row.Verdicts)
+				}
+				if row.Verdicts[0].Holds != (want <= 7.0) {
+					t.Errorf("row %d verdict holds = %v on total %v", i, row.Verdicts[0].Holds, want)
+				}
+				ids = append(ids, row.Verdicts[0].InstanceId)
+				if len(ids) != 5 {
+					t.Fatalf("row %d names %d object(s) %v, want its ship five times", i, len(ids), ids)
+				}
+				for _, id := range ids {
+					if id != ids[0] {
+						t.Fatalf("row %d names objects %v, want one ship", i, ids)
+					}
+				}
+				inst := byID[ids[0]]
+				if inst == nil {
+					t.Fatalf("row %d names object %d, which the table does not carry", i, ids[0])
+				}
+				if got := inst.FeatureValues["cost"].GetValue().GetRealValue(); got != want {
+					t.Errorf("row %d resolves to a ship of cost %v, want %v", i, got, want)
+				}
+				if prior, ok := seen[ids[0]]; ok {
+					t.Errorf("rows %d and %d name the same object %d", prior, i, ids[0])
+				}
+				seen[ids[0]] = i
+			}
+		})
 	}
 }

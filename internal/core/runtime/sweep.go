@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -115,10 +114,10 @@ type SweepRunResult struct {
 	Evaluations []AnalysisEvaluation
 }
 
-// SweepRun makes one run of a sweep with the parameters bound as the row states.
-// An error is that row's failure, not the table's; what the run produced before
-// failing may be returned beside it.
-type SweepRun func(bindings []SweepBinding) (SweepRunResult, error)
+// SweepRun makes one run of a sweep in ctx, the row's own context, with the
+// parameters bound as the row states. An error is that row's failure, not the
+// table's; what the run produced before failing may be returned beside it.
+type SweepRun func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error)
 
 // SweepRow is one run of a sweep: what it was given, what it produced, how long
 // it took, and what stopped it when it failed.
@@ -131,6 +130,9 @@ type SweepRow struct {
 	Evaluations []AnalysisEvaluation
 	Elapsed     time.Duration
 	Err         error
+	// Context is the context the run was made in, which its outputs, subject and
+	// evaluations are read through: no other context knows the objects they name.
+	Context *Context
 }
 
 // SweepTable is every run of one sweep, in the order they were made: a swept
@@ -175,32 +177,17 @@ func NewSampleSource(seed uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(seed, seed^sampleStream))
 }
 
-// RunSweep makes one run per row of the plan and reports the table. A run that
-// failed is that row's typed error; the table is completed either way. A plan of
-// more rows than runs allows (the context's SweepRunBudget when runs is zero) is
-// refused before any run is made, and a caller that goes away between runs takes
-// the rest of the table with it.
-func (ctx *Context) RunSweep(stop context.Context, target string, plan SweepPlan, runs int64, run SweepRun) (SweepTable, error) {
-	rows, err := ctx.sweepBindings(plan, ctx.sweepRunLimit(runs))
-	if err != nil {
-		return SweepTable{}, err
-	}
-	table := NewSweepTable(target, plan)
-	table.Rows = make([]SweepRow, 0, len(rows))
-	for _, bindings := range rows {
-		if err := stop.Err(); err != nil {
-			return SweepTable{}, err
-		}
-		row := SweepRow{Bindings: bindings}
-		started := time.Now()
-		result, err := run(bindings)
-		row.Elapsed = time.Since(started)
-		row.Err = err
-		row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
-		row.Subject, row.Evaluations = result.Subject, result.Evaluations
-		table.Rows = append(table.Rows, row)
-	}
-	return table, nil
+// runSweepRow makes one run of a sweep in ctx and tables it: the run's outputs
+// and error, how long it took, and the context they are read through.
+func runSweepRow(ctx *Context, bindings []SweepBinding, run SweepRun) SweepRow {
+	row := SweepRow{Bindings: bindings, Context: ctx}
+	started := time.Now()
+	result, err := run(ctx, bindings)
+	row.Elapsed = time.Since(started)
+	row.Err = err
+	row.Outputs, row.Verdicts = result.Outputs, result.Verdicts
+	row.Subject, row.Evaluations = result.Subject, result.Evaluations
+	return row
 }
 
 // SweepRunBudget is the number of runs one sweep may ask for when none is stated.

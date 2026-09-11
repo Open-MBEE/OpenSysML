@@ -181,7 +181,7 @@ func (v *verifyContext) runCase(ctx context.Context, sym *symbols.Symbol, args r
 // and answers every distinct outcome of outputs and verdicts.
 func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.SchedulePolicy, v *verifyContext, req *pb.RunAnalysisRequest, sym *symbols.Symbol) (*pb.RunAnalysisResponse, error) {
 	x, err := s.explore(ctx, v.cached.Index.GetFQN(sym), schedule, v.engine, v.cached, func(rt *runtime.Context) (runtime.Outcome, error) {
-		fresh := &verifyContext{service: s, cached: v.cached, runtime: rt, engine: v.engine}
+		fresh := v.on(rt)
 		args, resp, err := fresh.analysisArgs(req)
 		if err != nil {
 			return runtime.Outcome{}, err

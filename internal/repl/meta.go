@@ -3078,7 +3078,14 @@ func (s *Session) evalArguments(ctx *runtime.Context, parsed []argument) (map[st
 	if len(parsed) == 0 {
 		return nil, nil
 	}
-	scope := s.promptScope()
+	return evalArgumentsIn(ctx, s.promptScope(), parsed)
+}
+
+// evalArgumentsIn evaluates parsed arguments in ctx under scope, binding each to its parameter.
+func evalArgumentsIn(ctx *runtime.Context, scope *symbols.Scope, parsed []argument) (map[string]runtime.Value, error) {
+	if len(parsed) == 0 {
+		return nil, nil
+	}
 	bound := make(map[string]runtime.Value, len(parsed))
 	for _, arg := range parsed {
 		value, err := ctx.EvalWithScope(arg.node, scope)

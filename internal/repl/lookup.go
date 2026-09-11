@@ -123,19 +123,27 @@ func (s *Session) owningInstance(fqn string) (*runtime.Instance, string) {
 // segments walked through that instance's feature values, since a nested part is an
 // object of its own. The second result is the found object's label, for reporting.
 func (s *Session) objectNamed(fqn string) (*runtime.Instance, string) {
-	if fqn == "" {
+	root, key, rest := s.heldRoot(fqn)
+	if root == nil {
 		return nil, ""
+	}
+	return s.walkFeatureValues(root, s.declaredName(key), rest)
+}
+
+// heldRoot finds the object a fully-qualified name is reached from: the one held under
+// its longest instantiated prefix, that prefix, and the feature names left to walk.
+func (s *Session) heldRoot(fqn string) (*runtime.Instance, string, []string) {
+	if fqn == "" {
+		return nil, "", nil
 	}
 	segments := strings.Split(fqn, "::")
 	for i := len(segments); i > 0; i-- {
 		key := strings.Join(segments[:i], "::")
-		inst, ok := s.instances[key]
-		if !ok {
-			continue
+		if inst, ok := s.instances[key]; ok {
+			return inst, key, segments[i:]
 		}
-		return s.walkFeatureValues(inst, s.declaredName(key), segments[i:])
 	}
-	return nil, ""
+	return nil, "", nil
 }
 
 // featureChainSymbol resolves a qualified name whose later segments are members
@@ -369,6 +377,20 @@ func (s *Session) heldByID(id int64) (found, keeper *runtime.Instance) {
 	return found, keeper
 }
 
+// heldLabel is the label the session reaches the held object with id by, false
+// for an object it holds nowhere.
+func (s *Session) heldLabel(id int64) (string, bool) {
+	var label string
+	found := false
+	s.walkHeldObjects(s.rtCtx, func(cur carrier) bool {
+		if cur.inst.ID == id {
+			label, found = cur.name, true
+		}
+		return !found
+	})
+	return label, found
+}
+
 // heldIDs lists the ids of the objects the session holds, ascending, the
 // connectors a carry-over set aside included.
 func (s *Session) heldIDs() []int64 {
@@ -501,15 +523,20 @@ func (s *Session) walkFeatureValues(inst *runtime.Instance, label string, names 
 	if err != nil {
 		return nil, ""
 	}
-	path := make([]objectSegment, 0, len(names))
-	for _, name := range names {
-		path = append(path, objectSegment{text: lexer.NameText(name), name: name})
-	}
-	inst, label, err = s.walkObjectPath(ctx, inst, label, path)
+	inst, label, err = s.walkObjectPath(ctx, inst, label, pathSegments(names))
 	if err != nil {
 		return nil, ""
 	}
 	return inst, label
+}
+
+// pathSegments spells feature names as the segments of a path walked through them.
+func pathSegments(names []string) []objectSegment {
+	path := make([]objectSegment, 0, len(names))
+	for _, name := range names {
+		path = append(path, objectSegment{text: lexer.NameText(name), name: name})
+	}
+	return path
 }
 
 // An object reference is how every command that takes an object names one:
