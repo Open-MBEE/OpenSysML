@@ -504,23 +504,17 @@ type mosaAttachment struct {
 	scope *symbols.Scope
 }
 
-// checkBoundary expects a connector joining two distinct components to be a
-// modular system interface, once the model designates any.
+// checkBoundary expects a connector joining two distinct components to be a modular
+// system interface once the model designates any; ends attached elsewhere are ignored.
 func (a *mosaAudit) checkBoundary(sym *symbols.Symbol, usage *ast.Usage) {
 	if !a.present[mosaModularSystemInterface] {
 		return
 	}
-	attachments := a.attachments(sym, usage)
-	if len(attachments) == 0 {
-		return
-	}
 	parties := map[*symbols.Symbol]bool{}
-	for _, att := range attachments {
-		party := a.boundaryParty(att)
-		if party == nil {
-			return
+	for _, att := range a.attachments(sym, usage) {
+		if party := a.boundaryParty(att); party != nil {
+			parties[party] = true
 		}
-		parties[party] = true
 	}
 	if len(parties) < 2 {
 		return

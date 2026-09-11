@@ -218,6 +218,23 @@ func TestMOSABoundaryNotDesignatedWithBodyEnds(t *testing.T) {
 	w8dWantLines(t, src, CodeMOSABoundaryNotDesignated, 12, 13, 14)
 }
 
+// An end attached outside any component neither forms a boundary nor hides one
+// that two other ends form.
+func TestMOSABoundaryNotDesignatedWithMixedEnds(t *testing.T) {
+	src := mosaModel(mosaPlatform + `
+		#majorSystemPlatform part v {
+			part l : A; part r : B;
+			part plain { port p : P; }
+			port p : P;
+			interface link : Link connect l.p to r.p;
+			connection { end ::> l.p; end ::> r.p; end ::> p; }
+			connection { end ::> l.p; end ::> plain.p; end ::> r.p; }
+			connection { end ::> l.p; end ::> plain.p; end ::> p; }
+			connection { end ::> l.p; end ::> l.p; end ::> plain.p; }
+		}`)
+	w8dWantLines(t, src, CodeMOSABoundaryNotDesignated, 12, 13)
+}
+
 // Metadata specializing a MOSA metadata definition counts as that metadata:
 // a program's own rights, control, proprietary and conformance keywords are recognised.
 func TestMOSASpecializedMetadataIsRecognised(t *testing.T) {
