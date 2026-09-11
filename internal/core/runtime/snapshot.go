@@ -61,13 +61,15 @@ type runCapture struct {
 }
 
 // runStateCapture is one run's state by value: its budget spent, its notes, its
-// scheduler's position and the calc usage evaluations of its open activations.
+// scheduler's position and the calc usage evaluations of its open activations,
+// with the outputs each had worked out.
 type runStateCapture struct {
 	state           *runState
 	steps, elements int64
 	notes           []RunNote
 	restoreSchedule func()
 	calcUsageRuns   map[int64]map[calcUsageKey]*calcRun
+	calcOutputs     []mapState[string, Value]
 }
 
 // mapState is a map's identity and what it held at the mark, restored in place
@@ -239,10 +241,10 @@ func (ctx *Context) captureRun() runCapture {
 
 // restore rewinds the run bookkeeping to the capture. Identities stay monotone
 // across contexts: a sequence handed to another context since (AdoptIdentities)
-// is kept, and one is rewound only past what every context sharing it holds.
+// is kept, and one is never rewound past an identity another context took from it.
 func (c runCapture) restore(ctx *Context) {
 	if ctx.ids == c.ids {
-		c.ids.release(c.nextID)
+		c.ids.release(ctx, c.nextID)
 	}
 	ctx.activations, ctx.runs = c.activations, c.runs
 	ctx.run = c.run
@@ -270,6 +272,7 @@ func (s *Snapshot) captureRunState(state *runState) {
 		notes:           slices.Clone(state.notes),
 		restoreSchedule: state.scheduler.mark(),
 		calcUsageRuns:   cloneCalcUsageRuns(state.calcUsageRuns),
+		calcOutputs:     captureCalcOutputs(state.calcUsageRuns),
 	})
 }
 
@@ -279,6 +282,9 @@ func (c runStateCapture) restore() {
 	c.restoreSchedule()
 	clear(c.state.calcUsageRuns)
 	maps.Copy(c.state.calcUsageRuns, cloneCalcUsageRuns(c.calcUsageRuns))
+	for _, outputs := range c.calcOutputs {
+		outputs.restore()
+	}
 }
 
 func cloneCalcUsageRuns(runs map[int64]map[calcUsageKey]*calcRun) map[int64]map[calcUsageKey]*calcRun {
@@ -287,6 +293,23 @@ func cloneCalcUsageRuns(runs map[int64]map[calcUsageKey]*calcRun) map[int64]map[
 		cloned[activation] = maps.Clone(evaluations)
 	}
 	return cloned
+}
+
+// captureCalcOutputs captures, in place, the outputs every open evaluation has
+// worked out: the evaluation stays its activation's, and an output read since is
+// worked out again once restored.
+func captureCalcOutputs(runs map[int64]map[calcUsageKey]*calcRun) []mapState[string, Value] {
+	var outputs []mapState[string, Value]
+	seen := make(map[*calcRun]bool)
+	for _, evaluations := range runs {
+		for _, run := range evaluations {
+			if !seen[run] {
+				seen[run] = true
+				outputs = append(outputs, captureMap(run.outputs))
+			}
+		}
+	}
+	return outputs
 }
 
 // actionCapture is an action executor's state by value: its tokens, the frames

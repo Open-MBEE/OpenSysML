@@ -21,7 +21,9 @@ type Context struct {
 	model *Model
 	// ids hands out instance identities. Contexts holding the same objects share
 	// one sequence, so no two of them name different objects alike.
-	ids       *idSequence
+	ids *idSequence
+	// took is one past the highest identity this context took from ids (see idMark).
+	took      *idMark
 	maxSteps  int64
 	instances map[int64]*Instance
 	created   []int64
@@ -280,7 +282,8 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 	}
-	ctx.ids = newIDSequence(ctx)
+	ctx.took = &idMark{high: 1}
+	ctx.ids = newIDSequence(ctx.took)
 	return ctx
 }
 
@@ -424,28 +427,36 @@ func (ctx *Context) SourceLocation(file string, span source.Span) string {
 }
 
 // idSequence hands out instance identities, one per object over the contexts
-// sharing it, which are its holders.
+// sharing it. Of each it keeps only its mark, so a context dropped is not kept alive.
 type idSequence struct {
-	next    int64
-	holders []*Context
+	next  int64
+	marks []*idMark
+}
+
+// idMark is one past the highest identity a context took from its sequence and
+// has not rolled back; it outlives the context, so what a dropped one took stays taken.
+type idMark struct {
+	high int64
 }
 
 // newIDSequence starts the identities of one context at 1; 0 is no identity.
-func newIDSequence(ctx *Context) *idSequence {
-	return &idSequence{next: 1, holders: []*Context{ctx}}
+func newIDSequence(mark *idMark) *idSequence {
+	return &idSequence{next: 1, marks: []*idMark{mark}}
 }
 
 // share hands the sequence to ctx as well, raised past what ctx handed out so far.
 func (s *idSequence) share(ctx *Context) {
 	s.atLeast(ctx.ids.next)
-	ctx.ids.holders = slices.DeleteFunc(ctx.ids.holders, func(h *Context) bool { return h == ctx })
-	s.holders = append(s.holders, ctx)
+	ctx.ids.marks = slices.DeleteFunc(ctx.ids.marks, func(m *idMark) bool { return m == ctx.took })
+	s.marks = append(s.marks, ctx.took)
 	ctx.ids = s
 }
 
-func (s *idSequence) take() int64 {
+// take hands out the next identity to the context marked by mark.
+func (s *idSequence) take(mark *idMark) int64 {
 	id := s.next
 	s.next++
+	mark.high = s.next
 	return id
 }
 
@@ -456,16 +467,19 @@ func (s *idSequence) atLeast(id int64) {
 	}
 }
 
-// release hands out id next again when no context sharing the sequence holds an
-// identity from id on: what a probe made and undid never happened.
-func (s *idSequence) release(id int64) {
-	for _, ctx := range s.holders {
-		if ctx.holdsIdentityFrom(id) {
-			return
-		}
+// release hands out id next again once ctx, rolling back, holds no identity from id
+// on — but never one another context sharing the sequence took.
+func (s *idSequence) release(ctx *Context, id int64) {
+	if ctx.holdsIdentityFrom(id) {
+		return
 	}
-	if id < s.next {
-		s.next = id
+	ctx.took.high = min(ctx.took.high, id)
+	next := id
+	for _, mark := range s.marks {
+		next = max(next, mark.high)
+	}
+	if next < s.next {
+		s.next = next
 	}
 }
 
@@ -492,7 +506,14 @@ func (ctx *Context) holdsIdentityFrom(id int64) bool {
 
 // allocateID returns the next instance ID and increments the counter.
 func (ctx *Context) allocateID() int64 {
-	return ctx.ids.take()
+	return ctx.ids.take(ctx.took)
+}
+
+// claimID counts id as taken by this context: an identity an object was made or
+// adopted under rather than handed out here.
+func (ctx *Context) claimID(id int64) {
+	ctx.ids.atLeast(id + 1)
+	ctx.took.high = max(ctx.took.high, id+1)
 }
 
 // runState is what one run keeps of itself: the budget it spent, what it noted
@@ -612,7 +633,7 @@ func (ctx *Context) beginProbe() func() {
 		endBoundary()
 		restoreSchedule()
 		if ctx.ids == ids {
-			ids.release(nextID)
+			ids.release(ctx, nextID)
 		}
 		ctx.probes--
 		ctx.leaveRun()

@@ -115,11 +115,13 @@ token list, the frame tree, the message bus and the state-executor fields above,
 `beginProbe` take the same mark and roll back the same way. Restoring
 puts values back into the maps and frames the run already holds, so every object keeps its
 identity and every alias into it stays valid; a usage re-instantiated since denotes again the
-object it denoted at the mark; what the run made after the mark is abandoned and the identities
-it took are handed out again — unless a context sharing the identity sequence (a REPL
-re-analysis adopts the replaced context's, `AdoptIdentities`) holds one of them, in which case
-the sequence stays where it is, since identities are monotone across contexts and no part of the
-canonical state. An undo log suits depth-first exploration — only
+object it denoted at the mark; an open calc usage evaluation keeps the outputs it had worked out
+at the mark and no more; what the run made after the mark is abandoned and the identities
+it took are handed out again — never one another context sharing the identity sequence (a REPL
+re-analysis adopts the replaced context's, `AdoptIdentities`) took since, whether or not that
+context is still around, since identities are monotone across contexts and no part of the
+canonical state. The sequence remembers of each context only how far it took, so a replaced
+context is collected. An undo log suits depth-first exploration — only
 the path from the root to the current state is live, and backtracking one move undoes one move's
 writes — and avoids copying the object graph at every choice point. A snapshot is taken between
 steps, never from inside one (`ErrSnapshotMidRun`), and cannot capture a body paused

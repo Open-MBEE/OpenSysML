@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"sort"
 	"strings"
 	"testing"
+	"weak"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -623,6 +625,77 @@ func TestSnapshotRestoreKeepsAnAdoptedIdentitySequence(t *testing.T) {
 	}
 	if _, live := prev.instances[got]; live {
 		t.Fatalf("#%d names an object in both contexts", got)
+	}
+	snapshot.Release()
+}
+
+// The sequence keeps no context it was shared with: a replaced context is
+// collected once dropped, and what it took is still never handed out again.
+func TestAdoptIdentitiesKeepsNoReplacedContext(t *testing.T) {
+	ctx, idx := contextForSource(t, sharedIdentitiesSrc)
+	replaced, taken, snapshot := adoptThenDrop(t, ctx)
+	goruntime.GC()
+	goruntime.GC()
+	if replaced.Value() != nil {
+		t.Fatalf("the replaced context is still held after it was dropped")
+	}
+	snapshot.Restore()
+	if got := instantiateCar(t, ctx, idx); got <= taken {
+		t.Fatalf("after restore the context handed out #%d, which the dropped context took #%d at or past", got, taken)
+	}
+	snapshot.Release()
+}
+
+// adoptThenDrop has ctx adopt the identities of a fresh context, snapshots ctx,
+// has the fresh context take an identity and drops it, keeping only a weak pointer.
+func adoptThenDrop(t *testing.T, ctx *Context) (weak.Pointer[Context], int64, *Snapshot) {
+	t.Helper()
+	prev, prevIdx := contextForSource(t, sharedIdentitiesSrc)
+	ctx.AdoptIdentities(prev)
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	taken := instantiateCar(t, prev, prevIdx)
+	return weak.Make(prev), taken, snapshot
+}
+
+// Restoring a snapshot forgets the outputs an open calc usage evaluation worked
+// out since: the evaluation stays its activation's, holding what it had at the mark.
+func TestSnapshotRestoreForgetsCalcOutputsWorkedOutSince(t *testing.T) {
+	ctx, idx := libraryModelContext(t, `package Demo {
+		private import ScalarValues::*;
+		calc def Pair { in x : Integer; out a : Integer = x + 1; out b : Integer = x + 2; }
+		calc pair : Pair { in x = 1; }
+	}`)
+	pair := lookupOne(t, idx, "Demo::pair")
+	end := ctx.beginRun()
+	reader := NewEvalContextIn(ctx, pair.OwnerScope, nil)
+	reader.activation = ctx.newActivation()
+	run, err := ctx.calcUsageRun(reader, pair)
+	if err != nil {
+		t.Fatalf("calcUsageRun: %v", err)
+	}
+	if _, err := run.output(ctx, "a"); err != nil {
+		t.Fatalf("output a: %v", err)
+	}
+	end()
+	snapshot, err := ctx.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if _, err := run.output(ctx, "b"); err != nil {
+		t.Fatalf("output b: %v", err)
+	}
+	snapshot.Restore()
+	if held := ctx.run.calcUsageRuns[reader.activation][calcUsageKey{sym: pair}]; held != run {
+		t.Fatalf("restore replaced the activation's evaluation of Demo::pair")
+	}
+	if _, held := run.outputs["b"]; held {
+		t.Fatalf("restore kept output b, worked out after the snapshot")
+	}
+	if _, held := run.outputs["a"]; !held {
+		t.Fatalf("restore dropped output a, worked out before the snapshot")
 	}
 	snapshot.Release()
 }

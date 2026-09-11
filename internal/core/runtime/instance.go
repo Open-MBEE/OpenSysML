@@ -301,7 +301,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	if _, taken := ctx.instances[id]; taken || id <= 0 {
 		id = ctx.allocateID()
 	}
-	ctx.ids.atLeast(id + 1)
+	ctx.claimID(id)
 
 	// Get effective features
 	features := ctx.FeaturesOf(sym)

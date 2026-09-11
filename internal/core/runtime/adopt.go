@@ -901,7 +901,7 @@ func (a *adoption) commit() {
 		// under the identities they had, which name the same connectors.
 		plan.obj.keepAnonymous(a.ctx, a.prev, prevTypes)
 		a.ctx.registerInstance(plan.obj)
-		a.ctx.ids.atLeast(id + 1)
+		a.ctx.claimID(id)
 	}
 	a.beginLives()
 	a.carryDerived(adopted)
