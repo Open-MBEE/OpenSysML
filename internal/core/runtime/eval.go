@@ -1496,25 +1496,11 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		}
 		return types[0], nil
 	}
-	var name string
 	switch value.Kind {
 	case ValConst:
 		switch value.Const.Kind {
-		case semantics.ValInt:
-			name = "Integer"
-		case semantics.ValReal:
-			// A finite real is a rational (KerML 8.4.4.9.2): only infinities need Real,
-			// and a NaN is no number at all.
-			switch realRepresentationPrim(value.Const.Real) {
-			case semantics.PrimRational:
-				name = "Rational"
-			case semantics.PrimReal:
-				name = "Real"
-			default:
-				return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
-			}
-		case semantics.ValBool:
-			name = "Boolean"
+		case semantics.ValInt, semantics.ValReal, semantics.ValBool:
+			return ctx.scalarValueType(scope, value)
 		case semantics.ValInfinity:
 			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
 			if positive := ctx.librarySymbol(positiveTypeFQN); positive != nil {
@@ -1524,8 +1510,8 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		default:
 			return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
 		}
-	case ValString:
-		name = "String"
+	case ValString, ValComplex:
+		return ctx.scalarValueType(scope, value)
 	case ValVariant:
 		if value.Variant() == nil {
 			return nil, fmt.Errorf("%w: variant", ErrUndeterminedValueType)
@@ -1552,11 +1538,6 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 			return nil, fmt.Errorf("%w: quantity", ErrUndeterminedValueType)
 		}
 		return ctx.directValueType(scope, Value{Kind: ValConst, Const: value.Quantity().Num})
-	case ValComplex:
-		if isNaN(value) {
-			return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
-		}
-		name = "Complex"
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		return ctx.structuredValueType(value)
 	case ValMeasurementRef:
@@ -1568,11 +1549,24 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUndeterminedValueType, value.Kind)
 	}
-	typeSym := ctx.resolveType(scope, name)
-	if typeSym == nil {
-		return nil, fmt.Errorf("%w: direct type %q", ErrUndeterminedValueType, name)
+}
+
+// scalarValueType is the ScalarValues type a scalar's representation states (a finite
+// real a Rational, KerML 8.4.4.9.2), whatever same-named type scope sees; a NaN is of none.
+func (ctx *Context) scalarValueType(scope *symbols.Scope, value Value) (*symbols.Symbol, error) {
+	prim := representationPrim(value)
+	if prim == semantics.PrimUnknown {
+		return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
 	}
-	return typeSym, nil
+	if scalar := ctx.scalarLibraryType(value); scalar != nil {
+		return scalar, nil
+	}
+	// With no library loaded, a same-named type the model declares stands in for it.
+	fqn := semantics.ScalarFQN(prim)
+	if typ := ctx.resolveType(scope, fqn[strings.LastIndex(fqn, "::")+2:]); typ != nil {
+		return typ, nil
+	}
+	return nil, fmt.Errorf("%w: direct type %q", ErrUndeterminedValueType, fqn)
 }
 
 // evalClassification evaluates `@T` (metadata T annotates the subject) and `@@T`
