@@ -19,6 +19,9 @@ import (
 // than one succession, which the token semantics do not resolve.
 var ErrAmbiguousSuccession = errors.New("more than one succession is enabled")
 
+// actionLabelPrefix opens the text naming an action in diagnostics and choices.
+const actionLabelPrefix = "action "
+
 // ActionExecutor executes action bodies using token-flow semantics.
 type ActionExecutor struct {
 	// performances holds the action's own performance, root, and runs its nodes' as
@@ -396,7 +399,7 @@ func (e *ActionExecutor) waitingTokens(perf *actionFrame) []Token {
 // waiting in perf's flow (the action's for nil), and any token of it blocked for
 // another reason alongside them.
 func (e *ActionExecutor) deadlockError(perf *actionFrame) error {
-	where := "action " + symbolText(e.action)
+	where := actionLabelPrefix + symbolText(e.action)
 	if perf != nil {
 		where = perf.describe()
 	}
@@ -916,7 +919,7 @@ func (e *ActionExecutor) setFeature(name string, value Value) error {
 				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
 		}
 		value = fv.HeldValue()
-	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, "action "+symbolText(e.action), name, &value); err != nil {
+	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.
 		return err
@@ -2056,7 +2059,7 @@ func (e *ActionExecutor) heldWaiters() []clockWaiter {
 
 // dueLabel names the executor in a due-order choice.
 func (e *ActionExecutor) dueLabel() string {
-	return "action " + symbolText(e.action) + performerSuffix(e.self)
+	return actionLabelPrefix + symbolText(e.action) + performerSuffix(e.self)
 }
 
 // clockWaits lists the tokens parked on the clock for an instant it has not
