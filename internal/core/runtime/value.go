@@ -551,14 +551,21 @@ func (s *Set) Equal(other *Set) bool {
 	return s.ctx.setsEqual(s, other)
 }
 
-// setsEqual holds when the sets have the same members in the context.
+// setsEqual holds when the sets have the same members in the context. A set
+// bucketed under another context may store two elements the context makes one,
+// so members are counted as the context tells them apart, not as stored.
 func (ctx *Context) setsEqual(s, other *Set) bool {
 	if s == nil || other == nil {
 		return s.Size() == 0 && other.Size() == 0
 	}
-	if s.Size() != other.Size() {
-		return false
+	if s.ctx == ctx && other.ctx == ctx {
+		return s.Size() == other.Size() && ctx.membersWithin(s, other)
 	}
+	return ctx.membersWithin(s, other) && ctx.membersWithin(other, s)
+}
+
+// membersWithin holds when every member of s is one of other in the context.
+func (ctx *Context) membersWithin(s, other *Set) bool {
 	for _, elem := range s.order {
 		if !ctx.contains(other, elem) {
 			return false

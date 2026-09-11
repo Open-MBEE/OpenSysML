@@ -245,6 +245,39 @@ func TestPointsInSets(t *testing.T) {
 	}
 }
 
+// TestSetsJudgedAcrossContexts: a set built with no context may hold a point and
+// the magnitude it equals as two members; judged in a runtime they are one, so
+// it equals the runtime's set of that one member, and neither equals a set of two.
+func TestSetsJudgedAcrossContexts(t *testing.T) {
+	ctx, scope := scaleContext(t)
+	kelvin := evalQuantity(t, ctx, scope, "293.15 [K]")
+	celsius := evalQuantity(t, ctx, scope, "20.0 [SI::'°C_abs']")
+	cold := evalQuantity(t, ctx, scope, "0.0 [SI::'°C_abs']")
+	both := NewSet()
+	both.Add(NewQuantityValue(kelvin))
+	both.Add(NewQuantityValue(celsius))
+	if both.Size() != 2 {
+		t.Fatalf("with no context the set holds %d members, want 2", both.Size())
+	}
+	one := ctx.setOf([]Value{NewQuantityValue(celsius)}).Set()
+	if one.Size() != 1 {
+		t.Fatalf("in the runtime the set holds %d members, want 1", one.Size())
+	}
+	if !ctx.setsEqual(one, both) || !ctx.setsEqual(both, one) || !one.Equal(both) {
+		t.Errorf("{20.0 °C_abs} judged in the runtime != {293.15 K, 20.0 °C_abs} built with none")
+	}
+	if !ctx.valueEqual(NewSetValue(one), NewSetValue(both)) || !ctx.valueEqual(NewSetValue(both), NewSetValue(one)) {
+		t.Errorf("the set values compare unequal in the runtime")
+	}
+	two := ctx.setOf([]Value{NewQuantityValue(kelvin), NewQuantityValue(cold)}).Set()
+	if ctx.setsEqual(two, both) || ctx.setsEqual(both, two) {
+		t.Errorf("{293.15 K, 0.0 °C_abs} judged in the runtime == {293.15 K, 20.0 °C_abs} built with none")
+	}
+	if both.Equal(one) {
+		t.Errorf("{293.15 K, 20.0 °C_abs} judged with no context == {20.0 °C_abs}")
+	}
+}
+
 // TestAnchoredOrdinalPointsInSets: a set keeps an ordinal point apart from the
 // magnitude its mapping would carry it to, as `==` does.
 func TestAnchoredOrdinalPointsInSets(t *testing.T) {

@@ -940,6 +940,65 @@ func TestQuantityFromWireRejectsUnitTextItsReductionContradicts(t *testing.T) {
 		})
 	}
 
+	// A measurement scale is read from the text as a unit is, so a qualified name
+	// of one scale over the reduction of another, of a unit, or of a scale composed
+	// with a unit, contradicts it as unit text does.
+	celsius := mustEvaluateQuantity(t, srv, hash, "20.0 [SI::'°C_abs']").GetUnitTerm()
+	kelvin := mustEvaluateQuantity(t, srv, hash, "1.0 [SI::K]").GetUnitTerm()
+	for _, tc := range []struct {
+		name string
+		unit string
+		term *pb.UnitTerm
+	}{
+		{"another scale", "Time::UTC", celsius},
+		{"a unit over a scale", "SI::K", celsius},
+		{"a scale over a unit", "SI::'°C_abs'", kelvin},
+		{"a scale composed with a unit", "SI::'°C_abs'*SI::s", celsius},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pq := &pb.Quantity{
+				Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
+				Unit:      tc.unit,
+				UnitTerm:  tc.term,
+			}
+			if _, err := ProtoToQuantity(pq, idx, sem); !errors.Is(err, ErrUnitTextMismatch) {
+				t.Errorf("ProtoToQuantity(%s over %s) err = %v, want ErrUnitTextMismatch",
+					tc.unit, describeUnitTerm(tc.term), err)
+			}
+		})
+	}
+	for _, unit := range []string{"SI::'°C_abs'", "'°C_abs'"} {
+		point, err := ProtoToQuantity(&pb.Quantity{
+			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
+			Unit:      unit,
+			UnitTerm:  celsius,
+		}, idx, sem)
+		if err != nil {
+			t.Fatalf("ProtoToQuantity(%s over its scale): %v", unit, err)
+		}
+		if got := point.Quantity().Unit.Product.Powers; len(got) != 1 || got[0].Unit == nil || !sem.IsMeasurementScale(got[0].Unit) {
+			t.Errorf("%s over its scale read as %v, want the scale by declaration", unit, point.Quantity().Unit.Product)
+		}
+	}
+	// A short name of a scale the reduction contradicts is opaque, as a unit's is:
+	// it was not certainly that scale.
+	for _, tc := range []struct {
+		unit string
+		term *pb.UnitTerm
+	}{{"UTC", celsius}, {"'°C_abs'", kelvin}} {
+		val, err := ProtoToQuantity(&pb.Quantity{
+			Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 20},
+			Unit:      tc.unit,
+			UnitTerm:  tc.term,
+		}, idx, sem)
+		if err != nil {
+			t.Fatalf("ProtoToQuantity(%s over %s): %v", tc.unit, describeUnitTerm(tc.term), err)
+		}
+		if got := val.Quantity().Unit.Product.Powers; len(got) != 1 || got[0].Unit != nil {
+			t.Errorf("%s over %s read as %v, want one opaque unit", tc.unit, describeUnitTerm(tc.term), val.Quantity().Unit.Product)
+		}
+	}
+
 	// The same text over the reduction it does have is read, in either factor order.
 	agreeing := &pb.Quantity{
 		Magnitude: &pb.Quantity_RealMagnitude{RealMagnitude: 1},
