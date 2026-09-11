@@ -1834,14 +1834,16 @@ class Connection:
         for name, arg in (named_arguments or {}).items():
             request.named_arguments[name].CopyFrom(self._python_to_value(arg))
         with translate_rpc_errors(
-            unimplemented=self._capability_refusal((
+            unimplemented=self._capability_refusal([
                 CAPABILITY_VERIFICATION,
                 CAPABILITY_COMPLEX_VALUES,
                 CAPABILITY_STRUCTURED_VALUES,
                 CAPABILITY_MEASUREMENT_REFS,
                 CAPABILITY_SET_VALUES,
                 CAPABILITY_TENSOR_VALUES,
-            ) + self._schedule_capabilities(schedule) + self._engine_capabilities(engine))
+                *self._schedule_capabilities(schedule),
+                *self._engine_capabilities(engine),
+            ])
         ):
             return self._stub.RunAnalysis(request)
 
@@ -2070,11 +2072,12 @@ class Connection:
     @staticmethod
     def _schedule_capabilities(schedule):
         """The capabilities a schedule spelling needs of the service: none for the default."""
-        if not schedule:
-            return ()
+        capabilities = []
+        if schedule:
+            capabilities.append(CAPABILITY_SCHEDULE)
         if _explores(schedule):
-            return (CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE)
-        return (CAPABILITY_SCHEDULE,)
+            capabilities.append(CAPABILITY_SCHEDULE_EXPLORE)
+        return capabilities
 
     def _require_set_values(self):
         """Refuse to send a set a service without ``set_values`` would read as null."""
