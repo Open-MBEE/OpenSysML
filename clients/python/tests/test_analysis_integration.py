@@ -105,7 +105,8 @@ class TestAnalysisIntegration:
         assert "subject" in str(exc_info.value)
         assert not isinstance(exc_info.value, WrongKindError)
         result = exc_info.value.result
-        assert result.outputs == {} and result.evaluations == []
+        assert result.outputs == {}
+        assert result.evaluations == []
         assert [v.element for v in result.verdicts] == ["affordable"]
         assert not result.verdicts[0].evaluated
         assert "subject" in result.verdicts[0].error

@@ -1,15 +1,21 @@
 model: cmd/pilot-exec-diff/testdata/models/value_classification.sysml
 
-# `x @ T` on a value is the classification test `x istype T` (KerML
-# ClassificationExpression): it holds for T and for every type T's value
-# conforms to, where `hastype` holds for the value's direct type alone. The
-# pilot cannot resolve ScalarValues names inside a bare %eval, so each case
-# reads a model-level attribute bound to the expression.
+# `x @ T` on a value is a classification test like `x istype T` (KerML 1.0
+# §7.4.9.2): both hold for T and for every type T's value conforms to, where
+# `hastype` holds for the value's direct type alone; over a collection `istype`
+# asks every value and `@` at least one, so an empty value is `true` under
+# `istype` and `false` under `@`. The pilot cannot resolve ScalarValues names
+# inside a bare %eval, so each case reads a model-level attribute bound to the
+# expression.
 at-integer ::  :: Classify::atInteger
 at-real ::  :: Classify::atReal
 at-string ::  :: Classify::atString
 real-at-integer ::  :: Classify::realAtInteger
 seq-at-integer ::  :: Classify::seqAtInteger
+mixed-at-integer ::  :: Classify::mixedAtInteger
+mixed-istype-integer ::  :: Classify::mixedIsInteger
+mixed-at-real ::  :: Classify::mixedAtReal
+empty-at-integer ::  :: Classify::emptyAtInteger
 car-at-car ::  :: Classify::carAtCar
 car-at-vehicle ::  :: Classify::carAtVehicle
 hastype-integer ::  :: Classify::hasInteger

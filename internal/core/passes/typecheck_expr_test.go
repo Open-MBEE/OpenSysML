@@ -141,15 +141,30 @@ func TestExprWholeNumberDivisionAndPowerOK(t *testing.T) {
 }`)
 }
 
-// A quotient is typed Rational, but a Rational may be whole, so a whole-number
-// feature does not refuse it; its value is known at evaluation, not from its type.
-func TestExprQuotientMayBindToWholeNumberFeature(t *testing.T) {
-	wantNoDiags(t, `package P {
+// A quotient is a Rational whatever it divides (IntegerFunctions::'/' returns Rational),
+// so a whole-number feature refuses it as the evaluation would; RationalFunctions::ToInteger
+// converts, and a Real-typed feature may hold an Integer, so a reference to one still binds.
+func TestExprQuotientDoesNotBindToWholeNumberFeature(t *testing.T) {
+	wantDiags(t, `package P {
 	attribute i : ScalarValues::Integer = -7;
 	attribute q : ScalarValues::Natural = 7 / 2;
 	attribute r : ScalarValues::Natural = i / 2;
 	attribute s : ScalarValues::Integer = 1.5 / 2;
-	calc def IntDiv { return : ScalarValues::Integer = 7 / 2; }
+	attribute neg : ScalarValues::Integer = -(4 / 2);
+	attribute pos : ScalarValues::Natural = +(4 / 2);
+	calc def IntDiv { return : ScalarValues::Integer = 4 / 2; }
+}`,
+		"cannot bind Rational value to a feature typed by Natural",
+		"cannot bind Rational value to a feature typed by Natural",
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Integer",
+		"cannot bind Rational value to a feature typed by Natural",
+		"cannot bind Rational value to a feature typed by Integer")
+	wantNoDiags(t, `package P {
+	attribute x : ScalarValues::Real = 4;
+	attribute i : ScalarValues::Integer = x;
+	attribute q : ScalarValues::Rational = 7 / 2;
+	attribute w : ScalarValues::Integer = RationalFunctions::ToInteger(4 / 2);
 }`)
 }
 
@@ -446,15 +461,18 @@ func TestExprInvocationArgumentTypeMismatch(t *testing.T) {
 }
 
 // An argument binds to its parameter as a value binds to a feature: a decimal
-// literal is no Integer, a quotient or a Real feature's value may be one.
+// literal and a quotient are no Integer, a Real feature's value may be one.
 func TestExprInvocationArgumentNarrowerThanExpression(t *testing.T) {
 	wantOneDiag(t,
 		`package P { `+calcAdd+` calc c { add(1, 2.5) } }`,
 		`argument 2 of add expects Integer, found Rational`)
+	wantOneDiag(t,
+		`package P { `+calcAdd+` calc c { add(7 / 2, 1) } }`,
+		`argument 1 of add expects Integer, found Rational`)
 	wantNoDiags(t, `package P {
 		`+calcAdd+`
 		attribute w : ScalarValues::Real = 1.5;
-		calc c { add(7 / 2, w) }
+		calc c { add(RationalFunctions::ToInteger(7 / 2), w) }
 	}`)
 }
 

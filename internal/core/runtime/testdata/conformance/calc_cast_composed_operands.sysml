@@ -1,6 +1,7 @@
 // A composed target keeps a value only where all of its operands do, so an
-// operand nothing states about does not hide one the value's own content
-// excludes it by, whichever is written first (KerML 1.1 §8.3.4.9).
+// operand nothing states about does not hide one the value's own type
+// excludes it by, whichever is written first; a real is subtracted by no
+// Integer operand, whole or not (KerML 1.1 §8.3.4.9).
 package test {
 	private import ScalarValues::*;
 
@@ -13,8 +14,10 @@ package test {
 	calc def ComposedCasts {
 		out fractionalUndecidedFirst : EvenInteger[0..*] = 5.5 as EvenInteger;
 		out fractionalDecidedFirst : IntegerEven[0..*] = 5.5 as IntegerEven;
-		out integralSubtractedLast : NonIntegralLast[0..*] = 5.0 as NonIntegralLast;
-		out integralSubtractedFirst : NonIntegralFirst[0..*] = 5.0 as NonIntegralFirst;
+		out integralSubtractedLast : NonIntegralLast[0..*] = 5 as NonIntegralLast;
+		out integralSubtractedFirst : NonIntegralFirst[0..*] = 5 as NonIntegralFirst;
+		out wholeRealKeptLast : NonIntegralLast[0..*] = 5.0 as NonIntegralLast;
+		out wholeRealKeptFirst : NonIntegralFirst[0..*] = 5.0 as NonIntegralFirst;
 	}
 
 	calc c : ComposedCasts;

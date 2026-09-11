@@ -282,7 +282,7 @@ package Compiled {
 		calc def LtS { in x : Integer[0..*]; return : Boolean = x < 1; }
 		calc def AndS { in x : Boolean[0..*]; return : Boolean = x and true; }
 		calc def AndS2 { in x : Boolean[0..*]; return : Boolean = true and x; }
-		calc def NotS { in x : Boolean[0..*]; return : Boolean = not x; }
+		calc def NotS { in x : Boolean[0..*] nonunique; return : Boolean = not x; }
 		calc def IfS { in x : Boolean[0..*]; return : Integer = if x ? 1 else 2; }
 		calc def NegS { in x : Integer[0..*]; return : Integer = -x; }
 		calc def EqS { in x : Integer[0..*]; return : Boolean = x == 1; }
@@ -301,12 +301,12 @@ package Compiled {
 		calc def MinR { in x : Integer[0..*]; return : Real = x->minimize {in v; v / 2}; }
 		calc def RedN { in x : Integer[0..*]; return : Integer = x->reduce {in a; in b; a + b} + 1; }
 		calc def FA { in x : Integer[0..*]; return : Boolean = x->forAll {in v; v > 0 or v / 0 > 1}; }
-		calc def Col2 { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; (v, v)}; }
+		calc def Col2 { in x : Integer[0..*]; return : Integer[0..*] nonunique = x->collect {in v; (v, v)}; }
 		calc def Sz { in x : Integer[0..*]; return : Integer = size(x) + x->size(); }
 		calc def Hd { in x : Integer[0..*]; return : Integer = head(x); }
 		calc def Hd2 { in x : Integer[0..*]; return : Integer[0..1] = head(x); }
-		calc def CmpS { in x : Integer[0..*]; in y : Integer[0..*]; return : Boolean = x == y; }
-		calc def Nst { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; x->select {in w; w > v}}; }
+		calc def CmpS { in x : Integer[0..*]; in y : Integer[0..*] nonunique; return : Boolean = x == y; }
+		calc def Nst { in x : Integer[0..*]; return : Integer[0..*] nonunique = x->collect {in v; x->select {in w; w > v}}; }
 		calc def Rng2 { in n : Integer; return : Integer = sum(1..n); }
 		calc def M2 { in x : Integer[2..3]; return : Integer = size(x); }
 		calc def Ret2 { in x : Integer[0..*]; return : Integer[2..3] = x; }
@@ -334,12 +334,21 @@ package Compiled {
 		calc def ExAt { in x : Integer[0..*]; in i : Integer; in j : Integer; return : Integer[0..*] = excludingAt(x, i, j); }
 		calc def ForR { in x : Integer[0..*]; attribute s : Real = 0.0; for v in x { assign s := s + v; } return : Real = s; }
 		calc def Churn { in n : Integer; attribute i : Integer = 0; attribute total : Integer = 0; attribute keep : Integer[0..*] = (); while i < n { attribute s : Integer[0..*] = 1..100; assign total := total + size(s); assign keep := including(keep, i); assign i := i + 1; } return : Integer = total + size(keep); }
-		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(i % 100 + 1)); } } return : Real[0..*] = keep; }
-		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] = (); loop { assign i := i + 1; attribute s : Integer[0..*] = including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] = keep; }
-		calc def ChurnNest { in n : Integer; attribute keep : Integer[0..*] = (); attribute inner : Integer[0..*] = (); attribute i : Integer = 0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0; } assign i := i + 1; } return : Integer = size(keep) + size(inner); }
+		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] nonunique = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(i % 100 + 1)); } } return : Real[0..*] nonunique = keep; }
+		calc def UntilSeq { in n : Integer; attribute i : Integer = 0; attribute keep : Integer[0..*] nonunique = (); loop { assign i := i + 1; attribute s : Integer[0..*] = including((), i * 10); assign keep := union(keep, (size(s) + 100, size(s) + 101, size(s) + 102)); } until s#(size(s)) >= n or size(including(s, i)) > 1 and i > 200; return : Integer[0..*] nonunique = keep; }
+		calc def ChurnNest { in n : Integer; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Integer = 0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0; } assign i := i + 1; } return : Integer = size(keep) + size(inner); }
 		calc def ForB { in n : Integer; attribute s : Integer = 0; for v in 1..n { for w in 1..v { assign s := s + w; } } return : Integer = s; }
 		calc def RS { in x : Integer[0..*]; return : Real = RealFunctions::sum(x); }
 		calc def MaxS { in x : Real[0..*]; return : Real = x->maximize {in v; v}; }
+		// Unique by default: a repeated argument, result or assigned value is refused.
+		calc def UniqI { in x : Integer[0..*]; return : Integer[0..*] = including(x, 1); }
+		calc def UniqR { in x : Real[0..*]; return : Real[0..*] = x; }
+		calc def UniqB { in x : Boolean[0..*]; return : Boolean[0..*] = x; }
+		calc def UniqAs { in n : Integer; attribute keep : Integer[0..*] = (); for i in 1..n { assign keep := including(keep, i % 3); } return : Integer = size(keep); }
+		calc def UniqLoc { in x : Integer[0..*]; attribute y : Integer[0..*] = x; return : Integer = size(y); }
+		calc def UniqLocInit { in x : Integer[0..*] nonunique; attribute y : Integer[0..*] = x; return : Integer = size(y); }
+		calc def UniqLocFree { in x : Integer[0..*] nonunique; attribute y : Integer[0..*] nonunique = x; return : Integer = size(y); }
+		calc def UniqLocAny { in x : Integer[0..*] nonunique; attribute y = x; return : Integer = size(y); }
 	}
 
 	// Overloads: the declaration a call compiles to is the one its arguments
@@ -360,6 +369,105 @@ package Compiled {
 		calc def PickReal { in r : Real; return : Real = pick(r); }
 		calc def PickFlag { in b : Boolean; return : Integer = pick(b); }
 		calc def PickQualified { in n : Integer; return : Integer = Both::pick(n) + Both::pick(n > 0); }
+	}
+
+	// Function values: a calc bound to an `in calc` parameter is compiled once
+	// per calc it is applied to, so every call through the parameter is direct.
+	package Fn {
+		private import ScalarValues::*;
+		private import SampledFunctions::*;
+
+		calc def Sq { in v : Real; return : Real = v * v; }
+		calc def Half { in v : Real; return : Real = v / 2.0; }
+		calc def Recip { in v : Real; return : Real = 1.0 / v; }
+		calc def Inc { in n : Integer; return : Integer = n + 1; }
+		calc def Quarter { in n : Integer; return : Integer = n * 4611686018427387904; }
+		calc def AddBoth { in x : Real; in y : Real; return : Real = x + y; }
+		// A calc usage with an unsupplied input reads as a function value.
+		calc sqUsage : Sq;
+
+		calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+		calc def ApplySq { in a : Real; return : Real = Apply(Sq, a); }
+		calc def ApplyUsage { in a : Real; return : Real = Apply(sqUsage, a); }
+		calc def ApplyRecip { in a : Real; return : Real = Apply(Recip, a); }
+		calc def ApplySqrt { in a : Real; return : Real = Apply(RealFunctions::sqrt, a); }
+		calc def ToInt { in calc f { in v : Real; return : Integer; } in a : Real; return : Integer = f(a); }
+		calc def ApplyFloor { in a : Real; return : Integer = ToInt(RealFunctions::floor, a); }
+		calc def CondApply { in b : Boolean; in a : Real; return : Real = if b ? Apply(Sq, a) else Apply(Half, a); }
+		// The parameter is passed on, and the same calc is applied to two functions.
+		calc def Pass { in calc g { in v : Real; return : Real; } in a : Real; return : Real = Apply(g, a) + Apply(Half, a); }
+		calc def PassSq { in a : Real; return : Real = Pass(Sq, a); }
+		calc def Iterate { in calc f { in v : Real; return : Real; } in n : Integer; in a : Real; return : Real = if n == 0 ? a else Iterate(f, n - 1, f(a)); }
+		calc def IterateSq { in n : Integer; in a : Real; return : Real = Iterate(Sq, n, a); }
+		calc def Two { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } in a : Real; return : Real = f(a) - g(a); }
+		calc def TwoSq { in a : Real; return : Real = Two(Sq, Half, a) * Two(Half, Sq, a); }
+		// A named argument names the applied calc's own parameter.
+		calc def ByName { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(v = a); }
+		calc def ByNameSq { in a : Real; return : Real = ByName(a = a, f = Sq); }
+		calc def IntApply { in calc f { in n : Integer; return : Integer; } in n : Integer; return : Integer = f(n); }
+		calc def IntBoth { in n : Integer; return : Integer = IntApply(Inc, n) + IntApply(Quarter, n); }
+		// A two-argument calc applied through a two-argument parameter.
+		calc def Fold2 { in calc f { in x : Real; in y : Real; return : Real; } in a : Real; in b : Real; return : Real = f(a, b); }
+		calc def Fold2Add { in a : Real; in b : Real; return : Real = Fold2(AddBoth, a, b); }
+		// A parameter typed by a calc takes that calc, a usage typed by it, or a
+		// specialization of it, and passes it on to another typed parameter.
+		calc def SubSq :> Sq;
+		calc def ApplyTyped { in calc f : Sq { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+		calc def ApplyTypedOnly { in calc f : Sq; in a : Real; return : Real = ApplyTyped(f, a); }
+		calc def TypedSq { in a : Real; return : Real = ApplyTyped(Sq, a) + ApplyTypedOnly(Sq, a); }
+		calc def TypedUsage { in a : Real; return : Real = ApplyTyped(sqUsage, a) + ApplyTypedOnly(sqUsage, a); }
+		calc def TypedSub { in a : Real; return : Real = ApplyTyped(SubSq, a) + ApplyTypedOnly(SubSq, a); }
+		// A parameter is named by its qualified name too, through the calc declaring
+		// it, and a member-less specialization runs the body it inherits.
+		calc def ApplyQual { in calc f { in v : Real; return : Real; } in a : Real; return : Real = ApplyQual::f(a) + Compiled::Fn::ApplyQual::f(1.0); }
+		calc def SubApplyQual :> ApplyQual;
+		calc def QualSq { in a : Real; return : Real = ApplyQual(Sq, a) + SubApplyQual(Half, a); }
+		calc def QualByName { in calc f { in v : Real; return : Real; } in a : Real; return : Real = QualByName::f(v = a) + Pass(QualByName::f, a); }
+		calc def QualByNameSq { in a : Real; return : Real = QualByName(Sq, a); }
+		calc def QualRange { in calc f { in v : Real; return : Real; } in xs : Real[0..*]; return : Real[0..*] = Range(Sample(QualRange::f, xs)); }
+		calc def QualRecipRange { in xs : Real[0..*]; return : Real[0..*] = QualRange(Recip, xs); }
+
+		// Sampling: the domain in order, the calc at each, failing at the first that fails.
+		calc def RangeOf { in calc f { in v : Real; return : Real; } in xs : Real[0..*]; attribute s : SampledFunction = Sample(f, xs); return : Real[0..*] = Range(s); }
+		calc def SqRange { in xs : Real[0..*]; return : Real[0..*] = RangeOf(Sq, xs); }
+		calc def RecipRange { in xs : Real[0..*]; return : Real[0..*] = RangeOf(Recip, xs); }
+		calc def HalfDomain { in xs : Real[0..*]; return : Real[0..*] = Domain(Sample(Half, xs)); }
+		calc def IncBoth { in xs : Integer[0..*]; attribute s : SampledFunction = Sample(Inc, xs); return : Integer[0..*] = SequenceFunctions::union(Domain(s), Range(s)); }
+		calc def QuarterRange { in xs : Integer[0..*]; return : Integer[0..*] = Range(Sample(Quarter, xs)); }
+		calc def SqrtRange { in xs : Real[0..*]; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, xs)); }
+		calc def UsageRange { in xs : Real[0..*]; return : Real[0..*] = Range(Sample(sqUsage, xs)); }
+		calc def SumRange { in xs : Real[0..*]; return : Real = RealFunctions::sum(Range(Sample(Sq, xs))); }
+		// Parentheses around `Sample(…)` or a function value are the expression itself.
+		calc def ParenSample { in xs : Real[0..*]; attribute s : SampledFunction = (Sample(Sq, xs)); return : Real[0..*] = Range(s); }
+		calc def ParenDomain { in xs : Real[0..*]; return : Real[0..*] = SequenceFunctions::union(Domain((Sample(Recip, xs))), Range((Sample((Sq), xs)))); }
+		calc def ParenApply { in a : Real; return : Real = Apply((Sq), a); }
+		// A literal null domain samples to `[]`, typed by the sampled calc's parameter.
+		calc def NullDomain { in a : Real; attribute s : SampledFunction = Sample(Sq, null); return : Real[0..*] = SequenceFunctions::union(Domain(s), Range(s)); }
+		calc def NullRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, null)); }
+		calc def NullSqrtRange { in a : Real; return : Real[0..*] = Range(Sample(RealFunctions::sqrt, null)); }
+		calc def NullSum { in a : Real; return : Real = RealFunctions::sum(Range(Sample(Sq, null))) + a; }
+		// A library function's declared parameter types its null domain: Integer for IntegerFunctions::abs.
+		calc def NullAbsRange { in n : Integer; return : Integer[0..*] = Range(Sample(IntegerFunctions::abs, null)); }
+		calc def NullAbsDomain { in n : Integer; attribute s : SampledFunction = Sample(IntegerFunctions::abs, null); return : Integer[0..*] = SequenceFunctions::union(Domain(s), Range(s)); }
+		// A SampledFunction a body declares is taken at each read of it, as any body-local is.
+		calc def BodySample { in xs : Integer[0..*]; return : Integer[0..*] = xs->ControlFunctions::collect { in x : Integer; attribute s : SampledFunction = Sample(Inc, 1..x); SequenceFunctions::size(Domain(s)) + SequenceFunctions::size(Range(s)) }; }
+		calc def BodySampleRecip { in xs : Real[0..*]; return : Real[0..*] = xs->ControlFunctions::collect { in x : Real; attribute s : SampledFunction = Sample(Recip, (x, x - 1.0)); RealFunctions::sum(Range(s)) }; }
+		calc def BodySampleUnread { in xs : Real[0..*]; return : Real[0..*] = xs->ControlFunctions::collect { in x : Real; attribute s : SampledFunction = Sample(Recip, x); x }; }
+		// Sample, Domain and Range are library calcs: each is one frame against the
+		// recursion budget, and each Domain or Range read collects its own sequence.
+		calc def Down { in n : Integer; return : Integer = if n == 0 ? 0 else Down(n - 1); }
+		calc def DownDirect { in n : Integer; return : Integer = Down(n); }
+		calc def DownRange { in n : Integer; return : Integer[0..*] = Range(Sample(Down, n)); }
+		calc def DownDomain { in n : Integer; attribute s : SampledFunction = Sample(Down, n); return : Integer[0..*] = Domain(s); }
+		// The domain is Sample's argument, so it is computed before Sample's frame is entered.
+		calc def Deep { in n : Integer; return : Integer[0..*] = if n == 0 ? (1) else Deep(n - 1); }
+		calc def DeepRange { in n : Integer; return : Integer[0..*] = Range(Sample(Inc, Deep(n))); }
+		calc def DeepDomain { in n : Integer; attribute s : SampledFunction = Sample(Inc, Deep(n)); return : Integer[0..*] = Domain(s); }
+		calc def SizeDomain { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Domain(s)); }
+		calc def SizeRange { in n : Integer; in k : Integer; attribute s : SampledFunction = Sample(Inc, 1..n); return : Integer = SequenceFunctions::size(1..k) + SequenceFunctions::size(Range(s)); }
+		// Each SamplePair taken is three elements: its domainValue, its rangeValue and
+		// its place among the samples, charged on top of the domain it is taken over.
+		calc def SamplePairs { in k : Integer; attribute s : SampledFunction = Sample(Inc, (1..k)->ControlFunctions::select { in x : Integer; x < 3 }); return : Integer = SequenceFunctions::size(Range(s)); }
 	}
 }
 
@@ -392,9 +500,45 @@ package Refused {
 	calc def MixedEquality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
 	calc def MixedSame { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
 	calc def MixedUnion { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
+
+	// Function values: a program takes no function on its command line, and a
+	// function value is compiled only where it is applied or passed on.
 	calc def Sq { in v : Real; return : Real = v * v; }
+	calc def Sq2 { in x : Real; return : Real = x * x; }
+	calc def Add2 { in x : Real; in y : Real; return : Real = x + y; }
 	calc def CalcParam { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
-	calc def FunctionArgument { in a : Real; return : Real = CalcParam(Sq, a); }
+	calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
+	calc def EscapingParam { in a : Real; return r = Identity(Sq); }
+	calc def ReturnedFunction { in a : Real; return : Real = Compiled::Fn::Apply(Identity(Sq), a); }
+	calc def Same { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } return : Boolean = f == g; }
+	calc def FunctionEquality { in a : Real; return : Boolean = Same(Sq, Sq2); }
+	calc def FunctionAsValue { in a : Real; return : Real = Compiled::Fn::Apply(Sq, Sq); }
+	calc def ValueAsFunction { in a : Real; return : Real = Compiled::Fn::Apply(a, a); }
+	calc def ChosenFunction { in b : Boolean; in a : Real; return : Real = Compiled::Fn::Apply(if b ? Sq else Sq2, a); }
+	calc def WrongArity { in a : Real; return : Real = Compiled::Fn::Apply(Add2, a); }
+	calc def WrongName { in a : Real; return : Real = Compiled::Fn::ByName(Sq2, a); }
+	// A parameter typed by a calc refuses a function value of a calc that does not specialize it.
+	calc def UnrelatedTyped { in a : Real; return : Real = Compiled::Fn::ApplyTyped(Sq2, a); }
+	calc def LibraryTyped { in a : Real; return : Real = Compiled::Fn::ApplyTypedOnly(RealFunctions::sqrt, a); }
+	calc def ApplySub { in calc f : Compiled::Fn::SubSq; in a : Real; return : Real = f(a); }
+	calc def GeneralForSub { in a : Real; return : Real = ApplySub(Compiled::Fn::Sq, a); }
+	calc def ForwardedTyped { in calc g { in v : Real; return : Real; } in a : Real; return : Real = Compiled::Fn::ApplyTypedOnly(g, a); }
+	calc def ForwardedUnrelated { in a : Real; return : Real = ForwardedTyped(Sq2, a); }
+	// A null domain over a kind-preserving library function is Real, its widest kind.
+	calc def IntegerNullRange { in n : Integer; return : Integer[0..*] = SampledFunctions::Range(SampledFunctions::Sample(NumericalFunctions::abs, null)); }
+	calc def BodyClosure { in k : Real; in a : Real; calc scale { in v : Real; return : Real = v * k; } return : Real = Compiled::Fn::Apply(scale, a); }
+	part def Scaler { attribute k : Real; calc scale { in v : Real; return : Real = v * k; } }
+	part twice : Scaler { attribute :>> k = 2.0; }
+	calc def OuterClosure { in a : Real; return : Real = Compiled::Fn::Apply(BodyClosure::scale, a); }
+	calc def ObjectClosure { in a : Real; return : Real = Compiled::Fn::Apply(twice.scale, a); }
+	calc def ObjectCalc { in a : Real; return : Real = Compiled::Fn::Apply(Scaler::scale, a); }
+	calc def QualifiedReceiver { in calc f { in v : Real; return : Real; } in a : Real; return : Real = a->QualifiedReceiver::f(); }
+	calc def ReceiverQualified { in a : Real; return : Real = QualifiedReceiver(Sq, a); }
+	calc def ForeignQualified { in a : Real; return : Real = Compiled::Fn::ApplyQual::f(a); }
+	calc def SampleArity { in xs : Real[0..*]; return : Real[0..*] = SampledFunctions::Range(SampledFunctions::Sample(Add2, xs)); }
+	calc def SampledValue { in xs : Real[0..*]; attribute s : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); return : Integer = CollectionFunctions::size(s); }
+	calc def SampledEscapes { in xs : Real[0..*]; return : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); }
+	calc def UnevaluatedFunction { in xs : Integer[0..*]; return : Integer[0..*] = SampledFunctions::Range(SampledFunctions::Sample(ControlFunctions::collect, xs)); }
 
 	calc def StringResult {
 		in s : String;
@@ -421,12 +565,11 @@ package Refused {
 		in n : Integer;
 	}
 
-	// The interpreter stores the Real quotient in an Integer attribute; the
-	// compiler would have to pick a representation, so it declines.
+	// The interpreter judges the Real parameter's value when it is written to the
+	// Integer attribute; the compiler would have to pick a representation, so it declines.
 	calc def Narrowed {
-		in n : Integer;
-		attribute x : Integer = n;
-		assign x := x / 2;
+		in r : Real;
+		attribute x : Integer = r;
 		return : Integer = x;
 	}
 

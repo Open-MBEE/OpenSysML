@@ -1,0 +1,5 @@
+6:35 error [type/type.expr] 1 (an Integer) is written at positions 1 and 2 of a unique feature
+8:51 error [type/type.expr] 1 (an Integer) is written at positions 1 and 3 of a unique feature
+10:50 error [type/type.expr] 1 (an Integer) is written at positions 1 and 2 of a unique feature
+13:35 error [type/type.expr] 1.0 (a Real) is written at positions 1 and 2 of a unique feature
+14:44 error [type/type.expr] "a" (string) is written at positions 1 and 3 of a unique feature

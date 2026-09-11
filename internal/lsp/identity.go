@@ -156,12 +156,12 @@ func annotate(content []byte, notes []annotation) []quickfix.Edit {
 // insertInBody places texts at the head of a body: on their own lines when the
 // members have theirs, before the first member otherwise, alone if none.
 func insertInBody(content []byte, body source.Span, texts []string) []quickfix.Edit {
-	open, close := body.Offset, body.End()-1
-	anchor, ownLine, hasMember := bodyAnchor(content, open, close)
+	open, closeAt := body.Offset, body.End()-1
+	anchor, ownLine, hasMember := bodyAnchor(content, open, closeAt)
 	if !hasMember {
-		interior := source.Span{Offset: open + 1, Len: close - open - 1}
+		interior := source.Span{Offset: open + 1, Len: closeAt - open - 1}
 		joined := " " + strings.Join(texts, " ") + " "
-		if strings.TrimSpace(string(content[open+1:close])) == "" {
+		if strings.TrimSpace(string(content[open+1:closeAt])) == "" {
 			return []quickfix.Edit{quickfix.Replace(interior, joined)}
 		}
 		return []quickfix.Edit{quickfix.Insert(open+1, strings.TrimRight(joined, " "))}
@@ -179,8 +179,8 @@ func insertInBody(content []byte, body source.Span, texts []string) []quickfix.E
 
 // bodyAnchor is where a member-bearing body starts: the first token (notes
 // included) opening its own line, else the first member on the brace's line.
-func bodyAnchor(content []byte, open, close int) (anchor int, ownLine, hasMember bool) {
-	first := firstTokenOffset(content, open+1, close)
+func bodyAnchor(content []byte, open, closeAt int) (anchor int, ownLine, hasMember bool) {
+	first := firstTokenOffset(content, open+1, closeAt)
 	if first < 0 {
 		return 0, false, false
 	}

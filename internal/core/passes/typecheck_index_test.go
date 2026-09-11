@@ -1,6 +1,10 @@
 package passes
 
-import "testing"
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
 // An index is a position, so a value that is not a whole number is reported
 // where it is written rather than only when the expression is evaluated.
@@ -151,11 +155,90 @@ func TestSelectBooleanBodyOK(t *testing.T) {
 	wantNoDiags(t, `package P { attribute xs = (1, 2, 3); attribute x = xs.?{in e; e > 1}; }`)
 }
 
-// A body parameter's type is the element type of whatever the operand turns out
-// to hold, which the checker does not track, so an expression over the parameter
-// has no static type and is left to the runtime rather than guessed at.
-func TestBodyParameterHasNoStaticType(t *testing.T) {
-	wantNoDiags(t, `package P { attribute xs = (1, 2, 3); attribute x = xs.?{in e; e + 1}; }`)
+// An untyped body parameter is of the element type of the collection the body is applied
+// to (KerML 8.3.4.8), so a member it names is resolved and checked: `x.nosuch` is reported
+// as unresolved in every notation, `x.mass` binds as a MassValue does, and over a collection
+// whose elements cannot be typed the parameter has no members to read, as an untyped
+// feature has none.
+func TestBodyParameterTakesElementType(t *testing.T) {
+	const model = `package P {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import ControlFunctions::*;
+		part def C { attribute mass :> ISQ::mass; }
+		part cs : C[*];
+		attribute anys;
+		%s
+	}`
+	for _, member := range []string{
+		`attribute bad = cs.{in x; x.nosuch};`,
+		`attribute bad = cs.?{in x; x.nosuch};`,
+		`attribute bad = cs->collect {in x; x.nosuch};`,
+		`attribute bad = cs->forAll {in x; x.nosuch};`,
+		`attribute bad = collect(cs, {in x; x.nosuch});`,
+		`attribute bad = collect(mapper = {in x; x.nosuch}, collection = cs);`,
+		`attribute bad = cs->reduce {in a; in b; b.nosuch};`,
+		`attribute bad = cs.{in x; cs.{in y; y.nosuch}};`,
+	} {
+		diags := libraryDiags(t, fmt.Sprintf(model, member))
+		if len(diags) != 1 || diags[0].Source != "name-resolution" || diags[0].Message != "unresolved member: nosuch" {
+			t.Errorf("%s: got %v, want one unresolved-member diagnostic naming nosuch", member, diags)
+		}
+	}
+	diags := libraryDiags(t, fmt.Sprintf(model, `attribute s : String = cs.{in x; x.mass};`))
+	if len(diags) != 1 || diags[0].Source != "type" || !strings.Contains(diags[0].Message, "MassValue") {
+		t.Errorf("x.mass as String: got %v, want one type diagnostic naming MassValue", diags)
+	}
+	wantLibraryClean(t, fmt.Sprintf(model, `attribute m : MassValue = cs.{in x; x.mass}; part c : C = cs->selectOne {in x; x.mass > 1 [SI::kg]};`))
+	for _, member := range []string{
+		`attribute s : String = anys.{in x; x.mass};`,
+		`attribute open = anys.{in x; x.nosuch};`,
+	} {
+		diags := libraryDiags(t, fmt.Sprintf(model, member))
+		if len(diags) != 1 || diags[0].Source != "name-resolution" || !strings.HasPrefix(diags[0].Message, "no scope for member lookup in x") {
+			t.Errorf("%s: got %v, want one diagnostic that x has no members to read", member, diags)
+		}
+	}
+}
+
+// A reducer's first parameter holds the reducer's result from the second fold on, so it is an
+// element only where that result conforms; `a.mass` (a MassValue) and `if` (Anything) leave it untyped.
+func TestReducerFirstParameterTypedOnlyWhereResultFeedsBack(t *testing.T) {
+	const model = `package P {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import ControlFunctions::*;
+		part def C { attribute mass :> ISQ::mass; attribute name : String; part next : C[0..1]; }
+		part cs : C[*];
+		%s
+	}`
+	for _, member := range []string{
+		`attribute total = cs->reduce {in a; in b; a.mass};`,
+		`attribute total = reduce(cs, {in a; in b; a.mass});`,
+		`attribute total = reduce(reducer = {in a; in b; a.mass}, collection = cs);`,
+		`attribute label = cs->reduce {in a; in b; if b.name == "x" ? a.name else b.name};`,
+		`part heaviest : C = cs->reduce {in a; in b; if a.mass > b.mass ? a else b};`,
+	} {
+		diags := libraryDiags(t, fmt.Sprintf(model, member))
+		if len(diags) != 1 || diags[0].Source != "name-resolution" || !strings.HasPrefix(diags[0].Message, "no scope for member lookup in a") {
+			t.Errorf("%s: got %v, want one diagnostic that a has no members to read", member, diags)
+		}
+	}
+	for member, want := range map[string]string{
+		`attribute bad = cs->reduce {in a; in b; b.nosuch};`:                            "unresolved member: nosuch",
+		`attribute bad = cs->reduce {in a; in b; if b.nosuch > 1 [SI::kg] ? a else b};`: "unresolved member: nosuch",
+		`attribute bad = cs->reduce {in a; in b; a.nosuch};`:                            "no scope for member lookup in a",
+		`attribute bad = cs->reduce {in a; in b; a.next.nosuch};`:                       "no scope for member lookup in a",
+	} {
+		diags := libraryDiags(t, fmt.Sprintf(model, member))
+		if len(diags) != 1 || diags[0].Source != "name-resolution" || !strings.HasPrefix(diags[0].Message, want) {
+			t.Errorf("%s: got %v, want one name-resolution diagnostic %q", member, diags, want)
+		}
+	}
+	wantLibraryClean(t, fmt.Sprintf(model, `
+		part last : C = cs->reduce {in a; in b; a.next};
+		part heaviest : C = cs->reduce {in a : C; in b; if a.mass > b.mass ? a else b};
+		attribute total : MassValue = (cs.{in c; c.mass})->reduce {in acc; in m; acc + m};`))
 }
 
 func TestCollectBodyOK(t *testing.T) {

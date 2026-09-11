@@ -29,10 +29,10 @@ package test {
 		attribute slab : TensorQuantityValue = TensorCalculations::'['((1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), slabRef);
 		attribute hyper : TensorQuantityValue = TensorCalculations::'['((1, 2, 3, 4, 5, 6, 7, 8), hyperRef);
 
-		attribute dims : Positive[*] ordered = cube.dimensions;
+		attribute dims : Positive[*] ordered nonunique = cube.dimensions;
 		attribute order = cube.order;
 		attribute flattenedSize = cube.flattenedSize;
-		attribute slabDims : Positive[*] ordered = slab.dimensions;
+		attribute slabDims : Positive[*] ordered nonunique = slab.dimensions;
 		attribute hyperOrder = hyper.order;
 		attribute num : Number[*] ordered = cube.num;
 

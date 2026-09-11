@@ -7,6 +7,6 @@ package test {
 	attribute a : Array { :>> dimensions = (2, 3); :>> elements = (1, 2, 3, 4, 5, 6); }
 
 	calc def shape {
-		return : Integer[*] = (a.rank, a.flattenedSize, a.dimensions, a.elements#(6));
+		return : Integer[*] nonunique = (a.rank, a.flattenedSize, a.dimensions, a.elements#(6));
 	}
 }

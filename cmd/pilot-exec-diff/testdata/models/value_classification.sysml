@@ -7,6 +7,7 @@ package Classify {
     attribute a : Integer = 3;
     attribute r : Real = 2.5;
     attribute seq : Integer[*] = (1, 2, 3);
+    attribute mixed : Real[*] = (1, 2.5, 3);
     part car : Car;
 
     attribute atInteger = a @ Integer;
@@ -14,6 +15,10 @@ package Classify {
     attribute atString = a @ String;
     attribute realAtInteger = r @ Integer;
     attribute seqAtInteger = seq @ Integer;
+    attribute mixedAtInteger = mixed @ Integer;
+    attribute mixedIsInteger = mixed istype Integer;
+    attribute mixedAtReal = mixed @ Real;
+    attribute emptyAtInteger = () @ Integer;
     attribute carAtCar = car @ Car;
     attribute carAtVehicle = car @ Vehicle;
     attribute hasInteger = a hastype Integer;

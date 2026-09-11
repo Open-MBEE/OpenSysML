@@ -12,7 +12,8 @@ import (
 )
 
 // unimportedLibraryCallSrc calls Kernel Function Library functions without
-// importing their package; importedLibraryCallSrc is the same model with the import.
+// importing their packages; importedLibraryCallSrc is the same model with the
+// imports, abs binding to IntegerFunctions so that i holds an Integer.
 const unimportedLibraryCallSrc = `package P {
 	private import ScalarValues::*;
 	attribute r : Real = sqrt(4.0);
@@ -23,6 +24,7 @@ const unimportedLibraryCallSrc = `package P {
 const importedLibraryCallSrc = `package P {
 	private import ScalarValues::*;
 	private import RealFunctions::*;
+	private import IntegerFunctions::*;
 	attribute r : Real = sqrt(4.0);
 	attribute i : Integer = abs(-2);
 }

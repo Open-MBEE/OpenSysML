@@ -40,7 +40,12 @@ package test {
 	calc def Not { in b : Boolean; return : Boolean = not b; }
 	calc def Least { return : Integer = -9223372036854775808; }
 	calc def Dflt { in a : Integer; in b : Integer = 10; in c : Real = 2.5; return : Real = a + b * c; }
+	calc def SameReal { in r : Real; return : Real = r; }
+	calc def SameRational { in q : Rational; return : Rational = q; }
 	calc def Natural1 { in n : Natural; return : Natural = n - 1; }
+	calc def Positive1 { in n : Positive; return : Positive = n - 1; }
+	calc def TailPos { in a : Integer; return : Rank; a - 1 }
+	attribute def Rank :> Positive;
 	calc def IsEven { in n : Integer; return : Boolean = if n == 0 ? true else IsOdd(n - 1); }
 	calc def IsOdd { in n : Integer; return : Boolean = if n == 0 ? false else IsEven(n - 1); }
 	calc def Deep { in n : Integer; return : Integer = if n <= 0 ? 0 else 1 + Deep(n - 1); }
@@ -234,8 +239,17 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 	wantErrorIs(t, "Tail", tailOverflow, semantics.ErrArithmeticOverflow)
 	badArg := wantSameOutcome(t, "Natural1", intArg(-1))
 	wantErrorIs(t, "Natural1", badArg, ErrTypeMismatch)
+	wantOutcomeInt(t, "Positive1(2)", wantSameOutcome(t, "Positive1", intArg(2)), 1)
+	wantErrorIs(t, "Positive1", wantSameOutcome(t, "Positive1", intArg(0)), ErrTypeMismatch)
+	wantErrorIs(t, "Positive1", wantSameOutcome(t, "Positive1", intArg(1)), ErrTypeMismatch)
+	wantOutcomeInt(t, "TailPos(2)", wantSameOutcome(t, "TailPos", intArg(2)), 1)
+	wantErrorIs(t, "TailPos", wantSameOutcome(t, "TailPos", intArg(1)), ErrTypeMismatch)
 	realForInt := wantSameOutcome(t, "Add", realArg(1.5), intArg(1))
 	wantErrorIs(t, "Add", realForInt, ErrTypeMismatch)
+	wantOutcomeReal(t, "SameReal(Inf)", wantSameOutcome(t, "SameReal", realArg(math.Inf(1))), math.Inf(1))
+	wantOutcomeReal(t, "SameRational(1.5)", wantSameOutcome(t, "SameRational", realArg(1.5)), 1.5)
+	wantErrorIs(t, "SameReal", wantSameOutcome(t, "SameReal", realArg(math.NaN())), ErrTypeMismatch)
+	wantErrorIs(t, "SameRational", wantSameOutcome(t, "SameRational", realArg(math.NaN())), ErrTypeMismatch)
 	boolForInt := wantSameOutcome(t, "Add", boolArg(true), intArg(1))
 	wantErrorIs(t, "Add", boolForInt, ErrTypeMismatch)
 	intForBool := wantSameOutcome(t, "Not", intArg(1))
@@ -313,7 +327,7 @@ func eligibility(t *testing.T, ctx *Context, scope *symbols.Scope, name string) 
 // locals, named calls included; a caller of an ineligible calc is ineligible too.
 func TestCompiledCalcEligibility(t *testing.T) {
 	scope, ctx := compileRuntime(t, true)
-	eligible := []string{"Fib", "SumTo", "Add", "Div", "Pow", "Mixed", "Less", "Same", "Not", "Least", "Dflt", "Natural1", "IsEven", "IsOdd", "Nested", "Tail", "TailNat", "Untyped", "Inherits", "Local", "NamedCall", "Redeclares"}
+	eligible := []string{"Fib", "SumTo", "Add", "Div", "Pow", "Mixed", "Less", "Same", "Not", "Least", "Dflt", "Natural1", "Positive1", "TailPos", "IsEven", "IsOdd", "Nested", "Tail", "TailNat", "Untyped", "Inherits", "Local", "NamedCall", "Redeclares"}
 	for _, name := range eligible {
 		if !eligibility(t, ctx, scope, name) {
 			t.Errorf("%s is ineligible, want eligible", name)

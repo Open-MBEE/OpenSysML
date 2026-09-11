@@ -8,6 +8,7 @@ import (
 
 // measurementRefArg reads a ScalarMeasurementReference (MeasurementUnit) parameter.
 func measurementRefArg(name, param string, val Value) (*MeasurementRef, error) {
+	val = soleElement(val)
 	if val.Kind != ValMeasurementRef || val.MeasurementRef() == nil {
 		return nil, fmt.Errorf("%w: function %s parameter %q requires a measurement reference such as SI::m, got %s",
 			ErrTypeMismatch, name, param, describeValue(val))
@@ -18,6 +19,7 @@ func measurementRefArg(name, param string, val Value) (*MeasurementRef, error) {
 // scalarReferenceArg admits a ScalarMeasurementReference: a unit, or a scale
 // read as the reference its points are on.
 func scalarReferenceArg(name, param string, val Value) (*MeasurementRef, error) {
+	val = soleElement(val)
 	if val.Kind == ValCoordinateFrame {
 		frame := val.CoordinateFrame()
 		if frame.IsScale() {
@@ -61,20 +63,21 @@ func convertQuantity(name string, ctx *Context, args []Value) (Value, error) {
 // over MeasurementUnits: the composed unit, as a quantity's unit composes.
 func measurementRefArithmetic(op ast.OperatorKind) libraryApply {
 	return func(name string, ctx *Context, args []Value) (Value, error) {
-		if _, err := measurementRefArg(name, "x", args[0]); err != nil {
+		x, y := soleElement(args[0]), soleElement(args[1])
+		if _, err := measurementRefArg(name, "x", x); err != nil {
 			return Value{}, err
 		}
 		if op == ast.OpPow {
-			if _, err := scalarArg(name, "y", args[1]); err != nil {
+			if _, err := scalarArg(name, "y", y); err != nil {
 				return Value{}, err
 			}
-		} else if _, err := measurementRefArg(name, "y", args[1]); err != nil {
+		} else if _, err := measurementRefArg(name, "y", y); err != nil {
 			return Value{}, err
 		}
-		ref, ok, err := ctx.composeMeasurementRefs(op, args[0], args[1])
+		ref, ok, err := ctx.composeMeasurementRefs(op, x, y)
 		if !ok {
 			return Value{}, fmt.Errorf("%w: function %s is not defined over %s and %s",
-				ErrTypeMismatch, name, describeValue(args[0]), describeValue(args[1]))
+				ErrTypeMismatch, name, describeValue(x), describeValue(y))
 		}
 		return ref, err
 	}
