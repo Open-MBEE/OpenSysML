@@ -1693,3 +1693,50 @@ func TestAdoptRebindsAFunctionValue(t *testing.T) {
 		t.Errorf("Adopt refused for %q, want the missing calc named", err)
 	}
 }
+
+const adoptBindingSrc = `package Demo {
+	part def Car;
+	part def Truck :> Car;
+	ref part car : Car = new Car();
+}`
+
+// The binding of a namespace-level usage to the object its value made is carried with
+// that object, so the usage denotes it in the re-analysis too; one whose declaration
+// changed binds anew, against the declaration as it is now.
+func TestAdoptCarriesANamespaceBinding(t *testing.T) {
+	carIn := func(t *testing.T, ctx *Context) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "car")
+		if err != nil {
+			t.Fatalf("car: %v", err)
+		}
+		id, ok := val.Object()
+		if !ok {
+			t.Fatalf("car = %v, want an object", val)
+		}
+		return ctx.instances[id]
+	}
+	prev := contextOver(t, adoptBindingSrc)
+	obj := carIn(t, prev)
+
+	ctx := contextOver(t, adoptBindingSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := carIn(t, ctx); got != obj {
+		t.Errorf("car in the re-analysis denotes %d, want the carried object %d", got.ID, obj.ID)
+	}
+
+	prev = contextOver(t, adoptBindingSrc)
+	obj = carIn(t, prev)
+	ctx = contextOver(t, strings.Replace(adoptBindingSrc, "new Car()", "new Truck()", 1))
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	got := carIn(t, ctx)
+	if got == obj || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
+		t.Errorf("car in the re-analysis denotes %d of %s, want a Truck read against the declaration as it is now",
+			got.ID, symbolText(got.Type))
+	}
+}

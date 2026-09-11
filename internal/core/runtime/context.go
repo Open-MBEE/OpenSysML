@@ -63,6 +63,12 @@ type Context struct {
 	// occurrences holds the object each usage carrying no value of its own
 	// denotes, so a feature chain through a part reads one occurrence of it.
 	occurrences map[*symbols.Symbol]int64
+	// namespaceBindings holds the value each namespace-level object usage given a value
+	// denotes, so every read of it reads the one binding rather than evaluating it anew.
+	namespaceBindings map[*symbols.Symbol]Value
+	// bindingNamespace holds the namespace-level usages whose values are being evaluated, so a
+	// value reaching back to its own usage is a cycle, and an extent finds no object of it yet.
+	bindingNamespace map[*symbols.Symbol]bool
 	// metadataObjects holds the object each metadata annotation denotes, so
 	// reading `.metadata` twice reads one object per annotation. The annotation
 	// is named by the element it annotates and its place among that element's
@@ -272,10 +278,12 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxCalcDepth:   DefaultMaxCalcDepth,
 		maxSweepRuns:   DefaultMaxSweepRuns,
 
-		occurrences:      make(map[*symbols.Symbol]int64),
-		metadataObjects:  make(map[metadataAnnotation]int64),
-		variantObjects:   make(map[variantObject]int64),
-		selectedVariants: make(map[variantSelection]string),
+		occurrences:       make(map[*symbols.Symbol]int64),
+		namespaceBindings: make(map[*symbols.Symbol]Value),
+		bindingNamespace:  make(map[*symbols.Symbol]bool),
+		metadataObjects:   make(map[metadataAnnotation]int64),
+		variantObjects:    make(map[variantObject]int64),
+		selectedVariants:  make(map[variantSelection]string),
 
 		materializingConnectors: make(map[connectorRef]bool),
 		derivingFeatureValues:   make(map[featureValueRef]bool),

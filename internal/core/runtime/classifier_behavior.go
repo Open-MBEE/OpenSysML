@@ -307,6 +307,11 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 			delete(ctx.metadataObjects, annotation)
 		}
 	}
+	for sym, val := range ctx.namespaceBindings {
+		if namesAbandonedValue(val, abandoned) {
+			delete(ctx.namespaceBindings, sym)
+		}
+	}
 	ctx.forgetLives(abandoned)
 	ctx.forgetVariantsNaming(abandoned)
 	ctx.forgetEdgesOf(gone)
@@ -356,6 +361,20 @@ func namesAbandoned(fv *FeatureValue, abandoned map[int64]bool) bool {
 	}
 	for _, val := range elementsOf(fv.Values) {
 		if namesAbandonedObject(val, abandoned) {
+			return true
+		}
+	}
+	return false
+}
+
+// namesAbandonedValue reports whether a value, or an element of a collection, names an
+// abandoned object.
+func namesAbandonedValue(val Value, abandoned map[int64]bool) bool {
+	if namesAbandonedObject(val, abandoned) {
+		return true
+	}
+	for _, elem := range elementsOf(val) {
+		if namesAbandonedObject(elem, abandoned) {
 			return true
 		}
 	}

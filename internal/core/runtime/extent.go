@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -73,11 +74,8 @@ func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symb
 	return ec.newSequence(values)
 }
 
-// objectsOf is this run's objects of target under roots: each root, then what its features
-// hold in declaration order. A feature that may hold an object of target is read, materializing
-// it as a read would (a read that fails ends the extent); one that cannot contributes only what
-// it already holds. A declaration already on the path is not read under again, so recursive
-// composition ends, but the objects it already holds are still walked.
+// objectsOf is this run's objects of target under roots, each then its features in declaration
+// order: a feature that may hold one is read (a failing read ends the extent), one already on the path is not.
 func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value, error) {
 	var values []Value
 	seen := make(map[int64]bool)
@@ -126,28 +124,38 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 	return ctx.newSequence(values)
 }
 
-// extentRoots is the objects an extent is searched from, in declaration order: those the run
-// materialized standing on their own (not held, not read through), the outermost holder of the
-// object evaluating, and the occurrences the enclosing namespaces declare that may hold a
-// target — materialized now, as reading them would be. A namespace usage that may hold a
-// target but denotes no object the run can reach refuses the extent rather than shrinking it.
+// extentRoots is the objects an extent is searched from, in declaration order: the run's free-standing
+// objects, the evaluating object's outermost holder, and what the enclosing namespaces' usages denote.
 func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) {
 	ctx := ec.ctx
 	var roots []*Instance
-	seen := make(map[int64]bool)
-	add := func(inst *Instance) {
-		if inst != nil && !seen[inst.ID] {
-			seen[inst.ID] = true
+	declared := make(map[int64]*symbols.Symbol)
+	add := func(inst *Instance, decl *symbols.Symbol) {
+		if inst != nil && declared[inst.ID] == nil {
+			declared[inst.ID] = decl
 			roots = append(roots, inst)
 		}
 	}
 	for top := ec.self; top != nil; top = top.owner {
 		if top.owner == nil {
-			add(top)
+			add(top, top.Type)
 		}
 	}
 	for _, sym := range ctx.namespaceUsages(ec.scope) {
 		if !ctx.mayHold(sym, target, make(map[*symbols.Symbol]bool)) {
+			continue
+		}
+		if namespaceObjectUsage(sym) {
+			if ctx.bindingNamespace[sym] {
+				continue
+			}
+			bound, err := ec.boundObjects(sym)
+			if err != nil {
+				return nil, err
+			}
+			for _, inst := range bound {
+				add(inst, sym)
+			}
 			continue
 		}
 		if !ctx.namesOneObject(sym) {
@@ -160,7 +168,7 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 		if err != nil {
 			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
 		}
-		add(inst)
+		add(inst, sym)
 	}
 	held := ctx.heldObjectIDs()
 	for _, id := range ctx.created {
@@ -168,10 +176,34 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 		if !live || held[id] || (nestedFeature(inst.Type) && ctx.readThrough(inst)) {
 			continue
 		}
-		add(inst)
+		add(inst, inst.Type)
 	}
-	sort.SliceStable(roots, func(i, j int) bool { return declaredBefore(roots[i].Type, roots[j].Type) })
+	sort.SliceStable(roots, func(i, j int) bool {
+		return declaredBefore(declared[roots[i].ID], declared[roots[j].ID])
+	})
 	return roots, nil
+}
+
+// boundObjects is the objects a namespace-level usage's value binds it to, read once for the run;
+// a value depending on a usage still being bound yields none yet, a failing one leaves no object.
+func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
+	mark := len(ec.ctx.created)
+	val, err := NewEvalContext(ec.ctx, sym.OwnerScope).declaredValue(sym, sym.Decl.(*ast.Usage).Value)
+	if err != nil {
+		ec.ctx.abandonInstancesSince(mark)
+		var cycle *CyclicBindingError
+		if errors.As(err, &cycle) && ec.ctx.bindingNamespace[cycle.Usage] {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+	}
+	var out []*Instance
+	for _, id := range heldObjects(val) {
+		if inst, live := ec.ctx.instances[id]; live {
+			out = append(out, inst)
+		}
+	}
+	return out, nil
 }
 
 // undenotedUsage refuses an extent for a namespace usage the run denotes no object of:
@@ -185,20 +217,19 @@ func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
 		ErrExtentUnavailable, symbolText(sym), sym.Notation())
 }
 
-// namespaceUsages is the usages standing for objects that the namespaces enclosing scope
-// declare, innermost first — what a value written there reaches by name — whether the run
-// denotes an object of each or not; a variation, or a usage given a value, stands for none.
+// namespaceUsages is the object usages the namespaces enclosing scope declare, innermost first,
+// whether the run denotes an object of each or not; a variation stands for none.
 func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for ; scope != nil; scope = scope.Parent() {
-		if typeScope(scope) {
+		if !namespaceScope(scope) {
 			continue
 		}
 		scope.ForEachMember(func(sym *symbols.Symbol) bool {
 			if ctx.model.semantics.IsVariationFeature(sym) {
 				return true
 			}
-			if valuelessObjectUsage(sym) || ctx.namesOneObject(sym) {
+			if objectFeature(sym) || ctx.namesOneObject(sym) {
 				out = append(out, sym)
 			}
 			return true
@@ -207,26 +238,38 @@ func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// valuelessObjectUsage reports whether sym is an object-holding usage (ports included)
-// without a value, so the objects it stands for are its own.
-func valuelessObjectUsage(sym *symbols.Symbol) bool {
-	if !objectFeature(sym) {
+// namespaceObjectUsage reports whether sym is an object-holding usage (ports included) a
+// namespace declares with a value: the value binds it to the objects it stands for.
+func namespaceObjectUsage(sym *symbols.Symbol) bool {
+	if !objectFeature(sym) || sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) {
 		return false
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	return ok && usage.Value == nil
+	return sym.Decl.(*ast.Usage).Value != nil
 }
 
-// typeScope reports whether scope is the body of a definition or usage rather than a namespace.
-func typeScope(scope *symbols.Scope) bool {
-	if scope.Owner() == nil {
+// namespaceScope reports whether scope is a package, a namespace or a document root, rather
+// than the body of a type or a body's locals.
+func namespaceScope(scope *symbols.Scope) bool {
+	if scope.BodyLocal() {
 		return false
 	}
+	if scope.Owner() == nil {
+		return scope.Parent() == nil
+	}
 	switch scope.Owner().Decl.(type) {
-	case *ast.Definition, *ast.Usage:
+	case *ast.Package, *ast.Namespace:
 		return true
 	}
 	return false
+}
+
+// givenValue is the value an object usage is given, whose objects are what it yields.
+func (ctx *Context) givenValue(sym *symbols.Symbol) (ast.Node, bool) {
+	if !objectFeature(sym) {
+		return nil, false
+	}
+	value := sym.Decl.(*ast.Usage).Value
+	return value, value != nil
 }
 
 // mayHold reports whether an object of typ, or one a feature of it holds however deep, may be
@@ -238,6 +281,24 @@ func (ctx *Context) mayHold(typ, target *symbols.Symbol, visited map[*symbols.Sy
 	visited[typ] = true
 	if ctx.model.semantics.Conforms(typ, target) {
 		return true
+	}
+	if value, valued := ctx.givenValue(typ); valued {
+		declared := ctx.extractType(typ)
+		if declared != nil && ctx.model.semantics.Conforms(target, declared) {
+			return true
+		}
+		types := ctx.model.semantics.ExprResultTypes(typ.OwnerScope, value)
+		if len(types) == 0 {
+			return true
+		}
+		for _, valueType := range types {
+			if ctx.model.semantics.Conforms(target, valueType) || ctx.mayHold(valueType, target, visited) {
+				return true
+			}
+		}
+		if declared == nil {
+			return false
+		}
 	}
 	for _, member := range ctx.model.semantics.MembersOf(typ) {
 		if objectFeature(member) && ctx.mayHold(member, target, visited) {

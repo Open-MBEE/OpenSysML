@@ -17,6 +17,17 @@
   An extent that a package-level usage of several occurrences (`part wheels : Wheel[2];`) or a
   package-level port may contribute to is refused with the typed `ErrExtentUnavailable` naming the
   usage, since the runtime denotes no object of such a usage yet, rather than answered without
-  them. `all T` is never model-level evaluable, so a `filter` or metadata value built on it is
-  diagnosed. The native compiler keeps refusing `all` with a typed `UnsupportedError` (`operator
+  them. A namespace-level object usage given a value (`ref part car : Car = new Car();`,
+  `part fleet = new Truck();`, `ref part alias : Car = spare;`) is bound to that value for the run —
+  a feature value binds its feature to its expression's result (KerML 1.0 §7.4.11 Feature Values,
+  §8.4.4.11) — so `all Car` reaches the object it denotes before any read of it, and the usage
+  denotes that one object on every read; it used to be evaluated anew on each read, so `car` read
+  twice was two `Car`s. A `default` or initial (`:=`) value at namespace level is held for the run
+  the same way, there being no other individual for it to be realized on; a `default` nested in a
+  definition is still what each object built from it reads at construction. A usage bound to an
+  extent of its own type (`ref part cars : Car[*] = all Car;`) stands for no object while it is
+  being bound, and one whose value depends on it for none yet, so the extent binds to the objects
+  there are; a value reaching back to its own usage is refused as a cyclic feature value. `all T`
+  is never model-level evaluable, so a `filter` or metadata value built on it is diagnosed. The
+  native compiler keeps refusing `all` with a typed `UnsupportedError` (`operator
   'all'`), since a compiled program has no run whose extent it could report.

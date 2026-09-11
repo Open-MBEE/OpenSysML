@@ -1040,6 +1040,38 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.selectedVariants[key] = variant
 		}
 	}
+	for sym, val := range a.prev.namespaceBindings {
+		found, err := a.rebind(sym, "a usage of it")
+		if err != nil || !allAdopted(val, adopted) {
+			continue
+		}
+		// A usage denotes the value bound to it only while it is declared as it was:
+		// an edited one is read again rather than reused.
+		stated := a.prev.declarationDigest(sym)
+		if stated == "" || stated != a.ctx.declarationDigest(found) {
+			continue
+		}
+		a.ctx.namespaceBindings[found] = a.rewrite(val)
+	}
+}
+
+// allAdopted reports whether every object a value names, an element of a collection
+// included, is carried over.
+func allAdopted(val Value, adopted map[int64]bool) bool {
+	for _, id := range heldObjects(val) {
+		if !adopted[id] {
+			return false
+		}
+	}
+	return true
+}
+
+// declarationDigest is the text of a symbol's declaration, as its document states it.
+func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
+	if sym == nil || sym.DocName == "" {
+		return ""
+	}
+	return ctx.textIn(sym.DocName, sym.DeclSpan)
 }
 
 // rewrite returns the value as this context holds it: the same value with every

@@ -899,7 +899,36 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 
 // declaredValue evaluates the value a declaration binds in the scope it was written
 // in (its units and imports answer its names); the value answers to the declared type.
+// A namespace-level object usage's value is one binding (KerML 1.0 §7.4.11), kept for the run.
 func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value, error) {
+	if val, ok := ec.ctx.namespaceBindings[sym]; ok {
+		return val, nil
+	}
+	if !namespaceObjectUsage(sym) {
+		return ec.evaluateDeclared(sym, value)
+	}
+	if ec.ctx.bindingNamespace[sym] {
+		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
+	}
+	ec.ctx.bindingNamespace[sym] = true
+	defer delete(ec.ctx.bindingNamespace, sym)
+	val, err := ec.evaluateDeclared(sym, value)
+	if err != nil {
+		return Value{}, err
+	}
+	ec.ctx.bindNamespace(sym, val)
+	return val, nil
+}
+
+// bindNamespace records the value a namespace-level usage denotes for the run; a probe
+// that made it is undone with it.
+func (ctx *Context) bindNamespace(sym *symbols.Symbol, val Value) {
+	ctx.noteProbeUndo(func() { delete(ctx.namespaceBindings, sym) })
+	ctx.namespaceBindings[sym] = val
+}
+
+// evaluateDeclared evaluates a declaration's value anew, answering to its declared type.
+func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Value, error) {
 	val, err := ec.evalIn(sym.OwnerScope).Eval(value)
 	if err != nil {
 		return Value{}, err
