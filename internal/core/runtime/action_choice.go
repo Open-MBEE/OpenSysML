@@ -282,12 +282,12 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 	})
 }
 
-// noteDecisionBranches records the holding guarded successions of a decision node,
-// at their declared positions, as a choice point when there are at least two;
-// pick is the position in holding of the one the token takes.
-func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int, pick int) {
+// chooseBranch resolves which of the holding guarded successions of a decision
+// node, at their declared positions, the token takes: the position in holding, and
+// the choice point to note when there are at least two.
+func (e *ActionExecutor) chooseBranch(frame *actionFrame, node *ast.DecisionNode, successors []lower.ActionEdge, holding []int) (*ChoicePoint, int) {
 	if len(holding) < 2 {
-		return
+		return nil, 0
 	}
 	alts := make([]string, len(holding))
 	for i, pos := range holding {
@@ -298,12 +298,11 @@ func (e *ActionExecutor) noteDecisionBranches(frame *actionFrame, node *ast.Deci
 		Step:         e.stepCount + 1,
 		Where:        "decision " + nodeIdentifier(node),
 		Alternatives: alts,
-		Taken:        pick,
 		File:         e.decisionFile(frame),
 		Span:         node.Span(),
 	}
-	e.ctx.scheduling().describe(choice)
-	e.ctx.noteChoice(choice)
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	return &choice, choice.Taken
 }
 
 // noteUnevaluableGuard records the guard of the succession at position pos out of
