@@ -556,7 +556,11 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 		{"auto over three candidates, none concluding", map[string]string{"candidates": "3", "concluded": "false"}, 3, 0},
 		{"auto over three candidates, the first concluding", map[string]string{"candidates": "3"}, 1, 2},
 		{"a name beside three candidates", map[string]string{"selectsAuto": "false", "candidates": "3"}, 1, 0},
-		{"one candidate refusing", map[string]string{"covered": "false"}, 1, 0},
+		{"one candidate refusing", map[string]string{"refusing": "1"}, 1, 0},
+		{"auto over three candidates, all refusing", map[string]string{"candidates": "3", "refusing": "3"}, 3, 0},
+		{"auto over three candidates, the first refusing, the second concluding", map[string]string{"candidates": "3", "refusing": "1"}, 2, 1},
+		{"all over three candidates, the first refusing", map[string]string{"selectsAuto": "false", "selectsAll": "true", "candidates": "3", "refusing": "1"}, 3, 0},
+		{"a name refusing beside three candidates", map[string]string{"selectsAuto": "false", "candidates": "3", "refusing": "1"}, 1, 0},
 		{"one candidate faulting", map[string]string{"faulted": "true"}, 1, 0},
 		{"auto over three candidates, the first faulting", map[string]string{"candidates": "3", "faulted": "true"}, 1, 2},
 	}
@@ -574,26 +578,33 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 }
 
 // TestSelfModelExplorationFlowDrainsQueue runs the modelled exploration as the
-// explorer behaves: each run queues the prefixes it leaves unexplored and no
-// more, so a finite choice tree drains the queue before the run budget and
-// proves, while a tree the runs or the depth bound cut observes.
+// explorer behaves: each run queues the next alternative of every choice it
+// owns and no more, and the next run takes the prefix queued deepest, so a
+// finite choice tree drains the queue before the run budget and proves, while
+// a tree the runs or the depth bound cut observes. The prefix in hand when the
+// exploration ends is the last run's: the choice it ended at and the
+// alternative it took there.
 func TestSelfModelExplorationFlowDrainsQueue(t *testing.T) {
 	cases := []struct {
-		name     string
-		initial  map[string]string
-		runs     int
-		queued   int
-		depthHit bool
-		complete bool
+		name      string
+		initial   map[string]string
+		runs      int
+		queued    int
+		at, taken int
+		depthHit  bool
+		complete  bool
 	}{
-		{"one schedule", nil, 1, 0, false, true},
-		{"one binary choice, then leaves", map[string]string{"runsLeft": "3", "choicesAhead": "1"}, 2, 0, false, true},
-		{"one choice of four, then leaves", map[string]string{"runsLeft": "8", "choicesAhead": "1", "alternatives": "4"}, 4, 0, false, true},
-		{"a choice below the alternative a choice left", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 0, false, true},
-		{"three choices of three, one below another", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3"}, 7, 0, false, true},
-		{"three alternatives under a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "1", "alternatives": "3"}, 2, 1, false, false},
-		{"a choice below another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "depth": "1"}, 2, 0, true, false},
-		{"a choice under a depth bound of zero", map[string]string{"runsLeft": "8", "choicesAhead": "1", "depth": "0"}, 1, 0, true, false},
+		{"one schedule", nil, 1, 0, 0, 0, false, true},
+		{"one binary choice, then leaves", map[string]string{"runsLeft": "3", "choicesAhead": "1"}, 2, 0, 1, 2, false, true},
+		{"one choice of four, then leaves", map[string]string{"runsLeft": "8", "choicesAhead": "1", "alternatives": "4"}, 4, 0, 1, 4, false, true},
+		{"a choice below the alternative a choice left", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 0, 2, 2, false, true},
+		{"three choices of three, one below another", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3"}, 7, 0, 1, 3, false, true},
+		{"three alternatives under a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "1", "alternatives": "3"}, 2, 1, 1, 2, false, false},
+		{"four alternatives under a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "1", "alternatives": "4"}, 2, 1, 1, 2, false, false},
+		{"three choices of three under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "3", "alternatives": "3"}, 3, 3, 2, 2, false, false},
+		{"a choice below another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "depth": "1"}, 2, 0, 1, 2, true, false},
+		{"a choice of three below another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "depth": "1"}, 3, 0, 1, 3, true, false},
+		{"a choice under a depth bound of zero", map[string]string{"runsLeft": "8", "choicesAhead": "1", "depth": "0"}, 1, 0, 0, 0, true, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -610,6 +621,9 @@ func TestSelfModelExplorationFlowDrainsQueue(t *testing.T) {
 			}
 			if got := flow.integer("unexplored"); got != 0 {
 				t.Errorf("exploration ended with %d prefixes discovered and not queued", got)
+			}
+			if at, taken := flow.integer("choice"), flow.integer("taken"); at != tc.at || taken != tc.taken {
+				t.Errorf("the last run took alternative %d of choice %d, want %d of %d", taken, at, tc.taken, tc.at)
 			}
 			if got := flow.boolean("depthHit"); got != tc.depthHit {
 				t.Errorf("exploration ended depthHit = %v, want %v", got, tc.depthHit)

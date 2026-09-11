@@ -324,7 +324,8 @@ package OpenSysMLBehavior {
         attribute candidates : Integer = 1;
         attribute enginesLeft : Integer = 0;
         attribute steps : Integer = 0;
-        attribute covered : Boolean = true;
+        // The candidates asked first that do not cover the question; the rest do.
+        attribute refusing : Integer = 0;
         attribute concluded : Boolean = true;
         attribute faulted : Boolean = false;
 
@@ -338,7 +339,10 @@ package OpenSysMLBehavior {
         action listByName { assign enginesLeft := candidates; }
         action pickNamed { assign enginesLeft := 1; }
         action askCoverage { assign enginesLeft := enginesLeft - 1; }
-        action recordRefusal { assign steps := steps + 1; }
+        action recordRefusal {
+            assign steps := steps + 1;
+            assign refusing := refusing - 1;
+        }
         action runEngine;
         action recordResult { assign steps := steps + 1; }
         action nextEngine;
@@ -360,8 +364,8 @@ package OpenSysMLBehavior {
         succession first askCoverage then coverageGate;
 
         decide coverageGate;
-        if covered then runEngine;
-        else recordRefusal;
+        if refusing > 0 then recordRefusal;
+        else runEngine;
 
         succession first runEngine then faultGate;
 
@@ -370,18 +374,25 @@ package OpenSysMLBehavior {
         else recordResult;
 
         succession first recordFault then done;
-        succession first recordResult then stepRecorded;
-        succession first recordRefusal then stepRecorded;
+        succession first recordResult then standingGate;
+        succession first recordRefusal then refusalGate;
 
-        merge stepRecorded;
-        succession first stepRecorded then standingGate;
+        // A refusal is a step and no answer: the next candidate is asked whatever the
+        // selection.
+        decide refusalGate;
+        if enginesLeft > 0 then askNext;
+        else composePlan;
 
         // Auto stops at the first answer that is a claim and moves on from one that is
         // not; all goes on to every engine and composes at the end; a name is done.
         decide standingGate;
-        if enginesLeft > 0 and (selectsAll or (selectsAuto and not concluded)) then nextEngine;
-        else compose;
+        if enginesLeft > 0 and (selectsAll or (selectsAuto and not concluded)) then askNext;
+        else composePlan;
 
+        merge askNext;
+        merge composePlan;
+        succession first askNext then nextEngine;
+        succession first composePlan then compose;
         succession first nextEngine then askCoverage;
         succession first compose then done;
     }
@@ -393,13 +404,17 @@ package OpenSysMLBehavior {
         attribute runsLeft : Integer = 1024;
         attribute depth : Integer = 64;
         attribute queued : Integer = 1;
-        // The choice tree the runs walk: the choices still ahead, each met by the run
-        // below the alternative the run before it left, and the alternatives each offers.
+        // The choice tree: a chain of choices of so many alternatives each, the next
+        // below the second alternative of the one above; choicesAhead are unmet yet.
         attribute choicesAhead : Integer = 0;
         attribute alternatives : Integer = 2;
-        attribute met : Integer = 0;
-        // The prefixes the run just made leaves to explore, one per alternative it
-        // did not take; a run below every choice leaves none.
+        // The prefix in hand: the choice it ends at (0: the empty prefix) and the
+        // alternative it takes there.
+        attribute choice : Integer = 0;
+        attribute taken : Integer = 0;
+        attribute descends : Boolean = false;
+        // What the run leaves to explore: the next alternative of the choice its prefix
+        // ended at, and the second of the choice it met.
         attribute unexplored : Integer = 0;
         attribute depthHit : Boolean = false;
         attribute complete : Boolean = true;
@@ -410,23 +425,35 @@ package OpenSysMLBehavior {
         first start;
 
         action warmWorker;
-        action takePrefix { assign queued := queued - 1; }
+        action takePrefix {
+            assign queued := queued - 1;
+            assign descends := false;
+        }
         action freshContext;
         action runLinearization { assign runsLeft := runsLeft - 1; }
         action meetChoice {
-            assign unexplored := alternatives - 1;
-            assign met := met + 1;
+            assign unexplored := unexplored + 1;
             assign choicesAhead := choicesAhead - 1;
+            assign descends := true;
         }
         action passBeyond {
             assign depthHit := true;
-            assign met := met + choicesAhead;
             assign choicesAhead := 0;
         }
         action runLeaf;
+        action leaveNext { assign unexplored := unexplored + 1; }
         action queueChoices {
             assign queued := queued + unexplored;
             assign unexplored := 0;
+        }
+        action stepDown {
+            assign choice := choice + 1;
+            assign taken := 2;
+        }
+        action stepAlong { assign taken := taken + 1; }
+        action stepUp {
+            assign choice := choice - 1;
+            assign taken := 3;
         }
         action sortOutcomes { assign complete := queued == 0 and not depthHit; }
         action claimProved;
@@ -438,26 +465,45 @@ package OpenSysMLBehavior {
         succession first freshContext then runLinearization;
         succession first runLinearization then choiceGate;
 
-        // A run meets the next choice within the depth bound and leaves its other
-        // alternatives; beyond the bound it takes the first of every choice left.
+        // Below the empty prefix or a second alternative the run meets the next choice:
+        // within the depth bound it leaves the second alternative, beyond it none.
         decide choiceGate;
-        if choicesAhead > 0 and met < depth then meetChoice;
-        if choicesAhead > 0 and met >= depth then passBeyond;
+        if choicesAhead > 0 and (choice == 0 or taken == 2) and choice < depth then meetChoice;
+        if choicesAhead > 0 and (choice == 0 or taken == 2) and choice >= depth then passBeyond;
         else runLeaf;
 
         succession first meetChoice then runMade;
         succession first passBeyond then runMade;
         succession first runLeaf then runMade;
 
+        // The choice the prefix ended at is the run's to advance: it leaves the next
+        // alternative while one is untried.
         merge runMade;
-        succession first runMade then queueChoices;
+        succession first runMade then nextGate;
+
+        decide nextGate;
+        if choice > 0 and taken < alternatives then leaveNext;
+        else queueChoices;
+
+        succession first leaveNext then queueChoices;
         succession first queueChoices then queueGate;
 
         // The queue starts with the empty prefix and grows by what each run leaves
         // unexplored; exploration ends when it drains or the runs are spent.
         decide queueGate;
         if queued == 0 or runsLeft <= 0 then sortOutcomes;
-        else takePrefix;
+        else headGate;
+
+        // What a run leaves goes right after it in plan order, deepest first: the choice
+        // just met, else the next alternative here, else the third of the choice above.
+        decide headGate;
+        if descends then stepDown;
+        if not descends and choice > 0 and taken < alternatives then stepAlong;
+        else stepUp;
+
+        succession first stepDown then takePrefix;
+        succession first stepAlong then takePrefix;
+        succession first stepUp then takePrefix;
 
         succession first sortOutcomes then completionGate;
 
