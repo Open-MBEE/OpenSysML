@@ -230,7 +230,9 @@ func sweepFailure(err error) *pb.RunSweepResponse {
 
 // sweepResponse spells a table on the wire: one row per run, in plan order, under
 // the standing of the plan that ran it. A row's values and objects are read through
-// the row's own context, the one that produced them.
+// the row's own context, the one that produced them, and the contexts number their
+// objects alike, so each row's are renumbered after the rows before it: the table
+// then names every object once, and a row's references resolve to that row's objects.
 func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb.RunSweepResponse {
 	resp := &pb.RunSweepResponse{
 		Parameters: table.Params,
@@ -241,7 +243,7 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb
 		Strength:   st.strength,
 		Bounds:     st.bounds,
 	}
-	seen := make(map[int64]bool)
+	var ids rowIDs
 	evaluations := v.service.capabilities.has(CapabilityCaseEvaluations)
 	for i := range table.Rows {
 		row := &table.Rows[i]
@@ -276,21 +278,71 @@ func (v *verifyContext) sweepResponse(table runtime.SweepTable, st standing) *pb
 			reported = row.Evaluations
 			out.Evaluations = in.caseEvaluations(reported)
 		}
-		resp.Instances = appendInstances(resp.Instances, seen, in.instanceGraphs(in.runRoots(row.Subject, row.Outputs, reported)))
+		graph := in.instanceGraphs(in.runRoots(row.Subject, row.Outputs, reported))
+		ids.row(out, graph)
+		resp.Instances = append(resp.Instances, graph...)
 		resp.Rows = append(resp.Rows, out)
 	}
 	return resp
 }
 
-// appendInstances adds the objects of one run to the table's, each once, so
-// every row's verdict resolves against the same graph.
-func appendInstances(all []*pb.Instance, seen map[int64]bool, graph []*pb.Instance) []*pb.Instance {
-	for _, inst := range graph {
-		if seen[inst.Id] {
-			continue
-		}
-		seen[inst.Id] = true
-		all = append(all, inst)
+// rowIDs numbers a table's objects across its rows: each row's ids, which its own
+// context counted from 1, are shifted past the greatest id a row before it took.
+type rowIDs struct {
+	shift, last int64
+}
+
+// row renumbers every object reference a row and its graph make, then moves the
+// shift past them for the row after.
+func (r *rowIDs) row(out *pb.SweepRow, graph []*pb.Instance) {
+	for _, in := range out.Inputs {
+		r.value(in.Value)
 	}
-	return all
+	for _, output := range out.Outputs {
+		r.value(output.Value)
+	}
+	for _, verdict := range out.Verdicts {
+		r.id(&verdict.InstanceId)
+	}
+	for _, e := range out.Evaluations {
+		for _, arg := range e.Arguments {
+			r.value(arg)
+		}
+		r.value(e.Result)
+	}
+	for _, inst := range graph {
+		r.id(&inst.Id)
+		for _, fv := range inst.FeatureValues {
+			r.value(fv.Value)
+			for _, v := range fv.Values {
+				r.value(v)
+			}
+		}
+	}
+	r.shift = r.last
+}
+
+// id shifts one reference; 0 names no object and stays so.
+func (r *rowIDs) id(id *int64) {
+	if *id == 0 {
+		return
+	}
+	*id += r.shift
+	r.last = max(r.last, *id)
+}
+
+// value shifts the references a value makes: an object, a function's object, and
+// those of every element it holds.
+func (r *rowIDs) value(v *pb.Value) {
+	switch k := v.GetKind().(type) {
+	case *pb.Value_InstanceId:
+		r.id(&k.InstanceId)
+	case *pb.Value_Function:
+		if k.Function != nil {
+			r.id(&k.Function.SelfId)
+		}
+	}
+	for _, nested := range nestedValues(v) {
+		r.value(nested)
+	}
 }

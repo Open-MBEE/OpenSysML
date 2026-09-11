@@ -8,8 +8,8 @@ import (
 
 // sweepRowsModel declares what the parallel-row tests run: a case whose body writes a
 // feature of its subject, an operation that writes a held object, a part reached only
-// through another, a part whose type exhibits a state, and a calc whose work grows
-// steeply with its input.
+// through another with a case nested under it, a part whose type exhibits a state, a
+// calc whose work grows steeply with its input, and a calc and a case taking arguments.
 const sweepRowsModel = `package Rows {
 	private import ScalarValues::*;
 	part def Ship {
@@ -20,7 +20,11 @@ const sweepRowsModel = `package Rows {
 		}
 	}
 	part ship : Ship;
-	part def Fleet { part flagship : Ship; }
+	part def Fleet {
+		part flagship : Ship {
+			analysis audit : Bump { subject s = flagship; }
+		}
+	}
 	part fleet : Fleet;
 	part def Beacon :> Ship {
 		exhibit state blinking {
@@ -38,6 +42,18 @@ const sweepRowsModel = `package Rows {
 	calc def Fib {
 		in n : Integer;
 		return : Integer = if n < 2 ? n else Fib(n - 1) + Fib(n - 2);
+	}
+	calc def Price {
+		in base : Real;
+		in n : Real;
+		return : Real = base * n;
+	}
+	analysis def Compare {
+		subject s : Ship;
+		in rival : Ship;
+		in scale : Real;
+		action raise { assign rival.cost := rival.cost + 1.0; }
+		out total : Real = (s.cost + rival.cost) * scale;
 	}
 }`
 
@@ -121,18 +137,17 @@ func TestSweepRowsWritingTheSubjectKeepTheWritesToThemselves(t *testing.T) {
 }
 
 // A sweep runs its rows on objects of the held object's declaration, so it refuses an
-// object that a fresh one would not stand for — named by its identity, reached through
-// another object's feature, written by a run, or running a behavior — naming the reason,
-// and leaves the held object as it is.
+// object that a fresh one would not stand for — named by its identity, written by a
+// run, running a behavior, or reached through an object written by a run — naming the
+// reason, and leaves the held object as it is.
 func TestSweepOverAnObjectNotAsItsDeclarationMadeItIsRefused(t *testing.T) {
 	s := loadSource(t, sweepRowsModel)
 	run(t, s, "%instantiate Rows::ship")
-	run(t, s, "%instantiate Rows::fleet")
+	run(t, s, "%instantiate Rows::Fleet")
 	run(t, s, "%instantiate Rows::beacon")
 	refusal := "each row of a sweep runs on an object of its own, made from the declaration"
 	for _, tc := range []struct{ object, reason string }{
 		{"#1", "it is named by its identity, not by a declaration"},
-		{"Rows::fleet.flagship", "it is reached through a feature of another object, not by a declaration of its own"},
 		{"Rows::beacon", "runs exhibited state machine blinking, an execution no other context carries"},
 	} {
 		out := run(t, s, "%sweep Rows::Bump "+tc.object+" tax=1.0..3.0:1.0")
@@ -145,6 +160,95 @@ func TestSweepOverAnObjectNotAsItsDeclarationMadeItIsRefused(t *testing.T) {
 	wants(t, out, "object #1 (ship) had cost written by a run", refusal)
 	rejects(t, out, "run(s)")
 	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
+
+	wants(t, run(t, s, "%invoke Rows::Fleet.flagship bump"), "Invoked bump on object #")
+	written := "(flagship) had cost written by a run"
+	for _, object := range []string{"Rows::Fleet.flagship", "Rows::Fleet"} {
+		out := run(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0")
+		wants(t, out, object+": object #", written, refusal)
+		rejects(t, out, "run(s)")
+	}
+	out = run(t, s, "%sweep Rows::Fleet::flagship::audit tax=1.0..3.0:1.0")
+	wants(t, out, "Rows::Fleet.flagship: object #", written, refusal)
+	rejects(t, out, "run(s)")
+}
+
+// A sweep over an object reached through another's feature — as its subject, or as the
+// owner of a case nested under it — runs each row on an object of the root's
+// declaration walked along the same features in the row's context, so the rows read
+// as the prompt's run on the held object would, and the held objects stay as they were.
+func TestSweepOverAnObjectReachedThroughAnotherRunsOnItsLike(t *testing.T) {
+	for _, tc := range []struct{ name, command string }{
+		{"as subject", "%sweep Rows::Bump Rows::Fleet.flagship tax=1.0..3.0:1.0"},
+		{"as the owner of a nested case", "%sweep Rows::Fleet::flagship::audit tax=1.0..3.0:1.0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := loadSource(t, sweepRowsModel)
+			run(t, s, "%instantiate Rows::Fleet")
+			wants(t, run(t, s, "%features Rows::Fleet.flagship"), "ID: 2", "cost = 5.0")
+			one, eight := onOneJobAndOnEight(t, s, tc.command)
+			for _, table := range []string{one, eight} {
+				wants(t, table, "3 run(s)", "1.0 | 6.0 |", "2.0 | 7.0 |", "3.0 | 8.0 |")
+			}
+			if one != eight {
+				t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
+			}
+			wants(t, run(t, s, "%features Rows::Fleet.flagship"), "ID: 2", "cost = 5.0")
+			if ids := s.heldIDs(); len(ids) != 2 {
+				t.Errorf("the session holds %v, want the fleet and its flagship alone", ids)
+			}
+		})
+	}
+}
+
+// A sweep's arguments are evaluated once, where the prompt evaluates them, and their
+// values carried into every row: a feature a run wrote on a held object reads as
+// written, not as its declaration would make it afresh.
+func TestSweepArgumentsReadAsThePromptReadsThem(t *testing.T) {
+	s := loadSource(t, sweepRowsModel)
+	run(t, s, "%instantiate Rows::ship")
+	wants(t, run(t, s, "%invoke Rows::ship bump"), "Invoked bump on object #1")
+	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
+	one, eight := onOneJobAndOnEight(t, s, "%sweep Rows::Price(base = ship.cost) n=1.0..2.0:1.0")
+	for _, table := range []string{one, eight} {
+		wants(t, table, "2 run(s)", "1.0 | 7.0 |", "2.0 | 14.0 |")
+	}
+	if one != eight {
+		t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
+	}
+	wants(t, run(t, s, "%features Rows::ship"), "cost = 7.0")
+}
+
+// An argument naming a held object binds, in each row, the object the row makes for
+// it — the same one the row's subject or owner is when they coincide — so a row's
+// writes through it stay in the row; an object no row can make refuses the sweep.
+func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
+	s := loadSource(t, sweepRowsModel)
+	run(t, s, "%instantiate Rows::ship")
+	run(t, s, "%instantiate Rows::fleet")
+	wants(t, run(t, s, "%features Rows::fleet.flagship"), "ID: 3", "cost = 5.0")
+	one, eight := onOneJobAndOnEight(t, s, "%sweep Rows::Compare(rival = fleet.flagship) Rows::ship scale=1.0..2.0:1.0")
+	for _, table := range []string{one, eight} {
+		wants(t, table, "2 run(s)", "1.0 | 11.0 |", "2.0 | 22.0 |")
+	}
+	if one != eight {
+		t.Errorf("tables differ on one job\n%s\nand on eight\n%s", one, eight)
+	}
+	wants(t, run(t, s, "%features Rows::fleet.flagship"), "ID: 3", "cost = 5.0")
+	if ids := s.heldIDs(); len(ids) != 3 {
+		t.Errorf("the session holds %v, want the ship, the fleet and its flagship alone", ids)
+	}
+
+	out := run(t, s, "%sweep Rows::Compare(rival = ship) Rows::ship scale=1.0..2.0:1.0")
+	wants(t, out, "2 run(s)", "1.0   | 12.0  |", "2.0   | 24.0  |")
+	wants(t, run(t, s, "%features Rows::ship"), "cost = 5.0")
+
+	wants(t, run(t, s, "%invoke Rows::fleet.flagship bump"), "Invoked bump on object #3")
+	out = run(t, s, "%sweep Rows::Compare(rival = fleet.flagship) Rows::ship scale=1.0..2.0:1.0")
+	wants(t, out, "argument rival cannot be carried into a row of the sweep", "(flagship) had cost written by a run")
+	rejects(t, out, "run(s)")
+	out = run(t, s, "%sweep Rows::Price(base = fleet.flagship.cost) n=1.0..2.0:1.0")
+	wants(t, out, "2 run(s)", "1.0 | 7.0    |", "2.0 | 14.0   |")
 }
 
 // A sweep leaves a debugging session under way where it was: its rows run in contexts

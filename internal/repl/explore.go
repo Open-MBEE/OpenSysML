@@ -250,12 +250,15 @@ type freshPlan struct {
 	exhibits []exhibitEntry
 }
 
-// freshRef is a declaration an explored run instantiates, or the error its name resolved to.
+// freshRef is a declaration an explored run instantiates, or the error its name resolved
+// to. A swept one stands for held objects: root's, and the one reached along path from it.
 type freshRef struct {
-	sym  *symbols.Symbol
-	fqn  string
-	name string
-	err  error
+	sym        *symbols.Symbol
+	fqn        string
+	name       string
+	path       []objectSegment
+	root, held int64
+	err        error
 }
 
 // planFresh resolves the object names an exploration's runs will ask for.

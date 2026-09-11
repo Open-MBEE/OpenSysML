@@ -3,6 +3,8 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -145,9 +147,10 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 
 // runSweep resolves the target an invocation names, evaluates its arguments and
 // ranges once where the prompt does, and makes one analysis or calc run per row, each
-// in a context of the row's own: the arguments are evaluated again there, and the
-// subject and the owner of a nested case are objects of their declarations made there.
-// The session's state is released while the rows run, as it is for an exploration.
+// in a context of the row's own: the argument values are carried there, and the
+// objects they name, the subject and the owner of a nested case are objects of their
+// declarations made there. The session's state is released while the rows run, as it
+// is for an exploration.
 func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
 	doc := s.ws.Document(docName)
 	if doc == nil || doc.Scope == nil {
@@ -168,8 +171,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
-	scope := s.promptScope()
-	positional, named, err := evalInvocationArgs(ctx, scope, parsed)
+	args, err := s.sweptArgs(ctx, s.promptScope(), parsed)
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
@@ -178,11 +180,11 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
-	namedNames := make([]string, 0, len(named))
-	for name := range named {
+	namedNames := make([]string, 0, len(args.named))
+	for name := range args.named {
 		namedNames = append(namedNames, name)
 	}
-	plan, err = ctx.ResolveSweepPlan(sym, plan, len(positional), namedNames)
+	plan, err = ctx.ResolveSweepPlan(sym, plan, len(args.positional), namedNames)
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
@@ -205,7 +207,8 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	runScope := declaringScope(sym, doc.Scope)
 
 	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
-		positional, named, err := evalInvocationArgs(rt, scope, parsed)
+		row := s.rowObjects(rt, args.objects)
+		positional, named, err := args.in(row)
 		if err != nil {
 			return runtime.SweepRunResult{}, err
 		}
@@ -226,10 +229,10 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 			}, nil
 		}
 		args := runtime.AnalysisArgs{Positional: positional, Named: bound}
-		if args.Subject, err = subject.instantiate(rt); err != nil {
+		if args.Subject, err = row.object(subject); err != nil {
 			return runtime.SweepRunResult{}, err
 		}
-		self, err := owner.instantiate(rt)
+		self, err := row.object(owner)
 		if err != nil {
 			return runtime.SweepRunResult{}, err
 		}
@@ -270,22 +273,165 @@ func evalInvocationArgs(ctx *runtime.Context, scope *symbols.Scope, parsed analy
 	return positional, named, nil
 }
 
-// SweptObjectError reports an object of the session a sweep cannot run its rows on:
-// each row runs on a fresh object of the held object's declaration, which stands for
-// the held one only while that one is as its declaration made it, named plainly.
+// sweptArgs are an invocation's arguments as the prompt evaluates them, with what each
+// row makes of the objects they name, by the id of the held object stood for.
+type sweptArgs struct {
+	positional []runtime.Value
+	named      map[string]runtime.Value
+	objects    map[int64]freshRef
+}
+
+// SweptArgumentError reports an argument whose value no row of a sweep can carry
+// into a context of its own.
+type SweptArgumentError struct {
+	Arg string
+	Err error
+}
+
+func (e *SweptArgumentError) Error() string {
+	return fmt.Sprintf("argument %s cannot be carried into a row of the sweep: %v", e.Arg, e.Err)
+}
+
+func (e *SweptArgumentError) Unwrap() error { return e.Err }
+
+// sweptArgs evaluates an invocation's arguments where the prompt does and resolves every
+// object they name to what each row makes of it; a value no row can carry refuses the sweep.
+func (s *Session) sweptArgs(ctx *runtime.Context, scope *symbols.Scope, parsed analysisArgs) (sweptArgs, error) {
+	positional, named, err := evalInvocationArgs(ctx, scope, parsed)
+	if err != nil {
+		return sweptArgs{}, err
+	}
+	args := sweptArgs{positional: positional, named: named, objects: make(map[int64]freshRef)}
+	for i, val := range positional {
+		if err := s.sweptValue(ctx, &args, val, strconv.Quote(parsed.positional[i].text)); err != nil {
+			return sweptArgs{}, err
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(named)) {
+		if err := s.sweptValue(ctx, &args, named[name], name); err != nil {
+			return sweptArgs{}, err
+		}
+	}
+	return args, nil
+}
+
+// sweptValue resolves each object the value of the argument label names to what a
+// row makes of it, carrying the value nowhere yet: a value no row can carry is refused here.
+func (s *Session) sweptValue(ctx *runtime.Context, args *sweptArgs, val runtime.Value, label string) error {
+	_, err := ctx.Carry(val, func(id int64) (*runtime.Instance, error) {
+		if _, done := args.objects[id]; !done {
+			ref, err := s.sweptHeld(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			args.objects[id] = ref
+		}
+		inst, ok := ctx.Instance(id)
+		if !ok {
+			return nil, &UnknownObjectIDError{ID: id, Known: s.heldIDs()}
+		}
+		return inst, nil
+	})
+	if err != nil {
+		return &SweptArgumentError{Arg: label, Err: err}
+	}
+	return nil
+}
+
+// sweptHeld resolves the held object with id, under the label the session reaches
+// it by, to what each row makes of it; one reached by no declaration is refused.
+func (s *Session) sweptHeld(ctx *runtime.Context, id int64) (freshRef, error) {
+	label, ok := s.heldLabel(id)
+	if !ok {
+		return freshRef{}, &SweptObjectError{Ref: fmt.Sprintf("#%d", id), Reason: "it is reached from no declaration the session holds an object of"}
+	}
+	return s.sweptObject(ctx, label)
+}
+
+// in is the arguments carried into one row's context, positional then named in name
+// order so every row makes its objects in one order.
+func (a sweptArgs) in(row *rowObjects) ([]runtime.Value, map[string]runtime.Value, error) {
+	positional := make([]runtime.Value, 0, len(a.positional))
+	for _, val := range a.positional {
+		carried, err := row.ctx.Carry(val, row.bring)
+		if err != nil {
+			return nil, nil, err
+		}
+		positional = append(positional, carried)
+	}
+	named := make(map[string]runtime.Value, len(a.named))
+	for _, name := range slices.Sorted(maps.Keys(a.named)) {
+		carried, err := row.ctx.Carry(a.named[name], row.bring)
+		if err != nil {
+			return nil, nil, err
+		}
+		named[name] = carried
+	}
+	return positional, named, nil
+}
+
+// rowObjects are the objects one row makes for those the session holds, each once,
+// by the id of the held object stood for: a root of a declaration, or one reached from it.
+type rowObjects struct {
+	s    *Session
+	ctx  *runtime.Context
+	refs map[int64]freshRef
+	made map[int64]*runtime.Instance
+}
+
+func (s *Session) rowObjects(ctx *runtime.Context, refs map[int64]freshRef) *rowObjects {
+	return &rowObjects{s: s, ctx: ctx, refs: refs, made: make(map[int64]*runtime.Instance)}
+}
+
+// bring is the row's object for the held one with id, as a Bring.
+func (r *rowObjects) bring(id int64) (*runtime.Instance, error) {
+	ref, ok := r.refs[id]
+	if !ok {
+		return nil, &UnknownObjectIDError{ID: id}
+	}
+	return r.object(ref)
+}
+
+// object makes the object of the reference in the row's context: one of its
+// declaration, walked along its path to the object meant; none for an empty reference.
+func (r *rowObjects) object(ref freshRef) (*runtime.Instance, error) {
+	if ref.sym == nil {
+		return nil, nil
+	}
+	if inst, ok := r.made[ref.held]; ok {
+		return inst, nil
+	}
+	root, ok := r.made[ref.root]
+	if !ok {
+		var err error
+		if root, err = r.ctx.Instantiate(ref.sym); err != nil {
+			return nil, fmt.Errorf("instantiation of %s failed: %w", ref.name, err)
+		}
+		r.made[ref.root] = root
+	}
+	inst, _, err := r.s.walkObjectPath(r.ctx, root, ref.name, ref.path)
+	if err != nil {
+		return nil, err
+	}
+	r.made[ref.held] = inst
+	return inst, nil
+}
+
+// SweptObjectError reports a held object no row of a sweep can make its own of: one not
+// reached from a declaration, or reached from one no longer as the declaration made it.
 type SweptObjectError struct {
 	Ref    string
 	Reason string
 }
 
 func (e *SweptObjectError) Error() string {
-	return fmt.Sprintf("%s: %s; each row of a sweep runs on an object of its own, made from the declaration, so the held object must be as the declaration made it", e.Ref, e.Reason)
+	return fmt.Sprintf("%s: %s; each row of a sweep runs on an object of its own, made from the declaration, so the held object and the object it is reached through must be as the declaration made them", e.Ref, e.Reason)
 }
 
-// sweptObject resolves the object a sweep names as its subject to the declaration each
-// row instantiates: the held object must be named by its declaration and be pristine.
+// sweptObject resolves the object a sweep names to what each row makes of it: one of the
+// declaration it is reached from, walked to along the same features; `#id` is refused.
 func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, error) {
-	inst, label, err := s.resolveObject(text)
+	held, label, err := s.resolveObject(text)
 	if err != nil {
 		return freshRef{}, err
 	}
@@ -296,56 +442,38 @@ func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, erro
 	if ref.id > 0 {
 		return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is named by its identity, not by a declaration"}
 	}
-	for _, seg := range ref.segments {
-		if seg.index > 0 || seg.dotted {
-			return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is reached through a feature of another object, not by a declaration of its own"}
-		}
-	}
-	sym, fqn, err := s.lookupSymbol(joinTyped(ref.segments))
+	root, fqn, path, err := s.namedRoot(ref)
 	if err != nil {
 		return freshRef{}, err
 	}
-	return s.sweptRef(ctx, inst, label, sym, fqn)
+	return s.sweptRef(ctx, root, held, label, fqn, path)
 }
 
 // sweptOwner resolves the object owning the case usage at fqn, when the session holds
-// one, to the declaration each row instantiates as the case's owner; a nested case the
-// session holds no owner for runs on none, as the prompt's run does.
+// one, to what each row makes of it as the case's owner; a nested case the session
+// holds no owner for runs on none, as the prompt's run does.
 func (s *Session) sweptOwner(ctx *runtime.Context, fqn string) (freshRef, error) {
 	held, label := s.owningInstance(fqn)
 	if held == nil {
 		return freshRef{}, nil
 	}
 	segments := strings.Split(fqn, "::")
-	sym, ownerFQN, err := s.lookupSymbol(strings.Join(segments[:len(segments)-1], "::"))
+	root, rootFQN, names := s.heldRoot(strings.Join(segments[:len(segments)-1], "::"))
+	return s.sweptRef(ctx, root, held, label, rootFQN, pathSegments(names))
+}
+
+// sweptRef is the declaration at fqn, held as root, and the path from it to held, as the
+// rows make them; the root must be pristine or a row's walk would reach another object.
+func (s *Session) sweptRef(ctx *runtime.Context, root, held *runtime.Instance, label, fqn string, path []objectSegment) (freshRef, error) {
+	if err := ctx.Pristine(root); err != nil {
+		return freshRef{}, &SweptObjectError{Ref: label, Reason: err.Error()}
+	}
+	name := s.declaredName(fqn)
+	sym, _, err := s.lookupSymbol(name)
 	if err != nil {
 		return freshRef{}, err
 	}
-	return s.sweptRef(ctx, held, label, sym, ownerFQN)
-}
-
-// sweptRef is the declaration at fqn as the rows instantiate it for held, which must be
-// the object the session holds under fqn and stand as the declaration made it.
-func (s *Session) sweptRef(ctx *runtime.Context, held *runtime.Instance, label string, sym *symbols.Symbol, fqn string) (freshRef, error) {
-	if s.instances[fqn] != held {
-		return freshRef{}, &SweptObjectError{Ref: label, Reason: "it is reached through a feature of another object, not by a declaration of its own"}
-	}
-	if err := ctx.Pristine(held); err != nil {
-		return freshRef{}, &SweptObjectError{Ref: label, Reason: err.Error()}
-	}
-	return freshRef{sym: sym, fqn: fqn, name: s.declaredName(fqn)}, nil
-}
-
-// instantiate makes the object of the reference in ctx, none for an empty reference.
-func (r freshRef) instantiate(ctx *runtime.Context) (*runtime.Instance, error) {
-	if r.sym == nil {
-		return nil, nil
-	}
-	inst, err := ctx.Instantiate(r.sym)
-	if err != nil {
-		return nil, fmt.Errorf("instantiation of %s failed: %w", r.name, err)
-	}
-	return inst, nil
+	return freshRef{sym: sym, fqn: fqn, name: name, path: path, root: root.ID, held: held.ID}, nil
 }
 
 // calcResultName names a calc's returned value in a table, so a calc row and an

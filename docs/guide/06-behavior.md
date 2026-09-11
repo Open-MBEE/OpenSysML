@@ -1126,18 +1126,25 @@ than the end of it, and [reference/repl-commands.md](../reference/repl-commands.
 refusal. Sampling is uniform over the range — the bundled library defines no probability
 distribution, so a distribution asked for by name is refused naming what is missing.
 
-Every row is a run of its own: it gets a fresh context, instantiates the case's subject and
-arguments there, and no row sees a value another row wrote. Rows run `%jobs` at a time and the
+Every row is a run of its own: it gets a fresh context, instantiates the case's subject there,
+and no row sees a value another row wrote. The arguments are evaluated once, at the prompt, and
+their values carried into every row — `%sweep An::Price(base = ship.cost) n=1..4` reads
+`ship.cost` as the session holds it, a run's writes included, not as the declaration would make
+it; an argument naming an object binds, in each row, the object the row makes for it under the
+rule below, so a row's writes through it stay in the row. Rows run `%jobs` at a time and the
 table comes out in range order whatever order they finish in, so the table is the same at any
 count — only the `time` column, which is each row's own wall time, varies. A sweep on an object
 the session holds, as `An::ship` above, runs each row on a fresh `An::Ship` made from the same
 declaration, not on the held object, and the held object is untouched afterwards. That stands
-for the held object exactly while it is as its declaration made it, so a sweep over an object
-named by `#<id>` or reached through a feature of another object, or over one a run has written a
-feature of or destroyed, is refused naming the reason rather than run on shared state —
-`%instantiate` it afresh, or name it by its declaration, and sweep that. An object running a
+for the held object exactly while it is as its declaration made it — an object reached through a
+feature of another, `fleet.flagship`, is made again by instantiating `fleet`'s declaration and
+walking to its `flagship` — so a sweep over an object named by `#<id>`, or over one a run has
+written a feature of or destroyed (or that is reached through one it has), is refused naming the
+reason rather than run on shared state — `%instantiate` it afresh, or name it by its declaration,
+and sweep that. An object running a
 behavior its type exhibits or performs is refused too: its execution is one no other context
-carries, so no row could stand for it.
+carries, so no row could stand for it. An argument naming such an object is refused the same way,
+naming the argument.
 
 ### Trade studies
 

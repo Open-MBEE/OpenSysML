@@ -576,8 +576,9 @@ initialSpeed    | accelerationProfile | time    | error
 error 1: analysis Dyn::DynamicsAnalysis: … calc Dyn::Acceleration: division by zero
 ```
 
-**Rows.** Each row is a run in a context of its own: the `-instantiate`d subject and the arguments
-are instantiated afresh for it, so a case that writes a feature of its subject writes its own row's
+**Rows.** Each row is a run in a context of its own: the `-instantiate`d subject is instantiated
+afresh for it and the arguments, evaluated once, are carried in — one naming an `-instantiate`d
+object binds the row's own — so a case that writes a feature of its subject writes its own row's
 object and no row sees another's. Rows run [`-jobs`](#running-in-parallel) at a time and the table
 is in range order whatever order they finish in; the `time` column is each row's own wall time. An
 `-instantiate`d subject whose type exhibits or performs a behavior is refused as a sweep's subject,

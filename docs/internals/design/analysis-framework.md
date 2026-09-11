@@ -459,14 +459,24 @@ a nested case, the exhibits declared — is resolved into a plan before the rele
 nothing the state lock guards. A prompt run in the session's own context (`%run`, `%check`) keeps
 the state lock: its context is what the readers read, and releasing it there would be a shared
 `Context`. A sweep releases it as an exploration does: what its rows name is resolved into a
-plan first, and every row runs in a context of its own — the subject, `self` and the argument
-objects instantiated there, the outputs, verdicts, subject and evaluations read back through
-it (`SweepRow.Context`), never through the session's. A `%sweep` on an object the session holds
+plan first, and every row runs in a context of its own — the subject and `self` instantiated
+there, the outputs, verdicts, subject and evaluations read back through it
+(`SweepRow.Context`), never through the session's. The arguments are evaluated once, where the
+prompt evaluates any expression, so a feature a run wrote on a held object reads as written;
+their values are *carried* into each row (`Context.Carry`): a number, string, quantity or the
+like as it is, every object a value names — alone, in a collection, as a function's self —
+replaced by the one the row makes for it under the held-object rule below (the same object as
+the row's subject or `self` when they coincide), a function read again in the row's context
+over that object. A value bound to the run that made it — a deferred expression closed over
+its environment, a function of a calc declared in a behavior body — is refused with the typed
+`NotPortableError`, wrapped in `SweptArgumentError`. A `%sweep` on an object the session holds
 runs each row on an object of the held object's *declaration*, materialized afresh in the row's
 context, which is the held state as it was when the sweep began exactly when the held closure is
-**pristine**: named by a plain declaration (not `#id`, not a feature path through another
-object), not destroyed, no behavior started on it, no feature of it or of an object it holds
-written since it was materialized (`Context.Pristine`). Anything else is refused with the typed
+**pristine**: reached from a declaration (not `#id`) — an object nested in another's feature is
+reached again by instantiating the root declaration in the row and walking the same feature
+path (`rowObjects`) — and the root not destroyed, no behavior started on it, no feature of it or
+of an object it holds written since it was materialized (`Context.Pristine`, over the root's
+closure). Anything else is refused with the typed
 `SweptObjectError` naming the reason; the sweep never falls back to the session's context. A
 `Snapshot` cannot carry a held object across contexts — `Restore` restores its source context
 alone, and `Adopt` moves an object out of the session's — so the declaration is what a row can
@@ -742,7 +752,8 @@ behavior unchanged until stage 4.
    its readers. The `sweep` engine builds its contexts through the worker
    (`Model.NewContextOn(job, budget)`), counted in `Workers` and `Warming`, and refuses a model
    that can build none with the typed `NoRuntimeError`. The REPL, gRPC and CLI paths instantiate
-   a row's subject, `self`, positional and named arguments in the row's context and read its
+   a row's subject and `self` in the row's context, carry the arguments' values into it
+   (`Context.Carry`, the objects they name made there under the held-object rule) and read its
    outputs, verdicts, subject, evaluations and the objects they name back through it (gRPC's
    `instances` table is shared by the rows and keyed by object identity, as before; rows
    materialize the same graph, so their identities agree). `%sweep` on a held object follows the
@@ -757,8 +768,13 @@ behavior unchanged until stage 4.
    eight, in text and `-json`, apart from the run figures named under *Determinism*; a sweep of
    a bounded recursion descending in its input, so rows arrive out of plan order; a case whose
    body writes a feature of its subject and a `%sweep` on a held object whose rows write it,
-   every row seeing the declaration's value and the held object as it was; the refusals of an
-   object named by identity, reached through a feature, written by a run or running a behavior;
+   every row seeing the declaration's value and the held object as it was; a sweep over an
+   object nested in another's feature, as the subject and as the owner of a nested case, run
+   on the root's like walked along the same path; the refusals of an object named by identity,
+   written by a run, reached through one written by a run or running a behavior; the arguments
+   read as the prompt reads them — a held feature a run wrote carried as written into every
+   row — an argument naming a held object bound in each row to the row's own object for it,
+   the row's subject when they coincide, and refused when no row can make it;
    a deadline met mid-sweep carrying `context.DeadlineExceeded` and no rows; two sweeps on one
    model on two goroutines under `-race`; a debugger session surviving a sweep; a sweep of a
    case whose step the tool engine performs, its rows on several jobs, each row's context
