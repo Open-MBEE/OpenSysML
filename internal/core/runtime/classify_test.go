@@ -1968,7 +1968,8 @@ func TestHoldingByAWiderTypeRecordsItAsADirectType(t *testing.T) {
 func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
-		enum def Level :> Integer { low = 1; high = 3; }
+		metadata def Hot;
+		enum def Level :> Integer { low = 1; high = 3 { attribute n = 9; @Hot; } }
 		enum def Grade :> Real { a = 4.0; b = 3.0; }
 		enum def Color { red; green; blue; }
 		enum def Rank :> Integer { one = 1; three = 3; }
@@ -2010,6 +2011,8 @@ func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 		"(Color::red as Color) hastype Color": true,
 		"isLevel(3)":                          true, "isLevel(three)": true, "asLevel(3) hastype Level": true, "asLevel(3) hastype Integer": false,
 		"viaBody(3) hastype Level": true, "viaBody(3) hastype Integer": false,
+		"Level::high.n == 9": true, "lvl.n == 9": true, "(3 as Level).n == 9": true,
+		"Level::high @ Hot": true, "Level::low @ Hot": false,
 	} {
 		val, err := evalIn(t, ctx, pkg.Scope, src)
 		if err != nil || val.Kind != ValConst || val.Const.Kind != semantics.ValBool {

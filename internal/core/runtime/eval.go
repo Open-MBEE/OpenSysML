@@ -1137,6 +1137,15 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		return value, nil
 	}
 
+	if literal := value.EnumerationLiteral(); literal != nil {
+		// A literal is an occurrence of its enumeration, so its own features are
+		// read from the object that literal stands for, whatever scalar it equals.
+		inst, err := ec.ctx.enumLiteralObject(literal)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
+	}
 	switch value.Kind {
 	case ValSequence, ValSet:
 		return ec.chainOverElements(value, parts, from)
@@ -1156,14 +1165,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		return ec.chainMemberValue(member, parts[1:], from)
 	case ValInstance, ValVariant:
 		// handled below
-	case ValEnumLiteral:
-		// A literal is an occurrence of its enumeration, so its own features are
-		// read from the object that literal stands for.
-		inst, err := ec.ctx.enumLiteralObject(value.Literal())
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 	default:
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
@@ -1635,10 +1636,9 @@ func (ec *EvalContext) elementDenotedBy(val Value) (*symbols.Symbol, bool) {
 		return inst.Type, true
 	case ValVariant:
 		return val.Variant(), val.Variant() != nil
-	case ValEnumLiteral:
-		return val.Literal(), val.Literal() != nil
 	default:
-		return nil, false
+		literal := val.EnumerationLiteral()
+		return literal, literal != nil
 	}
 }
 
