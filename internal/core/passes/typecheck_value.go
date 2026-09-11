@@ -122,6 +122,10 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 		sameKind = sameKind || want.comparableKind() == got.comparableKind()
 		enumerated = append(enumerated, enumeratedText(enum, literal, want))
 	}
+	if len(enumerated) == 0 {
+		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are only its literals", got.text, enum.Name)
+		return
+	}
 	if !sameKind {
 		return
 	}

@@ -97,6 +97,12 @@ func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
 	wantNoValueDiags(t, mixed+`package P { attribute l : L::Level = 3; }`)
 	wantOneValueDiag(t, mixed+`package P { attribute l : L::Level = 2; }`,
 		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::high = 3")
+	wantOneValueDiag(t, `package L { enum def Level :> ScalarValues::Integer { unknown; } }
+		package P { attribute l : L::Level = 2; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are only its literals")
+	wantOneValueDiag(t, `package L { enum def Color { red; green; } }
+		package P { attribute c : L::Color = 2; }`,
+		"cannot bind Natural value to a feature typed by Color")
 }
 
 func TestValueSubtypeInstanceConforms(t *testing.T) {
