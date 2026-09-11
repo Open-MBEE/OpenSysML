@@ -18,16 +18,16 @@ func variantReference(sym *symbols.Symbol) Value {
 // IsVariationFeature reports whether a feature is a variation point, whose feature value
 // holds the variant it is bound to rather than an object of itself.
 func (ctx *Context) IsVariationFeature(feat *EffectiveFeature) bool {
-	return feat != nil && ctx.model.IsVariationFeature(feat.Symbol)
+	return feat != nil && ctx.model.semantics.IsVariationFeature(feat.Symbol)
 }
 
 // variantSegment reads a variant named through the variation feature it belongs
 // to, as in `ring.nesting::nestingTrue`, returning it and the segments left.
 func (ec *EvalContext) variantSegment(feat *EffectiveFeature, rest []ast.NameSegment) (*symbols.Symbol, []ast.NameSegment, bool) {
-	if len(rest) == 0 || feat == nil || !ec.ctx.model.IsVariationFeature(feat.Symbol) {
+	if len(rest) == 0 || feat == nil || !ec.ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 		return nil, nil, false
 	}
-	variant, ok := ec.ctx.model.VariantOf(feat.Symbol, rest[0].Text)
+	variant, ok := ec.ctx.model.semantics.VariantOf(feat.Symbol, rest[0].Text)
 	if !ok {
 		return nil, nil, false
 	}
@@ -37,7 +37,7 @@ func (ec *EvalContext) variantSegment(feat *EffectiveFeature, rest []ast.NameSeg
 // variantSummary names the variants a variation offers, for a report about a
 // selection that is not one of them.
 func (ctx *Context) variantSummary(variation *symbols.Symbol) string {
-	variants := ctx.model.VariantsOf(variation)
+	variants := ctx.model.semantics.VariantsOf(variation)
 	if len(variants) == 0 {
 		return "it declares no variants"
 	}
@@ -60,14 +60,14 @@ func (ctx *Context) bindVariation(feat *EffectiveFeature, selection Value, owner
 		return ctx.bindOneVariant(feat, selection.Set().Elements(), owner)
 	case ValVariant:
 	default:
-		if ctx.model.IsVariationFeature(feat.Symbol) {
+		if ctx.model.semantics.IsVariationFeature(feat.Symbol) {
 			return Value{}, fmt.Errorf("%w: variation %s is bound to a %s", ErrNotAVariant, name, selection.Kind)
 		}
 		return selection, nil
 	}
 
 	variant := selection.Variant()
-	if !ctx.model.SelectsVariantOf(feat.Symbol, variant) {
+	if !ctx.model.semantics.SelectsVariantOf(feat.Symbol, variant) {
 		return Value{}, fmt.Errorf("%w: %s is not a variant of %s (%s)",
 			ErrNotAVariant, variant.Name, name, ctx.variantSummary(feat.Symbol))
 	}
@@ -96,7 +96,7 @@ func (ctx *Context) selectVariant(selection variantSelection, variant string) {
 // feature is a variation, so what a legal selection is does not depend on
 // whether the variation is read through an object or through its declaration.
 func (ec *EvalContext) bindVariationOf(sym *symbols.Symbol, val Value) (Value, error) {
-	if !ec.ctx.model.IsVariationFeature(sym) {
+	if !ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return val, nil
 	}
 	owner := int64(0)
@@ -170,7 +170,7 @@ func (ctx *Context) variantValue(variation, variant *symbols.Symbol, owner int64
 // selected it, with its ends attached to that object's features. A variant of
 // any other kind is an ordinary object of itself. keep receives the object once created.
 func (ctx *Context) variantInstance(variant *symbols.Symbol, owner int64, keep func(*Instance)) error {
-	if !ctx.model.IsConnectorUsage(variant) {
+	if !ctx.model.semantics.IsConnectorUsage(variant) {
 		inst, err := ctx.instantiateAs(variant, 0)
 		if err != nil {
 			return err

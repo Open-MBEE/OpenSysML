@@ -181,7 +181,7 @@ func (ctx *Context) resolveRelationship(sym *symbols.Symbol, rel *ast.Relationsh
 	if text == "" {
 		return "", nil
 	}
-	target, ok := ctx.resolver.ResolveTarget(sym.OwnerScope, rel.Target)
+	target, ok := ctx.model.resolver.ResolveTarget(sym.OwnerScope, rel.Target)
 	if !ok {
 		target = nil
 	}
@@ -199,7 +199,7 @@ func (ctx *Context) chainRoot(sym *symbols.Symbol, chain *ast.FeatureChainExpr) 
 	for _, part := range parts {
 		path = append(path, part.Text)
 	}
-	root, ok := ctx.resolver.ResolveTarget(sym.OwnerScope, base)
+	root, ok := ctx.model.resolver.ResolveTarget(sym.OwnerScope, base)
 	if !ok {
 		root = nil
 	}

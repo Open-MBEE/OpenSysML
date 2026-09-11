@@ -66,7 +66,7 @@ func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, er
 }
 
 // sem is the semantic model the request's runtime evaluates against.
-func (v *verifyContext) sem() *semantics.Model { return v.runtime.Model() }
+func (v *verifyContext) sem() *semantics.Model { return v.runtime.Semantics() }
 
 // lookup resolves an FQN to the symbol it names.
 func (v *verifyContext) lookup(symbolID string) (*symbols.Symbol, error) {

@@ -22,7 +22,7 @@ func libCtx(t *testing.T) *Context {
 	t.Helper()
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
-	return NewContext(semantics.NewModel(resolver), resolver, 10000)
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 }
 
 func constInt(i int64) Value {
@@ -217,7 +217,7 @@ func TestOpenSysMLMathFunctionsMatchTheShippedDeclarations(t *testing.T) {
 	idx.AddDocument(path, file)
 	idx.MarkLibrary(path)
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 	declared := 0
 	for _, sym := range idx.LookupDirectChildren("OpenSysMLMathFunctions") {
@@ -440,7 +440,7 @@ func libraryModelContext(t *testing.T, src string) (*Context, *symbols.Index) {
 	idx.AddDocument("<test>", file)
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	return NewContext(semantics.NewModel(resolver), resolver, 10000), idx
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000), idx
 }
 
 // contextForSource indexes src as one document and returns a runtime context
@@ -451,7 +451,7 @@ func contextForSource(t *testing.T, src string) (*Context, *symbols.Index) {
 	idx := symbols.NewIndex()
 	idx.AddDocument("<test>", file)
 	resolver := resolve.New(idx)
-	return NewContext(semantics.NewModel(resolver), resolver, 10000), idx
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000), idx
 }
 
 // lookupOne returns the single symbol with that fully-qualified name.
@@ -1222,7 +1222,7 @@ func TestVendoredFunctionsAreAllDispatchable(t *testing.T) {
 			idx := symbols.NewIndex()
 			idx.AddDocument(path, file)
 			resolver := resolve.New(idx)
-			ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+			ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 
 			declared := 0
 			for _, sym := range idx.LookupDirectChildren(pkg) {
@@ -1283,7 +1283,7 @@ func checkBuiltinSignature(t *testing.T, ctx *Context, fqn string, sym *symbols.
 		name, _ := ast.EffectiveName(usage)
 		declared = append(declared, declaredParam{
 			name:     name,
-			optional: usage.Value != nil || ctx.model.IsOptionalParameter(usage),
+			optional: usage.Value != nil || ctx.model.semantics.IsOptionalParameter(usage),
 			deferred: usage.Kind == ast.UsageExpr,
 		})
 	}
@@ -1334,7 +1334,7 @@ func TestLibraryFeatureNameReadFromItsLibraryDeclaration(t *testing.T) {
 		t.Fatalf("twoPi declares %T with no value", sym.Decl)
 	}
 
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	got, err := NewEvalContext(ctx, pkg.Scope).Eval(decl.Value)
 	if err != nil {
 		t.Fatalf("2 * TrigFunctions::pi = error %v", err)
@@ -1353,7 +1353,7 @@ func libraryContextForSource(t *testing.T, src string) (*Context, *symbols.Index
 	idx.AddDocument("lib.kerml", file)
 	idx.MarkLibrary("lib.kerml")
 	resolver := resolve.New(idx)
-	return NewContext(semantics.NewModel(resolver), resolver, 10000), idx
+	return NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000), idx
 }
 
 // The library declares `feature pi : Real` with no value, so its value comes from

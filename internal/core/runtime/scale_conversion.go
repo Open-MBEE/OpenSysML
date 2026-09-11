@@ -28,7 +28,7 @@ func differenceUnit(frame *CoordinateFrame) Unit {
 // scaleOfUnit is the measurement scale a quantity's unit anchors to (`3 [UTC]`),
 // false for a unit.
 func (ctx *Context) scaleOfUnit(unit Unit) (*CoordinateFrame, bool, error) {
-	decl, ok := ctx.model.MeasurementScaleOf(unit.Term)
+	decl, ok := ctx.model.semantics.MeasurementScaleOf(unit.Term)
 	if !ok {
 		return nil, false, nil
 	}

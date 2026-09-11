@@ -154,7 +154,7 @@ func TestExecuteProjectsFeatureChainsIntoOwnedParts(t *testing.T) {
 // of the model read the same 2290000 [kg] and 4689000 [kg].
 func TestExecuteAgreesWithTheRuntimeOnDerivedValues(t *testing.T) {
 	fixture := derivedFixture(t, derivedMassesQuery)
-	ctx := runtime.NewContext(fixture.model, fixture.resolver, runtime.DefaultMaxSteps)
+	ctx := runtime.NewContext(runtime.NewModel(fixture.model, fixture.resolver), runtime.DefaultMaxSteps)
 	rocket, err := ctx.Instantiate(fixture.symbol(t, "rocket"))
 	if err != nil {
 		t.Fatalf("Instantiate rocket: %v", err)

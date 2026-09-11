@@ -128,18 +128,18 @@ func (ctx *Context) objectBindings(typeSym *symbols.Symbol) []lower.Binding {
 	if typeSym == nil {
 		return nil
 	}
-	if cached, ok := ctx.bindingIR[typeSym]; ok {
+	if cached, ok := ctx.model.bindingIR[typeSym]; ok {
 		return cached
 	}
 	var bindings []lower.Binding
-	chain := ctx.model.AllSupertypes(typeSym)
+	chain := ctx.model.semantics.AllSupertypes(typeSym)
 	for i := len(chain) - 1; i >= 0; i-- {
 		if chain[i] != nil {
 			bindings = append(bindings, lower.ToBindings(chain[i].Decl, declScope(chain[i]))...)
 		}
 	}
 	bindings = append(bindings, lower.ToBindings(typeSym.Decl, declScope(typeSym))...)
-	ctx.bindingIR[typeSym] = bindings
+	ctx.model.bindingIR[typeSym] = bindings
 	return bindings
 }
 
@@ -147,10 +147,10 @@ func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []l
 	if typeSym == nil {
 		return nil
 	}
-	byFeature, ok := ctx.bindingFeatures[typeSym]
+	byFeature, ok := ctx.model.bindingFeatures[typeSym]
 	if !ok {
 		byFeature = make(map[string][]lower.Binding)
-		ctx.bindingFeatures[typeSym] = byFeature
+		ctx.model.bindingFeatures[typeSym] = byFeature
 	}
 	if bindings, ok := byFeature[name]; ok {
 		return bindings
@@ -169,7 +169,7 @@ func (ctx *Context) bindingsForFeature(typeSym *symbols.Symbol, name string) []l
 // value and so constrains neither feature (KerML 1.0 §7.4.9.2, connector end multiplicity).
 func (ctx *Context) bindingLinksNothing(binding lower.Binding) bool {
 	for _, end := range binding.Ends {
-		if r, ok := ctx.model.RangeOf(end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
+		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok && r.Upper.Known && !r.Upper.Infinite && r.Upper.Value == 0 {
 			return true
 		}
 	}
@@ -387,7 +387,7 @@ func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureV
 		return true, endpoint.across(), nil
 	}
 	for end := range binding.Ends {
-		stated, ok := ctx.model.RangeOf(binding.Ends[end].Multiplicity)
+		stated, ok := ctx.model.semantics.RangeOf(binding.Ends[end].Multiplicity)
 		if !ok {
 			continue
 		}
@@ -471,7 +471,7 @@ func (ctx *Context) ownEndpointValue(loc bindingLocation) (Value, bool, error) {
 func (ctx *Context) wholeBindingCounts(binding lower.Binding, val Value) error {
 	count := int64(len(elementsOf(val)))
 	for end := range binding.Ends {
-		stated, ok := ctx.model.RangeOf(binding.Ends[end].Multiplicity)
+		stated, ok := ctx.model.semantics.RangeOf(binding.Ends[end].Multiplicity)
 		if !ok {
 			continue
 		}
@@ -494,7 +494,7 @@ func (ctx *Context) bindingText(binding lower.Binding) string {
 	ends := make([]string, len(binding.Ends))
 	for i, end := range binding.Ends {
 		ends[i] = ctx.bindingEndpointText(binding, i)
-		if r, ok := ctx.model.RangeOf(end.Multiplicity); ok {
+		if r, ok := ctx.model.semantics.RangeOf(end.Multiplicity); ok {
 			ends[i] = r.Text() + " " + ends[i]
 		}
 	}
@@ -904,7 +904,7 @@ func (ctx *Context) bindingExprText(expr ast.Node, scope *symbols.Scope) string 
 		return "<empty>"
 	}
 	if scope != nil && scope.Owner() != nil {
-		if sf := ctx.sources[scope.Owner().DocName]; sf != nil {
+		if sf := ctx.model.sources[scope.Owner().DocName]; sf != nil {
 			if text := strings.TrimSpace(sf.Text(expr.Span())); text != "" {
 				return text
 			}

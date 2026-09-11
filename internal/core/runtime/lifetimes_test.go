@@ -157,7 +157,7 @@ func TestDestroyedObjectPerformsNothing(t *testing.T) {
 		t.Errorf("messages after destroy = %d, want the 1 sent before it", sent)
 	}
 	members := map[string]*symbols.Symbol{}
-	for _, member := range ctx.model.MembersOf(beacon.Type) {
+	for _, member := range ctx.model.semantics.MembersOf(beacon.Type) {
 		members[member.Name] = member
 	}
 	if _, err := ctx.ExecuteActionPerformedBy(members["ping"], beacon, nil); !errors.Is(err, ErrOccurrenceDestroyed) {

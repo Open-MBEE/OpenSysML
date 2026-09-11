@@ -416,25 +416,31 @@ share, and they are the actual work of this section:
   resolving the same name would race. The gRPC service once serialized every runtime request on
   a model behind one shared pair for this reason.
 - **`runtime.Context`** is a run's mutable state by design and is never shared; `Explore`'s
-  `fresh` already builds one per linearization.
+  `fresh` already builds one per linearization. The memo tables the runtime derives from the
+  model — calc shapes, write and invocation targets, literal caches, compiled calc closures,
+  effective features — live in `runtime.Model`, which memoizes into plain maps as the resolver
+  does and is shared the same way: one per worker, read by every context built over it.
 
-The design takes the first apart by **giving each worker its own resolver and semantic model
-over the shared frozen index**, rather than by making the memoization concurrent. A worker
-(`analysis.Worker`) is built once per plan and reused across its runs, so the memoized
-resolutions are paid `Jobs` times, not once per run; the index, the standard library and the
-lowered graphs are built once and read by all. Making the lazy, recursive resolver lock-safe
-instead was considered and rejected below. The `libs` snapshot already makes the frozen
-standard-library index cheap to share; the per-worker cost is the model's own resolutions, and
-the framework measures it (`plan: 8 workers, 1.2 s warming`) so the trade is visible.
+The design takes the first apart by **giving each worker its own resolver, semantic model and
+`runtime.Model` over the shared frozen index**, rather than by making the memoization
+concurrent. A worker (`analysis.Worker`) is built once per plan and reused across its runs, so
+the memoized resolutions and the runtime's derived tables are paid `Jobs` times, not once per
+run; the index, the standard library and the lowered graphs are built once and read by all.
+Making the lazy, recursive resolver lock-safe instead was considered and rejected below. The
+`libs` snapshot already makes the frozen standard-library index cheap to share; the per-worker
+cost is the model's own resolutions, and the framework measures it (`plan: 8 workers, 1.2 s
+warming`) so the trade is visible.
 
 The surface hands the framework an `analysis.Model` with three ways to a context: `Context`,
 the context the surface itself holds (the REPL's own, whose objects a `%run` names); `Semantics`,
-how to build a resolver and semantic model over the shared index; and `Fresh`, how to build a
-run's context over a worker. `Registry.Answer` gives each plan a copy of the model, so two plans
-on one model never share a worker, and builds the plan's worker on its first run-owned context;
-the count and the time it took are the result's `Workers` and `Warming`. Both are lazy, so
-`Warming` is the cost of construction; the resolutions themselves are paid inside the runs. A
-plan in a context the surface holds builds no worker: that context is the surface's state, and
+how to build a worker's `runtime.Model` — resolver, semantic model and the runtime's memo
+tables — over the shared index; and `Fresh`, how to build a run's context over a worker, which
+allocates the run-derived state alone (objects, lifetimes, the bus, the clock, the scheduler).
+`Registry.Answer` gives each plan a copy of the model, so two plans on one model never share a
+worker, and builds the plan's worker on its first run-owned context; the count and the time it
+took are the result's `Workers` and `Warming`. Both are lazy, so `Warming` is the cost of
+construction; the resolutions themselves are paid inside the runs. A plan in a context the
+surface holds builds no worker: that context is the surface's state, and
 rebuilding it would lose the objects the plan was asked about.
 
 The gRPC service builds a worker per request over the cached model's index and no longer holds

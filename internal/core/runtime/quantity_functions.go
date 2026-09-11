@@ -162,11 +162,11 @@ func angleArgument(ctx *Context, val Value) (semantics.Value, bool) {
 // isAngleUnit reports whether the product is one angular-measure unit (rad, °),
 // as the model classifies it; `rad**2` or an unresolved unit is not an angle.
 func isAngleUnit(ctx *Context, product semantics.UnitProduct) bool {
-	if ctx == nil || ctx.model == nil || len(product.Powers) != 1 {
+	if ctx == nil || ctx.model.semantics == nil || len(product.Powers) != 1 {
 		return false
 	}
 	f := product.Powers[0]
-	return f.Exponent == 1 && ctx.model.IsAngularMeasureUnit(f.Unit)
+	return f.Exponent == 1 && ctx.model.semantics.IsAngularMeasureUnit(f.Unit)
 }
 
 // quantityArg reads a ScalarQuantityValue argument: a quantity, or a number,

@@ -495,7 +495,7 @@ const adoptMetadataSrc = `package Demo {
 // object there, so reading it again answers it rather than making a second one.
 func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 	prev := contextOver(t, adoptMetadataSrc)
-	reader, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Reader"))
+	reader, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Reader"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -503,7 +503,7 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(seen): %v", err)
 	}
-	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Holder"))
+	holder, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Holder"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -525,7 +525,7 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 			carried[0].Instance)
 	}
 	made := len(ctx.instances)
-	again, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Reader"))
+	again, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "Demo::Reader"))
 	if err != nil {
 		t.Fatalf("Instantiate after adoption: %v", err)
 	}
@@ -552,7 +552,7 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 // it says now, so the annotation is read again and answers the new value.
 func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	prev := contextOver(t, adoptMetadataSrc)
-	reader, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Reader"))
+	reader, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Reader"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -560,7 +560,7 @@ func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(seen): %v", err)
 	}
-	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Holder"))
+	holder, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Holder"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -577,7 +577,7 @@ func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	if _, err := ctx.Adopt(prev, shapes, holder); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	again, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Reader"))
+	again, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "Demo::Reader"))
 	if err != nil {
 		t.Fatalf("Instantiate after adoption: %v", err)
 	}
@@ -615,9 +615,9 @@ func contextOverDocs(t *testing.T, docs [][2]string) *Context {
 		idx.AddDocument(doc[0], parser.New(source.New(doc[0], []byte(doc[1]))).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	for _, doc := range docs {
-		ctx.RegisterSource(source.New(doc[0], []byte(doc[1])))
+		ctx.Model().RegisterSource(source.New(doc[0], []byte(doc[1])))
 	}
 	return ctx
 }
@@ -655,12 +655,12 @@ func TestAdoptReadsAChangedAboutAnnotationAgain(t *testing.T) {
 	carry := func(t *testing.T, model, notes string) (int64, int64) {
 		t.Helper()
 		prev := contextOverDocs(t, [][2]string{{"model.sysml", adoptAboutModel}, {"notes.sysml", adoptAboutNotes}})
-		reader, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Reader"))
+		reader, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Reader"))
 		if err != nil {
 			t.Fatalf("Instantiate: %v", err)
 		}
 		before := read(t, prev, reader)
-		holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Holder"))
+		holder, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Holder"))
 		if err != nil {
 			t.Fatalf("Instantiate: %v", err)
 		}
@@ -671,7 +671,7 @@ func TestAdoptReadsAChangedAboutAnnotationAgain(t *testing.T) {
 		if _, err := ctx.Adopt(prev, prev.ShapesOf(holder), holder); err != nil {
 			t.Fatalf("Adopt: %v", err)
 		}
-		again, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Reader"))
+		again, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "Demo::Reader"))
 		if err != nil {
 			t.Fatalf("Instantiate after adoption: %v", err)
 		}

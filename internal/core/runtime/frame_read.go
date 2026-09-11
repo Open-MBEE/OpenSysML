@@ -55,8 +55,8 @@ var frameFeatureRoles = []string{
 
 // frameFeatureSymbols memoizes the declaring symbol of each role's feature.
 func (ctx *Context) frameFeatureSymbols() map[*symbols.Symbol]string {
-	if ctx.frameFeatures != nil {
-		return ctx.frameFeatures
+	if ctx.model.frameFeatures != nil {
+		return ctx.model.frameFeatures
 	}
 	roles := make(map[*symbols.Symbol]string)
 	for _, role := range frameFeatureRoles {
@@ -65,11 +65,11 @@ func (ctx *Context) frameFeatureSymbols() map[*symbols.Symbol]string {
 		if typ == nil {
 			continue
 		}
-		if feat, ok := ctx.model.LookupMember(typ, roleFeatureName(role)); ok && feat != nil {
+		if feat, ok := ctx.model.semantics.LookupMember(typ, roleFeatureName(role)); ok && feat != nil {
 			roles[feat] = role
 		}
 	}
-	ctx.frameFeatures = roles
+	ctx.model.frameFeatures = roles
 	return roles
 }
 
@@ -90,7 +90,7 @@ func (ctx *Context) frameRoleOf(member *symbols.Symbol) (string, bool) {
 	if role, ok := roles[member]; ok {
 		return role, true
 	}
-	for _, redefined := range ctx.model.AllRedefinedFeatures(member) {
+	for _, redefined := range ctx.model.semantics.AllRedefinedFeatures(member) {
 		if role, ok := roles[redefined]; ok {
 			return role, true
 		}
@@ -142,22 +142,22 @@ func (ctx *Context) roleValue(what string, inst *Instance, role string) (Value, 
 func (ctx *Context) isFrameType(typ *symbols.Symbol) bool {
 	vectorRef := ctx.librarySymbol(vectorMRefTypeFQN)
 	unit := ctx.librarySymbol(measurementUnitTypeFQN)
-	if vectorRef == nil || typ == nil || !ctx.model.Conforms(typ, vectorRef) {
+	if vectorRef == nil || typ == nil || !ctx.model.semantics.Conforms(typ, vectorRef) {
 		return false
 	}
-	return unit == nil || !ctx.model.Conforms(typ, unit)
+	return unit == nil || !ctx.model.semantics.Conforms(typ, unit)
 }
 
 // isTransformationType reports a type whose objects are coordinate transformations.
 func (ctx *Context) isTransformationType(typ *symbols.Symbol) bool {
 	base := ctx.librarySymbol(transformationTypeFQN)
-	return base != nil && typ != nil && ctx.model.Conforms(typ, base)
+	return base != nil && typ != nil && ctx.model.semantics.Conforms(typ, base)
 }
 
 // conformsToLibrary reports whether typ conforms to the library type named.
 func (ctx *Context) conformsToLibrary(typ *symbols.Symbol, fqn string) bool {
 	base := ctx.librarySymbol(fqn)
-	return base != nil && typ != nil && ctx.model.Conforms(typ, base)
+	return base != nil && typ != nil && ctx.model.semantics.Conforms(typ, base)
 }
 
 // referenceValueOfObject reads an object typed by a MeasurementReferences type
@@ -290,7 +290,7 @@ func (ctx *Context) readFrameAxes(what string, inst *Instance, frame *Coordinate
 			return err
 		}
 	default:
-		if fixed, ok := ctx.model.FixedDimensions(ctx.objectType(inst)); ok {
+		if fixed, ok := ctx.model.semantics.FixedDimensions(ctx.objectType(inst)); ok {
 			frame.Dimensions = fixed
 		} else {
 			frame.Dimensions = []int64{int64(len(refs))}

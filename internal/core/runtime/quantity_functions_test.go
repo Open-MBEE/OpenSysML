@@ -28,7 +28,7 @@ func TestQuantityCalculationsAreAllDispatchable(t *testing.T) {
 	idx := libs.NewModelIndex()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	for pkg, path := range packages {
 		t.Run(pkg, func(t *testing.T) {
@@ -63,7 +63,7 @@ func TestQuantityCalculationsAreAllDispatchable(t *testing.T) {
 func effectiveInputs(t *testing.T, ctx *Context, sym *symbols.Symbol) []declaredParam {
 	t.Helper()
 	var params []declaredParam
-	for _, param := range ctx.model.BehaviorParametersOf(sym) {
+	for _, param := range ctx.model.semantics.BehaviorParametersOf(sym) {
 		if param.IsResult || (param.Direction != ast.DirIn && param.Direction != ast.DirInOut) {
 			continue
 		}
@@ -72,8 +72,8 @@ func effectiveInputs(t *testing.T, ctx *Context, sym *symbols.Symbol) []declared
 			t.Fatalf("%s: parameter %s is declared by a %T, not a usage", ctx.qualifiedSymbolName(sym), param.Symbol.Name, param.Symbol.Decl)
 		}
 		params = append(params, declaredParam{
-			name:     ctx.model.EffectiveNameOf(param.Symbol),
-			optional: usage.Value != nil || ctx.model.IsOptionalParameter(usage),
+			name:     ctx.model.semantics.EffectiveNameOf(param.Symbol),
+			optional: usage.Value != nil || ctx.model.semantics.IsOptionalParameter(usage),
 		})
 	}
 	return params

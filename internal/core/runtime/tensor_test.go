@@ -161,7 +161,7 @@ func TestTensorQuantityConformsToItsDeclaredTypes(t *testing.T) {
 		"Quantities::ScalarQuantityValue": false,
 		"ScalarValues::Real":              false,
 	} {
-		declared := lookupOne(t, ctx.resolver.Index(), typeFQN)
+		declared := lookupOne(t, ctx.model.resolver.Index(), typeFQN)
 		ok, refusal, err := ctx.valueConforms(scope, &stress, declared, admitWritten)
 		if err != nil {
 			t.Fatalf("conformance of a tensor to %s: %v", typeFQN, err)

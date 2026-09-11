@@ -25,7 +25,7 @@ func parseExpr(t *testing.T, src string) ast.Node {
 // reports the same error each time rather than a cached success.
 func TestRepeatedLiteralEvaluationAnswersAlike(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, sumModel)
-	ctx := NewContext(model, resolver, 1000)
+	ctx := NewContext(NewModel(model, resolver), 1000)
 
 	for _, tc := range []struct {
 		src  string
@@ -70,7 +70,7 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		calc def fib { in k : Integer; return : Integer = if k <= 1 ? k else fib(k - 1) + fib(k - 2); }
 		calc def three { in a : Integer; in b : Integer; in c : Integer; return : Integer = a * 100 + b * 10 + c; }
 	`)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 	ec := NewEvalContext(ctx, root)
 
 	for _, tc := range []struct {
@@ -115,7 +115,7 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 		calc def twice { in x : Integer; return : Integer = x + x; }
 		calc def fib { in k : Integer; return : Integer = if k <= 1 ? k else fib(k - 1) + fib(k - 2); }
 	`)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 	ec := NewEvalContext(ctx, root)
 
 	for _, tc := range []struct {

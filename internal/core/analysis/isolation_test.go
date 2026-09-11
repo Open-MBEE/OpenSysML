@@ -21,7 +21,7 @@ type workers struct {
 // recording is the fixture's building model with every worker it makes recorded.
 func (f *fixture) recording(w *workers) *Model {
 	return &Model{
-		Semantics: func() (*resolve.Resolver, *semantics.Model, error) {
+		Semantics: func() (*runtime.Model, error) {
 			w.mu.Lock()
 			w.asked++
 			w.mu.Unlock()
@@ -41,8 +41,8 @@ func (w *workers) distinct() (resolvers, models int) {
 	seenR := make(map[*resolve.Resolver]bool)
 	seenM := make(map[*semantics.Model]bool)
 	for _, worker := range w.built {
-		seenR[worker.Resolver] = true
-		seenM[worker.Model] = true
+		seenR[worker.Model.Resolver()] = true
+		seenM[worker.Model.Semantics()] = true
 	}
 	return len(seenR), len(seenM)
 }

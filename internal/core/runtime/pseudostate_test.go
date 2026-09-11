@@ -245,7 +245,7 @@ func stateExecutorFor(t *testing.T, machine *ast.Usage) *StateExecutor {
 	t.Helper()
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 100000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 100000)
 
 	exec, err := newStateExecutor(ctx, &symbols.Symbol{
 		Kind: symbols.SymbolStateUsage,

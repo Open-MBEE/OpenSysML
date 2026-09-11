@@ -264,7 +264,7 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 // checkResultParameters refuses an action, or a node of its flow, declaring a
 // `return` parameter — only a function or expression owns one.
 func (e *ActionExecutor) checkResultParameters() error {
-	for _, param := range e.ctx.model.BehaviorParametersOf(e.action) {
+	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
 		if param.IsResult {
 			return fmt.Errorf("%w: action %s declares `return %s`; write `out %s`",
 				ErrActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)

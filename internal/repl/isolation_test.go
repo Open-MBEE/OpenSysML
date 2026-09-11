@@ -117,11 +117,11 @@ func TestExploredNestedCaseOwnerIsPlannedBeforeRelease(t *testing.T) {
 	}
 	held := s.heldIDs()
 
-	sem, resolver, err := s.semanticModel()
+	model, err := s.runtimeModel()
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, err := s.newRuntimeOver(sem, resolver)
+	ctx, err := s.newRuntimeOver(model)
 	if err != nil {
 		t.Fatal(err)
 	}

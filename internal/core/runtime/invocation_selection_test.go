@@ -1097,7 +1097,7 @@ func testBareCallSelectsAmongOtherDocumentsRootDeclarations(t *testing.T) {
 	`))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	rootScope := idx.DocumentRoot("<test>")
 	for calc, want := range map[string]int64{"byInt": 1, "byString": 2, "byBool": 3} {
 		sym := findSymbolByName(rootScope, calc, ast.DefCalc)
@@ -1141,7 +1141,7 @@ func testBareCallReachesPrivateRootDeclarationsOfOtherDocuments(t *testing.T) {
 	`))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	rootScope := idx.DocumentRoot("<test>")
 	for calc, want := range map[string]int64{"byInt": 1, "byString": 2, "byBool": 3} {
 		sym := findSymbolByName(rootScope, calc, ast.DefCalc)

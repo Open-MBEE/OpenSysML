@@ -71,8 +71,8 @@ func (ec *EvalContext) castEntries(
 // classifies its values where their own content does not state their type.
 func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
 	// An enumeration literal is of its enumeration however its value is written.
-	if sym, ok := ec.ctx.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
-		if canonical, aliased := ec.ctx.resolver.ResolveAliasTarget(sym); aliased {
+	if sym, ok := ec.ctx.model.resolver.ResolveTarget(ec.scope, operand); ok && sym != nil {
+		if canonical, aliased := ec.ctx.model.resolver.ResolveAliasTarget(sym); aliased {
 			sym = canonical
 		}
 		if enum := semantics.EnumerationOwning(sym); enum != nil {
@@ -80,7 +80,7 @@ func (ec *EvalContext) declaredCastTypes(operand ast.Node) []*symbols.Symbol {
 		}
 	}
 	var declared []*symbols.Symbol
-	for _, typ := range ec.ctx.model.ExprResultTypes(ec.scope, operand) {
+	for _, typ := range ec.ctx.model.semantics.ExprResultTypes(ec.scope, operand) {
 		// A feature typed Anything states nothing about the values it holds.
 		if typ != nil && !semantics.IsAnything(typ) {
 			declared = append(declared, typ)
@@ -150,7 +150,7 @@ func (ec *EvalContext) castKeepsReading(
 		return false, err
 	}
 	known := append(append([]*symbols.Symbol{}, declared...), types...)
-	switch ec.ctx.model.ClassifiesTypes(known, target) {
+	switch ec.ctx.model.semantics.ClassifiesTypes(known, target) {
 	case semantics.ClassifiesAll:
 		return true, nil
 	case semantics.ClassifiesNone:
@@ -168,9 +168,9 @@ func (ec *EvalContext) castKeepsReading(
 func (ec *EvalContext) castComposedKeeps(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol, reading map[*symbols.Symbol]bool,
 ) (bool, bool, error) {
-	unions := ec.ctx.model.UnioningTypes(target)
-	intersects := ec.ctx.model.IntersectingTypes(target)
-	differences := ec.ctx.model.DifferencingTypes(target)
+	unions := ec.ctx.model.semantics.UnioningTypes(target)
+	intersects := ec.ctx.model.semantics.IntersectingTypes(target)
+	differences := ec.ctx.model.semantics.DifferencingTypes(target)
 	if len(unions)+len(intersects)+len(differences) == 0 || reading[target] {
 		return false, false, nil
 	}
@@ -243,7 +243,7 @@ func (ec *EvalContext) castTypes(value Value) ([]*symbols.Symbol, error) {
 	// A deferred expression is of the evaluation type the model reads it as, in
 	// the scope it closes over.
 	if value.Kind == ValExpr {
-		if typ := ec.ctx.model.ExprResultType(value.exprEnv(ec).scope, value.Expr()); typ != nil {
+		if typ := ec.ctx.model.semantics.ExprResultType(value.exprEnv(ec).scope, value.Expr()); typ != nil {
 			return []*symbols.Symbol{typ}, nil
 		}
 		evaluation, err := ec.ctx.loadedLibraryType(evaluationTypeFQN)
@@ -290,7 +290,7 @@ func (ec *EvalContext) scalarLibraryType(value Value) *symbols.Symbol {
 	default:
 		return nil
 	}
-	return ec.ctx.model.ScalarSymbol(prim)
+	return ec.ctx.model.semantics.ScalarSymbol(prim)
 }
 
 // positiveValue reports whether a numeric value is greater than zero; a complex
@@ -315,7 +315,7 @@ func positiveValue(value Value) bool {
 func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (bool, error) {
 	switch value.Kind {
 	case ValConst, ValComplex, ValString:
-		prim, ok := ec.ctx.model.ScalarLatticeElement(target)
+		prim, ok := ec.ctx.model.semantics.ScalarLatticeElement(target)
 		got := valuePrimType(&value)
 		if !ok || got == semantics.PrimUnknown {
 			return false, ec.undecidedCast(value, target)
@@ -324,7 +324,7 @@ func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (b
 			return false, nil
 		}
 		// Positive shares Natural's lattice element but not its zero.
-		return !ec.ctx.model.PositiveScalar(target) || positiveValue(value), nil
+		return !ec.ctx.model.semantics.PositiveScalar(target) || positiveValue(value), nil
 	case ValQuantity:
 		return ec.quantityCastKeeps(value, target)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity,
@@ -349,18 +349,18 @@ func (ec *EvalContext) castNarrowerKeeps(value Value, target *symbols.Symbol) (b
 // measurement reference measures every value of that dimension. Anything else a
 // magnitude and a unit do not state, so it is undecided.
 func (ec *EvalContext) quantityCastKeeps(value Value, target *symbols.Symbol) (bool, error) {
-	want, ok := ec.ctx.model.DimensionOfType(target)
+	want, ok := ec.ctx.model.semantics.DimensionOfType(target)
 	if !ok || value.Quantity() == nil {
 		return false, ec.undecidedCast(value, target)
 	}
-	got, ok := ec.ctx.model.DimensionOfUnit(value.Quantity().Unit.Term)
+	got, ok := ec.ctx.model.semantics.DimensionOfUnit(value.Quantity().Unit.Term)
 	if !ok {
 		return false, ec.undecidedCast(value, target)
 	}
 	if !want.Term.Commensurable(got.Term) {
 		return false, nil
 	}
-	if !ec.ctx.model.FixesMeasurementReference(target) {
+	if !ec.ctx.model.semantics.FixesMeasurementReference(target) {
 		return false, ec.undecidedCast(value, target)
 	}
 	return true, nil

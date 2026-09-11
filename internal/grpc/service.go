@@ -352,7 +352,7 @@ func (s *Service) newRuntime(cached *CachedModel) *runtime.Context {
 // newRuntimeOver builds a runtime context under the service's budgets on a worker;
 // every explored run gets one of its own.
 func (s *Service) newRuntimeOver(w *analysis.Worker) *runtime.Context {
-	ctx := runtime.NewContext(w.Model, w.Resolver, s.budgets.MaxSteps)
+	ctx := runtime.NewContext(w.Model, s.budgets.MaxSteps)
 	if err := ctx.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
@@ -827,7 +827,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Model())
+			val, cerr := ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
