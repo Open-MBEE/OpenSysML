@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"math"
 	"testing"
 
@@ -140,6 +141,80 @@ func TestSetFlowsIntoDeclaredCollections(t *testing.T) {
 		if got := intsOf(t, sequenceOf(elementsOf(val))); !equalInts(got, []int64{1, 2, 3}) {
 			t.Errorf("%s = %v, want the distinct elements {1, 2, 3}", src, got)
 		}
+	}
+}
+
+// TestSetBoundaryUnderUniqueness: a Set's elements stay a ValSet dropping repeats,
+// `ordered nonunique` sequence functions keep them, a unique sequence refuses them.
+func TestSetBoundaryUnderUniqueness(t *testing.T) {
+	ctx, idx := libraryModelContext(t, `package test {
+		private import ScalarValues::*;
+		private import Collections::*;
+		private import CollectionFunctions::*;
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+
+		attribute s : Set { :>> elements = (3, 1, 2, 2, 3); }
+		attribute os : OrderedSet { :>> elements = (3, 1, 2); }
+		attribute l : List { :>> elements = (3, 1, 2, 2); }
+		attribute fromIncluding : Set { :>> elements = including(l.elements, 2); }
+		attribute fromUnion : Set { :>> elements = union(l.elements, os.elements); }
+		attribute fromCalc : Set { :>> elements = Doubled(l.elements); }
+		attribute unionAsSequence : Integer[*] ordered nonunique = union(s.elements, s.elements);
+		attribute fromSetAsSequence : Integer[*] ordered = including(s.elements, 4);
+		attribute repeated : Integer[*] ordered = union(s.elements, s.elements);
+		calc def Doubled { in xs : Integer[*] nonunique; return : Integer[*] ordered nonunique = xs->collect{in x; 2 * x}; }
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok {
+		t.Fatal("package test not found")
+	}
+	scope := pkg.Scope
+	sets := map[string][]int64{
+		"fromIncluding.elements": {1, 2, 3},
+		"fromUnion.elements":     {1, 2, 3},
+		"fromCalc.elements":      {2, 4, 6},
+	}
+	for src, want := range sets {
+		val := mustEvalIn(t, ctx, scope, src)
+		if val.Kind != ValSet {
+			t.Errorf("%s: kind = %v, want a set", src, val.Kind)
+			continue
+		}
+		if got := intsOf(t, sequenceOf(elementsOf(val))); !equalInts(got, want) {
+			t.Errorf("%s = %v, want %v", src, got, want)
+		}
+	}
+	sequences := map[string][]int64{
+		"union(l.elements, os.elements)":          {3, 1, 2, 2, 3, 1, 2},
+		"including(l.elements, 2)":                {3, 1, 2, 2, 2},
+		"intersection(l.elements, (2, 2))":        {2, 2},
+		"excluding(l.elements, 1)":                {3, 2, 2},
+		"CollectionFunctions::tail(os)":           {1, 2},
+		"unionAsSequence":                         {1, 2, 3, 1, 2, 3},
+		"fromSetAsSequence":                       {1, 2, 3, 4},
+		"including(s.elements, 2)":                {1, 2, 3, 2},
+		"CollectionFunctions::tail(os) == (1, 2)": nil,
+	}
+	for src, want := range sequences {
+		val := mustEvalIn(t, ctx, scope, src)
+		if want == nil {
+			if val.Kind != ValConst || !val.Const.Bool {
+				t.Errorf("%s = %s, want true", src, FormatValue(val))
+			}
+			continue
+		}
+		if val.Kind != ValSequence {
+			t.Errorf("%s: kind = %v, want a sequence", src, val.Kind)
+			continue
+		}
+		if got := intsOf(t, val); !equalInts(got, want) {
+			t.Errorf("%s = %v, want %v", src, got, want)
+		}
+	}
+	_, err := evalIn(t, ctx, scope, "repeated")
+	if !errors.Is(err, ErrUniquenessViolation) {
+		t.Errorf("repeated = %v, want ErrUniquenessViolation: a unique sequence-held feature refuses the repeat a set would drop", err)
 	}
 }
 

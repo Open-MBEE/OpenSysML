@@ -1,0 +1,24 @@
+{
+  "libraries": true,
+  "type": "calcUsage",
+  "evaluate": "test::m",
+  "outputs": {
+    "typedMasses": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
+    "masses": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
+    "collected": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
+    "plain": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
+    "named": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
+    "heavyMasses": {"type": "Sequence", "elements": [{"type": "Real", "value": 2.5}, {"type": "Real", "value": 4.0}]},
+    "lightMasses": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}]},
+    "heaviestMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
+    "allWeigh": {"type": "Boolean", "value": true},
+    "anyHeavy": {"type": "Boolean", "value": true},
+    "total": {"type": "Real", "value": 8.0},
+    "heaviest": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
+    "firstMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}]},
+    "lastMass": {"type": "Sequence", "elements": [{"type": "Real", "value": 4.0}]},
+    "lightest": {"type": "Real", "value": 1.5},
+    "heaviestOfAll": {"type": "Real", "value": 4.0},
+    "nested": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 4.0}, {"type": "Real", "value": 2.5}]}
+  }
+}

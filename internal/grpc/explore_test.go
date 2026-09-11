@@ -230,7 +230,7 @@ package Fail {
   private import ScalarValues::*;
   action divide {
     attribute d : Integer = 1;
-    attribute q : Integer = 0;
+    attribute q : Rational = 0;
     first start;
     fork split;
     action zero { assign d := 0; }

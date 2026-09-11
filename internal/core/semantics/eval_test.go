@@ -153,31 +153,6 @@ func TestEvalDivByZeroNotEvaluable(t *testing.T) {
 	}
 }
 
-// A constant is a value of the narrowest scalar type that holds it, whatever kind
-// computed it: 4 / 2 is a Natural, 7 / 2 a Rational, -2.0 an Integer.
-func TestPrimTypeOfValueClassifiesByTheValue(t *testing.T) {
-	for _, tc := range []struct {
-		v    Value
-		want PrimType
-	}{
-		{Value{Kind: ValInt, Int: 3}, PrimNatural},
-		{Value{Kind: ValInt, Int: -3}, PrimInteger},
-		{Value{Kind: ValReal, Real: 2.0}, PrimNatural},
-		{Value{Kind: ValReal, Real: -2.0}, PrimInteger},
-		{Value{Kind: ValReal, Real: 3.5}, PrimRational},
-		{Value{Kind: ValReal, Real: math.Inf(1)}, PrimReal},
-		{Value{Kind: ValReal, Real: math.NaN()}, PrimUnknown},
-		{Value{Kind: ValReal, Real: 1e300}, PrimRational},
-		{Value{Kind: ValReal, Real: -9223372036854775808.0}, PrimInteger},
-		{Value{Kind: ValReal, Real: 9223372036854775808.0}, PrimRational},
-		{Value{Kind: ValBool, Bool: true}, PrimBoolean},
-	} {
-		if got := PrimTypeOfValue(tc.v); got != tc.want {
-			t.Errorf("PrimTypeOfValue(%v) = %s, want %s", tc.v, got, tc.want)
-		}
-	}
-}
-
 // WholeNumber converts a whole-valued finite real exactly and refuses the rest.
 func TestWholeNumberRefusesFractionsAndNonFinite(t *testing.T) {
 	if n, ok := (Value{Kind: ValReal, Real: 2.0}).WholeNumber(); !ok || n != 2 {

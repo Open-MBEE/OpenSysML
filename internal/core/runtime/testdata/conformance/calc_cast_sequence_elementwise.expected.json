@@ -5,8 +5,7 @@
   "outputs": {
     "integersOfMixed": {"type": "Sequence", "elements": [
       {"type": "Integer", "value": 1},
-      {"type": "Integer", "value": 3},
-      {"type": "Real", "value": 4.0}
+      {"type": "Integer", "value": 3}
     ]},
     "rationalsOfMixed": {"type": "Sequence", "elements": [
       {"type": "Integer", "value": 1},
@@ -14,11 +13,10 @@
       {"type": "Integer", "value": 3},
       {"type": "Real", "value": 4.0}
     ]},
-    "naturalsOfSigned": {"type": "Sequence", "elements": [
-      {"type": "Integer", "value": 2},
-      {"type": "Integer", "value": 4}
-    ]},
     "noneConform": {"type": "Sequence", "elements": []},
     "emptyStaysEmpty": {"type": "Sequence", "elements": []}
+  },
+  "reads": {
+    "test::naturalsOfSigned": {"error": "classification of a value cannot be decided: whether 2 (an Integer) is a value of Natural is not stated by the value"}
   }
 }

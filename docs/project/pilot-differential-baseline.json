@@ -53,8 +53,8 @@
         "name": "testdata",
         "dir": "testdata",
         "origin": "ours",
-        "files": 17,
-        "digest": "sha256:e05c49ce7bea2559ab9fe69072b2fb1465bd719d719a6a186a3df8e601adffa1"
+        "files": 18,
+        "digest": "sha256:e94ae1ca4106335c99633228ca4ebd5b8f5c70a09040590646b660c2cbb2d366"
       },
       {
         "name": "examples",
@@ -74,13 +74,13 @@
     "recorded": "2026-09-11"
   },
   "totals": {
-    "files": 369,
-    "filesFullyAgreeing": 338,
+    "files": 370,
+    "filesFullyAgreeing": 337,
     "agreement": 34,
     "severityMismatch": 2,
-    "openSysMLOnly": 21,
+    "openSysMLOnly": 28,
     "pilotOnly": 671,
-    "openSysMLDiagnostics": 57,
+    "openSysMLDiagnostics": 64,
     "pilotDiagnostics": 707
   },
   "roots": [
@@ -219,12 +219,12 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "totals": {
         "files": 58,
-        "filesFullyAgreeing": 50,
+        "filesFullyAgreeing": 49,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 4,
+        "openSysMLOnly": 6,
         "pilotOnly": 6,
-        "openSysMLDiagnostics": 4,
+        "openSysMLDiagnostics": 6,
         "pilotDiagnostics": 6
       },
       "files": [
@@ -297,6 +297,26 @@
           ]
         },
         {
+          "path": "Simple Tests/Expressions.kerml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 15,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 16,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "pilotOnly": []
+        },
+        {
           "path": "Simple Tests/FeatureChains.kerml",
           "agreement": [],
           "severityMismatch": [],
@@ -358,13 +378,13 @@
       "name": "testdata",
       "dir": "testdata",
       "totals": {
-        "files": 17,
+        "files": 18,
         "filesFullyAgreeing": 10,
         "agreement": 34,
         "severityMismatch": 1,
-        "openSysMLOnly": 3,
+        "openSysMLOnly": 8,
         "pilotOnly": 20,
-        "openSysMLDiagnostics": 38,
+        "openSysMLDiagnostics": 43,
         "pilotDiagnostics": 55
       },
       "files": [
@@ -701,6 +721,44 @@
           ],
           "severityMismatch": [],
           "openSysMLOnly": [],
+          "pilotOnly": []
+        },
+        {
+          "path": "passes/unique_values.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [
+            {
+              "line": 6,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 8,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 10,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 13,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 14,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
           "pilotOnly": []
         },
         {
@@ -3914,6 +3972,11 @@
     },
     {
       "side": "opensysml",
+      "message": "1 (an Integer) is written at positions 1 and 2 of a unique feature",
+      "count": 2
+    },
+    {
+      "side": "opensysml",
       "message": "A participates in a specialization cycle",
       "count": 2
     },
@@ -3923,9 +3986,29 @@
       "count": 2
     },
     {
+      "side": "opensysml",
+      "message": "operator '+' is not defined for String and Natural",
+      "count": 2
+    },
+    {
       "side": "pilot",
       "message": "Only one objective is allowed.",
       "count": 2
+    },
+    {
+      "side": "opensysml",
+      "message": "\"a\" (string) is written at positions 1 and 3 of a unique feature",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "1 (an Integer) is written at positions 1 and 3 of a unique feature",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "1.0 (a Real) is written at positions 1 and 2 of a unique feature",
+      "count": 1
     },
     {
       "side": "opensysml",
@@ -4160,13 +4243,13 @@
       }
     ],
     "totals": {
-      "files": 369,
-      "filesFullyAgreeing": 339,
+      "files": 370,
+      "filesFullyAgreeing": 338,
       "agreement": 34,
       "severityMismatch": 2,
-      "openSysMLOnly": 20,
+      "openSysMLOnly": 27,
       "pilotOnly": 671,
-      "openSysMLDiagnostics": 56,
+      "openSysMLDiagnostics": 63,
       "pilotDiagnostics": 707
     },
     "findings": [

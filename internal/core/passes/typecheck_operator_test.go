@@ -153,15 +153,17 @@ func TestCastConformanceUnrelatedTypes(t *testing.T) {
 
 // A collection body's result types the cast argument element by element: a body
 // mapping to a String selects no C; one mapping each element to a Boolean and an
-// Integer selects no String, while it does select the Integers; an element the
-// body leaves untyped may be anything, so nothing is known.
+// Integer selects no String, while it does select the Integers; an untyped parameter
+// is of the elements' type; an element the body leaves untyped may be anything, so
+// nothing is known.
 func TestCastConformanceCollectionBody(t *testing.T) {
 	castDiags(t, "", `feature bad = xs.{in x : A; s} as C;`, "16:16 cast argument is typed by String, unrelated to the target C")
 	castDiags(t, "", `feature bad = xs.{in x : A; (true, 1)} as String;`, "16:16 cast argument is typed by Boolean and Integer, unrelated to the target String")
 	castDiags(t, "", `feature bad = xs.{in x : A; (x, 1)} as String;`, "16:16 cast argument is typed by A and Integer, unrelated to the target String")
+	castDiags(t, "", `feature bad = xs.{in x; (x, 1)} as String;`, "16:16 cast argument is typed by A and Integer, unrelated to the target String")
 	castDiags(t, "", `feature bad = xs->ControlFunctions::collect {in x : A; (true, 1)} as String;`, "16:16 cast argument is typed by Boolean and Integer, unrelated to the target String")
 	castDiags(t, "", `feature some = xs.{in x : A; (true, 1)} as Integer; feature other = xs.{in x : A; (x, 1)} as B;`)
-	castDiags(t, "", `feature open = xs.{in x; (x, 1)} as String; feature open2 = xs.{in x; (untyped, 1)} as String;`)
+	castDiags(t, "", `feature open = untyped.{in x; (x, 1)} as String; feature open2 = xs.{in x; (untyped, 1)} as String;`)
 	castDiags(t, "", `feature kept = xs->ControlFunctions::select {in x : A; true} as B;`)
 	castDiags(t, "", `feature kept = xs.?{in x : A; true} as B;`)
 	castDiags(t, "", `feature bad = xs.?{in x : A; true} as String;`, "16:16 cast argument is typed by A, unrelated to the target String")
@@ -180,7 +182,7 @@ func TestCastConformanceRelatedTypes(t *testing.T) {
 	castDiags(t, `feature redef = base as B;`, "")
 	castDiags(t, "", `feature conjugate = cq as Q;`)
 	castDiags(t, "", `feature wide = untyped as String; feature nothing = null as A; feature real = 3 as Real;`)
-	castDiags(t, "", `feature data = (1 + 2) as String; feature seq = (1, 2) as Integer; feature body = xs.{in x; x} as C;`)
+	castDiags(t, "", `feature data = (1 + 2) as String; feature seq = (1, 2) as Integer; feature body = untyped.{in x; x} as C;`)
 	castDiags(t, "", `feature cond = (if true ? a else a) as C; feature sel = xs.?{in x; true} as B;`)
 	castDiags(t, "", `feature union = a as U; feature member = u as B; feature wider = u as A;`)
 	castDiags(t, "", `feature meet = d as I; feature less = b as Diff; feature kept = dd as A;`)

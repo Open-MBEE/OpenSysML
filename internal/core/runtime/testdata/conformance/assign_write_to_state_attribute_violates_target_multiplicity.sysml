@@ -4,7 +4,7 @@ package test {
 	private import ScalarValues::*;
 
 	state def Gauge {
-		attribute samples : Integer[2] = (0, 0);
+		attribute samples : Integer[2] nonunique = (0, 0);
 		attribute raw[3] = (1, 2, 3);
 
 		entry; then go;

@@ -16,6 +16,6 @@
   drains, and neither flow depends on a fixed decision any more. Both flows now run under
   `go test ./examples/`, through several candidate counts, selections, faults and choice trees.
   The pilot differential baseline is re-recorded from one validator run over the current
-  `examples` tree — 369 files, 338 fully agreeing, 671 pilot-only, 707 pilot diagnostics — so its
+  `examples` tree — 370 files, 337 fully agreeing, 671 pilot-only, 707 pilot diagnostics — so its
   per-file rows and provenance digest measure the same inputs again; the record and the generated
   figures follow.

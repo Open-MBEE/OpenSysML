@@ -263,12 +263,13 @@ func registerUnevaluable(name string, params []declaredParam, reason string) {
 }
 
 // numericScalars adapts an implementation over scalar numeric values: every
-// parameter of such a declaration is one number, so a collection, a string, an
-// instance or a quantity does not conform to it.
+// parameter of such a declaration is one number, so a collection of several, a
+// string, an instance or a quantity does not conform to it.
 func numericScalars(params []string, apply func([]semantics.Value) (semantics.Value, error)) libraryApply {
 	return func(name string, _ *Context, args []Value) (Value, error) {
 		values := make([]semantics.Value, len(args))
 		for i, arg := range args {
+			arg = soleElement(arg)
 			if arg.Kind != ValConst || !arg.Const.IsNumeric() {
 				return Value{}, fmt.Errorf(
 					"%w: function %s parameter %s requires a numeric value, got %s",
@@ -834,7 +835,7 @@ func radiansFromDegrees(args []semantics.Value) (semantics.Value, error) {
 // asComplex reads a Complex argument: a Complex value, or a Real, which
 // ScalarValues declares a Complex (Real :> Complex) with a zero imaginary part.
 func asComplex(name, param string, val Value) (complex128, error) {
-	z, ok := complexOf(val)
+	z, ok := complexOf(soleElement(val))
 	if !ok {
 		return 0, fmt.Errorf(
 			"%w: function %s parameter %q requires a Complex value, got %s",
@@ -1097,6 +1098,7 @@ func compareStrings(op ast.OperatorKind, x, y string) (bool, error) {
 // stringArg reads a String argument, reporting another kind rather than
 // rendering it as a string.
 func stringArg(name, param string, val Value) (string, error) {
+	val = soleElement(val)
 	if val.Kind != ValString {
 		return "", fmt.Errorf(
 			"%w: function %s parameter %q requires a string value, got %s",
@@ -1108,6 +1110,7 @@ func stringArg(name, param string, val Value) (string, error) {
 
 // stringPositionArg reads an Integer position argument of Substring.
 func stringPositionArg(name, param string, val Value) (int64, error) {
+	val = soleElement(val)
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
 		return 0, fmt.Errorf(
 			"%w: function %s parameter %q requires an Integer value, got %s",

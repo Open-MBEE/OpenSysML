@@ -680,7 +680,7 @@ const sweepWritesModelSource = `package Rows {
 		out total : Real = s.cost;
 		out who : Ship = s;
 		out scale = s.weigh;
-		out crew : Ship[*] = (s, s);
+		out crew : Ship[*] nonunique = (s, s);
 		objective cheap { require constraint { total <= 7.0 } }
 	}
 }

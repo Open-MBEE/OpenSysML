@@ -90,7 +90,7 @@ func TestContinueReportsChoicePointsBeforeFailure(t *testing.T) {
 package Debug {
 	private import ScalarValues::*;
 	action crash {
-		attribute x : Integer = 0;
+		attribute x : Rational = 0;
 		attribute zero : Integer = 0;
 		first start;
 		fork split;

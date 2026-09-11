@@ -108,7 +108,9 @@ static void sysml_seq_sep(sysml_int i) { if (i) fputs(", ", stdout); }
 `
 
 // cSeqTemplate is the runtime over one element type; ELEM is the C type, SFX
-// the suffix naming it, PRINT prints one element without a newline.
+// the suffix naming it, PRINT prints one element without a newline, FORMAT
+// writes one into a buffer, KIND is the interpreter's description of one, KEY
+// hashes one and SKIP says which elements equal nothing (a NaN).
 const cSeqTemplate = `
 typedef struct { int8_t shape; sysml_int len; ELEM *data; } sysml_seq_SFX;
 
@@ -170,6 +172,34 @@ static inline ELEM sysml_scalar_SFX(sysml_seq_SFX s, const char *fmt, bool bare,
 
 static inline sysml_seq_SFX sysml_check_SFX(sysml_seq_SFX s, sysml_int lo, sysml_int hi, const char *where) {
 	if (__builtin_expect(s.len < lo || (hi >= 0 && s.len > hi), 0)) sysml_mult_fail(where, s.len, lo, hi);
+	return s;
+}
+
+/* Refuses the first element of s equal to an earlier one, as a write to a unique
+   feature at where does; slots hash each element's 1-based first position. */
+static sysml_seq_SFX sysml_unique_SFX(sysml_seq_SFX s, const char *where) {
+	if (s.len < 2) return s;
+	size_t cap = 16;
+	while (cap < (size_t)s.len * 2) cap *= 2;
+	sysml_int *slots = calloc(cap, sizeof *slots);
+	if (!slots) sysml_fail("out of memory");
+	for (sysml_int i = 0; i < s.len; i++) {
+		ELEM v = s.data[i];
+		if (SKIP(v)) continue;
+		uint64_t h = KEY(v) * 0x9E3779B97F4A7C15ULL;
+		h ^= h >> 32;
+		for (size_t k = (size_t)h & (cap - 1);; k = (k + 1) & (cap - 1)) {
+			if (!slots[k]) { slots[k] = i + 1; break; }
+			if (s.data[slots[k] - 1] == v) {
+				sysml_int first = slots[k];
+				char text[64];
+				FORMAT(v, text, sizeof text);
+				free(slots);
+				sysml_failf("%s: uniqueness violation: %s (KIND) is written at positions %lld and %lld of a unique feature", where, text, (long long)first, (long long)i + 1);
+			}
+		}
+	}
+	free(slots);
 	return s;
 }
 
@@ -324,8 +354,8 @@ static sysml_seq_SFX sysml_parse_seq_SFX(const char *s, const char *name) {
 // cSeqTyped is the runtime that differs by element type: ranges and
 // aggregation over numbers, truth over Booleans, widening to Real.
 const cSeqTyped = `
-static sysml_seq_int sysml_nonnegative_seq(sysml_seq_int s, const char *type) {
-	for (sysml_int i = 0; i < s.len; i++) sysml_nonnegative(s.data[i], type);
+static sysml_seq_int sysml_at_least_seq(sysml_seq_int s, sysml_int lo, const char *type) {
+	for (sysml_int i = 0; i < s.len; i++) sysml_at_least(s.data[i], lo, type);
 	return s;
 }
 
@@ -390,6 +420,16 @@ static sysml_bool sysml_any_true(sysml_seq_bool s) {
 
 static void sysml_print_int(sysml_int v) { printf("%" PRId64, v); }
 static void sysml_print_bool(sysml_bool v) { fputs(v ? "true" : "false", stdout); }
+static void sysml_format_int(sysml_int v, char *out, size_t size) { snprintf(out, size, "%" PRId64, v); }
+static void sysml_format_bool(sysml_bool v, char *out, size_t size) { snprintf(out, size, "%s", v ? "true" : "false"); }
+
+/* The hash key of a Real: its bits, with both zeros as one key since they compare equal. */
+static inline uint64_t sysml_real_key(sysml_real r) {
+	uint64_t k;
+	if (r == 0) r = 0;
+	memcpy(&k, &r, sizeof k);
+	return k;
+}
 
 static void sysml_read_max_elements(void) {
 	const char *raw = getenv("OPENSYSML_MAX_ELEMENTS");
@@ -430,12 +470,18 @@ func cSeqRuntime() string {
 	b.WriteString(cSeqPrelude)
 	// Element printers precede the template; the Real printer is the scalar one.
 	b.WriteString("\nstatic void sysml_print_int(sysml_int v);\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
+	b.WriteString("static void sysml_format_int(sysml_int v, char *out, size_t size);\nstatic void sysml_format_bool(sysml_bool v, char *out, size_t size);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
 	for _, t := range []Type{TypeInt, TypeReal, TypeBool} {
 		print := "sysml_print_" + cSeqSuffix(t)
-		if t == TypeReal {
-			print = "sysml_print_real_value"
+		kind, key, skip := "an Integer", "(uint64_t)", "false && "
+		switch t {
+		case TypeReal:
+			print, kind, key, skip = "sysml_print_real_value", "a Real", "sysml_real_key", "isnan"
+		case TypeBool:
+			kind = "a Boolean"
 		}
-		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", print)
+		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", print,
+			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KIND", kind, "KEY", key, "SKIP", skip)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
 	b.WriteString(cSeqTyped)
@@ -467,7 +513,7 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 		}
 		return fmt.Sprintf("sysml_scalar_%s(%s, %s, %t, %s)", sfx, e.expr(x.X), cWhere(x.Fail), x.Bare, other), true
 	case Let:
-		return fmt.Sprintf("({ %s %s = %s; %s; })", cType(x.Value.Type()), cLocal(x.Name), e.expr(x.Value), e.expr(x.In)), true
+		return fmt.Sprintf("({ %s %s = %s; (void)%s; %s; })", cType(x.Value.Type()), cLocal(x.Name), e.expr(x.Value), cLocal(x.Name), e.expr(x.In)), true
 	case Checked:
 		return e.checked(x), true
 	case Coalesce:
@@ -494,8 +540,30 @@ func (e *cEmitter) seqExpr(x Expr) (string, bool) {
 		return e.sequenced(x.Args, func(v []string) string { return e.seqCall(x, v) }), true
 	case Fold:
 		return e.fold(x), true
+	case Framed:
+		e.temps++
+		r := fmt.Sprintf("sysml_t%d", e.temps)
+		return fmt.Sprintf("({ sysml_enter(); %s %s = %s; sysml_leave(); %s; })", cType(x.Type()), r, e.expr(x.X), r), true
+	case Sampled:
+		return fmt.Sprintf("({ %s %s; })", e.sample(x.S), e.expr(x.In)), true
 	}
 	return "", false
+}
+
+// sample declares a Sample's two variables and fills them one frame deeper; the domain is an
+// argument, evaluated before the frame. Each pair is the three elements a collected SamplePair is.
+func (e *cEmitter) sample(s Sample) string {
+	e.temps++
+	n := e.temps
+	dom, rng := cLocal(s.Dom), cLocal(s.Rng)
+	dsfx, rsfx := cSeqSuffix(s.DomType()), cSeqSuffix(s.RngType())
+	x := s.Body.Params[0]
+	var b strings.Builder
+	fmt.Fprintf(&b, "sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; sysml_seq_%s %s = {SYSML_MANY, 0, NULL}; ", dsfx, dom, rsfx, rng)
+	fmt.Fprintf(&b, "{ %s sysml_s%d = %s; sysml_int sysml_c%d = 0, sysml_d%d = 0; sysml_enter(); ", cType(s.Seq.Type()), n, e.expr(s.Seq), n, n)
+	fmt.Fprintf(&b, "for (sysml_int sysml_i = 0; sysml_i < sysml_s%d.len; sysml_i++) { %s %s = sysml_s%d.data[sysml_i]; %s sysml_v%d = %s; ", n, cType(x.Type), cLocal(x.Name), n, cType(s.Body.Body.Type()), n, e.expr(s.Body.Body))
+	fmt.Fprintf(&b, "sysml_push_%s(&%s, &sysml_c%d, %s); sysml_push_%s(&%s, &sysml_d%d, sysml_v%d); sysml_charge(1); } } sysml_leave();", dsfx, dom, n, cLocal(x.Name), rsfx, rng, n, n)
+	return b.String()
 }
 
 // seqLit concatenates the operands' elements, evaluated left to right.
@@ -517,7 +585,8 @@ func (e *cEmitter) seqLit(x SeqLit) string {
 	})
 }
 
-// checked binds a collection: multiplicity first, then the elements' range.
+// checked binds a collection: multiplicity first, then the elements' range,
+// then their uniqueness.
 func (e *cEmitter) checked(x Checked) string {
 	sfx := cSeqSuffix(x.X.Type())
 	v := e.expr(x.X)
@@ -525,7 +594,10 @@ func (e *cEmitter) checked(x Checked) string {
 		v = fmt.Sprintf("sysml_check_%s(%s, %d, %d, %s)", sfx, v, x.M.Lower, x.M.Upper, cWhere(x.Where))
 	}
 	if x.R != RangeAny {
-		v = fmt.Sprintf("sysml_nonnegative_seq(%s, \"%s\")", v, x.R)
+		v = fmt.Sprintf("sysml_at_least_seq(%s, %d, \"%s\")", v, x.R.Lower(), x.R)
+	}
+	if x.Unique {
+		v = fmt.Sprintf("sysml_unique_%s(%s, %s)", sfx, v, cWhere(x.Where))
 	}
 	return v
 }
