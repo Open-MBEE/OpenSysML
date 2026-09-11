@@ -13,13 +13,11 @@ from opensysml.query import TYPE_PRIMITIVE_CONSTRAINT
 #: Severity the service reports for a diagnostic that makes a model unusable.
 _SEVERITY_ERROR = "error"
 
-#: The query property that is an element's effective name, what ``Symbol.name`` reports.
+#: Query properties: an element's id, its effective name (what ``Symbol.name``
+#: reports) and the id of the element owning it.
+_PROPERTY_ID = "@id"
 _PROPERTY_NAME = "name"
-
-
-def _depth(fqn):
-    """Nesting depth of a qualified name: how many namespaces enclose it."""
-    return fqn.count("::")
+_PROPERTY_OWNER = "owner"
 
 
 class Model:
@@ -378,21 +376,54 @@ class Model:
         """
         if not self._client.server_info().has(CAPABILITY_QUERY):
             return self._walk_to(name)
-        named = self._client.query(
-            self._hash,
-            select=[_PROPERTY_NAME],
-            where={
-                "@type": TYPE_PRIMITIVE_CONSTRAINT,
-                "operator": "=",
-                "property": _PROPERTY_NAME,
-                "value": name,
-            },
-        )
-        for fqn in sorted((element.id for element in named), key=_depth):
+        named = self._query(_PROPERTY_NAME, name, select=[_PROPERTY_OWNER])
+        for fqn in self._outermost_first(named):
             symbol = self._symbol_by_id(fqn)
             if symbol is not None:
                 return symbol
         return None if self.ok else self._walk_to(name)
+
+    def _query(self, prop, value, select):
+        """The elements whose ``prop`` is ``value`` (any of them, given a list)."""
+        return self._client.query(
+            self._hash,
+            select=select,
+            where={
+                "@type": TYPE_PRIMITIVE_CONSTRAINT,
+                "operator": "=",
+                "property": prop,
+                "value": value,
+            },
+        )
+
+    def _outermost_first(self, elements):
+        """The ids of ``elements`` by nesting depth, declaration order among equals.
+
+        Depth is counted up the owner chain rather than from the id's ``::``
+        segments, which a quoted name may contain itself. Each hop up costs one
+        call, and only when the name is shared.
+        """
+        ids = [element.id for element in elements]
+        if len(ids) < 2:
+            return ids
+        owner = {self.root.id: ""}
+        owner.update((element.id, element.get(_PROPERTY_OWNER, "")) for element in elements)
+        unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
+        while unknown:
+            for element in self._query(_PROPERTY_ID, sorted(unknown), select=[_PROPERTY_OWNER]):
+                owner[element.id] = element.get(_PROPERTY_OWNER, "")
+            for fqn in unknown:
+                owner.setdefault(fqn, "")
+            unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
+
+        def depth(fqn):
+            hops = 0
+            while owner.get(fqn):
+                fqn = owner[fqn]
+                hops += 1
+            return hops
+
+        return sorted(ids, key=depth)
 
     def _walk_to(self, name):
         """The first symbol named ``name`` in breadth-first order, or None."""

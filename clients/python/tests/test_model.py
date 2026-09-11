@@ -21,9 +21,11 @@ def _server_info(*capabilities):
 def _client(symbols, capabilities=(CAPABILITY_QUERY,), library=()):
     """A connection to a service holding ``symbols``, keyed and answered by id.
 
-    ``get_symbol`` answers by id and ``query`` filters on ``name``, in the
-    declaration order the dict states, as the service does. ``library`` symbols
-    are resolvable by id but, not being the model's own, are never queried.
+    ``get_symbol`` answers by id and ``query`` filters on ``name`` or ``@id``, in
+    the declaration order the dict states, as the service does. ``library``
+    symbols are resolvable by id but, not being the model's own, are never
+    queried. An element's ``owner`` is the symbol whose ``child_ids`` list it,
+    else its id's parent segment.
     """
     client = Mock()
     client.server_info.return_value = _server_info(*capabilities)
@@ -31,12 +33,25 @@ def _client(symbols, capabilities=(CAPABILITY_QUERY,), library=()):
         symbols.get(symbol_id) or next((s for s in library if s.id == symbol_id), None)
     )
 
+    def owner(info):
+        for parent in symbols.values():
+            if info.id in parent.child_ids:
+                return parent.id
+        return info.id.rpartition("::")[0]
+
     def query(model_hash, payload=None, scope=None, select=None, where=None):
         wanted = None if where is None else where["value"]
+        if isinstance(wanted, str):
+            wanted = [wanted]
         return [
-            QueryElement(id=info.id, type=info.kind, properties={"name": info.name})
+            QueryElement(
+                id=info.id, type=info.kind,
+                properties={"name": info.name, "owner": owner(info)},
+            )
             for info in symbols.values()
-            if wanted is None or info.name == wanted
+            if wanted is None
+            or (where["property"] == "name" and info.name in wanted)
+            or (where["property"] == "@id" and info.id in wanted)
         ]
 
     client.query.side_effect = query
@@ -418,6 +433,35 @@ class TestModelLookup:
         model = self._model(_client(symbols))
 
         assert model.find("Engine").id == "Demo::Engine"
+
+    def test_depth_is_the_owner_chain_not_the_ids_segments(self):
+        """A quoted name may contain ``::``; ``'Z::First'`` is one namespace, not two."""
+        symbols = {
+            "Demo": sysml_pb2.SymbolInfo(
+                id="Demo", name="Demo", kind="package",
+                child_ids=["Demo::Z::First", "Demo::ASecond"],
+            ),
+            "Demo::Z::First": sysml_pb2.SymbolInfo(
+                id="Demo::Z::First", name="Z::First", kind="package",
+                child_ids=["Demo::Z::First::Engine"],
+            ),
+            "Demo::Z::First::Engine": sysml_pb2.SymbolInfo(
+                id="Demo::Z::First::Engine", name="Engine", kind="partDef",
+            ),
+            "Demo::ASecond": sysml_pb2.SymbolInfo(
+                id="Demo::ASecond", name="ASecond", kind="package",
+                child_ids=["Demo::ASecond::Engine"],
+            ),
+            "Demo::ASecond::Engine": sysml_pb2.SymbolInfo(
+                id="Demo::ASecond::Engine", name="Engine", kind="partDef",
+            ),
+        }
+        client = _client(symbols)
+        model = self._model(client)
+
+        assert model.find("Engine").id == "Demo::Z::First::Engine"
+        # Both owners are packages of the root, so one hop up settled the depths.
+        assert client.query.call_count == 2
 
     def test_an_id_the_service_resolves_to_another_symbol_is_not_found(self):
         """The service follows imports; an id lookup names only the symbol carrying that id."""
