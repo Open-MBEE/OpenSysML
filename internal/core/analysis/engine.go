@@ -23,6 +23,10 @@ type Model struct {
 
 	// worker is the plan's, built on first use; a plan's copy of the model owns its own.
 	worker *Worker
+	// tools is the plan's tool runner, put on every context its runs use; nil for none.
+	tools runtime.ToolRunner
+	// attached are the surface contexts carrying tools for the plan, released when it ends.
+	attached []toolAttachment
 }
 
 // Engine is one registered way of answering questions about a model.

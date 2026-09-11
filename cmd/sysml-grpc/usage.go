@@ -111,7 +111,7 @@ func doc() usage.Doc {
 		}, {
 			Title:      "Environment",
 			ManOnly:    true,
-			Items:      usage.BudgetEnvironment(),
+			Items:      append(usage.BudgetEnvironment(), usage.ToolEnvironment()...),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {
 			Title:   "Reporting bugs",

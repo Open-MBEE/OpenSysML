@@ -149,17 +149,25 @@ func (r *Registry) Answer(ctx context.Context, model *Model, q Question, budget 
 // results stand composed; only a plan no engine finished fails with the deadline. The plan
 // works on a copy of model, so its worker is its own and model is never written.
 func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, budget Budget, selection Selection) (Plan, error) {
-	plan := Plan{Question: q, Selection: selection}
-	candidates, err := r.candidates(q.Kind, selection)
-	if err != nil {
-		return plan, err
-	}
 	if !budget.Deadline.IsZero() {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithDeadline(ctx, budget.Deadline)
 		defer cancel()
 	}
 	held := model.plan()
+	held.compute(r.newToolRunner(ctx, held, budget))
+	defer held.release()
+	return r.answer(ctx, held, q, budget, selection)
+}
+
+// answer answers q on the plan's copy of the model, whose tool runner puts every
+// tool-computed performance of its runs back through here as a Compute question.
+func (r *Registry) answer(ctx context.Context, held *Model, q Question, budget Budget, selection Selection) (Plan, error) {
+	plan := Plan{Question: q, Selection: selection}
+	candidates, err := r.candidates(q.Kind, selection)
+	if err != nil {
+		return plan, err
+	}
 	if selection.Mode == SelectAll {
 		return r.answerAll(ctx, held, q, budget, plan, candidates)
 	}

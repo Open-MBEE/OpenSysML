@@ -70,8 +70,8 @@ Evaluate expression and exit (shorthand)
 Analysis engine every check is put to: auto (default) picks the strongest
 engine covering the question, all puts it to every covering engine in name
 order and composes their answers, or an engine by name (run, explore, sweep,
-solve), whose refusal is then the answer; \-engine explore is \-schedule
-explore
+solve, or tool:<name> from OPENSYSML_TOOLS), whose refusal is then the answer;
+\-engine explore is \-schedule explore
 .TP
 .B \-engines
 List the analysis engines this build knows \(em name, authority, the questions
@@ -617,6 +617,16 @@ recursion spends. Default 10000, ceiling 25000.
 .B OPENSYSML_MAX_SWEEP_RUNS
 Runs one parameter sweep or sample may make, each a whole analysis or calc run
 of its own with its own budgets. Default 1000.
+.TP
+.B OPENSYSML_TOOLS
+Directory of the tool manifest: one JSON file per external tool (toolName,
+version, executable, variables), each registered as the engine tool:<name>
+that performs actions annotated ToolExecution with that toolName. Unset
+registers no tool, and such an action is refused.
+.TP
+.B OPENSYSML_TOOL_TIMEOUT
+How long one tool invocation may take, as a Go duration. Default 10s, after
+which the performance fails.
 .TP
 .B OPENSYSML_SMT
 Executable the %check, %explain, %solve, %configure and %optimize commands

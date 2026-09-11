@@ -42,6 +42,42 @@ func (m *Model) plan() *Model {
 	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh}
 }
 
+// toolAttachment is a surface context carrying the plan's tool runner, and the one it carried.
+type toolAttachment struct {
+	ctx      *runtime.Context
+	previous runtime.ToolRunner
+}
+
+// compute sets the plan's tool runner, put on every context its runs use.
+func (m *Model) compute(tools runtime.ToolRunner) {
+	if m != nil {
+		m.tools = tools
+	}
+}
+
+// attach puts the plan's tool runner on a context the surface holds, remembering what it
+// carried so release can give it back.
+func (m *Model) attach(ctx *runtime.Context) {
+	for _, held := range m.attached {
+		if held.ctx == ctx {
+			return
+		}
+	}
+	m.attached = append(m.attached, toolAttachment{ctx: ctx, previous: ctx.ToolRunner()})
+	ctx.SetToolRunner(m.tools)
+}
+
+// release gives every surface context its own tool runner back when the plan ends.
+func (m *Model) release() {
+	if m == nil {
+		return
+	}
+	for _, held := range m.attached {
+		held.ctx.SetToolRunner(held.previous)
+	}
+	m.attached = nil
+}
+
 // builds reports whether the model can make a context of a run's own.
 func (m *Model) builds() bool {
 	return m != nil && m.Semantics != nil && m.Fresh != nil
@@ -85,6 +121,9 @@ func (m *Model) NewContext(budget Budget) (*runtime.Context, error) {
 	if err := ctx.SetBudgets(limits); err != nil {
 		return nil, err
 	}
+	if m.tools != nil {
+		ctx.SetToolRunner(m.tools)
+	}
 	return ctx, nil
 }
 
@@ -95,7 +134,11 @@ func (m *Model) holds() bool { return m != nil && m.Context != nil }
 // its limits untouched, else one of the run's own under the budget.
 func (m *Model) running(engine string, budget Budget) (*runtime.Context, error) {
 	if m.holds() {
-		return m.Context()
+		ctx, err := m.Context()
+		if err == nil && ctx != nil && m.tools != nil {
+			m.attach(ctx)
+		}
+		return ctx, err
 	}
 	if !m.builds() {
 		return nil, &NoRuntimeError{Engine: engine}
