@@ -621,7 +621,7 @@ Vehicles::Car::wheels  PartUsage
       if (reduceMotion.matches) return;
       timer = setInterval(function () {
         if (!root.isConnected) { stop(); return; }
-        if (root.matches(":hover") || root.contains(document.activeElement)) return;
+        if (reduceMotion.matches || root.matches(":hover") || root.contains(document.activeElement)) return;
         show(current + 1, false);
       }, INTERVAL);
     }
