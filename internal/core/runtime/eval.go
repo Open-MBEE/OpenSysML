@@ -908,6 +908,9 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
 	}
+	if msg := ec.ctx.declaredUniquenessRefusal(sym, &val); msg != "" {
+		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
 	}
@@ -1393,8 +1396,8 @@ func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbol
 	return target, true
 }
 
-// evalTypeClassification evaluates `x hastype T`, `x istype T` and the value
-// form of `x @ T`; only `hastype` demands T be one of the value's direct types.
+// evalTypeClassification evaluates `x hastype T`, `x istype T` and the value form of `x @ T`
+// (KerML 1.0 §7.4.9.2): `hastype` reads the direct types alone, `@` holds when any value is of T.
 func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 1 || n.TypeRef == nil {
 		return Value{}, fmt.Errorf("%w: '%s' requires one value and one type",
@@ -1409,54 +1412,39 @@ func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error
 	if err != nil {
 		return Value{}, err
 	}
-	matches, err := ec.valueHasType(value, target, n.Operator == ast.OpHasType)
+	by := byAnyType
+	if n.Operator == ast.OpHasType {
+		by = byOwnType
+	}
+	matches, err := ec.valuesClassified(soleElement(value), target, ec.declaredOperandTypes(n.Operands[0]), by, n.Operator == ast.OpAt)
 	if err != nil {
 		return Value{}, err
 	}
 	return boolValue(matches), nil
 }
 
-func (ec *EvalContext) valueHasType(value Value, target *symbols.Symbol, exact bool) (bool, error) {
+// valuesClassified reports whether target classifies every value of value — or, for `@`, any
+// (KerML 1.0 §7.4.9.2) — so an empty value satisfies `istype` and `hastype` and fails `@`.
+func (ec *EvalContext) valuesClassified(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol, by classifiedBy, any bool,
+) (bool, error) {
+	var elements []Value
 	switch value.Kind {
-	case ValSequence:
-		if value.Sequence() == nil || value.Sequence().Size() == 0 {
-			return true, nil
-		}
-		for _, element := range value.Sequence().Elements() {
-			matches, err := ec.valueHasType(element, target, exact)
-			if err != nil {
-				return false, err
-			}
-			if !matches {
-				return false, nil
-			}
-		}
-		return true, nil
-	case ValSet:
-		if value.Set() == nil || value.Set().Size() == 0 {
-			return true, nil
-		}
-		for _, element := range value.Set().Elements() {
-			matches, err := ec.valueHasType(element, target, exact)
-			if err != nil {
-				return false, err
-			}
-			if !matches {
-				return false, nil
-			}
-		}
-		return true, nil
+	case ValNull, ValInvalid, ValSequence, ValSet:
+		elements = elementsOf(value)
+	default:
+		elements = []Value{value}
 	}
-	direct, err := ec.ctx.directValueTypes(ec.scope, value)
-	if err != nil {
-		return false, err
+	for _, element := range elements {
+		verdict, err := ec.ctx.classifyValue(ec.scope, element, target, declared, by)
+		if err != nil {
+			return false, err
+		}
+		if (verdict == semantics.ClassifiesAll) == any {
+			return any, nil
+		}
 	}
-	// istype reads a composed target as a cast does, weighing the value's types
-	// together; hastype stays on identity with one of them.
-	if !exact {
-		return ec.ctx.model.semantics.ClassifiesTypes(direct, target) == semantics.ClassifiesAll, nil
-	}
-	return slices.Contains(direct, target), nil
+	return !any, nil
 }
 
 // directValueTypes names the types a value is of, resolved in the scope reading it:
@@ -1515,7 +1503,16 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		case semantics.ValInt:
 			name = "Integer"
 		case semantics.ValReal:
-			name = "Real"
+			// A finite real is a rational (KerML 8.4.4.9.2): only infinities need Real,
+			// and a NaN is no number at all.
+			switch realRepresentationPrim(value.Const.Real) {
+			case semantics.PrimRational:
+				name = "Rational"
+			case semantics.PrimReal:
+				name = "Real"
+			default:
+				return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
+			}
 		case semantics.ValBool:
 			name = "Boolean"
 		case semantics.ValInfinity:
@@ -1556,10 +1553,10 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 		}
 		return ctx.directValueType(scope, Value{Kind: ValConst, Const: value.Quantity().Num})
 	case ValComplex:
-		name = "Complex"
-		if re, ok := value.realPart(); ok {
-			return ctx.directValueType(scope, realConst(re))
+		if isNaN(value) {
+			return nil, fmt.Errorf("%w: NaN is of no scalar type", ErrUndeterminedValueType)
 		}
+		name = "Complex"
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:
 		return ctx.structuredValueType(value)
 	case ValMeasurementRef:
@@ -1942,7 +1939,7 @@ func (ec *EvalContext) evalEquality(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.ctx.equalityValues(n.Operator, left, right)
+	return ec.ctx.equalityValues(n.Operator, soleElement(left), soleElement(right))
 }
 
 // equalityValues applies `==` or `!=` to two evaluated operands; the operator
@@ -2154,8 +2151,9 @@ func combineBooleans(op ast.OperatorKind, l, r bool) (Value, error) {
 	return Value{}, fmt.Errorf("%w: '%s' is not a Boolean operator", ErrUnsupportedOperator, op)
 }
 
-// valueOperand evaluates an operand an operator needs a value of: a feature
-// holding none is reported as such, not as an operand of the wrong type.
+// valueOperand evaluates an operand an operator needs one value of: a feature
+// holding none is reported as such, not as an operand of the wrong type, and a
+// one-element collection is the value it holds.
 func (ec *EvalContext) valueOperand(node ast.Node) (Value, error) {
 	val, err := ec.Eval(node)
 	if err != nil {
@@ -2164,12 +2162,13 @@ func (ec *EvalContext) valueOperand(node ast.Node) (Value, error) {
 	if ec.ctx.HoldsNoValue(val) {
 		return Value{}, ec.ctx.noValueError(val, node)
 	}
-	return val, nil
+	return soleElement(val), nil
 }
 
 // boolOperand reads a Boolean out of a value, naming what was expected when the
 // value is not one.
 func boolOperand(what string, v Value) (bool, error) {
+	v = soleElement(v)
 	if v.Kind != ValConst || v.Const.Kind != semantics.ValBool {
 		return false, fmt.Errorf("%w: %s must be Boolean, got %s", ErrTypeMismatch, what, v.Kind)
 	}

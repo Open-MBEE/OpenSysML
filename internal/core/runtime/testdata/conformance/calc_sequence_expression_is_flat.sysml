@@ -7,9 +7,9 @@ package test {
 	calc flat {
 		attribute xs : Integer[*] = (1, 2, 3);
 		attribute ys : Integer[*] = (2, 4);
-		attribute written : Integer[*] = (xs, ys);
-		attribute joined : Integer[*] = xs->union(ys);
-		attribute mapped : Integer[*] = xs.{in x; (x, x)};
+		attribute written : Integer[*] nonunique = (xs, ys);
+		attribute joined : Integer[*] nonunique = xs->union(ys);
+		attribute mapped : Integer[*] nonunique = xs.{in x; (x, x)};
 		return : Integer =
 			if written->equals(joined) and written->size() == 5 and written#(4) == 2 and mapped->size() == 6
 				? written->size() + mapped->size()

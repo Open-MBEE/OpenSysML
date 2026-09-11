@@ -13,9 +13,11 @@ import (
 // feature written was declared with, and the multiplicity governing how many
 // values it holds.
 type writeTarget struct {
-	name string
-	typ  *symbols.Symbol
-	mult semantics.Range
+	name     string
+	typ      *symbols.Symbol
+	mult     semantics.Range
+	unique   bool // holds no two equal values (KerML isUnique, the default)
+	holdsSet bool // values form a set, which drops repeats itself
 }
 
 // admission is how an object written to a feature answers to the feature's type: a declared value
@@ -48,13 +50,24 @@ func (ctx *Context) writeTargetIn(scope *symbols.Scope, name string) (*writeTarg
 	var target *writeTarget
 	if sym, ok := ctx.model.resolver.LookupName(scope, name); ok && sym != nil && semantics.IsShapeFeature(sym) {
 		mult, _ := ctx.extractMultiplicity(sym)
-		target = &writeTarget{name: name, typ: ctx.extractType(sym), mult: mult}
+		target = ctx.newWriteTarget(sym, name, mult)
 	}
 	if ctx.model.writeTargets == nil {
 		ctx.model.writeTargets = make(map[writeTargetKey]*writeTarget)
 	}
 	ctx.model.writeTargets[key] = target
 	return target, target != nil
+}
+
+// newWriteTarget is what the feature sym, written as name, declares of its values.
+func (ctx *Context) newWriteTarget(sym *symbols.Symbol, name string, mult semantics.Range) *writeTarget {
+	return &writeTarget{
+		name:     name,
+		typ:      ctx.extractType(sym),
+		mult:     mult,
+		unique:   ctx.model.semantics.IsUnique(sym),
+		holdsSet: ctx.holdsSet(sym, ctx.findOwnerType(sym), mult),
+	}
 }
 
 // checkWrite reports a value that does not conform to the declaration of the
@@ -70,7 +83,13 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 	if msg := ctx.writeCountRefusal(target, value); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
-	return ctx.checkWriteType(scope, what, target.typ, value, admitWritten)
+	if err := ctx.checkWriteType(scope, what, target.typ, value, admitWritten); err != nil {
+		return err
+	}
+	if msg := ctx.uniquenessRefusal(target.unique, target.holdsSet, value); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	}
+	return nil
 }
 
 // writeCountRefusal says why the number of values written is outside the
@@ -223,23 +242,13 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		}
 		return ctx.instanceConforms(inst, declared), "", nil
 	}
-	prim := ctx.model.semantics.PrimTypeOf(declared)
-	if got := valuePrimType(value); prim != semantics.PrimUnknown && got != semantics.PrimUnknown {
-		return semantics.PrimConforms(got, prim), "", nil
-	}
-	// Outside the lattice, a constant's direct type is known by name only, so a
-	// target specializing it may still hold the value; a disjoint one cannot.
-	direct, err := ctx.directValueType(scope, *value)
+	// A scalar is what its representation and the declared type say (classifyValue); a
+	// verdict they leave open is the declaration's to make (KerML 1.0 §7.3.4.1).
+	verdict, err := ctx.classifyValue(scope, *value, declared, nil, byAnyType)
 	if err != nil {
 		return false, "", err
 	}
-	if ctx.model.semantics.Conforms(direct, declared) {
-		return true, "", nil
-	}
-	if prim == semantics.PrimUnknown && isScalarConstant(value) {
-		return ctx.model.semantics.Conforms(declared, direct), "", nil
-	}
-	return false, "", nil
+	return verdict != semantics.ClassifiesNone, "", nil
 }
 
 // isScalarConstant reports a value written as one scalar constant.
@@ -488,18 +497,4 @@ func dimensionText(d semantics.Dimension) string {
 		return "dimensionless"
 	}
 	return "dimension " + d.String()
-}
-
-// valuePrimType classifies a value against the scalar lattice by the value itself
-// (4 / 2 is an Integer, 7 / 2 a Rational); outside the lattice it is PrimUnknown.
-func valuePrimType(value *Value) semantics.PrimType {
-	switch value.Kind {
-	case ValConst:
-		return semantics.PrimTypeOfValue(value.Const)
-	case ValComplex:
-		return complexPrimType(value.Complex())
-	case ValString:
-		return semantics.PrimString
-	}
-	return semantics.PrimUnknown
 }

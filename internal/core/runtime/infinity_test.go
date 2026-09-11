@@ -156,3 +156,46 @@ func TestInfinityDirectType(t *testing.T) {
 		}
 	}
 }
+
+// TestUnboundedAgainstDeclaredSubtype judges `*` against a subtype a model declares
+// of Positive as it judges `4` against `Even :> Integer`: a feature declared of the
+// subtype holds it and affirms `istype`, the bare value leaves a cast undecided, and
+// a scalar type beside Positive still excludes it.
+func TestUnboundedAgainstDeclaredSubtype(t *testing.T) {
+	const src = `package test {
+		private import ScalarValues::*;
+		attribute def Boundless :> Positive;
+		attribute def Cost :> Real;
+		attribute def Boolish :> Boolean;
+		attribute limit : Boundless = *;
+		attribute cost : Cost = *;
+	}`
+	cases := map[string]string{
+		"test::limit":                         "*",
+		"test::cost":                          "*",
+		"test::limit istype test::Boundless":  "true",
+		"test::limit hastype test::Boundless": "false",
+		"test::limit @ test::Boundless":       "true",
+		"test::cost istype test::Cost":        "true",
+		"* istype test::Boundless":            "false",
+		"* istype test::Cost":                 "false",
+		"* as test::Boolish":                  "[]",
+		"* as ScalarValues::String":           "[]",
+		"test::limit as test::Boundless":      "*",
+	}
+	for expr, want := range cases {
+		_, got, err := evalDeclaredExpr(t, src, expr)
+		if err != nil {
+			t.Errorf("%s failed: %v", expr, err)
+			continue
+		}
+		if text := FormatValue(got); text != want {
+			t.Errorf("%s = %s, want %s", expr, text, want)
+		}
+	}
+	for _, expr := range []string{"* as test::Boundless", "* as test::Cost", "(1, *) as test::Boundless"} {
+		if _, _, err := evalDeclaredExpr(t, src, expr); !errors.Is(err, ErrUndecidedClassification) {
+			t.Errorf("%s error = %v, want ErrUndecidedClassification", expr, err)
+		}
+	}
+}

@@ -101,8 +101,8 @@ func sysmlQuot(a, b int64) float64 {
 	return q
 }
 
-func sysmlNonNegative(v int64, typ string) int64 {
-	if v < 0 {
+func sysmlAtLeast(v, lo int64, typ string) int64 {
+	if v < lo {
 		sysmlFail(fmt.Sprintf("type mismatch: cannot write %d (an Integer) to a feature typed by %s", v, typ))
 	}
 	return v
@@ -412,7 +412,7 @@ func goNarrowed(v string, r Range) string {
 	if r == RangeAny {
 		return v
 	}
-	return fmt.Sprintf("sysmlNonNegative(%s, %q)", v, r.String())
+	return fmt.Sprintf("sysmlAtLeast(%s, %d, %q)", v, r.Lower(), r.String())
 }
 
 func goParams(fn *Func) string {
@@ -432,8 +432,8 @@ func (e *goEmitter) function(fn *Func) {
 	for _, p := range fn.Params {
 		switch {
 		case p.Type.Many():
-			if p.Mult != MultAny || p.Range != RangeAny {
-				v := e.checked(Checked{X: Var{Name: p.Name, T: p.Type}, M: p.Mult, R: p.Range, Where: paramWhere(p.Name)})
+			if p.Mult != MultAny || p.Range != RangeAny || p.Unique {
+				v := e.checked(Checked{X: Var{Name: p.Name, T: p.Type}, M: p.Mult, R: p.Range, Unique: p.Unique, Where: paramWhere(p.Name)})
 				e.linef(goAssign, goLocal(p.Name), v)
 			}
 		case p.Range != RangeAny:
@@ -506,6 +506,8 @@ func (e *goEmitter) stmt(s Stmt) {
 		e.linef("}")
 	case ForEach:
 		e.forEach(s)
+	case Sample:
+		e.linef("%s", e.sample(s))
 	case Return:
 		e.linef("return %s", goNarrowed(e.expr(s.Value), e.resultRange))
 	default:

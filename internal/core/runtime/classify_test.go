@@ -948,7 +948,7 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 			item def Shelf {
 				item groups : Group [2];
 				item allItems : Thing [0..*];
-				attribute allWeights : Real [0..*];
+				attribute allWeights : Real [0..*] nonunique;
 				attribute allShares : Real [0..*] = (0.1, 0.2, 0.3, 0.4);
 				` + shelf + `
 			}
@@ -1064,7 +1064,7 @@ func TestBindingEndAcrossACollection(t *testing.T) {
 	// An end's multiplicity counts the values of every object reached together: four
 	// weights satisfy [4] though each group holds two, and fall short of [5..*].
 	t.Run("end_multiplicity_over_the_union", func(t *testing.T) {
-		ctx, idx := libraryShapeContext(t, model("attribute four : Real [4]; bind [4] groups.weights = [4] four;"))
+		ctx, idx := libraryShapeContext(t, model("attribute four : Real [4] nonunique; bind [4] groups.weights = [4] four;"))
 		shelf := instantiateQualified(t, ctx, idx, "test::shelf")
 		if got := values(t, ctx, shelf, "four"); got != "[1.0, 2.0, 1.0, 2.0]" {
 			t.Fatalf("four = %s, want the groups' weights, four in all", got)
@@ -1472,7 +1472,7 @@ func TestRefusedClassificationUndoesTheVariantsItSelected(t *testing.T) {
 func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
-		item def Counter { attribute hits : Integer; }
+		item def Counter { attribute hits : Rational; }
 		item def Tallied :> Counter {
 			exhibit state tally {
 				entry; then on;
@@ -1514,7 +1514,7 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
-		item def Counter { attribute hits : Integer; }
+		item def Counter { attribute hits : Rational; }
 		item def Gauge { attribute reading : Integer = 1; }
 		item def Tallied :> Counter {
 			item gauge : Gauge [1];

@@ -117,7 +117,7 @@ func (m *Model) restrictionViolations(sym *symbols.Symbol, traits featureTraits,
 		return nil
 	}
 	var out []ConformanceViolation
-	if traits.IsNonunique && !targetTraits.IsNonunique {
+	if traits.IsNonunique && m.IsUnique(target) {
 		out = append(out, ConformanceViolation{
 			Kind: ViolationUniqueness, Feature: sym, Target: target, Ref: ref,
 		})

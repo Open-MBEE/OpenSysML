@@ -3,7 +3,10 @@
   "type": "calcUsage",
   "evaluate": "test::c",
   "outputs": {
-    "onAxisAsPositive": {"type": "Complex", "value": 4.0, "im": 0.0},
+    "onAxisAsPositive": {"type": "Sequence", "elements": []},
+    "onAxisAsReal": {"type": "Sequence", "elements": []},
+    "onAxisAsComplex": {"type": "Complex", "value": 4.0, "im": 0.0},
+    "realPartAsReal": {"type": "Real", "value": 4.0},
     "negativeOnAxisAsPositive": {"type": "Sequence", "elements": []},
     "offAxisAsPositive": {"type": "Sequence", "elements": []}
   }
