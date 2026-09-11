@@ -155,6 +155,7 @@ func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStep
 		graph.Edges[graph.Nodes[i]] = []ActionEdge{{Source: graph.Nodes[i], Target: graph.Nodes[i+1]}}
 	}
 	recordBlockNodes(graph)
+	lowerFootprints(graph)
 	return graph
 }
 
