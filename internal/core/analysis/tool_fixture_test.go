@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
@@ -31,7 +32,8 @@ const (
 
 // pilotDriver performs the fixture's action with fixed inputs and adopts its outputs; Twice
 // performs it twice with equal inputs, so a tool answering differently is seen in one run;
-// Alike asks the same of it through two actions naming their parameters differently.
+// Alike asks the same of it through two actions naming their parameters differently; Bodied
+// states a body no token flow can run, which its tool never sees.
 const pilotDriver = `package Drive {
 	private import AnalysisAnnotation::ComputeDynamics;
 	private import AnalysisTooling::*;
@@ -103,6 +105,35 @@ const pilotDriver = `package Drive {
 		}
 		bind a1 = stepA.a_out;
 		bind a2 = stepB.acceleration;
+	}
+
+	action def Bodied {
+		metadata ToolExecution {
+			toolName = "ModelCenter";
+			uri = "aserv://localhost/Vehicle/Equation1";
+		}
+		in deltaT : TimeValue         { @ToolVariable { name = "deltaT"; } }
+		in power : PowerValue         { @ToolVariable { name = "power"; } }
+		in dragC : Real               { @ToolVariable { name = "C_D"; } }
+		in frictionC : Real           { @ToolVariable { name = "C_F"; } }
+		in mass : MassValue           { @ToolVariable { name = "mass"; } }
+		in speed0 : SpeedValue        { @ToolVariable { name = "v0"; } }
+		in position0 : LengthValue    { @ToolVariable { name = "x0"; } }
+		out acceleration : AccelerationValue { @ToolVariable { name = "a"; } }
+		out speed : SpeedValue        { @ToolVariable { name = "v"; } }
+		out position : LengthValue    { @ToolVariable { name = "x"; } }
+		assign speed := speed0;
+	}
+
+	action def Embodied {
+		out a : AccelerationValue;
+		out v : SpeedValue;
+		action step : Bodied {
+			in deltaT = 1 [SI::s]; in power = 2 [SI::kW]; in dragC = 0.3; in frictionC = 0.01;
+			in mass = 1500 [SI::kg]; in speed0 = 36 [SI::km / SI::h]; in position0 = 100 [SI::m];
+		}
+		bind a = step.acceleration;
+		bind v = step.speed;
 	}
 }`
 
@@ -454,6 +485,25 @@ func TestPilotFixtureComparesRepliesNotBindings(t *testing.T) {
 	wantValues(t, out, map[string]string{"a1": "3.0 [SI::'m⋅s⁻²']", "a2": "3.0 [SI::'m⋅s⁻²']"})
 	if notes := ctx.Notes(); len(notes) != 0 {
 		t.Fatalf("notes %v, want none: equal replies bound under different names", notes)
+	}
+}
+
+// An annotated action's body is never run, so one no token flow can be lowered from does
+// not keep the tool from performing the action; the tool's answer is what it outputs.
+func TestPilotFixturePerformsAnUnlowerableBodyByTool(t *testing.T) {
+	p := parsePilot(t)
+	bodied := p.action(t, "Bodied")
+	if _, err := lower.ToActionGraph(bodied.Decl, bodied.Scope); !errors.Is(err, lower.ErrStatementOutsideFlow) {
+		t.Fatalf("Bodied lowers to a flow (%v); its body should not", err)
+	}
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	out, plan, err := p.perform(t, r, p.context(), "Embodied")
+	if err != nil {
+		t.Fatalf("perform: %v", err)
+	}
+	wantValues(t, out, map[string]string{"a": "3.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']"})
+	if plan.Result.Claim != ClaimValue || plan.Result.Strength != Observed {
+		t.Fatalf("result %+v, want the tool's answer observed", plan.Result)
 	}
 }
 

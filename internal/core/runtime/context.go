@@ -1329,12 +1329,8 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 // annotates, on the action as named or a type of it, is performed by its tool, which
 // completes it; any other is begun by begin. Every way of starting an action passes through here.
 func (ctx *Context) startAction(exec *ActionExecutor, begin func(*ActionExecutor) error) error {
-	execution, err := ctx.toolExecutionOf(exec.performed)
-	if err != nil {
-		return fmt.Errorf("initialize action: %w", err)
-	}
-	if execution != nil {
-		if err := exec.performByTool(execution); err != nil {
+	if exec.tool != nil {
+		if err := exec.performByTool(exec.tool); err != nil {
 			return fmt.Errorf("perform action by tool: %w", err)
 		}
 		return nil

@@ -707,7 +707,9 @@ behavior unchanged until stage 4.
    listing and `Covers` carry. The runtime side is `runtime.ToolCall`, `ToolRunner` and
    `ActionExecutor.performByTool` (`runtime/tool.go`): a performance of an action carrying
    `ToolExecution` — read from the semantic side tables with `ToolVariable` on its parameters
-   and their supertypes — never initializes the action's flow; with no runner attached, or a
+   and their supertypes — lowers only the action's interface (`lower.ToActionInterface`), never
+   its body, so a body no token flow can be lowered from does not keep the tool from performing
+   the action, and never initializes the action's flow; with no runner attached, or a
    `toolName` no engine answers, it fails with `ToolNotRegisteredError` (*tool 'ModelCenter'
    is not registered; set OPENSYSML_TOOLS*), else it binds the outputs into the action's own
    data so the enclosing action adopts them as it adopts any `out`. Every start of an action
