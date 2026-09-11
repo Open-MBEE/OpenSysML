@@ -18,7 +18,7 @@ package test {
     }
 
     part order {
-        attribute preferred : Engine = engineChoice::eightCyl;
+        ref part preferred : Engine = engineChoice::eightCyl;
         attribute largest : Size = Size::large;
     }
 

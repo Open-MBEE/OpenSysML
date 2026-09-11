@@ -24,7 +24,7 @@ package test {
     part vehicle {
         attribute gearboxCount : Natural = size(all Gearbox);
         attribute firstGearbox = (all Gearbox)#(1);
-        attribute choices : Engine[*] = all engineChoice;
+        ref part choices : Engine[*] = all engineChoice;
         attribute choiceCount : Natural = size(all engineChoice);
         attribute firstChoice = (all engineChoice)#(1);
         attribute lastChoice = (all engineChoice)#(3);

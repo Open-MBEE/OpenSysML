@@ -47,7 +47,7 @@ func (ec *EvalContext) literalValues(literals []*symbols.Symbol) (Value, error) 
 		}
 		values = append(values, val)
 	}
-	return sequenceOf(values), nil
+	return ec.newSequence(values)
 }
 
 // variantValues is what a variation's variants stand for: the value each declares, or an
@@ -65,11 +65,13 @@ func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symb
 		}
 		values = append(values, val)
 	}
-	return sequenceOf(values), nil
+	return ec.newSequence(values)
 }
 
 // objectsOf is this run's objects of target under roots: each root, then what its features
 // hold in declaration order; reading a feature materializes it, so unread usages are reached too.
+// A declaration already on the path is not materialized under again, so recursive composition
+// ends, but the objects it already holds are still walked.
 func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value, error) {
 	var values []Value
 	seen := make(map[int64]bool)
@@ -87,14 +89,15 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			}
 			values = append(values, val)
 		}
-		if inst.Type != nil {
-			if path[inst.Type] {
-				return nil
+		children := ctx.materializedObjects(inst)
+		if inst.Type == nil || !path[inst.Type] {
+			if inst.Type != nil {
+				path[inst.Type] = true
+				defer delete(path, inst.Type)
 			}
-			path[inst.Type] = true
-			defer delete(path, inst.Type)
+			children = ctx.nestedObjects(inst)
 		}
-		for _, child := range ctx.nestedObjects(inst) {
+		for _, child := range children {
 			if err := descend(child.instance); err != nil {
 				return err
 			}
@@ -106,12 +109,35 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			return Value{}, err
 		}
 	}
-	return sequenceOf(values), nil
+	return ctx.newSequence(values)
+}
+
+// materializedObjects is nestedObjects restricted to the feature values inst already holds:
+// what a run put there is reached, while nothing new is materialized.
+func (ctx *Context) materializedObjects(inst *Instance) []heldObject {
+	var out []heldObject
+	read := map[*FeatureValue]bool{}
+	for _, of := range ctx.FeaturesOfObject(inst) {
+		if of.Name == "" || !holdsObjects(of.Feature) {
+			continue
+		}
+		fv := inst.FeatureValues[of.Name]
+		if fv == nil || !fv.Materialized || read[fv] {
+			continue
+		}
+		read[fv] = true
+		for _, id := range heldObjects(fv.HeldValue()) {
+			if child, ok := ctx.instances[id]; ok {
+				out = append(out, heldObject{feature: of.Name, instance: child})
+			}
+		}
+	}
+	return out
 }
 
 // extentRoots is the objects an extent is searched from, in declaration order: those the run
 // materialized standing on their own (not held, not read through), the outermost holder of the
-// object evaluating, and the occurrences the enclosing namespace declares that may hold a
+// object evaluating, and the occurrences the enclosing namespaces declare that may hold a
 // target — materialized now, as reading them would be.
 func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) {
 	ctx := ec.ctx
@@ -150,22 +176,21 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 	return roots, nil
 }
 
-// namespaceOccurrences is the usages denoting one object each that the namespace enclosing
-// scope declares, in declaration order — the objects a value written there reaches by name.
+// namespaceOccurrences is the usages denoting one object each that the namespaces enclosing
+// scope declare, innermost first — the objects a value written there reaches by name.
 func (ctx *Context) namespaceOccurrences(scope *symbols.Scope) []*symbols.Symbol {
-	for scope != nil && typeScope(scope) {
-		scope = scope.Parent()
-	}
-	if scope == nil {
-		return nil
-	}
 	var out []*symbols.Symbol
-	scope.ForEachMember(func(sym *symbols.Symbol) bool {
-		if ctx.namesOneObject(sym) {
-			out = append(out, sym)
+	for ; scope != nil; scope = scope.Parent() {
+		if typeScope(scope) {
+			continue
 		}
-		return true
-	})
+		scope.ForEachMember(func(sym *symbols.Symbol) bool {
+			if ctx.namesOneObject(sym) {
+				out = append(out, sym)
+			}
+			return true
+		})
+	}
 	return out
 }
 
