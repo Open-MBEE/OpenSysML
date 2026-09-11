@@ -188,6 +188,44 @@ func TestQuantityRoundTrip(t *testing.T) {
 	}
 }
 
+// TestSetOfPointsReadForARuntime: a set read for a runtime judges membership as
+// the runtime does, so a point and the magnitude it equals are one element sent
+// twice; with no runtime the two spellings stay apart.
+func TestSetOfPointsReadForARuntime(t *testing.T) {
+	srv, modelHash, idx, sem := mustQuantityModel(t)
+	cached, ok := srv.cache.Get(modelHash)
+	if !ok {
+		t.Fatal("parsed model is not cached")
+	}
+	kelvin := mustEvaluateQuantity(t, srv, modelHash, "293.15 [SI::K]")
+	celsius := mustEvaluateQuantity(t, srv, modelHash, "20.0 [SI::'°C_abs']")
+	sent := setOf(
+		&pb.Value{Kind: &pb.Value_Quantity{Quantity: kelvin}},
+		&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}},
+	)
+
+	rt := srv.newRuntime(cached)
+	if _, err := ProtoToRuntimeValue(rt, sent, idx, sem); !errors.Is(err, ErrSetElementRepeated) {
+		t.Errorf("ProtoToRuntimeValue({293.15 K, 20.0 °C_abs}) = %v, want %v", err, ErrSetElementRepeated)
+	}
+	points, err := ProtoToRuntimeValue(rt, setOf(&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}}), idx, sem)
+	if err != nil || points.Kind != runtime.ValSet {
+		t.Fatalf("ProtoToRuntimeValue({20.0 °C_abs}) = %s, %v, want a set", runtime.FormatValue(points), err)
+	}
+	inKelvin, err := ProtoToValueIn(&pb.Value{Kind: &pb.Value_Quantity{Quantity: kelvin}}, idx, sem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !points.Set().Contains(inKelvin) {
+		t.Errorf("{20.0 °C_abs} read for a runtime does not hold 293.15 K")
+	}
+
+	val, err := ProtoToValueIn(sent, idx, sem)
+	if err != nil || val.Kind != runtime.ValSet || val.Set().Size() != 2 {
+		t.Errorf("ProtoToValueIn({293.15 K, 20.0 °C_abs}) = %s, %v, want two members judged with no runtime", runtime.FormatValue(val), err)
+	}
+}
+
 // mustUnitTerm rebuilds the unit term of sent, for comparing a round-trip
 // against a second, independent reconstruction.
 func mustUnitTerm(t *testing.T, sent *pb.Quantity, idx *symbols.Index, sem *semantics.Model) semantics.UnitTerm {

@@ -805,7 +805,7 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 // protoToSet rebuilds a set from elements sent in any order, refusing one sent
 // twice rather than reading the two as one.
 func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
-	set := runtime.NewSet()
+	set := runtime.NewSetIn(rt)
 	for i, elem := range ps.GetElements() {
 		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
 		if err != nil {

@@ -493,12 +493,12 @@ type Set struct {
 
 // NewSet creates an empty Set whose membership needs no context.
 func NewSet() *Set {
-	return (*Context)(nil).newSet()
+	return NewSetIn(nil)
 }
 
-// newSet creates an empty Set judging membership in the context: a point on a
-// scale is the member its magnitude on the reference is.
-func (ctx *Context) newSet() *Set {
+// NewSetIn creates an empty Set judging membership in ctx: a point on a scale is
+// the member its magnitude on the reference is. A nil ctx judges with no context.
+func NewSetIn(ctx *Context) *Set {
 	return &Set{elements: make(map[valueKey][]Value), ctx: ctx}
 }
 
@@ -593,7 +593,7 @@ func setOf(elements []Value) Value {
 
 // setOf builds a set value holding the elements distinct in the context.
 func (ctx *Context) setOf(elements []Value) Value {
-	set := ctx.newSet()
+	set := NewSetIn(ctx)
 	for _, elem := range elements {
 		set.Add(elem)
 	}
