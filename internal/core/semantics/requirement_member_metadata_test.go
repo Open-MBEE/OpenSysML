@@ -271,3 +271,30 @@ func TestMisplacedMetadataOnRequirementMembersStillAnnotatesOnRecovery(t *testin
 		}
 	}
 }
+
+// A semantic metadata definition binding no baseType of its own inherits its
+// supertype's, so a keyword specializing a keyword gives the same base; a rebinding wins.
+func TestSemanticMetadataInheritsBaseType(t *testing.T) {
+	m, idx := requirementMemberModel(t, `package P {
+		private import Metaobjects::SemanticMetadata;
+		part def Vehicle;
+		part vehicles : Vehicle[*];
+		part trucks : Vehicle[*] :> vehicles;
+		metadata def vehicle :> SemanticMetadata {
+			:>> baseType = vehicles meta SysML::Usage;
+		}
+		metadata def car :> vehicle;
+		metadata def truck :> vehicle {
+			:>> baseType = trucks meta SysML::Usage;
+		}
+		#car part c : Vehicle;
+		#truck part t : Vehicle;
+	}`)
+	if got := supertypeNames(m, lookupFQN(t, idx, "P::c")); !containsName(got, "P::vehicles") {
+		t.Errorf("supertypes of P::c = %v, want the inherited base P::vehicles", got)
+	}
+	got := supertypeNames(m, lookupFQN(t, idx, "P::t"))
+	if !containsName(got, "P::trucks") || containsName(got, "P::vehicles") {
+		t.Errorf("supertypes of P::t = %v, want the rebound base P::trucks only", got)
+	}
+}

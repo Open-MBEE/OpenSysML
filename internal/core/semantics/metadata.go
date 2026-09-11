@@ -177,9 +177,30 @@ func (m *Model) isSemanticMetadata(def *symbols.Symbol) bool {
 // baseTypeOf returns the type bound to def's baseType feature for annotated,
 // resolving the meta-cast operand of `:>> baseType = causes meta SysML::Usage`
 // (§7.27.3). The binding is model-level evaluated, so a conditional binding is
-// decided against the element being annotated. Returns nil when def binds no
-// baseType or the binding does not name a type.
+// decided against the element being annotated. A definition binding no baseType
+// of its own inherits its supertypes' binding. Returns nil when none names a type.
 func (m *Model) baseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
+	return m.baseTypeOfWithin(def, annotated, map[*symbols.Symbol]bool{})
+}
+
+func (m *Model) baseTypeOfWithin(def, annotated *symbols.Symbol, seen map[*symbols.Symbol]bool) *symbols.Symbol {
+	if def == nil || seen[def] {
+		return nil
+	}
+	seen[def] = true
+	if base := m.ownBaseTypeOf(def, annotated); base != nil {
+		return base
+	}
+	for _, super := range m.DirectSupertypes(def) {
+		if base := m.baseTypeOfWithin(super, annotated, seen); base != nil {
+			return base
+		}
+	}
+	return nil
+}
+
+// ownBaseTypeOf returns the type def's own body binds baseType to for annotated.
+func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
 	decl, ok := def.Decl.(*ast.Definition)
 	if !ok || def.Scope == nil {
 		return nil
