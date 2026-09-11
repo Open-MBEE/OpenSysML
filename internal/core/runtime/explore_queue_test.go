@@ -87,16 +87,38 @@ func exploreBoth(t *testing.T, budget ExploreBudget, fresh func(int) (*Context, 
 // parseIndex parses text into an index of its own.
 func parseIndex(t *testing.T, text string) (*symbols.Index, string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "explore.sysml")
-	p := parser.New(source.New(path, []byte(text)))
+	return indexAt(t, filepath.Join(t.TempDir(), "explore.sysml"), []byte(text))
+}
+
+// indexFile parses the model at path into an index of its own.
+func indexFile(t *testing.T, path string) (*symbols.Index, string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return indexAt(t, path, data)
+}
+
+func indexAt(t *testing.T, path string, data []byte) (*symbols.Index, string) {
+	t.Helper()
+	p := parser.New(source.New(path, data))
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
-		t.Fatalf("parse: %v", p.Diagnostics)
+		t.Fatalf("parse %s: %v", path, p.Diagnostics)
 	}
 	idx := symbols.NewIndex()
 	idx.AddDocument(path, file)
 	return idx, path
 }
+
+// The determinism fixtures: a violation a later, wider subtree reaches faster than the
+// first prefix, which the conformance harness cannot hold since it admits no erroring
+// outcome; and a slow first prefix beside wide siblings, which is a conformance case.
+var (
+	laterPrefixViolatesFasterPath = filepath.Join("testdata", "later_prefix_violates_faster.sysml")
+	slowFirstWriterPath           = filepath.Join("testdata", "conformance", "action_explore_slow_first_writer.sysml")
+)
 
 // actionRun performs the action named in test:: by no object.
 func actionRun(t *testing.T, idx *symbols.Index, path, name string) func(*Context) (Outcome, error) {
@@ -166,53 +188,6 @@ func TestExploreWithIsExploreOverTheConformanceCorpus(t *testing.T) {
 	}
 }
 
-// laterPrefixViolatesFasterModel: a decision whose first branch computes at length and
-// then fails dividing by the zero `x` still holds, and whose second branch forks three
-// writers of `x` before the same division, so the second subtree is six linearizations
-// wide to the first's one and two of its runs reach the same failure in a few steps.
-const laterPrefixViolatesFasterModel = `package test {
-	private import ScalarValues::*;
-
-	calc fib {
-		in n : Integer;
-		return : Integer = if n < 2 ? n else fib(n - 1) + fib(n - 2);
-	}
-
-	action race {
-		attribute x : Integer = 0;
-		attribute y : Integer = 0;
-		attribute w : Integer = 0;
-
-		first start;
-		decide pick;
-		action slow { assign w := fib(12); }
-		action quick { assign w := 1; }
-		fork split;
-		action a { assign x := 1; }
-		action b { assign x := 2; }
-		action c { assign x := 0; }
-		join sync;
-		merge meet;
-		action divide { assign y := 1 / x; }
-		done;
-
-		succession first start then pick;
-		succession first pick if w == 0 then slow;
-		succession first pick if w == 0 then quick;
-		succession first slow then meet;
-		succession first quick then split;
-		succession first split then a;
-		succession first split then b;
-		succession first split then c;
-		succession first a then sync;
-		succession first b then sync;
-		succession first c then sync;
-		succession first sync then meet;
-		succession first meet then divide;
-		succession first divide then done;
-	}
-}`
-
 // failing is the exploration's failing outcome, which the fixture reaches by division by zero.
 func failing(t *testing.T, x *Exploration) ExploredOutcome {
 	t.Helper()
@@ -231,7 +206,7 @@ func failing(t *testing.T, x *Exploration) ExploredOutcome {
 // The failure a later, wider subtree reaches in a few steps has its witness at the slow
 // first prefix on eight jobs as on one, and the table is the same.
 func TestExploreWithKeepsTheLeastWitnessOfALaterFasterViolation(t *testing.T) {
-	idx, path := parseIndex(t, laterPrefixViolatesFasterModel)
+	idx, path := indexFile(t, laterPrefixViolatesFasterPath)
 	x := exploreBoth(t, DefaultExploreBudget, newExploreWorkers(idx).fresh, actionRun(t, idx, path, "race"))
 	if !x.Complete() || x.Runs != 7 {
 		t.Fatalf("status %q after %d runs, want complete after the slow branch and six orders of the quick one", x.Status(), x.Runs)
@@ -248,7 +223,7 @@ func TestExploreWithKeepsTheLeastWitnessOfALaterFasterViolation(t *testing.T) {
 // With the runs cut just past the witness, the speculative runs the wider subtree feeds
 // eight jobs are discarded and charged to nothing: the cut is the one job's.
 func TestExploreWithCutsRunsJustAboveTheWitness(t *testing.T) {
-	idx, path := parseIndex(t, laterPrefixViolatesFasterModel)
+	idx, path := indexFile(t, laterPrefixViolatesFasterPath)
 	x := exploreBoth(t, ExploreBudget{Runs: 2, Depth: 64}, newExploreWorkers(idx).fresh, actionRun(t, idx, path, "race"))
 	if x.Complete() || x.Runs != 2 || strings.Join(x.BudgetsHit, ",") != "runs" {
 		t.Fatalf("status %q after %d runs hitting %v, want incomplete at the runs cut after 2", x.Status(), x.Runs, x.BudgetsHit)
@@ -261,14 +236,7 @@ func TestExploreWithCutsRunsJustAboveTheWitness(t *testing.T) {
 // A slow first prefix beside siblings fanning out never costs more than runs + jobs
 // executions, and what it reports is the one job's.
 func TestExploreWithNeverRunsMoreThanRunsPlusJobs(t *testing.T) {
-	path := filepath.Join("testdata", "conformance", "action_explore_slow_first_writer.sysml")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p := parser.New(source.New(path, data))
-	idx := symbols.NewIndex()
-	idx.AddDocument(path, p.ParseFile())
+	idx, path := indexFile(t, slowFirstWriterPath)
 	run := actionRun(t, idx, path, "race")
 	fresh := newExploreWorkers(idx).fresh
 	for _, runs := range []int{1, 2, 3, 5, 6, 1024} {

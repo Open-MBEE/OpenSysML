@@ -425,7 +425,11 @@ resolutions are paid `Jobs` times, not once per run; the index, the standard lib
 lowered graphs are built once and read by all. Making the lazy, recursive resolver lock-safe
 instead was considered and rejected below. The `libs` snapshot already makes the frozen
 standard-library index cheap to share; the per-worker cost is the model's own resolutions, and
-the framework measures it (`plan: 8 workers, 1.2 s warming`) so the trade is visible.
+the framework measures it (`plan: 8 workers, 1.2 s warming`) so the trade is visible. The
+figure is carried in the result and printed under `-json` alone, as the `plan` key's `workers`
+and `warming` (milliseconds); the human-readable report does not print it, because warming is
+wall time and the standing line reports evidence, not cost — printing it would make every
+human-readable report non-reproducible for a figure that describes the run, not the answer.
 
 The surface hands the framework an `analysis.Model` with three ways to a context: `Context`,
 the context the surface itself holds (the REPL's own, whose objects a `%run` names); `Semantics`,
@@ -671,7 +675,36 @@ behavior unchanged until stage 4.
    queries the semantic model. Both stay one worker per plan: a plan's runs are sequential
    until stage 3 puts several workers on them.
 3. **Parallel runs.** `-jobs`/`OPENSYSML_JOBS`; `sweep` rows and `explore` prefixes on the
-   work queue; the determinism tests.
+   work queue; the determinism tests. *Implemented:* `Budget.Jobs` filled by `BudgetOf` from
+   `-jobs`, `%jobs` and `OPENSYSML_JOBS` (`analysis.ParseJobs`, `JobsFromEnv`, default
+   `NumCPU`; a count below one or no integer is the typed `JobsError` before anything runs);
+   the gRPC service takes the serving binary's jobs, no request field. `Model` holds `Jobs`
+   worker slots per plan, built lazily by job index (`Model.WorkerAt`, `Model.NewContextOn`;
+   `NewContext` is job 0), `Result.Workers` counting the ones a plan built and `Warming` their
+   summed construction. `runtime.ExploreWith` is the work queue of prefixes described under
+   *Units of work* and *Stopping early*, with `Explore` its one-job form: prefixes ordered as
+   the sequential exploration takes them, committed and speculative runs, at most `Jobs`
+   speculative runs discarded in a plan's lifetime, never more than `Runs + Jobs` executions,
+   the table merged by outcome identity with the least witness, a violating run ending only the
+   prefixes after it once every earlier prefix has completed. `all` runs its covering engines
+   concurrently on `min(Jobs, engines)` goroutines with the jobs divided among them, `Compose`
+   unchanged over the set of results in name order; a fault or deadline cancels the engines
+   after it in name order, each kept as a step marked cancelled with the bound it reached, and a
+   universal run is not cancelled by a witness. The `-json` `plan` key gains `workers` and
+   `warming`; the human-readable report prints neither (see *What may be shared*). Tests: the
+   determinism bullet over the conformance corpus and its three fixtures (the violation a later,
+   wider prefix reaches faster, under `internal/core/runtime/testdata/` because the harness
+   admits no erroring outcome; `runs` just above its witness; the slow first prefix beside wide
+   siblings, a conformance case whose slow body is a bounded recursion) on one job against
+   eight, in the runtime and through the CLI's `-json`, with the physical count bounded by
+   `runs + jobs`; the cancellation bullet under concurrent `all`; the isolation bullet with
+   `Jobs` workers per plan; `make man-check`. **Known limitation:** `sweep` rows stay
+   sequential. Stage 2 fixed a row as the surface's closure over its own context (`SweepRun`
+   takes none), and every surface runs its rows in the one context it holds and reads their
+   outputs back through it; putting rows on the queue needs `SweepRun` to take a context per
+   row, the surfaces to re-instantiate the subject and arguments per row, and a rule for `%sweep`
+   on held objects, none of which this note yet fixes. The sweep determinism test holds as the
+   table is assembled in plan order regardless.
 4. **Surface.** `-engines`, `-engine`, `%engines`, `ListEngines`, the response fields, the
    standing line on every verdict; the strength-scale tests; `all` and the disagreement result.
    The `-json` additions land here, and its release checklist records whether they are patch or

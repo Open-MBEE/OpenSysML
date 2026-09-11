@@ -70,6 +70,74 @@ func TestJobsFlagAndEnvironment(t *testing.T) {
 	wantReport(t, got, 0, "x = 1")
 }
 
+// The determinism fixtures beside the runtime's exploration tests.
+const (
+	laterPrefixViolatesFaster = "../../internal/core/runtime/testdata/later_prefix_violates_faster.sysml"
+	slowFirstWriter           = "../../internal/core/runtime/testdata/conformance/action_explore_slow_first_writer.sysml"
+)
+
+// runFigures matches what a -json document says of the run and not of the answer: the
+// workers a plan built and their warming, the time a sweep row took and the rule under a
+// sweep table's header, whose width follows those times.
+var runFigures = regexp.MustCompile(`"(workers|warming|milliseconds)": [0-9.]+|[0-9]+\.[0-9]{3}ms|-{2,}`)
+
+// TestJSONIsTheSameOnOneJobAsOnEight checks that -jobs 1 and -jobs 8 report the same
+// -json document over the determinism fixtures — the witness, the outcome table and the
+// cut of a violation a later, wider prefix reaches faster; the same with runs set just
+// above the witness; a slow first prefix beside wide siblings — and over a sweep, apart
+// from the figures that describe the run.
+func TestJSONIsTheSameOnOneJobAsOnEight(t *testing.T) {
+	binary := buildCLI(t)
+	read := func(path string) string {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+	cases := []struct {
+		name  string
+		model string
+		args  []string
+		want  []string
+	}{
+		{"later prefix violates faster", read(laterPrefixViolatesFaster),
+			[]string{"-schedule", "explore", "-action", "test::race"},
+			[]string{`"error": "eval assignment RHS: division by zero"`, `"linearizations": 3`,
+				`"step 2: decision pick -\u003e 1-\u003eslow"`, `"runs": 7`, `"complete": true`}},
+		{"runs just above the witness", read(laterPrefixViolatesFaster),
+			[]string{"-schedule", "explore:runs=2", "-action", "test::race"},
+			[]string{`"error": "eval assignment RHS: division by zero"`, `"linearizations": 2`,
+				`"step 2: decision pick -\u003e 1-\u003eslow"`, `"runs": 2`, `"complete": false`, `"runs"`}},
+		{"slow first prefix beside wide siblings", read(slowFirstWriter),
+			[]string{"-schedule", "explore", "-action", "test::race"},
+			[]string{`"x = 144 | 2 `, `"x = 2   | 2 `, `"x = 3   | 2 `, `"runs": 6`, `"complete": true`}},
+		{"sweep", sweepCLIModel,
+			[]string{"-calc", "Sw::Ratio(b = 1.0)", "-sweep", "a=1..4"},
+			[]string{`"value": "4.0"`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			answer := func(jobs string) string {
+				got := check(t, binary, tc.model, append([]string{"-json", "-jobs", jobs}, tc.args...)...)
+				if got.stderr != "" || !json.Valid([]byte(got.stdout)) {
+					t.Fatalf("-jobs %s did not report a JSON document alone:\n%s", jobs, got.output())
+				}
+				return got.stdout
+			}
+			one, eight := answer("1"), answer("8")
+			for _, want := range tc.want {
+				if !strings.Contains(one, want) {
+					t.Errorf("-jobs 1 does not report %s:\n%s", want, one)
+				}
+			}
+			if a, b := runFigures.ReplaceAllString(one, ""), runFigures.ReplaceAllString(eight, ""); a != b {
+				t.Errorf("-jobs 1 reported\n%s\n-jobs 8 reported\n%s", one, eight)
+			}
+		})
+	}
+}
+
 // TestJSONReportsThePlanWorkers checks that -json carries under plan how many
 // workers a plan built and how long their warming took, that an exploration under
 // -jobs 1 and -jobs 8 reports the same document apart from those two figures,
