@@ -34,12 +34,12 @@ func commentedTurtle(t *testing.T) []byte {
 }
 
 // editTurtle rewrites one line of a Turtle document, failing when it is absent.
-func editTurtle(t *testing.T, turtle []byte, old, new string) []byte {
+func editTurtle(t *testing.T, turtle []byte, old, replacement string) []byte {
 	t.Helper()
 	if !strings.Contains(string(turtle), old) {
 		t.Fatalf("%q is not in the graph:\n%s", old, turtle)
 	}
-	return []byte(strings.Replace(string(turtle), old, new, 1))
+	return []byte(strings.Replace(string(turtle), old, replacement, 1))
 }
 
 func TestSourceTextComesBackByteForByte(t *testing.T) {

@@ -1154,17 +1154,17 @@ func builtinRealProduct(ec *EvalContext, args []Value) (Value, error) {
 }
 
 // aggregate folds the collection's numeric elements with op, starting from its
-// identity element: 0 for a sum, 1 for a product, a Real where real says so.
+// identity element: 0 for a sum, 1 for a product, a Real where asReal says so.
 // A non-numeric element is reported rather than skipped or coerced. The sum of
 // no elements read from a quantity-typed declaration is that quantity's zero.
-func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind, real bool) (Value, error) {
+func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind, asReal bool) (Value, error) {
 	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
 	elements := elementsOf(args[0])
 	if operator == ast.OpAdd && len(elements) == 0 {
 		if unit, ok := args[0].Sequence().ElementUnit(); ok {
-			return typedZero(unit, real), nil
+			return typedZero(unit, asReal), nil
 		}
 	}
 	// A quantity carries its unit through an aggregation as through the folded
@@ -1183,7 +1183,7 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 		identity = 1
 	}
 	acc := semantics.Value{Kind: semantics.ValInt, Int: identity}
-	if real {
+	if asReal {
 		acc = semantics.Value{Kind: semantics.ValReal, Real: float64(identity)}
 	}
 	for _, elem := range elements {
@@ -1200,10 +1200,10 @@ func (ctx *Context) aggregate(op string, args []Value, operator ast.OperatorKind
 }
 
 // typedZero is the additive identity of the quantities measured in unit: an
-// Integer 0 in that unit, or a Real one where real says so.
-func typedZero(unit Unit, real bool) Value {
+// Integer 0 in that unit, or a Real one where asReal says so.
+func typedZero(unit Unit, asReal bool) Value {
 	num := semantics.Value{Kind: semantics.ValInt, Int: 0}
-	if real {
+	if asReal {
 		num = semantics.Value{Kind: semantics.ValReal, Real: 0}
 	}
 	return NewQuantityValue(&Quantity{Num: num, Unit: unit})

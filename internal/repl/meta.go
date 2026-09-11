@@ -2401,7 +2401,7 @@ func (s *Session) doStep() ([]string, bool, error) {
 	}
 
 	if exec.State() == runtime.StateCompleted {
-		out = append(out, "", "✓ Action completed")
+		out = append(out, "", actionCompletedText)
 		out = append(out, renderResults(s.actionExec.contextOf(), exec.Results())...)
 	}
 
@@ -2445,7 +2445,7 @@ func (s *Session) continueAction() ([]string, []NamedValue, error) {
 
 	// Display results
 	out := []string{
-		"✓ Action completed",
+		actionCompletedText,
 		fmt.Sprintf("  Final state: %s", exec.State()),
 	}
 	out = append(out, s.noteSummary(exec.Notes(), noted)...)
@@ -3295,13 +3295,15 @@ func (s *Session) advanceBy(duration float64) ([]string, error) {
 		out = append(out, "", stateCompletedText)
 	}
 	if action != nil && action.State() == runtime.StateCompleted {
-		out = append(out, "", "✓ Action completed")
+		out = append(out, "", actionCompletedText)
 		out = append(out, renderResults(s.actionExec.contextOf(), action.Results())...)
 	}
 	return out, nil
 }
 
 const stateCompletedText = "✓ State machine completed (a transition reached `done`)"
+
+const actionCompletedText = "✓ Action completed"
 
 // distinctContexts returns the contexts given, dropping none and repeats.
 func distinctContexts(contexts ...*runtime.Context) []*runtime.Context {

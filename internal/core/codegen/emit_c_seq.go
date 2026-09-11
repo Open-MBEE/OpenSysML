@@ -472,15 +472,15 @@ func cSeqRuntime() string {
 	b.WriteString("\nstatic void sysml_print_int(sysml_int v);\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")
 	b.WriteString("static void sysml_format_int(sysml_int v, char *out, size_t size);\nstatic void sysml_format_bool(sysml_bool v, char *out, size_t size);\nstatic inline uint64_t sysml_real_key(sysml_real r);\n")
 	for _, t := range []Type{TypeInt, TypeReal, TypeBool} {
-		print := "sysml_print_" + cSeqSuffix(t)
+		printer := "sysml_print_" + cSeqSuffix(t)
 		kind, key, skip := "an Integer", "(uint64_t)", "false && "
 		switch t {
 		case TypeReal:
-			print, kind, key, skip = "sysml_print_real_value", "a Real", "sysml_real_key", "isnan"
+			printer, kind, key, skip = "sysml_print_real_value", "a Real", "sysml_real_key", "isnan"
 		case TypeBool:
 			kind = "a Boolean"
 		}
-		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", print,
+		r := strings.NewReplacer("ELEMNAME", cSeqSuffix(t), "ELEM", cType(t), "SFX", cSeqSuffix(t), "PRINT", printer,
 			"FORMAT", "sysml_format_"+cSeqSuffix(t), "KIND", kind, "KEY", key, "SKIP", skip)
 		b.WriteString(r.Replace(cSeqTemplate))
 	}
