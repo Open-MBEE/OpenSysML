@@ -41,6 +41,11 @@
       gap: 2.4rem;
       align-items: center;
     }
+    /* min-width: 0 lets a pane's long lines scroll inside the terminal, not widen the page. */
+    .osml-hero__inner > *,
+    .osml-pane {
+      min-width: 0;
+    }
     .osml-hero__eyebrow {
       font-size: .68rem;
       letter-spacing: .12em;
@@ -98,12 +103,8 @@
       text-decoration: underline;
     }
 
-    /* The showcase: one terminal window whose contents cycle through the toolchain's
-       surfaces. Every pane is a real session — the commands and their output are the
-       ones the guide and the document manual show. The panes are stacked in one grid
-       cell so the window keeps the height of the tallest and the copy beside it never
-       shifts; the tabs below select a pane and stop the rotation. Without script only
-       the first pane shows, which is the terminal the page always had. */
+    /* The showcase: one terminal whose panes (real sessions) share a grid cell, so it
+       keeps the tallest pane's height as they rotate. Without script the first shows. */
     .osml-terminal {
       background: rgba(0, 0, 0, .38);
       border: 1px solid rgba(255, 255, 255, .18);
@@ -118,7 +119,7 @@
       padding: .5rem .7rem;
       background: rgba(255, 255, 255, .08);
     }
-    .osml-terminal__bar span {
+    .osml-terminal__bar span:not(.osml-terminal__title) {
       width: .5rem;
       height: .5rem;
       border-radius: 50%;
