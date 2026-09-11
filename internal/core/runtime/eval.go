@@ -1140,20 +1140,18 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	switch value.Kind {
 	case ValSequence, ValSet:
 		return ec.chainOverElements(value, parts, from)
-	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation, ValMetaobject:
+	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		// An array or vector read from an object keeps that object's members; a
-		// frame answers its own features from the value, then from its object; a
-		// metaobject answers its metaclass's features for the element it denotes.
+		// frame answers its own features from the value, then from its object.
 		if inst, ok := ec.ctx.structuredObject(value); ok && isStructuredValue(&value) {
 			return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 		}
-		member, err := ec.ownFeature(value, parts[0].Text)
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(member, parts[1:], from)
+		return ec.chainOwnFeature(value, parts, from)
 	case ValInstance, ValVariant:
 		// handled below
+	case ValMetaobject:
+		// A metaobject answers its metaclass's features for the element it denotes.
+		return ec.chainOwnFeature(value, parts, from)
 	case ValEnumLiteral:
 		// A literal is an occurrence of its enumeration, so its own features are
 		// read from the object that literal stands for.
@@ -1238,9 +1236,19 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	return ec.chainMemberValue(member, parts[1:], name)
 }
 
-// ownFeature reads a feature a value answers from itself rather than from an
-// object it names: a metaobject's reflective feature, or a library feature of
-// an array, vector, quantity, measurement reference or frame.
+// chainOwnFeature continues a chain through a feature the value answers from
+// itself rather than from an object it names.
+func (ec *EvalContext) chainOwnFeature(value Value, parts []ast.NameSegment, from string) (Value, error) {
+	member, err := ec.ownFeature(value, parts[0].Text)
+	if err != nil {
+		return Value{}, err
+	}
+	return ec.chainMemberValue(member, parts[1:], from)
+}
+
+// ownFeature reads a feature a value answers from itself: a metaobject's
+// reflective feature, or a library feature of an array, vector, quantity,
+// measurement reference or frame.
 func (ec *EvalContext) ownFeature(value Value, name string) (Value, error) {
 	if value.Kind == ValMetaobject {
 		return ec.metaobjectFeature(value, name)
