@@ -102,6 +102,7 @@ const (
 	mosaInterfaceControl
 	mosaConformanceMetadata
 	mosaConformantMetadata
+	mosaConformsToMetadata
 )
 
 // mosaMetadataDefinitions lists the library metadata definition each family conforms to.
@@ -114,9 +115,11 @@ var mosaMetadataDefinitions = []struct {
 	{mosaInterfaceControl, "MOSA::InterfaceControl"},
 	{mosaConformanceMetadata, "MOSA::StandardConformanceMetadata"},
 	{mosaConformantMetadata, "MOSA::ConformantMetadata"},
+	{mosaConformsToMetadata, "MOSA::ConformedStandardMetadata"},
 }
 
-// mosaMarks are the MOSA annotations an element carries.
+// mosaMarks are the MOSA annotations an element carries; interfaceControl
+// holds only for an @InterfaceControl that names a non-empty authority.
 type mosaMarks struct {
 	dataRights, proprietary, interfaceControl bool
 }
@@ -263,7 +266,7 @@ func (a *mosaAudit) marksOf(sym *symbols.Symbol) mosaMarks {
 		case mosaProprietary:
 			m.proprietary = true
 		case mosaInterfaceControl:
-			m.interfaceControl = true
+			m.interfaceControl = m.interfaceControl || mosaStatesString(facts, "authority")
 		}
 	}
 	a.marks[sym] = m
@@ -308,19 +311,32 @@ func (a *mosaAudit) gather(root *symbols.Scope) {
 }
 
 // gatherConformance records the elements at the `#conformant` ends of a
-// `#conformance` connection.
+// `#conformance` connection whose `#conformsTo` ends name at least one standard.
 func (a *mosaAudit) gatherConformance(sym *symbols.Symbol) {
 	if !a.annotatedWith(sym, mosaConformanceMetadata) {
 		return
 	}
+	var conformant []*symbols.Symbol
+	namesStandard := false
 	for _, end := range a.bodyEnds(sym) {
 		u, ok := end.Decl.(*ast.Usage)
-		if !ok || !a.annotatedWith(end, mosaConformantMetadata) {
+		if !ok {
 			continue
 		}
-		for _, target := range a.referents(end, u) {
-			a.conformant[symbols.KeyOf(target)] = true
+		switch {
+		case a.annotatedWith(end, mosaConformsToMetadata):
+			for _, target := range a.referents(end, u) {
+				namesStandard = namesStandard || a.kindOf(target) == mosaStandard
+			}
+		case a.annotatedWith(end, mosaConformantMetadata):
+			conformant = append(conformant, a.referents(end, u)...)
 		}
+	}
+	if !namesStandard {
+		return
+	}
+	for _, target := range conformant {
+		a.conformant[symbols.KeyOf(target)] = true
 	}
 }
 

@@ -110,8 +110,8 @@ state of the work — and every rule waits until the model states the kind of fa
 
 | Code | Rule | Applies once the model has |
 | --- | --- | --- |
-| `mosa-interface-no-standard` | a modular system interface usage is the `#conformant` end of a `#conformance` connection (itself, its definition, or a usage it subsets), or is marked `@Proprietary` | any `#standard` |
-| `mosa-interface-no-control` | a modular system interface usage carries `@InterfaceControl`, itself or through what it specialises | any `@InterfaceControl` |
+| `mosa-interface-no-standard` | a modular system interface usage is the `#conformant` end of a `#conformance` connection (itself, its definition, or a usage it subsets) whose `#conformsTo` end names a standard, or is marked `@Proprietary` | any `#technicalStandard` |
+| `mosa-interface-no-control` | a modular system interface usage carries an `@InterfaceControl` naming a non-empty `authority`, itself or through what it specialises | any `@InterfaceControl` naming an `authority` |
 | `mosa-interface-not-traced` | a modular system interface usage is the `by` of some `satisfy` (itself or what it specialises), or declares a `satisfy` in its body; a negated satisfy does not count | any `#interfaceRequirement` |
 | `mosa-component-no-data-rights` | a major system component or modular system usage carries `@DataRights`, itself or through what it specialises | any `@DataRights` |
 | `mosa-proprietary-no-rationale` | a `@Proprietary` annotation states a non-empty `rationale` | always |

@@ -47,6 +47,24 @@ func TestMOSAInterfaceNoStandard(t *testing.T) {
 	w8dWantLines(t, src, CodeMOSAInterfaceNoStandard, 11)
 }
 
+// A #conformance whose #conformsTo end names no standard — no such end, or one
+// naming an element that is not a standard — does not cover its #conformant end.
+func TestMOSAConformanceNeedsAStandard(t *testing.T) {
+	src := mosaModel(mosaPlatform + `
+		#technicalStandard item std : Standard;
+		item def Note; item note : Note;
+		part v {
+			part a : A; part b : B;
+			interface unnamed : Link connect a.p to b.p;
+			interface misnamed : Link connect a.p to b.p;
+			interface named : Link connect a.p to b.p;
+			#conformance connection { end #conformant ::> unnamed; }
+			#conformance connection { end #conformant ::> misnamed; end #conformsTo ::> note; }
+			#conformance connection { end #conformant ::> named; end #conformsTo ::> note; end #conformsTo ::> std; }
+		}`)
+	w8dWantLines(t, src, CodeMOSAInterfaceNoStandard, 11, 12)
+}
+
 // Conformance stated on an interface definition covers its usages, and no
 // standard declared means no interface is asked for one.
 func TestMOSAInterfaceStandardByDefinition(t *testing.T) {
@@ -83,6 +101,28 @@ func TestMOSAInterfaceNoControl(t *testing.T) {
 	w8dWantLines(t, mosaModel(mosaPlatform+`
 		part v { part a : A; part b : B; interface link : Link connect a.p to b.p; }`),
 		CodeMOSAInterfaceNoControl)
+}
+
+// An @InterfaceControl naming no authority — bare, or with an empty string —
+// names no control authority; one whose metadata type defaults the authority does.
+func TestMOSAInterfaceControlNeedsAnAuthority(t *testing.T) {
+	src := mosaModel(mosaPlatform + `
+		metadata def ProgramControl :> InterfaceControl { :>> authority = "ICWG"; }
+		part v {
+			part a : A; part b : B;
+			interface named : Link connect a.p to b.p { @InterfaceControl { authority = "ICWG"; } }
+			interface bare : Link connect a.p to b.p { @InterfaceControl; }
+			interface blank : Link connect a.p to b.p { @InterfaceControl { authority = ""; } }
+			interface defaulted : Link connect a.p to b.p { @ProgramControl; }
+			interface silent : Link connect a.p to b.p;
+		}`)
+	w8dWantLines(t, src, CodeMOSAInterfaceNoControl, 11, 12, 14)
+	w8dWantLines(t, mosaModel(mosaPlatform+`
+		part v {
+			part a : A; part b : B;
+			interface bare : Link connect a.p to b.p { @InterfaceControl; }
+			interface silent : Link connect a.p to b.p;
+		}`), CodeMOSAInterfaceNoControl)
 }
 
 // An interface satisfying no requirement is reported once the model declares
