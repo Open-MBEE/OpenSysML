@@ -298,6 +298,12 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 		return err
 	}
 	perf.callee = callee
+	// Settled, the node holds the pins of the action performed alone, its result among them.
+	pins, err := e.pinsOf(perf.flow, perf.node, inv, callee, []*symbols.Symbol{callee})
+	if err != nil {
+		return err
+	}
+	perf.features, perf.aliases, perf.result = pins.directions, pins.aliases, pins.result
 	for name, value := range arguments {
 		if err := e.setFrameFeature(perf, name, value); err != nil {
 			return err
@@ -361,13 +367,37 @@ func (p nodePins) declares(name string) bool {
 	return ok
 }
 
-// nodePins returns the pins a performance of node holds.
+// nodePins returns the pins a performance of node holds. A call its arguments' values
+// settle holds the pins of every action still tied, its result pin only once settled.
 func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePins, error) {
-	pins := nodePins{directions: make(map[string]ast.FeatureDirection)}
 	usage, ok := node.(*ast.Usage)
 	if !ok {
-		return pins, nil
+		return nodePins{directions: make(map[string]ast.FeatureDirection)}, nil
 	}
+	inv, performs := nestedInvocation(usage)
+	if !performs || lower.IsCaseNode(usage) {
+		return e.pinsOf(graph, node, inv, nil, nil)
+	}
+	sym, tied, err := actionCandidates(e.ctx, nodeScope(graph, node), inv)
+	if err != nil {
+		return nodePins{}, err
+	}
+	if sym != nil {
+		tied = []*symbols.Symbol{sym}
+	}
+	return e.pinsOf(graph, node, inv, sym, tied)
+}
+
+// pinsOf returns the pins node holds with those of the callees, read as a value by a
+// `return` of its own or of the settled callee, else by an `out result` among them.
+func (e *performances) pinsOf(
+	graph *lower.ActionGraph,
+	node ast.Node,
+	inv actionInvocation,
+	settled *symbols.Symbol,
+	callees []*symbols.Symbol,
+) (nodePins, error) {
+	pins := nodePins{directions: make(map[string]ast.FeatureDirection)}
 	for _, feature := range graph.Features[node] {
 		pins.directions[feature.Name] = feature.Direction
 		e.ctx.aliasRedefinitions(&pins.aliases, memberSymbol(feature.Scope, feature.Node), feature.Name)
@@ -375,26 +405,21 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 			pins.result = feature.Name
 		}
 	}
-	if inv, performs := nestedInvocation(usage); performs && !lower.IsCaseNode(usage) {
-		sym, tied, err := actionCandidates(e.ctx, nodeScope(graph, node), inv)
+	if len(callees) > 0 {
+		inv.step, _ = stepSymbol(graph, node)
+	}
+	for _, callee := range callees {
+		held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
 		if err != nil {
 			return nodePins{}, err
 		}
-		inv.step, _ = stepSymbol(graph, node)
-		// A call its arguments' values settle holds the pins of every action still tied.
-		if sym != nil {
-			tied = []*symbols.Symbol{sym}
+		e.addFeatureDirections(pins.directions, &pins.aliases, held)
+		if callee != settled {
+			continue
 		}
-		for _, callee := range tied {
-			held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
-			if err != nil {
-				return nodePins{}, err
-			}
-			e.addFeatureDirections(pins.directions, &pins.aliases, held)
-			for _, param := range e.ctx.actionParametersOf(callee) {
-				if param.IsResult && pins.result == "" {
-					pins.result = param.Name
-				}
+		for _, param := range e.ctx.actionParametersOf(callee) {
+			if param.IsResult && pins.result == "" {
+				pins.result = param.Name
 			}
 		}
 	}

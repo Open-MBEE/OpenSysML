@@ -38,6 +38,7 @@ func TestInvocationSelectionRobustness(t *testing.T) {
 	t.Run("calc_call_undetermined_statically_is_settled_by_the_values", testCalcCallUndeterminedStaticallyIsSettledByTheValues)
 	t.Run("calc_call_undetermined_statically_keeps_a_deferred_argument_unevaluated", testCalcCallUndeterminedStaticallyKeepsADeferredArgumentUnevaluated)
 	t.Run("calc_call_undetermined_statically_is_settled_by_every_classifier", testCalcCallUndeterminedStaticallyIsSettledByEveryClassifier)
+	t.Run("calc_call_undetermined_statically_types_a_value_as_its_literal", testCalcCallUndeterminedStaticallyTypesAValueAsItsLiteral)
 	t.Run("calc_call_repeated_named_argument_is_refused", testCalcCallRepeatedNamedArgumentIsRefused)
 	t.Run("calc_call_names_a_parameter_as_the_checker_does", testCalcCallNamesAParameterAsTheCheckerDoes)
 	t.Run("calc_call_selects_among_owned_inherited_and_recursive_import", testCalcCallSelectsAmongOwnedInheritedAndRecursiveImport)
@@ -1404,6 +1405,83 @@ func testCalcCallUndeterminedStaticallyIsSettledByTheValues(t *testing.T) {
 	for _, unwanted := range []string{"A::pick", "B::pick"} {
 		if strings.Contains(err.Error(), unwanted) {
 			t.Errorf("error %q names %s, which the values do not fit", err, unwanted)
+		}
+	}
+}
+
+// A scalar value settles a call as the literal spelling it would: a nonnegative
+// integer is a Natural, a negative one an Integer, a fraction no Integer at all, and a
+// collection takes the type its elements share, so the runtime selects what the
+// checker selects for the same value written as a literal.
+func testCalcCallUndeterminedStaticallyTypesAValueAsItsLiteral(t *testing.T) {
+	src := `
+		package A { private import ScalarValues::*; calc def pick { in x : Natural; return : Integer = 1; } }
+		package B { private import ScalarValues::*; calc def pick { in x : Integer; return : Integer = 2; } }
+		package C { private import ScalarValues::*; calc def pick { in x : Real; return : Integer = 3; } }
+		package D { private import ScalarValues::*; calc def count { in xs : Natural[*]; return : Integer = 1; } }
+		package E { private import ScalarValues::*; calc def count { in xs : Integer[*]; return : Integer = 2; } }
+		package test {
+			private import A::*;
+			private import B::*;
+			private import C::*;
+			private import D::*;
+			private import E::*;
+			calc choose { in v; pick(v) }
+			calc chooseAll { in vs[*]; count(vs) }
+			calc literalOne { pick(1) }
+			calc literalNegative { pick(-1) }
+			calc literalFraction { pick(1.5) }
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	rootScope := idx.DocumentRoot("<test>")
+	intVal := func(n int64) Value {
+		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: n}}
+	}
+	seqOf := func(vals ...Value) Value {
+		seq := NewSequence()
+		for _, v := range vals {
+			seq.Append(v)
+		}
+		return NewSequenceValue(seq)
+	}
+	fraction := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 1.5}}
+	run := func(calc string, args []Value) int64 {
+		sym := findSymbolByName(rootScope, calc, ast.DefCalc)
+		if sym == nil {
+			t.Fatalf("%s calc not found", calc)
+		}
+		result, err := ctx.InvokeCalc(sym, args, rootScope)
+		if err != nil {
+			t.Fatalf("%s(%v): %v", calc, args, err)
+		}
+		if result.Kind != ValConst {
+			t.Fatalf("%s(%v) = %+v, want an integer", calc, args, result)
+		}
+		return result.Const.Int
+	}
+	for _, tc := range []struct {
+		name    string
+		calc    string
+		args    []Value
+		literal string
+		want    int64
+	}{
+		{"positive integer", "choose", []Value{intVal(1)}, "literalOne", 1},
+		{"zero", "choose", []Value{intVal(0)}, "", 1},
+		{"negative integer", "choose", []Value{intVal(-1)}, "literalNegative", 2},
+		{"fraction", "choose", []Value{fraction}, "literalFraction", 3},
+		{"naturals", "chooseAll", []Value{seqOf(intVal(1), intVal(2))}, "", 1},
+		{"integers", "chooseAll", []Value{seqOf(intVal(1), intVal(-2))}, "", 2},
+	} {
+		if got := run(tc.calc, tc.args); got != tc.want {
+			t.Errorf("%s: %s = %d, want %d", tc.name, tc.calc, got, tc.want)
+		}
+		if tc.literal == "" {
+			continue
+		}
+		if got := run(tc.literal, nil); got != tc.want {
+			t.Errorf("%s: the literal call %s = %d, the value settled on %d", tc.name, tc.literal, got, tc.want)
 		}
 	}
 }

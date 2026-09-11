@@ -2755,13 +2755,17 @@ func (ec *EvalContext) deferredArguments(candidates []*symbols.Symbol, exprs []a
 	return deferred
 }
 
-// valueArgument types an evaluated argument for overload selection by the types write
-// conformance classifies it by, a collection by the ones its elements share; else unknown.
+// valueArgument types an evaluated argument for overload selection: a scalar as the literal
+// spelling it, an object by every type classifying it, a collection by what its elements share.
 func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semantics.Argument {
 	arg := semantics.Argument{Name: name}
 	elements := elementsOf(val)
 	if len(elements) == 0 {
 		arg.Empty = true
+		return arg
+	}
+	if prim := spelledPrim(elements); prim != semantics.PrimUnknown {
+		arg.Prim, arg.Exact = prim, true
 		return arg
 	}
 	var common []*symbols.Symbol
@@ -2781,6 +2785,27 @@ func (ec *EvalContext) valueArgument(val Value, name *ast.QualifiedName) semanti
 	arg.Type, arg.Also = common[0], common[1:]
 	arg.Prim = ec.ctx.model.semantics.PrimTypeOf(common[0])
 	return arg
+}
+
+// spelledPrim is the type the checker gives a literal spelling each element (a nonnegative
+// integer a Natural), widened over them; PrimUnknown for a non-scalar element.
+func spelledPrim(elements []Value) semantics.PrimType {
+	common := semantics.PrimUnknown
+	for i, el := range elements {
+		prim := representationPrim(el)
+		if prim == semantics.PrimInteger && el.Const.Int >= 0 {
+			prim = semantics.PrimNatural
+		}
+		switch {
+		case prim == semantics.PrimUnknown:
+			return semantics.PrimUnknown
+		case i == 0, semantics.PrimConforms(common, prim):
+			common = prim
+		case !semantics.PrimConforms(prim, common):
+			return semantics.PrimUnknown
+		}
+	}
+	return common
 }
 
 // sharedTypes narrows the types the elements so far share to those an element of types
