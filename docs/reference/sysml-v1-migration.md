@@ -16,18 +16,19 @@ RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces a **migr
 that accounts for every v1 element: what it became, or why it did not.
 
 ```bash
-sysml Model.xmi  -convert sysml -o Model.sysml -migration-report Model.report.txt
-sysml Model.uml  -convert ttl   -o Model.ttl   -migration-report Model.report.json
-sysml export.xml -convert sysml -from xmi
+sysml Model.xmi   -convert sysml -o Model.sysml -migration-report Model.report.txt
+sysml Model.uml   -convert ttl   -o Model.ttl   -migration-report Model.report.json
+sysml Model.mdzip -convert sysml -o Model.sysml
+sysml export.xml  -convert sysml -from xmi
 ```
 
-The input format is inferred from the `.xmi` and `.uml` extensions; any other name needs
-`-from xmi` (`uml` is accepted as a synonym). XMI is read only — `-convert xmi` is refused,
+The input format is inferred from the `.xmi`, `.uml` and `.mdzip` extensions; any other name
+needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-convert xmi` is refused,
 since v2 has no v1 form — and it is never loaded into the REPL, an `-eval` or a check directly:
 migrate first, then work with the notation.
 
 The same conversion is available over gRPC (`Convert` with `from_format: "xmi"`, or a
-`file_path` ending in `.xmi`/`.uml`) and so from every client library; the report is not
+`file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library; the report is not
 returned over the service yet.
 
 ## Input
@@ -36,10 +37,14 @@ returned over the service yet.
   [UML 2.5.x](https://www.omg.org/spec/UML/2.5.1)**, with the
   [OMG SysML 1.x profile](https://www.omg.org/spec/SysML/1.6)'s stereotypes applied
   (`sysml:Block`, `sysml:Requirement`, … as `base_Class`/`base_Property` applications). This is
-  the interchange export every SysML v1 tool offers; a tool's export is read as far as it is
-  this standard, and a tool's own project container (a zip archive) is refused with an error
-  asking for the XMI export. The UML and SysML namespace versions are not pinned; any
+  the interchange export every SysML v1 tool offers, and a tool's export is read as far as it
+  is this standard. The UML and SysML namespace versions are not pinned; any
   `http://www.omg.org/spec/UML/…` / `…/SysML/…` namespace is recognized.
+- **Zip archives holding the XMI**, a MagicDraw / Cameo `.mdzip` project among them: the
+  archive's `uml_model.model` entries are read, or, in an archive without them, every `.xmi`,
+  `.xml` and `.uml` entry that is an XMI document. Used projects (archives the model refers
+  to) are not read; elements they hold appear as external proxies and are reported as
+  unmapped where they are relationship ends.
 - **Eclipse UML2 `.uml` files** as [Papyrus](https://eclipse.dev/papyrus/) and its SysML 1.6
   component write them: a bare `uml:Model` root in the `http://www.eclipse.org/uml2/…/UML`
   namespace, with the SysML profile in `http://www.eclipse.org/papyrus/sysml/1.6/SysML/…`.

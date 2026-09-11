@@ -254,27 +254,36 @@ func TestUnmappedElementsAreWrittenAsComments(t *testing.T) {
 	}
 }
 
-// A tool's zipped project is not an XMI document; the error says to export XMI.
-func TestRejectsProjectArchive(t *testing.T) {
+func TestMigratesMdzipArchive(t *testing.T) {
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	w, err := zw.Create("model.xmi")
-	if err != nil {
-		t.Fatal(err)
+	entries := map[string][]byte{
+		"com.nomagic.ci.metamodel.project":      []byte("<?xml version=\"1.0\"?><project/>"),
+		"com.nomagic.magicdraw.uml_model.model": data,
 	}
-	if _, err := w.Write(data); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"com.nomagic.ci.metamodel.project", "com.nomagic.magicdraw.uml_model.model"} {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(entries[name]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	_, err = migrate.Migrate("vehicle.zip", buf.Bytes())
-	if err == nil || !strings.Contains(err.Error(), "zip archive") {
-		t.Errorf("Migrate(zip) = %v, want an archive error", err)
+	zipped, err := migrate.Migrate("vehicle.mdzip", buf.Bytes())
+	if err != nil {
+		t.Fatalf("Migrate(.mdzip): %v", err)
+	}
+	plain := migrateFixture(t)
+	if !bytes.Equal(zipped.Notation, plain.Notation) {
+		t.Error("the archive migrates differently from the document it holds")
 	}
 }
 

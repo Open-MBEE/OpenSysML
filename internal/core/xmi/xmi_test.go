@@ -100,41 +100,70 @@ func TestStereotypes(t *testing.T) {
 	}
 }
 
-// A zip archive is a tool's project container, not XMI; the reader names the
-// remedy rather than guessing at the archive's layout.
-func TestParseRejectsArchive(t *testing.T) {
+// archive zips the entries after a prefix, as a self-extracting stub is.
+func archive(t *testing.T, prefix string, entries map[string][]byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	buf.WriteString(prefix)
+	zw := zip.NewWriter(&buf)
+	zw.SetOffset(int64(len(prefix)))
+	for name, content := range entries {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write(content)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func TestParseArchive(t *testing.T) {
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// archive zips the entries after a prefix, as a self-extracting stub is.
-	archive := func(prefix string, entries map[string][]byte) []byte {
-		var buf bytes.Buffer
-		buf.WriteString(prefix)
-		zw := zip.NewWriter(&buf)
-		zw.SetOffset(int64(len(prefix)))
-		for name, body := range entries {
-			w, err := zw.Create(name)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, _ = w.Write(body)
-		}
-		if err := zw.Close(); err != nil {
-			t.Fatal(err)
-		}
-		return buf.Bytes()
+	project := map[string][]byte{
+		"PROJECT_MANIFEST":                           []byte("<options/>"),
+		"com.nomagic.magicdraw.core.project.options": []byte("<options/>"),
+		"com.nomagic.magicdraw.uml_model.model":      data,
 	}
-	model := map[string][]byte{"model.xmi": data}
 	for name, in := range map[string][]byte{
-		"model entry":   archive("", model),
-		"empty":         archive("", nil),
-		"stub-prefixed": archive("#!/bin/sh\nexit 0\n", model),
+		"project":       archive(t, "", project),
+		"stub-prefixed": archive(t, "#!/bin/sh\nexit 0\n", project),
 	} {
-		_, err := Parse(in)
-		if err == nil || !strings.Contains(err.Error(), "zip archive") || !strings.Contains(err.Error(), "XMI 2.5.1") {
-			t.Errorf("%s: err = %v", name, err)
+		m, err := Parse(in)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
 		}
+		if m.Lookup("_blk_vehicle") == nil {
+			t.Errorf("%s: archive model entry was not read", name)
+		}
+	}
+}
+
+func TestParseArchiveWithoutModel(t *testing.T) {
+	_, err := Parse(archive(t, "", map[string][]byte{"readme.txt": []byte("nothing")}))
+	if err == nil || !strings.Contains(err.Error(), "readme.txt") {
+		t.Errorf("err = %v", err)
+	}
+	_, err = Parse(archive(t, "", nil))
+	if err == nil || !strings.Contains(err.Error(), "archive holds no model") {
+		t.Errorf("empty: err = %v", err)
+	}
+}
+
+func TestParseRejectsTruncatedArchive(t *testing.T) {
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := archive(t, "", map[string][]byte{"model.xmi": data})
+	_, err = Parse(in[:len(in)/2])
+	if err == nil || !strings.Contains(err.Error(), "reading archive") {
+		t.Errorf("err = %v", err)
 	}
 }
 
@@ -165,9 +194,62 @@ const wrapperOnly = `<?xml version="1.0"?>
   <xmi:Documentation exporter="Example UML Tool"/>
 </xmi:XMI>`
 
+func TestParseArchiveIgnoresUnrelatedXML(t *testing.T) {
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata := []byte(`<?xml version="1.0"?><project><option name="x">1</option></project>`)
+	t.Run("project entry", func(t *testing.T) {
+		m, err := Parse(archive(t, "", map[string][]byte{
+			"com.nomagic.magicdraw.uml_model.model": data,
+			"metadata/settings.xml":                 metadata,
+			"broken.xmi":                            []byte("<xmi:XMI"),
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Lookup("_blk_vehicle") == nil {
+			t.Error("project model entry was not read")
+		}
+	})
+	t.Run("xmi fallback", func(t *testing.T) {
+		m, err := Parse(archive(t, "", map[string][]byte{
+			"model.xmi":    data,
+			"settings.xml": metadata,
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Lookup("_blk_vehicle") == nil {
+			t.Error(".xmi entry was not read")
+		}
+	})
+	t.Run("malformed project entry", func(t *testing.T) {
+		_, err := Parse(archive(t, "", map[string][]byte{
+			"com.nomagic.magicdraw.uml_model.model": append(data[:len(data)/2:len(data)/2], []byte("<broken")...),
+		}))
+		if err == nil || !strings.Contains(err.Error(), "uml_model.model") {
+			t.Errorf("err = %v", err)
+		}
+	})
+	t.Run("malformed xmi fallback", func(t *testing.T) {
+		_, err := Parse(archive(t, "", map[string][]byte{
+			"model.xmi": data[:len(data)/2],
+		}))
+		if err == nil || !strings.Contains(err.Error(), "model.xmi") {
+			t.Errorf("err = %v", err)
+		}
+	})
+}
+
 func TestParseRejectsWrapperWithoutModel(t *testing.T) {
 	if _, err := Parse([]byte(wrapperOnly)); err == nil || !strings.Contains(err.Error(), "no model") {
-		t.Errorf("err = %v", err)
+		t.Errorf("direct: err = %v", err)
+	}
+	_, err := Parse(archive(t, "", map[string][]byte{"com.nomagic.magicdraw.uml_model.model": []byte(wrapperOnly)}))
+	if err == nil || !strings.Contains(err.Error(), "no model") {
+		t.Errorf("archive: err = %v", err)
 	}
 }
 

@@ -22,8 +22,9 @@ type Result struct {
 	Report   *Report
 }
 
-// Migrate reads a SysML v1 model as UML XMI and writes it as SysML v2
-// notation. name labels the source in the report.
+// Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
+// .mdzip) holding it, and writes it as SysML v2 notation. name labels the
+// source in the report.
 func Migrate(name string, data []byte) (*Result, error) {
 	model, err := xmi.Parse(data)
 	if err != nil {

@@ -2917,6 +2917,7 @@ func TestFormatDetection(t *testing.T) {
 		"dir/model.turtle": export.FormatTurtle,
 		"Model.xmi":        export.FormatXMI,
 		"Model.uml":        export.FormatXMI,
+		"Model.mdzip":      export.FormatXMI,
 	}
 	for path, want := range cases {
 		got, err := export.FormatOfPath(path)
@@ -2933,7 +2934,7 @@ func TestFormatDetection(t *testing.T) {
 	if _, err := export.FormatOfPath("model"); err == nil {
 		t.Error("expected an error for a missing extension")
 	}
-	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml"} {
+	for _, name := range []string{"sysml", "SysML", "kerml", "ttl", " turtle ", "rdf", "xmi", "uml", "mdzip"} {
 		if _, err := export.ParseFormat(name); err != nil {
 			t.Errorf("ParseFormat(%q): %v", name, err)
 		}

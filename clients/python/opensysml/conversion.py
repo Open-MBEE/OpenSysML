@@ -24,7 +24,7 @@ FORMAT_TURTLE = "ttl"
 _TURTLE_NAMES = frozenset({"ttl", "turtle", "rdf"})
 
 #: Names of the SysML v1 input the service migrates, an experimental mapping too.
-_XMI_NAMES = frozenset({"xmi", "uml"})
+_XMI_NAMES = frozenset({"xmi", "uml", "mdzip"})
 
 #: The fallback wording, for a service too old to send its own notice: the RDF
 #: mapping's status is a property of the mapping, not of the service.

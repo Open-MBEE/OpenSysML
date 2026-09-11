@@ -132,6 +132,7 @@ def test_is_experimental_names_the_rdf_mapping():
     assert is_experimental("turtle", "rdf")
     assert is_experimental("xmi", FORMAT_SYSML)
     assert is_experimental("uml", FORMAT_TURTLE)
+    assert is_experimental("mdzip", FORMAT_TURTLE)
     assert not is_experimental(FORMAT_SYSML, FORMAT_SYSML)
 
 
