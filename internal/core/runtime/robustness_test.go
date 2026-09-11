@@ -4588,6 +4588,9 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 		calc ofComment { return : Natural = size(all Note); }
 		calc unbounded { return : Natural = size(all Integer); }
 		calc unboundedString { return : Natural = size(all String); }
+		attribute def Point { attribute x : Real; }
+		attribute origin : Point;
+		calc unboundedStructured { return : Natural = size(all Point); }
 		calc counted { return : Natural = size(all Wheel); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
@@ -4605,6 +4608,7 @@ func testExtentOfAnUnresolvedOrUnboundedType(t *testing.T) {
 		{"ofComment", ErrTypeMismatch, "Note is a comment"},
 		{"unbounded", ErrUnboundedExtent, "Integer"},
 		{"unboundedString", ErrUnboundedExtent, "String"},
+		{"unboundedStructured", ErrUnboundedExtent, "Point is a data type"},
 	} {
 		_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, tc.calc), nil, pkg.Scope)
 		if !errors.Is(err, tc.want) {
@@ -4706,24 +4710,39 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}
 }
 
-// testExtentOverAnObjectThatCannotBeRead: an extent materializes the nested usages it walks,
-// so a usage that cannot be materialized — five wheels under a budget of three elements — ends
-// the extent with that usage's typed error, never an extent short of what stands behind it.
+// testExtentOverAnObjectThatCannotBeRead: an extent materializes the nested usages it walks that
+// may hold an object of its type, and only those, so a usage that cannot be materialized — five
+// wheels under a budget of four elements — ends the extent with that usage's typed error, never
+// an extent short of what stands behind it, and leaves the extent of another type alone.
 func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
 		private import SequenceFunctions::size;
 		part def Wheel;
-		part def Car { part wheels : Wheel[5]; }
+		part def Seat;
+		part def Driver;
+		part def Car {
+			part seats : Seat[2];
+			part wheels : Wheel[5];
+			part driver : Driver;
+		}
 		part car : Car;
 		calc wheelCount { return : Natural = size(all Wheel); }
+		calc seatCount { return : Natural = size(all Seat); }
+		calc driverCount { return : Natural = size(all Driver); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(NewModel(model, resolver), 1000)
-	ctx.maxElements = 3
+	ctx.maxElements = 4
 	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if !errors.Is(err, ErrElementLimitExceeded) || !strings.Contains(err.Error(), "wheels") {
 		t.Fatalf("size(all Wheel) = %s, %v; want %v naming wheels", FormatValue(got), err, ErrElementLimitExceeded)
+	}
+	for calc, want := range map[string]string{"seatCount": "2", "driverCount": "1"} {
+		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
+		if err != nil || FormatValue(got) != want {
+			t.Fatalf("%s = %s, %v; want %s: the wheels hold no such object and are not read", calc, FormatValue(got), err, want)
+		}
 	}
 }
 

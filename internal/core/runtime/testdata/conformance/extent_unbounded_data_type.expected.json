@@ -3,7 +3,9 @@
   "instantiate": "test::counter",
   "libraries": true,
   "slots": {
-    "integers": {"error": "unbounded extent: Integer declares no values to enumerate"},
-    "strings": {"error": "unbounded extent: String declares no values to enumerate"}
+    "origin": {"type": "Instance"},
+    "integers": {"error": "unbounded extent: Integer is a data type, whose values are not enumerated"},
+    "strings": {"error": "unbounded extent: String is a data type, whose values are not enumerated"},
+    "points": {"error": "unbounded extent: Point is a data type, whose values are not enumerated"}
   }
 }

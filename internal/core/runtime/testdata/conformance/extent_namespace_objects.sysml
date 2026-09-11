@@ -1,6 +1,7 @@
 // `all D` evaluated outside any object — in a calc a package declares — reaches the objects
 // that package's usages denote, materializing those whose type may hold a D, nested ones
-// included, in declaration order. Usages of another package are not this context's.
+// included, in declaration order — and no other: `all Garage` leaves the garage's tool
+// unmaterialized. Usages of another package are not this context's.
 package test {
     private import ScalarValues::*;
     private import SequenceFunctions::*;

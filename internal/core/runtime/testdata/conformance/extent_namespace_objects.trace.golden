@@ -23,7 +23,6 @@ materialize: Wheel #7
       eval operator == -> true
           enter calc SequenceFunctions::size
 materialize: garage #8
-materialize: tool #9
             eval operator all -> (instance#8)
             bind seq = (instance#8) [argument]
           exit calc SequenceFunctions::size -> 1

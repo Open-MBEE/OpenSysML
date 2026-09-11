@@ -31,7 +31,8 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 	case sem.IsVariationFeature(target):
 		return ec.variantValues(target, sem.VariantsOf(target))
 	case sem.IsDataType(target):
-		return Value{}, fmt.Errorf("%w: %s declares no values to enumerate",
+		// A data value is not created by a run, so what a run's attributes hold is not the extent.
+		return Value{}, fmt.Errorf("%w: %s is a data type, whose values are not enumerated (only an enumeration's literals are)",
 			ErrUnboundedExtent, qualifiedNameToString(qn))
 	}
 	roots, err := ec.extentRoots(target)
@@ -73,13 +74,18 @@ func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symb
 }
 
 // objectsOf is this run's objects of target under roots: each root, then what its features
-// hold in declaration order, materialized as reading them would (a read that fails ends the
-// extent). A declaration already on the path is not materialized under again, so recursive
+// hold in declaration order. A feature that may hold an object of target is read, materializing
+// it as a read would (a read that fails ends the extent); one that cannot contributes only what
+// it already holds. A declaration already on the path is not read under again, so recursive
 // composition ends, but the objects it already holds are still walked.
 func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value, error) {
 	var values []Value
 	seen := make(map[int64]bool)
 	path := make(map[*symbols.Symbol]bool)
+	nothing := func(*symbols.Symbol) bool { return false }
+	towardTarget := func(feature *symbols.Symbol) bool {
+		return ctx.mayHold(feature, target, make(map[*symbols.Symbol]bool))
+	}
 	var descend func(inst *Instance) error
 	descend = func(inst *Instance) error {
 		if inst == nil || seen[inst.ID] {
@@ -93,16 +99,17 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			}
 			values = append(values, val)
 		}
-		children := ctx.materializedObjects(inst)
+		through := nothing
 		if inst.Type == nil || !path[inst.Type] {
 			if inst.Type != nil {
 				path[inst.Type] = true
 				defer delete(path, inst.Type)
 			}
-			var err error
-			if children, err = ctx.heldObjectsOf(inst, true); err != nil {
-				return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
-			}
+			through = towardTarget
+		}
+		children, err := ctx.heldObjectsOf(inst, through, true)
+		if err != nil {
+			return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
 		}
 		for _, child := range children {
 			if err := descend(child.instance); err != nil {
@@ -117,29 +124,6 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 		}
 	}
 	return ctx.newSequence(values)
-}
-
-// materializedObjects is nestedObjects restricted to the feature values inst already holds:
-// what a run put there is reached, while nothing new is materialized.
-func (ctx *Context) materializedObjects(inst *Instance) []heldObject {
-	var out []heldObject
-	read := map[*FeatureValue]bool{}
-	for _, of := range ctx.FeaturesOfObject(inst) {
-		if of.Name == "" || !holdsObjects(of.Feature) {
-			continue
-		}
-		fv := inst.FeatureValues[of.Name]
-		if fv == nil || !fv.Materialized || read[fv] {
-			continue
-		}
-		read[fv] = true
-		for _, id := range heldObjects(fv.HeldValue()) {
-			if child, ok := ctx.instances[id]; ok {
-				out = append(out, heldObject{feature: of.Name, instance: child})
-			}
-		}
-	}
-	return out
 }
 
 // extentRoots is the objects an extent is searched from, in declaration order: those the run

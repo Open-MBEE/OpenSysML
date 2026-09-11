@@ -668,24 +668,29 @@ type heldObject struct {
 // materializing a lazy one as reading its feature value does. A feature value that cannot be read
 // yields no object: one that is not there is no subject either.
 func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
-	out, _ := ctx.heldObjectsOf(inst, false)
+	out, _ := ctx.heldObjectsOf(inst, nil, false)
 	return out
 }
 
-// heldObjectsOf is nestedObjects where a feature that cannot be read is skipped or, where
-// every object counts, ends the walk with its error. A redefined feature value is read once.
-func (ctx *Context) heldObjectsOf(inst *Instance, everyObject bool) ([]heldObject, error) {
+// heldObjectsOf is nestedObjects reading only the features `through` admits (all, when nil), taking
+// what the others already hold; a failed read is skipped or, where every object counts, is the error.
+func (ctx *Context) heldObjectsOf(inst *Instance, through func(*symbols.Symbol) bool, everyObject bool) ([]heldObject, error) {
 	var out []heldObject
 	read := map[*FeatureValue]bool{}
 	for _, of := range ctx.FeaturesOfObject(inst) {
 		if of.Name == "" || !holdsObjects(of.Feature) {
 			continue
 		}
-		fv, err := inst.GetFeatureValue(ctx, of.Name)
-		if err != nil {
-			if everyObject {
-				return nil, fmt.Errorf("feature %s: %w", of.Name, err)
+		fv := inst.FeatureValues[of.Name]
+		if through == nil || through(of.Feature.Symbol) {
+			var err error
+			if fv, err = inst.GetFeatureValue(ctx, of.Name); err != nil {
+				if everyObject {
+					return nil, fmt.Errorf("feature %s: %w", of.Name, err)
+				}
+				continue
 			}
+		} else if fv == nil || !fv.Materialized {
 			continue
 		}
 		if fv == nil || read[fv] {

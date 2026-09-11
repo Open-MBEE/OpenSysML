@@ -114,7 +114,7 @@ var (
 	ErrUnresolvedType = errors.New("unresolved type")
 
 	// ErrUnboundedExtent is returned when `all T` names a type whose instances no
-	// run enumerates: a data type declaring no literals (`all Integer`).
+	// run enumerates: a data type that is not an enumeration (`all Integer`, `all Point`).
 	ErrUnboundedExtent = errors.New("unbounded extent")
 
 	// ErrExtentUnavailable is returned when `all T` would have to count objects
