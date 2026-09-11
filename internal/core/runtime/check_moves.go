@@ -28,8 +28,6 @@ const (
 	moveTrigger
 	// moveDecision follows one holding guard of a decision.
 	moveDecision
-	// moveClock advances the clock to the earliest wait, when only that moves the action.
-	moveClock
 )
 
 func (k moveKind) String() string {
@@ -46,8 +44,6 @@ func (k moveKind) String() string {
 		return "trigger"
 	case moveDecision:
 		return "decision"
-	case moveClock:
-		return "clock"
 	}
 	return fmt.Sprintf("moveKind(%d)", int(k))
 }
@@ -55,13 +51,12 @@ func (k moveKind) String() string {
 // enabledMove is one move of a state: one token advancing its node and, at a
 // decision several of whose guards hold, the branch it takes.
 type enabledMove struct {
-	// Token is the token moved; 0 for the clock move.
 	Token int64
-	// Node is where the token sits; nil for the clock move.
+	// Node is where the token sits.
 	Node ast.Node
 	// Branch indexes the holding branches a decision takes; -1 takes the first and reveals how many hold.
 	Branch int
-	// Label names the move as the trace names the token, "2@left"; "clock" for the clock move.
+	// Label names the move as the trace names the token, "2@left".
 	Label string
 	Kind  moveKind
 	// Fails is the typed error making the move raises, nil for one that advances.
@@ -76,7 +71,7 @@ func (m enabledMove) String() string {
 }
 
 // enabledMoves lists the moves of the state in token-ID order, each as its first
-// branch; once every token is parked on the clock, advancing it is the one move.
+// branch: the tokens able to act, and those whose parked wait fails as a typed error.
 func (e *ActionExecutor) enabledMoves() []enabledMove {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if e.state != StateRunning && e.state != StateWaiting {
@@ -90,7 +85,7 @@ func (e *ActionExecutor) enabledMoves() []enabledMove {
 			continue
 		}
 		ready, fails := e.readiness(id, oneMoveEligible)
-		if !ready {
+		if !ready && fails == nil {
 			continue
 		}
 		t := e.tokens[e.tokenIndex(id)]
@@ -104,9 +99,6 @@ func (e *ActionExecutor) enabledMoves() []enabledMove {
 		})
 	}
 	slices.SortFunc(moves, func(a, b enabledMove) int { return cmp.Compare(a.Token, b.Token) })
-	if len(moves) == 0 && e.state == StateWaiting && e.waitsOnClock(nil) {
-		moves = append(moves, enabledMove{Branch: -1, Label: "clock", Kind: moveClock})
-	}
 	return moves
 }
 
@@ -131,8 +123,9 @@ func (e *ActionExecutor) moveKindOf(t Token) moveKind {
 	return movePlain
 }
 
-// settle steps a state with no move so its tokens park: a wait on the clock
-// leaves the clock move, a wait for a message nothing can post is the deadlock.
+// settle steps a state with no move so its tokens park. Virtual time is captured,
+// not explored: tokens waiting on the clock alone have it advanced to the earliest
+// wait, no move of the checker's; a wait for a message nothing can post is the deadlock.
 func (e *ActionExecutor) settle() error {
 	if run := e.ctx.scheduling(); run.check == nil {
 		return &CheckMoveError{Branch: -1, Faced: "the run is not under the check policy"}
@@ -140,7 +133,7 @@ func (e *ActionExecutor) settle() error {
 	err := e.Step()
 	switch {
 	case errors.Is(err, ErrNothingDue):
-		return nil
+		return e.advanceClock()
 	case err == nil && e.state == StateWaiting && !e.waitsOnClock(nil):
 		return e.deadlockError(nil)
 	}
@@ -154,9 +147,6 @@ func (e *ActionExecutor) makeMove(m enabledMove) (branches int, err error) {
 	if run.check == nil {
 		return 0, &CheckMoveError{Token: m.Token, Branch: m.Branch, Faced: "the run is not under the check policy"}
 	}
-	if m.Kind == moveClock {
-		return 0, e.advanceClock()
-	}
 	run.check.script.set(m.Token, m.Branch)
 	defer run.check.script.settle()
 	err = e.Step()
@@ -166,8 +156,8 @@ func (e *ActionExecutor) makeMove(m enabledMove) (branches int, err error) {
 	return branches, err
 }
 
-// advanceClock moves the clock to the earliest wait as a run does; a due order
-// among executors is a choice the policy refuses.
+// advanceClock moves the clock to the earliest wait as a run does, until a parked
+// token can proceed; a due order among executors is a choice the policy refuses.
 func (e *ActionExecutor) advanceClock() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	if err := e.ctx.driveClock(e.describeWaits(nil)); err != nil {

@@ -184,9 +184,9 @@ func TestParkedAcceptIsAMoveOnceAnswered(t *testing.T) {
 	}
 }
 
-// Settling a state whose only wait is on the clock leaves the clock move; taken,
-// it makes the wait due and the trigger a move.
-func TestClockIsTheOneMoveWhenOnlyTimeMovesTheAction(t *testing.T) {
+// Settling a state whose only wait is on the clock advances it to the wait: time
+// is captured in the state, not a move of the checker's, and the trigger is the move.
+func TestSettlingOnTheClockAdvancesItWithoutAMove(t *testing.T) {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
 		private import SI::*;
 		private import ScalarValues::*;
@@ -204,16 +204,59 @@ func TestClockIsTheOneMoveWhenOnlyTimeMovesTheAction(t *testing.T) {
 	if err := a.exec.settle(); err != nil {
 		t.Fatalf("settle on the clock: %v", err)
 	}
-	clock := a.only(t, "clock:clock")
-	a.make(t, clock[0])
 	if now := a.ctx.Clock().Now(); now != 5 {
-		t.Fatalf("clock at %v after the clock move, want 5", now)
+		t.Fatalf("clock at %v after settling, want 5", now)
 	}
 	a.make(t, a.only(t, "1@wait:trigger")[0])
 	a.make(t, a.only(t, "1@tick:plain")[0])
 	a.make(t, a.only(t, "1@done:plain")[0])
 	if got := a.result(t, "count"); got != "1" {
 		t.Fatalf("count = %s, want 1", got)
+	}
+}
+
+// A parked accept whose `via` port fails to materialize is a move once a message
+// it would take is in flight: making it raises the port's error, not a deadlock.
+func TestAFailingAcceptIsAMoveThatRaisesItsError(t *testing.T) {
+	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package P {
+		private import ScalarValues::*;`+directedPorts+`
+		part def Listener {
+			port in : ~Chan = 1 / 0;
+			action listen {
+				first start;
+				action reader accept v : Integer via in;
+				done;
+				succession first start then reader;
+				succession first reader then done;
+			}
+		}
+		part listener : Listener;
+	}`))
+	listener, err := ctx.Instantiate(oneSymbol(t, idx, "P::listener"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := &checkScript{branch: -1}
+	mustSchedule(t, ctx, checkPolicy(script))
+	exec, err := ctx.CreateActionExecutorFor(oneSymbol(t, idx, "P::Listener::listen"), listener)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &checkedAction{ctx: ctx, script: script, exec: exec}
+	a.make(t, a.only(t, "1@start:plain")[0])
+	a.only(t, "")
+	if err := a.exec.settle(); !errors.Is(err, ErrAcceptDeadlock) {
+		t.Fatalf("settle with nothing in flight: %v, want %v", err, ErrAcceptDeadlock)
+	}
+	four := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 4}}
+	ctx.PostMessage(Message{SignalType: "Integer", Target: "reader", Port: "other", Object: listener.ID, PortID: -1,
+		Delivery: DeliverPort, Value: &four})
+	moves := a.only(t, "1@reader:accept")
+	if !errors.Is(moves[0].Fails, ErrDivisionByZero) {
+		t.Fatalf("the move fails with %v, want the port's %v", moves[0].Fails, ErrDivisionByZero)
+	}
+	if _, err := a.exec.makeMove(moves[0]); !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("making the move: %v, want %v", err, ErrDivisionByZero)
 	}
 }
 
