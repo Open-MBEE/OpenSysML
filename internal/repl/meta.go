@@ -1038,9 +1038,8 @@ func mismatchInExpr(expr string, operand *runtime.OperandTypeError, base int) bo
 // emptyRuntime is a context over an empty model, which answers an expression of
 // literals alone and nothing a session declares.
 func emptyRuntime(budgets runtime.Budgets) (*runtime.Context, error) {
-	emptyIdx := libs.NewModelIndex()
-	emptyModel := semantics.NewModel(resolve.New(emptyIdx))
-	ctx := runtime.NewContext(emptyModel, resolve.New(emptyIdx), budgets.MaxSteps)
+	resolver := resolve.New(libs.NewModelIndex())
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), budgets.MaxSteps)
 	if err := ctx.SetBudgets(budgets); err != nil {
 		return nil, err
 	}

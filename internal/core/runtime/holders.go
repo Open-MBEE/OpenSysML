@@ -13,7 +13,7 @@ import (
 // feature at path — a feature's name, or a chain of names from one of typ's features into the
 // objects it holds — so their types classify them (KerML 1.0 §7.3.4.1); memoized per type.
 func (ctx *Context) holdingFeatures(typ *symbols.Symbol, path string) []string {
-	index, ok := ctx.holders[typ]
+	index, ok := ctx.model.holders[typ]
 	if !ok {
 		index = make(map[string][]string)
 		features := ctx.FeaturesOf(typ)
@@ -32,7 +32,7 @@ func (ctx *Context) holdingFeatures(typ *symbols.Symbol, path string) []string {
 				}
 			}
 		}
-		ctx.holders[typ] = index
+		ctx.model.holders[typ] = index
 	}
 	return index[path]
 }
@@ -46,7 +46,7 @@ func (ctx *Context) holdsData(feat *EffectiveFeature) bool {
 			return true
 		}
 	}
-	return ctx.model.IsDataType(feat.Type)
+	return ctx.model.semantics.IsDataType(feat.Type)
 }
 
 // mentionedFeatures names the features of typ whose values feat's value may pass on as its
@@ -249,7 +249,7 @@ func (ctx *Context) returnedArguments(scope *symbols.Scope, call *ast.Invocation
 // shape of the calc feature the chain denotes, which the named arguments bind parameters of.
 func (ctx *Context) chainTarget(scope *symbols.Scope, chain *ast.FeatureChainExpr, named []ast.NamedArg) *invocationTarget {
 	target := &invocationTarget{qualName: chainText(chain)}
-	if sym, ok := ctx.resolver.ResolveTarget(scope, chain); ok && sym != nil {
+	if sym, ok := ctx.model.resolver.ResolveTarget(scope, chain); ok && sym != nil {
 		if shape, err := ctx.calcShapeOf(sym); err == nil {
 			target.calc, target.shape = sym, shape
 		}
@@ -276,22 +276,22 @@ type returnedAnalysis struct {
 // Memoized per shape; a call within a cycle reads the set as far as it is known, and the
 // cycle's root iterates every shape of it until none grows.
 func (ctx *Context) returnedParameters(shape *calcShape) map[string]bool {
-	a, ok := ctx.returnedParams[shape]
+	a, ok := ctx.model.returnedParams[shape]
 	if !ok {
 		a = &returnedAnalysis{passed: make(map[string]bool), active: -1}
-		ctx.returnedParams[shape] = a
+		ctx.model.returnedParams[shape] = a
 	}
 	if a.done {
 		return a.passed
 	}
 	if a.active >= 0 {
-		top := ctx.returnedStack[len(ctx.returnedStack)-1]
+		top := ctx.model.returnedStack[len(ctx.model.returnedStack)-1]
 		top.low = min(top.low, a.active)
 		return a.passed
 	}
-	a.active, a.low = len(ctx.returnedStack), len(ctx.returnedStack)
-	ctx.returnedStack = append(ctx.returnedStack, a)
-	provisional := len(ctx.returnedProvisional)
+	a.active, a.low = len(ctx.model.returnedStack), len(ctx.model.returnedStack)
+	ctx.model.returnedStack = append(ctx.model.returnedStack, a)
+	provisional := len(ctx.model.returnedProvisional)
 	params := make(map[string]bool, len(shape.ParamNames))
 	for _, name := range shape.ParamNames {
 		params[name] = true
@@ -304,18 +304,18 @@ func (ctx *Context) returnedParameters(shape *calcShape) map[string]bool {
 		}
 	}
 	index := a.active
-	ctx.returnedStack = ctx.returnedStack[:index]
+	ctx.model.returnedStack = ctx.model.returnedStack[:index]
 	a.active = -1
 	if a.low < index {
-		caller := ctx.returnedStack[index-1]
+		caller := ctx.model.returnedStack[index-1]
 		caller.low = min(caller.low, a.low)
-		ctx.returnedProvisional = append(ctx.returnedProvisional, a)
+		ctx.model.returnedProvisional = append(ctx.model.returnedProvisional, a)
 		return a.passed
 	}
-	for _, member := range ctx.returnedProvisional[provisional:] {
+	for _, member := range ctx.model.returnedProvisional[provisional:] {
 		member.done = true
 	}
-	ctx.returnedProvisional = ctx.returnedProvisional[:provisional]
+	ctx.model.returnedProvisional = ctx.model.returnedProvisional[:provisional]
 	a.done = true
 	return a.passed
 }
@@ -335,7 +335,7 @@ func (ctx *Context) collectReturnedParameters(shape *calcShape, passed, params m
 		if source.expr == nil {
 			return
 		}
-		if sym, ok := ctx.resolver.LookupName(in, name); ok {
+		if sym, ok := ctx.model.resolver.LookupName(in, name); ok {
 			locals[sym] = append(locals[sym], source)
 		}
 	}
@@ -413,12 +413,12 @@ func (ctx *Context) referencedSymbol(scope *symbols.Scope, qn *ast.QualifiedName
 		return nil
 	}
 	if len(qn.Parts) == 1 && !qn.Global {
-		if sym, ok := ctx.resolver.LookupName(scope, qn.Parts[0].Text); ok {
+		if sym, ok := ctx.model.resolver.LookupName(scope, qn.Parts[0].Text); ok {
 			return sym
 		}
 		return nil
 	}
-	sym, _ := ctx.resolver.ReadQualified(scope, qn).Symbol()
+	sym, _ := ctx.model.resolver.ReadQualified(scope, qn).Symbol()
 	return sym
 }
 

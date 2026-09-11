@@ -10,7 +10,7 @@ import (
 )
 
 func TestActionExecutor_Creation(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Create minimal action symbol
 	action := &symbols.Symbol{
@@ -42,7 +42,7 @@ func TestActionExecutor_Creation(t *testing.T) {
 }
 
 func TestActionExecutor_GraphExtraction(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	final := &ast.FinalNode{}
@@ -77,7 +77,7 @@ func TestActionExecutor_GraphExtraction(t *testing.T) {
 }
 
 func TestActionExecutor_InitialNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Create action: initial → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -126,7 +126,7 @@ func TestActionExecutor_InitialNode(t *testing.T) {
 }
 
 func TestActionExecutor_FinalNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	final := &ast.FinalNode{}
@@ -186,7 +186,7 @@ func TestActionExecutor_FinalNode(t *testing.T) {
 }
 
 func TestActionExecutor_ActionExecutionNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	action := &ast.ActionExecutionNode{
@@ -254,7 +254,7 @@ func TestActionExecutor_ActionExecutionNode(t *testing.T) {
 }
 
 func TestActionExecutor_ForkNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -312,7 +312,7 @@ func TestActionExecutor_ForkNode(t *testing.T) {
 // fork's branches: they read and write the one feature space of the action they
 // belong to, so a write in one branch is visible in the others.
 func TestActionExecutor_ForkNode_SharedFeatureSpace(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -372,7 +372,7 @@ func TestActionExecutor_ForkNode_SharedFeatureSpace(t *testing.T) {
 }
 
 func TestActionExecutor_ForkNode_NoSuccessors(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -413,7 +413,7 @@ func TestActionExecutor_ForkNode_NoSuccessors(t *testing.T) {
 // A node with no succession out of it ends its flow: each forked branch retires
 // there, and the action completes once the last token has.
 func TestActionExecutor_NodeWithoutSuccessorsRetiresItsToken(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -470,7 +470,7 @@ func TestActionExecutor_NodeWithoutSuccessorsRetiresItsToken(t *testing.T) {
 }
 
 func TestActionExecutor_JoinNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -573,7 +573,7 @@ func TestActionExecutor_JoinNode(t *testing.T) {
 }
 
 func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	initial := &ast.InitialNode{Name: "start"}
 	fork := &ast.ForkNode{Name: "split"}
@@ -681,7 +681,7 @@ func TestActionExecutor_JoinNode_PartialArrival(t *testing.T) {
 // TestActionExecutor_MergeNode: a merge passes every arriving token, so two fork
 // branches reaching it are two traversals, each going on to the final node.
 func TestActionExecutor_MergeNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → fork → [merge, merge] → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -776,7 +776,7 @@ func TestActionExecutor_MergeNode(t *testing.T) {
 // TestActionExecutor_MergeNode_ControlOnly: a merge carries control only — both
 // branches' tokens pass it and the value their writes left is untouched by the traversals.
 func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// fork → [path1 sets x=1, path2 sets x=2] → merge → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -899,7 +899,7 @@ func TestActionExecutor_MergeNode_ControlOnly(t *testing.T) {
 }
 
 func TestActionExecutor_MergeNode_SingleParent(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// initial → merge → final (degenerate case, merge pass-through)
 	initial := &ast.InitialNode{Name: "start"}
@@ -945,7 +945,7 @@ func TestActionExecutor_MergeNode_SingleParent(t *testing.T) {
 }
 
 func TestActionExecutor_DecisionNode(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → decision → [pathA (if x>10), pathB (if x<=10)] → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -1148,7 +1148,7 @@ func TestActionExecutor_DecisionNode(t *testing.T) {
 }
 
 func TestActionExecutor_DecisionNode_ElseBranch(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → decision → [pathA (if x>10), pathElse (no guard)] → final
 	// Test that unguarded edge works as fallback after guarded edges
@@ -1267,7 +1267,7 @@ func TestActionExecutor_DecisionNode_ElseBranch(t *testing.T) {
 }
 
 func TestActionExecutor_DecisionNode_NonBooleanGuard(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → decision → pathA (with integer guard - invalid)
 	initial := &ast.InitialNode{Name: "start"}
@@ -1335,7 +1335,7 @@ func findSubstring(s, substr string) bool {
 }
 
 func TestActionExecutor_ObjectFlow(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → action1 → action2 → final
 	// With ObjectFlowEdge: action1.output → action2.input
@@ -1432,7 +1432,7 @@ func TestActionExecutor_ObjectFlow(t *testing.T) {
 }
 
 func TestActionExecutor_Step(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → action → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -1501,7 +1501,7 @@ func TestActionExecutor_Step(t *testing.T) {
 }
 
 func TestActionExecutor_RunToCompletion(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → fork → [action1, action2] → join → final
 	initial := &ast.InitialNode{Name: "start"}
@@ -1577,7 +1577,7 @@ func TestActionExecutor_RunToCompletion(t *testing.T) {
 }
 
 func TestActionExecutor_Deadlock_JoinStarvation(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build deadlock scenario:
 	// initial → fork → [path1 → join, path2 → action2]
@@ -1680,7 +1680,7 @@ func TestActionExecutor_Deadlock_JoinStarvation(t *testing.T) {
 // Integration Tests (Tasks 12-16)
 
 func TestActionExecutor_Integration_Sequential(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → compute1 → compute2 → compute3 → final
 	// Sequential execution with data flow
@@ -1751,7 +1751,7 @@ func TestActionExecutor_Integration_Sequential(t *testing.T) {
 }
 
 func TestActionExecutor_Integration_ForkJoin(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → fork → [path1, path2, path3] → join → final
 	// Parallel execution with synchronization
@@ -1836,7 +1836,7 @@ func TestActionExecutor_Integration_ForkJoin(t *testing.T) {
 }
 
 func TestActionExecutor_Integration_DecisionMerge(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build: initial → decision → [pathTrue, pathFalse] → merge → final
 	// Conditional branching with merge
@@ -1948,7 +1948,7 @@ func TestActionExecutor_Integration_DecisionMerge(t *testing.T) {
 }
 
 func TestActionExecutor_Integration_ObjectFlow(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build pipeline with data flow: initial → producer → consumer → final
 	// ObjectFlow: producer.result → consumer.input
@@ -2008,7 +2008,7 @@ func TestActionExecutor_Integration_ObjectFlow(t *testing.T) {
 }
 
 func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Test 1: Initial node missing
 	t.Run("missing_initial_node", func(t *testing.T) {
@@ -2102,7 +2102,7 @@ func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
 
 // Task 48: Parallel processing workflow - fork/join + data merge
 func TestActionExecutor_Integration_ParallelProcessing(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Workflow: initial → fork → [processA, processB, processC] → join → aggregate → final
 	// Each processor adds to input value, join merges all data, aggregate sums
@@ -2307,7 +2307,7 @@ func guardedSuccessionExecutor(t *testing.T, guard ast.Node) *ActionExecutor {
 		},
 	}
 
-	exec, err := newActionExecutor(NewContext(semantics.NewModel(nil), nil, 1000), actionSym, nil)
+	exec, err := newActionExecutor(NewContext(NewModel(semantics.NewModel(nil), nil), 1000), actionSym, nil)
 	if err != nil {
 		t.Fatalf("create executor: %v", err)
 	}
@@ -2419,7 +2419,7 @@ func TestActionExecutor_GuardedSuccession_OutOfInitialNode(t *testing.T) {
 		},
 	}
 
-	exec, err := newActionExecutor(NewContext(semantics.NewModel(nil), nil, 1000), actionSym, nil)
+	exec, err := newActionExecutor(NewContext(NewModel(semantics.NewModel(nil), nil), 1000), actionSym, nil)
 	if err != nil {
 		t.Fatalf("create executor: %v", err)
 	}
@@ -2475,7 +2475,7 @@ func TestActionExecutor_GuardedSuccession_PrunesAForkBranch(t *testing.T) {
 		},
 	}
 
-	exec, err := newActionExecutor(NewContext(semantics.NewModel(nil), nil, 1000), actionSym, nil)
+	exec, err := newActionExecutor(NewContext(NewModel(semantics.NewModel(nil), nil), 1000), actionSym, nil)
 	if err != nil {
 		t.Fatalf("create executor: %v", err)
 	}
@@ -2533,7 +2533,7 @@ func TestActionExecutor_GuardedSuccession_TwoGuardsHold(t *testing.T) {
 		},
 	}
 
-	exec, err := newActionExecutor(NewContext(semantics.NewModel(nil), nil, 1000), actionSym, nil)
+	exec, err := newActionExecutor(NewContext(NewModel(semantics.NewModel(nil), nil), 1000), actionSym, nil)
 	if err != nil {
 		t.Fatalf("create executor: %v", err)
 	}
@@ -2593,7 +2593,7 @@ func TestActionExecutor_GuardedSuccession_PrunedMergeStaysOpen(t *testing.T) {
 		},
 	}
 
-	exec, err := newActionExecutor(NewContext(semantics.NewModel(nil), nil, 1000), actionSym, nil)
+	exec, err := newActionExecutor(NewContext(NewModel(semantics.NewModel(nil), nil), 1000), actionSym, nil)
 	if err != nil {
 		t.Fatalf("create executor: %v", err)
 	}

@@ -324,7 +324,7 @@ func TestCompiledCalcEligibility(t *testing.T) {
 		if eligibility(t, ctx, scope, name) {
 			t.Errorf("%s is eligible, want ineligible", name)
 		}
-		if sym := findSymbolByName(scope, name, ast.DefCalc); ctx.calcShapes[sym].ineligibleWhy == "" {
+		if sym := findSymbolByName(scope, name, ast.DefCalc); ctx.model.calcShapes[sym].ineligibleWhy == "" {
 			t.Errorf("%s records no reason for its ineligibility", name)
 		}
 	}

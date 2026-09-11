@@ -24,16 +24,16 @@ import (
 // exploreJobs is the job count the determinism tests run beside one job.
 const exploreJobs = 8
 
-// exploreWorkers builds a context per run on a resolver and semantic model per job over
-// one index, which is what a plan's worker fleet gives ExploreWith.
+// exploreWorkers builds a context per run on a resolver, semantic model and runtime Model per
+// job over one index, which is what a plan's worker fleet gives ExploreWith.
 type exploreWorkers struct {
 	idx     *symbols.Index
 	mu      sync.Mutex
-	workers map[int]*exploreModel
+	workers map[int]*Model
 }
 
 func newExploreWorkers(idx *symbols.Index) *exploreWorkers {
-	return &exploreWorkers{idx: idx, workers: make(map[int]*exploreModel)}
+	return &exploreWorkers{idx: idx, workers: make(map[int]*Model)}
 }
 
 func (w *exploreWorkers) fresh(job int) (*Context, error) {
@@ -41,11 +41,11 @@ func (w *exploreWorkers) fresh(job int) (*Context, error) {
 	m, ok := w.workers[job]
 	if !ok {
 		resolver := resolve.New(w.idx)
-		m = &exploreModel{idx: w.idx, resolver: resolver, model: semantics.NewModel(resolver)}
+		m = NewModel(semantics.NewModel(resolver), resolver)
 		w.workers[job] = m
 	}
 	w.mu.Unlock()
-	return NewContext(m.model, m.resolver, 10000), nil
+	return NewContext(m, 10000), nil
 }
 
 // renderExploration spells everything an exploration reports, so two are compared whole.

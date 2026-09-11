@@ -1158,41 +1158,42 @@ func (s *Session) getOrCreateRuntime() (*runtime.Context, error) {
 // newRuntime builds a context over the session's declarations, under its budgets
 // and the policy its own runs are driven by. Nothing the session holds is in it.
 func (s *Session) newRuntime() (*runtime.Context, error) {
-	model, resolver, err := s.semanticModel()
+	model, err := s.runtimeModel()
 	if err != nil {
 		return nil, err
 	}
-	return s.newRuntimeOver(model, resolver)
+	return s.newRuntimeOver(model)
 }
 
-// semanticModel is the model and resolver a context over the session's
-// declarations runs on; the model memoizes, so contexts of one exploration share it.
-func (s *Session) semanticModel() (*semantics.Model, *resolve.Resolver, error) {
+// runtimeModel is the model-derived part a context over the session's declarations
+// runs on; it memoizes, so contexts of one exploration share it.
+func (s *Session) runtimeModel() (*runtime.Model, error) {
 	// Falls back to the library index so a library symbol can be evaluated or
 	// instantiated before the session declares anything.
 	idx := s.browseIndex()
 	if idx == nil {
-		return nil, nil, fmt.Errorf("no document loaded")
+		return nil, fmt.Errorf("no document loaded")
 	}
 	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-	model.SetSourceText(s.sessionSourceText())
-	return model, resolver, nil
-}
-
-// newRuntimeOver builds a context over model under the session's budgets and the
-// policy its own runs are driven by. Nothing the session holds is in it.
-func (s *Session) newRuntimeOver(model *semantics.Model, resolver *resolve.Resolver) (*runtime.Context, error) {
-	ctx := runtime.NewContext(model, resolver, s.budgets.MaxSteps)
-	if err := ctx.SetBudgets(s.budgets); err != nil {
-		return nil, err
-	}
+	sem := semantics.NewModel(resolver)
+	sem.SetSourceText(s.sessionSourceText())
+	model := runtime.NewModel(sem, resolver)
 	// Give the runtime the buffer's text, so an error about a declaration reports
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.
 	for _, doc := range s.sessionDocs() {
-		ctx.RegisterSource(source.New(doc.Name, doc.Content))
-		ctx.RegisterScope(doc.Scope)
+		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterScope(doc.Scope)
+	}
+	return model, nil
+}
+
+// newRuntimeOver builds a context over model under the session's budgets and the
+// policy its own runs are driven by. Nothing the session holds is in it.
+func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error) {
+	ctx := runtime.NewContext(model, s.budgets.MaxSteps)
+	if err := ctx.SetBudgets(s.budgets); err != nil {
+		return nil, err
 	}
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err

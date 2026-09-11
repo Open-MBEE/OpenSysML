@@ -13,7 +13,7 @@ func TestIntegration_ParseAndInstantiate(t *testing.T) {
 	`
 
 	model, resolver, rootScope := parseAndBuildModel(t, src)
-	ctx := NewContext(model, resolver, 100000)
+	ctx := NewContext(NewModel(model, resolver), 100000)
 
 	wheelSym := resolveSymbol(t, rootScope, "Wheel")
 	inst, err := ctx.Instantiate(wheelSym)

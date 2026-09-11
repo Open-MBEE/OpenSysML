@@ -40,9 +40,9 @@ func fixtureDocuments(t *testing.T, docs ...document) (*runtime.Context, *symbol
 	}
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := runtime.NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 10000)
 	for _, sf := range sources {
-		ctx.RegisterSource(sf)
+		ctx.Model().RegisterSource(sf)
 	}
 	return ctx, idx
 }

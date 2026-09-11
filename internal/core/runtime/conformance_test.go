@@ -266,8 +266,32 @@ func TestExecutionConformance(t *testing.T) {
 	}
 }
 
-// sweepPolicies are the non-default policies the whole suite runs under.
+// sweepPolicies are the non-default policies the whole suite always runs under.
 var sweepPolicies = []string{"declared", "seed:1"}
+
+// seedSweepEnv names the seeds the suite runs under besides seed:1, as a
+// comma-separated list of non-negative integers; unset, the sweep is seed:1 alone.
+const seedSweepEnv = "OPENSYSML_SCHEDULE_SEEDS"
+
+// sweepPoliciesWithSeeds is the sweep widened by the seeds seedSweepEnv names.
+func sweepPoliciesWithSeeds(t *testing.T) []string {
+	policies := slices.Clone(sweepPolicies)
+	spelled := os.Getenv(seedSweepEnv)
+	if spelled == "" {
+		return policies
+	}
+	for _, field := range strings.Split(spelled, ",") {
+		seed, err := strconv.ParseUint(strings.TrimSpace(field), 10, 64)
+		if err != nil {
+			t.Fatalf("%s=%q: %q is not a seed: %v", seedSweepEnv, spelled, field, err)
+		}
+		policy := fmt.Sprintf("seed:%d", seed)
+		if !slices.Contains(policies, policy) {
+			policies = append(policies, policy)
+		}
+	}
+	return policies
+}
 
 // TestExecutionConformanceUnderPolicies runs the whole suite under each
 // non-default policy. A case pinning no policy was recorded under the default,
@@ -275,6 +299,7 @@ var sweepPolicies = []string{"declared", "seed:1"}
 // pinning a scheduling artefact and is reported, never skipped. A pinned case
 // runs under its own policy: pinning `reverse` says its result is one
 // linearization, kept until its admissible set is derived or the bug fixed.
+// OPENSYSML_SCHEDULE_SEEDS widens the sweep to further seeds.
 func TestExecutionConformanceUnderPolicies(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 	knownFailures := loadKnownFailures(t, conformanceDir)
@@ -283,7 +308,7 @@ func TestExecutionConformanceUnderPolicies(t *testing.T) {
 		t.Fatalf("failed to read conformance directory: %v", err)
 	}
 
-	for _, spelling := range sweepPolicies {
+	for _, spelling := range sweepPoliciesWithSeeds(t) {
 		policy, err := ParseSchedulePolicy(spelling)
 		if err != nil {
 			t.Fatalf("sweep policy: %v", err)
@@ -373,7 +398,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	fresh := func() *Context { return NewContext(model, resolver, 10000) }
+	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
 		t.Fatalf("schedule: %v", err)

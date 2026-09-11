@@ -37,7 +37,7 @@ func TestRequirementEvaluation_RequireWithLiteral(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve requirements
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -96,7 +96,7 @@ func TestRequirementEvaluation_Assume(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve requirement
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -139,7 +139,7 @@ func TestRequirementEvaluation_SubjectNotFound(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve requirement
 	rootScope := idx.DocumentRoot("test.sysml")
@@ -190,7 +190,7 @@ func TestRequirementEvaluation_Complete(t *testing.T) {
 	model := semantics.NewModel(resolver)
 
 	// Create runtime context
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 
 	// Resolve requirement
 	rootScope := idx.DocumentRoot("test.sysml")

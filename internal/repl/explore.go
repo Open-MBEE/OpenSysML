@@ -7,7 +7,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -98,15 +97,15 @@ func (s *Session) exploreVerdict(subject string, run func(*runtime.Context) (run
 	s.browseIndex()
 	s.nameTable()
 	model := &analysis.Model{
-		Semantics: func() (*resolve.Resolver, *semantics.Model, error) {
-			sem, resolver, err := s.semanticModel()
+		Semantics: func() (*runtime.Model, error) {
+			model, err := s.runtimeModel()
 			if err != nil {
-				return nil, nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
+				return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 			}
-			return resolver, sem, nil
+			return model, nil
 		},
 		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
-			ctx, err := s.newRuntimeOver(w.Model, w.Resolver)
+			ctx, err := s.newRuntimeOver(w.Model)
 			if err != nil {
 				return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 			}

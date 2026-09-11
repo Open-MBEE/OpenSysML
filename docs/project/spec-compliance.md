@@ -2553,7 +2553,7 @@ the `@type` mapping and the comparison choices.
   wrote and `%features` lists, `holder.cells.rank` reads the array behind the carried value, a
   debugger still stepping writes to it, and `Demo::holder === Demo::holder` holds — while a
   resubmission that changes the holder's declaration drops the object and every surface reports
-  the loss (`runtime/context.go` `RegisterScope`/`declaredSymbol`, `runtime/adopt.go`
+  the loss (`runtime/model.go` `RegisterScope`/`declaredSymbol`, `runtime/adopt.go`
   `adoption.rebind`; `repl/session.go` `getOrCreateRuntime`;
   `runtime/adopt_test.go:TestAdoptRebindsIntoTheScopeTreeTheCallerResolvesIn`,
   `repl/carryover_eval_test.go`, `cmd/sysml/carryover_test.go`). Before this the object was

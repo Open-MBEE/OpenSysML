@@ -134,6 +134,8 @@ Every element above has a test surface, documented for authors in
   `TestExecutionConformanceUnderPolicies` runs the whole suite under `declared` and `seed:1`: a
   case with no `schedule` pin was recorded under the default and must hold under any policy, so
   one that differs has been pinning a scheduling artefact and fails rather than being skipped.
+  `OPENSYSML_SCHEDULE_SEEDS=<n>,<m>,…` widens that sweep to further seeds for a local or
+  scheduled run; `seed:1` stays in every run so a sweep is never opted out of.
 - A case with `outcomes` is also explored (`exploreConformanceCase`): exploration must reach every
   listed outcome, reach nothing unlisted, and complete within the case's `exploreBudget`. A case
   without `outcomes` is not explored, on the expectation that it has one reachable outcome; when

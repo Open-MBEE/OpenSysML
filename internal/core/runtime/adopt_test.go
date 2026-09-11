@@ -26,14 +26,14 @@ const adoptSrc = `package Demo {
 func contextOver(t *testing.T, src string) *Context {
 	t.Helper()
 	ctx, _ := contextForSource(t, src)
-	ctx.RegisterSource(source.New("<test>", []byte(src)))
+	ctx.Model().RegisterSource(source.New("<test>", []byte(src)))
 	return ctx
 }
 
 // vehicleIn materializes a vehicle and the engine part inside it.
 func vehicleIn(t *testing.T, ctx *Context) *Instance {
 	t.Helper()
-	idx := ctx.resolver.Index()
+	idx := ctx.model.resolver.Index()
 	obj, err := ctx.Instantiate(lookupOne(t, idx, "Demo::Vehicle"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -67,7 +67,7 @@ func TestAdoptCarriesAnObjectIntoAReanalysis(t *testing.T) {
 	if _, found := ctx.Instance(nested); !found {
 		t.Errorf("the engine object %d it holds was not carried with it", nested)
 	}
-	if obj.Type != lookupOne(t, ctx.resolver.Index(), "Demo::Vehicle") {
+	if obj.Type != lookupOne(t, ctx.model.resolver.Index(), "Demo::Vehicle") {
 		t.Error("the object is still of the declaration it was built against")
 	}
 	feat := obj.FeatureValues["mass"].Feature
@@ -82,7 +82,7 @@ func TestAdoptCarriesAnObjectIntoAReanalysis(t *testing.T) {
 		t.Errorf("mass = %v, want the value its declaration states", got)
 	}
 	// The identities carried over are taken, so the next object gets a new one.
-	next, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Engine"))
+	next, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "Demo::Engine"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -101,7 +101,7 @@ const adoptCalcSrc = `package Demo {
 // are now rather than keeping what they said when it was materialized.
 func TestAdoptDerivesAValueAgainstTheNewDeclarations(t *testing.T) {
 	prev := contextOver(t, adoptCalcSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Gauge"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Gauge"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -137,7 +137,7 @@ const adoptConnectSrc = `package Demo {
 // the object that owns it.
 func TestAdoptCarriesAnObjectOwningAnAnonymousConnector(t *testing.T) {
 	prev := contextOver(t, adoptConnectSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Sys"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Sys"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestAdoptCarriesAnObjectOwningAnAnonymousConnector(t *testing.T) {
 func TestAdoptKeepsTheIdentitiesOfConnectorsSetAside(t *testing.T) {
 	src := strings.Replace(adoptConnectSrc, "connect a.p to b.q;", "connect a.p to b.q; connection c connect a.p to b.q;", 1)
 	prev := contextOver(t, src)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Sys"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Sys"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -246,7 +246,7 @@ func carriedSysWithThreeConnectors(t *testing.T) (*Context, *Instance, []int64) 
 	t.Helper()
 	src := strings.Replace(adoptConnectSrc, "connect a.p to b.q;", "connect a.p to b.q; connect a.p to b.q; connect a.p to b.q;", 1)
 	prev := contextOver(t, src)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Sys"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Sys"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestKeptConnectorIdentitiesFollowTheirDeclarations(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			prev := contextOver(t, adoptTwoConnectSrc)
-			owner, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Sys"))
+			owner, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Sys"))
 			if err != nil {
 				t.Fatalf("Instantiate: %v", err)
 			}
@@ -560,7 +560,7 @@ const adoptClassifiedSrc = `package Demo {
 // the new analysis and the feature values it added fill the features declared there.
 func TestAdoptCarriesAClassifiedObject(t *testing.T) {
 	prev := contextOver(t, adoptClassifiedSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Square"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Square"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -581,11 +581,11 @@ func TestAdoptCarriesAClassifiedObject(t *testing.T) {
 	if _, err := ctx.Adopt(prev, shapes, obj); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	edges := lookupOne(t, ctx.resolver.Index(), "Demo::Square::edges")
+	edges := lookupOne(t, ctx.model.resolver.Index(), "Demo::Square::edges")
 	if len(e1.classifiers) != 1 || e1.classifiers[0] != edges {
 		t.Errorf("e1 is classified by %v, want the edges feature of the new analysis", e1.classifiers)
 	}
-	if !ctx.instanceConforms(e1, lookupOne(t, ctx.resolver.Index(), "Demo::Segment")) {
+	if !ctx.instanceConforms(e1, lookupOne(t, ctx.model.resolver.Index(), "Demo::Segment")) {
 		t.Error("e1 no longer conforms to Segment in the new analysis")
 	}
 	feat := e1.FeatureValues["span"].Feature
@@ -614,7 +614,7 @@ const adoptRefinedSrc = `package Demo {
 // adoption, so the narrowed type and multiplicity still govern its reads and writes.
 func TestAdoptKeepsTheFeaturesAClassifierRefined(t *testing.T) {
 	prev := contextOver(t, adoptRefinedSrc)
-	rack, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Rack"))
+	rack, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Rack"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -635,7 +635,7 @@ func TestAdoptKeepsTheFeaturesAClassifierRefined(t *testing.T) {
 	if _, err := ctx.Adopt(prev, shapes, rack); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	idx := ctx.resolver.Index()
+	idx := ctx.model.resolver.Index()
 	coupe := lookupOne(t, idx, "Demo::Rack::coupe")
 	if len(raw.classifiers) != 1 || raw.classifiers[0] != coupe {
 		t.Fatalf("raw is classified by %v, want the coupe feature of the new analysis", raw.classifiers)
@@ -741,7 +741,7 @@ const adoptBehaviorSrc = `package Demo {
 // analysis, and what the discarded run wrote is not read by the new one.
 func TestAdoptRestartsACarriedObjectsBehavior(t *testing.T) {
 	prev := contextOver(t, adoptBehaviorSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Monitor"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Monitor"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -790,7 +790,7 @@ const adoptNestedSrc = `package Demo {
 // carried in, and a carry-over of a carry-over keeps that so.
 func TestAdoptBeginsEveryPartWithItsWhole(t *testing.T) {
 	prev := contextOver(t, adoptNestedSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Vehicle"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Vehicle"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -845,7 +845,7 @@ const adoptCompletingSrc = `package Demo {
 // performed is not started again over it, so nothing writes to what has ended.
 func TestAdoptKeepsADestroyedObjectFromPerformingAgain(t *testing.T) {
 	prev := contextOver(t, adoptCompletingSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Counter"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Counter"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -880,7 +880,7 @@ func TestAdoptKeepsADestroyedObjectFromPerformingAgain(t *testing.T) {
 // left registered in a context that cannot offer it.
 func TestAdoptRefusesAnObjectWhoseBehaviorCannotRestart(t *testing.T) {
 	prev := contextOver(t, adoptBehaviorSrc)
-	obj, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::Monitor"))
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Monitor"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -938,11 +938,11 @@ func TestShapeFollowsAGoverningValueBody(t *testing.T) {
 	part def Band :> Ring { attribute :>> cost { attribute :>> v = 11.0; } }
 }`
 	prev := contextOver(t, src)
-	sym := lookupOne(t, prev.resolver.Index(), "Demo::Band")
+	sym := lookupOne(t, prev.Resolver().Index(), "Demo::Band")
 	before := prev.ShapeDigest(sym)
 
 	ctx := contextOver(t, strings.Replace(src, "v = 11.0", "v = 12.0", 1))
-	if after := ctx.ShapeDigest(lookupOne(t, ctx.resolver.Index(), "Demo::Band")); after == before {
+	if after := ctx.ShapeDigest(lookupOne(t, ctx.model.resolver.Index(), "Demo::Band")); after == before {
 		t.Errorf("shape unchanged by an edit to the governing body: %s", after)
 	}
 }
@@ -978,16 +978,16 @@ func crateContextOver(t *testing.T, lib string, vouch bool) *Context {
 	idx.AddDocument("<test>", parser.New(source.New("<test>", []byte(crateSrc))).ParseFile())
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
-	ctx.RegisterSource(source.New("<test>", []byte(crateSrc)))
-	ctx.RegisterSource(source.New("Shapes.sysml", []byte(lib)))
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx.Model().RegisterSource(source.New("<test>", []byte(crateSrc)))
+	ctx.Model().RegisterSource(source.New("Shapes.sysml", []byte(lib)))
 	return ctx
 }
 
 // crateIn materializes a crate and the box part inside it.
 func crateIn(t *testing.T, ctx *Context) *Instance {
 	t.Helper()
-	obj, err := ctx.Instantiate(lookupOne(t, ctx.resolver.Index(), "Demo::Crate"))
+	obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "Demo::Crate"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1013,7 +1013,7 @@ const adoptStructuredSrc = `package Demo {
 func libraryContextOver(t *testing.T, src string) *Context {
 	t.Helper()
 	ctx, _ := libraryModelContext(t, src)
-	ctx.RegisterSource(source.New("<test>", []byte(src)))
+	ctx.Model().RegisterSource(source.New("<test>", []byte(src)))
 	return ctx
 }
 
@@ -1021,8 +1021,8 @@ func libraryContextOver(t *testing.T, src string) *Context {
 // the members its specialization adds are still answered after the carry-over.
 func TestAdoptCarriesTheObjectsBehindWrittenArraysAndVectors(t *testing.T) {
 	prev := libraryContextOver(t, adoptStructuredSrc)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::holder"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	holder, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::holder"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1051,7 +1051,7 @@ func TestAdoptCarriesTheObjectsBehindWrittenArraysAndVectors(t *testing.T) {
 			t.Errorf("the object %d behind %s was not carried", id, feature)
 			continue
 		}
-		if fqn := ctx.fqnOf(obj.Type); fqn == "" || obj.Type != lookupOne(t, ctx.resolver.Index(), fqn) {
+		if fqn := ctx.fqnOf(obj.Type); fqn == "" || obj.Type != lookupOne(t, ctx.model.resolver.Index(), fqn) {
 			t.Errorf("the object behind %s is still of the declaration it was built against", feature)
 		}
 	}
@@ -1062,7 +1062,7 @@ func TestAdoptCarriesTheObjectsBehindWrittenArraysAndVectors(t *testing.T) {
 		"holder.axis":        "⟨1, 2⟩",
 		"holder.axis.tag":    `"v"`,
 	} {
-		got, err := evalIn(t, ctx, lookupOne(t, ctx.resolver.Index(), "Demo").Scope, expr)
+		got, err := evalIn(t, ctx, lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope, expr)
 		if err != nil || FormatValue(got) != want {
 			t.Errorf("%s after the carry-over = %s, %v; want %s", expr, FormatValue(got), err, want)
 		}
@@ -1097,15 +1097,15 @@ func TestAdoptRefusesASameNamedLibraryTypeOfAnotherLibrary(t *testing.T) {
 func TestShapeDigestExpandsALibraryOfUnknownText(t *testing.T) {
 	const lib = `package Shapes { part def Box { attribute n = 1; } }`
 	ctx := crateContextOver(t, lib, false)
-	if _, known := ctx.resolver.Index().LibraryIdentity(); known {
+	if _, known := ctx.model.resolver.Index().LibraryIdentity(); known {
 		t.Fatal("LibraryIdentity is known for a library document of no digest")
 	}
-	digest := ctx.ShapeDigest(lookupOne(t, ctx.resolver.Index(), "Demo::Crate"))
+	digest := ctx.ShapeDigest(lookupOne(t, ctx.model.resolver.Index(), "Demo::Crate"))
 	if !strings.Contains(digest, "Shapes::Box/partDef{n:1..1=1@") {
 		t.Errorf("digest names the library type without expanding it: %s", digest)
 	}
 	other := crateContextOver(t, strings.Replace(lib, "n = 1", "n = 2", 1), false)
-	if other.ShapeDigest(lookupOne(t, other.resolver.Index(), "Demo::Crate")) == digest {
+	if other.ShapeDigest(lookupOne(t, other.Resolver().Index(), "Demo::Crate")) == digest {
 		t.Error("digest unchanged by an edit to the library type it expands")
 	}
 }
@@ -1124,8 +1124,8 @@ const adoptUnitSrc = `package Demo {
 // object points at, so the reference still answers its declaration's type.
 func TestAdoptRebindsTheUnitsAWrittenValueNames(t *testing.T) {
 	prev := libraryContextOver(t, adoptUnitSrc)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	field, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::field"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	field, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::field"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1144,7 +1144,7 @@ func TestAdoptRebindsTheUnitsAWrittenValueNames(t *testing.T) {
 	if _, err := ctx.Adopt(prev, shapes, field); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	furlong := lookupOne(t, ctx.resolver.Index(), "Demo::furlong")
+	furlong := lookupOne(t, ctx.model.resolver.Index(), "Demo::furlong")
 	unit, err := field.GetFeatureValue(ctx, "unit")
 	if err != nil {
 		t.Fatalf("GetFeatureValue(unit): %v", err)
@@ -1159,7 +1159,7 @@ func TestAdoptRebindsTheUnitsAWrittenValueNames(t *testing.T) {
 	if decl := width.Value.Quantity().Unit.Product.Powers[0].Unit; decl != furlong {
 		t.Errorf("width is measured in %p, want the furlong declared by the re-analysis %p", decl, furlong)
 	}
-	newScope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	newScope := lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 	for expr, want := range map[string]string{
 		"field.unit":                                            "furlong",
 		"field.unit istype LengthUnit":                          "true",
@@ -1191,8 +1191,8 @@ func TestAdoptRebindsATensorsComponentUnits(t *testing.T) {
 		"part def Field { attribute width : LengthValue; attribute unit : LengthUnit; attribute strain : Quantities::TensorQuantityValue; }\n"+
 			"attribute strainRef : TensorMeasurementReference { :>> dimensions = (2, 2); :>> mRefs = (furlong, m, furlong, m); :>> isBound = true; attribute label : ScalarValues::String = \"strain\"; }", 1)
 	prev := libraryContextOver(t, src)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	field, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::field"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	field, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::field"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1216,11 +1216,11 @@ func TestAdoptRebindsATensorsComponentUnits(t *testing.T) {
 	if strain.Value.Kind != ValTensorQuantity {
 		t.Fatalf("strain carried over as %s, want a tensor quantity", FormatValue(strain.Value))
 	}
-	furlong := lookupOne(t, ctx.resolver.Index(), "Demo::furlong")
+	furlong := lookupOne(t, ctx.model.resolver.Index(), "Demo::furlong")
 	if decl := strain.Value.TensorQuantity().Units[0].Product.Powers[0].Unit; decl != furlong {
 		t.Errorf("component 1 is measured in %p, want the furlong declared by the re-analysis %p", decl, furlong)
 	}
-	newScope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	newScope := lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 	for expr, want := range map[string]string{
 		"field.strain":                       "Tensor(2, 2)[1.0 [furlong], 2.0 [m], 3.0 [furlong], 4.0 [m]]",
 		"field.strain.dimensions":            "[2, 2]",
@@ -1254,8 +1254,8 @@ func TestAdoptRefusesAUnitWhoseReductionChanged(t *testing.T) {
 		"strain": "TensorCalculations::'['((1.0, 2.0, 3.0, 4.0), strainRef)",
 	} {
 		prev := libraryContextOver(t, src)
-		scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-		field, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::field"))
+		scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+		field, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::field"))
 		if err != nil {
 			t.Fatalf("Instantiate: %v", err)
 		}
@@ -1296,8 +1296,8 @@ func TestAdoptRebindsAModelsOwnBaseUnit(t *testing.T) {
 	part field : Field;
 }`
 	prev := libraryContextOver(t, src)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	field, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::field"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	field, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::field"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1316,7 +1316,7 @@ func TestAdoptRebindsAModelsOwnBaseUnit(t *testing.T) {
 	if _, err := ctx.Adopt(prev, shapes, field); err != nil {
 		t.Fatalf("Adopt into a re-analysis with the same units: %v", err)
 	}
-	chain := lookupOne(t, ctx.resolver.Index(), "Demo::chain")
+	chain := lookupOne(t, ctx.model.resolver.Index(), "Demo::chain")
 	for _, feature := range []string{"width", "unit", "len"} {
 		fv, err := field.GetFeatureValue(ctx, feature)
 		if err != nil {
@@ -1328,7 +1328,7 @@ func TestAdoptRebindsAModelsOwnBaseUnit(t *testing.T) {
 			}
 		}
 	}
-	newScope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	newScope := lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 	for expr, want := range map[string]string{
 		"field.unit == chain":                                         "true",
 		"field.width == 3 [chain]":                                    "true",
@@ -1360,8 +1360,8 @@ func TestAdoptRebindsTheUnitOfAnEmptyQuantitySequence(t *testing.T) {
 		"part def Field { attribute width : LengthValue; attribute unit : LengthUnit; }",
 		"part def Field { attribute widths : LengthValue[*]; }", 1)
 	prev := libraryContextOver(t, src)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	field, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::field"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	field, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::field"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1386,10 +1386,10 @@ func TestAdoptRebindsTheUnitOfAnEmptyQuantitySequence(t *testing.T) {
 	if !ok {
 		t.Fatalf("widths after the carry-over = %s, want an empty sequence measured in furlong", FormatValue(widths.Values))
 	}
-	if decl, want := unit.Product.Powers[0].Unit, lookupOne(t, ctx.resolver.Index(), "Demo::furlong"); decl != want {
+	if decl, want := unit.Product.Powers[0].Unit, lookupOne(t, ctx.model.resolver.Index(), "Demo::furlong"); decl != want {
 		t.Errorf("widths is measured in %p, want the furlong declared by the re-analysis %p", decl, want)
 	}
-	if got, want := unit.Term.Factors[0].Unit, lookupOne(t, ctx.resolver.Index(), "SI::m"); got != want {
+	if got, want := unit.Term.Factors[0].Unit, lookupOne(t, ctx.model.resolver.Index(), "SI::m"); got != want {
 		t.Errorf("widths reduces over %p, want the metre the re-analysis resolves %p", got, want)
 	}
 
@@ -1427,9 +1427,9 @@ func documentContextOver(t *testing.T, src string) (*Context, *symbols.Scope) {
 	scope := symbols.Build(file)
 	symbols.SetDocName(scope, "<test>")
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
-	ctx.RegisterSource(source.New("<test>", []byte(src)))
-	ctx.RegisterScope(scope)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
+	ctx.Model().RegisterSource(source.New("<test>", []byte(src)))
+	ctx.Model().RegisterScope(scope)
 	return ctx, scope
 }
 
@@ -1481,8 +1481,8 @@ const adoptDependentSrc = `package Demo {
 // drops it, and the value derived again there follows a write here.
 func TestAdoptDropsDependencyEdgesAndDerivesAgain(t *testing.T) {
 	prev := contextOver(t, adoptDependentSrc)
-	src := instantiateNamed(t, prev, prev.resolver.Index(), "Demo::src")
-	reader := instantiateNamed(t, prev, prev.resolver.Index(), "Demo::reader")
+	src := instantiateNamed(t, prev, prev.Resolver().Index(), "Demo::src")
+	reader := instantiateNamed(t, prev, prev.Resolver().Index(), "Demo::reader")
 	if got := readInt(t, prev, reader, "twice"); got != 6 {
 		t.Fatalf("reader.twice = %d before the carry-over, want 6", got)
 	}
@@ -1523,8 +1523,8 @@ func TestAdoptDropsDependencyEdgesAndDerivesAgain(t *testing.T) {
 // the carried object reaches nothing in the analysis it left.
 func TestAdoptOfASourceLeavesItsDependentsBehind(t *testing.T) {
 	prev := contextOver(t, adoptDependentSrc)
-	src := instantiateNamed(t, prev, prev.resolver.Index(), "Demo::src")
-	reader := instantiateNamed(t, prev, prev.resolver.Index(), "Demo::reader")
+	src := instantiateNamed(t, prev, prev.Resolver().Index(), "Demo::src")
+	reader := instantiateNamed(t, prev, prev.Resolver().Index(), "Demo::reader")
 	if got := readInt(t, prev, reader, "twice"); got != 6 {
 		t.Fatalf("reader.twice = %d before the carry-over, want 6", got)
 	}
@@ -1564,8 +1564,8 @@ const adoptFrameSrc = `package Demo {
 // axes their units, and a re-analysis without the frame refuses the carry-over.
 func TestAdoptRebindsTheFramesAWrittenValueNames(t *testing.T) {
 	prev := libraryContextOver(t, adoptFrameSrc)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	body, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::body"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	body, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::body"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1586,7 +1586,7 @@ func TestAdoptRebindsTheFramesAWrittenValueNames(t *testing.T) {
 	if _, err := ctx.Adopt(prev, shapes, body); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	datum := lookupOne(t, ctx.resolver.Index(), "Demo::datum")
+	datum := lookupOne(t, ctx.model.resolver.Index(), "Demo::datum")
 	frame, err := body.GetFeatureValue(ctx, "cf")
 	if err != nil {
 		t.Fatalf("GetFeatureValue(cf): %v", err)
@@ -1601,7 +1601,7 @@ func TestAdoptRebindsTheFramesAWrittenValueNames(t *testing.T) {
 	if decl := pos.Value.VectorQuantity().Frame.Decl; decl != datum {
 		t.Errorf("pos is over %p, want the datum declared by the re-analysis %p", decl, datum)
 	}
-	newScope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	newScope := lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 	for expr, want := range map[string]string{
 		"body.cf":          "datum [mm, mm, mm]",
 		"body.cf == datum": "true",
@@ -1644,8 +1644,8 @@ const adoptFunctionSrc = `package Demo {
 // closing over an object keeps that object with it.
 func TestAdoptRebindsAFunctionValue(t *testing.T) {
 	prev := libraryContextOver(t, adoptFunctionSrc)
-	scope := lookupOne(t, prev.resolver.Index(), "Demo").Scope
-	holder, err := prev.Instantiate(lookupOne(t, prev.resolver.Index(), "Demo::holder"))
+	scope := lookupOne(t, prev.Resolver().Index(), "Demo").Scope
+	holder, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::holder"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
@@ -1668,10 +1668,10 @@ func TestAdoptRebindsAFunctionValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(fn): %v", err)
 	}
-	if want := lookupOne(t, ctx.resolver.Index(), "Demo::Sq"); fn.Value.Function() != want {
+	if want := lookupOne(t, ctx.model.resolver.Index(), "Demo::Sq"); fn.Value.Function() != want {
 		t.Errorf("fn is of %p, want the Sq declared by the re-analysis %p", fn.Value.Function(), want)
 	}
-	newScope := lookupOne(t, ctx.resolver.Index(), "Demo").Scope
+	newScope := lookupOne(t, ctx.model.resolver.Index(), "Demo").Scope
 	for expr, want := range map[string]string{
 		"holder.fn":                            "Demo::Sq",
 		"holder.fn == Sq":                      "true",

@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -39,19 +40,19 @@ type CachedModel struct {
 	symCtx     *SymbolContext
 }
 
-// worker builds a resolver and semantic model of one request's or plan's own over the
-// shared index: both memoize into plain maps, so nothing mutable is shared between requests.
+// worker builds a model-derived runtime part of one request's or plan's own over the
+// shared index: it memoizes into plain maps, so nothing mutable is shared between requests.
 func (m *CachedModel) worker() *analysis.Worker {
+	model, _ := m.Semantics()
+	return &analysis.Worker{Model: model}
+}
+
+// Semantics is the model-derived runtime part as an analysis.Model builds one.
+func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	resolver := resolve.New(m.Index)
 	sem := semantics.NewModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
-	return &analysis.Worker{Resolver: resolver, Model: sem}
-}
-
-// Semantics is worker as an analysis.Model builds one.
-func (m *CachedModel) Semantics() (*resolve.Resolver, *semantics.Model, error) {
-	w := m.worker()
-	return w.Resolver, w.Model, nil
+	return runtime.NewModel(sem, resolver), nil
 }
 
 // Primary is the document a model is named by: the only one of a single-document

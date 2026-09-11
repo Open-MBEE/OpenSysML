@@ -9,7 +9,7 @@ import (
 )
 
 func TestStateExecutor_Creation(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Create minimal state machine symbol
 	stateMachine := &symbols.Symbol{
@@ -45,7 +45,7 @@ func TestStateExecutor_Creation(t *testing.T) {
 }
 
 func TestStateExecutor_Initialize(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build state machine: initialState → finalState
 	initialState := &ast.StateNode{Name: "initial"}
@@ -90,7 +90,7 @@ func TestStateExecutor_Initialize(t *testing.T) {
 }
 
 func TestStateExecutor_Initialize_NoInitialState(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State machine without initial state
 	stateMachine := &symbols.Symbol{
@@ -121,7 +121,7 @@ func TestStateExecutor_Initialize_NoInitialState(t *testing.T) {
 }
 
 func TestStateExecutor_EntryBehavior(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State with entry action: entry { x = 42 }
 	initialState := &ast.StateNode{
@@ -160,7 +160,7 @@ func TestStateExecutor_EntryBehavior(t *testing.T) {
 }
 
 func TestStateExecutor_ExitBehavior(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Two states with exit behavior on first
 	stateA := &ast.StateNode{
@@ -210,7 +210,7 @@ func TestStateExecutor_ExitBehavior(t *testing.T) {
 }
 
 func TestStateExecutor_TimeEvent(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State machine: stateA --[after 10]-> stateB
 	stateA := &ast.StateNode{
@@ -288,7 +288,7 @@ func TestStateExecutor_TimeEvent(t *testing.T) {
 // `accept at t` names an instant, so its event fires at t rather than t after
 // the state was entered.
 func TestStateExecutor_AbsoluteTimeEvent(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// stateA --[after 10]-> stateB --[at 15]-> stateC
 	stateA := &ast.StateNode{Name: "stateA"}
@@ -339,7 +339,7 @@ func TestStateExecutor_AbsoluteTimeEvent(t *testing.T) {
 }
 
 func TestStateExecutor_ChangeEvent(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State machine: stateA --[when x > 5]-> stateB
 	stateA := &ast.StateNode{
@@ -408,7 +408,7 @@ func TestStateExecutor_ChangeEvent(t *testing.T) {
 }
 
 func TestStateExecutor_GuardCondition(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State machine: stateA --[after 1][x > 5]-> stateB
 	stateA := &ast.StateNode{
@@ -492,7 +492,7 @@ func TestStateExecutor_GuardCondition(t *testing.T) {
 // Integration Tests
 
 func TestStateExecutor_Integration_SimpleTransitions(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State machine: idle → working → done, where `done` completes the machine
 	idle := &ast.StateNode{Name: "idle"}
@@ -565,7 +565,7 @@ func TestStateExecutor_Integration_SimpleTransitions(t *testing.T) {
 }
 
 func TestStateExecutor_Integration_TransitionEffects(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// State machine with transition effect: stateA --[after 1 / counter++]-> stateB
 	stateA := &ast.StateNode{Name: "stateA"}
@@ -623,7 +623,7 @@ func TestStateExecutor_Integration_TransitionEffects(t *testing.T) {
 }
 
 func TestStateExecutor_HierarchicalStates(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build hierarchical state machine:
 	//   composite (parent)
@@ -704,7 +704,7 @@ func TestStateExecutor_HierarchicalStates(t *testing.T) {
 }
 
 func TestStateExecutor_HierarchicalEntryExit(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build state machine:
 	//   parentState (entry: val=1, exit: val=10)
@@ -820,7 +820,7 @@ func TestStateExecutor_HierarchicalEntryExit(t *testing.T) {
 }
 
 func TestStateExecutor_StateStackTracking(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Build state machine:
 	//   composite
@@ -907,7 +907,7 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 }
 
 func TestStateExecutor_Integration_HierarchicalWorkflow(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// Complex hierarchical state machine:
 	//   workflow (composite)
@@ -1119,7 +1119,7 @@ func TestStateExecutor_Integration_HierarchicalWorkflow(t *testing.T) {
 
 // Task 47: Traffic light state machine - realistic TimeEvent demo
 func TestStateExecutor_Integration_TrafficLight(t *testing.T) {
-	ctx := NewContext(semantics.NewModel(nil), nil, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(nil), nil), 1000)
 
 	// States: red (initial, 30s) → green (25s) → yellow (5s) → off (final)
 	// Total cycle: 30 + 25 + 5 = 60 seconds

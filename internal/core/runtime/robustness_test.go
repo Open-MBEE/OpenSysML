@@ -3079,7 +3079,7 @@ func testPerformReferenceCycle(t *testing.T) {
 func testDeferOfNonDeferrableTrigger(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 1000)
 
 	machine := &ast.Usage{
 		Kind:  ast.UsageState,
@@ -3126,16 +3126,16 @@ func testStateTransitionEndpointMisspelled(t *testing.T) {
 		t.Fatal("parse failed")
 	}
 	idx, _, ctx := buildRuntime(t, "<test>", file)
-	ctx.resolver.ResolveDocument("<test>", file)
+	ctx.model.resolver.ResolveDocument("<test>", file)
 
 	var endpoint *resolve.Diagnostic
-	for i, diag := range ctx.resolver.Diagnostics {
+	for i, diag := range ctx.model.resolver.Diagnostics {
 		if strings.Contains(diag.Message, "donee") {
-			endpoint = &ctx.resolver.Diagnostics[i]
+			endpoint = &ctx.model.resolver.Diagnostics[i]
 		}
 	}
 	if endpoint == nil {
-		t.Fatalf("expected a name-resolution diagnostic for 'donee', got: %v", ctx.resolver.Diagnostics)
+		t.Fatalf("expected a name-resolution diagnostic for 'donee', got: %v", ctx.model.resolver.Diagnostics)
 	}
 	if endpoint.Code != "unresolved" {
 		t.Errorf("expected code %q, got %q", "unresolved", endpoint.Code)
@@ -3240,9 +3240,9 @@ func testStateTransitionEndpointInAnotherMachine(t *testing.T) {
 		t.Fatal("parse failed")
 	}
 	idx, _, ctx := buildRuntime(t, "<test>", file)
-	ctx.resolver.ResolveDocument("<test>", file)
+	ctx.model.resolver.ResolveDocument("<test>", file)
 
-	for _, diag := range ctx.resolver.Diagnostics {
+	for _, diag := range ctx.model.resolver.Diagnostics {
 		if strings.Contains(diag.Message, "running") {
 			t.Fatalf("the endpoint resolves, so name resolution reports nothing: %v", diag)
 		}
@@ -3427,7 +3427,7 @@ func testStateJunctionWithoutAnOutgoingTransition(t *testing.T) {
 func testStateTransitionWithoutATarget(t *testing.T) {
 	idx := symbols.NewIndex()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 1000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 1000)
 
 	dangling := transitionMember("init", "busy")
 	dangling.Target = nil
@@ -4396,7 +4396,7 @@ func testTypeClassificationUnresolvedType(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "classify")
-	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected unresolved type classification to fail")
 	}
@@ -4415,7 +4415,7 @@ func testTypeClassificationUndeterminedValueType(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "classify")
-	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected undetermined value type classification to fail")
 	}
@@ -4434,7 +4434,7 @@ func testCastToAnUnresolvedType(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "narrow")
-	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected a cast to an unresolved type to fail")
 	}
@@ -4457,7 +4457,7 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	calc := resolveSymbol(t, pkg.Scope, "narrow")
-	_, err := NewContext(model, resolver, 1000).InvokeCalc(calc, nil, pkg.Scope)
+	_, err := NewContext(NewModel(model, resolver), 1000).InvokeCalc(calc, nil, pkg.Scope)
 	if err == nil {
 		t.Fatal("expected an undecidable cast to fail")
 	}
@@ -4487,7 +4487,7 @@ func testDifferenceTypedFeatureHoldingASubtractedObject(t *testing.T) {
 		attribute held = depot.burner istype Vehicle;
 	`)
 	sym := resolveSymbol(t, root, "held")
-	_, err := NewContext(model, resolver, 10000).Eval(sym.Decl.(*ast.Usage).Value)
+	_, err := NewContext(NewModel(model, resolver), 10000).Eval(sym.Decl.(*ast.Usage).Value)
 	if !errors.Is(err, ErrTypeMismatch) {
 		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
 	}
@@ -5866,7 +5866,7 @@ func testStateDefSpecializingALibraryStateKeepsItsContent(t *testing.T) {
 	idx.AddDocument("<test>", parseAndBuild(t, src))
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
-	ctx := NewContext(semantics.NewModel(resolver), resolver, 10000)
+	ctx := NewContext(NewModel(semantics.NewModel(resolver), resolver), 10000)
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), "Machine", ast.DefState)
 	if sym == nil {
 		t.Fatal("state Machine not found")
@@ -9372,7 +9372,7 @@ func buildRuntime(t *testing.T, path string, file *ast.RootNamespace) (*symbols.
 	idx.AddDocument(path, file)
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	ctx := NewContext(model, resolver, 10000)
+	ctx := NewContext(NewModel(model, resolver), 10000)
 	return idx, model, ctx
 }
 
@@ -9385,7 +9385,7 @@ func buildRuntimeWithLibraries(t *testing.T, path string, file *ast.RootNamespac
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	return idx, model, NewContext(model, resolver, 10000)
+	return idx, model, NewContext(NewModel(model, resolver), 10000)
 }
 
 // Helper: find symbol by name and kind

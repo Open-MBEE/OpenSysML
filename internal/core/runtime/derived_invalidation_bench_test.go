@@ -21,7 +21,7 @@ func benchRuntime(b *testing.B, src string) (*Context, *symbols.Index) {
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
-	return NewContext(model, resolver, 1_000_000), idx
+	return NewContext(NewModel(model, resolver), 1_000_000), idx
 }
 
 func benchInstantiate(b *testing.B, ctx *Context, idx *symbols.Index, qualified string) *Instance {

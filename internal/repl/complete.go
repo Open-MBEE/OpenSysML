@@ -459,7 +459,7 @@ func (s *Session) objectTypeOf(feat *runtime.EffectiveFeature) *symbols.Symbol {
 	if typ := s.rtCtx.CompositeTypeOf(feat); typ != nil {
 		return typ
 	}
-	if s.rtCtx.Model().IsConnectorUsage(feat.Symbol) {
+	if s.rtCtx.Semantics().IsConnectorUsage(feat.Symbol) {
 		return feat.Symbol
 	}
 	return nil

@@ -578,7 +578,7 @@ func (ctx *Context) statedCaseMember(run *calcRun, stated scopedExpr, bindings m
 	if qn == nil {
 		return "", Value{}, false
 	}
-	feature, ok := ctx.resolver.ReadQualified(stated.scope, qn).Symbol()
+	feature, ok := ctx.model.resolver.ReadQualified(stated.scope, qn).Symbol()
 	if !ok {
 		return "", Value{}, false
 	}

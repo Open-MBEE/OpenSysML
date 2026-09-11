@@ -370,7 +370,7 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	if decl.Target.typ == nil {
 		return check, true
 	}
-	prim := c.ctx.model.PrimTypeOf(decl.Target.typ)
+	prim := c.ctx.model.semantics.PrimTypeOf(decl.Target.typ)
 	if prim == semantics.PrimUnknown {
 		return scalarCheck{}, false
 	}
@@ -454,7 +454,7 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 	if name == thatName || name == thisName {
 		return nil, ineligible(fmt.Sprintf("name %q reads the bound object", name))
 	}
-	sym, ok := c.ctx.resolver.LookupName(scope, name)
+	sym, ok := c.ctx.model.resolver.LookupName(scope, name)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("name %q is not bound in the frame", name))
 	}
@@ -474,7 +474,7 @@ func (c *calcCompiler) compileName(qn *ast.QualifiedName, scope *symbols.Scope, 
 func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbols.Scope) (*cnode, error) {
 	firstQN := &ast.QualifiedName{Global: qn.Global, Parts: []ast.NameSegment{qn.Parts[0]}}
 	firstQN.NodeBase = qn.NodeBase
-	sym, ok := c.ctx.resolver.ResolveQualified(scope, firstQN)
+	sym, ok := c.ctx.model.resolver.ResolveQualified(scope, firstQN)
 	if !ok || sym == nil {
 		return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
 	}
@@ -482,7 +482,7 @@ func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbol
 		if isCalcUsageSymbol(sym) {
 			return nil, ineligible(fmt.Sprintf("qualified name %s reads a calc usage", qualifiedNameToString(qn)))
 		}
-		next, found := c.ctx.model.LookupMember(sym, part.Text)
+		next, found := c.ctx.model.semantics.LookupMember(sym, part.Text)
 		if !found {
 			return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
 		}
@@ -494,7 +494,7 @@ func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbol
 // libraryConstant compiles a read of sym where it is a scalar constant the
 // library seam supplies; anything else the name may denote keeps the evaluator.
 func (c *calcCompiler) libraryConstant(sym *symbols.Symbol, name string) (*cnode, error) {
-	if c.ctx.model.VariationPointOwning(sym) != nil || semantics.EnumerationOwning(sym) != nil {
+	if c.ctx.model.semantics.VariationPointOwning(sym) != nil || semantics.EnumerationOwning(sym) != nil {
 		return nil, ineligible(fmt.Sprintf("name %q is a variant or an enumeration literal", name))
 	}
 	val, ok, err := c.ctx.libraryFeatureValue(sym)
@@ -514,7 +514,7 @@ func (c *calcCompiler) libraryConstant(sym *symbols.Symbol, name string) (*cnode
 // compileOperator compiles an operator application, folding it as the
 // evaluator does before it looks at the operands.
 func (c *calcCompiler) compileOperator(n *ast.OperatorExpr, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
-	if folded, ok := c.ctx.model.Eval(n); ok {
+	if folded, ok := c.ctx.model.semantics.Eval(n); ok {
 		v, ok := scalarOfConst(folded)
 		if !ok {
 			return nil, ineligible("folds to a non-scalar constant")
