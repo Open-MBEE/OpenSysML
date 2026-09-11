@@ -336,7 +336,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&queryText, "query", "", "Evaluate OSLC Query text against the model instead of running the REPL")
 	fs.StringVar(&outputPath, "output", "", "Write conversion output to this file (default: stdout)")
 	fs.StringVar(&outputPath, "o", "", "Write conversion output to this file (shorthand)")
-	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
+	fs.StringVar(&fromFormat, "from", "", "Input format for -convert: sysml, kerml, ttl, turtle, rdf, or xmi/uml/mdzip for a SysML v1 model to migrate (experimental; default: from the input's extension)")
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi: write the element-by-element migration report to this file (JSON when it ends in .json, text otherwise)")
 	fs.StringVar(&renderView, "render", "", "Render this view of the model (every file named, loaded as one) instead of running it, in the form its render member states")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")

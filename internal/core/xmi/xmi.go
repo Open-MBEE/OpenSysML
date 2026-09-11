@@ -2,11 +2,11 @@
 // them, into a generic element tree with the stereotypes applied to it.
 //
 // The reader is deliberately tolerant of the serialization's dialect: the UML,
-// XMI and profile namespaces differ between the OMG normative XMI, a Cameo /
-// MagicDraw XMI 2.5.1 export and MagicDraw's native project model, so elements
-// are classified by the local part of their xmi:type and stereotype
-// applications by the local part of their element name. A Cameo .mdzip archive
-// is opened in place and its model entries read as one document.
+// XMI and profile namespaces differ between the OMG normative XMI and the
+// Eclipse UML2 serialization Papyrus writes, so elements are classified by the
+// local part of their xmi:type and stereotype applications by the local part
+// of their element name. A zip archive holding the model, such as a MagicDraw
+// .mdzip project, is opened in place and its model entries read as one document.
 //
 // The tree carries no UML semantics of its own; internal/core/migrate
 // interprets it as a SysML v1 model.
@@ -94,7 +94,7 @@ type Model struct {
 
 // Extension records one skipped xmi:Extension: who wrote it and what it held.
 type Extension struct {
-	// Extender is the tool named by the block, e.g. "MagicDraw UML 2022x".
+	// Extender is the tool named by the block's extender attribute.
 	Extender string
 	// Owner is the element the block sits in; nil at the document root.
 	Owner *Element
@@ -208,11 +208,17 @@ func (e *Element) Path() []string {
 	return names
 }
 
-// Parse reads an XMI document, or a zip archive (a Cameo .mdzip) holding one
-// or more, into a Model.
+// Parse reads an XMI document, or a zip archive (such as a MagicDraw .mdzip)
+// holding one or more, into a Model.
 func Parse(data []byte) (*Model, error) {
+	// The central directory, not a leading local-file header, makes a zip: an
+	// empty or stub-prefixed archive is one, a truncated one is still not XMI.
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err == nil {
+		return parseArchive(zr)
+	}
 	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
-		return parseArchive(data)
+		return nil, fmt.Errorf("reading archive: %w", err)
 	}
 	m := newModel()
 	if err := m.parseDocument(data); err != nil {
@@ -254,11 +260,7 @@ func documentEntry(name string) bool {
 // parseArchive reads the MagicDraw project model entries of an archive, or,
 // in an archive that has none, every XMI document among its .xmi/.xml/.uml
 // files; other XML there is metadata and is left alone.
-func parseArchive(data []byte) (*Model, error) {
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
-		return nil, fmt.Errorf("reading archive: %w", err)
-	}
+func parseArchive(zr *zip.Reader) (*Model, error) {
 	var project, documents []*zip.File
 	names := make([]string, 0, len(zr.File))
 	for _, f := range zr.File {
@@ -515,9 +517,9 @@ func (p *docParser) end() {
 	p.depth--
 }
 
-// isUMLNamespace recognizes the UML metamodel namespaces of the OMG, Eclipse
-// and MagicDraw serializations: a "UML" path segment followed only by a
-// version, so a profile below it (…/UML/20161101/StandardProfile) is not one.
+// isUMLNamespace recognizes the UML metamodel namespaces of the OMG and Eclipse
+// serializations: a "UML" path segment followed only by a version, so a
+// profile below it (…/UML/20161101/StandardProfile) is not one.
 func isUMLNamespace(ns string) bool {
 	segs := strings.Split(strings.TrimRight(ns, "/"), "/")
 	for i := len(segs) - 1; i >= 0; i-- {
@@ -649,8 +651,8 @@ func (m *Model) link() {
 			base.Stereotypes = append(base.Stereotypes, s)
 		}
 	}
-	// A proxy an href resolves to an element another entry of the same archive
-	// defines is that element: MagicDraw refers across its entries this way.
+	// An href whose fragment is an id this document, or another entry of the
+	// same archive, defines is that element.
 	for href := range m.proxies {
 		if i := strings.LastIndexByte(href, '#'); i >= 0 {
 			if e, ok := m.byID[href[i+1:]]; ok {

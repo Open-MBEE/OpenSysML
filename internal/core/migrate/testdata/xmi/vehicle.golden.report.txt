@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: vehicle.xmi
-# exported by MagicDraw UML
+# exported by Example UML Tool
 # migrated 89 element(s): 67 mapped, 14 approximated, 8 unmapped (3 skipped as profile or library content)
 
 ## unmapped (8)
@@ -31,7 +31,7 @@ Property	Vehicle Design::Vehicle::totalMass	_prop_total	-> 'Vehicle Design'::Veh
 ## mapped (67)
 Comment	<Comment>	_cmt_model
 Package	Empty Package	_pkg_unused	-> 'Empty Package'
-Model	Model	eee_1045467100313_135436_1	(the root model's members are written at the top level)
+Model	Model	_model	(the root model's members are written at the top level)
 Package	Requirements	_pkg_reqs	-> Requirements
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy	-> 'Vehicle Design'::Vehicle
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_prop	-> 'Vehicle Design'::Vehicle
@@ -100,4 +100,4 @@ Slot	Vehicle Design::myCar::<Slot>	_slot_color	-> 'Vehicle Design'::myCar::color
 ## skipped (3)
 ProfileApplication	<ProfileApplication>	_pa_sysml	(profile applications and element imports are not written)
 Package	SysML	_lib_sysml	(profile or library content)
-Diagram	Vehicle BDD	_diag_bdd	(tool-private xmi:Extension content written by MagicDraw UML 2022x)
+Diagram	Vehicle BDD	_diag_bdd	(tool-private xmi:Extension content written by Example UML Tool 1.0)
