@@ -85,31 +85,43 @@ scheduler has a choice:
 |-----------|----------------------|-------------------------------|
 | Token list | `ActionExecutor.tokens` (`[]Token`: id, location, wait, frame, paused body) | The multiset of (location, frame, wait) — the id is scheduling detail and is dropped from the canonical form |
 | Performance frames | `actionFrame` tree under `performances.root`: `data`, `locals`, `live`, `subactions`, `pending`, `nested`, `ended`, `began` | Every frame reachable from a token or from the root, with its held values and delivery queues |
-| Merge and breakpoint bookkeeping | `ActionExecutor.mergeVisited`, `firedBreakpoints` | `mergeVisited` (it decides whether a merge admits a token); breakpoints are disabled during exploration and not captured |
+| Merge and breakpoint bookkeeping | each token's `Via` and `moved` (the succession it arrived over and the sweep that moved it), `ActionExecutor.sweep`, `firedBreakpoints` | The arrivals (they decide whether a merge admits a token); breakpoints are disabled during exploration and not captured |
 | Object values | `Context.instances` → `Instance.FeatureValues`, connector ends, classifiers | Every object the behavior reads or writes, the performing object included |
 | Messages in flight | `Context.messages` (the message bus `send` posts to and `accept` consumes from, oldest first) | The bus contents in arrival order |
 | State configuration | `StateExecutor.activeConfig`, `stateStack`, `history`, `stateAttrs`, `stateData` | All of it |
 | Event queue | `StateExecutor.eventQueue` (a heap ordered by timestamp, completion first, then arrival), `deferred`, `timerScheduled`, `changeFired`, `changeWaits` | The queue as a sequence in dispatch order; the latches |
 | `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each |
-| Virtual time | `StateExecutor.currentTime` | Captured, not explored |
+| Virtual time | `Context.clock` (`now` and the waiters on it), shared by every executor of the context | Captured, not explored |
 
-Not captured: `Context` memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
-caches, compiled calc closures), the lowered graphs, the symbol tables. These are functions of
-the model, not of the run, and are shared by every explored state. The `Context` must therefore
-be split, at least conceptually, into the **model-derived** part that is shared and the
-**run-derived** part (`instances`, `created`, `lives`, `occurrences`, `variantObjects`,
-`selectedVariants`, `calcUsageRuns`, `activations`, the id sequence) that is part of a state.
-This split is the single largest change the checker needs, and it is a refactoring the executor
-benefits from on its own: today the two are interleaved in one struct.
+Not captured: the memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
+caches, compiled calc closures, effective features), the lowered graphs, the symbol tables.
+These are functions of the model, not of the run, and are shared by every explored state. The
+`Context` is therefore split into the **model-derived** part, `runtime.Model`, that is shared
+and the **run-derived** part, `runtime.Context`, that is a state (`instances`, `created`,
+`lives`, `occurrences`, `variantObjects`, `selectedVariants`, the runs' `calcUsageRuns`,
+`activations`, the id sequence, the bus, the clock, the scheduler, the trace). A `Model` is
+built once per analysis worker — it memoizes into plain maps as the resolver does, so it is
+shared exactly as far as the resolver is — and `NewContext(model, maxSteps)` allocates the
+run-derived part alone. This split was the single largest change the checker needed, and the
+executor benefits from it on its own: a fresh run no longer rebuilds what the model fixed.
 
-The `Context` already journals feature-value writes and object-identity changes while a probe
-or transaction is under way (`beginJournal`, `journalWrites`, `journalUndos`), and rolls them
-back on failure. That is an undo log for one component of the state. The checker generalizes it
-rather than adding a second mechanism: a **snapshot** is a journal mark taken at a choice point,
-extended to cover the token list, the frame tree, the message bus and the state-executor fields
-above, and **restore** is a rollback to that mark. An undo log suits depth-first exploration —
-only the path from the root to the current state is live, and backtracking one move undoes one
-move's writes — and avoids copying the object graph at every choice point.
+The `Context` already journaled feature-value writes and object-identity changes while a probe
+or transaction was under way (`beginJournal`, `journalWrites`, `journalUndos`), and rolled them
+back on failure. That was an undo log for one component of the state. The checker generalizes it
+rather than adding a second mechanism: a **snapshot** (`Context.Snapshot`, and the executors'
+`Snapshot` that add their own state) is a journal mark taken between steps, extended to cover the
+token list, the frame tree, the message bus and the state-executor fields above, and **restore**
+(`Snapshot.Restore`) is a rollback to that mark, repeatable until `Release`; `beginJournal` and
+`beginProbe` take the same mark and roll back the same way. Restoring
+puts values back into the maps and frames the run already holds, so every object keeps its
+identity and every alias into it stays valid; what the run made after the mark is abandoned and
+the identities it took are handed out again. An undo log suits depth-first exploration — only
+the path from the root to the current state is live, and backtracking one move undoes one move's
+writes — and avoids copying the object graph at every choice point. A snapshot is taken between
+steps, never from inside one (`ErrSnapshotMidRun`), and cannot capture a body paused
+mid-statement — a token or a `do` behavior suspended in its coroutine on a wait
+(`ErrSnapshotPausedBody`); stage 3's `do` interleaving is where those waits become explicit
+state.
 
 ### The atomic step
 
@@ -441,7 +453,23 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    reproduces every golden. Seeded-random scheduler wired into the conformance harness as an
    opt-in sweep. Test layers 1 and 2. This is the refactoring stage; it is the largest and the
    one whose review matters most, because everything after it depends on the state being
-   capturable in one place.
+   capturable in one place. *Implemented:* the seam and the `explore` and `seed:<n>` policies
+   ([scheduling](scheduling.md)), with `seed:1` in every conformance run and
+   `OPENSYSML_SCHEDULE_SEEDS` widening the sweep on demand; `runtime.Model` holding the
+   model-derived part once per worker and `runtime.Context` the run-derived part, with
+   `analysis.Worker` owning the model and `Model.NewContext` building only a run; and
+   `Snapshot`/`Restore`/`Release` over the journal capturing the context's objects, lifetimes,
+   variants, occurrences, bus, clock, id sequence, activation and run counters, trace, run
+   ledgers and scheduler state, the action executor's tokens, frame tree, merge and breakpoint
+   bookkeeping and step counters, and the state executor's configuration, stack, history, state
+   values, event queue, deferred events, timers, change triggers, `do` progress and virtual
+   time — everything layer 2 needs, which the round-trip and restore-twice tests over every
+   conformance case prove. Not captured: a body coroutine paused mid-statement
+   (`ErrSnapshotPausedBody`), which the eight conformance cases whose default run pauses one
+   pin. Stages 2 and 3 add no capture for the executors' present state; they add the choice
+   points (one token, one dispatch), the canonical form over a snapshot, and, for `do`
+   interleaving, the explicit representation of a body's wait that removes the paused-body
+   limit.
 2. **Actions, static reduction.** Snapshot/restore for the action executor's state; DFS with
    persistent sets and a visited set; footprints in the lowering layer; `-check-action`,
    `-check-diverge`, bounds, witnesses in trace format; `%check-action`, `%replay`. Test layers
