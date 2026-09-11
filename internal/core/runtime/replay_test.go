@@ -327,7 +327,7 @@ func dueOrderModel(t *testing.T) (func() (*Context, error), func(*Context) (Outc
 	for i, name := range names {
 		syms[i] = namedOrFoundSymbol(t, idx, "test::"+name, root, ast.DefState, ast.UsageState)
 	}
-	fresh := func() (*Context, error) { return NewContext(model, resolver, 10000), nil }
+	fresh := func() (*Context, error) { return NewContext(NewModel(model, resolver), 10000), nil }
 	run := func(ctx *Context) (Outcome, error) {
 		execs := make([]*StateExecutor, len(syms))
 		for i, sym := range syms {
