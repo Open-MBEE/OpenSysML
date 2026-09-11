@@ -266,13 +266,17 @@ func newService(cacheSize int, version string, unavailable []string) (*Service, 
 	if err != nil {
 		return nil, err
 	}
+	engines, err := analysis.DefaultFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		cache:        cache,
 		libIndexes:   newLibraryBase(buildLibraryIndex),
 		prewarm:      prewarm > 0,
 		budgets:      budgets,
 		jobs:         jobs,
-		engines:      analysis.Default(),
+		engines:      engines,
 		version:      version,
 		capabilities: availability,
 	}, nil

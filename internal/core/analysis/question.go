@@ -102,6 +102,8 @@ type Question struct {
 	Sweep *SweepAsk
 	// Solve is the queries of a Satisfiable question and how each is asked.
 	Solve *SolveAsk
+	// Compute is the tool invocation a Compute question asks for.
+	Compute *ComputeAsk
 }
 
 // Performance makes one execution in the given context and reports what it established.

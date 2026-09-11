@@ -23,16 +23,19 @@ func RunSweepWith(stop context.Context, first *Context, target string, plan Swee
 	table.Rows = make([]SweepRow, len(rows))
 	q := &sweepQueue{stop: stop, rows: rows, table: table.Rows, fresh: fresh, run: run}
 	var wg sync.WaitGroup
-	for job := 0; job < max(min(jobs, len(rows)), 1); job++ {
-		var ctx *Context
-		if job == 0 {
-			ctx = first
-		}
+	i, ok := q.take()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		q.work(0, first, i, ok)
+	}()
+	for job := 1; job < min(jobs, len(rows)); job++ {
 		wg.Add(1)
-		go func(job int, ctx *Context) {
+		go func(job int) {
 			defer wg.Done()
-			q.work(job, ctx)
-		}(job, ctx)
+			i, ok := q.take()
+			q.work(job, nil, i, ok)
+		}(job)
 	}
 	wg.Wait()
 	if q.err != nil {
@@ -54,14 +57,10 @@ type sweepQueue struct {
 	err   error // the caller went away, or a job's context could not be built
 }
 
-// work is one job: it runs rows as the queue hands them out until the queue is over,
-// each in a context of its own, ctx being the one already built for the first.
-func (q *sweepQueue) work(job int, ctx *Context) {
-	for {
-		i, ok := q.take()
-		if !ok {
-			return
-		}
+// work is one job: it runs row i if ok, then rows as the queue hands them out until the
+// queue is over, each in a context of its own, ctx being the one already built for the first.
+func (q *sweepQueue) work(job int, ctx *Context, i int, ok bool) {
+	for ; ok; i, ok = q.take() {
 		if ctx == nil {
 			built, err := q.fresh(job)
 			if err != nil {

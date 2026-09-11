@@ -1,11 +1,14 @@
 package repl
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // engineCalcSource is a calc the prompt can put to the engines.
@@ -164,5 +167,77 @@ func TestEngineSelectionKeepsTheDebuggerSession(t *testing.T) {
 	wants(t, run(t, s, "%engine auto"), "engine: auto")
 	if s.actionExec == nil {
 		t.Fatal("selecting auto ended the debugger session")
+	}
+}
+
+// toolActionSource is an action a tool computes, with a default for its one input so the
+// debugger can start it bare.
+const toolActionSource = `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	action def Doubling {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in k : Real = 2.0 { @ToolVariable { name = "k"; } }
+		out y : Real     { @ToolVariable { name = "y"; } }
+	}
+}
+`
+
+// computeEngine stands in for a tool's engine: it answers every Compute for its tool with
+// y = 2k, observed.
+type computeEngine struct{ ran *int }
+
+func (computeEngine) Name() string { return analysis.ToolEngineName("MC") }
+
+func (computeEngine) Describe() analysis.Description {
+	return analysis.Description{Questions: []analysis.Kind{analysis.Compute}, Authority: analysis.Observed}
+}
+
+func (computeEngine) Covers(*analysis.Model, analysis.Question) analysis.Coverage {
+	return analysis.Coverage{Covered: true}
+}
+
+func (e computeEngine) Run(_ context.Context, _ *analysis.Model, q analysis.Question, _ analysis.Budget) (analysis.Result, error) {
+	*e.ran++
+	k := q.Compute.Call.Inputs[0].Value.Value.Real
+	value := runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: 2 * k}}
+	return analysis.Result{Claim: analysis.ClaimValue, Strength: analysis.Observed,
+		Values: []analysis.Evaluation{{Name: "y", Value: value}}}, nil
+}
+
+// %action on a tool-computed action puts the computation to the session's engines under its
+// selection, as a run does: the executor starts completed with the tool's outputs; without
+// an engine for the tool, or under a named engine that does not compute, it does not start.
+func TestActionDebuggerPutsToolComputationsToTheEngines(t *testing.T) {
+	s := loadSource(t, toolActionSource)
+	out := run(t, s, "%action Tools::Doubling")
+	wants(t, out, "error: failed to create executor:", "tool 'MC' is not registered; set OPENSYSML_TOOLS")
+	if s.actionExec != nil {
+		t.Fatal("a refused %action left a debugging session")
+	}
+
+	ran := 0
+	engines := analysis.Default()
+	if err := engines.Register(computeEngine{ran: &ran}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+	wants(t, run(t, s, "%action Tools::Doubling"), "✓ Started action executor", "State: Completed", "Tokens: 0")
+	wants(t, run(t, s, "%continue"), "✓ Action already completed")
+	if ran != 1 || s.actionExec == nil || s.actionExec.executor.State() != runtime.StateCompleted {
+		t.Fatalf("tool ran %d times; want once, leaving a completed executor", ran)
+	}
+	if got := runtime.FormatValue(s.actionExec.executor.Results()["y"]); got != "4.0" {
+		t.Fatalf("y = %s, want 4.0", got)
+	}
+
+	run(t, s, "%engine run")
+	out = run(t, s, "%action Tools::Doubling")
+	wants(t, out, "error: failed to create executor:", "run does not answer compute questions")
+	if ran != 1 {
+		t.Fatalf("the tool ran %d times under the run engine alone, want once in all", ran)
 	}
 }

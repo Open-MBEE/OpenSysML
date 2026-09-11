@@ -258,7 +258,7 @@ func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 // state has no execution in a state behavior.
 func (h *stateStmtHost) effect(s lower.Effect) error {
 	if s.Kind == lower.EffectPerform {
-		inv, ok := performedInvocation(s.Node)
+		inv, ok := performedInvocation(s)
 		if !ok {
 			return fmt.Errorf("%s performs no action", h.describe())
 		}
@@ -347,9 +347,18 @@ func (h *stateStmtHost) runOwnFlow(perf *actionFrame) error {
 	return h.flow.runSubflow(perf)
 }
 
-// performedInvocation reports the action a `perform` statement names, in either
-// form the parser produces for one.
-func performedInvocation(node ast.Node) (actionInvocation, bool) {
+// performedInvocation reports the action a `perform` statement declared in scope
+// names, in either form the parser produces for one.
+func performedInvocation(s lower.Effect) (actionInvocation, bool) {
+	inv, ok := statementInvocation(s.Node)
+	if ok {
+		inv.step = memberSymbol(s.Scope, s.Node)
+	}
+	return inv, ok
+}
+
+// statementInvocation reads the action a `perform` statement names.
+func statementInvocation(node ast.Node) (actionInvocation, bool) {
 	switch n := node.(type) {
 	case *ast.PerformActionNode:
 		if inv := n.PerformedInvocation(); inv != nil {

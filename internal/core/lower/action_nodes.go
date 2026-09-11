@@ -36,8 +36,20 @@ func impliedMarker(name string, source, noInitial bool) bool {
 	return (source && noInitial && name == "start") || (!source && name == "done")
 }
 
-func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, []ast.Node, map[*ast.InitialNode]ast.Node, error) {
-	graph := &ActionGraph{
+// ToActionInterface lowers only the attributes an action declares, for a performance that
+// runs no body of it: an external tool's. Its flow is empty whatever the body states.
+func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, error) {
+	members, err := actionMembers(actionDecl)
+	if err != nil {
+		return nil, err
+	}
+	graph := newActionGraph(scope)
+	graph.Attributes = lowerAttributes(members)
+	return graph, nil
+}
+
+func newActionGraph(scope *symbols.Scope) *ActionGraph {
+	return &ActionGraph{
 		Scope:     scope,
 		Nodes:     make([]ast.Node, 0),
 		Edges:     make(map[ast.Node][]ActionEdge),
@@ -46,16 +58,26 @@ func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph
 		Accepts:   make(map[ast.Node]Accept),
 		Finals:    make([]ast.Node, 0),
 	}
+}
 
-	var members []ast.Node
+// actionMembers is the body an action's declaration states.
+func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 	switch n := actionDecl.(type) {
 	case *ast.Usage:
-		members = n.Members
+		return n.Members, nil
 	case *ast.Definition:
-		members = n.Members
+		return n.Members, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("action must be Usage or Definition, got %T", actionDecl)
+		return nil, fmt.Errorf("action must be Usage or Definition, got %T", actionDecl)
 	}
+}
+
+func collectActionNodes(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, []ast.Node, map[*ast.InitialNode]ast.Node, error) {
+	members, err := actionMembers(actionDecl)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	graph := newActionGraph(scope)
 
 	// A succession can bind a member with no name of its own by position, which is
 	// what puts a statement member (`then send …;`) in the token flow.
