@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/core/quickfix"
@@ -76,6 +78,9 @@ const (
 	// bodyRequirement is a RequirementBody: requirement, concern and viewpoint
 	// bodies, and those of the usages written with them (satisfy, frame, objective).
 	bodyRequirement
+	// bodyViewDef is a ViewDefinitionBodyItem body, bodyView a ViewBodyItem one:
+	// only the view usage admits `expose`.
+	bodyViewDef
 	bodyView
 )
 
@@ -148,11 +153,27 @@ func (p *Parser) fill(n int) {
 			}
 			tok = p.lx.Next()
 		}
+		if tok.BadEscape {
+			p.reportBadEscapes(tok)
+		}
 		p.buf = append(p.buf, p.unreserved(tok))
 		if tok.Kind == lexer.EOF {
 			// keep EOF sticky: stop growing further with real tokens
 			return
 		}
+	}
+}
+
+// reportBadEscapes reports each backslash escape in a quoted token outside the
+// set its terminal admits (KerMLExpressions.xtext STRING_VALUE, UNRESTRICTED_NAME).
+func (p *Parser) reportBadEscapes(tok lexer.Token) {
+	terminal := "a string"
+	if tok.Kind == lexer.UnrestrictedName {
+		terminal = "an unrestricted name"
+	}
+	raw := p.src.Text(tok.Span)
+	for _, sp := range lexer.InvalidEscapes(tok.Span, raw) {
+		p.error(sp, fmt.Sprintf("invalid escape '%s' in %s: only \\b \\t \\n \\f \\r \\\" \\' \\\\ are admitted", p.src.Text(sp), terminal))
 	}
 }
 
@@ -327,26 +348,71 @@ func (p *Parser) expect(k lexer.Kind, msg string) (lexer.Token, bool) {
 	if p.at(k) {
 		return p.advance(), true
 	}
-	if k == lexer.Semicolon {
-		// The statement ends where the last token consumed for it ends, which is
-		// where the missing ';' goes; the diagnostic sits on the token that
-		// should have followed it.
-		p.errorWithFixes(p.peek().Span, msg, quickfix.Fix{
-			Title:     "Insert ';'",
-			Edits:     []quickfix.Edit{quickfix.Insert(p.lastEnd(), ";")},
-			Preferred: true,
-		})
-		return p.peek(), false
-	}
 	p.error(p.peek().Span, msg)
 	return p.peek(), false
+}
+
+// expectSemicolon consumes the `;` ending a construct or reports it missing.
+func (p *Parser) expectSemicolon(what string) bool {
+	if p.accept2(lexer.Semicolon) {
+		return true
+	}
+	p.missingTerminator("expected ';' after "+what, "missing ';' at end of "+what, p.insertSemicolonFix())
+	return false
+}
+
+// expectBodyOrEnd consumes the `{` opening a construct's body, after its `;`
+// form was not taken; neither carries a fix, since either would repair it.
+func (p *Parser) expectBodyOrEnd(what string) bool {
+	if p.accept2(lexer.LBrace) {
+		return true
+	}
+	p.missingTerminator("expected '{' or ';' after "+what, "missing ';' at end of "+what)
+	return false
+}
+
+// missingTerminator reports the terminator a construct lacks: on its last token when
+// the next one starts a later line or ends the body, else on that unexpected token.
+func (p *Parser) missingTerminator(unexpected, missing string, fixes ...quickfix.Fix) {
+	next := p.peek()
+	last, ok := p.lastToken()
+	if !ok {
+		p.errorWithFixes(next.Span, unexpected, fixes...)
+		return
+	}
+	lines := p.src.Lines()
+	switch {
+	case next.Kind == lexer.RBrace, next.Kind == lexer.EOF,
+		lines.PosAt(next.Span.Offset).Line > lines.PosAt(last.Span.End()).Line:
+		p.errorWithFixes(last.Span, missing, fixes...)
+	default:
+		p.errorWithFixes(next.Span, unexpected, fixes...)
+	}
+}
+
+// insertSemicolonFix is the edit that writes the missing `;` where the last
+// consumed token ends.
+func (p *Parser) insertSemicolonFix() quickfix.Fix {
+	return quickfix.Fix{
+		Title:     "Insert ';'",
+		Edits:     []quickfix.Edit{quickfix.Insert(p.lastEnd(), ";")},
+		Preferred: true,
+	}
+}
+
+// lastToken returns the last consumed non-trivia token while the window holds it.
+func (p *Parser) lastToken() (lexer.Token, bool) {
+	if i := p.pos - p.base; i > 0 && i <= len(p.buf) {
+		return p.buf[i-1], true
+	}
+	return lexer.Token{}, false
 }
 
 // lastEnd returns the end offset of the last consumed non-trivia token, or the
 // start of the current one when nothing has been consumed.
 func (p *Parser) lastEnd() int {
-	if i := p.pos - p.base; i > 0 && i <= len(p.buf) {
-		return p.buf[i-1].Span.End()
+	if last, ok := p.lastToken(); ok {
+		return last.Span.End()
 	}
 	return p.peek().Span.Offset
 }

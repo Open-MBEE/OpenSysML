@@ -424,10 +424,7 @@ func (p *Parser) parseDeclaration(start int) ast.Node {
 // parseNamespaceBody parses `{ member* }` or `;`. Returns (members, hasBody).
 // The caller has already consumed the declaration head up to this point.
 func (p *Parser) parseNamespaceBody() ([]ast.Node, bool) {
-	if p.accept2(lexer.Semicolon) {
-		return nil, false
-	}
-	if _, ok := p.expect(lexer.LBrace, msgExpectedBraceOrSemi); !ok {
+	if p.accept2(lexer.Semicolon) || !p.expectBodyOrEnd("declaration") {
 		return nil, false
 	}
 	// A package/namespace body has its own notation; it never inherits the
@@ -641,7 +638,13 @@ func (p *Parser) parseTextualRepresentation(start int) ast.Node {
 // parseImport parses `import [all] QualifiedName [::*|::**] body`.
 // Visibility has already been consumed by the caller.
 func (p *Parser) parseImport(start int, vis ast.Visibility) *ast.Import {
+	kw := p.peek()
 	p.advance() // 'import' (guaranteed by caller)
+	// ImportPrefix makes the indicator mandatory (KerML.xtext ImportPrefix); the
+	// bare form still reads unambiguously, so it is a warning the analysis escalates.
+	if vis == ast.VisibilityDefault {
+		p.warn(kw.Span, msgImportVisibility, codeImportVisibility)
+	}
 	isAll := p.acceptKeyword("all")
 
 	qn := p.parseQualifiedName()
@@ -788,14 +791,23 @@ func (p *Parser) identificationThenFrom() bool {
 }
 
 // parsePrefixMetadata parses zero or more `# QualifiedName` prefix annotations
-// (SysML.xtext PrefixMetadataUsage). A keyword is allowed as the type name
-// (`#scenario`, `#cause`).
+// (SysML.xtext PrefixMetadataUsage, KerML.xtext PrefixMetadataFeature).
 func (p *Parser) parsePrefixMetadata() []*ast.PrefixMetadata {
 	var prefixes []*ast.PrefixMetadata
 	for p.at(lexer.Hash) {
-		start := p.peek().Span.Offset
-		p.advance() // #
-		qn := p.parseQualifiedNameRelaxed()
+		hash := p.advance()
+		start := hash.Span.Offset
+		// PrefixMetadataUsage names a metaclass by QualifiedName (KerML.xtext:1014,
+		// SysML.xtext:181): a keyword after `#` starts the declaration, not the name.
+		if !p.atName() && !(p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon) {
+			msg := "expected a metadata feature name after '#'"
+			if t := p.peek(); t.Kind == lexer.Keyword {
+				msg = fmt.Sprintf("expected a metadata feature name after '#': '%s' is a keyword", t.KeywordID)
+			}
+			p.error(hash.Span, msg)
+			continue
+		}
+		qn := p.parseQualifiedName()
 		if qn == nil {
 			continue
 		}
@@ -898,7 +910,7 @@ func (p *Parser) leadingPrefixIsDefUsage() bool {
 func (p *Parser) parseFilter(start int) ast.Node {
 	p.advance() // filter
 	expr := p.ParseExpression()
-	p.expect(lexer.Semicolon, "expected ';' after filter expression")
+	p.expectSemicolon("filter expression")
 	f := &ast.FilterMember{Condition: expr}
 	f.NodeSpan = p.spanFrom(start)
 	return f

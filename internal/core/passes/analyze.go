@@ -13,8 +13,7 @@ import (
 func DefaultRegistry() *Registry {
 	reg := NewRegistry()
 	reg.Register(SyntaxPass{})
-	reg.Register(ImportVisibilityPass{})
-	reg.Register(EnumerationBodyPass{})
+	reg.Register(GrammarViolationPass{})
 	reg.Register(NonstandardNotationPass{})
 	reg.Register(NameResolutionPass{})
 	reg.Register(StateTransitionPass{})
@@ -27,6 +26,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(RedefinitionDirectionPass{})
 	reg.Register(ElementFilterPass{})
 	reg.Register(ConstraintPass{})
+	reg.Register(VariantOwnerPass{})
 	reg.Register(DocumentQueryPass{})
 	reg.Register(DocumentPlanPass{})
 	reg.Register(TypeRelationshipsPass{})

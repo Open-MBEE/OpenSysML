@@ -1,0 +1,33 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="InvariantPolarity" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="class" name="Account" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="balance" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="feature"
+              (Relationship kind="typing" target=ScalarValues::Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="positive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="inv"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator=">="
+                  (FeatureReference name="balance")
+                  (LiteralInteger value="0")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="overdrawn" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="inv" negated=true
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureReference name="balance")
+                  (LiteralInteger value="0")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="bounded" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="inv"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<="
+                  (FeatureReference name="balance")
+                  (LiteralInteger value="1000")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="<ao> abstractOverdrawn" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="inv" negated=true
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="<"
+                  (FeatureReference name="balance")
+                  (LiteralInteger value="0"))))))))))

@@ -212,7 +212,9 @@ func (p *Parser) parseNodeBody(start int, what string) ([]ast.Node, bool) {
 		defer p.pushBodyContext(bodyAction)()
 		return p.parseActionBodyMixed(), true
 	}
-	p.expectStatementEnd(start, "expected ';' or '{' after "+what)
+	if !p.accept2(lexer.Semicolon) && !p.atEffectStatementEnd(start) {
+		p.missingTerminator("expected ';' or '{' after "+what, "missing ';' at end of "+what, p.insertSemicolonFix())
+	}
 	return nil, false
 }
 
@@ -278,16 +280,6 @@ var parameterKindKeywords = map[string]ast.UsageKind{
 	"calc":       ast.UsageCalc,
 }
 
-// parameterKindKeyword reports whether parseDirectionParameter reads the token as
-// the parameter's kind.
-func parameterKindKeyword(t lexer.Token) bool {
-	if t.Kind != lexer.Keyword {
-		return false
-	}
-	_, ok := parameterKindKeywords[t.KeywordID]
-	return ok
-}
-
 // parseDirectionParameter parses: <direction> [ref] [<kind>] [<name>] [: <type>] [= <value>];
 // Examples: in item scene; out feature x; in ref item x : Foo = bar; in item; in target;
 // Kind keyword is optional - defaults to generic feature
@@ -306,6 +298,11 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 		direction = ast.DirInOut
 	default:
 		direction = ast.DirNone
+	}
+	// FeatureDirection is read at most once (KerML.xtext BasicFeaturePrefix).
+	for p.atDirectionKeyword() {
+		p.prefixConflict(p.peek(), dirTok.KeywordID, "one direction ('in', 'out' or 'inout')")
+		p.advance()
 	}
 
 	// A direction prefixes the feature it applies to, so a parameter declaring
@@ -346,8 +343,6 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 		portion:      portion,
 		isEvent:      isEvent,
 	}
-	p.warnAmbiguousModifierKind(mods, parameterKindKeyword)
-
 	// A parameter's kind keyword is optional; a lone occurrence modifier declares the
 	// kind, and with no keyword at all the parameter is the same kindless
 	// reference usage as a keyword-less declaration outside a parameter list
@@ -410,7 +405,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 		p.expect(lexer.RBrace, "expected '}'")
 		usage.HasBody = true
 	} else {
-		p.error(p.peek().Span, "expected ';' or '{' after parameter")
+		p.expectBodyOrEnd("parameter")
 	}
 	usage.NodeSpan = p.spanFrom(start)
 
@@ -582,13 +577,13 @@ func (p *Parser) parseFinalNode(tok lexer.Token) ast.Node {
 		nameToken := p.peek()
 		p.error(nameToken.Span, "a final node declares no name; a succession names the `done` library feature")
 		p.advance()
-		p.expect(lexer.Semicolon, "expected ';' after final node")
+		p.expectSemicolon("final node")
 		en := &ast.ErrorNode{Message: "a final node declares no name; a succession names the `done` library feature"}
 		en.NodeSpan = p.spanFrom(start)
 		return en
 	}
 
-	p.expect(lexer.Semicolon, "expected ';' after final node")
+	p.expectSemicolon("final node")
 
 	node := &ast.FinalNode{}
 	node.NodeSpan = p.spanFrom(start)
@@ -764,7 +759,7 @@ func (p *Parser) parseActionExecutionNode(tok lexer.Token) ast.Node {
 		}
 	}
 
-	p.expect(lexer.Semicolon, "expected ';' after action execution node")
+	p.expectSemicolon("action execution node")
 
 	node := &ast.ActionExecutionNode{
 		Name:       name,
@@ -878,7 +873,7 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 		for !p.at(lexer.Semicolon) && !p.atEOF() {
 			p.advance()
 		}
-		p.expect(lexer.Semicolon, "expected ';' after succession edge")
+		p.expectSemicolon("succession edge")
 		en := &ast.ErrorNode{Message: msg}
 		en.NodeSpan = p.spanFrom(start)
 		return en
@@ -889,7 +884,7 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 		// 'if' keyword already consumed
 		guard := p.ParseExpression()
 
-		p.expect(lexer.Semicolon, "expected ';' after control flow edge")
+		p.expectSemicolon("control flow edge")
 
 		node := &ast.ControlFlowEdge{
 			NodeBase: ast.NodeBase{NodeSpan: p.spanFrom(start)},
@@ -909,7 +904,7 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 		members = p.parseActionBodyMixed()
 		leave()
 	} else {
-		p.expect(lexer.Semicolon, "expected ';' after succession edge")
+		p.expectSemicolon("succession edge")
 	}
 
 	node := &ast.SuccessionEdge{
@@ -926,14 +921,19 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 // Only a statement written as a transition's `do` effect is ended by the
 // transition itself, either by its next clause or by its own ';'; elsewhere a
 // missing ';' stays a syntax error.
-func (p *Parser) expectStatementEnd(start int, msg string) {
+func (p *Parser) expectStatementEnd(start int, what string) {
+	if !p.atEffectStatementEnd(start) {
+		p.expectSemicolon(what)
+	}
+}
+
+// atEffectStatementEnd reports whether the statement starting at start is ended
+// by the transition whose effect it is, so it needs no ';' of its own.
+func (p *Parser) atEffectStatementEnd(start int) bool {
 	if p.atTransitionEffectStatement(start) && p.atEffectEnd() {
-		return
+		return true
 	}
-	if p.effectDepth > 0 && (p.atKeyword("then") || p.atKeyword("if") || p.atKeyword("do")) {
-		return
-	}
-	p.expect(lexer.Semicolon, msg)
+	return p.effectDepth > 0 && (p.atKeyword("then") || p.atKeyword("if") || p.atKeyword("do"))
 }
 
 // atTransitionEffectStatement reports whether the member starting at start is the
@@ -986,7 +986,7 @@ func (p *Parser) parseAssignmentAction(tok lexer.Token) ast.Node {
 	// Parse value expression
 	value := p.ParseExpression()
 
-	p.expectStatementEnd(start, "expected ';' after assignment")
+	p.expectStatementEnd(start, "assignment")
 
 	node := &ast.AssignmentActionNode{
 		Target: target,
@@ -1003,7 +1003,7 @@ func (p *Parser) parsePerformAction(tok lexer.Token) ast.Node {
 	// Parse action reference (qualified name or invocation)
 	actionRef := p.ParseExpression()
 
-	p.expectStatementEnd(start, "expected ';' after perform statement")
+	p.expectStatementEnd(start, "perform statement")
 
 	node := &ast.PerformActionNode{
 		ActionRef: actionRef,
@@ -1068,7 +1068,7 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 	var until ast.Node
 	if p.acceptKeyword("until") {
 		until = p.ParseExpression()
-		p.expect(lexer.Semicolon, "expected ';' after 'until' condition")
+		p.expectSemicolon("'until' condition")
 	}
 
 	node := &ast.WhileLoopActionNode{
@@ -1144,7 +1144,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	// An `until` clause is terminated by a semicolon in either form; a braced
 	// body without one is already complete.
 	if condition != nil || !braced {
-		p.expect(lexer.Semicolon, "expected ';' after loop")
+		p.expectSemicolon("loop")
 	} else {
 		p.accept(lexer.Semicolon)
 	}
@@ -1263,7 +1263,7 @@ func (p *Parser) parseDefaultTargetSuccession(tok lexer.Token) ast.Node {
 	start := tok.Span.Offset
 
 	target := p.parseQualifiedName()
-	p.expect(lexer.Semicolon, "expected ';' after else branch")
+	p.expectSemicolon("else branch")
 
 	node := &ast.ControlFlowEdge{
 		Source: &ast.QualifiedName{}, // empty source = the member before it
@@ -1285,7 +1285,7 @@ func (p *Parser) parseIfAction(tok lexer.Token) ast.Node {
 	if p.atKeyword("then") {
 		p.advance() // consume 'then'
 		target := p.parseQualifiedName()
-		p.expect(lexer.Semicolon, "expected ';' after guard succession")
+		p.expectSemicolon("guard succession")
 
 		// Return ControlFlowEdge with implicit source (decision node) and guard
 		node := &ast.ControlFlowEdge{
@@ -1560,7 +1560,7 @@ func (p *Parser) parseResultMember() ast.Node {
 			u.Members = members
 			u.HasBody = hasBody
 		} else {
-			p.error(p.peek().Span, msgExpectedReturnEnd)
+			p.expectBodyOrEnd("return parameter")
 		}
 
 		u.NodeSpan = p.spanFrom(start)
@@ -1588,7 +1588,7 @@ func (p *Parser) parseResultMember() ast.Node {
 		"trailing expression of the body, without 'return'"
 	p.error(p.peek().Span, msg)
 	p.ParseExpression()
-	p.expect(lexer.Semicolon, "expected ';' after return expression")
+	p.expectSemicolon("return expression")
 
 	en := &ast.ErrorNode{Message: msg}
 	en.NodeSpan = p.spanFrom(start)
@@ -2035,7 +2035,7 @@ func (p *Parser) parseSubjectMember(start int, prefixes []*ast.PrefixMetadata) a
 		node.Body = p.parseRequirementBody()
 		leave()
 	} else {
-		p.expect(lexer.Semicolon, "expected ';' or '{' after subject declaration")
+		p.expectSemicolon("subject declaration")
 	}
 	node.NodeSpan = p.spanFrom(start)
 	return node
@@ -2145,7 +2145,7 @@ func (p *Parser) parseRequirementCondition(start int, keyword string) ast.Node {
 	expr := p.ParseExpression()
 	semi, hasSemi := p.accept(lexer.Semicolon)
 	if !hasSemi {
-		p.expect(lexer.Semicolon, "expected ';' after "+keyword+" expression")
+		p.expectSemicolon(keyword + " expression")
 	}
 	if !isConditionReference(expr) {
 		p.errorWithFixes(keywordSpan,
@@ -2191,7 +2191,7 @@ func (p *Parser) parseOwnedConstraintDecl(what string) ownedConstraintDecl {
 		d.body = p.parseNestedConstraintConditions()
 		return d
 	}
-	p.expect(lexer.Semicolon, "expected ';' or '{' after '"+what+"'")
+	p.expectSemicolon("'" + what + "'")
 	return d
 }
 
@@ -2427,7 +2427,7 @@ func (p *Parser) parseStateMember(allowBody bool) ast.Node {
 		for !p.at(lexer.Semicolon) && !p.atEOF() {
 			p.advance()
 		}
-		p.expect(lexer.Semicolon, "expected ';' after succession")
+		p.expectSemicolon("succession")
 		en := &ast.ErrorNode{Message: msg}
 		en.NodeSpan = p.spanFrom(start)
 		return en
@@ -2514,7 +2514,7 @@ func (p *Parser) parseAcceptNode(start int, vis ast.Visibility, trivia []ast.Tri
 		leave()
 		action.HasBody = true
 	} else if !p.atKeyword("then") {
-		p.expect(lexer.Semicolon, "expected ';' after accept action")
+		p.expectSemicolon("accept action")
 	}
 
 	action.NodeSpan = p.spanFrom(start)
@@ -2884,7 +2884,7 @@ func (p *Parser) parseSubstateMember(start int) ast.Node {
 	name := p.src.Text(nameToken.Span)
 	p.advance()
 
-	p.expect(lexer.Semicolon, "expected ';' after state name")
+	p.expectSemicolon("state name")
 
 	node := &ast.SubstateMember{
 		Name:     name,
@@ -2918,7 +2918,7 @@ func (p *Parser) parseDeferMember(start int) ast.Node {
 		}
 	}
 
-	p.expect(lexer.Semicolon, "expected ';' after deferred events")
+	p.expectSemicolon("deferred events")
 
 	node := &ast.DeferMember{Triggers: triggers}
 	node.NodeSpan = p.spanFrom(start)
@@ -2937,7 +2937,7 @@ func (p *Parser) parsePseudostate(start int, keyword string, kind ast.Pseudostat
 
 	name := p.src.Text(p.peek().Span)
 	p.advance()
-	p.expect(lexer.Semicolon, fmt.Sprintf("expected ';' after %s name", keyword))
+	p.expectSemicolon(keyword + " name")
 
 	ps := &ast.PseudostateNode{
 		Kind:    kind,
@@ -3206,7 +3206,7 @@ func (p *Parser) parseTerminateStatement(tok lexer.Token) ast.Node {
 		target = p.ParseExpression()
 	}
 
-	p.expectStatementEnd(start, "expected ';' after terminate statement")
+	p.expectStatementEnd(start, "terminate statement")
 
 	node := &ast.TerminateStatement{
 		Target: target,

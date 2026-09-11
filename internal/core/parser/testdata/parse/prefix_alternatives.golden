@@ -1,0 +1,48 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="PrefixAlternatives" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=true variation=false name="A"))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=true name="V"
+          (Membership visibility="default"
+            (Usage kind="part" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false variant=true
+              (Relationship kind="typing" target=A
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Usage kind="part" name="v" ref=false direction="none" composite=false derived=false ordered=false nonunique=false variation=true
+          (Relationship kind="typing" target=V
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="R"
+          (Membership visibility="default"
+            (Usage kind="part" name="r" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=A
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="Q"
+          (Membership visibility="default"
+            (Usage kind="item" name="i" ref=false direction="in" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="item" name="o" ref=false direction="out" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="item" name="io" ref=false direction="inout" composite=false derived=false ordered=false nonunique=false))))
+      (Membership visibility="default"
+        (Usage kind="attribute" name="n" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=ScalarValues::Integer
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="few" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=A
+            (*ast.QualifiedName))
+          (Multiplicity range=false
+            (FeatureReference name="n"))))
+      (Membership visibility="default"
+        (Usage kind="part" name="more" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=A
+            (*ast.QualifiedName))
+          (Multiplicity range=true
+            (LiteralInteger value="0")
+            (OperatorExpr operator="+"
+              (FeatureReference name="n")
+              (LiteralInteger value="1"))))))))

@@ -18,16 +18,20 @@ func diagnose(t *testing.T, src string) []Diagnostic {
 }
 
 // A missing semicolon the parser can place exactly carries the edit that inserts
-// it, right after the construct that needed it.
+// it, right after the construct that needed it, and is reported on that construct's
+// last token rather than on whatever follows it.
 func TestMissingSemicolonCarriesAnInsertFix(t *testing.T) {
 	const src = "package P {\n    action def A {\n        first start\n    }\n}\n"
 	diags := diagnose(t, src)
 	var found bool
 	for _, d := range diags {
-		if !strings.Contains(d.Message, "expected ';'") {
+		if !strings.Contains(d.Message, "missing ';'") {
 			continue
 		}
 		found = true
+		if got := src[d.Span.Offset:d.Span.End()]; got != "start" {
+			t.Errorf("diagnostic %q sits on %q, want the last token of the statement", d.Message, got)
+		}
 		if len(d.Fixes) != 1 {
 			t.Fatalf("diagnostic %q carries %d fixes, want one", d.Message, len(d.Fixes))
 		}
@@ -52,6 +56,30 @@ func TestMissingSemicolonCarriesAnInsertFix(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("no missing-semicolon diagnostic for %q: %v", src, diags)
+	}
+}
+
+// A declaration missing its `;` is reported at its end when the next token starts
+// a later line or closes the body; on the same line the unexpected token is named.
+func TestMissingSemicolonIsReportedAtTheDeclarationEnd(t *testing.T) {
+	for _, tc := range []struct{ src, span, msg string }{
+		{"package P {\n    part def D;\n    part q : D\n    attribute a = 1;\n}\n", "D", "missing ';' at end of declaration"},
+		{"package P {\n    part def D;\n    part q : D\n}\n", "D", "missing ';' at end of declaration"},
+		{"package P {\n    part def D;\n    part q : D attribute a = 1;\n}\n", "attribute", "expected '{' or ';' after declaration"},
+		{"package P {\n    import ScalarValues::*\n    part def D;\n}\n", "*", "missing ';' at end of declaration"},
+	} {
+		diags := diagnose(t, tc.src)
+		if len(diags) == 0 {
+			t.Errorf("%q: no diagnostic", tc.src)
+			continue
+		}
+		d := diags[0]
+		if d.Message != tc.msg {
+			t.Errorf("%q: message = %q, want %q", tc.src, d.Message, tc.msg)
+		}
+		if got := tc.src[d.Span.Offset:d.Span.End()]; got != tc.span {
+			t.Errorf("%q: diagnostic sits on %q, want %q", tc.src, got, tc.span)
+		}
 	}
 }
 

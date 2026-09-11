@@ -4,8 +4,8 @@
     {
       "name": "stdlib",
       "dir": "internal/core/libs/stdlib",
-      "files": 99,
-      "lines": 30004
+      "files": 100,
+      "lines": 30035
     },
     {
       "name": "training",
@@ -17,7 +17,7 @@
       "name": "pilot-sysml-examples",
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
-      "lines": 8605
+      "lines": 8603
     },
     {
       "name": "pilot-sysml-validation",
@@ -40,14 +40,14 @@
     {
       "name": "parser-fixtures",
       "dir": "internal/core/parser/testdata/parse",
-      "files": 200,
-      "lines": 4757
+      "files": 204,
+      "lines": 4822
     },
     {
       "name": "examples",
       "dir": "examples",
       "files": 36,
-      "lines": 7312
+      "lines": 7317
     }
   ],
   "totals": {
