@@ -50,7 +50,7 @@ func (e sweepEngine) Run(ctx context.Context, model *Model, q Question, budget B
 	if !model.holds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
 	}
-	rctx, err := model.Context()
+	rctx, err := model.running(e.Name(), budget)
 	if err != nil {
 		return Result{}, err
 	}

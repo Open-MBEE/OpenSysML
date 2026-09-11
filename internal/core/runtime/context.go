@@ -68,6 +68,8 @@ type Context struct {
 	// is named by the element it annotates and its place among that element's
 	// annotations, so a reanalysis can rebind it.
 	metadataObjects map[metadataAnnotation]int64
+	// tools runs the external tool a ToolExecution names; nil refuses every such action.
+	tools ToolRunner
 
 	// variantObjects holds the object a variant stands for per owner that
 	// selected it, so repeated reads of one selection read the same object.
@@ -1278,14 +1280,14 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 // performAction runs action to completion, performed by self, and returns the
 // executor that ran it, whose root performance holds what it produced.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, self, inputs, (*ActionExecutor).initialize)
+	return ctx.performActionFrom(action, action, self, inputs, (*ActionExecutor).initialize)
 }
 
-// performActionStep runs action as a step of an enclosing behavior. A step
-// stating no flow performs none: it takes its inputs, binds its computed
-// outputs and ends at once, as an object performing such an action does.
-func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	return ctx.performActionFrom(action, self, inputs, func(exec *ActionExecutor) error {
+// performActionStep runs action as a step of an enclosing behavior, the step as named
+// being performed. A step stating no flow performs none: it takes its inputs, binds
+// its computed outputs and ends at once, as an object performing such an action does.
+func (ctx *Context) performActionStep(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	return ctx.performActionFrom(performed, action, self, inputs, func(exec *ActionExecutor) error {
 		if !exec.hasFlow() {
 			return exec.completeWithoutFlow()
 		}
@@ -1293,12 +1295,13 @@ func (ctx *Context) performActionStep(action *symbols.Symbol, self *Instance, in
 	})
 }
 
-// performActionFrom creates the executor for action, seeds its inputs, starts
-// it with start, and runs it to completion; the clock drives it no further.
-func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+// performActionFrom creates the executor for a performance of performed running
+// action, seeds its inputs, starts it with start, and runs it to completion; the
+// clock drives it no further.
+func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	defer ctx.beginRun()()
 
-	exec, err := newActionExecutor(ctx, action, self)
+	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
@@ -1309,8 +1312,8 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 		exec.SetInputs(inputs)
 	}
 
-	if err := start(exec); err != nil {
-		return nil, fmt.Errorf("initialize action: %w", err)
+	if err := ctx.startAction(exec, start); err != nil {
+		return nil, err
 	}
 	if exec.state == StateCompleted {
 		return exec, nil
@@ -1320,6 +1323,22 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 		return nil, fmt.Errorf("execute action: %w", err)
 	}
 	return exec, nil
+}
+
+// startAction begins an executor however its action is performed: one a ToolExecution
+// annotates, on the action as named or a type of it, is performed by its tool, which
+// completes it; any other is begun by begin. Every way of starting an action passes through here.
+func (ctx *Context) startAction(exec *ActionExecutor, begin func(*ActionExecutor) error) error {
+	if exec.tool != nil {
+		if err := exec.performByTool(exec.tool); err != nil {
+			return fmt.Errorf("perform action by tool: %w", err)
+		}
+		return nil
+	}
+	if err := begin(exec); err != nil {
+		return fmt.Errorf("initialize action: %w", err)
+	}
+	return nil
 }
 
 // ExecuteState executes a state machine, processing events until completion or suspension.
@@ -1399,17 +1418,17 @@ func (ctx *Context) CreateActionExecutor(action *symbols.Symbol) (*ActionExecuto
 }
 
 // CreateActionExecutorFor creates an action executor for an action performed by
-// self, without starting execution.
+// self, without starting execution. An action a ToolExecution annotates has no flow to
+// step: its tool is invoked once and the executor returned completed with its outputs.
 func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
 
-	// Initialize (spawns initial token)
-	if err := exec.initialize(); err != nil {
+	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
 		exec.Release()
-		return nil, fmt.Errorf("initialize action: %w", err)
+		return nil, err
 	}
 
 	return exec, nil

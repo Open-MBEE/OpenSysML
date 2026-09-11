@@ -32,6 +32,17 @@ type actionInvocation struct {
 	// referrer is the usage owning a reference subsetting, whose own effective
 	// name is the one the target names (see resolve.ResolveReferenceTarget).
 	referrer ast.Node
+	// step is the usage declaring the invocation, whose metadata and parameters
+	// bind the performance; nil for an invocation no usage of the body declares.
+	step *symbols.Symbol
+}
+
+// performed is what the invocation performs: the step declaring it, else the callee itself.
+func (inv actionInvocation) performed(callee *symbols.Symbol) *symbols.Symbol {
+	if inv.step != nil {
+		return inv.step
+	}
+	return callee
 }
 
 // nestedInvocation reports the action a nested usage performs, if any. A usage
@@ -67,8 +78,8 @@ func expressionInvocation(e *ast.InvocationExpr) actionInvocation {
 	return actionInvocation{target: e.Type, args: args, named: e.NamedArgs, expr: e}
 }
 
-// invocationArguments evaluates the arguments of a `Callee(...)` invocation in ec, the
-// caller's context, keyed by the callee's input parameter they bind; nil for the other forms.
+// invocationArguments evaluates the arguments of a `Callee(...)` invocation in ec, the caller's
+// context, keyed by the input parameter of performanceInterface they bind; nil for the other forms.
 func invocationArguments(
 	ctx *Context, scope *symbols.Scope, inv actionInvocation, ec *EvalContext,
 ) (map[string]Value, error) {
@@ -85,9 +96,13 @@ func invocationArguments(
 	if err != nil {
 		return nil, err
 	}
-	in, _ := parameterNames(ctx.actionParametersOf(sym))
+	held, err := ctx.performanceInterface(inv.performed(sym), sym)
+	if err != nil {
+		return nil, err
+	}
+	in, _ := parameterNames(ctx.actionParametersOf(held))
 	arguments := make(map[string]Value, len(inv.args)+len(inv.named))
-	if err := bindArgumentList(ec, inv, sym, in, arguments); err != nil {
+	if err := bindArgumentList(ec, inv, held, in, arguments); err != nil {
 		return nil, err
 	}
 	return arguments, nil
@@ -146,7 +161,10 @@ func invokeBoundAction(
 	ctx.actionDepth++
 	defer func() { ctx.actionDepth-- }()
 
-	params := ctx.actionParametersOf(sym)
+	params, err := ctx.performanceParameters(inv.performed(sym), sym)
+	if err != nil {
+		return nil, nil, err
+	}
 	in, out := parameterNames(params)
 	inputs := make(map[string]Value, len(in))
 	for _, name := range in {
@@ -170,7 +188,7 @@ func invokeBoundAction(
 		return nil, nil, err
 	}
 
-	callee, err := ctx.performActionStep(sym, self, inputs)
+	callee, err := ctx.performActionStep(inv.performed(sym), sym, self, inputs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
 	}

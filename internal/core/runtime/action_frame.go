@@ -285,6 +285,7 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	if !performs || inv.expr == nil || lower.IsCaseNode(usage) {
 		return nil
 	}
+	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	scope := nodeScope(perf.flow, perf.node)
 	ec := e.evalContextAround(perf, scope)
 	ec.inBehaviorBody = true
@@ -375,7 +376,12 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 		if err != nil {
 			return nodePins{}, err
 		}
-		e.addFeatureDirections(pins.directions, &pins.aliases, e.ctx.actionBodySymbol(sym))
+		inv.step, _ = stepSymbol(graph, node)
+		held, _, err := e.ctx.performanceBody(inv.performed(sym), sym)
+		if err != nil {
+			return nodePins{}, err
+		}
+		e.addFeatureDirections(pins.directions, &pins.aliases, held)
 		for _, param := range e.ctx.actionParametersOf(sym) {
 			if param.IsResult && pins.result == "" {
 				pins.result = param.Name
@@ -1066,6 +1072,7 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 	if err != nil {
 		return err
 	}
+	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	if e.ctx.actionDepth >= maxActionNestingDepth {
 		return fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",
@@ -1075,7 +1082,10 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 	e.ctx.actionDepth++
 	defer func() { e.ctx.actionDepth-- }()
 
-	params := e.ctx.actionParametersOf(sym)
+	params, err := e.ctx.performanceParameters(inv.performed(sym), sym)
+	if err != nil {
+		return err
+	}
 	in, out := parameterNames(params)
 	inputs := make(map[string]Value, len(in))
 	for _, name := range in {
@@ -1097,7 +1107,7 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 		return err
 	}
 
-	callee, err := e.ctx.performActionStep(sym, e.self, inputs)
+	callee, err := e.ctx.performActionStep(inv.performed(sym), sym, e.self, inputs)
 	if err != nil {
 		return fmt.Errorf("invoke action %s: %w", qualifiedNameText(inv.target), err)
 	}

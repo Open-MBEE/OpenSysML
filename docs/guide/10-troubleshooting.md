@@ -29,6 +29,10 @@ in [reference/environment.md](../reference/environment.md).
 - With `Reason: the solver ran out of time`, the query took longer than `OPENSYSML_SMT_TIMEOUT` (default `10s`); `unknown` is a verdict in its own right and is never reported as `sat` or `unsat`
 - Otherwise the solver could not decide the arithmetic, and the reason it reports says so
 
+**A run fails with "tool 'ModelCenter' is not registered; set OPENSYSML_TOOLS":**
+- The action performed carries `AnalysisTooling::ToolExecution`, and an annotated action is only ever performed by the tool it names — never by evaluating its body. Point `OPENSYSML_TOOLS` at a directory holding one JSON file per tool (`toolName`, `version`, `executable`, `variables`), as [reference/environment.md](../reference/environment.md#external-tools) describes; `sysml -engines` then lists the tool as `tool:ModelCenter` with whether its executable was found
+- A tool that exits non-zero, answers something other than one JSON object of `outputs`, omits an output, names one no parameter receives, or takes longer than `OPENSYSML_TOOL_TIMEOUT` (default `10s`) fails the performance with that reason; no value is invented in its place
+
 **Syntax errors:**
 - Only SysML v2 textual notation is accepted; graphical notation and XMI are not
 - Keywords are case-sensitive

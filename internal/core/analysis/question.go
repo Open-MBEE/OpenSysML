@@ -105,6 +105,8 @@ type Question struct {
 	Solve *SolveAsk
 	// Holds is the behavior, the condition and the start of one run of a Holds question.
 	Holds *HoldsAsk
+	// Compute is the tool invocation a Compute question asks for.
+	Compute *ComputeAsk
 }
 
 // Performance makes one execution in the given context and reports what it established.

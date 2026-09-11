@@ -83,6 +83,11 @@ type Model struct {
 	behavingFeatures map[*symbols.Symbol][]int
 	redefGroups      map[*symbols.Symbol][][]string
 
+	// toolExecutions memoizes toolExecutionOf per action; toolUnits the units tool
+	// answers spell, per scope they are read in.
+	toolExecutions map[*symbols.Symbol]*toolExecution
+	toolUnits      map[toolUnitKey]semantics.Unit
+
 	// objectConns memoizes the connections declared by each type an object is
 	// of, which a behavior that object performs routes over.
 	objectConns map[*symbols.Symbol][]lower.Connection
@@ -134,6 +139,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
+		toolExecutions:      make(map[*symbols.Symbol]*toolExecution),
+		toolUnits:           make(map[toolUnitKey]semantics.Unit),
 		objectConns:         make(map[*symbols.Symbol][]lower.Connection),
 		bindingIR:           make(map[*symbols.Symbol][]lower.Binding),
 		bindingFeatures:     make(map[*symbols.Symbol]map[string][]lower.Binding),

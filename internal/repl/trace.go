@@ -8,19 +8,22 @@ import (
 )
 
 // noteSummary is the line a debugger command adds when the steps it ran noted
-// choice points or guards it could not evaluate beyond the before notes the
-// executor's run started with: how many of each, and how to see them.
+// choice points, guards it could not evaluate or tools that answered equal inputs
+// differently beyond the before notes the executor's run started with: how many
+// of each, and how to see them.
 func (s *Session) noteSummary(notes []runtime.RunNote, before int) []string {
 	if before >= len(notes) {
 		return nil
 	}
-	var choices, unevaluable int
+	var choices, unevaluable, diverged int
 	for _, n := range notes[before:] {
 		switch n.(type) {
 		case runtime.ChoicePoint:
 			choices++
 		case runtime.UnevaluableGuard:
 			unevaluable++
+		case runtime.ToolDivergence:
+			diverged++
 		}
 	}
 	var parts []string
@@ -29,6 +32,9 @@ func (s *Session) noteSummary(notes []runtime.RunNote, before int) []string {
 	}
 	if unevaluable > 0 {
 		parts = append(parts, fmt.Sprintf("%d %s", unevaluable, plural(unevaluable, "guard not evaluable", "guards not evaluable")))
+	}
+	if diverged > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", diverged, plural(diverged, "tool answer diverged", "tool answers diverged")))
 	}
 	line := "  " + strings.Join(parts, "; ")
 	if s.trace == nil {

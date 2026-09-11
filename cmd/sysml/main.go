@@ -154,6 +154,21 @@ var (
 // budgets holds the run bounds the environment resolves to, read once at startup.
 var budgets = runtime.DefaultBudgets()
 
+// engines holds the registry the environment resolves to: the build's engines and one
+// `tool:<name>` per entry of the manifest OPENSYSML_TOOLS names, read once at startup.
+var engines = analysis.Default()
+
+// resolveEngines reads the tool manifest into engines; a manifest that cannot be read is
+// reported at startup like a bad run bound.
+func resolveEngines() error {
+	registry, err := analysis.DefaultFromEnv()
+	if err != nil {
+		return err
+	}
+	engines = registry
+	return nil
+}
+
 // jobs is how many runs of one plan go concurrently: -jobs when given, else
 // OPENSYSML_JOBS, else one per CPU; read once at startup.
 var jobs = analysis.DefaultJobs()
@@ -205,7 +220,7 @@ type engineSelection struct {
 func (e *engineSelection) String() string { return e.text }
 
 func (e *engineSelection) Set(value string) error {
-	if _, err := analysis.Default().Select(value); err != nil {
+	if _, err := engines.Select(value); err != nil {
 		return err
 	}
 	e.text = value
@@ -267,6 +282,11 @@ func runCLI() int {
 	// Usage shown over a misuse goes on the stream the error naming it goes on.
 	flag.Usage = func() { printUsage(flag.CommandLine.Output()) }
 
+	// The tool manifest is read before the flags, since -engine is checked against its engines.
+	if err := resolveEngines(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
 	registerFlags(flag.CommandLine)
 	if err := flag.CommandLine.Parse(permuteArgs(flag.CommandLine, os.Args[1:])); err != nil {
 		// flag.CommandLine exits on error; unreachable unless that changes.
@@ -310,7 +330,7 @@ func runCLI() int {
 	// The engines a build knows are a property of the build, like its version, so
 	// they are listed without a model and the run ends there.
 	if listEngines {
-		writeLines(os.Stdout, analysis.Lines(analysis.Default().Listings()))
+		writeLines(os.Stdout, analysis.Lines(engines.Listings()))
 		return exitHolds
 	}
 
@@ -593,6 +613,11 @@ func newSession() *repl.Session {
 	sess := repl.NewSession()
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetEngines(engines); err != nil {
+		// Unreachable: the manifest was read in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}

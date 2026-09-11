@@ -36,10 +36,38 @@ func (s *Session) SetEngine(text string) error {
 func (s *Session) setEngine(selection analysis.Selection) error {
 	s.engine = selection
 	if s.rtCtx != nil {
+		s.attachTools(s.rtCtx)
 		return s.rtCtx.SetSchedule(s.drivenSchedule())
 	}
 	return nil
 }
+
+// attachTools gives a context the session drives outside any plan — the one the prompt's
+// debuggers step — the runner that puts its tool-computed actions to the engines selected.
+func (s *Session) attachTools(ctx *runtime.Context) {
+	schedule := s.drivenSchedule()
+	ctx.SetToolRunner(s.engines.ToolRunner(context.Background(), ctx, s.budgetFor(schedule, analysis.Compute), s.engine))
+}
+
+// SetEngines replaces the registry the session's questions are put to, keeping the
+// selection where the registry still knows it. A nil registry is refused.
+func (s *Session) SetEngines(engines *analysis.Registry) error {
+	defer s.enter()()
+	if engines == nil {
+		return &NoEnginesError{}
+	}
+	selection, err := engines.Select(s.engine.String())
+	if err != nil {
+		return err
+	}
+	s.engines = engines
+	return s.setEngine(selection)
+}
+
+// NoEnginesError reports a session given no registry to put its questions to.
+type NoEnginesError struct{}
+
+func (e *NoEnginesError) Error() string { return "no engine registry to put questions to" }
 
 // Engines lists the registered engines with their authority, the questions each
 // answers and the state of its process, as `%engines` prints them.
