@@ -682,12 +682,16 @@ behavior unchanged until stage 4.
    worker slots per plan, built lazily by job index (`Model.WorkerAt`, `Model.NewContextOn`;
    `NewContext` is job 0), `Result.Workers` counting the ones a plan built and `Warming` their
    summed construction. `runtime.ExploreWith` is the work queue of prefixes described under
-   *Units of work* and *Stopping early*, with `Explore` its one-job form: prefixes ordered as
-   the sequential exploration takes them, committed and speculative runs, at most `Jobs`
-   speculative runs discarded in a plan's lifetime, never more than `Runs + Jobs` executions,
-   the table merged by outcome identity with the least witness, a violating run ending only the
-   prefixes after it once every earlier prefix has completed. `all` runs its covering engines
-   concurrently on `min(Jobs, engines)` goroutines with the jobs divided among them, `Compose`
+   *Units of work*, with `Explore` its one-job form: prefixes ordered as the sequential
+   exploration takes them, committed and speculative runs, at most `Jobs` speculative runs
+   discarded in a plan's lifetime, never more than `Runs + Jobs` executions, the table merged by
+   outcome identity with the least witness. The witness cut of *Stopping early* is not applied:
+   `explore` answers `outcomes` alone, a universal question whose answer is every
+   linearization's outcome, so a violating run is an outcome of the table as under one job and
+   cancels nothing; the cut is the mechanism the `Runs` cut already is (`insert` drops what moves
+   past it, a started run among it discarded), for the existential questions a later stage puts
+   on the queue. `all` runs its covering engines concurrently on `min(Jobs, engines)` goroutines
+   with the jobs divided among them, `Compose`
    unchanged over the set of results in name order; a fault or deadline cancels the engines
    after it in name order, each kept as a step marked cancelled with the bound it reached, and a
    universal run is not cancelled by a witness. The `-json` `plan` key gains `workers` and

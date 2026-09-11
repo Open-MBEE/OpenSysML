@@ -6,8 +6,8 @@
   ordered as the sequential exploration would take them, and reports the outcome table, each
   outcome's witness, the run count and the budget hit `-jobs 1` reports, byte for byte: a
   `runs` budget is a cut in that order, at most `n` runs beyond it are ever started (so an
-  exploration performs at most `runs + n` executions), and a run that shows a violation ends
-  only the runs whose prefixes order after it, once every earlier prefix has completed.
+  exploration performs at most `runs + n` executions), and a run that fails is an outcome of
+  the table, as under one job.
   `-engine all` puts the question to its covering engines at once and composes their answers in
   name order; a fault or deadline stops the engines after it, each kept in the plan with the
   bound it reached, and a run serving a universal claim is not cancelled by a witness. A count

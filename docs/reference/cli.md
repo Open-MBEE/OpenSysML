@@ -736,10 +736,10 @@ model, so no run sees another's memo or object. The prefixes explore discovers f
 ordered as the sequential exploration would take them, and the report is assembled in that order:
 the outcome table, each outcome's witness (the least prefix reaching it), the run count and the
 budget hit are the ones `-jobs 1` reports, byte for byte, whatever `n` is. A `runs` budget is a
-cut in that order — runs past it are discarded and charged to nothing — and a run that shows a
-violation ends only the runs whose prefixes order after it, once every earlier prefix has
-completed, so the witness reported is the same one. At most `n` runs beyond the cut are ever
-started, so an exploration performs at most `runs + n` executions. A count below one, or one
+cut in that order — runs past it are discarded and charged to nothing. At most `n` runs beyond
+the cut are ever started, so an exploration performs at most `runs + n` executions. A run that
+fails is an outcome of the table, as it is under `-jobs 1`; no run is cancelled for it, because
+the table is the answer to a question about every linearization. A count below one, or one
 that is no integer, is refused before anything runs. `-engine all` consults its covering engines
 on the same count, `n` at most at once with the count shared out among them; a sweep runs its
 rows one after another whatever `n` is.
