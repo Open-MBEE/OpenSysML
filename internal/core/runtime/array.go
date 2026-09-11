@@ -242,6 +242,7 @@ const (
 	vectorQuantityTypeFQN       = "Quantities::VectorQuantityValue"
 	scalarValueTypeFQN          = "ScalarValues::ScalarValue"
 	positiveTypeFQN             = "ScalarValues::Positive"
+	scalarValuesPackageFQN      = "ScalarValues"
 )
 
 // structuredFeature reads a library feature of an array, vector, vector, tensor

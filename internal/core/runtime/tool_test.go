@@ -460,6 +460,20 @@ const annotatedUsageModel = `package test {
 		in k : Real = 2.0 { @ToolVariable { name = "k"; } }
 		out y : Real     { @ToolVariable { name = "y"; } }
 	}
+	action def Renamed {
+		out y : Real;
+		action s : Doubling { in kk :>> k = 3.0; out yy :>> y; }
+		bind y = s.yy;
+	}
+	action def RenamedAndRenamedVariables {
+		out y : Real;
+		action s : Stepped {
+			metadata ToolExecution { toolName = "MC"; uri = "u"; }
+			in kk :>> k = 3.0 { @ToolVariable { name = "kay"; } }
+			out yy :>> y      { @ToolVariable { name = "why"; } }
+		}
+		bind y = s.y;
+	}
 	part def Rig { perform action scale : Doubling; }
 	part def AnnotatedRig {
 		perform action scale : Stepped {
@@ -500,6 +514,116 @@ func TestToolExecutionOnATypedUsage(t *testing.T) {
 		})
 	}
 }
+
+// A usage redefining the parameters under new names (`in kk :>> k`) is performed as the
+// body it names, whose frame holds them under the body's names: the tool still receives
+// the redefined input's value and its answer reaches the caller under either name.
+func TestToolExecutionOnRenamedParameters(t *testing.T) {
+	cases := []struct {
+		driver, input, output string
+	}{
+		{"Renamed", "k", "y"},
+		{"RenamedAndRenamedVariables", "kay", "why"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.driver, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, annotatedUsageModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{tc.output: {Value: toolReal(4)}}}
+			ctx.SetToolRunner(runner)
+			out, err := ctx.ExecuteAction(calcNamed(t, scope, tc.driver))
+			if err != nil {
+				t.Fatalf("ExecuteAction: %v", err)
+			}
+			if len(runner.calls) != 1 {
+				t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+			}
+			call := runner.calls[0]
+			if len(call.Inputs) != 1 || call.Inputs[0].Variable != tc.input || call.Inputs[0].Parameter != "k" ||
+				!nearly(call.Inputs[0].Value.Value, toolReal(3)) {
+				t.Fatalf("inputs %+v, want %s = 3.0 held as k", call.Inputs, tc.input)
+			}
+			if len(call.Outputs) != 1 || call.Outputs[0].Variable != tc.output || call.Outputs[0].Parameter != "y" ||
+				call.Outputs[0].Declared == nil || call.Outputs[0].Declared.Name != "yy" {
+				t.Fatalf("outputs %+v, want %s held as y, declared by yy", call.Outputs, tc.output)
+			}
+			for _, name := range []string{"y", "s.yy"} {
+				if got := FormatValue(out[name]); got != "4.0" {
+					t.Fatalf("%s = %s, want 4.0", name, got)
+				}
+			}
+		})
+	}
+}
+
+// An answered value the parameter's declaration cannot hold is a malformed answer, whatever
+// its kind: the refusal is a ToolError, not the frame's type error.
+func TestToolOutputMustFitTheParameter(t *testing.T) {
+	cases := map[string]ToolValue{
+		"truth": {Value: semantics.Value{Kind: semantics.ValBool, Bool: true}},
+		"text":  {Text: "four"},
+		"real":  {Value: toolReal(4.5)},
+	}
+	for name, answered := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, typedOutputsModel)
+			ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{"n": answered, "label": {Text: "ok"}}})
+			_, err := ctx.ExecuteAction(calcNamed(t, scope, "Count"))
+			var failure *ToolError
+			if !errors.As(err, &failure) || !errors.Is(err, ErrTool) || failure.Kind != ToolMalformed {
+				t.Fatalf("ExecuteAction = %v, want a malformed ToolError", err)
+			}
+			if !strings.HasPrefix(failure.Detail, "n: ") {
+				t.Fatalf("detail %q, want it to name the output n", failure.Detail)
+			}
+		})
+	}
+	t.Run("integer for a string", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, typedOutputsModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"n": {Value: semantics.Value{Kind: semantics.ValInt, Int: 4}}, "label": {Value: toolReal(1)},
+		}})
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "Count"))
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMalformed || !strings.HasPrefix(failure.Detail, "label: ") {
+			t.Fatalf("ExecuteAction = %v, want a malformed ToolError naming label", err)
+		}
+	})
+	t.Run("fitting", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, typedOutputsModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"n": {Value: semantics.Value{Kind: semantics.ValInt, Int: 4}}, "label": {Text: "ok"},
+		}})
+		out, err := ctx.ExecuteAction(calcNamed(t, scope, "Count"))
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := FormatValue(out["n"]); got != "4" {
+			t.Fatalf("n = %s, want 4", got)
+		}
+		if got := FormatValue(out["label"]); got != `"ok"` {
+			t.Fatalf("label = %s, want \"ok\"", got)
+		}
+	})
+}
+
+const typedOutputsModel = `package test {
+	private import ScalarValues::*;
+	private import AnalysisTooling::*;
+
+	action def Counter {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in k : Real        { @ToolVariable { name = "k"; } }
+		out n : Integer    { @ToolVariable { name = "n"; } }
+		out label : String { @ToolVariable { name = "label"; } }
+	}
+	action def Count {
+		out n : Integer;
+		out label : String;
+		action s : Counter { in k = 2.0; }
+		bind n = s.n;
+		bind label = s.label;
+	}
+}`
 
 // A ToolExecution naming no tool is still one: the action is refused as not registered,
 // with or without a runner, and its body does not stand in.

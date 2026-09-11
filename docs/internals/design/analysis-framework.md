@@ -726,8 +726,9 @@ behavior unchanged until stage 4.
    reply `{outputs}` or `{error}`, values as JSON numbers, truths or text with an optional
    `unit` spelt as a SysML unit expression (`m/s`, `SI::km`); an output quantity is converted
    to the coherent unit of the parameter's declared kind and spelt as that kind prefers, a
-   parameter that is no quantity (a `Real`) admits no unit, text and truths admit none, and a
-   key repeated at any depth, a `null`, a member the shape does not name (`units`), an `error`
+   parameter that is no quantity (a `Real`) admits no unit, text and truths admit none, a value
+   the parameter's declaration cannot hold (a truth for an `Integer`, typed as the scalar
+   library types JSON literals) is malformed, and a key repeated at any depth, a `null`, a member the shape does not name (`units`), an `error`
    beside `outputs`, a trailing JSON value or more than `ToolOutputLimit` bytes on either
    standard stream are malformed. `ToolError{Kind}` distinguishes a failed process, a malformed reply,
    a missing output, an unknown output, a timeout and the tool's own `error`;
@@ -737,8 +738,8 @@ behavior unchanged until stage 4.
    the REPL trace summarizes. The stand-in is a Go program
    (`analysis/testdata/toolstandin`) the fixture test compiles once, its failure modes chosen by
    an environment variable; the pilot's `AnalysisAnnotation` runs against it for the protocol,
-   the missing output, the non-zero exit, the timeout, the unregistered `toolName` and the
-   non-deterministic answer, and the registry and dispatch bullets are covered by
+   the missing output, the ill-typed output, the non-zero exit, the timeout, the unregistered
+   `toolName` and the non-deterministic answer, and the registry and dispatch bullets are covered by
    `analysis/tool_test.go`. The `smt` clause — a tool output is a free input in its declared
    domain, a witness the tool does not reproduce fails replay as *not covered* — is the contract
    that engine meets when it registers; nothing here encodes it.

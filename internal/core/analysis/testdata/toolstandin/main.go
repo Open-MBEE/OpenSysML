@@ -82,6 +82,10 @@ func run() error {
 		out := answer(req)
 		out["a"] = value{Value: out["a"].Value, Unit: "kg"}
 		return reply(out)
+	case "wrong-type":
+		out := answer(req)
+		out["a"] = value{Value: json.RawMessage(`true`)}
+		return reply(out)
 	case "duplicate-output":
 		_, err := fmt.Fprint(os.Stdout, `{"outputs":{"a":{"value":1,"unit":"m/s**2"},"a":{"value":2,"unit":"m/s**2"},"v":{"value":1,"unit":"m/s"},"x":{"value":1,"unit":"m"}}}`)
 		return err

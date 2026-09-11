@@ -367,11 +367,13 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 // toolCall is the performance as the tool sees it: of the action performed, every `in`/`inout`
 // parameter carrying a ToolVariable is an input, every `out`/`inout` one an output. An unbound
 // input is ErrUnboundParameter unless optional, which the call omits; a ToolVariable name two
-// parameters carry is a ToolError, since the protocol keys by it.
+// parameters carry is a ToolError, since the protocol keys by it. The performed declaration
+// names and types each parameter; the performance holds it under the body's name.
 func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	tool := execution.tool
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, exec: e}
 	namedBy := make(map[string]string)
+	bodyNames := e.bodyParameterNames()
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.performed) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
@@ -388,10 +390,11 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.performed))}
 		}
 		namedBy[variable] = param.Symbol.Name
+		heldAs := e.ctx.bodyParameterName(bodyNames, param.Symbol)
 		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
-			held, bound := e.root.data[e.root.key(param.Symbol.Name)]
+			held, bound := e.root.data[e.root.key(heldAs)]
 			if !bound && !e.ctx.model.semantics.OptionalParameter(param.Symbol) {
 				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
 					ErrUnboundParameter, symbolText(e.performed), param.Symbol.Name)
@@ -401,16 +404,56 @@ func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 				if err != nil {
 					return nil, err
 				}
-				call.Inputs = append(call.Inputs, ToolInput{Variable: variable, Parameter: param.Symbol.Name, Value: sent})
+				call.Inputs = append(call.Inputs, ToolInput{Variable: variable, Parameter: heldAs, Value: sent})
 			}
 		}
 		if writes {
-			call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: param.Symbol.Name, Declared: param.Symbol})
+			call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: heldAs, Declared: param.Symbol})
 		}
 	}
 	sort.Slice(call.Inputs, func(i, j int) bool { return call.Inputs[i].Variable < call.Inputs[j].Variable })
 	sort.Slice(call.Outputs, func(i, j int) bool { return call.Outputs[i].Variable < call.Outputs[j].Variable })
 	return call, nil
+}
+
+// bodyParameterNames is the set of parameter names the lowered body declares, which the
+// performance's frame is keyed by; empty when the performed declaration is the body.
+func (e *ActionExecutor) bodyParameterNames() map[string]bool {
+	if e.action == nil || e.action == e.performed {
+		return nil
+	}
+	names := make(map[string]bool)
+	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
+		if param.Symbol != nil && param.Symbol.Name != "" {
+			names[param.Symbol.Name] = true
+		}
+	}
+	return names
+}
+
+// bodyParameterName is the name the body holds param under: the body parameter it
+// redefines (`in kk :>> k` is held as `k`), else its own name.
+func (ctx *Context) bodyParameterName(bodyNames map[string]bool, param *symbols.Symbol) string {
+	if bodyNames == nil || bodyNames[param.Name] {
+		return param.Name
+	}
+	seen := map[*symbols.Symbol]bool{param: true}
+	queue := []*symbols.Symbol{param}
+	for len(queue) > 0 {
+		sym := queue[0]
+		queue = queue[1:]
+		for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
+			if redefined == nil || seen[redefined] {
+				continue
+			}
+			if bodyNames[redefined.Name] {
+				return redefined.Name
+			}
+			seen[redefined] = true
+			queue = append(queue, redefined)
+		}
+	}
+	return param.Name
 }
 
 // toolInput is one parameter's value as the protocol carries it: a number, truth or string
@@ -469,12 +512,37 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 
 // toolOutput reads one answered value as the parameter's: a string or bare number as is,
 // a quantity converted to the coherent unit of the parameter's declared quantity kind,
-// spelt as the declared type prefers. A unit is refused unless the parameter is a quantity.
+// spelt as the declared type prefers. A unit is refused unless the parameter is a quantity,
+// and a value the parameter's declaration cannot hold is malformed.
 func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolValue) (Value, error) {
 	malformed := func(format string, args ...any) error {
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
+	value, err := e.toolOutputValue(malformed, out, answered)
+	if err != nil {
+		return Value{}, err
+	}
+	mult, _ := e.ctx.extractMultiplicity(out.Declared)
+	target := &writeTarget{name: out.Parameter, typ: e.ctx.extractType(out.Declared), mult: mult}
+	if err := e.ctx.checkWrite(e.ctx.protocolScope(e.root.scope), out.Parameter, target, &value); err != nil {
+		return Value{}, malformed("%v", err)
+	}
+	return value, nil
+}
+
+// protocolScope is the scope a tool's literals are typed in: the scalar library's, since a
+// JSON number, boolean or string is its Integer, Real, Boolean or String whatever the model imports.
+func (ctx *Context) protocolScope(fallback *symbols.Scope) *symbols.Scope {
+	if pkg := ctx.librarySymbol(scalarValuesPackageFQN); pkg != nil && pkg.Scope != nil {
+		return pkg.Scope
+	}
+	return fallback
+}
+
+// toolOutputValue converts one answered value to the run's, by its unit and the
+// parameter's declared quantity kind; malformed builds the refusal of one that cannot be.
+func (e *ActionExecutor) toolOutputValue(malformed func(string, ...any) error, out ToolOutput, answered ToolValue) (Value, error) {
 	if answered.Value.Kind == semantics.ValInvalid {
 		if answered.Unit != "" {
 			return Value{}, malformed("text %q is measured in %s", answered.Text, answered.Unit)

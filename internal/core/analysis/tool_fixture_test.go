@@ -309,6 +309,7 @@ func TestPilotFixtureFailsWithTheToolsFault(t *testing.T) {
 		{"flood", runtime.ToolMalformed, "wrote more than"},
 		{"string-unit", runtime.ToolMalformed, "unit"},
 		{"wrong-unit", runtime.ToolMalformed, "kg"},
+		{"wrong-type", runtime.ToolMalformed, "true"},
 		{"error", runtime.ToolRefused, "equation did not converge"},
 		{"exit", runtime.ToolProcessFailed, "license server unreachable"},
 	}
