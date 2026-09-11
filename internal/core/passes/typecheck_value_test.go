@@ -55,8 +55,7 @@ func TestValueScalarLiteralToEnumeration(t *testing.T) {
 		"cannot bind Natural value to a feature typed by Color")
 }
 
-// A scalar-valued enumeration's values are the only instances of it, so a
-// constant equal to one is admitted and any other constant refused statically;
+// A constant equal to an enumerated value is admitted and any other refused;
 // a value of another kind is the scalar lattice's to report, once.
 func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
 	const level = `package L {

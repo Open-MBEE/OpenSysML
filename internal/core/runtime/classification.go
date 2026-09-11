@@ -107,9 +107,8 @@ func (ctx *Context) classifyNarrower(
 	return semantics.ClassifiesSome, nil
 }
 
-// enumeratedValue is the value of the enumeration's literal that equals value — the
-// enumerated values are the only instances of an enumeration (SysML v2 §8.3.7
-// EnumerationDefinition) — and whether there is one.
+// enumeratedValue is the enumeration's literal value equal to value, if any: the enumerated
+// values are an enumeration's only instances (SysML v2 §8.3.7 EnumerationDefinition).
 func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, bool, error) {
 	for _, literal := range ctx.model.semantics.LiteralsOf(enum) {
 		enumerated, err := NewEvalContext(ctx, declScope(literal)).enumLiteralValue(literal)
@@ -123,9 +122,8 @@ func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, b
 	return Value{}, false, nil
 }
 
-// asEnumerated is a bare scalar as the value of the enumeration it is held as — the
-// enumerated value it equals — and any other value as it is; true unless an
-// enumerated value had to be found and none equals the scalar.
+// asEnumerated holds a bare scalar as the enumerated value it equals when declared by an
+// enumeration, and any other value as it is; false when no enumerated value equals it.
 func (ctx *Context) asEnumerated(value Value, declared *symbols.Symbol) (Value, bool, error) {
 	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef ||
 		!isScalar(value) || value.EnumerationLiteral() != nil {

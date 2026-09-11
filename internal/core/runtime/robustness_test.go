@@ -4590,9 +4590,8 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	}
 }
 
-// testEnumerationTypedFeatureHoldingAnUnenumeratedValue: a feature typed by a
-// scalar-valued enumeration refuses a value equal to none of the enumerated ones,
-// by the write-conformance rule, while the value is decidable — no undecided cast.
+// testEnumerationTypedFeatureHoldingAnUnenumeratedValue: an enumeration-typed feature
+// refuses a value equal to no enumerated one by the write-conformance rule, decidedly.
 func testEnumerationTypedFeatureHoldingAnUnenumeratedValue(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `package P {
 		attribute def Integer;
@@ -4623,9 +4622,8 @@ func testEnumerationTypedFeatureHoldingAnUnenumeratedValue(t *testing.T) {
 	}
 }
 
-// testEnumerationWhoseLiteralValueCannotBeEvaluated: deciding membership in an
-// enumeration evaluates its literals' values, so a literal whose value fails
-// fails the classification with that error rather than answering false.
+// testEnumerationWhoseLiteralValueCannotBeEvaluated: a literal whose value fails to
+// evaluate fails the classification with that error rather than answering false.
 func testEnumerationWhoseLiteralValueCannotBeEvaluated(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, `package P {
 		attribute def Integer;

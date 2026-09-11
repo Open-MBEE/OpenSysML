@@ -89,9 +89,8 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 	}
 }
 
-// checkEnumeratedValue reports a const-decidable value bound to an enumeration-typed
-// feature that equals none of the enumerated values, the enumeration's only instances
-// (SysML v2 §8.3.7); a value not decided statically is the runtime's to admit.
+// checkEnumeratedValue refuses a constant bound to an enumeration-typed feature that equals
+// none of its enumerated values, the enumeration's only instances (SysML v2 §8.3.7).
 func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.Symbol, value ast.Node) {
 	if ec.valueFeature(scope, value) != nil {
 		return

@@ -131,9 +131,8 @@ func (ec *EvalContext) castValue(
 	return kept, nil
 }
 
-// castKept is the value a cast keeps of one value: the value itself, or the
-// enumerated value it equals when target is an enumeration, since that is the
-// instance of the enumeration the value is (`3 as Level` is `Level::high`).
+// castKept is the value a cast keeps: the value itself, or the enumerated value it
+// equals when target is an enumeration (`3 as Level` is `Level::high`).
 func (ec *EvalContext) castKept(
 	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
 ) (Value, bool, error) {

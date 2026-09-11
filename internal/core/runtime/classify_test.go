@@ -1963,11 +1963,8 @@ func TestHoldingByAWiderTypeRecordsItAsADirectType(t *testing.T) {
 	}
 }
 
-// An enumeration's values are the only instances of it (SysML v2 §8.3.7), so membership
-// in a scalar-valued enumeration is decided by equality with its enumerated values for
-// istype, @ and as; hastype reads the value's own type alone (KerML 1.0 §7.4.9.2): a bare
-// 3 is an Integer, while a literal — written, held, or cast to — is of its enumeration.
-// A plain enumeration classifies by identity with its literals; a plain subtype stays undecided.
+// Membership in an enumeration is decided by equality with its enumerated values, its only
+// instances (SysML v2 §8.3.7); hastype reads the value's own type alone (KerML 1.0 §7.4.9.2).
 func TestEnumerationClassifiesByItsEnumeratedValues(t *testing.T) {
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
