@@ -719,7 +719,7 @@ package Imperial {
 	if err != nil || resp.Error != "" {
 		t.Fatalf("EvaluateCalc Q::Area over nameless hundredths: %v %q", err, resp.GetError())
 	}
-	if real, ok := resp.Result.GetKind().(*pb.Value_RealValue); !ok || real.RealValue != 0.0004 {
+	if realVal, ok := resp.Result.GetKind().(*pb.Value_RealValue); !ok || realVal.RealValue != 0.0004 {
 		t.Errorf("a nameless hundredth squared = %v, want the number 0.0004", resp.Result)
 	}
 }

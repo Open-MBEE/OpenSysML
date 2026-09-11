@@ -102,3 +102,44 @@ func TestAboutAnnotationsFromLibraryAndWorkspaceCombine(t *testing.T) {
 		t.Fatalf("annotations of Belt = %v, want [Safety]", types)
 	}
 }
+
+// `.metadata` reads an element's annotations in textual order across the
+// documents stating them: document order first ("lib.sysml" sorts before
+// "user.sysml"), then source position, an `about` usage written before the
+// element's own inline annotation coming first.
+func TestElementMetadataOrderedByDocumentThenPosition(t *testing.T) {
+	m, _, user := buildOverlayModel(t, `
+		metadata def Safety;
+		metadata def Comfort;
+		metadata def Audit;
+		metadata s : Safety about radio;
+	`, `
+		metadata a : Audit about radio;
+		part radio { @Comfort; }
+		metadata s2 : Safety about radio;
+	`)
+
+	type site struct {
+		typ   string
+		doc   string
+		about bool
+	}
+	var got []site
+	for _, md := range m.ElementMetadataOf(sym(t, user, "radio")) {
+		got = append(got, site{m.fqnOf(md.Type), md.Doc, md.About})
+	}
+	want := []site{
+		{"Safety", "lib.sysml", true},
+		{"Audit", "user.sysml", true},
+		{"Comfort", "user.sysml", false},
+		{"Safety", "user.sysml", true},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("metadata of radio = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("metadata[%d] = %v, want %v", i, got[i], want[i])
+		}
+	}
+}

@@ -213,14 +213,14 @@ func notImplicit(names []string) []string {
 // sample renders at most the first five names of a class, so a row stays
 // readable when a declared list runs to hundreds of names.
 func sample(names []string) string {
-	const max = 5
+	const limit = 5
 	if len(names) == 0 {
 		return "none"
 	}
-	if len(names) <= max {
+	if len(names) <= limit {
 		return strings.Join(names, ", ")
 	}
-	return strings.Join(names[:max], ", ") + ", …"
+	return strings.Join(names[:limit], ", ") + ", …"
 }
 
 // reachableAs reports whether a declared path we do not offer names an element

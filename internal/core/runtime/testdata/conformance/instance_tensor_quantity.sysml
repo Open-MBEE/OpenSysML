@@ -39,14 +39,14 @@ package test {
 		attribute mixed : TensorQuantityValue = TensorCalculations::'['((1.0, 2.0, 3.0, 4.0), mixedRef);
 		attribute inertia : TensorQuantityValue = TensorCalculations::'['((1, 0, 0, 0, 1, 0, 0, 0, 1), inertiaRef);
 
-		attribute dims : Positive[*] ordered = stress.dimensions;
+		attribute dims : Positive[*] ordered nonunique = stress.dimensions;
 		attribute order = stress.order;
 		attribute flattenedSize = stress.flattenedSize;
 		attribute num : Number[*] ordered = stress.num;
 		attribute unbound = stress.isBound;
 		attribute isBound = bound.isBound;
 		attribute mRef = stress.mRef;
-		attribute mRefDims : Positive[*] ordered = stress.mRef.dimensions;
+		attribute mRefDims : Positive[*] ordered nonunique = stress.mRef.dimensions;
 		attribute row1col2 = stress#(1, 2);
 		attribute row2col1 = stress#(2, 1);
 		attribute corner = inertia#(3, 3);

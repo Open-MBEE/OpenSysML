@@ -212,12 +212,12 @@ func TestCompletionOffersLibrarySymbols(t *testing.T) {
 func TestCompletionOnQualifiedNameOffersLibraryMembers(t *testing.T) {
 	src := strings.Replace(completionSrc, "\t\tv.\n", "\t\tattribute x : ScalarValues::\n", 1)
 	items := completionAt(t, src, "ScalarValues::")
-	real, ok := items["Real"]
+	realItem, ok := items["Real"]
 	if !ok {
 		t.Fatalf("completion after 'ScalarValues::' missing 'Real'; got %v", labelsOf(items))
 	}
-	if real.Kind == protocol.CompletionItemKindKeyword {
-		t.Errorf("'Real' kind = %v, want a declaration kind", real.Kind)
+	if realItem.Kind == protocol.CompletionItemKindKeyword {
+		t.Errorf("'Real' kind = %v, want a declaration kind", realItem.Kind)
 	}
 }
 

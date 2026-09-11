@@ -500,24 +500,25 @@ func TestIndexedTriggerArgument(t *testing.T) {
 	}
 }
 
-// `xs.{…}` is the result of collect, typed as its body's result is — Anything where
-// the body returns an untyped parameter; `xs.?{…}` keeps elements of xs and is
-// typed as xs is. The pilot leaves every collect Anything, so it rejects the
-// collect shapes kept silent too, and accepts the select shapes kept silent.
+// `xs.{…}` is the result of collect, typed as its body's result is — an untyped
+// parameter being of xs's elements, Anything where xs itself is untyped; `xs.?{…}`
+// keeps elements of xs and is typed as xs is. The pilot leaves every collect Anything,
+// so it rejects the collect shapes kept silent too, and accepts the select shapes kept silent.
 func TestCollectAndSelectTriggerArguments(t *testing.T) {
 	const collected = "found a collection `.{…}` maps to, typed Anything"
 	const nothing = "found an empty value over a collection holding nothing, typed Anything"
 	for _, tc := range []struct{ trigger, code, found string }{
 		{"when counts.{in n : Integer; n}", "trigger-when-boolean", "found Integer"},
-		{"when flags.{in f; f}", "trigger-when-boolean", collected},
+		{"when counts.{in n; n}", "trigger-when-boolean", "found Integer"},
+		{"when untyped.{in f; f}", "trigger-when-boolean", collected},
 		{"when counts.?{in n; n > 3}", "trigger-when-boolean", "found Integer"},
-		{"when holder.ok.{in f; f}", "trigger-when-boolean", collected},
-		{"after waits.{in w; w}", "trigger-after-duration", collected},
+		{"when holder.delay.{in f; f}", "trigger-when-boolean", "found Delay"},
+		{"after counts.{in n; n}", "trigger-after-duration", "found Integer"},
 		{"after counts.{in n : Integer; n}", "trigger-after-duration", "found Integer"},
 		{"after counts.?{in n; n > 3}", "trigger-after-duration", "found Integer"},
 		{"after times.?{in i; true}", "trigger-after-duration", "found TimeInstantValue"},
 		{"at counts.?{in n; true}", "trigger-at-time-instant", "found Integer"},
-		{"at times.{in i; i}", "trigger-at-time-instant", collected},
+		{"at waits.{in w; w}", "trigger-at-time-instant", "found DurationValue"},
 		{"when flags.{in f : Boolean; (f, 1)}", "trigger-when-boolean", "found Natural"},
 		{"when flags.{in f; (f, 1)}", "trigger-when-boolean", "found Natural"},
 		{"when flags.{in f : Boolean; (f, (1, label))}", "trigger-when-boolean", "found Natural and String"},
@@ -531,14 +532,19 @@ func TestCollectAndSelectTriggerArguments(t *testing.T) {
 		{"when (counts.{in n : Integer; noCount}).{in n : Integer; 5}", "trigger-when-boolean", nothing},
 		{"when (().{in a : Integer; a}).?{in n : Integer; true}", "trigger-when-boolean", nothing},
 		{"when counts.{in n : Integer; (noCount, 5)}", "trigger-when-boolean", "found Natural"},
+		{"when flags.{in f; (f > 3, true)}", "type.expr", "operator '>' is not defined for Boolean and Natural"},
 	} {
 		wantTriggerDiag(t, "transition first a accept "+tc.trigger+" then b;", tc.code, tc.found)
 	}
 	for _, trigger := range []string{
 		"when counts.{in n; n > 3}",
+		"when flags.{in f; f}",
+		"when holder.ok.{in f; f}",
+		"after waits.{in w; w}",
+		"at times.{in i; i}",
 		"when flags.{in f : Boolean; f}",
 		"when flags.{in f : Boolean; (f, true)}",
-		"when flags.{in f; (f > 3, true)}",
+		"when counts.{in n; (n > 3, true)}",
 		"after waits.{in w : DurationValue; w}",
 		"when flags.?{in f; f}",
 		"when flags.?{in f; f}#(1)",

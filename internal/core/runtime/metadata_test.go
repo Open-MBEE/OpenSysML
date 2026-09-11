@@ -14,7 +14,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
+// metadataSrc annotates seatBelt three times: from an `about` usage declared
+// before the part, and twice inline. `.metadata` answers them in that textual
+// order, the `about` one first.
 const metadataSrc = `
+package before {
+	metadata test::Heritage about test::seatBelt;
+}
+
 package test {
 	private import ScalarValues::*;
 
@@ -24,6 +31,8 @@ package test {
 	}
 
 	metadata def Legacy;
+
+	metadata def Heritage;
 
 	part def Vehicle;
 
@@ -72,19 +81,19 @@ func featureValue(t *testing.T, ctx *Context, inst *Instance, name string) Value
 }
 
 // TestMetadataAccessBoundValues reads the metadata of an annotated element: one
-// object per annotation, in the order stated, carrying the values its body binds
-// and the defaults its type declares.
+// object per annotation, in textual order whichever form states it, carrying the
+// values its body binds and the defaults its type declares.
 func TestMetadataAccessBoundValues(t *testing.T) {
 	ctx, got, err := evalDeclaredExpr(t, metadataSrc, "test::seatBelt.metadata")
 	if err != nil {
 		t.Fatalf("seatBelt.metadata failed: %v", err)
 	}
-	if want := []string{"test::Safety", "test::Legacy"}; !slices.Equal(metadataTypeNames(t, ctx, got), want) {
+	if want := []string{"test::Heritage", "test::Safety", "test::Legacy"}; !slices.Equal(metadataTypeNames(t, ctx, got), want) {
 		t.Errorf("metadata types = %v, want %v", metadataTypeNames(t, ctx, got), want)
 	}
-	safety, ok := ctx.getInstance(elementsOf(got)[0].Instance)
+	safety, ok := ctx.getInstance(elementsOf(got)[1].Instance)
 	if !ok {
-		t.Fatal("the first metadata value is no object")
+		t.Fatal("the Safety metadata value is no object")
 	}
 	if v := featureValue(t, ctx, safety, "isMandatory"); FormatValue(v) != "true" {
 		t.Errorf("isMandatory = %s, want true", FormatValue(v))

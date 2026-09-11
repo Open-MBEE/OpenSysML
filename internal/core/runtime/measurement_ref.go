@@ -217,6 +217,7 @@ const (
 	scalarMRefTypeFQN        = "MeasurementReferences::ScalarMeasurementReference"
 	derivedUnitFQN           = "MeasurementReferences::DerivedUnit"
 	scalarQuantityTypeFQN    = "Quantities::ScalarQuantityValue"
+	dimensionOneValueFQN     = "MeasurementReferences::DimensionOneValue"
 	mRefIsBoundFeature       = "isBound"
 	mRefMRefsFeature         = "mRefs"
 	mRefOrthogonalFeature    = "isOrthogonal"

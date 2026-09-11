@@ -7,7 +7,7 @@ package test {
 	calc aggregate {
 		attribute xs : Integer[*] = (1, 2, 3, 4);
 		attribute ys : Integer[*] = (3, 4, 5);
-		attribute joined : Integer[*] = xs->union(ys);
+		attribute joined : Integer[*] nonunique = xs->union(ys);
 		attribute common : Integer[*] = xs->intersection(ys);
 		return : Integer =
 			xs->sum() * 1000

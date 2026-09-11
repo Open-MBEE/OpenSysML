@@ -462,13 +462,19 @@ func (ctx *Context) checkDefault(inst *Instance, fv *FeatureValue, name string, 
 	return ctx.checkAdmits(fv.Feature, fmt.Sprintf("feature value %s.%s", inst.Type.Name, name), val, how)
 }
 
-// checkAdmits reports a value the feature does not admit, by count or by type,
-// naming the value as what.
+// checkAdmits reports a value the feature does not admit, by count, by type
+// or by uniqueness, naming the value as what.
 func (ctx *Context) checkAdmits(feat *EffectiveFeature, what string, val *Value, how admission) error {
 	if msg := feat.Multiplicity.CountViolation(elementCount(val)); msg != "" {
 		return fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
 	}
-	return ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how)
+	if err := ctx.checkWriteType(feat.DeclScope(), what, feat.Type, val, how); err != nil {
+		return err
+	}
+	if msg := ctx.uniquenessRefusal(feat.Unique, feat.HoldsSet, val); msg != "" {
+		return fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
+	}
+	return nil
 }
 
 // heldBy is the declaration whose values the feature's are: the feature itself,
@@ -491,11 +497,8 @@ func (ctx *Context) admitted(feat *EffectiveFeature, val Value, how admission) (
 			return Value{}, err
 		}
 		val = ctx.collectionOf(feat, elements)
-	} else if feat.Scalar() && (val.Kind == ValSequence || val.Kind == ValSet) {
-		// A scalar feature holds the one element of a one-element collection.
-		if elements := elementsOf(val); len(elements) == 1 {
-			val = elements[0]
-		}
+	} else if feat.Scalar() {
+		val = soleElement(val)
 	}
 	if how == admitDeclared {
 		if err := ctx.classifyHeld(feat.heldBy(), val); err != nil {

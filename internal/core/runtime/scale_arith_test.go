@@ -278,6 +278,27 @@ func TestSetsJudgedAcrossContexts(t *testing.T) {
 	}
 }
 
+// TestUniquenessJudgedInContext: a unique sequence-held feature refuses a point
+// beside the magnitude it equals on another scale, as a set in the runtime would drop it.
+func TestUniquenessJudgedInContext(t *testing.T) {
+	ctx, idx := libraryModelContext(t, `package test {
+		private import SI::*;
+		private import ISQ::*;
+		attribute repeated : TemperatureValue[*] ordered = (293.15 [K], 20.0 [SI::'°C_abs']);
+		attribute distinct : TemperatureValue[*] ordered = (293.15 [K], 0.0 [SI::'°C_abs']);
+	}`)
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok {
+		t.Fatal("package test not found")
+	}
+	if _, err := evalIn(t, ctx, pkg.Scope, "repeated"); !errors.Is(err, ErrUniquenessViolation) {
+		t.Errorf("repeated = %v, want ErrUniquenessViolation: 20.0 °C_abs is the point 293.15 K", err)
+	}
+	if val, err := evalIn(t, ctx, pkg.Scope, "distinct"); err != nil || len(elementsOf(val)) != 2 {
+		t.Errorf("distinct = %s, %v; want two points", FormatValue(val), err)
+	}
+}
+
 // TestAnchoredOrdinalPointsInSets: a set keeps an ordinal point apart from the
 // magnitude its mapping would carry it to, as `==` does.
 func TestAnchoredOrdinalPointsInSets(t *testing.T) {

@@ -1426,7 +1426,7 @@ func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedN
 
 	if !ok {
 		msg := "unresolved member: " + qn.Parts[0].Text
-		if parentSym.Scope == nil {
+		if r.memberless(parentSym) {
 			msg = "no scope for member lookup in " + parentSym.Name
 		}
 		r.Diagnostics = append(r.Diagnostics, Diagnostic{Span: qn.Parts[0].Span, Message: msg})
@@ -1437,7 +1437,7 @@ func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedN
 	// Walk remaining parts via member lookup
 	for i := 1; i < len(qn.Parts); i++ {
 		next, found := r.chainMember(cur, qn.Parts[i].Text, chain)
-		if !found && cur.Scope == nil {
+		if !found && r.memberless(cur) {
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,
 				Message: "no members in " + cur.Name,
@@ -1457,6 +1457,16 @@ func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedN
 		cur = next
 	}
 	return cur, true
+}
+
+// memberless reports a symbol with neither a scope nor a type to read members from,
+// such as an untyped body parameter over a collection whose elements are untyped.
+func (r *Resolver) memberless(sym *symbols.Symbol) bool {
+	if sym.Scope != nil {
+		return false
+	}
+	model, ok := r.model.(supertypeProvider)
+	return !ok || len(model.DirectSupertypes(sym)) == 0
 }
 
 // getOperandSymbol returns the feature an expression operand names, which the

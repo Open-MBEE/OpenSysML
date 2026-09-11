@@ -6,6 +6,8 @@
     "fractionalUndecidedFirst": {"type": "Sequence", "elements": []},
     "fractionalDecidedFirst": {"type": "Sequence", "elements": []},
     "integralSubtractedLast": {"type": "Sequence", "elements": []},
-    "integralSubtractedFirst": {"type": "Sequence", "elements": []}
+    "integralSubtractedFirst": {"type": "Sequence", "elements": []},
+    "wholeRealKeptLast": {"type": "Real", "value": 5.0},
+    "wholeRealKeptFirst": {"type": "Real", "value": 5.0}
   }
 }
