@@ -186,7 +186,8 @@ func (s *Snapshot) Release() {
 	ctx.snapshots = slices.Delete(ctx.snapshots, at, at+1)
 	ctx.journals--
 	if ctx.journals == 0 {
-		ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:s.journal.writes], ctx.journalUndos[:s.journal.undos]
+		// Snapshots release in any order; the last one out empties the journal.
+		ctx.journalWrites, ctx.journalUndos = ctx.journalWrites[:0], ctx.journalUndos[:0]
 	}
 }
 

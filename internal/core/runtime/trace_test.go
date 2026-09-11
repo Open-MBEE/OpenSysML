@@ -105,40 +105,11 @@ func policyFileTag(policy SchedulePolicy) string {
 // runTraceTest drives a case under policy (or the policy it pins) and, when
 // the harness owns the golden at goldenPath, checks the trace against it.
 func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, expected ExpectedOutcome, policy SchedulePolicy, owned bool) {
-	sysmlPath := filepath.Join(conformanceDir, testName+".sysml")
-
-	// Load file
-	sysmlData, err := os.ReadFile(sysmlPath)
-	if err != nil {
-		t.Fatalf("load source: %v", err)
-	}
-
-	// Parse and build model
-	p := parser.New(source.New(sysmlPath, sysmlData))
-	file := p.ParseFile()
-	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
-
-	idx := symbols.NewIndex()
-	// A case whose model names library elements — the measurement unit of a
-	// quantity is one — resolves them only with the standard library indexed,
-	// exactly as the conformance harness loads it.
-	if expected.Libraries {
-		idx = libs.NewModelIndex()
-	}
-	idx.AddDocument(sysmlPath, file)
-	if expected.Libraries {
-		idx.ExpandWildcardImports()
-	}
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-	ctx := NewContext(NewModel(model, resolver), 10000)
-	mustSchedule(t, ctx, casePolicy(t, expected, policy))
+	ctx, idx, rootScope := loadTraceCase(t, conformanceDir, testName, expected, policy)
 
 	// Find behavioral symbol and execute with trace
 	trace := NewTraceRecorder()
 	var traceOutput string
-
-	rootScope := idx.DocumentRoot(sysmlPath)
 
 	// A qualified path drives the case through the behavior it names, which is how
 	// one nested in a part is reached.
@@ -277,6 +248,37 @@ func runTraceTest(t *testing.T, conformanceDir, testName, goldenPath string, exp
 			t.Errorf("trace mismatch for %s\n=== WANT ===\n%s\n=== GOT ===\n%s\n", testName, want, got)
 		}
 	}
+}
+
+// loadTraceCase parses and indexes a case's document, as the conformance harness
+// loads it, and returns a fresh context over it under policy (or the one the case pins).
+func loadTraceCase(t *testing.T, conformanceDir, testName string, expected ExpectedOutcome, policy SchedulePolicy) (*Context, *symbols.Index, *symbols.Scope) {
+	t.Helper()
+	sysmlPath := filepath.Join(conformanceDir, testName+".sysml")
+	sysmlData, err := os.ReadFile(sysmlPath)
+	if err != nil {
+		t.Fatalf("load source: %v", err)
+	}
+	p := parser.New(source.New(sysmlPath, sysmlData))
+	file := p.ParseFile()
+	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
+
+	idx := symbols.NewIndex()
+	// A case whose model names library elements — the measurement unit of a
+	// quantity is one — resolves them only with the standard library indexed,
+	// exactly as the conformance harness loads it.
+	if expected.Libraries {
+		idx = libs.NewModelIndex()
+	}
+	idx.AddDocument(sysmlPath, file)
+	if expected.Libraries {
+		idx.ExpandWildcardImports()
+	}
+	resolver := resolve.New(idx)
+	model := semantics.NewModel(resolver)
+	ctx := NewContext(NewModel(model, resolver), 10000)
+	mustSchedule(t, ctx, casePolicy(t, expected, policy))
+	return ctx, idx, idx.DocumentRoot(sysmlPath)
 }
 
 // checkTraceOrder checks the recorded trace against the order constraints a case
