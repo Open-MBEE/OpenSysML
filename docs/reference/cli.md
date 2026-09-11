@@ -740,7 +740,9 @@ cut in that order — runs past it are discarded and charged to nothing — and 
 violation ends only the runs whose prefixes order after it, once every earlier prefix has
 completed, so the witness reported is the same one. At most `n` runs beyond the cut are ever
 started, so an exploration performs at most `runs + n` executions. A count below one, or one
-that is no integer, is refused before anything runs.
+that is no integer, is refused before anything runs. `-engine all` consults its covering engines
+on the same count, `n` at most at once with the count shared out among them; a sweep runs its
+rows one after another whatever `n` is.
 
 With `-json` the check's `plan` carries `workers`, how many workers the plan built, and
 `warming`, the milliseconds spent building them; the human-readable report does not print them.
