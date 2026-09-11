@@ -196,8 +196,29 @@ func newStateExecutorForOccurrence(
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}
+	exec := newStateExecutorOn(ctx, stateMachine, self, occurrence, graph)
 
-	exec := &StateExecutor{
+	// Initialize state machine attributes
+	if err := exec.initializeAttributes(); err != nil {
+		return nil, err
+	}
+	if err := exec.initializeStateAttributes(); err != nil {
+		return nil, err
+	}
+	ctx.clock.attach(exec)
+
+	return exec, nil
+}
+
+// newStateExecutorOn is an execution of graph, the lowering of stateMachine, holding
+// no attribute values yet and not on ctx's clock.
+func newStateExecutorOn(
+	ctx *Context,
+	stateMachine *symbols.Symbol,
+	self, occurrence *Instance,
+	graph *lower.StateGraph,
+) *StateExecutor {
+	return &StateExecutor{
 		ctx:                ctx,
 		stateMachine:       stateMachine,
 		self:               self,
@@ -219,17 +240,6 @@ func newStateExecutorForOccurrence(
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
 	}
-
-	// Initialize state machine attributes
-	if err := exec.initializeAttributes(); err != nil {
-		return nil, err
-	}
-	if err := exec.initializeStateAttributes(); err != nil {
-		return nil, err
-	}
-	ctx.clock.attach(exec)
-
-	return exec, nil
 }
 
 // initializeAttributes populates stateData from the exhibited occurrence, or

@@ -726,33 +726,19 @@ func (b *ObjectBehavior) hasPendingWork() bool {
 // type binds, seeded with the values the binding declaration supplies, and
 // initializes it so its start is reported where every other behavior's is.
 func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, error) {
-	chain, err := ctx.classifierBehaviorChain(decl)
+	behavior, occurrence, err := ctx.bindClassifierBehavior(inst, decl)
 	if err != nil {
 		return nil, err
 	}
-	sym := chain[len(chain)-1]
+	sym := behavior.Symbol
 
 	arguments, err := ctx.classifierBehaviorArguments(inst, decl)
 	if err != nil {
 		return nil, err
 	}
 
-	behavior := &ObjectBehavior{
-		Name:     decl.behavior.Name,
-		Kind:     decl.behavior.Kind,
-		Symbol:   sym,
-		Object:   inst,
-		member:   decl.member,
-		bindings: chain,
-		kinds:    ctx.behaviorKinds(chain),
-	}
-
 	switch decl.behavior.Kind {
 	case lower.ExhibitedState:
-		occurrence, err := ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence)
-		if err != nil {
-			return nil, err
-		}
 		exec, err := newStateExecutorForOccurrence(ctx, sym, inst, occurrence)
 		if err != nil {
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
@@ -766,10 +752,6 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		}
 		behavior.State = exec
 	case lower.PerformedAction:
-		occurrence, err := ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence)
-		if err != nil {
-			return nil, err
-		}
 		exec, err := newActionExecutorOf(ctx, decl.member, sym, inst, occurrence)
 		if err != nil {
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
@@ -792,6 +774,38 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
 	}
 	return behavior, nil
+}
+
+// bindClassifierBehavior is the object's binding of one behavior its type declares,
+// its execution still to be made, and the performance occurrence the binding holds.
+func (ctx *Context) bindClassifierBehavior(inst *Instance, decl classifierBehaviorDecl) (*ObjectBehavior, *Instance, error) {
+	chain, err := ctx.classifierBehaviorChain(decl)
+	if err != nil {
+		return nil, nil, err
+	}
+	sym := chain[len(chain)-1]
+	behavior := &ObjectBehavior{
+		Name:     decl.behavior.Name,
+		Kind:     decl.behavior.Kind,
+		Symbol:   sym,
+		Object:   inst,
+		member:   decl.member,
+		bindings: chain,
+		kinds:    ctx.behaviorKinds(chain),
+	}
+	var occurrence *Instance
+	switch decl.behavior.Kind {
+	case lower.ExhibitedState:
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrStatePerformanceOccurrence)
+	case lower.PerformedAction:
+		occurrence, err = ctx.performanceOccurrence(inst, decl, sym, ErrActionPerformanceOccurrence)
+	default:
+		return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedClassifierBehavior, decl.behavior.Kind)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return behavior, occurrence, nil
 }
 
 // performanceOccurrence returns the performance occurrence the binding

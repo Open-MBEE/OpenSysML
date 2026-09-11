@@ -142,7 +142,18 @@ func newActionExecutorOf(
 	if err != nil {
 		return nil, err
 	}
+	return newActionExecutorOn(ctx, performed, action, tool, graph, self, occurrence), nil
+}
 
+// newActionExecutorOn is an execution of graph, the lowering of action, ready to
+// begin at its root and attached to ctx's clock.
+func newActionExecutorOn(
+	ctx *Context,
+	performed, action *symbols.Symbol,
+	tool *toolExecution,
+	graph *lower.ActionGraph,
+	self, occurrence *Instance,
+) *ActionExecutor {
 	exec := &ActionExecutor{
 		performances: performances{ctx: ctx, self: self},
 		action:       action,
@@ -161,8 +172,7 @@ func newActionExecutorOf(
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
 	ctx.clock.attach(exec)
-
-	return exec, nil
+	return exec
 }
 
 // lowerPerformance lowers what a performance of action runs, in the scope it was written
