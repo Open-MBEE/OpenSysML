@@ -1,8 +1,9 @@
 # OpenSysML modelled in SysML v2
 
 This is OpenSysML's own architecture written in the language OpenSysML implements: the
-analysis pipeline as parts, ports and item flows, the tier ladder and the two execution
-engines as state machines, the invariants of
+analysis pipeline as parts, ports and item flows, the analysis framework that answers
+questions over it, the tier ladder and the two execution engines as state machines, the
+invariants of
 [AGENTS.md §4](../../AGENTS.md) as requirements the tool itself checks, and views that
 render the diagrams. Nothing here is a special case in the tool — it is analysed,
 executed and rendered by the same `bin/sysml` any other model goes through.
@@ -18,13 +19,13 @@ The seven files:
 
 | File | What it holds |
 | --- | --- |
-| [pipeline.sysml](pipeline.sysml) | `OpenSysMLArtifacts` — what travels between stages (source text, tokens, tree, spans, symbol index, the library snapshot, side tables, diagnostics, IR graphs, traces, RDF, document trees), the ports and channels it travels over, and the layer metadata the filtered views select on. `OpenSysMLPipeline` — the thirteen stages from `internal/core/source` to `internal/core/solve`, each naming the Go package that implements it; `PassRegistry`, holding all fifty registered validation passes with the tier each runs at and whether it gates itself per element; the standard library with the embedded snapshot its index is decoded from, the codec and generator units behind it and the variable that overrides it; the runtime's six independent budgets with their defaults and environment variables, and the evaluator with the compiled tier beside it and the variable that switches that tier off; and `AnalysisPipeline`, which wires the stages together |
-| [behavior.sysml](behavior.sysml) | one document analysed end to end (`AnalyzeDocument`, whose four decision nodes are the tier gates), the editor's edit-then-sweep path (`ServeEdit`), the library loaded once per process (`LoadLibrary`, whose two decision nodes are the digest and checksum checks that decide between the snapshot and the files), one calc invoked (`InvokeCalc`, whose three decision nodes — tracing, body, arguments — send it to the compiled tier or to the evaluator), and five state machines: the validation tier ladder, the runtime's five tiers, token flow over the action graph with its deadlock and budget exits, run-to-completion event dispatch with deferral, and the six ways a run ends early when a budget is exhausted |
-| [surfaces.sysml](surfaces.sysml) | the five interfaces over one pipeline (REPL, LSP with every capability it advertises, gRPC/Connect service, stdio service, CLI), the protobuf schema they are generated from with its eighteen RPCs, the five generated clients and the VS Code extension, the editor pipeline (highlighting, quick fixes, suggestions, source edits, formatting, provenance), the view engine with the eight rendering kinds it recognises and the six it produces, the document path from a query in the model through the plan, the backend-agnostic tree and the two backends to Markdown or PDF (`RenderDocument` branches on the form, and on whether the PDF converters are installed), the exporter and its accepted format names, the eight conformance oracles with their committed baselines and the pin, errata and census infrastructure behind them, and `Toolchain`, which holds all of it |
+| [pipeline.sysml](pipeline.sysml) | `OpenSysMLArtifacts` — what travels between stages (source text, tokens, tree, spans, symbol index, the library snapshot, side tables, diagnostics, IR graphs, traces, RDF, document trees), the ports and channels it travels over, and the layer metadata the filtered views select on. `OpenSysMLPipeline` — the thirteen stages from `internal/core/source` to `internal/core/solve`, each naming the Go package that implements it; `PassRegistry`, holding all fifty registered validation passes with the tier each runs at and whether it gates itself per element; the standard library with the embedded snapshot its index is decoded from, the codec and generator units behind it and the variable that overrides it; the runtime's six independent budgets with their defaults and environment variables, and the evaluator with the compiled tier beside it and the variable that switches that tier off; the runtime's split of model-derived from run-derived state, with the snapshot store and the exploration queue that split makes possible; `AnalysisFramework` — the seven question kinds and three freedoms, the five-step evidence scale and ten claims, the per-owner engine registry, the dispatcher with its three selections, the seven-field plan budget with the `OPENSYSML_JOBS` variable, the worker fleet, and the four engines this build registers (`run`, `explore`, `sweep`, `solve`), each declaring what it answers, what bounds it, and the strongest evidence it can produce; and `AnalysisPipeline`, which wires the stages together and puts the framework's questions to the runtime and the solver |
+| [behavior.sysml](behavior.sysml) | one document analysed end to end (`AnalyzeDocument`, whose four decision nodes are the tier gates), the editor's edit-then-sweep path (`ServeEdit`), the library loaded once per process (`LoadLibrary`, whose two decision nodes are the digest and checksum checks that decide between the snapshot and the files), one calc invoked (`InvokeCalc`, whose three decision nodes — tracing, body, arguments — send it to the compiled tier or to the evaluator), and five state machines: the validation tier ladder, the runtime's five tiers, token flow over the action graph with its deadlock and budget exits, run-to-completion event dispatch with deferral, and the six ways a run ends early when a budget is exhausted; then the analysis framework: one question answered (`AnswerQuestion`, whose decision nodes are the selection, the coverage check, the refusal and the fault), a behavior's outcomes explored over a fleet of workers (`ExploreOutcomes`, which proves when nothing cut it short and observes otherwise), and three more state machines — the evidence ladder from not covered to proved, a worker's life in a plan, and a snapshot as a mark between steps with the two asks it refuses |
+| [surfaces.sysml](surfaces.sysml) | the five interfaces over one pipeline (REPL, LSP with every capability it advertises, gRPC/Connect service, stdio service, CLI), the three that ask questions of the analysis framework with the engine selector, jobs setting and engine listing each exposes (`%engine`/`%jobs`/`%engines`, the `engine` request field, `OPENSYSML_JOBS` and `ListEngines`, `-engine`/`-jobs`/`-engines`), the protobuf schema they are generated from with its twenty-one RPCs, the five generated clients and the VS Code extension, the editor pipeline (highlighting, quick fixes, suggestions, source edits, formatting, provenance), the view engine with the eight rendering kinds it recognises and the six it produces, the document path from a query in the model through the plan, the backend-agnostic tree and the two backends to Markdown or PDF (`RenderDocument` branches on the form, and on whether the PDF converters are installed), the exporter and its accepted format names, the eight conformance oracles with their committed baselines and the pin, errata and census infrastructure behind them, and `Toolchain`, which holds all of it |
 | [identity.sysml](identity.sysml) | the element-identity path: the `IdentityMetadata` library the ids are carried by, the encoder that derives an id from a qualified name, the side table that computes each element's effective id, the constraint-tier pass that checks the generated id space, the RDF writer and reader that carry identity through a graph, the Flexo harness that measures a live round trip, the repository sync that diffs a local model against its repository by effective id (`SyncModel`: scope, state, diff, conflicts, minting, write-back) with the `sysml -sync-*` flags that drive it, and the one phase of the [design record](../../docs/project/element-identity-annotations.md) not built — the notation extension filed with OMG |
-| [quality.sysml](quality.sysml) | ten architecture invariants as `requirement def`s bound to the modelled parts, the test runs that verify them as `verification def`s, the contributor's use case, and the allocation of every logical unit onto its directory in the source tree |
+| [quality.sysml](quality.sysml) | fourteen architecture invariants as `requirement def`s bound to the modelled parts, the test runs that verify them as `verification def`s, the contributor's use case, and the allocation of every logical unit onto its directory in the source tree |
 | [document.sysml](document.sysml) | the architecture document itself, written in the notation: the queries it runs over the model, the sections and prose it is made of, the diagrams it embeds from [views.sysml](views.sysml), and the tables it generates from the model — so the document is a model element rather than a file someone maintains alongside one |
-| [views.sysml](views.sysml) | twenty-seven views — the pipeline, toolchain, editor pipeline and identity path as interconnection diagrams, the stage, rendering-kind and invariant tables, the action and state flows including the library load and the calc invocation, the document and identity round trips, the sync diff and the budget exits, the architectural layers as filtered exposes, and an overview that frames a maintainer's concern |
+| [views.sysml](views.sysml) | thirty-five views — the pipeline, toolchain, analysis framework, editor pipeline and identity path as interconnection diagrams, the stage, engine, rendering-kind and invariant tables, the action and state flows including the library load, the calc invocation, the question answered and the outcomes explored, the document and identity round trips, the sync diff, the budget exits, the evidence ladder and the worker and snapshot lifecycles, the architectural layers as filtered exposes, and an overview that frames a maintainer's concern |
 
 ## Analyse it
 
@@ -70,16 +71,22 @@ that satisfies it (needs `z3` or `cvc5` — see
   OpenSysMLInvariants::executionIsBounded::'runtime.stepBudgeted' = true
 ```
 
-The solver timing is whatever your machine reports. The ten in `OpenSysMLInvariants` are
+The solver timing is whatever your machine reports. The fourteen in `OpenSysMLInvariants` are
 `treeIsImmutable`, `parserRecovers`, `resolutionIsLazy`, `tiersAreGated`,
 `loweringIsLossless`, `executionIsBounded`, `libraryIsClean`, `snapshotIsDerived`,
-`evaluatorIsReference` and `exportRoundTrips`; four
+`evaluatorIsReference`, `exportRoundTrips`, and four over the analysis framework —
+`questionsHaveOneContract`, that every question goes through one per-owner registry and a
+dispatcher that records every engine it consults; `evidenceIsHonest`, that no engine claims
+above its declared authority and an existential claim is only ever witnessed;
+`runsAreIsolated`, that each job has a worker of its own, each run a fresh context, and the
+result is the same at any job count; and `snapshotsAreRunState`, that a snapshot captures
+what a run made and no part of the model it ran over; four
 more in `OpenSysMLIdentity` state what the identity design turns on —
 `identityRoundTrips`, `idsDoNotCollide`, `identityIsBesideTheTree` and `syncIsExplicit`; and
 two in `OpenSysMLSurfaces`: `documentsAreTraceable`, that every rendered node can be traced
 back to the element it came from, and `viewsAreHonest`, that a rendering kind the engine
 recognises but cannot produce says so. [`../self_model_test.go`](../self_model_test.go)
-evaluates all sixteen, so an invariant the implementation stops satisfying — the standard
+evaluates all twenty, so an invariant the implementation stops satisfying — the standard
 library growing past its clean file count, say — fails `go test ./examples/`.
 
 ## Read a view
@@ -221,7 +228,19 @@ and that a traced run takes the evaluator, the export names against `export.Form
 server's capabilities against the ones its `initialize` result actually advertises, the
 editor pipeline against `highlight.Classes()` and `edit.OpKind`, and the sync model against
 `reposync`'s change and conflict kinds, its state-file suffix and the `-sync-*` flags
-`cmd/sysml` defines. The identity model is held to the same standard: the metadata
+`cmd/sysml` defines. The analysis framework is checked against `internal/core/analysis`
+itself: the engine names against `analysis.Default()`, the question kinds and their
+spellings against `analysis.Kind`, the strengths and claims against `analysis.Strength` and
+`analysis.Claim` in order, each engine's answered kind, bounds, replay support, external
+process and authority against what its `Describe()` declares, the budget fields against
+`analysis.Budget` by reflection, the jobs variable against `analysis.JobsEnvVar`, the default
+against `runtime.NumCPU()` and the rejections against `analysis.ParseJobs`, the selections
+against `analysis.ParseSelection`, the exploration defaults against
+`runtime.DefaultExploreBudget`, the snapshot refusals against the runtime's two snapshot
+errors, and the `%engine`/`%jobs`/`%engines` commands and `-engine`/`-jobs`/`-engines` flags
+against the REPL and CLI that define them. Worker isolation is exercised rather than read:
+two workers of one analysis model are checked to hold distinct runtime models over the same
+frozen index, and two contexts on one worker to be distinct. The identity model is held to the same standard: the metadata
 definitions it names are compared against `identity.ElementIdFQN` and
 `identity.ProjectRefFQN`, the library file it points at must exist, and the tier it models
 the identity pass at must be the tier `passes.IdentityMetadataPass` declares. So is the
@@ -236,7 +255,8 @@ implementation's declared shape, not a regression inside the parser. The `verifi
 in [quality.sysml](quality.sysml) name the gates that do that — `TestGolden`/`TestNegative`,
 `TestStdlibConformance`, `make stdlib-snapshot-check` with the snapshot tests of `libs` and
 `symbols`, the `TestCompiledCalc` parity and differential tests,
-`TestExecutionConformance`/`TestRuntimeRobustness` and the export tests.
+`TestExecutionConformance`/`TestRuntimeRobustness`, the export tests, the race-enabled
+analysis package tests, and the runtime's snapshot and `ExploreWith` tests.
 
 When a stage moves, a pass is added or a client lands, the model is the place the change is
 recorded once and every diagram picks it up.

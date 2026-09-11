@@ -10,6 +10,7 @@ package OpenSysMLDocument {
     part analysisPipeline : OpenSysMLPipeline::AnalysisPipeline;
     part passRegistry : OpenSysMLPipeline::PassRegistry;
     part runtime : OpenSysMLPipeline::Runtime;
+    part analysisFramework : OpenSysMLPipeline::AnalysisFramework;
     part viewEngine : OpenSysMLSurfaces::ViewEngine;
 
     // --- Queries the document runs over this model -----------------------
@@ -70,6 +71,24 @@ package OpenSysMLDocument {
                 value = ""
             ),
             properties = ("name", "counts", "envVar", "defaultBound", "exhaustion")
+        )
+    }
+
+    // The analysis engines: the framework's other parts carry no engineName
+    // and drop out here.
+    calc def EnginesWithAuthority :> Query {
+        in root : Element;
+        Project(
+            source = WhereFeature(
+                source = WhereType(
+                    source = OwnedElements(source = DefinitionOf(root = root)),
+                    type = "PartUsage"
+                ),
+                'feature' = "engineName",
+                operator = "!=",
+                value = ""
+            ),
+            properties = ("engineName", "answers", "bounds", "authority", "replays", "needsProcess", "adapts")
         )
     }
 
@@ -210,6 +229,69 @@ package OpenSysMLDocument {
                 attribute redefines caption = "One document analysed end to end";
                 attribute redefines direction = "TB";
                 ref redefines source = OpenSysMLViews::analysisFlow;
+            }
+        }
+
+        part asking : Section {
+            attribute redefines title = "The analysis framework";
+
+            part intro : Paragraph {
+                attribute redefines text = "Every question a surface asks of a model — evaluate this, what can that behavior do, does this condition hold, is that set of conditions satisfiable, sweep this domain — goes through one contract. An engine declares the kinds it answers, the bounds it takes and the strongest evidence it can ever produce; it is asked whether it covers a question before any work is done, and a refusal is a typed reason, never a result. The registry is held by its owner rather than in a global, and dispatch records every engine consulted in the plan it returns.";
+            }
+
+            part structure : Diagram {
+                attribute redefines caption = "The framework: questions, engines, registry, dispatch, budget and workers";
+                attribute redefines direction = "LR";
+                ref redefines source = OpenSysMLViews::analysisFramework;
+            }
+
+            part engines : Table {
+                attribute redefines caption = "The engines this build registers, what each answers, and the strongest evidence it can produce";
+                calc rows : EnginesWithAuthority {
+                    in redefines root = analysisFramework;
+                }
+            }
+
+            part dispatching : Paragraph {
+                attribute redefines text = "A selection says which engines a question reaches. Auto, the default, puts it to the strongest covering engine and moves on to the next when the answer is not covered; a name puts it to exactly one engine, whose refusal is then the answer; all puts it to every covering engine in name order and composes what they answered, a witness standing over the universal claim it refutes and the disagreement recorded. A run that faults stops the plan.";
+            }
+
+            part dispatch : Diagram {
+                attribute redefines caption = "Answering one question: selection, coverage, the run, and what the plan records";
+                attribute redefines direction = "TB";
+                ref redefines source = OpenSysMLViews::questionFlow;
+            }
+
+            part evidence : Paragraph {
+                attribute redefines text = "An answer carries a claim and the strength of the evidence for it, on one scale: not covered, observed, witnessed, bounded, proved. A greater strength is never weaker evidence, an existential claim — a violation, a sensitivity, a satisfying assignment — has witnessed as its one strength, and an engine claiming more than its declared authority is a fault. The run and sweep engines observe; explore and solve prove when nothing cut them short and observe otherwise.";
+            }
+
+            part ladder : Diagram {
+                attribute redefines caption = "The evidence scale as a ladder";
+                attribute redefines direction = "TB";
+                ref redefines source = OpenSysMLViews::evidenceLadder;
+            }
+
+            part isolating : Paragraph {
+                attribute redefines text = "Runs go concurrently, up to the jobs setting, each on a worker of its own. A worker holds model-derived state — resolver, semantic model and the runtime's memo tables — built on first use over the shared frozen index, and every run on it gets a fresh context of its own; the runtime's memo tables are not safe to share, so a worker is never lent between jobs. The exploration works a queue of schedule prefixes in plan order and sorts what it found, so the outcomes are the same at any job count. A snapshot captures a run's state between two steps and no part of the model it runs over.";
+            }
+
+            part exploring : Diagram {
+                attribute redefines caption = "Exploring a behavior's outcomes over a fleet of workers";
+                attribute redefines direction = "TB";
+                ref redefines source = OpenSysMLViews::exploreFlow;
+            }
+
+            part workers : Diagram {
+                attribute redefines caption = "A worker's life in a plan";
+                attribute redefines direction = "LR";
+                ref redefines source = OpenSysMLViews::workerLifecycle;
+            }
+
+            part marks : Diagram {
+                attribute redefines caption = "A snapshot is a mark between steps";
+                attribute redefines direction = "LR";
+                ref redefines source = OpenSysMLViews::snapshotLifecycle;
             }
         }
 

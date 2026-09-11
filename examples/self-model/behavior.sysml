@@ -1,5 +1,6 @@
 // How the pipeline behaves: one analysis run, the tier gating that decides how
-// far it gets, and the two execution engines the runtime drives.
+// far it gets, the two execution engines the runtime drives, and the analysis
+// framework that turns a question into a plan.
 package OpenSysMLBehavior {
     private import ScalarValues::*;
     private import OpenSysMLArtifacts::*;
@@ -311,5 +312,182 @@ package OpenSysMLBehavior {
         in attribute rounds : Integer;
         in attribute tokensPerRound : Integer;
         return attribute steps : Integer = rounds * tokensPerRound;
+    }
+
+    // One question answered: the selection decides which engines are consulted,
+    // coverage is asked before any work, and every step lands in the plan.
+    action def AnswerQuestion {
+        attribute selectsAuto : Boolean = true;
+        attribute selectsAll : Boolean = false;
+        attribute covered : Boolean = true;
+        attribute concluded : Boolean = true;
+        attribute faulted : Boolean = false;
+
+        in item question : AnalysisQuestion;
+        out item plan : AnalysisPlan;
+        out item result : AnalysisResult;
+
+        first start;
+
+        action rankByAuthority;
+        action pickNamed;
+        action askCoverage;
+        action recordRefusal;
+        action runEngine;
+        action recordResult;
+        action nextEngine;
+        action compose;
+        action recordFault;
+
+        succession first start then selectionGate;
+
+        // Auto ranks the covering engines strongest first; all consults each in
+        // name order; a name consults exactly one.
+        decide selectionGate;
+        if selectsAuto or selectsAll then rankByAuthority;
+        else pickNamed;
+
+        succession first rankByAuthority then askCoverage;
+        succession first pickNamed then askCoverage;
+        succession first askCoverage then coverageGate;
+
+        decide coverageGate;
+        if covered then runEngine;
+        else recordRefusal;
+
+        succession first runEngine then faultGate;
+
+        decide faultGate;
+        if faulted then recordFault;
+        else recordResult;
+
+        succession first recordFault then done;
+        succession first recordResult then stepRecorded;
+        succession first recordRefusal then stepRecorded;
+
+        merge stepRecorded;
+        succession first stepRecorded then standingGate;
+
+        // Auto stops at the first answer that is a claim and moves on from one that is
+        // not; all goes on to every engine and composes at the end; a name is done.
+        decide standingGate;
+        if selectsAll or (selectsAuto and not concluded) then nextEngine;
+        else compose;
+
+        succession first nextEngine then askCoverage;
+        succession first compose then done;
+    }
+
+    // One run of the explore engine: a queue of schedule prefixes worked by a fleet of
+    // workers, each run on a context of its own, until the queue empties or a budget cuts.
+    action def ExploreOutcomes {
+        attribute jobs : Integer = 1;
+        attribute runsLeft : Integer = 1024;
+        attribute queueEmpty : Boolean = false;
+        attribute complete : Boolean = true;
+
+        in item question : AnalysisQuestion;
+        out item result : AnalysisResult;
+
+        first start;
+
+        action warmWorker;
+        action takePrefix;
+        action freshContext;
+        action runLinearization;
+        action queueChoices;
+        action sortOutcomes;
+        action claimProved;
+        action claimObserved;
+
+        succession first start then warmWorker;
+        succession first warmWorker then takePrefix;
+        succession first takePrefix then freshContext;
+        succession first freshContext then runLinearization;
+        succession first runLinearization then queueChoices;
+        succession first queueChoices then queueGate;
+
+        decide queueGate;
+        if queueEmpty or runsLeft <= 0 then sortOutcomes;
+        else takePrefix;
+
+        succession first sortOutcomes then completionGate;
+
+        // Every prefix visited is a proof over every schedule; a budget reached is
+        // the concrete runs that were made and no more.
+        decide completionGate;
+        if complete then claimProved;
+        else claimObserved;
+
+        succession first claimProved then done;
+        succession first claimObserved then done;
+    }
+
+    // The evidence scale as a ladder: a result only ever moves up it, and a
+    // universal claim with a bound reached comes back down to bounded.
+    state def EvidenceLadder {
+        attribute refused : Boolean = false;
+        attribute concrete : Boolean = true;
+        attribute existential : Boolean = false;
+        attribute boundReached : Boolean = false;
+        attribute exhaustive : Boolean = false;
+
+        entry; then asked;
+
+        state asked;
+        state notCovered;
+        state observed;
+        state witnessed;
+        state bounded;
+        state proved;
+
+        transition first asked if refused then notCovered;
+        transition first asked if not refused and concrete and not existential then observed;
+        transition first asked if not refused and existential then witnessed;
+        transition first asked if not refused and not concrete and boundReached then bounded;
+        transition first asked if not refused and not concrete and not boundReached and exhaustive then proved;
+    }
+
+    // A plan's fleet: a worker is built for a job on first use and kept for every later
+    // run under that job; each run gets a fresh context on its worker.
+    state def WorkerLifecycle {
+        attribute built : Boolean = false;
+        attribute runsPending : Integer = 1;
+
+        entry; then idle;
+
+        state idle;
+        state warming;
+        state ready;
+        state running;
+        state released;
+
+        transition first idle if not built then warming;
+        transition first idle if built then ready;
+        transition first warming then ready;
+        transition first ready if runsPending > 0 then running;
+        transition first running do assign runsPending := runsPending - 1 then ready;
+        transition first ready if runsPending <= 0 then released;
+    }
+
+    // A snapshot is a mark between steps: restore brings the run back to it as often as
+    // asked until release, and a mark asked for mid-step or over a paused body is refused.
+    state def SnapshotLifecycle {
+        attribute betweenSteps : Boolean = true;
+        attribute bodyPaused : Boolean = false;
+
+        entry; then running;
+
+        state running;
+        state marked;
+        state refusedMidStep;
+        state refusedPausedBody;
+        state released;
+
+        transition first running if betweenSteps and not bodyPaused then marked;
+        transition first running if not betweenSteps then refusedMidStep;
+        transition first running if betweenSteps and bodyPaused then refusedPausedBody;
+        transition first marked then running;
+        transition first marked then released;
     }
 }
