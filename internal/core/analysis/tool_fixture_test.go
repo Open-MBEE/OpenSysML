@@ -33,7 +33,8 @@ const (
 // pilotDriver performs the fixture's action with fixed inputs and adopts its outputs; Twice
 // performs it twice with equal inputs, so a tool answering differently is seen in one run;
 // Alike asks the same of it through two actions naming their parameters differently; Bodied
-// states a body no token flow can run, which its tool never sees.
+// states a body no token flow can run, which its tool never sees; Swept takes the drag
+// coefficient as its input, the parameter a sweep ranges over.
 const pilotDriver = `package Drive {
 	private import AnalysisAnnotation::ComputeDynamics;
 	private import AnalysisTooling::*;
@@ -134,6 +135,15 @@ const pilotDriver = `package Drive {
 		}
 		bind a = step.acceleration;
 		bind v = step.speed;
+	}
+
+	analysis def Swept {
+		in drag : Real;
+		action step : ComputeDynamics {
+			in dt = 1 [SI::s]; in whlpwr = 2 [SI::kW]; in Cd = drag; in Cf = 0.01;
+			in tm = 1500 [SI::kg]; in v_in = 36 [SI::km / SI::h]; in x_in = 100 [SI::m];
+		}
+		out a : AccelerationValue = step.a_out;
 	}
 }`
 
@@ -450,6 +460,70 @@ func TestPilotFixtureRefusesAnUnregisteredTool(t *testing.T) {
 			}
 			wantFaulted(t, plan, err)
 		})
+	}
+}
+
+// A sweep's rows run in contexts of their own, on jobs of their own, and every one carries
+// the plan's tool runner: the tool-computed performance inside the swept action goes to the
+// stand-in once per row, and the rows table its answers in plan order. Without the tool the
+// rows fail as the held performance does, so the rows are seen to reach the tool path.
+func TestPilotFixtureSweepsThroughTheToolOnEveryJob(t *testing.T) {
+	p := parsePilot(t)
+	record := filepath.Join(t.TempDir(), "requests.jsonl")
+	t.Setenv(standinRecord, record)
+	swept := p.action(t, "Swept")
+	ctx := p.context()
+	plan, err := ctx.ResolveSweepPlan(swept, runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "drag", From: intOf(1), To: intOf(4)}}}, 0, nil)
+	if err != nil {
+		t.Fatalf("resolve the plan: %v", err)
+	}
+	row := func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		inputs := make(map[string]runtime.Value, len(bindings))
+		for _, b := range bindings {
+			inputs[b.Param] = b.Value
+		}
+		result, err := rctx.RunAnalysis(swept, runtime.AnalysisArgs{Named: inputs}, p.pkg, nil)
+		return runtime.SweepRunResult{Outputs: result.Outputs}, err
+	}
+	sweep := func(r *Registry) runtime.SweepTable {
+		t.Helper()
+		answered, err := r.Sweep(context.Background(), p.building(), "Drive::Swept", runtime.DefaultSchedulePolicy, plan, row, Budget{Jobs: 8}, Auto())
+		if err != nil {
+			t.Fatalf("sweep: %v", err)
+		}
+		table := answered.Result.Table()
+		if len(table.Rows) != 4 {
+			t.Fatalf("result %+v, want a table of 4 rows", answered.Result)
+		}
+		if answered.Workers < 2 || answered.Workers > 4 {
+			t.Fatalf("plan built %d workers, want the rows on two to four jobs", answered.Workers)
+		}
+		return table
+	}
+
+	table := sweep(toolRegistry(t, manifestDir(t, pilotEntry(standin(t)))))
+	seen := make(map[*runtime.Context]bool, len(table.Rows))
+	for i, row := range table.Rows {
+		if row.Err != nil {
+			t.Fatalf("row %d: %v", i, row.Err)
+		}
+		if want := fmt.Sprintf("%d.0 [SI::'m⋅s⁻²']", 10*(i+1)); len(row.Outputs) != 1 || runtime.FormatValue(row.Outputs[0].Value) != want {
+			t.Fatalf("row %d = %+v, want a = %s in plan order", i, row.Outputs, want)
+		}
+		if row.Context == nil || row.Context == ctx || seen[row.Context] {
+			t.Fatalf("row %d ran in %p, want a context of its own", i, row.Context)
+		}
+		seen[row.Context] = true
+	}
+	if seen := requests(t, record); len(seen) != 4 {
+		t.Fatalf("stand-in ran %d times, want once per row", len(seen))
+	}
+
+	for i, row := range sweep(Default()).Rows {
+		var refusal *runtime.ToolNotRegisteredError
+		if !errors.As(row.Err, &refusal) || refusal.Tool != "ModelCenter" {
+			t.Fatalf("row %d without the tool = %v, want ToolNotRegisteredError", i, row.Err)
+		}
 	}
 }
 

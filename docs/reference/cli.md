@@ -211,7 +211,7 @@ written in, so the verdicts are about that object:
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
 | `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does. See [Analysis engines](#analysis-engines) |
-| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
+| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 **Arguments:**
@@ -576,6 +576,14 @@ initialSpeed    | accelerationProfile | time    | error
 error 1: analysis Dyn::DynamicsAnalysis: … calc Dyn::Acceleration: division by zero
 ```
 
+**Rows.** Each row is a run in a context of its own: the `-instantiate`d subject is instantiated
+afresh for it and the arguments, evaluated once, are carried in — one naming an `-instantiate`d
+object binds the row's own — so a case that writes a feature of its subject writes its own row's
+object and no row sees another's. Rows run [`-jobs`](#running-in-parallel) at a time and the table
+is in range order whatever order they finish in; the `time` column is each row's own wall time. An
+`-instantiate`d subject whose type exhibits or performs a behavior is refused as a sweep's subject,
+naming the behavior: its execution is one no row's context carries.
+
 **Ranges.** `<from>`, `<to>` and `<step>` carry the literal syntax an argument carries, units
 included; a quantity range's endpoints and step must be compatible, and the values are converted
 to the unit `<from>` is written in. `<to>` is included when the step lands on it. A range between
@@ -741,8 +749,11 @@ the cut are ever started, so an exploration performs at most `runs + n` executio
 fails is an outcome of the table, as it is under `-jobs 1`; no run is cancelled for it, because
 the table is the answer to a question about every linearization. A count below one, or one
 that is no integer, is refused before anything runs. `-engine all` consults its covering engines
-on the same count, `n` at most at once with the count shared out among them; a sweep runs its
-rows one after another whatever `n` is.
+on the same count, `n` at most at once with the count shared out among them. A sweep runs its
+rows `n` at a time, each in a context of its own — the subject and arguments instantiated there,
+so no row sees another's writes — and prints them in range order whatever order they finish in:
+the rows, their outputs, verdicts, evaluations and errors are those of `-jobs 1`, only each row's
+`time` (its own wall time) and the report's `workers`/`warming` varying with `n`.
 
 With `-json` the check's `plan` carries `workers`, how many workers the plan built, and
 `warming`, the milliseconds spent building them; the human-readable report does not print them.

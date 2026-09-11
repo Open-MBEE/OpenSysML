@@ -1314,7 +1314,11 @@ which reports the verdict of its body.
 
 `instances` carries every object a row's verdict or evaluation is about, each once over the whole
 table, so a verdict's `instanceId` and an evaluation's `arguments` resolve there as they do in a
-`RunAnalysis` response — a client can read what made a row fail.
+`RunAnalysis` response — a client can read what made a row fail. Each row runs in a context of
+its own, so the objects of one row are not those of another even when they are of the same
+declaration: a row's objects are numbered after the rows before it (the first row's from `1`, as a
+`RunAnalysis` response numbers them), and a row's references resolve to the objects that row made,
+holding what that row's run left in them.
 
 A run that fails is a row of its own, carrying `error` and `failureReason` in place of its
 `outputs`, and the runs after it are still made. The row keeps what the run decided before

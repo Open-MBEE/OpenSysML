@@ -197,10 +197,10 @@ func (s *Session) explore(subject string, policy runtime.SchedulePolicy, selecti
 }
 
 // sweep puts a domain to the engines under the session's selection: row runs the
-// target once per row of the plan in ctx.
-func (s *Session) sweep(target string, ctx *runtime.Context, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
+// target once per row of the plan, each in a context of the plan's own over model.
+func (s *Session) sweep(target string, model *analysis.Model, plan runtime.SweepPlan, row runtime.SweepRun) (analysis.Plan, error) {
 	schedule := s.drivenSchedule()
-	return s.engines.Sweep(context.Background(), analysis.Held(ctx), target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep), s.engine)
+	return s.engines.Sweep(context.Background(), model, target, schedule, plan, row, s.budgetFor(schedule, analysis.Sweep), s.engine)
 }
 
 // solveWith puts an element's condition sets to the engines under the session's
