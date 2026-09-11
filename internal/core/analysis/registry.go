@@ -69,3 +69,20 @@ func Default() *Registry {
 	}
 	return r
 }
+
+// DefaultFromEnv returns the default registry with one `tool:<name>` engine per entry of
+// the manifest OPENSYSML_TOOLS names; a manifest that cannot be read is a ManifestError.
+// Each tool registers whether or not its executable is found and refuses through Covers.
+func DefaultFromEnv() (*Registry, error) {
+	r := Default()
+	tools, err := ToolsFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	for _, tool := range tools {
+		if err := r.Register(tool); err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
+}

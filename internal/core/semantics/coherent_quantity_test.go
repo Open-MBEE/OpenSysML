@@ -1,9 +1,11 @@
 package semantics_test
 
 import (
+	"errors"
 	"math"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -176,6 +178,47 @@ func TestCoherentSpellingFollowsTheDeclaredType(t *testing.T) {
 		}
 		if after.Num != before.Num {
 			t.Errorf("%s (%s): magnitude %v changed to %v", tc.expr, tc.declared, before.Num, after.Num)
+		}
+	}
+}
+
+// TestUnitOfExprReadsAUnitAsAQuantityCarriesIt: the text, the product of the named units
+// and the reduction agree with folding a quantity in that unit; a name that is no unit
+// is ErrNotAUnit; a spelling by short names drops the qualifiers.
+func TestUnitOfExprReadsAUnitAsAQuantityCarriesIt(t *testing.T) {
+	m, idx := coherentFixture(t)
+	scope := idx.DocumentRoot("c.sysml")
+	parse := func(text string) ast.Node {
+		p := parser.New(source.New("<unit>", []byte(text)))
+		node := p.ParseExpression()
+		if node == nil || len(p.Diagnostics) != 0 {
+			t.Fatalf("parse %q: %v", text, p.Diagnostics)
+		}
+		return node
+	}
+	for _, text := range []string{"SI::km/SI::h", "m/s**2", "kW", "C::kph"} {
+		unit, err := m.UnitOfExpr(scope, parse(text))
+		if err != nil {
+			t.Fatalf("UnitOfExpr(%q): %v", text, err)
+		}
+		q := coherentFold(t, m, idx, "1 ["+text+"]")
+		if unit.Text != text || unit.Product.String() != q.Unit.Product.String() || !unit.Term.Same(q.Unit.Term) {
+			t.Errorf("UnitOfExpr(%q) = %v %v %v, want the unit of %v", text, unit.Text, unit.Product, unit.Term, q)
+		}
+	}
+	if _, err := m.UnitOfExpr(scope, parse("C::energy")); !errors.Is(err, semantics.ErrNotAUnit) {
+		t.Errorf("UnitOfExpr(C::energy) = %v, want ErrNotAUnit", err)
+	}
+	if _, err := m.UnitOfExpr(scope, parse("nothing")); !errors.Is(err, semantics.ErrNotAUnit) {
+		t.Errorf("UnitOfExpr(nothing) = %v, want ErrNotAUnit", err)
+	}
+	for text, want := range map[string]string{"SI::km/SI::h": "km/h", "SI::kg*SI::m**2": "kg*m**2", "C::kph": "kph", "SI::'m/s'": "'m/s'"} {
+		unit, err := m.UnitOfExpr(scope, parse(text))
+		if err != nil {
+			t.Fatalf("UnitOfExpr(%q): %v", text, err)
+		}
+		if got := unit.Product.ShortSpelling().String(); got != want {
+			t.Errorf("%q spelt short = %q, want %q", text, got, want)
 		}
 	}
 }

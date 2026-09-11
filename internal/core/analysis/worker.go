@@ -35,16 +35,66 @@ func (e *NoRuntimeError) Error() string {
 // Is matches ErrNoRuntime.
 func (e *NoRuntimeError) Is(target error) bool { return target == ErrNoRuntime }
 
-// plan is the model as one plan holds it: the same surface, workers of the plan's own.
+// plan is the model as one plan holds it: the same surface and tool runner, workers of the
+// plan's own.
 func (m *Model) plan() *Model {
 	if m == nil {
 		return nil
 	}
-	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh}
+	return &Model{Context: m.Context, Semantics: m.Semantics, Fresh: m.Fresh, tools: m.tools}
 }
 
 // ErrJob is the typed error for a run asking for a worker at a negative job index.
 var ErrJob = errors.New("job index must not be negative")
+
+// toolPlan is the tool runner one plan puts on every context its runs use, and the surface
+// contexts carrying it, shared by every fleet the plan makes; mu guards the attachments.
+type toolPlan struct {
+	runner runtime.ToolRunner
+
+	mu       sync.Mutex
+	attached []toolAttachment
+}
+
+// toolAttachment is a surface context carrying the plan's tool runner, and the one it carried.
+type toolAttachment struct {
+	ctx      *runtime.Context
+	previous runtime.ToolRunner
+}
+
+// compute sets the plan's tool runner, put on every context its runs use.
+func (m *Model) compute(tools runtime.ToolRunner) {
+	if m != nil {
+		m.tools = &toolPlan{runner: tools}
+	}
+}
+
+// attach puts the plan's tool runner on a context the surface holds, remembering what it
+// carried so release can give it back.
+func (m *Model) attach(ctx *runtime.Context) {
+	m.tools.mu.Lock()
+	defer m.tools.mu.Unlock()
+	for _, held := range m.tools.attached {
+		if held.ctx == ctx {
+			return
+		}
+	}
+	m.tools.attached = append(m.tools.attached, toolAttachment{ctx: ctx, previous: ctx.ToolRunner()})
+	ctx.SetToolRunner(m.tools.runner)
+}
+
+// release gives every surface context its own tool runner back when the plan ends.
+func (m *Model) release() {
+	if m == nil || m.tools == nil {
+		return
+	}
+	m.tools.mu.Lock()
+	defer m.tools.mu.Unlock()
+	for _, held := range m.tools.attached {
+		held.ctx.SetToolRunner(held.previous)
+	}
+	m.tools.attached = nil
+}
 
 // builds reports whether the model can make a context of a run's own.
 func (m *Model) builds() bool {
@@ -117,6 +167,9 @@ func (m *Model) NewContextOn(job int, budget Budget) (*runtime.Context, error) {
 	if err := ctx.SetBudgets(limits); err != nil {
 		return nil, err
 	}
+	if m.tools != nil {
+		ctx.SetToolRunner(m.tools.runner)
+	}
 	return ctx, nil
 }
 
@@ -127,7 +180,11 @@ func (m *Model) holds() bool { return m != nil && m.Context != nil }
 // its limits untouched, else one of the run's own under the budget.
 func (m *Model) running(engine string, budget Budget) (*runtime.Context, error) {
 	if m.holds() {
-		return m.Context()
+		ctx, err := m.Context()
+		if err == nil && ctx != nil && m.tools != nil {
+			m.attach(ctx)
+		}
+		return ctx, err
 	}
 	if !m.builds() {
 		return nil, &NoRuntimeError{Engine: engine}
