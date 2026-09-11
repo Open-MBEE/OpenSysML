@@ -10,12 +10,14 @@
   `ExploreOutcomes` charges a run to the budget for every linearization it commits and works the
   queue it drains — the empty prefix to start, then the prefixes each run leaves unexplored: the
   choice tree is modelled as a chain of choices (`choicesAhead`) of so many alternatives each
-  (`alternatives`), the next below the second alternative of the one above, and the prefix in hand
-  as the choice it ends at and the alternative it takes there (`choice`, `taken`); a run leaves the
-  next alternative of the choice its prefix ended at and the second of the choice it meets — one
+  (`alternatives`), the next below one alternative of the one above (`below`, the first by
+  default), and the prefix in hand as the choice it ends at and the alternative it takes there
+  (`choice`, `taken`); a run takes the first alternative of every choice it meets on its way down
+  and leaves the second of each, and the next alternative of the choice its prefix ended at — one
   prefix per choice it owns, as `exploreRun.unexplored` does, not every alternative at once — and
-  the next run takes the prefix queued deepest, so a later run advances a four-way choice to its
-  third alternative rather than finding three prefixes queued; a choice met beyond the depth bound
+  the next run takes the prefix queued deepest, so two binary choices met by the first run take
+  three runs, not four, and a later run advances a four-way choice to its third alternative rather
+  than finding three prefixes queued; a choice met beyond the depth bound
   (`depth`, 64 by default) takes its first alternative and marks the bound hit — so a finite choice
   tree drains the queue before the 1024-run bound and proves, a tree either bound cuts observes
   even when the queue drains, and neither flow depends on a fixed decision any more. Both flows now run under

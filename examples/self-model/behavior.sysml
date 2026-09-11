@@ -405,16 +405,19 @@ package OpenSysMLBehavior {
         attribute depth : Integer = 64;
         attribute queued : Integer = 1;
         // The choice tree: a chain of choices of so many alternatives each, the next
-        // below the second alternative of the one above; choicesAhead are unmet yet.
+        // below alternative `below` of the one above; choicesAhead are unmet yet.
         attribute choicesAhead : Integer = 0;
         attribute alternatives : Integer = 2;
+        attribute below : Integer = 1;
         // The prefix in hand: the choice it ends at (0: the empty prefix) and the
-        // alternative it takes there.
+        // alternative it takes there; the run records down to choice `reached`, and
+        // `open` while the next choice lies below the alternative its record ends at.
         attribute choice : Integer = 0;
         attribute taken : Integer = 0;
-        attribute descends : Boolean = false;
-        // What the run leaves to explore: the next alternative of the choice its prefix
-        // ended at, and the second of the choice it met.
+        attribute reached : Integer = 0;
+        attribute open : Boolean = true;
+        // What the run leaves to explore: the second alternative of each choice it met
+        // and the next alternative of the choice its prefix ended at.
         attribute unexplored : Integer = 0;
         attribute depthHit : Boolean = false;
         attribute complete : Boolean = true;
@@ -427,14 +430,16 @@ package OpenSysMLBehavior {
         action warmWorker;
         action takePrefix {
             assign queued := queued - 1;
-            assign descends := false;
+            assign reached := choice;
+            assign open := choice == 0 or taken == below;
         }
         action freshContext;
         action runLinearization { assign runsLeft := runsLeft - 1; }
         action meetChoice {
+            assign reached := reached + 1;
             assign unexplored := unexplored + 1;
             assign choicesAhead := choicesAhead - 1;
-            assign descends := true;
+            assign open := below == 1;
         }
         action passBeyond {
             assign depthHit := true;
@@ -447,13 +452,13 @@ package OpenSysMLBehavior {
             assign unexplored := 0;
         }
         action stepDown {
-            assign choice := choice + 1;
+            assign choice := reached;
             assign taken := 2;
         }
         action stepAlong { assign taken := taken + 1; }
         action stepUp {
             assign choice := choice - 1;
-            assign taken := 3;
+            assign taken := below + 1;
         }
         action sortOutcomes { assign complete := queued == 0 and not depthHit; }
         action claimProved;
@@ -463,16 +468,19 @@ package OpenSysMLBehavior {
         succession first warmWorker then takePrefix;
         succession first takePrefix then freshContext;
         succession first freshContext then runLinearization;
-        succession first runLinearization then choiceGate;
+        succession first runLinearization then descend;
 
-        // Below the empty prefix or a second alternative the run meets the next choice:
-        // within the depth bound it leaves the second alternative, beyond it none.
+        // The run takes the first alternative of every choice it meets on the way down:
+        // within the depth bound each leaves its second alternative, beyond it none.
+        merge descend;
+        succession first descend then choiceGate;
+
         decide choiceGate;
-        if choicesAhead > 0 and (choice == 0 or taken == 2) and choice < depth then meetChoice;
-        if choicesAhead > 0 and (choice == 0 or taken == 2) and choice >= depth then passBeyond;
+        if choicesAhead > 0 and open and reached < depth then meetChoice;
+        if choicesAhead > 0 and open and reached >= depth then passBeyond;
         else runLeaf;
 
-        succession first meetChoice then runMade;
+        succession first meetChoice then descend;
         succession first passBeyond then runMade;
         succession first runLeaf then runMade;
 
@@ -494,11 +502,11 @@ package OpenSysMLBehavior {
         if queued == 0 or runsLeft <= 0 then sortOutcomes;
         else headGate;
 
-        // What a run leaves goes right after it in plan order, deepest first: the choice
-        // just met, else the next alternative here, else the third of the choice above.
+        // What a run leaves goes right after it in plan order, deepest first: the deepest
+        // choice just met, else the next alternative here, else the one left above.
         decide headGate;
-        if descends then stepDown;
-        if not descends and choice > 0 and taken < alternatives then stepAlong;
+        if reached > choice then stepDown;
+        if reached == choice and choice > 0 and taken < alternatives then stepAlong;
         else stepUp;
 
         succession first stepDown then takePrefix;
