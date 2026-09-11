@@ -9,9 +9,10 @@ item.
 Read `AGENTS.md` first; it governs everything below.
 
 > **Labels.** This is an engineering record. The RDF items keep the `D` numbers (`D1`, `D2`,
-> `D3.4`, `D7`, `D8`, `D9`, `D10`) that other records, the known-violations inventory and the ontology
-> package's README cross-reference; `L` names the library items, `N` the native compilation
-> track, `R` the release follow-through, `F` the executor defects the conformance gate carried as
+> `D3.4`, `D7`, `D8`, `D9`, `D10`, `D11`, `D12`) that other records, the known-violations inventory
+> and the ontology package's README cross-reference; `L` names the library items, `N` the native
+> compilation track, `R` the release follow-through, `W` the diagram output formats a view
+> rendering is written in, `F` the executor defects the conformance gate carried as
 > known failures (closed), `S` the multiple-valid-executions work the executor needed before
 > Track E (landed), `E` the behavior-execution semantics the runtime does not yet have, `X` the expression forms it
 > parses but does not evaluate, `Q` the runtime query surface, `A` analysis and simulation
@@ -830,6 +831,56 @@ ratchet over `examples/`, and the live-stack harness posting the emitted element
 instead of a graph, reporting what that path keeps that the Turtle one loses or vice versa. After
 D1 and D2, since the element form inherits their vocabulary; before D9.2 if the branch read is to
 have a choice of representation.
+
+## D12 — the normative element ids of the standard library (targeted at `0.8.0`)
+
+KerML fixes the `elementId` of every **named** standard-library element as a name-based UUID
+(RFC 4122 version 5): the library package's id is `uuid5(NAMESPACE_URL, <prefix> + <escaped
+name>)` with the prefix `https://www.omg.org/spec/KerML/` or `https://www.omg.org/spec/SysML/`
+for the KerML and SysML halves of the library, a named descendant's id is `uuid5(<package id>,
+<qualified name>)`, and its owning membership's is the same with `/owningMembership` appended.
+The pilot's XMI carries exactly these — `ScalarValues::Real` is
+`14c0aa22-5489-59b5-b438-ded26e83ba31` under `ScalarValues`'s
+`40bb440c-5036-58e1-8675-5afccb8b8f1d` — and so does every SysML v2 API server that serves the
+library, so a reference to a library element agrees across tools without either side having
+seen the other's model.
+
+OpenSysML does not compute them. A library element's id today is `rdf.EncodeElementID` over its
+qualified name (`ScalarValues__Real`), the same derivation user elements get when no
+`@IdentityMetadata::ElementId` declares one ([the RDF mapping](../reference/rdf-mapping.md),
+*Element identity*). Nothing is invalid — the encoded id is a legal IRI tail and the alphabet
+Flexo's `requireValidId` accepts — but a graph, an API payload or an element-by-element comparison
+that names `Integer`, `kg` or `Performances::Performance` names an element no other tool has,
+and a project on Flexo that types its parts by the library's ids does not resolve against ours.
+The encoded name is also **reversible** (`rdf.DecodeElementID` recovers the qualified name
+exactly) and a version-5 UUID is not, since it is a SHA-1; that is the trade, and the item keeps
+both: the normative UUID becomes the library element's `elementId` and IRI tail, and
+`sysml:qualifiedName` — which reading a graph back already takes the name from — stays the
+readable form.
+
+Scope, in order:
+
+1. **The derivation.** One function in `internal/core/identity` from a library symbol to its
+   UUID (element and owning membership), with the two prefixes chosen by which half of the
+   bundled library the file belongs to. Gate it against the pilot's own `sysml.library.xmi` at
+   the pinned tag (`scripts/pilot-pin.sh` sparse-checks out the pilot repository by path, so the
+   XMI is one more path, fetched and verified the way the corpora are): every named element and
+   owning membership of the library resolves to the id the XMI carries, asserted, not ratcheted.
+   Unnamed and implied library elements are out of scope by design — the norm gives them
+   positional ids that depend on each implementation's implied-relationship closure, so they do
+   not agree even between the pilot and other conforming tools.
+2. **The consumers.** `rdf.ElementIRI`, `sysml:elementId` and `OwningMembershipIRI` take the
+   normative id for a library element and the encoded name for everything else; the Flexo sync
+   (`-sync-diff` and apply) keys library references by it; `identity.Info` reports which of the
+   three sources an id came from (declared, normative, derived) so the LSP hover and `%info` can
+   say so. User elements are unchanged: `@ElementId` when declared, the encoded name otherwise.
+3. **The ratchets.** Every library reference in a converted graph moves, so `TestCorpusRoundTrip`
+   and the Flexo live-stack expectation are re-adjudicated once, as one movement with one cause,
+   and the mapping page's examples are re-captured from the tool.
+
+After D3's identity work, which it extends, and before D11, whose `api-json` payloads are the
+first surface where a foreign reader would compare our library ids to its own; independent of
+D1, D2 and D7. Targeted at `0.8.0`.
 
 ---
 
@@ -1870,6 +1921,67 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 ---
 
+# Track W — diagram output formats
+
+A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
+`decision`, a lifeline), edges with labels, notices for what was not represented — and a
+**form** is only a writer over it: `text`, `markdown` and `mermaid` today, chosen by
+`-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code panel makes,
+and the document renderer, which embeds the Mermaid form in HTML and rasterizes it through
+`mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
+state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
+effects), the action rendering from the `ActionGraph`, the sequence rendering as lifelines and
+ordered messages — so what is missing is not a diagram kind but the **formats** a rendering can
+be written in, and the fidelity the one machine form allows.
+
+Mermaid was chosen because it draws where the models are read, with no installation. The cost
+is what its grammars cannot say: a `flowchart` has no fork or join bar, no swimlane, no pin, and
+names a decision only by the diamond shape the writer does not yet ask for; `stateDiagram-v2` has
+no history pseudostate, no entry/exit/do compartments and no orthogonal-region separator beyond
+`--`; `sequenceDiagram` has no found or lost message and no timing. Every one of those is a
+notice in the rendering today rather than a drawing. Graphviz DOT and PlantUML both draw them,
+both lay out large graphs Mermaid cannot, and both are what the documentation and publishing
+pipelines this project is meant to feed already consume.
+
+## W1 — a `dot` form
+
+A DOT writer over `Rendering`: a rendering is a `digraph`, a node with children a `subgraph
+cluster_*`, and the node's `Kind` chooses the shape — `Mdiamond`/`Msquare` for initial and
+final, `diamond` for a decision, a filled bar (`shape=rect, height=0.05`) for fork and join,
+`record` or HTML-like labels for a part with its compartments, `note` for a notice. Direction
+maps onto `rankdir`; the origin every node carries becomes `URL=` and `tooltip=`, so an SVG
+rendered from the DOT links back to the declaration the way the LSP panel does. Gate as the other
+forms are gated: a `*.dot.golden` beside every `*.mermaid.golden` in `internal/core/view/testdata`,
+and a test that runs `dot -Tsvg` over each golden when Graphviz is installed and skips with the
+reason when it is not, so the goldens are proven to be valid DOT rather than assumed.
+
+## W2 — a `plantuml` form
+
+A PlantUML writer, one grammar per kind: `@startuml` state syntax for the state rendering (with
+`[H]` history, `--` regions, `state X : entry / …` compartments), activity syntax for the action
+rendering (`fork`/`fork again`/`end fork`, `if … then … else`, `|Swimlane|` from the performing
+usage, `:action;` nodes), sequence syntax for the sequence rendering, and package/component syntax
+for tree and interconnection. `[[url]]` hyperlinks carry the origin. Same gating as W1: goldens,
+and a validation run through the PlantUML jar when present.
+
+## W3 — the forms where renderings surface
+
+`dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
+`-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
+it can draw in-process, and offers the others as *save as*), and the document renderer, which
+gains `-doc-diagrams dot|plantuml|mermaid` and rasterizes through `dot` or the PlantUML jar as
+it does through `mmdc` today — optional tools, located by environment variable, skipping the
+tests with the reason when absent, as the PDF toolchain is handled now. The man pages, the REPL
+guide and the editors guide name the new forms. The gRPC surface has no view-render RPC — only
+`RenderDocument`, to Markdown — so the wire contract does not change; if one is added later it
+takes the form as a string the same way `-render-form` does.
+
+W1 first, being the smaller grammar and the one Graphviz-based pipelines want; W2 after it over
+the same node kinds; W3 with each. Independent of every other track: nothing here touches the
+rendering model, only writers over it. Targeted at `0.8.0`.
+
+---
+
 # Track M — an embedded, RTOS-compatible target
 
 The question was whether OpenSysML models could run on a microcontroller under an RTOS, and what
@@ -2061,8 +2173,10 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
 - **Track D.** The RDF ratchet is 346/346 with no refusal left; step 6 above is next; **D7** is
   mechanical now that identity is stable and fits anywhere; the ontology modules (#774 on the
   previous repository) have to be re-proposed against this `main` before **D8**'s profile, which
-  only becomes conformant behind D1 and D2; **D11** (the API element
-  form) likewise after D1 and D2, and before D9.2 if the branch read is to offer it; **D10**
+  only becomes conformant behind D1 and D2; **D12** (the standard library's normative element
+  ids) next, targeted at `0.8.0`, since it depends on nothing open and D11 wants it landed first;
+  **D11** (the API element
+  form) after D1, D2 and D12, and before D9.2 if the branch read is to offer it; **D10**
   (write-through from a view-only project) after D9.1 and D9.2, which it reads and writes through.
 - **Track F.** Closed. F1 and F2 landed together (#116) as the token-per-succession model, F3
   (#120) as the per-traversal merge on top of it; `known_failures.txt` has no line left to delete.
@@ -2084,4 +2198,6 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   negative case first, each change moving its row.
 - **Track B.** B1, B2, then B3; step 1 above has landed, so nothing holds B1 or B2 back; B4's file
   and HTTP providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
+- **Track W.** W1 (`dot`), then W2 (`plantuml`), W3 alongside each; targeted at `0.8.0`, and
+  independent of every other track, so it can run beside any step above.
 - **Track Q, I, M.** Entirely given by the cross-cutting order above.
