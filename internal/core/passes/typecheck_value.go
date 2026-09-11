@@ -67,6 +67,9 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			continue
 		}
 		if scalar {
+			if len(wants) == 1 && wants[0].Kind == symbols.SymbolEnumerationDef {
+				ec.checkEnumeratedValue(valueScope, wants[0], value)
+			}
 			continue
 		}
 		// The feature's type has no scalar ancestor, so no literal value can
@@ -84,6 +87,42 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
 		}
 	}
+}
+
+// checkEnumeratedValue reports a const-decidable value bound to an enumeration-typed
+// feature that equals none of the enumerated values, the enumeration's only instances
+// (SysML v2 §8.3.7); a value not decided statically is the runtime's to admit.
+func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.Symbol, value ast.Node) {
+	if ec.valueFeature(scope, value) != nil {
+		return
+	}
+	got, ok := ec.constElement(scope, value)
+	if !ok {
+		return
+	}
+	// A value of another kind than the enumerated ones is the lattice rules' to report.
+	var enumerated []string
+	sameKind := false
+	for _, literal := range ec.model.LiteralsOf(enum) {
+		declared := semantics.LiteralValue(literal)
+		if declared == nil {
+			return
+		}
+		want, ok := ec.constElement(literal.OwnerScope, declared)
+		if !ok {
+			return
+		}
+		if want.equal(got) {
+			return
+		}
+		sameKind = sameKind || (want.scalar.Kind == semantics.ValInvalid) == (got.scalar.Kind == semantics.ValInvalid)
+		enumerated = append(enumerated, enum.Name+"::"+literal.Name+" = "+want.valueText())
+	}
+	if !sameKind {
+		return
+	}
+	ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are %s",
+		got.text, enum.Name, strings.Join(enumerated, ", "))
 }
 
 // literalPrimType returns the scalar type of a literal value, or PrimUnknown
@@ -165,6 +204,17 @@ func (e constElement) equal(o constElement) bool {
 		return ok && eq.Kind == semantics.ValBool && eq.Bool
 	}
 	return e.str == o.str
+}
+
+// valueText is the element's value as written, without its kind.
+func (e constElement) valueText() string {
+	switch {
+	case e.literal != nil:
+		return e.literal.Name
+	case e.scalar.Kind != semantics.ValInvalid:
+		return semantics.FormatConst(e.scalar)
+	}
+	return strconv.Quote(e.str)
 }
 
 // constElement decides an element's value statically, or reports it cannot.

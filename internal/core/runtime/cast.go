@@ -101,7 +101,7 @@ func (ec *EvalContext) castValue(
 		elements := elementsOf(value)
 		kept := make([]Value, 0, len(elements))
 		for _, element := range elements {
-			keep, err := ec.castKeeps(element, target, declared)
+			element, keep, err := ec.castKept(element, target, declared)
 			if err != nil {
 				return Value{}, err
 			}
@@ -121,14 +121,31 @@ func (ec *EvalContext) castValue(
 		}
 		return ec.sequenceFrom(kept, value)
 	}
-	keep, err := ec.castKeeps(value, target, declared)
+	kept, keep, err := ec.castKept(value, target, declared)
 	if err != nil {
 		return Value{}, err
 	}
 	if !keep {
 		return ec.sequenceFrom(nil, value)
 	}
-	return value, nil
+	return kept, nil
+}
+
+// castKept is the value a cast keeps of one value: the value itself, or the
+// enumerated value it equals when target is an enumeration, since that is the
+// instance of the enumeration the value is (`3 as Level` is `Level::high`).
+func (ec *EvalContext) castKept(
+	value Value, target *symbols.Symbol, declared []*symbols.Symbol,
+) (Value, bool, error) {
+	keep, err := ec.castKeeps(value, target, declared)
+	if err != nil || !keep {
+		return value, keep, err
+	}
+	enumerated, found, err := ec.ctx.asEnumerated(value, target)
+	if err != nil || !found {
+		return value, true, err
+	}
+	return enumerated, true, nil
 }
 
 // castKeeps reports whether target classifies one value, by the shared classification;

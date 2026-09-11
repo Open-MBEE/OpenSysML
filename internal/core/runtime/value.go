@@ -187,8 +187,24 @@ type Value struct {
 	// (ValString), *Sequence, *Set, *exprValue (ValExpr), *Quantity, a complex128
 	// (ValComplex), *Array, *Vector, *VectorQuantity, *MeasurementRef, *TensorQuantity,
 	// *functionValue (ValFunction), or the *symbols.Symbol of a variant (ValVariant) or
-	// enumeration literal (ValEnumLiteral).
+	// enumeration literal (ValEnumLiteral). A scalar that is the value of an
+	// enumeration literal holds an *enumerated wrapping its payload.
 	ref any
+}
+
+// enumerated is the payload of a scalar evaluated from a scalar-valued enumeration
+// literal, which is of its enumeration; a scalar written bare carries none.
+type enumerated struct {
+	literal *symbols.Symbol
+	payload any
+}
+
+// payload is the kind-specific payload, unwrapped from an enumerated scalar.
+func (v Value) payload() any {
+	if e, ok := v.ref.(*enumerated); ok {
+		return e.payload
+	}
+	return v.ref
 }
 
 // NewComplex is the value of one complex number. One with a zero imaginary part
@@ -243,6 +259,28 @@ func NewEnumLiteral(sym *symbols.Symbol) Value {
 	return Value{Kind: ValEnumLiteral, ref: sym}
 }
 
+// ofLiteral is v as the value of a scalar-valued enumeration literal: equal to
+// and computing as the scalar, and of the literal's enumeration.
+func (v Value) ofLiteral(sym *symbols.Symbol) Value {
+	if !isScalar(v) {
+		return v
+	}
+	v.ref = &enumerated{literal: sym, payload: v.payload()}
+	return v
+}
+
+// EnumerationLiteral is the literal a value is: a ValEnumLiteral itself, or
+// the literal a scalar was evaluated from. Nil for a value that is no literal.
+func (v Value) EnumerationLiteral() *symbols.Symbol {
+	if v.Kind == ValEnumLiteral {
+		return v.Literal()
+	}
+	if e, ok := v.ref.(*enumerated); ok {
+		return e.literal
+	}
+	return nil
+}
+
 // Str is the text of a ValString; "" for every other kind.
 // isBool reports whether v is a boolean constant.
 func (v Value) isBool() bool {
@@ -253,7 +291,7 @@ func (v Value) Str() string {
 	if v.Kind != ValString {
 		return ""
 	}
-	s, _ := v.ref.(string)
+	s, _ := v.payload().(string)
 	return s
 }
 
@@ -389,7 +427,7 @@ func (v Value) Complex() complex128 {
 	if v.Kind != ValComplex {
 		return 0
 	}
-	z, _ := v.ref.(complex128)
+	z, _ := v.payload().(complex128)
 	return z
 }
 

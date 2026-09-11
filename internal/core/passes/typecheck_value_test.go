@@ -55,6 +55,33 @@ func TestValueScalarLiteralToEnumeration(t *testing.T) {
 		"cannot bind Natural value to a feature typed by Color")
 }
 
+// A scalar-valued enumeration's values are the only instances of it, so a
+// constant equal to one is admitted and any other constant refused statically;
+// a value of another kind is the scalar lattice's to report, once.
+func TestValueScalarConstantToScalarValuedEnumeration(t *testing.T) {
+	const level = `package L {
+		enum def Level :> ScalarValues::Integer { low = 1; high = 3; }
+		enum def Grade :> ScalarValues::Real { a = 4.0; b = 3.0; }
+	}
+	`
+	wantNoValueDiags(t, level+`package P {
+		attribute l : L::Level = 3;
+		attribute h : L::Level = L::Level::high;
+		attribute g : L::Grade = 4;
+		attribute many : L::Level[*] = (1, 3);
+		attribute n : ScalarValues::Integer = 2;
+		attribute fromFeature : L::Level = n;
+	}`)
+	wantOneValueDiag(t, level+`package P { attribute l : L::Level = 2; }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
+	wantOneValueDiag(t, level+`package P { attribute g : L::Grade = 2.5; }`,
+		"cannot bind 2.5 (a Real) to a feature typed by Grade, whose values are Grade::a = 4.0, Grade::b = 3.0")
+	wantOneValueDiag(t, level+`package P { attribute many : L::Level[*] = (1, 2); }`,
+		"cannot bind 2 (an Integer) to a feature typed by Level, whose values are Level::low = 1, Level::high = 3")
+	wantOneValueDiag(t, level+`package P { attribute l : L::Level = "x"; }`,
+		"cannot bind String value to a feature typed by Integer")
+}
+
 func TestValueSubtypeInstanceConforms(t *testing.T) {
 	wantNoValueDiags(t, `package P {
 		part t : M::Truck;

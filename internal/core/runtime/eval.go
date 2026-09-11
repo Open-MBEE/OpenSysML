@@ -1275,7 +1275,7 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
-	return val, nil
+	return val.ofLiteral(sym), nil
 }
 
 // EnumerationLiteralValue is the value sym has when it is an enumeration
