@@ -37,6 +37,7 @@ import (
 	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/lsp"
+	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
 const selfModelDir = "self-model"
@@ -521,6 +522,88 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 		t.Fatalf("budgeted run on worker 1: %v", err)
 	} else if limits := budgeted.Budgets(); limits.MaxSteps != 7 || limits.MaxElements != 11 {
 		t.Errorf("a run under Budget{Steps: 7, Memory: 11} has MaxSteps %d, MaxElements %d", limits.MaxSteps, limits.MaxElements)
+	}
+}
+
+// TestSelfModelQuestionFlowFollowsDispatcher runs the modelled question flow
+// as the dispatcher behaves: the engines consulted are the ones declaring the
+// question's kind — one per kind in the default registry, which the flow's
+// default `candidates` states — and every one of them lands in the plan as a
+// step under `all`, while `auto` stops at the first that concludes.
+func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
+	engines := analysis.Default().Engines()
+	declaring := map[analysis.Kind]int{}
+	for _, e := range engines {
+		for _, kind := range e.Describe().Questions {
+			declaring[kind]++
+		}
+	}
+	flow := selfModelFlow(t, "AnswerQuestion", nil)
+	for kind, count := range declaring {
+		if declared := flow.integer("candidates"); declared != count {
+			t.Errorf("behavior.sysml says AnswerQuestion.candidates = %d, %d default engines declare %s", declared, count, kind)
+		}
+	}
+
+	cases := []struct {
+		name        string
+		initial     map[string]string
+		steps, left int
+	}{
+		{"auto over one candidate", nil, 1, 0},
+		{"all over one candidate", map[string]string{"selectsAuto": "false", "selectsAll": "true"}, 1, 0},
+		{"all over three candidates", map[string]string{"selectsAuto": "false", "selectsAll": "true", "candidates": "3"}, 3, 0},
+		{"auto over three candidates, none concluding", map[string]string{"candidates": "3", "concluded": "false"}, 3, 0},
+		{"auto over three candidates, the first concluding", map[string]string{"candidates": "3"}, 1, 2},
+		{"a name beside three candidates", map[string]string{"selectsAuto": "false", "candidates": "3"}, 1, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			flow := selfModelFlow(t, "AnswerQuestion", tc.initial)
+			if got := flow.integer("steps"); got != tc.steps {
+				t.Errorf("the plan recorded %d steps, want %d", got, tc.steps)
+			}
+			if got := flow.integer("enginesLeft"); got != tc.left {
+				t.Errorf("the flow composed with %d candidates unconsulted, want %d", got, tc.left)
+			}
+		})
+	}
+}
+
+// TestSelfModelExplorationFlowDrainsQueue runs the modelled exploration as the
+// explorer behaves: each run queues the prefixes it leaves unexplored and no
+// more, so a finite choice tree drains the queue before the run budget and
+// proves, while a tree the budget cuts leaves prefixes queued and observes.
+func TestSelfModelExplorationFlowDrainsQueue(t *testing.T) {
+	cases := []struct {
+		name     string
+		initial  map[string]string
+		runs     int
+		queued   int
+		complete bool
+	}{
+		{"one schedule", nil, 1, 0, true},
+		{"one choice, then leaves", map[string]string{"runsLeft": "3", "unexplored": "1"}, 2, 0, true},
+		{"three alternatives, then leaves", map[string]string{"runsLeft": "8", "unexplored": "3"}, 4, 0, true},
+		{"two alternatives under a budget of two", map[string]string{"runsLeft": "2", "unexplored": "2"}, 2, 1, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			flow := selfModelFlow(t, "ExploreOutcomes", tc.initial)
+			budget := runtime.DefaultExploreBudget.Runs
+			if given, ok := tc.initial["runsLeft"]; ok {
+				budget, _ = strconv.Atoi(given)
+			}
+			if runs := budget - flow.integer("runsLeft"); runs != tc.runs {
+				t.Errorf("exploration made %d runs, want %d", runs, tc.runs)
+			}
+			if got := flow.integer("queued"); got != tc.queued {
+				t.Errorf("exploration ended with %d prefixes queued, want %d", got, tc.queued)
+			}
+			if got := flow.boolean("complete"); got != tc.complete {
+				t.Errorf("exploration ended complete = %v, want %v", got, tc.complete)
+			}
+		})
 	}
 }
 
@@ -1276,6 +1359,99 @@ func declaredString(text, attribute string) (string, bool) {
 		return "", false
 	}
 	return match[1], true
+}
+
+// flowResult is what one run of a self-model action ended with, by attribute.
+type flowResult struct {
+	t      *testing.T
+	name   string
+	values map[string]string
+}
+
+// selfModelFlow runs an action of behavior.sysml to completion in a REPL session
+// over the whole self-model and returns the values it ended with. The initial
+// values name attributes of the action whose declared `= <literal>` is replaced
+// before the run, which is how one flow is put through several cases.
+func selfModelFlow(t *testing.T, action string, initial map[string]string) *flowResult {
+	t.Helper()
+
+	var files []repl.SourceFile
+	for _, name := range selfModelFiles(t) {
+		text := readModelFile(t, name)
+		if name == "behavior.sysml" {
+			text = withInitialValues(t, text, action, initial)
+		}
+		files = append(files, repl.SourceFile{Name: name, Text: text})
+	}
+	session := repl.NewSession()
+	session.SubmitFiles(files)
+	if session.HasErrors() {
+		t.Fatalf("the self-model with %s's initial values %v does not analyse:\n%s", action, initial, strings.Join(session.DiagnosticLines(), "\n"))
+	}
+
+	name := "OpenSysMLBehavior::" + action
+	verdict := session.RunAction(name)
+	if verdict.Status != repl.VerdictHolds {
+		t.Fatalf("%s with initial values %v did not complete:\n%s", name, initial, strings.Join(verdict.Lines, "\n"))
+	}
+	values := map[string]string{}
+	for _, v := range verdict.Values {
+		values[v.Name] = v.Value
+	}
+	return &flowResult{t: t, name: name, values: values}
+}
+
+// withInitialValues replaces the declared initial value of each named attribute
+// within one action def of the model text, failing on an attribute it does not declare.
+func withInitialValues(t *testing.T, text, action string, initial map[string]string) string {
+	t.Helper()
+
+	start := strings.Index(text, "action def "+action+" {")
+	if start < 0 {
+		t.Fatalf("behavior.sysml declares no action def %s", action)
+	}
+	end := start + strings.Index(text[start:], "\n    }\n")
+	body := text[start:end]
+	for attribute, value := range initial {
+		declaration := regexp.MustCompile(`(attribute ` + attribute + ` : \w+ = )[^;]+;`)
+		if !declaration.MatchString(body) {
+			t.Fatalf("%s declares no attribute %s with an initial value", action, attribute)
+		}
+		body = declaration.ReplaceAllString(body, "${1}"+value+";")
+	}
+	return text[:start] + body + text[end:]
+}
+
+// integer reads an Integer attribute the run ended with.
+func (r *flowResult) integer(attribute string) int {
+	r.t.Helper()
+
+	value, err := strconv.Atoi(r.value(attribute))
+	if err != nil {
+		r.t.Fatalf("%s ended with %s = %q, not an integer", r.name, attribute, r.value(attribute))
+	}
+	return value
+}
+
+// boolean reads a Boolean attribute the run ended with.
+func (r *flowResult) boolean(attribute string) bool {
+	r.t.Helper()
+
+	value, err := strconv.ParseBool(r.value(attribute))
+	if err != nil {
+		r.t.Fatalf("%s ended with %s = %q, not a boolean", r.name, attribute, r.value(attribute))
+	}
+	return value
+}
+
+func (r *flowResult) value(attribute string) string {
+	r.t.Helper()
+
+	value, ok := r.values[attribute]
+	if !ok {
+		r.t.Fatalf("%s ended without a value for %s; it has %v", r.name, attribute, r.values)
+	}
+	return value
 }
 
 // packageScope returns the scope of a top-level package of one document.

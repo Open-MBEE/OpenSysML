@@ -319,7 +319,11 @@ package OpenSysMLBehavior {
     action def AnswerQuestion {
         attribute selectsAuto : Boolean = true;
         attribute selectsAll : Boolean = false;
-        attribute enginesLeft : Integer = 4;
+        // The engines declaring the question's kind: one in the default registry,
+        // where every engine declares a kind of its own.
+        attribute candidates : Integer = 1;
+        attribute enginesLeft : Integer = 0;
+        attribute steps : Integer = 0;
         attribute covered : Boolean = true;
         attribute concluded : Boolean = true;
         attribute faulted : Boolean = false;
@@ -330,21 +334,21 @@ package OpenSysMLBehavior {
 
         first start;
 
-        action rankByAuthority;
-        action listByName;
+        action rankByAuthority { assign enginesLeft := candidates; }
+        action listByName { assign enginesLeft := candidates; }
         action pickNamed { assign enginesLeft := 1; }
         action askCoverage { assign enginesLeft := enginesLeft - 1; }
-        action recordRefusal;
+        action recordRefusal { assign steps := steps + 1; }
         action runEngine;
-        action recordResult;
+        action recordResult { assign steps := steps + 1; }
         action nextEngine;
         action compose;
         action recordFault;
 
         succession first start then selectionGate;
 
-        // Auto ranks the covering engines strongest first; all consults each in
-        // name order; a name consults exactly one.
+        // Auto ranks the engines declaring the kind strongest first; all consults
+        // each of them in name order; a name consults exactly one.
         decide selectionGate;
         if selectsAuto then rankByAuthority;
         if selectsAll and not selectsAuto then listByName;
@@ -388,7 +392,9 @@ package OpenSysMLBehavior {
         attribute jobs : Integer = 1;
         attribute runsLeft : Integer = 1024;
         attribute queued : Integer = 1;
-        attribute choicesMet : Integer = 0;
+        // The prefixes the run just made leaves to explore, one per alternative it
+        // did not take; a run below every choice leaves none.
+        attribute unexplored : Integer = 0;
         attribute complete : Boolean = true;
 
         in item question : AnalysisQuestion;
@@ -400,7 +406,10 @@ package OpenSysMLBehavior {
         action takePrefix { assign queued := queued - 1; }
         action freshContext;
         action runLinearization { assign runsLeft := runsLeft - 1; }
-        action queueChoices { assign queued := queued + choicesMet; }
+        action queueChoices {
+            assign queued := queued + unexplored;
+            assign unexplored := 0;
+        }
         action sortOutcomes { assign complete := queued == 0; }
         action claimProved;
         action claimObserved;
@@ -412,8 +421,8 @@ package OpenSysMLBehavior {
         succession first runLinearization then queueChoices;
         succession first queueChoices then queueGate;
 
-        // The queue starts with the empty prefix; every choice a run meets queues one
-        // more, and exploration ends when the queue is drained or the runs are spent.
+        // The queue starts with the empty prefix and grows by what each run leaves
+        // unexplored; exploration ends when it drains or the runs are spent.
         decide queueGate;
         if queued == 0 or runsLeft <= 0 then sortOutcomes;
         else takePrefix;
