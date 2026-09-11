@@ -61,6 +61,17 @@ func (l *layer[K, V]) at(k K) V {
 	return v
 }
 
+// below returns the entry the layer below holds under k, for a caller that has
+// already found no own entry there.
+func (l *layer[K, V]) below(k K) (V, bool) {
+	if l.dead[k] {
+		var zero V
+		return zero, false
+	}
+	v, ok := l.base[k]
+	return v, ok
+}
+
 // set records v under k in this layer, which also un-deletes the key.
 func (l *layer[K, V]) set(k K, v V) {
 	l.gen.bump()
@@ -122,7 +133,7 @@ func writableMap[K comparable, NK comparable, NV any](l *layer[K, map[NK]NV], k 
 		l.gen.bump()
 		return m
 	}
-	shared, _ := l.get(k)
+	shared, _ := l.below(k)
 	out := make(map[NK]NV, len(shared)+1)
 	for nk, nv := range shared {
 		out[nk] = nv
@@ -133,13 +144,13 @@ func writableMap[K comparable, NK comparable, NV any](l *layer[K, map[NK]NV], k 
 
 // writableSlice returns the slice under k that this layer may append to, copying
 // one the layer below owns — appending to it could write into the shared array.
-func writableSlice[K comparable, E any](l *layer[K, []E], k K) []E {
+func writableSlice[K comparable, S ~[]E, E any](l *layer[K, S], k K) S {
 	if s, owned := l.own[k]; owned {
 		l.gen.bump()
 		return s
 	}
-	shared, _ := l.get(k)
-	out := make([]E, len(shared), len(shared)+1)
+	shared, _ := l.below(k)
+	out := make(S, len(shared), len(shared)+1)
 	copy(out, shared)
 	l.set(k, out)
 	return out
@@ -147,14 +158,14 @@ func writableSlice[K comparable, E any](l *layer[K, []E], k K) []E {
 
 // appendSlice appends e to the slice under k, copying a slice the layer below
 // owns first (see writableSlice).
-func appendSlice[K comparable, E any](l *layer[K, []E], k K, e E) {
+func appendSlice[K comparable, S ~[]E, E any](l *layer[K, S], k K, e E) {
 	if s, owned := l.own[k]; owned {
 		l.gen.bump()
 		l.own[k] = append(s, e)
 		return
 	}
-	shared, _ := l.get(k)
-	out := make([]E, len(shared), len(shared)+1)
+	shared, _ := l.below(k)
+	out := make(S, len(shared), len(shared)+1)
 	copy(out, shared)
 	l.set(k, append(out, e))
 }
@@ -162,14 +173,17 @@ func appendSlice[K comparable, E any](l *layer[K, []E], k K, e E) {
 // insertSorted adds s to the sorted, duplicate-free slice under k, copying a
 // slice the layer below owns first (see writableSlice).
 func insertSorted(l *layer[string, []string], k, s string) {
-	have, _ := l.get(k)
-	i, found := slices.BinarySearch(have, s)
-	if found {
+	if owned, ok := l.own[k]; ok {
+		i, found := slices.BinarySearch(owned, s)
+		if !found {
+			l.gen.bump()
+			l.own[k] = slices.Insert(owned, i, s)
+		}
 		return
 	}
-	if owned, ok := l.own[k]; ok {
-		l.gen.bump()
-		l.own[k] = slices.Insert(owned, i, s)
+	have, _ := l.below(k)
+	i, found := slices.BinarySearch(have, s)
+	if found {
 		return
 	}
 	out := make([]string, len(have)+1)
