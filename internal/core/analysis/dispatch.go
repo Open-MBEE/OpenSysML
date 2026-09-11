@@ -155,7 +155,7 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 		defer cancel()
 	}
 	held := model.plan()
-	held.compute(r.newToolRunner(ctx, held, budget))
+	held.compute(r.newToolRunner(ctx, held, budget, selection))
 	defer held.release()
 	return r.answer(ctx, held, q, budget, selection)
 }

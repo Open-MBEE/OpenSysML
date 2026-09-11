@@ -160,13 +160,20 @@ func (e toolEngine) invoke(ctx context.Context, path string, request []byte, tim
 	defer cancel()
 	cmd := exec.CommandContext(tctx, path)
 	cmd.Stdin = bytes.NewReader(request)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	stdout, stderr := &boundedBuffer{stop: cancel}, &boundedBuffer{stop: cancel}
+	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = time.Second
 	err := cmd.Run()
 	switch {
 	case ctx.Err() != nil:
 		return nil, ctx.Err()
+	case stdout.over || stderr.over:
+		stream := "output"
+		if stderr.over {
+			stream = "error"
+		}
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("%s wrote more than %d bytes to standard %s", path, ToolOutputLimit, stream)}
 	case errors.Is(tctx.Err(), context.DeadlineExceeded):
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolTimeout,
 			Detail: fmt.Sprintf("%s did not answer within %s (%s)", path, timeout, ToolTimeoutEnv)}
@@ -175,6 +182,31 @@ func (e toolEngine) invoke(ctx context.Context, path string, request []byte, tim
 	}
 	return ToolReplyOf(tool, stdout.Bytes())
 }
+
+// ToolOutputLimit bounds what one invocation may write to standard output or standard
+// error; a tool writing more is stopped and its reply is malformed.
+const ToolOutputLimit = 16 << 20
+
+// boundedBuffer keeps the first ToolOutputLimit bytes written to it and stops the process
+// at the first byte beyond. It is a plain Writer so every byte passes through Write.
+type boundedBuffer struct {
+	kept bytes.Buffer
+	over bool
+	stop context.CancelFunc
+}
+
+func (b *boundedBuffer) Write(p []byte) (int, error) {
+	if room := ToolOutputLimit - b.kept.Len(); len(p) > room {
+		b.kept.Write(p[:room])
+		b.over = true
+		b.stop()
+		return len(p), nil
+	}
+	return b.kept.Write(p)
+}
+
+// Bytes is what was kept.
+func (b *boundedBuffer) Bytes() []byte { return b.kept.Bytes() }
 
 // processDetail spells a failed process: how it exited and what it wrote to standard error.
 func processDetail(path string, err error, stderr []byte) string {
@@ -255,6 +287,9 @@ func ToolReplyOf(tool string, stdout []byte) (map[string]runtime.ToolValue, erro
 	if err := decodeOne(stdout, &reply); err != nil {
 		return nil, malformed("standard output is not one JSON object of outputs or error", err)
 	}
+	if path, twice := repeatedKey(stdout); twice {
+		return nil, malformed("the reply names "+path+" twice", nil)
+	}
 	if bytes.Equal(bytes.TrimSpace(reply.Outputs), []byte("null")) {
 		reply.Outputs = nil
 	}
@@ -265,9 +300,6 @@ func ToolReplyOf(tool string, stdout []byte) (map[string]runtime.ToolValue, erro
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolRefused, Detail: *reply.Error}
 	case reply.Outputs == nil:
 		return nil, malformed("the reply carries neither outputs nor an error", nil)
-	}
-	if name, twice := repeatedKey(reply.Outputs); twice {
-		return nil, malformed("outputs names "+name+" twice", nil)
 	}
 	var wired map[string]protocolValue
 	if err := json.Unmarshal(reply.Outputs, &wired); err != nil {
@@ -284,32 +316,53 @@ func ToolReplyOf(tool string, stdout []byte) (map[string]runtime.ToolValue, erro
 	return outputs, nil
 }
 
-// repeatedKey is the first key a JSON object spells twice, which a map decode would hide.
-func repeatedKey(object json.RawMessage) (string, bool) {
-	dec := json.NewDecoder(bytes.NewReader(object))
-	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
-		return "", false
+// repeatedKey is the first key an object anywhere in a JSON document spells twice, as the
+// dotted path to it, which a struct or map decode would hide by keeping the last spelling.
+// Only well-formed JSON is walked; anything else is left to the decoder to report.
+func repeatedKey(document []byte) (string, bool) {
+	dec := json.NewDecoder(bytes.NewReader(document))
+	// One frame per open object or array; only an object's frame has seen keys.
+	type frame struct {
+		seen  map[string]bool
+		inKey bool
 	}
-	seen := make(map[string]bool)
-	for dec.More() {
+	var path []string
+	var open []*frame
+	valueDone := func() {
+		if top := len(open) - 1; top >= 0 && open[top].inKey {
+			open[top].inKey = false
+			path = path[:len(path)-1]
+		}
+	}
+	for {
 		tok, err := dec.Token()
 		if err != nil {
 			return "", false
 		}
-		key, ok := tok.(string)
-		if !ok {
-			return "", false
+		switch tok {
+		case json.Delim('{'):
+			open = append(open, &frame{seen: make(map[string]bool)})
+			continue
+		case json.Delim('['):
+			open = append(open, &frame{})
+			continue
+		case json.Delim('}'), json.Delim(']'):
+			open = open[:len(open)-1]
+			valueDone()
+			continue
 		}
-		if seen[key] {
-			return key, true
+		top := len(open) - 1
+		if top >= 0 && open[top].seen != nil && !open[top].inKey {
+			key, _ := tok.(string)
+			if open[top].seen[key] {
+				return strings.Join(append(path, key), "."), true
+			}
+			open[top].seen[key], open[top].inKey = true, true
+			path = append(path, key)
+			continue
 		}
-		seen[key] = true
-		var value json.RawMessage
-		if err := dec.Decode(&value); err != nil {
-			return "", false
-		}
+		valueDone()
 	}
-	return "", false
 }
 
 // decodeValue reads one wire value: a JSON number as an Integer when it is one and fits,

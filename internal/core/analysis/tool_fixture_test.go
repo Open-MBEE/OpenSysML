@@ -306,6 +306,7 @@ func TestPilotFixtureFailsWithTheToolsFault(t *testing.T) {
 		{"unknown-output", runtime.ToolUnknownOutput, "y"},
 		{"duplicate-output", runtime.ToolMalformed, "twice"},
 		{"malformed", runtime.ToolMalformed, "JSON"},
+		{"flood", runtime.ToolMalformed, "wrote more than"},
 		{"string-unit", runtime.ToolMalformed, "unit"},
 		{"wrong-unit", runtime.ToolMalformed, "kg"},
 		{"error", runtime.ToolRefused, "equation did not converge"},
@@ -480,6 +481,43 @@ func TestToolEngineDispatch(t *testing.T) {
 	_, plan, err = Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, Auto(), call, answer)
 	if !errors.Is(err, runtime.ErrTool) {
 		t.Fatalf("auto: %v, want the tool's fault", err)
+	}
+	wantFaulted(t, plan, err)
+}
+
+// The computation an annotated action asks for inside a run is put to the registry under
+// the selection the run itself was asked under: `all` composes the tool's answer as it does
+// the run's, and a named engine that does not answer compute refuses the computation, so
+// `-engine run` never reaches the tool.
+func TestToolEngineDispatchKeepsTheSelection(t *testing.T) {
+	p := parsePilot(t)
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	want := map[string]string{"a": "3.0 [SI::'m⋅s⁻²']", "v": "12.0 [SI::'m/s']", "x": "110.0 [SI::m]"}
+
+	out, plan, err := Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, All(), call, answer)
+	if err != nil {
+		t.Fatalf("all: %v, plan %+v", err, plan.Steps)
+	}
+	wantValues(t, out, want)
+
+	run, err := r.Select("run")
+	if err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	out, plan, err = Perform(context.Background(), r, Held(p.context()), "Drive::Once", runtime.DefaultSchedulePolicy, Budget{}, run, call, answer)
+	if err == nil || !errors.Is(err, ErrNotAsked) || len(out) != 0 {
+		t.Fatalf("run alone: %v, outputs %v; want the run engine's refusal of the computation", err, out)
+	}
+	if got := plan.Refused(); got != nil {
+		t.Fatalf("run alone refused %v; want the run to answer with the refusal as its fault", got)
 	}
 	wantFaulted(t, plan, err)
 }

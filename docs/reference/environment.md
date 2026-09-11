@@ -19,7 +19,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_SMT_CORE_BUDGET` | `30s` | How long `%explain` may spend reducing an unsat core to a minimal one, as a Go duration; past it the solver's own core is reported, said not to be necessarily minimal |
 | `OPENSYSML_SMT_MAX_CONFIGURATIONS` | `32` | How many variant selections `%configure … all` may report before saying the enumeration was cut short at the bound |
 | `OPENSYSML_TOOLS` | unset (no tools) | Directory of the **tool manifest**: one JSON file per external tool, each registering a `tool:<name>` analysis engine that runs the tool for the `ToolExecution`-annotated actions naming it; see [External tools](#external-tools) |
-| `OPENSYSML_TOOL_TIMEOUT` | `10s` | How long one tool process may take, as a Go duration (`5s`, `500ms`), after which the performance fails with a timeout |
+| `OPENSYSML_TOOL_TIMEOUT` | `10s` | How long one tool process may take, as a Go duration (`5s`, `500ms`), after which the performance fails with a timeout; a value that is not a positive duration is the default |
 | `OPENSYSML_GRPC_INDEX_POOL` | `4` | Whether `sysml-grpc` builds the one shared standard library index ahead of the requests needing it; any positive value prewarms, `0` builds it on the first request instead |
 
 Every variable above uses the `OPENSYSML_` prefix. The eight that predate it
@@ -115,8 +115,8 @@ quantity kind (`36 km/h` bound to a `SpeedValue` is `10.0 [SI::'m/s']`). A unit 
 not declare, one of another dimension, or one on a string or a truth is refused. The process
 must exit 0 within `OPENSYSML_TOOL_TIMEOUT` (default `10s`). A non-zero exit (its standard
 error is quoted), a reply that is not exactly one JSON object of this shape, a missing output,
-an output no parameter receives, a repeated key, an `error` beside `outputs`, or the timeout is a
-typed error that fails the performance, and with it the action, sweep row or analysis case
+an output no parameter receives, a key repeated at any depth, an `error` beside `outputs`, more
+than 16 MiB on either standard stream, or the timeout is a typed error that fails the performance, and with it the action, sweep row or analysis case
 performing it; no default value is ever invented, and nothing falls back to the action's body.
 The body is never run when the metadata is present: with `OPENSYSML_TOOLS` unset or the tool
 absent from it, the performance fails with `tool 'ModelCenter' is not registered; set

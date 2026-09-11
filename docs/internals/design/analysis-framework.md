@@ -704,19 +704,28 @@ behavior unchanged until stage 4.
    and their supertypes — never initializes the action's flow; with no runner attached, or a
    `toolName` no engine answers, it fails with `ToolNotRegisteredError` (*tool 'ModelCenter'
    is not registered; set OPENSYSML_TOOLS*), else it binds the outputs into the action's own
-   data so the enclosing action adopts them as it adopts any `out`. `Registry.AnswerWith`
+   data so the enclosing action adopts them as it adopts any `out`. Every start of an action
+   goes through this one gate, the debugger's executor (`CreateActionExecutor`, `%action`,
+   `-action`) included: created, such an executor is completed with the tool's outputs and has
+   no flow to step. An annotated `in` bound by no argument is `ErrUnboundParameter` unless the
+   parameter is optional, in which case it is left out of the request, and two parameters one
+   `ToolVariable` name would put under one key are `ToolAmbiguousVariable` — both before any
+   process starts. `Registry.AnswerWith`
    installs a plan-scoped runner (`analysis/tool_runner.go`) on every context the plan builds
    (`Model.running`, `NewContext`, the sweep's rows), which puts each invocation to the registry
    as a `compute` question under the plan's selection, so `-engine <name>` on another engine
-   refuses it, and `auto` stops at the tool's failure because nothing else answers `compute`.
+   refuses it, and `auto` stops at the tool's failure because nothing else answers `compute`;
+   the REPL attaches the same runner, under its `%engine`, to the context its debuggers step.
    The protocol is the three steps above with the request `{toolName, uri, inputs}` and the
    reply `{outputs}` or `{error}`, values as JSON numbers, truths or text with an optional
    `unit` spelt as a SysML unit expression (`m/s`, `SI::km`); an output quantity is converted
    to the coherent unit of the parameter's declared kind and spelt as that kind prefers, text
-   and truths admit no unit, and a duplicate key, a `null`, an `error` beside `outputs` or a
-   trailing JSON value are malformed. `ToolError{Kind}` distinguishes a failed process, a
-   malformed reply, a missing output, an unknown output, a timeout and the tool's own `error`;
-   `OPENSYSML_TOOL_TIMEOUT` (default `solve.DefaultTimeout`, 10 s) bounds one process. Two
+   and truths admit no unit, and a key repeated at any depth, a `null`, an `error` beside
+   `outputs`, a trailing JSON value or more than `ToolOutputLimit` bytes on either standard
+   stream are malformed. `ToolError{Kind}` distinguishes a failed process, a malformed reply,
+   a missing output, an unknown output, a timeout and the tool's own `error`;
+   `OPENSYSML_TOOL_TIMEOUT` (default `solve.DefaultTimeout`, 10 s; an unset, unparsable or
+   non-positive value is the default) bounds one process. Two
    invocations with equal inputs answering unequal outputs set the `ToolDivergence` run note
    the REPL trace summarizes. The stand-in is a Go program
    (`analysis/testdata/toolstandin`) the fixture test compiles once, its failure modes chosen by

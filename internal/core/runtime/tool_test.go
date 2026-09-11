@@ -235,3 +235,148 @@ func (divergingRunner) RunTool(call *ToolCall) (ToolAnswer, error) {
 	})
 	return ToolAnswer{Outputs: outputs, Diverged: true}, err
 }
+
+// scaleModel is a tool-computed action with a required and an optional input, driven with
+// and without each, and variants whose ToolVariable names collide.
+const scaleModel = `package test {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+
+	action def Scale {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in k : Real          { @ToolVariable { name = "k"; } }
+		in bias : Real [0..1] { @ToolVariable { name = "bias"; } }
+		out y : Real         { @ToolVariable { name = "y"; } }
+	}
+	action def Scaled { out y : Real; action s : Scale { in k = 2.0; } bind y = s.y; }
+	action def Biased { out y : Real; action s : Scale { in k = 2.0; in bias = 1.0; } bind y = s.y; }
+	action def Unscaled { out y : Real; action s : Scale { in bias = 1.0; } bind y = s.y; }
+
+	action def TwoInputs {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in a : Real  { @ToolVariable { name = "x"; } }
+		in b : Real  { @ToolVariable { name = "x"; } }
+		out y : Real { @ToolVariable { name = "y"; } }
+	}
+	action def TwoOutputs {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in a : Real  { @ToolVariable { name = "x"; } }
+		out y : Real { @ToolVariable { name = "y"; } }
+		out z : Real { @ToolVariable { name = "y"; } }
+	}
+	action def InAndOut {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in a : Real  { @ToolVariable { name = "x"; } }
+		out y : Real { @ToolVariable { name = "x"; } }
+	}
+	action def Collides { out y : Real; action s : InAndOut { in a = 1.0; } bind y = s.y; }
+
+	action def Doubling {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		in k : Real = 2.0 { @ToolVariable { name = "k"; } }
+		out y : Real     { @ToolVariable { name = "y"; } }
+	}
+}`
+
+// An input carrying a ToolVariable that no argument binds is ErrUnboundParameter before
+// any tool runs, as it is for an action run by its body; an optional one is omitted from
+// the call, never sent as an invented value.
+func TestToolCallInputsFollowTheParameters(t *testing.T) {
+	t.Run("optional omitted", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, scaleModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+		ctx.SetToolRunner(runner)
+		if _, err := ctx.ExecuteAction(calcNamed(t, scope, "Scaled")); err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if len(runner.calls) != 1 || len(runner.calls[0].Inputs) != 1 || runner.calls[0].Inputs[0].Variable != "k" {
+			t.Fatalf("calls %+v, want one sending k alone", runner.calls)
+		}
+	})
+	t.Run("optional sent", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, scaleModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+		ctx.SetToolRunner(runner)
+		if _, err := ctx.ExecuteAction(calcNamed(t, scope, "Biased")); err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if len(runner.calls) != 1 || len(runner.calls[0].Inputs) != 2 {
+			t.Fatalf("calls %+v, want one sending k and bias", runner.calls)
+		}
+	})
+	t.Run("required unbound", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, scaleModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+		ctx.SetToolRunner(runner)
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "Unscaled"))
+		if !errors.Is(err, ErrUnboundParameter) || !strings.Contains(err.Error(), "input parameter k is bound by no argument") {
+			t.Fatalf("ExecuteAction = %v, want ErrUnboundParameter for k", err)
+		}
+		if len(runner.calls) != 0 {
+			t.Fatalf("tool ran %d times for an action missing a required input", len(runner.calls))
+		}
+	})
+}
+
+// Two parameters carrying one ToolVariable name would share a key on the wire: the
+// performance is a ToolError naming both, and the tool is not run.
+func TestToolCallRefusesAmbiguousVariables(t *testing.T) {
+	cases := map[string]struct {
+		action, detail string
+		inputs         map[string]Value
+	}{
+		"two inputs":   {"TwoInputs", "x names both a and b", map[string]Value{"a": realOf(1), "b": realOf(2)}},
+		"two outputs":  {"TwoOutputs", "y names both y and z", map[string]Value{"a": realOf(1)}},
+		"in and out":   {"InAndOut", "x names both a and y", map[string]Value{"a": realOf(1)}},
+		"via a driver": {"Collides", "x names both a and y", nil},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx, scope := analysisFixture(t, scaleModel)
+			runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(1)}}}
+			ctx.SetToolRunner(runner)
+			_, err := ctx.ExecuteActionWithInputs(calcNamed(t, scope, tc.action), tc.inputs)
+			var fault *ToolError
+			if !errors.As(err, &fault) || fault.Kind != ToolAmbiguousVariable || !strings.Contains(fault.Detail, tc.detail) {
+				t.Fatalf("ExecuteAction = %v, want ToolError %q", err, tc.detail)
+			}
+			if len(runner.calls) != 0 {
+				t.Fatalf("tool ran %d times under an ambiguous variable", len(runner.calls))
+			}
+		})
+	}
+}
+
+// A debugger's executor of a tool-computed action is the same performance: created, the tool
+// has run once and the executor is completed with its outputs, with no flow to step; without
+// a runner its creation is the same refusal a run's performance is.
+func TestToolExecutionThroughTheDebuggerExecutor(t *testing.T) {
+	ctx, scope := analysisFixture(t, scaleModel)
+	runner := &recordingRunner{answer: map[string]ToolValue{"y": {Value: toolReal(4)}}}
+	ctx.SetToolRunner(runner)
+	scale := calcNamed(t, scope, "Doubling")
+
+	exec, err := ctx.CreateActionExecutor(scale)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	defer exec.Release()
+	if exec.State() != StateCompleted || len(exec.Tokens()) != 0 {
+		t.Fatalf("state %s with %d tokens, want completed with none", exec.State(), len(exec.Tokens()))
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+	}
+	if got := FormatValue(exec.Results()["y"]); got != "4.0" {
+		t.Fatalf("y = %s, want 4.0", got)
+	}
+	if err := exec.Step(); err != nil || len(runner.calls) != 1 {
+		t.Fatalf("stepping a completed executor: %v, %d invocations", err, len(runner.calls))
+	}
+
+	bare, _ := analysisFixture(t, scaleModel)
+	_, err = bare.CreateActionExecutor(scale)
+	if !errors.Is(err, ErrToolNotRegistered) {
+		t.Fatalf("CreateActionExecutor without a runner = %v, want ErrToolNotRegistered", err)
+	}
+}

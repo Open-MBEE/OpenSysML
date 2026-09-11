@@ -88,6 +88,14 @@ func run() error {
 	case "malformed":
 		_, err := fmt.Fprint(os.Stdout, "a = 3 m/s^2")
 		return err
+	case "flood":
+		// A reply that never ends: the interpreter must stop reading, not the tool writing.
+		line := []byte(`{"outputs":{"a":{"value":1,"unit":"m/s**2"},"padding":"` + strings.Repeat("x", 1<<16))
+		for {
+			if _, err := os.Stdout.Write(line); err != nil {
+				return err
+			}
+		}
 	case "error":
 		return json.NewEncoder(os.Stdout).Encode(map[string]string{"error": "equation did not converge"})
 	case "exit":

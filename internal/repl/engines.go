@@ -36,9 +36,17 @@ func (s *Session) SetEngine(text string) error {
 func (s *Session) setEngine(selection analysis.Selection) error {
 	s.engine = selection
 	if s.rtCtx != nil {
+		s.attachTools(s.rtCtx)
 		return s.rtCtx.SetSchedule(s.drivenSchedule())
 	}
 	return nil
+}
+
+// attachTools gives a context the session drives outside any plan — the one the prompt's
+// debuggers step — the runner that puts its tool-computed actions to the engines selected.
+func (s *Session) attachTools(ctx *runtime.Context) {
+	schedule := s.drivenSchedule()
+	ctx.SetToolRunner(s.engines.ToolRunner(context.Background(), ctx, s.budgetFor(schedule, analysis.Compute), s.engine))
 }
 
 // SetEngines replaces the registry the session's questions are put to, keeping the

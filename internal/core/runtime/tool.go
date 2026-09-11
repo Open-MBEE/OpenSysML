@@ -113,6 +113,8 @@ const (
 	ToolRefused
 	// ToolUnsentInput is an input the protocol carries no value of.
 	ToolUnsentInput
+	// ToolAmbiguousVariable is a ToolVariable name two parameters of the action carry.
+	ToolAmbiguousVariable
 )
 
 // String names the kind as the error spells it.
@@ -132,6 +134,8 @@ func (k ToolErrorKind) String() string {
 		return "tool error"
 	case ToolUnsentInput:
 		return "input not carried"
+	case ToolAmbiguousVariable:
+		return "ambiguous variable"
 	}
 	return "unknown failure"
 }
@@ -315,6 +319,7 @@ func (ctx *Context) metadataString(inst *Instance, typ *symbols.Symbol, feature 
 // performance's are, the tool the metadata names is invoked once with them, and its outputs
 // stand as the action's; the action's own flow is never run.
 func (e *ActionExecutor) performByTool(tool, uri string) error {
+	defer e.ctx.beginExecutorRun(&e.driven)()
 	if err := e.checkResultParameters(); err != nil {
 		return err
 	}
@@ -350,9 +355,12 @@ func (e *ActionExecutor) performByTool(tool, uri string) error {
 }
 
 // toolCall is the performance as the tool sees it: every `in` and `inout` parameter carrying
-// a ToolVariable that holds a value is an input, every `out` and `inout` one an output.
+// a ToolVariable is an input, every `out` and `inout` one an output. An input bound to no
+// value is ErrUnboundParameter unless the parameter is optional, which the call then omits;
+// a ToolVariable name two parameters carry is a ToolError, since the protocol keys by it.
 func (e *ActionExecutor) toolCall(tool, uri string) (*ToolCall, error) {
 	call := &ToolCall{Action: e.action, ToolName: tool, URI: uri, exec: e}
+	namedBy := make(map[string]string)
 	for _, param := range e.ctx.model.BehaviorParametersOf(e.action) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
 			continue
@@ -364,10 +372,20 @@ func (e *ActionExecutor) toolCall(tool, uri string) (*ToolCall, error) {
 		if !named {
 			continue
 		}
+		if other, taken := namedBy[variable]; taken {
+			return nil, &ToolError{Tool: tool, Kind: ToolAmbiguousVariable,
+				Detail: fmt.Sprintf("%s names both %s and %s of %s", variable, other, param.Symbol.Name, symbolText(e.action))}
+		}
+		namedBy[variable] = param.Symbol.Name
 		reads := param.Direction == ast.DirIn || param.Direction == ast.DirInOut
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
-			if held, ok := e.root.data[e.root.key(param.Symbol.Name)]; ok {
+			held, bound := e.root.data[e.root.key(param.Symbol.Name)]
+			if !bound && !e.ctx.model.OptionalParameter(param.Symbol) {
+				return nil, fmt.Errorf("%w: action %s: input parameter %s is bound by no argument",
+					ErrUnboundParameter, symbolText(e.action), param.Symbol.Name)
+			}
+			if bound {
 				sent, err := toolInput(tool, param.Symbol, held)
 				if err != nil {
 					return nil, err

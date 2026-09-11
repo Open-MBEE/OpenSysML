@@ -1148,6 +1148,7 @@ func (s *Session) getOrCreateRuntime() (*runtime.Context, error) {
 	ctx.AdoptIdentities(s.replaced)
 	s.rtCtx = ctx
 	s.rtCtx.SetTrace(s.trace)
+	s.attachTools(s.rtCtx)
 	return s.rtCtx, nil
 }
 

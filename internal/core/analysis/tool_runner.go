@@ -26,9 +26,18 @@ type toolRunner struct {
 	answered map[string]string
 }
 
-// newToolRunner is the runner of one plan over the held model.
-func (r *Registry) newToolRunner(ctx context.Context, model *Model, budget Budget) *toolRunner {
-	return &toolRunner{registry: r, ctx: ctx, model: model, budget: budget, selection: Auto(), answered: make(map[string]string)}
+// newToolRunner is the runner of one plan over the held model, putting each computation to
+// the registry under the plan's selection.
+func (r *Registry) newToolRunner(ctx context.Context, model *Model, budget Budget, selection Selection) *toolRunner {
+	return &toolRunner{registry: r, ctx: ctx, model: model, budget: budget, selection: selection, answered: make(map[string]string)}
+}
+
+// ToolRunner is the runner a surface attaches to a context it drives outside any plan — the
+// prompt's action debugger — so a tool-computed action it steps is put to the registry as a
+// Compute question under the selection, as one performed inside a plan is. Divergence between
+// equal-input answers is remembered for as long as the runner is attached.
+func (r *Registry) ToolRunner(ctx context.Context, held *runtime.Context, budget Budget, selection Selection) runtime.ToolRunner {
+	return r.newToolRunner(ctx, Held(held), budget, selection)
 }
 
 // RunTool puts the call to the registry as a Compute question. A tool no engine answers for
@@ -57,10 +66,14 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	return runtime.ToolAnswer{Outputs: outputs, Diverged: diverged}, nil
 }
 
-// refusalOf is the error a plan every engine refused leaves the performance: the refusal
-// of the tool's own engine when one is registered, else the tool is not registered.
+// refusalOf is the error a plan every engine refused leaves the performance: under a named
+// selection that engine's refusal, else the refusal of the tool's own engine when one is
+// registered, else the tool is not registered.
 func refusalOf(plan Plan, tool string) error {
 	name := ToolEngineName(tool)
+	if plan.Selection.Mode == SelectNamed {
+		name = plan.Selection.Engine
+	}
 	for _, step := range plan.Steps {
 		if step.Engine == name && step.Refusal != nil {
 			return step.Refusal

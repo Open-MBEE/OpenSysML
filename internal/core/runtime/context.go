@@ -1416,19 +1416,8 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 		exec.SetInputs(inputs)
 	}
 
-	tool, uri, err := ctx.toolExecutionOf(action)
-	if err != nil {
-		return nil, fmt.Errorf("initialize action: %w", err)
-	}
-	if tool != "" {
-		if err := exec.performByTool(tool, uri); err != nil {
-			return nil, fmt.Errorf("perform action by tool: %w", err)
-		}
-		return exec, nil
-	}
-
-	if err := start(exec); err != nil {
-		return nil, fmt.Errorf("initialize action: %w", err)
+	if err := ctx.startAction(exec, start); err != nil {
+		return nil, err
 	}
 	if exec.state == StateCompleted {
 		return exec, nil
@@ -1438,6 +1427,26 @@ func (ctx *Context) performActionFrom(action *symbols.Symbol, self *Instance, in
 		return nil, fmt.Errorf("execute action: %w", err)
 	}
 	return exec, nil
+}
+
+// startAction begins an executor however its action is performed: one a ToolExecution
+// annotates is performed by its tool, which completes it; any other is begun by begin,
+// which initializes its flow. Every way of starting an action passes through here.
+func (ctx *Context) startAction(exec *ActionExecutor, begin func(*ActionExecutor) error) error {
+	tool, uri, err := ctx.toolExecutionOf(exec.action)
+	if err != nil {
+		return fmt.Errorf("initialize action: %w", err)
+	}
+	if tool != "" {
+		if err := exec.performByTool(tool, uri); err != nil {
+			return fmt.Errorf("perform action by tool: %w", err)
+		}
+		return nil
+	}
+	if err := begin(exec); err != nil {
+		return fmt.Errorf("initialize action: %w", err)
+	}
+	return nil
 }
 
 // ExecuteState executes a state machine, processing events until completion or suspension.
@@ -1517,17 +1526,17 @@ func (ctx *Context) CreateActionExecutor(action *symbols.Symbol) (*ActionExecuto
 }
 
 // CreateActionExecutorFor creates an action executor for an action performed by
-// self, without starting execution.
+// self, without starting execution. An action a ToolExecution annotates has no flow to
+// step: its tool is invoked once and the executor returned completed with its outputs.
 func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
 	}
 
-	// Initialize (spawns initial token)
-	if err := exec.initialize(); err != nil {
+	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
 		exec.Release()
-		return nil, fmt.Errorf("initialize action: %w", err)
+		return nil, err
 	}
 
 	return exec, nil
