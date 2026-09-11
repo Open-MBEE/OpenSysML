@@ -79,7 +79,7 @@ func (v *verifyContext) check(ctx context.Context, subject string, call func(*ru
 // under the schedule rt was set.
 func performOn[T any](ctx context.Context, s *Service, rt *runtime.Context, selection analysis.Selection, subject string, call func(*runtime.Context) (T, error), answer func(T, error) analysis.Answer) (T, analysis.Plan, error) {
 	schedule := rt.Schedule()
-	return analysis.Perform(ctx, s.engines, analysis.Held(rt), subject, schedule, analysis.BudgetOf(s.budgets, schedule, analysis.Evaluate), selection, call, answer)
+	return analysis.Perform(ctx, s.engines, analysis.Held(rt), subject, schedule, analysis.BudgetOf(s.budgets, schedule, analysis.Evaluate, s.jobs), selection, call, answer)
 }
 
 // standing spells for the wire which engine a plan's answer is, how strong its

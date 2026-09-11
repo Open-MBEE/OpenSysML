@@ -130,7 +130,8 @@ func answered(t *testing.T, r *Registry, model *Model, q Question, budget Budget
 }
 
 // BudgetOf fills Runs in the unit of the question's kind: an exploring policy's
-// runs for outcomes, the sweep runs for a sweep, none for a run or a solve.
+// runs for outcomes, the sweep runs for a sweep, none for a run or a solve; Jobs
+// is the surface's, DefaultJobs when the surface set none.
 func TestBudgetOfFillsRunsByKind(t *testing.T) {
 	limits := runtime.Budgets{MaxSteps: 70, MaxElements: 90, MaxSweepRuns: 40}
 	exploring := policy(t, "explore:runs=6,depth=4")
@@ -139,16 +140,19 @@ func TestBudgetOfFillsRunsByKind(t *testing.T) {
 		policy runtime.SchedulePolicy
 		want   Budget
 	}{
-		{Outcomes, exploring, Budget{Runs: 6, Depth: 4, Steps: 70, Memory: 90}},
-		{Outcomes, runtime.DefaultSchedulePolicy, Budget{Steps: 70, Memory: 90}},
-		{Sweep, exploring, Budget{Runs: 40, Depth: 4, Steps: 70, Memory: 90}},
-		{Sweep, runtime.DefaultSchedulePolicy, Budget{Runs: 40, Steps: 70, Memory: 90}},
-		{Evaluate, exploring, Budget{Depth: 4, Steps: 70, Memory: 90}},
-		{Satisfiable, exploring, Budget{Depth: 4, Steps: 70, Memory: 90}},
+		{Outcomes, exploring, Budget{Jobs: 3, Runs: 6, Depth: 4, Steps: 70, Memory: 90}},
+		{Outcomes, runtime.DefaultSchedulePolicy, Budget{Jobs: 3, Steps: 70, Memory: 90}},
+		{Sweep, exploring, Budget{Jobs: 3, Runs: 40, Depth: 4, Steps: 70, Memory: 90}},
+		{Sweep, runtime.DefaultSchedulePolicy, Budget{Jobs: 3, Runs: 40, Steps: 70, Memory: 90}},
+		{Evaluate, exploring, Budget{Jobs: 3, Depth: 4, Steps: 70, Memory: 90}},
+		{Satisfiable, exploring, Budget{Jobs: 3, Depth: 4, Steps: 70, Memory: 90}},
 	}
 	for _, tc := range cases {
-		if got := BudgetOf(limits, tc.policy, tc.kind); got != tc.want {
+		if got := BudgetOf(limits, tc.policy, tc.kind, 3); got != tc.want {
 			t.Errorf("BudgetOf(%s, %s) = %+v, want %+v", tc.kind, tc.policy, got, tc.want)
 		}
+	}
+	if got := BudgetOf(limits, exploring, Outcomes, 0).Jobs; got != DefaultJobs() {
+		t.Errorf("BudgetOf with no jobs set Jobs = %d, want DefaultJobs %d", got, DefaultJobs())
 	}
 }

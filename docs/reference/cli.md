@@ -211,6 +211,7 @@ written in, so the verdicts are about that object:
 | `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
 | `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does. See [Analysis engines](#analysis-engines) |
+| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 **Arguments:**
@@ -726,6 +727,23 @@ exploration ended as `exploration` (`complete`, `runs`, `budgetsHit`):
 The REPL's `%schedule` refuses `explore`, since its `%action` and `%state` debuggers step one run
 ([`%schedule`](repl-commands.md)); a service client explores through the same `schedule` field
 and reads the outcomes off the response ([API](api.md), [wire contract](wire-contract.md)).
+
+### Running in parallel
+
+`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU) lets `n` runs of one exploration go at
+once, each on a worker of its own — a resolver and semantic model per worker over the one loaded
+model, so no run sees another's memo or object. The prefixes explore discovers form a work queue
+ordered as the sequential exploration would take them, and the report is assembled in that order:
+the outcome table, each outcome's witness (the least prefix reaching it), the run count and the
+budget hit are the ones `-jobs 1` reports, byte for byte, whatever `n` is. A `runs` budget is a
+cut in that order — runs past it are discarded and charged to nothing — and a run that shows a
+violation ends only the runs whose prefixes order after it, once every earlier prefix has
+completed, so the witness reported is the same one. At most `n` runs beyond the cut are ever
+started, so an exploration performs at most `runs + n` executions. A count below one, or one
+that is no integer, is refused before anything runs.
+
+With `-json` the check's `plan` carries `workers`, how many workers the plan built, and
+`warming`, the milliseconds spent building them; the human-readable report does not print them.
 
 ## Analysis engines
 

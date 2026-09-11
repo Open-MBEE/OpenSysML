@@ -124,6 +124,11 @@ recursion spends. Default 10000, ceiling 25000.
 .B OPENSYSML_MAX_SWEEP_RUNS
 Runs one parameter sweep or sample may make, each a whole analysis or calc run
 of its own with its own budgets. Default 1000.
+.TP
+.B OPENSYSML_JOBS
+Runs of one check, exploration or sweep that may go concurrently, each on a
+worker of its own over the shared model; \-jobs and %jobs override it. Default
+the number of CPUs.
 .PP
 Each variable above also answers to its legacy SYSML_\-prefixed name
 (SYSML_MAX_STEPS for OPENSYSML_MAX_STEPS, and so on), which remains accepted.
