@@ -140,8 +140,8 @@ so raising one says nothing about the others, and each has its own variable.
 ranges would make more runs than it allows is refused before the first one is
 made, naming the count the plan asks for and the bound it exceeds.
 `OPENSYSML_JOBS` is no budget at all but the width of the fleet: how many of one check's
-runs — an exploration's linearizations, the engines `-engine all` consults — may go at
-once. A value that is not a positive integer is refused at startup; `-jobs` and `%jobs`
+runs — an exploration's linearizations, a sweep's rows, the engines `-engine all` consults —
+may go at once. A value that is not a positive integer is refused at startup; `-jobs` and `%jobs`
 override it for one invocation or session. See
 [Running in parallel](cli.md#running-in-parallel).
 

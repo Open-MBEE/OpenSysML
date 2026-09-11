@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -103,10 +104,12 @@ func TestFunctionValueIdentity(t *testing.T) {
 }
 
 // TestEveryValueKindIsDispatched walks every ValueKind through the surfaces that
-// switch on it — its name, its renderings, its description, equality and set
-// keying — so a new kind cannot fall through to a fallback arm unnoticed.
+// switch on it — its name, its renderings, its description, equality, set
+// keying and carrying — so a new kind cannot fall through to a fallback arm unnoticed.
 func TestEveryValueKindIsDispatched(t *testing.T) {
 	samples := kindSamples()
+	_, row, _, _ := carryContexts(t)
+	same := func(id int64) (*Instance, error) { return &Instance{ID: id}, nil }
 	for kind := ValInvalid + 1; kind < valueKindCount; kind++ {
 		pair, ok := samples[kind]
 		if !ok {
@@ -130,6 +133,10 @@ func TestEveryValueKindIsDispatched(t *testing.T) {
 		}
 		if s := describeOperand(a); s == "a value" {
 			t.Errorf("%s: describeOperand falls back to %q", name, s)
+		}
+		var notPortable *NotPortableError
+		if _, err := row.Carry(a, same); errors.As(err, &notPortable) && notPortable.Reason == unknownKindReason {
+			t.Errorf("%s: Carry falls back to %q", name, err)
 		}
 		// An expression is a deferred body, not a value with an equality.
 		if kind != ValExpr && !valueEqual(a, a) {

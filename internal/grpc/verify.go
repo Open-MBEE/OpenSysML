@@ -65,6 +65,12 @@ func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, er
 	return &verifyContext{service: s, cached: cached, runtime: s.newRuntime(cached), engine: selection}, nil
 }
 
+// on is this request's context over a run's own runtime, so what the run made is
+// read through the context that made it.
+func (v *verifyContext) on(rt *runtime.Context) *verifyContext {
+	return &verifyContext{service: v.service, cached: v.cached, runtime: rt, engine: v.engine}
+}
+
 // sem is the semantic model the request's runtime evaluates against.
 func (v *verifyContext) sem() *semantics.Model { return v.runtime.Semantics() }
 

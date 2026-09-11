@@ -14603,7 +14603,7 @@ func refusedSweepPlan(t *testing.T, name string, plan SweepPlan) []error {
 			t.Fatalf("%s refused the plan's parameter: %v", name, err)
 		}
 		runs := 0
-		table, err := ctx.RunSweep(context.Background(), "test::"+name, resolved, 0, func([]SweepBinding) (SweepRunResult, error) {
+		table, err := sweepIn(ctx, context.Background(), "test::"+name, resolved, 0, func(*Context, []SweepBinding) (SweepRunResult, error) {
 			runs++
 			return SweepRunResult{}, nil
 		})
@@ -14662,7 +14662,7 @@ func testSweepOverAnIntegerParameterByAFraction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolving x: %v", err)
 	}
-	_, err = ctx.RunSweep(context.Background(), "test::Sq", plan, 0, func([]SweepBinding) (SweepRunResult, error) {
+	_, err = sweepIn(ctx, context.Background(), "test::Sq", plan, 0, func(*Context, []SweepBinding) (SweepRunResult, error) {
 		t.Fatal("a row ran under a fractional step")
 		return SweepRunResult{}, nil
 	})
@@ -14698,7 +14698,7 @@ func testSweepOverARealParameterByIntegersNoRealHolds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolving x: %v", err)
 	}
-	_, err = ctx.RunSweep(context.Background(), "test::Half", plan, 0, func([]SweepBinding) (SweepRunResult, error) {
+	_, err = sweepIn(ctx, context.Background(), "test::Half", plan, 0, func(*Context, []SweepBinding) (SweepRunResult, error) {
 		t.Fatal("a row ran under a step the reals cannot tell apart")
 		return SweepRunResult{}, nil
 	})
