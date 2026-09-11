@@ -17,10 +17,12 @@
   prefix per choice it owns, as `exploreRun.unexplored` does, not every alternative at once — and
   the next run takes the prefix queued deepest, so two binary choices met by the first run take
   three runs, not four, and a later run advances a four-way choice to its third alternative rather
-  than finding three prefixes queued; a choice met beyond the depth bound
-  (`depth`, 64 by default) takes its first alternative and marks the bound hit — so a finite choice
-  tree drains the queue before the 1024-run bound and proves, a tree either bound cuts observes
-  even when the queue drains, and neither flow depends on a fixed decision any more. Both flows now run under
+  than finding three prefixes queued; what a run leaves goes on the queue only up to the runs left,
+  the plan never outgrowing the run budget, the rest dropped and the runs bound marked hit
+  (`runsHit`), as `exploreQueue.insert` does; a choice met beyond the depth bound (`depth`, 64 by
+  default) takes its first alternative and marks that bound hit — so the queue always drains, a
+  finite choice tree within the bounds proves, a tree either bound cut observes, and neither flow
+  depends on a fixed decision any more. Both flows now run under
   `go test ./examples/`, through several candidate counts, selections, faults and choice trees.
   The pilot differential baseline is re-recorded from one validator run over the current
   `examples` tree — 370 files, 337 fully agreeing, 671 pilot-only, 707 pilot diagnostics — so its

@@ -419,6 +419,7 @@ package OpenSysMLBehavior {
         // What the run leaves to explore: the second alternative of each choice it met
         // and the next alternative of the choice its prefix ended at.
         attribute unexplored : Integer = 0;
+        attribute runsHit : Boolean = false;
         attribute depthHit : Boolean = false;
         attribute complete : Boolean = true;
 
@@ -451,6 +452,11 @@ package OpenSysMLBehavior {
             assign queued := queued + unexplored;
             assign unexplored := 0;
         }
+        action dropBeyond {
+            assign queued := runsLeft;
+            assign unexplored := 0;
+            assign runsHit := true;
+        }
         action stepDown {
             assign choice := reached;
             assign taken := 2;
@@ -460,7 +466,7 @@ package OpenSysMLBehavior {
             assign choice := choice - 1;
             assign taken := below + 1;
         }
-        action sortOutcomes { assign complete := queued == 0 and not depthHit; }
+        action sortOutcomes { assign complete := not runsHit and not depthHit; }
         action claimProved;
         action claimObserved;
 
@@ -491,15 +497,29 @@ package OpenSysMLBehavior {
 
         decide nextGate;
         if choice > 0 and taken < alternatives then leaveNext;
+        else cutGate;
+
+        succession first leaveNext then cutGate;
+
+        // The plan never outgrows the run budget: what a run leaves goes on the queue up to
+        // the runs left, the rest is dropped and the runs bound is hit.
+        merge cutGate;
+        succession first cutGate then capGate;
+
+        decide capGate;
+        if queued + unexplored > runsLeft then dropBeyond;
         else queueChoices;
 
-        succession first leaveNext then queueChoices;
-        succession first queueChoices then queueGate;
+        succession first dropBeyond then queueMade;
+        succession first queueChoices then queueMade;
 
         // The queue starts with the empty prefix and grows by what each run leaves
-        // unexplored; exploration ends when it drains or the runs are spent.
+        // within the budget; exploration ends when it drains.
+        merge queueMade;
+        succession first queueMade then queueGate;
+
         decide queueGate;
-        if queued == 0 or runsLeft <= 0 then sortOutcomes;
+        if queued == 0 then sortOutcomes;
         else headGate;
 
         // What a run leaves goes right after it in plan order, deepest first: the deepest
