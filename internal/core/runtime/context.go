@@ -592,9 +592,11 @@ func (ctx *Context) beginRun() func() {
 }
 
 // executorRun is a run driven call by call: its state, nil until its first call
-// begins it, which every later call resumes.
+// begins it, which every later call resumes; owned when that state is its own
+// rather than an enclosing run's.
 type executorRun struct {
 	state *runState
+	owned bool
 }
 
 // beginExecutorRun brackets one call into a call-by-call driven executor: the run's
@@ -604,10 +606,19 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 		if ctx.runDepth > 0 {
 			run.state = ctx.run
 		} else {
-			run.state = ctx.newRunState()
+			run.state, run.owned = ctx.newRunState(), true
 		}
 	}
 	return ctx.enterRun(run.state)
+}
+
+// endedWhole is the refusal of a call-by-call run of its own that ended with
+// witness moves left over; one sharing an enclosing run leaves them to it.
+func (ctx *Context) endedWhole(run *executorRun) error {
+	if !run.owned {
+		return nil
+	}
+	return run.state.scheduler.unfollowed("the run ended")
 }
 
 // previewExecutorRun installs, for a preview of a call into a call-by-call driven

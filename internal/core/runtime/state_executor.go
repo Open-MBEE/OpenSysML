@@ -2111,8 +2111,9 @@ func (e *StateExecutor) run(atCurrentTime bool) error {
 	return e.runCounting(atCurrentTime, &progress)
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) error {
+func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	wasRunning := e.inRun
 	e.inRun = true
 	defer func() { e.inRun = wasRunning }()
@@ -2899,8 +2900,9 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 }
 
 // initialize sets current state to initial state and enters it.
-func (e *StateExecutor) initialize() error {
+func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
 	// A machine without orthogonal regions of its own starts in the state its
@@ -3552,8 +3554,9 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // dispatch succeeds — the completion transition it enables is queued next.
 // With nothing due but a timer running, the shared clock advances to the earliest
 // wait (running whatever else is due there) until this machine's next event is due.
-func (e *StateExecutor) ProcessNextEvent() error {
+func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
 	var progress dueProgress
@@ -3587,6 +3590,14 @@ func (e *StateExecutor) ProcessNextEvent() error {
 		if err := e.awaitClock(&progress); err != nil {
 			return err
 		}
+	}
+}
+
+// completedWhole makes a call of its own run that completed the machine return
+// the refusal of the witness moves left over, when the call itself did not fail.
+func (e *StateExecutor) completedWhole(err *error) {
+	if *err == nil && e.state == StateCompleted {
+		*err = e.ctx.endedWhole(&e.driven)
 	}
 }
 
@@ -3625,8 +3636,9 @@ func (e *StateExecutor) HasPendingWork() bool {
 
 // RunDoRound advances every active state's do behavior by one action, without
 // dispatching any event, and reports how many actions ran.
-func (e *StateExecutor) RunDoRound() (int, error) {
+func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	return e.runDoRound()
 }

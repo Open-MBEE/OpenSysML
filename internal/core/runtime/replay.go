@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 )
 
 // The `replay:<file>` policy follows a witness's choice lines move for move, then behaves as
@@ -105,7 +107,7 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 		if line == "no choice points" {
 			continue
 		}
-		for _, part := range strings.Split(line, "; ") {
+		for _, part := range splitChoices(line) {
 			c, err := ParseChoice(part)
 			if err != nil {
 				var parse *ChoiceParseError
@@ -136,36 +138,196 @@ func ParseChoice(text string) (ChoiceTaken, error) {
 		}
 		step, rest = n, tail
 	}
-	if left, right, ok := strings.Cut(rest, " first of "); ok {
-		among := strings.Split(right, ", ")
-		c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Alternatives: len(among), Among: among, Took: left}
-		if step == 0 {
-			where, took, named := strings.Cut(left, ": ")
-			if !named {
-				return fail("an order outside a step needs where it was made: <where>: <took> first of …")
+	first, mark, after, ok := readLabel(rest, " first of ", " -> ", ": ")
+	if !ok {
+		return fail(unclosedQuote)
+	}
+	switch mark {
+	case " first of ", ": ":
+		c := ChoiceTaken{Kind: ChoiceTokenOrder, Step: step, Took: first}
+		if mark == ": " {
+			if step > 0 {
+				return fail("a step's order names the token first: step <n>: <took> first of …")
 			}
-			c.Kind, c.Where, c.Took = ChoiceRegionOrder, where, took
-			if strings.HasPrefix(where, "t=") {
+			c.Kind, c.Where = ChoiceRegionOrder, first
+			if strings.HasPrefix(first, "t=") {
 				c.Kind = ChoiceDueOrder
 			}
+			if c.Took, mark, after, ok = readLabel(after, " first of "); !ok {
+				return fail(unclosedQuote)
+			}
+			if mark == "" {
+				return fail("not a token order, branch, transition or region order")
+			}
+		} else if step == 0 {
+			return fail("an order outside a step needs where it was made: <where>: <took> first of …")
 		}
-		c.Taken = slices.Index(among, c.Took)
+		among, ok := splitLabels(after, ", ")
+		if !ok {
+			return fail(unclosedQuote)
+		}
+		c.Among, c.Alternatives, c.Taken = among, len(among), slices.Index(among, c.Took)
 		if c.Taken < 0 {
-			return fail(fmt.Sprintf("%s is not among %s", c.Took, right))
+			return fail(fmt.Sprintf("%s is not among %s", choiceLabel(c.Took), choiceLabels(among)))
 		}
 		return c, nil
-	}
-	if where, took, ok := strings.Cut(rest, " -> "); ok {
-		if where == "" || took == "" {
+	case " -> ":
+		took, _, _, ok := readLabel(after)
+		if !ok {
+			return fail(unclosedQuote)
+		}
+		if first == "" || took == "" {
 			return fail("a branch or transition needs both sides of ->")
 		}
-		c := ChoiceTaken{Kind: ChoiceTransition, Where: where, Took: took}
+		c := ChoiceTaken{Kind: ChoiceTransition, Where: first, Took: took}
 		if step > 0 {
 			c.Kind, c.Step = ChoiceDecisionBranch, step
 		}
 		return c, nil
 	}
 	return fail("not a token order, branch, transition or region order")
+}
+
+// The names a choice line carries — tokens, branches, states, where the choice was
+// made — are written as they are unless the line's own punctuation occurs in them;
+// then the name is written quoted, 'like this', escaped as an unrestricted name is.
+
+// linePunctuation is what a choice line's grammar reads as structure.
+var linePunctuation = []string{"; ", " first of ", " -> ", ", ", ": "}
+
+const unclosedQuote = "a quoted name needs its closing quote, followed by the line's punctuation"
+
+// choiceLabel spells a name as a choice line carries it.
+func choiceLabel(name string) string {
+	if labelNeedsQuoting(name) {
+		return lexer.UnrestrictedNameText(name)
+	}
+	return name
+}
+
+// choiceLabels spells a list of names as a choice line carries them.
+func choiceLabels(names []string) string {
+	labels := make([]string, len(names))
+	for i, name := range names {
+		labels[i] = choiceLabel(name)
+	}
+	return strings.Join(labels, ", ")
+}
+
+// labelNeedsQuoting reports a name a line could not read back as it is: empty,
+// punctuated like the line, quote-led, step-led, or with whitespace to lose.
+func labelNeedsQuoting(name string) bool {
+	if name == "" || name[0] == '\'' || strings.HasPrefix(name, "step ") || strings.TrimSpace(name) != name {
+		return true
+	}
+	for _, mark := range linePunctuation {
+		if strings.Contains(name, mark) {
+			return true
+		}
+	}
+	return strings.ContainsAny(name, "\n\r")
+}
+
+// readLabel reads the name text starts with — a quoted one to its closing quote, a
+// plain one to the first of the marks — with the mark that ended it ("" at the end of
+// text) and what follows the mark; false for a quote left open or not followed by a mark.
+func readLabel(text string, marks ...string) (name, mark, after string, ok bool) {
+	if !strings.HasPrefix(text, "'") {
+		at, mark := indexMark(text, marks...)
+		if at < 0 {
+			return text, "", "", true
+		}
+		return text[:at], mark, text[at+len(mark):], true
+	}
+	end := closingQuote(text, 0)
+	if end < 0 {
+		return "", "", "", false
+	}
+	name, after = lexer.StringValue(text[:end+1]), text[end+1:]
+	if after == "" {
+		return name, "", "", true
+	}
+	for _, m := range marks {
+		if rest, found := strings.CutPrefix(after, m); found {
+			return name, m, rest, true
+		}
+	}
+	return "", "", "", false
+}
+
+// closingQuote is the index of the quote closing the name opened at text[open],
+// past its backslash escapes; -1 when the name is left open.
+func closingQuote(text string, open int) int {
+	for i := open + 1; i < len(text); i++ {
+		switch text[i] {
+		case '\\':
+			i++
+		case '\'':
+			return i
+		}
+	}
+	return -1
+}
+
+// indexMark is where the first of the marks occurs in text outside its quoted names,
+// with the mark; -1 when none does. A quote opens a name only where a name may begin.
+func indexMark(text string, marks ...string) (int, string) {
+	for i := 0; i < len(text); i++ {
+		if text[i] == '\'' && nameMayBegin(text[:i]) {
+			if i = closingQuote(text, i); i < 0 {
+				return -1, ""
+			}
+			continue
+		}
+		for _, m := range marks {
+			if strings.HasPrefix(text[i:], m) {
+				return i, m
+			}
+		}
+	}
+	return -1, ""
+}
+
+// nameMayBegin reports whether a name may begin after before: at the start of the
+// text or right after the line's punctuation.
+func nameMayBegin(before string) bool {
+	if before == "" {
+		return true
+	}
+	for _, mark := range linePunctuation {
+		if strings.HasSuffix(before, mark) {
+			return true
+		}
+	}
+	return false
+}
+
+// splitChoices splits a line into the choices it joins by `; `, outside quoted names.
+func splitChoices(line string) []string {
+	var parts []string
+	for {
+		at, _ := indexMark(line, "; ")
+		if at < 0 {
+			return append(parts, line)
+		}
+		parts, line = append(parts, line[:at]), line[at+2:]
+	}
+}
+
+// splitLabels reads the names text lists separated by sep; false for a quote left open.
+func splitLabels(text, sep string) ([]string, bool) {
+	var names []string
+	for {
+		name, mark, after, ok := readLabel(text, sep)
+		if !ok {
+			return nil, false
+		}
+		names = append(names, name)
+		if mark == "" {
+			return names, true
+		}
+		text = after
+	}
 }
 
 // replayRun follows one run's witness: the moves left and the first it refused.

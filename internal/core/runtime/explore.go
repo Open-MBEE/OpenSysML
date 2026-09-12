@@ -51,19 +51,20 @@ type ChoiceTaken struct {
 	Took  string
 }
 
-// String renders the choice for a table or a failure message.
+// String renders the choice for a table or a failure message, as ParseChoice
+// reads it back: a name the line's own punctuation occurs in is quoted.
 func (c ChoiceTaken) String() string {
 	switch c.Kind {
 	case ChoiceTokenOrder:
-		return fmt.Sprintf("step %d: %s first of %s", c.Step, c.Took, strings.Join(c.Among, ", "))
+		return fmt.Sprintf("step %d: %s first of %s", c.Step, choiceLabel(c.Took), choiceLabels(c.Among))
 	case ChoiceDecisionBranch:
-		return fmt.Sprintf("step %d: %s -> %s", c.Step, c.Where, c.Took)
+		return fmt.Sprintf("step %d: %s -> %s", c.Step, choiceLabel(c.Where), choiceLabel(c.Took))
 	case ChoiceTransition:
-		return fmt.Sprintf("%s -> %s", c.Where, c.Took)
+		return fmt.Sprintf("%s -> %s", choiceLabel(c.Where), choiceLabel(c.Took))
 	case ChoiceRegionOrder, ChoiceDueOrder:
-		return fmt.Sprintf("%s: %s first of %s", c.Where, c.Took, strings.Join(c.Among, ", "))
+		return fmt.Sprintf("%s: %s first of %s", choiceLabel(c.Where), choiceLabel(c.Took), choiceLabels(c.Among))
 	}
-	return fmt.Sprintf("%s -> %s", c.Kind, c.Took)
+	return fmt.Sprintf("%s -> %s", c.Kind, choiceLabel(c.Took))
 }
 
 // FormatChoices renders a witness as one line, its choices in run order.

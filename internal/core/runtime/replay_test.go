@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -773,5 +774,248 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	}
 	if total := FormatValue(exec.StateData()["total"]); total != "0" {
 		t.Errorf("total is %v after the refusal, want 0: the do behavior may not take a message whose dispatch is refused", total)
+	}
+}
+
+// A refused decision move leaves the token at the decision: no branch is taken,
+// so neither branch's action ran.
+func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {
+	m := parseExploreModel(t, choiceModel)
+	sym := m.action(t, "route")
+	good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+	witness, err := ParseChoices(good[0].String() + "\n" + good[1].String() + "\nstep 7: decision select -> 3->nowhere\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for err == nil && exec.State() == StateRunning {
+		err = exec.Step()
+	}
+	var refused *ReplayError
+	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(refused.Faced, "3->nowhere is not enabled") {
+		t.Fatalf("error %v, want move 3 refused as not enabled", err)
+	}
+	tokens := exec.Tokens()
+	if len(tokens) != 1 {
+		t.Fatalf("%d tokens after the refusal, want the one at the decision", len(tokens))
+	}
+	if decision, ok := tokens[0].Location.(*ast.DecisionNode); !ok || decision.Name != "select" {
+		t.Errorf("token at %T, want decision select", tokens[0].Location)
+	}
+	if got := FormatTraceValue(exec.Data()["handler"]); got != "0" {
+		t.Errorf("handler = %s, want 0: no branch ran", got)
+	}
+	if ctx.Unfollowed() == nil {
+		t.Error("the refusal is not reported for the run")
+	}
+}
+
+// An executor driven call by call — as the REPL drives it — refuses the witness
+// moves left over when it completes, as a run under ExecuteAction does; a
+// witness the run uses up is followed whole.
+func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
+	extra := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 99, Among: []string{"1@a", "2@b"}, Took: "1@a", Alternatives: 2}
+	t.Run("action run to completion", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertRefusedLeftOver(t, exec.RunToCompletion(), len(good)+1, extra)
+		if exec.State() != StateCompleted {
+			t.Errorf("state %v, want completed: the run ended before the move was refused", exec.State())
+		}
+	})
+	t.Run("action stepped", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		steps := 0
+		for err == nil && exec.State() == StateRunning {
+			err = exec.Step()
+			steps++
+		}
+		assertRefusedLeftOver(t, err, len(good)+1, extra)
+		if exec.State() != StateCompleted || steps < 7 {
+			t.Errorf("state %v after %d steps, want completed at the last step", exec.State(), steps)
+		}
+	})
+	t.Run("action followed whole", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(good))
+		exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		if err := ctx.Unfollowed(); err != nil {
+			t.Errorf("unfollowed: %v", err)
+		}
+	})
+	const dispatcher = `package test {
+		state def Dispatcher {
+			entry; then idle;
+			state idle;
+			state low;
+			transition first idle accept Go then low;
+			transition first idle accept Go then done;
+		}
+	}`
+	stateWitness := func(t *testing.T, lines string) []ChoiceTaken {
+		t.Helper()
+		witness, err := ParseChoices(lines)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return witness
+	}
+	t.Run("state run to completion", func(t *testing.T) {
+		m := parseExploreModel(t, dispatcher)
+		witness := stateWitness(t, "state idle on accept Go -> 2->done\nstate low on accept Go -> 1->idle\n")
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(m.state(t, "Dispatcher"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec.SendSignal("Go", nil)
+		assertRefusedLeftOver(t, exec.RunToCompletion(), 2, witness[1])
+		if exec.State() != StateCompleted {
+			t.Errorf("state %v, want completed", exec.State())
+		}
+	})
+	t.Run("state stepped", func(t *testing.T) {
+		m := parseExploreModel(t, dispatcher)
+		witness := stateWitness(t, "state idle on accept Go -> 2->done\nstate low on accept Go -> 1->idle\n")
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(m.state(t, "Dispatcher"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec.SendSignal("Go", nil)
+		assertRefusedLeftOver(t, exec.ProcessNextEvent(), 2, witness[1])
+		if exec.State() != StateCompleted {
+			t.Errorf("state %v, want completed", exec.State())
+		}
+	})
+	t.Run("state not yet complete", func(t *testing.T) {
+		m := parseExploreModel(t, dispatcher)
+		witness := stateWitness(t, "state idle on accept Go -> 1->low\nstate low on accept Go -> 1->idle\n")
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(m.state(t, "Dispatcher"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec.SendSignal("Go", nil)
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("a move left for a machine still running is not left over: %v", err)
+		}
+		if exec.State() == StateCompleted {
+			t.Fatal("the machine completed in low")
+		}
+	})
+}
+
+// Every choice reads back from the line that spells it, whatever punctuation the
+// names it carries share with the line; a witness of such lines reads back whole.
+func TestChoiceLinesRoundTripPunctuatedNames(t *testing.T) {
+	names := []string{"a, b", "x -> y", "p; q", "k: v", "it's", `back\slash`, "first of all", "step 3", " padded ", "tab\there", "line\nbreak", "plain"}
+	var choices []ChoiceTaken
+	for i, name := range names {
+		others := []string{name, names[(i+1)%len(names)], names[(i+2)%len(names)]}
+		choices = append(choices,
+			ChoiceTaken{Kind: ChoiceTokenOrder, Step: i + 1, Alternatives: 3, Taken: 0, Among: others, Took: name},
+			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Took: "1->" + name},
+			ChoiceTaken{Kind: ChoiceTransition, Where: "state " + name + " on accept " + name, Took: "2->" + name},
+			ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept " + name, Alternatives: 3, Taken: 1, Among: []string{others[1], name, others[2]}, Took: name},
+			ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{others[1], others[2], name}, Took: name},
+		)
+	}
+	var lines []string
+	for _, want := range choices {
+		line := want.String()
+		got, err := ParseChoice(line)
+		if err != nil {
+			t.Errorf("%s: %v", line, err)
+			continue
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s reads back as %+v, want %+v", line, got, want)
+		}
+		lines = append(lines, line)
+	}
+	for _, line := range lines {
+		if strings.ContainsAny(line, "\n\r") {
+			t.Errorf("%q spans lines", line)
+		}
+	}
+	text := strings.Join(lines[:5], "; ") + "\n" + strings.Join(lines[5:], "\n") + "\n\nstep 1: tokens 1@'a, b'\nanything -> at all; after the blank line\n"
+	got, err := ParseChoices(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, choices) {
+		t.Errorf("witness reads back as\n%s\nwant\n%s", FormatChoices(got), FormatChoices(choices))
+	}
+	plain := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 3, Alternatives: 2, Among: []string{"2@a", "3@b"}, Took: "2@a"}
+	if got := plain.String(); got != "step 3: 2@a first of 2@a, 3@b" {
+		t.Errorf("a plain name is quoted: %s", got)
+	}
+}
+
+// A quoted name left open, or closed where the line's punctuation does not follow,
+// is a parse error naming the quote.
+func TestParseChoiceRejectsAnUnclosedQuote(t *testing.T) {
+	for _, line := range []string{
+		"step 3: 'a, b first of 'a, b', 3@b",
+		"step 3: 'a, b'x first of 'a, b', 3@b",
+		"'state idle -> 2->right",
+		"on accept go: 'b1 first of a1, 'b1'",
+	} {
+		_, err := ParseChoice(line)
+		var parse *ChoiceParseError
+		if !errors.As(err, &parse) || parse.Reason != unclosedQuote {
+			t.Errorf("%s: %v, want the unclosed quote refused", line, err)
+		}
 	}
 }

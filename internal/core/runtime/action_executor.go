@@ -352,6 +352,9 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
+	if e.state == StateCompleted {
+		return e.ctx.endedWhole(&e.driven)
+	}
 	return nil
 }
 
@@ -1709,6 +1712,10 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	}
 	if len(holding) > 0 {
 		choice, pick := e.chooseBranch(token.frame, decisionNode, successors, holding)
+		// A refused replay move leaves the token at the decision: no branch is taken.
+		if refused := e.ctx.scheduling().refusal(); refused != nil {
+			return refused
+		}
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 {
