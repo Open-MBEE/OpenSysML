@@ -208,9 +208,15 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
-| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
+| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)), or `replay:<file>` (the choices a witness file fixes, taken in order, the run refused where it departs from them — see [Checking every schedule of an action](#checking-every-schedule-of-an-action)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
+| `-check-property <name>` | With `-engine check`: a constraint or requirement the checker evaluates at every stable state of each `-action`, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action](#checking-every-schedule-of-an-action) |
+| `-check-diverge <feature>` | With `-engine check`: a feature the checker reports divergent when schedules leave it with different final values — `x` for the action's attribute, `this.level` for the performing object's; repeatable. Absent, every attribute of the action and of the performing object; an action run without one has no object, so its own attributes only |
+| `-check-witness <dir>` | With `-engine check`: write a witness file into this directory for each violation and each divergent value — the schedule's choice lines, a blank line, then the run's trace — which `-schedule replay:<file>` and `%replay` follow. The directory is created if absent |
+| `-check-depth <n>` | With `-engine check`: the most moves one schedule may make before the search backtracks (default 10 000), named as the `depth` bound when it is hit; a positive integer |
+| `-check-states <n>` | With `-engine check`: the most distinct states the search may visit (default 1 000 000), named as the `states` bound when it is hit; a positive integer. It is the shared `runs` budget in the checker's unit, so under `-engine all` the one figure is also an exploration's linearizations |
+| `-check-timeout <duration>` | With `-engine check`: the wall clock the check's plan may run for, as `30s` or `2m`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default |
 | `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
-| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does. See [Analysis engines](#analysis-engines) |
+| `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `check`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action)). See [Analysis engines](#analysis-engines) |
 | `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
@@ -790,11 +796,12 @@ status — `ready`, `ready (z3 at /usr/bin/z3)` for one whose process was found,
 
 ```bash
 $ sysml -engines
-engine   authority  answers      status
-explore  proved     outcomes     ready
-run      observed   evaluate     ready
-solve    proved     satisfiable  ready (z3 at /usr/bin/z3)
-sweep    observed   sweep        ready
+engine   authority  answers          status
+check    bounded    outcomes, holds  ready
+explore  proved     outcomes         ready
+run      observed   evaluate         ready
+solve    proved     satisfiable      ready (z3 at /usr/bin/z3)
+sweep    observed   sweep            ready
 ```
 
 Every tool the manifest directory `OPENSYSML_TOOLS` names adds a `tool:<name>` engine, listed
@@ -839,7 +846,7 @@ finished earned. A name no engine is registered under is refused before anything
 
 ```bash
 $ sysml -engine bogus -constraint Rover::MassBudget model.sysml
-invalid value "bogus" for flag -engine: analysis: no engine named "bogus"; the engines are explore, run, solve, sweep, or auto, or all
+invalid value "bogus" for flag -engine: analysis: no engine named "bogus"; the engines are check, explore, run, solve, sweep, or auto, or all
 ```
 
 With `-json` each check carries how it was answered beside the fields it always carried. `plan`
@@ -873,6 +880,116 @@ did not resolve — carries neither key.
 The REPL selects with [`%engine`](repl-commands.md) and lists with `%engines`; a service client
 sends the same selection in the `engine` field of a request and reads `engine`, `strength` and
 `bounds` off the response ([wire contract](wire-contract.md)).
+
+## Checking every schedule of an action
+
+`-engine check` puts each `-action` of the invocation to the `check` engine, an explicit-state
+model checker over the interpreter: instead of running the action once, or once per
+linearization as `-schedule explore` does, it searches the schedules the library leaves open
+one move at a time — one token advancing one node — taking a snapshot of the run before each
+choice and restoring it to try the next, and reports the first state on any schedule where a
+property is false, the run deadlocks or a body raises a typed error, or, with none, whether a
+feature ends differently on different schedules. Two moves that touch disjoint features,
+messages and control nodes reach the same state in either order, so the search explores one
+order of each such pair (a static partial-order reduction over the reads, writes, sends,
+accepts and joins each node's body names, computed once when the action is lowered), and a
+state it has visited — the same tokens at the same nodes, the same values, the same messages
+and clock, whatever ids the run handed out — is not searched again. The design is in
+[bounded model checking](../internals/design/bounded-model-checking.md).
+
+```bash
+$ sysml -engine check -action Mission::race -check-witness witnesses race.sysml; echo $?
+✓ package Mission
+✗ Action Mission::race: divergent (11 states, 10 moves, depth 6)
+  divergent: x ends as 1 or 2
+    x = 1 (witness witnesses/Mission.race.x-1.witness)
+    x = 2 (witness witnesses/Mission.race.x-2.witness)
+  outcome: leftRan = true; rightRan = true; x = 1
+  outcome: leftRan = true; rightRan = true; x = 2
+  standing: sensitive (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)
+1
+```
+
+The verdict line names the search: the distinct states visited, the moves made and the deepest
+schedule. The verdicts:
+
+| Verdict | Means | Status |
+|---------|-------|--------|
+| `no violation, exhaustive` | every schedule ended complete, no bound was hit and no property was false. The one verdict that is a proof — relative to the atomic step and the properties named — and the standing is *bounded over schedules*, never *proved*, because the checker's atomic step is coarser than the interpreter's | `0` |
+| `no violation within bounds` | no violation on the schedules searched, but a bound cut some of them, named after `bounds hit:`; the standing is *bounded* with the bound marked `(reached)` | `2` |
+| `violation` | a `-check-property` false at a reached state, a deadlock (`ErrActionDeadlock`, `ErrAcceptDeadlock` on that schedule), or a typed error a body raised — an unbound parameter, a dangling succession, a division by zero, an `accept` whose `via` port does not resolve — each with the schedule that reaches it; a budget the executor exhausts is a bound, not a violation | `1` |
+| `divergent` | no violation, and a feature `-check-diverge` names (or, absent one, an attribute of the action or its performing object) ends with different values on different schedules; each value with one witness. The library admits the divergence; the model depends on a tool's choice | `1` |
+| `incomplete: time` | `-check-timeout` ended the plan before the search did; the states and depth it reached are named and the result is *not covered* | `2` |
+
+The final values every complete schedule reaches are listed as `outcome:` lines, as
+`-schedule explore` tables them, and the two agree: where an exploration completes, the set of
+outcomes the checker reaches is the set the exploration tabled, and `-engine all` composes the
+two with `explore` as the referee.
+
+Properties are named by `-check-property`, not by `-requirement`/`-constraint` — those ask an
+`evaluate` question of the object, which `run` answers once and `check` refuses by name — and
+are evaluated at every stable state of the action (no body mid-statement) and at its
+completion, on the performing object when the action is one an `-instantiate`d object performs:
+
+```bash
+$ sysml -engine check -instantiate Fleet::truck -action "Fleet::Truck::dispatch truck" \
+    -check-property Fleet::NeverOverloaded -check-diverge this.load model.sysml
+```
+
+A **witness** is the schedule that reaches a violation or a divergent value: its choice lines,
+as `-trace` prints a `choice` under `-schedule explore` (`step 3: 3@right first of 2@left,
+3@right`), then a blank line, then the trace of the run under that schedule, so it reads like
+any `-trace` and is reviewed the same way. `-check-witness <dir>` writes one file per witness,
+named for the action and what it witnesses (`Mission.race.x-1.witness`,
+`Mission.race.violation-1.witness`), and the verdict names each path. Every witness is
+**replayed** before it is reported: the interpreter re-runs the action under
+`-schedule replay:<file>`, the schedule policy that follows a witness file's choice lines, and
+the standing is *witnessed* only when that run reaches the state the witness claims with the
+same trace; one that does not is reported *not covered* with the disagreement as its reason.
+The same file replays by hand, with the trace showing every choice taken as the witness fixed
+it:
+
+```bash
+$ sysml -schedule replay:witnesses/Mission.race.x-1.witness -action Mission::race -trace race.sysml
+✓ package Mission
+[trace] step 1: token 1@f
+[trace] step 2: token 2@left, token 3@right
+…
+[trace] choice step 3: tokens 2@left, 3@right (unordered; took 3@right first)
+…
+```
+
+**Bounds.** `-check-depth` cuts a schedule after that many moves (a merge loop that never
+completes is cut here rather than searched forever), `-check-states` cuts the search after that
+many distinct states, `-check-timeout` ends the plan on the wall clock, and the executor's own
+budgets (`OPENSYSML_MAX_ACTION_STEPS` and its kin) cut a schedule as they cut any run; each is
+named in the verdict when hit, and every bound the search ran under is listed under `bounds`
+with `-json`. A search that hits one never claims exhaustiveness:
+
+```bash
+$ sysml -engine check -action Mission::race -check-depth 3 race.sysml; echo $?
+✓ package Mission
+? Action Mission::race: no violation within bounds (5 states, 4 moves, depth 3; bounds hit: depth)
+  standing: outcomes (bounded over schedules: 5 states, 4 moves searched, depth=3 (reached))
+2
+```
+
+The checker searches one action's schedules under a single executor, so `-jobs` does not
+divide a search; it runs the replay of each witness on the plan's workers. A state machine
+(`-state`), a body paused mid-statement (an action performing another that waits inside its
+body) and a run in which a state and an action fall due together are not this checker's yet and
+are refused with the construct named, as `? … could not be checked`, status `2`; `-schedule
+explore` still tables them.
+
+Misuse is refused before anything runs: a `-check-*` flag without `-engine check`, `-engine
+check` without an `-action`, `-advance` with `-engine check`, and a bound that is no positive
+integer (`-check-depth 0`, `-check-states x`) or no duration.
+
+With `-json` the check's `results[]` entry for the `check` engine carries, beside `claim`,
+`strength`, `bounds` and `witness`, a `check` object: `verdict`, `states`, `moves`, `depth`,
+`boundsHit[]`, `violations[]` (each with its `kind`, `detail`, `witness` choices and file
+`path`), `divergent[]` (each `feature` with its `values[]`, each with `value`, `witness` and
+`path`) and `outcomes[]`.
 
 ## Output Format
 

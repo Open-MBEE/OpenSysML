@@ -170,8 +170,16 @@ func TestReplayStepsTheRunAWitnessRecords(t *testing.T) {
 	wants(t, out, "error: invalid scheduling policy")
 	wants(t, run(t, s, "%schedule"), "schedule: reverse")
 
+	run(t, s, "%engine check")
 	wants(t, run(t, s, "%replay "+witness), "schedule: replay:"+witness,
+		"Under %engine check, %action searches every schedule; select %engine auto to step the one the witness records")
+	run(t, s, "%engine auto")
+	out = run(t, s, "%replay "+witness)
+	wants(t, out, "schedule: replay:"+witness,
 		"Use %action or %state to start the run the witness records, then %step or %continue")
+	if strings.Contains(out, "Under %engine check") {
+		t.Fatalf("the check-engine hint shown under auto: %v", out)
+	}
 	run(t, s, "%trace on")
 	run(t, s, "%action Debug::tally")
 	run(t, s, "%step")

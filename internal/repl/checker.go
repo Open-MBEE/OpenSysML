@@ -188,7 +188,8 @@ func settingText(values []string, empty string) string {
 }
 
 // doReplay installs the schedule a witness file fixes, so the next %action or
-// %state steps the run it records under %step and %continue.
+// %state steps the run it records under %step and %continue; under the check
+// engine %action would search instead, so the hint names the selection to leave.
 func (s *Session) doReplay(args []string) []string {
 	if len(args) != 1 {
 		return []string{"usage: %replay <witness>"}
@@ -200,7 +201,11 @@ func (s *Session) doReplay(args []string) []string {
 	if err := s.setSchedule(policy); err != nil {
 		return []string{errPrefix + err.Error()}
 	}
-	return []string{fmt.Sprintf("schedule: %s", s.schedule), "Use %action or %state to start the run the witness records, then %step or %continue"}
+	out := []string{fmt.Sprintf("schedule: %s", s.schedule), "Use %action or %state to start the run the witness records, then %step or %continue"}
+	if s.checking() {
+		out = append(out, "Under %engine check, %action searches every schedule; select %engine auto to step the one the witness records")
+	}
+	return out
 }
 
 // checkAction searches every schedule of the action for a violation, a deadlock,

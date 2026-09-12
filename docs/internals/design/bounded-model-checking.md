@@ -338,8 +338,16 @@ The checker stops a branch when any of these is reached, records which, and neve
 |-------|---------|------|----------------|
 | Depth | 10 000 moves | `-check-depth N` | Moves along one schedule; a merge-loop or re-arming timer is cut here |
 | States | 1 000 000 | `-check-states N` | Distinct states visited across the whole exploration |
-| Time | 60 s wall clock | `-check-timeout D` | The exploration as a whole |
+| Time | none | `-check-timeout D` | The plan as a whole, as the framework's `Deadline` |
 | Executor budgets | as today | `OPENSYSML_MAX_ACTION_STEPS` etc. | Per schedule, unchanged; hitting one is a bound, not an error |
+
+Under the [analysis framework](analysis-framework.md) the bounds are the shared `Budget`: depth
+is `Budget.Depth`, states is `Budget.Runs` — the framework says the unit of `Runs` is the
+engine's, and the checker's unit is distinct states, so under `-engine all` the one figure is
+`explore`'s linearizations and `check`'s states at once — and the timeout is the plan's
+`Deadline`, which the framework rules a cancellation and not a verdict: a search the clock stops
+is reported incomplete, naming `time` and the states and depth it reached, and the plan stops on
+that step. An exhausted executor budget names itself (`actionSteps`, `steps`, `elements`, …).
 
 A branch cut by a bound is reported as **incomplete**, distinctly from a deadlock or a violation.
 The overall verdict is one of:
@@ -383,34 +391,44 @@ constructor-succeeds/`initialize()`-errors contract and the error-timing tests a
 
 ## User surface
 
-Command line, alongside the check flags in [the CLI reference](../../reference/cli.md):
+The checker is the `check` engine of the [analysis framework](analysis-framework.md), and its
+selection is the framework's: `-engine check` puts every `-action` of the invocation to it, so
+the proposed `-check-action` and `-check-state` flags of earlier drafts do not exist — the
+behavior to check is named as it is run. Command line, alongside the check flags in
+[the CLI reference](../../reference/cli.md#checking-every-schedule-of-an-action):
 
 ```
-sysml model.sysml -instantiate Fleet::truck \
-    -check-action "Fleet::Truck::dispatch truck" \
-    -requirement Fleet::NeverOverloaded \
+sysml model.sysml -engine check -instantiate Fleet::truck \
+    -action "Fleet::Truck::dispatch truck" \
+    -check-property Fleet::NeverOverloaded \
     -check-diverge load
 ```
 
 | Flag | Meaning |
 |------|---------|
-| `-check-action "<name> [object]"` | Explore the schedules of an action, as `-action` runs one |
-| `-check-state "<name> [object]"` | Explore the schedules of a state machine, as `-state` runs one, for the `-advance` horizon |
-| `-check-diverge <feature>` | Report divergence of this feature; repeatable; absent, every feature of the behavior and the object |
-| `-check-depth`, `-check-states`, `-check-timeout` | The bounds |
+| `-engine check` with `-action "<name> [object]"` | Explore the schedules of the action `-action` would run once; with `-state`, the state machine is refused by name (stage 3) |
+| `-check-property <name>` | Evaluate this constraint or requirement at every stable state, on the performing object where there is one; repeatable |
+| `-check-diverge <feature>` | Report divergence of this feature (`x`, or `this.level` for the performing object's); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
+| `-check-depth N`, `-check-states N`, `-check-timeout D` | The bounds, onto `Budget.Depth`, `Budget.Runs` and `Budget.Deadline` |
 | `-check-witness <dir>` | Write each violation's and each divergent value's witness schedule as a trace file |
 
-The properties are the existing `-requirement`, `-constraint` and `-satisfy` flags: with a
-`-check-*` flag present they are evaluated at every explored state rather than once. `-json`
-applies, with `verdict`, `bounds_hit`, `states`, `violations[]`, `divergent[]` and the witness
-paths.
+The properties are named by `-check-property` rather than by `-requirement`/`-constraint`,
+because those flags ask an `evaluate` question of the object, which is `run`'s to answer once
+and `check`'s to refuse by name. `-json` carries the checker's answer inside the framework's `results[]`
+entry for the engine, with nothing on the wire: beside `claim`, `bounds` (every bound and
+whether it was reached) and `witness` (the replayed schedule), the entry gains a `check` object
+with `verdict`, `states`, `moves`, `depth`, `boundsHit`, `violations[]`, `divergent[]` (each
+feature's values, each with its witness choices and file `path`) and `outcomes[]`.
 
-REPL: `%check-action`, `%check-state` with the same arguments, and `%replay <witness>` which
-installs the replay scheduler and then behaves as `%step`/`%continue` do, so a witness can be
-walked with breakpoints in the debugger. The LSP surfaces nothing in the first stages; a code action
-"check this action" is a natural later addition.
+REPL: `%engine check` selects the engine for `%action` from then on, `%check-property`,
+`%check-diverge`, `%check-witness` and `%check-bounds` hold the settings the flags carry, and
+`%replay <witness>` installs the replay scheduler and then behaves as `%step`/`%continue` do,
+so a witness can be walked with breakpoints in the debugger. The LSP surfaces nothing in the
+first stages; a code action "check this action" is a natural later addition.
 
-Exit status follows the CLI's existing convention: a violation is a failed check.
+Exit status follows the CLI's existing convention: a violation or a divergence is a failed check
+(status 1); an exhaustive clean search passes (0); a search cut by a bound, stopped by the
+clock or refused is undecided (2).
 
 ## Test contract
 
@@ -479,7 +497,35 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
 2. **Actions, static reduction.** Snapshot/restore for the action executor's state; DFS with
    persistent sets and a visited set; footprints in the lowering layer; `-check-action`,
    `-check-diverge`, bounds, witnesses in trace format; `%check-action`, `%replay`. Test layers
-   3–8 for actions.
+   3–8 for actions. *Implemented:* `runtime.CheckAction` — a DFS over the action executor on
+   stage 1's snapshots, one token advancing one node the atomic step (a body one step, so a
+   body that pauses mid-statement stays refused as `ErrSnapshotPausedBody`), enumerating the
+   moves of "The choice points / Action" through the scheduler seam as a `check` policy that
+   takes exactly the move the search names, so a move is the `ChoiceTaken` `explore` records
+   for the same step and a witness is a choice sequence; persistent sets with a sleep set over
+   `lower.Footprints` — reads including outgoing-succession guards and a parked accept's
+   condition, writes, sends, accepts, joins and merges reached, a dynamic target dependent on
+   everything — computed once per node beside `Bodies`; the visited set keyed by the canonical
+   state of "Visited states", every live root object named by its materialization path; the
+   bounds above; properties at every stable state and at completion, deadlocks and typed
+   failures as violations with a witness; divergence of the named features, or of the action's
+   and performer's attributes; witnesses as the choice lines, a blank line and the trace, read
+   back by the one `ParseChoices`/`ReplayPolicy` the SMT stage shares. The framework's `check`
+   engine answers `outcomes` and `holds` at authority *bounded* — exhaustive is `Bounded`,
+   never `Proved` — with every violation and divergent value *witnessed* only after
+   `ReplayAction` re-ran it to the state it claims, a disagreement *not covered*; `explore`
+   beside it is the referee over the conformance corpus. Surface: `-engine check` with
+   `-action`, `-check-property`, `-check-diverge`, `-check-witness`, `-check-depth`,
+   `-check-states`, `-check-timeout`; `%engine check`, `%check-property`, `%check-diverge`,
+   `%check-witness`, `%check-bounds`, `%replay`. Test layers 3–8 for actions: the
+   `.check.expected.json` oracles beside every conformance case that leaves an order open,
+   reduced against unreduced final states over the dependence corpus, the state-count ratchet,
+   the depth and time bounds, corpus-wide witness replay, the robustness failures as violations
+   and an unresolved `via` port as its routing error. Known limitations: the search is
+   single-threaded — one executor state per stack frame and one visited set — so `Jobs` buys
+   nothing inside a check, though replay verification runs on the plan's workers; a state
+   machine (its question is an `evaluate`), a state and an action due together and the eight
+   paused-body cases are refused with a typed reason, for stage 3.
 3. **State machines and time ties.** Snapshot/restore for the state executor; dispatch-order
    choice points; `do` interleaving; `-check-state`. Test layers 3–8 for states.
 4. **Dynamic reduction.** Concrete footprint instrumentation; DPOR backtrack points; the
