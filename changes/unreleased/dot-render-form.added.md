@@ -21,9 +21,11 @@
 - **The DOT form draws a view where the model places it.** A rendering's `DiagramLayout` geometry
   is written as Graphviz reads it: a positioned node is pinned at the centre of its box
   (`pos="x,y!"`, `pin=true`, one pixel to one point with y measured up from the canvas's bottom
-  edge), a stated size is `width`/`height` in inches with `fixedsize=true`, a collapsed node keeps
-  `comment="collapsed"`, a positioned cluster pins its anchor and states its `bb`, a `Route` is the
-  edge's `pos` spline through its waypoints, and a sized `Canvas` is the graph's `size` and a
+  edge), a stated size is `width`/`height` in inches with `fixedsize=true` and an unstated one is
+  fitted to the label so the box's corner stays put, a collapsed node keeps `comment="collapsed"`,
+  a positioned cluster states its `bb` and pins its anchor at the centre, a `Route` is the edge's
+  `pos` spline through its waypoints (a route of one waypoint is noticed, not drawn), and a sized
+  `Canvas` is the graph's `size` and a
   `// canvas:` header line. The `// layout:` header names the engine that honours the file:
   `neato -n2` when every node is placed and every edge routed, `neato -n` when every node is
   placed, `neato` when some are, `dot` when none — so `neato -n -Tsvg view.dot` draws the view

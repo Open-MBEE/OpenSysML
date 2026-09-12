@@ -9,7 +9,7 @@ digraph "PlantViews::placedView" {
   subgraph "cluster_n0" {
     label="part def Plant::Loop";
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part pump\nPump", pos="327,742!", pin=true, comment="collapsed"];
+    "n1" [label="part pump\nPump", pos="346,739!", pin=true, width=1.2777777777777777, height=0.5833333333333334, comment="collapsed"];
     "n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];

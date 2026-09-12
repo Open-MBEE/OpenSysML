@@ -414,8 +414,9 @@ digraph "V::empty" {
 
 // The DiagramLayout geometry is written as Graphviz reads it: a positioned node
 // is pinned at its centre in points, y up from the canvas's bottom edge, sized
-// in inches; a route is a `pos` spline through its waypoints; the canvas is the
-// graph's size; the header names `neato` while a node is unpositioned.
+// in inches — fixed when the Layout sizes it, fitted to its label when not; a
+// route is a `pos` spline through its waypoints; the canvas is the graph's
+// size; the header names `neato` while a node is unpositioned.
 func TestDOTWritesTheGeometry(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
 	dot, err := rendering.DOT()
@@ -427,8 +428,9 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// canvas: unit=px w=1200 h=800\n// layout: neato\n",
 		`graph [inputscale=72, dpi=72, size="16.666666666666668,11.11111111111111"];`,
-		// pump: top-left (300, 40), no size, so the centre of a default 54x36 box, collapsed.
-		`"n1" [label="part pump\nPump", pos="327,742!", pin=true, comment="collapsed"];`,
+		// pump: top-left (300, 40), no size, so the centre of a 92x42 box fitted
+		// to two lines of nine glyphs, stated but not fixed, collapsed.
+		`"n1" [label="part pump\nPump", pos="346,739!", pin=true, width=1.2777777777777777, height=0.5833333333333334, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
 		`"n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
 		`"n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
@@ -466,7 +468,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	checkDOTSyntax(t, machine)
 	for _, want := range []string{
 		`"n3" [shape=point, label=""];`,
-		`[shape=box, style=rounded, label="state off\ninitial", pos="27,-18!", pin=true];`,
+		`[shape=box, style=rounded, label="state off\ninitial", pos="46,-21!", pin=true, width=1.2777777777777777, height=0.5833333333333334];`,
 		`[shape=box, style=rounded, label="state on", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
 		`"n1" -> "n2" [label="off_on:", pos="50,-10 50,-10 50,-90 50,-90"];`,
 		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
@@ -485,8 +487,10 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 }
 
 // A graph whose every node is positioned is written for `neato -n`, and for
-// `neato -n2` once every edge is routed too; a positioned cluster pins its
-// anchor at its centre and states its box; a tree pins the node itself.
+// `neato -n2` once every edge is routed too; a route of one waypoint is
+// noticed; a cluster states its box — the stated one, or the one from its
+// corner round its members — and pins its anchor at the centre; a tree pins
+// the node itself.
 func TestDOTPinsEveryNode(t *testing.T) {
 	rendering := &Rendering{
 		View:   "Pinned::view",
@@ -513,6 +517,7 @@ func TestDOTPinsEveryNode(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	want := `// view: Pinned::view
 // kind: interconnection
+// not represented: route of n2->n3 is one waypoint, (174, 48); a line needs two
 // canvas: unit=px w=400 h=300
 // layout: neato -n
 digraph "Pinned::view" {
@@ -524,12 +529,13 @@ digraph "Pinned::view" {
     comment="collapsed";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="110,230!", pin=true];
     "n1" [label="part a", pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
-    "n2" [label="part b", pos="147,252!", pin=true];
+    "n2" [label="part b", pos="153.5,252!", pin=true, width=0.9305555555555556, height=0.5];
   }
   subgraph "cluster_n3" {
     label="part def Other";
-    "n3" [shape=point, style=invis, width=0, height=0, label="", pos="327,82!", pin=true];
-    "n4" [label="port p", pos="337,72!", pin=true];
+    bb="300,46,385,100";
+    "n3" [shape=point, style=invis, width=0, height=0, label="", pos="342.5,73!", pin=true];
+    "n4" [label="port p", pos="343.5,72!", pin=true, width=0.9305555555555556, height=0.5];
   }
   "n1" -> "n2" [arrowhead=none, pos="92,252 92,252 120,252 120,252"];
   "n2" -> "n3" [style=dashed, lhead="cluster_n3"];
@@ -538,14 +544,15 @@ digraph "Pinned::view" {
 	if dot != want {
 		t.Errorf("DOT:\n%s\nwant:\n%s", dot, want)
 	}
-	// Routing the last edge leaves nothing for the engine to place.
+	// Routing the last edge leaves nothing for the engine to place, and
+	// nothing to notice.
 	rendering.Edges[1].Route = append(rendering.Edges[1].Route, Point{X: 300, Y: 220})
 	dot, err = rendering.DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [style=dashed, pos="174,252 174,252 300,80 300,80", lhead="cluster_n3"];`) {
+	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [style=dashed, pos="174,252 174,252 300,80 300,80", lhead="cluster_n3"];`) || strings.Contains(dot, "not represented") {
 		t.Errorf("fully routed DOT:\n%s", dot)
 	}
 	// A tree has no cluster, so the node with children is pinned itself and no
@@ -560,7 +567,7 @@ digraph "Pinned::view" {
 		"// layout: neato -n2\n",
 		`  graph [inputscale=72, dpi=72, size="5.555555555555555,4.166666666666667"];`,
 		`"n0" [label="part def Outer", pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
-		`"n3" [label="part def Other", pos="327,82!", pin=true];`,
+		`"n3" [label="part def Other", pos="367,82!", pin=true, width=1.8611111111111112, height=0.5];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("tree DOT lacks %q:\n%s", want, dot)
@@ -569,7 +576,8 @@ digraph "Pinned::view" {
 	if strings.Contains(dot, "bb=") {
 		t.Errorf("tree DOT states a cluster box:\n%s", dot)
 	}
-	// Pseudo-states are centred on their own default shapes.
+	// Pseudo-states are centred on their own shapes: a point's fixed size, a
+	// circle round the label's diagonal.
 	pseudo := &Rendering{View: "V", Kind: KindState, Roots: []*Node{
 		{ID: "s", Kind: startKind, Geometry: &Geometry{X: 0, Y: 0}},
 		{ID: "i", Kind: "initial", Name: "go", Geometry: &Geometry{X: 100, Y: 0}},
@@ -582,7 +590,7 @@ digraph "Pinned::view" {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		`"s" [shape=point, label="", pos="1.8,-1.8!", pin=true];`,
-		`"i" [shape=circle, label="initial go", pos="127,-27!", pin=true];`,
+		`"i" [shape=circle, label="initial go", pos="152,-52!", pin=true, width=1.4444444444444444, height=1.4444444444444444];`,
 		`"f" [shape=doublecircle, label="final done", pos="205,-5!", pin=true, width=0.1388888888888889, height=0.1388888888888889, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -597,10 +605,23 @@ digraph "Pinned::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	for _, want := range []string{"// canvas: unit=mm w=0 h=0\n", `size="0,0"`, `pos="54,-36!"`} {
+	for _, want := range []string{"// canvas: unit=mm w=0 h=0\n", `size="0,0"`, `pos="60.5,-36!"`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("zero-canvas DOT lacks %q:\n%s", want, dot)
 		}
+	}
+	// A cluster with a corner but no positioned member has no box to state;
+	// its anchor is pinned at the corner and neato places the members.
+	corner := &Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{
+		{ID: "n0", Kind: "part def", Name: "Outer", Geometry: &Geometry{X: 30, Y: 40}, Children: []*Node{{ID: "n1", Kind: "part", Name: "a"}}},
+	}}
+	dot, err = corner.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// layout: neato\n") || strings.Contains(dot, "bb=") || !strings.Contains(dot, `"n0" [shape=point, style=invis, width=0, height=0, label="", pos="30,-40!", pin=true];`) {
+		t.Errorf("corner-only cluster DOT:\n%s", dot)
 	}
 	// A canvas with a unit alone is named in the header and sizes nothing.
 	unit := &Rendering{View: "V", Kind: KindTree, Canvas: &Canvas{Unit: "px"}, Roots: []*Node{{ID: "n0", Kind: "part", Name: "a"}}}

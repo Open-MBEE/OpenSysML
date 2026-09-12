@@ -2,8 +2,10 @@ package view
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
 // DOT is the Graphviz form of a graph-shaped rendering: a `digraph`, written
@@ -21,15 +23,8 @@ import (
 //	EdgeFlow        -.->     style=dashed
 //	(containment)   ---      arrowhead=none
 //
-// The DiagramLayout geometry of the rendering is written as Graphviz reads it,
-// one pixel to one point, y up: a positioned node is pinned with `pos="x,y!"`
-// at its centre, sized in inches with `width`/`height` and `fixedsize`; a
-// positioned cluster pins its anchor and states its `bb`; a routed edge has
-// its waypoints as a `pos` spline; a sized canvas is the graph's `size`. The
-// `// layout:` header names the engine to lay the text out with: `neato -n2`
-// when every node is positioned and every edge routed, `neato -n` when every
-// node is positioned, `neato` when some are (the rest are placed around
-// them), `dot` when none is.
+// DiagramLayout geometry is written as Graphviz reads it (pinned `pos`, `bb`,
+// `pos` splines, `size`); docs/project/view-rendering-forms.md#geometry has the rules.
 //
 // A kind with no DOT counterpart — sequence, table — is a *WrongFormError.
 func (r *Rendering) DOT() (string, error) {
@@ -56,6 +51,10 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 		if len(edge.Route) < 2 {
 			w.unrouted++
 		}
+		if len(edge.Route) == 1 {
+			p := edge.Route[0]
+			w.notices = append(w.notices, fmt.Sprintf("route of %s->%s is one waypoint, (%s, %s); a line needs two", edge.From, edge.To, formatCoord(p.X), formatCoord(p.Y)))
+		}
 	}
 	b := &w.b
 	if r.View != "" {
@@ -65,7 +64,7 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 	if r.Stated != "" {
 		fmt.Fprintf(b, "// stated: %s\n", r.Stated)
 	}
-	for _, notice := range r.Notices {
+	for _, notice := range slices.Concat(r.Notices, w.notices) {
 		fmt.Fprintf(b, "// not represented: %s\n", notice)
 	}
 	if c := r.Canvas; c != nil {
@@ -113,7 +112,8 @@ type dotWriter struct {
 	canvas    *Canvas             // the surface positions are flipped against
 	nodes     int                 // nodes written, and how many are positioned
 	placed    int
-	unrouted  int // edges with no route to write
+	unrouted  int      // edges with no route to write
+	notices   []string // geometry the form cannot draw
 }
 
 // countPlaced counts the nodes under node and those a Geometry positions.
@@ -259,9 +259,13 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		attrs = []string{"label=" + dotLabel(node)}
 	}
 	if g := node.Geometry; g != nil {
-		attrs = append(attrs, w.dotPosition(node))
+		width, height := dotBox(node)
+		attrs = append(attrs, w.dotPin(Point{X: g.X + width/2, Y: g.Y + height/2}))
+		if node.Kind != startKind {
+			attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height))
+		}
 		if g.HasSize {
-			attrs = append(attrs, "width="+dotInches(g.Width), "height="+dotInches(g.Height), "fixedsize=true")
+			attrs = append(attrs, "fixedsize=true")
 		}
 		if g.Collapsed {
 			attrs = append(attrs, `comment="collapsed"`)
@@ -270,53 +274,118 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	return attrs
 }
 
-// dotPosition pins a positioned node at the centre of its box: `pos="x,y!"`
-// and `pin=true`. A box of no stated size is Graphviz's default node, 0.75 by
-// 0.5 inches, a point 0.05 across and a circle 0.75.
-func (w *dotWriter) dotPosition(node *Node) string {
-	g := node.Geometry
-	width, height := g.Width, g.Height
-	if !g.HasSize {
-		switch node.Kind {
-		case startKind:
-			width, height = 3.6, 3.6
-		case "initial", "final":
-			width, height = 54, 54
-		default:
-			width, height = 54, 36
-		}
+// Graphviz's defaults a label-fitted box is estimated with: 14pt text at 0.6em
+// a glyph and 1.2em a line, a 0.11in by 0.055in margin, a 0.75in by 0.5in node.
+const (
+	dotGlyphWidth   = 8.4
+	dotLineHeight   = 16.8
+	dotMarginWidth  = 7.92
+	dotMarginHeight = 3.96
+	dotNodeWidth    = 54
+	dotNodeHeight   = 36
+	dotPointSize    = 3.6
+)
+
+// dotBox is the box a positioned node is centred in, in points: the stated
+// size, or one fitted to its label so Graphviz has no cause to grow it.
+func dotBox(node *Node) (width, height float64) {
+	if g := node.Geometry; g.HasSize {
+		return g.Width, g.Height
 	}
-	centre := Point{X: g.X + width/2, Y: g.Y + height/2}
+	if node.Kind == startKind {
+		return dotPointSize, dotPointSize
+	}
+	lines, longest := dotLabelExtent(node)
+	width = math.Ceil(float64(longest)*dotGlyphWidth + 2*dotMarginWidth)
+	height = math.Ceil(float64(lines)*dotLineHeight + 2*dotMarginHeight)
+	if node.Kind == "initial" || node.Kind == "final" {
+		side := math.Max(dotNodeHeight, math.Ceil(math.Hypot(width, height)))
+		return side, side
+	}
+	return math.Max(dotNodeWidth, width), math.Max(dotNodeHeight, height)
+}
+
+// dotLabelExtent is the line count of a node's label and the glyphs on its
+// longest line.
+func dotLabelExtent(node *Node) (lines, longest int) {
+	for _, line := range strings.Split(dotLabelText(node), "\n") {
+		lines++
+		longest = max(longest, utf8.RuneCountInString(line))
+	}
+	return lines, longest
+}
+
+// dotPin pins a node at a pixel point: `pos="x,y!"` and `pin=true`.
+func (w *dotWriter) dotPin(centre Point) string {
 	return fmt.Sprintf("pos=%s, pin=true", dotQuote(w.dotPoint(centre)+"!"))
 }
 
 // dotAnchorAttributes is a cluster's anchor node: invisible and sizeless, the
-// node an edge to or from the cluster names, pinned where the cluster is placed.
+// node an edge to or from the cluster names. A placed cluster pins it at the
+// centre of its box, or at its corner while the box has no extent.
 func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
 	attrs := []string{"shape=point", "style=invis", "width=0", "height=0", `label=""`}
 	if node.Geometry != nil {
-		attrs = append(attrs, w.dotPosition(node))
+		min, max := clusterBox(node)
+		attrs = append(attrs, w.dotPin(Point{X: (min.X + max.X) / 2, Y: (min.Y + max.Y) / 2}))
 	}
 	return attrs
 }
 
 // dotClusterAttributes is a cluster's attribute statements: its label, a dashed
-// border for an orthogonal region, and its box as `bb` when a Geometry sizes it.
+// border for an orthogonal region, and its box as `bb` when it has an extent.
 func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 	attrs := []string{"label=" + dotLabel(node)}
 	if node.Kind == "region" {
 		attrs = append(attrs, "style=dashed")
 	}
 	if g := node.Geometry; g != nil {
-		if g.HasSize {
-			corners := w.dotPoint(Point{X: g.X, Y: g.Y + g.Height}) + "," + w.dotPoint(Point{X: g.X + g.Width, Y: g.Y})
-			attrs = append(attrs, "bb="+dotQuote(corners))
+		if min, max := clusterBox(node); min != max {
+			attrs = append(attrs, "bb="+dotQuote(w.dotPoint(Point{X: min.X, Y: max.Y})+","+w.dotPoint(Point{X: max.X, Y: min.Y})))
 		}
 		if g.Collapsed {
 			attrs = append(attrs, `comment="collapsed"`)
 		}
 	}
 	return attrs
+}
+
+// dotClusterMargin is the space Graphviz keeps between a cluster's border and
+// its members, in points.
+const dotClusterMargin = 8
+
+// clusterBox is a positioned cluster's box, top-left to bottom-right: the stated
+// one, or its corner grown round its positioned members (the corner alone with none).
+func clusterBox(node *Node) (min, max Point) {
+	g := node.Geometry
+	min = Point{X: g.X, Y: g.Y}
+	if g.HasSize {
+		return min, Point{X: g.X + g.Width, Y: g.Y + g.Height}
+	}
+	max = min
+	for _, child := range node.Children {
+		if child.Geometry == nil {
+			continue
+		}
+		low, high := memberBox(child)
+		if low == high {
+			continue
+		}
+		min = Point{X: math.Min(min.X, low.X-dotClusterMargin), Y: math.Min(min.Y, low.Y-dotClusterMargin)}
+		max = Point{X: math.Max(max.X, high.X+dotClusterMargin), Y: math.Max(max.Y, high.Y+dotClusterMargin)}
+	}
+	return min, max
+}
+
+// memberBox is the box a positioned member of a cluster takes up: a cluster's
+// own box, a node's stated or label-fitted box.
+func memberBox(node *Node) (min, max Point) {
+	if len(node.Children) > 0 {
+		return clusterBox(node)
+	}
+	g := node.Geometry
+	width, height := dotBox(node)
+	return Point{X: g.X, Y: g.Y}, Point{X: g.X + width, Y: g.Y + height}
 }
 
 // dotEdgeAttributes is an edge's attribute list: its label, its kind's style,
@@ -357,14 +426,19 @@ func dotContainmentAttributes() []string {
 // dotLabel is a node's quoted label: kind and name, then its detail on a
 // second line.
 func dotLabel(node *Node) string {
+	return dotQuote(dotLabelText(node))
+}
+
+// dotLabelText is the text of a node's label before quoting.
+func dotLabelText(node *Node) string {
 	head := node.Kind
 	if node.Name != "" {
 		head += " " + node.Name
 	}
 	if node.Detail == "" {
-		return dotQuote(head)
+		return head
 	}
-	return dotQuote(head + "\n" + node.Detail)
+	return head + "\n" + node.Detail
 }
 
 // dotQuote writes text as a double-quoted DOT string; every ID and label goes

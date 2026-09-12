@@ -449,10 +449,12 @@ y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends 
 honours it: a positioned node is pinned at the centre of its box (`pos="220,675!", pin=true`, in
 points with y measured up from the canvas's bottom edge — negated when no canvas height is
 stated — one pixel to one point under `inputscale=72`), a stated size is `width`/`height` in inches
-with `fixedsize=true`, a route is the edge's `pos` spline, the canvas is echoed as `// canvas:` and
-sizes the graph, and the `// layout:` header names the command that honours it — `neato -n2`
-when every node is placed and every edge routed, `neato -n` when every node is placed, `neato`
-when only some are — so `neato -n -Tsvg view.dot` draws the view where the model put it.
+with `fixedsize=true` (an unstated one is fitted to the label, so the box's corner stays put), a
+positioned cluster states its `bb`, a route is the edge's `pos` spline (a route of one waypoint
+draws no line and is noticed), the canvas is echoed as `// canvas:` and sizes the graph, and the
+`// layout:` header names the command that honours it — `neato -n2` when every node is placed
+and every edge routed, `neato -n` when every node is placed, `neato` when only some are — so
+`neato -n -Tsvg view.dot` draws the view where the model put it.
 A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
 `Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
 number of values, a `Canvas` outside a view, and two positions for one element in one view (the

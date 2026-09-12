@@ -124,7 +124,7 @@ digraph "PlantViews::placedView" {
   subgraph "cluster_n0" {
     label="part def Plant::Loop";
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label="part pump\nPump", pos="327,742!", pin=true, comment="collapsed"];
+    "n1" [label="part pump\nPump", pos="346,739!", pin=true, width=1.2777777777777777, height=0.5833333333333334, comment="collapsed"];
     "n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
@@ -139,14 +139,22 @@ digraph "PlantViews::placedView" {
 - **Canvas.** A `Canvas` is echoed in the header as `// canvas: unit=<u> w=<w> h=<h>` (the
   parts it states) and, when it has an extent, written as the graph's `size` in inches.
 - **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
-  the writer pins `pos="x,y!"` at the centre of the stated box, or of Graphviz's default shape
-  when no size is stated (a 0.75×0.5 in box, a 0.75 in circle, a 0.05 in point). `pin=true`
-  keeps `neato` from moving it. A stated size is `width`/`height` in inches with
-  `fixedsize=true`; `collapsed` is kept as `comment="collapsed"`, an attribute Graphviz
-  ignores and a consumer can read. A node drawn as a cluster pins its anchor node the same way
-  and writes the cluster's box as `bb="llx,lly,urx,ury"` when a size is stated.
+  the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
+  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`. Without one
+  the writer sizes the box to the label itself — 8.4 pt a glyph, 16.8 pt a line, Graphviz's
+  margins, no smaller than its 54×36 pt default box, a circle round the label for a
+  pseudo-state, a 3.6 pt point for a start — and writes that `width`/`height` without
+  `fixedsize`, so Graphviz may still grow the box for its own font but the corner is where the
+  Layout put it under the writer's estimate. `collapsed` is kept as `comment="collapsed"`, an
+  attribute Graphviz ignores and a consumer can read.
+- **Clusters.** A node drawn as a cluster writes its box as `bb="llx,lly,urx,ury"` and pins
+  its anchor node at the box's centre. The box is the stated one, or, with a corner alone, the
+  one from that corner round its positioned members' boxes with Graphviz's 8 pt cluster margin;
+  a cluster with neither has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
-  are its own control points, so the spline is the polyline through the waypoints.
+  are its own control points, so the spline is the polyline through the waypoints. A route of
+  one waypoint draws no line; it is left out and noticed as `// not represented:`, and the
+  edge is counted as unrouted when the engine is chosen.
 - **Engine.** The `// layout:` header names the command that honours what is written:
   `neato -n2` when every node is positioned and every edge routed (both are taken as given),
   `neato -n` when every node is positioned (the edges are routed), `neato` when some are
@@ -181,10 +189,11 @@ and did not change. A view-render RPC added later would take the form as a strin
   nested clusters and tree containment; every direction and the empty one; every `EdgeKind`;
   the state shapes and labels; the empty rendering and its notices. The geometry has
   `layout.dot.golden` beside the Mermaid and text goldens of the same fixture, the flipped axis
-  with and without a canvas height, the centring of sized, unsized and pseudo-state nodes, the
-  pinned anchor and `bb` of a positioned cluster, a route's spline, the zero-extent canvas, and
-  the header's engine for none, some and all of the nodes positioned; the syntax check parses
-  every `pos`, `bb` and `size` it meets.
+  with and without a canvas height, the centring and label-fitted size of unsized nodes, sized
+  and pseudo-state nodes, the `bb` and pinned anchor of a stated, a member-fitted and a
+  corner-only cluster, a route's spline and the one-waypoint notice, the zero-extent canvas,
+  and the header's engine for none, some and all of the nodes positioned and all edges routed;
+  the syntax check parses every `pos`, `bb` and `size` it meets.
 - `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
   the form on each surface, and its refusal for a table or sequence.
 - `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the
