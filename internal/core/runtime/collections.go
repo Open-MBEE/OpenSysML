@@ -304,6 +304,9 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 // undetermined, except that an index past the count seq may reach is out of range.
 func undeterminedIndex(op string, seq, indexVal Value) (Value, bool, error) {
 	if indexVal.Kind == ValUndetermined {
+		if certainlyEmpty(seq) {
+			return Value{}, true, fmt.Errorf("%w: %s into an empty sequence", ErrIndexOutOfRange, op)
+		}
 		return undeterminedOne(seq, indexVal), true, nil
 	}
 	u := seq.Undetermined()
@@ -635,7 +638,7 @@ func builtinSequenceIncludes(ec *EvalContext, args []Value) (Value, error) {
 }
 
 // includesUndetermined decides `includes` over an undetermined operand from the
-// elements seq1 certainly holds and the counts the model fixes, else stays open.
+// elements each certainly holds and the counts the model fixes, else stays open.
 func (ec *EvalContext) includesUndetermined(seq1, seq2 Value) (Value, error) {
 	if certainlyEmpty(seq2) {
 		return boolValue(true), nil
@@ -643,8 +646,12 @@ func (ec *EvalContext) includesUndetermined(seq1, seq2 Value) (Value, error) {
 	if certainlyEmpty(seq1) && certainlyNonEmpty(seq2) {
 		return boolValue(false), nil
 	}
-	if seq2.Kind != ValUndetermined && ec.ctx.includesAll(knownElementsOf(seq1), elementsOf(seq2)) {
+	known1, known2 := knownElementsOf(seq1), knownElementsOf(seq2)
+	if seq2.Kind != ValUndetermined && ec.ctx.includesAll(known1, known2) {
 		return boolValue(true), nil
+	}
+	if seq1.Kind != ValUndetermined && !ec.ctx.includesAll(known1, known2) {
+		return boolValue(false), nil
 	}
 	return undeterminedOne(seq1, seq2), nil
 }
@@ -668,17 +675,15 @@ func builtinSequenceExcludes(ec *EvalContext, args []Value) (Value, error) {
 }
 
 // excludesUndetermined decides `excludes` over an undetermined operand: false once
-// seq1 certainly holds an element of seq2, true when either is certainly empty, else open.
+// both certainly hold a common element, true when either is certainly empty, else open.
 func (ec *EvalContext) excludesUndetermined(seq1, seq2 Value) (Value, error) {
 	if certainlyEmpty(seq1) || certainlyEmpty(seq2) {
 		return boolValue(true), nil
 	}
-	if seq2.Kind != ValUndetermined {
-		known := knownElementsOf(seq1)
-		for _, elem := range elementsOf(seq2) {
-			if ec.ctx.containsValue(known, elem) {
-				return boolValue(false), nil
-			}
+	known := knownElementsOf(seq1)
+	for _, elem := range knownElementsOf(seq2) {
+		if ec.ctx.containsValue(known, elem) {
+			return boolValue(false), nil
 		}
 	}
 	return undeterminedOne(seq1, seq2), nil
@@ -986,19 +991,24 @@ func builtinControlReject(ec *EvalContext, args []Value) (Value, error) {
 	return ec.filter("ControlFunctions::reject", args, false)
 }
 
-// filter is select (keep=true) and reject (keep=false).
+// filter is select (keep=true) and reject (keep=false). Over a collection the
+// model leaves open, it tests the elements certainly held; the rest stay open.
 func (ec *EvalContext) filter(op string, args []Value, keep bool) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
+	source := args[0]
+	elements := knownElementsOf(source)
 	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
 	if err != nil {
 		return Value{}, err
 	}
 	// A filter keeps the elements' type (KerML checkSelectExpressionResultSpecialization).
 	if !applied {
-		return ec.sequenceFrom(nil, args[0])
+		if source.Kind == ValUndetermined {
+			return undeterminedFiltered(source, nil, nil), nil
+		}
+		return ec.sequenceFrom(nil, source)
 	}
 	var kept, open []Value
 	for _, elem := range elements {
@@ -1013,10 +1023,10 @@ func (ec *EvalContext) filter(op string, args []Value, keep bool) (Value, error)
 			kept = append(kept, elem)
 		}
 	}
-	if len(open) > 0 {
-		return undeterminedFiltered(kept, open), nil
+	if len(open) > 0 || source.Kind == ValUndetermined {
+		return undeterminedFiltered(source, kept, open), nil
 	}
-	return ec.sequenceFrom(kept, args[0])
+	return ec.sequenceFrom(kept, source)
 }
 
 // emptyMapping is the result of mapping no element through body: empty, and
@@ -1044,6 +1054,13 @@ func builtinControlSelectOne(ec *EvalContext, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	if selected.Kind == ValUndetermined {
+		count := optionalRange()
+		if certainlyNonEmpty(selected) {
+			count = semantics.AssumedRange()
+		}
+		return undeterminedOf(count, selected), nil
+	}
 	pick := elementAtOrEmpty(elementsOf(selected), 1)
 	ec.ctx.evaluations.pick(pick)
 	return pick, nil
@@ -1056,7 +1073,8 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
+	source := args[0]
+	elements := knownElementsOf(source)
 	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
 	if err != nil {
 		return Value{}, err
@@ -1065,6 +1083,9 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 	// contributes them all: the collected sequence is flat, as every KerML
 	// sequence is.
 	if !applied || len(elements) == 0 {
+		if source.Kind == ValUndetermined {
+			return undeterminedCollected(source, nil), nil
+		}
 		return ec.emptyMapping(args[1]), nil
 	}
 	var mapped, answers []Value
@@ -1084,8 +1105,8 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 		mapped = append(mapped, contributed...)
 		answers = append(answers, val)
 	}
-	if open {
-		return undeterminedElements(answers), nil
+	if open || source.Kind == ValUndetermined {
+		return undeterminedCollected(source, answers), nil
 	}
 	if len(mapped) == 0 {
 		if unit, ok := elementUnitOf(answers...); ok {

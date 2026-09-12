@@ -150,16 +150,49 @@ func undeterminedElements(elements []Value) Value {
 	}}
 }
 
-// undeterminedFiltered is a filter's result when the test is undetermined for
-// some elements: it certainly holds kept, and possibly each of those.
-func undeterminedFiltered(kept, open []Value) Value {
-	count := semantics.Range{
-		Lower: semantics.Bound{Value: int64(len(kept)), Known: true},
-		Upper: semantics.Bound{Value: int64(len(kept) + len(open)), Known: true},
+// undeterminedFiltered is a filter's result over source when the test is open for
+// some elements or source holds unknown ones: certainly kept, possibly each of those.
+func undeterminedFiltered(source Value, kept, open []Value) Value {
+	first, _ := undeterminedIn(append([]Value{source}, open...)...)
+	count := semantics.CountRange(int64(len(kept))).
+		Plus(semantics.Range{Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Value: int64(len(open)), Known: true}}).
+		Plus(semantics.Range{Lower: semantics.Bound{Known: true}, Upper: unknownCountOf(source).Upper})
+	return Value{Kind: ValUndetermined, ref: &Undetermined{
+		reason: first.Undetermined().Reason(), count: count, known: kept,
+	}}
+}
+
+// undeterminedCollected is a mapping's result over source when an answer is open or
+// source holds unknown elements: the answers' counts, and any count for the unknown.
+func undeterminedCollected(source Value, answers []Value) Value {
+	first, _ := undeterminedIn(append([]Value{source}, answers...)...)
+	count := semantics.CountRange(0)
+	var known []Value
+	for _, answer := range answers {
+		count = count.Plus(countOf(answer))
+		known = append(known, knownElementsOf(answer)...)
+	}
+	if unknown := unknownCountOf(source); !unknown.Upper.Known || unknown.Upper.Infinite || unknown.Upper.Value > 0 {
+		count.Upper = semantics.Bound{Infinite: true, Known: true}
 	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: open[0].Undetermined().Reason(), count: count, known: kept,
+		reason: first.Undetermined().Reason(), count: count, known: known,
 	}}
+}
+
+// unknownCountOf is the count of the values of val beyond those it certainly holds.
+func unknownCountOf(val Value) semantics.Range {
+	count, held := countOf(val), int64(len(knownElementsOf(val)))
+	count.Lower, count.Upper = lessBound(count.Lower, held), lessBound(count.Upper, held)
+	return count
+}
+
+// lessBound is the finite bound b with n fewer values, at least none.
+func lessBound(b semantics.Bound, n int64) semantics.Bound {
+	if b.Known && !b.Infinite {
+		b.Value = max(b.Value-n, 0)
+	}
+	return b
 }
 
 // undeterminedAware lists the built-ins that decide over an undetermined argument
@@ -174,6 +207,10 @@ var undeterminedAware = map[string]bool{
 	"ControlFunctions::exists":    true,
 	"ControlFunctions::allTrue":   true,
 	"ControlFunctions::anyTrue":   true,
+	"ControlFunctions::select":    true,
+	"ControlFunctions::reject":    true,
+	"ControlFunctions::selectOne": true,
+	"ControlFunctions::collect":   true,
 	"SequenceFunctions::size":     true,
 	"SequenceFunctions::isEmpty":  true,
 	"SequenceFunctions::notEmpty": true,

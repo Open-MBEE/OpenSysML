@@ -196,16 +196,37 @@ func TestSequenceCountsAddUpFixedMultiplicities(t *testing.T) {
 }
 
 // Membership decides from the elements it knows: a sought element among the determined
-// ones is included whatever the unknown holds; one unknown or absent is undetermined.
+// ones is included whatever the unknown holds, one a determined sequence lacks is not,
+// and one both certainly hold is not excluded; one unknown or absent is undetermined.
 func TestMembershipDecidesFromKnownElements(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, want := range map[string]string{
 		"includes((1, u + 1), 1)": "true", "excludes((1, u + 1), 1)": "false", "includes((1, 2), 1)": "true",
+		"includes((1), (2, u))": "false", "includes((1, 2), (3, u + 1))": "false",
+		"excludes((1), (1, u))": "false", "excludes((1, u), (1, r))": "false", "excludes(rack.gear, (rack.fixed, u))": "false",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantFormatted(t, src, val, err, want)
 	}
-	for _, src := range []string{"includes((1, 2), u + 1)", "excludes((1, 2), u + 1)", "includes((1, u + 1), 2)"} {
+	for _, src := range []string{
+		"includes((1, 2), u + 1)", "excludes((1, 2), u + 1)", "includes((1, u + 1), 2)",
+		"includes((1, 2), (1, u))", "includes((1, u), (2, r))", "excludes((1, 2), (3, u))", "excludes(rack.gear, (rack.lone, u))",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, "[1]")
+	}
+}
+
+// Indexing with an undetermined index is undetermined, unless the sequence is
+// certainly empty: no index reaches into it, so that is out of range as `()#(1)` is.
+func TestUndeterminedIndexIntoEmptySequenceIsOutOfRange(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for _, src := range []string{"()#(u)", "SequenceFunctions::'#'((), u)", "()#(1)"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrIndexOutOfRange) {
+			t.Errorf("%s: err = %v; want index out of range", src, err)
+		}
+	}
+	for _, src := range []string{"(1, 2)#(u)", "rack.loose#(u)", "rack.gear#(u)", "u#(u)"} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, "[1]")
 	}
@@ -219,7 +240,7 @@ func TestInvocationsPropagateUndeterminedArguments(t *testing.T) {
 		"twice(u)": "[1]", "doubled": "[1]", "twice(rack.gear)": "[1]",
 		"RealFunctions::sum((1, u))": "[1]", "RealFunctions::sum(rack.loose.mass)": "[1]", "RealFunctions::max(u, 3)": "[1]",
 		"u->ControlFunctions::collect{in x; x + 1}":     "[0..*]",
-		"(1, u)->ControlFunctions::select{in x; x > 0}": "[0..*]",
+		"(1, u)->ControlFunctions::select{in x; x > 0}": "[1..2]",
 		"(1,2)->ControlFunctions::forAll{in x; x > u}":  "[1]",
 	} {
 		val, err := evalIn(t, ctx, scope, src)
@@ -337,6 +358,54 @@ func TestQuantifiersDecideFromKnownElements(t *testing.T) {
 	} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// select, reject, selectOne and collect over an open collection apply their body to
+// the elements it certainly holds and keep what results, leaving the unknown rest open.
+func TestCollectionTransformsKeepKnownElements(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"includes((1, u)->ControlFunctions::select{in x; x == 1}, 1)":                                                "true",
+		"includes((1, u)->ControlFunctions::collect{in x; x + 1}, 2)":                                                "true",
+		"notEmpty((1, u)->ControlFunctions::select{in x; x == 1})":                                                   "true",
+		"notEmpty(rack.gear->ControlFunctions::select{in x; x == rack.fixed})":                                       "true",
+		"rack.gear->ControlFunctions::select{in x; x.tag == \"d\"}->ControlFunctions::exists{in x; x == rack.fixed}": "true",
+		"(1, 2)->ControlFunctions::select{in x; x > 0}":                                                              "[1, 2]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"(1, u)->ControlFunctions::select{in x; x == 1}":                      "[1..2]",
+		"(1, u)->ControlFunctions::reject{in x; x == 1}":                      "[0..1]",
+		"(1, u)->ControlFunctions::collect{in x; x + 1}":                      "[1..*]",
+		"(1, u)->ControlFunctions::selectOne{in x; x == 1}":                   "[1]",
+		"(1, u)->ControlFunctions::selectOne{in x; x == 2}":                   "[0..1]",
+		"(1, 2)->ControlFunctions::select{in x; x > u}":                       "[0..2]",
+		"rack.gear->ControlFunctions::select{in x; x == rack.fixed}":          "[1..*]",
+		"rack.gear->ControlFunctions::reject{in x; x == rack.fixed}":          "[0..*]",
+		"rack.loose->ControlFunctions::select{in x; x.tag == \"d\"}":          "[0..2]",
+		"rack.loose->ControlFunctions::collect{in x; x.mass}":                 "[0..*]",
+		"rack.gear->ControlFunctions::select{in x; x.tag == \"e\"}":           "[0..*]",
+		"isEmpty(rack.loose->ControlFunctions::select{in x; x.tag == \"e\"})": "[1]",
+		"size((1, u)->ControlFunctions::select{in x; x == 1})":                "[1]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, known := range map[string]string{
+		"(1, u)->ControlFunctions::select{in x; x == 1}":  "[1]",
+		"(1, u)->ControlFunctions::reject{in x; x == 1}":  "[]",
+		"(1, u)->ControlFunctions::collect{in x; x + 1}":  "[2]",
+		"(1, u)->ControlFunctions::collect{in x; (x, x)}": "[1, 1]",
+	} {
+		val, _ := evalIn(t, ctx, scope, src)
+		if u := val.Undetermined(); u != nil {
+			if got := FormatValue(sequenceOf(u.Known())); got != known {
+				t.Errorf("%s certainly holds %s, want %s", src, got, known)
+			}
+		}
 	}
 }
 

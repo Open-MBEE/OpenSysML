@@ -25,8 +25,13 @@
   features subsetting the collection contribute are what it certainly holds (`includes(gear,
   fixed)` is `true` for `part fixed :> gear`), and `forAll`, `exists`, `allTrue` and `anyTrue`
   decide from those certain elements (`(1, u)->exists{in x; x == 1}` is `true`,
-  `(1, u)->forAll{in x; x > 2}` is `false`) before answering `<undetermined>`. Such a read holds
-  nothing, so it is not charged to the element budget.
+  `(1, u)->forAll{in x; x > 2}` is `false`) before answering `<undetermined>`. `select`, `reject`,
+  `selectOne` and `collect` likewise apply their body to the certain elements and keep what
+  results (`includes((1, u)->select{in x; x == 1}, 1)` is `true`), `includes` and `excludes`
+  decide from the certain elements of both sequences (`includes((1), (2, u))` and
+  `excludes((1), (1, u))` are `false`), and indexing a certainly empty sequence by an open index
+  (`()#(u)`) is the index error `()#(1)` is. Such a read holds nothing, so it is not charged to
+  the element budget.
 - **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
   called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
   Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run
