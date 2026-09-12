@@ -312,7 +312,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err != nil {
 				return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 			}
-			if err := e.ctx.checkDeclaredUniqueness(s.Scope, e.host.describe(), s.Name, evaluated); err != nil {
+			if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
 				return flowNext, err
 			}
 			value = evaluated

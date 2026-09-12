@@ -219,6 +219,12 @@ package Compiled {
 		return : Integer = k;
 	}
 
+	calc def PosLoc {
+		in n : Integer;
+		attribute k : Positive = n - 1;
+		return : Integer = k;
+	}
+
 	calc def One {
 		in n : Integer[1];
 		attribute m : Integer[1..1] = n;
@@ -311,6 +317,8 @@ package Compiled {
 		calc def M2 { in x : Integer[2..3]; return : Integer = size(x); }
 		calc def Ret2 { in x : Integer[0..*]; return : Integer[2..3] = x; }
 		calc def Ass { in x : Integer[0..*]; attribute y : Integer[1..2] = x; return : Integer = size(y); }
+		calc def LocM1 { in x : Integer[0..*]; attribute y : Integer[1] = x; return : Integer = size(y); }
+		calc def LocN { in x : Integer[0..*]; attribute y : Natural[0..*] = x; return : Integer = size(y); }
 		calc def Ret1 { in x : Integer[0..*]; return : Integer[1] = x; }
 		calc def RetN { in x : Integer[0..*]; return : Natural[0..*] = x; }
 		calc def Coal { in x : Integer[0..*]; return : Integer = x ?? 5; }

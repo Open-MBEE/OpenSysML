@@ -119,6 +119,10 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 	ec.resolving[name] = true
 	val, err = ec.evalIn(bound.scope).inEnv(bound.env).Eval(bound.expr)
 	delete(ec.resolving, name)
+	if err != nil || bound.decl == nil {
+		return val, true, err
+	}
+	val, err = ec.conformDeclared(bound.decl, val)
 	return val, true, err
 }
 
@@ -1001,6 +1005,12 @@ func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Va
 	if err != nil {
 		return Value{}, err
 	}
+	return ec.conformDeclared(sym, val)
+}
+
+// conformDeclared holds val as the value of the feature sym declares, once it answers to
+// the declared type, uniqueness and multiplicity (KerML 1.0 §7.3.4).
+func (ec *EvalContext) conformDeclared(sym *symbols.Symbol, val Value) (Value, error) {
 	what := fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym))
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
