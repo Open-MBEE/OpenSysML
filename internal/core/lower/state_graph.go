@@ -241,6 +241,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(members, scope)...)
+	if err := graph.refuseRunToCompletionRedefinitions(body, DescribeMember(stateMachineDecl), true); err != nil {
+		return nil, err
+	}
 
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
 	graph.Attributes = keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
@@ -336,12 +339,13 @@ func (g *StateGraph) ownTransitionEffects() {
 
 // lowerStateAttributes returns every attribute a machine declares, its own and
 // those it inherits. An unvalued attribute is still owned by the machine even
-// though it supplies no initial value.
+// though it supplies no initial value. A restated run-to-completion default is
+// what the executor implements, not a slot of the machine.
 func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attribute {
 	var attrs []Attribute
 	for _, member := range members {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageAttribute {
+		if !ok || usage.Kind != ast.UsageAttribute || graph.redefinedRunToCompletionFeature(usage, member.scope) != "" {
 			continue
 		}
 		name, _ := ast.EffectiveName(usage)
@@ -452,6 +456,11 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 		parallel = parallel || stateMachineIsParallel(owner)
 	}
 
+	body := append(append([]inheritedMember{}, inherited...), ownMembers(usage.Members, bodyScope)...)
+	if err := graph.refuseRunToCompletionRedefinitions(body, "the state "+name, false); err != nil {
+		return nil, err
+	}
+
 	base := &stateContent{node: &ast.StateNode{Name: name}}
 	if len(inherited) > 0 {
 		for _, owner := range owners {
@@ -475,7 +484,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	if attrs := keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
 		graph.StateAttributes[state] = attrs
 	}
-	graph.bodyOf[state] = append(inherited, ownMembers(usage.Members, bodyScope)...)
+	graph.bodyOf[state] = body
 	graph.parallelState[state] = parallel
 	if len(inherited) > 0 {
 		graph.newInstance(state, inherited, owners, replaced)
