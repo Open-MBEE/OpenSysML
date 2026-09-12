@@ -520,16 +520,10 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 		}
 	case "state":
 		stateSym := namedOrFoundSymbol(t, idx, expected.Evaluate, rootScope, ast.DefState, ast.UsageState)
+		events := queuedEvents(t, expected.Events)
 		return func(ctx *Context) (Outcome, error) {
-			exec, err := newStateExecutor(ctx, stateSym, nil)
+			exec, err := ctx.PerformState(stateSym, nil, events)
 			if err != nil {
-				return Outcome{}, err
-			}
-			if err := exec.initialize(); err != nil {
-				return Outcome{}, err
-			}
-			injectEvents(t, exec, expected.Events)
-			if err := exec.RunToCompletion(); err != nil {
 				return Outcome{}, err
 			}
 			return exec.Outcome(), nil
@@ -857,29 +851,32 @@ func runStateConformance(t *testing.T, ctx *Context, idx *symbols.Index, path st
 	}
 }
 
-// injectEvents queues the events a case declares onto an executor, for the
-// conformance and trace harnesses to drive the same performance.
-func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
+// queuedEvents converts the events a case declares into the events the runtime
+// queues, so the conformance, trace and snapshot harnesses drive one performance.
+func queuedEvents(t *testing.T, events []ExpectedEvent) []QueuedEvent {
 	t.Helper()
+	queued := make([]QueuedEvent, 0, len(events))
 	for _, event := range events {
 		args := make(map[string]Value, len(event.Args))
 		for name, val := range event.Args {
 			args[name] = expectedToRuntimeValue(t, val)
 		}
-		switch {
-		case event.Call != "" && event.Signal != "":
-			t.Fatalf("event declares both signal %q and call %q", event.Signal, event.Call)
-		case event.Value != nil && (event.Call != "" || len(args) > 0):
-			t.Fatalf("event %s%s carries a bare value beside its arguments", event.Signal, event.Call)
-		case event.Call != "":
-			exec.InvokeOperation(event.Call, args)
-		case event.Value != nil:
+		q := QueuedEvent{Signal: event.Signal, Call: event.Call, Args: args}
+		if event.Value != nil {
 			value := expectedToRuntimeValue(t, *event.Value)
-			exec.enqueueSignal(Message{SignalType: event.Signal, Value: &value})
-		case event.Signal != "":
-			exec.SendSignal(event.Signal, args)
-		default:
-			t.Fatalf("event declares neither a signal nor a call")
+			q.Value = &value
+		}
+		queued = append(queued, q)
+	}
+	return queued
+}
+
+// injectEvents queues the events a case declares onto an executor.
+func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
+	t.Helper()
+	for _, event := range queuedEvents(t, events) {
+		if err := exec.Enqueue(event); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -887,23 +884,11 @@ func injectEvents(t *testing.T, exec *StateExecutor, events []ExpectedEvent) {
 // runOneStatePerformance runs one performance of a state machine, by self or by
 // no object, and validates it against the outcome expected of that performance.
 func runOneStatePerformance(t *testing.T, ctx *Context, stateSym *symbols.Symbol, self *Instance, expected ExpectedOutcome) {
-	// Create executor manually to inject events
-	exec, err := newStateExecutor(ctx, stateSym, self)
+	// The executor's own loop drives the run: a harness-local copy drifts from
+	// the semantics under test.
+	exec, err := ctx.PerformState(stateSym, self, queuedEvents(t, expected.Events))
 	if err != nil {
-		t.Fatalf("create state executor: %v", err)
-	}
-
-	// Initialize (enters initial state)
-	if err := exec.initialize(); err != nil {
-		t.Fatalf("initialize state machine: %v", err)
-	}
-
-	injectEvents(t, exec, expected.Events)
-
-	// Process events until completion or suspension, through the executor's own
-	// loop: a harness-local copy drifts from the semantics under test.
-	if err := exec.RunToCompletion(); err != nil {
-		t.Fatalf("run state machine: %v", err)
+		t.Fatalf("state machine: %v", err)
 	}
 
 	validateStateOutcome(t, ctx, exec, AdmittedOutcome{
