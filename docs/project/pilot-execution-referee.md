@@ -216,23 +216,23 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 434 committed cases, the original 32, the 62 the
+prints the current ones. State of the 442 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
-`enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
+`enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 14 of
 `extent_expressions.cases`, the 166 of `undetermined_operands.cases`, the 4 of
 `unknown_bounds.cases` and the 2 of `vast_bounds.cases`:
 
 ```
-agree: 207 · kind-only: 1 · order-only: 0 · disagree: 26
-pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 6 · ours-undetermined: 28
+agree: 210 · kind-only: 1 · order-only: 0 · disagree: 30
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 7 · ours-undetermined: 28
 both-error: 12 · nondeterministic: 0
 ```
 
-The six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
+The first six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
 `ExtentExpression`, `BaseFunctions::'all'`), added with the evaluation they were meant to referee
 and could not: the pilot does not evaluate the operator, as Table 5 of §8.2.5.8.1 foretells by
 marking `all` not model-level evaluable. The four extents — `all Size`
@@ -246,6 +246,29 @@ pilot, against our `2` and `0`. The `1` is the size of the one unevaluated node 
 not a count of instances — no reading of the extent gives a type with no instances the same size
 as one with two — so neither is a verdict against us. The extent semantics are self-assessed in
 the extent row of [spec-compliance.md](spec-compliance.md).
+
+The other eight `extent_expressions.cases` referee what a namespace-level object usage of several
+occurrences denotes (KerML 1.0 §7.3.4.3 Multiplicities — a feature of multiplicity `[2]` has
+exactly two values): `part rims : Rim[2];` in a package, read through `size(all Rim)`,
+`size(rims)`, `rims#(1).radius` and `rims.radius`, beside `part hubs : Hub[1..*];`, `part spares :
+Spare[0..*];`, a valued `part rods : Rod[2] = (new Rod(), new Rod());` and a `part uneven : Rod[2]`
+whose value yields three. We answer `2`, `2`, `2.0`, `[2.0, 2.0]`, `1`, `0`, `2` and the typed
+`ErrMultiplicityViolation`, the usage's lower bound of objects materialized once for the run, in
+declaration order. The pilot materializes no object, so every one of its answers is a fold over
+the unevaluated usage element rather than a count of instances, and no bucket here is a verdict:
+`extent-namespace-collection-count`, `-collection-read` and `-lower-bound-zero` are `disagree`
+because `size` over the one unevaluated node is `1` whether the usage is `[2]` or `[0..*]` — the
+same fold as `extent-uninstantiated-count` and `size-slots` — and `extent-namespace-lower-bound-one`
+agrees only because a `[1..*]` usage's lower bound happens to be that `1`; `-collection-index`
+agrees because the pilot folds `rims#(1).radius` to `Rim::radius`'s default `2.0` as it folds any
+chain through a usage, and `-collection-chain` is `disagree` because it folds `rims.radius` to the
+same one `2.0` where two rims give two; `-valued-collection` agrees because a constructor
+expression per value is countable without an object (`size` of the two `new Rod()` is `2` on both
+sides); and `-valued-count-mismatch` is `ours-error`, the pilot answering `3` for a `[2]` feature
+given three values where the runtime refuses the binding as the multiplicity violation it is
+(§7.3.4.3). Read the eight with the six before them: the pilot evaluates neither `all` nor a
+namespace usage's objects, so the semantics stay self-assessed in the extent row of
+[spec-compliance.md](spec-compliance.md).
 
 The run is deterministic: two runs into separate output directories differ only in the pilot's
 element UUIDs, and agree line for line once those are stripped.

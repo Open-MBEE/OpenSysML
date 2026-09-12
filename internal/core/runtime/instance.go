@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -195,7 +196,7 @@ func (ctx *Context) Instantiate(sym *symbols.Symbol) (*Instance, error) {
 				delete(ctx.occurrences, sym)
 			}
 		})
-		ctx.occurrences[sym] = inst.ID
+		ctx.occurrences[sym] = []int64{inst.ID}
 	}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
 		if hadPrior {
@@ -347,10 +348,8 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 // declared in a package names one occurrence, so reading its features twice
 // reads the same object.
 func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
-	if id, ok := ctx.occurrences[sym]; ok {
-		if inst, ok := ctx.instances[id]; ok {
-			return inst, nil
-		}
+	if live, ok := ctx.liveOccurrences(sym); ok && len(live) == 1 {
+		return live[0], nil
 	}
 	// The occurrence is recorded before its behaviors start, so a behavior that
 	// reaches the usage it belongs to reads this object rather than a second one.
@@ -360,20 +359,126 @@ func (ctx *Context) occurrenceOf(sym *symbols.Symbol) (*Instance, error) {
 		ctx.abandonInstancesSince(mark)
 		return nil, err
 	}
-	ctx.occurrences[sym] = inst.ID
+	ctx.occurrences[sym] = []int64{inst.ID}
 	if err := ctx.startClassifierBehaviors(inst, mark); err != nil {
 		return nil, err
 	}
 	return inst, nil
 }
 
-// OccurrenceUsage is the qualified name of the declared usage inst is the
+// occurrencesOf returns the objects a namespace-level usage of several occurrences denotes,
+// materializing its lower bound once, in declaration order, as a nested collection's is.
+func (ctx *Context) occurrencesOf(sym *symbols.Symbol) ([]*Instance, error) {
+	if live, ok := ctx.liveOccurrences(sym); ok {
+		return live, nil
+	}
+	count, err := ctx.lowerBoundCount(ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)), 0, symbolText(sym))
+	if err != nil {
+		return nil, err
+	}
+	// The whole collection is recorded before any of its objects starts, so a behavior
+	// reading the usage back reads the objects it denotes; a failure leaves none behind.
+	release := ctx.elementScope()
+	if err := ctx.chargeElements(int64(count)); err != nil {
+		release()
+		return nil, err
+	}
+	mark := len(ctx.created)
+	members, err := ctx.materializeMembers(sym, count, nil, "")
+	if err != nil {
+		ctx.abandonInstancesSince(mark)
+		release()
+		return nil, err
+	}
+	ids := make([]int64, len(members))
+	for i, inst := range members {
+		ids[i] = inst.ID
+	}
+	ctx.occurrences[sym] = ids
+	if err := ctx.startClassifierBehaviorsOf(members, mark); err != nil {
+		release()
+		return nil, err
+	}
+	return members, nil
+}
+
+// denotedObjects is the objects a namespace usage carrying no value denotes for the run: one
+// occurrence, its lower bound of several, none when it admits none; a port denotes no object.
+func (ctx *Context) denotedObjects(sym *symbols.Symbol) ([]*Instance, error) {
+	switch {
+	case ctx.namesOneObject(sym):
+		inst, err := ctx.occurrenceOf(sym)
+		if err != nil {
+			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		}
+		return []*Instance{inst}, nil
+	case ctx.namesObjects(sym):
+		members, err := ctx.occurrencesOf(sym)
+		if err != nil {
+			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		}
+		return members, nil
+	case ctx.optionalValueless(sym):
+		return nil, nil
+	}
+	return nil, ctx.undenotedUsage(sym)
+}
+
+// denotedValue is what a usage carrying no value reads as: its object, the collection of its
+// objects, or undetermined of its count where that admits more than the lower bound it holds.
+func (ctx *Context) denotedValue(sym *symbols.Symbol) (Value, error) {
+	if !ctx.namesObjects(sym) {
+		inst, err := ctx.occurrenceOf(sym)
+		if err != nil {
+			return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+		}
+		return ctx.objectValue(inst)
+	}
+	members, err := ctx.occurrencesOf(sym)
+	if err != nil {
+		return Value{}, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+	}
+	if mult := ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)); mult.AdmitsMore(int64(len(members))) {
+		spelled := ctx.qualifiedSymbolName(sym)
+		return undeterminedFeatureValue(openCountReason(spelled, mult), mult, sym), nil
+	}
+	elements := make([]Value, 0, len(members))
+	for _, inst := range members {
+		val, err := ctx.objectValue(inst)
+		if err != nil {
+			return Value{}, err
+		}
+		elements = append(elements, val)
+	}
+	return ctx.declaredCollection(sym, sequenceOf(elements)), nil
+}
+
+// liveOccurrences is the objects recorded as what sym denotes, while every one of them lives.
+func (ctx *Context) liveOccurrences(sym *symbols.Symbol) ([]*Instance, bool) {
+	ids, ok := ctx.occurrences[sym]
+	if !ok {
+		return nil, false
+	}
+	out := make([]*Instance, 0, len(ids))
+	for _, id := range ids {
+		inst, live := ctx.instances[id]
+		if !live {
+			return nil, false
+		}
+		out = append(out, inst)
+	}
+	return out, true
+}
+
+// denotesOccurrence reports whether inst is one of the objects its usage denotes.
+func (ctx *Context) denotesOccurrence(inst *Instance) bool {
+	return slices.Contains(ctx.occurrences[inst.Type], inst.ID)
+}
+
+// OccurrenceUsage is the qualified name of the declared usage inst is an
 // occurrence of, or "" for an object materialized any other way.
 func (ctx *Context) OccurrenceUsage(inst *Instance) string {
-	if inst == nil {
-		return ""
-	}
-	if id, ok := ctx.occurrences[inst.Type]; !ok || id != inst.ID {
+	if inst == nil || !ctx.denotesOccurrence(inst) {
 		return ""
 	}
 	return ctx.qualifiedSymbolName(inst.Type)
@@ -411,6 +516,18 @@ func (ctx *Context) namesOneObject(sym *symbols.Symbol) bool {
 		return false
 	}
 	return isOccurrenceUsage(sym) || ctx.namesStructuredValue(sym)
+}
+
+// namesObjects reports whether a usage denotes several objects of its own: an occurrence
+// usage a namespace declares of a collection multiplicity whose lower bound is at least one.
+func (ctx *Context) namesObjects(sym *symbols.Symbol) bool {
+	if sym == nil || sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) || !isOccurrenceUsage(sym) {
+		return false
+	}
+	if ctx.occursOnce(sym) || ctx.optionalValueless(sym) || ctx.model.semantics.IsVariationFeature(sym) {
+		return false
+	}
+	return ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Lower.Known
 }
 
 // registersOccurrence reports whether an object materialized for a usage is the one a
@@ -753,7 +870,6 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			}
 		}
 
-		// Check multiplicity (C2 + C1)
 		if !mult.Upper.Known || !mult.Lower.Known {
 			return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
 		}
@@ -782,15 +898,10 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 				return nil, err
 			}
 
-			// Guard against infinite/huge lower bound (C3)
-			if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
+			count, err := ctx.lowerBoundCount(mult, len(contributed), fmt.Sprintf("feature %q", name))
+			if err != nil {
 				release()
-				return nil, fmt.Errorf("%w: lower bound too large or infinite for feature %q", ErrMultiplicityViolation, name)
-			}
-
-			count := int(mult.Lower.Value) - len(contributed)
-			if count < 0 {
-				count = 0
+				return nil, err
 			}
 
 			// The whole collection is held before any of its objects starts, so a
@@ -811,20 +922,17 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			if err != nil {
 				return fail(err)
 			}
+			made, err := ctx.materializeMembers(composite, count-len(children), inst, name)
+			if err != nil {
+				return fail(err)
+			}
+			children = append(children, made...)
 			seq := NewSequence()
 			for _, val := range contributed {
 				seq.Append(val)
 			}
 			for _, child := range children {
 				seq.Append(Value{Kind: ValInstance, Instance: child.ID})
-			}
-			for i := len(children); i < count; i++ {
-				childInst, err := ctx.materialize(composite, 0, inst, name)
-				if err != nil {
-					return fail(err)
-				}
-				seq.Append(Value{Kind: ValInstance, Instance: childInst.ID})
-				children = append(children, childInst)
 			}
 			fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
 			fv.Materialized = true
@@ -837,6 +945,36 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	}
 
 	return fv, nil
+}
+
+// lowerBoundCount is how many anonymous objects fill a collection to its lower bound
+// beyond the held objects already counted; a bound too large to materialize is refused.
+func (ctx *Context) lowerBoundCount(mult semantics.Range, held int, what string) (int, error) {
+	if !mult.Upper.Known || !mult.Lower.Known {
+		return 0, fmt.Errorf("cannot materialize %s with unknown multiplicity", what)
+	}
+	if mult.Lower.Infinite || mult.Lower.Value > maxMaterializedLowerBound {
+		return 0, fmt.Errorf("%w: lower bound too large or infinite for %s", ErrMultiplicityViolation, what)
+	}
+	count := int(mult.Lower.Value) - held
+	if count < 0 {
+		count = 0
+	}
+	return count, nil
+}
+
+// materializeMembers makes count objects of sym in order, the members a collection
+// is filled with; the caller abandons what a failed one leaves behind.
+func (ctx *Context) materializeMembers(sym *symbols.Symbol, count int, owner *Instance, feature string) ([]*Instance, error) {
+	members := make([]*Instance, 0, count)
+	for i := 0; i < count; i++ {
+		inst, err := ctx.materialize(sym, 0, owner, feature)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, inst)
+	}
+	return members, nil
 }
 
 // HoldsOnlyContributions reports whether a feature of known multiplicity

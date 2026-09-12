@@ -61,7 +61,7 @@ type HeldImage struct {
 	activations, runs int64
 	clock             float64
 
-	occurrences      map[*symbols.Symbol]int64
+	occurrences      map[*symbols.Symbol][]int64
 	metadataObjects  map[metadataAnnotation]int64
 	variantObjects   map[variantObject]int64
 	selectedVariants map[variantSelection]string
@@ -153,7 +153,7 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		activations:      ctx.activations,
 		runs:             ctx.runs,
 		clock:            ctx.clock.now,
-		occurrences:      make(map[*symbols.Symbol]int64),
+		occurrences:      make(map[*symbols.Symbol][]int64),
 		metadataObjects:  make(map[metadataAnnotation]int64),
 		variantObjects:   make(map[variantObject]int64),
 		selectedVariants: make(map[variantSelection]string),
@@ -244,9 +244,14 @@ func (t *imaging) close() error {
 	ctx := t.ctx
 	for len(t.queue) > 0 || !t.open {
 		if len(t.queue) == 0 {
-			for sym, id := range ctx.occurrences {
-				if _, live := ctx.instances[id]; live && t.declaredUnderHeld(sym) {
-					t.reach(id)
+			for sym, ids := range ctx.occurrences {
+				if !t.declaredUnderHeld(sym) {
+					continue
+				}
+				for _, id := range ids {
+					if _, live := ctx.instances[id]; live {
+						t.reach(id)
+					}
 				}
 			}
 			if len(t.queue) > 0 || t.open {
@@ -448,9 +453,10 @@ func (t *imaging) finish() {
 			img.objects[i].features[j].reads = t.edges(fv.reads)
 		}
 	}
-	for sym, id := range ctx.occurrences {
-		if img.held[id] {
-			img.occurrences[sym] = id
+	// A usage's occurrences are imaged whole: an image holding some of them holds none.
+	for sym, ids := range ctx.occurrences {
+		if !slices.ContainsFunc(ids, func(id int64) bool { return !img.held[id] }) {
+			img.occurrences[sym] = ids
 		}
 	}
 	for key, id := range ctx.metadataObjects {
@@ -561,9 +567,16 @@ func (img *HeldImage) bindingsFree(dst *Context) error {
 			err = &HeldImageError{ID: id, Type: obj.typ, What: "materialize", Err: reason}
 		}
 	}
-	for sym, id := range img.occurrences {
-		if prior, ok := dst.occurrences[sym]; ok && prior != id && dst.holds(prior) {
-			refuse(id, fmt.Errorf("%w: usage %s denotes #%d", ErrImageBindingTaken, dst.qualifiedSymbolName(sym), prior))
+	for sym, ids := range img.occurrences {
+		priors, ok := dst.occurrences[sym]
+		if !ok || slices.Equal(priors, ids) {
+			continue
+		}
+		for _, prior := range priors {
+			if dst.holds(prior) {
+				refuse(ids[0], fmt.Errorf("%w: usage %s denotes #%d", ErrImageBindingTaken, dst.qualifiedSymbolName(sym), prior))
+				break
+			}
 		}
 	}
 	for key, id := range img.metadataObjects {
@@ -704,8 +717,8 @@ func (m *materializing) run() error {
 	}
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
-	for sym, id := range img.occurrences {
-		dst.occurrences[sym] = id
+	for sym, ids := range img.occurrences {
+		dst.occurrences[sym] = slices.Clone(ids)
 	}
 	for key, id := range img.metadataObjects {
 		dst.metadataObjects[key] = id

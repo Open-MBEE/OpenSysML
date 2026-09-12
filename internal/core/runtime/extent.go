@@ -273,17 +273,13 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 			}
 			continue
 		}
-		if !ctx.namesOneObject(sym) {
-			if ctx.optionalValueless(sym) {
-				continue
-			}
-			return nil, ctx.undenotedUsage(sym)
-		}
-		inst, err := ctx.occurrenceOf(sym)
+		denoted, err := ctx.denotedObjects(sym)
 		if err != nil {
-			return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
+			return nil, err
 		}
-		add(inst, sym)
+		for _, inst := range denoted {
+			add(inst, sym)
+		}
 	}
 	held := ctx.heldObjectIDs()
 	for _, id := range ctx.created {
@@ -319,13 +315,9 @@ func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
 	return out, nil
 }
 
-// undenotedUsage refuses an extent for a namespace usage the run denotes no object of:
-// several occurrences, or a port, at namespace level.
+// undenotedUsage refuses an extent for a namespace usage the run denotes no object of: a
+// port, which stands for an interaction point of an object the namespace has none of.
 func (ctx *Context) undenotedUsage(sym *symbols.Symbol) error {
-	if !ctx.occursOnce(sym) {
-		return fmt.Errorf("%w: usage %s declares %s occurrences, which the run denotes no object of",
-			ErrExtentUnavailable, symbolText(sym), ctx.featureMultiplicity(sym, ctx.findOwnerType(sym)).Text())
-	}
 	return fmt.Errorf("%w: usage %s is a %s at namespace level, which the run denotes no object of",
 		ErrExtentUnavailable, symbolText(sym), sym.Notation())
 }

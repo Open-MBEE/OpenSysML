@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -1002,16 +1003,16 @@ func (a *adoption) abandon() {
 // declaration no longer has is dropped, so it is derived again rather than kept
 // wrong.
 func (a *adoption) carryDerived(adopted map[int64]bool) {
-	for sym, id := range a.prev.occurrences {
-		if !adopted[id] {
+	for sym, ids := range a.prev.occurrences {
+		if slices.ContainsFunc(ids, func(id int64) bool { return !adopted[id] }) {
 			continue
 		}
 		if found, ok := a.rebound[sym]; ok {
-			a.ctx.occurrences[found] = id
+			a.ctx.occurrences[found] = ids
 			continue
 		}
 		if found, err := a.rebind(sym, "a usage of it"); err == nil {
-			a.ctx.occurrences[found] = id
+			a.ctx.occurrences[found] = ids
 		}
 	}
 	for key, id := range a.prev.metadataObjects {
@@ -1087,7 +1088,7 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 					return false
 				}
 			}
-			if id, occurs := a.prev.occurrences[dep]; occurs && a.ctx.occurrences[depFound] != id {
+			if ids, occurs := a.prev.occurrences[dep]; occurs && !slices.Equal(a.ctx.occurrences[depFound], ids) {
 				return false
 			}
 			rewritten.decls[depFound] = digest

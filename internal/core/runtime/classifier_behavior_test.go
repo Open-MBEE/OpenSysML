@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1560,16 +1561,16 @@ func TestStartupNamingItsOwnUsageReachesTheObjectCreated(t *testing.T) {
 	if got := len(ctx.instances); got != 2 {
 		t.Errorf("%d objects materialized, want the counter and its state performance", got)
 	}
-	if id := ctx.occurrences[sym]; id != first.ID {
-		t.Errorf("counter denotes object %d, want the one created, %d", id, first.ID)
+	if ids := ctx.occurrences[sym]; !slices.Equal(ids, []int64{first.ID}) {
+		t.Errorf("counter denotes objects %v, want the one created, %d", ids, first.ID)
 	}
 
 	second, err := ctx.Instantiate(sym)
 	if err != nil {
 		t.Fatalf("Instantiate counter again: %v", err)
 	}
-	if id := ctx.occurrences[sym]; id != second.ID {
-		t.Errorf("counter denotes object %d after a second creation, want %d", id, second.ID)
+	if ids := ctx.occurrences[sym]; !slices.Equal(ids, []int64{second.ID}) {
+		t.Errorf("counter denotes objects %v after a second creation, want %d", ids, second.ID)
 	}
 	if _, held := ctx.Instance(first.ID); !held {
 		t.Error("the first object is gone after a second creation")

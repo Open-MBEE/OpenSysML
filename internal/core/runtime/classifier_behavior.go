@@ -297,8 +297,8 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	if len(abandoned) == 0 {
 		return
 	}
-	for sym, id := range ctx.occurrences {
-		if _, live := ctx.instances[id]; !live {
+	for sym := range ctx.occurrences {
+		if _, live := ctx.liveOccurrences(sym); !live {
 			delete(ctx.occurrences, sym)
 		}
 	}

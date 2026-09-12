@@ -13,3 +13,17 @@ extent-root-objects ::  :: Extent::cars
 extent-uninstantiated-definition ::  :: Extent::boats
 extent-variation-count ::  :: Extent::gearboxCount
 extent-uninstantiated-count ::  :: Extent::boatCount
+
+# A namespace-level object usage of several occurrences denotes its lower bound of objects
+# (KerML 1.0 §7.3.4.3): `part rims : Rim[2];` is two rims, `[1..*]` one, `[0..*]` none, and a
+# valued `[2]` usage is bound to its two values, or refused where the value yields three. The
+# pilot materializes no object and evaluates neither `all` nor a read of such a usage, so these
+# land in pilot-unevaluated (or count the one unevaluated node) on its side.
+extent-namespace-collection-count ::  :: Collections::rimCount
+extent-namespace-collection-read ::  :: Collections::rimsRead
+extent-namespace-collection-index ::  :: Collections::firstRimRadius
+extent-namespace-collection-chain ::  :: Collections::rimRadii
+extent-namespace-lower-bound-one ::  :: Collections::hubCount
+extent-namespace-lower-bound-zero ::  :: Collections::spareCount
+extent-namespace-valued-collection ::  :: Collections::rodCount
+extent-namespace-valued-count-mismatch ::  :: Mismatch::unevenCount
