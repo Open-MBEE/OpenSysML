@@ -176,9 +176,8 @@ const extentModel = `package Demo {
     calc def N { return : Integer = size(all Car); }
 }`
 
-// The prompt resolves a usage in the document's own scope tree, so the object an
-// extent materializes for it is the one a later read of the usage reaches, and the
-// one an earlier read materialized is the one the extent lists — in either order.
+// An extent and a prompt read of the usage reach the same object, whichever
+// of them materializes it.
 func TestEvalExtentAndUsageReadOneObject(t *testing.T) {
 	for name, order := range map[string][]string{
 		"extent first": {"Demo::N()", "Demo::car.n", "Demo::N()"},

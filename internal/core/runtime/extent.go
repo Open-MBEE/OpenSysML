@@ -332,10 +332,8 @@ type usageCensus struct {
 	digest string
 }
 
-// modelUsages is the model's usage census, taken once per Model: a variation stands for no
-// object, and an optional usage without a value holds none of its own, so neither is listed.
-// Each usage is the symbol a registered scope tree declares for it, so the object the extent
-// materializes is the one a reference resolved in that tree reads.
+// modelUsages is the model's usage census, taken once per Model, each usage as the symbol a
+// registered scope tree declares for it; variations and optional valueless usages are not listed.
 func (ctx *Context) modelUsages() *usageCensus {
 	if ctx.model.census != nil {
 		return ctx.model.census

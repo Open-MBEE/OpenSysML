@@ -272,9 +272,8 @@ func TestNamespaceBindingToAnExtent(t *testing.T) {
 	}
 }
 
-// TestExtentRootsAreTheSymbolsTheCallerResolvesIn requires the extent, in a context whose
-// caller resolves references in a registered scope tree, to materialize a usage's object under
-// that tree's symbol, so reading the usage afterwards — or before — reads the same object.
+// The extent materializes a usage's object under the registered scope tree's symbol, so
+// reading the usage afterwards — or before — reads the same object.
 func TestExtentRootsAreTheSymbolsTheCallerResolvesIn(t *testing.T) {
 	const src = `package Demo {
 		private import SequenceFunctions::*;
