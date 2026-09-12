@@ -2340,7 +2340,10 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		if len(due) == 0 {
 			break
 		}
-		next := e.chooseDoAction(due)
+		next, err := e.chooseDoAction(due)
+		if err != nil {
+			return ran, err
+		}
 		act := due[next]
 		due = slices.Delete(due, next, next+1)
 		if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
@@ -2541,18 +2544,22 @@ func (e *StateExecutor) settleDoActions() error {
 }
 
 // chooseDoAction resolves which of the do behaviors due in a round acts next: the
-// policy draws the pick and, with several due, the choice is reported.
-func (e *StateExecutor) chooseDoAction(due []*doAction) int {
+// policy draws the pick and, with several due, the choice is reported; a replay
+// that cannot follow its witness here is its refusal, and none acts.
+func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if len(due) < 2 {
-		return 0
+		return 0, nil
 	}
 	states := make([]*ast.StateNode, len(due))
 	for i, act := range due {
 		states[i] = act.state
 	}
 	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states)
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return 0, err
+	}
 	e.ctx.noteChoice(choice)
-	return choice.Taken
+	return choice.Taken, nil
 }
 
 // isRunningDoAction reports whether a do action is still registered, which it

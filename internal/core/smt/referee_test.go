@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
@@ -137,9 +138,14 @@ type refereeTally struct {
 	refusals                                        []string
 }
 
+// refereeTimeout is how long the referee gives the solver per query: it judges
+// faithfulness, not speed, so a slow machine must not turn a verdict undecided.
+const refereeTimeout = 5 * time.Minute
+
 // TestRefereeCorpus runs checks 1–3 over the corpus and reports the counts.
 func TestRefereeCorpus(t *testing.T) {
-	solver := requireSolver(t)
+	solver := *requireSolver(t)
+	solver.Timeout = refereeTimeout
 	cases := refereeCases(t)
 	names := make([]string, 0, len(cases))
 	for name := range cases {
@@ -150,7 +156,7 @@ func TestRefereeCorpus(t *testing.T) {
 	for _, name := range names {
 		c := cases[name]
 		t.Run(name, func(t *testing.T) {
-			refereeCase(t, solver, name, c, tally)
+			refereeCase(t, &solver, name, c, tally)
 		})
 	}
 	t.Logf("referee: %d cases encoded, %d refused, %d agreeing on outcomes and verdict; %d witnesses, %d replayed",
@@ -166,7 +172,7 @@ func TestRefereeCorpus(t *testing.T) {
 // refereeCase holds one case to the interpreter, adding to the tally.
 func refereeCase(t *testing.T, solver *solve.Solver, name string, c corpusCase, tally *refereeTally) {
 	d, action := corpusDocument(t, name, c)
-	budget := analysis.Budget{Depth: DefaultMoves}
+	budget := analysis.Budget{Depth: DefaultMoves, Solver: solver.Timeout}
 	encoding, refusal := encodeDocument(t, d, action, budget)
 	if refusal != nil {
 		tally.refused++

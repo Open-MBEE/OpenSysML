@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -597,5 +598,104 @@ func TestReplayProbeLeavesTheWitnessInPlace(t *testing.T) {
 	}
 	if got := activeLeaf(exec); got != "high" {
 		t.Fatalf("ended in %s, want high", got)
+	}
+}
+
+// A behavior run whole by the context — an action or a state machine — ends
+// refused when the witness has moves left over, with no call to Unfollowed needed.
+func TestReplayRefusesMovesLeftOverByARun(t *testing.T) {
+	t.Run("action", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		sym := m.action(t, "route")
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		extra := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 99, Among: []string{"1@a", "2@b"}, Took: "1@a", Alternatives: 2}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		_, err = ctx.ExecuteAction(sym)
+		assertRefusedLeftOver(t, err, len(good)+1, extra)
+	})
+	t.Run("state", func(t *testing.T) {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+			state Dispatcher {
+				entry; then idle;
+				state idle;
+				state low;
+				state high;
+				transition first idle accept Go then low;
+				transition first idle accept Go then high;
+			}
+		}`))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		witness, err := ParseChoices("state idle on accept Go -> 2->high\nstate high on accept Go -> 1->idle\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		_, _, err = ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+		assertRefusedLeftOver(t, err, 2, witness[1])
+	})
+}
+
+// assertRefusedLeftOver checks that err is the refusal of the witness's move
+// left over when the run ended.
+func assertRefusedLeftOver(t *testing.T, err error, move int, choice ChoiceTaken) {
+	t.Helper()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+		t.Fatalf("error %T %v, want a ReplayError", err, err)
+	}
+	if refused.Move != move || refused.Choice.String() != choice.String() || refused.Faced != "the run ended" {
+		t.Errorf("refused %+v, want move %d (%s) faced the run ended", refused, move, choice)
+	}
+}
+
+// A do-order move naming a state whose behavior is not due is refused before
+// either due behavior acts, so the run stops where the witness stopped fitting.
+func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		state def Interleave parallel {
+			attribute seq : Integer = 0;
+			state left {
+				entry; then lstart;
+				state lstart;
+				state lwork { do { assign seq := seq * 10 + 1; assign seq := seq * 10 + 2; } }
+				succession first lstart then lwork;
+			}
+			state right {
+				entry; then rstart;
+				state rstart;
+				state rwork { do { assign seq := seq * 10 + 4; assign seq := seq * 10 + 5; } }
+				succession first rstart then rwork;
+			}
+		}
+	}`)
+	sym := m.state(t, "Interleave")
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	witness, err := ParseChoices("do round at t=0.0: zork first of lwork, zork\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || refused.Move != 1 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
+		t.Fatalf("error %T %v, want the do-order move refused", err, err)
+	}
+	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
+		t.Errorf("seq is %v after the refusal, want 1: neither due behavior may act on a refused round", seq)
 	}
 }

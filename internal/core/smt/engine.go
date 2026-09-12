@@ -269,8 +269,7 @@ func (r *run) decide(ctx context.Context) (analysis.Result, error) {
 		}
 		return r.holds(analysis.Bounded, cut), nil
 	default:
-		r.noteTimeout(result)
-		return r.holds(analysis.Bounded, Cut{Moves: true, Unroll: len(r.encoding.Flow.Loops) > 0}), nil
+		return r.undecided(result, "whether every schedule ends within the bounds"), nil
 	}
 }
 

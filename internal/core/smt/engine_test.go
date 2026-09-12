@@ -3,7 +3,9 @@ package smt
 import (
 	"context"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -291,5 +293,37 @@ func TestEngineReportsUnknownAsNotCovered(t *testing.T) {
 	}
 	if len(result.Values) != 1 || result.Values[0].Solved == nil || !result.Values[0].Solved.TimedOut {
 		t.Errorf("the undecided query is not reported: %+v", result.Values)
+	}
+}
+
+// TestEngineReportsUndecidedUncertaintyAsNotCovered: a solver that refutes every
+// violation but runs out of time on whether the bounds were reached leaves the
+// question not covered — not a bounded holds — with the undecided query reported.
+func TestEngineReportsUndecidedUncertaintyAsNotCovered(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skipf("no sh to stand in for a solver: %v", err)
+	}
+	// Each query is a fresh process; the count file has the fourth one hang.
+	count := filepath.Join(t.TempDir(), "asked")
+	script := `n=$(cat "$1" 2>/dev/null || echo 0); echo $((n+1)) > "$1"
+if [ "$n" -ge 3 ]; then exec sleep 30; fi
+while IFS= read -r line; do case "$line" in *"(check-sat)"*) echo unsat;; esac; done`
+	unsure := &solve.Solver{Name: "unsure", Path: "sh", Args: []string{"-c", script, "unsure", count},
+		Declared: solve.DeclaredCapabilities("unsure", solve.AllCapabilities...)}
+	e := New(func() (*solve.Solver, error) { return unsure, nil })
+	d := indexed(t, "unsure.sysml", conditionsSrc)
+	result := answer(t, e, d, d.holds(t, "test::A", "test::A::bounded"), analysis.Budget{Depth: 3, Solver: 100 * time.Millisecond})
+	expect(t, result, analysis.ClaimNone, analysis.NotCovered)
+	if !strings.Contains(result.Reason, "did not decide whether every schedule ends within the bounds") {
+		t.Errorf("reason %q", result.Reason)
+	}
+	if solverBound := bound(t, result, "solver"); !solverBound.Reached || solverBound.Limit != 100 {
+		t.Errorf("solver bound %+v, want reached at 100ms", solverBound)
+	}
+	if len(result.Values) != 1 || result.Values[0].Solved == nil || !result.Values[0].Solved.TimedOut {
+		t.Errorf("the undecided query is not reported: %+v", result.Values)
+	}
+	if asked, err := os.ReadFile(count); err != nil || strings.TrimSpace(string(asked)) != "4" {
+		t.Errorf("queries asked %q, %v; want the three property queries and the uncertainty query", asked, err)
 	}
 }

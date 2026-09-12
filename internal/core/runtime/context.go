@@ -1323,6 +1323,7 @@ func (ctx *Context) performActionStep(performed, action *symbols.Symbol, self *I
 // action, seeds its inputs, starts it with start, and runs it to completion; the
 // clock drives it no further.
 func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
@@ -1339,14 +1340,24 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 	if err := ctx.startAction(exec, start); err != nil {
 		return nil, err
 	}
-	if exec.state == StateCompleted {
-		return exec, nil
+	if exec.state != StateCompleted {
+		if err := exec.RunToCompletion(); err != nil {
+			return nil, fmt.Errorf("execute action: %w", err)
+		}
 	}
-
-	if err := exec.RunToCompletion(); err != nil {
+	if err := ctx.followedWhole(top); err != nil {
 		return nil, fmt.Errorf("execute action: %w", err)
 	}
 	return exec, nil
+}
+
+// followedWhole is the refusal of a top-level run that ended with witness moves
+// left over; a nested run leaves what is left to the run enclosing it.
+func (ctx *Context) followedWhole(top bool) error {
+	if !top {
+		return nil
+	}
+	return ctx.Unfollowed()
 }
 
 // startAction begins an executor however its action is performed: one a ToolExecution
@@ -1409,6 +1420,7 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 // performState runs a state machine performed by self to completion or
 // suspension, the events injected before it runs, and returns its executor.
 func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, events []string) (*StateExecutor, error) {
+	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
 	// Create executor
@@ -1430,6 +1442,9 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	}
 
 	if err := exec.RunToCompletion(); err != nil {
+		return nil, err
+	}
+	if err := ctx.followedWhole(top); err != nil {
 		return nil, err
 	}
 	return exec, nil
