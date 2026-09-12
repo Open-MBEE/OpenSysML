@@ -39,8 +39,9 @@ type Replayed struct {
 
 // ReplayAction re-runs the witness: it starts the action start begins in the
 // context fresh makes, under the `replay` policy over the witness's choices, and
-// steps it until its trace equals the witness's, settling as the check did. The
-// run failing to follow a choice, ending or leaving another trace is a
+// steps it until its trace equals the witness's, settling as the check did — or,
+// for a witness ending in a failure, until a move raises it. The run failing to
+// follow a choice, ending, failing otherwise or leaving another trace is a
 // ReplayDisagreement; a caller that goes away mid-run takes the replay with it,
 // its error being stop's.
 func ReplayAction(stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness) (*Replayed, error) {
@@ -68,7 +69,7 @@ func ReplayAction(stop context.Context, fresh func() (*Context, error), start Ac
 		if err := stop.Err(); err != nil {
 			return r, err
 		}
-		if ctx.Trace().String() == w.Trace {
+		if w.Fails == "" && ctx.Trace().String() == w.Trace {
 			if err := r.settle(stop); err != nil {
 				if stop.Err() != nil {
 					return r, err
@@ -112,13 +113,23 @@ func (r *Replayed) settle(stop context.Context) error {
 	return nil
 }
 
-// agree checks the run followed its witness whole and left its trace, else disagrees for why.
+// agree checks the run followed its witness whole, left its trace and ended as
+// it claims — in the failure it names, or in a state it goes on from — else
+// disagrees for why.
 func (r *Replayed) agree(w Witness, why string) error {
 	if err := r.Ctx.Unfollowed(); err != nil {
 		return r.disagree(w, err.Error())
 	}
 	if r.Ctx.Trace().String() != w.Trace {
 		return r.disagree(w, why+" left another trace")
+	}
+	switch {
+	case r.Err == nil && w.Fails != "":
+		return r.disagree(w, "the run reached the claimed state without failing as claimed: "+w.Fails)
+	case r.Err != nil && w.Fails == "":
+		return r.disagree(w, "the run failed where the witness claims a state: "+r.Err.Error())
+	case r.Err != nil && r.Err.Error() != w.Fails:
+		return r.disagree(w, "the run failed otherwise than claimed: "+r.Err.Error()+", not "+w.Fails)
 	}
 	return nil
 }
@@ -142,8 +153,12 @@ func (e *ActionExecutor) advance() error {
 	return err
 }
 
+// failsPrefix opens the last line of a witness ending in a failure.
+const failsPrefix = "fails: "
+
 // String renders the witness as a file holds it: its choices one per line — or
-// `no choice points` — a blank line, and the trace.
+// `no choice points` — a blank line, the trace, and for a schedule ending in a
+// failure a blank line and `fails: <the failure>` last.
 func (w Witness) String() string {
 	var b strings.Builder
 	if len(w.Choices) == 0 {
@@ -155,11 +170,15 @@ func (w Witness) String() string {
 	}
 	b.WriteByte('\n')
 	b.WriteString(w.Trace)
+	if w.Fails != "" {
+		b.WriteString("\n\n" + failsPrefix + w.Fails)
+	}
 	return b.String()
 }
 
 // ParseWitness reads a witness as Witness.String writes it: the choices
-// ParseChoices reads, and after the blank line ending them the trace, exact.
+// ParseChoices reads, after the blank line ending them the trace, exact, and
+// after a blank line ending that the failure claimed, if any.
 func ParseWitness(text string) (Witness, error) {
 	choices, err := ParseChoices(text)
 	if err != nil {
@@ -170,7 +189,11 @@ func ParseWitness(text string) (Witness, error) {
 	for i, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			if begun {
-				return Witness{Choices: choices, Trace: strings.Join(lines[i+1:], "")}, nil
+				w := Witness{Choices: choices, Trace: strings.Join(lines[i+1:], "")}
+				if trace, fails, found := strings.Cut(w.Trace, "\n\n"+failsPrefix); found {
+					w.Trace, w.Fails = trace, strings.TrimSuffix(fails, "\n")
+				}
+				return w, nil
 			}
 			continue
 		}

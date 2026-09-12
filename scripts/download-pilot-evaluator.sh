@@ -15,6 +15,9 @@ pilot_jar="$validator_target/jupyter-sysml-kernel-${PILOT_ARTIFACT_VERSION}-all.
 library="$validator_target/sysml.library"
 launcher="$target/eval-sysml"
 
+# Always delegate: its fast path is a stamp check, and a stale or re-pinned build is rebuilt.
+"$repo_root/scripts/download-pilot-validator.sh"
+
 if [[ ! -f "$pilot_jar" ]]; then
 	echo "error: pilot shaded jar not found at $pilot_jar" >&2
 	exit 1

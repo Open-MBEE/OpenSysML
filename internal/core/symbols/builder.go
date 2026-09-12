@@ -237,24 +237,14 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		}
 		return true
 	case *ast.TransitionMember:
-		// A named transition is a feature of the state that declares it (SysML v2
+		// A transition is a feature of the state that declares it (SysML v2
 		// §7.19.2: TransitionUsage specializes ActionUsage), and its effect
 		// behaviors are features of the transition, so `t.effectAction` resolves.
-		// An unnamed transition owns a body-local scope for its effect and body
-		// members instead.
+		// An unnamed one is an anonymous member, found by its declaration.
 		defineParams := triggerParameterDefiner(d.Trigger)
-		if d.Name == "" && len(d.Effect) == 0 && len(d.Members) == 0 && defineParams == nil {
-			return true
-		}
 		child := NewScope(scope, d)
-		var sym *Symbol
-		if d.Name == "" {
-			child.markBodyLocal()
-		} else {
-			id := ast.Identification{Name: d.Name, NameSpan: d.NameSpan}
-			sym = newSymbol(id, SymbolActionUsage, d, vis, child, scope, trivia)
-			defineIdent(scope, id, sym)
-		}
+		id := ast.Identification{Name: d.Name, NameSpan: d.NameSpan}
+		defineIdent(scope, id, newSymbol(id, SymbolActionUsage, d, vis, child, scope, trivia))
 		scope.AddChild(child)
 		body := child
 		if defineParams != nil {

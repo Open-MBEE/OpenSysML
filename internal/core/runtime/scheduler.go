@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -47,8 +48,8 @@ const (
 	// scheduleExplore replays runs under Explore, each following a recorded prefix of
 	// choices and taking the first untried alternative at its frontier.
 	scheduleExplore
-	// scheduleReplay follows a witness move for move, then moves one token per step
-	// as the first exploring run does; a move the run cannot make is refused (replay.go).
+	// scheduleReplay follows a witness move for move, then behaves as reverse; a
+	// move the run cannot make is refused (replay.go).
 	scheduleReplay
 	// scheduleCheck makes the one move the model checker selected for the step; it
 	// has no spelling and is constructed by the checker alone (check_schedule.go).
@@ -77,6 +78,16 @@ var DefaultExploreSchedulePolicy = SchedulePolicy{kind: scheduleExplore, budget:
 // bracketed options of `explore` are each optional; `replay:<file>` names a
 // file of choice lines.
 var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>", "explore[:runs=<n>,depth=<d>]", "replay:<file>"}
+
+// replayPrefix opens the `replay` spelling, which names the file to follow.
+const replayPrefix = "replay:"
+
+// ReplaySpelling reports whether the spelling asks for a replay, whose file
+// ParseSchedulePolicy reads; a surface with no files of the caller's refuses it
+// before parsing.
+func ReplaySpelling(spelling string) bool {
+	return spelling == "replay" || strings.HasPrefix(spelling, replayPrefix)
+}
 
 // exploreOptionsPrefix opens the `explore` spelling that carries options.
 const exploreOptionsPrefix = "explore:"
@@ -113,10 +124,10 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: reason}
 		}
 		return SchedulePolicy{kind: scheduleExplore, budget: budget}, nil
-	case spelling == "replay" || spelling == "replay:":
+	case spelling == "replay" || spelling == replayPrefix:
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: "replay: needs a file of choice lines"}
-	case strings.HasPrefix(spelling, "replay:"):
-		file := spelling[len("replay:"):]
+	case strings.HasPrefix(spelling, replayPrefix):
+		file := spelling[len(replayPrefix):]
 		text, err := os.ReadFile(file) // #nosec G304 -- the policy names the witness file to follow.
 		if err != nil {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
@@ -124,6 +135,9 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 		choices, err := ParseChoices(string(text))
 		if err != nil {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
+		}
+		if len(choices) == 0 {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: file + " names no move to follow"}
 		}
 		return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{file: file, choices: choices}}, nil
 	default:
@@ -186,7 +200,7 @@ func (p SchedulePolicy) String() string {
 		if p.replay.file == "" {
 			return "replay"
 		}
-		return "replay:" + p.replay.file
+		return replayPrefix + p.replay.file
 	case scheduleSeeded:
 		return "seed:" + strconv.FormatUint(p.seed, 10)
 	case scheduleExplore:
@@ -217,12 +231,7 @@ func (p SchedulePolicy) Exploration() (ExploreBudget, bool) {
 	return p.budget, p.kind == scheduleExplore
 }
 
-// Replays reports whether the policy follows a witness: a run under it is one
-// fixed schedule, which a debugger steps as any other.
-func (p SchedulePolicy) Replays() bool { return p.kind == scheduleReplay }
-
-// start begins the sequence of resolutions one run draws under the policy; a
-// replaying run continues the context's witness (replay.go), set apart.
+// start begins the sequence of resolutions one run draws under the policy.
 func (p SchedulePolicy) start() *scheduler {
 	s := &scheduler{policy: p}
 	switch p.kind {
@@ -230,6 +239,8 @@ func (p SchedulePolicy) start() *scheduler {
 		s.pcg = rand.NewPCG(p.seed, 0)
 		// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 		s.rng = rand.New(s.pcg)
+	case scheduleReplay:
+		s.replay = &replayRun{choices: slices.Clone(p.replay.choices)}
 	case scheduleCheck:
 		s.check = &checkRun{script: p.check}
 	}
@@ -238,8 +249,8 @@ func (p SchedulePolicy) start() *scheduler {
 
 // scheduler resolves the choice points of one run under a policy; a seeded one
 // carries the generator state the run consumes choice by choice, an exploring
-// one the exploration run the context takes part in, a replaying one the
-// context's position in the witness.
+// one the exploration run the context takes part in, a replaying one its
+// position in the witness, a checking one the checker's selected move.
 type scheduler struct {
 	policy  SchedulePolicy
 	pcg     *rand.PCG
@@ -296,7 +307,7 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 		ts.explore.acted(id, acted)
 	}
 	if ts.replay != nil {
-		ts.replay.acted(id, acted)
+		ts.replay.acted(acted)
 	}
 	if ts.check != nil {
 		ts.check.acted(id, acted)
@@ -331,9 +342,9 @@ func (s *scheduler) checking() bool {
 	return s.policy.kind == scheduleCheck && s.check != nil
 }
 
-// replaying reports whether the run follows a witness, spent or not.
+// replaying reports whether the run still has witness moves to follow.
 func (s *scheduler) replaying() bool {
-	return s.replay != nil
+	return s.replay != nil && s.replay.following()
 }
 
 // scheduleStep fixes how the step tries its tokens: reversed, declared,
@@ -378,10 +389,9 @@ func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
 // choose resolves the choice point c, whose Alternatives are canonical and whose
 // Taken is not yet set, to the index taken: the first by default (the last for a
 // due order), the first under declared, a draw under a seed, the exploration's
-// turn under explore and the witness's move under replay, the default's once the
-// witness is spent. whereOf, when not nil, is how the run reports Where once
-// alternative i is taken (a transition's names its trigger); an exploration's
-// witness names the choice as the run reports it.
+// turn under explore and the witness's move under replay. whereOf, when not nil,
+// is how the run reports Where once alternative i is taken (a transition's names
+// its trigger); an exploration's witness names the choice as the run reports it.
 func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 	n := len(c.Alternatives)
 	if n < 2 {
@@ -403,7 +413,7 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 		}
 		return 0
 	case scheduleReplay:
-		if s.replaying() && s.replay.following() {
+		if s.replaying() {
 			return s.replay.choose(c, whereOf)
 		}
 	case scheduleCheck:
@@ -429,13 +439,13 @@ func (s *scheduler) refusal() error {
 	return s.replay.refused
 }
 
-// ended is the witness move a replaying run left to follow when it ended, nil
-// when it followed the witness whole or follows none.
-func (s *scheduler) ended() error {
-	if s.replay == nil {
+// unfollowed is the refusal of a replaying run that ended, as how says, with
+// witness moves left; nil for a run that followed its witness.
+func (s *scheduler) unfollowed(how string) error {
+	if s == nil || s.replay == nil {
 		return nil
 	}
-	return s.replay.unfollowed("the run ended")
+	return s.replay.unfollowed(how)
 }
 
 // mark returns the state a probe restores, so previewing a run does not move

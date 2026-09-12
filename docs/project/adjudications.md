@@ -185,13 +185,18 @@ A redefinition is a subsetting, and the values of a subsetting feature are value
 feature (KerML 7.3.4.4–7.3.4.5, 8.3.3.3.8, 8.3.3.3.10). KerML states that relation in terms of the
 features' effective co-domains but defines no validator constraint requiring every explicitly named
 type of the redefining feature to conform directly to every explicitly named type of the redefined
-one. The pilot leaves the consequence to model semantics or a reasoner; we apply the direct pairwise
-test as a conservative static policy.
+one: the redefining feature is typed by its own typings *and* the redefined feature's (8.3.3.3.4,
+8.3.3.3.6), and the pilot's own `ShapeItems` library relies on that (`item :>> faces : Polygon`
+under `faces : StructuredSurface`). The pilot leaves the consequence to model semantics or a
+reasoner; we apply the direct pairwise test as an advisory check.
 
-**Adjudicated divergence, kept.** Dropping the check would trade a deliberately stricter static
-policy for a handful of rows, and calling the rows wording-only would be false — the pilot emits
-nothing there. The same policy is why we report the non-conforming individual redefinition in
-`Individuals Examples/AnalysisIndividualExample.sysml`.
+**Adjudicated divergence, kept as a warning.** `redefinition-type-mismatch` reports a redefinition
+typed by two unrelated types, because it is almost always a slip, but as a warning, so no model the
+specification admits is rejected. The two `Import3` `noErrors` rows in
+[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree) closed with that severity; calling them
+wording-only would have been false — the pilot emits nothing there. (The same check once caught the
+non-conforming individual redefinition in `Individuals Examples/AnalysisIndividualExample.sysml`,
+fixed upstream at `2026-07`.)
 
 ### A specialization cycle is reported, and the pilot has no such check
 

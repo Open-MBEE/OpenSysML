@@ -514,8 +514,10 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    state of "Visited states", every live root object named by its materialization path; the
    bounds above; properties at every stable state and at completion, deadlocks and typed
    failures as violations with a witness; divergence of the named features, or of the action's
-   and performer's attributes; witnesses as the choice lines, a blank line and the trace, read
-   back by the one `ParseChoices`/`ReplayPolicy` the SMT stage shares. The framework's `check`
+   and performer's attributes; witnesses as the choice lines, a blank line and the trace — a
+   deadlock's or failure's ending in `fails: <the error>` after a blank line, so a failing move
+   leaving no trace is still the move a replay must make and raise — read back by the one
+   `ParseChoices`/`ReplayPolicy` the SMT stage shares. The framework's `check`
    engine answers `outcomes` and `holds` at authority *bounded* — exhaustive is `Bounded`,
    never `Proved` — with every violation and divergent value *witnessed* only after
    `ReplayAction` re-ran it to the state it claims, a disagreement *not covered*; `explore`

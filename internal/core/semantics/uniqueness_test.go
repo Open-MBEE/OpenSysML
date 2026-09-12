@@ -139,6 +139,30 @@ func TestUniquenessConformanceUsesEffectiveUniqueness(t *testing.T) {
 	}
 }
 
+// TestIsUniqueInheritsIntoMetadataBody: a metadata body declaration redefines the
+// metadata type's feature of its name (KerML 7.4.7), and so takes its uniqueness.
+func TestIsUniqueInheritsIntoMetadataBody(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		metadata def M {
+			attribute repeats : ScalarValues::Real[0..*] ordered nonunique;
+			attribute fresh : ScalarValues::Real[0..*] ordered;
+		}
+		part def A {
+			metadata inline : M { repeats = (1, 1); fresh = (1, 2); }
+		}
+		metadata elsewhere : M about A { repeats = (2, 2); fresh = (3, 4); }
+	}`)
+	p := sym(t, root, "P").Scope
+	for _, usage := range []*symbols.Symbol{nested(t, p, "A", "inline"), nested(t, p, "elsewhere")} {
+		if m.IsUnique(nested(t, usage.Scope, "repeats")) {
+			t.Errorf("IsUnique(%s::repeats) = true, want false through M::repeats", usage.Name)
+		}
+		if !m.IsUnique(nested(t, usage.Scope, "fresh")) {
+			t.Errorf("IsUnique(%s::fresh) = false, want true through M::fresh", usage.Name)
+		}
+	}
+}
+
 // TestIsUniqueTerminatesOnRedefinitionCycle covers that a redefinition chain
 // closing on itself contributes nothing and does not recurse forever.
 func TestIsUniqueTerminatesOnRedefinitionCycle(t *testing.T) {

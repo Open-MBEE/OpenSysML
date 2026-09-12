@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -88,8 +89,8 @@ func TestParseChoicesStopsAtBlankLine(t *testing.T) {
 }
 
 // `replay:<file>` reads the file when the policy is parsed: a missing file, an
-// unreadable line or no file at all is a typed policy error; the policy spells
-// its file back and hands out its witness.
+// unreadable line, a file naming no move or no file at all is a typed policy
+// error; the policy spells its file back and hands out its witness.
 func TestParseReplayPolicy(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "witness.txt")
@@ -117,7 +118,17 @@ func TestParseReplayPolicy(t *testing.T) {
 	if err := os.WriteFile(bad, []byte("step 3: 3@c first of 1@a, 2@b, 3@c\nnonsense\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, spelling := range []string{"replay", "replay:", "replay:" + filepath.Join(dir, "missing.txt"), "replay:" + bad} {
+	empty := filepath.Join(dir, "empty.txt")
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	moveless := filepath.Join(dir, "moveless.txt")
+	if err := os.WriteFile(moveless, []byte("no choice points\n\n[trace] step 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	spellings := []string{"replay", "replay:", "replay:" + filepath.Join(dir, "missing.txt"), "replay:" + bad,
+		"replay:" + empty, "replay:" + moveless}
+	for _, spelling := range spellings {
 		_, err := ParseSchedulePolicy(spelling)
 		var typed *SchedulePolicyError
 		if !errors.As(err, &typed) || !errors.Is(err, ErrInvalidSchedulePolicy) || typed.Spelling != spelling {
@@ -126,6 +137,14 @@ func TestParseReplayPolicy(t *testing.T) {
 	}
 	if _, err := ParseSchedulePolicy("replay:" + bad); err == nil || !strings.Contains(err.Error(), "line 2") {
 		t.Errorf("an unreadable witness line is not named: %v", err)
+	}
+	for _, file := range []string{empty, moveless} {
+		if _, err := ParseSchedulePolicy("replay:" + file); err == nil || !strings.Contains(err.Error(), "names no move to follow") {
+			t.Errorf("%s: a witness naming no move is not refused as such: %v", file, err)
+		}
+	}
+	if choices, err := ParseChoices("no choice points\n"); err != nil || len(choices) != 0 {
+		t.Errorf("ParseChoices(no choice points) = %v, %v; want no choices and no error", choices, err)
 	}
 	if got := SchedulePolicyNames[len(SchedulePolicyNames)-1]; got != "replay:<file>" {
 		t.Errorf("SchedulePolicyNames ends with %q", got)
@@ -141,11 +160,23 @@ func replayed(t *testing.T, fresh func() (*Context, error), run func(*Context) (
 	}
 	mustSchedule(t, ctx, ReplayPolicy(witness))
 	outcome, err := run(ctx)
+	if err == nil {
+		err = ctx.Unfollowed()
+	}
 	var choices []ChoiceTaken
 	for _, c := range ctx.Choices() {
 		choices = append(choices, c.Choice())
 	}
 	return outcome, choices, err
+}
+
+// choiceKinds lists the kind of each choice, in order.
+func choiceKinds(choices []ChoiceTaken) []ChoiceKind {
+	kinds := make([]ChoiceKind, len(choices))
+	for i, c := range choices {
+		kinds[i] = c.Kind
+	}
+	return kinds
 }
 
 // assertWitnessesReplay checks every outcome of an exploration: the run under its
@@ -228,6 +259,9 @@ func TestReplayFileReproducesTheExploredRun(t *testing.T) {
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("%s: %v", policy, err)
 		}
+		if err := ctx.Unfollowed(); err != nil {
+			t.Fatalf("%s: %v", policy, err)
+		}
 		return trace.String(), exec.Results()
 	}
 	for i, o := range x.Outcomes {
@@ -296,6 +330,51 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 			t.Fatalf("explore: %v, %v", x, err)
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
+	})
+	// A dispatch draws every region's transition before the order they fire in, and
+	// notes each with its firing; the witness lists the draws, the run the firings.
+	t.Run("regions with a conflict", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute last : Integer = 0;
+				entry; then work;
+				state work parallel {
+					state a { entry; then a1; state a1; state a2; state a3;
+						transition first a1 accept go do assign last := 1 then a2;
+						transition first a1 accept go do assign last := 2 then a3; }
+					state b { entry; then b1; state b1; state b2; transition first b1 accept go do assign last := 3 then b2; }
+				}
+			}
+		}`)
+		sym := m.state(t, "Machine")
+		run := stateRun(sym, "go")
+		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+		if err != nil || !x.Complete() || x.Runs != 4 {
+			t.Fatalf("explore: %v, %v", x, err)
+		}
+		for _, o := range x.Outcomes {
+			if kinds := choiceKinds(o.Witness); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceTransition, ChoiceRegionOrder}) {
+				t.Fatalf("witness %s draws %v, want the transition then the region order", FormatChoices(o.Witness), kinds)
+			}
+			outcome, choices, err := replayed(t, m.fresh, run, o.Witness)
+			if err != nil {
+				t.Errorf("%s: replaying %s: %v", o.Outcome, FormatChoices(o.Witness), err)
+				continue
+			}
+			if outcome.String() != o.Outcome.String() {
+				t.Errorf("replaying %s reached %s, want %s", FormatChoices(o.Witness), outcome, o.Outcome)
+			}
+			if kinds := choiceKinds(choices); !reflect.DeepEqual(kinds, []ChoiceKind{ChoiceRegionOrder, ChoiceTransition}) {
+				t.Errorf("replaying %s noted %v, want the region order then the transition", FormatChoices(o.Witness), kinds)
+			}
+			got, want := strings.Split(FormatChoices(choices), "; "), strings.Split(FormatChoices(o.Witness), "; ")
+			slices.Sort(got)
+			slices.Sort(want)
+			if !slices.Equal(got, want) {
+				t.Errorf("replaying %s made the choices\n%s", FormatChoices(o.Witness), FormatChoices(choices))
+			}
+		}
 	})
 	t.Run("due", func(t *testing.T) {
 		fresh, run := dueOrderModel(t)
@@ -378,9 +457,7 @@ func stateRun(sym *symbols.Symbol, signal string) func(*Context) (Outcome, error
 
 // A witness move the run cannot make is refused with a typed error naming the
 // move: a token not able to act, a branch not holding, a move at a step the run
-// is past once it faces a choice, a move where the run has none, and one left
-// over when the run ends. A step where one token acts is no choice, so a move
-// there waits for the next choice point and is refused as past at it.
+// is past, a move where the run has none, and one left over when the run ends.
 func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	m := parseExploreModel(t, choiceModel)
 	sym := m.action(t, "route")
@@ -406,8 +483,7 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}{
 		{"token not able", "step 3: 9@zzz first of 2@a, 9@zzz", 1, "9@zzz is not able to act (able to act: 2@a, 3@b, 4@c)"},
 		{"alternative not able", "step 3: 2@a first of 2@a, 9@zzz", 1, "9@zzz is not able to act"},
-		{"alternatives left out", "step 3: 2@a first of 2@a, 3@b", 1, "the witness names 2@a, 3@b and the run has more (able to act: 2@a, 3@b, 4@c)"},
-		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "the run is at step 3 and step 1 had no such move"},
+		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "is not able to act"},
 		{"step already past", "step 1: decision select -> 1->warn", 1, "step 1 had no such move"},
 		{"branch not holding", orders + "step 7: decision select -> 3->nowhere", 3, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
 		{"branch at the wrong place", orders + "step 7: decision elsewhere -> 1->warn", 3, "the run faced"},
@@ -439,298 +515,8 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}
 }
 
-// A witness move left over when the run completes is refused by the run itself,
-// however it was brought to completion: run whole, resumed past a breakpoint, or
-// stepped; a run that has not completed refuses nothing.
-func TestReplayRefusesAMoveLeftOverAtCompletion(t *testing.T) {
-	m := parseExploreModel(t, choiceModel)
-	sym := m.action(t, "route")
-	good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
-	leftOver, err := ParseChoice("step 99: 1@a first of 1@a, 2@b")
-	if err != nil {
-		t.Fatal(err)
-	}
-	witness := append(slices.Clone(good), leftOver)
-	assertRefusedLeftOver := func(t *testing.T, err error) {
-		t.Helper()
-		var refused *ReplayError
-		if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
-			t.Fatalf("error %T %v, want a ReplayError", err, err)
-		}
-		if refused.Move != len(witness) || refused.Choice.String() != leftOver.String() || !strings.Contains(err.Error(), "the run ended") {
-			t.Fatalf("error %q, want move %d (%s) refused as the run ended", err, len(witness), leftOver)
-		}
-	}
-	executor := func(t *testing.T) *ActionExecutor {
-		t.Helper()
-		ctx, _ := m.fresh()
-		mustSchedule(t, ctx, ReplayPolicy(witness))
-		exec, err := ctx.CreateActionExecutor(sym)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return exec
-	}
-	t.Run("run whole", func(t *testing.T) {
-		ctx, _ := m.fresh()
-		mustSchedule(t, ctx, ReplayPolicy(witness))
-		_, err := ctx.ExecuteAction(sym)
-		assertRefusedLeftOver(t, err)
-		exec := executor(t)
-		assertRefusedLeftOver(t, exec.RunToCompletion())
-		if exec.State() != StateCompleted {
-			t.Fatalf("the run refused stands %s, want completed", exec.State())
-		}
-	})
-	t.Run("resumed past a breakpoint", func(t *testing.T) {
-		exec := executor(t)
-		exec.SetBreakpoint("warn")
-		if err := exec.RunToCompletion(); err != nil || exec.PausedAt() != "warn" {
-			t.Fatalf("run to the breakpoint: %v, paused at %q", err, exec.PausedAt())
-		}
-		assertRefusedLeftOver(t, exec.RunToCompletion())
-	})
-	t.Run("stepped", func(t *testing.T) {
-		exec := executor(t)
-		for exec.State() != StateCompleted {
-			err := exec.Step()
-			if exec.State() != StateCompleted {
-				if err != nil {
-					t.Fatalf("step %d: %v", exec.stepCount, err)
-				}
-				continue
-			}
-			assertRefusedLeftOver(t, err)
-		}
-	})
-	t.Run("state machine", func(t *testing.T) {
-		m := parseExploreModel(t, `package test {
-			state def Machine {
-				entry; then idle;
-				state idle;
-				state left;
-				state right;
-				transition idle_left first idle accept go then left;
-				transition idle_right first idle accept go then right;
-				transition first left then done;
-				transition first right then done;
-			}
-		}`)
-		run := stateRun(m.state(t, "Machine"), "go")
-		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-		if err != nil || !x.Complete() || x.Runs != 2 {
-			t.Fatalf("explore: %v, %v", x, err)
-		}
-		assertWitnessesReplay(t, x, m.fresh, run)
-		stale := append(slices.Clone(x.Outcomes[0].Witness), leftOver)
-		_, _, err = replayed(t, m.fresh, run, stale)
-		var refused *ReplayError
-		if !errors.As(err, &refused) || refused.Move != len(stale) || !strings.Contains(err.Error(), "the run ended") {
-			t.Fatalf("error %T %v, want move %d refused as the run ended", err, err, len(stale))
-		}
-	})
-}
-
-// A run that completes inside another — an action a node performs, an object's
-// behavior run as it is materialized — leaves the enclosing run's moves to it.
-func TestReplayLeavesMovesToTheEnclosingRun(t *testing.T) {
-	m := parseExploreModel(t, `package test {
-		private import ScalarValues::*;
-		action def Inner {
-			attribute y : Integer = 0;
-			first start;
-			fork split;
-			action a { assign y := 1; }
-			action b { assign y := 2; }
-			join sync;
-			done;
-			succession first start then split;
-			succession first split then a;
-			succession first split then b;
-			succession first a then sync;
-			succession first b then sync;
-			succession first sync then done;
-		}
-		action outer {
-			attribute x : Integer = 0;
-			first start;
-			perform Inner;
-			fork split;
-			action a { assign x := 1; }
-			action b { assign x := 2; }
-			join sync;
-			done;
-			succession first start then Inner;
-			succession first Inner then split;
-			succession first split then a;
-			succession first split then b;
-			succession first a then sync;
-			succession first b then sync;
-			succession first sync then done;
-		}
-	}`)
-	x := m.exploreAction(t, "explore", "outer")
-	if !x.Complete() || x.Runs != 4 {
-		t.Fatalf("explore: %s, %d runs", x.Status(), x.Runs)
-	}
-	sym := m.action(t, "outer")
-	for _, o := range x.Outcomes {
-		if len(o.Witness) != 2 {
-			t.Fatalf("%s: witness %s, want the performed action's move and the action's", o.Outcome, FormatChoices(o.Witness))
-		}
-	}
-	assertWitnessesReplay(t, x, m.fresh, func(ctx *Context) (Outcome, error) {
-		outputs, err := ctx.ExecuteAction(sym)
-		if err != nil {
-			return Outcome{}, err
-		}
-		return ctx.ActionOutcome(outputs), nil
-	})
-}
-
-// A do-round order the witness names that the round cannot take is refused as
-// such, before any do behavior of the round acts.
-func TestReplayRefusesADoOrderBeforeTheRoundActs(t *testing.T) {
-	m := parseExploreModel(t, `package test {
-		private import ScalarValues::*;
-		state def Interleave parallel {
-			attribute seq : Integer = 0;
-			state left {
-				entry; then lwork;
-				state lwork { do { assign seq := seq * 10 + 1; assign seq := seq * 10 + 2; } }
-			}
-			state right {
-				entry; then rwork;
-				state rwork { do { assign seq := seq * 10 + 3; assign seq := seq * 10 + 4; } }
-			}
-		}
-	}`)
-	sym := m.state(t, "Interleave")
-	run := func(ctx *Context) (Outcome, error) {
-		exec, err := ctx.CreateStateExecutor(sym)
-		if err != nil {
-			return Outcome{}, err
-		}
-		if err := exec.RunToCompletion(); err != nil {
-			return Outcome{}, err
-		}
-		return ctx.ActionOutcome(map[string]Value{"seq": exec.StateData()["seq"]}), nil
-	}
-	x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
-	if err != nil || !x.Complete() || x.Runs != 4 {
-		t.Fatalf("explore: %v, %v", x, err)
-	}
-	assertWitnessesReplay(t, x, m.fresh, run)
-	first := x.Outcomes[0].Witness[0]
-	if first.Kind != ChoiceRegionOrder || !strings.HasPrefix(first.Where, "do round at ") {
-		t.Fatalf("the first choice is %s, want a do-round order", first)
-	}
-	for _, c := range []struct{ name, line, faced string }{
-		{"state not due", first.Where + ": zzz first of lwork, zzz", "zzz"},
-		{"alternatives left out", first.Where + ": lwork first of lwork", "more are enabled"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			witness, err := ParseChoices(c.line)
-			if err != nil {
-				t.Fatal(err)
-			}
-			ctx, _ := m.fresh()
-			mustSchedule(t, ctx, ReplayPolicy(witness))
-			exec, err := ctx.CreateStateExecutor(sym)
-			if err != nil {
-				t.Fatal(err)
-			}
-			err = exec.RunToCompletion()
-			var refused *ReplayError
-			if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 {
-				t.Fatalf("error %T %v, want move 1 refused", err, err)
-			}
-			if !strings.Contains(err.Error(), c.faced) {
-				t.Errorf("error %q does not say %q", err, c.faced)
-			}
-			if seq := exec.StateData()["seq"]; seq.Const.Int != 0 {
-				t.Errorf("a do behavior acted on the refused round: seq = %d", seq.Const.Int)
-			}
-			if len(ctx.Choices()) != 0 {
-				t.Errorf("the refused draw was recorded: %v", ctx.Choices())
-			}
-		})
-	}
-}
-
-// A transition the witness names that is not enabled is refused as such, before
-// the transition the run would fall back to is routed: its routing error, a
-// junction nothing leaves, is not what the run reports.
-func TestReplayRefusesATransitionBeforeRoutingTheFallback(t *testing.T) {
-	m := parseExploreModel(t, `package test {
-		state def Machine {
-			entry; then idle;
-			state idle;
-			state right;
-			junction stuck;
-			transition idle_stuck first idle accept go then stuck;
-			transition idle_right first idle accept go then right;
-		}
-	}`)
-	run := stateRun(m.state(t, "Machine"), "go")
-	witness, err := ParseChoices("state idle on accept go -> 9->nowhere")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = replayed(t, m.fresh, run, witness)
-	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
-		t.Fatalf("error %T %v, want a ReplayError", err, err)
-	}
-	if want := "9->nowhere is not enabled (enabled: 1->stuck, 2->right)"; !strings.Contains(err.Error(), want) {
-		t.Errorf("error %q does not say %q", err, want)
-	}
-	if strings.Contains(err.Error(), "no outgoing transitions") {
-		t.Errorf("error %q routes the fallback transition", err)
-	}
-	witness, err = ParseChoices("state idle on accept go -> 1->stuck")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err = replayed(t, m.fresh, run, witness); err == nil || !strings.Contains(err.Error(), "junction stuck has no outgoing transitions") || errors.Is(err, ErrReplayRefused) {
-		t.Errorf("the witness's own transition routed: %v, want the junction's routing error", err)
-	}
-}
-
-// A witness naming fewer alternatives than the run faces is stale or forged, not a
-// run the interpreter made: a due order among two tickers where three wake is
-// refused, naming the move, and the move is not consumed.
-func TestReplayRefusesAlternativesLeftOut(t *testing.T) {
-	fresh, run := dueOrderModel(t)
-	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
-	if err != nil || !x.Complete() {
-		t.Fatalf("explore: %v, %v", x, err)
-	}
-	good := x.Outcomes[0].Witness
-	if len(good) == 0 || good[0].Kind != ChoiceDueOrder || len(good[0].Among) != 3 {
-		t.Fatalf("witness %s, want a due order among three first", FormatChoices(good))
-	}
-	forged := slices.Clone(good)
-	other := good[0].Among[(good[0].Taken+1)%3]
-	forged[0].Among = []string{good[0].Took, other}
-	forged[0].Alternatives = 2
-	_, _, err = replayed(t, fresh, run, forged)
-	var refused *ReplayError
-	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
-		t.Fatalf("error %T %v, want a ReplayError", err, err)
-	}
-	if refused.Move != 1 || refused.Choice.String() != forged[0].String() {
-		t.Errorf("refused move %d (%s), want move 1 (%s)", refused.Move, refused.Choice, forged[0])
-	}
-	want := "the witness names " + strings.Join(forged[0].Among, ", ") + " and more are enabled"
-	if !strings.Contains(err.Error(), want) {
-		t.Errorf("error %q does not say %q", err, want)
-	}
-}
-
 // A run that outlives its witness goes on as `reverse` does: the witness's first
-// move is taken, and from there the choices are the default policy's — the last
-// token able to act first, so the writes left open land as reverse lands them.
+// move is taken, and from there the choices are the default policy's.
 func TestReplayFallsBackToReverse(t *testing.T) {
 	m := parseExploreModel(t, choiceModel)
 	sym := m.action(t, "route")
@@ -751,15 +537,6 @@ func TestReplayFallsBackToReverse(t *testing.T) {
 	}
 	if len(choices) < 2 || choices[0].String() != first[0].String() {
 		t.Fatalf("choices %s, want %s then the rest", FormatChoices(choices), first[0])
-	}
-	if got, want := choices[1].String(), "step 4: 4@c first of 3@b, 4@c"; got != want {
-		t.Errorf("past the witness the run took %s, want %s (reverse's pick)", got, want)
-	}
-	if got := FormatValue(outcome.Outputs["order"]); got != `"acb"` {
-		t.Errorf("order = %s, want \"acb\": a as the witness fixed it, then c before b as reverse runs them", got)
-	}
-	if got := FormatValue(outcome.Outputs["x"]); got != "2" {
-		t.Errorf("x = %s, want 2 (b's write landing last)", got)
 	}
 	ctx, _ := m.fresh()
 	mustSchedule(t, ctx, DefaultSchedulePolicy)
@@ -783,6 +560,70 @@ func TestReplayFallsBackToReverse(t *testing.T) {
 	}
 	if outcome.String() == def.String() {
 		t.Logf("witness %s and reverse reach one outcome %s", first[0], outcome)
+	}
+}
+
+// forkDecisionModel decides while a sibling token is able to act, so one step
+// holds both a token order and a decision.
+const forkDecisionModel = `package test {
+	action mix {
+		attribute level : Integer = 75;
+		attribute handler : Integer = 0;
+		attribute x : Integer = 0;
+		first start;
+		fork split;
+		action a { assign x := 1; }
+		decide select;
+		action warn { assign handler := 1; }
+		action alarm { assign handler := 2; }
+		merge either;
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then a;
+		succession first split then select;
+		succession first select if level > 50 then warn;
+		succession first select if level > 70 then alarm;
+		succession first a then sync;
+		succession first warn then either;
+		succession first alarm then either;
+		succession first either then sync;
+		succession first sync then done;
+	}
+}`
+
+// A run notes a step's decision before the token order that led to it; a witness
+// written the other way round, order first as a checker states its moves,
+// replays the same.
+func TestReplayReadsAStepsOrderInEitherPlace(t *testing.T) {
+	m := parseExploreModel(t, forkDecisionModel)
+	sym := m.action(t, "mix")
+	run := func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	const recorded = "step 3: decision select -> 2->alarm; step 3: 3@select first of 2@a, 3@select"
+	const stated = "step 3: 3@select first of 2@a, 3@select; step 3: decision select -> 2->alarm"
+	var traces []string
+	for _, text := range []string{recorded, stated} {
+		w, err := ParseChoices(text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcome, choices, err := replayed(t, m.fresh, run, w)
+		if err != nil {
+			t.Fatalf("%s: %v", text, err)
+		}
+		if got := outcome.String(); got != "handler = 2; level = 75; x = 1" {
+			t.Errorf("%s reached %s", text, got)
+		}
+		traces = append(traces, FormatChoices(choices))
+	}
+	if traces[0] != traces[1] || !strings.HasPrefix(traces[0], recorded) {
+		t.Errorf("the two spellings made different choices:\n%s\n%s", traces[0], traces[1])
 	}
 }
 
@@ -830,5 +671,409 @@ func TestReplayProbeLeavesTheWitnessInPlace(t *testing.T) {
 	}
 	if got := activeLeaf(exec); got != "high" {
 		t.Fatalf("ended in %s, want high", got)
+	}
+}
+
+// A behavior run whole by the context — an action or a state machine — ends
+// refused when the witness has moves left over, with no call to Unfollowed needed.
+func TestReplayRefusesMovesLeftOverByARun(t *testing.T) {
+	t.Run("action", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		sym := m.action(t, "route")
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		extra := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 99, Among: []string{"1@a", "2@b"}, Took: "1@a", Alternatives: 2}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		// Before any run there is nothing unfollowed, and asking begins no run.
+		if err := ctx.Unfollowed(); err != nil || ctx.run.scheduler != nil {
+			t.Fatalf("before a run: Unfollowed() = %v, scheduler begun %v", err, ctx.run.scheduler != nil)
+		}
+		_, err = ctx.ExecuteAction(sym)
+		assertRefusedLeftOver(t, err, len(good)+1, extra)
+	})
+	t.Run("state", func(t *testing.T) {
+		idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
+			state Dispatcher {
+				entry; then idle;
+				state idle;
+				state low;
+				state high;
+				transition first idle accept Go then low;
+				transition first idle accept Go then high;
+			}
+		}`))
+		sym := findSymbolByName(idx.DocumentRoot("<test>"), "Dispatcher", ast.DefState)
+		if sym == nil {
+			t.Fatal("state machine not found")
+		}
+		witness, err := ParseChoices("state idle on accept Go -> 2->high\nstate high on accept Go -> 1->idle\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		_, _, err = ctx.ExecuteStateWithEvents(sym, []string{"Go"})
+		assertRefusedLeftOver(t, err, 2, witness[1])
+	})
+}
+
+// assertRefusedLeftOver checks that err is the refusal of the witness's move
+// left over when the run ended.
+func assertRefusedLeftOver(t *testing.T, err error, move int, choice ChoiceTaken) {
+	t.Helper()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+		t.Fatalf("error %T %v, want a ReplayError", err, err)
+	}
+	if refused.Move != move || refused.Choice.String() != choice.String() || refused.Faced != "the run ended" {
+		t.Errorf("refused %+v, want move %d (%s) faced the run ended", refused, move, choice)
+	}
+}
+
+// A do-order move naming a state whose behavior is not due is refused before
+// either due behavior acts, so the run stops where the witness stopped fitting.
+func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		state def Interleave parallel {
+			attribute seq : Integer = 0;
+			state left {
+				entry; then lstart;
+				state lstart;
+				state lwork { do { assign seq := seq * 10 + 1; assign seq := seq * 10 + 2; } }
+				succession first lstart then lwork;
+			}
+			state right {
+				entry; then rstart;
+				state rstart;
+				state rwork { do { assign seq := seq * 10 + 4; assign seq := seq * 10 + 5; } }
+				succession first rstart then rwork;
+			}
+		}
+	}`)
+	sym := m.state(t, "Interleave")
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	witness, err := ParseChoices("do round at t=0.0: zork first of lwork, zork\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || refused.Move != 1 || !strings.Contains(err.Error(), "zork is not enabled (enabled: lwork, rwork)") {
+		t.Fatalf("error %T %v, want the do-order move refused", err, err)
+	}
+	if seq := FormatValue(exec.StateData()["seq"]); seq != "1" {
+		t.Errorf("seq is %v after the refusal, want 1: neither due behavior may act on a refused round", seq)
+	}
+}
+
+// A transition move refused on a message is refused before the message reaches
+// the do behavior parked at an accept for it in a sibling region, so a refused
+// replay leaves the machine's data as it found it.
+func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Waiter parallel {
+			attribute total : Integer = 0;
+			state left {
+				entry; then lwork;
+				state lwork {
+					do action work {
+						first start;
+						then action reader accept Go;
+						then action count assign total := total + 10;
+						then done;
+					}
+				}
+			}
+			state right {
+				entry; then rwait;
+				state rwait;
+				transition first rwait accept Go then rdone;
+				transition first rwait accept Go then rother;
+				state rdone { entry assign total := total + 1; }
+				state rother { entry assign total := total + 2; }
+			}
+		}
+	}`)
+	sym := m.state(t, "Waiter")
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	witness, err := ParseChoices("state rwait on accept Go -> 3->nowhere\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to the accept: %v", err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), "3->nowhere") {
+		t.Fatalf("error %T %v, want the transition move refused", err, err)
+	}
+	if total := FormatValue(exec.StateData()["total"]); total != "0" {
+		t.Errorf("total is %v after the refusal, want 0: the do behavior may not take a message whose dispatch is refused", total)
+	}
+}
+
+// A refused decision move leaves the token at the decision: no branch is taken,
+// so neither branch's action ran.
+func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {
+	m := parseExploreModel(t, choiceModel)
+	sym := m.action(t, "route")
+	good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+	witness, err := ParseChoices(good[0].String() + "\n" + good[1].String() + "\nstep 7: decision select -> 3->nowhere\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for err == nil && exec.State() == StateRunning {
+		err = exec.Step()
+	}
+	var refused *ReplayError
+	if !errors.As(err, &refused) || refused.Move != 3 || !strings.Contains(refused.Faced, "3->nowhere is not enabled") {
+		t.Fatalf("error %v, want move 3 refused as not enabled", err)
+	}
+	tokens := exec.Tokens()
+	if len(tokens) != 1 {
+		t.Fatalf("%d tokens after the refusal, want the one at the decision", len(tokens))
+	}
+	if decision, ok := tokens[0].Location.(*ast.DecisionNode); !ok || decision.Name != "select" {
+		t.Errorf("token at %T, want decision select", tokens[0].Location)
+	}
+	if got := FormatTraceValue(exec.Data()["handler"]); got != "0" {
+		t.Errorf("handler = %s, want 0: no branch ran", got)
+	}
+	if ctx.Unfollowed() == nil {
+		t.Error("the refusal is not reported for the run")
+	}
+}
+
+// An executor driven call by call — as the REPL drives it — refuses the witness
+// moves left over when it completes, as a run under ExecuteAction does; a
+// witness the run uses up is followed whole.
+func TestReplayRefusesMovesLeftOverByADrivenExecutor(t *testing.T) {
+	extra := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 99, Among: []string{"1@a", "2@b"}, Took: "1@a", Alternatives: 2}
+	t.Run("action run to completion", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertRefusedLeftOver(t, exec.RunToCompletion(), len(good)+1, extra)
+		if exec.State() != StateCompleted {
+			t.Errorf("state %v, want completed: the run ended before the move was refused", exec.State())
+		}
+	})
+	t.Run("action stepped", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(append(slices.Clone(good), extra)))
+		exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		steps := 0
+		for err == nil && exec.State() == StateRunning {
+			err = exec.Step()
+			steps++
+		}
+		assertRefusedLeftOver(t, err, len(good)+1, extra)
+		if exec.State() != StateCompleted || steps < 7 {
+			t.Errorf("state %v after %d steps, want completed at the last step", exec.State(), steps)
+		}
+	})
+	t.Run("action followed whole", func(t *testing.T) {
+		m := parseExploreModel(t, choiceModel)
+		good := m.exploreAction(t, "explore", "route").Outcomes[0].Witness
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(good))
+		exec, err := ctx.CreateActionExecutor(m.action(t, "route"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		if err := ctx.Unfollowed(); err != nil {
+			t.Errorf("unfollowed: %v", err)
+		}
+	})
+	const dispatcher = `package test {
+		state def Dispatcher {
+			entry; then idle;
+			state idle;
+			state low;
+			transition first idle accept Go then low;
+			transition first idle accept Go then done;
+		}
+	}`
+	stateWitness := func(t *testing.T, lines string) []ChoiceTaken {
+		t.Helper()
+		witness, err := ParseChoices(lines)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return witness
+	}
+	t.Run("state run to completion", func(t *testing.T) {
+		m := parseExploreModel(t, dispatcher)
+		witness := stateWitness(t, "state idle on accept Go -> 2->done\nstate low on accept Go -> 1->idle\n")
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(m.state(t, "Dispatcher"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec.SendSignal("Go", nil)
+		assertRefusedLeftOver(t, exec.RunToCompletion(), 2, witness[1])
+		if exec.State() != StateCompleted {
+			t.Errorf("state %v, want completed", exec.State())
+		}
+	})
+	t.Run("state stepped", func(t *testing.T) {
+		m := parseExploreModel(t, dispatcher)
+		witness := stateWitness(t, "state idle on accept Go -> 2->done\nstate low on accept Go -> 1->idle\n")
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(m.state(t, "Dispatcher"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec.SendSignal("Go", nil)
+		assertRefusedLeftOver(t, exec.ProcessNextEvent(), 2, witness[1])
+		if exec.State() != StateCompleted {
+			t.Errorf("state %v, want completed", exec.State())
+		}
+	})
+	t.Run("state not yet complete", func(t *testing.T) {
+		m := parseExploreModel(t, dispatcher)
+		witness := stateWitness(t, "state idle on accept Go -> 1->low\nstate low on accept Go -> 1->idle\n")
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(m.state(t, "Dispatcher"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		exec.SendSignal("Go", nil)
+		if err := exec.ProcessNextEvent(); err != nil {
+			t.Fatalf("a move left for a machine still running is not left over: %v", err)
+		}
+		if exec.State() == StateCompleted {
+			t.Fatal("the machine completed in low")
+		}
+	})
+}
+
+// Every choice reads back from the line that spells it, whatever punctuation the
+// names it carries share with the line; a witness of such lines reads back whole.
+func TestChoiceLinesRoundTripPunctuatedNames(t *testing.T) {
+	names := []string{"a, b", "x -> y", "p; q", "k: v", "it's", `back\slash`, "first of all", "step 3", " padded ", "tab\there", "line\nbreak", "plain"}
+	var choices []ChoiceTaken
+	for i, name := range names {
+		others := []string{name, names[(i+1)%len(names)], names[(i+2)%len(names)]}
+		choices = append(choices,
+			ChoiceTaken{Kind: ChoiceTokenOrder, Step: i + 1, Alternatives: 3, Taken: 0, Among: others, Took: name},
+			ChoiceTaken{Kind: ChoiceDecisionBranch, Step: i + 1, Where: "decision " + name, Took: "1->" + name},
+			ChoiceTaken{Kind: ChoiceTransition, Where: "state " + name + " on accept " + name, Took: "2->" + name},
+			ChoiceTaken{Kind: ChoiceRegionOrder, Where: "on accept " + name, Alternatives: 3, Taken: 1, Among: []string{others[1], name, others[2]}, Took: name},
+			ChoiceTaken{Kind: ChoiceDueOrder, Where: "t=5.0", Alternatives: 3, Taken: 2, Among: []string{others[1], others[2], name}, Took: name},
+		)
+	}
+	var lines []string
+	for _, want := range choices {
+		line := want.String()
+		got, err := ParseChoice(line)
+		if err != nil {
+			t.Errorf("%s: %v", line, err)
+			continue
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s reads back as %+v, want %+v", line, got, want)
+		}
+		lines = append(lines, line)
+	}
+	for _, line := range lines {
+		if strings.ContainsAny(line, "\n\r") {
+			t.Errorf("%q spans lines", line)
+		}
+	}
+	text := strings.Join(lines[:5], "; ") + "\n" + strings.Join(lines[5:], "\n") + "\n\nstep 1: tokens 1@'a, b'\nanything -> at all; after the blank line\n"
+	got, err := ParseChoices(text)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, choices) {
+		t.Errorf("witness reads back as\n%s\nwant\n%s", FormatChoices(got), FormatChoices(choices))
+	}
+	plain := ChoiceTaken{Kind: ChoiceTokenOrder, Step: 3, Alternatives: 2, Among: []string{"2@a", "3@b"}, Took: "2@a"}
+	if got := plain.String(); got != "step 3: 2@a first of 2@a, 3@b" {
+		t.Errorf("a plain name is quoted: %s", got)
+	}
+}
+
+// A quoted name left open, or closed where the line's punctuation does not follow,
+// is a parse error naming the quote.
+func TestParseChoiceRejectsAnUnclosedQuote(t *testing.T) {
+	for _, line := range []string{
+		"step 3: 'a, b first of 'a, b', 3@b",
+		"step 3: 'a, b'x first of 'a, b', 3@b",
+		"'state idle -> 2->right",
+		"on accept go: 'b1 first of a1, 'b1'",
+	} {
+		_, err := ParseChoice(line)
+		var parse *ChoiceParseError
+		if !errors.As(err, &parse) || parse.Reason != unclosedQuote {
+			t.Errorf("%s: %v, want the unclosed quote refused", line, err)
+		}
 	}
 }

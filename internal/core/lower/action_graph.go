@@ -543,7 +543,7 @@ func ToActionGraph(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph, err
 				if n.Multiplicity != nil {
 					return nil, fmt.Errorf("action succession has unsupported multiplicity")
 				}
-				if n.HasBody || len(n.Members) != 0 {
+				if !annotationsOnly(n.Members) {
 					return nil, fmt.Errorf("action succession has unsupported body")
 				}
 				for i, end := range n.ConnectorEnds {
@@ -1177,6 +1177,23 @@ func typingTarget(usage *ast.Usage) *ast.QualifiedName {
 }
 
 // unwrapMembership extracts the actual member from a Membership wrapper.
+// annotationsOnly reports whether a body declares nothing but annotations —
+// metadata, comments, documentation — and so nothing the flow depends on.
+func annotationsOnly(members []ast.Node) bool {
+	for _, member := range members {
+		switch n := unwrapMembership(member).(type) {
+		case *ast.PrefixMetadata, *ast.Comment, *ast.Documentation:
+		case *ast.Usage:
+			if n.Kind != ast.UsageMetadata {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func unwrapMembership(node ast.Node) ast.Node {
 	if membership, ok := node.(*ast.Membership); ok {
 		return membership.Member

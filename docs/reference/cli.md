@@ -208,10 +208,10 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
-| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)), or `replay:<file>` (the choices a witness file fixes, taken in order, the run refused where it departs from them — see [Checking every schedule of an action](#checking-every-schedule-of-an-action)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
+| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the choice lines of a witness, one per line up to the first blank line, followed move for move and then `reverse`; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>` and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read or whose lines spell no choice — is refused before anything runs |
 | `-check-property <name>` | With `-engine check` or `-engine all`: a constraint or requirement the checker evaluates at every stable state of each `-action`, on the performing object where there is one, reporting a schedule at which it is false; repeatable. See [Checking every schedule of an action](#checking-every-schedule-of-an-action) |
 | `-check-diverge <feature>` | With `-engine check` or `-engine all`: a feature the checker reports divergent when schedules leave it with different final values — `x` for the action's attribute, `this.level` for the performing object's; repeatable. Absent, every attribute of the action and of the performing object; an action run without one has no object, so its own attributes only |
-| `-check-witness <dir>` | With `-engine check` or `-engine all`: write a witness file into this directory for each violation and each divergent value — the schedule's choice lines, a blank line, then the run's trace — which `-schedule replay:<file>` and `%replay` follow. The directory is created if absent |
+| `-check-witness <dir>` | With `-engine check` or `-engine all`: write a witness file into this directory for each violation and each divergent value — the schedule's choice lines, a blank line, then the run's trace, and for a deadlock or a failure a blank line and `fails: <the error>` last — which `-schedule replay:<file>` and `%replay` follow. The directory is created if absent |
 | `-check-depth <n>` | With `-engine check` or `-engine all`: the most moves one schedule may make before the search backtracks (default 10 000), named as the `depth` bound when it is hit; a positive integer |
 | `-check-states <n>` | With `-engine check` or `-engine all`: the most distinct states the search may visit (default 1 000 000), named as the `states` bound when it is hit; a positive integer. It is the shared `runs` budget in the checker's unit, so under `-engine all` the one figure is also an exploration's linearizations |
 | `-check-timeout <duration>` | With `-engine check` or `-engine all`: the wall clock the check's plan may run for, as `30s` or `2m`; a search the clock stops is reported `incomplete: time` with the states and depth it reached, not as a verdict, and exits 2. Unbounded by default |
@@ -418,6 +418,27 @@ it renders as-is in Markdown, documentation sites and editors without a separate
 has dedicated state diagram and sequence diagram grammars. A table is written as a Markdown table,
 since Mermaid has no grammar for tables, so `-render-form mermaid` on a table produces Markdown
 rather than a diagram of rows.
+
+A rendering is laid out by whatever draws it, unless the model says where things go. The
+`DiagramLayout` library (bundled, imported like any other) states that in notation: a
+`metadata Layout about <element> { x = …; y = …; width = …; height = …; collapsed = true; }` in a
+view's body positions the element in that view, an `@Layout { … }` inside an element's own body is
+the position every view that does not place it falls back to, a `Route about <connection> {
+points = (x0, y0, x1, y1, …); }` gives an edge its waypoints, and an `@Canvas { unit = "px"; width
+= …; height = …; }` in the view body sizes its drawing surface. Coordinates are pixels from the
+top-left corner, y downward. Mermaid cannot place a node, so the machine-readable form keeps the
+geometry as comments after the header (`%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120
+y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends `at (120, 80)`,
+`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. A model with no
+layout annotations renders exactly as before. `-validate` reports a `Layout` or `Route` on an
+element the rendering does not draw as a node or an edge, a `Route` with an odd number of values, a
+`Canvas` outside a view, and two positions for one element in one view (the first applies). See
+[Diagram layout annotations](../project/diagram-layout-annotations.md).
+
+```bash
+sysml model.sysml -render Views::vehicleView -render-form text
+# part engine (Engine) at (120, 80) size 200×90
+```
 
 `-render-documents <dir>` renders every document definition the loaded model declares into the
 directory, one Markdown file per document, in fully-qualified-name order. Each file name is the
@@ -942,7 +963,9 @@ $ sysml -engine check -instantiate Fleet::truck -action "Fleet::Truck::dispatch 
 A **witness** is the schedule that reaches a violation or a divergent value: its choice lines,
 as `-trace` prints a `choice` under `-schedule explore` (`step 3: 3@right first of 2@left,
 3@right`), then a blank line, then the trace of the run under that schedule, so it reads like
-any `-trace` and is reviewed the same way. `-check-witness <dir>` writes one file per witness,
+any `-trace` and is reviewed the same way; a witness of a deadlock or a failure ends, after a
+blank line, in `fails: <the error>` as the run raises it, since the failing move may leave no
+trace of its own. `-check-witness <dir>` writes one file per witness,
 named for the action, the object performing it when `-action` names one, and what it
 witnesses (`Mission.race-x-1.witness`, `Mission.race.violation-1.witness`,
 `Plant.Tank.fill@Plant.tank-this.level-1.witness`; a character of a name that is no letter,
@@ -951,7 +974,8 @@ checked on two objects writes two sets), and the verdict names each path. Every 
 **replayed** before it is reported: the interpreter re-runs the action under
 `-schedule replay:<file>`, the schedule policy that follows a witness file's choice lines, and
 the standing is *witnessed* only when that run reaches the state the witness claims with the
-same trace; one that does not is reported *not covered* with the disagreement as its reason.
+same trace — failing as it claims, or going on where it claims a state; one that does not is
+reported *not covered* with the disagreement as its reason.
 The same file replays by hand, with the trace showing every choice taken as the witness fixed
 it:
 

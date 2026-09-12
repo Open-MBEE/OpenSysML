@@ -200,7 +200,7 @@ func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness
 	if err != nil {
 		t.Fatalf("%s: parsing the witness: %v", claim, err)
 	}
-	if parsed.Trace != w.Trace || len(parsed.Choices) != len(w.Choices) {
+	if parsed.Trace != w.Trace || parsed.Fails != w.Fails || len(parsed.Choices) != len(w.Choices) {
 		t.Fatalf("%s: the witness reads back otherwise:\n%s", claim, w)
 	}
 	r, err := ReplayAction(context.Background(), m.fresh, start, parsed)
@@ -496,13 +496,93 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 			if v.Kind != c.kind || !errors.Is(v.Err, c.err) {
 				t.Fatalf("violation %s (%v), want %s wrapping %v", v.Kind, v.Err, c.kind, c.err)
 			}
+			if v.Witness.Fails != v.Err.Error() {
+				t.Fatalf("the witness claims %q, want the violation's %v", v.Witness.Fails, v.Err)
+			}
 			if v.Depth > 0 {
 				r := replayWitness(t, m, starterOf(m.action(t, c.action)), v.Witness, c.name)
 				if !errors.Is(r.Err, c.err) {
 					t.Fatalf("the replay ends with %v, want %v", r.Err, c.err)
 				}
 			}
+			// The same schedule claiming a state the run goes on from does not replay.
+			state := Witness{Choices: v.Witness.Choices, Trace: v.Witness.Trace}
+			_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, c.action)), state)
+			if !errors.Is(err, ErrReplayDisagrees) {
+				t.Fatalf("replay of the schedule without its failure = %v, want a disagreement", err)
+			}
 		})
+	}
+}
+
+// The check lets go of the executor it started however the search ends: complete,
+// or refused by a construct a later stage owns. The clock drives it no further and
+// a step of it is the released executor's refusal.
+func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
+	want := map[string]error{
+		"action_explore_performed_and_accept_due_together": ErrSnapshotPausedBody,
+		"action_fork_branches_write_one_feature":           nil,
+	}
+	for _, c := range checkCorpus(t) {
+		if _, tested := want[c.name]; !tested {
+			continue
+		}
+		t.Run(c.name, func(t *testing.T) {
+			var started *ActionExecutor
+			start := func(ctx *Context) (*ActionExecutor, error) {
+				exec, err := ctx.CreateActionExecutor(c.sym)
+				started = exec
+				return exec, err
+			}
+			_, err := CheckAction(context.Background(), c.model.fresh, start, CheckBudget{}, reduced(), nil)
+			if !errors.Is(err, want[c.name]) {
+				t.Fatalf("check = %v, want %v", err, want[c.name])
+			}
+			if started == nil {
+				t.Fatal("the check started no executor")
+			}
+			if err := started.Step(); !errors.Is(err, ErrExecutorReleased) {
+				t.Fatalf("a step of the executor after the check = %v, want %v", err, ErrExecutorReleased)
+			}
+			if slices.ContainsFunc(started.ctx.clock.waiters, func(w clockWaiter) bool { return w == started }) {
+				t.Fatal("the clock still drives the executor after the check")
+			}
+		})
+	}
+}
+
+// A failing move that leaves no trace and makes no choice is still replayed: the
+// witness claims the failure, so a replay makes the move and must raise it, and
+// the same schedule claiming another failure disagrees.
+func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		action def Bad { action a; action b; }
+		action outer {
+			first start;
+			then action run : Bad;
+			then done;
+		}
+	}`)
+	report := checkModel(t, m, "outer", CheckBudget{}, reduced())
+	if report.Verdict != CheckViolation || len(report.Violations) != 1 {
+		t.Fatalf("%s, violations %v; want one failure", report.Status(), report.Violations)
+	}
+	v := report.Violations[0]
+	if v.Kind != ViolationFailure || !errors.Is(v.Err, ErrInvalidActionFlow) || v.Depth != 2 {
+		t.Fatalf("violation %+v, want the flow without a start after two moves", v)
+	}
+	// The trace is the first move's alone: invoking Bad fails before it leaves any.
+	if v.Witness.Trace != "step 1: token 1@run" || len(v.Witness.Choices) != 0 || v.Witness.Fails == "" {
+		t.Fatalf("witness %+v, want the trace before the failing move, no choice and the failure", v.Witness)
+	}
+	start := starterOf(m.action(t, "outer"))
+	if r := replayWitness(t, m, start, v.Witness, "no initial node"); !errors.Is(r.Err, ErrInvalidActionFlow) {
+		t.Fatalf("the replay ends with %v, want %v", r.Err, ErrInvalidActionFlow)
+	}
+	other := Witness{Trace: v.Witness.Trace, Fails: "another failure"}
+	var dis *ReplayDisagreement
+	if _, err := ReplayAction(context.Background(), m.fresh, start, other); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "otherwise than claimed") {
+		t.Fatalf("replay claiming another failure = %v, want a disagreement naming both", err)
 	}
 }
 

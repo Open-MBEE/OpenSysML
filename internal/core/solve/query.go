@@ -33,16 +33,20 @@ const (
 	// RoleExcluded is an assignment already reported, denied so enumerating asks
 	// for a different one.
 	RoleExcluded
+	// RoleTransition is one step of a behavior's execution as the interpreter
+	// takes it, asserted by a model-checking query over a run.
+	RoleTransition
 )
 
 var roleNames = map[Role]string{
-	RoleRequired: "required condition",
-	RoleAssumed:  "assumed condition",
-	RoleDenied:   "denied conditions",
-	RoleDomain:   "declared domain",
-	RoleDefined:  "well-definedness",
-	RolePinned:   "fixed value",
-	RoleExcluded: "excluded assignment",
+	RoleRequired:   "required condition",
+	RoleAssumed:    "assumed condition",
+	RoleDenied:     "denied conditions",
+	RoleDomain:     "declared domain",
+	RoleDefined:    "well-definedness",
+	RolePinned:     "fixed value",
+	RoleExcluded:   "excluded assignment",
+	RoleTransition: "transition",
 }
 
 // String names the role as an assertion's comment reads it.

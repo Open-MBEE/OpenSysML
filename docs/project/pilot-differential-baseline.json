@@ -1,23 +1,23 @@
 {
   "validator": "build/pilot-sysml-validator/validate-sysml-batch",
-  "pilotRelease": "2026-07 (jupyter-sysml-kernel 0.61.0)",
+  "pilotRelease": "2026-08 (jupyter-sysml-kernel 0.62.0)",
   "provenance": {
-    "pilotTag": "2026-07",
-    "pilotCommit": "c7fc737d56da9e2d78f9d7df6d38efbec2e7e965",
-    "pilotArtifact": "0.61.0",
+    "pilotTag": "2026-08",
+    "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
+    "pilotArtifact": "0.62.0",
     "errataRegistry": "sha256:2e5a631caa524d6e04675e0c8ff6cb310e020adb4d614e65c3e3d0f0016dea50",
     "tools": [
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
         "sourceDigest": "sha256:3855d223162d6ece6a08b5e1bc9388ff2706bd52e7f3373be31c7e8abc0a22bb",
-        "release": "2026-07 (jupyter-sysml-kernel 0.61.0)"
+        "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {
         "name": "pilot-kerml-validator",
         "source": "scripts/pilot-kerml-validator/ValidateKerML.java",
         "sourceDigest": "sha256:e90d0eaddc85b4f6b3e09c7a0ea0448e8a6abec9fa0467b86112013bf0d70ecb",
-        "release": "2026-07 (jupyter-sysml-kernel 0.61.0)"
+        "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       }
     ],
     "inputs": [
@@ -33,7 +33,7 @@
         "dir": "examples/pilot-corpora/sysml-examples",
         "origin": "pinned",
         "files": 99,
-        "digest": "sha256:032562f401db7c0d03e280799dc6c793b2fe2eadcd15fdc402f97c3cdfc6023c"
+        "digest": "sha256:3179b1c370d45f1ecf75f2c98f23e79c69ca2d12b6b303e0579277cd89d14427"
       },
       {
         "name": "pilot-validation",
@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 36,
-        "digest": "sha256:dd11dd61e3ef5edb426025ddf952a9b3205ea520f1d1d79e1ac9d04abfdfd43f"
+        "digest": "sha256:1619660d7106bb187704410b021d3dad8e8b8505a04fc3ddc4a5cf7fea72b1ba"
       },
       {
         "name": "probes",
@@ -75,13 +75,13 @@
   },
   "totals": {
     "files": 371,
-    "filesFullyAgreeing": 337,
+    "filesFullyAgreeing": 343,
     "agreement": 34,
     "severityMismatch": 3,
     "openSysMLOnly": 37,
-    "pilotOnly": 1111,
+    "pilotOnly": 1105,
     "openSysMLDiagnostics": 74,
-    "pilotDiagnostics": 1148
+    "pilotDiagnostics": 1142
   },
   "roots": [
     {
@@ -161,25 +161,25 @@
           "severityMismatch": [],
           "openSysMLOnly": [
             {
-              "line": 49,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 50,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
               "line": 51,
               "severity": "error",
               "category": "unmapped",
               "count": 1
             },
             {
+              "line": 52,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
               "line": 53,
+              "severity": "error",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 55,
               "severity": "error",
               "category": "unmapped",
               "count": 1
@@ -219,29 +219,15 @@
       "dir": "examples/pilot-corpora/kerml-examples",
       "totals": {
         "files": 58,
-        "filesFullyAgreeing": 49,
+        "filesFullyAgreeing": 55,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 10,
-        "pilotOnly": 6,
+        "pilotOnly": 0,
         "openSysMLDiagnostics": 10,
-        "pilotDiagnostics": 6
+        "pilotDiagnostics": 0
       },
       "files": [
-        {
-          "path": "KerML Spec Annex A Examples/A-2-ModelingInstances.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 9,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
-        },
         {
           "path": "Simple Tests/Behaviors.kerml",
           "agreement": [],
@@ -281,20 +267,6 @@
             }
           ],
           "pilotOnly": []
-        },
-        {
-          "path": "Simple Tests/Classifiers.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 13,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
         },
         {
           "path": "Simple Tests/Expressions.kerml",
@@ -339,62 +311,6 @@
             }
           ],
           "pilotOnly": []
-        },
-        {
-          "path": "Simple Tests/FeatureChains.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 31,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "Simple Tests/Features.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 20,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "Simple Tests/Inverses.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 3,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "Simple Tests/Types.kerml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 31,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
         }
       ]
     },
@@ -5942,36 +5858,6 @@
       "side": "pilot",
       "message": "Duplicate of inherited member name 'typesIn' from Lowering, PassRegistry",
       "count": 1
-    },
-    {
-      "side": "pilot",
-      "message": "The opposite features 'owningType' of 'org.omg.sysml.lang.sysml.impl.DisjoiningImpl{KerML Spec Annex A Examples/A-2-ModelingInstances.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.4/@ownedRelatedElement.0/@ownedRelationship.2}' and 'ownedDisjoining' of 'org.omg.sysml.lang.sysml.impl.ClassifierImpl{KerML Spec Annex A Examples/A-2-ModelingInstances.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.4/@ownedRelatedElement.0}' do not refer to each other",
-      "count": 1
-    },
-    {
-      "side": "pilot",
-      "message": "The opposite features 'owningType' of 'org.omg.sysml.lang.sysml.impl.DisjoiningImpl{Simple Tests/Classifiers.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.7/@ownedRelatedElement.0/@ownedRelationship.0}' and 'ownedDisjoining' of 'org.omg.sysml.lang.sysml.impl.ClassifierImpl{Simple Tests/Classifiers.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.7/@ownedRelatedElement.0}' do not refer to each other",
-      "count": 1
-    },
-    {
-      "side": "pilot",
-      "message": "The opposite features 'owningType' of 'org.omg.sysml.lang.sysml.impl.DisjoiningImpl{Simple Tests/FeatureChains.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.11/@ownedRelatedElement.0/@ownedRelationship.4}' and 'ownedDisjoining' of 'org.omg.sysml.lang.sysml.impl.FeatureImpl{Simple Tests/FeatureChains.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.11/@ownedRelatedElement.0}' do not refer to each other",
-      "count": 1
-    },
-    {
-      "side": "pilot",
-      "message": "The opposite features 'owningType' of 'org.omg.sysml.lang.sysml.impl.DisjoiningImpl{Simple Tests/Features.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.10/@ownedRelatedElement.0/@ownedRelationship.2}' and 'ownedDisjoining' of 'org.omg.sysml.lang.sysml.impl.FeatureImpl{Simple Tests/Features.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.10/@ownedRelatedElement.0}' do not refer to each other",
-      "count": 1
-    },
-    {
-      "side": "pilot",
-      "message": "The opposite features 'owningType' of 'org.omg.sysml.lang.sysml.impl.DisjoiningImpl{Simple Tests/Inverses.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.2}' and 'ownedDisjoining' of 'org.omg.sysml.lang.sysml.impl.FeatureImpl{Simple Tests/Inverses.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.0/@ownedRelatedElement.0}' do not refer to each other",
-      "count": 1
-    },
-    {
-      "side": "pilot",
-      "message": "The opposite features 'owningType' of 'org.omg.sysml.lang.sysml.impl.DisjoiningImpl{Simple Tests/Types.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.14/@ownedRelatedElement.0/@ownedRelationship.1}' and 'ownedDisjoining' of 'org.omg.sysml.lang.sysml.impl.TypeImpl{Simple Tests/Types.kerml#//@ownedRelationship.0/@ownedRelatedElement.0/@ownedRelationship.14/@ownedRelatedElement.0}' do not refer to each other",
-      "count": 1
     }
   ],
   "errata": {
@@ -6007,13 +5893,13 @@
     ],
     "totals": {
       "files": 371,
-      "filesFullyAgreeing": 338,
+      "filesFullyAgreeing": 344,
       "agreement": 34,
       "severityMismatch": 3,
       "openSysMLOnly": 36,
-      "pilotOnly": 1111,
+      "pilotOnly": 1105,
       "openSysMLDiagnostics": 73,
-      "pilotDiagnostics": 1148
+      "pilotDiagnostics": 1142
     },
     "findings": [
       {

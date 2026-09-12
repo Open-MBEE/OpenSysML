@@ -242,14 +242,11 @@ func (p *changePoll) wait(trans *lower.Transition, state, reason string) {
 // PollChangeEvents re-tests the change conditions the active configuration
 // watches and takes the transitions they enable, reporting whether any fired:
 // the step RunToCompletion takes, for a driver that steps the machine itself.
-func (e *StateExecutor) PollChangeEvents() (bool, error) {
+func (e *StateExecutor) PollChangeEvents() (fired bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
-	fired, err := e.pollChangeEvents()
-	if err != nil {
-		return fired, err
-	}
-	return fired, e.completedRun()
+	return e.pollChangeEvents()
 }
 
 // ChangeWaits describes the change conditions the active configuration was

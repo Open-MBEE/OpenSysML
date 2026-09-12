@@ -11,35 +11,10 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
-
-// stateActionFQN names the library state every state specializes, whose
-// content (self, substates, transitions) the executor carries natively.
-const stateActionFQN = "States::StateAction"
-
-// stateTypes resolves the names a state machine is lowered with, withholding
-// the content of States::StateAction: materializing it would only recurse.
-type stateTypes struct {
-	*resolve.Resolver
-	frame *symbols.Symbol
-}
-
-func (ctx *Context) stateTypes() lower.EndpointResolver {
-	if ctx.model.resolver == nil {
-		return nil
-	}
-	return &stateTypes{Resolver: ctx.model.resolver, frame: ctx.librarySymbol(stateActionFQN)}
-}
-
-// WithholdsStateType reports the library's StateAction, whose content lowering
-// must not take: TypeDecl still resolves it, so lowering looks no further.
-func (s *stateTypes) WithholdsStateType(decl ast.Node) bool {
-	return s.frame != nil && decl == s.frame.Decl
-}
 
 // StateConfiguration represents the active state configuration (simple or multi-region).
 type StateConfiguration struct {
@@ -192,7 +167,7 @@ func newStateExecutorForOccurrence(
 	// Lower to StateGraph, in the scope the machine's body was written in, so
 	// that everything the graph carries is evaluated where it was declared.
 	// Endpoints come from the name-resolution tier, which reported on them already.
-	graph, err := lower.ToStateGraphWithEndpoints(stateMachine.Decl, declScope(stateMachine), ctx.stateTypes())
+	graph, err := lower.ToStateGraphWithEndpoints(stateMachine.Decl, declScope(stateMachine), lower.NewLibraryStateTypes(ctx.model.resolver))
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}
@@ -732,6 +707,11 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	if err != nil {
 		return false, nil, err
 	}
+	// A witness move refused while drawing must stop the dispatch before the do
+	// behaviors take the occurrence, so a refused replay changes nothing.
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return false, nil, err
+	}
 	var resumed []string
 	if msg, ok := event.Payload.(Message); ok {
 		taking, err := e.doBehaviorsTaking(msg, candidates)
@@ -859,8 +839,7 @@ func (e *StateExecutor) selectCandidates(
 // one, each with the one of its enabled transitions that fires drawn once here and
 // its route through any pseudostates settled against the pre-dispatch data, for
 // the do behaviors taking the occurrence, the firing and the preview alike. A
-// state outranked by a nested one draws nothing. event is nil for a change poll. A
-// draw the policy refuses is the dispatch's error, before any route is resolved.
+// state outranked by a nested one draws nothing. event is nil for a change poll.
 func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event *Event) ([]dispatchCandidate, error) {
 	chosen := make([]dispatchCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
@@ -868,9 +847,6 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 			continue
 		}
 		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
-		if err := e.ctx.scheduling().refusal(); err != nil {
-			return nil, err
-		}
 		route, err := e.resolveRouteFor(candidate.chosen, event)
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)
@@ -2110,8 +2086,9 @@ func (e *StateExecutor) run(atCurrentTime bool) error {
 	return e.runCounting(atCurrentTime, &progress)
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) error {
+func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	wasRunning := e.inRun
 	e.inRun = true
 	defer func() { e.inRun = wasRunning }()
@@ -2153,19 +2130,7 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) e
 			}
 		}
 	}
-	if atCurrentTime {
-		return nil
-	}
-	return e.completedRun()
-}
-
-// completedRun reports a witness move left to follow once a run asked to complete
-// the machine did; an object's behavior brought to quiescence asks no such thing.
-func (e *StateExecutor) completedRun() error {
-	if e.state != StateCompleted {
-		return nil
-	}
-	return e.ctx.completedRun()
+	return nil
 }
 
 // dueLabel names the machine in a due-order choice.
@@ -2560,8 +2525,8 @@ func (e *StateExecutor) settleDoActions() error {
 }
 
 // chooseDoAction resolves which of the do behaviors due in a round acts next: the
-// policy draws the pick and, with several due, the choice is reported. A draw the
-// policy refuses is the round's error, before any behavior acts on it.
+// policy draws the pick and, with several due, the choice is reported; a replay
+// that cannot follow its witness here is its refusal, and none acts.
 func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if len(due) < 2 {
 		return 0, nil
@@ -2910,8 +2875,9 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 }
 
 // initialize sets current state to initial state and enters it.
-func (e *StateExecutor) initialize() error {
+func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
 	// A machine without orthogonal regions of its own starts in the state its
@@ -3563,8 +3529,9 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // dispatch succeeds — the completion transition it enables is queued next.
 // With nothing due but a timer running, the shared clock advances to the earliest
 // wait (running whatever else is due there) until this machine's next event is due.
-func (e *StateExecutor) ProcessNextEvent() error {
+func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
 	var progress dueProgress
@@ -3579,7 +3546,7 @@ func (e *StateExecutor) ProcessNextEvent() error {
 			return fmt.Errorf("poll change conditions: %w", err)
 		}
 		if fired {
-			return e.completedRun()
+			return nil
 		}
 		// A signal sent by a behavior sharing this context is dispatched by the same
 		// step RunToCompletion takes, so stepping and running agree.
@@ -3591,16 +3558,21 @@ func (e *StateExecutor) ProcessNextEvent() error {
 			return nil
 		}
 		if _, waiting := e.NextWait(); delivered || !waiting {
-			if err := e.processNextEvent(); err != nil {
-				return err
-			}
-			return e.completedRun()
+			return e.processNextEvent()
 		}
 		// Polled and found nothing: settled until another executor gets somewhere.
 		progress.settle(e)
 		if err := e.awaitClock(&progress); err != nil {
 			return err
 		}
+	}
+}
+
+// completedWhole makes a call of its own run that completed the machine return
+// the refusal of the witness moves left over, when the call itself did not fail.
+func (e *StateExecutor) completedWhole(err *error) {
+	if *err == nil && e.state == StateCompleted {
+		*err = e.ctx.endedWhole(&e.driven)
 	}
 }
 
@@ -3639,8 +3611,9 @@ func (e *StateExecutor) HasPendingWork() bool {
 
 // RunDoRound advances every active state's do behavior by one action, without
 // dispatching any event, and reports how many actions ran.
-func (e *StateExecutor) RunDoRound() (int, error) {
+func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	return e.runDoRound()
 }

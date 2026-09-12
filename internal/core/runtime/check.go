@@ -101,6 +101,9 @@ func (v Violation) String() string {
 type Witness struct {
 	Choices []ChoiceTaken
 	Trace   string
+	// Fails is the deadlock or failure the schedule ends in, as the executor
+	// spells it; empty for a state the run goes on from.
+	Fails string
 }
 
 // DivergentValue is one final value of a divergent feature and a schedule reaching it.
@@ -240,10 +243,11 @@ func CheckAction(stop context.Context, fresh func() (*Context, error), start Act
 	exec, err := start(ctx)
 	if err != nil {
 		// Failing to start fails on every schedule: a violation with no move.
-		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.witness()})
+		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err)})
 		return c.result(), nil
 	}
 	c.exec = exec
+	defer exec.Release()
 	if err := c.search(); err != nil {
 		return nil, err
 	}
@@ -350,6 +354,13 @@ func (c *checker) witness() Witness {
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()
 	}
+	return w
+}
+
+// failing is the schedule so far ending in err, which a replay must raise again.
+func (c *checker) failing(err error) Witness {
+	w := c.witness()
+	w.Fails = err.Error()
 	return w
 }
 
@@ -468,7 +479,7 @@ func (c *checker) failed(err error, depth int) error {
 	if errors.Is(err, ErrActionDeadlock) || errors.Is(err, ErrAcceptDeadlock) {
 		kind = ViolationDeadlock
 	}
-	c.violate(Violation{Kind: kind, Err: err, Depth: depth, Witness: c.witness()})
+	c.violate(Violation{Kind: kind, Err: err, Depth: depth, Witness: c.failing(err)})
 	return nil
 }
 

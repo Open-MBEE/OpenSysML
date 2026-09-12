@@ -7,10 +7,10 @@
 # Kept in one file so the release under comparison cannot drift between them.
 # The tag names the release; the commit is what every fetch verifies, because a
 # tag is a mutable ref and the baselines record content. Change them together.
-PILOT_TAG="${PILOT_TAG:-2026-07}"
-PILOT_COMMIT="${PILOT_COMMIT:-c7fc737d56da9e2d78f9d7df6d38efbec2e7e965}"
+PILOT_TAG="${PILOT_TAG:-2026-08}"
+PILOT_COMMIT="${PILOT_COMMIT:-692170b71867353b8f90341e61556f49a5beb0e5}"
 PILOT_REPO="${PILOT_REPO:-https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git}"
-PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.61.0}"
+PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.62.0}"
 
 # File names pilot_fetch_subtrees counts when reporting a download; a caller may reassign it.
 PILOT_FETCH_GLOBS=('*.sysml' '*.kerml')
@@ -52,16 +52,36 @@ pilot_count_files() {
 	return 0
 }
 
-# pilot_install_dir replaces directory $2 with $1. The new tree is first moved
-# beside $2 (a copy if the work tree is on another filesystem), so the old copy
-# is only removed once its replacement is complete and a rename away.
+# pilot_recover_dir puts back the $1.old backup an interrupted pilot_install_dir left behind.
+pilot_recover_dir() {
+	local dst="$1"
+	if [[ ! -e "$dst" ]] && [[ -e "$dst.old" ]]; then
+		mv "$dst.old" "$dst"
+	fi
+	return 0
+}
+
+# pilot_install_dir replaces directory $2 with $1, keeping the old copy as
+# $2.old until the rename into place succeeds and restoring it if that fails.
 pilot_install_dir() {
 	local src="$1" dst="$2"
 	mkdir -p "$(dirname "$dst")"
-	rm -rf "$dst.new"
-	mv "$src" "$dst.new"
-	rm -rf "$dst"
-	mv "$dst.new" "$dst"
+	pilot_recover_dir "$dst"
+	rm -rf "$dst.new" "$dst.old"
+	if ! mv "$src" "$dst.new"; then
+		rm -rf "$dst.new"
+		return 1
+	fi
+	if [[ -e "$dst" ]] && ! mv "$dst" "$dst.old"; then
+		rm -rf "$dst.new"
+		return 1
+	fi
+	if ! mv "$dst.new" "$dst"; then
+		pilot_recover_dir "$dst"
+		rm -rf "$dst.new"
+		return 1
+	fi
+	rm -rf "$dst.old"
 	return 0
 }
 

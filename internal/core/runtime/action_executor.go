@@ -352,16 +352,10 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
-	return e.completedRun()
-}
-
-// completedRun reports a witness move left to follow once a run asked to complete
-// the action did; an object's behavior brought to quiescence asks no such thing.
-func (e *ActionExecutor) completedRun() error {
-	if e.state != StateCompleted {
-		return nil
+	if e.state == StateCompleted {
+		return e.ctx.endedWhole(&e.driven)
 	}
-	return e.ctx.completedRun()
+	return nil
 }
 
 // tokensProgressed reports whether the tokens got anywhere since the count and locations
@@ -538,14 +532,11 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 			break
 		}
 	}
-	if atCurrentTime {
-		return nil
-	}
-	if e.state == StateWaiting {
+	if e.state == StateWaiting && !atCurrentTime {
 		e.endPausedBodies()
 		return e.deadlockError(nil)
 	}
-	return e.completedRun()
+	return nil
 }
 
 // awaitClock runs what is due, then moves the clock to the earliest wait, until a
@@ -1748,6 +1739,10 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	}
 	if len(holding) > 0 {
 		choice, pick := e.chooseBranch(token.frame, decisionNode, successors, holding)
+		// A refused replay move leaves the token at the decision: no branch is taken.
+		if refused := e.ctx.scheduling().refusal(); refused != nil {
+			return refused
+		}
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 {
@@ -1858,7 +1853,10 @@ func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	if isAccept && accept.Trigger != nil {
 		// A trigger waits for time to pass or for a condition to hold rather
 		// than for a message, so it is answered here and not from the queue.
-		ready, err := e.triggerHolds(token, accept)
+		ready, err := e.triggerReady(token, accept)
+		if ready || err != nil {
+			ready, err = e.triggerHolds(token, accept)
+		}
 		if err != nil {
 			return err
 		}
@@ -1991,6 +1989,16 @@ func (e *ActionExecutor) completeNode(tokenIdx int, perf *actionFrame) error {
 
 	e.tokens[tokenIdx].travel(successors[0], e.sweep)
 	return nil
+}
+
+// triggerReady probes a change event's condition first: a test finding it not
+// holding is no move and leaves no trace. A time event parks visibly, so it is not probed.
+func (e *ActionExecutor) triggerReady(token *Token, accept lower.Accept) (bool, error) {
+	if _, changes := accept.Trigger.(*ast.ChangeEvent); !changes {
+		return true, nil
+	}
+	defer e.ctx.beginProbe()()
+	return e.triggerHolds(token, accept)
 }
 
 // triggerHolds reports whether the time or change event an accept waits for has
@@ -2341,6 +2349,35 @@ func (e *ActionExecutor) Data() map[string]Value {
 	return e.root.data
 }
 
+// Held is a copy of what a performance holds at one moment: the features it
+// holds, and their values looked up under the names the performance keys them by.
+type Held struct {
+	features []lower.Attribute
+	data     map[string]Value
+	aliases  map[string]string
+}
+
+// Held copies what the action's own performance holds now.
+func (e *ActionExecutor) Held() Held {
+	return Held{
+		features: slices.Clone(e.features),
+		data:     maps.Clone(e.root.data),
+		aliases:  maps.Clone(e.root.aliases),
+	}
+}
+
+// Features are the attributes and parameters the performance holds, the graph's
+// own then the inherited ones it does not redefine, as the run initializes them.
+func (h Held) Features() []lower.Attribute {
+	return h.features
+}
+
+// Value is the value held under name: its redefinition's when name is redefined.
+func (h Held) Value(name string) (Value, bool) {
+	v, ok := h.data[canonical(h.aliases, name)]
+	return v, ok
+}
+
 // SetBreakpoint adds a breakpoint at the given node name.
 func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true
@@ -2367,6 +2404,11 @@ func (e *ActionExecutor) SetTrace(trace *TraceRecorder) {
 // ActionSymbol returns the action being executed.
 func (e *ActionExecutor) ActionSymbol() *symbols.Symbol {
 	return e.action
+}
+
+// Graph is the lowered flow the run performs, the one every step of it consumes.
+func (e *ActionExecutor) Graph() *lower.ActionGraph {
+	return e.graph
 }
 
 // Performer returns the object performing the action, nil for an action

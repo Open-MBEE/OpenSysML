@@ -201,8 +201,8 @@ type Context struct {
 	// exploring is the exploration run this context's runs take part in, nil
 	// outside Explore (explore.go).
 	exploring *exploreRun
-	// replaying is the witness the context's runs follow in turn since a `replay`
-	// policy was set, nil under any other (replay.go).
+	// replaying is the witness this context's runs follow in turn under a
+	// `replay` policy (replay.go), nil under any other.
 	replaying *replayRun
 	// choices are the choice points the context's runs resolved, in order: the
 	// witness a replay of them follows.
@@ -379,7 +379,7 @@ func (ctx *Context) SetSchedule(policy SchedulePolicy) error {
 	ctx.schedule = policy
 	ctx.replaying = nil
 	if policy.kind == scheduleReplay {
-		ctx.replaying = &replayRun{choices: policy.replay.choices}
+		ctx.replaying = &replayRun{choices: slices.Clone(policy.replay.choices)}
 	}
 	return nil
 }
@@ -394,9 +394,17 @@ func (ctx *Context) beginExploration(policy SchedulePolicy, run *exploreRun) {
 
 // newScheduler starts the resolutions of one run under the context's policy.
 func (ctx *Context) newScheduler() *scheduler {
-	s := ctx.schedule.start()
+	return ctx.schedulerUnder(ctx.schedule)
+}
+
+// schedulerUnder starts one run's resolutions under policy, drawing from the
+// exploration or the witness the context's runs share.
+func (ctx *Context) schedulerUnder(policy SchedulePolicy) *scheduler {
+	s := policy.start()
 	s.explore = ctx.exploring
-	s.replay = ctx.replaying
+	if policy.kind == scheduleReplay && ctx.replaying != nil {
+		s.replay = ctx.replaying
+	}
 	return s
 }
 
@@ -603,19 +611,12 @@ func (ctx *Context) beginRun() func() {
 	return ctx.enterRun(ctx.newRunState())
 }
 
-// completedRun is what a run reports on completing: at the top level the context's
-// runs are over, so a witness move left to follow is refused (scheduler.ended).
-func (ctx *Context) completedRun() error {
-	if ctx.runDepth != 1 {
-		return nil
-	}
-	return ctx.scheduling().ended()
-}
-
 // executorRun is a run driven call by call: its state, nil until its first call
-// begins it, which every later call resumes.
+// begins it, which every later call resumes; owned when that state is its own
+// rather than an enclosing run's.
 type executorRun struct {
 	state *runState
+	owned bool
 }
 
 // beginExecutorRun brackets one call into a call-by-call driven executor: the run's
@@ -625,10 +626,19 @@ func (ctx *Context) beginExecutorRun(run *executorRun) func() {
 		if ctx.runDepth > 0 {
 			run.state = ctx.run
 		} else {
-			run.state = ctx.newRunState()
+			run.state, run.owned = ctx.newRunState(), true
 		}
 	}
 	return ctx.enterRun(run.state)
+}
+
+// endedWhole is the refusal of a call-by-call run of its own that ended with
+// witness moves left over; one sharing an enclosing run leaves them to it.
+func (ctx *Context) endedWhole(run *executorRun) error {
+	if !run.owned {
+		return nil
+	}
+	return run.state.scheduler.unfollowed("the run ended")
 }
 
 // previewExecutorRun installs, for a preview of a call into a call-by-call driven
@@ -1344,6 +1354,7 @@ func (ctx *Context) performActionStep(performed, action *symbols.Symbol, self *I
 // action, seeds its inputs, starts it with start, and runs it to completion; the
 // clock drives it no further.
 func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
+	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
@@ -1365,10 +1376,19 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 			return nil, fmt.Errorf("execute action: %w", err)
 		}
 	}
-	if err := exec.completedRun(); err != nil {
+	if err := ctx.followedWhole(top); err != nil {
 		return nil, fmt.Errorf("execute action: %w", err)
 	}
 	return exec, nil
+}
+
+// followedWhole is the refusal of a top-level run that ended with witness moves
+// left over; a nested run leaves what is left to the run enclosing it.
+func (ctx *Context) followedWhole(top bool) error {
+	if !top {
+		return nil
+	}
+	return ctx.Unfollowed()
 }
 
 // startAction begins an executor however its action is performed: one a ToolExecution
@@ -1431,6 +1451,7 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 // performState runs a state machine performed by self to completion or
 // suspension, the events injected before it runs, and returns its executor.
 func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, events []string) (*StateExecutor, error) {
+	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
 	// Create executor
@@ -1454,7 +1475,7 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	if err := exec.RunToCompletion(); err != nil {
 		return nil, err
 	}
-	if err := exec.completedRun(); err != nil {
+	if err := ctx.followedWhole(top); err != nil {
 		return nil, err
 	}
 	return exec, nil
@@ -1470,9 +1491,19 @@ func (ctx *Context) CreateActionExecutor(action *symbols.Symbol) (*ActionExecuto
 // self, without starting execution. An action a ToolExecution annotates has no flow to
 // step: its tool is invoked once and the executor returned completed with its outputs.
 func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instance) (*ActionExecutor, error) {
+	return ctx.CreateActionExecutorWithInputs(action, self, nil)
+}
+
+// CreateActionExecutorWithInputs creates an action executor for an action
+// performed by self with its inputs bound ahead of its defaults, without
+// starting execution.
+func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
 		return nil, fmt.Errorf("create action executor: %w", err)
+	}
+	if len(inputs) > 0 {
+		exec.SetInputs(inputs)
 	}
 
 	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {

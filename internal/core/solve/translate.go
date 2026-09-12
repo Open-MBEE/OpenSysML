@@ -158,6 +158,10 @@ type translator struct {
 	// where a definedness assertion over the whole query would not be equivalent.
 	branched int
 
+	// machine asserts Integer arithmetic within int64, where the evaluator
+	// reports overflow: what a step of execution is defined under.
+	machine bool
+
 	// objectives are the translated objectives, in the order they are optimized.
 	objectives []Objective
 
@@ -615,7 +619,7 @@ func (t *translator) additive(n *ast.OperatorExpr, scope *symbols.Scope, op Op) 
 	if err := t.sameDimension(n, scope); err != nil {
 		return nil, err
 	}
-	return Binary(op, left.Sort, left, right), nil
+	return t.ranged(n, Binary(op, left.Sort, left, right))
 }
 
 // multiplicative translates `*` or `/`. A quotient is a Real whatever its
@@ -642,7 +646,22 @@ func (t *translator) multiplicative(n *ast.OperatorExpr, scope *symbols.Scope, o
 	if !left.Literal() && !right.Literal() {
 		t.nonlinear = true
 	}
-	return Binary(OpMul, left.Sort, left, right), nil
+	return t.ranged(n, Binary(OpMul, left.Sort, left, right))
+}
+
+// ranged asserts an Integer result within int64 where the evaluator reports
+// overflow, when translating a step of execution; a Real result rounds instead.
+func (t *translator) ranged(n *ast.OperatorExpr, result *Term) (*Term, error) {
+	if !t.machine || result.Sort.Kind != SortInt {
+		return result, nil
+	}
+	if !t.hoistable() {
+		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"` on integers",
+			"asserting its result within int64 would deny assignments the evaluator accepts, "+
+				"as this operation may go unevaluated")
+	}
+	t.guard(Int64(result), n)
+	return result, nil
 }
 
 // remainder translates `%` on integers as the remainder truncating division
@@ -762,7 +781,7 @@ func (t *translator) unaryNumber(n *ast.OperatorExpr, scope *symbols.Scope) (*Te
 	if n.Operator == ast.OpPos {
 		return arg, nil
 	}
-	return negated(arg), nil
+	return t.ranged(n, negated(arg))
 }
 
 // negated is unary `-`, folded over a literal so a negative literal stays one:

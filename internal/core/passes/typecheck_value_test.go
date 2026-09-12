@@ -818,6 +818,20 @@ func TestValueUniquenessFollowsRedefinition(t *testing.T) {
 	}`, "1 (an Integer) is written at positions 1 and 2 of a unique feature")
 }
 
+// A metadata body declaration redefines the metadata type's feature of its name
+// (KerML 7.4.7), so it repeats a value only where that feature is nonunique.
+func TestValueUniquenessFollowsMetadataBodyRedefinition(t *testing.T) {
+	wantNoValueDiags(t, `package P {
+		metadata def M { attribute xs : ScalarValues::Integer[*] ordered nonunique; }
+		part def A { @M { xs = (1, 1); } }
+		metadata M about A { xs = (2, 2); }
+	}`)
+	wantOneValueDiag(t, `package P {
+		metadata def M { attribute xs : ScalarValues::Integer[*] ordered; }
+		metadata M about P { xs = (1, 1); }
+	}`, "1 (an Integer) is written at positions 1 and 2 of a unique feature")
+}
+
 // The count check precedes the uniqueness check, so a literal both too long and
 // repeating a value is reported for its count alone.
 func TestValueCountViolationPrecedesUniqueness(t *testing.T) {
