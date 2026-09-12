@@ -209,7 +209,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		}
 	}
 	if q.Check.WitnessDir != "" && len(witnesses) > 0 {
-		if err := os.MkdirAll(q.Check.WitnessDir, 0o755); err != nil {
+		if err := os.MkdirAll(q.Check.WitnessDir, 0o750); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -249,7 +249,7 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 	}
 	if w.path != nil {
 		*w.path = filepath.Join(q.Check.WitnessDir, w.file)
-		if err := os.WriteFile(*w.path, []byte(w.witness.String()), 0o644); err != nil {
+		if err := os.WriteFile(*w.path, []byte(w.witness.String()), 0o600); err != nil {
 			return err
 		}
 	}
