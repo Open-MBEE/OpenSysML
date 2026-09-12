@@ -168,6 +168,44 @@ const waiterSource = `
 	}
 `
 
+// A run draws its choices under the policy set when it started, whatever is set
+// later; the copy's run draws under that policy too, from the generator's position,
+// not under the destination's.
+func TestHeldImageCarriesTheRunsSchedulePolicy(t *testing.T) {
+	idx, _, src := buildRuntimeWithLibraries(t, "lamp.sysml", parseAndBuild(t, lampSource))
+	root := idx.DocumentRoot("lamp.sysml")
+	seeded := mustPolicy(t, "seed:7")
+	mustSchedule(t, src, seeded)
+	bulb, err := src.Instantiate(resolveSymbol(t, root, "Bulb"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	dispatchTo(t, root, src, bulb, "go", nil)
+	mustSchedule(t, src, mustPolicy(t, "declared"))
+	machine, _ := bulb.ExhibitedState()
+	if got := machine.State.driven.state.scheduler.policy; got != seeded {
+		t.Fatalf("the source's run draws under %s, want %s from its start", got, seeded)
+	}
+
+	dst := imageInto(t, src, bulb)
+	copied, _ := dst.Instance(bulb.ID)
+	copy, _ := copied.ExhibitedState()
+	run := copy.State.driven.state
+	if run == nil || run.scheduler == nil {
+		t.Fatalf("the copy's machine has no run of its own: %v", run)
+	}
+	if run.scheduler.policy != seeded {
+		t.Errorf("the copy's run draws under %s, want %s as the source's does (the destination's is %s)",
+			run.scheduler.policy, seeded, dst.Schedule())
+	}
+	if run.scheduler.pcg == nil || *run.scheduler.pcg != *machine.State.driven.state.scheduler.pcg {
+		t.Error("the copy's generator is not at the source's position")
+	}
+	if run.scheduler.rng == nil {
+		t.Error("the copy's seeded run has no generator to draw from")
+	}
+}
+
 // A performed action parked at an accept is imaged with its token where it parked:
 // the copy takes the message it awaits in the other context and writes its own object.
 // Parking there is where the start left it, so the object stays pristine.

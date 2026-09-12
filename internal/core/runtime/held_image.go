@@ -125,13 +125,14 @@ func (obj imagedObject) keptIDs() []int64 {
 	return ids
 }
 
-// imagedRun is one run's bookkeeping by value: what it spent and noted, and its
-// seeded generator where the schedule has one.
+// imagedRun is one run's bookkeeping by value: what it spent and noted, the policy its
+// choices draw under, and the generator's position where that policy is seeded.
 type imagedRun struct {
 	steps, elements int64
 	notes           []RunNote
-	seeded          bool
-	generator       rand.PCG
+	scheduled       bool
+	policy          SchedulePolicy
+	generator       *rand.PCG
 }
 
 // Holds reports whether the image holds an object under id.
@@ -396,13 +397,14 @@ func (t *imaging) run(state *runState) (int, error) {
 		return 0, fmt.Errorf("%w: calc usage evaluations open", ErrSnapshotMidRun)
 	}
 	run := imagedRun{steps: state.steps, elements: state.elements, notes: slices.Clone(state.notes)}
-	if state.scheduler != nil {
-		if state.scheduler.explore != nil {
+	if s := state.scheduler; s != nil {
+		if s.explore != nil {
 			return 0, fmt.Errorf("%w: an exploration of the schedule under way", ErrImageBound)
 		}
-		if state.scheduler.pcg != nil {
-			run.seeded = true
-			run.generator = *state.scheduler.pcg
+		run.scheduled, run.policy = true, s.policy
+		if s.pcg != nil {
+			generator := *s.pcg
+			run.generator = &generator
 		}
 	}
 	at := len(t.img.runStates)
@@ -782,10 +784,16 @@ func (m *materializing) featureAt(ref imagedFeatureRef) *FeatureValue {
 // runState is a run of dst's own standing where an imaged run stood: what it spent
 // and noted, and, where both schedules are seeded, the imaged generator's position.
 func (m *materializing) runState(run imagedRun) *runState {
-	state := m.dst.newRunState()
-	state.steps, state.elements, state.notes = run.steps, run.elements, slices.Clone(run.notes)
-	if run.seeded && state.scheduler != nil && state.scheduler.pcg != nil {
-		*state.scheduler.pcg = run.generator
+	state := &runState{
+		steps: run.steps, elements: run.elements, notes: slices.Clone(run.notes),
+		calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
+	}
+	if run.scheduled {
+		state.scheduler = run.policy.start()
+		state.scheduler.explore = m.dst.exploring
+		if run.generator != nil && state.scheduler.pcg != nil {
+			*state.scheduler.pcg = *run.generator
+		}
 	}
 	return state
 }

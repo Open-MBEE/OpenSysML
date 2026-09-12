@@ -489,7 +489,8 @@ occurrences of their behaviors; the executors' state by value, as `Snapshot` cap
 taken once when the sweep begins, while the session's state is still held, and materialized
 into every row's context (`HeldImage.Materialize`), where it makes objects under the same
 identities (the row's identity sequence advanced past them), attaches fresh executors on the
-row's clock and puts the captured state into them; a materialization that fails leaves the
+row's clock and puts the captured state into them — each run's own scheduler under the policy it
+started with, at its generator's position, not the row's; a materialization that fails leaves the
 row's context as it found it (objects, behaviors, identities, counters, clock and messages
 alike). Neither `Restore` nor `Adopt` is that copy:
 `Restore` restores its source context alone, over the executors and journal it captured, and
