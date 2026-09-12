@@ -835,6 +835,59 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	}
 }
 
+// A choice move naming a branch the choice's guards do not enable is refused
+// where the choice is resolved, so the run neither takes a branch nor exits 0.
+func TestReplayRefusesAChoiceBranchNotEnabled(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Machine {
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			choice pick;
+			state left;
+			state right;
+			state never;
+			transition first idle accept Go do assign level := 8 then pick;
+			transition first pick if level > 5 then left;
+			transition first pick if level > 7 then right;
+			transition first pick if level < 0 then never;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	for _, tc := range []struct{ witness, refused string }{
+		{"choice pick -> 3->never\n", "3->never is not enabled (enabled: 1->left, 2->right)"},
+		{"choice pick -> 9->nowhere\n", "9->nowhere is not enabled (enabled: 1->left, 2->right)"},
+	} {
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		witness, err := ParseChoices(tc.witness)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mustSchedule(t, ctx, ReplayPolicy(witness))
+		exec, err := ctx.CreateStateExecutor(sym)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run to idle: %v", err)
+		}
+		exec.SendSignal("Go", nil)
+		err = exec.RunToCompletion()
+		var refused *ReplayError
+		if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), tc.refused) {
+			t.Fatalf("%q: error %T %v, want the choice move refused with %q", tc.witness, err, err, tc.refused)
+		}
+		if visits := exec.GetStateVisits(); slices.Contains(visits, "left") || slices.Contains(visits, "right") || slices.Contains(visits, "never") {
+			t.Errorf("%q: visits %v after the refusal, want no branch taken", tc.witness, visits)
+		}
+	}
+}
+
 // A refused decision move leaves the token at the decision: no branch is taken,
 // so neither branch's action ran.
 func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {

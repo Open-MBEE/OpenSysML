@@ -184,10 +184,14 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	if len(enabled) == 0 {
 		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", ErrChoiceWithoutBranch, choice.Name)
 	}
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(enabled))
-	if point, ok := e.choiceBranchPoint(choice, outgoing, enabled, pick); ok {
-		scheduling.describe(point)
+	pick := 0
+	if point, ok := e.choiceBranchPoint(choice, outgoing, enabled); ok {
+		pick = e.ctx.scheduling().choose(point, nil)
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return route{}, err
+		}
+		point.Taken = pick
+		point.File, point.Span = e.transitionLocation(choice, outgoing[enabled[pick]])
 		e.ctx.note(point)
 		// A branch past the first was only probed; its guard's final reading is made now.
 		if pick > 0 {
@@ -220,8 +224,8 @@ func (e *StateExecutor) probeBranch(choice *ast.PseudostateNode, outgoing []*low
 }
 
 // choiceBranchPoint is the branches of a choice enabled on arrival, at their
-// declared positions, as a choice point; there is none under two.
-func (e *StateExecutor) choiceBranchPoint(choice *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int, pick int) (ChoicePoint, bool) {
+// declared positions, as a choice point not yet taken; there is none under two.
+func (e *StateExecutor) choiceBranchPoint(choice *ast.PseudostateNode, outgoing []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -229,15 +233,10 @@ func (e *StateExecutor) choiceBranchPoint(choice *ast.PseudostateNode, outgoing 
 	for i, pos := range enabled {
 		alts[i] = transitionName(outgoing, pos)
 	}
-	taken := outgoing[enabled[pick]]
-	file, span := e.transitionLocation(choice, taken)
 	return ChoicePoint{
 		Kind:         ChoiceTransition,
 		Where:        "choice " + choice.Name,
 		Alternatives: alts,
-		Taken:        pick,
-		File:         file,
-		Span:         span,
 	}, true
 }
 
