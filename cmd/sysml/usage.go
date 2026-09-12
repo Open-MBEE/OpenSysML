@@ -190,6 +190,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView", "ASCII text at a terminal"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form markdown", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
 			},
@@ -199,7 +200,10 @@ func doc() usage.Doc {
 					"output: SysML v2 specifies the notation, not how a tool draws " +
 					"it. Notices — an empty view, an element the rendering cannot " +
 					"represent — go on stderr. Every file named is loaded as one " +
-					"model, so a view may expose elements a sibling file declares.",
+					"model, so a view may expose elements a sibling file declares. " +
+					"A graph-shaped rendering is written as a Mermaid diagram by " +
+					"default and as Graphviz DOT with -render-form dot; no Graphviz " +
+					"installation is needed to write it.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -212,6 +216,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-documents site -doc-form html -html-css theme.css", ""),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-theme report -o report.html", "a bundled theme"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-mermaid cdn -o report.html", "diagrams drawn in the browser"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form dot -o report.md", "diagrams as Graphviz DOT"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf "+
 					"-pdf-engine pandoc -doc-title-page -doc-toc -doc-number-sections -o report.pdf", ""),
 				usage.Ex("sysml -html-default-css -o sysml-document.css", "the default stylesheet"),
@@ -220,7 +225,11 @@ func doc() usage.Doc {
 			Paragraphs: []string{
 				"A document is a part def specializing DocumentQueries::Document. Its " +
 					"queries are bound in the model and run against it, and the " +
-					"result is written as CommonMark-compatible Markdown.",
+					"result is written as CommonMark-compatible Markdown. Its diagram " +
+					"blocks are Mermaid source; -diagram-form dot writes every " +
+					"graph-shaped one as Graphviz DOT instead, in Markdown and HTML " +
+					"alike, while a table-kind view stays a table. No Graphviz " +
+					"installation is needed to write it.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -235,9 +244,9 @@ func doc() usage.Doc {
 					"your own stylesheets, -html-no-default-css drops the default one, " +
 					"-html-fragment writes the document element alone to embed in a " +
 					"page of yours, and -html-default-css writes the default sheet out " +
-					"— or, with -html-theme, a theme's whole sheet — to start from. Diagrams are written as Mermaid source; -html-mermaid " +
+					"— or, with -html-theme, a theme's whole sheet — to start from. -html-mermaid " +
 					"cdn has the page load a pinned Mermaid release from jsDelivr so a " +
-					"browser draws them, or names a URL of your own to load it from.",
+					"browser draws the Mermaid diagrams, or names a URL of your own to load it from.",
 			},
 		}, {
 			Title: "Flag order",
@@ -342,8 +351,9 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered Markdown")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition as linked Markdown into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid or markdown (default: destination-dependent for -render, each kind's machine form for -render-all)")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown or dot (default: destination-dependent for -render, each kind's machine form for -render-all)")
 	fs.StringVar(&docForm, "doc-form", "", "Form -render-document and -render-documents write: markdown (default), html or pdf, which drives an external converter")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the graph-shaped diagrams of -render-document and -render-documents are written in: mermaid (default) or dot; a table-kind view is a table either way")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 	fs.BoolVar(&pdfTitlePage, "pdf-title-page", false, "Put the document title on a page of its own (-doc-form pdf)")
 	fs.BoolVar(&pdfTOC, "pdf-toc", false, "Write a table of contents ahead of the content (-doc-form pdf)")

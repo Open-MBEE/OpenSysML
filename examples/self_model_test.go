@@ -18,6 +18,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
 	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
@@ -1184,7 +1185,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		ws.Open(name, content, 1)
 	}
 
-	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument")
+	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render the architecture document: %v", err)
 	}

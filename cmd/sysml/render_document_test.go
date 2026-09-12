@@ -81,6 +81,45 @@ func TestRenderDocumentFlag(t *testing.T) {
 		2, "does not bind required parameter root")
 }
 
+// TestRenderDocumentDiagramForm checks -diagram-form: Mermaid by default, DOT
+// on request, tables either way, and refused where it has nothing to act on.
+func TestRenderDocumentDiagramForm(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	goldens := map[string]string{
+		"mermaid": "telescope_report.golden.md",
+		"dot":     "telescope_report.dot.golden.md",
+	}
+	for form, name := range goldens {
+		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", form)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("-diagram-form %s: %v", form, err)
+		}
+		if string(out) != string(golden) {
+			t.Errorf("-diagram-form %s differs from %s:\n%s", form, name, out)
+		}
+	}
+	if dot, err := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", "dot").Output(); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(string(dot), "```dot\n") || strings.Contains(string(dot), "```mermaid") || !strings.Contains(string(dot), "| name | mass |") {
+		t.Errorf("dot rendering does not write DOT diagrams next to pipe tables:\n%s", dot)
+	}
+
+	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-diagram-form", "svg"),
+		2, `unknown diagram form "svg"`, "-diagram-form takes mermaid, dot")
+	wantReport(t, check(t, binary, documentModel, "-diagram-form", "dot"),
+		2, "-diagram-form", "apply to -render-document and -render-documents")
+	wantReport(t, check(t, binary, documentModel, "-render", "SomeView", "-diagram-form", "dot"),
+		2, "-diagram-form", "apply to -render-document and -render-documents")
+	wantReport(t, check(t, binary, documentModel, "-render", "SomeView", "-render-form", "dot"),
+		2, "SomeView")
+}
+
 // TestRenderDocumentCommittedFixture renders the renderer's committed fixture
 // through the binary's full analysis, matching the committed golden Markdown.
 func TestRenderDocumentCommittedFixture(t *testing.T) {

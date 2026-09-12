@@ -94,7 +94,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if err != nil {
 		return nil, documentStatus(err)
 	}
-	markdown, err := docrender.Markdown(document)
+	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
 	if err != nil {
 		return nil, documentStatus(err)
 	}

@@ -3,6 +3,7 @@
 package docrender
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -21,21 +22,35 @@ const elementColumn = "element"
 // is an HTML comment, so rendered output is unaffected.
 const captionMarker = "<!-- caption -->"
 
+// MarkdownOptions are the presentation choices of the Markdown backend. They
+// are options of this backend, never document-model attributes.
+type MarkdownOptions struct {
+	// DiagramForm is the source every graph-shaped diagram is written as,
+	// Mermaid when empty; a table-kind view is a pipe table whichever it is.
+	DiagramForm view.Form
+}
+
 // Markdown renders an evaluated document as deterministic CommonMark: the
 // title as a level-1 ATX heading, each section one level deeper (saturating
 // at 6), paragraphs from space-joined text runs, GitHub-flavored pipe tables
 // with projected column headers, bullet or numbered lists, definitions as one
 // "**term** — description" paragraph per entry, and diagrams as fenced
-// Mermaid blocks (table-kind views as pipe tables). Metacharacters
-// in content are escaped so no value can corrupt the document structure.
-func Markdown(document *docir.Document) (string, error) {
+// blocks of their source in the chosen diagram form (table-kind views as pipe
+// tables). Metacharacters in content are escaped so no value can corrupt the
+// document structure.
+func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if document == nil {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
+	form, err := diagramForm(opts.DiagramForm)
+	if err != nil {
+		return "", err
+	}
+	w := &markdownWriter{form: form}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
 	for _, node := range document.Content() {
-		rendered, err := renderContent(node, 2)
+		rendered, err := w.renderContent(node, 2)
 		if err != nil {
 			return "", err
 		}
@@ -44,11 +59,29 @@ func Markdown(document *docir.Document) (string, error) {
 	return strings.Join(blocks, "\n\n") + "\n", nil
 }
 
+// diagramForm resolves the diagram form a render asks for: Mermaid when none
+// is named, otherwise one a diagram is written as.
+func diagramForm(form view.Form) (view.Form, error) {
+	if form == "" {
+		return view.FormMermaid, nil
+	}
+	if !slices.Contains(view.DiagramForms(), form) {
+		return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
+	}
+	return form, nil
+}
+
+// markdownWriter carries the choices one Markdown render applies to every
+// node it writes.
+type markdownWriter struct {
+	form view.Form
+}
+
 // renderContent renders one content node, with level the ATX heading level a
 // section at this depth writes. A node a reference targets is preceded by an
 // HTML anchor carrying its stable identifier.
-func renderContent(node docir.Content, level int) ([]string, error) {
-	blocks, err := renderNode(node, level)
+func (w *markdownWriter) renderContent(node docir.Content, level int) ([]string, error) {
+	blocks, err := w.renderNode(node, level)
 	if err != nil {
 		return nil, err
 	}
@@ -58,12 +91,12 @@ func renderContent(node docir.Content, level int) ([]string, error) {
 	return blocks, nil
 }
 
-func renderNode(node docir.Content, level int) ([]string, error) {
+func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, error) {
 	switch node.Kind() {
 	case docir.ContentSection:
 		blocks := []string{heading(level, node.Title())}
 		for _, child := range node.Children() {
-			rendered, err := renderContent(child, level+1)
+			rendered, err := w.renderContent(child, level+1)
 			if err != nil {
 				return nil, err
 			}
@@ -79,7 +112,7 @@ func renderNode(node docir.Content, level int) ([]string, error) {
 	case docir.ContentDefinitions:
 		return renderDefinitions(node), nil
 	case docir.ContentDiagram:
-		return renderDiagram(node)
+		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Direction(), w.form)
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}
@@ -135,16 +168,9 @@ func pipeTable(names []string, rows []queryexec.Row, columns int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// renderDiagram writes one diagram, preceded by its marked caption in
-// emphasis: a table-kind view as a pipe table, every other supported kind
-// as a fenced Mermaid block drawn in the diagram's direction.
-func renderDiagram(node docir.Content) ([]string, error) {
-	return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Direction())
-}
-
-// diagramBlocks writes a marked caption in emphasis, then the rendering
-// itself: a table-kind view as a pipe table, every other kind as Mermaid.
-func diagramBlocks(name, caption string, rendering *view.Rendering, direction view.Direction) ([]string, error) {
+// diagramBlocks writes one diagram under its marked caption: a table-kind view
+// as a pipe table, every other kind as a fence in the render's diagram form.
+func diagramBlocks(name, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) ([]string, error) {
 	if rendering == nil {
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -158,8 +184,30 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, direction vi
 	if !rendering.Kind.Supported() {
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
-	mermaid := strings.TrimRight(rendering.MermaidDirected(direction), "\n")
-	return append(blocks, "```mermaid\n"+mermaid+"\n```"), nil
+	source, err := diagramSource(name, rendering, direction, form)
+	if err != nil {
+		return nil, err
+	}
+	return append(blocks, "```"+string(form)+"\n"+source+"\n```"), nil
+}
+
+// diagramSource writes a graph-shaped rendering in the resolved diagram form,
+// without its trailing newline.
+func diagramSource(name string, rendering *view.Rendering, direction view.Direction, form view.Form) (string, error) {
+	if !rendering.Kind.SupportsForm(form) {
+		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
+	}
+	switch form {
+	case view.FormMermaid:
+		return strings.TrimRight(rendering.MermaidDirected(direction), "\n"), nil
+	case view.FormDot:
+		dot, err := rendering.DOTDirected(direction)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimRight(dot, "\n"), nil
+	}
+	return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
 }
 
 // tableCells renders one row's cells, padded or truncated to the column count.

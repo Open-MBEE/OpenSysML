@@ -1,0 +1,11 @@
+// view: FilteredViews::safetyView
+// kind: tree
+// layout: dot
+digraph "FilteredViews::safetyView" {
+  node [shape=box];
+  "n0" [label="part def Systems::Radio"];
+  "n1" [label="part def Systems::Airbag"];
+  "n2" [label="part def Systems::Braking::Brake"];
+  "n3" [label="part pad"];
+  "n2" -> "n3" [arrowhead=none];
+}

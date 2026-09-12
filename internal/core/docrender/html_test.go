@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // htmlClassVocabulary is the documented class surface: a theme may rely on
@@ -22,7 +24,7 @@ var htmlClassVocabulary = map[string]bool{
 	"sysml-separator": true, "sysml-list": true, "sysml-item": true,
 	"sysml-definitions": true, "sysml-entry": true, "sysml-term": true, "sysml-description": true,
 	"sysml-diagram": true, "sysml-caption": true, "sysml-link": true, "sysml-ref": true,
-	"mermaid": true,
+	"mermaid": true, "dot": true,
 }
 
 // renderFixtureHTML evaluates a fixture document and renders it as HTML.
@@ -174,11 +176,40 @@ func TestHTMLDerivedQuantityCells(t *testing.T) {
 	}
 }
 
+// TestHTMLDiagramForm writes every graph-shaped diagram as DOT when the render
+// asks for it, leaves the table a table, and rejects a form that is not one.
+func TestHTMLDiagramForm(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormDot})
+	for _, want := range []string{
+		`<pre class="dot">// view: Observatory::interconnectView` + "\n// kind: interconnection\n",
+		"// layout: dot\ndigraph &#34;Observatory::interconnectView&#34; {\n",
+		`<pre class="dot">// kind: state` + "\n",
+		"// layout: dot\ndigraph {\n  graph [rankdir=LR];\n",
+		`<table class="sysml-table"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, `class="mermaid"`) {
+		t.Errorf("a diagram is still Mermaid when DOT is asked for:\n%s", got)
+	}
+	if !strings.Contains(renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{}), `<pre class="mermaid">`) {
+		t.Error("the default diagram form is not Mermaid")
+	}
+	_, err := HTML(fixtureDocument(t, path, "Observatory::MassReport"), HTMLOptions{DiagramForm: "svg"})
+	var typed *Error
+	if !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm || typed.DiagramForm != "svg" {
+		t.Fatalf("error = %v, want %s for svg", err, ErrorUnknownForm)
+	}
+}
+
 // TestHTMLNoInlineStylesOrUnknownClasses checks the override contract on the
 // markup: nothing carries a style attribute, and every class is one the
 // documented vocabulary names.
 func TestHTMLNoInlineStylesOrUnknownClasses(t *testing.T) {
-	for _, opts := range []HTMLOptions{{}, {Fragment: true, TitlePage: true, TOC: true, NumberSections: true}} {
+	for _, opts := range []HTMLOptions{{}, {Fragment: true, TitlePage: true, TOC: true, NumberSections: true}, {DiagramForm: view.FormDot}} {
 		got := renderFixtureHTML(t, filepath.Join("testdata", "telescope_report.sysml"),
 			"Observatory::MassReport", opts)
 		if strings.Contains(got, "style=\"") {

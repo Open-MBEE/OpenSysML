@@ -126,6 +126,7 @@ var (
 	renderDoc       string
 	renderDocsDir   string
 	docForm         string
+	diagramForm     string
 	pdfEngine       string
 	pdfTitlePage    bool
 	pdfTOC          bool
@@ -374,7 +375,7 @@ func runCLI() int {
 			queryText != "" || len(evalExprs) > 0 || modelChecks.requested():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
-		case docForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlPageFlagsGiven():
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlPageFlagsGiven():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet itself; the document and stylesheet options shape a rendered document, not the sheet")
 			return 2
 		case fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
@@ -389,8 +390,8 @@ func runCLI() int {
 	}
 
 	if renderDoc == "" && renderDocsDir == "" &&
-		(docForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlFlagsGiven()) {
-		fmt.Fprintln(os.Stderr, "sysml: -doc-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
+		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlFlagsGiven()) {
+		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
 		return 2
 	}
 
@@ -449,7 +450,7 @@ func runCLI() int {
 		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || docForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():

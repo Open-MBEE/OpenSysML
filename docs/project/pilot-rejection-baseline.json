@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "cmd/pilot-reject/testdata/negative",
         "origin": "ours",
-        "files": 285,
-        "digest": "sha256:bab393e696cd3c90cd76aac6af4c08b39ef9ec7da03210fa6cdc2ee0d345051c"
+        "files": 301,
+        "digest": "sha256:02c8a010a25709e38052ea96ccc52ea63ee9fa3667758cc693056b2f676ea7b1"
       }
     ],
     "recorded": "2026-09-12"
   },
   "totals": {
-    "cases": 285,
-    "bothReject": 276,
+    "cases": 301,
+    "bothReject": 292,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -43,21 +43,22 @@
   "strictOnlyAgreements": [
     "extensions/x05-defer-member.sysml",
     "extensions/x06-history-member.sysml",
-    "extensions/x08-require-outside-requirement-body.sysml"
+    "extensions/x08-require-outside-requirement-body.sysml",
+    "extensions/x09-expose-in-view-def-body.sysml"
   ],
   "sources": [
     {
       "source": "extensions",
-      "cases": 8,
-      "bothReject": 8,
+      "cases": 9,
+      "bothReject": 9,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "grammar",
-      "cases": 91,
-      "bothReject": 91,
+      "cases": 106,
+      "bothReject": 106,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -159,6 +160,16 @@
       "path": "extensions/x08-require-outside-requirement-body.sysml",
       "source": "extensions",
       "rule": "Only requirements can have assumed or required constraints; 'require' in a part def body is an OpenSysML extension (SysML 7.20 Requirements; pilot validateRequirementConstraintMembershipOwningType, enforced by SysML.xtext RequirementBodyItem).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2,
+      "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x09-expose-in-view-def-body.sysml",
+      "source": "extensions",
+      "rule": "Expose is a ViewBodyItem alone; a view def body admits no 'expose' (SysML.xtext:2329 ViewDefinitionBodyItem, :2359 ViewBodyItem).",
       "mode": "strict",
       "bucket": "both-reject",
       "oursErrors": 1,
@@ -796,6 +807,87 @@
       "pilotErrors": 1
     },
     {
+      "path": "grammar/g71-abstract-variation-definition.sysml",
+      "source": "grammar",
+      "rule": "'abstract' and 'variation' are alternatives of one definition prefix, never both (SysML.xtext:490 BasicDefinitionPrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/g72-abstract-variation-usage.sysml",
+      "source": "grammar",
+      "rule": "'abstract' and 'variation' are alternatives of one usage prefix, never both (SysML.xtext:556 RefPrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/g73-repeated-direction.sysml",
+      "source": "grammar",
+      "rule": "A feature direction is written at most once; 'inout' is the single keyword for both (SysML.xtext:556 RefPrefix, :554 FeatureDirection).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/g74-ref-on-definition.sysml",
+      "source": "grammar",
+      "rule": "'ref' is a usage prefix; a definition prefix admits only 'abstract' or 'variation' (SysML.xtext:498 DefinitionPrefix, :563 BasicUsagePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/g75-invalid-string-escape.sysml",
+      "source": "grammar",
+      "rule": "A string admits only the escapes \\b \\t \\n \\f \\r \\\" \\' \\\\ (KerMLExpressions.xtext:514 STRING_VALUE).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g76-negative-multiplicity-bound.sysml",
+      "source": "grammar",
+      "rule": "A multiplicity bound is a literal or a feature reference; a leading '-' is not admitted (KerML.xtext:780 MultiplicityExpressionMember).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/g77-transition-outside-state-body.sysml",
+      "source": "grammar",
+      "rule": "TransitionUsageMember is a StateBodyItem; a part def body admits no 'transition' (SysML.xtext:1754 StateBodyItem, :514 DefinitionBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g78-constant-on-definition.sysml",
+      "source": "grammar",
+      "rule": "'constant' is a usage prefix (SysML.xtext:560 RefPrefix); a definition prefix admits only 'abstract' or 'variation' (SysML.xtext:490 BasicDefinitionPrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g79-cross-feature-repeated-direction.sysml",
+      "source": "grammar",
+      "rule": "A cross feature's prefix writes a direction at most once; 'inout' is the single keyword for both (SysML.xtext:588 OwnedCrossFeature, :554 RefPrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 4
+    },
+    {
       "path": "grammar/k01-specializes-without-target.kerml",
       "source": "grammar",
       "rule": "OwnedSpecialization requires a general type after 'specializes' (KerML.xtext SpecializationPart).",
@@ -983,6 +1075,60 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 1
+    },
+    {
+      "path": "grammar/k22-composite-portion.kerml",
+      "source": "grammar",
+      "rule": "'composite' and 'portion' are alternatives of one feature prefix, never both (KerML.xtext:514 BasicFeaturePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 11
+    },
+    {
+      "path": "grammar/k23-repeated-direction.kerml",
+      "source": "grammar",
+      "rule": "A feature direction is written at most once; 'inout' is the single keyword for both (KerML.xtext:514 BasicFeaturePrefix, :506 FeatureDirection).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 11
+    },
+    {
+      "path": "grammar/k24-constant-in-kerml.kerml",
+      "source": "grammar",
+      "rule": "'constant' is the SysML spelling; the KerML feature prefix is 'const' (KerML.xtext:514 BasicFeaturePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/k25-const-on-classifier.kerml",
+      "source": "grammar",
+      "rule": "'const' is a feature prefix (KerML.xtext:514 BasicFeaturePrefix); a classifier's TypePrefix admits only 'abstract' (KerML.xtext:313).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 9
+    },
+    {
+      "path": "grammar/k26-variation-in-kerml.kerml",
+      "source": "grammar",
+      "rule": "'variation' is a SysML prefix (SysML.xtext:490 BasicDefinitionPrefix); no KerML prefix spells it (KerML.xtext:313 TypePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "grammar/k27-repeated-composite.kerml",
+      "source": "grammar",
+      "rule": "the 'composite' | 'portion' alternative of a feature prefix is optional but written at most once (KerML.xtext:514 BasicFeaturePrefix).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 11
     },
     {
       "path": "semantic/cn01-fork-two-incoming.sysml",
@@ -2718,8 +2864,8 @@
       }
     ],
     "totals": {
-      "cases": 285,
-      "bothReject": 276,
+      "cases": 301,
+      "bothReject": 292,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

@@ -1,0 +1,51 @@
+// view: MachineViews::thermostat
+// kind: state
+// stated: view def StateTransitionView
+// layout: dot
+digraph "MachineViews::thermostat" {
+  graph [compound=true];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="state def Machines::Thermostat";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n12" [shape=point, label=""];
+    "n1" [shape=box, style=rounded, label="state heating"];
+    subgraph "cluster_n2" {
+      label="state idle";
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
+      "n13" [shape=point, label=""];
+      "n3" [shape=box, style=rounded, label="state drying"];
+      "n4" [shape=box, style=rounded, label="state resting"];
+    }
+    subgraph "cluster_n5" {
+      label="state monitoring";
+      "n5" [shape=point, style=invis, width=0, height=0, label=""];
+      subgraph "cluster_n6" {
+        label="region lights";
+        style=dashed;
+        "n6" [shape=point, style=invis, width=0, height=0, label=""];
+        "n14" [shape=point, label=""];
+        "n8" [shape=box, style=rounded, label="state lit"];
+        "n9" [shape=box, style=rounded, label="state unlit"];
+      }
+      subgraph "cluster_n7" {
+        label="region fans";
+        style=dashed;
+        "n7" [shape=point, style=invis, width=0, height=0, label=""];
+        "n15" [shape=point, label=""];
+        "n10" [shape=box, style=rounded, label="state off\ninitial"];
+        "n11" [shape=box, style=rounded, label="state on"];
+      }
+    }
+  }
+  "n12" -> "n1" [label="[cold]"];
+  "n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];
+  "n13" -> "n3" [label="[wet]"];
+  "n13" -> "n4";
+  "n14" -> "n8" [label="[dark]"];
+  "n14" -> "n9" [label="[not dark]"];
+  "n15" -> "n10";
+  "n1" -> "n2" [lhead="cluster_n2"];
+  "n2" -> "n5" [ltail="cluster_n2", lhead="cluster_n5"];
+  "n10" -> "n11";
+}

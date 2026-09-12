@@ -106,6 +106,8 @@ type StateExecutor struct {
 	// within one firing, inside a step, so no snapshot sees them.
 	leftAhead    map[*ast.StateNode]bool
 	exitingAhead bool
+	// moving marks a compound transition under way that a refused witness may undo.
+	moving *moveMark
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -2435,7 +2437,7 @@ func (e *StateExecutor) stopDoAction(state *ast.StateNode) {
 			continue
 		}
 		if act.run != nil {
-			act.run.end(e.ctx)
+			e.endDoRun(act.run)
 			act.run = nil
 		}
 	}
@@ -2443,6 +2445,16 @@ func (e *StateExecutor) stopDoAction(state *ast.StateNode) {
 		e.doActions[i] = nil
 	}
 	e.doActions = kept
+}
+
+// endDoRun ends a do behavior an exit abandons; while a move a refused witness
+// may undo is under way, the end waits for the move to be kept (see moveMark).
+func (e *StateExecutor) endDoRun(run *doRun) {
+	if e.moving != nil {
+		e.moving.ended = append(e.moving.ended, run)
+		return
+	}
+	run.end(e.ctx)
 }
 
 // runDoRound advances every running do behavior with an action due by one action

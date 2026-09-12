@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
 )
 
 // overloadedDocumentModel renders a document whose tables call Pick, declared
@@ -75,7 +77,7 @@ func TestRenderDocumentMarkdownSelectsQueryOverloadsByArgumentType(t *testing.T)
 		"private import B::*; private import A::*;",
 	} {
 		ws := openDoc(t, "report.sysml", fmt.Sprintf(overloadedDocumentModel, imports))
-		markdown, err := ws.RenderDocumentMarkdown("Observatory::MassReport")
+		markdown, err := ws.RenderDocumentMarkdown("Observatory::MassReport", docrender.MarkdownOptions{})
 		if err != nil {
 			t.Fatalf("%s: RenderDocumentMarkdown: %v", imports, err)
 		}

@@ -311,6 +311,36 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
 	})
+	// A choice's branches are read after the incoming effect; the witness names
+	// the branch taken as the run's choice line does.
+	t.Run("dynamic choice", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute level : Integer = 0;
+				entry; then idle;
+				state idle;
+				choice pick;
+				state left;
+				state right;
+				transition first idle accept go do assign level := 8 then pick;
+				transition first pick if level > 5 then left;
+				transition first pick if level > 7 then right;
+			}
+		}`)
+		sym := m.state(t, "Machine")
+		run := stateRun(sym, "go")
+		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+		if err != nil || !x.Complete() || x.Runs != 2 {
+			t.Fatalf("explore: %v, %v", x, err)
+		}
+		for _, o := range x.Outcomes {
+			if len(o.Witness) != 1 || o.Witness[0].Kind != ChoiceTransition || o.Witness[0].Where != "choice pick" {
+				t.Fatalf("witness of %s is %s, want the one branch choice at pick", o.Outcome, FormatChoices(o.Witness))
+			}
+		}
+		assertWitnessesReplay(t, x, m.fresh, run)
+	})
 	t.Run("regions", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
 			private import ScalarValues::*;
@@ -832,6 +862,86 @@ func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.
 	}
 	if total := FormatValue(exec.StateData()["total"]); total != "0" {
 		t.Errorf("total is %v after the refusal, want 0: the do behavior may not take a message whose dispatch is refused", total)
+	}
+}
+
+// A refused move at a choice changes nothing: the compound transition is undone
+// whole — the exit made ahead of the choice, the incoming effect its guards were
+// read against, the do behavior the exit abandoned — no branch is entered and no
+// choice recorded, and the refusal is the run's.
+func TestReplayRefusedChoiceMoveChangesNothing(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		attribute def Tick;
+		state def Machine {
+			attribute level : Integer = 0;
+			attribute exited : Integer = 0;
+			attribute went : Integer = 0;
+			entry; then idle;
+			state idle {
+				exit assign exited := 1;
+				do action work {
+					first start;
+					then action reader accept Tick;
+					then action count assign went := 100;
+					then done;
+				}
+			}
+			choice pick;
+			state one { entry assign went := 1; }
+			state two { entry assign went := 2; }
+			state three { entry assign went := 3; }
+			transition first idle accept Go do assign level := 8 then pick;
+			transition first pick if level > 5 then one;
+			transition first pick if level > 7 then two;
+			transition first pick if level > 9 then three;
+		}
+	}`)
+	sym := m.state(t, "Machine")
+	witness, err := ParseChoices("choice pick -> 3->three\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to the do behavior's accept: %v", err)
+	}
+	if len(exec.doActions) != 1 || exec.doActions[0].run == nil {
+		t.Fatalf("do actions %v, want idle's do behavior paused at its accept", exec.doActions)
+	}
+	paused := exec.doActions[0].run
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), "3->three is not enabled (enabled: 1->one, 2->two)") {
+		t.Fatalf("error %T %v, want the choice move refused as not enabled", err, err)
+	}
+	data := exec.StateData()
+	for name, want := range map[string]string{"level": "0", "exited": "0", "went": "0"} {
+		if got := FormatValue(data[name]); got != want {
+			t.Errorf("%s is %s after the refusal, want %s: the move is undone whole", name, got, want)
+		}
+	}
+	if state, ok := exec.CurrentState().(*ast.StateNode); !ok || state.Name != "idle" {
+		t.Errorf("the machine is in %v after the refusal, want idle", exec.CurrentState())
+	}
+	if len(exec.doActions) != 1 || exec.doActions[0].run != paused {
+		t.Errorf("do actions %v after the refusal, want idle's do behavior paused as it was", exec.doActions)
+	}
+	if choices := ctx.Choices(); len(choices) != 0 {
+		t.Errorf("the run recorded %v, want no choice: a refused move is not one made", choices)
+	}
+	if ctx.Unfollowed() == nil {
+		t.Error("the refusal is not reported for the run")
 	}
 }
 

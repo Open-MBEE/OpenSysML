@@ -19,6 +19,9 @@ within these records and means nothing outside this repository.
   pilot implementation, advisory
 - **[Pilot execution referee](pilot-execution-referee.md)** — how far the pinned pilot's
   execution surface reaches, and which behavior rows it can adjudicate
+- **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
+  into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
+  gated in CI; never evidence of SysML v2 conformance
 - **[Behavior semantic oracle](behavior-semantic-oracle.md)** — action and state-machine
   conformance cases whose expected outcomes are derived by hand from the Kernel Semantic and
   Systems Library text rather than recorded from the executor, and the three the executor fails
@@ -43,6 +46,9 @@ within these records and means nothing outside this repository.
   pinned pilot and the specification text, and declined
 - **[HTML document backend](html-document-backend.md)** — the design for rendering documents as
   semantic, styleable HTML straight from the document IR
+- **[View rendering forms](view-rendering-forms.md)** — the view engine's writers over one
+  rendering tree: why Graphviz DOT is offered next to Mermaid, what the DOT writer emits, and the
+  surfaces that accept it
 - **[OOSEM library](oosem-library.md)** — the object-oriented systems engineering method as a
   bundled OpenSysML library: what it defines, what it reuses from the standard domain libraries,
   and the prior art it was checked against

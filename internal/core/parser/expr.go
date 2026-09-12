@@ -647,7 +647,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				Span:         seg.Span,
 			})
 		}
-		p.expect(lexer.Semicolon, "expected ';' after body parameter")
+		p.expectSemicolon("body parameter")
 	}
 
 	for p.atKeyword("in") || p.atBodyExprMember() {
@@ -721,7 +721,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		}
 		// No semicolon expected if param has body
 		if len(b.Params) == 0 || len(b.Params[len(b.Params)-1].Members) == 0 {
-			p.expect(lexer.Semicolon, "expected ';' after body parameter")
+			p.expectSemicolon("body parameter")
 		}
 	}
 	if !p.at(lexer.RBrace) {

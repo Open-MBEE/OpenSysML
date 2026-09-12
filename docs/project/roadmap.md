@@ -1369,11 +1369,17 @@ defaults: `runtime/state_executor.go` `runStep` → `processNextEvent` dispatche
 per step and `enterStateInto` runs a state's entry behavior and its regions' initial entries to
 the end before the step returns, so no transition fires during an entry; the scope is always the
 whole machine, since `run` is one loop over one `eventQueue`. A model that redefines either
-feature on a state or on the exhibiting occurrence — narrowing the scope to one composite, or
-switching run-to-completion off so that a transition may fire while a sibling's entry is still
-performing — is accepted by validation and run under the defaults with no diagnostic. The
-lowered `StateGraph` carries neither feature; no conformance fixture exercises a redefinition;
-the precise-semantics alignment note records the gap against its SM1 row.
+feature to anything else — narrowing the scope to one composite, or switching run-to-completion
+off so that a transition may fire while a sibling's entry is still performing — is refused when
+the machine is lowered: `lower/run_to_completion.go` `refuseRunToCompletionRedefinitions` judges
+the redefinition each body makes effective (its own, or the one it inherits from a specialized
+definition, the target resolved to its library symbol so an alias is caught) and returns the typed
+`lower.RunToCompletionRedefinition`, an `ErrUnsupportedStateContent` naming the feature, the
+declaring state and the value written, for `false`, for a scope other than the machine itself, and
+for a value it cannot verify restates the default. A redefinition restating the default (`= true`,
+`= self` on the machine) runs. Before that, such a model was run under the defaults with no
+diagnostic. The lowered `StateGraph` still carries neither feature; the precise-semantics
+alignment note records the refusal, and the remaining gap, against its SM1 row.
 
 **Target.** The two declarations above, read from the model. `isRunToCompletion = false` on a
 scope means the library no longer orders transition performances within that scope against
@@ -1392,12 +1398,18 @@ false — and record the interleaving as a choice point (`scheduling.md`) so `ex
 it and `seed:<n>` replays it. The default configuration must run every existing fixture and
 trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also edit.
 
-**Proof.** Conformance: a redefinition to `false` on a composite whose entry sends a signal the
-composite itself accepts, pinning that the transition fires during the entry where the default
-holds it until after; a narrowed scope with a sibling region's transition firing during the
-scoped state's entry; the default unchanged. A trace golden for the interleaving order.
-Robustness: a scope that is not an ancestor. `spec-compliance.md`: the run-to-completion row
-gains the two features with file:function; the alignment note's SM1 row and its finding move to
+**Proof.** The refusal is pinned: conformance `state_run_to_completion_redefined_false`,
+`_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified` and
+`_alias_redefinition` expect the typed error, `_defaults_restated` and `_default_restored` run,
+`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and
+the state rendering (`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`)
+show the same message. The implementation adds:
+conformance for a redefinition to `false` on a composite whose entry sends a signal the composite
+itself accepts, pinning that the transition fires during the entry where the default holds it
+until after; a narrowed scope with a sibling region's transition firing during the scoped state's
+entry; the default unchanged. A trace golden for the interleaving order. Robustness: a scope that
+is not an ancestor. `spec-compliance.md`: the run-to-completion row gains the two features with
+file:function in place of the refusal; the alignment note's SM1 row and its finding move to
 agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
 today — or when the model checker's stage 3 needs the interleaving as a move.
 
@@ -2055,10 +2067,10 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
 `decision`, a lifeline), edges with labels, notices for what was not represented — and a
-**form** is only a writer over it: `text`, `markdown` and `mermaid` today, chosen by
-`-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code panel makes,
-and the document renderer, which embeds the Mermaid form in HTML and rasterizes it through
-`mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
+**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 landed, `dot`,
+chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
+panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
+through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
 effects), the action rendering from the `ActionGraph`, the sequence rendering as lifelines and
 ordered messages — so what is missing is not a diagram kind but the **formats** a rendering can
@@ -2075,15 +2087,26 @@ pipelines this project is meant to feed already consume.
 
 ## W1 — a `dot` form
 
-A DOT writer over `Rendering`: a rendering is a `digraph`, a node with children a `subgraph
-cluster_*`, and the node's `Kind` chooses the shape — `Mdiamond`/`Msquare` for initial and
-final, `diamond` for a decision, a filled bar (`shape=rect, height=0.05`) for fork and join,
-`record` or HTML-like labels for a part with its compartments, `note` for a notice. Direction
-maps onto `rankdir`; the origin every node carries becomes `URL=` and `tooltip=`, so an SVG
-rendered from the DOT links back to the declaration the way the LSP panel does. Gate as the other
-forms are gated: a `*.dot.golden` beside every `*.mermaid.golden` in `internal/core/view/testdata`,
-and a test that runs `dot -Tsvg` over each golden when Graphviz is installed and skips with the
-reason when it is not, so the goldens are proven to be valid DOT rather than assumed.
+**Landed** — see [view rendering forms](view-rendering-forms.md). A DOT writer over `Rendering`
+(`internal/core/view/dot.go`): a rendering is a `digraph`, a node with children a `subgraph
+"cluster_*"` (a tree keeps containment as edges, as its Mermaid form does), direction maps onto
+`rankdir`, the `EdgeKind` styles parallel the Mermaid arrows, and a state rendering draws its
+states as rounded boxes with `point`/`circle`/`doublecircle` pseudo-states. Every identifier and
+label is quoted through one helper; a `// layout:` header names the engine the file is written
+for. The DiagramLayout geometry the rendering carries is written as Graphviz reads it — a
+positioned node pinned with `pos="x,y!"` at its centre and sized in inches, a route as a `pos`
+spline, the canvas as the graph's `size`, y flipped from the library's y-down pixels — and the
+header then names `neato` (`neato -n` when every node is placed, `-n2` when every edge is
+routed too). The goldens beside every
+`*.mermaid.golden` are checked by an in-test DOT syntax walker rather than by running `dot
+-Tsvg`, so no Graphviz installation is involved anywhere.
+
+Still open from the original sketch, each a writer change and nothing else: the shape per action
+node kind (`diamond` for a decision, a filled bar for fork and join), `record` or HTML-like labels
+for a part with its compartments, `note` for a notice, and `URL=`/`tooltip=` from the origin every
+node carries so an SVG rendered from the DOT links back to the declaration the way the LSP panel
+does. The node and edge attribute lists are each written by one method (`dotNodeAttributes`,
+`dotEdgeAttributes`), where the position and the route already join the label and style.
 
 ## W2 — a `plantuml` form
 
@@ -2098,17 +2121,25 @@ and a validation run through the PlantUML jar when present.
 
 `dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
-it can draw in-process, and offers the others as *save as*), and the document renderer, which
-gains `-doc-diagrams dot|plantuml|mermaid` and rasterizes through `dot` or the PlantUML jar as
-it does through `mmdc` today — optional tools, located by environment variable, skipping the
-tests with the reason when absent, as the PDF toolchain is handled now. The man pages, the REPL
-guide and the editors guide name the new forms. The gRPC surface has no view-render RPC — only
-`RenderDocument`, to Markdown — so the wire contract does not change; if one is added later it
-takes the form as a string the same way `-render-form` does.
+it can draw in-process, and offers the others as *save as*), and the document renderer. **For
+`dot` this has landed** with W1: `-render-form dot`, `%render <name> dot`, `"form": "dot"` on
+`opensysml/render`, and `-diagram-form dot` on `-render-document` (`%render-document <name> dot`,
+`diagramForm` on `opensysml/renderDocument`), which writes every graph-shaped diagram block as a
+` ```dot ` fence in Markdown and `<pre class="dot">` in HTML — a render-time choice, not a
+model attribute; the PDF backend keeps a DOT block as source under a
+notice and looks for no Graphviz tool. The man pages, the REPL reference and the LSP reference
+name the form. The gRPC surface has no view-render RPC — only `RenderDocument`, to Markdown — so
+the wire contract did not change; if one is added later it takes the form as a string the same
+way `-render-form` does.
 
-W1 first, being the smaller grammar and the one Graphviz-based pipelines want; W2 after it over
-the same node kinds; W3 with each. Independent of every other track: nothing here touches the
-rendering model, only writers over it. Targeted at `0.8.0`.
+Still open: rasterizing a DOT (and later PlantUML) block for PDF through `dot` or the PlantUML
+jar as Mermaid is rasterized through `mmdc` today — optional tools, located by environment
+variable, skipping the tests with the reason when absent, as the PDF toolchain is handled now —
+and the VS Code panel's *save as* for the non-Mermaid forms.
+
+W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 follows
+over the same node kinds; W3 with each. Independent of every other track: nothing here touches
+the rendering model, only writers over it. Targeted at `0.8.0`.
 
 ---
 
@@ -2335,6 +2366,7 @@ is landed or is a track the previous baseline left as it stands (D, N, M, I, V, 
   negative case first, each change moving its row.
 - **Track B.** B1, B2, then B3; step 1 above has landed, so nothing holds B1 or B2 back; B4's file
   and HTTP providers whenever asked, its Flexo provider after D9.2; B5 with Q1.
-- **Track W.** W1 (`dot`), then W2 (`plantuml`), W3 alongside each; targeted at `0.8.0`, and
-  independent of every other track, so it can run beside any step above.
+- **Track W.** W1 (`dot`) has landed with its share of W3; W2 (`plantuml`) next, with the rest
+  of W3 — DOT and PlantUML rasterized for PDF — alongside; targeted at `0.8.0`, and independent
+  of every other track, so it can run beside any step above.
 - **Track Q, I, M.** Entirely given by the cross-cutting order above.
