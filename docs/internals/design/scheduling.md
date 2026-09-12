@@ -110,7 +110,11 @@ each having to name the step the run is at and pick among the alternatives it of
 they are spent the run continues as `reverse`. A line the run cannot follow, or one left over at
 the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `ReplayError`
 naming the move, its choice and what the run faced; the run is never quietly turned into another
-linearization. The model checkers replay every `sat` witness under it before claiming a
+linearization. A refused move changes nothing: a transition draw is refused before the dispatch
+fires (`broadcastEvent`), and a `choice` pseudostate's, drawn only once the compound transition's
+exits and incoming effects are made, undoes that move whole — exits, effects, the do behaviors the
+exits abandoned, what was traced and noted (`travel` marks the move with a `moveMark`, kept or
+undone by the refusal). The model checkers replay every `sat` witness under it before claiming a
 violation.
 
 ## Exploration (`explore.go`)

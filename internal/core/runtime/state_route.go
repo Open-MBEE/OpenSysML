@@ -187,6 +187,10 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	pick := 0
 	if point, ok := e.choiceBranchPoint(choice, outgoing, enabled); ok {
 		pick = e.ctx.scheduling().choose(point, nil)
+		// A refused replay move takes no branch; travel undoes the move made so far.
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return route{}, err
+		}
 		point.Taken = pick
 		point.File, point.Span = e.transitionLocation(choice, outgoing[enabled[pick]])
 		e.ctx.note(point)
@@ -359,6 +363,24 @@ func (e *StateExecutor) travel(r route, exits exitPlan, move func([]lower.StateB
 	saved := e.leftAhead
 	e.leftAhead = nil
 	defer func() { e.leftAhead = saved }()
+	if r.choice == nil || !e.ctx.scheduling().replaying() {
+		return e.travelResolving(r, exits, move)
+	}
+	// Only a replay refuses a move, at a choice the exits and effects ahead of it
+	// have been made for; a refused move is undone whole.
+	mark := e.markMove()
+	err := e.travelResolving(r, exits, move)
+	if e.ctx.scheduling().refusal() != nil {
+		mark.undo()
+	} else {
+		mark.keep()
+	}
+	return err
+}
+
+// travelResolving is travel's course: each choice on the way resolved once the
+// exits every branch makes and the effects into it are done.
+func (e *StateExecutor) travelResolving(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
 	for r.choice != nil {
 		targets, err := e.reachable(r)
 		if err != nil {

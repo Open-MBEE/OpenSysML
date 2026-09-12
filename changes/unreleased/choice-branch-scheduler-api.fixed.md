@@ -6,4 +6,7 @@
   the scheduling policy (declared, a seed, `explore`, a replay) takes one, and the run notes
   the choice with the branch taken and its declaration. The recorded choice line is unchanged,
   an exploration's witness over such a choice replays to its outcome, and every choice
-  fixture and trace keeps its expectation.
+  fixture and trace keeps its expectation. A replay whose witness names a branch the choice
+  does not enable is refused with the machine as the occurrence found it: the compound
+  transition's exits and incoming effects are undone, no branch is taken and none is recorded,
+  as a refused transition or decision move changes nothing.
