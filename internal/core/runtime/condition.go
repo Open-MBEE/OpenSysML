@@ -645,10 +645,19 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 	}
 	for _, root := range roots {
-		descend(root, root, strconv.FormatInt(root.ID, 10), nil)
+		descend(root, root, ctx.rootPath(root), nil)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].instance.ID < out[j].instance.ID })
 	return out
+}
+
+// rootPath is the path a subject search starts a root at: the objects one usage denotes share
+// its name, as objects a multiplicity repeated do, while any other root is its own.
+func (ctx *Context) rootPath(root *Instance) string {
+	if ctx.denotesOccurrence(root) {
+		return strconv.Quote(ctx.qualifiedSymbolName(root.Type))
+	}
+	return strconv.FormatInt(root.ID, 10)
 }
 
 // carrier is an object a search reached: the object the search started from and

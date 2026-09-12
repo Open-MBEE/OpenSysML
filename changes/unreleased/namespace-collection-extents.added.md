@@ -18,5 +18,9 @@
   (`part many : Wheel[10000];`) or over the element budget is that typed error naming the usage
   and leaves no object, behavior or record behind. A write chained from the usage (`assign
   wheels.radius := 2.0;`) reaches several objects and is refused with `ErrTypeMismatch`, as a write
-  through a nested collection is, leaving the objects as they were. A port at namespace level still denotes no
-  object and keeps its `ErrExtentUnavailable` refusal.
+  through a nested collection is, leaving the objects as they were. A constraint or requirement the
+  definition declares (`constraint small` in `part def Wheel`) takes the members as one declaration
+  when it looks for its subject, as it takes the members of a nested collection, so it is decided
+  once rather than refused as ambiguous between them; a second usage of the definition remains a
+  distinct carrier. A port at namespace level still denotes no object and keeps its
+  `ErrExtentUnavailable` refusal.
