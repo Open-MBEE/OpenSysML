@@ -303,6 +303,45 @@ func TestCheckMergeLoopHitsTheDepthBound(t *testing.T) {
 	}
 }
 
+// Parking the last token on the clock is a move like any other: the search
+// settles by advancing the clock to the earliest wait, never by a failure.
+func TestCheckSettlesTimedBranchesOnTheClock(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import SI::*;
+		private import ScalarValues::*;
+		action timers {
+			attribute x : Integer = 0;
+			first start;
+			fork split;
+			action slow accept after 2 [s];
+			action slowWrite { assign x := 1; }
+			action fast accept after 1 [s];
+			action fastWrite { assign x := 2; }
+			join sync;
+			done;
+			succession first start then split;
+			succession first split then slow;
+			succession first split then fast;
+			succession first slow then slowWrite;
+			succession first fast then fastWrite;
+			succession first slowWrite then sync;
+			succession first fastWrite then sync;
+			succession first sync then done;
+		}
+	}`)
+	report := checkModel(t, m, "timers", CheckBudget{}, reduced())
+	if report.Verdict != CheckExhaustive {
+		t.Fatalf("verdict %s, want exhaustive", report.Status())
+	}
+	// The slow branch always writes last: no divergence over `x`.
+	if got := divergentValues(report, "x"); got != nil {
+		t.Fatalf("x diverges over %v, want the slow write to stand on every schedule", got)
+	}
+	if len(report.Finals) != 1 || report.Finals[0].Values["x"] != "1" {
+		t.Fatalf("finals %v, want one with x = 1", report.Finals)
+	}
+}
+
 // A loop that reaches states already visited ends: the visited set closes it.
 func TestCheckVisitedStatesCloseALoop(t *testing.T) {
 	m := parseExploreModel(t, `package test {

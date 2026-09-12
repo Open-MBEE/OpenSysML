@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -144,6 +145,10 @@ func (e *ActionExecutor) makeMove(m enabledMove) (branches int, err error) {
 	run.check.script.set(e, m.Token, m.Branch)
 	defer run.check.script.settle()
 	err = e.Step()
+	if errors.Is(err, ErrNothingDue) {
+		// The move parked its token on the clock; settling advances it.
+		err = nil
+	}
 	if run.check.decided != nil {
 		branches = len(run.check.decided.Alternatives)
 	}
