@@ -933,9 +933,12 @@ func (c *checker) calleeFlow(graph *lower.ActionGraph, node ast.Node, callee *sy
 	return lowerPerformance(body, tool)
 }
 
-// divergeReached fails the check when a path Diverge selects, one only a performance
-// could tell, was held at no state the search reached.
+// divergeReached fails the check when a path only a performance could tell was held
+// at no state of an exhaustive search; a bounded one may have stopped short of it.
 func (c *checker) divergeReached() error {
+	if len(c.bounds) > 0 {
+		return nil
+	}
 	for _, name := range c.opts.Diverge {
 		if c.untold[name] {
 			return &UnknownCheckFeatureError{Name: name, Reason: "no performance under the action held such a feature"}

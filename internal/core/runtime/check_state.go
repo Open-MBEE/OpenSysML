@@ -393,9 +393,8 @@ func (s *stateSpeller) object(id int64) string {
 	return "@" + s.objectPath(id)
 }
 
-// objectPath is the object's materialization path: the holder's path and the
-// feature holding it, indexed within a feature holding several; a root object is
-// its type and its rank among the roots of that type by the order they were made.
+// objectPath is the object's materialization path: the holder's path and the feature
+// holding it, indexed within one holding several; a root is its type and creation rank.
 func (s *stateSpeller) objectPath(id int64) string {
 	if path, ok := s.paths[id]; ok {
 		return path
@@ -410,12 +409,9 @@ func (s *stateSpeller) objectPath(id int64) string {
 		path = s.rootPath(inst)
 	} else {
 		path = s.objectPath(owner.ID) + "." + feature
-		if fv := owner.FeatureValues[feature]; fv != nil && !fv.Feature.Scalar() && fv.Values.Kind == ValSequence && fv.Values.Sequence() != nil {
-			for i, element := range fv.Values.Sequence().Elements() {
-				if element.Kind == ValInstance && element.Instance == id {
-					path += "[" + strconv.Itoa(i) + "]"
-					break
-				}
+		if fv := owner.FeatureValues[feature]; fv != nil && !fv.Feature.Scalar() {
+			if i := s.memberIndex(fv.Values, id); i >= 0 {
+				path += "[" + strconv.Itoa(i) + "]"
 			}
 		}
 	}
@@ -424,24 +420,51 @@ func (s *stateSpeller) objectPath(id int64) string {
 	return path
 }
 
-// rootPath names an object no other holds by its type and its rank among the
-// roots of that type, in the order the run made them.
-func (s *stateSpeller) rootPath(inst *Instance) string {
-	rank := 0
-	for _, id := range s.ctx.created {
-		other, ok := s.ctx.Instance(id)
-		if !ok || other.Type != inst.Type {
-			continue
-		}
-		if owner, _ := other.Owner(); owner != nil {
-			continue
-		}
-		rank++
-		if id == inst.ID {
-			break
+// memberIndex is the object's place among the objects a collection holds: its
+// position in a sequence, its creation rank among a set's members; -1 if the
+// collection does not hold it.
+func (s *stateSpeller) memberIndex(collection Value, id int64) int {
+	holds := func(v Value) bool { return v.Kind == ValInstance && v.Instance == id }
+	if collection.Kind != ValSet {
+		return slices.IndexFunc(elementsOf(collection), holds)
+	}
+	members := make(map[int64]bool)
+	for _, element := range elementsOf(collection) {
+		if element.Kind == ValInstance {
+			members[element.Instance] = true
 		}
 	}
-	return fmt.Sprintf("%s#%d", s.typeName(inst), rank)
+	if !members[id] {
+		return -1
+	}
+	return s.creationRank(id, func(other *Instance) bool { return members[other.ID] })
+}
+
+// creationRank is the object's rank, from 0, among the objects satisfying among,
+// in the order the run made them; -1 if the run made no such object.
+func (s *stateSpeller) creationRank(id int64, among func(*Instance) bool) int {
+	rank := 0
+	for _, created := range s.ctx.created {
+		other, ok := s.ctx.Instance(created)
+		if !ok || !among(other) {
+			continue
+		}
+		if created == id {
+			return rank
+		}
+		rank++
+	}
+	return -1
+}
+
+// rootPath names an object no other holds by its type and its rank, from 1,
+// among the roots of that type, in the order the run made them.
+func (s *stateSpeller) rootPath(inst *Instance) string {
+	roots := func(other *Instance) bool {
+		owner, _ := other.Owner()
+		return owner == nil && other.Type == inst.Type
+	}
+	return fmt.Sprintf("%s#%d", s.typeName(inst), s.creationRank(inst.ID, roots)+1)
 }
 
 // features spells what every feature of inst holds, in name order.

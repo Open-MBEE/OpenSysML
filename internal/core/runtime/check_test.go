@@ -850,6 +850,70 @@ func TestCheckVisitedStatesCloseALoop(t *testing.T) {
 	}
 }
 
+// Objects a set holds are told apart in the canonical form by their place in the
+// set's order: each of a decision's ways marks one of three workers and the
+// states differ afterwards in nothing but which, so both are searched on and
+// the first worker's status is read as 1 on one schedule and 0 on the other.
+func TestCheckTellsSetMembersApartInTheVisitedSet(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		private import Collections::*;
+		part def Worker { attribute status : Integer = 0; }
+		part def Team :> Set { part workers : Worker[3] :>> elements; }
+		part team : Team;
+		action def Mark { in w : Worker; first step; action step { assign w.status := 1; } }
+		action staff {
+			attribute idx : Integer = 0;
+			attribute seen : Integer = 0;
+			first start;
+			decide pick;
+			action one { assign idx := 1; }
+			action two { assign idx := 2; }
+			merge chosen;
+			action mark : Mark { in w = team.workers#(idx); }
+			action reset { assign idx := 0; }
+			action read { assign seen := team.workers#(1).status; }
+			done;
+			succession first start then pick;
+			succession first pick if idx == 0 then one;
+			succession first pick if idx == 0 then two;
+			succession first one then chosen;
+			succession first two then chosen;
+			succession first chosen then mark;
+			succession first mark then reset;
+			succession first reset then read;
+			succession first read then done;
+		}
+	}`)
+	report := checkModel(t, m, "staff", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"seen"}})
+	if report.Verdict != CheckDivergent || len(report.BoundsHit) != 0 || len(report.Finals) != 2 {
+		t.Fatalf("%s with %d finals, want divergent, exhaustive, with one final per worker marked", report.Status(), len(report.Finals))
+	}
+	if got := divergentValues(report, "seen"); !slices.Equal(got, []string{"0", "1"}) {
+		t.Fatalf("seen diverges over %v, want {0, 1}", got)
+	}
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec, err := ctx.CreateActionExecutor(m.action(t, "staff"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatal(err)
+	}
+	form, err := exec.canonicalState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"workers[0]", "workers[1]", "workers[2]"} {
+		if !strings.Contains(form.text, "object test::team#1."+path+": ") {
+			t.Errorf("canonical form names no object at %s:\n%s", path, form.text)
+		}
+	}
+}
+
 // A feature a final leaves unset is still reported, as UnsetText: a branch that
 // may or may not set one makes it divergent over the value and `<unset>`, for
 // the action's own and the performer's alike.
@@ -1028,6 +1092,50 @@ func TestCheckRejectsAnUnknownDeepDivergePathWhenNoScheduleCompletes(t *testing.
 	}
 	if len(report.Finals) != 0 {
 		t.Fatalf("%d finals, want none: no schedule completes", len(report.Finals))
+	}
+}
+
+// A path under a call tied on its arguments' types is told by the performances:
+// one no performance holds fails an exhaustive check, while a bounded search that
+// stops short of the performance keeps its bounded report.
+func TestCheckKeepsABoundedReportWhenAPathUnderATiedCallIsUnreached(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		package A {
+			action def tag { in x : Integer; in y : Real; out mark : Integer; first step; action step { assign mark := 1; } }
+		}
+		package B {
+			action def tag { in x : Real; in y : Integer; out result : Integer; first step; action step { assign result := 2; } }
+		}
+		calc def same { in v; v }
+		action outer {
+			private import A::*;
+			private import B::*;
+			attribute p = same(1.5);
+			attribute q = same(2);
+			first start;
+			then action byResult = tag(x = p, y = q);
+			then action fin;
+			then done;
+		}
+	}`)
+	report := checkModel(t, m, "outer", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"byResult.result"}})
+	if report.Verdict != CheckExhaustive || len(report.Finals) != 1 || report.Finals[0].Values["byResult.result"] != "2" {
+		t.Fatalf("%s, finals %+v: want the one final holding byResult.result = 2", report.Status(), report.Finals)
+	}
+	_, err := checkModelErr(t, m, "outer", CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"byResult.mark"}})
+	var unknown *UnknownCheckFeatureError
+	if !errors.As(err, &unknown) || unknown.Name != "byResult.mark" {
+		t.Fatalf("exhaustive: %v, want ErrUnknownCheckFeature naming byResult.mark", err)
+	}
+	for _, name := range []string{"byResult.result", "byResult.mark"} {
+		report, err := checkModelErr(t, m, "outer", CheckBudget{States: 1}, CheckOptions{Reduce: true, Diverge: []string{name}})
+		if err != nil {
+			t.Fatalf("Diverge %s under a states bound: %v, want a bounded report", name, err)
+		}
+		if report.Verdict != CheckWithinBounds || !slices.Contains(report.BoundsHit, "states") {
+			t.Fatalf("Diverge %s under a states bound: %s, want no violation within bounds naming states", name, report.Status())
+		}
 	}
 }
 
