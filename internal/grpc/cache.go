@@ -52,7 +52,11 @@ func (m *CachedModel) Semantics() (*runtime.Model, error) {
 	resolver := resolve.New(m.Index)
 	sem := semantics.NewModel(resolver)
 	sem.SetSourceText(cachedSourceText(m))
-	return runtime.NewModel(sem, resolver), nil
+	model := runtime.NewModel(sem, resolver)
+	for _, doc := range m.Documents {
+		model.RegisterSource(doc.Source)
+	}
+	return model, nil
 }
 
 // Primary is the document a model is named by: the only one of a single-document

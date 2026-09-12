@@ -1475,7 +1475,7 @@ func TestAddressedSendStaysWithinTheSendingObject(t *testing.T) {
 		part beta : Node;
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
-	send := lower.Send{Target: "reader", Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1503,7 +1503,7 @@ func TestAddressedSendResolvesPortOfNamedObject(t *testing.T) {
 		part beta : Node;
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
-	send := lower.Send{Target: "alpha.inPort", TargetPath: true, Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "alpha.inPort", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, beta); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1535,7 +1535,7 @@ func TestAddressedSendDescendsToNestedPort(t *testing.T) {
 		part alpha : Node;
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
-	send := lower.Send{Target: "inner.inPort", TargetPath: true, Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "inner.inPort", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1565,7 +1565,7 @@ func TestAddressedSendToUnreachablePortIsTyped(t *testing.T) {
 		}
 		part alpha : Node;
 	}`))
-	send := lower.Send{Target: "alpha.count", TargetPath: true, Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "alpha.count", TargetPath: true, Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	err := ctx.post(nil, Message{SignalType: "Ping"}, send, instanceOfUsage(t, ctx, idx, "test::alpha"))
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Fatalf("post to alpha.count: %v, want ErrUnroutableSend", err)
@@ -1623,7 +1623,7 @@ func TestAddressedSendToQualifiedNameSkipsSameNamedFeature(t *testing.T) {
 		part alpha : Node;
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
-	send := lower.Send{Target: "Other::reader", Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "Other::reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha)
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Errorf("`send to Other::reader` from an object: %v, want %v", err, ErrUnroutableSend)
@@ -1645,7 +1645,7 @@ func TestAddressedSendToQualifiedNameFromNoObjectIsDelivered(t *testing.T) {
 		}
 		action listen { first start; done; succession first start then done; }
 	}`))
-	send := lower.Send{Target: "Other::reader", Scope: declScope(oneSymbol(t, idx, "test::listen"))}
+	send := lower.Send{Target: "Other::reader", Scope: DeclScope(oneSymbol(t, idx, "test::listen"))}
 	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, nil); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1667,7 +1667,7 @@ func TestAddressedSendToAnObjectNeedsThatObject(t *testing.T) {
 		part alpha : Node;
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
-	send := lower.Send{Target: "leaf", Scope: declScope(oneSymbol(t, idx, "test::Node::talk"))}
+	send := lower.Send{Target: "leaf", Scope: DeclScope(oneSymbol(t, idx, "test::Node::talk"))}
 	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1694,7 +1694,7 @@ func TestAddressedSendToReceiverOfAnotherObjectCarriesItsIdentity(t *testing.T) 
 		part beta : Talker;
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
-	send := lower.Send{Target: "alpha::reader", Scope: declScope(oneSymbol(t, idx, "test::Talker::talk"))}
+	send := lower.Send{Target: "alpha::reader", Scope: DeclScope(oneSymbol(t, idx, "test::Talker::talk"))}
 	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, beta); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1726,7 +1726,7 @@ func TestAddressedSendPrefersTheNearerDeclaration(t *testing.T) {
 		part alpha : Node;
 	}`))
 	alpha := instanceOfUsage(t, ctx, idx, "test::alpha")
-	send := lower.Send{Target: "reader", Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "reader", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	if err := ctx.post(nil, Message{SignalType: "Integer"}, send, alpha); err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -1749,7 +1749,7 @@ func TestAddressedSendToQualifiedPortOfAnotherTypeIsTyped(t *testing.T) {
 		}
 		part alpha : Node;
 	}`))
-	send := lower.Send{Target: "Other::inPort", Scope: declScope(oneSymbol(t, idx, "test::Node::listen"))}
+	send := lower.Send{Target: "Other::inPort", Scope: DeclScope(oneSymbol(t, idx, "test::Node::listen"))}
 	err := ctx.post(nil, Message{SignalType: "Ping"}, send, instanceOfUsage(t, ctx, idx, "test::alpha"))
 	if !errors.Is(err, ErrUnroutableSend) {
 		t.Fatalf("post to Other::inPort: %v, want ErrUnroutableSend", err)
@@ -1776,7 +1776,7 @@ func TestAddressedSendThroughNamespaceQualifiedPathReachesObject(t *testing.T) {
 	send := lower.Send{
 		Target:     "test.alpha.inPort",
 		TargetPath: true,
-		Scope:      declScope(oneSymbol(t, idx, "test::Node::listen")),
+		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
 	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, beta); err != nil {
 		t.Fatalf("post: %v", err)
@@ -1802,7 +1802,7 @@ func TestAddressedSendReportsWhyTheObjectCouldNotBeBuilt(t *testing.T) {
 	send := lower.Send{
 		Target:     "alpha.inPort",
 		TargetPath: true,
-		Scope:      declScope(oneSymbol(t, idx, "test::Node::listen")),
+		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
 	ctx.maxSteps = 0
 	err := ctx.post(nil, Message{SignalType: "Ping"}, send, nil)
@@ -1830,7 +1830,7 @@ func TestAddressedSendThroughMultiplePartIsTyped(t *testing.T) {
 	send := lower.Send{
 		Target:     "nodes.inPort",
 		TargetPath: true,
-		Scope:      declScope(oneSymbol(t, idx, "test::Node::listen")),
+		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
 	err := ctx.post(nil, Message{SignalType: "Ping"}, send, nil)
 	if !errors.Is(err, ErrUnroutableSend) {
@@ -1859,7 +1859,7 @@ func TestAddressedSendFansOutOverAMultiValuedFeature(t *testing.T) {
 	send := lower.Send{
 		Target:     "nodes.inPort",
 		TargetPath: true,
-		Scope:      declScope(oneSymbol(t, idx, "test::Node::listen")),
+		Scope:      DeclScope(oneSymbol(t, idx, "test::Node::listen")),
 	}
 	if err := ctx.post(nil, Message{SignalType: "Ping"}, send, alpha); err != nil {
 		t.Fatalf("post to nodes.inPort: %v", err)
@@ -1994,7 +1994,7 @@ func TestAddressedSendToQualifiedElementOfATwinObject(t *testing.T) {
 		part beta : Node;
 	}`))
 	alpha, beta := instanceOfUsage(t, ctx, idx, "test::alpha"), instanceOfUsage(t, ctx, idx, "test::beta")
-	scope := declScope(oneSymbol(t, idx, "test::Node::listen"))
+	scope := DeclScope(oneSymbol(t, idx, "test::Node::listen"))
 	for _, tc := range []struct{ target, port, receiver string }{
 		{"alpha::inPort", "inPort", ""},
 		{"alpha::reader", "", "reader"},

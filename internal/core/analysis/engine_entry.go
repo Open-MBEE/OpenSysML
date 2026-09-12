@@ -9,13 +9,15 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/export"
 )
 
 // ProtocolVersions are the versions of the engine message set this build serves.
 var ProtocolVersions = []int{1}
 
 // GraphsVersions are the versions of the `graphs:<v>` model form this build serves.
-var GraphsVersions = []int{1}
+var GraphsVersions = []int{export.GraphsVersion}
 
 // TransportStdio is a child process on a pair of pipes, the one transport this build serves.
 const TransportStdio = "stdio"

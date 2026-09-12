@@ -979,9 +979,9 @@ func (ctx *Context) classifierBehaviorArguments(inst *Instance, decl classifierB
 	if len(decl.behavior.Arguments) == 0 {
 		return nil, nil
 	}
-	scope := declScope(decl.member)
+	scope := DeclScope(decl.member)
 	if scope == nil {
-		scope = declScope(inst.Type)
+		scope = DeclScope(inst.Type)
 	}
 	args := make(map[string]Value, len(decl.behavior.Arguments))
 	for _, arg := range decl.behavior.Arguments {

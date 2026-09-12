@@ -1421,7 +1421,7 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if value == nil {
 		return NewEnumLiteral(sym), nil
 	}
-	val, err := ec.evalIn(declScope(sym)).Eval(value)
+	val, err := ec.evalIn(DeclScope(sym)).Eval(value)
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
@@ -1435,7 +1435,7 @@ func (ctx *Context) EnumerationLiteralValue(sym *symbols.Symbol) (Value, bool, e
 	if semantics.EnumerationOwning(sym) == nil {
 		return Value{}, false, nil
 	}
-	val, err := NewEvalContext(ctx, declScope(sym)).enumLiteralValue(sym)
+	val, err := NewEvalContext(ctx, DeclScope(sym)).enumLiteralValue(sym)
 	return val, true, err
 }
 

@@ -3,7 +3,11 @@
 // wire's, shared by the host, the stand-in engine and the schema that publishes them.
 package enginewire
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/export"
+)
 
 // Version is the version of this message set.
 const Version = 1
@@ -197,22 +201,11 @@ type Budget struct {
 	Jobs     int64  `json:"jobs,omitempty"`
 }
 
-// Model is the model in the forms the entry asked for; sources is always present.
+// Model is the model in the forms the entry asked for; sources is always present
+// and graphs is the export layer's `graphs:<v>` form, export.Graphs as JSON.
 type Model struct {
-	Sources *Sources        `json:"sources,omitempty"`
+	Sources *export.Sources `json:"sources,omitempty"`
 	Graphs  json.RawMessage `json:"graphs,omitempty"`
-}
-
-// Sources is every document of the model as text, and the standard library's version.
-type Sources struct {
-	Library   string     `json:"library"`
-	Documents []Document `json:"documents"`
-}
-
-// Document is one source document.
-type Document struct {
-	Path string `json:"path"`
-	Text string `json:"text"`
 }
 
 // Result is the engine's answer to run: the framework's Result as JSON. Strength is what
