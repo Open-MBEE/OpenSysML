@@ -15,8 +15,11 @@
   refused with the typed `ErrUnboundedExtent`, since a run creates no data values to enumerate; an
   operand that is not a type (a package, a relationship, a comment, or no name at all) with
   `ErrTypeMismatch`, and a name that resolves to nothing with `ErrUnresolvedType`. Only nested
-  usages whose type may hold an object of the type are materialized for its extent; one of those
-  the extent cannot materialize ends it with that usage's error rather than an extent short of it.
+  usages whose type may hold an object of the type are materialized for its extent, and of those
+  every one but a usage that would create another object of a declaration already on the path (so
+  a composition recursing through one declaration ends, while each object a run linked to another
+  of its declaration still has its own nested usages read); one the extent cannot materialize ends
+  it with that usage's error rather than an extent short of it.
   An extent that a package-level usage of several occurrences (`part wheels : Wheel[2];`) or a
   package-level port may contribute to is refused with the typed `ErrExtentUnavailable` naming the
   usage, since the runtime denotes no object of such a usage yet, rather than answered without

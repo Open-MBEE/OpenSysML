@@ -303,6 +303,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
 	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
+	t.Run("extent_over_recursive_composition", testExtentOverRecursiveComposition)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
@@ -4743,6 +4744,65 @@ func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 		if err != nil || FormatValue(got) != want {
 			t.Fatalf("%s = %s, %v; want %s: the wheels hold no such object and are not read", calc, FormatValue(got), err, want)
 		}
+	}
+}
+
+// testExtentOverRecursiveComposition: an extent walked into a composition recursing through one
+// declaration — a part of its own type, a constructor of it, two types holding each other — ends,
+// leaving unread only the feature that would create another object of a declaration on the path;
+// every object it does create has its own wheel read, so none is answered short of it.
+func testExtentOverRecursiveComposition(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Tree { part left : Tree; part leaf : Wheel; }
+		part def Chain { ref part tail : Chain = new Chain(); part leaf : Wheel; }
+		part def Pair { part a : Half; part b : Half; }
+		part def Half { part back : Pair; part hub : Wheel; }
+		part tree : Tree;
+		part chain : Chain;
+		part pair : Pair;
+		calc wheelCount { return : Natural = size(all Wheel); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 100000)
+	done := make(chan struct{})
+	var got Value
+	var err error
+	go func() {
+		defer close(done)
+		got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	}()
+	select {
+	case <-done:
+	case <-time.After(20 * time.Second):
+		t.Fatal("the extent did not terminate on recursive composition")
+	}
+	if err != nil {
+		t.Fatalf("size(all Wheel): %v", err)
+	}
+	wheels := 0
+	for _, inst := range ctx.instances {
+		if inst.Type == nil {
+			continue
+		}
+		switch inst.Type.Name {
+		case "Wheel":
+			wheels++
+		case "tree", "Tree", "chain", "Chain", "Half":
+			for _, name := range []string{"leaf", "hub"} {
+				if fv, has := inst.FeatureValues[name]; has && !fv.Materialized {
+					t.Errorf("object %d of %s: %s left unread, the extent is short of it", inst.ID, inst.Type.Name, name)
+				}
+			}
+		}
+	}
+	if FormatValue(got) != fmt.Sprint(wheels) || wheels < 4 {
+		t.Errorf("size(all Wheel) = %s with %d wheels materialized; want every wheel of the objects there are, the tree's and chain's leaves and the pair's two hubs at least", FormatValue(got), wheels)
+	}
+	if len(ctx.instances) > 20 {
+		t.Errorf("%d objects materialized: the walk is not bounded by the declarations on its path", len(ctx.instances))
 	}
 }
 

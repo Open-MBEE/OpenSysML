@@ -75,14 +75,22 @@ func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symb
 }
 
 // objectsOf is this run's objects of target under roots, each then its features in declaration
-// order: a feature that may hold one is read (a failing read ends the extent), one already on the path is not.
+// order: a feature that may hold one is read (a failing read ends the extent), unless the objects
+// it would create are of a declaration already on the path; what a feature holds is walked regardless.
 func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value, error) {
 	var values []Value
 	seen := make(map[int64]bool)
-	path := make(map[*symbols.Symbol]bool)
-	nothing := func(*symbols.Symbol) bool { return false }
-	towardTarget := func(feature *symbols.Symbol) bool {
-		return ctx.mayHold(feature, target, make(map[*symbols.Symbol]bool))
+	path := make(map[*symbols.Symbol]int)
+	through := func(feature *EffectiveFeature) bool {
+		if !ctx.mayHold(feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
+			return false
+		}
+		for _, typ := range ctx.createdTypes(feature) {
+			if path[typ] > 0 {
+				return false
+			}
+		}
+		return true
 	}
 	var descend func(inst *Instance) error
 	descend = func(inst *Instance) error {
@@ -97,13 +105,9 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			}
 			values = append(values, val)
 		}
-		through := nothing
-		if inst.Type == nil || !path[inst.Type] {
-			if inst.Type != nil {
-				path[inst.Type] = true
-				defer delete(path, inst.Type)
-			}
-			through = towardTarget
+		if inst.Type != nil {
+			path[inst.Type]++
+			defer func() { path[inst.Type]-- }()
 		}
 		children, err := ctx.heldObjectsOf(inst, through, true)
 		if err != nil {
@@ -269,6 +273,25 @@ func (ctx *Context) givenValue(sym *symbols.Symbol) (ast.Node, bool) {
 	}
 	value := sym.Decl.(*ast.Usage).Value
 	return value, value != nil
+}
+
+// createdTypes is the declarations the objects an unread feature comes to hold would be of: the
+// composite it materializes, or the types its value results in (its declared type, where unknown).
+func (ctx *Context) createdTypes(feature *EffectiveFeature) []*symbols.Symbol {
+	if composite := ctx.CompositeTypeOf(feature); composite != nil {
+		return []*symbols.Symbol{composite}
+	}
+	value, valued := ctx.givenValue(feature.Symbol)
+	if !valued {
+		return nil
+	}
+	if types := ctx.model.semantics.ExprResultTypes(feature.Symbol.OwnerScope, value); len(types) > 0 {
+		return types
+	}
+	if declared := ctx.extractType(feature.Symbol); declared != nil {
+		return []*symbols.Symbol{declared}
+	}
+	return nil
 }
 
 // mayHold reports whether an object of typ, or one a feature of it holds however deep, may be
