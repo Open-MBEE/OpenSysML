@@ -1,9 +1,96 @@
 package solve
 
 import (
+	"bufio"
+	"fmt"
 	"math/big"
 	"strings"
 )
+
+// ModelValue is one variable's value in a model, read back exactly from the
+// solver's own text: a consumer decoding a witness reads it rather than parsing
+// the rendered Assignment.
+type ModelValue struct {
+	// Kind is the sort of the value, the variable's own.
+	Kind SortKind
+
+	// Bool holds a SortBool value.
+	Bool bool
+
+	// Number holds a SortInt value, which is integral, or a SortReal value, exact.
+	Number *big.Rat
+
+	// Text holds a SortString value, or the name of a SortDatatype value: the
+	// qualified name of the literal or variant, as the sort declares it.
+	Text string
+}
+
+// DecodeValue reads an assignment back exactly. A value the variable's sort does
+// not hold — a datatype value the sort does not declare, an algebraic number the
+// solver writes as a root, a term rather than a literal — is an error.
+func DecodeValue(a Assignment) (ModelValue, error) {
+	if a.Var == nil {
+		return ModelValue{}, fmt.Errorf("a value of no variable")
+	}
+	value, err := readSexpr(bufio.NewReader(strings.NewReader(a.Raw)))
+	if err != nil {
+		return ModelValue{}, fmt.Errorf("unreadable value %s", a.Raw)
+	}
+	kind := a.Var.Sort.Kind
+	switch kind {
+	case SortBool:
+		if !value.IsList && (value.Atom == "true" || value.Atom == "false") {
+			return ModelValue{Kind: kind, Bool: value.Atom == "true"}, nil
+		}
+	case SortString:
+		if !value.IsList && value.Quoted {
+			return ModelValue{Kind: kind, Text: value.Atom}, nil
+		}
+	case SortDatatype:
+		if value.IsList {
+			break
+		}
+		name := smtName(value.Atom)
+		if !contains(a.Var.Sort.Values, name) {
+			return ModelValue{}, fmt.Errorf("%s is not a value of %s", name, a.Var.Sort.Name)
+		}
+		return ModelValue{Kind: kind, Text: name}, nil
+	case SortInt:
+		rat, ok := ratOfSexpr(value)
+		if !ok || !rat.IsInt() {
+			return ModelValue{}, fmt.Errorf("no integer in %s", a.Raw)
+		}
+		return ModelValue{Kind: kind, Number: rat}, nil
+	case SortReal:
+		rat, ok := ratOfSexpr(value)
+		if !ok {
+			return ModelValue{}, fmt.Errorf("no rational in %s", a.Raw)
+		}
+		return ModelValue{Kind: kind, Number: rat}, nil
+	}
+	return ModelValue{}, fmt.Errorf("unreadable value %s", a.Raw)
+}
+
+// Literal is the term denoting a decoded value, which is what denies a model in
+// an enumeration. An integer outside int64 has no literal in the term language.
+func (v ModelValue) Literal(sort Sort) (*Term, error) {
+	switch v.Kind {
+	case SortBool:
+		return BoolTerm(v.Bool), nil
+	case SortString:
+		return StringTerm(v.Text), nil
+	case SortDatatype:
+		return ValueTerm(sort, v.Text), nil
+	case SortInt:
+		if !v.Number.Num().IsInt64() {
+			return nil, fmt.Errorf("%s is outside the Integer range", v.Number.Num().String())
+		}
+		return IntTerm(v.Number.Num().Int64()), nil
+	case SortReal:
+		return RealTerm(v.Number), nil
+	}
+	return nil, fmt.Errorf("a value of no sort")
+}
 
 // assign renders one variable's solver value in the notation's own terms, keeping
 // the solver's S-expression for a value the notation cannot write.

@@ -68,6 +68,7 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
 | `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
+| `replay:<file>` | the witness's `step n: …` line, then `reverse` | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 
 `reverse` is exactly what every run did before policies existed, so every `.expected.json` and
@@ -86,6 +87,16 @@ The scheduler lives in the run's `runState` beside the budget and the notes. A r
 call — a REPL `%action` or `%state` session — owns its `executorRun.state`, installed for each
 call by `beginExecutorRun` whatever ran in between, so a seeded debugging session draws from its
 own generator and an interleaved run neither consumes its draws nor inherits its notes.
+
+`replay:<file>` (`replay.go`) is the policy a witness is run again under: the file's choice lines
+— `ChoiceTaken.String` spellings, one per line up to the first blank line, so a checker's witness
+file with a trace body after its header serves as it stands — are followed one move at a time,
+each having to name the step the run is at and pick among the alternatives it offers, and once
+they are spent the run continues as `reverse`. A line the run cannot follow, or one left over at
+the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `ReplayError`
+naming the move, its choice and what the run faced; the run is never quietly turned into another
+linearization. The model checkers replay every `sat` witness under it before claiming a
+violation.
 
 ## Exploration (`explore.go`)
 

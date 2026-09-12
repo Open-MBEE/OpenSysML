@@ -128,6 +128,14 @@ func TestDefaultHoldsTheBuildsEngines(t *testing.T) {
 	}
 }
 
+func TestDefaultAnswersNoHoldsQuestion(t *testing.T) {
+	_, err := Default().Answer(context.Background(), &Model{}, Question{Kind: Holds, Free: FreeSchedule, Holds: &HoldsAsk{}}, Budget{})
+	var none *NoEngineError
+	if !errors.As(err, &none) || none.Kind != Holds {
+		t.Fatalf("holds under the default registry: %v, want a NoEngineError for holds", err)
+	}
+}
+
 // absentSolver discovers nothing, as a machine without a solver does.
 func absentSolver() (*solve.Solver, error) {
 	return nil, &solve.NoSolverError{Looked: []string{"z3", "cvc5"}}

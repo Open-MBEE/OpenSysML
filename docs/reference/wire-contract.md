@@ -958,7 +958,9 @@ HTTP/1.1 400 Bad Request
 
 A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, a negative or
 non-decimal seed — is `INVALID_ARGUMENT` before the model is looked up, so a mistyped policy
-never runs anything under the default. The field is advertised as the `schedule` capability: a
+never runs anything under the default. So is `"replay:<file>"`, which `sysml -schedule` accepts:
+it follows a witness file of the caller's, which a request does not carry, and the service reads
+no file of its own on a client's word. The field is advertised as the `schedule` capability: a
 service withholding it refuses a non-empty `schedule` with `UNIMPLEMENTED`, and a service that
 predates the field would drop it and run under the default, which is why every client this
 repository ships checks the advertised list before sending one. `ExecuteState` and `RunAnalysis`

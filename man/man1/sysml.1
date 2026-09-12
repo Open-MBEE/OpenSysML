@@ -211,9 +211,10 @@ verification case verifying the requirement (repeatable). The default is [].
 .BI \-schedule " value"
 Scheduling policy every run resolves its choice points under (concurrent
 tokens, overlapping guards, competing transitions): declared, reverse
-(default), seed:<n> for a reproducible pseudo\-random order, or
+(default), seed:<n> for a reproducible pseudo\-random order,
 explore[:runs=N,depth=D] to run every linearization within the budget and
-table the distinct outcomes
+table the distinct outcomes, or replay:<file> to follow a witness file's
+choice lines move for move, then reverse
 .TP
 .BI \-seed " value"
 Seed \-samples draws from, so the same seed draws the same table

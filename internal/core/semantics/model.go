@@ -77,6 +77,10 @@ type Model struct {
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// layoutSites memoizes the DiagramLayout annotations of each element, and
+	// declSymbols the symbol each declaration under a scope registers (layout.go).
+	layoutSites map[*symbols.Symbol][]*LayoutSite
+	declSymbols map[*symbols.Scope]map[ast.Node]*symbols.Symbol
 
 	// Redefinition masking (see masking.go): the features each declaration
 	// redefines, and the elements each type does not inherit because of them.
@@ -141,6 +145,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		filterVerdicts: make(map[filterKey]filterVerdict),
 		filterTypes:    make(map[string]*symbols.Symbol),
 		annotations:    make(map[*symbols.Symbol][]annotation),
+		layoutSites:    make(map[*symbols.Symbol][]*LayoutSite),
+		declSymbols:    make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
 		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
 		redefMask:             make(map[*symbols.Symbol]map[*symbols.Symbol]bool),

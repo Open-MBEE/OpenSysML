@@ -89,6 +89,41 @@ func TestAnchorMetatypeReadsTheDeclarationHead(t *testing.T) {
 	}
 }
 
+// TestOnlyARedefinitionNarrowsTheScope reads the anchors the way scopeRow does:
+// a subsetting is collected as a redefinition-style reference, but the pilot
+// still enumerates the whole scope for it.
+func TestOnlyARedefinitionNarrowsTheScope(t *testing.T) {
+	src := "package test {\n" +
+		"\tfeature A {\n\t\tfeature a;\n\t\talias aa for a;\n\t}\n" +
+		"\tfeature B subsets A {\n" +
+		"\t\tfeature b subsets aa;\n" +
+		"\t\tfeature c redefines a;\n" +
+		"\t\tfeature d subsets d;\n" +
+		"\t}\n}\n"
+	ws := model.NewWorkspace()
+	ws.Open("t.kerml", []byte(src), 1)
+	doc := ws.Document("t.kerml")
+	refs := resolve.References(doc.AST, doc.Scope)
+	cases := []struct {
+		clause, target string
+		narrows        bool
+	}{
+		{"subsets aa", "aa", false},
+		{"redefines a", "a", true},
+		{"subsets d", "d", false},
+	}
+	for _, c := range cases {
+		offset := strings.Index(src, c.clause) + len(c.clause) - len(c.target)
+		ref, _, ok := referenceAt(refs, offset, offset+len(c.target))
+		if !ok {
+			t.Fatalf("%q: no reference collected at %d", c.clause, offset)
+		}
+		if got := narrowsToInherited(ref); got != c.narrows {
+			t.Errorf("%q: narrowsToInherited = %v, want %v (ref %+v)", c.clause, got, c.narrows, ref)
+		}
+	}
+}
+
 func TestAdmitsFiltersByMetatype(t *testing.T) {
 	cases := []struct {
 		want metatype

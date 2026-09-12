@@ -1,0 +1,11 @@
+%% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
+%% canvas: unit=px w=1200 h=800
+%% layout: n1 x=300 y=40 collapsed
+%% layout: n2 x=500 y=40 w=120 h=60
+%% route: n1->n2 400,70 450,120 500,70
+flowchart LR
+  subgraph n0 ["part def Plant::Loop"]
+    n1["part pump (Pump)"]
+    n2["part tank (Tank)"]
+  end
+  n1 ---|"supply"| n2

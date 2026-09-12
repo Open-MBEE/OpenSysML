@@ -1,10 +1,10 @@
 {
-  "pilotTag": "2026-07",
-  "pilotCommit": "c7fc737d56da9e2d78f9d7df6d38efbec2e7e965",
-  "pilotArtifact": "0.61.0",
+  "pilotTag": "2026-08",
+  "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
+  "pilotArtifact": "0.62.0",
   "jar": {
-    "name": "jupyter-sysml-kernel-0.61.0-all.jar",
-    "digest": "sha256:602b53fa64d5af84480aa00e06e590a140d7d5c3651d4d76ac0e0055f89f0079"
+    "name": "jupyter-sysml-kernel-0.62.0-all.jar",
+    "digest": "sha256:b1ad9d64b1f0c75730facf25a5e2856bc9df2bb4bd39476df2fdf5ae68cd9350"
   },
   "extraction": {
     "classes": [
@@ -13,7 +13,7 @@
     ],
     "method": "CONSTANT_String entries of each class's constant pool matching ^(in)?validate[A-Za-z]+_?$, normalized to the validate... name by dropping the in prefix and one trailing underscore; a name found in both classes has source \"both\""
   },
-  "recorded": "2026-09-02",
+  "recorded": "2026-09-12",
   "constraints": [
     {
       "name": "validateAcceptActionUsageParameters",

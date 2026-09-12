@@ -134,7 +134,18 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
 | `notices` | What the rendering could not represent, as the text form reports it. |
+| `x`, `y`, `width`, `height`, `collapsed` | On a node: where the model places it, from a `DiagramLayout::Layout` annotation, in pixels from the canvas's top-left corner with y increasing downward. Absent for a node the model does not place; `width` and `height` only when the annotation sizes it; `collapsed` only when it says so. |
+| `route` | On an edge: the waypoints a `DiagramLayout::Route` annotation gives it, as an array of `{"x", "y"}` in the same coordinates. Absent for an edge with none. |
+| `canvas` | The drawing surface the view states with a `DiagramLayout::Canvas` annotation: its `unit` when given, and `width` and `height` together when the annotation sizes it (an explicit `0` is a size). Absent for a view stating none and for every pseudo-view. |
 | `version` | The version of the document the rendering was made from, so a client can tell a rendering of the text it is showing from a stale one. |
+
+A node placed by `metadata Layout about cog { x = 120; y = 80; width = 90; height = 40; }`
+in the view's body arrives as
+`{ "id": "n1", …, "x": 120, "y": 80, "width": 90, "height": 40 }`; the `artifact`
+carries the same geometry in the writer's own notation (`%% layout: n1 x=120 y=80 w=90 h=40`
+in Mermaid, `at (120, 80) size 90×40` in text). See
+[Diagram layout annotations](../project/diagram-layout-annotations.md) for how a
+position is resolved when a view and the element itself both state one.
 
 A view that asks for a rendering this implementation does not produce (`geometry`,
 `textual`) fails with the reason, e.g.

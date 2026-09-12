@@ -433,6 +433,103 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	}
 }
 
+// A view's layout annotations reach the client as geometry on nodes and edges
+// and a canvas on the result; a rendering without any carries none of the fields.
+func TestRenderCarriesLayoutGeometry(t *testing.T) {
+	const src = `package Kit {
+	private import DiagramLayout::*;
+	part def Widget {
+		part cog : Cog;
+		part gear : Cog { @Layout { x = 5; y = 6; } }
+		connection mesh : Mesh connect cog to gear;
+	}
+	part def Cog;
+	connection def Mesh;
+}
+
+package KitViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import DiagramLayout::*;
+
+	view placed : InterconnectionView {
+		expose Kit::Widget;
+		@Canvas { unit = "px"; width = 640; height = 0; }
+		metadata Layout about Kit::Widget::cog { x = 10; y = 20; width = 90; height = 40; collapsed = true; }
+		metadata Route about Kit::Widget::mesh { points = (1, 2, 3, 4); }
+	}
+}
+`
+	s, docURI := renderServer(t, "kit.sysml", src)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::placed",
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var out struct {
+		Nodes  []map[string]json.RawMessage `json:"nodes"`
+		Edges  []map[string]json.RawMessage `json:"edges"`
+		Canvas map[string]json.RawMessage   `json:"canvas"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if got := fmt.Sprintf("%s|%s|%s", out.Canvas["unit"], out.Canvas["width"], out.Canvas["height"]); got != `"px"|640|0` {
+		t.Errorf("canvas = %s, want unit px, width 640 and the explicit height 0", got)
+	}
+	nodeBy := func(name string) map[string]json.RawMessage {
+		for _, n := range out.Nodes {
+			if string(n["name"]) == fmt.Sprintf("%q", name) {
+				return n
+			}
+		}
+		t.Fatalf("no node named %s in %v", name, out.Nodes)
+		return nil
+	}
+	cog := nodeBy("cog")
+	if got := fmt.Sprintf("%s %s %s %s %s", cog["x"], cog["y"], cog["width"], cog["height"], cog["collapsed"]); got != "10 20 90 40 true" {
+		t.Errorf("cog geometry = %q, want the view-local Layout", got)
+	}
+	gear := nodeBy("gear")
+	if got := fmt.Sprintf("%s %s %s %s %s", gear["x"], gear["y"], gear["width"], gear["height"], gear["collapsed"]); got != "5 6   " {
+		t.Errorf("gear geometry = %q, want the inline Layout with no size and no collapsed field", got)
+	}
+	for _, n := range out.Nodes {
+		if name := string(n["name"]); name == `"cog"` || name == `"gear"` {
+			continue
+		}
+		for _, field := range []string{"x", "y", "width", "height", "collapsed"} {
+			if _, ok := n[field]; ok {
+				t.Errorf("unplaced node %s carries %q", n["name"], field)
+			}
+		}
+	}
+	if len(out.Edges) != 1 {
+		t.Fatalf("edges = %v, want the one connection", out.Edges)
+	}
+	if got := string(out.Edges[0]["route"]); got != `[{"x":1,"y":2},{"x":3,"y":4}]` {
+		t.Errorf("route = %s, want the connector's Route waypoints", got)
+	}
+
+	s, docURI = renderServer(t, "plain.sysml", renderModel)
+	plain := render(t, s, docURI, "KitViews::widgetParts")
+	if plain.Canvas != nil {
+		t.Errorf("a view without a Canvas carries %+v", plain.Canvas)
+	}
+	for _, n := range plain.Nodes {
+		if n.X != nil || n.Y != nil || n.Width != nil || n.Height != nil || n.Collapsed {
+			t.Errorf("unannotated node %+v carries geometry", n)
+		}
+	}
+	for _, e := range plain.Edges {
+		if e.Route != nil {
+			t.Errorf("unannotated edge %+v carries a route", e)
+		}
+	}
+}
+
 // An edit is followed by the notification that the renderings went stale, after
 // the diagnostics of the same analysis, at the version the edit produced.
 func TestDidChangeNotifiesRenderChangedAfterDiagnostics(t *testing.T) {

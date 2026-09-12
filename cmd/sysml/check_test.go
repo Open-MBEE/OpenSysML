@@ -389,3 +389,40 @@ func TestCheckFlagsAreOptional(t *testing.T) {
 		t.Errorf("-e did not evaluate:\n%s", out)
 	}
 }
+
+// TestCheckReportsDiagramLayoutFindings checks that a check reports the
+// DiagramLayout findings the way a build step reads them: a misplaced
+// annotation is a warning that leaves the model checkable, an ill-formed one an
+// error that stops the check.
+func TestCheckReportsDiagramLayoutFindings(t *testing.T) {
+	binary := buildCLI(t)
+
+	const warns = `package W {
+    private import DiagramLayout::*;
+    part def Pump {
+        @Route { points = (0, 0, 10, 10); }
+    }
+}
+`
+	wantReport(t, check(t, binary, warns, "-validate"), 0,
+		"model.sysml:4:9: warning: Route steers part def W::Pump, which no rendering draws as an edge",
+		"no errors")
+
+	const errs = `package E {
+    private import DiagramLayout::*;
+    part def Pump {
+        @Canvas { width = 400; }
+    }
+    part def Loop {
+        part pump : Pump;
+        part tank : Pump;
+        connection supply connect pump to tank {
+            @Route { points = (0, 0, 10); }
+        }
+    }
+}
+`
+	wantReport(t, check(t, binary, errs, "-validate"), 2,
+		"model.sysml:4:9: error: Canvas annotates part def E::Pump, which is no view; a Canvas belongs in the body of the view it sizes",
+		"model.sysml:10:38: error: connection E::Loop::supply: Route binds 3 values to points; waypoints are x, y pairs, so the count must be even")
+}

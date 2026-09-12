@@ -57,6 +57,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(W8DViewRenderingPass{})
 	reg.Register(W8DMetadataUsagePass{})
 	reg.Register(IdentityMetadataPass{})
+	reg.Register(DiagramLayoutPass{})
 	reg.Register(RedefinitionConformancePass{})
 	reg.Register(W9CShortNameDistinguishabilityPass{})
 	reg.Register(W9CUserStandardLibraryPass{})

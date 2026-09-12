@@ -233,6 +233,50 @@ func portabilityCases() []portabilityCase {
 			return nil
 		},
 	}, {
+		feature: "a datatype the query declares itself (nodes of a flow)",
+		needs:   []Capability{CapModels, CapDatatypes, CapNonStandardLogic},
+		run: func(t *testing.T, solver *Solver) error {
+			q, vars := stepQuery()
+			result, err := solver.Solve(context.Background(), q)
+			if err != nil {
+				return err
+			}
+			if result.Status != StatusSat {
+				return fmt.Errorf("answered %s, want sat", result.Status)
+			}
+			for _, a := range result.Model {
+				if a.Var != vars[0] {
+					continue
+				}
+				at, err := DecodeValue(a)
+				if err != nil {
+					return fmt.Errorf("the node read back as %s: %v", a.Raw, err)
+				}
+				if at.Text != "middle" && at.Text != "end" {
+					return fmt.Errorf("the node read back as %s, want a value of the datatype", at.Text)
+				}
+				return nil
+			}
+			return fmt.Errorf("the model assigns no node: %+v", result.Model)
+		},
+	}, {
+		feature: "an incremental dialogue over named variables (enumerating moves)",
+		needs:   []Capability{CapModels, CapIncremental, CapDatatypes, CapNonStandardLogic},
+		run: func(t *testing.T, solver *Solver) error {
+			q, vars := stepQuery()
+			result, err := solver.Enumerate(context.Background(), q, vars, 10)
+			if err != nil {
+				return err
+			}
+			if result.Status != StatusSat || result.Truncated {
+				return fmt.Errorf("answered %s (truncated %t), want every move", result.Status, result.Truncated)
+			}
+			if len(result.Solutions) != 2 {
+				return fmt.Errorf("reported %d moves, want 2", len(result.Solutions))
+			}
+			return nil
+		},
+	}, {
 		feature: "objective optimization (minimize with :opt.priority)",
 		needs:   []Capability{CapModels, CapOptimization, CapOptimizationPriority},
 		run: func(t *testing.T, solver *Solver) error {
