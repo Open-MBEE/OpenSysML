@@ -317,6 +317,60 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 	}
 }
 
+// A choice whose branches are enabled only by the incoming transition's effect is
+// a choice point resolved as the choice is reached: exploration enumerates both
+// branches, each witness naming the choice and the branch taken; the run whose
+// effect is not run first — a junction's static reading — would find neither
+// branch enabled.
+func TestExploreDynamicChoiceBranches(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			attribute level : Integer = 0;
+			entry; then idle;
+			state idle;
+			choice pick;
+			state left;
+			state right;
+			transition first idle accept go do assign level := 8 then pick;
+			transition first pick if level > 5 then left;
+			transition first pick if level > 7 then right;
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sym := m.state(t, "Machine")
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+		exec, err := newStateExecutor(ctx, sym, nil)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return exec.Outcome(), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q, want complete (2 runs)", x.Status())
+	}
+	want := []string{"finalState left; visits idle, left; level = 8", "finalState right; visits idle, right; level = 8"}
+	if got := outcomeTexts(x); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("outcomes %v, want %v", got, want)
+	}
+	w := x.Outcomes[1].Witness
+	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "choice pick" || !strings.HasSuffix(w[0].Took, "->right") {
+		t.Fatalf("witness of right %v, want the branch of choice pick into right", w)
+	}
+}
+
 // One event enabling a transition in each of two regions: the library orders
 // neither first, so exploration fires them in both orders; every policy reports
 // the order it took as one region-order choice point, `reverse` and `declared`

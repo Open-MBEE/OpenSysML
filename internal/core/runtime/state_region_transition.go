@@ -7,113 +7,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 )
 
-// transientPseudostate reports whether a pseudostate merely routes a transition
-// onwards — choice and junction — as opposed to fork, join and history, which
-// rewrite the whole active configuration.
-func transientPseudostate(kind ast.PseudostateKind) bool {
-	switch kind {
-	case ast.PseudostateChoice, ast.PseudostateJunction:
-		return true
-	}
-	return false
-}
-
-// resolveRoute settles the state a transition ends at before anything moves: its
-// target, or the one a chain of transient pseudostates, a synchronized join or an
-// unrecorded history's default transition routes on to. It is nil for a fork, a
-// history with nothing to route by and a join still waiting, whose firing takes
-// the configuration from the graph instead.
-func (e *StateExecutor) resolveRoute(trans *lower.Transition) (*ast.StateNode, error) {
-	switch target := trans.Target.(type) {
-	case *ast.StateNode:
-		return target, nil
-	case *ast.PseudostateNode:
-		switch target.Kind {
-		case ast.PseudostateFork:
-			return nil, nil
-		case ast.PseudostateJoin:
-			sources, err := e.joinSources(target)
-			if err != nil {
-				return nil, err
-			}
-			if !e.allActive(sources) {
-				return nil, nil
-			}
-		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
-			owner := e.graph.PseudostateOwner[target]
-			if owner == nil || e.history[owner] != nil || len(e.graph.Transitions[target]) == 0 {
-				return nil, nil
-			}
-			state, err := e.pseudostateTarget(target)
-			if err != nil {
-				return nil, fmt.Errorf("default transition of history %s, %s having no recorded configuration: %w", target.Name, owner.Name, err)
-			}
-			return state, nil
-		}
-		state, err := e.pseudostateTarget(target)
-		if err != nil {
-			return nil, fmt.Errorf("evaluate pseudostate: %w", err)
-		}
-		return state, nil
-	default:
-		return nil, fmt.Errorf("transition target must be a state or pseudostate, got %T", trans.Target)
-	}
-}
-
-// pseudostateTarget follows the outgoing transitions of a transient pseudostate
-// until a state is reached, so a chain such as choice → junction → state ends
-// at the state the compound transition actually enters.
-//
-// A choice's guards are evaluated when it is reached and a junction's when its
-// incoming transition is evaluated; both are evaluated here, in declaration
-// order, which makes the two indistinguishable for a guard over state data.
-func (e *StateExecutor) pseudostateTarget(ps *ast.PseudostateNode) (*ast.StateNode, error) {
-	visited := make(map[*ast.PseudostateNode]bool)
-	for {
-		if visited[ps] {
-			return nil, fmt.Errorf("%s %s: outgoing transitions form a cycle between pseudostates", ps.Kind, ps.Name)
-		}
-		visited[ps] = true
-
-		branch, err := e.pseudostateBranch(ps)
-		if err != nil {
-			return nil, err
-		}
-		switch target := branch.Target.(type) {
-		case *ast.StateNode:
-			return target, nil
-		case *ast.PseudostateNode:
-			if !transientPseudostate(target.Kind) {
-				return nil, fmt.Errorf("%s %s: a transition into %s %s is not supported", ps.Kind, ps.Name, target.Kind, target.Name)
-			}
-			ps = target
-		default:
-			return nil, fmt.Errorf("%s %s: target must be a state or pseudostate, got %T", ps.Kind, ps.Name, branch.Target)
-		}
-	}
-}
-
-// pseudostateBranch returns the outgoing transition a pseudostate routes along:
-// the first whose guard is satisfied, in declaration order, an unguarded one
-// being the default branch. Exactly one succession is taken, as KerML
-// `DecisionPerformance::outgoingHBLink: HappensBefore[1]` requires.
-func (e *StateExecutor) pseudostateBranch(ps *ast.PseudostateNode) (*lower.Transition, error) {
-	outgoing := e.graph.Transitions[ps]
-	if len(outgoing) == 0 {
-		return nil, fmt.Errorf("%s %s has no outgoing transitions", ps.Kind, ps.Name)
-	}
-	for _, trans := range outgoing {
-		pass, err := e.passesGuard(trans)
-		if err != nil {
-			return nil, fmt.Errorf("%s %s: %w", ps.Kind, ps.Name, err)
-		}
-		if pass {
-			return trans, nil
-		}
-	}
-	return nil, fmt.Errorf("%s %s: no guard evaluated to true", ps.Kind, ps.Name)
-}
-
 // regionContains reports whether state is declared in region or nested below a
 // state that is.
 func (e *StateExecutor) regionContains(region *ast.StateRegion, state *ast.StateNode) bool {
@@ -199,25 +92,15 @@ func (e *StateExecutor) scheduleFromEntered(state *ast.StateNode) error {
 	return nil
 }
 
-// runEffect performs the actions of a transition's effect, in order.
-func (e *StateExecutor) runEffect(trans *lower.Transition) error {
-	for _, behavior := range trans.Effect {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("transition effect: %w", err)
-		}
-	}
-	return nil
-}
-
 // fireTransitionInRegion fires a transition whose source is the active state of
 // an orthogonal region. A target inside the same region moves only that region;
 // a target outside it leaves the whole region set, which is what makes a
 // transition through a choice or junction reachable from inside a region.
-func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition, route *ast.StateNode) (bool, error) {
+func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *lower.Transition, r route) (bool, error) {
 	// Fork, join and history replace the entire active configuration rather than
 	// move one region, so they are fired whole.
 	if isSynchronizationTarget(trans.Target) {
-		return e.fireTransition(trans, route)
+		return e.fireTransition(trans, r)
 	}
 
 	pass, err := e.passesGuard(trans)
@@ -226,16 +109,26 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	}
 	e.transitionDecided()
 
-	if route == nil {
+	if !r.settled() {
 		return false, fmt.Errorf("transition out of region %s has no target state", region.Name)
 	}
 
 	source := e.activeConfig.regionStates[region]
-	sourceRegion, targetRegion := e.regionMove(region, route)
+	return true, e.travel(r, source,
+		func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
+		func(effects []lower.StateBehavior, target *ast.StateNode) error {
+			return e.moveInRegion(region, source, trans, effects, target)
+		})
+}
+
+// moveInRegion finishes a move out of region's active state source: within the
+// region, across to a concurrent one, or out of the whole region set.
+func (e *StateExecutor) moveInRegion(region *ast.StateRegion, source *ast.StateNode, trans *lower.Transition, effects []lower.StateBehavior, target *ast.StateNode) error {
+	sourceRegion, targetRegion := e.regionMove(region, target)
 	if targetRegion == nil {
-		return true, e.leaveRegion(region, trans, route)
+		return e.leaveRegion(region, trans, effects, target)
 	}
-	return true, e.moveBetweenRegions(sourceRegion, targetRegion, source, trans, route)
+	return e.moveBetweenRegions(sourceRegion, targetRegion, source, trans, effects, target)
 }
 
 // regionMove is the region a transition out of region's active state leaves and
@@ -343,6 +236,7 @@ func (e *StateExecutor) moveBetweenRegions(
 	sourceRegion, targetRegion *ast.StateRegion,
 	source *ast.StateNode,
 	trans *lower.Transition,
+	effects []lower.StateBehavior,
 	target *ast.StateNode,
 ) error {
 	keep := e.regionKeep(targetRegion, trans, target)
@@ -362,7 +256,7 @@ func (e *StateExecutor) moveBetweenRegions(
 		}
 	}
 
-	if err := e.runEffect(trans); err != nil {
+	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
 
@@ -453,11 +347,11 @@ func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNod
 // source is active in — outside the composite state that owns the regions. The
 // whole set is left: every sibling region is exited, recording its configuration
 // for history, before the target is entered.
-func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transition, target *ast.StateNode) error {
+func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transition, effects []lower.StateBehavior, target *ast.StateNode) error {
 	source := e.activeConfig.regionStates[region]
 	owner := e.graph.RegionOwner[region]
 	if owner == nil {
-		return e.leaveTopRegions(trans, source, target)
+		return e.leaveTopRegions(trans, effects, source, target)
 	}
 
 	// The target is outside the composite state: exit it and its ancestors up to
@@ -478,7 +372,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 			return fmt.Errorf("exit state: %w", err)
 		}
 	}
-	if err := e.runEffect(trans); err != nil {
+	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
 	return e.enterOutside(trans, source, lca, target)
@@ -487,7 +381,7 @@ func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transi
 // leaveTopRegions leaves the machine's own orthogonal regions, which no state
 // owns: every region is exited in declaration order and the target — outside
 // all of them — is then entered as the machine's single active state.
-func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, source, target *ast.StateNode) error {
+func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []lower.StateBehavior, source, target *ast.StateNode) error {
 	for _, region := range e.graph.TopRegions {
 		active, ok := e.activeConfig.regionStates[region]
 		if !ok {
@@ -505,7 +399,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, source, target 
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = nil
 
-	if err := e.runEffect(trans); err != nil {
+	if err := e.runBehaviors(effects); err != nil {
 		return err
 	}
 

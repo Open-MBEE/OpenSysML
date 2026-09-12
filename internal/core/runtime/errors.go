@@ -219,6 +219,11 @@ var (
 	// declares no entry transition of its own.
 	ErrHistoryWithoutEntry = errors.New("history has no configuration to restore and no entry to fall back on")
 
+	// ErrChoiceWithoutBranch is returned when a compound transition reaches a
+	// choice pseudostate none of whose outgoing guards holds against the data as
+	// the segments into it left it.
+	ErrChoiceWithoutBranch = errors.New("choice has no enabled outgoing transition")
+
 	// ErrStatePerformanceOccurrence is returned when an exhibited machine cannot
 	// read or write the occurrence of its state usage.
 	ErrStatePerformanceOccurrence = errors.New("state performance occurrence unavailable")
