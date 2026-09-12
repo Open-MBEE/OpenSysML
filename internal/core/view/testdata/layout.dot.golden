@@ -1,0 +1,16 @@
+// view: PlantViews::placedView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// not represented: the box of n0, which has no size (neato -n draws a cluster from its bb alone)
+// layout: neato -n2
+digraph "PlantViews::placedView" {
+  graph [bb="0,0,900,600"];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="part def Plant::Loop";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="345,547.5"];
+    "n1" [label="part pump\nPump", pos="225,570!", pin=true];
+    "n2" [label="part tank\nTank", pos="420,547.5!", pin=true, width=1.25, height=0.625, fixedsize=true];
+  }
+  "n1" -> "n2" [label="supply", arrowhead=none, pos="300,547.5 312.5,535 325,522.5 337.5,510 350,522.5 362.5,535 375,547.5"];
+}

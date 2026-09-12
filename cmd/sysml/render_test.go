@@ -138,6 +138,50 @@ func TestRenderDotForm(t *testing.T) {
 	}
 }
 
+// placedModel positions a view's parts with the DiagramLayout library: a
+// canvas, a placed and sized tank, a collapsed pump, and a routed connection.
+const placedModel = `package Plant {
+    private import DiagramLayout::*;
+    port def FluidPort;
+    part def Pump { port outlet : FluidPort; }
+    part def Tank { port inlet : FluidPort; }
+    part def Loop {
+        part pump : Pump;
+        part tank : Tank;
+        connection supply connect pump.outlet to tank.inlet;
+    }
+}
+package PlantViews {
+    private import Views::*;
+    private import StandardViewDefinitions::*;
+    private import DiagramLayout::*;
+    view placedView {
+        expose Plant::Loop;
+        render asInterconnectionDiagram;
+        @Canvas { unit = "px"; width = 1200; height = 800; }
+        metadata Layout about Plant::Loop::pump { x = 300; y = 40; collapsed = true; }
+        metadata Layout about Plant::Loop::tank { x = 500; y = 40; width = 120; height = 60; }
+        metadata Route about Plant::Loop::supply { points = (400, 70, 450, 120, 500, 70); }
+    }
+}
+`
+
+// A view whose elements the model places writes its DOT with the positions
+// pinned and the header naming the neato mode that keeps them.
+func TestRenderDotFormWritesPositions(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, placedModel, "-render", "PlantViews::placedView", "-render-form", "dot")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"// layout: neato -n2", `graph [bb="0,0,900,600"];`, `pos="420,547.5!", pin=true, width=1.25, height=0.625, fixedsize=true`, `"n1" -> "n2" [label="supply", arrowhead=none, pos="300,547.5 `} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+}
+
 // TestRenderSeveralFiles checks that a view declared in one file renders the
 // elements its sibling files declare, loaded as one model, on stdout and into
 // -o in the form -render-form names.

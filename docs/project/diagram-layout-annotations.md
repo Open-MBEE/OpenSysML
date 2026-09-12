@@ -1,10 +1,11 @@
 # Diagram layout annotations — design
 
-Status: **the read side is implemented** — the `DiagramLayout` library, the semantic
-side table that resolves a position per view, the geometry the rendering tree carries,
-what the Mermaid and text writers make of it, the LSP fields, and the validation pass.
-Open: a writer that lays a diagram out from the positions (a Graphviz `dot` form), the
-write-back of positions from a graphical editor, and the OMG proposal. It records the
+Status: **the read side and a layout-honoring writer are implemented** — the
+`DiagramLayout` library, the semantic side table that resolves a position per view, the
+geometry the rendering tree carries, what the Mermaid and text writers make of it, the
+LSP fields, the validation pass, and the Graphviz `dot` form that pins nodes and routes
+where the model says. Open: the write-back of positions from a graphical editor, and the
+OMG proposal. It records the
 design agreed for carrying diagram geometry in textual notation and how that geometry
 reaches every rendering OpenSysML produces.
 
@@ -225,12 +226,108 @@ reads a feature rather than a literal is already an error of the type tier
 |---|---|---|
 | `mermaid` | Not representable | Written as comments after the header so a round trip through the artifact keeps them: `%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120 y=80 w=200 h=90 collapsed`, `%% route: n1->n2 320,125 400,125 480,125`. Node ids are the ones the diagram body uses. |
 | `text` | Not representable | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
+| `dot` | Honored | `pos="x,y!"`, `pin=true`, `width`/`height`/`fixedsize=true` on a placed node, `pos` as a B-spline on a routed edge, `bb` on the root graph and on a sized cluster, and a `// layout: neato -n` or `-n2` header — see [The DOT form](#the-dot-form). |
 | `markdown` (table) | n/a | — |
 | LSP `opensysml/render` | Structured | Optional `x`, `y`, `width`, `height`, `collapsed` on a node, `route` on an edge, `canvas` on the result — see [the LSP reference](../reference/lsp.md). |
 
 Numbers print in their shortest exact form (`strconv.FormatFloat(v, 'f', -1, 64)`), so
 `120` stays `120` and `12.5` stays `12.5`. A model without layout annotations produces
 exactly the bytes it produced before; the existing rendering goldens pin that.
+
+### The DOT form
+
+Graphviz is the one target that can draw a node where the model says, so the `dot` form
+(`internal/core/view/dot.go`, `dotGeometry`) writes the geometry as Graphviz attributes
+rather than as comments. Nothing runs Graphviz — the writer, the tests and the PDF backend
+produce and check text — so what follows is what the text asks of a `neato` that reads
+it; the choices are verified against the Graphviz documentation of
+[the command line](https://graphviz.org/doc/info/command.html), [`pos`](https://graphviz.org/docs/attrs/pos/),
+[`splineType`](https://graphviz.org/docs/attr-types/splineType/), [`inputscale`](https://graphviz.org/docs/attrs/inputscale/),
+[`bb`](https://graphviz.org/docs/attrs/bb/) and [`pin`](https://graphviz.org/docs/attrs/pin/).
+
+**Coordinates.** The rendering is in pixels from the top-left corner, y downward. Graphviz
+reads a `pos` in points (1/72 in) from the bottom-left corner, y upward — `neato -n`
+treats input coordinates as points — and a node's `width` and `height` in inches. The
+writer converts, in this order:
+
+- *Corner to centre.* `Layout.x`/`y` is the top-left corner of the node's box; Graphviz's
+  `pos` is its centre. A node with a size is pinned at `(x + width/2, y + height/2)`. A
+  node without one has no box to offset by, so its point is taken as the centre.
+- *Y flip.* `y' = H − y`, where `H` is `Canvas.height` when the canvas states an extent,
+  otherwise the largest `y + height` over the rendering's placed nodes (a node without a
+  size counts its `y`), computed once per rendering so every position of the file flips
+  against the same height. With neither, `H` is 0.
+- *Pixels to points.* `1 px = 0.75 pt` (the CSS convention, 96 px to the inch). A canvas
+  whose `unit` is `"pt"` converts one to one. Any other unit is not converted: the writer
+  falls back to px and says so in a `// not represented: canvas unit "mm"; positions are
+  converted as px (1 px = 0.75 pt)` header line. A canvas without geometry to convert is
+  not noticed.
+- *Sizes.* `width` and `height` are the box in inches: `px × 0.75 / 72`, with
+  `fixedsize=true` so the label does not grow the box.
+
+A converted number is written to at most four decimals in its shortest form, so a third
+of a pixel is `0.25` pt and not sixteen digits, and `-0` never appears.
+
+**Nodes.** A placed node writes `pos="<x>,<y>!"` and `pin=true` after its shape and
+label, then `width`, `height` and `fixedsize=true` when it is sized. The `!` and `pin`
+are Graphviz's two ways of saying the same thing to `neato`; both are written so the file
+reads the same to a person and to either check. A collapsed node (`collapsed = true` on a
+node that has children) is written as a leaf: no `subgraph`, its label unchanged, its
+children not written; an edge at a hidden child is drawn at the collapsed node, and an
+edge between two hidden children of one collapsed node is dropped. A collapsed node
+without children is an ordinary leaf.
+
+**Clusters.** Graphviz cannot pin a cluster. A placed node that is drawn as a cluster
+pins its invisible anchor node — the node an edge to or from the cluster names — at the
+cluster's centre, and when the node is sized the subgraph states its box as
+`bb="<llx>,<lly>,<urx>,<ury>"` in points. `neato -n` reads a cluster's `bb` and draws the
+cluster from it (its no-op initialization parses the attribute; the `bb` documentation
+describes only the output side), so a sized cluster keeps its box. A cluster without a
+size states no `bb`, which leaves `neato -n` no box to draw the cluster from; the header
+notices it: `// not represented: the box of n1, which has no size (neato -n draws a
+cluster from its bb alone)`. A cluster that is not placed at all, but holds placed
+members, sets its anchor — unpinned, `pos="<x>,<y>"` — at the centre of its members'
+extent, so `neato -n` has the position it requires on every node and draws the cluster
+around the members; a cluster with no placed member has no anchor position and counts
+as unplaced.
+
+**Edges.** Graphviz's edge `pos` is a `splineType`: a list of `3n + 1` B-spline control
+points. Authored `Route.points` are a polyline. The writer emits the spline that draws
+that polyline exactly — for each segment `P → Q` the cubic
+
+```text
+P,  P + (Q − P)/3,  P + 2(Q − P)/3,  Q
+```
+
+sharing `Q` with the next segment, so `n` waypoints become `3(n − 1) + 1` control points
+(two waypoints are four points, three are seven). Each point is converted as a node
+position is. No `e,x,y`/`s,x,y` endpoint is written — the route is drawn as authored,
+with no arrowhead clipping point — and no `lp` (label position): Graphviz places the
+label. A route of one waypoint draws no line, is not written, and is noticed. `splines`
+is not set; `neato -n2` keeps a supplied `pos` whatever `splines` says.
+
+**Header and graph.** The `// layout:` header names the command the file is written
+for:
+
+| Geometry | Header | Why |
+|---|---|---|
+| none | `// layout: dot` | Byte-identical to a rendering without the library. |
+| node positions only | `// layout: neato -n` | `-n` keeps every node's `pos` and routes the edges itself. |
+| any edge route | `// layout: neato -n2` | `-n2` keeps node `pos` *and* every edge `pos` supplied, routing only the edges without one. |
+
+`neato -n` requires a `pos` on every node, so a rendering that places some nodes but not
+all is noticed (`no position for 1 of 3 nodes (neato -n needs one on every node; neato -s72
+keeps the pinned ones and places the rest)`, counting the drawn nodes and anchors without
+one): `neato -s72` — no `-n`, input scale 72 so the points are read as points — honors
+`pin=true` and lays out the rest. When the canvas states an extent the root graph
+carries `bb="0,0,<w>,<h>"` in points, after `rankdir` and `compound`; `size` is not
+used, since it is a maximum and not a canvas. The graph attribute list is otherwise
+untouched.
+
+**Not representable.** A cluster's own position, when it has no size (noticed, above);
+a canvas unit other than `px` or `pt` (noticed, converted as px); a route of one waypoint
+(noticed); `Layout.collapsed` on a leaf (nothing to fold). Layout the writer has no say
+in — label placement, arrowhead clipping, the layout of unplaced nodes — is Graphviz's.
 
 ## Interop
 
@@ -246,10 +343,6 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
 
 ## Open items
 
-- **A layout-honoring writer.** Mermaid cannot place a node, so a `dot` form (Graphviz;
-  `pos="x,y!"`, `pin=true`, `neato -n`) is the writer that would draw the model where the
-  annotations say. The geometry it needs is on the rendering tree; the form and its
-  emission of positions are not yet written.
 - **Write-back** from a graphical editor's layout into the view body.
 - **Standardization.** A proposal to the SysML v2 taskforce is drafted in
   [omg-issues.md](omg-issues.md) and not filed.

@@ -431,8 +431,14 @@ one `// not represented:` line per notice, the same header Mermaid writes as `%%
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow. Producing DOT needs no Graphviz installation; laying it out does
-(`dot -Tsvg view.dot`). A `sequence` view has no DOT counterpart and, like a `table`, is refused
-with status 2 when `dot` is forced.
+(`dot -Tsvg view.dot`). Positions the model states with the `DiagramLayout` library are written
+as Graphviz geometry — a placed node is pinned at its centre (`pos="x,y!"`, `pin=true`, its size
+as `width`/`height`), a routed edge carries its waypoints as a `pos` spline, a sized canvas is the
+graph's `bb` — converted from pixels, y down, to points, y up (`1 px = 0.75 pt`). The
+`// layout:` header then names the command that keeps them: `neato -n` when nodes are placed,
+`neato -n2` when an edge is routed too (`neato -n2 -Tsvg view.dot`); a rendering without
+geometry stays `// layout: dot`, byte for byte. A `sequence` view has no DOT counterpart and,
+like a `table`, is refused with status 2 when `dot` is forced.
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The
 `DiagramLayout` library (bundled, imported like any other) states that in notation: a

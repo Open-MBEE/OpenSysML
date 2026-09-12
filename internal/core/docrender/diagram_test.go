@@ -97,6 +97,30 @@ func TestDiagramDotForm(t *testing.T) {
 	}
 }
 
+// A positioned diagram's DOT fence carries the pinned positions and the route,
+// through the same writer a view render uses.
+func TestDiagramDotFormWritesPositions(t *testing.T) {
+	placed := graphRendering(view.KindInterconnection)
+	placed.Roots[0].Geometry = &view.Geometry{X: 10, Y: 20, Width: 40, Height: 20, HasSize: true}
+	placed.Roots[1].Geometry = &view.Geometry{X: 100, Y: 20}
+	placed.Edges[0].Route = []view.Point{{X: 50, Y: 30}, {X: 100, Y: 30}}
+	placed.Canvas = &view.Canvas{Unit: "px", Width: 200, Height: 100, HasSize: true}
+	got := renderedDiagramForm(t, "", placed, view.DirectionLeftRight, view.FormDot)
+	if !strings.HasPrefix(got, "```dot\n// kind: interconnection\n// layout: neato -n2\n") {
+		t.Errorf("header:\n%s", got)
+	}
+	for _, want := range []string{
+		`graph [rankdir=LR, bb="0,0,150,75"];`,
+		`"n0" [label="part a", pos="22.5,52.5!", pin=true, width=0.4167, height=0.2083, fixedsize=true];`,
+		`"n1" [label="part b", pos="75,60!", pin=true];`,
+		`"n0" -> "n1" [arrowhead=none, pos="37.5,52.5 50,52.5 62.5,52.5 75,52.5"];`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+}
+
 // The diagram form is resolved once per render: empty is Mermaid, and a form
 // no diagram is written as is a typed error before anything is written.
 func TestDiagramFormResolution(t *testing.T) {
