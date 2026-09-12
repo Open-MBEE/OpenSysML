@@ -375,9 +375,8 @@ var undeterminedAware = map[string]bool{
 	"SequenceFunctions::last": true,
 }
 
-// undeterminedInvocation applies a function to an open argument once its declared
-// type and count may meet the parameter's: undetermined, of the count the result
-// declares, unless the function decides open arguments itself.
+// undeterminedInvocation applies a function to an open argument its parameter may take:
+// undetermined, of the result's declared count, unless the function decides open arguments.
 func (ctx *Context) undeterminedInvocation(name string, args []Value) (Value, bool, error) {
 	if _, open := undeterminedIn(args...); !open {
 		return Value{}, false, nil
@@ -392,9 +391,8 @@ func (ctx *Context) undeterminedInvocation(name string, args []Value) (Value, bo
 	return val, open, nil
 }
 
-// openArgumentsOf rejects an open argument to the library function name whose
-// declared type admits no value of the type declared for its parameter, or whose
-// count the parameter's multiplicity admits no value of.
+// openArgumentsOf rejects an open argument to the library function name whose declared
+// type or count admits no value the parameter's type and multiplicity admit.
 func (ctx *Context) openArgumentsOf(name string, args []Value) error {
 	fn := ctx.librarySymbol(name)
 	if fn == nil {
@@ -558,9 +556,8 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 	return undeterminedFeatureValue(openCountReason(spelled, feature.Multiplicity), feature.Multiplicity, feature.Symbol), true
 }
 
-// openCollectionValue is the model-level value of a collection whose count the model
-// leaves open: undetermined, certainly holding what its subsetters contribute, of a
-// count no fewer than they number or than an open subsetter holds.
+// openCollectionValue is the model-level value of a collection of open count: undetermined,
+// certainly holding what its subsetters contribute, of a count no fewer than those hold.
 func openCollectionValue(spelled string, feature *EffectiveFeature, open *openPopulation) Value {
 	mult := feature.Multiplicity
 	count := mult

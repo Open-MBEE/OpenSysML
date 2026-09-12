@@ -1027,9 +1027,8 @@ func TestNamedConditionalChecksOpenTest(t *testing.T) {
 	}
 }
 
-// An open operand that certainly holds several values is no scalar: the operators and
-// functions taking exactly one value refuse it as they refuse a determined sequence,
-// while one that may hold a single value stays open and collections are still taken.
+// An open operand certainly holding several values is no scalar: one-valued operators and
+// functions refuse it as they refuse a sequence; one that may hold one value stays open.
 func TestSeveralOpenValuesAreNoScalar(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for _, src := range []string{
@@ -1064,9 +1063,8 @@ func TestSeveralOpenValuesAreNoScalar(t *testing.T) {
 	}
 }
 
-// A model-level read of a collection reads the features subsetting it the same way:
-// an open subsetter is not made up to its lower bound, and contributes no objects but
-// the fewest it holds — so its count, not made-up members, answers.
+// A model-level read reads a collection's open subsetters as it reads the collection:
+// not made up to their lower bounds, contributing the fewest they hold and no objects.
 func TestOpenSubsettersAreNotMaterializedAtModelLevel(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, count := range map[string]string{

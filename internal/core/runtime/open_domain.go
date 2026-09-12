@@ -27,9 +27,8 @@ func (ctx *Context) openOperandType(val Value) *symbols.Symbol {
 	return ctx.extractType(u.feature)
 }
 
-// describeOpenOperand describes an operand for a diagnostic, an open one by the
-// type its feature declares and the count it certainly holds, e.g. "an undetermined
-// String" or "an undetermined String sequence".
+// describeOpenOperand describes an operand for a diagnostic, an open one by its declared
+// type and certain count: "an undetermined String", "an undetermined String sequence".
 func (ctx *Context) describeOpenOperand(val Value) string {
 	if val.Kind != ValUndetermined {
 		return describeOperand(val)
