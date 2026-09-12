@@ -21,9 +21,9 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `cmd/pilot-diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured at the `2026-08` re-pin, with a fresh library cache: `371 file(s), 343 fully agreeing; 34 agreed,
-  37 only ours, 1105 only the pilot's`, JSON totals `openSysMLDiagnostics 74 / pilotDiagnostics
-  1142 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
+- Measured after the runtime showcase round at the `2026-08` pin, with a fresh library cache: `375 file(s), 344 fully agreeing; 34 agreed,
+  38 only ours, 1113 only the pilot's`, JSON totals `openSysMLDiagnostics 75 / pilotDiagnostics
+  1150 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
   rebuild of `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run
   carried (`The opposite features 'owningType' … do not refer to each other`) are gone: the pilot
   fixed its `ownedDisjoining` delegate, and nothing on our side moved. `kerml-examples` carries no `syntax` diagnostic on either
@@ -136,8 +136,8 @@ The harness compares OpenSysML diagnostics against the OMG SysML v2 Pilot Implem
 (via two pinned plain-Java bridges over the pilot's own validators) over four corpus roots and writes
 `build/pilot-diff/pilot-diff.{txt,json}`. `docs/project/pilot-differential-baseline.json` is the
 committed result of the *last refreshed* run, so **the harness is testable by reproduction** —
-but only while the baseline is current. Check that first. As of the `2026-08` re-pin it **is**
-current: a live run gives `371 file(s), 343 fully agreeing; 34 agreed, 37 only ours, 1105 only the
+but only while the baseline is current. Check that first. As of the rebaseline that came with the runtime showcase round it **is**
+current: a live run gives `375 file(s), 344 fully agreeing; 34 agreed, 38 only ours, 1113 only the
 pilot's`, byte-identical to the committed baseline, and `docs/project/pilot-differential.md`'s
 "Results" table matches. The rebaseline before it, at the architecture self-model's landing, covered two rounds, because the succession-shorthand
 removal before it landed without refreshing the baseline; a control run of its merge commit gives

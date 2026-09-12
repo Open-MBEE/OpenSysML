@@ -103,8 +103,11 @@
       text-decoration: underline;
     }
 
-    /* The showcase: one terminal whose panes (real sessions) share a grid cell, so it
-       keeps the tallest pane's height as they rotate. Without script the first shows. */
+    /* The showcase: one terminal of fixed height whose panes (real sessions) share a
+       grid cell, so every slide is the same size as they rotate. A wide or tall
+       transcript scrolls both ways behind hidden scrollbars; the caption floats over
+       the bottom of the pane. A pane prints itself when it comes up. Without script the
+       first pane shows, complete. */
     .osml-terminal {
       background: rgba(0, 0, 0, .38);
       border: 1px solid rgba(255, 255, 255, .18);
@@ -135,9 +138,14 @@
     }
     .osml-terminal__panes {
       display: grid;
+      height: 22rem;
     }
     .osml-pane {
       grid-area: 1 / 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
       visibility: hidden;
       opacity: 0;
       transition: opacity .35s;
@@ -147,12 +155,31 @@
       opacity: 1;
     }
     .osml-terminal pre {
+      flex: 1;
+      min-height: 0;
       margin: 0;
-      padding: .9rem 1rem;
+      padding: .9rem 1rem 2.6rem;
       font-size: .62rem;
       line-height: 1.65;
       color: #e8eaf6;
-      overflow-x: auto;
+      overflow: auto;
+      scrollbar-width: none;
+    }
+    .osml-terminal pre::-webkit-scrollbar {
+      display: none;
+    }
+    .osml-pane.is-printing code::after {
+      content: "";
+      display: inline-block;
+      width: .5em;
+      height: 1em;
+      margin-left: .05em;
+      vertical-align: -.15em;
+      background: #e8eaf6;
+      animation: osml-blink 1s steps(1) infinite;
+    }
+    @keyframes osml-blink {
+      50% { opacity: 0; }
     }
     .osml-terminal .osml-prompt { color: #90caf9; }
     .osml-terminal .osml-ok     { color: #a5d6a7; }
@@ -192,16 +219,23 @@
       color: var(--osml-hero-from);
     }
     .osml-pane__more {
-      display: block;
-      padding: .45rem 1rem .6rem;
+      position: absolute;
+      right: .7rem;
+      bottom: .6rem;
+      padding: .3rem .7rem;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: 1rem;
+      background: rgba(20, 24, 60, .82);
       font-size: .62rem;
       color: #fff;
-      opacity: .75;
+      opacity: .85;
       text-decoration: underline;
+      transition: opacity .2s, border-color .2s;
     }
     .osml-pane__more:hover,
     .osml-pane__more:focus {
       opacity: 1;
+      border-color: #fff;
     }
     @media (prefers-reduced-motion: reduce) {
       .osml-pane { transition: none; }
@@ -424,22 +458,26 @@
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">
       <p class="osml-hero__eyebrow">SysML v2 &middot; KerML 1.1 &middot; written in Go</p>
-      <h1>Author, check and run systems models from one toolchain.</h1>
+      <h1>A SysML v2 toolchain that runs the model, not just reads it.</h1>
       <p class="osml-hero__lede">
-        OpenSysML parses and validates SysML v2 and KerML 1.1, serves an editor over
-        the Language Server Protocol, executes actions, state machines and constraints,
-        and exports models as RDF — with Go, Python, Node, Java and Rust clients for the
-        same runtime.
+        OpenSysML materializes the instances a model describes, evaluates their features with
+        units carried and checked, performs actions and advances state machines on a clock, and
+        decides requirements and analysis objectives against what it finds — so it reports
+        what a validator or expression evaluator cannot reach: the rollup with an unvalued
+        leaf, the result in the wrong dimension, the action with no step to start at. It also
+        parses, validates, serves an editor over LSP and exports RDF, with Go, Python, Node,
+        Java and Rust clients for the same runtime.
       </p>
       <div class="osml-hero__actions">
         <a class="osml-btn osml-btn--primary" href="{{ 'guide/01-install/'|url }}">Install</a>
         <a class="osml-btn" href="{{ 'guide/'|url }}">Read the guide</a>
         <a class="osml-btn" href="{{ config.repo_url }}">Source</a>
+        <a class="osml-btn" href="{{ config.repo_url }}/blob/main/examples/runtime-showcase/README.md">Runtime showcase</a>
         <a class="osml-btn" href="#refereed">How it compares</a>
       </div>
       <p class="osml-hero__meta">
         Apache-2.0 &middot; Linux, macOS and Windows binaries &middot;
-        <a href="#numbers">parses the Apollo 11 model in 8 ms</a>
+        <a href="#numbers">loads the Apollo 11 model in 0.43 s, and finds what running it turns up</a>
       </p>
     </div>
     <div class="osml-showcase" data-osml-showcase>
@@ -448,7 +486,42 @@
           <span class="osml-terminal__title" data-osml-title>sysml — REPL</span></div>
         <div class="osml-terminal__panes">
 
-<div class="osml-pane is-active" id="osml-pane-repl" role="tabpanel" aria-labelledby="osml-tab-repl" data-title="sysml — REPL">
+<div class="osml-pane is-active" id="osml-pane-analysis" role="tabpanel" aria-labelledby="osml-tab-analysis" data-title="sysml — running an analysis">
+<pre><code><span class="osml-prompt">$</span> sysml -quiet -analysis DeltaVBudget::saturnIBAscent delta-v-budget.sysml
+<span class="osml-ok">✓ package DeltaVBudget</span>
+<span class="osml-ok">✓ DeltaVBudget::saturnIBAscent</span>
+  stage1DeltaV = 3037.6966629706967 [SI::'m/s']
+  stage2DeltaV = 6432.955324716369 [SI::'m/s']
+  margin = 70.65198768706614 [SI::'m/s']
+  <span class="osml-ok">objective reachesOrbit: satisfied</span>
+
+<span class="osml-prompt">$</span> sysml -quiet -analysis "DeltaVBudget::saturnIBAscent(<span class="osml-hl">required = 9800 ['m/s']</span>)" delta-v-budget.sysml
+<span class="osml-ok">✓ package DeltaVBudget</span>
+<span class="osml-err">✗ DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])</span>
+  <span class="osml-dim">…</span>
+  margin = -329.34801231293386 [SI::'m/s']
+  <span class="osml-err">objective reachesOrbit: not satisfied: margin &gt; 0 ['m/s']</span>
+</code></pre>
+<a class="osml-pane__more" href="{{ config.repo_url }}/blob/main/examples/runtime-showcase/README.md">The runtime showcase, with this model</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-found" role="tabpanel" aria-labelledby="osml-tab-found" data-title="sysml — what only running it finds">
+<pre><code><span class="osml-prompt">$</span> sysml -validate mass-rollup.sysml
+<span class="osml-ok">✓ package MassRollup</span>
+<span class="osml-ok">✓ mass-rollup.sysml: no errors</span>
+
+<span class="osml-prompt">$</span> sysml -quiet -e MassRollup::saturnVWithIU.totalMass mass-rollup.sysml
+<span class="osml-ok">✓ package MassRollup</span>
+<span class="osml-err">sysml: evaluation failed: feature value saturnVWithIU.totalMass: feature value InstrumentUnit.totalMass: no value for feature mass</span>
+
+<span class="osml-prompt">$</span> sysml -quiet -calc "DeltaVBudget::InjectionDeltaV(3.986E14 [SI::N], 6563000 [SI::m], 384400000 [SI::m])" delta-v-budget.sysml
+<span class="osml-ok">✓ package DeltaVBudget</span>
+<span class="osml-err">sysml: calc invocation failed: calc DeltaVBudget::InjectionDeltaV: result: type mismatch: cannot write 3135.1638390999387 [kg**0.5/s] (dimension M^0.5·T^-1) to a feature typed by SpeedValue (dimension L·T^-1)</span>
+</code></pre>
+<a class="osml-pane__more" href="{{ config.repo_url }}/blob/main/examples/runtime-showcase/README.md">Every one of these, reproduced</a>
+</div>
+
+<div class="osml-pane" id="osml-pane-repl" role="tabpanel" aria-labelledby="osml-tab-repl" data-title="sysml — REPL">
 <pre><code><span class="osml-prompt">sysml&gt;</span> part def Wheel { attribute diameter = 16.0; }
 <span class="osml-ok">✓ part def Wheel</span>
 
@@ -576,7 +649,9 @@ Vehicles::Car::wheels  PartUsage
         </div>
       </div>
       <ul class="osml-showcase__tabs" role="tablist" aria-label="What the toolchain does">
-        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-repl" aria-controls="osml-pane-repl" aria-selected="true">REPL</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-analysis" aria-controls="osml-pane-analysis" aria-selected="true">Analysis</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-found" aria-controls="osml-pane-found" aria-selected="false" tabindex="-1">Found at runtime</button></li>
+        <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-repl" aria-controls="osml-pane-repl" aria-selected="false" tabindex="-1">REPL</button></li>
         <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-docs" aria-controls="osml-pane-docs" aria-selected="false" tabindex="-1">Documents</button></li>
         <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-check" aria-controls="osml-pane-check" aria-selected="false" tabindex="-1">Check</button></li>
         <li role="presentation"><button class="osml-showcase__tab" type="button" role="tab" id="osml-tab-run" aria-controls="osml-pane-run" aria-selected="false" tabindex="-1">Run</button></li>
@@ -588,17 +663,99 @@ Vehicles::Car::wheels  PartUsage
 </section>
 <script>
 (function () {
-  var INTERVAL = 7000;
+  var DWELL = 4500;      // ms a pane stays once printed, before the next comes up
+  var TYPE_MS = 14;      // per character of a command, plus up to as much again of jitter
+  var LINE_MS = 30;      // per line of output
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  // Refills the pane's text nodes in place: commands typed per character, output per line;
+  // the <pre> follows the tail until the reader scrolls it.
+  function printer(pane) {
+    var pre = pane.querySelector("pre");
+    var code = pane.querySelector("pre > code");
+    var nodes = [];
+    var timer = null;
+    var follow = true;
+    if (code) {
+      var walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT, null, false);
+      var node;
+      while ((node = walker.nextNode())) {
+        nodes.push({ node: node, text: node.data, prompt: !!node.parentNode.closest(".osml-prompt") });
+      }
+    }
+
+    function unfollow() { follow = false; }
+    if (pre) {
+      pre.addEventListener("wheel", unfollow, { passive: true });
+      pre.addEventListener("touchmove", unfollow, { passive: true });
+    }
+
+    function restore() {
+      nodes.forEach(function (n) { n.node.data = n.text; });
+    }
+
+    function cancel() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      pane.classList.remove("is-printing");
+      restore();
+    }
+
+    function run(done) {
+      cancel();
+      if (reduceMotion.matches || !nodes.length) { done(); return; }
+      nodes.forEach(function (n) { n.node.data = ""; });
+      pre.scrollTop = 0;
+      pre.scrollLeft = 0;
+      follow = true;
+      pane.classList.add("is-printing");
+      var i = 0, pos = 0, typing = false;
+
+      function step() {
+        if (i >= nodes.length) {
+          timer = null;
+          pane.classList.remove("is-printing");
+          done();
+          return;
+        }
+        var n = nodes[i], delay;
+        if (n.prompt) {
+          n.node.data = n.text;
+          pos = n.text.length;
+          typing = true;
+          delay = TYPE_MS * 6;
+        } else if (typing) {
+          var ch = n.text.charAt(pos++);
+          n.node.data += ch;
+          if (ch === "\n") typing = false;
+          delay = TYPE_MS + Math.random() * TYPE_MS;
+        } else {
+          var end = n.text.indexOf("\n", pos);
+          end = end < 0 ? n.text.length : end + 1;
+          n.node.data += n.text.slice(pos, end);
+          pos = end;
+          delay = LINE_MS;
+        }
+        if (pos >= n.text.length) { i++; pos = 0; }
+        if (follow) pre.scrollTop = pre.scrollHeight;
+        timer = setTimeout(step, delay);
+      }
+      step();
+    }
+
+    return { run: run, cancel: cancel };
+  }
 
   function setUp(root) {
     var tabs = Array.prototype.slice.call(root.querySelectorAll("[role=tab]"));
     var panes = Array.prototype.slice.call(root.querySelectorAll("[role=tabpanel]"));
+    var printers = panes.map(printer);
     var title = root.querySelector("[data-osml-title]");
     var current = 0;
     var timer = null;
+    var autoplay = false;
 
     function show(index, focus) {
+      printers[current].cancel();
       current = (index + panes.length) % panes.length;
       panes.forEach(function (pane, i) {
         pane.classList.toggle("is-active", i === current);
@@ -610,20 +767,26 @@ Vehicles::Car::wheels  PartUsage
         if (active && focus) tab.focus();
       });
       if (title) title.textContent = panes[current].getAttribute("data-title") || "";
+      printers[current].run(function () { schedule(DWELL); });
     }
 
     function stop() {
-      if (timer) { clearInterval(timer); timer = null; }
+      autoplay = false;
+      if (timer) { clearTimeout(timer); timer = null; }
     }
 
-    function start() {
-      stop();
-      if (reduceMotion.matches) return;
-      timer = setInterval(function () {
-        if (!root.isConnected) { stop(); return; }
-        if (reduceMotion.matches || root.matches(":hover") || root.contains(document.activeElement)) return;
-        show(current + 1, false);
-      }, INTERVAL);
+    function schedule(delay) {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (!autoplay || reduceMotion.matches) return;
+      timer = setTimeout(advance, delay);
+    }
+
+    function advance() {
+      timer = null;
+      if (!root.isConnected) { stop(); return; }
+      if (root.matches(":hover") || root.contains(document.activeElement)) { schedule(1000); return; }
+      show(current + 1, false);
     }
 
     tabs.forEach(function (tab, i) {
@@ -637,8 +800,8 @@ Vehicles::Car::wheels  PartUsage
       });
     });
 
+    autoplay = !reduceMotion.matches;
     show(0, false);
-    start();
   }
 
   Array.prototype.forEach.call(document.querySelectorAll("[data-osml-showcase]"), setUp);
@@ -704,6 +867,16 @@ Vehicles::Car::wheels  PartUsage
       (Airbus, MPL-2.0); the commands to repeat it are on
       <a href="{{ 'internals/performance/'|url }}#a-real-model-apollo-11">the performance page</a>.
     </p>
+    <p class="osml-numbers__source">
+      Speed is the smaller point. The pinned OMG pilot validator passes all 28 files without a
+      finding and OpenSysML's own validation reports 37 warnings and no error; asked to
+      <em>run</em> the model, the runtime stops its delta-v, reliability and injection
+      calculations and the instantiation of the mission itself at defects only execution
+      reaches — an <code>e</code> that resolves to a valueless ISO&nbsp;80000 quantity, a
+      gravitational parameter typed as a force, three mission phases with no succession between
+      them. Each is reproduced in
+      <a href="{{ config.repo_url }}/blob/main/examples/runtime-showcase/README.md#apollo-11">the showcase's Apollo 11 section</a>.
+    </p>
   </div>
 </section>
 
@@ -727,8 +900,9 @@ Vehicles::Car::wheels  PartUsage
     </a>
     <a class="osml-card" href="{{ 'guide/06-behavior/'|url }}">
       <h3>Execute behavior</h3>
-      <p>Actions, state machines, calculations and constraints really run, with a
-      step budget so a model can never spin forever.</p>
+      <p>Actions, state machines, calculations, analyses and requirements really run,
+      on materialized objects with units, with a step budget so a model can never spin
+      forever — and a well-formed model that cannot run is reported with the reason.</p>
     </a>
     <a class="osml-card" href="{{ 'guide/07-saving-and-rdf/'|url }}">
       <h3>Interoperate</h3>
