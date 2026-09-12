@@ -216,18 +216,18 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 321 committed cases, the original 32, the 62 the
+prints the current ones. State of the 329 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases` and the 59 of `undetermined_operands.cases`:
+`extent_expressions.cases` and the 67 of `undetermined_operands.cases`:
 
 ```
-agree: 183 · kind-only: 1 · order-only: 0 · disagree: 22
-pilot-unevaluated: 71 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 18
+agree: 187 · kind-only: 1 · order-only: 0 · disagree: 22
+pilot-unevaluated: 74 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 19
 both-error: 8 · nondeterministic: 0
 ```
 
@@ -308,7 +308,7 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 59 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+The 67 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
 (`attribute u;`, no type, no value) and over usages whose multiplicity leaves the count open
 (`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear` and
 `vacant[0]`), added
@@ -380,6 +380,18 @@ branches declare: `size(if u > 0 ? 1 else 2)` is `1` and agrees, `size(if u > 0 
 (3, 4))` is `2` and the last `disagree` (the pilot's `1` counts the unevaluated `if`), and
 `size(if u > 0 ? (1, 2) else 3)` is `ours-undetermined`, the branches fixing `[1..2]` between
 them.
+
+The last eight probe what a determined operand alone decides. `??` over an operand that may
+be empty yields either that operand, then holding at least one value, or the fallback, so its
+count covers both: `size(u ?? 3)` is `1` and `notEmpty(rack.loose ?? 3)` is `true`, and both
+agree (the pilot's `1` is once more the count of the unevaluated usage, its `true` the
+non-emptiness of that one element). A test that does not depend on the element decides a
+quantifier over a collection certainly holding one: `rack.gear->exists{in x; true}` is `true`
+and `rack.gear->forAll{in x; false}` is `false`, and both agree; `rack.loose->exists{in x;
+true}` is `ours-undetermined`, `loose` possibly holding nothing, where the pilot's `true`
+quantifies over the unevaluated `PartUsage`. A zero divisor fails a division whatever the open
+operand holds: `u / 0` and `u % 0` are the `division by zero` error here and
+`pilot-unevaluated` (`OperatorExpression /`, `%`), as is `u / 2`, which stays `<undetermined>`.
 
 **Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
 `ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;

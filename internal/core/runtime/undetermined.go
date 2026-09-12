@@ -297,8 +297,21 @@ func knownElementsOf(val Value) []Value {
 
 // certainlyNonEmpty reports whether the values of val number at least one.
 func certainlyNonEmpty(val Value) bool {
-	lower := countOf(val).Lower
+	return guaranteesOne(countOf(val))
+}
+
+// guaranteesOne reports whether count admits no fewer than one value.
+func guaranteesOne(count semantics.Range) bool {
+	lower := count.Lower
 	return lower.Known && (lower.Infinite || lower.Value >= 1)
+}
+
+// nonEmptyCount is count restricted to holding at least one value.
+func nonEmptyCount(count semantics.Range) semantics.Range {
+	if !guaranteesOne(count) {
+		count.Lower = semantics.Bound{Value: 1, Known: true}
+	}
+	return count
 }
 
 // certainlyEmpty reports whether the values of val number exactly zero.

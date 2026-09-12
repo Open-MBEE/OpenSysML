@@ -1223,30 +1223,33 @@ func builtinControlExists(ec *EvalContext, args []Value) (Value, error) {
 // quantify is forAll (universal=true) and exists. Both stop at the element that
 // decides the answer, so a test with an error past that element is not reached,
 // as the library's short-circuiting `and`/`or` do not reach it either. Over an open
-// collection, only the elements it certainly holds can decide; otherwise open.
+// collection, the elements it certainly holds decide first; an element it may hold
+// beyond them is tested once, standing for each, and decides where the test's
+// answer does not depend on the element.
 func (ec *EvalContext) quantify(op string, args []Value, universal bool) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	if certainlyEmpty(args[0]) {
+	source := args[0]
+	if certainlyEmpty(source) {
 		return boolValue(universal), nil
 	}
-	elements := knownElementsOf(args[0])
-	openCollection := args[0].Kind == ValUndetermined
-	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
+	elements := knownElementsOf(source)
+	over := elements
+	if mayHoldUnknown(source) {
+		over = append(slices.Clone(elements), unknownElementOf(source))
+	}
+	body, applied, err := ec.bodyOver(op, args[1], 1, over)
 	if err != nil {
 		return Value{}, err
 	}
 	if !applied {
-		if openCollection {
-			return undeterminedOne(args[0]), nil
+		if source.Kind == ValUndetermined {
+			return undeterminedOne(source), nil
 		}
 		return boolValue(universal), nil
 	}
 	var open []Value
-	if openCollection {
-		open = append(open, args[0])
-	}
 	for _, elem := range elements {
 		holds, err := ec.applyTest(op, body, elem)
 		if err != nil {
@@ -1258,6 +1261,22 @@ func (ec *EvalContext) quantify(op string, args []Value, universal bool) (Value,
 		}
 		if holds.Const.Bool != universal {
 			return boolValue(!universal), nil
+		}
+	}
+	if len(over) > len(elements) {
+		holds, err := ec.applyTest(op, body, over[len(elements)])
+		if err != nil {
+			return Value{}, err
+		}
+		switch {
+		case holds.Kind == ValUndetermined:
+			open = append(open, holds)
+		case holds.Const.Bool != universal:
+			// Decides only where the source certainly holds such an element.
+			if guaranteesOne(unknownCountOf(source)) {
+				return boolValue(!universal), nil
+			}
+			open = append(open, source)
 		}
 	}
 	if len(open) > 0 {

@@ -36,7 +36,12 @@
   `size((1, u)->collect{in x; x + 1})` is `2`; a conditional over an open test holds the count
   its branches declare, so `size(if u > 0 ? 1 else 2)` is `1` and `if b ? (1, 2) else 3` holds
   `[1..2]` values; and a feature declared `[0]` reads as the empty sequence, its count being
-  fixed.
+  fixed. `??` over an open operand that may be empty holds either that operand, then nonempty,
+  or the fallback, so `rack.loose ?? 3` holds `[1..2]` values and `size(u ?? 3)` is `1`. A test
+  that does not depend on the element decides a quantifier over a collection certainly holding
+  one, so `gear->exists{in x; true}` is `true` and `gear->forAll{in x; false}` is `false`. A
+  determined operand that alone fails an operation still fails it: `u / 0` and `u % 0` are
+  `division by zero`, in the operator and the `RealFunctions::'/'` forms alike.
 - **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
   called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
   Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run

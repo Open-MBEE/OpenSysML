@@ -490,6 +490,106 @@ func TestOpenConditionalKeepsBranchCounts(t *testing.T) {
 	}
 }
 
+// `??` over an open first operand that may be empty yields either that operand,
+// then holding at least one value, or the second: the count covers both, with
+// the second's count read from the declarations, not by evaluating it.
+func TestNullCoalescingKeepsOperandCounts(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, count := range map[string]string{
+		"u ?? 3":                                       "[1]",
+		"rack.loose ?? 3":                              "[1..2]",
+		"rack.loose ?? (1, 2)":                         "[1..2]",
+		"rack.loose ?? xs":                             "[1..4]",
+		"rack.loose ?? ()":                             "[0..2]",
+		"rack.loose ?? rack.gear":                      "[1..*]",
+		"rack.loose ?? 1 + 1":                          "[0..*]",
+		"size(rack.loose ?? 3)":                        "[1]",
+		"ControlFunctions::'??'(rack.loose, 3)":        "[1..2]",
+		"ControlFunctions::'??'(rack.loose, {(1, 2)})": "[1..2]",
+		"ControlFunctions::'??'(rack.loose, {xs})":     "[1..4]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{
+		"size(u ?? 3)": "1", "notEmpty(rack.loose ?? 3)": "true", "notEmpty(rack.gear ?? ())": "true",
+		"notEmpty(ControlFunctions::'??'(rack.loose, 3))": "true", "known ?? 3": "2.0",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+}
+
+// A test whose answer does not depend on the element decides a quantifier over an
+// open collection: over one certainly holding an element, a constant witness proves
+// exists and a constant counterexample refutes forAll; a test that never holds
+// refutes exists and one that always holds proves forAll, whatever the count. A
+// test the element leaves open, or a witness in a collection that may hold none,
+// stays open.
+func TestQuantifiersDecideFromConstantTests(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"rack.gear->ControlFunctions::exists{in x; true}":    "true",
+		"rack.gear->ControlFunctions::forAll{in x; false}":   "false",
+		"rack.many->ControlFunctions::exists{in x; true}":    "true",
+		"rack.many->ControlFunctions::forAll{in x; false}":   "false",
+		"rack.loose->ControlFunctions::exists{in x; false}":  "false",
+		"rack.loose->ControlFunctions::forAll{in x; true}":   "true",
+		"rack.many->ControlFunctions::forAll{in x; true}":    "true",
+		"xs->ControlFunctions::exists{in x; x == x or true}": "true",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"rack.loose->ControlFunctions::exists{in x; true}":        "[1]",
+		"rack.loose->ControlFunctions::forAll{in x; false}":       "[1]",
+		"rack.gear->ControlFunctions::forAll{in x; x.mass > 1.0}": "[1]",
+		"rack.gear->ControlFunctions::exists{in x; x.mass > 1.0}": "[1]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	// The test is applied to the element the collection may hold, so its errors surface.
+	if _, err := evalIn(t, ctx, scope, "rack.gear->ControlFunctions::exists{in x; 1 / 0 > 0}"); !errors.Is(err, ErrDivisionByZero) {
+		t.Errorf("rack.gear->exists{1 / 0 > 0}: err = %v, want ErrDivisionByZero", err)
+	}
+}
+
+// A determined operand that alone makes arithmetic fail — a zero divisor, the
+// unbounded `*` — fails it whatever the open operand holds, in the operator
+// notation and in the library's function forms alike; other arithmetic stays open.
+func TestDefiniteArithmeticErrorsSurviveOpenOperands(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for _, src := range []string{
+		"u / 0", "u % 0", "r / 0.0", "(u + 1) / (2 - 2)",
+		"RealFunctions::'/'(r, 0.0)", "IntegerFunctions::'%'(u, 0)", "IntegerFunctions::'/'(u, 0)",
+		"NaturalFunctions::'/'(u, 0)", "ScalarFunctions::'/'(u, 0)",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrDivisionByZero) {
+			t.Errorf("%s: err = %v, want ErrDivisionByZero", src, err)
+		}
+	}
+	for _, src := range []string{"u + *", "RealFunctions::'*'(r, *)"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: err = %v, want ErrTypeMismatch", src, err)
+		}
+	}
+	if _, err := evalIn(t, ctx, scope, "IntegerFunctions::'/'(u, 1.5)"); err == nil {
+		t.Error("IntegerFunctions::'/'(u, 1.5): no error; want the Integer domain refused")
+	}
+	if _, err := evalIn(t, ctx, scope, "RealFunctions::'+'(xs, 1.0)"); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("RealFunctions::'+'(xs, 1.0): err = %v, want ErrMultiplicityViolation", err)
+	}
+	for src, count := range map[string]string{
+		"r / 2.0": "[1]", "u / u": "[1]", "u % 3": "[1]", "RealFunctions::'/'(r, 2.0)": "[1]",
+		"RealFunctions::'-'(r)": "[1]", "NaturalFunctions::'/'(u, 2)": "[1]", "IntegerFunctions::'/'(6, u)": "[1]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+}
+
 // An instantiated object materializes its minimum multiplicity into real objects,
 // so through it the same features answer definitely; that contract does not change.
 func TestInstantiatedObjectKeepsMaterializedMinimums(t *testing.T) {

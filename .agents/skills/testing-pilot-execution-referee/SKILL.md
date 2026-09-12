@@ -63,10 +63,10 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (321 cases, all sixteen default
+Reference values at the current implementation (329 cases, all sixteen default
 fixtures):
-`agree 183 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 71 ·
-pilot-silent 14 · pilot-error 2 · ours-error 2 · ours-undetermined 18 · both-error 8 ·
+`agree 187 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 74 ·
+pilot-silent 14 · pilot-error 2 · ours-error 2 · ours-undetermined 19 · both-error 8 ·
 nondeterministic 0`.
 Five of the twenty-two `disagree` are in `undetermined_operands`: `size-slots`, where
 `size(rack.slots)` for a `part slots[3]` is `3` here, since `[3]` fixes the count, and `1`
@@ -76,7 +76,7 @@ from the pilot, which counts the one unevaluated feature-reference operand;
 `size-vacant` and `isempty-vacant`, where a `part vacant[0]` is empty here (`0`, `true`) and
 the pilot again counts the unevaluated usage (`1`, `false`); and `size-if-pairs`, where
 `size(if u > 0 ? (1, 2) else (3, 4))` is `2` here, both branches fixing it, and `1` from the
-pilot, counting the unevaluated `if`. No such pilot answer is a semantic one. The eighteen
+pilot, counting the unevaluated `if`. No such pilot answer is a semantic one. The nineteen
 `ours-undetermined` are the model-level reads of an unbound `attribute u;` and of usages
 whose multiplicity leaves the count open (`gear[1..*]`, `loose[0..2]`, `many[10001..*]`),
 where we answer `<undetermined>` and the pilot leaves the expression unevaluated.

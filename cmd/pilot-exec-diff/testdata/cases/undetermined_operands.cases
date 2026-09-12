@@ -99,3 +99,19 @@ isempty-vacant :: T :: SequenceFunctions::isEmpty(rack.vacant)
 size-if-unbound :: U :: SequenceFunctions::size(if u > 0 ? 1 else 2)
 size-if-pairs :: U :: SequenceFunctions::size(if u > 0 ? (1, 2) else (3, 4))
 size-if-differing :: U :: SequenceFunctions::size(if u > 0 ? (1, 2) else 3)
+
+# `??` over an operand that may be empty yields that operand, then nonempty, or
+# the fallback: the count covers both.
+size-coalesce-unbound :: U :: SequenceFunctions::size(u ?? 3)
+notempty-coalesce-loose :: T :: SequenceFunctions::notEmpty(rack.loose ?? 3)
+
+# A test that does not depend on the element decides a quantifier over a
+# collection certainly holding one; over one that may hold none it stays open.
+exists-constant-gear :: T :: rack.gear->ControlFunctions::exists{in x; true}
+forall-constant-gear :: T :: rack.gear->ControlFunctions::forAll{in x; false}
+exists-constant-loose :: T :: rack.loose->ControlFunctions::exists{in x; true}
+
+# A zero divisor fails the division whatever the open operand holds.
+div-unbound-by-zero :: U :: u / 0
+mod-unbound-by-zero :: U :: u % 0
+div-unbound-by-two :: U :: u / 2

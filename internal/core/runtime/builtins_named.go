@@ -104,7 +104,8 @@ func builtinControlNullCoalesce(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	return coalesceNull(args[0], func() (Value, error) { return ec.evalDeferred(op, args[1]) })
+	second := func() (Value, error) { return ec.evalDeferred(op, args[1]) }
+	return coalesceNull(args[0], second, ec.deferredCount(args[1]))
 }
 
 // builtinControlLogical is ControlFunctions::'and', 'or' or 'implies': the

@@ -1862,15 +1862,21 @@ func (ec *EvalContext) evalNullCoalesce(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return coalesceNull(left, func() (Value, error) { return ec.Eval(n.Operands[1]) })
+	second := func() (Value, error) { return ec.Eval(n.Operands[1]) }
+	return coalesceNull(left, second, ec.declaredCount(ec.scope, n.Operands[1]))
 }
 
 // coalesceNull is `??` over an evaluated first operand: the operand unless it
-// is empty, else the second operand, evaluated only then.
-func coalesceNull(first Value, second func() (Value, error)) (Value, error) {
-	// An open operand that may be empty leaves which operand `??` yields open.
+// is empty, else the second operand, evaluated only then. fallback is the count
+// the second would yield, as far as the declarations fix it.
+func coalesceNull(first Value, second func() (Value, error), fallback semantics.Range) (Value, error) {
+	// An open operand that may be empty leaves which operand `??` yields open:
+	// the first, holding at least one value, or the second.
 	if first.Kind == ValUndetermined && !certainlyNonEmpty(first) {
-		return undeterminedOf(openRange(), first), nil
+		if certainlyEmpty(first) {
+			return second()
+		}
+		return undeterminedOf(nonEmptyCount(countOf(first)).Covering(fallback), first), nil
 	}
 	if !isEmptyValue(first) {
 		return first, nil
@@ -1962,8 +1968,12 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 // arithmeticValues applies a binary arithmetic operator to two evaluated
 // operands; the operator notation and the library's `'+'` forms both use it.
 func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
-	// An operand the model leaves open leaves the result open.
+	// An operand the model leaves open leaves the result open, unless the
+	// determined operand alone makes the operation fail.
 	if _, open := undeterminedIn(left, right); open {
+		if err := definiteArithmeticError(op, left, right); err != nil {
+			return Value{}, err
+		}
 		return undeterminedResult(left, right), nil
 	}
 	// '+' over two strings concatenates, the one arithmetic operator
@@ -2021,6 +2031,23 @@ func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, spa
 		return Value{}, err
 	}
 	return Value{Kind: ValConst, Const: res}, nil
+}
+
+// definiteArithmeticError is why op over an open operand fails whatever that
+// operand holds: the other is a zero divisor or the unbounded `*`.
+func definiteArithmeticError(op ast.OperatorKind, left, right Value) error {
+	for _, operand := range []Value{left, right} {
+		if operand.Kind == ValConst && operand.Const.IsUnbounded() {
+			return fmt.Errorf("%w: operator '%s' is not defined for the unbounded value '*'", ErrTypeMismatch, op)
+		}
+	}
+	if op != ast.OpDiv && op != ast.OpMod {
+		return nil
+	}
+	if q, ok := asQuantity(right); ok && q.Num.IsNumeric() && q.Num.AsReal() == 0 {
+		return ErrDivisionByZero
+	}
+	return nil
 }
 
 // constArithmetic is arithmetic over two scalar constants, the core the
