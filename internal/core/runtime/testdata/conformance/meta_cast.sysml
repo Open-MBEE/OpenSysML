@@ -14,6 +14,7 @@ package test {
     part def Vehicle {
         attribute mass : Real;
         part wheel : Wheel[4];
+        rep asJava language "Java" /* class Vehicle {} */
     }
 
     part def Wheel {
@@ -28,6 +29,8 @@ package test {
     abstract part def Shape {
         doc /**/
     }
+
+    dependency relies from seatBelt to Vehicle, Wheel;
 
     part def Report {
         attribute usage [*] = seatBelt meta SysML::PartUsage;
@@ -54,6 +57,16 @@ package test {
         attribute noDocs [*] = (Vehicle meta KerML::Element).documentation;
         attribute blankDocBody [*] = (Shape meta KerML::Element).documentation.body;
         attribute commentLocales [*] = (Wheel meta KerML::Namespace).ownedMember.locale;
+        attribute dependencyMetadata [*] = relies.metadata;
+        attribute dependency [*] = relies meta KerML::Element;
+        attribute notAFeature [*] = relies meta KerML::Feature;
+        attribute clients [*] = (relies meta KerML::Dependency).client.declaredName;
+        attribute suppliers [*] = (relies meta KerML::Relationship).target.qualifiedName;
+        attribute repMetadata [*] = Vehicle::asJava.metadata;
+        attribute rep [*] = Vehicle::asJava meta KerML::AnnotatingElement;
+        attribute repLanguage = (Vehicle::asJava meta KerML::TextualRepresentation).language;
+        attribute repBody = (Vehicle::asJava meta KerML::TextualRepresentation).body;
+        attribute repRepresents = (Vehicle::asJava meta KerML::TextualRepresentation)#(1).representedElement === (Vehicle meta KerML::Type)#(1);
         attribute sameElement = (seatBelt meta KerML::Type) === (seatBelt meta KerML::Feature);
         attribute sameAgain = (seatBelt meta KerML::Feature) == (seatBelt meta KerML::Feature);
         attribute otherElement = (seatBelt meta KerML::Feature) === (Vehicle meta KerML::Type);

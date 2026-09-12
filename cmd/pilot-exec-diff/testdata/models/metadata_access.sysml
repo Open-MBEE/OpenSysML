@@ -22,7 +22,10 @@ package Meta {
     part chassis : Vehicle {
         part wheel : Wheel;
         attribute mass : Real = 1.5;
+        rep asJava language "Java" /* class Chassis {} */
     }
+
+    dependency relies from seatBelt to Vehicle;
 
     attribute metadataCount = seatBelt.metadata->size();
     attribute bareMetadataCount = chassis.metadata->size();
@@ -43,4 +46,9 @@ package Meta {
     attribute metaDocQualifiedName = (Wheel meta KerML::Element).documentation.qualifiedName;
     attribute metaDocOwnerName = (Wheel meta KerML::Element).documentation.owner.declaredName;
     attribute metaNoDocCount = (Vehicle meta KerML::Element).documentation->size();
+    attribute dependencyMetadataCount = relies.metadata->size();
+    attribute metaDependencyCount = (relies meta KerML::Dependency)->size();
+    attribute metaDependencyClientName = (relies meta KerML::Dependency).client.declaredName;
+    attribute repMetadataCount = chassis::asJava.metadata->size();
+    attribute metaRepRepresentedName = (chassis::asJava meta KerML::TextualRepresentation).representedElement.declaredName;
 }

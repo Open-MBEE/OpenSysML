@@ -40,12 +40,17 @@ func declarations(scope *symbols.Scope, visit func(*symbols.Symbol)) {
 }
 
 // TestMetaclassOfEveryDeclaration: every declaration over the standard library has a
-// reflective metaclass, connector ends, bindings, transitions and satisfies included.
+// reflective metaclass, connector ends, bindings, transitions, satisfies,
+// dependencies and textual representations included.
 func TestMetaclassOfEveryDeclaration(t *testing.T) {
 	models := map[string]string{
 		"t.sysml": `package T {
 			port def P;
 			part def Wheel;
+			dependency d from Wheel to P;
+			dependency Wheel to P;
+			rep asJava language "Java" /* class Wheel {} */
+			rep language "OCL" /* true */
 			part def Car {
 				part w : Wheel[4];
 				port p : P;
@@ -61,6 +66,8 @@ func TestMetaclassOfEveryDeclaration(t *testing.T) {
 		}`,
 		"t.kerml": `package K {
 			class Wheel;
+			dependency d from Wheel to Wheel;
+			rep asJava language "Java" /* class Wheel {} */
 			class Car {
 				feature w : Wheel[4];
 				connector c from a references w to z references w;
@@ -98,6 +105,8 @@ func TestMetaclassOfRefinedKinds(t *testing.T) {
 			requirement def R;
 			satisfy requirement r : R by w;
 			end e [0..1] part x : Wheel : Wheel;
+			dependency d from w to p;
+			rep asJava language "Java" /* class Car {} */
 		}
 	}`)
 	find := func(kind symbols.SymbolKind, owner string) *symbols.Symbol {
@@ -134,6 +143,8 @@ func TestMetaclassOfRefinedKinds(t *testing.T) {
 		{byName("t"), "SysML::Systems::TransitionUsage"},
 		{byName("r"), "SysML::Systems::SatisfyRequirementUsage"},
 		{byName("e"), "SysML::Systems::ReferenceUsage"},
+		{byName("d"), "KerML::Root::Dependency"},
+		{byName("asJava"), "KerML::Root::TextualRepresentation"},
 	}
 	for _, tc := range cases {
 		meta := m.MetaclassOf(tc.sym)

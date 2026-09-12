@@ -689,12 +689,16 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if isMetadataBodyFeature(sym) {
 		return m.metadataBodyFeatureMetaclass(m.isKerMLDoc(sym))
 	}
-	// Comments and documentation are KerML annotating elements in either language.
+	// Annotating elements and dependencies are KerML elements in either language.
 	switch sym.Kind {
 	case symbols.SymbolComment:
 		return m.kermlMetaclass("Comment")
 	case symbols.SymbolDocumentation:
 		return m.kermlMetaclass("Documentation")
+	case symbols.SymbolTextualRepresentation:
+		return m.kermlMetaclass("TextualRepresentation")
+	case symbols.SymbolDependency:
+		return m.kermlMetaclass("Dependency")
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
@@ -931,8 +935,34 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.FeatureTypeSet(sym), true
+	case "client", "supplier":
+		dep, ok := sym.Decl.(*ast.Dependency)
+		if !ok {
+			return nil, false
+		}
+		if feature == "client" {
+			return m.dependencyEnds(sym, dep.Clients), true
+		}
+		return m.dependencyEnds(sym, dep.Suppliers), true
+	case "representedElement":
+		if _, ok := sym.Decl.(*ast.TextualRepresentation); !ok || sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
+			return nil, false
+		}
+		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
 	}
 	return nil, false
+}
+
+// dependencyEnds is the elements one side of a dependency names, in order; a
+// name resolving to nothing is a resolver diagnostic, not an element.
+func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) []*symbols.Symbol {
+	ends := make([]*symbols.Symbol, 0, len(names))
+	for _, name := range names {
+		if end, ok := m.resolver.ResolveQualified(sym.OwnerScope, name); ok && end != nil {
+			ends = append(ends, m.resolver.AliasedElement(end))
+		}
+	}
+	return ends
 }
 
 // ownedMembersOf is every element sym's own body declares, in declaration order:
@@ -1029,6 +1059,13 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return m.reflectiveCommentBody(sym, d.BodySpan)
 		case "locale":
 			return stringOrEmpty(lexer.StringValue(d.Locale)), true
+		}
+	case *ast.TextualRepresentation:
+		switch feature {
+		case "body":
+			return m.reflectiveCommentBody(sym, d.BodySpan)
+		case "language":
+			return stringOrEmpty(lexer.StringValue(d.Language)), true
 		}
 	case *ast.Definition:
 		switch feature {

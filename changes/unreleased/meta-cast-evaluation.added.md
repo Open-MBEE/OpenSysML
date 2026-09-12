@@ -11,8 +11,9 @@
   `isDerived`, `isEnd`, `isOrdered`, `isUnique`, `isVariable`, `isConstant`, `isPortion`,
   `isSufficient`, the element-valued `owner`, `ownedMember`, `ownedFeature`, `type` and
   `documentation` (metaobjects in turn, `definition` for a SysML usage; a `doc` comment's own
-  `body` and `locale` are its strings) and `direction` (a `FeatureDirectionKind` literal) —
-  each shaped by the feature's declared multiplicity; a feature the metaclass declares but the
+  `body` and `locale` are its strings), `direction` (a `FeatureDirectionKind` literal), a
+  dependency's `client` and `supplier`, and a textual representation's `language`, `body` and
+  `representedElement` (its owner) — each shaped by the feature's declared multiplicity; a feature the metaclass declares but the
   runtime does not derive (`ownedRelationship`, …) is a typed error naming the feature and the
   element, and a name the metaclass does not declare is the ordinary missing-member error.
   `sysml -compile` refuses a `meta` cast by name, a metaobject having no native representation;

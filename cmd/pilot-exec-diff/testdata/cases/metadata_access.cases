@@ -26,3 +26,8 @@ meta-doc-body ::  :: Meta::metaDocBody
 meta-doc-qualified-name ::  :: Meta::metaDocQualifiedName
 meta-doc-owner-name ::  :: Meta::metaDocOwnerName
 meta-no-doc-count ::  :: Meta::metaNoDocCount
+dependency-metadata-count ::  :: Meta::dependencyMetadataCount
+meta-dependency-count ::  :: Meta::metaDependencyCount
+meta-dependency-client-name ::  :: Meta::metaDependencyClientName
+rep-metadata-count ::  :: Meta::repMetadataCount
+meta-rep-represented-name ::  :: Meta::metaRepRepresentedName

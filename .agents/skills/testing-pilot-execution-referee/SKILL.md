@@ -63,22 +63,25 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (228 cases, all thirteen default
+Reference values at the current implementation (233 cases, all thirteen default
 fixtures):
-`agree 142 · kind-only 1 · order-only 0 · disagree 6 · pilot-unevaluated 59 ·
+`agree 146 · kind-only 1 · order-only 0 · disagree 7 · pilot-unevaluated 59 ·
 pilot-silent 8 · pilot-error 2 · ours-error 2 · both-error 8 ·
 nondeterministic 0`.
-Five of the six `disagree` are unrefereeable rather than verdicts against us:
+Five of the seven `disagree` are unrefereeable rather than verdicts against us:
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
 cases, where the pilot counts a `[*]` collection as `1` whether two parts
 subset it or none does (and folds a `default null` one to `0`); and
 `meta-doc-body`, where the pilot prints the comment body `/* Turns. */` with its
-trailing blank (`Turns. `) and we print `Turns.`. The sixth,
-`natural-feature-istype-natural`, is adjudicated ours: a feature's values are
-instances of all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7`
-answers `nat istype Natural` `true` where the pilot reads the literal's type alone. See
+trailing blank (`Turns. `) and we print `Turns.`. The other two are adjudicated
+ours: `natural-feature-istype-natural`, since a feature's values are instances of
+all its types (KerML 1.0 §8.3.3.3.4), so `nat : Natural = 7` answers
+`nat istype Natural` `true` where the pilot reads the literal's type alone; and
+`meta-rep-represented-name`, since `TextualRepresentation::representedElement`
+`subsets owner` in `KerML.kerml`, so we answer the owning part's name where the
+pilot answers the representation's own. See
 [pilot-execution-referee.md](../../../docs/project/pilot-execution-referee.md).
 
 ## Checks that actually distinguish working from broken
