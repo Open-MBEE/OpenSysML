@@ -78,8 +78,11 @@ digraph "VehicleViews::vehicleView" {
   In an interconnection, state or action rendering a node with children is
   `subgraph "cluster_<id>" { label="<name>"; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
-  no clusters. An edge whose end is a cluster is drawn to the first leaf inside it and clipped
-  with `lhead`/`ltail`, since DOT edges join nodes, not subgraphs.
+  no clusters. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
+  sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
+  anchor, so the rendering's endpoints survive verbatim, and is clipped at the cluster with
+  `lhead`/`ltail` — except at an end that encloses the other, where the edge starts or ends
+  inside it rather than at a border it never crosses.
 - **State kind.** A state is a rounded box, a region a dashed cluster, the start pseudo-state a
   `point`, an initial state a `circle`, a final state a `doublecircle`; a transition's label is the
   trigger/guard/effect text the state writer composes, unchanged.

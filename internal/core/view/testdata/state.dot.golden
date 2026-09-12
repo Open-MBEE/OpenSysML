@@ -7,10 +7,12 @@ digraph "MachineViews::vehicleStates" {
   node [shape=box];
   subgraph "cluster_n0" {
     label="state def Machines::VehicleStates";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n5" [shape=point, label=""];
     "n1" [shape=box, style=rounded, label="state off\ninitial"];
     subgraph "cluster_n2" {
       label="state operating";
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
       "n6" [shape=point, label=""];
       "n3" [shape=box, style=rounded, label="state idle\ninitial"];
       "n4" [shape=box, style=rounded, label="state moving"];
@@ -18,8 +20,8 @@ digraph "MachineViews::vehicleStates" {
   }
   "n5" -> "n1";
   "n6" -> "n3";
-  "n1" -> "n6" [lhead="cluster_n2"];
-  "n6" -> "n1" [ltail="cluster_n2"];
+  "n1" -> "n2" [lhead="cluster_n2"];
+  "n2" -> "n1" [ltail="cluster_n2"];
   "n3" -> "n4" [label="idle_to_moving: accept Signal [temperature > 0]"];
   "n4" -> "n3";
 }

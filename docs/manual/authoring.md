@@ -402,8 +402,8 @@ part structure : Diagram {
   graph-shaped kind is written as. `"dot"` writes Graphviz DOT for a `tree`,
   `interconnection`, `state` or `action` rendering, for a toolchain that lays
   diagrams out with Graphviz; no Graphviz installation is needed to write it.
-  Any other form, or `"dot"` on a `sequence` or `table` kind, is a typed
-  error. A `table` is written as a table whatever form is stated.
+  Any other form, `"dot"` on a `sequence` kind, and either form on a `table`
+  kind — a table has no diagram source — is a typed error.
 
 Most kinds render as a fenced ` ```mermaid ` block:
 

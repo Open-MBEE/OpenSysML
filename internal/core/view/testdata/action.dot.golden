@@ -7,10 +7,12 @@ digraph "FlowViews::driveView" {
   node [shape=box];
   subgraph "cluster_n0" {
     label="action def Flows::Drive";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [shape=circle, label="initial start"];
     "n2" [label="action provide"];
     subgraph "cluster_n3" {
       label="action monitor\nown flow";
+      "n3" [shape=point, style=invis, width=0, height=0, label=""];
       "n5" [shape=circle, label="initial begin"];
       "n6" [label="action record"];
     }
@@ -24,11 +26,11 @@ digraph "FlowViews::driveView" {
   "n5" -> "n6";
   "n1" -> "n8";
   "n2" -> "n9";
-  "n2" -> "n5" [label="torque to reading", style=dashed, lhead="cluster_n3"];
-  "n5" -> "n9" [ltail="cluster_n3"];
+  "n2" -> "n3" [label="torque to reading", style=dashed, lhead="cluster_n3"];
+  "n3" -> "n9" [ltail="cluster_n3"];
   "n7" -> "n9";
   "n8" -> "n2";
-  "n8" -> "n5" [lhead="cluster_n3"];
+  "n8" -> "n3" [lhead="cluster_n3"];
   "n8" -> "n7";
   "n9" -> "n12";
   "n11" -> "n10";

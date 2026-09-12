@@ -155,8 +155,9 @@ func TestDOTQuotesEveryIdentifierAndLabel(t *testing.T) {
 	}
 }
 
-// A node with children is a cluster, nested as deep as the rendering nests,
-// and an edge ending at one is clipped at its border.
+// A node with children is a cluster, nested as deep as the rendering nests;
+// an edge ending at one names its anchor and is clipped at its border, unless
+// the other end is inside it.
 func TestDOTNestedClusters(t *testing.T) {
 	rendering := &Rendering{
 		View: "Nested::view",
@@ -175,6 +176,8 @@ func TestDOTNestedClusters(t *testing.T) {
 			{From: "n4", To: "n1", Kind: EdgeConnection},
 			{From: "n1", To: "n5", Label: "out", Kind: EdgeFlow},
 			{From: "n2", To: "n3", Kind: EdgeConnection},
+			{From: "n0", To: "n1", Kind: EdgeTransition},
+			{From: "n2", To: "n0", Kind: EdgeTransition},
 		},
 	}
 	dot, err := rendering.DOT()
@@ -190,17 +193,21 @@ digraph "Nested::view" {
   node [shape=box];
   subgraph "cluster_n0" {
     label="part def Outer";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
     subgraph "cluster_n1" {
       label="part inner";
+      "n1" [shape=point, style=invis, width=0, height=0, label=""];
       "n2" [label="port p"];
       "n3" [label="port q"];
     }
     "n4" [label="part leaf"];
   }
   "n5" [label="part def Other"];
-  "n4" -> "n2" [arrowhead=none, lhead="cluster_n1"];
-  "n2" -> "n5" [label="out", style=dashed, ltail="cluster_n1"];
+  "n4" -> "n1" [arrowhead=none, lhead="cluster_n1"];
+  "n1" -> "n5" [label="out", style=dashed, ltail="cluster_n1"];
   "n2" -> "n3" [arrowhead=none];
+  "n0" -> "n1" [lhead="cluster_n1"];
+  "n2" -> "n0";
 }
 `
 	if dot != want {
@@ -321,8 +328,8 @@ func TestDOTStateShapesAndLabels(t *testing.T) {
 		`label="region lights";`,
 		`style=dashed;`,
 		`"n12" -> "n1" [label="[cold]"];`,
-		`"n12" -> "n13" [label="[not cold]", lhead="cluster_n2"];`,
-		`"n13" -> "n14" [ltail="cluster_n2", lhead="cluster_n5"];`,
+		`"n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];`,
+		`"n2" -> "n5" [ltail="cluster_n2", lhead="cluster_n5"];`,
 		`[label="[not dark]"]`,
 	} {
 		if !strings.Contains(dot, want) {

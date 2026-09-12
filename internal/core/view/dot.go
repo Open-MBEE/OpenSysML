@@ -2,15 +2,18 @@ package view
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
 // DOT is the Graphviz form of a graph-shaped rendering: a `digraph` for the
 // `dot` engine, written as text like the Mermaid form, with no Graphviz
 // installed. A node with children is a `subgraph "cluster_<id>"` (a tree draws
-// containment as edges, as its Mermaid form does); an edge ending at a cluster
-// is drawn to a node inside it and clipped with `lhead`/`ltail`. Edge kinds
-// parallel the Mermaid arrows:
+// containment as edges, as its Mermaid form does) holding an invisible anchor
+// node `"<id>"`, so an edge keeps the rendering's endpoints and is clipped at
+// the cluster with `lhead`/`ltail` — except at an end that encloses the other,
+// where the edge starts or ends inside it. Edge kinds parallel the Mermaid
+// arrows:
 //
 //	EdgeKind        Mermaid  DOT
 //	EdgeConnection  ---      arrowhead=none
@@ -30,17 +33,14 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 	if !r.Kind.SupportsForm(FormDot) {
 		return "", &WrongFormError{Form: FormDot, Kind: r.Kind, View: r.View}
 	}
-	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]dotCluster{}}
+	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}}
 	if !w.tree {
 		for _, root := range r.Roots {
-			w.collectClusters(root)
+			w.collectClusters(root, nil)
 		}
 	}
 	for _, edge := range r.Edges {
-		if _, ok := w.clusters[edge.From]; ok {
-			w.compound = true
-		}
-		if _, ok := w.clusters[edge.To]; ok {
+		if w.clipped(edge.From, edge.To) || w.clipped(edge.To, edge.From) {
 			w.compound = true
 		}
 	}
@@ -82,37 +82,35 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 
 // dotWriter holds what one rendering's DOT form needs across nodes and edges.
 type dotWriter struct {
-	b        strings.Builder
-	tree     bool                  // containment as edges, not clusters
-	clusters map[string]dotCluster // node ID -> the cluster drawn for it
-	compound bool                  // an edge is clipped at a cluster
+	b         strings.Builder
+	tree      bool                // containment as edges, not clusters
+	clusters  map[string]bool     // node IDs drawn as clusters
+	enclosing map[string][]string // node ID -> the cluster IDs around it
+	compound  bool                // an edge is clipped at a cluster
 }
 
-// dotCluster is a node drawn as a cluster: its name and the first leaf inside
-// it, which stands in for the cluster as an edge endpoint.
-type dotCluster struct {
-	name   string
-	anchor string
-}
-
-// collectClusters records every node under node that is drawn as a cluster.
-func (w *dotWriter) collectClusters(node *Node) {
+// collectClusters records every node under node that is drawn as a cluster
+// and the clusters each node sits in, outermost first.
+func (w *dotWriter) collectClusters(node *Node, around []string) {
+	w.enclosing[node.ID] = around
 	if len(node.Children) == 0 {
 		return
 	}
-	w.clusters[node.ID] = dotCluster{name: "cluster_" + node.ID, anchor: firstLeaf(node).ID}
+	w.clusters[node.ID] = true
+	around = append(around[:len(around):len(around)], node.ID)
 	for _, child := range node.Children {
-		w.collectClusters(child)
+		w.collectClusters(child, around)
 	}
 }
 
-// firstLeaf is the first childless node under node, in rendering order.
-func firstLeaf(node *Node) *Node {
-	for len(node.Children) > 0 {
-		node = node.Children[0]
-	}
-	return node
+// clipped reports whether an edge's end at node is clipped at node's cluster:
+// node is a cluster that does not enclose the other end.
+func (w *dotWriter) clipped(node, other string) bool {
+	return w.clusters[node] && !slices.Contains(w.enclosing[other], node)
 }
+
+// dotClusterName is the subgraph name of the cluster drawn for a node.
+func dotClusterName(id string) string { return "cluster_" + id }
 
 // graphAttributes is the graph attribute list: the layout direction when one is
 // stated, and `compound` when an edge is clipped at a cluster.
@@ -139,26 +137,25 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		}
 		return
 	}
-	fmt.Fprintf(&w.b, "%ssubgraph %s {\n", indent, dotQuote(w.clusters[node.ID].name))
+	fmt.Fprintf(&w.b, "%ssubgraph %s {\n", indent, dotQuote(dotClusterName(node.ID)))
 	for _, attr := range dotClusterAttributes(node) {
 		fmt.Fprintf(&w.b, "%s  %s;\n", indent, attr)
 	}
+	fmt.Fprintf(&w.b, "%s  %s [%s];\n", indent, dotQuote(node.ID), strings.Join(dotAnchorAttributes(), ", "))
 	for _, child := range node.Children {
 		w.writeNode(child, depth+1)
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
 }
 
-// writeEdge writes one edge. An end that is a cluster is drawn to the cluster's
-// anchor node and clipped at the cluster with `ltail`/`lhead`.
+// writeEdge writes one edge between the rendering's endpoints; an end that is
+// a cluster is its anchor node, clipped at the cluster with `ltail`/`lhead`.
 func (w *dotWriter) writeEdge(from, to string, attrs []string) {
-	if cluster, ok := w.clusters[from]; ok {
-		from = cluster.anchor
-		attrs = append(attrs, "ltail="+dotQuote(cluster.name))
+	if w.clipped(from, to) {
+		attrs = append(attrs, "ltail="+dotQuote(dotClusterName(from)))
 	}
-	if cluster, ok := w.clusters[to]; ok {
-		to = cluster.anchor
-		attrs = append(attrs, "lhead="+dotQuote(cluster.name))
+	if w.clipped(to, from) {
+		attrs = append(attrs, "lhead="+dotQuote(dotClusterName(to)))
 	}
 	if len(attrs) == 0 {
 		fmt.Fprintf(&w.b, "  %s -> %s;\n", dotQuote(from), dotQuote(to))
@@ -181,6 +178,12 @@ func dotNodeAttributes(node *Node) []string {
 		return []string{"shape=box", "style=rounded", "label=" + dotLabel(node)}
 	}
 	return []string{"label=" + dotLabel(node)}
+}
+
+// dotAnchorAttributes is a cluster's anchor node: invisible and sizeless, the
+// node an edge to or from the cluster names.
+func dotAnchorAttributes() []string {
+	return []string{"shape=point", "style=invis", "width=0", "height=0", `label=""`}
 }
 
 // dotClusterAttributes is a cluster's attribute statements: its label, and a

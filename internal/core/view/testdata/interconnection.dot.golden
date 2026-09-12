@@ -6,6 +6,7 @@ digraph "PlantViews::loopView" {
   node [shape=box];
   subgraph "cluster_n0" {
     label="part def Plant::Loop";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [label="part pump\nPump"];
     "n2" [label="part tank\nTank"];
     "n3" [label="part sensor\nPump"];
