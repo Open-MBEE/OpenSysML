@@ -1314,15 +1314,15 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainMemberValue(val, rest, variant.Name)
 	}
-	// Read through GetFeatureValue so a derived or composite member is materialized
+	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
-	fv, err := inst.GetFeatureValue(ec.ctx, name)
+	fv, open, err := ec.memberFeatureValue(inst, name)
 	if err != nil {
 		return Value{}, err
 	}
 	// An object read through the model holds, for a feature whose count the model
 	// leaves open, no fixed sequence of values.
-	if val, ok := ec.openFeatureRead(inst, fv, from, name); ok {
+	if val, ok := ec.openFeatureRead(inst, fv, open, from, name); ok {
 		return ec.chainMemberValue(val, rest, name)
 	}
 	member, err := ec.ctx.readFeatureValue(fv, name)

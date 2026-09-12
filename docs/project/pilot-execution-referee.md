@@ -216,18 +216,18 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 299 committed cases, the original 32, the 62 the
+prints the current ones. State of the 307 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases` and the 37 of `undetermined_operands.cases`:
+`extent_expressions.cases` and the 45 of `undetermined_operands.cases`:
 
 ```
-agree: 173 · kind-only: 1 · order-only: 0 · disagree: 18
-pilot-unevaluated: 69 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 12
+agree: 177 · kind-only: 1 · order-only: 0 · disagree: 19
+pilot-unevaluated: 69 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 15
 both-error: 8 · nondeterministic: 0
 ```
 
@@ -308,10 +308,10 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 37 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+The 45 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
 (`attribute u;`, no type, no value) and over usages whose multiplicity leaves the count open
-(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`), added with the undetermined result they
-referee. Fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
+(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, and `fixed :> gear`), added
+with the undetermined result they referee. Of the first 37, fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
 operand is the constant — `false and (u > 3)`, `true or (u == 1)` and `false implies (u == 1)`
 never read the second operand, and `(u > 3) and false`, `(u == 1) or true` and `(u == 1) implies
 true` answer `false`, `true`, `true` on both sides (see *Boolean folding on the second operand*
@@ -342,6 +342,19 @@ numbers: `gear[1..*]` has at least one value and `loose[0..2]` may be empty, and
 nothing further, so each is `<undetermined>` here (adjudicated in
 [spec-compliance.md](spec-compliance.md), *Expression evaluation*, and
 [docs/reference/repl-commands.md](../reference/repl-commands.md)).
+
+The last eight probe what an open collection still decides. `many[10001..*]` has a lower bound
+too large to materialize into objects, which is never attempted at model level: `size(rack.many)`
+is `ours-undetermined` (the pilot's `1` is again the count of the unevaluated `PartUsage`) and
+`notEmpty(rack.many)` agrees on `true`. `fixed :> gear` is a value `gear` certainly holds:
+`includes(rack.gear, rack.fixed)` answers `true` here and is the second `disagree`, the pilot
+answering `false` by comparing the two unevaluated `PartUsage` elements, which are distinct
+elements whatever values they hold — an artifact of non-evaluation like `size(rack.slots)`, not a
+verdict; `includes(rack.gear, rack.lone)` is `ours-undetermined`, `lone` being neither certainly
+held nor excluded. The quantifiers decide from the elements a collection certainly holds and the
+pilot agrees on all three decided forms: `(1, u)->exists{in x; x == 1}` is `true` on the witness
+`1`, `(1, u)->forAll{in x; x > 2}` is `false` on the counterexample `1`, `anyTrue((true, u == 1))`
+is `true`; `(1, u)->exists{in x; x == 2}` is `ours-undetermined`, since `u` may be `2`.
 
 **Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
 `ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;

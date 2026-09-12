@@ -20,3 +20,9 @@
   feature. Nothing changes on an object: a feature it holds nothing for reads `<unset>`, a
   required value that is missing is still `no value for feature`, and `%instantiate` still
   materializes multiplicity minimums. An unresolved name is still `unresolved reference`.
+  A model-level read never builds an open collection up to its lower bound: `part many[10001..*]`
+  reads `<undetermined>` rather than failing with a multiplicity violation, the values that
+  features subsetting the collection contribute are what it certainly holds (`includes(gear,
+  fixed)` is `true` for `part fixed :> gear`), and `forAll`, `exists`, `allTrue` and `anyTrue`
+  decide from those certain elements (`(1, u)->exists{in x; x == 1}` is `true`,
+  `(1, u)->forAll{in x; x > 2}` is `false`) before answering `<undetermined>`.

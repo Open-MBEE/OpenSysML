@@ -170,6 +170,10 @@ var undeterminedAware = map[string]bool{
 	"ControlFunctions::and":       true,
 	"ControlFunctions::or":        true,
 	"ControlFunctions::implies":   true,
+	"ControlFunctions::forAll":    true,
+	"ControlFunctions::exists":    true,
+	"ControlFunctions::allTrue":   true,
+	"ControlFunctions::anyTrue":   true,
 	"SequenceFunctions::size":     true,
 	"SequenceFunctions::isEmpty":  true,
 	"SequenceFunctions::notEmpty": true,
@@ -256,19 +260,35 @@ func certainlyEmpty(val Value) bool {
 	return ok && n == 0
 }
 
+// modelReads reports whether reading a feature of inst asserts only what the model
+// states: a model-level evaluation reading an object only the model stands behind.
+func (ec *EvalContext) modelReads(inst *Instance) bool {
+	return ec.modelLevel() && ec.ctx.readThrough(rootObject(inst))
+}
+
+// memberFeatureValue reads the named feature value of inst: through the model,
+// stopping short of making up a collection's lower bound, or as the object holds it.
+func (ec *EvalContext) memberFeatureValue(inst *Instance, name string) (*FeatureValue, *openPopulation, error) {
+	if ec.modelReads(inst) {
+		return inst.openFeatureValue(ec.ctx, name)
+	}
+	fv, err := inst.GetFeatureValue(ec.ctx, name)
+	return fv, nil, err
+}
+
 // openFeatureRead is the model-level read of an unset or open-count feature of an
 // object only the model stands behind: undetermined, of its multiplicity; not ok elsewhere.
-func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, from, name string) (Value, bool) {
+func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *openPopulation, from, name string) (Value, bool) {
 	feature := fv.Feature
-	if !ec.modelLevel() || feature == nil || feature.Symbol == nil {
-		return Value{}, false
-	}
-	if !ec.ctx.readThrough(rootObject(inst)) {
+	if !ec.modelReads(inst) || feature == nil || feature.Symbol == nil {
 		return Value{}, false
 	}
 	spelled := name
 	if from != "" {
 		spelled = from + "." + name
+	}
+	if open != nil && open.Stopped {
+		return openCollectionValue(spelled, feature, open.Contributed), true
 	}
 	if ec.ctx.holdsOnlyUnset(fv) {
 		return undeterminedFeatureValue(noValueReason(spelled), feature.Multiplicity, feature.Symbol), true
@@ -280,6 +300,20 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, from, n
 		return Value{}, false
 	}
 	return undeterminedFeatureValue(openCountReason(spelled, feature.Multiplicity), feature.Multiplicity, feature.Symbol), true
+}
+
+// openCollectionValue is the model-level value of a collection whose count the model
+// leaves open: undetermined, certainly holding what its subsetters contribute, of a
+// count no fewer than they number.
+func openCollectionValue(spelled string, feature *EffectiveFeature, contributed []Value) Value {
+	mult := feature.Multiplicity
+	count := mult
+	if held := int64(len(contributed)); held > count.Lower.Value {
+		count.Lower = semantics.Bound{Value: held, Known: true}
+	}
+	return Value{Kind: ValUndetermined, ref: &Undetermined{
+		reason: openCountReason(spelled, mult), count: count, known: contributed, feature: feature.Symbol,
+	}}
 }
 
 // holdsOnlyUnset reports a materialized feature value every element of which is

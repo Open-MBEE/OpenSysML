@@ -63,18 +63,20 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (299 cases, all sixteen default
+Reference values at the current implementation (307 cases, all sixteen default
 fixtures):
-`agree 173 · kind-only 1 · order-only 0 · disagree 18 · pilot-unevaluated 69 ·
-pilot-silent 14 · pilot-error 2 · ours-error 2 · ours-undetermined 12 · both-error 8 ·
+`agree 177 · kind-only 1 · order-only 0 · disagree 19 · pilot-unevaluated 69 ·
+pilot-silent 14 · pilot-error 2 · ours-error 2 · ours-undetermined 15 · both-error 8 ·
 nondeterministic 0`.
-One of the eighteen `disagree` is `undetermined_operands:size-slots`: `size(rack.slots)` for a
-`part slots[3]` is `3` here, since `[3]` fixes the count, and `1` from the pilot,
-which counts the one unevaluated feature-reference operand; the pilot's number is
-not a semantic answer. The twelve `ours-undetermined` are the model-level reads of an
-unbound `attribute u;` and of usages whose multiplicity leaves the count open
-(`gear[1..*]`, `loose[0..2]`), where we answer `<undetermined>` and the pilot leaves
-the expression unevaluated.
+Two of the nineteen `disagree` are in `undetermined_operands`: `size-slots`, where
+`size(rack.slots)` for a `part slots[3]` is `3` here, since `[3]` fixes the count, and `1`
+from the pilot, which counts the one unevaluated feature-reference operand; and
+`includes-subsetter`, where `includes(rack.gear, rack.fixed)` for a `part fixed :> gear` is
+`true` here and `false` from the pilot, which compares the two unevaluated usage elements.
+Neither pilot answer is a semantic one. The fifteen `ours-undetermined` are the
+model-level reads of an unbound `attribute u;` and of usages whose multiplicity leaves
+the count open (`gear[1..*]`, `loose[0..2]`, `many[10001..*]`), where we answer
+`<undetermined>` and the pilot leaves the expression unevaluated.
 Eight of the other seventeen `disagree` are the `enumeration_classification.cases`
 adjudicated ours: the pilot never consults an enumeration's enumerated values
 (`3 istype Level` false) and folds a scalar-valued literal to its Integer

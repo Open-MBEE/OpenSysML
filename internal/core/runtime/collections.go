@@ -1186,20 +1186,31 @@ func builtinControlExists(ec *EvalContext, args []Value) (Value, error) {
 
 // quantify is forAll (universal=true) and exists. Both stop at the element that
 // decides the answer, so a test with an error past that element is not reached,
-// as the library's short-circuiting `and`/`or` do not reach it either.
+// as the library's short-circuiting `and`/`or` do not reach it either. Over an open
+// collection, only the elements it certainly holds can decide; otherwise open.
 func (ec *EvalContext) quantify(op string, args []Value, universal bool) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
+	if certainlyEmpty(args[0]) {
+		return boolValue(universal), nil
+	}
+	elements := knownElementsOf(args[0])
+	openCollection := args[0].Kind == ValUndetermined
 	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
 	if err != nil {
 		return Value{}, err
 	}
 	if !applied {
+		if openCollection {
+			return undeterminedOne(args[0]), nil
+		}
 		return boolValue(universal), nil
 	}
 	var open []Value
+	if openCollection {
+		open = append(open, args[0])
+	}
 	for _, elem := range elements {
 		holds, err := ec.applyTest(op, body, elem)
 		if err != nil {
@@ -1230,18 +1241,33 @@ func builtinControlAnyTrue(ec *EvalContext, args []Value) (Value, error) {
 	return truthOf("ControlFunctions::anyTrue", args, false)
 }
 
-// truthOf is allTrue (universal=true) and anyTrue over Boolean elements.
+// truthOf is allTrue (universal=true) and anyTrue over Boolean elements; over an open
+// collection, only the elements it certainly holds can decide.
 func truthOf(op string, args []Value, universal bool) (Value, error) {
 	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	for _, elem := range elementsOf(args[0]) {
+	if certainlyEmpty(args[0]) {
+		return boolValue(universal), nil
+	}
+	var open []Value
+	if args[0].Kind == ValUndetermined {
+		open = append(open, args[0])
+	}
+	for _, elem := range knownElementsOf(args[0]) {
+		if elem.Kind == ValUndetermined {
+			open = append(open, elem)
+			continue
+		}
 		if elem.Kind != ValConst || elem.Const.Kind != semantics.ValBool {
 			return Value{}, fmt.Errorf("%w: %s requires Boolean elements, got %s", ErrTypeMismatch, op, describeValue(elem))
 		}
 		if elem.Const.Bool != universal {
 			return boolValue(!universal), nil
 		}
+	}
+	if len(open) > 0 {
+		return undeterminedOne(open...), nil
 	}
 	return boolValue(universal), nil
 }

@@ -58,3 +58,17 @@ notempty-loose :: T :: SequenceFunctions::notEmpty(rack.loose)
 size-loose :: T :: SequenceFunctions::size(rack.loose)
 size-gear-loose :: T :: SequenceFunctions::size((rack.gear, rack.loose))
 index-gear :: T :: rack.gear#(7)
+
+# A lower bound too large to materialize is still only a bound at model level.
+size-many :: T :: SequenceFunctions::size(rack.many)
+notempty-many :: T :: SequenceFunctions::notEmpty(rack.many)
+
+# An open collection certainly holds what subsets it.
+includes-subsetter :: T :: SequenceFunctions::includes(rack.gear, rack.fixed)
+includes-other :: T :: SequenceFunctions::includes(rack.gear, rack.lone)
+
+# Quantifiers decide from the elements an open collection certainly holds.
+exists-known-witness :: U :: (1, u)->ControlFunctions::exists{in x; x == 1}
+forall-known-counterexample :: U :: (1, u)->ControlFunctions::forAll{in x; x > 2}
+exists-unknown :: U :: (1, u)->ControlFunctions::exists{in x; x == 2}
+anytrue-known-witness :: U :: ControlFunctions::anyTrue((true, u == 1))

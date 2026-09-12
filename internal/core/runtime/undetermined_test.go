@@ -52,6 +52,8 @@ const undeterminedModel = `package test {
 		part gear[1..*] : D;
 		part loose[0..2] : D;
 		part lone : D;
+		part many[10001..*] : D;
+		part fixed : D :> gear;
 	}
 	enum def Mode { ON; OFF; }
 	attribute u;
@@ -271,6 +273,70 @@ func TestOpenCardinalitiesAreUndetermined(t *testing.T) {
 		if u := val.Undetermined(); u != nil && !strings.Contains(u.Reason(), "[1..*]") {
 			t.Errorf("%s: reason %q does not state the open multiplicity", src, u.Reason())
 		}
+	}
+}
+
+// A model-level read of an open collection does not make up its lower bound: one too
+// large to materialize is undetermined of its declared count rather than a violation.
+func TestOpenCollectionIsNotMaterializedAtModelLevel(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, count := range map[string]string{"rack.many": "[10001..*]", "size(rack.many)": "[1]", "rack.many.mass": "[10001..*]"} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{"notEmpty(rack.many)": "true", "isEmpty(rack.many)": "false"} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+}
+
+// An open collection certainly holds what the features subsetting it contribute:
+// membership and the count they fix answer, while the rest stays open.
+func TestOpenCollectionKnowsItsSubsetters(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"includes(rack.gear, rack.fixed)": "true", "excludes(rack.gear, rack.fixed)": "false",
+		"rack.gear->ControlFunctions::exists{in x; x == rack.fixed}": "true",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	val, err := evalIn(t, ctx, scope, "rack.gear")
+	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
+	if u := val.Undetermined(); u != nil && (len(u.Known()) != 1 || u.Known()[0].Kind != ValInstance) {
+		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.Known())
+	}
+	for src, count := range map[string]string{"size(rack.gear)": "[1]", "includes(rack.gear, rack.lone)": "[1]", "rack.gear#(2)": "[1]"} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// Quantifiers over an open collection decide from the elements it certainly holds: a
+// witness proves exists, a counterexample refutes forAll, and Boolean truth likewise.
+func TestQuantifiersDecideFromKnownElements(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"(1, u)->ControlFunctions::exists{in x; x == 1}":            "true",
+		"(1, u)->ControlFunctions::forAll{in x; x > 2}":             "false",
+		"ControlFunctions::anyTrue((true, b))":                      "true",
+		"ControlFunctions::allTrue((false, b))":                     "false",
+		"rack.gear->ControlFunctions::forAll{in x; x.tag == \"e\"}": "false",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"(1, u)->ControlFunctions::exists{in x; x == 2}":             "[1]",
+		"(1, u)->ControlFunctions::forAll{in x; x > 0}":              "[1]",
+		"ControlFunctions::anyTrue((false, b))":                      "[1]",
+		"ControlFunctions::allTrue((true, b))":                       "[1]",
+		"ControlFunctions::allTrue(b)":                               "[1]",
+		"rack.loose->ControlFunctions::forAll{in x; x.tag == \"d\"}": "[1]",
+		"rack.gear->ControlFunctions::forAll{in x; x.tag == \"d\"}":  "[1]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
 	}
 }
 
