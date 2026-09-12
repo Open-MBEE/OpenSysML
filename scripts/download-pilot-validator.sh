@@ -4,7 +4,7 @@
 # harness in cmd/pilot-diff. See docs/project/pilot-differential.md.
 #
 # Both the wrapper commit and the pilot release are pinned; the pilot tag and
-# artifact version come from scripts/pilot-pin.sh, the pin the corpora use too.
+# artifact version come from scripts/pilot-pin.sh and are passed to Maven.
 set -euo pipefail
 
 # shellcheck source=scripts/pilot-pin.sh
@@ -44,14 +44,12 @@ git -C "$target" remote add origin "$VALIDATOR_REPO"
 git -C "$target" fetch --quiet --depth 1 origin "$VALIDATOR_COMMIT"
 git -C "$target" checkout --quiet FETCH_HEAD
 
-# Fail loudly rather than compare against an unexpected pilot release.
-for pin in "sysml.release.tag:$PILOT_TAG" "sysml.artifact.version:$PILOT_ARTIFACT_VERSION"; do
-	property="${pin%%:*}"
-	want="${pin#*:}"
-	got="$(sed -n "s|.*<${property}>\(.*\)</${property}>.*|\1|p" "$target/pom.xml" | head -1)"
-	if [[ "$got" != "$want" ]]; then
-		echo "error: $VALIDATOR_COMMIT builds against $property=$got, this repository pins $want" >&2
-		echo "       re-pin VALIDATOR_COMMIT, or override PILOT_TAG/PILOT_ARTIFACT_VERSION deliberately" >&2
+# The wrapper must still select the release through these properties, or the
+# overrides below are silently ignored.
+for property in sysml.release.tag sysml.artifact.version; do
+	if ! grep -Fq "<${property}>" "$target/pom.xml" || ! grep -Fq "\${${property}}" "$target/pom.xml"; then
+		echo "error: $VALIDATOR_COMMIT no longer selects the pilot release through the $property property" >&2
+		echo "       re-pin VALIDATOR_COMMIT to a wrapper that does" >&2
 		exit 1
 	fi
 done
@@ -59,8 +57,11 @@ done
 # The pilot is not on Maven Central: the setup-dependency profile downloads the
 # jupyter-sysml-kernel release ZIP (jar + sysml.library) and installs the jar
 # into ~/.m2, which `mvn package` then shades into the validator jar.
+pin_properties=("-Dsysml.release.tag=$PILOT_TAG" "-Dsysml.artifact.version=$PILOT_ARTIFACT_VERSION")
 echo "Downloading the pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION) release and building the validator ..."
-(cd "$target" && mvn -B -q -Psetup-dependency initialize && mvn -B -q package)
+(cd "$target" &&
+	mvn -B -q "${pin_properties[@]}" -Psetup-dependency initialize &&
+	mvn -B -q "${pin_properties[@]}" package)
 
 library="$target/target/sysml-download/sysml/sysml.library"
 if [[ ! -d "$library" ]]; then

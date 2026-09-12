@@ -1,11 +1,11 @@
 {
-  "pilotTag": "2026-07",
+  "pilotTag": "2026-08",
   "roots": [
     {
       "name": "stdlib",
       "dir": "internal/core/libs/stdlib",
-      "files": 96,
-      "lines": 28818
+      "files": 98,
+      "lines": 29480
     },
     {
       "name": "training",
@@ -17,7 +17,7 @@
       "name": "pilot-sysml-examples",
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
-      "lines": 8603
+      "lines": 8605
     },
     {
       "name": "pilot-sysml-validation",
@@ -34,20 +34,20 @@
     {
       "name": "testdata",
       "dir": "testdata",
-      "files": 17,
-      "lines": 292
+      "files": 18,
+      "lines": 310
     },
     {
       "name": "parser-fixtures",
       "dir": "internal/core/parser/testdata/parse",
-      "files": 146,
-      "lines": 3092
+      "files": 200,
+      "lines": 4757
     },
     {
       "name": "examples",
       "dir": "examples",
-      "files": 22,
-      "lines": 2123
+      "files": 35,
+      "lines": 6943
     }
   ],
   "totals": {
@@ -56,7 +56,7 @@
     "noEvidence": 0,
     "indistinguishable": 244,
     "forms": 809,
-    "unseenForms": 5
+    "unseenForms": 4
   },
   "grammars": [
     {
@@ -67,7 +67,7 @@
         "noEvidence": 0,
         "indistinguishable": 59,
         "forms": 274,
-        "unseenForms": 4
+        "unseenForms": 3
       },
       "productions": [
         {
@@ -174,63 +174,6 @@
               ],
               "file": "examples/pilot-corpora/kerml-examples/Simple Tests/Types.kerml",
               "line": 25
-            }
-          ]
-        },
-        {
-          "grammar": "KerML.xtext",
-          "name": "Disjoining",
-          "kind": "rule",
-          "line": 425,
-          "returns": "SysML::Disjoining",
-          "bucket": "evidence",
-          "literals": [
-            "disjoining",
-            "disjoint",
-            "from"
-          ],
-          "requiredLiterals": [
-            ";",
-            "disjoint",
-            "from"
-          ],
-          "file": "internal/core/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
-          "evidence": [
-            {
-              "literal": ";",
-              "root": "stdlib",
-              "file": "internal/core/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
-              "line": 8
-            },
-            {
-              "literal": "disjoint",
-              "root": "stdlib",
-              "file": "internal/core/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
-              "line": 23
-            },
-            {
-              "literal": "from",
-              "root": "stdlib",
-              "file": "internal/core/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
-              "line": 23
-            }
-          ],
-          "branches": [
-            {
-              "literals": [
-                "disjoining",
-                "disjoint",
-                "from"
-              ]
-            },
-            {
-              "literals": [
-                ".",
-                "disjoint",
-                "from"
-              ],
-              "file": "internal/core/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
-              "line": 40
             }
           ]
         },

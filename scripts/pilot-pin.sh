@@ -7,10 +7,10 @@
 # Kept in one file so the release under comparison cannot drift between them.
 # The tag names the release; the commit is what every fetch verifies, because a
 # tag is a mutable ref and the baselines record content. Change them together.
-PILOT_TAG="${PILOT_TAG:-2026-07}"
-PILOT_COMMIT="${PILOT_COMMIT:-c7fc737d56da9e2d78f9d7df6d38efbec2e7e965}"
+PILOT_TAG="${PILOT_TAG:-2026-08}"
+PILOT_COMMIT="${PILOT_COMMIT:-692170b71867353b8f90341e61556f49a5beb0e5}"
 PILOT_REPO="${PILOT_REPO:-https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation.git}"
-PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.61.0}"
+PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.62.0}"
 
 # File names pilot_fetch_subtrees counts when reporting a download; a caller may reassign it.
 PILOT_FETCH_GLOBS=('*.sysml' '*.kerml')

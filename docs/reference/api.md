@@ -1110,4 +1110,4 @@ Test fixtures in `testdata/*.sysml`.
 - **[ARCHITECTURE.md](../internals/architecture.md)** — System architecture and design decisions
 - **[the guide](../guide/)** — Getting started guide
 - **[Wire contract](wire-contract.md)** — Connect + JSON field by field, for a client with no generated library
-- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-07 release)
+- **[OMG SysML v2.1 Beta 1 Spec](https://www.omg.org/spec/SysML/2.0)** — Language specification (2026-08 release)
