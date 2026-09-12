@@ -409,14 +409,14 @@ func unboundResultHint(chain []*symbols.Symbol) string {
 		}
 		name, _ := ast.EffectiveName(result)
 		who, trailing, expr := "the result parameter", "of the body", "<expr>"
-		typ := usageTypeText(result)
+		typ := lower.TypeText(result)
 		if name != "" {
 			spelled := lexer.NameText(name)
 			who = "result parameter " + spelled
 			if sibling := valuedMemberNamed(members, name, result); sibling != nil {
 				trailing, expr = "`"+spelled+"`", spelled
 				if typ == "" {
-					typ = usageTypeText(sibling)
+					typ = lower.TypeText(sibling)
 				}
 			}
 		}
@@ -452,30 +452,6 @@ func valuedMemberNamed(members []ast.Node, name string, except *ast.Usage) *ast.
 		}
 	}
 	return nil
-}
-
-// usageTypeText spells the type a usage declares with `:` as the notation
-// writes it (each segment quoted when it must be), or "" without one.
-func usageTypeText(u *ast.Usage) string {
-	for _, rel := range u.Relationships {
-		if rel == nil || rel.Kind != ast.RelTyping {
-			continue
-		}
-		qn, ok := rel.Target.(*ast.QualifiedName)
-		if !ok || len(qn.Parts) == 0 {
-			continue
-		}
-		segments := make([]string, 0, len(qn.Parts))
-		for _, part := range qn.Parts {
-			segments = append(segments, lexer.NameText(part.Text))
-		}
-		text := strings.Join(segments, "::")
-		if qn.Global {
-			text = "$::" + text
-		}
-		return text
-	}
-	return ""
 }
 
 // calcArgs are the arguments of one calc invocation. The notation keeps the two

@@ -368,7 +368,7 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			// A restated run-to-completion default is what the executor implements, not a slot.
 		case m.Kind == ast.UsageAttribute:
 			if name, _ := ast.EffectiveName(m); name != "" {
-				content.attrs = append(content.attrs, Attribute{Name: name, Direction: m.Direction, IsResult: m.IsResult, Value: m.Value, Node: m, Scope: scope})
+				content.attrs = append(content.attrs, Attribute{Name: name, Direction: m.Direction, IsResult: m.IsResult, Type: TypeText(m), Value: m.Value, Node: m, Scope: scope})
 				g.attributeScope[m] = scope
 			}
 		default:

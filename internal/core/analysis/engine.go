@@ -143,6 +143,50 @@ func (e *FreedomError) Error() string {
 // Is matches ErrFreedom.
 func (e *FreedomError) Is(target error) bool { return target == ErrFreedom }
 
+// ErrInput is the typed error for a feature a question names as an input that
+// the engine cannot leave free: one the behavior lacks, or one it writes back.
+var ErrInput = errors.New("engine cannot free that input")
+
+// InputError reports a named input the engine refuses to leave free, and why.
+type InputError struct {
+	Engine  string
+	Feature string
+	Reason  string
+}
+
+// Error names the engine, the feature and the reason.
+func (e *InputError) Error() string {
+	return fmt.Sprintf("%s cannot leave %s free: %s", e.Engine, e.Feature, e.Reason)
+}
+
+// Is matches ErrInput.
+func (e *InputError) Is(target error) bool { return target == ErrInput }
+
+// ErrDomain is the typed error for a free input whose declared type the engine
+// cannot narrow to a domain it ranges over.
+var ErrDomain = errors.New("engine has no domain for that type")
+
+// DomainError reports a free input of a type the engine has no domain for; the
+// question is not covered, since ranging over an unconstrained variable would
+// claim what the model does not say.
+type DomainError struct {
+	Engine  string
+	Feature string
+	// Type is the declared type, as written; "" when the feature declares none.
+	Type string
+}
+
+// Error names the engine, the feature and its type.
+func (e *DomainError) Error() string {
+	if e.Type == "" {
+		return fmt.Sprintf("%s ranges over no domain for %s, which declares no type", e.Engine, e.Feature)
+	}
+	return fmt.Sprintf("%s ranges over no domain for %s : %s", e.Engine, e.Feature, e.Type)
+}
+
+// Is matches ErrDomain.
+func (e *DomainError) Is(target error) bool { return target == ErrDomain }
+
 // ErrProcessAbsent is the typed error an external engine refuses with when its
 // process is not found.
 var ErrProcessAbsent = errors.New("engine's process is absent")
