@@ -306,6 +306,9 @@ func (e *ActionExecutor) Step() error {
 
 	schedule := e.scheduleTokens(&order, eligible)
 	acted, err := e.stepTokens(schedule, paused, &order)
+	if refused := e.ctx.scheduling().refusal(); refused != nil {
+		err = refused
+	}
 	// What the tokens wrote, the order they took and that they acted are facts of
 	// the step whether or not it failed.
 	endWrites()
@@ -349,6 +352,9 @@ func (e *ActionExecutor) Step() error {
 		e.trace().RecordActionStep(e.stepCount, e.tokens)
 	}
 
+	if e.state == StateCompleted {
+		return e.ctx.endedWhole(&e.driven)
+	}
 	return nil
 }
 
@@ -1705,7 +1711,11 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		}
 	}
 	if len(holding) > 0 {
-		pick := e.ctx.scheduling().pick(len(holding))
+		choice, pick := e.chooseBranch(token.frame, decisionNode, successors, holding)
+		// A refused replay move leaves the token at the decision: no branch is taken.
+		if refused := e.ctx.scheduling().refusal(); refused != nil {
+			return refused
+		}
 		// A branch picked past the first was only probed; its guard's final reading
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 {
@@ -1718,7 +1728,9 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 					ErrNoEnabledSuccession, decisionNode.Name, branchName(successors, holding[pick]))
 			}
 		}
-		e.noteDecisionBranches(token.frame, decisionNode, successors, holding, pick)
+		if choice != nil {
+			e.ctx.noteChoice(*choice)
+		}
 		token.travel(successors[holding[pick]], e.sweep)
 		return nil
 	}
@@ -2297,6 +2309,35 @@ func (e *ActionExecutor) Data() map[string]Value {
 	return e.root.data
 }
 
+// Held is a copy of what a performance holds at one moment: the features it
+// holds, and their values looked up under the names the performance keys them by.
+type Held struct {
+	features []lower.Attribute
+	data     map[string]Value
+	aliases  map[string]string
+}
+
+// Held copies what the action's own performance holds now.
+func (e *ActionExecutor) Held() Held {
+	return Held{
+		features: slices.Clone(e.features),
+		data:     maps.Clone(e.root.data),
+		aliases:  maps.Clone(e.root.aliases),
+	}
+}
+
+// Features are the attributes and parameters the performance holds, the graph's
+// own then the inherited ones it does not redefine, as the run initializes them.
+func (h Held) Features() []lower.Attribute {
+	return h.features
+}
+
+// Value is the value held under name: its redefinition's when name is redefined.
+func (h Held) Value(name string) (Value, bool) {
+	v, ok := h.data[canonical(h.aliases, name)]
+	return v, ok
+}
+
 // SetBreakpoint adds a breakpoint at the given node name.
 func (e *ActionExecutor) SetBreakpoint(nodeName string) {
 	e.breakpoints[nodeName] = true
@@ -2323,4 +2364,15 @@ func (e *ActionExecutor) SetTrace(trace *TraceRecorder) {
 // ActionSymbol returns the action being executed.
 func (e *ActionExecutor) ActionSymbol() *symbols.Symbol {
 	return e.action
+}
+
+// Graph is the lowered flow the run performs, the one every step of it consumes.
+func (e *ActionExecutor) Graph() *lower.ActionGraph {
+	return e.graph
+}
+
+// Performer returns the object performing the action, nil for an action
+// performed outside any object.
+func (e *ActionExecutor) Performer() *Instance {
+	return e.self
 }

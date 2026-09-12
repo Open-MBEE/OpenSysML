@@ -1,7 +1,7 @@
 # Validation-Constraint Census
 
-**Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-07`, commit `c7fc737d56da9e2d78f9d7df6d38efbec2e7e965`, artifact `jupyter-sysml-kernel 0.61.0` — the pin in `scripts/pilot-pin.sh`
-**Jar:** `jupyter-sysml-kernel-0.61.0-all.jar` (`sha256:602b53fa64d5af84480aa00e06e590a140d7d5c3651d4d76ac0e0055f89f0079`), provisioned by `./scripts/download-pilot-validator.sh`
+**Pilot:** [SysML v2 Pilot Implementation](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation) release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5`, artifact `jupyter-sysml-kernel 0.62.0` — the pin in `scripts/pilot-pin.sh`
+**Jar:** `jupyter-sysml-kernel-0.62.0-all.jar` (`sha256:b1ad9d64b1f0c75730facf25a5e2856bc9df2bb4bd39476df2fdf5ae68cd9350`), provisioned by `./scripts/download-pilot-validator.sh`
 **Run:** `go run ./cmd/validation-census` (restates the **Pilot**, **Jar** and **Census** lines from the baseline); `go run ./cmd/validation-census -check` (the gate); `go run ./cmd/validation-census -update` (re-extracts the names from the jar, keeping every recorded status)
 **Baseline:** [validation-constraints-baseline.json](validation-constraints-baseline.json) — the constraint names read from the pinned jar, with the pin, the jar digest, the extraction method and each name's census status
 **Evidence:** `cmd/validation-census/testdata/probes/` — one minimal violating model per implemented row, run by `go test ./cmd/validation-census`

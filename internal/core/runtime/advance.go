@@ -146,8 +146,6 @@ func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, err
 		}
 		pick := 0
 		if len(due) > 1 {
-			scheduling := ctx.scheduling()
-			pick = scheduling.pickDue(len(due))
 			alternatives := make([]string, len(due))
 			for i, w := range due {
 				alternatives[i] = w.dueLabel()
@@ -156,9 +154,13 @@ func (ctx *Context) runDue(driver clockWaiter, progress *dueProgress) (bool, err
 				Kind:         ChoiceDueOrder,
 				Where:        "t=" + semantics.FormatReal(ctx.clock.now),
 				Alternatives: alternatives,
-				Taken:        pick,
 			}
-			scheduling.describe(choice)
+			scheduling := ctx.scheduling()
+			pick = scheduling.choose(choice, nil)
+			if err := scheduling.refusal(); err != nil {
+				return false, err
+			}
+			choice.Taken = pick
 			ctx.noteChoice(choice)
 		}
 		w := due[pick]

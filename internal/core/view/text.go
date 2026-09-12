@@ -7,7 +7,8 @@ import (
 )
 
 // Text is the human-readable form of a rendering, written to no particular
-// width. It is ASCII throughout, so it reads the same on any terminal.
+// width. It is ASCII throughout, so it reads the same on any terminal; a
+// positioned node ends in `at (x, y)` and, when sized, `size W×H`.
 func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 
 // TextWidth is the human-readable form of a rendering: a header saying what was
@@ -39,6 +40,9 @@ func (r *Rendering) TextWidth(width int) string {
 		writeNotices(&b, r.Notices)
 		return b.String()
 	}
+	if c := r.Canvas; c != nil {
+		b.WriteString(canvasText(c) + "\n\n")
+	}
 	labels := map[string]string{}
 	for _, root := range r.Roots {
 		writeNodeText(&b, root, 0, labels)
@@ -49,6 +53,12 @@ func (r *Rendering) TextWidth(width int) string {
 			line := fmt.Sprintf("  %s %s %s", labels[edge.From], edgeArrow(edge.Kind), labels[edge.To])
 			if edge.Label != "" {
 				line += ": " + edge.Label
+			}
+			if len(edge.Route) > 0 {
+				line += " via"
+				for _, p := range edge.Route {
+					line += fmt.Sprintf(" (%s, %s)", formatCoord(p.X), formatCoord(p.Y))
+				}
 			}
 			b.WriteString(line + "\n")
 		}
@@ -78,6 +88,15 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 	if node.Detail != "" {
 		line += " (" + node.Detail + ")"
+	}
+	if g := node.Geometry; g != nil {
+		line += fmt.Sprintf(" at (%s, %s)", formatCoord(g.X), formatCoord(g.Y))
+		if g.HasSize {
+			line += fmt.Sprintf(" size %s×%s", formatCoord(g.Width), formatCoord(g.Height))
+		}
+		if g.Collapsed {
+			line += " collapsed"
+		}
 	}
 	b.WriteString(line + "\n")
 	for _, child := range node.Children {
@@ -227,6 +246,18 @@ func writeNotices(b *strings.Builder, notices []string) {
 	for _, notice := range notices {
 		b.WriteString("  - " + notice + "\n")
 	}
+}
+
+// canvasText states the canvas a view draws on: its size when given, and its unit.
+func canvasText(c *Canvas) string {
+	line := "canvas"
+	if c.HasSize {
+		line += fmt.Sprintf(" size %s×%s", formatCoord(c.Width), formatCoord(c.Height))
+	}
+	if c.Unit != "" {
+		line += " in " + c.Unit
+	}
+	return line
 }
 
 // nodeLabel names a node where an edge refers to it: its name, else its kind

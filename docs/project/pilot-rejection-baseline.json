@@ -1,25 +1,25 @@
 {
-  "pilot": "2026-07 (jupyter-sysml-kernel 0.61.0)",
+  "pilot": "2026-08 (jupyter-sysml-kernel 0.62.0)",
   "validator": "build/pilot-sysml-validator/validate-sysml-batch",
   "corpus": "cmd/pilot-reject/testdata/negative",
   "conformance": "auto",
   "provenance": {
-    "pilotTag": "2026-07",
-    "pilotCommit": "c7fc737d56da9e2d78f9d7df6d38efbec2e7e965",
-    "pilotArtifact": "0.61.0",
+    "pilotTag": "2026-08",
+    "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
+    "pilotArtifact": "0.62.0",
     "errataRegistry": "sha256:2e5a631caa524d6e04675e0c8ff6cb310e020adb4d614e65c3e3d0f0016dea50",
     "tools": [
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
         "sourceDigest": "sha256:3855d223162d6ece6a08b5e1bc9388ff2706bd52e7f3373be31c7e8abc0a22bb",
-        "release": "2026-07 (jupyter-sysml-kernel 0.61.0)"
+        "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {
         "name": "pilot-kerml-validator",
         "source": "scripts/pilot-kerml-validator/ValidateKerML.java",
         "sourceDigest": "sha256:e90d0eaddc85b4f6b3e09c7a0ea0448e8a6abec9fa0467b86112013bf0d70ecb",
-        "release": "2026-07 (jupyter-sysml-kernel 0.61.0)"
+        "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       }
     ],
     "inputs": [
@@ -31,7 +31,7 @@
         "digest": "sha256:bab393e696cd3c90cd76aac6af4c08b39ef9ec7da03210fa6cdc2ee0d345051c"
       }
     ],
-    "recorded": "2026-09-06"
+    "recorded": "2026-09-12"
   },
   "totals": {
     "cases": 285,

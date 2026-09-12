@@ -208,7 +208,7 @@ written in, so the verdicts are about that object:
 | `-sweep <param>=<from>..<to>[:<step>]` | Runs the `-analysis` case or `-calc` once per value of the range, rather than once, and reports the runs as a table. `<from>`, `<to>` and `<step>` are written as an argument is, units included (`0.0 [SI::m]..10.0 [SI::m]:2.0 [SI::m]`); the parameter is one the case or calc declares and the arguments do not bind, and the values are produced in its declared type (`1..4:1` over a `Real` binds `1.0`, `2.0`, …). Repeatable: several ranges run their cartesian product, the first flag given varying slowest. See [Sweeping a parameter](#sweeping-a-parameter) |
 | `-samples <n>` | Draws `n` values for each `-sweep` range instead of running every value of it, uniformly over the range from the seed `-seed` names — Integers inclusively for a parameter taking Integers, reals in `[<from>, <to>)` for one taking reals |
 | `-seed <s>` | The seed `-samples` draws from, required with it: the same seed draws the same values on every platform |
-| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) or `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice — is refused before anything runs |
+| `-schedule <policy>` | The scheduling policy every run this invocation starts — `-action`, `-state`, `-analysis`; a calc's body performs nothing, so `-calc` has no choice to make — resolves its [choice points](../guide/06-behavior.md) under: `reverse` (the default: reverse token order, first holding guard, first enabled transition), `declared` (spawn and declaration order), `seed:<n>` (a pseudo-random order the non-negative integer `n` fixes, the same on every platform) `explore[:runs=N,depth=D]` (every linearization within the budget, tabled by distinct outcome — see [Exploring every linearization](#exploring-every-linearization)) or `replay:<file>` (the choice lines of a witness, one per line up to the first blank line, followed move for move and then `reverse`; a move the run cannot make — a pick not offered, a step already passed, a line left over at the end — is `replay refused: move <n> (<the choice>): <what the run faced>` and the check is *not covered*; see [Running one witness again](../guide/06-behavior.md#running-one-witness-again)). Every choice point the run reaches is reported and the `took …` in each is what the policy took; another policy's run may reach other choice points, so their count is not fixed across policies. A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`, `explore:` with nothing after the colon, `explore:runs=0`, `explore:depth=-1`, an option named twice, `replay` or `replay:` without a file, a replay file that cannot be read or whose lines spell no choice — is refused before anything runs |
 | `-engines` | Lists the analysis engines this build knows — name, authority, the question kinds each answers and its status — and exits, without a model. See [Analysis engines](#analysis-engines) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*; a name (`run`, `explore`, `sweep`, `solve`) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does. See [Analysis engines](#analysis-engines) |
 | `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
@@ -412,6 +412,27 @@ it renders as-is in Markdown, documentation sites and editors without a separate
 has dedicated state diagram and sequence diagram grammars. A table is written as a Markdown table,
 since Mermaid has no grammar for tables, so `-render-form mermaid` on a table produces Markdown
 rather than a diagram of rows.
+
+A rendering is laid out by whatever draws it, unless the model says where things go. The
+`DiagramLayout` library (bundled, imported like any other) states that in notation: a
+`metadata Layout about <element> { x = …; y = …; width = …; height = …; collapsed = true; }` in a
+view's body positions the element in that view, an `@Layout { … }` inside an element's own body is
+the position every view that does not place it falls back to, a `Route about <connection> {
+points = (x0, y0, x1, y1, …); }` gives an edge its waypoints, and an `@Canvas { unit = "px"; width
+= …; height = …; }` in the view body sizes its drawing surface. Coordinates are pixels from the
+top-left corner, y downward. Mermaid cannot place a node, so the machine-readable form keeps the
+geometry as comments after the header (`%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120
+y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends `at (120, 80)`,
+`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. A model with no
+layout annotations renders exactly as before. `-validate` reports a `Layout` or `Route` on an
+element the rendering does not draw as a node or an edge, a `Route` with an odd number of values, a
+`Canvas` outside a view, and two positions for one element in one view (the first applies). See
+[Diagram layout annotations](../project/diagram-layout-annotations.md).
+
+```bash
+sysml model.sysml -render Views::vehicleView -render-form text
+# part engine (Engine) at (120, 80) size 200×90
+```
 
 `-render-documents <dir>` renders every document definition the loaded model declares into the
 directory, one Markdown file per document, in fully-qualified-name order. Each file name is the

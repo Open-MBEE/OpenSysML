@@ -22,25 +22,36 @@ var update = flag.Bool("update", false, "rewrite the golden artifacts in testdat
 // REPL and the CLI do, and returns a renderer over it.
 func loadFixture(t *testing.T, file string) (*Renderer, *symbols.Index) {
 	t.Helper()
-	path := filepath.Join("testdata", file)
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	sf := source.New(file, content)
-	p := parser.New(sf)
-	root := p.ParseFile()
-	for _, diag := range p.Diagnostics {
-		t.Fatalf("%s: parse diagnostic: %v", file, diag)
-	}
+	return loadFixtures(t, file)
+}
+
+// loadFixtures loads several testdata files as separate documents of one model.
+func loadFixtures(t *testing.T, files ...string) (*Renderer, *symbols.Index) {
+	t.Helper()
 	idx := libs.NewModelIndex()
-	idx.AddDocument(file, root)
+	sources := make(map[string]*source.SourceFile, len(files))
+	for _, file := range files {
+		path := filepath.Join("testdata", file)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		sf := source.New(file, content)
+		p := parser.New(sf)
+		root := p.ParseFile()
+		for _, diag := range p.Diagnostics {
+			t.Fatalf("%s: parse diagnostic: %v", file, diag)
+		}
+		idx.AddDocument(file, root)
+		sources[file] = sf
+	}
 	idx.ExpandWildcardImports()
 	resolver := resolve.New(idx)
 	sem := semantics.NewModel(resolver)
 	resolver.SetModel(sem)
 	text := func(doc string, span source.Span) string {
-		if doc != file {
+		sf, ok := sources[doc]
+		if !ok {
 			return ""
 		}
 		return sf.Text(span)
@@ -61,10 +72,16 @@ func lookup(t *testing.T, idx *symbols.Index, fqn string) *symbols.Symbol {
 // render is the rendering of one view of a fixture, which must render.
 func render(t *testing.T, file, view string) *Rendering {
 	t.Helper()
-	r, idx := loadFixture(t, file)
+	return renderIn(t, view, file)
+}
+
+// renderIn renders view from a model of several fixture documents.
+func renderIn(t *testing.T, view string, files ...string) *Rendering {
+	t.Helper()
+	r, idx := loadFixtures(t, files...)
 	rendering, err := r.Render(lookup(t, idx, view))
 	if err != nil {
-		t.Fatalf("render %s of %s: %v", view, file, err)
+		t.Fatalf("render %s of %s: %v", view, files, err)
 	}
 	return rendering
 }

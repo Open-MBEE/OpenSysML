@@ -17,7 +17,9 @@ const maxBehaviorDepth = 8
 // renderStates renders the states and transitions of the exposed behaviors, from
 // the lowered StateGraph of each. An exposed element that is no state machine is
 // reported, and a machine that does not lower is reported with the reason.
-func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
+// States and transitions are placed by the Layout and Route annotations
+// positioning their declarations in view, nil for a rendering outside any view.
+func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
 		if elem.Kind != symbols.SymbolStateDef && elem.Kind != symbols.SymbolStateUsage {
@@ -25,46 +27,41 @@ func (r *Renderer) renderStates(exposed []*symbols.Symbol, out *Rendering) {
 				declKind(elem), r.notationName(elem)))
 			continue
 		}
-		graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), r.stateEndpoints())
+		graph, err := lower.ToStateGraphWithEndpoints(elem.Decl, declScope(elem), lower.NewLibraryStateTypes(r.resolver))
 		if err != nil {
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to a state graph: %v",
 				declKind(elem), r.notationName(elem), err))
 			continue
 		}
-		out.Roots = append(out.Roots, r.stateMachineNode(elem, graph, ids, out))
+		out.Roots = append(out.Roots, r.stateMachineNode(view, elem, graph, ids, out))
 	}
-}
-
-// stateEndpoints is the resolver a rendered machine is lowered with, so its
-// names and redefinitions resolve as the runtime's do; nil without one.
-func (r *Renderer) stateEndpoints() lower.EndpointResolver {
-	if r.resolver == nil {
-		return nil
-	}
-	return r.resolver
 }
 
 // stateMachineNode renders one lowered state machine: its regions and states as
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
-func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
+func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Detail: declType(machine),
-		Origin: symbolOrigin(machine)}
+		Origin: symbolOrigin(machine), Geometry: r.geometryOf(view, machine, out)}
 	doc := machine.DocName
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
+	place := func(node *Node, decl ast.Node) *Node {
+		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
+		return node
+	}
 
 	// Regions first: a state of an orthogonal region is nested in that region,
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
-		regions[region] = r.regionNode(region, doc, ids)
+		regions[region] = place(r.regionNode(region, doc, ids), region)
 		root.Children = append(root.Children, regions[region])
 	}
 	for _, state := range graph.States {
-		node := r.stateNode(state, graph, doc, ids)
+		node := place(r.stateNode(state, graph, doc, ids), graph.DeclOf(state))
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
-			regions[region] = r.regionNode(region, doc, ids)
+			regions[region] = place(r.regionNode(region, doc, ids), region)
 			node.Children = append(node.Children, regions[region])
 		}
 	}
@@ -79,8 +76,8 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 		parent.Children = append(parent.Children, nodes[state])
 	}
 	for _, pseudo := range graph.Pseudostates {
-		node := &Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: notationName(pseudo.Name),
-			Origin: nodeOrigin(doc, pseudo)}
+		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: notationName(pseudo.Name),
+			Origin: nodeOrigin(doc, pseudo)}, pseudo)
 		nodes[pseudo] = node
 		parent := root
 		if owner := graph.PseudostateOwner[pseudo]; owner != nil && nodes[owner] != nil {
@@ -117,7 +114,7 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 			}
 			out.Edges = append(out.Edges, Edge{
 				From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
-				Origin: nodeOrigin(doc, entry.Decl),
+				Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
 			})
 		}
 	}
@@ -139,7 +136,7 @@ func (r *Renderer) stateMachineNode(machine *symbols.Symbol, graph *lower.StateG
 			}
 			out.Edges = append(out.Edges, Edge{
 				From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
-				Origin: nodeOrigin(doc, transition.Decl),
+				Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
 			})
 		}
 	}
@@ -327,8 +324,10 @@ func collapseSpace(text string) string {
 }
 
 // renderActions renders the nodes and successions of the exposed behaviors, from
-// the lowered ActionGraph of each.
-func (r *Renderer) renderActions(exposed []*symbols.Symbol, out *Rendering) {
+// the lowered ActionGraph of each. Nodes and edges are placed by the Layout and
+// Route annotations positioning their declarations in view, nil for a rendering
+// outside any view.
+func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
 		if elem.Kind != symbols.SymbolActionDef && elem.Kind != symbols.SymbolActionUsage {
@@ -337,7 +336,7 @@ func (r *Renderer) renderActions(exposed []*symbols.Symbol, out *Rendering) {
 			continue
 		}
 		subject := actionSubject{decl: elem.Decl, kind: declKind(elem), name: r.notationName(elem),
-			scope: declScope(elem), doc: elem.DocName}
+			scope: declScope(elem), doc: elem.DocName, view: view, elem: elem}
 		node, ok := r.actionNode(subject, ids, out, map[ast.Node]bool{}, 0)
 		if ok {
 			out.Roots = append(out.Roots, node)
@@ -353,6 +352,10 @@ type actionSubject struct {
 	name  string
 	scope *symbols.Scope
 	doc   string
+	// view is the view the action is drawn in, nil outside any view; elem is
+	// the exposed action the subject is rendered under.
+	view *symbols.Symbol
+	elem *symbols.Symbol
 }
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
@@ -371,17 +374,18 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}
-	root := &Node{ID: ids.take(), Kind: kind, Name: name, Origin: nodeOrigin(doc, decl)}
+	root := &Node{ID: ids.take(), Kind: kind, Name: name, Origin: nodeOrigin(doc, decl),
+		Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: notationName(behaviorNodeName(node)),
-			Origin: nodeOrigin(doc, node)}
+			Origin: nodeOrigin(doc, node), Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name,
-				scope: actionScope(scope, nested), doc: doc}
+				scope: actionScope(scope, nested), doc: doc, view: subject.view, elem: subject.elem}
 			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
 			if ok {
 				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
@@ -407,7 +411,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				}
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label, Kind: EdgeSuccession,
-				Origin: nodeOrigin(doc, edge.Decl)})
+				Origin: nodeOrigin(doc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -417,7 +421,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 				continue
 			}
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow), Kind: EdgeFlow,
-				Origin: nodeOrigin(doc, flow.Decl)})
+				Origin: nodeOrigin(doc, flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
 	if len(root.Children) == 0 {
