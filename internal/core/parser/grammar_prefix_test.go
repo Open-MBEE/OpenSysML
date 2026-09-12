@@ -82,6 +82,11 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 			"expected a metadata feature name after '#': 'part' is a keyword"},
 		{"prefix_metadata_keyword_kerml", "a.kerml", "package P { # namespace N; }", "#",
 			"expected a metadata feature name after '#': 'namespace' is a keyword"},
+		// A global `$::` still needs a name after it (KerML.xtext QualifiedName).
+		{"prefix_metadata_bare_global", "a.sysml", "package P { #$:: part def D; }", "#$::",
+			"expected a metadata feature name after '#': 'part' is a keyword"},
+		{"prefix_metadata_bare_global_at_eof", "a.sysml", "#$::", "#",
+			"expected a namespace member"},
 		// A bound is a literal or feature reference (KerML.xtext:780 MultiplicityExpressionMember).
 		{"negative_multiplicity_bound", "a.sysml", "package P { part def D; part many [-1] : D; }", "-",
 			"a multiplicity bound cannot start with '-': a bound is a literal or a feature name (KerML.xtext MultiplicityExpressionMember)"},
@@ -134,6 +139,7 @@ func TestPrefixAlternativesStillAccepted(t *testing.T) {
 		{"ref_usage", "a.sysml", "package P { part def R; ref part r : R; }"},
 		{"prefix_metadata_name", "a.sysml", "package P { metadata def M; #M part def D; }"},
 		{"prefix_metadata_quoted_keyword", "a.sysml", "package P { metadata def 'part'; #'part' part def D; }"},
+		{"prefix_metadata_global_name", "a.sysml", "package P { metadata def M; #$::P::M part def D; }"},
 		{"multiplicity_feature_bound", "a.sysml", "package P { attribute n : Integer; part def D; part many [n] : D; }"},
 		{"multiplicity_arithmetic_bound", "a.sysml", "package P { attribute n : Integer; part def D; part many [n+1] : D; }"},
 		{"multiplicity_range", "a.sysml", "package P { part def D; part many [0..*] : D; }"},

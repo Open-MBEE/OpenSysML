@@ -799,12 +799,19 @@ func (p *Parser) parsePrefixMetadata() []*ast.PrefixMetadata {
 		start := hash.Span.Offset
 		// PrefixMetadataUsage names a metaclass by QualifiedName (KerML.xtext:1014,
 		// SysML.xtext:181): a keyword after `#` starts the declaration, not the name.
-		if !p.atName() && !(p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon) {
+		global := p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon
+		if !p.atName() && !(global && p.atNameAt(2)) {
+			span := hash.Span
+			if global {
+				// A bare `$::` is part of the malformed prefix, not of the declaration.
+				p.advance()
+				span.Len = p.advance().Span.End() - start
+			}
 			msg := "expected a metadata feature name after '#'"
 			if t := p.peek(); t.Kind == lexer.Keyword {
 				msg = fmt.Sprintf("expected a metadata feature name after '#': '%s' is a keyword", t.KeywordID)
 			}
-			p.error(hash.Span, msg)
+			p.error(span, msg)
 			continue
 		}
 		qn := p.parseQualifiedName()
