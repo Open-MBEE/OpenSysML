@@ -220,10 +220,61 @@ func (b Bounds) String() string {
 }
 
 // Witness is an execution the interpreter replays to exhibit a claim: the
-// policy it ran under and the choices it took.
+// policy it ran under, the inputs it fixed before its first move and the
+// choices it took.
 type Witness struct {
 	Schedule runtime.SchedulePolicy
+	Inputs   []runtime.InputTaken
 	Choices  []runtime.ChoiceTaken
+}
+
+// Input is one feature of the behavior or its performer an engine ranged over or
+// pinned in the initial state: free in the domain its declared type narrows the
+// sort to, or fixed at the value the model binds it to.
+type Input struct {
+	// Name is the feature as the performance holds it.
+	Name string
+	// Type is the declared type, as written; "" when the feature declares none.
+	Type string
+	// Sort is the solver sort the feature's values range over (Int, Real, Bool, an
+	// enumeration's datatype).
+	Sort string
+	// Domain says what the sort is narrowed to (`>= 0`, the constructors, an
+	// interval); "" when the sort alone is the domain.
+	Domain string
+	// Free reports whether the engine ranged over the domain; false pins Value.
+	Free bool
+	// Value is the value pinned, or the one a witness chose for a free input;
+	// ValInvalid for a free input of a claim with no witness.
+	Value runtime.Value
+}
+
+// String spells the input as a report lists it: `x : Integer free`,
+// `n : Natural free in >= 0`, `mode = Mode::Fast`.
+func (in Input) String() string {
+	switch {
+	case in.Free && in.Value.Kind != runtime.ValInvalid:
+		return in.Name + " = " + runtime.FormatValue(in.Value) + in.domainText(" (free in ", ")")
+	case in.Free:
+		return in.Name + in.typeText() + " free" + in.domainText(" in ", "")
+	case in.Value.Kind != runtime.ValInvalid:
+		return in.Name + " = " + runtime.FormatValue(in.Value)
+	}
+	return in.Name + in.typeText() + " pinned"
+}
+
+func (in Input) typeText() string {
+	if in.Type == "" {
+		return ""
+	}
+	return " : " + in.Type
+}
+
+func (in Input) domainText(open, close string) string {
+	if in.Domain == "" {
+		return ""
+	}
+	return open + in.Domain + close
 }
 
 // Evaluation is one thing the question asked for, as the engine established it: exactly
@@ -256,6 +307,11 @@ type Result struct {
 	Bounds Bounds
 	// Witness is a schedule the interpreter replays, when the claim has one.
 	Witness *Witness
+	// Inputs are the features of the initial state a symbolic engine ranged over
+	// or pinned, each with its domain and, for a witness, its value.
+	Inputs []Input
+	// Assumptions name the constraints assumed over the initial state.
+	Assumptions []string
 	// Reason says why, when nothing is claimed: the construct, the unknown,
 	// the budget, the disagreement.
 	Reason string

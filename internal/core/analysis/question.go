@@ -155,6 +155,11 @@ type HoldsAsk struct {
 	// Start begins one run of Behavior in a fresh context, as an explored run is
 	// begun: the executor made, on the object performing it when there is one.
 	Start Start
+	// Inputs names features of Behavior or its performer to leave free although
+	// the model binds them, as `-check-input` spells them.
+	Inputs []string
+	// Assume are the constraints or requirements assumed over the initial state.
+	Assume []*symbols.Symbol
 }
 
 // Start begins one run of a behavior in the given context and returns the executor

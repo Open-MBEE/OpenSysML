@@ -10,8 +10,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
 )
 
-// The `replay:<file>` policy follows a witness's choice lines move for move, then behaves as
-// `reverse`; a move the run cannot make where the witness makes it is refused, naming the move.
+// The `replay:<file>` policy fixes a witness's input lines before the run's first move, follows
+// its choice lines move for move, then behaves as `reverse`; a move the run cannot make where
+// the witness makes it is refused, naming the move, as is an input the run cannot fix.
 
 // ErrReplayRefused is the typed error every refused replay move wraps.
 var ErrReplayRefused = errors.New("replay refused")
@@ -53,18 +54,158 @@ func (e *ChoiceParseError) Error() string {
 // Is makes every ChoiceParseError match ErrInvalidChoice.
 func (e *ChoiceParseError) Is(target error) bool { return target == ErrInvalidChoice }
 
-// ReplayPolicy is the `replay` policy over a witness held in memory. Its spelling
-// names no file, so it does not read back; write the choices out to name them.
-func ReplayPolicy(choices []ChoiceTaken) SchedulePolicy {
-	return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{choices: slices.Clone(choices)}}
+// ErrInvalidInput is the typed error every unparseable input line wraps.
+var ErrInvalidInput = errors.New("invalid input")
+
+// InputParseError reports a line of a witness that spells no input, with why.
+type InputParseError struct {
+	// Line is the 1-based line of the witness, 0 for a line parsed on its own.
+	Line   int
+	Text   string
+	Reason string
 }
 
-// Replay returns the witness of a `replay` policy, and whether the policy is one.
+func (e *InputParseError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%v: line %d %q: %s", ErrInvalidInput, e.Line, e.Text, e.Reason)
+	}
+	return fmt.Sprintf("%v: %q: %s", ErrInvalidInput, e.Text, e.Reason)
+}
+
+// Is makes every InputParseError match ErrInvalidInput.
+func (e *InputParseError) Is(target error) bool { return target == ErrInvalidInput }
+
+// ErrWitnessInput is the typed error every witness input the run cannot fix wraps.
+var ErrWitnessInput = errors.New("witness input refused")
+
+// WitnessInputError reports a witness input the run could not fix before its
+// first move: the feature named, and why.
+type WitnessInputError struct {
+	Feature string
+	Reason  string
+}
+
+func (e *WitnessInputError) Error() string {
+	return fmt.Sprintf("%v: %s: %s", ErrWitnessInput, e.Feature, e.Reason)
+}
+
+// Is makes every WitnessInputError match ErrWitnessInput.
+func (e *WitnessInputError) Is(target error) bool { return target == ErrWitnessInput }
+
+// InputTaken is one input a witness fixes before the run's first move: a feature of
+// the action or its performer and its value, spelt `input <feature> = <value>`.
+type InputTaken struct {
+	Feature string
+	// Value is the value, when the witness was made in memory; ValInvalid for one
+	// read from a file, whose Written is evaluated where the action's defaults are.
+	Value Value
+	// Written is the value as the notation spells it: what a witness file holds.
+	Written string
+}
+
+// InputOf is the input fixing feature at value, spelt as the value formats.
+func InputOf(feature string, value Value) InputTaken {
+	return InputTaken{Feature: feature, Value: value, Written: FormatValue(value)}
+}
+
+// String spells the input as a witness lists it and ParseInput reads it back.
+func (in InputTaken) String() string {
+	feature := in.Feature
+	if labelNeedsQuoting(feature) || strings.ContainsAny(feature, " \t") {
+		feature = lexer.UnrestrictedNameText(feature)
+	}
+	return inputPrefix + feature + " = " + in.Written
+}
+
+// inputPrefix opens an input line of a witness.
+const inputPrefix = "input "
+
+// ParseInput reads one input as InputTaken.String spells it: `input <feature> = <value>`,
+// the value any expression the notation reads, evaluated when the run begins.
+func ParseInput(text string) (InputTaken, error) {
+	text = strings.TrimSpace(text)
+	fail := func(reason string) (InputTaken, error) {
+		return InputTaken{}, &InputParseError{Text: text, Reason: reason}
+	}
+	rest, ok := strings.CutPrefix(text, inputPrefix)
+	if !ok {
+		return fail("an input line starts with `input `: input <feature> = <value>")
+	}
+	feature, mark, written, ok := readLabel(rest, " = ")
+	written = strings.TrimSpace(written)
+	quoted := strings.HasPrefix(rest, "'")
+	switch {
+	case !ok:
+		return fail("the feature's quoted name is left open")
+	case mark == "":
+		return fail("an input needs ` = ` between the feature and its value: input <feature> = <value>")
+	case feature == "" || !quoted && strings.ContainsAny(feature, " \t"):
+		return fail("an input names one feature of the action or its performer before ` = `")
+	case written == "":
+		return fail("an input needs a value after ` = `")
+	}
+	return InputTaken{Feature: feature, Written: written}, nil
+}
+
+// Witness is what a witness file holds: the inputs the run fixes before its first
+// move, then the choices it takes, in order.
+type Witness struct {
+	Inputs  []InputTaken
+	Choices []ChoiceTaken
+}
+
+// String is the witness as a file spells it: one input per line, then one choice
+// per line, `no choice points` for a run that took none.
+func (w Witness) String() string {
+	var b strings.Builder
+	for _, in := range w.Inputs {
+		b.WriteString(in.String())
+		b.WriteByte('\n')
+	}
+	if len(w.Choices) == 0 {
+		b.WriteString("no choice points\n")
+	}
+	for _, c := range w.Choices {
+		b.WriteString(c.String())
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// Empty reports whether the witness fixes no input and takes no choice.
+func (w Witness) Empty() bool { return len(w.Inputs) == 0 && len(w.Choices) == 0 }
+
+// ReplayPolicy is the `replay` policy over choices held in memory, fixing no
+// input. Its spelling names no file, so it does not read back; write the
+// witness out to name it.
+func ReplayPolicy(choices []ChoiceTaken) SchedulePolicy {
+	return ReplayOf(Witness{Choices: choices})
+}
+
+// ReplayOf is the `replay` policy over a witness held in memory: its inputs are
+// fixed before the first move of the run, its choices followed move for move.
+func ReplayOf(w Witness) SchedulePolicy {
+	return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{witness: cloneWitness(w)}}
+}
+
+func cloneWitness(w Witness) Witness {
+	return Witness{Inputs: slices.Clone(w.Inputs), Choices: slices.Clone(w.Choices)}
+}
+
+// Replay returns the choices of a `replay` policy's witness, and whether the policy is one.
 func (p SchedulePolicy) Replay() ([]ChoiceTaken, bool) {
 	if p.kind != scheduleReplay {
 		return nil, false
 	}
-	return slices.Clone(p.replay.choices), true
+	return slices.Clone(p.replay.witness.Choices), true
+}
+
+// Witness returns the witness a `replay` policy follows, and whether the policy is one.
+func (p SchedulePolicy) Witness() (Witness, bool) {
+	if p.kind != scheduleReplay {
+		return Witness{}, false
+	}
+	return cloneWitness(p.replay.witness), true
 }
 
 // Unfollowed is the first witness move the last run under a `replay` policy could
@@ -87,13 +228,28 @@ func (c ChoicePoint) Choice() ChoiceTaken {
 // replayScript is the witness a replay policy follows and the file it was read from.
 type replayScript struct {
 	file    string
-	choices []ChoiceTaken
+	witness Witness
 }
 
-// ParseChoices reads a witness header: choices as ChoiceTaken.String spells them, one
-// per line or joined by `; `, ending at the first blank line after it; what follows is ignored.
+// ParseChoices reads the choices of a witness header spelling no input: as
+// ChoiceTaken.String spells them, one per line or joined by `; `, ending at the
+// first blank line after it; what follows is ignored.
 func ParseChoices(text string) ([]ChoiceTaken, error) {
-	var choices []ChoiceTaken
+	w, err := ParseWitness(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(w.Inputs) > 0 {
+		return nil, &InputParseError{Text: w.Inputs[0].String(), Reason: "a witness with inputs is read by ParseWitness"}
+	}
+	return w.Choices, nil
+}
+
+// ParseWitness reads a witness header: input lines as InputTaken.String spells them,
+// then choices as ChoiceTaken.String spells them, one per line or joined by `; `,
+// ending at the first blank line after it; what follows is ignored.
+func ParseWitness(text string) (Witness, error) {
+	var w Witness
 	begun := false
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
@@ -107,6 +263,21 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 		if line == "no choice points" {
 			continue
 		}
+		if strings.HasPrefix(line, inputPrefix) {
+			in, err := ParseInput(line)
+			if err == nil && len(w.Choices) > 0 {
+				err = &InputParseError{Text: line, Reason: "inputs come before the moves"}
+			}
+			if err != nil {
+				var parse *InputParseError
+				if errors.As(err, &parse) {
+					parse.Line = i + 1
+				}
+				return Witness{}, err
+			}
+			w.Inputs = append(w.Inputs, in)
+			continue
+		}
 		for _, part := range splitChoices(line) {
 			c, err := ParseChoice(part)
 			if err != nil {
@@ -114,12 +285,12 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
-				return nil, err
+				return Witness{}, err
 			}
-			choices = append(choices, c)
+			w.Choices = append(w.Choices, c)
 		}
 	}
-	return choices, nil
+	return w, nil
 }
 
 // ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
@@ -330,11 +501,20 @@ func splitLabels(text, sep string) ([]string, bool) {
 	}
 }
 
-// replayRun follows one run's witness: the moves left and the first it refused.
+// replayRun follows one run's witness: the inputs to fix before its first move,
+// the moves left and the first it refused.
 type replayRun struct {
+	inputs  []InputTaken
 	choices []ChoiceTaken
 	next    int
 	refused error
+}
+
+// takeInputs hands the run's witness inputs to the performance beginning it, once.
+func (r *replayRun) takeInputs() []InputTaken {
+	inputs := r.inputs
+	r.inputs = nil
+	return inputs
 }
 
 // following reports whether moves are left to follow and none was refused.
@@ -349,8 +529,12 @@ func (r *replayRun) refuse(faced string) {
 	}
 }
 
-// unfollowed is the refusal of a run that ended with moves left, nil otherwise.
+// unfollowed is the refusal of a run that ended with moves left, or that began no
+// performance to fix its inputs on; nil otherwise.
 func (r *replayRun) unfollowed(how string) error {
+	if r.refused == nil && len(r.inputs) > 0 {
+		r.refused = &WitnessInputError{Feature: r.inputs[0].Feature, Reason: how + " with no action performance begun to fix it on"}
+	}
 	if r.following() {
 		r.refuse(how)
 	}

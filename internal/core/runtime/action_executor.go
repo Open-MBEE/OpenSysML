@@ -1007,6 +1007,9 @@ func (e *ActionExecutor) completeWithoutFlow() error {
 // bindInputs writes the supplied inputs into the performance, then the
 // attributes it declares: a default written in terms of an input reads it.
 func (e *ActionExecutor) bindInputs() error {
+	if err := e.fixWitnessInputs(); err != nil {
+		return err
+	}
 	if err := e.checkInputNames(); err != nil {
 		return err
 	}
@@ -1016,6 +1019,47 @@ func (e *ActionExecutor) bindInputs() error {
 	if err := e.initializeAttributes(); err != nil {
 		return fmt.Errorf("initialize attributes: %w", err)
 	}
+	return nil
+}
+
+// fixWitnessInputs takes the inputs the run's replayed witness fixes, when this
+// performance begins the run, ahead of the caller's inputs and the defaults.
+func (e *ActionExecutor) fixWitnessInputs() error {
+	witness := e.ctx.scheduling().witnessInputs()
+	if len(witness) == 0 {
+		return nil
+	}
+	ec := e.evalContextFor(e.root, e.graph.Scope)
+	defer ec.beginStep()()
+	inputs := maps.Clone(e.inputs)
+	if inputs == nil {
+		inputs = make(map[string]Value, len(witness))
+	}
+	for _, in := range witness {
+		dir, declared := e.parameterDirection(in.Feature)
+		switch {
+		case dir == ast.DirOut:
+			return &WitnessInputError{Feature: in.Feature,
+				Reason: fmt.Sprintf("action %s writes it back rather than reading it", symbolText(e.action))}
+		case !declared && !e.declaresAttribute(in.Feature):
+			return &WitnessInputError{Feature: in.Feature,
+				Reason: fmt.Sprintf("action %s declares no such feature", symbolText(e.action))}
+		}
+		value := in.Value
+		if value.Kind == ValInvalid {
+			expr, ok := parseOneExpression("<witness>", in.Written)
+			if !ok {
+				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q is not an expression the notation reads", in.Written)}
+			}
+			evaluated, err := ec.Eval(expr)
+			if err != nil {
+				return &WitnessInputError{Feature: in.Feature, Reason: fmt.Sprintf("%q does not evaluate: %v", in.Written, err)}
+			}
+			value = evaluated
+		}
+		inputs[in.Feature] = value
+	}
+	e.inputs = inputs
 	return nil
 }
 

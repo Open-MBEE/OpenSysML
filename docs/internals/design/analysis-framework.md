@@ -376,6 +376,7 @@ type Budget struct {
 	Jobs     int           // concurrent runs, -jobs / OPENSYSML_JOBS, default NumCPU
 	Runs     int           // explore runs, sweep rows, solver queries — the unit is the engine's
 	Depth    int           // moves per run
+	Unroll   int           // body-loop iterations a symbolic engine unrolls; zero is its default
 	Steps    int           // OPENSYSML_MAX_STEPS and its kin, per run, unchanged
 	Solver   time.Duration // OPENSYSML_SMT_TIMEOUT, per query, unchanged
 	Memory   int           // OPENSYSML_MAX_ELEMENTS per run, unchanged; times Jobs is the fleet

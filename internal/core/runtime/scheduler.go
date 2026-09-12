@@ -128,14 +128,14 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 		if err != nil {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
 		}
-		choices, err := ParseChoices(string(text))
+		witness, err := ParseWitness(string(text))
 		if err != nil {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
 		}
-		if len(choices) == 0 {
-			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: file + " names no move to follow"}
+		if witness.Empty() {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: file + " names no move to follow and no input to fix"}
 		}
-		return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{file: file, choices: choices}}, nil
+		return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{file: file, witness: witness}}, nil
 	default:
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling,
 			Reason: "want one of " + strings.Join(SchedulePolicyNames, ", ")}
@@ -234,7 +234,7 @@ func (p SchedulePolicy) start() *scheduler {
 		// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 		s.rng = rand.New(s.pcg)
 	case scheduleReplay:
-		s.replay = &replayRun{choices: slices.Clone(p.replay.choices)}
+		s.replay = &replayRun{inputs: slices.Clone(p.replay.witness.Inputs), choices: slices.Clone(p.replay.witness.Choices)}
 	}
 	return s
 }
@@ -392,6 +392,15 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 		return n - 1
 	}
 	return 0
+}
+
+// witnessInputs hands out the inputs the run's witness fixes, once, to the
+// performance beginning the run; nil for a run under any other policy.
+func (s *scheduler) witnessInputs() []InputTaken {
+	if s == nil || s.replay == nil {
+		return nil
+	}
+	return s.replay.takeInputs()
 }
 
 // refusal is the witness move a replaying run could not follow, nil for none.
