@@ -303,6 +303,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
+	t.Run("enumeration_typed_feature_holding_an_unenumerated_value", testEnumerationTypedFeatureHoldingAnUnenumeratedValue)
+	t.Run("enumeration_whose_literal_value_cannot_be_evaluated", testEnumerationWhoseLiteralValueCannotBeEvaluated)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
 	t.Run("send_addressed_through_several_occurrences", testSendAddressedThroughSeveralOccurrences)
@@ -4736,6 +4738,57 @@ func testCastUndecidedByTheValue(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Even") {
 		t.Errorf("error = %v, want the target type named", err)
+	}
+}
+
+// testEnumerationTypedFeatureHoldingAnUnenumeratedValue: an enumeration-typed feature
+// refuses a value equal to no enumerated one by the write-conformance rule, decidedly.
+func testEnumerationTypedFeatureHoldingAnUnenumeratedValue(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		enum def Level :> Integer { low = 1; high = 3; }
+		attribute two : Integer = 2;
+		part def Dial { attribute setting : Level = two; }
+		part dial : Dial;
+		calc narrow { return : Level[0..1] = two as Level; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	dial, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "dial"))
+	if err == nil {
+		_, err = dial.GetFeatureValue(ctx, "setting")
+	}
+	if !errors.Is(err, ErrTypeMismatch) {
+		t.Fatalf("expected ErrTypeMismatch, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "Level") {
+		t.Errorf("error = %v, want the feature's type named", err)
+	}
+	result, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "narrow"), nil, pkg.Scope)
+	if err != nil {
+		t.Fatalf("2 as Level: %v, want the empty sequence", err)
+	}
+	if got := FormatValue(result); got != "[]" {
+		t.Errorf("2 as Level = %s, want the empty sequence", got)
+	}
+}
+
+// testEnumerationWhoseLiteralValueCannotBeEvaluated: a literal whose value fails to
+// evaluate fails the classification with that error rather than answering false.
+func testEnumerationWhoseLiteralValueCannotBeEvaluated(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, `package P {
+		attribute def Integer;
+		enum def Level :> Integer { low = 1; high = 1 / 0; }
+		attribute isLevel = 2 istype Level;
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	sym := resolveSymbol(t, pkg.Scope, "isLevel")
+	_, err := NewContext(NewModel(model, resolver), 1000).EvalWithScope(sym.Decl.(*ast.Usage).Value, pkg.Scope)
+	if err == nil {
+		t.Fatal("expected the literal's failing value to fail the classification")
+	}
+	if !strings.Contains(err.Error(), "high") {
+		t.Errorf("error = %v, want the failing literal named", err)
 	}
 }
 

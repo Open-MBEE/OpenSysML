@@ -1136,7 +1136,17 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return value, nil
 	}
+	name, rest := parts[0].Text, parts[1:]
 
+	if literal := value.EnumerationLiteral(); literal != nil {
+		// A literal is an occurrence of its enumeration, so its own features are
+		// read from the object that literal stands for, whatever scalar it equals.
+		inst, err := ec.ctx.enumLiteralObject(literal)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
+	}
 	switch value.Kind {
 	case ValSequence, ValSet:
 		return ec.chainOverElements(value, parts, from)
@@ -1152,14 +1162,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	case ValMetaobject:
 		// A metaobject answers its metaclass's features for the element it denotes.
 		return ec.chainOwnFeature(value, parts, from)
-	case ValEnumLiteral:
-		// A literal is an occurrence of its enumeration, so its own features are
-		// read from the object that literal stands for.
-		inst, err := ec.ctx.enumLiteralObject(value.Literal())
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 	default:
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
@@ -1179,7 +1181,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if !ok {
 		return Value{}, fmt.Errorf("instance ID %d not found for member %s", id, from)
 	}
-	name := parts[0].Text
 	// A frame, scale or transformation object answers its members from the value it is.
 	if ref, isRef, err := ec.ctx.referenceValueOfObject(inst); isRef {
 		if err != nil {
@@ -1198,7 +1199,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(answer, parts[1:], name)
+			return ec.chainMemberValue(answer, rest, name)
 		}
 	}
 	fvDecl, ok := inst.FeatureValues[name]
@@ -1206,13 +1207,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		// A calc usage is an evaluation rather than a feature value, so its outputs are
 		// read from a run of it against this object.
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-			return ec.calcUsageMemberValue(sym, inst, parts[1:])
+			return ec.calcUsageMemberValue(sym, inst, rest)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
-	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, parts[1:]); ok {
+	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
 		if len(rest) == 0 {
 			return variantReference(variant), nil
 		}
@@ -1233,7 +1234,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(member, parts[1:], name)
+	return ec.chainMemberValue(member, rest, name)
 }
 
 // chainOwnFeature continues a chain through a feature the value answers from
@@ -1298,7 +1299,7 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
-	return val, nil
+	return val.ofLiteral(sym), nil
 }
 
 // EnumerationLiteralValue is the value sym has when it is an enumeration
@@ -1665,12 +1666,11 @@ func (ec *EvalContext) elementDenotedBy(val Value) (*symbols.Symbol, bool) {
 		return inst.Type, true
 	case ValVariant:
 		return val.Variant(), val.Variant() != nil
-	case ValEnumLiteral:
-		return val.Literal(), val.Literal() != nil
 	case ValMetaobject:
 		return val.MetaobjectElement(), val.MetaobjectElement() != nil
 	default:
-		return nil, false
+		literal := val.EnumerationLiteral()
+		return literal, literal != nil
 	}
 }
 
@@ -1775,12 +1775,13 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // the identity operator `===` and SequenceFunctions::same ask. Identity is
 // stricter than equality: a value of another kind, or a constant of another
 // kind, is never the same value, so an Integer is not identical to a Real of
-// equal magnitude.
+// equal magnitude, nor an enumeration's literal to the bare scalar it equals or
+// to another enumeration's literal of that value.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
 	}
-	if left.Kind != right.Kind {
+	if left.Kind != right.Kind || left.EnumerationLiteral() != right.EnumerationLiteral() {
 		return false
 	}
 	if left.Kind == ValConst && left.Const.Kind != right.Const.Kind {

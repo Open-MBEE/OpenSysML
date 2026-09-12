@@ -64,14 +64,18 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			// result or a selection that settled on none: the value stays unjudged.
 			gots := ec.model.ExprResultTypes(valueScope, value)
 			if len(gots) == 0 || (scalar && ec.anyScalar(gots) && latticeTyped[value]) {
+				ec.checkEnumeratedTarget(valueScope, wants, value)
 				continue
 			}
 			if !ec.boundTypesConform(nil, gots, wants) {
 				ec.errorf(value.Span(), msgBoundValueType, typeNames(gots), typeNames(wants))
+				continue
 			}
+			ec.checkEnumeratedTarget(valueScope, wants, value)
 			continue
 		}
 		if scalar {
+			ec.checkEnumeratedTarget(valueScope, wants, value)
 			continue
 		}
 		// The feature's type has no scalar ancestor, so no literal value can
@@ -89,6 +93,65 @@ func (ec *exprChecker) checkValueConformance(valueScope, declScope *symbols.Scop
 			ec.errorf(value.Span(), "cannot bind %s value to a feature typed by %s", semantics.PrimExpression, typeNames(wants))
 		}
 	}
+}
+
+// checkEnumeratedTarget applies checkEnumeratedValue where the one declared type is an enumeration.
+func (ec *exprChecker) checkEnumeratedTarget(scope *symbols.Scope, wants []*symbols.Symbol, value ast.Node) {
+	if len(wants) == 1 && wants[0].Kind == symbols.SymbolEnumerationDef {
+		ec.checkEnumeratedValue(scope, wants[0], value)
+	}
+}
+
+// checkEnumeratedValue refuses a constant bound to an enumeration-typed feature that equals
+// none of its enumerated values, the enumeration's only instances (SysML v2 §8.3.7).
+func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.Symbol, value ast.Node) {
+	if ec.valueFeature(scope, value) != nil {
+		return
+	}
+	got, ok := ec.constElement(scope, value)
+	if !ok {
+		return
+	}
+	literals := ec.model.EnumeratedValuesOf(enum)
+	if len(literals) == 0 {
+		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, which enumerates no values", got.text, enum.Name)
+		return
+	}
+	// A value of another kind than the enumerated ones is the lattice rules' to report.
+	var enumerated []string
+	sameKind := false
+	for _, literal := range literals {
+		declared := semantics.LiteralValue(literal)
+		if declared == nil {
+			continue // identified by itself, so equal to no constant
+		}
+		want, ok := ec.constElement(literal.OwnerScope, declared)
+		if !ok {
+			return
+		}
+		if want.equal(got) {
+			return
+		}
+		sameKind = sameKind || want.comparableKind() == got.comparableKind()
+		enumerated = append(enumerated, enumeratedText(enum, literal, want))
+	}
+	if len(enumerated) == 0 {
+		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are only its literals", got.text, enum.Name)
+		return
+	}
+	if !sameKind {
+		return
+	}
+	ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, whose values are %s",
+		got.text, enum.Name, strings.Join(enumerated, ", "))
+}
+
+// enumeratedText names one enumerated value, `Level::high = 3`, or just `60.0` when unnamed.
+func enumeratedText(enum, literal *symbols.Symbol, want constElement) string {
+	if literal.Name == "" {
+		return want.valueText()
+	}
+	return enum.Name + "::" + literal.Name + " = " + want.valueText()
 }
 
 // literalPrimType returns the scalar type of a literal value, or PrimUnknown
@@ -170,6 +233,31 @@ func (e constElement) equal(o constElement) bool {
 		return ok && eq.Kind == semantics.ValBool && eq.Bool
 	}
 	return e.str == o.str
+}
+
+// comparableKind partitions elements into those equality can relate: numbers with
+// numbers, booleans with booleans, strings with strings, literals with literals.
+func (e constElement) comparableKind() string {
+	switch {
+	case e.literal != nil:
+		return "literal"
+	case e.scalar.Kind == semantics.ValBool:
+		return "boolean"
+	case e.scalar.Kind != semantics.ValInvalid:
+		return "number"
+	}
+	return "string"
+}
+
+// valueText is the element's value as written, without its kind.
+func (e constElement) valueText() string {
+	switch {
+	case e.literal != nil:
+		return e.literal.Name
+	case e.scalar.Kind != semantics.ValInvalid:
+		return semantics.FormatConst(e.scalar)
+	}
+	return strconv.Quote(e.str)
 }
 
 // constElement decides an element's value statically, or reports it cannot.

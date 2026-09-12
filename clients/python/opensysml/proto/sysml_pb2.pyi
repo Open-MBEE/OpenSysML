@@ -935,14 +935,16 @@ class Complex(_message.Message):
     def __init__(self, real: _Optional[float] = ..., imaginary: _Optional[float] = ...) -> None: ...
 
 class EnumLiteral(_message.Message):
-    __slots__ = ("literal_id", "enumeration_id", "name")
+    __slots__ = ("literal_id", "enumeration_id", "name", "value")
     LITERAL_ID_FIELD_NUMBER: _ClassVar[int]
     ENUMERATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
     literal_id: str
     enumeration_id: str
     name: str
-    def __init__(self, literal_id: _Optional[str] = ..., enumeration_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+    value: Value
+    def __init__(self, literal_id: _Optional[str] = ..., enumeration_id: _Optional[str] = ..., name: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ...) -> None: ...
 
 class ValueSequence(_message.Message):
     __slots__ = ("elements",)

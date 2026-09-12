@@ -63,12 +63,15 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (233 cases, all thirteen default
+Reference values at the current implementation (256 cases, all fourteen default
 fixtures):
-`agree 146 · kind-only 1 · order-only 0 · disagree 7 · pilot-unevaluated 59 ·
-pilot-silent 8 · pilot-error 2 · ours-error 2 · both-error 8 ·
+`agree 158 · kind-only 1 · order-only 0 · disagree 15 · pilot-unevaluated 59 ·
+pilot-silent 11 · pilot-error 2 · ours-error 2 · both-error 8 ·
 nondeterministic 0`.
-Five of the seven `disagree` are unrefereeable rather than verdicts against us:
+Eight of the fifteen `disagree` are the `enumeration_classification.cases`
+adjudicated ours: the pilot never consults an enumeration's enumerated values
+(`3 istype Level` false) and folds a scalar-valued literal to its Integer
+(`Level::high istype Level` false). Five more are unrefereeable rather than verdicts against us:
 `w6d:complex-is-zero-qualified`, where the pilot answers `false` for
 `isZero(rect(0.0, 0.0))` *and* for `isZero(rect(3.0, 4.0))`, because its
 `re`/`im` have no evaluable body; and the three `w6d:subsetting-*-count`
