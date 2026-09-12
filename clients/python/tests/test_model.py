@@ -426,6 +426,38 @@ class TestModelLookup:
         assert self._model(client).find("mass") is None
         assert self._model(client, [error]).find("mass").id == "Demo::Vehicle::mass"
 
+    def test_an_erroring_model_prefers_an_outer_name_the_query_cannot_see(self):
+        """The unseen ``Demo::mass`` outranks the queried ``Demo::Vehicle::mass``."""
+        symbols = {
+            **self.SYMBOLS,
+            "Demo::mass": sysml_pb2.SymbolInfo(
+                id="Demo::mass", name="mass", kind="attributeUsage"
+            ),
+            "Demo::Vehicle": sysml_pb2.SymbolInfo(
+                id="Demo::Vehicle", name="Vehicle", kind="partDef",
+                child_ids=["Demo::Vehicle::engine", "Demo::Vehicle::mass"],
+            ),
+            "Demo::Vehicle::mass": sysml_pb2.SymbolInfo(
+                id="Demo::Vehicle::mass", name="mass", kind="attributeUsage"
+            ),
+        }
+        root = sysml_pb2.SymbolInfo(
+            id="Demo", name="Demo", kind="package",
+            child_ids=["Demo::mass", *self.ROOT.child_ids],
+        )
+        client = _client({k: v for k, v in symbols.items() if k != "Demo::mass"})
+        client.get_symbol.side_effect = lambda model_hash, symbol_id: symbols.get(symbol_id)
+        error = sysml_pb2.Diagnostic(severity="error", message="unresolved reference: Base")
+        model = Model(
+            sysml_pb2.ParseFileResponse(model_hash="hash", root=root, diagnostics=[error]),
+            client,
+        )
+
+        assert model.find("mass").id == "Demo::mass"
+        # The walk stops at the queried answer's depth, not at the bottom.
+        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        assert "Demo::Vehicle::engine" not in fetched
+
     def test_outermost_of_a_shared_short_name_wins(self):
         symbols = dict(self.SYMBOLS)
         # Declared first in the model, but nested deeper than Demo::Engine.
