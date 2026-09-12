@@ -61,9 +61,8 @@ pilot_recover_dir() {
 	return 0
 }
 
-# pilot_install_dir replaces directory $2 with $1. The new tree is first moved
-# beside $2 (a copy if the work tree is on another filesystem), the old copy is
-# kept as $2.old until the rename into place succeeds, and restored if it fails.
+# pilot_install_dir replaces directory $2 with $1, keeping the old copy as
+# $2.old until the rename into place succeeds and restoring it if that fails.
 pilot_install_dir() {
 	local src="$1" dst="$2"
 	mkdir -p "$(dirname "$dst")"
