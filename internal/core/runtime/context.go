@@ -517,6 +517,19 @@ func (ctx *Context) holdsIdentityFrom(id int64) bool {
 	return false
 }
 
+// heldIdentities are the identities ctx holds: its objects' and those set aside
+// for connectors not materialized again.
+func (ctx *Context) heldIdentities() map[int64]bool {
+	held := make(map[int64]bool, len(ctx.instances))
+	for id, inst := range ctx.instances {
+		held[id] = true
+		for _, kept := range inst.KeptConnectorIDs() {
+			held[kept] = true
+		}
+	}
+	return held
+}
+
 // allocateID returns the next instance ID and increments the counter.
 func (ctx *Context) allocateID() int64 {
 	return ctx.ids.take(ctx.took)

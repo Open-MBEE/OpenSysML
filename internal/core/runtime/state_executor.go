@@ -103,6 +103,9 @@ type StateExecutor struct {
 	driven executorRun
 	// inRun is set while a run loop of this machine is on the stack.
 	inRun bool
+	// moved is set once an event was queued or dispatched, a transition fired, a do
+	// step ran or a value written, and cleared when the start attaching it settles.
+	moved bool
 
 	// timerScheduled holds the time-triggered transitions whose timer is already
 	// running, so a state's timer is not restarted while it stays active.
@@ -193,8 +196,29 @@ func newStateExecutorForOccurrence(
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}
+	exec := newStateExecutorOn(ctx, stateMachine, self, occurrence, graph)
 
-	exec := &StateExecutor{
+	// Initialize state machine attributes
+	if err := exec.initializeAttributes(); err != nil {
+		return nil, err
+	}
+	if err := exec.initializeStateAttributes(); err != nil {
+		return nil, err
+	}
+	ctx.clock.attach(exec)
+
+	return exec, nil
+}
+
+// newStateExecutorOn is an execution of graph, the lowering of stateMachine, holding
+// no attribute values yet and not on ctx's clock.
+func newStateExecutorOn(
+	ctx *Context,
+	stateMachine *symbols.Symbol,
+	self, occurrence *Instance,
+	graph *lower.StateGraph,
+) *StateExecutor {
+	return &StateExecutor{
 		ctx:                ctx,
 		stateMachine:       stateMachine,
 		self:               self,
@@ -216,17 +240,6 @@ func newStateExecutorForOccurrence(
 			regionStates: make(map[*ast.StateRegion]*ast.StateNode),
 		},
 	}
-
-	// Initialize state machine attributes
-	if err := exec.initializeAttributes(); err != nil {
-		return nil, err
-	}
-	if err := exec.initializeStateAttributes(); err != nil {
-		return nil, err
-	}
-	ctx.clock.attach(exec)
-
-	return exec, nil
 }
 
 // initializeAttributes populates stateData from the exhibited occurrence, or
@@ -556,6 +569,7 @@ func (e *StateExecutor) processNextEvent() error {
 	}
 
 	event := e.eventQueue.Pop()
+	e.moved = true
 	// The clock never lags a dispatched event: a timer popped ahead of it moves it.
 	e.ctx.clock.now = math.Max(e.ctx.clock.now, event.Timestamp)
 	e.lastEventAt = e.ctx.clock.now
@@ -2152,10 +2166,27 @@ func (e *StateExecutor) dueLabel() string {
 // clockWaits lists the timers set for an instant the clock has not reached, and
 // the waits the do behaviors under way are paused on.
 func (e *StateExecutor) clockWaits() []ClockWait {
+	return notYetDue(e.armedWaits(), e.ctx.clock.now)
+}
+
+// armedWaits lists the timers set and the do behaviors' waits on the clock, due
+// or not, earliest first.
+func (e *StateExecutor) armedWaits() []ClockWait {
+	return e.armed((*doRun).armedWaits)
+}
+
+// visibleArmedWaits lists armedWaits and, through the do behaviors' paused work,
+// the waits of the actions it performs.
+func (e *StateExecutor) visibleArmedWaits() []ClockWait {
+	return e.armed((*doRun).visibleArmedWaits)
+}
+
+// armed lists the timers set and, of each do behavior under way, the waits ofRun lists.
+func (e *StateExecutor) armed(ofRun func(*doRun) []ClockWait) []ClockWait {
 	var waits []ClockWait
 	for _, event := range e.eventQueue.events {
 		trans, ok := event.Payload.(*lower.Transition)
-		if !ok || event.Timestamp <= e.ctx.clock.now {
+		if !ok {
 			continue
 		}
 		waits = append(waits, ClockWait{
@@ -2168,7 +2199,7 @@ func (e *StateExecutor) clockWaits() []ClockWait {
 		if act.run == nil {
 			continue
 		}
-		for _, wait := range act.run.clockWaits() {
+		for _, wait := range ofRun(act.run) {
 			waits = append(waits, ClockWait{Due: wait.Due, Holder: e.dueLabel(), What: wait.What})
 		}
 	}
@@ -2329,6 +2360,7 @@ func (e *StateExecutor) runDoRound() (int, error) {
 // stepDoAction performs one action of a do behavior: the behavior under way goes
 // on as told, else the next behavior begins.
 func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, error)) error {
+	e.moved = true
 	if e.trace() != nil {
 		e.trace().RecordDoStep(act.state.Name)
 	}
@@ -2563,6 +2595,7 @@ func (e *StateExecutor) SendSignal(signalType string, args map[string]Value) {
 // InvokeOperation injects a call event for the named operation. Transitions
 // triggered by that operation fire; transitions triggered by another do not.
 func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value) {
+	e.moved = true
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventCall,
@@ -2574,6 +2607,7 @@ func (e *StateExecutor) InvokeOperation(operation string, args map[string]Value)
 
 // enqueueSignal queues a message as an accept event, to fire immediately.
 func (e *StateExecutor) enqueueSignal(msg Message) {
+	e.moved = true
 	e.eventQueue.Push(Event{
 		ID:        e.nextEventID,
 		Type:      EventAccept,
@@ -3302,6 +3336,7 @@ func (e *StateExecutor) invokeNested(inv actionInvocation) error {
 // writeStateValue writes a value a performed action returned to the machine's
 // attribute of that name, or to its state data where it declares none.
 func (e *StateExecutor) writeStateValue(name string, value Value) error {
+	e.moved = true
 	if e.declaresAttribute(name) {
 		return e.assignAttribute(name, value)
 	}
