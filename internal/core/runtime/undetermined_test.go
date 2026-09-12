@@ -61,6 +61,8 @@ const undeterminedModel = `package test {
 	attribute b : Boolean;
 	attribute s : String;
 	attribute xs : Real[2..4];
+	attribute vast : Real[0..9223372036854775807];
+	attribute big : Real[5000000];
 	attribute known : Real = 2.0;
 	calc twice { in x : Real; return : Real = x * 2.0; }
 	attribute doubled : Real = twice(u);
@@ -185,13 +187,54 @@ func TestSequenceCountsAddUpFixedMultiplicities(t *testing.T) {
 		val, err := evalIn(t, ctx, scope, src)
 		wantFormatted(t, src, val, err, want)
 	}
-	for src, count := range map[string]string{"size(xs)": "[1]", "(10, u, 30)#(2)": "[1]", "(10, u, 30)#(1)": "[1]", "(10, 20, 30)#(u)": "[1]", "xs#(1)": "[1]", "xs#(3)": "[1]"} {
+	for src, count := range map[string]string{"size(xs)": "[1]", "(10, u, 30)#(2)": "[1]", "(10, 20, 30)#(u)": "[1]", "xs#(1)": "[1]", "xs#(3)": "[1]"} {
 		val, err := evalIn(t, ctx, scope, src)
 		wantUndetermined(t, src, val, err, count)
 	}
 	// An index the multiplicity's upper bound rules out is a definite error.
 	if _, err := evalIn(t, ctx, scope, "xs#(5)"); !errors.Is(err, ErrIndexOutOfRange) {
 		t.Errorf("xs#(5): err = %v; want index out of range", err)
+	}
+}
+
+// A sequence fixes each position up to the first element of open count, so the
+// determined ones answer positional reads even though the sequence as a whole is
+// undetermined; a position the model leaves open stays undetermined, one past the
+// count is a definite error, and positions after an element of open count are open.
+func TestFixedPositionsOfOpenSequencesAnswer(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"(10, u, 30)#(1)": "10", "(10, u, 30)#(3)": "30", "((10, u), 30)#(3)": "30", "(10, (u, 30))#(3)": "30",
+		"head((10, u, 30))": "10", "last((10, u, 30))": "30", "head(tail((10, u, 30)))": "<undetermined>",
+		"last(tail((10, u, 30)))": "30", "size(tail((10, u, 30)))": "2",
+		"subsequence((10, u, 30), 2, 3)#(2)": "30", "subsequence((10, u, 30), 3)#(1)": "30",
+		"excludingAt((10, u, 30), 2)#(2)": "30", "excludingAt((10, u, 30), 1, 2)#(1)": "30",
+		"includingAt((10, u, 30), 20, 2)#(2)": "20", "includingAt((10, u, 30), 20, 2)#(4)": "30",
+		"includingAt((10, 30), u, 2)#(3)": "30", "includingAt((10, 30), u, 2)#(2)": "<undetermined>",
+		"(10, u, 30)#(1) + (10, u, 30)#(3)": "40", "(10, u, 30)#(1) == 10": "true",
+		"(u, r)#(2) == r":  "<undetermined>",
+		"(10, xs, 30)#(1)": "10", "head((10, xs, 30))": "10", "(10, 20, xs)#(2)": "20", "subsequence((10, 20, xs), 1, 2)#(2)": "20",
+		"(rack.gear, 30)#(1) == 30": "<undetermined>",
+		"(1, big, 2)#(5000002)":     "2", "size((1, big))": "5000001", "last(tail((1, big, 2)))": "2",
+		"size(subsequence((1, big, 2), 3, 5000001))": "4999999", "size(excludingAt((1, big, 2), 2, 4000000))": "1000003",
+		"excludingAt((1, big, 2), 2, 5000001)#(2)": "2", "includingAt((1, big, 2), 3, 5000002)#(5000003)": "2",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"(10, u, 30)#(2)": "[1]", "(u, r)#(2)": "[1]", "tail((10, u, 30))": "[2]", "tail(xs)": "[1..3]", "head(xs)": "[1]",
+		"(10, xs, 30)#(2)": "[1]", "(10, xs, 30)#(4)": "[1]", "last((10, xs, 30))": "[1]", "last(rack.loose)": "[0..1]",
+		"(xs, 10)#(1)": "[1]", "head((xs, 10))": "[1]", "(rack.gear, 30)#(1)": "[1]",
+		"(1, big, 2)#(2)": "[1]", "(1, big, 2)#(5000001)": "[1]", "subsequence((1, big, 2), 3, 5000001)": "[4999999]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for _, src := range []string{"(10, u, 30)#(4)", "(10, u, 30)#(0)", "(10, xs, 30)#(7)"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrIndexOutOfRange) {
+			t.Errorf("%s: err = %v; want index out of range", src, err)
+		}
 	}
 }
 
@@ -624,6 +667,7 @@ func TestDefiniteLibraryErrorsSurviveOpenOperands(t *testing.T) {
 	for src, count := range map[string]string{
 		"StringFunctions::Substring(s, 1, 2)": "[1]", "StringFunctions::Substring(\"abc\", u, 2)": "[1]",
 		"StringFunctions::Substring(\"abc\", 1, u)": "[1]", "includingAt(xs, 1.0, 1)": "[3..5]",
+		"includingAt(vast, 1.0, 9223372036854775807)": "[1..*]", "includingAt(vast, 1.0, 1)": "[1..*]",
 		"includingAt(xs, 1.0, 5)": "[3..5]", "includingAt((1.0, 2.0), r, 3)": "[3]", "includingAt(xs, r, u)": "[3..5]",
 		"subsequence(xs, 1, 2)": "[0..*]", "subsequence(xs, 2)": "[0..*]", "subsequence(xs, 4)": "[0..*]",
 		"subsequence((1.0, 2.0), u, 2)": "[0..*]", "subsequence((1.0, 2.0), 1, u)": "[0..*]",

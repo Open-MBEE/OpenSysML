@@ -15,10 +15,11 @@ const UndeterminedText = "<undetermined>"
 // Undetermined is the payload of a ValUndetermined value: what the model does fix
 // about a result it leaves open — the count its values conform to, the values it certainly holds.
 type Undetermined struct {
-	reason  string
-	count   semantics.Range
-	known   []Value
-	feature *symbols.Symbol // the feature read, whose members a chain resolves against
+	reason    string
+	count     semantics.Range
+	known     []Value
+	positions []Value         // the leading positions the model fixes, see Positions
+	feature   *symbols.Symbol // the feature read, whose members a chain resolves against
 }
 
 // Reason names why the result is undetermined, phrased for a diagnostic.
@@ -43,6 +44,72 @@ func (u *Undetermined) Known() []Value {
 		return nil
 	}
 	return u.known
+}
+
+// Positions lists the leading positions the model fixes, in order: a determined value
+// fills one, an undetermined one holding an exact count fills that many. Nil fixes none.
+func (u *Undetermined) Positions() []Value {
+	if u == nil {
+		return nil
+	}
+	return u.positions
+}
+
+// positional reports whether Positions are every value u holds.
+func (u *Undetermined) positional() bool {
+	n, exact := u.Count().Exactly()
+	return exact && spanOf(u.Positions()...) == n
+}
+
+// spanOf is how many positions entries of Positions fill.
+func spanOf(entries ...Value) int64 {
+	var n int64
+	for _, entry := range entries {
+		if u := entry.Undetermined(); u != nil {
+			count, _ := u.Count().Exactly()
+			n += count
+		} else {
+			n++
+		}
+	}
+	return n
+}
+
+// positionAt is the value at 1-based index among entries of Positions: the determined
+// value there, or one unknown value of the open entry; false past them.
+func positionAt(entries []Value, index int64) (Value, bool) {
+	for _, entry := range entries {
+		n := spanOf(entry)
+		if index <= n {
+			if entry.Kind == ValUndetermined {
+				return unknownElementOf(entry), true
+			}
+			return entry, true
+		}
+		index -= n
+	}
+	return Value{}, false
+}
+
+// positionsBetween is the entries of Positions from position start through end, an
+// open entry cut to the positions of it that lie within.
+func positionsBetween(entries []Value, start, end int64) []Value {
+	var between []Value
+	pos := int64(1)
+	for _, entry := range entries {
+		n := spanOf(entry)
+		lo, hi := max(start, pos), min(end, pos+n-1)
+		switch {
+		case lo > hi:
+		case hi-lo+1 == n:
+			between = append(between, entry)
+		default:
+			u := entry.Undetermined()
+			between = append(between, undeterminedFeatureValue(u.Reason(), semantics.CountRange(hi-lo+1), u.feature))
+		}
+		pos += n
+	}
+	return between
 }
 
 // NewUndeterminedValue is an undetermined result of count values, for reason.
@@ -136,7 +203,8 @@ func undeterminedOf(count semantics.Range, operands ...Value) Value {
 }
 
 // undeterminedElements is a sequence some element of which is undetermined: its
-// count adds up the elements' and it certainly holds the determined ones.
+// count adds up the elements', it certainly holds the determined ones, and it fixes
+// the leading positions they do.
 func undeterminedElements(elements []Value) Value {
 	first, _ := undeterminedIn(elements...)
 	count := semantics.CountRange(0)
@@ -146,8 +214,47 @@ func undeterminedElements(elements []Value) Value {
 		known = append(known, knownElementsOf(elem)...)
 	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: first.Undetermined().Reason(), count: count, known: known,
+		reason: first.Undetermined().Reason(), count: count, known: known, positions: fixedPrefixOf(elements...),
 	}}
+}
+
+// fixedPrefixOf lists the leading positions vals fix in sequence, as Positions holds
+// them: every position of each value up to the first that fixes only some, then those.
+func fixedPrefixOf(vals ...Value) []Value {
+	var positions []Value
+	for _, val := range vals {
+		fixed, whole := fixedPositionsOf(val)
+		positions = append(positions, fixed...)
+		if !whole {
+			break
+		}
+	}
+	return positions
+}
+
+// fixedPositionsOf lists the leading positions val fixes, as Positions holds them, and
+// whether they are every value it holds: all of a determined value, an open value of
+// exact count as one entry, else those an open value carries.
+func fixedPositionsOf(val Value) ([]Value, bool) {
+	u := val.Undetermined()
+	if u == nil {
+		return elementsOf(val), true
+	}
+	if u.Positions() == nil && len(u.Known()) == 0 {
+		if _, exact := u.Count().Exactly(); exact {
+			return []Value{val}, true
+		}
+	}
+	return u.Positions(), u.positional()
+}
+
+// sequenceOfPositions is the sequence of entries of Positions: determined where every
+// one is, else undetermined fixing the leading positions they do.
+func (ec *EvalContext) sequenceOfPositions(entries []Value, sources ...Value) (Value, error) {
+	if _, open := undeterminedIn(entries...); open {
+		return undeterminedElements(entries), nil
+	}
+	return ec.sequenceFrom(entries, sources...)
 }
 
 // undeterminedFiltered is a filter's result over source when the test is open for
@@ -234,6 +341,10 @@ var undeterminedAware = map[string]bool{
 	"SequenceFunctions::subsequence": true,
 	"SequenceFunctions::excludingAt": true,
 	"StringFunctions::Substring":     true,
+	// These answer from the positions an open sequence fixes.
+	"SequenceFunctions::head": true,
+	"SequenceFunctions::tail": true,
+	"SequenceFunctions::last": true,
 }
 
 // undeterminedInvocation applies a function that does not decide open arguments

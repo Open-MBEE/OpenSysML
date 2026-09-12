@@ -45,6 +45,11 @@
   position no value of an open operand admits fails `Substring`, `includingAt`, `subsequence`
   and `excludingAt` (`Substring(s, 0, 2)`, `excludingAt(xs, 5)` for `xs : Real[2..4]`) as
   `index out of range`, where a position every value admits leaves the result `<undetermined>`.
+  A sequence fixes each position up to its first element of open count, so `(10, u, 30)#(1)`
+  is `10` and `#(3)` `30` while `#(2)` stays `<undetermined>` and `#(4)` is `index out of range`,
+  as `head`, `last`, `tail`, `subsequence`, `excludingAt` and `includingAt` read them; an
+  insertion index is checked against the upper bound plus one without overflowing it, so
+  `includingAt` at a bound of `9223372036854775807` is `<undetermined>`, not rejected.
   A multiplicity bound the model does not evaluate (`a : Real[n]` over a valueless `n`) fixes no
   count either: such a read is `<undetermined>` of the bounds the declaration does fix rather
   than the `cannot materialize … with unknown multiplicity` error, which stays the object-level

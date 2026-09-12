@@ -232,10 +232,7 @@ func fixedIndex(op string, val Value) (index int64, fixed bool, err error) {
 // indexWithin rejects an index that names no position in a sequence of count values: below
 // first, or past the most positions the count admits, slack beyond its last element.
 func indexWithin(op, what string, index, first int64, count semantics.Range, slack int64) error {
-	last := count.Upper
-	if last.Known && !last.Infinite {
-		last.Value += slack
-	}
+	last := count.Plus(semantics.CountRange(slack)).Upper
 	if index < first || (last.Known && !last.Infinite && index > last.Value) {
 		return fmt.Errorf("%w: %s %s %d is outside %d..%s", ErrIndexOutOfRange, op, what, index, first, last.Text())
 	}
@@ -319,8 +316,9 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	return elementAt("sequence index", elementsOf(operand), index)
 }
 
-// undeterminedIndex is `seq#(index)` where the model leaves seq or index open:
-// undetermined, except that an index past the count seq may reach is out of range.
+// undeterminedIndex is `seq#(index)` where the model leaves seq or index open: the
+// value at a position seq fixes, else undetermined; an index past the count seq may
+// reach is out of range.
 func undeterminedIndex(op string, seq, indexVal Value) (Value, bool, error) {
 	if indexVal.Kind == ValUndetermined {
 		if certainlyEmpty(seq) {
@@ -339,6 +337,9 @@ func undeterminedIndex(op string, seq, indexVal Value) (Value, bool, error) {
 	upper := u.Count().Upper
 	if index < 1 || (upper.Known && !upper.Infinite && index > upper.Value) {
 		return Value{}, true, fmt.Errorf("%w: %s %d is outside 1..%s", ErrIndexOutOfRange, op, index, upper.Text())
+	}
+	if val, fixed := positionAt(u.Positions(), index); fixed {
+		return val, true, nil
 	}
 	return undeterminedOne(seq), true, nil
 }
@@ -866,15 +867,18 @@ func (ec *EvalContext) insertAt(op string, seq, values, at Value) (Value, error)
 			return Value{}, err
 		}
 	}
-	if _, open := undeterminedIn(seq, values, at); open {
-		return undeterminedOf(countOf(seq).Plus(countOf(values)), seq, values, at), nil
+	elements, whole := fixedPositionsOf(seq)
+	if !fixed || !whole {
+		if _, open := undeterminedIn(seq, values, at); open {
+			return undeterminedOf(countOf(seq).Plus(countOf(values)), seq, values, at), nil
+		}
 	}
-	elements, inserted := elementsOf(seq), elementsOf(values)
+	inserted, total := elementsOf(values), spanOf(elements...)
 	result := make([]Value, 0, len(elements)+len(inserted))
-	result = append(result, elements[:index-1]...)
+	result = append(result, positionsBetween(elements, 1, index-1)...)
 	result = append(result, inserted...)
-	result = append(result, elements[index-1:]...)
-	return ec.newSequence(result)
+	result = append(result, positionsBetween(elements, index, total)...)
+	return ec.sequenceOfPositions(result)
 }
 
 // builtinSequenceSubsequence is SequenceFunctions::subsequence, the elements
@@ -908,6 +912,9 @@ func builtinSequenceSubsequence(ec *EvalContext, args []Value) (Value, error) {
 		}
 		if err := indexWithin(subsequenceOp, "end index", end, 1, count, 0); err != nil {
 			return Value{}, err
+		}
+		if elements, whole := fixedPositionsOf(args[0]); whole || end <= spanOf(elements...) {
+			return ec.sequenceOfPositions(positionsBetween(elements, start, end), args[0])
 		}
 	}
 	if val, open := ec.ctx.openInvocation(subsequenceOp, args...); open {
@@ -951,45 +958,75 @@ func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 			return Value{}, err
 		}
 	}
-	if val, open := ec.ctx.openInvocation(op, args...); open {
-		return val, nil
+	elements, whole := fixedPositionsOf(args[0])
+	if !startFixed || !endFixed || !whole {
+		if val, open := ec.ctx.openInvocation(op, args...); open {
+			return val, nil
+		}
 	}
-	elements := elementsOf(args[0])
-	kept := make([]Value, 0, len(elements)-int(end-start+1))
-	kept = append(kept, elements[:start-1]...)
-	kept = append(kept, elements[end:]...)
-	return ec.sequenceFrom(kept, args[0])
+	kept := make([]Value, 0, len(elements))
+	kept = append(kept, positionsBetween(elements, 1, start-1)...)
+	kept = append(kept, positionsBetween(elements, end+1, spanOf(elements...))...)
+	return ec.sequenceOfPositions(kept, args[0])
 }
 
 // builtinSequenceHead is SequenceFunctions::head, `seq#(1)`: the first element,
 // or nothing where the sequence is empty.
 func builtinSequenceHead(ec *EvalContext, args []Value) (Value, error) {
-	if err := checkArity("SequenceFunctions::head", args, 1); err != nil {
+	const op = "SequenceFunctions::head"
+	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	return elementAtOrEmpty(elementsOf(args[0]), 1), nil
+	elements, whole := fixedPositionsOf(args[0])
+	if first, ok := positionAt(elements, 1); ok {
+		return first, nil
+	}
+	if !whole {
+		return ec.openEndOf(op, args[0])
+	}
+	return nullValue(), nil
+}
+
+// openEndOf is head or last of a sequence the model leaves open: one value, or
+// none where the sequence may be empty.
+func (ec *EvalContext) openEndOf(op string, seq Value) (Value, error) {
+	count := ec.ctx.libraryResultCount(op)
+	if certainlyNonEmpty(seq) {
+		count = nonEmptyCount(count)
+	}
+	return undeterminedOf(count, seq), nil
 }
 
 // builtinSequenceTail is SequenceFunctions::tail, `subsequence(seq, 2)`: every
 // element but the first.
 func builtinSequenceTail(ec *EvalContext, args []Value) (Value, error) {
-	if err := checkArity("SequenceFunctions::tail", args, 1); err != nil {
+	const op = "SequenceFunctions::tail"
+	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	if len(elements) == 0 {
-		return ec.sequenceFrom(nil, args[0])
+	elements, whole := fixedPositionsOf(args[0])
+	if !whole {
+		count := countOf(args[0])
+		count.Lower, count.Upper = lessBound(count.Lower, 1), lessBound(count.Upper, 1)
+		return undeterminedOf(count, args[0]), nil
 	}
-	return ec.sequenceFrom(elements[1:], args[0])
+	return ec.sequenceOfPositions(positionsBetween(elements, 2, spanOf(elements...)), args[0])
 }
 
 // builtinSequenceLast is SequenceFunctions::last, `seq#(size(seq))`.
 func builtinSequenceLast(ec *EvalContext, args []Value) (Value, error) {
-	if err := checkArity("SequenceFunctions::last", args, 1); err != nil {
+	const op = "SequenceFunctions::last"
+	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	return elementAtOrEmpty(elements, int64(len(elements))), nil
+	elements, whole := fixedPositionsOf(args[0])
+	if !whole {
+		return ec.openEndOf(op, args[0])
+	}
+	if last, ok := positionAt(elements, spanOf(elements...)); ok {
+		return last, nil
+	}
+	return nullValue(), nil
 }
 
 // builtinCollectionContains is CollectionFunctions::contains, which asks

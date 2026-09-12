@@ -216,19 +216,19 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 345 committed cases, the original 32, the 62 the
+prints the current ones. State of the 358 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases`, the 79 of `undetermined_operands.cases` and the 4 of
-`unknown_bounds.cases`:
+`extent_expressions.cases`, the 90 of `undetermined_operands.cases`, the 4 of
+`unknown_bounds.cases` and the 2 of `vast_bounds.cases`:
 
 ```
-agree: 187 · kind-only: 1 · order-only: 0 · disagree: 22
-pilot-unevaluated: 81 · pilot-silent: 15 · pilot-error: 7 · ours-error: 2 · ours-undetermined: 19
+agree: 196 · kind-only: 1 · order-only: 0 · disagree: 22
+pilot-unevaluated: 82 · pilot-silent: 16 · pilot-error: 9 · ours-error: 2 · ours-undetermined: 19
 both-error: 11 · nondeterministic: 0
 ```
 
@@ -309,7 +309,7 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 79 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+The 90 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
 (`attribute u;`, no type, no value; beside it `s : String` and `xs : Real[2..4]`, typed and
 valueless) and over usages whose multiplicity leaves the count open
 (`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear` and
@@ -417,6 +417,21 @@ no other case). A bound the model does not evaluate fixes no count either, so `a
 and `isEmpty(a)` are `<undetermined>` here, of the bounds the declaration does fix, and
 `notEmpty(an)` is `true` from the lower bound `1`; an object-level read of such a usage is the
 `unknown multiplicity` error it always was.
+
+Of the eleven positional cases, nine agree: a sequence fixes each position up to its first
+element of open count, so `(10, u, 30)#(1)` and `#(3)` are `10` and `30` on both sides, as are
+`head`, `last`, `last(tail(…))`, `subsequence((10, u, 30), 2, 3)#(2)`, `excludingAt((10, u, 30),
+2)#(2)` and `includingAt((10, u, 30), 20, 2)#(4)` over it, and `(10, xs, 30)#(1)` is `10` though
+`xs : Real[2..4]` leaves every later position open; the pilot leaves `(10, u, 30)#(2)`
+unevaluated where we answer `<undetermined>` of `[1]`, and is silent on `(10, u, 30)#(4)` where
+we report the index outside `1..3`.
+
+The 2 `vast_bounds.cases` probe `includingAt` over a usage whose upper bound is the largest
+count the runtime represents, `vast : Real[0..9223372036854775807]`, at that bound and at `1`.
+The pilot rejects the bound itself and then resolves no name in the model (`Couldn't resolve
+reference to Element 'V'`), so both are `pilot-error` and self-assessed, kept to a model of
+their own so the rejection reaches no other case; here both insertions are `<undetermined>`,
+the insertion index checked against the bound plus one without overflowing it.
 
 **Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
 `ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;

@@ -130,3 +130,17 @@ subsequence-unbound-valid :: U :: SequenceFunctions::subsequence(xs, 1, 2)
 excludingat-unbound-zero :: U :: SequenceFunctions::excludingAt(xs, 0)
 excludingat-unbound-past :: U :: SequenceFunctions::excludingAt(xs, 5)
 excludingat-unbound-valid :: U :: SequenceFunctions::excludingAt(xs, 1)
+
+# A sequence whose elements each hold a fixed number of values fixes every position:
+# the determined ones answer, the open one stays open, one past the count fails.
+index-fixed-first :: U :: (10, u, 30)#(1)
+index-fixed-last :: U :: (10, u, 30)#(3)
+index-fixed-open :: U :: (10, u, 30)#(2)
+index-fixed-past :: U :: (10, u, 30)#(4)
+head-fixed :: U :: SequenceFunctions::head((10, u, 30))
+last-fixed :: U :: SequenceFunctions::last((10, u, 30))
+last-tail-fixed :: U :: SequenceFunctions::last(SequenceFunctions::tail((10, u, 30)))
+subsequence-fixed-index :: U :: SequenceFunctions::subsequence((10, u, 30), 2, 3)#(2)
+excludingat-fixed-index :: U :: SequenceFunctions::excludingAt((10, u, 30), 2)#(2)
+includingat-fixed-index :: U :: SequenceFunctions::includingAt((10, u, 30), 20, 2)#(4)
+index-open-count-first :: U :: (10, xs, 30)#(1)
