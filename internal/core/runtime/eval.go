@@ -122,14 +122,18 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 	if err != nil || bound.decl == nil {
 		return val, true, err
 	}
-	val, err = ec.conformBodyDeclared(bound.decl, val)
+	held := bound.held
+	if held == nil {
+		held = bound.decl
+	}
+	val, err = ec.conformBodyDeclared(held, bound.owner, val)
 	return val, true, err
 }
 
-// conformBodyDeclared holds val as the value of a declaration a body carries: its
-// count answers to a stated multiplicity only, an omitted one keeping the initializer's.
-func (ec *EvalContext) conformBodyDeclared(sym *symbols.Symbol, val Value) (Value, error) {
-	if mult, stated := ec.ctx.extractMultiplicity(sym); stated {
+// conformBodyDeclared holds val as the value of a declaration a body carries, effective
+// on owner: its count answers to a stated multiplicity only, an omitted one keeping the initializer's.
+func (ec *EvalContext) conformBodyDeclared(sym, owner *symbols.Symbol, val Value) (Value, error) {
+	if mult, stated := ec.ctx.statedMultiplicity(sym, owner); stated {
 		if msg := mult.HeldViolation(heldCountOf(&val)); msg != "" {
 			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.qualifiedSymbolName(sym), ErrMultiplicityViolation, msg)
 		}

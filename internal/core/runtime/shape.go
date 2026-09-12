@@ -220,6 +220,23 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 	return mult
 }
 
+// statedMultiplicity is the multiplicity a feature on owner states, itself or through
+// the redefined declaration it restates none for (KerML 1.0 §7.3.4.5); stated is false when none does.
+func (ctx *Context) statedMultiplicity(sym, owner *symbols.Symbol) (semantics.Range, bool) {
+	if mult, stated := ctx.extractMultiplicity(sym); stated {
+		return mult, true
+	}
+	if owner == nil {
+		return semantics.Range{}, false
+	}
+	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
+		if mult, stated := ctx.extractMultiplicity(redefined); stated {
+			return mult, true
+		}
+	}
+	return semantics.Range{}, false
+}
+
 // inheritedMultiplicity intersects the multiplicities a feature declaring none redefines —
 // and, if abstract, subsets (KerML 1.0 §8.4.4.12.1); path ends cycles, not shared ancestors.
 func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (semantics.Range, bool) {

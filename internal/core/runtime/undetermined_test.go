@@ -925,11 +925,11 @@ func TestBodyLocalKeepsOpenInitializerCount(t *testing.T) {
 		}
 		return sym
 	}
-	val, err := ec.conformBodyDeclared(local("kept"), initializer())
+	val, err := ec.conformBodyDeclared(local("kept"), open, initializer())
 	wantUndetermined(t, "kept", val, err, "[2..*]")
-	val, err = ec.conformBodyDeclared(local("two"), initializer())
+	val, err = ec.conformBodyDeclared(local("two"), open, initializer())
 	wantUndetermined(t, "two", val, err, "[2..*]")
-	if _, err := ec.conformBodyDeclared(local("one"), initializer()); !errors.Is(err, ErrMultiplicityViolation) {
+	if _, err := ec.conformBodyDeclared(local("one"), open, initializer()); !errors.Is(err, ErrMultiplicityViolation) {
 		t.Errorf("one[1] = xs: err = %v; want ErrMultiplicityViolation", err)
 	}
 }
