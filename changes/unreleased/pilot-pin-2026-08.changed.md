@@ -5,7 +5,9 @@
   pilot's own behavior: it now reports a type's `disjoint` clauses (the six `kerml-examples`
   diagnostics it alone used to raise are gone), and its new Xpect assertion that a feature may
   not own two `crosses` clauses is met. The validator build passes the pin to Maven, so the
-  wrapper no longer has to be re-pinned for a pilot release it does not yet default to.
+  wrapper no longer has to be re-pinned for a pilot release it does not yet default to, and it
+  stamps `build/pilot-validator` with the pin it was built from so a later re-pin rebuilds a
+  stale validator instead of reporting it already built.
 - **The Xpect scope oracle narrows a scope to the inherited members only for a redefinition.**
   A `subsets` clause whose target is spelled differently from the declaring feature's own name
   was being treated as a redefinition, which restricted the names the scope check expected at

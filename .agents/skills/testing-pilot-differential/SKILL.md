@@ -554,9 +554,17 @@ reports the exit of the last stage and a failure looks like a pass.
 
 Provisioning script (`scripts/download-pilot-validator.sh`):
 
-- Already built → prints `Pilot validator already built at ...` and exits 0. Prove it did not
-  rebuild by comparing `ls -l --time-style=full-iso build/pilot-validator/validate-sysml` before
-  and after, not just by reading the message.
+- Already built → prints `Pilot validator already built at ... (pilot <tag>, <version>)` and exits
+  0. Prove it did not rebuild by comparing
+  `ls -l --time-style=full-iso build/pilot-validator/validate-sysml` before and after, not just by
+  reading the message.
+- Stale build → the early return is taken only when `build/pilot-validator/.pilot-pin` holds the
+  current pin (tag, commit, repository, artifact version, wrapper commit) *and* the versioned
+  shaded jar `target/sysml-download/sysml/jupyter-sysml-kernel-<version>-all.jar` exists.
+  Overwrite the stamp (`printf x > build/pilot-validator/.pilot-pin`) and the script prints
+  `Stale build at ...: built from x, pin is now ...; rebuilding.` and re-clones; delete it and it
+  prints `Unstamped build at ...; rebuilding ...`. Both rebuild for real (minutes), so `mv` the
+  directory aside first as described below and `timeout 5` the run if the message is all you need.
 - Pin propagation → `mv build/pilot-validator /tmp/pv-backup` then
   `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-validator.sh`: it
   clones (fast), prints `Downloading the pilot 9999-99 (9.9.9) release ...` and Maven's

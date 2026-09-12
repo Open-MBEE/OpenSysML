@@ -15,11 +15,22 @@ VALIDATOR_COMMIT="${VALIDATOR_COMMIT:-63abbd9fbc7851dc437d01b2dc07836b919770b8}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 target="$repo_root/build/pilot-validator"
+pilot_jar="$target/target/sysml-download/sysml/jupyter-sysml-kernel-${PILOT_ARTIFACT_VERSION}-all.jar"
+# The build records what it was made from, so a re-pin re-provisions it.
+stamp="$target/.pilot-pin"
+pin="$(pilot_pin) $PILOT_ARTIFACT_VERSION $VALIDATOR_COMMIT"
 
 if [[ -x "$target/validate-sysml" ]] && [[ -f "$target/target/sysmlv2-validator-1.0.0-SNAPSHOT.jar" ]]; then
-	echo "Pilot validator already built at $target"
-	echo "Remove that directory to re-provision."
-	exit 0
+	if [[ -f "$pilot_jar" ]] && [[ -f "$stamp" ]] && [[ "$(cat "$stamp")" == "$pin" ]]; then
+		echo "Pilot validator already built at $target (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
+		echo "Remove that directory to re-provision."
+		exit 0
+	fi
+	if [[ -f "$stamp" ]]; then
+		echo "Stale build at $target: built from $(cat "$stamp"), pin is now $pin; rebuilding."
+	else
+		echo "Unstamped build at $target; rebuilding at pilot $PILOT_TAG ($PILOT_ARTIFACT_VERSION)."
+	fi
 fi
 
 for tool in git java mvn; do
@@ -68,6 +79,11 @@ if [[ ! -d "$library" ]]; then
 	echo "error: the pilot standard library is missing from $library" >&2
 	exit 1
 fi
+if [[ ! -f "$pilot_jar" ]]; then
+	echo "error: the pilot shaded jar is missing from $pilot_jar" >&2
+	exit 1
+fi
+printf '%s' "$pin" >"$stamp"
 
 echo "Built $target/validate-sysml (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
 echo "Compare it against this implementation with:"
