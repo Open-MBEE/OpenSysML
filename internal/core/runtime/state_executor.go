@@ -859,7 +859,8 @@ func (e *StateExecutor) selectCandidates(
 // one, each with the one of its enabled transitions that fires drawn once here and
 // its route through any pseudostates settled against the pre-dispatch data, for
 // the do behaviors taking the occurrence, the firing and the preview alike. A
-// state outranked by a nested one draws nothing. event is nil for a change poll.
+// state outranked by a nested one draws nothing. event is nil for a change poll. A
+// draw the policy refuses is the dispatch's error, before any route is resolved.
 func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event *Event) ([]dispatchCandidate, error) {
 	chosen := make([]dispatchCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
@@ -867,6 +868,9 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 			continue
 		}
 		candidate.chosen, candidate.notes = e.chooseTransition(candidate)
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return nil, err
+		}
 		route, err := e.resolveRouteFor(candidate.chosen, event)
 		if err != nil {
 			return nil, fmt.Errorf("transition out of %s: %w", candidate.source.Name, err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -411,6 +412,7 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}{
 		{"token not able", "step 3: 9@zzz first of 2@a, 9@zzz", 1, "9@zzz is not able to act (able to act: 2@a, 3@b, 4@c)"},
 		{"alternative not able", "step 3: 2@a first of 2@a, 9@zzz", 1, "9@zzz is not able to act"},
+		{"alternatives left out", "step 3: 2@a first of 2@a, 3@b", 1, "the witness names 2@a, 3@b and the run has more (able to act: 2@a, 3@b, 4@c)"},
 		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "the run is at step 3 and step 1 had no such move"},
 		{"step already past", "step 1: decision select -> 1->warn", 1, "step 1 had no such move"},
 		{"branch not holding", orders + "step 7: decision select -> 3->nowhere", 3, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
@@ -443,8 +445,79 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}
 }
 
+// A transition the witness names that is not enabled is refused as such, before
+// the transition the run would fall back to is routed: its routing error, a
+// junction nothing leaves, is not what the run reports.
+func TestReplayRefusesATransitionBeforeRoutingTheFallback(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		state def Machine {
+			entry; then idle;
+			state idle;
+			state right;
+			junction stuck;
+			transition idle_stuck first idle accept go then stuck;
+			transition idle_right first idle accept go then right;
+		}
+	}`)
+	run := stateRun(m.state(t, "Machine"), "go")
+	witness, err := ParseChoices("state idle on accept go -> 9->nowhere")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = replayed(t, m.fresh, run, witness)
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+		t.Fatalf("error %T %v, want a ReplayError", err, err)
+	}
+	if want := "9->nowhere is not enabled (enabled: 1->stuck, 2->right)"; !strings.Contains(err.Error(), want) {
+		t.Errorf("error %q does not say %q", err, want)
+	}
+	if strings.Contains(err.Error(), "no outgoing transitions") {
+		t.Errorf("error %q routes the fallback transition", err)
+	}
+	witness, err = ParseChoices("state idle on accept go -> 1->stuck")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = replayed(t, m.fresh, run, witness); err == nil || !strings.Contains(err.Error(), "junction stuck has no outgoing transitions") || errors.Is(err, ErrReplayRefused) {
+		t.Errorf("the witness's own transition routed: %v, want the junction's routing error", err)
+	}
+}
+
+// A witness naming fewer alternatives than the run faces is stale or forged, not a
+// run the interpreter made: a due order among two tickers where three wake is
+// refused, naming the move, and the move is not consumed.
+func TestReplayRefusesAlternativesLeftOut(t *testing.T) {
+	fresh, run := dueOrderModel(t)
+	x, err := Explore(context.Background(), mustPolicy(t, "explore"), fresh, run)
+	if err != nil || !x.Complete() {
+		t.Fatalf("explore: %v, %v", x, err)
+	}
+	good := x.Outcomes[0].Witness
+	if len(good) == 0 || good[0].Kind != ChoiceDueOrder || len(good[0].Among) != 3 {
+		t.Fatalf("witness %s, want a due order among three first", FormatChoices(good))
+	}
+	forged := slices.Clone(good)
+	other := good[0].Among[(good[0].Taken+1)%3]
+	forged[0].Among = []string{good[0].Took, other}
+	forged[0].Alternatives = 2
+	_, _, err = replayed(t, fresh, run, forged)
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) {
+		t.Fatalf("error %T %v, want a ReplayError", err, err)
+	}
+	if refused.Move != 1 || refused.Choice.String() != forged[0].String() {
+		t.Errorf("refused move %d (%s), want move 1 (%s)", refused.Move, refused.Choice, forged[0])
+	}
+	want := "the witness names " + strings.Join(forged[0].Among, ", ") + " and more are enabled"
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error %q does not say %q", err, want)
+	}
+}
+
 // A run that outlives its witness goes on as `reverse` does: the witness's first
-// move is taken, and from there the choices are the default policy's.
+// move is taken, and from there the choices are the default policy's — the last
+// token able to act first, so the writes left open land as reverse lands them.
 func TestReplayFallsBackToReverse(t *testing.T) {
 	m := parseExploreModel(t, choiceModel)
 	sym := m.action(t, "route")
@@ -465,6 +538,15 @@ func TestReplayFallsBackToReverse(t *testing.T) {
 	}
 	if len(choices) < 2 || choices[0].String() != first[0].String() {
 		t.Fatalf("choices %s, want %s then the rest", FormatChoices(choices), first[0])
+	}
+	if got, want := choices[1].String(), "step 4: 4@c first of 3@b, 4@c"; got != want {
+		t.Errorf("past the witness the run took %s, want %s (reverse's pick)", got, want)
+	}
+	if got := FormatValue(outcome.Outputs["order"]); got != `"acb"` {
+		t.Errorf("order = %s, want \"acb\": a as the witness fixed it, then c before b as reverse runs them", got)
+	}
+	if got := FormatValue(outcome.Outputs["x"]); got != "2" {
+		t.Errorf("x = %s, want 2 (b's write landing last)", got)
 	}
 	ctx, _ := m.fresh()
 	mustSchedule(t, ctx, DefaultSchedulePolicy)

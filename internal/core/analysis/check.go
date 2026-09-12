@@ -283,12 +283,34 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 	}
 	if w.path != nil {
 		*w.path = filepath.Join(q.Check.WitnessDir, w.file)
-		if err := os.WriteFile(*w.path, []byte(w.witness.String()), 0o600); err != nil {
+		if err := writeWitness(*w.path, w.witness.String()); err != nil {
 			return err
 		}
 	}
-	_, err := runtime.ReplayAction(fresh, q.Check.Start, w.witness)
+	_, err := runtime.ReplayAction(ctx, fresh, q.Check.Start, w.witness)
 	return err
+}
+
+// writeWitness writes the witness beside path and renames it into place, so a link
+// planted at the path is replaced, never followed to what it points at.
+func writeWitness(path, text string) (err error) {
+	dir, name := filepath.Split(path)
+	f, err := os.CreateTemp(dir, "."+name+".*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, os.Remove(f.Name()))
+		}
+	}()
+	if _, err = f.WriteString(text); err != nil {
+		return errors.Join(err, f.Close())
+	}
+	if err = f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path)
 }
 
 // violationFile names the witness of the n-th violation, `test.race.violation-1.witness`:

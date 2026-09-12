@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -40,8 +41,12 @@ type Replayed struct {
 // context fresh makes, under the `replay` policy over the witness's choices, and
 // steps it until its trace equals the witness's, settling as the check did. The
 // run failing to follow a choice, ending or leaving another trace is a
-// ReplayDisagreement.
-func ReplayAction(fresh func() (*Context, error), start ActionStarter, w Witness) (*Replayed, error) {
+// ReplayDisagreement; a caller that goes away mid-run takes the replay with it,
+// its error being stop's.
+func ReplayAction(stop context.Context, fresh func() (*Context, error), start ActionStarter, w Witness) (*Replayed, error) {
+	if err := stop.Err(); err != nil {
+		return nil, err
+	}
 	ctx, err := fresh()
 	if err != nil {
 		return nil, err
@@ -60,8 +65,14 @@ func ReplayAction(fresh func() (*Context, error), start ActionStarter, w Witness
 	}
 	r.Exec = exec
 	for {
+		if err := stop.Err(); err != nil {
+			return r, err
+		}
 		if ctx.Trace().String() == w.Trace {
-			if err := r.settle(); err != nil {
+			if err := r.settle(stop); err != nil {
+				if stop.Err() != nil {
+					return r, err
+				}
 				r.Err = err
 			}
 			return r, r.agree(w, "settling the claimed state")
@@ -84,8 +95,11 @@ func ReplayAction(fresh func() (*Context, error), start ActionStarter, w Witness
 }
 
 // settle brings the replayed run to the stable state the check evaluated: complete, or with a move enabled.
-func (r *Replayed) settle() error {
+func (r *Replayed) settle(stop context.Context) error {
 	for r.Exec.State() != StateCompleted && len(r.Exec.enabledMoves()) == 0 {
+		if err := stop.Err(); err != nil {
+			return err
+		}
 		before := len(r.Ctx.Trace().Entries())
 		now := r.Ctx.clock.now
 		if err := r.Exec.advance(); err != nil {

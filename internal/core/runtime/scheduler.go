@@ -296,7 +296,7 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 		ts.explore.acted(id, acted)
 	}
 	if ts.replay != nil {
-		ts.replay.acted(acted)
+		ts.replay.acted(id, acted)
 	}
 	if ts.check != nil {
 		ts.check.acted(id, acted)
@@ -378,9 +378,10 @@ func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
 // choose resolves the choice point c, whose Alternatives are canonical and whose
 // Taken is not yet set, to the index taken: the first by default (the last for a
 // due order), the first under declared, a draw under a seed, the exploration's
-// turn under explore and the witness's move under replay. whereOf, when not nil,
-// is how the run reports Where once alternative i is taken (a transition's names
-// its trigger); an exploration's witness names the choice as the run reports it.
+// turn under explore and the witness's move under replay, the default's once the
+// witness is spent. whereOf, when not nil, is how the run reports Where once
+// alternative i is taken (a transition's names its trigger); an exploration's
+// witness names the choice as the run reports it.
 func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 	n := len(c.Alternatives)
 	if n < 2 {
@@ -402,7 +403,7 @@ func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
 		}
 		return 0
 	case scheduleReplay:
-		if s.replaying() {
+		if s.replaying() && s.replay.following() {
 			return s.replay.choose(c, whereOf)
 		}
 	case scheduleCheck:

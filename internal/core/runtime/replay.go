@@ -9,12 +9,13 @@ import (
 )
 
 // The `replay:<file>` policy follows a witness — the choice lines `explore` prints,
-// one per move — move for move, then goes on as the first exploring run does: one
-// token per step, the first able to act, the first alternative at every other pick.
+// one per move — move for move, then goes on as `reverse` does, one token per step:
+// the last token able to act, and at every other pick the alternative `reverse` takes.
 // The runs of one context follow it in turn, as an exploration records them, so a
 // behavior an object runs before the action takes its moves first (Context.ChoicesTaken).
-// A move the run cannot make where the witness makes it is refused, naming the
-// move: a witness that cannot be followed is never silently resolved.
+// A move the run cannot make where the witness makes it, or one facing other
+// alternatives than the witness names, is refused, naming the move: a witness that
+// cannot be followed is never silently resolved.
 
 // ErrReplayRefused is the typed error every refused replay move wraps.
 var ErrReplayRefused = errors.New("replay refused")
@@ -217,11 +218,13 @@ type replayMove struct {
 	choice *ChoiceTaken
 	// enabled labels the tokens able to act, sorted by ID; taken indexes the one moved.
 	enabled []string
+	ids     []int64
 	taken   int
 }
 
 // beginStep resolves the step: two tokens able to act take the witness's next move
-// (a token order at this step) or refuse it; fewer is no choice and takes no move.
+// (a token order at this step, among exactly them) or refuse it; fewer is no choice
+// and takes no move. With the witness spent the tokens are tried as `reverse` tries them.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -242,8 +245,12 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	for i, id := range enabled {
 		m.enabled[i] = tokens.label(id)
 	}
+	m.ids = enabled
 	if !r.following() || len(enabled) < 2 {
 		m.order = slices.Concat(enabled, rest, held)
+		slices.Reverse(m.order[:len(enabled)])
+		slices.Reverse(m.order[len(enabled) : len(enabled)+len(rest)])
+		slices.Reverse(m.order[len(enabled)+len(rest):])
 		return m
 	}
 	able := "able to act: " + strings.Join(m.enabled, ", ")
@@ -262,6 +269,10 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 			r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, alt, able))
 			return m
 		}
+	}
+	if !sameAlternatives(c.Among, m.enabled) {
+		r.refuse(fmt.Sprintf("step %d: the witness names %s and the run has more (%s)", tokens.step, strings.Join(c.Among, ", "), able))
+		return m
 	}
 	m.taken = slices.Index(m.enabled, c.Took)
 	if m.taken < 0 {
@@ -286,9 +297,12 @@ func (m *replayMove) nextToken() (int64, bool) {
 
 // acted ends the step when the token acted; the witness's token not acting is a
 // move the run could not make.
-func (m *replayMove) acted(acted bool) {
+func (m *replayMove) acted(id int64, acted bool) {
 	if acted {
 		m.moved = true
+		if i := slices.Index(m.ids, id); i >= 0 {
+			m.taken = i
+		}
 		return
 	}
 	if m.choice != nil {
@@ -311,21 +325,33 @@ func (m *replayMove) reported() (alternatives []string, taken int, ok bool) {
 	return nil, 0, false
 }
 
+// sameAlternatives reports whether the witness names exactly the alternatives the
+// run faces, in any order.
+func sameAlternatives(named, faced []string) bool {
+	return slices.Equal(slices.Sorted(slices.Values(named)), slices.Sorted(slices.Values(faced)))
+}
+
 // choose resolves a pick among c.Alternatives by the witness's next move, which
-// must be a choice of the same kind at the same place naming one of them; whereOf
-// is the place as the run reports it once alternative i is taken, nil for c.Where.
-// With the witness spent the first alternative is taken.
+// must be a choice of the same kind at the same place, among exactly them where it
+// names them, taking one of them; whereOf is the place as the run reports it once
+// alternative i is taken, nil for c.Where. The caller picks as `reverse` does once
+// the witness is spent.
 func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
-	if !r.following() {
-		return 0
-	}
 	w := r.choices[r.next]
 	alts := strings.Join(c.Alternatives, ", ")
 	taken := slices.Index(c.Alternatives, w.Took)
-	if whereOf != nil && taken >= 0 {
+	if w.Kind != c.Kind {
+		r.refuse("the run faced " + c.Describe())
+		return 0
+	}
+	if whereOf != nil && taken < 0 {
+		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))
+		return 0
+	}
+	if whereOf != nil {
 		c.Where = whereOf(taken)
 	}
-	if w.Kind != c.Kind || w.Where != c.Where {
+	if w.Where != c.Where {
 		r.refuse("the run faced " + c.Describe())
 		return 0
 	}
@@ -338,6 +364,10 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 			r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", alt, alts))
 			return 0
 		}
+	}
+	if len(w.Among) > 0 && !sameAlternatives(w.Among, c.Alternatives) {
+		r.refuse(fmt.Sprintf("the witness names %s and more are enabled (enabled: %s)", strings.Join(w.Among, ", "), alts))
+		return 0
 	}
 	if taken < 0 {
 		r.refuse(fmt.Sprintf("%s is not enabled (enabled: %s)", w.Took, alts))

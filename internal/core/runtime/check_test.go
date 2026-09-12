@@ -203,7 +203,7 @@ func replayWitness(t *testing.T, m *exploreModel, start ActionStarter, w Witness
 	if parsed.Trace != w.Trace || len(parsed.Choices) != len(w.Choices) {
 		t.Fatalf("%s: the witness reads back otherwise:\n%s", claim, w)
 	}
-	r, err := ReplayAction(m.fresh, start, parsed)
+	r, err := ReplayAction(context.Background(), m.fresh, start, parsed)
 	if err != nil {
 		t.Fatalf("%s: replay: %v", claim, err)
 	}
@@ -216,10 +216,35 @@ func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	report := checkModel(t, m, "clash", CheckBudget{}, reduced())
 	w := report.Finals[0].Witness
 	other := Witness{Choices: report.Finals[1].Witness.Choices, Trace: w.Trace}
-	_, err := ReplayAction(m.fresh, starterOf(m.action(t, "clash")), other)
+	_, err := ReplayAction(context.Background(), m.fresh, starterOf(m.action(t, "clash")), other)
 	var dis *ReplayDisagreement
 	if !errors.As(err, &dis) || !errors.Is(err, ErrReplayDisagrees) {
 		t.Fatalf("replay = %v, want a ReplayDisagreement", err)
+	}
+}
+
+// A replay whose caller goes away mid-run stops with the caller's error, not a
+// disagreement: the context is cancelled once the run is under way, and every
+// step of the witness left is skipped.
+func TestCheckReplayStopsWhenCancelled(t *testing.T) {
+	m := conformanceModel(t, "action_fork_branches_write_one_feature")
+	report := checkModel(t, m, "clash", CheckBudget{}, reduced())
+	w := report.Finals[0].Witness
+	stop, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fresh := func() (*Context, error) {
+		cancel()
+		return m.fresh()
+	}
+	r, err := ReplayAction(stop, fresh, starterOf(m.action(t, "clash")), w)
+	if !errors.Is(err, context.Canceled) || errors.Is(err, ErrReplayDisagrees) {
+		t.Fatalf("replay = %v, want context.Canceled", err)
+	}
+	if r == nil || r.Exec == nil || r.Ctx.Trace().String() == w.Trace {
+		t.Fatalf("the replay ran to the claimed state after being cancelled")
+	}
+	if _, err := ReplayAction(stop, m.fresh, starterOf(m.action(t, "clash")), w); !errors.Is(err, context.Canceled) {
+		t.Fatalf("replay under a cancelled context = %v, want context.Canceled", err)
 	}
 }
 

@@ -279,6 +279,46 @@ func TestCheckWritesEveryWitness(t *testing.T) {
 	}
 }
 
+// A link planted where a witness will be written is replaced by the witness, a
+// regular file, and what the link pointed at is left as it was.
+func TestCheckWitnessReplacesAPlantedLink(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	dir := t.TempDir()
+	target := filepath.Join(t.TempDir(), "target")
+	const kept = "not a witness\n"
+	if err := os.WriteFile(target, []byte(kept), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	planted := filepath.Join(dir, "test.race-x-1.witness")
+	if err := os.Symlink(target, planted); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	ask := &CheckAsk{Start: race.start, Diverge: []string{"x"}, WitnessDir: dir}
+	result := answered(t, Default(), f.building(), checkQuestion(t, f, Outcomes, ask), Budget{}).Result
+	c := result.Check()
+	if c == nil || len(c.Divergent) != 1 || c.Divergent[0][0] != planted {
+		t.Fatalf("checked %+v, want x's first witness at %s", c, planted)
+	}
+	if got, err := os.ReadFile(target); err != nil || string(got) != kept {
+		t.Fatalf("the link's target reads %q, %v; want it untouched", got, err)
+	}
+	info, err := os.Lstat(planted)
+	if err != nil || !info.Mode().IsRegular() {
+		t.Fatalf("witness path is %v, %v; want a regular file", info, err)
+	}
+	text, err := os.ReadFile(planted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, err := runtime.ParseWitness(string(text)); err != nil || w.String() != c.Report.Divergent[0].Values[0].Witness.String() {
+		t.Fatalf("witness at %s: %v, want x's first witness", planted, err)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, ".*")); len(left) != 0 {
+		t.Fatalf("temporary files left: %v", left)
+	}
+}
+
 // Two features spelled apart, `a/b` and `a?b`, are written to two files each, the
 // characters no file name keeps spelled `%XX`; each file replays to the value it names.
 func TestCheckWitnessFilesTellFeaturesApart(t *testing.T) {
@@ -333,7 +373,7 @@ func TestCheckWitnessFilesTellFeaturesApart(t *testing.T) {
 			if w.String() != d.Values[j].Witness.String() {
 				t.Errorf("%s holds another witness than %s = %s", path, d.Feature, d.Values[j].Value)
 			}
-			replayed, err := runtime.ReplayAction(func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w)
+			replayed, err := runtime.ReplayAction(context.Background(), func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w)
 			if err != nil {
 				t.Fatalf("%s: replay: %v", path, err)
 			}
