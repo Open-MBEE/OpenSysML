@@ -1492,7 +1492,6 @@ are not fixed in this note's change set. Each names its evidence.
    two pseudostates are "indistinguishable for a guard over state data". v2 has no choice vertex,
    so this is not a v2 finding; it is a disagreement between a design note and the code, and one
    of them has to change (second open decision). `state_choice_pseudostate` does not reach it.
-
 7. **The lowerer refuses a fork into orthogonal regions that have no initial pseudostate.**
    UML lets a fork's outgoing transitions enter states inside a composite state's orthogonal
    regions directly, with no initial pseudostate in those regions (PSSM *Fork 002* and *Join
@@ -1503,6 +1502,7 @@ are not fixed in this note's change set. Each names its evidence.
    gap of ours, recorded by the PSSM referee's classifier as *lowerer refuses fork into a region
    without an entry transition*; not fixed in this note's change set, and a fix moves the two
    tests into the referee's expressible buckets.
+
 Items 3–7 have no fixture on `develop`; the first thing each needs is the conformance case that
 pins the behavior, then the fix or the documentation change, in a change set of its own (item 7
 has the two PSSM tests as its cases once the referee can translate them).
