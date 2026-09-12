@@ -255,6 +255,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("parts_subsetting_one_collection", testPartsSubsettingOneCollection)
 	t.Run("requirement_feature_without_a_value", testRequirementFeatureWithoutAValue)
 	t.Run("requirement_features_valued_from_each_other", testRequirementFeaturesValuedFromEachOther)
+	t.Run("object_feature_without_a_value", testObjectFeatureWithoutAValue)
 	t.Run("step_budget_exceeded", testStepBudgetExceeded)
 	t.Run("eval_on_an_instance_spends_the_step_budget", testEvalOnAnInstanceSpendsTheStepBudget)
 	t.Run("non_terminating_loop_exhausts_step_budget", testNonTerminatingLoopExhaustsStepBudget)
@@ -2774,7 +2775,7 @@ func testOrderingOperandWithNoLibraryOrdering(t *testing.T) {
 			attribute xs : Integer[*] = (1, 2);
 			part other : Widget;
 			attribute widgets : Widget[*] = (widget, other);
-			attribute nothing : Integer[0..1];
+			attribute nothing : Integer[*] = xs->excluding(1)->excluding(2);
 			attribute side : LengthValue = 2 [m];
 		}
 	`
@@ -8261,6 +8262,45 @@ func testRequirementFeaturesValuedFromEachOther(t *testing.T) {
 	}
 	if !errors.Is(err, ErrCyclicFeatureValue) {
 		t.Errorf("expected ErrCyclicFeatureValue, got: %v", err)
+	}
+}
+
+// testObjectFeatureWithoutAValue: an operation over a feature an object holds no value
+// for reports ErrNoValue naming it; only the model-level read is undetermined.
+func testObjectFeatureWithoutAValue(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			part def Car { attribute mass : Real; }
+			part car : Car;
+		}
+	`
+	file := parseAndBuild(t, src)
+	if file == nil {
+		t.Fatal("parse failed")
+	}
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+	scope := oneSymbol(t, idx, "test").Scope
+	if val, err := evalIn(t, ctx, scope, "car.mass + 1.0"); err != nil || val.Undetermined() == nil {
+		t.Fatalf("car.mass + 1.0 at model level = %s, %v; want %s", FormatValue(val), err, UndeterminedText)
+	}
+
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::car"))
+	if err != nil {
+		t.Fatalf("instantiate car: %v", err)
+	}
+	for _, expr := range []string{"mass + 1.0", "(mass > 1.0) and false", "car.mass + 1.0"} {
+		val, err := ctx.EvalWithScopeOn(parseExpr(t, expr), scope, inst)
+		if err == nil {
+			t.Errorf("%s on the object = %s, want an error", expr, FormatValue(val))
+			continue
+		}
+		if !errors.Is(err, ErrNoValue) {
+			t.Errorf("%s on the object: expected ErrNoValue, got: %v", expr, err)
+		}
+		if !strings.Contains(err.Error(), "mass") {
+			t.Errorf("%s on the object: error does not name the feature: %v", expr, err)
+		}
 	}
 }
 

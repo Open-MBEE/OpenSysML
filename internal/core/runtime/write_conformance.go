@@ -95,7 +95,7 @@ func (ctx *Context) checkWrite(scope *symbols.Scope, what string, target *writeT
 // writeCountRefusal says why the number of values written is outside the
 // target's multiplicity, or is empty where the count is admitted.
 func (ctx *Context) writeCountRefusal(target *writeTarget, value *Value) string {
-	return target.mult.CountViolation(elementCount(value))
+	return target.mult.HeldViolation(heldCountOf(value))
 }
 
 // checkBodyWrite checks a write of a value a behavior body itself holds - a
@@ -261,6 +261,13 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		// Holds no value to type; how many values a feature may hold is the
 		// multiplicity's to decide.
 		return true, "", nil
+	case ValUndetermined:
+		// Whatever values the model leaves it, they are of the type its feature declares.
+		if ctx.openValueMayBe(*value, declared) {
+			return true, "", nil
+		}
+		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
+			ctx.describeOpenOperand(*value), symbolText(declared)), nil
 	case ValQuantity:
 		return ctx.quantityConforms(*value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:

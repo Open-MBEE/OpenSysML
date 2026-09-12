@@ -58,6 +58,8 @@ export const CAPABILITY_SCHEDULE = "schedule";
 export const CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore";
 /** The `ListEngines` RPC, the `engine` field selecting an analysis engine, and `engine`, `strength` and `bounds` on the answers. Not used by this version; see the README. */
 export const CAPABILITY_ENGINES = "engines";
+/** A model-level result the model leaves open as `Value.undetermined`, read as an `undetermined` value. */
+export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.
