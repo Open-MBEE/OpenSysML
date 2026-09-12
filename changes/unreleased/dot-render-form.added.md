@@ -25,9 +25,10 @@
   fitted to the label so the box's corner stays put, a collapsed node keeps `comment="collapsed"`,
   a positioned cluster states its `bb` and pins its anchor at the centre, a `Route` is the edge's
   `pos` spline through its waypoints (a route of one waypoint is noticed, not drawn), and a sized
-  `Canvas` is the graph's `size` and a
-  `// canvas:` header line. The `// layout:` header names the engine that honours the file:
-  `neato -n2` when every node is placed and every edge routed, `neato -n` when every node is
-  placed, `neato` when some are, `dot` when none — so `neato -n -Tsvg view.dot` draws the view
-  as laid out; a route an engine short of `neato -n2` redraws is noticed. A model without layout annotations
-  writes the same DOT as before, and no Graphviz binary is run to produce it.
+  `Canvas` is a `// canvas:` header line and an invisible point pinned at each corner, so the
+  drawing's bounding box is the canvas. The `// layout:` header names the engine that honours
+  the file: `neato -n2` when every node is placed and any edge routed, `neato -n` when every
+  node is placed and none routed, `neato` when some nodes are, `dot` when none — so `neato -n2
+  -Tsvg view.dot` draws the view as laid out, and a route written under an engine that redraws
+  it is noticed. A model without layout annotations writes the same DOT as before, and no
+  Graphviz binary is run to produce it.

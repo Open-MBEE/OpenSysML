@@ -119,8 +119,10 @@ preprocessing step:
 // canvas: unit=px w=1200 h=800
 // layout: neato
 digraph "PlantViews::placedView" {
-  graph [inputscale=72, dpi=72, size="16.666666666666668,11.11111111111111"];
+  graph [inputscale=72, dpi=72];
   node [shape=box];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
     label="part def Plant::Loop";
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
@@ -133,11 +135,15 @@ digraph "PlantViews::placedView" {
 
 - **Scale.** One pixel is one point: `inputscale=72` tells `neato` that `pos` is in points, and
   `dpi=72` keeps the rendered pixel at that size. Lengths Graphviz takes in inches — a node's
-  `width`/`height`, the graph's `size` — are divided by 72.
+  `width`/`height` — are divided by 72.
 - **Axis.** `y` is flipped: measured up from the canvas's bottom edge (`height - y`) when the
   canvas states a height, negated when it does not. `x` is unchanged.
 - **Canvas.** A `Canvas` is echoed in the header as `// canvas: unit=<u> w=<w> h=<h>` (the
-  parts it states) and, when it has an extent, written as the graph's `size` in inches.
+  parts it states). When it has an extent and a node is positioned, an invisible, sizeless
+  point is pinned at each of its corners — `"canvas:0"` at the origin, `"canvas:1"` at
+  `(w, h)` — so the drawing's bounding box is the canvas, not the hull of the nodes: Graphviz
+  recomputes the root `bb` and ignores a `size` larger than the drawing, but it keeps a pinned
+  node where it is. The names cannot collide with a rendering's `n<i>` node IDs.
 - **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
   moving it. A stated size is `width`/`height` in inches with `fixedsize=true`. Without one
@@ -153,16 +159,14 @@ digraph "PlantViews::placedView" {
   a cluster with neither has no box to state and pins its anchor at the corner.
 - **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
   are its own control points, so the spline is the polyline through the waypoints. A route of
-  one waypoint draws no line; it is left out and noticed as `// not represented:`, and the
-  edge is counted as unrouted when the engine is chosen.
+  one waypoint draws no line; it is left out and noticed as `// not represented:`.
 - **Engine.** The `// layout:` header names the command that honours what is written:
-  `neato -n2` when every node is positioned and every edge routed (both are taken as given),
-  `neato -n` when every node is positioned (the edges are routed), `neato` when some are
-  (pinned nodes stay, the rest are placed around them), `dot` when none is. A tree's
-  containment edges carry no route, so a positioned tree is `neato -n` at best. Only
-  `neato -n2` keeps a `pos` spline; when the header names anything else and a route was
-  written, a `// not represented:` notice says the engine redraws it. A rendering with no
-  geometry is written byte for byte as before.
+  `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
+  written routes are taken as given, the other edges are drawn), `neato -n` when every node is
+  positioned and no edge is routed, `neato` when only some nodes are (pinned nodes stay, the
+  rest are placed around them), `dot` when none is. `neato` and `dot` redraw every edge, so
+  when the header names either and a route was written, a `// not represented:` notice says
+  so. A rendering with no geometry is written byte for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.
@@ -197,7 +201,7 @@ and did not change. A view-render RPC added later would take the form as a strin
   and pseudo-state nodes, the `bb` and pinned anchor of a stated, a member-fitted and a
   corner-only cluster, a route's spline and the one-waypoint notice, the zero-extent canvas,
   and the header's engine for none, some and all of the nodes positioned and all edges routed;
-  the syntax check parses every `pos`, `bb` and `size` it meets.
+  the syntax check parses every `pos` and `bb` it meets.
 - `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
   the form on each surface, and its refusal for a table or sequence.
 - `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the

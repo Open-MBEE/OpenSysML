@@ -24,7 +24,8 @@ import (
 //	(containment)   ---      arrowhead=none
 //
 // DiagramLayout geometry is written as Graphviz reads it (pinned `pos`, `bb`,
-// `pos` splines, `size`); docs/project/view-rendering-forms.md#geometry has the rules.
+// `pos` splines, pinned canvas corners); docs/project/view-rendering-forms.md#geometry
+// has the rules.
 //
 // A kind with no DOT counterpart — sequence, table — is a *WrongFormError.
 func (r *Rendering) DOT() (string, error) {
@@ -50,8 +51,6 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 		}
 		if len(edge.Route) > 1 {
 			w.routed++
-		} else {
-			w.unrouted++
 		}
 		if len(edge.Route) == 1 {
 			p := edge.Route[0]
@@ -92,6 +91,7 @@ func (r *Rendering) DOTDirected(direction Direction) (string, error) {
 		fmt.Fprintf(b, "  graph [%s];\n", strings.Join(attrs, ", "))
 	}
 	b.WriteString("  node [shape=box];\n")
+	w.writeCanvas()
 	if r.Empty() {
 		fmt.Fprintf(b, "  \"empty\" [shape=plaintext, label=%s];\n", dotQuote(r.EmptyReason()))
 		b.WriteString("}\n")
@@ -117,38 +117,33 @@ type dotWriter struct {
 	canvas    *Canvas             // the surface positions are flipped against
 	nodes     int                 // nodes written, and how many are positioned
 	placed    int
-	routed    int // edges with a route to write, and those without
-	unrouted  int
+	routed    int      // edges with a route to write
 	notices   []string // geometry the form cannot draw
 }
 
-// countPlaced counts the nodes under node, those a Geometry positions, and a
-// tree's containment edges, which no Route covers.
+// countPlaced counts the nodes under node and those a Geometry positions.
 func (w *dotWriter) countPlaced(node *Node) {
 	w.nodes++
 	if node.Geometry != nil {
 		w.placed++
-	}
-	if w.tree {
-		w.unrouted += len(node.Children)
 	}
 	for _, child := range node.Children {
 		w.countPlaced(child)
 	}
 }
 
-// engine is the Graphviz command the text is written for: the `neato` variant
-// that keeps what is positioned and routed, or `dot` for an unpositioned graph.
+// engine is the Graphviz command the text is written for: `neato -n` keeps every
+// node where it is pinned, `-n2` keeps the routes too and draws the other edges.
 func (w *dotWriter) engine() string {
 	switch {
 	case w.placed == 0:
 		return "dot"
 	case w.placed < w.nodes:
 		return "neato"
-	case w.unrouted > 0:
-		return "neato -n"
+	case w.routed > 0:
+		return "neato -n2"
 	}
-	return "neato -n2"
+	return "neato -n"
 }
 
 // collectClusters records every node under node that is drawn as a cluster
@@ -175,8 +170,8 @@ func (w *dotWriter) clipped(node, other string) bool {
 func dotClusterName(id string) string { return "cluster_" + id }
 
 // graphAttributes is the graph attribute list: the layout direction when one is
-// stated, `compound` when an edge is clipped at a cluster, the pixel scale when
-// a node is positioned, and the canvas extent as the drawing's size.
+// stated, `compound` when an edge is clipped at a cluster, and the pixel scale
+// when a node is positioned.
 func (w *dotWriter) graphAttributes(direction Direction) []string {
 	var attrs []string
 	if direction != "" {
@@ -188,10 +183,22 @@ func (w *dotWriter) graphAttributes(direction Direction) []string {
 	if w.placed > 0 {
 		attrs = append(attrs, "inputscale=72", "dpi=72")
 	}
-	if c := w.canvas; c != nil && c.HasSize {
-		attrs = append(attrs, "size="+dotQuote(dotInches(c.Width)+","+dotInches(c.Height)))
-	}
 	return attrs
+}
+
+// dotCanvasCorners are the nodes that hold a positioned drawing to its canvas.
+var dotCanvasCorners = [2]string{"canvas:0", "canvas:1"}
+
+// writeCanvas pins an invisible, sizeless point at each corner of a sized
+// canvas, so the drawing's `bb` is the canvas; it needs an engine that keeps pins.
+func (w *dotWriter) writeCanvas() {
+	c := w.canvas
+	if c == nil || !c.HasSize || w.placed == 0 {
+		return
+	}
+	for i, corner := range [2]Point{{}, {X: c.Width, Y: c.Height}} {
+		fmt.Fprintf(&w.b, "  %s [%s, %s];\n", dotQuote(dotCanvasCorners[i]), strings.Join(dotInvisibleAttributes, ", "), w.dotPin(corner))
+	}
 }
 
 // flipY turns a y-down pixel coordinate into Graphviz's y-up point: measured
@@ -334,13 +341,16 @@ func (w *dotWriter) dotPin(centre Point) string {
 // node an edge to or from the cluster names. A placed cluster pins it at the
 // centre of its box, or at its corner while the box has no extent.
 func (w *dotWriter) dotAnchorAttributes(node *Node) []string {
-	attrs := []string{"shape=point", "style=invis", "width=0", "height=0", `label=""`}
+	attrs := slices.Clone(dotInvisibleAttributes)
 	if node.Geometry != nil {
 		min, max := clusterBox(node)
 		attrs = append(attrs, w.dotPin(Point{X: (min.X + max.X) / 2, Y: (min.Y + max.Y) / 2}))
 	}
 	return attrs
 }
+
+// dotInvisibleAttributes draw a node as nothing: a cluster's anchor, a canvas corner.
+var dotInvisibleAttributes = []string{"shape=point", "style=invis", "width=0", "height=0", `label=""`}
 
 // dotClusterAttributes is a cluster's attribute statements: its label, a dashed
 // border for an orthogonal region, and its box as `bb` when it has an extent.

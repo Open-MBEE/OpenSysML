@@ -5,8 +5,10 @@
 // canvas: unit=px w=1200 h=800
 // layout: neato
 digraph "PlantViews::placedView" {
-  graph [inputscale=72, dpi=72, size="16.666666666666668,11.11111111111111"];
+  graph [inputscale=72, dpi=72];
   node [shape=box];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1200,0!", pin=true];
   subgraph "cluster_n0" {
     label="part def Plant::Loop";
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
