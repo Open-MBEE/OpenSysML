@@ -122,8 +122,19 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 	if err != nil || bound.decl == nil {
 		return val, true, err
 	}
-	val, err = ec.conformDeclared(bound.decl, val)
+	val, err = ec.conformBodyDeclared(bound.decl, val)
 	return val, true, err
+}
+
+// conformBodyDeclared holds val as the value of a declaration a body carries, whose
+// determined count answers to a stated multiplicity as a body-local write's does.
+func (ec *EvalContext) conformBodyDeclared(sym *symbols.Symbol, val Value) (Value, error) {
+	if mult, stated := ec.ctx.extractMultiplicity(sym); stated && val.Undetermined() == nil {
+		if msg := mult.HeldViolation(heldCountOf(&val)); msg != "" {
+			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.qualifiedSymbolName(sym), ErrMultiplicityViolation, msg)
+		}
+	}
+	return ec.conformDeclared(sym, val)
 }
 
 // inEnv returns a context reading env instead of this one's features and
