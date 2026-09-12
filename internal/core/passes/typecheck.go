@@ -36,7 +36,7 @@ func (TypeCheckPass) Run(ctx *Context, name string, root *ast.RootNamespace) []D
 	}
 	tc.expr.walkMembers = tc.walk
 	tc.walk(rootScope, root.Members)
-	return append(tc.diags, tc.expr.diags...)
+	return append(tc.diags, tc.expr.diagnostics()...)
 }
 
 type typeChecker struct {

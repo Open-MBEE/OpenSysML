@@ -75,12 +75,12 @@
   },
   "totals": {
     "files": 375,
-    "filesFullyAgreeing": 344,
-    "agreement": 34,
+    "filesFullyAgreeing": 345,
+    "agreement": 38,
     "severityMismatch": 3,
     "openSysMLOnly": 38,
-    "pilotOnly": 1113,
-    "openSysMLDiagnostics": 75,
+    "pilotOnly": 1109,
+    "openSysMLDiagnostics": 79,
     "pilotDiagnostics": 1150
   },
   "roots": [
@@ -747,12 +747,12 @@
       "dir": "examples",
       "totals": {
         "files": 40,
-        "filesFullyAgreeing": 27,
-        "agreement": 0,
+        "filesFullyAgreeing": 28,
+        "agreement": 4,
         "severityMismatch": 2,
         "openSysMLOnly": 7,
-        "pilotOnly": 1093,
-        "openSysMLDiagnostics": 9,
+        "pilotOnly": 1089,
+        "openSysMLDiagnostics": 13,
         "pilotDiagnostics": 1095
       },
       "files": [
@@ -784,16 +784,17 @@
         },
         {
           "path": "disposal-team-demo/team.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
+          "agreement": [
             {
               "line": 29,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 2
-            },
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
             {
               "line": 117,
               "severity": "error",
@@ -3755,10 +3756,7 @@
         },
         {
           "path": "runtime-showcase/mass-rollup.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
+          "agreement": [
             {
               "line": 11,
               "severity": "warning",
@@ -3771,7 +3769,10 @@
               "category": "kind-mismatch",
               "count": 1
             }
-          ]
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": []
         },
         {
           "path": "runtime-showcase/reliability.sysml",
@@ -5972,12 +5973,12 @@
     ],
     "totals": {
       "files": 375,
-      "filesFullyAgreeing": 345,
-      "agreement": 34,
+      "filesFullyAgreeing": 346,
+      "agreement": 38,
       "severityMismatch": 3,
       "openSysMLOnly": 37,
-      "pilotOnly": 1113,
-      "openSysMLDiagnostics": 74,
+      "pilotOnly": 1109,
+      "openSysMLDiagnostics": 78,
       "pilotDiagnostics": 1150
     },
     "findings": [
