@@ -257,6 +257,41 @@ func TestNegatedNestedConstraintIsInverted(t *testing.T) {
 	}
 }
 
+// `inv false c { … }` asserts its body is false (KerML.xtext Invariant,
+// isNegated ?= 'false'); `inv true` and a bare `inv` assert it holds.
+func TestNegatedInvariantIsInverted(t *testing.T) {
+	src := `
+		package test {
+			part def Rig {
+				attribute a = 1.0;
+				inv false overdrawn { a > 100 }
+				inv true positive { a > 100 }
+				inv bounded { a > 100 }
+			}
+		}
+	`
+	ctx, pkg := conditionFixture(t, src)
+	rig := requirementNamed(t, pkg, "Rig")
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for name, want := range map[string]bool{"overdrawn": true, "positive": false, "bounded": false} {
+		feat := featureNamed(ctx, rig, name)
+		if feat == nil || feat.Symbol == nil {
+			t.Fatalf("%s: invariant not found", name)
+		}
+		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
+		if err != nil && !errors.Is(err, ErrViolated) {
+			t.Errorf("%s: %v", name, err)
+			continue
+		}
+		if satisfied != want {
+			t.Errorf("%s: satisfied = %v, want %v", name, satisfied, want)
+		}
+	}
+}
+
 // A `not` on a body of several conditions negates their conjunction, so it holds
 // as soon as one of them fails.
 func TestNegatedNestedConstraintNegatesTheConjunction(t *testing.T) {

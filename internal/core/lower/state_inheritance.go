@@ -364,6 +364,8 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			state.Substates = append(state.Substates, child)
 		case m.Kind == ast.UsageState:
 			// A typed state usage in a parallel body is a region, synthesized there.
+		case g.redefinedRunToCompletionFeature(m, scope) != "":
+			// A restated run-to-completion default is what the executor implements, not a slot.
 		case m.Kind == ast.UsageAttribute:
 			if name, _ := ast.EffectiveName(m); name != "" {
 				content.attrs = append(content.attrs, Attribute{Name: name, Value: m.Value, Node: m, Scope: scope})

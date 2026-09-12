@@ -79,7 +79,7 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 
 // snapshotKindDigest pins the SymbolKind and PseudostateKind numbering the snapshot
 // stream persists under snapshotFormatVersion; a kind added or moved renumbers the ones after it.
-const snapshotKindDigest = "b25f9797183c528d"
+const snapshotKindDigest = "14af60d69ba0a902"
 
 func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	var b strings.Builder
@@ -110,9 +110,10 @@ func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
 	// CrossFeatureMember without its prefix fields, format 10 without ordered/nonunique,
 	// format 11 a member without how it came by its name, format 12 a Usage with a
 	// ValueMultiplicity field, format 13 the pseudostate kinds with entry and exit
-	// points numbered before the histories.
+	// points numbered before the histories, format 14 a TransitionMember without
+	// IsSuccession and an Invariant without IsNegated.
 	digest := NewLoader(EmbeddedSource(), nil).setDigest()
-	for _, version := range []uint64{8, 9, 10, 11, snapshotFormatVersion - 1, snapshotFormatVersion + 1} {
+	for _, version := range []uint64{8, 9, 10, 11, 12, snapshotFormatVersion - 1, snapshotFormatVersion + 1} {
 		other := binary.AppendUvarint([]byte(snapshotMagic), version)
 		other = binary.AppendUvarint(other, uint64(len(digest)))
 		other = append(other, digest...)

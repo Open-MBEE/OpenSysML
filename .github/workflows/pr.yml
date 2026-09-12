@@ -17,6 +17,8 @@ env:
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
   # gated by internal/core/model/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+  # Same for the pinned OMG PSSM test suite, gated by internal/pssm and cmd/pssm-referee.
+  OPENSYSML_REQUIRE_PSSM_SUITE: "1"
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/core/solve).
   OPENSYSML_REQUIRE_SMT: "1"
@@ -158,6 +160,16 @@ jobs:
             fi
           done
 
+      # The PSSM suite is one pinned file; keyed on its download script and pin.
+      - name: Cache the OMG PSSM test suite
+        uses: actions/cache@v4
+        with:
+          path: build/pssm
+          key: pssm-suite-${{ hashFiles('scripts/download-pssm-suite.sh', 'scripts/pssm-pin.sh') }}
+
+      - name: Download the OMG PSSM test suite
+        run: ./scripts/download-pssm-suite.sh
+
       # Per-package timeout: under -race, passes and model run within 1% of go's 10m
       # default. Matches `make test`.
       - name: Run Go race tests
@@ -244,6 +256,15 @@ jobs:
             fi
           done
 
+      - name: Cache the OMG PSSM test suite
+        uses: actions/cache@v4
+        with:
+          path: build/pssm
+          key: pssm-suite-${{ hashFiles('scripts/download-pssm-suite.sh', 'scripts/pssm-pin.sh') }}
+
+      - name: Download the OMG PSSM test suite
+        run: ./scripts/download-pssm-suite.sh
+
       - name: Check Go formatting
         run: |
           unformatted=$(gofmt -l .)
@@ -305,6 +326,20 @@ jobs:
             echo "error: the pilot corpora gate skipped" >&2
             exit 1
           fi
+
+      # The PSSM suite gates on their own, so a skip cannot hide behind a green suite.
+      - name: Run PSSM suite gates
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./internal/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
+          if grep -qE '^\s*--- SKIP' pssm-gate.log; then
+            echo "error: the PSSM suite gate skipped" >&2
+            exit 1
+          fi
+
+      # Bucket counts only, never pass/fail; see docs/project/pssm-referee.md.
+      - name: PSSM referee reproduces its baseline counts
+        run: go run ./cmd/pssm-referee -check
 
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.

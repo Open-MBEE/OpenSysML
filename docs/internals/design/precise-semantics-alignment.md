@@ -141,8 +141,9 @@ their end, entry behaviors included, before the next occurrence is looked at
 transitions are *queued* (SM9) and dispatched by a later step, never inside the entry.
 `state_composite_orthogonal_exit` and its trace golden pin one whole step; `state_completion_done`
 pins that the completion step follows the entering step. The runtime never reads a redefinition
-of `isRunToCompletion`, so it implements the library default only (noted under
-*Findings*, as an unsupported v2 feature rather than a PSSM question). **agrees.**
+of `isRunToCompletion`, so it implements the library default only; a model redefining it away
+from the default is refused by lowering (noted under *Findings*, as an unsupported v2 feature
+rather than a PSSM question). **agrees.**
 
 **SM3. One occurrence, one dispatch, possibly several transitions.** PSSM §8.5.2 (`select`) builds
 "the set of transitions that can be fired using the proposed event occurrence"; UML 14.2.3.9.4
@@ -1239,12 +1240,14 @@ The question this section answers is the one the pilot execution referee's note 
 pilot: how far can the PSSM test suite adjudicate the runtime's behavior, and what would a
 verdict from it mean? The comparison assumes a harness that translates each test's UML model
 into a `.sysml` model by hand or by rule, drives it with the test's stimulation sequence, and
-compares what the translated model records with the expected trace(s). No such harness exists;
-nothing below describes one that has been run.
+compares what the translated model records with the expected trace(s). That harness is
+`cmd/pssm-referee` (`docs/project/pssm-referee.md`); the counts below are its classifier's,
+which supersede the hand count this section was first written with — the moves are listed under
+"Moves from the hand count".
 
 | Aspect of the suite | Verdict | Why |
 |---|---|---|
-| **Expressing the test model in SysML v2 textual notation** | **Can, for 73 of 103** (37 with standard notation, 33 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 30** | Every test's state machine was classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 64 of 103** (31 with standard notation, 30 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 39** (30 use a construct v2 has no spelling for, 7 more use a behavior shape the notation cannot bind, 2 more a shape this project's lowerer refuses) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
 | **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
@@ -1267,38 +1270,70 @@ nothing below describes one that has been run.
 | Entry point, exit point (connection points and connection point references) | none | no spelling |
 | Local transition, internal transition | none (SM36, SM37) | no spelling |
 | State machine generalization: extended regions, redefined transitions | none | no spelling |
+| Entry, exit or do behavior with parameters (reading the triggering event's data) | none: the notation binds event data on the transition (`accept d : Data`), never on an `entry`/`exit`/`do` action | no translation |
+| Call event whose operation returns a value the tester traces | none: the runtime's call events carry no result back to the caller | no translation |
+| A `trace(...)` call in the tester's own behavior | none: only the target's behaviors append to the model's `log` | no translation |
+| Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell it, but the lowerer refuses a region with no `entry; then` (finding 7 below) | no translation, ours |
 
 The classification is by construct, in the order of the table: a test whose model uses any
-construct with no spelling is counted as not expressible whatever else it uses; otherwise it is
-counted under the gap if it uses `terminate`, under the extensions if it uses any of them, and as
-standard otherwise. By area:
+construct with no spelling or no translation is counted as not expressible whatever else it
+uses; otherwise it is counted under the gap if it uses `terminate`, under the extensions if it
+uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the classifier and
+`TestSuiteClassification` pins this table against the pinned suite. By area:
 
-| Area | Tests | Standard | Extension | Terminate gap | No spelling |
+| Area | Tests | Standard | Extension | Terminate gap | Not expressible |
 |---|---:|---:|---:|---:|---:|
 | Behavior | 5 | 4 | 0 | 0 | 1 |
 | Transition | 15 | 8 | 1 | 0 | 6 |
-| Event | 16 | 16 | 0 | 0 | 0 |
+| Event | 16 | 10 | 0 | 0 | 6 |
 | Entering | 5 | 4 | 0 | 0 | 1 |
 | Exiting | 5 | 4 | 0 | 0 | 1 |
 | Entry (entry points) | 6 | 0 | 0 | 0 | 6 |
 | Exit (exit points) | 3 | 0 | 0 | 0 | 3 |
 | Choice | 5 | 0 | 5 | 0 | 0 |
 | Junction | 6 | 0 | 5 | 0 | 1 |
-| Fork | 2 | 0 | 1 | 0 | 1 |
-| Join | 3 | 0 | 3 | 0 | 0 |
+| Fork | 2 | 0 | 0 | 0 | 2 |
+| Join | 3 | 0 | 2 | 0 | 1 |
 | Final | 1 | 1 | 0 | 0 | 0 |
 | Terminate | 3 | 0 | 0 | 3 | 0 |
 | History | 8 | 0 | 8 | 0 | 0 |
-| Deferred | 10 | 0 | 10 | 0 | 0 |
+| Deferred | 10 | 0 | 9 | 0 | 1 |
 | Redefinition | 6 | 0 | 0 | 0 | 6 |
 | Standalone | 3 | 0 | 0 | 0 | 3 |
 | Other | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **103** | **37** | **33** | **3** | **30** |
+| **Total** | **103** | **31** | **30** | **3** | **39** |
 
-Of the 30 with no spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2 an
-internal transition and 6 the redefinition machinery (several use more than one). Of the 70
-expressible and runnable tests, 21 use orthogonal regions, 10 a do activity, 10 deferral, 8
-history, 6 a junction, 5 a choice, 5 a fork or join and 6 a call event.
+Of the 30 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
+an internal transition and 6 the redefinition machinery (several use more than one). Of the 61
+expressible and runnable tests, 18 use orthogonal regions, 8 a do activity, 9 deferral, 8
+history, 6 a junction, 5 a choice and 3 a fork or join; no expressible test has a call event,
+since every test with one also traces its result from the tester.
+
+#### Moves from the hand count
+
+This section was first written with a hand count of 37 / 33 / 3 / 30, which classified by the
+state-machine constructs alone. Writing the emitter showed nine of those 73 tests to have no
+exact translation, for reasons the construct table did not list. Each is recorded here with the
+classifier's reason; the count ratchet in `docs/project/pssm-referee.md` is where a later
+translation moves them back.
+
+| Test | Was | Reason |
+|---|---|---|
+| *Event 017-B* | standard | the composite state and its substate have entry, exit and do behaviors with parameters, reading the triggering event's data; the notation binds event data on the transition only |
+| *Event 019-A* | standard | the tester itself calls `trace("End")` after the target's operation returns; only the target's behaviors write the model's `log` |
+| *Event 019-B* | standard | both top-level states have parameterised entry and exit behaviors |
+| *Event 019-C* | standard | the three nested states have parameterised entry, exit and do behaviors |
+| *Event 019-D* | standard | the call trigger's operation `T2` returns a value, which the tester traces; the runtime's call events return nothing to the caller |
+| *Event 019-E* | standard | parameterised behaviors in two substates, an operation result on the call trigger's `T2`, and a tester-side trace of it |
+| *Deferred 007* | extension | the deferred call trigger's operation `T4` returns a value the tester traces |
+| *Fork 002* | extension | the fork enters the two regions of a nested composite state, which have no initial pseudostate; the lowerer refuses a `parallel` region with no `entry; then` — this project's gap (finding 7), not v2's |
+| *Join 001* | extension | the fork enters the two regions of the top-level composite state, which have no initial pseudostate; the same lowerer refusal |
+
+The last two are kept apart from the other seven and from the 30 with no spelling: UML allows a
+fork to target states inside orthogonal regions that have no initial pseudostate, SysML v2
+`parallel` regions can spell the shape, and only the lowerer's check stands in the way. The
+referee reports them with the reason *lowerer refuses fork into a region without an entry
+transition* and `docs/project/pssm-referee.md` lists them under that heading.
 
 ### What a translated test looks like
 
@@ -1360,15 +1395,15 @@ pattern the `outcomes` mechanism already handles for the expressible orthogonal-
 
 An advisory PSSM comparison would generally test reproduction of UML behavior unless the UML
 model and semantics have a defensible SysML v2 mapping; it must not be described as proof of
-SysML v2 conformance. Concretely: of the 70 expressible and runnable tests, every one whose
+SysML v2 conformance. Concretely: of the 61 expressible and runnable tests, every one whose
 requirement lands on an **agrees** row checks that the runtime does what UML and v2 both say;
 the tests that land on SM7, SM9, SM11, SM28, SM30 and SM32 — *Deferred 004-A/B* and their kin,
 whose deferring state has a competing transition in a sibling region; a completion transition
 whose guard changes between the completion and its dispatch step; the tests whose composite
 state owns a completion transition; a history test entered with nothing recorded and no default;
 a choice whose guard reads what the incoming effect wrote; and *Junction 002* — are the ones that
-would report on a tool choice; and the 30 tests
-with no spelling, together with any test that reaches SM15, SM36 or SM37, would fail for reasons
+would report on a tool choice; and the 39 tests
+with no spelling or translation, together with any test that reaches SM15, SM36 or SM37, would fail for reasons
 that are v2's, and a harness would have to exclude them by classification rather than report
 them as failures. Used that way, the suite is a second opinion on nine rows and a regression
 oracle for fifty; it is never a conformance statement about SysML v2.
@@ -1466,7 +1501,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   at once (the rules coincide, SM38); its interrupting-performance and streaming entries are fUML
   rows the mode would not touch.
 - **Acceptance gate.** The PSSM suite itself, passing on every expressible test — which is the
-  one thing this option buys that (b) does not, and only for the 70 expressible tests, since the
+  one thing this option buys that (b) does not, and only for the 61 expressible tests, since the
   30 with no spelling need new notation first.
 - **User-visible change.** A mode switch a user has to understand, whose meaning ("this model
   now runs as UML") contradicts the architecture's stated position; two answers to "what does
@@ -1542,9 +1577,26 @@ are not alignment questions. Each names its evidence; items 4 and 5 are fixed, a
 3. **`isRunToCompletion` and `runToCompletionScope` redefinitions are not read** (SM1).
    `Occurrences.kerml` declares both as redefinable features with defaults; the runtime
    implements the defaults (one occurrence per step, the whole machine as scope) and never
-   consults a model's redefinition. A model that redefines them is accepted and run under the
-   defaults without a diagnostic. Unsupported v2 feature; no fixture on `develop` exercises a
-   redefinition.
+   consults a model's redefinition. A model that redefines them was accepted and run under the
+   defaults without a diagnostic. *Refused since the release after 0.7.0:*
+   `lower/run_to_completion.go:refuseRunToCompletionRedefinitions`, applied to the machine's own
+   and inherited members by `lower/state_graph.go:ToStateGraphWithEndpoints` and to every
+   substate's by `lower/state_graph.go:stateNodeFromUsage`, returns the typed
+   `lower.RunToCompletionRedefinition` (an `ErrUnsupportedStateContent`) for `false`, for a scope
+   narrowed to a substate, and for a value lowering cannot read as the default; a redefinition
+   restating the default (`= true`, `= self` on the machine) runs. Only the redefinition a body
+   makes effective is judged — the last one with a value, a specialization's masking the
+   redefinition it inherits as `keptAttributes` masks an attribute — so a machine restating the
+   default over a specialized definition's `false` runs. The target is resolved to its symbol
+   (`resolve.Resolver.RedefinitionTarget`, aliases followed, redefinition chains walked), so an
+   alias of the library feature is refused and the spelling decides only where the target does
+   not resolve; the state rendering (`view/behavior.go:renderStates`) lowers with the same
+   resolver, so it refuses what the runtime refuses. Pinned by the conformance cases
+   `state_run_to_completion_redefined_false`, `_scope_narrowed`, `_inherited_redefinition`,
+   `_region_redefinition`, `_unverified`, `_alias_redefinition`, the positive
+   `_defaults_restated` and `_default_restored`, `view/render_test.go:TestStateRenderingRefusesWhatTheRuntimeRefuses`, and
+   `robustness_test.go:run_to_completion_*`. Unsupported v2 feature still: the refusal implements
+   neither a non-run-to-completion scheduling nor a narrowed scope.
 4. **A composite state's completion ends the machine and never fires the composite's own
    completion transition** (SM11). SysML v2 §7.18.3 says a transition to `done` completes "the
    containing state performance" and that the containing state "does not necessarily terminate
@@ -1569,10 +1621,39 @@ are not alignment questions. Each names its evidence; items 4 and 5 are fixed, a
    of them has to change (second open decision). `state_choice_pseudostate` does not reach it.
    *Fixed* with the second open decision: the code now matches the note (SM30's *Decided*
    sentence), and Track E records the finding as landed.
+6. **The lowerer refuses a fork into orthogonal regions that have no initial pseudostate.**
+   UML lets a fork's outgoing transitions enter states inside a composite state's orthogonal
+   regions directly, with no initial pseudostate in those regions (PSSM *Fork 002* and *Join
+   001* are built this way); SysML v2 `parallel` regions can spell the shape, and this
+   project's `fork` extension can spell the fork. `lower.ToStateGraph` refuses it — "region
+   `<name>` has no initial state; write `entry; then <state>;` inside the region" — because it
+   requires every region to name its own start even when a fork is the only way in. A candidate
+   gap of ours, recorded by the PSSM referee's classifier as *lowerer refuses fork into a region
+   without an entry transition*; not fixed in this note's change set, and a fix moves the two
+   tests into the referee's expressible buckets.
+7. **A transition from a composite state into its own history pseudostate reads the record
+   before the state is left.** The configuration a history restores is written when its owner
+   is exited (`state_executor.go:exitState` → `recordChildHistory`, `recordRegionHistory`), but
+   `state_route.go:resolveRoute` and `state_executor.go:historyEntry` read it before the
+   transition's exits run — the code says so: "read before the source configuration is left".
+   For a transition whose source is the owner itself the read sees the owner's *previous* exit,
+   not the configuration being left, where UML and PSSM restore the "most recent" one (the
+   *History 001* and *History 005* requirements quoted at SM26 and SM27). PSSM *History 001-A*
+   (a composite's self-transition into its own deep history while a nested substate is active)
+   finds no record and performs a default entry where the suite restores the substate;
+   *History 002-D* (a composite's completion transition into its own shallow history, its
+   region having reached a final state) finds the record the completed substate's exit left —
+   which the composite's own exit would have cleared under SM28's rule — so the history's
+   default transition is skipped, the substate is re-entered, the composite completes again and
+   the run exhausts its step budget. Surfaced by the PSSM referee once SM11 and SM28 landed
+   (before them 001-A was a typed error and 002-D ended at the machine's completion). Not fixed
+   in this note's change set; the two tests are its cases.
 
-Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
-the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its entry.
-Items 4 and 5 took that path in the change set that decided them.
+Items 3, 6 and 7 have no fixture on `develop`; the first thing each needs is the conformance
+case that pins the behavior, then the fix, in a change set of its own — Track E of the roadmap
+holds item 3's entry, item 6 has the two PSSM tests as its cases once the referee can translate
+them, and item 7 has its two as `fail` rows of the referee's baseline. Items 4 and 5 took that
+path in the change set that decided them.
 
 ## Open decisions
 

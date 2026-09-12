@@ -505,13 +505,28 @@ type stateCapture struct {
 	changeWaits        []changeWait
 }
 
-// doActionCapture is one do action's progress: the behaviors it has still to run.
+// doActionCapture is one do action's progress: the behaviors it has still to run
+// and, for a mark inside a step, the one paused under way.
 type doActionCapture struct {
 	act     *doAction
 	pending []lower.StateBehavior
+	run     *doRun
 }
 
+// capture is the executor's state between steps; a do behavior paused
+// mid-statement is a coroutine no snapshot captures.
 func (e *StateExecutor) capture() (stateCapture, error) {
+	for _, act := range e.doActions {
+		if act.run != nil {
+			return stateCapture{}, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
+				getNodeName(act.state), symbolText(e.stateMachine))
+		}
+	}
+	return e.captureState(), nil
+}
+
+// captureState is the executor's state by value, the do behaviors under way by identity.
+func (e *StateExecutor) captureState() stateCapture {
 	c := stateCapture{
 		exec: e, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
@@ -545,13 +560,9 @@ func (e *StateExecutor) capture() (stateCapture, error) {
 		c.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}
 	for _, act := range e.doActions {
-		if act.run != nil {
-			return stateCapture{}, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				getNodeName(act.state), symbolText(e.stateMachine))
-		}
-		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending)})
+		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), run: act.run})
 	}
-	return c, nil
+	return c
 }
 
 func (c stateCapture) restore() {
@@ -577,7 +588,7 @@ func (c stateCapture) restore() {
 	e.deferred, e.lastDispatch, e.lastEventAt = slices.Clone(c.deferred), cloneDispatch(c.lastDispatch), c.lastEventAt
 	e.doActions = e.doActions[:0]
 	for _, act := range c.doActions {
-		act.act.pending, act.act.run = slices.Clone(act.pending), nil
+		act.act.pending, act.act.run = slices.Clone(act.pending), act.run
 		e.doActions = append(e.doActions, act.act)
 	}
 	e.machineExited, e.driven.state, e.inRun, e.moved = c.machineExited, c.driven, c.inRun, c.moved
@@ -603,4 +614,56 @@ func cloneDispatch(dispatch *Dispatch) *Dispatch {
 	cloned := *dispatch
 	cloned.Resumed = slices.Clone(dispatch.Resumed)
 	return &cloned
+}
+
+// moveMark is where a compound transition began, for a witness refused at one of its
+// choices to undo the move whole; the do behaviors its exits abandon end once it is kept.
+type moveMark struct {
+	exec             *StateExecutor
+	commit, rollback func()
+	run              *runState
+	steps, elements  int64
+	notes            []RunNote
+	trace            traceCapture
+	ids              *idSequence
+	nextID           int64
+	state            stateCapture
+	ended            []*doRun
+}
+
+// markMove marks the executor and its context where a compound transition begins.
+func (e *StateExecutor) markMove() *moveMark {
+	ctx := e.ctx
+	m := &moveMark{
+		exec: e, run: ctx.run, steps: ctx.run.steps, elements: ctx.run.elements,
+		notes: slices.Clone(ctx.run.notes),
+		trace: captureTrace(ctx.trace),
+		ids:   ctx.ids, nextID: ctx.ids.next,
+		state: e.captureState(),
+	}
+	m.commit, m.rollback = ctx.beginJournal()
+	e.moving = m
+	return m
+}
+
+// keep lets the move stand and ends the do behaviors its exits abandoned.
+func (m *moveMark) keep() {
+	m.exec.moving = nil
+	m.commit()
+	for _, run := range m.ended {
+		run.end(m.exec.ctx)
+	}
+}
+
+// undo brings the executor and its context back to the mark.
+func (m *moveMark) undo() {
+	e := m.exec
+	e.moving = nil
+	m.rollback()
+	if e.ctx.ids == m.ids {
+		m.ids.release(e.ctx, m.nextID)
+	}
+	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
+	m.trace.restore(e.ctx.trace)
+	m.state.restore()
 }

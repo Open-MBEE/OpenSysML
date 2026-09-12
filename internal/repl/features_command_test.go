@@ -264,10 +264,14 @@ state def DoorModes {
     state opened;
     transition swing first closed then opened;
 }
+state def DoorBehavior {
+    entry; then modes;
+    state modes : DoorModes;
+    transition toggle first modes.closed then modes.opened;
+}
 part def Door {
     attribute width : Real = 0.9;
-    exhibit state modes : DoorModes;
-    transition toggle first modes.closed then modes.opened;
+    exhibit state behavior : DoorBehavior;
 }
 part door : Door;`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
@@ -275,8 +279,12 @@ part door : Door;`).Diagnostics); len(errs) > 0 {
 
 	run(t, s, "%instantiate door")
 	got := run(t, s, "%features door")
-	wantsInOrder(t, got, "Features:\n  width = 0.9\n", "\nBehaviors:\n  modes: exhibited state machine, current state ")
-	wants(t, got, "  toggle: transition, modes.closed → modes.opened")
+	wantsInOrder(t, got, "Features:\n  width = 0.9\n", "\nBehaviors:\n  behavior: exhibited state machine, current state ")
+	rejects(t, got, "<unknown>")
+
+	run(t, s, "%instantiate DoorBehavior")
+	got = run(t, s, "%features DoorBehavior")
+	wants(t, got, "  modes: state, not running", "  toggle: transition, modes.closed → modes.opened")
 	rejects(t, got, "toggle: action", "toggle = ", "<unknown>")
 
 	run(t, s, "%instantiate DoorModes")
@@ -297,18 +305,22 @@ state def LampModes {
     state 'state';
     transition 'turn on' first 'switched off' then 'state';
 }
-part def Lamp {
-    attribute watts : Real = 40.0;
-    exhibit state modes : LampModes;
+state def LampBehavior {
+    entry; then modes;
+    state modes : LampModes;
     transition flip first modes.'switched off' then LampModes::'state';
     transition reset first $::LampModes::'state' then modes.'switched off';
+}
+part def Lamp {
+    attribute watts : Real = 40.0;
+    exhibit state behavior : LampBehavior;
 }
 part lamp : Lamp;`).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
 	}
 
-	run(t, s, "%instantiate lamp")
-	got := run(t, s, "%features lamp")
+	run(t, s, "%instantiate LampBehavior")
+	got := run(t, s, "%features LampBehavior")
 	wants(t, got,
 		"  flip: transition, modes.'switched off' → LampModes::'state'",
 		"  reset: transition, $::LampModes::'state' → modes.'switched off'",
