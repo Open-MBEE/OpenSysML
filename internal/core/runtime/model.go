@@ -180,6 +180,7 @@ func (m *Model) RegisterScope(scope *symbols.Scope) {
 	}
 	m.scopes = append(m.scopes, scope)
 	m.declared = nil
+	m.census = nil
 }
 
 // declaredSymbol is the symbol a registered scope tree declares for the

@@ -271,3 +271,33 @@ func TestNamespaceBindingToAnExtent(t *testing.T) {
 		t.Errorf("usages still being bound = %d, want none", len(ctx.bindingStack))
 	}
 }
+
+// TestExtentRootsAreTheSymbolsTheCallerResolvesIn requires the extent, in a context whose
+// caller resolves references in a registered scope tree, to materialize a usage's object under
+// that tree's symbol, so reading the usage afterwards — or before — reads the same object.
+func TestExtentRootsAreTheSymbolsTheCallerResolvesIn(t *testing.T) {
+	const src = `package Demo {
+		private import SequenceFunctions::*;
+		part def Car { attribute n : Integer = 3; }
+		part car : Car;
+	}`
+	for name, order := range map[string][]string{
+		"extent first": {"size(all Car)", "car.n", "size(all Car)"},
+		"usage first":  {"car.n", "size(all Car)"},
+	} {
+		ctx, scope := documentContextOver(t, src)
+		demo := resolveSymbol(t, scope, "Demo").Scope
+		for _, expr := range order {
+			if _, err := evalIn(t, ctx, demo, expr); err != nil {
+				t.Fatalf("%s, %s: %v", name, expr, err)
+			}
+		}
+		if n := len(ctx.instances); n != 1 {
+			t.Errorf("%s: the context holds %d objects, want the one car", name, n)
+		}
+		val, err := evalIn(t, ctx, demo, "size(all Car)")
+		if err != nil || FormatValue(val) != "1" {
+			t.Errorf("%s: size(all Car) = %s, %v; want 1", name, FormatValue(val), err)
+		}
+	}
+}

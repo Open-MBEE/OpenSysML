@@ -334,6 +334,8 @@ type usageCensus struct {
 
 // modelUsages is the model's usage census, taken once per Model: a variation stands for no
 // object, and an optional usage without a value holds none of its own, so neither is listed.
+// Each usage is the symbol a registered scope tree declares for it, so the object the extent
+// materializes is the one a reference resolved in that tree reads.
 func (ctx *Context) modelUsages() *usageCensus {
 	if ctx.model.census != nil {
 		return ctx.model.census
@@ -346,6 +348,7 @@ func (ctx *Context) modelUsages() *usageCensus {
 				walk(sym.Scope)
 				return true
 			}
+			sym = ctx.declaredSymbol(sym)
 			if ctx.model.semantics.IsVariationFeature(sym) || ctx.optionalValueless(sym) {
 				return true
 			}

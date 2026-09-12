@@ -4909,7 +4909,7 @@ func testExtentReachingANamespaceCollection(t *testing.T) {
 	}
 	_, err := ctx.InvokeCalc(resolveSymbol(t, q.Scope, "wheelCount"), nil, q.Scope)
 	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "wheels") {
-		t.Errorf("Q: size(all Wheel) = %v, want the enclosing package's wheels refused", err)
+		t.Errorf("Q: size(all Wheel) = %v, want the namespace-level wheels collection refused", err)
 	}
 	r := resolveSymbol(t, root, "R")
 	_, err = ctx.InvokeCalc(resolveSymbol(t, r.Scope, "linkCount"), nil, r.Scope)

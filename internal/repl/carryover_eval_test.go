@@ -166,3 +166,34 @@ func TestSupersedingTheHolderDropsTheWrittenValueEverywhere(t *testing.T) {
 		t.Errorf("%%eval Demo::holder.n = %q, want <undetermined>", got)
 	}
 }
+
+// extentModel is a part whose type an extent counts and whose feature the prompt reads.
+const extentModel = `package Demo {
+    private import ScalarValues::*;
+    private import SequenceFunctions::*;
+    part def Car { attribute n : Integer = 3; }
+    part car : Car;
+    calc def N { return : Integer = size(all Car); }
+}`
+
+// The prompt resolves a usage in the document's own scope tree, so the object an
+// extent materializes for it is the one a later read of the usage reaches, and the
+// one an earlier read materialized is the one the extent lists — in either order.
+func TestEvalExtentAndUsageReadOneObject(t *testing.T) {
+	for name, order := range map[string][]string{
+		"extent first": {"Demo::N()", "Demo::car.n", "Demo::N()"},
+		"usage first":  {"Demo::car.n", "Demo::N()"},
+	} {
+		s := NewSession()
+		submitModel(t, s, extentModel)
+		for _, expr := range order {
+			evalOK(t, s, expr)
+		}
+		if got := evalOK(t, s, "Demo::N()"); !strings.Contains(got, "= 1") {
+			t.Errorf("%s: Demo::N() = %q, want 1", name, got)
+		}
+		if got := evalOK(t, s, "all Demo::Car"); strings.Count(got, "Instance(") != 1 {
+			t.Errorf("%s: all Demo::Car = %q, want the one car", name, got)
+		}
+	}
+}
