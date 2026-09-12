@@ -224,9 +224,3 @@ func nodeValue(sorts Sorts, f *Flow, i int) *solve.Term {
 func edgeValue(sorts Sorts, f *Flow, i int) *solve.Term {
 	return solve.ValueTerm(sorts.Edge, edgeLabel(f, i))
 }
-
-// eq is equality of two terms of one sort.
-func eq(a, b *solve.Term) *solve.Term { return solve.Binary(solve.OpEq, solve.Bool, a, b) }
-
-// implies is implication.
-func implies(a, b *solve.Term) *solve.Term { return solve.Binary(solve.OpImplies, solve.Bool, a, b) }

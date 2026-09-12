@@ -503,11 +503,11 @@ func (e *Encoding) choosable(s *State) []*solve.Term {
 			for _, i := range f.Incoming[node] {
 				var arrived []*solve.Term
 				for _, other := range s.Slots {
-					arrived = append(arrived, solve.And(
+					arrived = append(arrived, and(
 						eq(solve.VarTerm(other.At), nodeValue(e.Sorts, f, n)),
 						eq(solve.VarTerm(other.Via), edgeValue(e.Sorts, f, i))))
 				}
-				complete = append(complete, solve.Or(arrived...))
+				complete = append(complete, or(arrived...))
 			}
 			var earliest []*solve.Term
 			for u, other := range s.Slots {
@@ -515,14 +515,14 @@ func (e *Encoding) choosable(s *State) []*solve.Term {
 					continue
 				}
 				earliest = append(earliest, implies(
-					solve.And(eq(solve.VarTerm(other.At), nodeValue(e.Sorts, f, n)), solve.Not(e.noEdge(other.Via))),
-					solve.Binary(solve.OpGt, solve.Bool, solve.VarTerm(other.ID), solve.VarTerm(slot.ID))))
+					and(eq(solve.VarTerm(other.At), nodeValue(e.Sorts, f, n)), not(e.noEdge(other.Via))),
+					gt(solve.VarTerm(other.ID), solve.VarTerm(slot.ID))))
 			}
-			cases = append(cases, solve.And(here, solve.Or(
+			cases = append(cases, and(here, or(
 				e.noEdge(slot.Via),
-				solve.And(solve.And(complete...), solve.And(earliest...)))))
+				and(and(complete...), and(earliest...)))))
 		}
-		terms[t] = solve.Or(cases...)
+		terms[t] = or(cases...)
 	}
 	return terms
 }
@@ -540,7 +540,7 @@ func (e *Encoding) completed(s *State) *solve.Term {
 	for t, slot := range s.Slots {
 		terms[t] = e.absent(slot.At)
 	}
-	return solve.And(terms...)
+	return and(terms...)
 }
 
 func (e *Encoding) absent(at *solve.Var) *solve.Term {
@@ -569,10 +569,10 @@ func (e *Encoding) initial() error {
 	}
 	e.assert(eq(solve.VarTerm(s.NextID), solve.IntTerm(2)), "initial token")
 	for _, flag := range s.Loop {
-		e.assert(solve.Not(solve.VarTerm(flag)), "initial state")
+		e.assert(not(solve.VarTerm(flag)), "initial state")
 	}
 	if s.Overflow != nil {
-		e.assert(solve.Not(solve.VarTerm(s.Overflow)), "initial state")
+		e.assert(not(solve.VarTerm(s.Overflow)), "initial state")
 	}
 	env := e.environment(s)
 	for _, base := range e.Features {
@@ -600,13 +600,13 @@ func (e *Encoding) initial() error {
 		} else if attr.Value != nil {
 			var defined *solve.Term
 			value, defined = env.evaluate(e.exprs[attr.Value])
-			failed = append(failed, solve.Not(defined))
+			failed = append(failed, not(defined))
 		} else {
 			continue
 		}
 		env.write(v.Name, value)
 		if domain := e.domain(v.Name, value); domain != nil {
-			failed = append(failed, solve.Not(domain))
+			failed = append(failed, not(domain))
 		}
 	}
 	for _, base := range e.Features {
@@ -615,7 +615,7 @@ func (e *Encoding) initial() error {
 			e.assert(eq(solve.VarTerm(s.has(base)), env.has[base.Name]), "initial value of "+base.Name)
 		}
 	}
-	e.assert(eq(solve.VarTerm(s.Failed), solve.Or(failed...)), "initial state")
+	e.assert(eq(solve.VarTerm(s.Failed), or(failed...)), "initial state")
 	return nil
 }
 
@@ -668,8 +668,8 @@ func (e *Encoding) move(i int) error {
 	stutter := eq(choice, solve.ValueTerm(e.Sorts.Choice, Stutter))
 
 	// The choice is a choosable token, or a stutter when none is.
-	anyChoosable := solve.Or(e.Choosable[i-1]...)
-	e.assert(eq(stutter, solve.Not(anyChoosable)), fmt.Sprintf("move %d stutters only when no token may act", i))
+	anyChoosable := or(e.Choosable[i-1]...)
+	e.assert(eq(stutter, not(anyChoosable)), fmt.Sprintf("move %d stutters only when no token may act", i))
 	for t := range prev.Slots {
 		e.assert(implies(eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))), e.Choosable[i-1][t]),
 			fmt.Sprintf("move %d acts on a token that may act", i))
@@ -680,11 +680,11 @@ func (e *Encoding) move(i int) error {
 	for n := range f.Nodes {
 		var cases []*solve.Term
 		for t, slot := range prev.Slots {
-			cases = append(cases, solve.And(
+			cases = append(cases, and(
 				eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))),
 				eq(solve.VarTerm(slot.At), nodeValue(e.Sorts, f, n))))
 		}
-		acts[n] = solve.Or(cases...)
+		acts[n] = or(cases...)
 	}
 
 	// The effect of each node's performance on the features, and the guards it
@@ -708,7 +708,7 @@ func (e *Encoding) move(i int) error {
 			}
 			guards[n][p], guardsDefined[n][p] = effect.guards.evaluate(e.exprs[guard])
 			if held := m.Held[edge]; held != nil {
-				e.assert(eq(solve.VarTerm(held), solve.And(acts[n], guardsDefined[n][p], guards[n][p])),
+				e.assert(eq(solve.VarTerm(held), and(acts[n], guardsDefined[n][p], guards[n][p])),
 					fmt.Sprintf("move %d: the guard of %s is read and holds", i, edgeLabel(f, edge)))
 			}
 		}
@@ -724,10 +724,10 @@ func (e *Encoding) move(i int) error {
 		for n := len(f.Nodes) - 1; n >= 0; n-- {
 			after := effects[n].env
 			if after.values[base.Name] != solve.VarTerm(prev.value(base)) && !sameVar(after.values[base.Name], prev.value(base)) {
-				value = solve.Ite(acts[n], after.values[base.Name], value)
+				value = ite(acts[n], after.values[base.Name], value)
 			}
 			if has != nil && !sameVar(after.has[base.Name], prev.has(base)) {
-				has = solve.Ite(acts[n], after.has[base.Name], has)
+				has = ite(acts[n], after.has[base.Name], has)
 			}
 		}
 		e.assert(eq(solve.VarTerm(next.value(base)), value), fmt.Sprintf("move %d: %s", i, base.Name))
@@ -744,20 +744,20 @@ func (e *Encoding) move(i int) error {
 	}
 	for n := range f.Nodes {
 		if len(effects[n].failed) > 0 {
-			failed = append(failed, solve.And(acts[n], solve.Or(effects[n].failed...)))
+			failed = append(failed, and(acts[n], or(effects[n].failed...)))
 		}
 		if len(effects[n].overflow) > 0 {
-			overflow = append(overflow, solve.And(acts[n], solve.Or(effects[n].overflow...)))
+			overflow = append(overflow, and(acts[n], or(effects[n].overflow...)))
 		}
 	}
 	for l := range f.Loops {
 		loop := []*solve.Term{solve.VarTerm(prev.Loop[l])}
 		for n := range f.Nodes {
 			if term, ok := effects[n].loops[l]; ok {
-				loop = append(loop, solve.And(acts[n], term))
+				loop = append(loop, and(acts[n], term))
 			}
 		}
-		e.assert(eq(solve.VarTerm(next.Loop[l]), solve.Or(loop...)), fmt.Sprintf("move %d: loop %d past the bound", i, l))
+		e.assert(eq(solve.VarTerm(next.Loop[l]), or(loop...)), fmt.Sprintf("move %d: loop %d past the bound", i, l))
 	}
 
 	// The tokens after the move.
@@ -766,28 +766,28 @@ func (e *Encoding) move(i int) error {
 	for t := range prev.Slots {
 		frame = append(frame, e.unchanged(prev.Slots[t], next.Slots[t]))
 	}
-	e.assert(implies(stutter, solve.And(
-		solve.And(frame...),
+	e.assert(implies(stutter, and(
+		and(frame...),
 		eq(solve.VarTerm(next.NextID), solve.VarTerm(prev.NextID)),
 		eq(travel, solve.ValueTerm(e.Sorts.Edge, NoEdge)))), fmt.Sprintf("move %d stutters", i))
 
 	for t := range prev.Slots {
 		for n, node := range f.Nodes {
-			pick := solve.And(eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))),
+			pick := and(eq(choice, solve.ValueTerm(e.Sorts.Choice, slotLabel(t))),
 				eq(solve.VarTerm(prev.Slots[t].At), nodeValue(e.Sorts, f, n)))
 			step, fails, full := e.tokens(i, t, n, node, prev, next, m, guards[n], guardsDefined[n])
 			e.assert(implies(pick, step), fmt.Sprintf("move %d: slot %d acts at %s", i, t, f.Labels[n]))
 			if fails != nil {
-				failed = append(failed, solve.And(pick, fails))
+				failed = append(failed, and(pick, fails))
 			}
 			if full != nil {
-				overflow = append(overflow, solve.And(pick, full))
+				overflow = append(overflow, and(pick, full))
 			}
 		}
 	}
-	e.assert(eq(solve.VarTerm(next.Failed), solve.Or(failed...)), fmt.Sprintf("move %d fails", i))
+	e.assert(eq(solve.VarTerm(next.Failed), or(failed...)), fmt.Sprintf("move %d fails", i))
 	if next.Overflow != nil {
-		e.assert(eq(solve.VarTerm(next.Overflow), solve.Or(overflow...)), fmt.Sprintf("move %d overflows", i))
+		e.assert(eq(solve.VarTerm(next.Overflow), or(overflow...)), fmt.Sprintf("move %d overflows", i))
 	} else if len(overflow) > 0 {
 		return &FlowError{Node: nodeLabel(f.Graph.Initial), Reason: "a move may overflow a state declaring no overflow"}
 	}
@@ -801,7 +801,7 @@ func sameVar(term *solve.Term, v *solve.Var) bool {
 
 // unchanged says slot after holds what slot before did.
 func (e *Encoding) unchanged(before, after Slot) *solve.Term {
-	return solve.And(
+	return and(
 		eq(solve.VarTerm(after.At), solve.VarTerm(before.At)),
 		eq(solve.VarTerm(after.Via), solve.VarTerm(before.Via)),
 		eq(solve.VarTerm(after.ID), solve.VarTerm(before.ID)))
@@ -821,7 +821,7 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 	// succession into a fresh token; the slots consumed are freed.
 	synced := solve.BoolTerm(false)
 	if e.synchronizes(node) {
-		synced = solve.Not(e.noEdge(slot.Via))
+		synced = not(e.noEdge(slot.Via))
 	}
 	consumed := make([]*solve.Term, len(prev.Slots))
 	for u, other := range prev.Slots {
@@ -835,16 +835,16 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 				continue
 			}
 			earliest = append(earliest, implies(
-				solve.And(eq(solve.VarTerm(third.At), nodeValue(e.Sorts, f, n)), eq(solve.VarTerm(third.Via), solve.VarTerm(other.Via))),
-				solve.Binary(solve.OpGt, solve.Bool, solve.VarTerm(third.ID), solve.VarTerm(other.ID))))
+				and(eq(solve.VarTerm(third.At), nodeValue(e.Sorts, f, n)), eq(solve.VarTerm(third.Via), solve.VarTerm(other.Via))),
+				gt(solve.VarTerm(third.ID), solve.VarTerm(other.ID))))
 		}
-		consumed[u] = solve.And(synced,
+		consumed[u] = and(synced,
 			eq(solve.VarTerm(other.At), nodeValue(e.Sorts, f, n)),
-			solve.Not(e.noEdge(other.Via)),
-			solve.And(earliest...))
+			not(e.noEdge(other.Via)),
+			and(earliest...))
 	}
-	actorID := solve.Ite(synced, solve.VarTerm(prev.NextID), solve.VarTerm(slot.ID))
-	base := solve.Ite(synced, solve.Binary(solve.OpAdd, solve.Int, solve.VarTerm(prev.NextID), solve.IntTerm(1)), solve.VarTerm(prev.NextID))
+	actorID := ite(synced, solve.VarTerm(prev.NextID), solve.VarTerm(slot.ID))
+	base := ite(synced, add(solve.VarTerm(prev.NextID), solve.IntTerm(1)), solve.VarTerm(prev.NextID))
 
 	// free[u] says slot u (other than t) is free once consumption is done.
 	free := make([]*solve.Term, len(prev.Slots))
@@ -853,7 +853,7 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 			free[u] = solve.BoolTerm(false)
 			continue
 		}
-		free[u] = solve.Or(e.absent(other.At), consumed[u])
+		free[u] = or(e.absent(other.At), consumed[u])
 	}
 
 	// The others' slots: consumed ones are freed, the rest are as they were
@@ -863,20 +863,20 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 		placed[u] = solve.BoolTerm(false)
 	}
 	var terms []*solve.Term
-	retire := solve.And(
+	retire := and(
 		eq(solve.VarTerm(next.Slots[t].At), absent),
 		eq(solve.VarTerm(next.Slots[t].Via), noEdge),
 		eq(solve.VarTerm(next.Slots[t].ID), actorID),
 		eq(travel, noEdge))
 	go_ := func(p int) *solve.Term {
 		edge := f.Edges[out[p]]
-		return solve.And(
+		return and(
 			eq(solve.VarTerm(next.Slots[t].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
 			eq(solve.VarTerm(next.Slots[t].Via), edgeValue(e.Sorts, f, out[p])),
 			eq(solve.VarTerm(next.Slots[t].ID), actorID),
 			eq(travel, edgeValue(e.Sorts, f, out[p])))
 	}
-	stay := solve.And(
+	stay := and(
 		eq(solve.VarTerm(next.Slots[t].At), solve.VarTerm(slot.At)),
 		eq(solve.VarTerm(next.Slots[t].Via), solve.VarTerm(slot.Via)),
 		eq(solve.VarTerm(next.Slots[t].ID), actorID),
@@ -893,26 +893,26 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 		count := solve.IntTerm(0)
 		for p := range out {
 			rank[p] = count
-			count = solve.Binary(solve.OpAdd, solve.Int, count, solve.Ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
+			count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 		}
 		none := eq(count, solve.IntTerm(0))
 		var actor []*solve.Term
 		for p := range out {
 			edge := f.Edges[out[p]]
-			isFirst := solve.And(guards[p], eq(rank[p], solve.IntTerm(0)))
-			actor = append(actor, implies(isFirst, solve.And(
+			isFirst := and(guards[p], eq(rank[p], solve.IntTerm(0)))
+			actor = append(actor, implies(isFirst, and(
 				eq(solve.VarTerm(next.Slots[t].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
 				eq(solve.VarTerm(next.Slots[t].Via), edgeValue(e.Sorts, f, out[p])),
 				eq(solve.VarTerm(next.Slots[t].ID), base),
 				eq(travel, edgeValue(e.Sorts, f, out[p])))))
 		}
-		terms = append(terms, implies(none, retire), implies(solve.Not(none), solve.And(actor...)))
+		terms = append(terms, implies(none, retire), implies(not(none), and(actor...)))
 		freeRank := make([]*solve.Term, len(prev.Slots))
 		running := solve.IntTerm(0)
 		for u := range prev.Slots {
 			freeRank[u] = running
 			if u != t {
-				running = solve.Binary(solve.OpAdd, solve.Int, running, solve.Ite(free[u], solve.IntTerm(1), solve.IntTerm(0)))
+				running = add(running, ite(free[u], solve.IntTerm(1), solve.IntTerm(0)))
 			}
 		}
 		for u := range prev.Slots {
@@ -922,20 +922,20 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 			var here []*solve.Term
 			for p := range out {
 				edge := f.Edges[out[p]]
-				takes := solve.And(guards[p], solve.Binary(solve.OpGe, solve.Bool, rank[p], solve.IntTerm(1)),
-					eq(freeRank[u], solve.Binary(solve.OpSub, solve.Int, rank[p], solve.IntTerm(1))))
+				takes := and(guards[p], ge(rank[p], solve.IntTerm(1)),
+					eq(freeRank[u], sub(rank[p], solve.IntTerm(1))))
 				here = append(here, takes)
-				terms = append(terms, implies(solve.And(free[u], takes), solve.And(
+				terms = append(terms, implies(and(free[u], takes), and(
 					eq(solve.VarTerm(next.Slots[u].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
 					eq(solve.VarTerm(next.Slots[u].Via), edgeValue(e.Sorts, f, out[p])),
-					eq(solve.VarTerm(next.Slots[u].ID), solve.Binary(solve.OpAdd, solve.Int, base, rank[p])))))
+					eq(solve.VarTerm(next.Slots[u].ID), add(base, rank[p])))))
 			}
-			placed[u] = solve.And(free[u], solve.Or(here...))
+			placed[u] = and(free[u], or(here...))
 		}
-		nextID = solve.Binary(solve.OpAdd, solve.Int, base, count)
-		fails = solve.Or(undefinedGuards(guards, defined)...)
+		nextID = add(base, count)
+		fails = or(undefinedGuards(guards, defined)...)
 		if f.Cyclic {
-			full = solve.Binary(solve.OpGt, solve.Bool, count, solve.Binary(solve.OpAdd, solve.Int, running, solve.IntTerm(1)))
+			full = gt(count, add(running, solve.IntTerm(1)))
 		}
 	case *ast.DecisionNode:
 		// The guarded successions that hold are the branches; none holding
@@ -949,10 +949,10 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 				unguarded = p
 				continue
 			}
-			held := solve.And(defined[p], guards[p])
-			undefined = append(undefined, solve.And(solve.Not(anyHolds), solve.Not(defined[p])))
+			held := and(defined[p], guards[p])
+			undefined = append(undefined, and(not(anyHolds), not(defined[p])))
 			holds = append(holds, held)
-			anyHolds = solve.Or(anyHolds, held)
+			anyHolds = or(anyHolds, held)
 		}
 		var branches []*solve.Term
 		q := 0
@@ -960,20 +960,20 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 			if f.Edges[out[p]].Guard == nil {
 				continue
 			}
-			branches = append(branches, solve.And(eq(travel, edgeValue(e.Sorts, f, out[p])), holds[q]))
-			terms = append(terms, implies(solve.And(anyHolds, eq(travel, edgeValue(e.Sorts, f, out[p]))), go_(p)))
+			branches = append(branches, and(eq(travel, edgeValue(e.Sorts, f, out[p])), holds[q]))
+			terms = append(terms, implies(and(anyHolds, eq(travel, edgeValue(e.Sorts, f, out[p]))), go_(p)))
 			q++
 		}
 		if len(branches) > 0 {
-			terms = append(terms, implies(anyHolds, solve.Or(branches...)))
+			terms = append(terms, implies(anyHolds, or(branches...)))
 		}
 		if unguarded >= 0 {
-			terms = append(terms, implies(solve.Not(anyHolds), go_(unguarded)))
+			terms = append(terms, implies(not(anyHolds), go_(unguarded)))
 		} else {
-			terms = append(terms, implies(solve.Not(anyHolds), stay))
-			undefined = append(undefined, solve.Not(anyHolds))
+			terms = append(terms, implies(not(anyHolds), stay))
+			undefined = append(undefined, not(anyHolds))
 		}
-		fails = solve.Or(undefined...)
+		fails = or(undefined...)
 	default:
 		// One enabled succession is taken; none retires the token; several
 		// out of a node other than the initial one is an error.
@@ -981,18 +981,18 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 		count := solve.IntTerm(0)
 		taken := solve.BoolTerm(false)
 		for p := range out {
-			isFirst := solve.And(guards[p], solve.Not(taken))
+			isFirst := and(guards[p], not(taken))
 			terms = append(terms, implies(isFirst, go_(p)))
-			taken = solve.Or(taken, guards[p])
-			count = solve.Binary(solve.OpAdd, solve.Int, count, solve.Ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
+			taken = or(taken, guards[p])
+			count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 		}
-		terms = append(terms, implies(solve.Not(taken), retire))
+		terms = append(terms, implies(not(taken), retire))
 		failures := undefinedGuards(guards, defined)
 		if !initial && len(out) > 1 {
-			failures = append(failures, solve.Binary(solve.OpGt, solve.Bool, count, solve.IntTerm(1)))
+			failures = append(failures, gt(count, solve.IntTerm(1)))
 		}
 		if len(failures) > 0 {
-			fails = solve.Or(failures...)
+			fails = or(failures...)
 		}
 	}
 
@@ -1000,16 +1000,16 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 		if u == t {
 			continue
 		}
-		freed := solve.And(
+		freed := and(
 			eq(solve.VarTerm(next.Slots[u].At), absent),
 			eq(solve.VarTerm(next.Slots[u].Via), noEdge),
 			eq(solve.VarTerm(next.Slots[u].ID), solve.VarTerm(prev.Slots[u].ID)))
 		terms = append(terms,
-			implies(solve.And(consumed[u], solve.Not(placed[u])), freed),
-			implies(solve.And(solve.Not(consumed[u]), solve.Not(placed[u])), e.unchanged(prev.Slots[u], next.Slots[u])))
+			implies(and(consumed[u], not(placed[u])), freed),
+			implies(and(not(consumed[u]), not(placed[u])), e.unchanged(prev.Slots[u], next.Slots[u])))
 	}
 	terms = append(terms, eq(solve.VarTerm(next.NextID), nextID))
-	return solve.And(terms...), fails, full
+	return and(terms...), fails, full
 }
 
 // undefinedGuards are the conditions under which evaluating the guards, in
@@ -1020,7 +1020,7 @@ func undefinedGuards(guards, defined []*solve.Term) []*solve.Term {
 		if defined[p].Op == solve.OpBool && defined[p].Bool {
 			continue
 		}
-		terms = append(terms, solve.Not(defined[p]))
+		terms = append(terms, not(defined[p]))
 	}
 	_ = guards
 	return terms
@@ -1058,7 +1058,7 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
 		seeded := true_
 		pending, queued := e.pending[name]
 		if queued {
-			seeded = solve.Not(x.env.has[pending.Name])
+			seeded = not(x.env.has[pending.Name])
 		}
 		if p.feature.Value != nil {
 			default_, defined := x.env.evaluate(e.exprs[p.feature.Value])
@@ -1069,8 +1069,8 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
 			value, has = default_, true_
 		}
 		if queued {
-			value = solve.Ite(seeded, value, x.env.values[pending.Name])
-			has = solve.Ite(seeded, has, true_)
+			value = ite(seeded, value, x.env.values[pending.Name])
+			has = ite(seeded, has, true_)
 			x.env.has[pending.Name] = solve.BoolTerm(false)
 		}
 		e.fresh++
@@ -1121,7 +1121,7 @@ func (x *nodeEffect) fail(path, defined *solve.Term) {
 	if defined.Op == solve.OpBool && defined.Bool {
 		return
 	}
-	x.failed = append(x.failed, solve.And(path, solve.Not(defined)))
+	x.failed = append(x.failed, and(path, not(defined)))
 }
 
 // statements runs a body's statements symbolically under path.
@@ -1150,12 +1150,12 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 			cond, defined := x.env.evaluate(e.exprs[s.Condition])
 			x.fail(path, defined)
 			then := &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term)}
-			if err := e.statements(then, s.Then.Statements, solve.And(path, cond), where, node); err != nil {
+			if err := e.statements(then, s.Then.Statements, and(path, cond), where, node); err != nil {
 				return err
 			}
 			otherwise := &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term)}
 			if s.Else != nil {
-				if err := e.statements(otherwise, s.Else.Statements, solve.And(path, solve.Not(cond)), where, node); err != nil {
+				if err := e.statements(otherwise, s.Else.Statements, and(path, not(cond)), where, node); err != nil {
 					return err
 				}
 			}
@@ -1179,7 +1179,7 @@ func (e *Encoding) statements(x *nodeEffect, body []lower.Statement, path *solve
 func (x *nodeEffect) absorb(branch *nodeEffect) {
 	for l, term := range branch.loops {
 		if held, ok := x.loops[l]; ok {
-			x.loops[l] = solve.Or(held, term)
+			x.loops[l] = or(held, term)
 		} else {
 			x.loops[l] = term
 		}
@@ -1215,7 +1215,7 @@ func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: a.Sort,
 			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit}
 		e.declare(v)
-		e.assert(eq(solve.VarTerm(v), solve.Ite(cond, a, b)), "merge of "+name)
+		e.assert(eq(solve.VarTerm(v), ite(cond, a, b)), "merge of "+name)
 		merged.values[name] = solve.VarTerm(v)
 	}
 	for name, a := range then.has {
@@ -1224,7 +1224,7 @@ func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *
 			merged.has[name] = a
 			continue
 		}
-		merged.has[name] = solve.Ite(cond, a, b)
+		merged.has[name] = ite(cond, a, b)
 	}
 	return merged
 }
@@ -1251,7 +1251,7 @@ func (e *Encoding) loop(x *nodeEffect, s lower.Loop, path *solve.Term, where str
 		if pre != nil {
 			cond, defined := x.env.evaluate(e.exprs[pre])
 			x.fail(alive, defined)
-			alive = solve.And(alive, cond)
+			alive = and(alive, cond)
 		}
 		body := &nodeEffect{env: x.env.clone(), loops: make(map[int]*solve.Term)}
 		if err := e.statements(body, s.Body.Statements, alive, where, node); err != nil {
@@ -1263,17 +1263,17 @@ func (e *Encoding) loop(x *nodeEffect, s lower.Loop, path *solve.Term, where str
 		if post != nil {
 			cond, defined := x.env.evaluate(e.exprs[post])
 			x.fail(alive, defined)
-			alive = solve.And(alive, solve.Not(cond))
+			alive = and(alive, not(cond))
 		}
 	}
 	past := alive
 	if pre != nil {
 		cond, defined := x.env.evaluate(e.exprs[pre])
 		x.fail(alive, defined)
-		past = solve.And(alive, cond)
+		past = and(alive, cond)
 	}
 	if held, ok := x.loops[index]; ok {
-		x.loops[index] = solve.Or(held, past)
+		x.loops[index] = or(held, past)
 	} else {
 		x.loops[index] = past
 	}
@@ -1327,11 +1327,11 @@ func (v *env) evaluate(expr *solve.Expression) (value, defined *solve.Term) {
 		conditions = append(conditions, solve.Substitute(d, replace))
 	}
 	conditions = append(conditions, reads...)
-	defined = solve.And(conditions...)
+	defined = and(conditions...)
 	if len(conditions) > 0 {
 		// Where the interpreter would not compute it, the value is any of its
 		// sort, so no term the relation states is ever evaluated undefined.
-		value = solve.Ite(defined, value, zeroOf(value.Sort))
+		value = ite(defined, value, zeroOf(value.Sort))
 	}
 	return value, defined
 }

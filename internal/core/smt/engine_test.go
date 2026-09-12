@@ -472,7 +472,8 @@ func TestEngineStopsConditionsAtTheFirstFailure(t *testing.T) {
 
 // TestEngineKeepsEveryTokenOfARevisitedFork: a fork two merge arrivals reach
 // performs twice, and its four tokens are all in flight at once as the
-// interpreter runs them; a condition only those four violate is witnessed.
+// interpreter runs them; a condition only those four violate is witnessed at
+// the twelfth move, the first that can reach it, and bounded one move short.
 func TestEngineKeepsEveryTokenOfARevisitedFork(t *testing.T) {
 	e := engine(t)
 	d := indexed(t, "crowd.sysml", `package test {
@@ -502,11 +503,23 @@ func TestEngineKeepsEveryTokenOfARevisitedFork(t *testing.T) {
 		succession first m2 then done;
 	}
 }`)
-	result := answer(t, e, d, d.holds(t, "test::Crowd", "test::Crowd::few"), analysis.Budget{Depth: 16})
+	short := answer(t, e, d, d.holds(t, "test::Crowd", "test::Crowd::few"), analysis.Budget{Depth: 11})
+	expect(t, short, analysis.ClaimHolds, analysis.Bounded)
+	if !bound(t, short, "moves").Reached {
+		t.Fatalf("eleven moves leave a token live, yet the bound is not reached: %v", short.Bounds)
+	}
+	result := answer(t, e, d, d.holds(t, "test::Crowd", "test::Crowd::few"), analysis.Budget{Depth: 12})
 	expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
 	var violation *runtime.ViolationError
 	if len(result.Values) != 1 || !errors.As(result.Values[0].Err, &violation) {
 		t.Fatalf("the interpreter's violation is not reported: %+v", result.Values)
+	}
+	four := false
+	for _, c := range result.Witness.Choices {
+		four = four || c.Kind == runtime.ChoiceTokenOrder && c.Alternatives == 4
+	}
+	if !four {
+		t.Fatalf("no step picks among the four tokens: %v", result.Witness.Choices)
 	}
 }
 

@@ -54,11 +54,11 @@ type Property struct {
 func (e *Encoding) Deadlock() *Property {
 	p := &Property{Kind: PropertyDeadlock, Name: "deadlock freedom",
 		Violated: make([]*solve.Term, e.Moves+1), Undefined: make([]*solve.Term, e.Moves+1)}
-	p.Violated[0] = solve.Not(solve.Or(solve.Or(e.Choosable[0]...), e.Completed[0]))
+	p.Violated[0] = not(or(or(e.Choosable[0]...), e.Completed[0]))
 	p.Undefined[0] = solve.BoolTerm(false)
 	for i := 1; i <= e.Moves; i++ {
 		stutter := eq(solve.VarTerm(e.Choices[i-1].Choice), solve.ValueTerm(e.Sorts.Choice, Stutter))
-		p.Violated[i] = solve.And(stutter, solve.Not(e.Completed[i-1]))
+		p.Violated[i] = and(stutter, not(e.Completed[i-1]))
 		p.Undefined[i] = solve.BoolTerm(false)
 	}
 	return p
@@ -93,8 +93,8 @@ func (e *Encoding) Condition(ctx *runtime.Context, sym *symbols.Symbol, scope *s
 		Violated: make([]*solve.Term, e.Moves+1), Undefined: make([]*solve.Term, e.Moves+1)}
 	for i := 0; i <= e.Moves; i++ {
 		value, defined := e.environment(e.States[i]).evaluate(expr)
-		p.Violated[i] = solve.And(defined, solve.Not(value))
-		p.Undefined[i] = solve.Not(defined)
+		p.Violated[i] = and(defined, not(value))
+		p.Undefined[i] = not(defined)
 	}
 	return p, nil
 }
@@ -142,7 +142,7 @@ func (e *Encoding) adopt(translator *solve.Translator, expr *solve.Expression, w
 // exact holds when state i is one the interpreter reaches as encoded: no move
 // so far failed, overflowed the token slots or ran a body loop past its unrolling.
 func (e *Encoding) exact(i int) *solve.Term {
-	return solve.And(solve.Not(solve.VarTerm(e.States[i].Failed)), solve.Not(e.cut(i)))
+	return and(not(solve.VarTerm(e.States[i].Failed)), not(e.cut(i)))
 }
 
 // cut holds when a bound has cut state i short of the interpreter's run: a
@@ -156,7 +156,7 @@ func (e *Encoding) cut(i int) *solve.Term {
 	for _, flag := range s.Loop {
 		terms = append(terms, solve.VarTerm(flag))
 	}
-	return solve.Or(terms...)
+	return or(terms...)
 }
 
 // MarkVar is the integer variable a violation or failure query adds: the state
@@ -168,7 +168,7 @@ const MarkVar = "mark"
 func (e *Encoding) Violation(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
-		cases = append(cases, solve.And(e.exact(i), p.Violated[i]))
+		cases = append(cases, and(e.exact(i), p.Violated[i]))
 	}
 	return e.marked(cases, "violation of "+p.Name)
 }
@@ -180,9 +180,9 @@ func (e *Encoding) Failure(p *Property) *solve.Query {
 	for i := 0; i <= e.Moves; i++ {
 		failed := solve.VarTerm(e.States[i].Failed)
 		if p != nil {
-			failed = solve.Or(failed, p.Undefined[i])
+			failed = or(failed, p.Undefined[i])
 		}
-		cases = append(cases, solve.And(solve.Not(e.cut(i)), failed))
+		cases = append(cases, and(not(e.cut(i)), failed))
 	}
 	return e.marked(cases, "failure")
 }
@@ -192,7 +192,7 @@ func (e *Encoding) Failure(p *Property) *solve.Query {
 func (e *Encoding) Completion() *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
-		cases = append(cases, solve.And(e.exact(i), e.Completed[i]))
+		cases = append(cases, and(e.exact(i), e.Completed[i]))
 	}
 	return e.marked(cases, "completion")
 }
@@ -239,11 +239,11 @@ func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {
 		first := make([]*solve.Term, 0, i+2)
 		first = append(first, eq(solve.VarTerm(mark), solve.IntTerm(int64(i))), c)
 		for _, earlier := range cases[:i] {
-			first = append(first, solve.Not(earlier))
+			first = append(first, not(earlier))
 		}
-		terms[i] = solve.And(first...)
+		terms[i] = and(first...)
 	}
-	q := e.query(solve.Or(terms...), role)
+	q := e.query(or(terms...), role)
 	q.Vars = append(slices.Clone(e.Query.Vars), mark)
 	return q
 }
@@ -252,8 +252,8 @@ func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {
 // live after move k, a loop past its unrolling, no free slot); unsat makes an unsat property proved.
 func (e *Encoding) Uncertainty() *solve.Query {
 	k := e.Moves
-	live := solve.Or(e.Choosable[k]...)
-	return e.query(solve.And(solve.Not(solve.VarTerm(e.States[k].Failed)), solve.Or(live, e.cut(k))), "cut by the bound")
+	live := or(e.Choosable[k]...)
+	return e.query(and(not(solve.VarTerm(e.States[k].Failed)), or(live, e.cut(k))), "cut by the bound")
 }
 
 // Cut is which bounds a model of Uncertainty shows reached.
