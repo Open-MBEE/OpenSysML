@@ -140,7 +140,49 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what string, declared *
 	if refusal, refused := ctx.writeTypeRefusal(scope, declared, value, how); refused {
 		return fmt.Errorf("%s: %w: %s", what, ErrTypeMismatch, refusal)
 	}
+	return ctx.holdForDeclared(value, declared)
+}
+
+// holdForDeclared shapes an admitted value as the declared type holds it: quantities in
+// its preferred unit, scalars an enumeration admits as the enumerated value they equal.
+func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
 	ctx.spellForDeclared(value, declared)
+	return ctx.holdAsEnumerated(value, declared)
+}
+
+// holdAsEnumerated stores a scalar admitted by an enumeration-typed feature as the
+// enumerated value it equals, so what the feature holds is of the enumeration.
+func (ctx *Context) holdAsEnumerated(value *Value, declared *symbols.Symbol) error {
+	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef {
+		return nil
+	}
+	switch value.Kind {
+	case ValSequence, ValSet:
+		elements := append([]Value(nil), elementsOf(*value)...)
+		changed := false
+		for i := range elements {
+			enumerated, found, err := ctx.asEnumerated(elements[i], declared)
+			if err != nil {
+				return err
+			}
+			changed = changed || found && enumerated.EnumerationLiteral() != elements[i].EnumerationLiteral()
+			elements[i] = enumerated
+		}
+		if !changed {
+			return nil
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(elements)
+			return nil
+		}
+		*value = ctx.setOf(elements)
+	default:
+		enumerated, found, err := ctx.asEnumerated(*value, declared)
+		if err != nil || !found {
+			return err
+		}
+		*value = enumerated
+	}
 	return nil
 }
 

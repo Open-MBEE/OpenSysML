@@ -928,6 +928,37 @@ test("an enum literal keeps the enumeration that declares it", () => {
   });
 });
 
+test("a scalar-valued enum literal carries the scalar it equals, both ways", () => {
+  const high = {
+    kind: "enum",
+    value: {
+      name: "Level::high",
+      literalId: "D::Level::high",
+      enumerationId: "D::Level",
+      value: { kind: "int", value: 3n },
+    },
+  } as const;
+  const sent = encodeValue(high);
+  assert.equal(sent.kind.case, "enumLiteral");
+  assert.equal(sent.kind.value.value?.kind.case, "intValue");
+  assert.deepEqual(decodeValue(fromBinary(ValueSchema, toBinary(ValueSchema, sent))), high);
+
+  const red = encodeValue({
+    kind: "enum",
+    value: { name: "Colour::red", literalId: "D::Colour::red", enumerationId: "D::Colour" },
+  });
+  assert.equal(red.kind.case, "enumLiteral");
+  assert.equal(red.kind.value.value, undefined);
+
+  const armless = create(ValueSchema, {
+    kind: {
+      case: "enumLiteral",
+      value: create(EnumLiteralSchema, { literalId: "D::Level::high", value: create(ValueSchema, {}) }),
+    },
+  });
+  assert.throws(() => decodeValue(armless), MalformedValueError);
+});
+
 test("a verdict holds, fails or is undecided, and always names its subject", () => {
   const held = decodeVerdict(
     create(VerdictSchema, {

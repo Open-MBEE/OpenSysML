@@ -453,6 +453,31 @@ func TestEqualJudgesMeasurementRefsByReduction(t *testing.T) {
 	}
 }
 
+// A scalar-valued literal carries the scalar it equals both ways, and stays a literal.
+func TestEnumLiteralCarriesItsScalar(t *testing.T) {
+	high := EnumLiteral{LiteralID: "D::Level::high", EnumerationID: "D::Level", Name: "Level::high", Value: Int(3)}
+	sent, err := valueToProto(high)
+	if err != nil {
+		t.Fatalf("valueToProto(high) = %v", err)
+	}
+	if got := sent.GetEnumLiteral().GetValue().GetIntValue(); got != 3 {
+		t.Errorf("sent value = %v, want int_value 3", sent.GetEnumLiteral().GetValue())
+	}
+	if got := valueFromProto(sent); !reflect.DeepEqual(got, high) {
+		t.Errorf("round trip = %#v, want %#v", got, high)
+	}
+	if !Equal(high, EnumLiteral{LiteralID: "D::Level::high"}) || Equal(high, Int(3)) {
+		t.Error("a literal is its LiteralID, not its scalar")
+	}
+	red, err := valueToProto(EnumLiteral{LiteralID: "D::Color::red"})
+	if err != nil || red.GetEnumLiteral().Value != nil {
+		t.Errorf("an identity-only literal carries no value: %v, %v", red, err)
+	}
+	if got := valueFromProto(red); got.(EnumLiteral).Value != nil {
+		t.Errorf("round trip of an identity-only literal = %#v", got)
+	}
+}
+
 // An enumeration literal is its LiteralID; its name and enumeration describe it.
 func TestEqualJudgesEnumLiteralsByID(t *testing.T) {
 	red := EnumLiteral{LiteralID: "D::Color::red", EnumerationID: "D::Color", Name: "Color::red"}

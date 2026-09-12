@@ -1139,7 +1139,10 @@ def value_to_python(pb_value, resolve_instance=None):
         return TensorQuantity.from_pb(pb_value.tensor_quantity)
     if kind == 'enum_literal':
         lit = pb_value.enum_literal
-        return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name)
+        value = None
+        if lit.HasField('value'):
+            value = value_to_python(lit.value, resolve_instance)
+        return EnumLiteral(lit.literal_id, lit.enumeration_id, lit.name, value)
     if kind == 'unset':
         return UNSET
     if kind == 'infinity':

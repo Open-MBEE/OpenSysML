@@ -42,6 +42,9 @@ func (e *executor) derivedFeatureValues(sym *symbols.Symbol, property string) ([
 // typed error.
 func (e *executor) cellValues(value runtime.Value, property string, sym *symbols.Symbol) ([]Value, error) {
 	origin := ElementValue(sym).Origin()
+	if lit := value.EnumerationLiteral(); lit != nil {
+		return []Value{valueAt(StringValue(symbols.FQNOf(lit)), origin)}, nil
+	}
 	var elements []runtime.Value
 	switch value.Kind {
 	case runtime.ValNull:
@@ -60,8 +63,6 @@ func (e *executor) cellValues(value runtime.Value, property string, sym *symbols
 		return []Value{valueAt(StringValue(value.Str()), origin)}, nil
 	case runtime.ValQuantity:
 		return []Value{valueAt(QuantityValue(*value.Quantity()), origin)}, nil
-	case runtime.ValEnumLiteral:
-		return []Value{valueAt(StringValue(symbols.FQNOf(value.Literal())), origin)}, nil
 	default:
 		return nil, e.unevaluable(queryplan.Expression{}, property, sym, notAValue(value))
 	}

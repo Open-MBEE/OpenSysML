@@ -52,7 +52,10 @@ func (ctx *Context) classifyValueReading(
 	if verdict == semantics.ClassifiesNone && isScalar(value) {
 		// A scalar type beside the value's own (`Cost :> Real` beside Rational) may hold it.
 		if decided, ok := ctx.representationClassifies(value, target); ok {
-			return decided, nil
+			if decided != semantics.ClassifiesSome {
+				return decided, nil
+			}
+			verdict = semantics.ClassifiesSome
 		}
 	}
 	if verdict != semantics.ClassifiesSome {
@@ -66,14 +69,19 @@ func (ctx *Context) classifyValueReading(
 
 // classifyNarrower decides a target narrower than every type the value is of, which only
 // the value itself can: a scalar by its representation, a quantity by its dimension, a
-// structured value by its shape and units; an object or enumeration literal is of the
-// types it carries and no narrower; `5` against `Even` stays undecided.
+// structured value by its shape and units, an enumeration by its enumerated values; an
+// object or enumeration literal is of the types it carries and no narrower; `5` against
+// `Even` stays undecided.
 func (ctx *Context) classifyNarrower(
 	scope *symbols.Scope, value Value, target *symbols.Symbol,
 ) (semantics.TypeClassification, error) {
 	if isScalar(value) {
-		if decided, ok := ctx.representationClassifies(value, target); ok {
+		if decided, ok := ctx.representationClassifies(value, target); ok && decided != semantics.ClassifiesSome {
 			return decided, nil
+		}
+		if target.Kind == symbols.SymbolEnumerationDef {
+			_, member, err := ctx.enumeratedValue(value, target)
+			return classifiesIf(member), err
 		}
 		return semantics.ClassifiesSome, nil
 	}
@@ -87,10 +95,43 @@ func (ctx *Context) classifyNarrower(
 			return semantics.ClassifiesNone, err
 		}
 		return classifiesIf(keep), nil
-	case ValEnumLiteral, ValVariant, ValInstance, ValMetaobject:
+	case ValEnumLiteral:
+		if target.Kind == symbols.SymbolEnumerationDef {
+			_, member, err := ctx.enumeratedValue(value, target)
+			return classifiesIf(member), err
+		}
+		return semantics.ClassifiesNone, nil
+	case ValVariant, ValInstance, ValMetaobject:
 		return semantics.ClassifiesNone, nil
 	}
 	return semantics.ClassifiesSome, nil
+}
+
+// enumeratedValue is the enumeration's literal value equal to value, if any: the enumerated
+// values are an enumeration's only instances (SysML v2 §8.3.7 EnumerationDefinition).
+func (ctx *Context) enumeratedValue(value Value, enum *symbols.Symbol) (Value, bool, error) {
+	for _, literal := range ctx.model.semantics.EnumeratedValuesOf(enum) {
+		enumerated, err := NewEvalContext(ctx, declScope(literal)).enumLiteralValue(literal)
+		if err != nil {
+			return Value{}, false, err
+		}
+		if ctx.valueEqual(value, enumerated) {
+			return enumerated, true, nil
+		}
+	}
+	return Value{}, false, nil
+}
+
+// asEnumerated holds a bare scalar as the enumerated value it equals when declared by an
+// enumeration, and any other value as it is; false when no enumerated value equals it.
+func (ctx *Context) asEnumerated(value Value, declared *symbols.Symbol) (Value, bool, error) {
+	if declared == nil || declared.Kind != symbols.SymbolEnumerationDef || !isScalar(value) {
+		return value, true, nil
+	}
+	if literal := value.EnumerationLiteral(); literal != nil && semantics.EnumerationOwning(literal) == declared {
+		return value, true, nil
+	}
+	return ctx.enumeratedValue(value, declared)
 }
 
 // isScalar reports a value whose representation states a ScalarValues type.
@@ -129,6 +170,12 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 			return nil, err
 		}
 		return []*symbols.Symbol{quantity}, nil
+	}
+	// A scalar-valued literal's own type is its enumeration (SysML v2 §8.3.7 EnumerationDefinition).
+	if literal := value.EnumerationLiteral(); literal != nil && isScalar(value) {
+		if enum := semantics.EnumerationOwning(literal); enum != nil {
+			return []*symbols.Symbol{enum}, nil
+		}
 	}
 	// The library symbol answers ahead of any same-named declaration in scope.
 	if scalar := ctx.scalarLibraryType(value); scalar != nil {

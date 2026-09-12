@@ -361,7 +361,7 @@ func TestMeasurementRefReport(t *testing.T) {
 		{"m / 2.0", ErrTypeMismatch, "operator '/' is not defined for a measurement reference and a Real"},
 		{"m ** s", ErrTypeMismatch, "operator '**' is not defined for a measurement reference and a measurement reference"},
 		{"-m", ErrTypeMismatch, "unary '-' requires numeric operand, got measurement reference"},
-		{"m < s", nil, "comparison operands must be constants, got measurement reference and measurement reference"},
+		{"m < s", ErrTypeMismatch, "operator '<' is not defined for a measurement reference and a measurement reference; DataFunctions::'<' is abstract and no library function declares '<' for a measurement reference, which is no ScalarValue"},
 		{"(m / s).quantityDimension", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::quantityDimension: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1, which names no declaration whose member quantityDimension could be read"},
 		{"(m / s).unitConversion", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::unitConversion: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1"},
 		{"(m / s).unitPowerFactors", ErrUnevaluableLibraryFunction, "MeasurementReferences::DerivedUnit::unitPowerFactors: m/s is a MeasurementReferences::DerivedUnit reducing to metre·second^-1"},

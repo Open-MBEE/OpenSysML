@@ -242,7 +242,10 @@ public final class Protos {
    */
   public static EnumLiteral literal(org.openmbee.opensysml.proto.EnumLiteral literal) {
     return new EnumLiteral(
-        literal.getLiteralId(), literal.getEnumerationId(), literal.getName());
+        literal.getLiteralId(),
+        literal.getEnumerationId(),
+        literal.getName(),
+        literal.hasValue() ? Optional.of(readable(literal.getValue())) : Optional.empty());
   }
 
   /**
