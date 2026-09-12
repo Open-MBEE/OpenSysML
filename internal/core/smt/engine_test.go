@@ -437,6 +437,79 @@ func TestEngineEncodesInheritedFeatures(t *testing.T) {
 	}
 }
 
+// TestEngineStopsConditionsAtTheFirstFailure: a required condition failing
+// stops the interpreter before a later one that would divide by zero, so the
+// violation is witnessed and replays to the interpreter's own; with the order
+// reversed the division is the error the interpreter reports.
+func TestEngineStopsConditionsAtTheFirstFailure(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "ordered.sysml", `package test {
+	private import ScalarValues::*;
+	action def Ordered {
+		attribute x : Integer = 1;
+		requirement guarded { require x > 0; require 10 / x > 1; }
+		requirement exposed { require 10 / x > 1; require x > 0; }
+		first start;
+		action zero { assign x := 0; }
+		done;
+		succession first start then zero;
+		succession first zero then done;
+	}
+}`)
+	guarded := answer(t, e, d, d.holds(t, "test::Ordered", "test::Ordered::guarded"), analysis.Budget{Depth: 4})
+	expect(t, guarded, analysis.ClaimViolated, analysis.Witnessed)
+	var violation *runtime.ViolationError
+	if len(guarded.Values) != 1 || !errors.As(guarded.Values[0].Err, &violation) {
+		t.Fatalf("the interpreter's violation is not reported: %+v", guarded.Values)
+	}
+	exposed := answer(t, e, d, d.holds(t, "test::Ordered", "test::Ordered::exposed"), analysis.Budget{Depth: 4})
+	expect(t, exposed, analysis.ClaimViolated, analysis.Witnessed)
+	if len(exposed.Values) != 1 || exposed.Values[0].Err == nil || errors.As(exposed.Values[0].Err, &violation) ||
+		!strings.Contains(exposed.Values[0].Err.Error(), "zero") {
+		t.Fatalf("the interpreter's division by zero is not reported: %+v", exposed.Values)
+	}
+}
+
+// TestEngineKeepsEveryTokenOfARevisitedFork: a fork two merge arrivals reach
+// performs twice, and its four tokens are all in flight at once as the
+// interpreter runs them; a condition only those four violate is witnessed.
+func TestEngineKeepsEveryTokenOfARevisitedFork(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "crowd.sysml", `package test {
+	private import ScalarValues::*;
+	action def Crowd {
+		attribute live : Integer = 0;
+		constraint few { live < 4 }
+		first start;
+		fork f1; action a; action b; merge m; fork f2;
+		action c { assign live := live + 1; }
+		action d { assign live := live + 1; }
+		action e { assign live := live - 1; }
+		action g { assign live := live - 1; }
+		merge m2; done;
+		succession first start then f1;
+		succession first f1 then a;
+		succession first f1 then b;
+		succession first a then m;
+		succession first b then m;
+		succession first m then f2;
+		succession first f2 then c;
+		succession first f2 then d;
+		succession first c then e;
+		succession first d then g;
+		succession first e then m2;
+		succession first g then m2;
+		succession first m2 then done;
+	}
+}`)
+	result := answer(t, e, d, d.holds(t, "test::Crowd", "test::Crowd::few"), analysis.Budget{Depth: 16})
+	expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
+	var violation *runtime.ViolationError
+	if len(result.Values) != 1 || !errors.As(result.Values[0].Err, &violation) {
+		t.Fatalf("the interpreter's violation is not reported: %+v", result.Values)
+	}
+}
+
 // TestEngineWitnessesIntegerOverflow: Integer arithmetic the interpreter refuses
 // as overflowing is a failure the solver witnesses, never a value it proves
 // about; arithmetic staying within int64 is proved as before.

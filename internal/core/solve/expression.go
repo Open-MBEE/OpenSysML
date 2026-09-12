@@ -119,7 +119,9 @@ func (x *Translator) Condition(cond runtime.Condition) (*Expression, error) {
 // way the evaluator judges them: the required ones must hold, an assumed one is
 // evaluated but binds nothing, and a negated subject denies the conjunction of
 // its required ones. Its Term is that verdict; Defined holds the conditions
-// under which the evaluator computes every one of them, assumed ones included.
+// under which the evaluator computes every one it reaches, assumed ones
+// included — the evaluator stops at the first required one that fails, so a
+// later one need be defined only while those before it hold.
 func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) {
 	t := x.t
 	if len(conds) == 0 {
@@ -132,7 +134,13 @@ func (x *Translator) Conditions(conds []runtime.Condition) (*Expression, error) 
 		if err != nil {
 			return nil, err
 		}
-		expr.Defined = append(expr.Defined, one.Defined...)
+		reached := And(required...)
+		for _, defined := range one.Defined {
+			if len(required) > 0 {
+				defined = Or(Not(reached), defined)
+			}
+			expr.Defined = append(expr.Defined, defined)
+		}
 		if cond.Required {
 			required = append(required, one.Term)
 		}

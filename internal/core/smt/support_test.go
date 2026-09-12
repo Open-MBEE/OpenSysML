@@ -147,6 +147,86 @@ func TestAnalyzeRecordsBodyLoops(t *testing.T) {
 	}
 }
 
+// TestAnalyzeSizesSlotsPerArrival: a fork that several merge arrivals reach
+// adds its branches once per arrival; a fork past a join, once per firing; a
+// fork on a cycle, once per move; and no flow gets more than a fork per move
+// could make.
+func TestAnalyzeSizesSlotsPerArrival(t *testing.T) {
+	_, idx := fixture(t, "<test>", `
+		package test {
+			action twice {
+				first start;
+				fork f1; action a; action b; merge m; fork f2;
+				action c; action d; merge m2; done;
+				succession first start then f1;
+				succession first f1 then a;
+				succession first f1 then b;
+				succession first a then m;
+				succession first b then m;
+				succession first m then f2;
+				succession first f2 then c;
+				succession first f2 then d;
+				succession first c then m2;
+				succession first d then m2;
+				succession first m2 then done;
+			}
+			action synced {
+				first start;
+				fork f1; action a; action b; join j; fork f2;
+				action c; action d; join j2; done;
+				succession first start then f1;
+				succession first f1 then a;
+				succession first f1 then b;
+				succession first a then j;
+				succession first b then j;
+				succession first j then f2;
+				succession first f2 then c;
+				succession first f2 then d;
+				succession first c then j2;
+				succession first d then j2;
+				succession first j2 then done;
+			}
+			action cycling {
+				first start;
+				merge m; fork f; action a; action b; done;
+				succession first start then m;
+				succession first m then f;
+				succession first f then a;
+				succession first f then b;
+				succession first a then m;
+				succession first b then done;
+			}
+		}`)
+	for _, c := range []struct {
+		action string
+		k      int
+		slots  int
+		cyclic bool
+	}{
+		{"test::twice", 16, 4, false},
+		{"test::twice", 2, 3, false},
+		{"test::synced", 16, 3, false},
+		{"test::cycling", 10, 11, true},
+	} {
+		sym := idx.LookupQualified(c.action)
+		if len(sym) != 1 {
+			t.Fatalf("%s matched %d symbols", c.action, len(sym))
+		}
+		graph, err := lower.ToActionGraph(sym[0].Decl, sym[0].Scope)
+		if err != nil {
+			t.Fatalf("lower %s: %v", c.action, err)
+		}
+		lower.StartFlow(graph)
+		f, err := Analyze(graph, c.k)
+		if err != nil {
+			t.Fatalf("Analyze %s: %v", c.action, err)
+		}
+		if f.Slots != c.slots || f.Cyclic != c.cyclic {
+			t.Errorf("%s within %d moves: %d slots cyclic=%v, want %d cyclic=%v", c.action, c.k, f.Slots, f.Cyclic, c.slots, c.cyclic)
+		}
+	}
+}
+
 // TestAnalyzeRefusesNoInitial: a flow with no initial node is what the
 // interpreter refuses at initialize, and the encoding refuses it as malformed.
 func TestAnalyzeRefusesNoInitial(t *testing.T) {

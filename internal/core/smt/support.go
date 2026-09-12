@@ -2,6 +2,7 @@ package smt
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -40,7 +41,7 @@ type Flow struct {
 	// Slots is how many tokens may be in flight at once within k moves.
 	Slots int
 	// Cyclic is set when a fork lies on a cycle, so the tokens in flight are
-	// bounded by k rather than by the graph, and a fork may find no free slot.
+	// bounded by k rather than by the graph, and the state records a full fork.
 	Cyclic bool
 	// Delivers is set when an object flow delivers to a node performing in a
 	// frame of its own, whose pin queues the deliveries it has yet to take.
@@ -283,10 +284,10 @@ func (f *Flow) checkBlock(node ast.Node, label string, block lower.Block) error 
 }
 
 // sizeSlots decides how many tokens may be in flight at once within k moves:
-// one per fork branch beyond the first, and per pass of a fork on a cycle.
+// one, plus what each fork adds per time a token reaches it, at most k times.
 func (f *Flow) sizeSlots(k int) {
-	slots := 1
-	widest := 0
+	arrivals := f.arrivals(k)
+	slots, widest := 1, 0
 	for _, node := range f.Nodes {
 		fork, ok := node.(*ast.ForkNode)
 		if !ok {
@@ -298,17 +299,111 @@ func (f *Flow) sizeSlots(k int) {
 		}
 		if f.reaches(fork, fork) {
 			f.Cyclic = true
-			if extra > widest {
-				widest = extra
+		}
+		widest = max(widest, extra)
+		slots += min(arrivals[fork], k) * extra
+	}
+	// Each of the k moves performs at most one fork.
+	f.Slots = min(slots, 1+k*widest)
+}
+
+// arrivals bounds how often a token may reach each node within k moves: a
+// fork or decision passes on all that reach it, a merge sums them, a join
+// passes on the most over one succession, and a cycle multiplying tokens
+// passes on k.
+func (f *Flow) arrivals(k int) map[ast.Node]int {
+	reached := make(map[ast.Node]int, len(f.Nodes))
+	leaving := make(map[ast.Node]int, len(f.Nodes))
+	for _, comp := range f.components() {
+		inside := make(map[ast.Node]bool, len(comp))
+		for _, node := range comp {
+			inside[node] = true
+		}
+		cyclic := len(comp) > 1 || f.reaches(comp[0], comp[0])
+		entering, multiplies := 0, false
+		for _, node := range comp {
+			if node == f.Graph.Initial {
+				entering++
+			}
+			for _, ei := range f.Incoming[node] {
+				if source := f.Edges[ei].Source; !inside[source] {
+					entering += leaving[source]
+				}
+			}
+			if _, ok := node.(*ast.ForkNode); ok && cyclic && len(f.Outgoing[node]) > 1 {
+				multiplies = true
+			}
+		}
+		entering = min(entering, k)
+		if cyclic {
+			// A token entering the cycle leaves it once at most, unless the
+			// cycle forks it, when k moves bound what leaves.
+			if multiplies {
+				entering = k
+			}
+			for _, node := range comp {
+				reached[node], leaving[node] = entering, entering
 			}
 			continue
 		}
-		slots += extra
+		node := comp[0]
+		if _, ok := node.(*ast.JoinNode); ok {
+			entering = 0
+			for _, ei := range f.Incoming[node] {
+				entering = max(entering, leaving[f.Edges[ei].Source])
+			}
+		}
+		reached[node], leaving[node] = entering, entering
 	}
-	if f.Cyclic {
-		slots += k * widest
+	return reached
+}
+
+// components are the flow's strongly connected components, each before any
+// the successions lead to from it.
+func (f *Flow) components() [][]ast.Node {
+	index := make(map[ast.Node]int, len(f.Nodes))
+	low := make(map[ast.Node]int, len(f.Nodes))
+	onStack := make(map[ast.Node]bool, len(f.Nodes))
+	var stack []ast.Node
+	var comps [][]ast.Node
+	next := 0
+	var visit func(node ast.Node)
+	visit = func(node ast.Node) {
+		index[node], low[node] = next, next
+		next++
+		stack = append(stack, node)
+		onStack[node] = true
+		for _, ei := range f.Outgoing[node] {
+			target := f.Edges[ei].Target
+			if _, seen := index[target]; !seen {
+				visit(target)
+				low[node] = min(low[node], low[target])
+			} else if onStack[target] {
+				low[node] = min(low[node], index[target])
+			}
+		}
+		if low[node] != index[node] {
+			return
+		}
+		var comp []ast.Node
+		for {
+			top := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			onStack[top] = false
+			comp = append(comp, top)
+			if top == node {
+				break
+			}
+		}
+		comps = append(comps, comp)
 	}
-	f.Slots = slots
+	for _, node := range f.Nodes {
+		if _, seen := index[node]; !seen {
+			visit(node)
+		}
+	}
+	slices.Reverse(comps)
+	return comps
 }
 
 // reaches reports whether a token at from can arrive at to over the successions.

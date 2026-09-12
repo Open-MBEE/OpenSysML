@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -551,5 +552,40 @@ func TestTranslatorConditionsJudgeTheSetAsTheEvaluatorDoes(t *testing.T) {
 	}
 	if _, err := translate("vacuous"); !errors.Is(err, ErrNoConditions) {
 		t.Errorf("not vacuous: %v, want ErrNoConditions", err)
+	}
+}
+
+// TestTranslatorConditionsStopAtTheFirstFailure: the evaluator reads the
+// conditions in order and stops at a required one that fails, so a later one is
+// defined only where those before it hold; an assumption stops nothing.
+func TestTranslatorConditionsStopAtTheFirstFailure(t *testing.T) {
+	ctx, idx := fixture(t, "<test>", `
+		package test {
+			private import ScalarValues::*;
+			part def P {
+				attribute a : Integer;
+				attribute b : Integer;
+				requirement ordered { require b > 0; assume a > 0; require a / b > 1; require 10 / a > 1; }
+			}
+		}`)
+	sym := symbolNamed(t, idx, "test::P::ordered")
+	x, err := NewTranslator(ctx, Subject{Kind: "requirement", Name: "ordered", Symbol: sym})
+	if err != nil {
+		t.Fatalf("start translating: %v", err)
+	}
+	expr, err := x.Conditions(ctx.ConditionsOf(sym, nil))
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	want := []string{
+		"(or (not (> |test::P::b| 0)) (distinct |test::P::b| 0))",
+		"(or (not (and (> |test::P::b| 0) (> (/ (to_real |test::P::a|) (to_real |test::P::b|)) 1.0))) (distinct |test::P::a| 0))",
+	}
+	got := make([]string, len(expr.Defined))
+	for i, d := range expr.Defined {
+		got[i] = writeTerm(d)
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("defined where %q, want %q", got, want)
 	}
 }
