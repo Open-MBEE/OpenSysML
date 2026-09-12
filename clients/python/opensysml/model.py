@@ -410,7 +410,9 @@ class Model:
 
         Depth is counted up the owner chain rather than from the id's ``::``
         segments, which a quoted name may contain itself. Each hop up costs one
-        call, so callers ask only when the answer decides the lookup.
+        call, so callers ask only when the answer decides the lookup. A chain
+        that ends short of the root, as under a file's unnamed root every chain
+        does, ends one level below it.
         """
         owner = {self.root.id: ""}
         owner.update((element.id, element.get(_PROPERTY_OWNER, "")) for element in elements)
@@ -427,7 +429,7 @@ class Model:
             while owner.get(fqn):
                 fqn = owner[fqn]
                 hops += 1
-            return hops
+            return hops if fqn == self.root.id else hops + 1
 
         return {element.id: depth(element.id) for element in elements}
 

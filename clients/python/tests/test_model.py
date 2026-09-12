@@ -458,6 +458,45 @@ class TestModelLookup:
         fetched = [call.args[1] for call in client.get_symbol.call_args_list]
         assert "Demo::Vehicle::engine" not in fetched
 
+    def test_the_walk_under_a_files_unnamed_root_reaches_the_queried_depth(self):
+        """Under the service's ``""`` root, a package's owner chain ends short of it."""
+        symbols = {
+            "Demo": sysml_pb2.SymbolInfo(
+                id="Demo", name="Demo", kind="package",
+                child_ids=["Demo::First", "Demo::Second"],
+            ),
+            "Demo::First": sysml_pb2.SymbolInfo(
+                id="Demo::First", name="First", kind="partDef",
+                child_ids=["Demo::First::mass"],
+            ),
+            "Demo::First::mass": sysml_pb2.SymbolInfo(
+                id="Demo::First::mass", name="mass", kind="attributeUsage"
+            ),
+            "Demo::Second": sysml_pb2.SymbolInfo(
+                id="Demo::Second", name="Second", kind="partDef",
+                child_ids=["Demo::Second::mass"],
+            ),
+            "Demo::Second::mass": sysml_pb2.SymbolInfo(
+                id="Demo::Second::mass", name="mass", kind="attributeUsage",
+                child_ids=["Demo::Second::mass::deep"],
+            ),
+            "Demo::Second::mass::deep": sysml_pb2.SymbolInfo(
+                id="Demo::Second::mass::deep", name="deep", kind="attributeUsage"
+            ),
+        }
+        root = sysml_pb2.SymbolInfo(id="", name="", kind="file", child_ids=["Demo"])
+        client = _client({k: v for k, v in symbols.items() if k != "Demo::First::mass"})
+        client.get_symbol.side_effect = lambda model_hash, symbol_id: symbols.get(symbol_id)
+        error = sysml_pb2.Diagnostic(severity="error", message="unresolved reference: mass")
+        model = Model(
+            sysml_pb2.ParseFileResponse(model_hash="hash", root=root, diagnostics=[error]),
+            client,
+        )
+
+        assert model.find("mass").id == "Demo::First::mass"
+        fetched = [call.args[1] for call in client.get_symbol.call_args_list]
+        assert "Demo::Second::mass::deep" not in fetched
+
     def test_outermost_of_a_shared_short_name_wins(self):
         symbols = dict(self.SYMBOLS)
         # Declared first in the model, but nested deeper than Demo::Engine.
