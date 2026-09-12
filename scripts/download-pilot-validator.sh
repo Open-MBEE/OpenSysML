@@ -30,6 +30,7 @@ build_is_complete() {
 		[[ -f "$1/$pilot_jar_rel" ]] && [[ -d "$1/$library_rel" ]]
 }
 
+pilot_recover_dir "$target"
 if build_is_complete "$target" && [[ -f "$target/$stamp_rel" ]] && [[ "$(cat "$target/$stamp_rel")" == "$pin" ]]; then
 	echo "Pilot validator already built at $target (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
 	echo "Remove that directory to re-provision."
@@ -58,11 +59,11 @@ if [[ -z "$java_major" ]] || [[ "$java_major" -lt 21 ]]; then
 	exit 1
 fi
 
-# Built beside the target and swapped in whole, so a failed clone or Maven run
+# Built beside the target and swapped in whole, so a failed or interrupted run
 # leaves the previous validator in place.
 mkdir -p "$(dirname "$target")"
 work="$(mktemp -d "$target.build.XXXXXX")"
-trap 'rm -rf "$work"' EXIT
+trap 'rm -rf "$work"; pilot_recover_dir "$target"' EXIT
 
 echo "Cloning $VALIDATOR_REPO at $VALIDATOR_COMMIT ..."
 git init --quiet "$work"

@@ -571,8 +571,12 @@ Provisioning script (`scripts/download-pilot-validator.sh`):
   `Incomplete build at ...; rebuilding ...`. All three rebuild for real (~20 s with a warm `~/.m2`,
   minutes cold), so `timeout 5` the run if the message is all you need — the build happens in a
   sibling `build/pilot-validator.build.XXXXXX` directory that is swapped in only once complete, so
-  an interrupted or failed rebuild leaves the installed validator untouched (verify the
-  `validate-sysml` mtime and that `ls build | grep pilot-validator` shows no leftover stage).
+  an interrupted or failed rebuild leaves the installed validator untouched (`timeout -s TERM 12`
+  during the Maven phase, then verify the `validate-sysml` mtime and that
+  `ls build | grep pilot-validator` shows no leftover stage). The swap itself keeps the old copy
+  as `build/pilot-validator.old` until the new one is renamed into place; a run that dies between
+  those two renames leaves only the `.old`, which the next run (or `pilot_recover_dir` in
+  `scripts/pilot-pin.sh`) moves back before deciding whether to rebuild.
 - Pin propagation → with a good build in place,
   `PILOT_TAG=9999-99 PILOT_ARTIFACT_VERSION=9.9.9 ./scripts/download-pilot-validator.sh`: it
   prints `Stale build at ...`, clones (fast), prints `Downloading the pilot 9999-99 (9.9.9)

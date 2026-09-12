@@ -52,16 +52,32 @@ pilot_count_files() {
 	return 0
 }
 
+# pilot_recover_dir puts back the $1.old backup an interrupted pilot_install_dir left behind.
+pilot_recover_dir() {
+	local dst="$1"
+	if [[ ! -e "$dst" ]] && [[ -e "$dst.old" ]]; then
+		mv "$dst.old" "$dst"
+	fi
+	return 0
+}
+
 # pilot_install_dir replaces directory $2 with $1. The new tree is first moved
-# beside $2 (a copy if the work tree is on another filesystem), so the old copy
-# is only removed once its replacement is complete and a rename away.
+# beside $2 (a copy if the work tree is on another filesystem), the old copy is
+# kept as $2.old until the rename into place succeeds, and restored if it fails.
 pilot_install_dir() {
 	local src="$1" dst="$2"
 	mkdir -p "$(dirname "$dst")"
-	rm -rf "$dst.new"
-	mv "$src" "$dst.new"
-	rm -rf "$dst"
-	mv "$dst.new" "$dst"
+	pilot_recover_dir "$dst"
+	rm -rf "$dst.new" "$dst.old"
+	mv "$src" "$dst.new" || return 1
+	if [[ -e "$dst" ]] && ! mv "$dst" "$dst.old"; then
+		return 1
+	fi
+	if ! mv "$dst.new" "$dst"; then
+		pilot_recover_dir "$dst"
+		return 1
+	fi
+	rm -rf "$dst.old"
 	return 0
 }
 
