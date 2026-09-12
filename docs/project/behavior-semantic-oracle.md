@@ -586,6 +586,41 @@ fixture `state_choice_change_transition_conflict`, golden; `TestChangeTransition
 `TestChangeTransitionChoiceUnderHierarchyAndRegions` for the nested-wins and parallel-region
 shapes).
 
+### Two branches of a choice enabled by the data the incoming effect wrote: exactly one is taken, which one is open
+
+Fixture: `state_choice_dynamic_conflict` (golden, explored).
+
+```
+idle ─ accept Go { level := 8 } → pick ─ if level > 5 → low  { route := 1 }
+                                       ─ if level > 7 → high { route := 2 }
+```
+
+Derived constraints:
+
+- A choice is a `DecisionPerformance` reached through the segment into it: the segment's
+  effect happens before what the segment leads to (`TransitionPerformances.kerml`,
+  `succession [*] effect then [1] transitionLink.laterOccurrence`), so the guards the decision
+  reads are read against `level = 8`, not against the `level = 0` the machine held when Go
+  arrived. UML says the same in words: a choice vertex's guards are evaluated dynamically, after
+  the incoming transition's behavior has run, where a junction's are evaluated statically with
+  the compound transition's enabledness (UML 2.5.1 §14.2.3.7, `choice` and `junction`).
+- `DecisionPerformance::outgoingHBLink: HappensBefore[1]` (`ControlPerformances.kerml`): exactly one
+  branch follows, so the machine ends in `low` or `high`, never at `pick` and never in both.
+- Both guards hold for `level = 8`, so both branches are enabled once the effect has run; had the
+  guards been read before it, neither would hold and the transition would have no branch.
+
+Open: which enabled branch is taken. Nothing in the library or the specification ranks two
+branches of one choice whose guards both hold.
+
+Pinned outcome: the admissible set `{route = 1 in low, route = 2 in high}`, stated as `outcomes`
+citing this section; exploration reaches each once (2 runs, 2 outcomes, complete). The executor
+exits `idle`, runs the incoming effect, reads the branches in declaration order, takes the first
+enabled one and records the choice at the choice vertex (`choice choice pick: transitions 1->low,
+2->high (unordered; took 1->low)`); the golden pins that linearization, `seed:1` the other one. As
+for a transition conflict, branches after the first enabled one are read in a preview that is
+undone. A choice with no enabled branch and no unguarded one fails the run at that instant with a
+typed error naming the choice (`TestRuntimeRobustness/state_choice_without_an_enabled_branch`).
+
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
 Fixture: `state_explore_region_order` (golden, explored).

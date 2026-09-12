@@ -35,6 +35,57 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 None for local checker and witness replay testing.
 
+## Choice-pseudostate scheduling across driver surfaces
+
+For a library-backed CLI fixture, import `ScalarValues::*` and `SI::*`; use
+`accept after 1 [s]`, not the unitless trigger accepted by some isolated runtime
+test fixtures. A timer lets identical models run in REPL and CLI without signal
+injection flags. Put `do assign x := 8` on the incoming transition and two guards
+`x > 5` and `x > 7` after `choice pick;` to distinguish dynamic choice guards
+from pre-effect evaluation.
+
+Use `%trace on`, `%state P::Machine`, `%advance 1`, `%current`. `%schedule
+explore` may explicitly refuse at the prompt: use CLI `-schedule explore
+-state P::Machine -advance 1 -trace model.sysml` for the outcome/witness table.
+Copy `choice pick -> 2->right` into a witness file and select it via `%schedule
+replay:<file>` before a fresh `%state`. Default policy is named `reverse`,
+but a choice's default branch is still the first enabled declared branch.
+
+Make replay rejection load-bearing: declare a third, disabled branch and replay
+its exact label while two other branches stay enabled. Check both the absence of
+successful branch execution and `is not enabled`; some driver paths may fail to
+surface scheduler refusal. Repeat in a fresh CLI process, check its exit status,
+and compare a signal-driven `%send Go` / `%step` to timer-driven `%advance`.
+Also put a disabled branch *before* two enabled branches to verify witness
+labels keep original declaration positions (`2->left`, `3->right`).
+The text trace alone does not prove ChoicePoint File/Span or Go error identity.
+
+### Devin Secrets Needed
+
+None for local choice-pseudostate CLI/REPL testing.
+
+## Model-level uncertainty versus object-level empty values
+
+Use `cmd/pilot-exec-diff/testdata/models/undetermined_operands.sysml` to
+contrast model and object evaluation without inventing a fixture. Before
+instantiation, `%eval U::u` and
+`%eval SequenceFunctions::size(T::rack.gear)` answer `<undetermined>`,
+while `(U::u > 3) and false` answers `false` and the size of `T::rack.slots`
+is `3`. Use fully qualified operands/functions when the file has multiple
+packages.
+
+After `%instantiate T::rack`, `%eval T::rack.loose` answers `[]`, not
+`<unset>`: an optional multi-valued part is an empty sequence. Pin the
+object explicitly with `%eval in T::rack : SequenceFunctions::size(loose)`
+to observe `0`. `%features T::rack` prints many inherited nested features;
+capture a short `%eval` result separately so it is not scrolled off-screen.
+
+The Python `Model.eval("U::u")` result is `opensysml.Undetermined`, distinct
+from `UNSET` and `None`; `bool()` must raise TypeError. Check the advertised
+`undetermined_value` capability and raw `Value.undetermined` count bounds
+for `U::u` (`1..1`), `T::rack.gear` (`1..*`), and `T::rack.loose` (`0..2`)
+to distinguish typed transport from a string-only rendering.
+
 ## Error-model lookup order and bounded walking
 
 Use real-service fixtures that distinguish an empty Query from an incomplete

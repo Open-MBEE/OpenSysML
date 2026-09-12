@@ -424,6 +424,8 @@ func FormatTraceValue(v Value) string {
 		return fmt.Sprintf("calc(%s)", v.FunctionName())
 	case ValMetaobject:
 		return v.MetaobjectText()
+	case ValUndetermined:
+		return fmt.Sprintf("undetermined(%s)", v.Undetermined().Reason())
 	default:
 		return v.Kind.String()
 	}

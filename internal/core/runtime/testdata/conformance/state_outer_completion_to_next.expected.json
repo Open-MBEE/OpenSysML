@@ -1,0 +1,22 @@
+{
+  "type": "state",
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "next",
+  "stateVisits": [
+    "outer",
+    "inner",
+    "done",
+    "next"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "inner;outer;next;"
+    }
+  },
+  "trace": true
+}

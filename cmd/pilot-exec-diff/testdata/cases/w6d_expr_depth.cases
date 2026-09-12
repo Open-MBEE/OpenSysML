@@ -14,8 +14,9 @@ lower-bound-unbounded ::  :: W6D::unboundedLower
 star-only ::  :: W6D::starOnly
 valueless-value-type ::  :: W6D::valueless
 
-# Reached through an instantiated part, where the assumed 1..1 governs an
-# undeclared multiplicity and a required lower bound is materialized eagerly.
+# Reached through a part, where the assumed 1..1 governs an undeclared
+# multiplicity. A valueless `[3]` has a fixed count and no value, so at model
+# level it reads undetermined rather than as three unset holders.
 held-undeclared-multi ::  :: W6D::holder.xs
 held-declared-two ::  :: W6D::holder.ys
 held-lower-three-no-value ::  :: W6D::holder.zs

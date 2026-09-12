@@ -4,8 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 )
 
 // valuelessFeaturesModel declares features nothing gives a value to, single-
@@ -23,10 +21,8 @@ package test {
 }
 `
 
-// TestDeclaredFeatureWithoutValueIsNotUnresolved: a name that resolves to a
-// feature nothing gives a value to reports the missing value, single- or
-// multi-valued, and is never reported as a name that fails to resolve — which
-// is reserved for names no declaration answers.
+// A name resolving to a valueless feature is undetermined at model level, naming
+// the feature as the reason; unresolved is reserved for names no declaration answers.
 func TestDeclaredFeatureWithoutValueIsNotUnresolved(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, valuelessFeaturesModel)
 	ctx := NewContext(NewModel(model, resolver), 10000)
@@ -40,19 +36,17 @@ func TestDeclaredFeatureWithoutValueIsNotUnresolved(t *testing.T) {
 		t.Fatalf("mass = %s, want a value", FormatTraceValue(got))
 	}
 
-	for _, name := range []string{"unsetMass", "tags", "wheels", "wheels.radius", "test::Car::wheels"} {
-		expr := parseExpr(t, name)
-		_, err := ctx.EvalWithScope(expr, scope)
-		var noValue *NoValueError
-		if !errors.As(err, &noValue) {
-			t.Errorf("%s: err = %v; want NoValueError", name, err)
-			continue
-		}
+	for name, count := range map[string]string{
+		"unsetMass": "[1]", "tags": "[3]", "wheels": "[4]", "wheels.radius": "[4]", "test::Car::wheels": "[4]",
+	} {
+		val, err := ctx.EvalWithScope(parseExpr(t, name), scope)
 		if errors.Is(err, ErrUnresolvedReference) {
 			t.Errorf("%s: a declared feature was reported as unresolved: %v", name, err)
+			continue
 		}
-		if noValue.Ref == nil || !namesIn(expr, noValue.Ref) {
-			t.Errorf("%s: NoValueError.Ref = %v; want the name read in the expression", name, noValue.Ref)
+		wantUndetermined(t, name, val, err, count)
+		if u := val.Undetermined(); u != nil && !strings.Contains(u.Reason(), strings.TrimSuffix(strings.TrimPrefix(name, "test::Car::"), ".radius")) {
+			t.Errorf("%s: reason %q does not name the valueless feature", name, u.Reason())
 		}
 	}
 
@@ -120,20 +114,6 @@ package test {
 	}
 
 	car, _ := scope.LookupLocal("car")
-	var noValue *NoValueError
-	if _, err := ctx.EvalWithScope(parseExpr(t, "unsetMass"), car.Scope); !errors.As(err, &noValue) {
-		t.Errorf("unsetMass: err = %v; want NoValueError", err)
-	}
-}
-
-// namesIn reports whether qn is one of the names expr is written as.
-func namesIn(expr ast.Node, qn *ast.QualifiedName) bool {
-	switch n := expr.(type) {
-	case *ast.FeatureReference:
-		return n.Name == qn
-	case *ast.FeatureChainExpr:
-		return n.Member == qn || namesIn(n.Operand, qn)
-	default:
-		return false
-	}
+	val, err := ctx.EvalWithScope(parseExpr(t, "unsetMass"), car.Scope)
+	wantUndetermined(t, "unsetMass", val, err, "[1]")
 }

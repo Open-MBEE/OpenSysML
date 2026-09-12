@@ -63,6 +63,7 @@ func registerOperatorFunctions() {
 		registerValueFunction(fqn, []string{"x", "y"}, 0, equalityForm(ast.OpEq, domain))
 	}
 	registerValueFunction("NaturalFunctions::/", []string{"x", "y"}, 2, naturalDivision)
+	undeterminedAware["NaturalFunctions::/"] = true
 	registerValueFunction("BaseFunctions::!=", []string{"x", "y"}, 0, equalityForm(ast.OpNeq, anyOperand))
 	registerValueFunction("BaseFunctions::===", []string{"x", "y"}, 0, identityForm(false, anyOperand))
 	registerValueFunction("DataFunctions::===", []string{"x", "y"}, 0, identityForm(false, dataOperand))
@@ -78,8 +79,10 @@ func registerOperatorForm(fqn, op string, domain operandDomain) {
 		registerValueFunction(fqn, []string{"x"}, 1, unaryForm(kind, domain))
 	case "+", "-":
 		registerValueFunction(fqn, []string{"x", "y"}, 1, arithmeticForm(kind, domain))
+		undeterminedAware[fqn] = true
 	case "*", "/", "%", "**", "^":
 		registerValueFunction(fqn, []string{"x", "y"}, 2, arithmeticForm(kind, domain))
+		undeterminedAware[fqn] = true
 	case "<", "<=", ">", ">=":
 		registerValueFunction(fqn, []string{"x", "y"}, 2, comparisonForm(kind, domain))
 	case "xor", "|", "&":
@@ -89,9 +92,18 @@ func registerOperatorForm(fqn, op string, domain operandDomain) {
 
 // checkOperands binds each argument given, declared `[1]`, through the
 // package's domain: the one value it holds, a sole element standing for itself.
+// An operand the model leaves open is bound as it is, for the operator to decide
+// over.
 func checkOperands(ctx *Context, name string, domain operandDomain, args []Value) ([]Value, error) {
 	bound := make([]Value, len(args))
 	for i, param := range []string{"x", "y"}[:len(args)] {
+		if u := args[i].Undetermined(); u != nil {
+			if err := openScalar(name, fmt.Sprintf("%q", param), u); err != nil {
+				return nil, err
+			}
+			bound[i] = args[i]
+			continue
+		}
 		val, err := soleValue(name, param, args[i])
 		if err != nil {
 			return nil, err
@@ -103,6 +115,15 @@ func checkOperands(ctx *Context, name string, domain operandDomain, args []Value
 		bound[i] = val
 	}
 	return bound, nil
+}
+
+// openScalar admits an open argument to the parameter labelled label, declared
+// `[1]`, unless the count the model gives it admits no one value.
+func openScalar(name, label string, u *Undetermined) error {
+	if msg := semantics.CountRange(1).HeldViolation(u.Count()); msg != "" {
+		return fmt.Errorf("%w: function %s parameter %s: %s", ErrMultiplicityViolation, name, label, msg)
+	}
+	return nil
 }
 
 // soleValue is the one value an operand declared `[1]` holds: a sole element
@@ -172,6 +193,12 @@ func naturalDivision(name string, ctx *Context, args []Value) (Value, error) {
 	args, err := checkOperands(ctx, name, naturalOperand, args)
 	if err != nil {
 		return Value{}, err
+	}
+	if _, open := undeterminedIn(args...); open {
+		if err := definiteArithmeticError(ast.OpDiv, args[0], args[1]); err != nil {
+			return operatorResult(name, Value{}, err)
+		}
+		return undeterminedResult(args...), nil
 	}
 	x, y := args[0].Const.Int, args[1].Const.Int
 	if y == 0 {
@@ -269,7 +296,7 @@ func registerGenericExtrema() {
 // `max`/`min` do, and strings and quantities answer with the operand chosen.
 // A kind the library declares no ordering for is refused.
 func genericExtremum(larger bool) libraryApply {
-	extremum := numericScalars([]string{"x", "y"}, numericExtremum(larger))
+	extremum := numericScalars([]string{"x", "y"}, numericExtremum(larger), nil)
 	return func(name string, ctx *Context, args []Value) (Value, error) {
 		args, err := checkOperands(ctx, name, anyOperand, args)
 		if err != nil {

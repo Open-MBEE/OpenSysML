@@ -1,0 +1,28 @@
+{
+  "type": "state",
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "next",
+  "stateVisits": [
+    "outer",
+    "inner",
+    "leaf",
+    "done",
+    "done",
+    "next"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "/leaf;/inner;/outer;next;"
+    },
+    "rounds": {
+      "type": "Integer",
+      "value": 1
+    }
+  },
+  "trace": true
+}

@@ -671,17 +671,7 @@ func (s *Session) evalIn(name, expr string) ([]string, error) {
 	}
 	val, err := ctx.EvalWithScope(node, scope)
 	if err != nil {
-		// A feature the declarations give no value to reads as unset, as it does
-		// on an object; an operation over one fails, and a name nothing declares
-		// is an error.
-		var noValue *runtime.NoValueError
-		if !errors.As(err, &noValue) || !readsFeature(node, noValue.Ref) {
-			return nil, evalError(expr, err, len(exprPrefix))
-		}
-		return []string{
-			fmt.Sprintf("✓ %s (in %s)", expr, declarationNotation(sym)),
-			fmt.Sprintf("  = %s", runtime.UnsetText),
-		}, nil
+		return nil, evalError(expr, err, len(exprPrefix))
 	}
 	return []string{
 		fmt.Sprintf("✓ %s (in %s)", expr, declarationNotation(sym)),
@@ -892,13 +882,7 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 	// features and the units its imports bring in.
 	val, err := ctx.EvalWithScope(evalUsage.Value, s.promptScope())
 	if err != nil {
-		// A name the lookup missed but the expression reached resolved after
-		// all; finding no value there is not the unresolved name the lookup saw.
-		var noValue *runtime.NoValueError
 		if lookupErr != nil {
-			if errors.As(err, &noValue) && readsFeature(evalUsage.Value, noValue.Ref) {
-				return nil, fmt.Errorf("%q has no value to evaluate", expr)
-			}
 			return nil, lookupErr
 		}
 		return nil, evalError(expr, err, len(tempSrc)-len(expr)-1)
@@ -918,22 +902,6 @@ func declaresValue(sym *symbols.Symbol) bool {
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.Value != nil
-}
-
-// readsFeature reports whether an expression is a bare read (a name or a chain
-// of names) with ref as one of its own links, not a name read inside a default.
-func readsFeature(node ast.Node, ref *ast.QualifiedName) bool {
-	if ref == nil {
-		return false
-	}
-	switch n := node.(type) {
-	case *ast.FeatureReference:
-		return n.Name == ref
-	case *ast.FeatureChainExpr:
-		return n.Member == ref || readsFeature(n.Operand, ref)
-	default:
-		return false
-	}
 }
 
 // exprPrefix wraps an expression as a declaration of its own, so parsing it
