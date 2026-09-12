@@ -1186,7 +1186,17 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return value, nil
 	}
+	name, rest := parts[0].Text, parts[1:]
 
+	if literal := value.EnumerationLiteral(); literal != nil {
+		// A literal is an occurrence of its enumeration, so its own features are
+		// read from the object that literal stands for, whatever scalar it equals.
+		inst, err := ec.ctx.enumLiteralObject(literal)
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
+	}
 	switch value.Kind {
 	case ValSequence, ValSet:
 		return ec.chainOverElements(value, parts, from)
@@ -1202,14 +1212,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	case ValMetaobject:
 		// A metaobject answers its metaclass's features for the element it denotes.
 		return ec.chainOwnFeature(value, parts, from)
-	case ValEnumLiteral:
-		// A literal is an occurrence of its enumeration, so its own features are
-		// read from the object that literal stands for.
-		inst, err := ec.ctx.enumLiteralObject(value.Literal())
-		if err != nil {
-			return Value{}, err
-		}
-		return ec.chainMemberValue(Value{Kind: ValInstance, Instance: inst.ID}, parts, from)
 	default:
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
@@ -1229,7 +1231,6 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if !ok {
 		return Value{}, fmt.Errorf("instance ID %d not found for member %s", id, from)
 	}
-	name := parts[0].Text
 	// A frame, scale or transformation object answers its members from the value it is.
 	if ref, isRef, err := ec.ctx.referenceValueOfObject(inst); isRef {
 		if err != nil {
@@ -1248,7 +1249,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 			if err != nil {
 				return Value{}, err
 			}
-			return ec.chainMemberValue(answer, parts[1:], name)
+			return ec.chainMemberValue(answer, rest, name)
 		}
 	}
 	fvDecl, ok := inst.FeatureValues[name]
@@ -1256,13 +1257,13 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		// A calc usage is an evaluation rather than a feature value, so its outputs are
 		// read from a run of it against this object.
 		if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
-			return ec.calcUsageMemberValue(sym, inst, parts[1:])
+			return ec.calcUsageMemberValue(sym, inst, rest)
 		}
 		return Value{}, fmt.Errorf("%w: member %s not found in instance", ErrNoSuchFeature, name)
 	}
 	// A variant named through the variation feature it belongs to is the choice
 	// itself, not a member of the variation's value.
-	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, parts[1:]); ok {
+	if variant, rest, ok := ec.variantSegment(fvDecl.Feature, rest); ok {
 		if len(rest) == 0 {
 			return variantReference(variant), nil
 		}
@@ -1283,7 +1284,7 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	if err != nil {
 		return Value{}, err
 	}
-	return ec.chainMemberValue(member, parts[1:], name)
+	return ec.chainMemberValue(member, rest, name)
 }
 
 // chainOwnFeature continues a chain through a feature the value answers from
@@ -1348,7 +1349,7 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
-	return val, nil
+	return val.ofLiteral(sym), nil
 }
 
 // EnumerationLiteralValue is the value sym has when it is an enumeration
@@ -1717,12 +1718,11 @@ func (ec *EvalContext) elementDenotedBy(val Value) (*symbols.Symbol, bool) {
 		return inst.Type, true
 	case ValVariant:
 		return val.Variant(), val.Variant() != nil
-	case ValEnumLiteral:
-		return val.Literal(), val.Literal() != nil
 	case ValMetaobject:
 		return val.MetaobjectElement(), val.MetaobjectElement() != nil
 	default:
-		return nil, false
+		literal := val.EnumerationLiteral()
+		return literal, literal != nil
 	}
 }
 
@@ -1827,12 +1827,13 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // the identity operator `===` and SequenceFunctions::same ask. Identity is
 // stricter than equality: a value of another kind, or a constant of another
 // kind, is never the same value, so an Integer is not identical to a Real of
-// equal magnitude.
+// equal magnitude, nor an enumeration's literal to the bare scalar it equals or
+// to another enumeration's literal of that value.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
 	}
-	if left.Kind != right.Kind {
+	if left.Kind != right.Kind || left.EnumerationLiteral() != right.EnumerationLiteral() {
 		return false
 	}
 	if left.Kind == ValConst && left.Const.Kind != right.Const.Kind {
@@ -2106,21 +2107,101 @@ func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, spa
 		return boolValue(ordered), nil
 	}
 
-	// Both must be ValConst
-	if left.Kind != ValConst || right.Kind != ValConst {
-		return Value{}, fmt.Errorf("comparison operands must be constants, got %s and %s", left.Kind, right.Kind)
+	// Numbers, Strings and quantities are ordered, so the operand blamed is the
+	// other one, or the pairing when a quantity meets the unbounded value.
+	refuse := func(library string) (Value, error) {
+		return Value{}, &OperandTypeError{
+			Op:      op.String(),
+			Left:    describeOperand(left),
+			Right:   describeOperand(right),
+			Library: library,
+			Span:    span,
+		}
+	}
+	for _, val := range []Value{left, right} {
+		if val.Kind != ValConst && val.Kind != ValQuantity {
+			return refuse(ctx.orderingGap(op, val))
+		}
+	}
+	if left.Kind == ValQuantity || right.Kind == ValQuantity {
+		for _, val := range []Value{left, right} {
+			if val.Kind == ValConst && val.Const.Kind == semantics.ValBool {
+				return refuse(booleanOrderingGap(op))
+			}
+			if val.Kind == ValConst {
+				return refuse(fmt.Sprintf("QuantityCalculations::'%s' takes ScalarQuantityValue operands and %s is none", op, describeOperand(val)))
+			}
+		}
 	}
 
 	result, err := constComparison(op, left.Const, right.Const)
+	var mismatch *OperandTypeError
+	if errors.As(err, &mismatch) {
+		mismatch.Span = span
+	}
 	if err != nil {
 		return Value{}, err
 	}
 	return boolValue(result), nil
 }
 
+// orderingGap says which Kernel Function Library function would have to declare
+// the ordering operator op for val, and why none does: DataFunctions::'<' and
+// ScalarFunctions::'<' are abstract, declared concretely by the numeric libraries
+// and StringFunctions alone.
+func (ctx *Context) orderingGap(op ast.OperatorKind, val Value) string {
+	fn := func(pkg string) string { return fmt.Sprintf("%s::'%s'", pkg, op) }
+	notScalar := func(what string) string {
+		return fmt.Sprintf("%s is abstract and no library function declares '%s' for %s, which is no ScalarValue", fn("DataFunctions"), op, what)
+	}
+	switch val.Kind {
+	case ValComplex:
+		return fmt.Sprintf("%s is abstract and ComplexFunctions declares no '%s' for Complex", fn("NumericalFunctions"), op)
+	case ValEnumLiteral:
+		enum := semantics.EnumerationOwning(val.Literal())
+		if enum == nil {
+			return notScalar(val.LiteralText())
+		}
+		if ctx.conformsToLibrary(enum, "ScalarValues::ScalarValue") {
+			return fmt.Sprintf("the library orders %s by value and %s declares none", enum.Name, val.LiteralText())
+		}
+		return notScalar("the enumeration " + enum.Name)
+	case ValNull, ValSequence, ValSet:
+		return fmt.Sprintf("%s takes one DataValue per operand", fn("DataFunctions"))
+	case ValInstance, ValVariant:
+		what := describeOperand(val)
+		if types, err := ctx.directValueTypes(nil, val); err == nil && len(types) > 0 {
+			what = fmt.Sprintf("an instance of the %s %s", ast.Notation(types[0].Decl), types[0].Name)
+		}
+		if ctx.isDataValue(val) {
+			return notScalar(what)
+		}
+		return fmt.Sprintf("%s takes DataValue operands and %s is none", fn("DataFunctions"), what)
+	case ValFunction, ValExpr:
+		return fmt.Sprintf("%s takes DataValue operands and %s is none", fn("DataFunctions"), describeOperand(val))
+	}
+	return notScalar(describeOperand(val))
+}
+
+// booleanOrderingGap is orderingGap for a Boolean, which the compiled tier
+// reports without a Context.
+func booleanOrderingGap(op ast.OperatorKind) string {
+	return fmt.Sprintf("ScalarFunctions::'%s' is abstract and BooleanFunctions declares no '%s' for Boolean", op, op)
+}
+
 // constComparison orders two scalar constants, the core the evaluator and the
 // compiled calc tier share.
 func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, error) {
+	// A Boolean is a ScalarValue no library orders, so it is refused rather
+	// than read as a number.
+	if left.Kind == semantics.ValBool || right.Kind == semantics.ValBool {
+		return false, &OperandTypeError{
+			Op:      op.String(),
+			Left:    describeValue(Value{Kind: ValConst, Const: left}),
+			Right:   describeValue(Value{Kind: ValConst, Const: right}),
+			Library: booleanOrderingGap(op),
+		}
+	}
 	// The unbounded `*` orders above every finite number and equals itself.
 	if left.IsUnbounded() || right.IsUnbounded() {
 		order, ok := semantics.UnboundedOrder(left, right)

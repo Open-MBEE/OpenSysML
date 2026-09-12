@@ -75,9 +75,9 @@ func indexState(idx *Index) string {
 func describeEntry(idx *Index, fqn string, sym *Symbol) string {
 	origin := "declared"
 	switch {
-	case idx.hidden.at(fqn)[sym]:
+	case idx.hidden.at(fqn).has(sym):
 		origin = "reexported-hidden"
-	case idx.reexported.at(fqn)[sym]:
+	case idx.reexported.at(fqn).has(sym):
 		origin = "reexported"
 	}
 	return fmt.Sprintf("[%s kind=%v short=%q from=%q %s]",

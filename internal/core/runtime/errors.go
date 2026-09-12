@@ -535,14 +535,19 @@ func (e *FeatureValueError) Unwrap() []error { return []error{ErrFeatureValueMat
 // defined for, naming the operator and both operands and carrying the span of
 // the expression so a surface holding the source can point at it.
 type OperandTypeError struct {
-	Op    string      // the operator, as written
-	Left  string      // description of the left operand's type
-	Right string      // description of the right operand's type
-	Span  source.Span // span of the operator expression
+	Op      string      // the operator, as written
+	Left    string      // description of the left operand's type
+	Right   string      // description of the right operand's type
+	Library string      // the library function that would have to declare it, if any
+	Span    source.Span // span of the operator expression
 }
 
 func (e *OperandTypeError) Error() string {
-	return fmt.Sprintf("%v: operator '%s' is not defined for %s and %s", ErrTypeMismatch, e.Op, e.Left, e.Right)
+	msg := fmt.Sprintf("%v: operator '%s' is not defined for %s and %s", ErrTypeMismatch, e.Op, e.Left, e.Right)
+	if e.Library != "" {
+		msg += "; " + e.Library
+	}
+	return msg
 }
 
 func (e *OperandTypeError) Unwrap() error { return ErrTypeMismatch }

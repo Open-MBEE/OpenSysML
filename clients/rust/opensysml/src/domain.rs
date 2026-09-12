@@ -227,7 +227,7 @@ impl fmt::Display for Complex {
 }
 
 /// An enumeration literal value.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EnumLiteral {
     /// Fully qualified literal identity.
     pub literal_id: String,
@@ -235,6 +235,9 @@ pub struct EnumLiteral {
     pub enumeration_id: String,
     /// Reader-facing literal name.
     pub name: String,
+    /// The scalar the literal equals when its enumeration specializes a scalar
+    /// type (`3` for `high = 3` in `enum def Level :> Integer`), else `None`.
+    pub value: Option<Box<Value>>,
 }
 
 /// A multidimensional array: its shape, and its elements flattened in
@@ -893,6 +896,10 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
             literal_id: v.literal_id,
             enumeration_id: v.enumeration_id,
             name: v.name,
+            value: match v.value {
+                Some(scalar) => Some(Box::new(value_from_wire(*scalar)?)),
+                None => None,
+            },
         })),
         wire::value::Kind::Unset(_) => Ok(Value::Unset),
         // Only an asserted arm carries the unbounded value.
@@ -2210,6 +2217,7 @@ mod tests {
                 literal_id: literal_id.to_owned(),
                 enumeration_id: enumeration_id.to_owned(),
                 name: name.to_owned(),
+                value: None,
             })
         };
         let red = || literal("D::Color::red", "D::Color", "Color::red");
@@ -2532,6 +2540,35 @@ mod tests {
                 value_from_wire(value.clone()).ok(),
                 value_from_wire(again).ok()
             );
+        }
+    }
+
+    #[test]
+    fn a_scalar_valued_enum_literal_keeps_the_scalar_it_equals() {
+        let literal = |value| wire::Value {
+            kind: Some(wire::value::Kind::EnumLiteral(Box::new(
+                wire::EnumLiteral {
+                    literal_id: "D::Level::high".to_owned(),
+                    enumeration_id: "D::Level".to_owned(),
+                    name: "Level::high".to_owned(),
+                    value,
+                },
+            ))),
+        };
+        let high = value_from_wire(literal(Some(Box::new(wire::Value {
+            kind: Some(wire::value::Kind::IntValue(3)),
+        }))))
+        .unwrap();
+        match &high {
+            Value::EnumLiteral(lit) => {
+                assert_eq!(lit.value.as_deref(), Some(&Value::Integer(3)))
+            }
+            other => panic!("decoded {other:?}"),
+        }
+        assert!(!high.same_value(&Value::Integer(3)));
+        match value_from_wire(literal(None)).unwrap() {
+            Value::EnumLiteral(lit) => assert_eq!(lit.value, None),
+            other => panic!("decoded {other:?}"),
         }
     }
 

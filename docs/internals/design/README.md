@@ -29,6 +29,10 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   the semantics
 - **[Pseudostates](pseudostates.md)** — choice, junction, fork, join
   and history
+- **[Alignment with the UML precise-semantics specifications](precise-semantics-alignment.md)** —
+  an assessment: PSSM, fUML and PSCS mapped clause by clause against the SysML v2 notation, the
+  KerML library and what the runtime does, with a verdict per row, a count of where a port could
+  change behavior, the PSSM test suite assessed as a referee, options and a recommendation
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
 - **[SMT bounded model checking of behaviors](smt-model-checking.md)** — a proposal: unroll an
   action's token flow to a bounded number of moves and ask an SMT solver whether any schedule and

@@ -1,0 +1,52 @@
+{
+  "type": "calcUsage",
+  "evaluate": "test::classify",
+  "libraries": true,
+  "result": {
+    "type": "Sequence",
+    "elements": [
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": true},
+      {"type": "Boolean", "value": false},
+      {"type": "Boolean", "value": false}
+    ]
+  },
+  "reads": {
+    "test::threeAsLevel": {"type": "Integer", "value": 3},
+    "test::twoAsLevel": {"type": "Sequence", "elements": []},
+    "test::manyAsLevel": {"type": "Sequence", "elements": [
+      {"type": "Integer", "value": 1}, {"type": "Integer", "value": 3}
+    ]},
+    "test::fourAsGrade": {"type": "Real", "value": 4.0},
+    "test::redAsColor": {"type": "EnumLiteral", "value": "Color::red"},
+    "test::redAsLevel": {"type": "Sequence", "elements": []},
+    "test::fiveAsEven": {"error": "classification of a value cannot be decided: whether 5 (an Integer) is a value of Even is not stated by the value"}
+  }
+}

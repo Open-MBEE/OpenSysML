@@ -52,6 +52,7 @@ private static final long serialVersionUID = 0L;
             org.openmbee.opensysml.proto.EnumLiteral.class, org.openmbee.opensysml.proto.EnumLiteral.Builder.class);
   }
 
+  private int bitField0_;
   public static final int LITERAL_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object literalId_ = "";
@@ -193,6 +194,47 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int VALUE_FIELD_NUMBER = 4;
+  private org.openmbee.opensysml.proto.Value value_;
+  /**
+   * <pre>
+   * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+   * literal that is only its identity. Identity stays `literal_id`.
+   * </pre>
+   *
+   * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+   * @return Whether the value field is set.
+   */
+  @java.lang.Override
+  public boolean hasValue() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+   * literal that is only its identity. Identity stays `literal_id`.
+   * </pre>
+   *
+   * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+   * @return The value.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Value getValue() {
+    return value_ == null ? org.openmbee.opensysml.proto.Value.getDefaultInstance() : value_;
+  }
+  /**
+   * <pre>
+   * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+   * literal that is only its identity. Identity stays `literal_id`.
+   * </pre>
+   *
+   * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.ValueOrBuilder getValueOrBuilder() {
+    return value_ == null ? org.openmbee.opensysml.proto.Value.getDefaultInstance() : value_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -216,6 +258,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(name_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 3, name_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(4, getValue());
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -233,6 +278,10 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(name_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(3, name_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(4, getValue());
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -255,6 +304,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getEnumerationId())) return false;
     if (!getName()
         .equals(other.getName())) return false;
+    if (hasValue() != other.hasValue()) return false;
+    if (hasValue()) {
+      if (!getValue()
+          .equals(other.getValue())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -272,6 +326,10 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getEnumerationId().hashCode();
     hash = (37 * hash) + NAME_FIELD_NUMBER;
     hash = (53 * hash) + getName().hashCode();
+    if (hasValue()) {
+      hash = (37 * hash) + VALUE_FIELD_NUMBER;
+      hash = (53 * hash) + getValue().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -397,13 +455,19 @@ private static final long serialVersionUID = 0L;
 
     // Construct using org.openmbee.opensysml.proto.EnumLiteral.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetValueFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -412,6 +476,11 @@ private static final long serialVersionUID = 0L;
       literalId_ = "";
       enumerationId_ = "";
       name_ = "";
+      value_ = null;
+      if (valueBuilder_ != null) {
+        valueBuilder_.dispose();
+        valueBuilder_ = null;
+      }
       return this;
     }
 
@@ -454,6 +523,14 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000004) != 0)) {
         result.name_ = name_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000008) != 0)) {
+        result.value_ = valueBuilder_ == null
+            ? value_
+            : valueBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -482,6 +559,9 @@ private static final long serialVersionUID = 0L;
         name_ = other.name_;
         bitField0_ |= 0x00000004;
         onChanged();
+      }
+      if (other.hasValue()) {
+        mergeValue(other.getValue());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -524,6 +604,13 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000004;
               break;
             } // case 26
+            case 34: {
+              input.readMessage(
+                  internalGetValueFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000008;
+              break;
+            } // case 34
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -815,6 +902,172 @@ private static final long serialVersionUID = 0L;
       bitField0_ |= 0x00000004;
       onChanged();
       return this;
+    }
+
+    private org.openmbee.opensysml.proto.Value value_;
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder, org.openmbee.opensysml.proto.ValueOrBuilder> valueBuilder_;
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     * @return Whether the value field is set.
+     */
+    public boolean hasValue() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     * @return The value.
+     */
+    public org.openmbee.opensysml.proto.Value getValue() {
+      if (valueBuilder_ == null) {
+        return value_ == null ? org.openmbee.opensysml.proto.Value.getDefaultInstance() : value_;
+      } else {
+        return valueBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    public Builder setValue(org.openmbee.opensysml.proto.Value value) {
+      if (valueBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        value_ = value;
+      } else {
+        valueBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    public Builder setValue(
+        org.openmbee.opensysml.proto.Value.Builder builderForValue) {
+      if (valueBuilder_ == null) {
+        value_ = builderForValue.build();
+      } else {
+        valueBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    public Builder mergeValue(org.openmbee.opensysml.proto.Value value) {
+      if (valueBuilder_ == null) {
+        if (((bitField0_ & 0x00000008) != 0) &&
+          value_ != null &&
+          value_ != org.openmbee.opensysml.proto.Value.getDefaultInstance()) {
+          getValueBuilder().mergeFrom(value);
+        } else {
+          value_ = value;
+        }
+      } else {
+        valueBuilder_.mergeFrom(value);
+      }
+      if (value_ != null) {
+        bitField0_ |= 0x00000008;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    public Builder clearValue() {
+      bitField0_ = (bitField0_ & ~0x00000008);
+      value_ = null;
+      if (valueBuilder_ != null) {
+        valueBuilder_.dispose();
+        valueBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    public org.openmbee.opensysml.proto.Value.Builder getValueBuilder() {
+      bitField0_ |= 0x00000008;
+      onChanged();
+      return internalGetValueFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    public org.openmbee.opensysml.proto.ValueOrBuilder getValueOrBuilder() {
+      if (valueBuilder_ != null) {
+        return valueBuilder_.getMessageOrBuilder();
+      } else {
+        return value_ == null ?
+            org.openmbee.opensysml.proto.Value.getDefaultInstance() : value_;
+      }
+    }
+    /**
+     * <pre>
+     * The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+     * literal that is only its identity. Identity stays `literal_id`.
+     * </pre>
+     *
+     * <code>.sysml.Value value = 4 [json_name = "value"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder, org.openmbee.opensysml.proto.ValueOrBuilder> 
+        internalGetValueFieldBuilder() {
+      if (valueBuilder_ == null) {
+        valueBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Value, org.openmbee.opensysml.proto.Value.Builder, org.openmbee.opensysml.proto.ValueOrBuilder>(
+                getValue(),
+                getParentForChildren(),
+                isClean());
+        value_ = null;
+      }
+      return valueBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EnumLiteral)

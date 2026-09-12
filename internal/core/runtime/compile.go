@@ -354,7 +354,8 @@ func (c *calcCompiler) compileReturnBody(cell *compiledCalc, ret lower.Return, l
 }
 
 // scalarCheckFor decides a declaration for scalars, declining a declared type
-// the scalar lattice does not place. A declaration stating no type, or one that
+// the scalar lattice does not place — an enumeration among them, whose value a
+// scalar cannot carry the identity of. A declaration stating no type, or one that
 // does not resolve, holds any scalar, as it does on the evaluator; a non-scalar
 // argument never reaches the compiled tier.
 func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) {
@@ -367,6 +368,9 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.countOK = c.ctx.writeCountRefusal(decl.Target, &one) == ""
 	if decl.Target.typ == nil {
 		return check, true
+	}
+	if decl.Target.typ.Kind == symbols.SymbolEnumerationDef {
+		return scalarCheck{}, false
 	}
 	prim := c.ctx.model.semantics.PrimTypeOf(decl.Target.typ)
 	if prim == semantics.PrimUnknown {

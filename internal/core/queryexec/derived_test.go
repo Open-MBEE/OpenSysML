@@ -424,8 +424,11 @@ func TestExecuteReadsPackageAttributesAndKeepsElementReferences(t *testing.T) {
 attribute base : Integer = 2;
 attribute unitMass :> ISQ::mass = 5 [kg];
 enum def Color { red; blue; }
+enum def Level :> Integer { low = 1; high = 3; }
 part def Thing {
 	attribute engines : Integer = base;
+	attribute level : Level = Level::high;
+	attribute cast : Level[0..1] = 3 as Level;
 	attribute m :> ISQ::mass = unitMass;
 	attribute doubled :> ISQ::mass = unitMass * 2;
 	part engine;
@@ -438,7 +441,7 @@ calc def Things :> Query {
 	in root : Element;
 	Project(
 		source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
-		properties = ("name", "engines", "m", "doubled", "heart", "color", "unit")
+		properties = ("name", "engines", "m", "doubled", "heart", "color", "unit", "level", "cast")
 	)
 }
 `)
@@ -446,7 +449,9 @@ calc def Things :> Query {
 	if got := integerTexts(t, result, 1); !slices.Equal(got, []int64{2}) {
 		t.Errorf("engines = %v, want 2", got)
 	}
-	for column, want := range map[int]string{2: "5 [kg]", 3: "10 [kg]", 4: "Observatory::Thing::engine", 5: "Observatory::Color::red", 6: "SI::kilogram"} {
+	// A literal of a scalar-valued enumeration is the literal in a cell, as a plain one is.
+	for column, want := range map[int]string{2: "5 [kg]", 3: "10 [kg]", 4: "Observatory::Thing::engine", 5: "Observatory::Color::red", 6: "SI::kilogram",
+		7: "Observatory::Level::high", 8: "Observatory::Level::high"} {
 		if got := cellTexts(t, result, column); !slices.Equal(got, []string{want}) {
 			t.Errorf("%s = %v, want %q", result.Columns()[column].Name(), got, want)
 		}

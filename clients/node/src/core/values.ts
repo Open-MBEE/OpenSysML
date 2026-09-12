@@ -65,6 +65,8 @@ export interface EnumValue {
   name: string;
   literalId: string;
   enumerationId: string;
+  /** The scalar the literal equals when its enumeration specializes a scalar type (`high = 3`). */
+  value?: SysMLValue;
 }
 
 /** A magnitude in a unit as written, with the unit's reduction when the service reports one. */
@@ -323,7 +325,7 @@ export function encodeValue(value: SysMLValue): Value {
       return create(ValueSchema, { kind: { case: "function", value: encodeFunction(value) } });
     case "enum":
       return create(ValueSchema, {
-        kind: { case: "enumLiteral", value: create(EnumLiteralSchema, value.value) },
+        kind: { case: "enumLiteral", value: encodeEnumLiteral(value.value) },
       });
     case "array":
       checkShape("an array", value.dimensions, value.elements.length);
@@ -953,9 +955,26 @@ function decodeUnitTerm(term: UnitTerm): UnitFactorization {
 }
 
 function decodeEnumLiteral(literal: EnumLiteral): EnumValue {
-  return {
+  const decoded: EnumValue = {
     name: literal.name,
     literalId: literal.literalId,
     enumerationId: literal.enumerationId,
   };
+  if (literal.value !== undefined) {
+    const scalar = decodeValue(literal.value);
+    if (scalar.kind === "absent") {
+      throw new MalformedValueError("an enumeration literal's value, when present, states a scalar");
+    }
+    decoded.value = scalar;
+  }
+  return decoded;
+}
+
+function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
+  return create(EnumLiteralSchema, {
+    name: literal.name,
+    literalId: literal.literalId,
+    enumerationId: literal.enumerationId,
+    value: literal.value === undefined ? undefined : encodeValue(literal.value),
+  });
 }
