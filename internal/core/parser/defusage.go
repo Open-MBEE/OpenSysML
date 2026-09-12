@@ -238,18 +238,21 @@ type featureMods struct {
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
 }
 
-// checkConstantSpelling rejects the constant prefix of the other notation:
-// KerML spells it `const` (BasicFeaturePrefix), SysML `constant` (RefPrefix).
-func (p *Parser) checkConstantSpelling(t lexer.Token) {
+// checkConstantSpelling rejects the constant prefix of the other notation, reporting
+// whether t is admitted: KerML spells it `const` (BasicFeaturePrefix), SysML `constant` (RefPrefix).
+func (p *Parser) checkConstantSpelling(t lexer.Token) bool {
 	kerml := p.src.Kind() == source.KindKerML
 	switch {
 	case kerml && t.KeywordID == "constant":
 		p.error(t.Span, "`constant` is SysML notation: the KerML grammar spells the prefix `const`, "+
 			"so write `const` here or move the declaration to a .sysml file")
+		return false
 	case !kerml && t.KeywordID == "const":
 		p.error(t.Span, "`const` is KerML notation: the SysML grammar spells the prefix `constant`, "+
 			"so write `constant` here or move the declaration to a .kerml file")
+		return false
 	}
+	return true
 }
 
 // checkVariationNotation rejects `variation` in a KerML file: the prefix is
@@ -439,8 +442,7 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			cross.IsComposite = true
 			cross.IsPortion = true
 		case "constant", "const":
-			p.checkConstantSpelling(t)
-			if cross.IsConstant {
+			if p.checkConstantSpelling(t) && cross.IsConstant {
 				p.repeatedPrefix(t)
 			}
 			cross.IsConstant = true
@@ -1111,8 +1113,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			m.cross = p.tryParseCrossFeature()
 			continue
 		case "constant", "const":
-			p.checkConstantSpelling(t)
-			if m.isConstant {
+			if p.checkConstantSpelling(t) && m.isConstant {
 				p.repeatedPrefix(t)
 			}
 			m.isConstant = true
