@@ -444,7 +444,8 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     with `ParseChoices`); the empty spelling is the default. Any other
     spelling — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`,
     `explore:` with nothing after the colon, `explore:runs=0`, `replay:` without a file, a file
-    that cannot be read or whose lines spell no choice — is a `*SchedulePolicyError`
+    that cannot be read, is empty or has a line spelling no choice (a header of `no choice
+    points` alone is a witness of a run with none) — is a `*SchedulePolicyError`
     (`Spelling`, `Reason`) matching `ErrInvalidSchedulePolicy` under `errors.Is`, so every surface
     refuses it before anything runs
   - `ExplorePolicy(budget ExploreBudget) (SchedulePolicy, error)` — The `explore` policy with the

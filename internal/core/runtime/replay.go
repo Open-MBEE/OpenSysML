@@ -93,17 +93,22 @@ type replayScript struct {
 // ParseChoices reads a witness header: choices as ChoiceTaken.String spells them, one
 // per line or joined by `; `, ending at the first blank line after it; what follows is ignored.
 func ParseChoices(text string) ([]ChoiceTaken, error) {
-	var choices []ChoiceTaken
-	begun := false
+	choices, _, err := readChoices(text)
+	return choices, err
+}
+
+// readChoices reads a witness header as ParseChoices does and says whether the text
+// has one: a header of `no choice points` alone spells a run with no choice to make.
+func readChoices(text string) (choices []ChoiceTaken, headed bool, err error) {
 	for i, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
-			if begun {
+			if headed {
 				break
 			}
 			continue
 		}
-		begun = true
+		headed = true
 		if line == "no choice points" {
 			continue
 		}
@@ -114,12 +119,12 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 				if errors.As(err, &parse) {
 					parse.Line = i + 1
 				}
-				return nil, err
+				return nil, true, err
 			}
 			choices = append(choices, c)
 		}
 	}
-	return choices, nil
+	return choices, headed, nil
 }
 
 // ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,

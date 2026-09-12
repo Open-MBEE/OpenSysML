@@ -216,6 +216,54 @@ func TestReplayStepsTheRunAWitnessRecords(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "Action completed", "leftCount = 1", "rightCount = 10")
 }
 
+// checkStraightSource breaks a property with no choice point on the way to it.
+const checkStraightSource = `
+package Plant {
+	private import ScalarValues::*;
+	part def Tank {
+		attribute level : Integer = 0;
+		constraint low { level < 2 }
+		action overfill {
+			first start;
+			action a { assign level := 2; }
+			done;
+			succession first start then a;
+			succession first a then done;
+		}
+	}
+	part tank : Tank;
+}
+`
+
+// A violation the check reaches before any choice point is witnessed as `no choice
+// points`, and %replay of that witness steps the one run there is to the state it claims.
+func TestReplayStepsAWitnessOfNoChoice(t *testing.T) {
+	s := loadSource(t, checkStraightSource)
+	dir := t.TempDir()
+	run(t, s, "%engine check")
+	run(t, s, "%check-witness "+dir)
+	run(t, s, "%check-property Plant::Tank::low")
+	run(t, s, "%instantiate Plant::tank")
+	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
+	wantVerdict(t, s.RunAction("Plant::Tank::overfill", "Plant::tank"), VerdictFails,
+		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")")
+	content, err := os.ReadFile(witness)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(content), "no choice points\n\n") {
+		t.Errorf("witness is not `no choice points`, a blank line, then the trace:\n%s", content)
+	}
+
+	run(t, s, "%engine auto")
+	wants(t, run(t, s, "%replay "+witness), "schedule: replay:"+witness,
+		"Use %action or %state to start the run the witness records, then %step or %continue")
+	run(t, s, "%action Plant::Tank::overfill Plant::tank")
+	wants(t, run(t, s, "%step"), "Step complete")
+	wants(t, run(t, s, "%continue"), "Action completed")
+	wants(t, run(t, s, "%features Plant::tank"), "level = 2")
+}
+
 // A witness that does not fit the run it is replayed against is refused where
 // the run departs from it, not followed silently.
 func TestReplayRefusesAWitnessOfAnotherRun(t *testing.T) {

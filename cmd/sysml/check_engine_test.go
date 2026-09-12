@@ -151,6 +151,50 @@ func TestEngineCheckJudgesAPropertyOfThePerformer(t *testing.T) {
 	rejectReport(t, held, "violation:", "divergent:")
 }
 
+// straightTankModel breaks a property with no choice point on the way to it.
+const straightTankModel = `package Plant {
+    private import ScalarValues::*;
+    part def Tank {
+        attribute level : Integer = 0;
+        constraint low { level < 2 }
+        action overfill {
+            first start;
+            action a { assign level := 2; }
+            done;
+            succession first start then a;
+            succession first a then done;
+        }
+    }
+    part tank : Tank;
+}
+`
+
+// A violation reached before any choice point is witnessed as `no choice points`
+// over its trace, and that witness replays as -schedule replay:<file> to the state it claims.
+func TestEngineCheckWitnessOfNoChoiceReplays(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+
+	got := check(t, binary, straightTankModel, "-engine", "check", "-instantiate", "Plant::tank",
+		"-action", "Plant::Tank::overfill Plant::tank", "-check-property", "Plant::Tank::low", "-check-witness", dir)
+	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
+	wantReport(t, got, 1, "✗ Action Plant::Tank::overfill: violation",
+		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")",
+		"standing: violated (witnessed:")
+	content, err := os.ReadFile(witness)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(content), "no choice points\n\n") || !strings.Contains(string(content), "\nproperty: Plant::Tank::low") {
+		t.Errorf("witness file:\n%s", content)
+	}
+	replayed := check(t, binary, straightTankModel, "-schedule", "replay:"+witness, "-trace", "-instantiate", "Plant::tank",
+		"-action", "Plant::Tank::overfill Plant::tank")
+	wantReport(t, replayed, 0, "stmt assign level", "Action completed",
+		"standing: value (observed: 1 run under replay:"+witness+")")
+	rejectReport(t, replayed, "replay refused", "names no move to follow")
+}
+
 // One action checked on two objects writes two sets of witnesses, each named for
 // its performer, so the second check does not overwrite the first's files.
 func TestEngineCheckNamesWitnessesForThePerformer(t *testing.T) {

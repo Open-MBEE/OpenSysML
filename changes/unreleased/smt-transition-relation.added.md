@@ -14,8 +14,8 @@
   with exhaustive exploration. It is not yet registered with the default engines, so no verdict,
   golden or exploration changes; `-engine smt` follows.
 - **`replay:<file>` scheduling policy.** A file of choice lines — as `explore`'s witness column
-  spells them, one per line up to the first blank line — is followed move for move, then the run
-  continues as `reverse`. A move the run cannot make (a pick not offered, a step already passed,
+  spells them, one per line up to the first blank line, or `no choice points` alone for a run
+  that met none — is followed move for move, then the run continues as `reverse`. A move the run cannot make (a pick not offered, a step already passed,
   a line left over at the end) fails the run with `replay refused: move <n> (<choice>): <what
   the run faced>` rather than running another linearization. Accepted by `sysml -schedule`,
   `%schedule` and a conformance case's `schedule` pin; over the wire, where a request carries no
