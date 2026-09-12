@@ -101,15 +101,20 @@ func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGra
 		e.declareFlags(e.States[i])
 	}
 	for i := 1; i <= k; i++ {
-		m := newMove(e.Sorts, i)
+		m := newMove(e.Sorts, f, i)
 		e.Choices = append(e.Choices, m)
-		e.declare(m.Choice, m.Travel)
+		e.declare(m.vars()...)
 	}
 	e.Choosable = make([][]*solve.Term, k+1)
 	e.Completed = make([]*solve.Term, k+1)
 	for i := 0; i <= k; i++ {
-		e.Choosable[i] = e.choosable(e.States[i])
-		e.Completed[i] = e.completed(e.States[i])
+		s := e.States[i]
+		e.Choosable[i] = make([]*solve.Term, len(s.Slots))
+		for t, term := range e.choosable(s) {
+			e.assert(eq(solve.VarTerm(s.Slots[t].Able), term), fmt.Sprintf("state %d: slot %d may act", i, t))
+			e.Choosable[i][t] = solve.VarTerm(s.Slots[t].Able)
+		}
+		e.Completed[i] = e.completed(s)
 	}
 	if err := e.initial(); err != nil {
 		return nil, err
@@ -668,6 +673,10 @@ func (e *Encoding) move(i int) error {
 				continue
 			}
 			guards[n][p], guardsDefined[n][p] = effect.guards.evaluate(e.exprs[guard])
+			if held := m.Held[edge]; held != nil {
+				e.assert(eq(solve.VarTerm(held), solve.And(acts[n], guardsDefined[n][p], guards[n][p])),
+					fmt.Sprintf("move %d: the guard of %s is read and holds", i, edgeLabel(f, edge)))
+			}
 		}
 	}
 

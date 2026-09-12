@@ -3,6 +3,7 @@ package smt
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -76,6 +77,9 @@ type Slot struct {
 	At  *solve.Var
 	Via *solve.Var
 	ID  *solve.Var
+	// Able holds when the slot's token may act from this state, as the
+	// interpreter's step would offer it.
+	Able *solve.Var
 }
 
 // State is the symbolic state after move Move; move 0 is the initial state.
@@ -106,6 +110,9 @@ type Move struct {
 	// Travel is the succession the acting token left over — the decision
 	// witness where several guards held — or NoEdge for a move taking none.
 	Travel *solve.Var
+	// Held holds, per succession out of a decision node with a guard, when
+	// the acting token read that guard and it held; nil for every other succession.
+	Held []*solve.Var
 }
 
 // newState declares the variables of the state after move i.
@@ -120,9 +127,10 @@ func newState(sorts Sorts, f *Flow, i int) *State {
 	}
 	for t := range s.Slots {
 		s.Slots[t] = Slot{
-			At:  sortedVar(fmt.Sprintf("at[%d]@%d", t, i), sorts.Node),
-			Via: sortedVar(fmt.Sprintf("via[%d]@%d", t, i), sorts.Edge),
-			ID:  intVar(fmt.Sprintf("id[%d]@%d", t, i)),
+			At:   sortedVar(fmt.Sprintf("at[%d]@%d", t, i), sorts.Node),
+			Via:  sortedVar(fmt.Sprintf("via[%d]@%d", t, i), sorts.Edge),
+			ID:   intVar(fmt.Sprintf("id[%d]@%d", t, i)),
+			Able: boolVar(fmt.Sprintf("able[%d]@%d", t, i)),
 		}
 	}
 	for l := range s.Loop {
@@ -135,12 +143,35 @@ func newState(sorts Sorts, f *Flow, i int) *State {
 }
 
 // newMove declares the choice variables of move i.
-func newMove(sorts Sorts, i int) *Move {
-	return &Move{
+func newMove(sorts Sorts, f *Flow, i int) *Move {
+	m := &Move{
 		Index:  i,
 		Choice: sortedVar(fmt.Sprintf("choice@%d", i), sorts.Choice),
 		Travel: sortedVar(fmt.Sprintf("travel@%d", i), sorts.Edge),
+		Held:   make([]*solve.Var, len(f.Edges)),
 	}
+	for _, node := range f.Nodes {
+		if _, decision := node.(*ast.DecisionNode); !decision {
+			continue
+		}
+		for _, edge := range f.Outgoing[node] {
+			if f.Edges[edge].Guard != nil {
+				m.Held[edge] = boolVar(fmt.Sprintf("held[%d]@%d", edge, i))
+			}
+		}
+	}
+	return m
+}
+
+// vars lists the move's variables in a stable order.
+func (m *Move) vars() []*solve.Var {
+	vars := []*solve.Var{m.Choice, m.Travel}
+	for _, held := range m.Held {
+		if held != nil {
+			vars = append(vars, held)
+		}
+	}
+	return vars
 }
 
 // value is this state's copy of the feature base stands for, declared on first use.
@@ -166,7 +197,7 @@ func (s *State) value(base *solve.Var) *solve.Var {
 func (s *State) vars(features []*solve.Var) []*solve.Var {
 	vars := make([]*solve.Var, 0, 3*len(s.Slots)+len(s.Loop)+len(features)+3)
 	for _, slot := range s.Slots {
-		vars = append(vars, slot.At, slot.Via, slot.ID)
+		vars = append(vars, slot.At, slot.Via, slot.ID, slot.Able)
 	}
 	vars = append(vars, s.NextID, s.Failed)
 	if s.Overflow != nil {
