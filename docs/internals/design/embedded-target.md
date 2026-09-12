@@ -164,8 +164,8 @@ emits, or by refusing the model.
 arithmetic, the enumeration and multiplicity checks, the fixed-size queue operations (the event,
 outgoing-event and trace queues share them) and the trace record writer, and nothing else — a few
 hundred lines that are verified once, to the project's Class A standard, like any other flight
-library. Every compiled model links the same prelude version, recorded in its resource report. Adding to the prelude is a change to a
-verified library and is treated as such.
+library. Every compiled model links the same prelude version, recorded in its resource report.
+Adding to the prelude is a change to a verified library and is treated as such.
 
 **The host backend is unchanged.** `sysml -compile` keeps its GNU-C prelude and its speed; the
 embedded profile is selected explicitly (`-compile -target c-embedded`, name to be settled) and
