@@ -1,0 +1,337 @@
+package repl
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+)
+
+// checkSettings is what the check engine is asked beside the action: the features
+// whose final values may not diverge, the properties every stable state must
+// satisfy, and where the witnesses are written.
+type checkSettings struct {
+	diverge    []string
+	properties []string
+	witnessDir string
+	// depth and states bound the search, 0 for the engine's default; timeout is
+	// the plan's clock, 0 for none.
+	depth, states int
+	timeout       time.Duration
+}
+
+// deadline is the plan's clock as the timeout sets it, zero for none.
+func (c checkSettings) deadline() time.Time {
+	if c.timeout <= 0 {
+		return time.Time{}
+	}
+	return time.Now().Add(c.timeout)
+}
+
+// checking reports whether the session's selection puts an action to the check
+// engine alone, which searches its schedules rather than stepping one run.
+func (s *Session) checking() bool {
+	return s.engine == analysis.Only(analysis.CheckEngineName)
+}
+
+// CheckDiverge returns the features a check compares the final values of; none
+// compares the action's own attributes.
+func (s *Session) CheckDiverge() []string {
+	defer s.reading()()
+	return append([]string(nil), s.checker.diverge...)
+}
+
+// SetCheckDiverge names the features a check compares the final values of.
+func (s *Session) SetCheckDiverge(features []string) {
+	defer s.enter()()
+	s.checker.diverge = append([]string(nil), features...)
+}
+
+// CheckProperties returns the constraints and requirements a check evaluates at
+// every stable state.
+func (s *Session) CheckProperties() []string {
+	defer s.reading()()
+	return append([]string(nil), s.checker.properties...)
+}
+
+// SetCheckProperties names the constraints and requirements a check evaluates at
+// every stable state; each is resolved when the check runs.
+func (s *Session) SetCheckProperties(names []string) {
+	defer s.enter()()
+	s.checker.properties = append([]string(nil), names...)
+}
+
+// CheckWitnessDir returns where a check writes its witnesses, "" for nowhere.
+func (s *Session) CheckWitnessDir() string {
+	defer s.reading()()
+	return s.checker.witnessDir
+}
+
+// SetCheckWitnessDir names where a check writes its witnesses, one file per
+// violation and per divergent value; "" writes none.
+func (s *Session) SetCheckWitnessDir(dir string) {
+	defer s.enter()()
+	s.checker.witnessDir = dir
+}
+
+// doCheckDiverge shows or sets the features a check compares, `off` clearing them.
+func (s *Session) doCheckDiverge(args []string) []string {
+	if len(args) > 0 {
+		s.checker.diverge = settingList(args)
+	}
+	return []string{"check-diverge: " + settingText(s.checker.diverge, "the action's own attributes")}
+}
+
+// doCheckProperty shows or sets the properties a check evaluates, `off` clearing them.
+func (s *Session) doCheckProperty(args []string) []string {
+	if len(args) > 0 {
+		s.checker.properties = settingList(args)
+	}
+	return []string{"check-property: " + settingText(s.checker.properties, "none")}
+}
+
+// doCheckWitness shows or sets where a check writes its witnesses, `off` writing none.
+func (s *Session) doCheckWitness(args []string) []string {
+	if len(args) > 0 {
+		if args[0] == "off" {
+			s.checker.witnessDir = ""
+		} else {
+			s.checker.witnessDir = args[0]
+		}
+	}
+	if s.checker.witnessDir == "" {
+		return []string{"check-witness: off"}
+	}
+	return []string{"check-witness: " + s.checker.witnessDir}
+}
+
+// settingList reads a list setting's arguments: `off` is the empty list.
+func settingList(args []string) []string {
+	if len(args) == 1 && args[0] == "off" {
+		return nil
+	}
+	return append([]string(nil), args...)
+}
+
+// settingText spells a list setting, or what the empty list means.
+func settingText(values []string, empty string) string {
+	if len(values) == 0 {
+		return "off (" + empty + ")"
+	}
+	return strings.Join(values, " ")
+}
+
+// doReplay installs the schedule a witness file fixes, so the next %action or
+// %state steps the run it records under %step and %continue.
+func (s *Session) doReplay(args []string) []string {
+	if len(args) != 1 {
+		return []string{"usage: %replay <witness>"}
+	}
+	policy, err := runtime.ParseSchedulePolicy("replay:" + args[0])
+	if err != nil {
+		return []string{errPrefix + err.Error()}
+	}
+	if err := s.setSchedule(policy); err != nil {
+		return []string{errPrefix + err.Error()}
+	}
+	return []string{fmt.Sprintf("schedule: %s", s.schedule), "Use %action or %state to start the run the witness records, then %step or %continue"}
+}
+
+// checkAction puts the action's schedules to the check engine: a search of every
+// schedule for a violation of the session's properties, a deadlock, a failure and
+// a divergence of the features selected, its witnesses replayed and written.
+func (s *Session) checkAction(name string, performer []string) Verdict {
+	properties, err := s.checkProperties()
+	if err != nil {
+		return unresolvedVerdict(name, err.Error())
+	}
+	ask, run, err := s.checkAsk(name, performer)
+	if err != nil {
+		return unresolvedVerdict(name, err.Error())
+	}
+	ask.Properties = properties
+	kind := analysis.Outcomes
+	if len(properties) > 0 {
+		kind = analysis.Holds
+	}
+	policy := runtime.DefaultExploreSchedulePolicy
+	if explored, explores := s.exploring(); explores {
+		policy = explored
+	}
+	return s.checkVerdict(name, policy, kind, ask, run)
+}
+
+// checkAsk is the action's schedules as a question the check engine searches and an
+// exploration runs beside it: how one run starts the action on its performer, and
+// what the session has a check compare and write.
+func (s *Session) checkAsk(name string, performer []string) (*analysis.CheckAsk, analysis.Linearization, error) {
+	sym, err := s.exploredAction(name)
+	if err != nil {
+		return nil, nil, err
+	}
+	plan := s.planFresh(performer...)
+	start := func(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
+		return freshAction(plan.bind(ctx), sym, performer)
+	}
+	run := func(ctx *runtime.Context) (runtime.Outcome, error) {
+		exec, err := start(ctx)
+		if err != nil {
+			return runtime.Outcome{}, err
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			return runtime.Outcome{}, err
+		}
+		return completedActionOutcome(ctx, exec, name)
+	}
+	ask := &analysis.CheckAsk{
+		Start:      start,
+		Diverge:    append([]string(nil), s.checker.diverge...),
+		WitnessDir: s.checker.witnessDir,
+	}
+	return ask, run, nil
+}
+
+// checkVerdict puts the question to the engines under the session's selection with
+// the check's bounds on the budget, the session's state released for the plan's
+// run, and reports what stood: an exploration's table or the check's search.
+func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization) Verdict {
+	model := s.freshModel()
+	budget := s.budgetFor(policy, kind)
+	if s.checker.depth > 0 {
+		budget.Depth = s.checker.depth
+	}
+	if s.checker.states > 0 {
+		budget.Runs = s.checker.states
+	}
+	budget.Deadline = s.checker.deadline()
+	selection := s.engine
+	s.state.Unlock()
+	answered, err := s.engines.Check(context.Background(), model, name, policy, kind, ask, run, budget, selection)
+	s.state.Lock()
+	if err != nil {
+		return standing(checkStoppedVerdict(name, err), &answered)
+	}
+	if x := answered.Result.Exploration(); x != nil {
+		return standing(explorationVerdict(name, x), &answered)
+	}
+	return standing(checkedVerdict(name, answered.Result), &answered)
+}
+
+// checkProperties resolves the session's properties to the constraint and
+// requirement each names, evaluated about the action's performer at every state.
+func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
+	docScopes := s.docScopes()
+	if len(s.checker.properties) > 0 && len(docScopes) == 0 {
+		return nil, errors.New("no declarations loaded")
+	}
+	properties := make([]runtime.CheckProperty, 0, len(s.checker.properties))
+	for _, name := range s.checker.properties {
+		sym, _, err := s.lookupSymbol(name)
+		if err != nil {
+			return nil, err
+		}
+		scope := declaringScope(sym, docScopes[0])
+		var check func(*runtime.Context, *symbols.Symbol, *symbols.Scope, *runtime.Instance) (runtime.CheckResult, error)
+		switch {
+		case runtime.RequireConstraint(sym) == nil:
+			check = (*runtime.Context).CheckConstraintOn
+		case runtime.RequireRequirement(sym) == nil:
+			check = (*runtime.Context).CheckRequirementOn
+		default:
+			return nil, fmt.Errorf("%q is not a constraint or requirement", name)
+		}
+		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+			result, err := check(ctx, sym, scope, exec.Performer())
+			if err != nil {
+				return false, err
+			}
+			return result.Holds, nil
+		}})
+	}
+	return properties, nil
+}
+
+// checkStoppedVerdict reports a check that answered nothing: a refusal, a fault,
+// or the plan's clock ending, with what the search reached before it stopped.
+func checkStoppedVerdict(name string, err error) Verdict {
+	var stopped *runtime.CheckStopped
+	if errors.As(err, &stopped) {
+		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
+			fmt.Sprintf("? Action %s: incomplete: time (%d states, %d moves, depth %d)", name, stopped.States, stopped.Moves, stopped.MaxDepth),
+			"  " + stopped.Cause.Error(),
+		}}
+	}
+	return unresolvedVerdict(name, err.Error())
+}
+
+// checkedVerdict reports what the check engine found: a violation or a divergence
+// fails the check, an exhaustive clean search holds, a bounded one is undecided.
+func checkedVerdict(name string, result analysis.Result) Verdict {
+	checked := result.Check()
+	if checked == nil {
+		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
+			fmt.Sprintf("? Action %s could not be checked", name),
+			"  " + result.Reason,
+		}}
+	}
+	report := checked.Report
+	v := Verdict{Subject: name}
+	switch {
+	case result.Strength == analysis.NotCovered:
+		v.Status = VerdictUnresolved
+		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s", name, report.Status()), "  "+result.Reason)
+	case report.Verdict == runtime.CheckViolation, report.Verdict == runtime.CheckDivergent:
+		v.Status = VerdictFails
+		v.Lines = append(v.Lines, fmt.Sprintf("✗ Action %s: %s", name, report.Status()))
+	case report.Verdict == runtime.CheckExhaustive:
+		v.Status = VerdictHolds
+		v.Lines = append(v.Lines, fmt.Sprintf("✓ Action %s: %s", name, report.Status()))
+	default:
+		v.Status = VerdictUnresolved
+		v.Lines = append(v.Lines, fmt.Sprintf("? Action %s: %s", name, report.Status()))
+	}
+	for i, violation := range report.Violations {
+		v.Lines = append(v.Lines, "  violation: "+violation.String()+witnessPath(checked.Violations, i))
+	}
+	for i, d := range report.Divergent {
+		v.Lines = append(v.Lines, "  divergent: "+d.String())
+		for j, value := range d.Values {
+			var path []string
+			if i < len(checked.Divergent) {
+				path = checked.Divergent[i]
+			}
+			v.Lines = append(v.Lines, fmt.Sprintf("    %s = %s%s", d.Feature, value.Value, witnessPath(path, j)))
+		}
+	}
+	for _, final := range report.Finals {
+		v.Lines = append(v.Lines, "  outcome: "+final.Outcome)
+	}
+	return v
+}
+
+// witnessPath spells where the i'th witness was written, "" when none was.
+func witnessPath(paths []string, i int) string {
+	if i >= len(paths) || paths[i] == "" {
+		return ""
+	}
+	return " (witness " + paths[i] + ")"
+}
+
+// CheckBounds returns the search bounds a check runs under: depth and states, 0
+// for the engine's defaults, and the timeout, 0 for none.
+func (s *Session) CheckBounds() (depth, states int, timeout time.Duration) {
+	defer s.reading()()
+	return s.checker.depth, s.checker.states, s.checker.timeout
+}
+
+// SetCheckBounds sets the search bounds a check runs under; 0 keeps the engine's
+// default for depth and states, and no clock for the timeout.
+func (s *Session) SetCheckBounds(depth, states int, timeout time.Duration) {
+	defer s.enter()()
+	s.checker.depth, s.checker.states, s.checker.timeout = depth, states, timeout
+}

@@ -146,11 +146,13 @@ func (r *Registry) Explore(
 
 // Check puts an action's schedules to the registry under the selection: kind is Holds
 // when ask states properties, else Outcomes; run performs the action once for an
-// engine that explores it beside the check, each in a context the model makes.
+// engine that explores it beside the check under policy, each in a context the
+// model makes.
 func (r *Registry) Check(
 	ctx context.Context,
 	model *Model,
 	subject string,
+	policy runtime.SchedulePolicy,
 	kind Kind,
 	ask *CheckAsk,
 	run Linearization,
@@ -160,7 +162,7 @@ func (r *Registry) Check(
 	plan, err := r.AnswerWith(ctx, model, Question{
 		Kind:      kind,
 		Subject:   subject,
-		Schedule:  runtime.DefaultExploreSchedulePolicy,
+		Schedule:  policy,
 		Free:      FreeSchedule,
 		Linearize: run,
 		Check:     ask,

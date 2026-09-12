@@ -311,6 +311,9 @@ func (s *Session) RunAnalysis(invocation string) Verdict {
 // stopped short of completing, is unresolved: it produced no outputs to judge.
 func (s *Session) RunAction(name string, performer ...string) Verdict {
 	defer s.enter()()
+	if s.checking() {
+		return s.checkAction(name, performer)
+	}
 	if _, explores := s.exploring(); explores {
 		return s.exploreAction(name, performer)
 	}

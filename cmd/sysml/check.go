@@ -7,7 +7,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/repl"
 )
 
@@ -30,6 +32,65 @@ type checks struct {
 	states       stringSlice
 	advance      advanceTime
 	jsonOut      bool
+	checker      checkerOptions
+}
+
+// checkerOptions are the -check-* flags: what the check engine is asked beside
+// -engine check -action, and the bounds its search runs under.
+type checkerOptions struct {
+	diverge    stringSlice
+	properties stringSlice
+	witness    string
+	depth      positiveCount
+	states     positiveCount
+	timeout    checkTimeout
+}
+
+// given reports whether any -check-* flag was written.
+func (o *checkerOptions) given() bool {
+	return len(o.diverge) > 0 || len(o.properties) > 0 || o.witness != "" ||
+		o.depth.given || o.states.given || o.timeout.given
+}
+
+// positiveCount is a -check-depth or -check-states value as written: a bound of
+// at least one, parsed where a bad value is reported in the caller's own form.
+type positiveCount struct {
+	flag  string
+	value int
+	text  string
+	given bool
+}
+
+func (c *positiveCount) String() string { return c.text }
+
+func (c *positiveCount) Set(value string) error {
+	c.text, c.given = value, true
+	n, err := strconv.Atoi(value)
+	if err != nil || n <= 0 {
+		return fmt.Errorf("-%s takes a bound of at least one, not %q", c.flag, value)
+	}
+	c.value = n
+	return nil
+}
+
+// checkTimeout is -check-timeout as written: the time a check's plan may run
+// for, as Go spells a duration.
+type checkTimeout struct {
+	value time.Duration
+	text  string
+	given bool
+}
+
+func (c *checkTimeout) String() string { return c.text }
+
+func (c *checkTimeout) Set(value string) error {
+	c.text, c.given = value, true
+	d, err := time.ParseDuration(value)
+	if err != nil || d <= 0 {
+		return fmt.Errorf("-check-timeout takes a duration such as 30s or 2m, not %q", value)
+	}
+	c.value = d
+	return nil
 }
 
 // sweepCount is -samples as written: the number of values to draw for each
@@ -94,7 +155,22 @@ func (c *checks) requested() bool {
 	return c.validate || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
-		c.sweeping()
+		c.sweeping() || c.checker.given()
+}
+
+// checkerMisuse reports why the -check-* flags written check nothing under the
+// engine selected, and "" when they check an action.
+func (c *checks) checkerMisuse(engine string) string {
+	checking := engine == analysis.CheckEngineName
+	switch {
+	case c.checker.given() && !checking:
+		return "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check"
+	case c.checker.given() && len(c.actions) == 0:
+		return "-engine check searches an action's schedules; name one, as -action <name>"
+	case checking && c.advance.given:
+		return "-advance runs behaviors on one clock, which -engine check, searching every schedule of an action, does not; drop one of them"
+	}
+	return ""
 }
 
 // sweeping reports whether a sweep or a sample of one was asked for.
@@ -205,6 +281,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 		rep.failed(message)
 		return rep.finish()
 	}
+	if message := c.checkerMisuse(engine.text); message != "" {
+		rep.failed(message)
+		return rep.finish()
+	}
 	if !c.checksOnly() {
 		if c.jsonOut {
 			rep.failed("-json reports a check; name one, as -validate or -constraint <name>")
@@ -219,6 +299,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	sess := newSession()
+	sess.SetCheckDiverge(c.checker.diverge)
+	sess.SetCheckProperties(c.checker.properties)
+	sess.SetCheckWitnessDir(c.checker.witness)
+	sess.SetCheckBounds(c.checker.depth.value, c.checker.states.value, c.checker.timeout.value)
 
 	// A checked model may be named as a directory or a glob as well as by file, so
 	// the paths are expanded to the files they stand for before loading.
