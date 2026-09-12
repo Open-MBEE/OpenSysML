@@ -84,3 +84,18 @@ index-empty-by-unbound :: U :: ()#(u)
 select-keeps-known :: U :: SequenceFunctions::includes((1, u)->ControlFunctions::select{in x; x == 1}, 1)
 select-known-count :: U :: SequenceFunctions::size((1, u)->ControlFunctions::select{in x; x == 1})
 collect-keeps-known :: U :: SequenceFunctions::includes((1, u)->ControlFunctions::collect{in x; x + 1}, 2)
+
+# A mapping of fixed count over an open collection keeps the count the collection fixes.
+collect-fixed-count :: U :: SequenceFunctions::size((1, u)->ControlFunctions::collect{in x; x + 1})
+collect-loose-count :: T :: SequenceFunctions::size(rack.loose->ControlFunctions::collect{in x; x})
+
+# A feature declared `[0]` holds nothing: its count is fixed, so it reads as empty.
+vacant-ref :: T :: rack.vacant
+size-vacant :: T :: SequenceFunctions::size(rack.vacant)
+isempty-vacant :: T :: SequenceFunctions::isEmpty(rack.vacant)
+
+# A conditional over an open test holds the count both branches fix; branches of
+# different counts leave it open.
+size-if-unbound :: U :: SequenceFunctions::size(if u > 0 ? 1 else 2)
+size-if-pairs :: U :: SequenceFunctions::size(if u > 0 ? (1, 2) else (3, 4))
+size-if-differing :: U :: SequenceFunctions::size(if u > 0 ? (1, 2) else 3)

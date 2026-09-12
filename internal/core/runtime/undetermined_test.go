@@ -132,7 +132,7 @@ func TestOperatorsPropagateUndetermined(t *testing.T) {
 		"u + 5": "[1]", "(u + 5) * 2": "[1]", "known + u": "[1]", "-u": "[1]",
 		"u > 3": "[1]", "u == 5": "[1]", "u != 5": "[1]", "not (u == 5)": "[1]", "u == u": "[1]", "u === u": "[1]",
 		"s + \"a\"": "[1]", "StringFunctions::Length(s)": "[1]",
-		"if u > 0 ? 1 else 2": "[0..*]", "if b ? 1 else 2": "[0..*]", "if true ? u else 2": "[1]",
+		"if u > 0 ? 1 else 2": "[1]", "if b ? 1 else 2": "[1]", "if true ? u else 2": "[1]",
 		"u ?? 3": "[1]", "u as Real": "[0..1]", "u hastype Real": "[1]", "u @ Real": "[1]", "r hastype Real": "[1]",
 		"1..u": "[0..*]", "u..5": "[0..*]",
 	} {
@@ -239,7 +239,7 @@ func TestInvocationsPropagateUndeterminedArguments(t *testing.T) {
 	for src, count := range map[string]string{
 		"twice(u)": "[1]", "doubled": "[1]", "twice(rack.gear)": "[1]",
 		"RealFunctions::sum((1, u))": "[1]", "RealFunctions::sum(rack.loose.mass)": "[1]", "RealFunctions::max(u, 3)": "[1]",
-		"u->ControlFunctions::collect{in x; x + 1}":     "[0..*]",
+		"u->ControlFunctions::collect{in x; x + 1}":     "[1]",
 		"(1, u)->ControlFunctions::select{in x; x > 0}": "[1..2]",
 		"(1,2)->ControlFunctions::forAll{in x; x > u}":  "[1]",
 	} {
@@ -379,14 +379,14 @@ func TestCollectionTransformsKeepKnownElements(t *testing.T) {
 	for src, count := range map[string]string{
 		"(1, u)->ControlFunctions::select{in x; x == 1}":                      "[1..2]",
 		"(1, u)->ControlFunctions::reject{in x; x == 1}":                      "[0..1]",
-		"(1, u)->ControlFunctions::collect{in x; x + 1}":                      "[1..*]",
+		"(1, u)->ControlFunctions::collect{in x; x + 1}":                      "[2]",
 		"(1, u)->ControlFunctions::selectOne{in x; x == 1}":                   "[1]",
 		"(1, u)->ControlFunctions::selectOne{in x; x == 2}":                   "[0..1]",
 		"(1, 2)->ControlFunctions::select{in x; x > u}":                       "[0..2]",
 		"rack.gear->ControlFunctions::select{in x; x == rack.fixed}":          "[1..*]",
 		"rack.gear->ControlFunctions::reject{in x; x == rack.fixed}":          "[0..*]",
 		"rack.loose->ControlFunctions::select{in x; x.tag == \"d\"}":          "[0..2]",
-		"rack.loose->ControlFunctions::collect{in x; x.mass}":                 "[0..*]",
+		"rack.loose->ControlFunctions::collect{in x; x.mass}":                 "[0..2]",
 		"rack.gear->ControlFunctions::select{in x; x.tag == \"e\"}":           "[0..*]",
 		"isEmpty(rack.loose->ControlFunctions::select{in x; x.tag == \"e\"})": "[1]",
 		"size((1, u)->ControlFunctions::select{in x; x == 1})":                "[1]",
@@ -406,6 +406,87 @@ func TestCollectionTransformsKeepKnownElements(t *testing.T) {
 				t.Errorf("%s certainly holds %s, want %s", src, got, known)
 			}
 		}
+	}
+}
+
+// A mapping over an open collection counts what the mapper yields per element the
+// collection may hold beyond those known, so a mapper of fixed count keeps the count
+// exact and only an open mapper or an open collection leaves it open.
+func TestCollectOverOpenCollectionKeepsFiniteCounts(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, count := range map[string]string{
+		"(1, u)->ControlFunctions::collect{in x; x + 1}":                    "[2]",
+		"(1, u)->ControlFunctions::collect{in x; (x, x)}":                   "[4]",
+		"xs->ControlFunctions::collect{in x; x * 2.0}":                      "[2..4]",
+		"rack.loose->ControlFunctions::collect{in x; x.mass}":               "[0..2]",
+		"rack.gear->ControlFunctions::collect{in x; x.mass}":                "[1..*]",
+		"(1, u)->ControlFunctions::collect{in x; if x > 0 ? (1, 1) else 1}": "[3..4]",
+		"(1, u)->ControlFunctions::collect{in x; xs}":                       "[4..8]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{
+		"size((1, u)->ControlFunctions::collect{in x; x + 1})":      "2",
+		"size((1, u)->ControlFunctions::collect{in x; (x, x)})":     "4",
+		"size(u->ControlFunctions::collect{in x; x + 1})":           "1",
+		"size(rack.slots->ControlFunctions::collect{in x; x.mass})": "3",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+}
+
+// A feature declared to hold no value, `[0]`, reads as the empty sequence at model
+// level: the model fixes its count, so nothing about it is undetermined.
+func TestExactlyZeroFeatureReadsEmptyAtModelLevel(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		private import ISQ::*;
+		part def D;
+		attribute none : Integer[0];
+		attribute noMass :> ISQ::mass [0];
+		part rack { part vacant[0] : D; part lone : D; }
+	}`))
+	scope := oneSymbol(t, idx, "test").Scope
+	for src, want := range map[string]string{
+		"none": "[]", "noMass": "[]", "rack.vacant": "[]",
+		"size(none)": "0", "isEmpty(none)": "true", "isEmpty(rack.vacant)": "true", "size(rack.lone)": "1",
+		"NumericalFunctions::sum(noMass)": "0 [kg]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+}
+
+// A conditional over an open test holds as many values as either branch declares:
+// the fixed count both share, else the range covering both; a branch the
+// declarations leave open leaves the count open.
+func TestOpenConditionalKeepsBranchCounts(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, count := range map[string]string{
+		"if b ? 1 else 2":                              "[1]",
+		"if b ? known else r":                          "[1]",
+		"if b ? (1, 2) else xs":                        "[2..4]",
+		"if b ? 1 else ()":                             "[0..1]",
+		"if b ? rack.slots else rack.lone":             "[1..3]",
+		"if b ? rack.gear else 1":                      "[1..*]",
+		"if b ? 1 + 1 else 2":                          "[0..*]",
+		"ControlFunctions::'if'(b, 1, 2)":              "[1]",
+		"ControlFunctions::'if'(b, {1}, {(1, 2)})":     "[1..2]",
+		"ControlFunctions::'if'(b, xs, ())":            "[0..4]",
+		"ControlFunctions::'if'(b, {u + 1}, {(1, 2)})": "[0..*]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{
+		"size(if b ? 1 else 2)": "1", "notEmpty(if b ? rack.slots else rack.lone)": "true",
+		"size(ControlFunctions::'if'(b, 1, 2))": "1",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
 	}
 }
 

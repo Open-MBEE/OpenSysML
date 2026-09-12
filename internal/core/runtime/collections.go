@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -1075,18 +1076,32 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 	}
 	source := args[0]
 	elements := knownElementsOf(source)
-	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
+	// An element the source may hold beyond those known is mapped too, standing
+	// for each of them: how many values the mapper yields per unknown element.
+	over := elements
+	if mayHoldUnknown(source) {
+		over = append(slices.Clone(elements), unknownElementOf(source))
+	}
+	body, applied, err := ec.bodyOver(op, args[1], 1, over)
 	if err != nil {
 		return Value{}, err
 	}
 	// The mapper returns `Anything[0..*]`, so a mapper answering several values
 	// contributes them all: the collected sequence is flat, as every KerML
 	// sequence is.
-	if !applied || len(elements) == 0 {
+	if !applied || len(over) == 0 {
 		if source.Kind == ValUndetermined {
-			return undeterminedCollected(source, nil), nil
+			return undeterminedCollected(source, nil, semantics.CountRange(0)), nil
 		}
 		return ec.emptyMapping(args[1]), nil
+	}
+	fromUnknown := semantics.CountRange(0)
+	if len(over) > len(elements) {
+		perUnknown, err := ec.applyBody(body, over[len(elements)])
+		if err != nil {
+			return Value{}, err
+		}
+		fromUnknown = unknownCountOf(source).Times(countOf(perUnknown))
 	}
 	var mapped, answers []Value
 	var open bool
@@ -1106,7 +1121,7 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 		answers = append(answers, val)
 	}
 	if open || source.Kind == ValUndetermined {
-		return undeterminedCollected(source, answers), nil
+		return undeterminedCollected(source, answers, fromUnknown), nil
 	}
 	if len(mapped) == 0 {
 		if unit, ok := elementUnitOf(answers...); ok {

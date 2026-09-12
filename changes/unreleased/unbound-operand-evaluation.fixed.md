@@ -31,7 +31,12 @@
   decide from the certain elements of both sequences (`includes((1), (2, u))` and
   `excludes((1), (1, u))` are `false`), and indexing a certainly empty sequence by an open index
   (`()#(u)`) is the index error `()#(1)` is. Such a read holds nothing, so it is not charged to
-  the element budget.
+  the element budget. An undetermined value keeps the count the model fixes for it: `collect`
+  over an open collection counts what its body yields per element the collection may hold, so
+  `size((1, u)->collect{in x; x + 1})` is `2`; a conditional over an open test holds the count
+  its branches declare, so `size(if u > 0 ? 1 else 2)` is `1` and `if b ? (1, 2) else 3` holds
+  `[1..2]` values; and a feature declared `[0]` reads as the empty sequence, its count being
+  fixed.
 - **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
   called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
   Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run

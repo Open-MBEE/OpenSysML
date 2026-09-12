@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // registerNamedOperatorBuiltins adds the function-call forms of the operators
@@ -57,6 +59,23 @@ func (ec *EvalContext) evalDeferred(op string, val Value) (Value, error) {
 	return ec.applyBody(val)
 }
 
+// deferredCount is how many values evalDeferred would yield for val, as far as the
+// declarations fix that without evaluating it: `[0..*]` where they leave it open.
+func (ec *EvalContext) deferredCount(val Value) semantics.Range {
+	if val.Kind != ValExpr {
+		return countOf(val)
+	}
+	env := val.exprEnv(ec)
+	body, ok := val.Expr().(*ast.BodyExpr)
+	if !ok {
+		return ec.declaredCount(env.scope, val.Expr())
+	}
+	if body.Result == nil || env.scope == nil {
+		return openRange()
+	}
+	return ec.declaredCount(symbols.BodyExprScope(env.scope, body), body.Result)
+}
+
 // builtinControlIf is ControlFunctions::'if'(test, thenValue, elseValue): the
 // selected branch alone is evaluated, and an omitted branch is null.
 func builtinControlIf(ec *EvalContext, args []Value) (Value, error) {
@@ -65,7 +84,7 @@ func builtinControlIf(ec *EvalContext, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if args[0].Kind == ValUndetermined {
-		return undeterminedOf(openRange(), args[0]), nil
+		return undeterminedOf(ec.deferredCount(args[1]).Covering(ec.deferredCount(args[2])), args[0]), nil
 	}
 	held, err := boolOperand("test of "+op, args[0])
 	if err != nil {

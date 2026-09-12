@@ -216,18 +216,18 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 313 committed cases, the original 32, the 62 the
+prints the current ones. State of the 321 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases` and the 51 of `undetermined_operands.cases`:
+`extent_expressions.cases` and the 59 of `undetermined_operands.cases`:
 
 ```
-agree: 181 · kind-only: 1 · order-only: 0 · disagree: 19
-pilot-unevaluated: 70 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 16
+agree: 183 · kind-only: 1 · order-only: 0 · disagree: 22
+pilot-unevaluated: 71 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 18
 both-error: 8 · nondeterministic: 0
 ```
 
@@ -308,9 +308,10 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 51 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+The 59 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
 (`attribute u;`, no type, no value) and over usages whose multiplicity leaves the count open
-(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, and `fixed :> gear`), added
+(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear` and
+`vacant[0]`), added
 with the undetermined result they referee. Of the first 37, fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
 operand is the constant — `false and (u > 3)`, `true or (u == 1)` and `false implies (u == 1)`
 never read the second operand, and `(u > 3) and false`, `(u == 1) or true` and `(u == 1) implies
@@ -356,7 +357,7 @@ pilot agrees on all three decided forms: `(1, u)->exists{in x; x == 1}` is `true
 `1`, `(1, u)->forAll{in x; x > 2}` is `false` on the counterexample `1`, `anyTrue((true, u == 1))`
 is `true`; `(1, u)->exists{in x; x == 2}` is `ours-undetermined`, since `u` may be `2`.
 
-The last six probe what the elements two sequences certainly hold decide, and the pilot agrees
+The next six probe what the elements two sequences certainly hold decide, and the pilot agrees
 on every decided form: `includes((1), (2, u))` is `false`, the determined `(1)` lacking the `2`
 the second certainly holds, and `excludes((1), (1, u))` is `false`, both certainly holding `1`;
 `select` and `collect` over `(1, u)` apply their body to the `1` and keep what it yields, so
@@ -365,6 +366,20 @@ the second certainly holds, and `excludes((1), (1, u))` is `false`, both certain
 the `1` and possibly `u`, one or two values (the pilot's `1` is once more a count over the
 unevaluated usage). `()#(u)` is `pilot-unevaluated` (`IndexExpression #`); here it is the index
 error `()#(1)` is, since no index reaches into a sequence certainly empty.
+
+The last eight probe the counts an open value still fixes. A mapping counts what its body
+yields per element the collection may hold beyond those it certainly does, so a body of fixed
+count keeps the collection's own bounds: `size((1, u)->collect{in x; x + 1})` is `2` and agrees
+(the pilot mapping both elements, the second to an unevaluated `u + 1`), while `size(rack.loose->collect{in x;
+x})` is `ours-undetermined`, `[0..2]` like `loose` itself. `vacant[0]` declares a feature that
+holds nothing, a count the model fixes: `rack.vacant` reads as the empty sequence
+(`pilot-unevaluated`, the pilot returning the `PartUsage`), and `size(rack.vacant)` `0` and
+`isEmpty(rack.vacant)` `true` are two more `disagree`, the pilot's `1` and `false` counting the
+unevaluated usage as before. A conditional over an open test holds as many values as its
+branches declare: `size(if u > 0 ? 1 else 2)` is `1` and agrees, `size(if u > 0 ? (1, 2) else
+(3, 4))` is `2` and the last `disagree` (the pilot's `1` counts the unevaluated `if`), and
+`size(if u > 0 ? (1, 2) else 3)` is `ours-undetermined`, the branches fixing `[1..2]` between
+them.
 
 **Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
 `ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;

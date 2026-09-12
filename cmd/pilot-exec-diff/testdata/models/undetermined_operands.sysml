@@ -15,6 +15,7 @@ package T {
         part lone : D;
         part many[10001..*] : D;
         part fixed : D :> gear;
+        part vacant[0] : D;
     }
     enum def Mode { ON; OFF; }
 }

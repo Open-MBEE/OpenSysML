@@ -163,21 +163,31 @@ func undeterminedFiltered(source Value, kept, open []Value) Value {
 }
 
 // undeterminedCollected is a mapping's result over source when an answer is open or
-// source holds unknown elements: the answers' counts, and any count for the unknown.
-func undeterminedCollected(source Value, answers []Value) Value {
+// source holds unknown elements: the answers' counts plus those mapped from the unknown.
+func undeterminedCollected(source Value, answers []Value, fromUnknown semantics.Range) Value {
 	first, _ := undeterminedIn(append([]Value{source}, answers...)...)
-	count := semantics.CountRange(0)
+	count := fromUnknown
 	var known []Value
 	for _, answer := range answers {
 		count = count.Plus(countOf(answer))
 		known = append(known, knownElementsOf(answer)...)
 	}
-	if unknown := unknownCountOf(source); !unknown.Upper.Known || unknown.Upper.Infinite || unknown.Upper.Value > 0 {
-		count.Upper = semantics.Bound{Infinite: true, Known: true}
-	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
 		reason: first.Undetermined().Reason(), count: count, known: known,
 	}}
+}
+
+// mayHoldUnknown reports whether val may hold a value beyond those it certainly holds.
+func mayHoldUnknown(val Value) bool {
+	upper := unknownCountOf(val).Upper
+	return !upper.Known || upper.Infinite || upper.Value > 0
+}
+
+// unknownElementOf is one value of source beyond those it certainly holds, standing
+// for any of them: undetermined, a member of the feature source reads where it reads one.
+func unknownElementOf(source Value) Value {
+	u := source.Undetermined()
+	return undeterminedFeatureValue(u.Reason(), semantics.AssumedRange(), u.feature)
 }
 
 // unknownCountOf is the count of the values of val beyond those it certainly holds.

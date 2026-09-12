@@ -465,10 +465,30 @@ func (ctx *Context) emptyOfDeclared(scope *symbols.Scope, node ast.Node) (Value,
 
 // emptyOfFeature is emptyOfDeclared for the values a feature declares it holds.
 func (ctx *Context) emptyOfFeature(feat *EffectiveFeature) (Value, bool) {
-	if ctx.model.semantics == nil || feat == nil {
+	if feat == nil {
 		return Value{}, false
 	}
-	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfFeature(feat.heldBy()))
+	return ctx.emptyOfSymbol(feat.heldBy())
+}
+
+// emptyOfSymbol is emptyOfDeclared for the values a declared feature holds.
+func (ctx *Context) emptyOfSymbol(sym *symbols.Symbol) (Value, bool) {
+	if ctx.model.semantics == nil || sym == nil {
+		return Value{}, false
+	}
+	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfFeature(sym))
+}
+
+// declaredCount is how many values an expression holds wherever it is evaluated,
+// as far as the declarations it reads fix that: `[0..*]` where they leave it open.
+func (ec *EvalContext) declaredCount(scope *symbols.Scope, node ast.Node) semantics.Range {
+	if ec.ctx.model.semantics == nil || scope == nil {
+		return openRange()
+	}
+	if count, ok := ec.ctx.model.semantics.ValuesHeldBy(scope, node); ok {
+		return count
+	}
+	return openRange()
 }
 
 // emptyOfDimension is the empty sequence of quantities of a dimension, in its
@@ -866,9 +886,16 @@ func (ec *EvalContext) modelLevel() bool {
 }
 
 // undeterminedFeature is the model-level value of a feature nothing gives a
-// value to: as many values as its multiplicity states, none of them known.
+// value to: as many values as its multiplicity states, none of them known;
+// the empty sequence where it states there are none.
 func (ec *EvalContext) undeterminedFeature(sym *symbols.Symbol, spelled string) Value {
 	count := ec.ctx.featureMultiplicity(sym, ec.ctx.findOwnerType(sym))
+	if n, exact := count.Exactly(); exact && n == 0 {
+		if typed, ok := ec.ctx.emptyOfSymbol(sym); ok {
+			return typed
+		}
+		return sequenceOf(nil)
+	}
 	return undeterminedFeatureValue(noValueReason(spelled), count, sym)
 }
 
@@ -1811,9 +1838,10 @@ func (ec *EvalContext) evalConditional(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, err
 	}
 	// A condition the model leaves open selects no branch, so neither is
-	// evaluated; how many values the branches would hold stays open too.
+	// evaluated; the result holds as many values as either branch declares.
 	if cond.Kind == ValUndetermined {
-		return undeterminedOf(openRange(), cond), nil
+		count := ec.declaredCount(ec.scope, n.Operands[1]).Covering(ec.declaredCount(ec.scope, n.Operands[2]))
+		return undeterminedOf(count, cond), nil
 	}
 	held, err := boolOperand("condition of 'if'", cond)
 	if err != nil {
