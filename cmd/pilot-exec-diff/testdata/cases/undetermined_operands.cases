@@ -115,3 +115,18 @@ exists-constant-loose :: T :: rack.loose->ControlFunctions::exists{in x; true}
 div-unbound-by-zero :: U :: u / 0
 mod-unbound-by-zero :: U :: u % 0
 div-unbound-by-two :: U :: u / 2
+
+# A determined position outside every value the open operand may hold fails the
+# library function; one the operand's count admits leaves the result open.
+substring-unbound-zero :: U :: StringFunctions::Substring(s, 0, 2)
+substring-unbound-valid :: U :: StringFunctions::Substring(s, 1, 2)
+substring-unbound-inverted :: U :: StringFunctions::Substring(s, 3, 2)
+includingat-unbound-zero :: U :: SequenceFunctions::includingAt(xs, 1.0, 0)
+includingat-unbound-past :: U :: SequenceFunctions::includingAt(xs, 1.0, 6)
+includingat-unbound-valid :: U :: SequenceFunctions::includingAt(xs, 1.0, 1)
+subsequence-unbound-zero :: U :: SequenceFunctions::subsequence(xs, 0, 1)
+subsequence-unbound-past :: U :: SequenceFunctions::subsequence(xs, 2, 5)
+subsequence-unbound-valid :: U :: SequenceFunctions::subsequence(xs, 1, 2)
+excludingat-unbound-zero :: U :: SequenceFunctions::excludingAt(xs, 0)
+excludingat-unbound-past :: U :: SequenceFunctions::excludingAt(xs, 5)
+excludingat-unbound-valid :: U :: SequenceFunctions::excludingAt(xs, 1)

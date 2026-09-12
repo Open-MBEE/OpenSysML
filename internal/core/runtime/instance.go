@@ -735,8 +735,24 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 
 	// Lazy instantiation: a composite feature holds objects of its own.
 	if composite := ctx.CompositeTypeOf(fv.Feature); composite != nil {
-		// Check multiplicity (C2 + C1)
 		mult := fv.Feature.Multiplicity
+		// A model-level read makes up no collection whose count the model leaves open;
+		// a body binding a feature of the one object an optional scalar holds fixes it at one.
+		_, exact := mult.Exactly()
+		if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
+			release := ctx.elementScope()
+			contributed, err := ctx.subsettingContributions(inst, name)
+			release()
+			if err != nil {
+				return nil, err
+			}
+			if mult.MayAdmitMore(int64(len(contributed))) {
+				open.Stopped, open.Contributed = true, contributed
+				return fv, nil
+			}
+		}
+
+		// Check multiplicity (C2 + C1)
 		if !mult.Upper.Known || !mult.Lower.Known {
 			return nil, fmt.Errorf("cannot materialize feature %q with unknown multiplicity", name)
 		}
@@ -763,11 +779,6 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 			if err != nil {
 				release()
 				return nil, err
-			}
-			if _, exact := mult.Exactly(); open != nil && !exact && mult.AdmitsMore(int64(len(contributed))) {
-				open.Stopped, open.Contributed = true, contributed
-				release()
-				return fv, nil
 			}
 
 			// Guard against infinite/huge lower bound (C3)

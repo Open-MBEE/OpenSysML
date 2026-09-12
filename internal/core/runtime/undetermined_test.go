@@ -590,6 +590,100 @@ func TestDefiniteArithmeticErrorsSurviveOpenOperands(t *testing.T) {
 	}
 }
 
+// A determined index or position that names no place in any value the open operand may
+// hold fails the library function, as does one past the most the operand's count admits;
+// determined positions that select nothing answer empty, and the rest stays open.
+func TestDefiniteLibraryErrorsSurviveOpenOperands(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for _, src := range []string{
+		"StringFunctions::Substring(s, 0, 2)", "StringFunctions::Substring(s, -1, u)",
+		"StringFunctions::Substring(\"abc\", 2, 4)",
+		"includingAt(xs, 1.0, 0)", "includingAt(xs, 1.0, 6)", "includingAt((1.0, 2.0), r, 4)",
+		"subsequence(xs, 0, 1)", "subsequence(xs, 0)", "subsequence(xs, 2, 5)",
+		"excludingAt(xs, 0)", "excludingAt(xs, 5)", "excludingAt(xs, 2, 5)", "excludingAt(xs, u, 5)",
+		"excludingAt(xs, 3, 2)", "excludingAt((1.0, 2.0), u, 3)",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrIndexOutOfRange) {
+			t.Errorf("%s: err = %v, want ErrIndexOutOfRange", src, err)
+		}
+	}
+	for _, src := range []string{
+		"StringFunctions::Substring(s, \"a\", 2)", "StringFunctions::Substring(1, u, 2)",
+		"includingAt(xs, 1.0, 1.5)", "subsequence(xs, true)", "excludingAt(xs, 1, \"b\")",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: err = %v, want ErrTypeMismatch", src, err)
+		}
+	}
+	for src, want := range map[string]string{
+		"StringFunctions::Substring(s, 3, 2)": `""`, "subsequence(xs, 3, 2)": "[]", "subsequence(xs, 5, 1)": "[]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"StringFunctions::Substring(s, 1, 2)": "[1]", "StringFunctions::Substring(\"abc\", u, 2)": "[1]",
+		"StringFunctions::Substring(\"abc\", 1, u)": "[1]", "includingAt(xs, 1.0, 1)": "[3..5]",
+		"includingAt(xs, 1.0, 5)": "[3..5]", "includingAt((1.0, 2.0), r, 3)": "[3]", "includingAt(xs, r, u)": "[3..5]",
+		"subsequence(xs, 1, 2)": "[0..*]", "subsequence(xs, 2)": "[0..*]", "subsequence(xs, 4)": "[0..*]",
+		"subsequence((1.0, 2.0), u, 2)": "[0..*]", "subsequence((1.0, 2.0), 1, u)": "[0..*]",
+		"excludingAt(xs, 1)": "[0..*]", "excludingAt(xs, 2, 4)": "[0..*]",
+		"excludingAt((1.0, 2.0), u)": "[0..*]", "excludingAt(xs, u, 4)": "[0..*]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// A multiplicity bound the model does not evaluate fixes no count either: a model-level
+// read of such a feature is undetermined of those bounds, never a materialization error,
+// and the counts derived from it keep the bounds it does fix.
+func TestUnknownMultiplicityBoundsReadUndeterminedAtModelLevel(t *testing.T) {
+	const model = `package test {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		part def D { attribute mass : Real; }
+		attribute n : Natural;
+		part rack {
+			part vary[n] : D;
+			part some[1..n] : D;
+			part one[n..1] : D;
+			part optn[0..n] : D;
+			part held : D :> vary;
+		}
+		attribute a : Real[n];
+		attribute an : Real[1..n];
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+	scope := oneSymbol(t, idx, "test").Scope
+	for src, count := range map[string]string{
+		"rack.vary": "[1..?]", "size(rack.vary)": "[1]", "rack.vary.mass": "[1..?]", "rack.optn": "[0..?]",
+		"rack.some": "[1..?]", "size(rack.some)": "[1]", "rack.one": "[?..1]", "isEmpty(rack.one)": "[1]",
+		"a": "[?..?]", "size(a)": "[1]", "a + 1.0": "[0..1]", "(a, 1.0)": "[1..?]", "a ?? 1.0": "[1..?]",
+		"size((a, 1.0))": "[1]", "size((an, an))": "[1]", "isEmpty(a)": "[1]", "an->ControlFunctions::collect{in x; x * 2.0}": "[1..?]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{
+		"notEmpty(rack.vary)": "true", "isEmpty(rack.vary)": "false", "notEmpty(rack.some)": "true",
+		"notEmpty(an)": "true", "notEmpty((a, 1.0))": "true", "includes(rack.vary, rack.held)": "true",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	// An object stands behind no count it cannot evaluate: reading one through it still fails.
+	inst, err := ctx.Instantiate(oneSymbol(t, idx, "test::rack"))
+	if err != nil {
+		t.Fatalf("instantiate rack: %v", err)
+	}
+	for _, src := range []string{"vary", "size(some)", "one"} {
+		if _, err := ctx.EvalWithScopeOn(parseExpr(t, src), scope, inst); err == nil || !strings.Contains(err.Error(), "unknown multiplicity") {
+			t.Errorf("%s on an object: err = %v, want an unknown-multiplicity error", src, err)
+		}
+	}
+}
+
 // An instantiated object materializes its minimum multiplicity into real objects,
 // so through it the same features answer definitely; that contract does not change.
 func TestInstantiatedObjectKeepsMaterializedMinimums(t *testing.T) {

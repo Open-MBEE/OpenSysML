@@ -63,11 +63,16 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (329 cases, all sixteen default
+Reference values at the current implementation (345 cases, all seventeen default
 fixtures):
-`agree 187 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 74 ·
-pilot-silent 14 · pilot-error 2 · ours-error 2 · ours-undetermined 19 · both-error 8 ·
+`agree 187 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 81 ·
+pilot-silent 15 · pilot-error 7 · ours-error 2 · ours-undetermined 19 · both-error 11 ·
 nondeterministic 0`.
+Four of the seven `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
+model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
+value`) and resolves nothing in it afterwards, which is why those cases have a model of their
+own. A fifth is `subsequence-unbound-valid`, where the pilot indexes into the one unevaluated
+usage element (`IndexOutOfBoundsException: toIndex = 2`) and we answer `<undetermined>`.
 Five of the twenty-two `disagree` are in `undetermined_operands`: `size-slots`, where
 `size(rack.slots)` for a `part slots[3]` is `3` here, since `[3]` fixes the count, and `1`
 from the pilot, which counts the one unevaluated feature-reference operand;

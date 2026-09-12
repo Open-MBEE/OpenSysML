@@ -224,6 +224,24 @@ func indexOf(op string, val Value) (int64, error) {
 	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, describeValue(val))
 }
 
+// fixedIndex is indexOf for an index argument the model determines; an open one is unread.
+func fixedIndex(op string, val Value) (index int64, fixed bool, err error) {
+	return fixedArg(val, func(v Value) (int64, error) { return indexOf(op, v) })
+}
+
+// indexWithin rejects an index that names no position in a sequence of count values: below
+// first, or past the most positions the count admits, slack beyond its last element.
+func indexWithin(op, what string, index, first int64, count semantics.Range, slack int64) error {
+	last := count.Upper
+	if last.Known && !last.Infinite {
+		last.Value += slack
+	}
+	if index < first || (last.Known && !last.Infinite && index > last.Value) {
+		return fmt.Errorf("%w: %s %s %d is outside %d..%s", ErrIndexOutOfRange, op, what, index, first, last.Text())
+	}
+	return nil
+}
+
 // describeValue names a value's kind for a diagnostic, distinguishing the
 // numeric constants a single kind covers.
 func describeValue(val Value) string {
@@ -836,17 +854,22 @@ func builtinSequenceIncludingAt(ec *EvalContext, args []Value) (Value, error) {
 }
 
 // insertAt is seq with values inserted before its index-th element, or after
-// its last when index is one past it; any other index is out of range.
+// its last when index is one past it; any other index is out of range. An open
+// operand leaves the result open once the determined ones check out.
 func (ec *EvalContext) insertAt(op string, seq, values, at Value) (Value, error) {
-	elements, inserted := elementsOf(seq), elementsOf(values)
-	index, err := indexOf(op, at)
+	index, fixed, err := fixedIndex(op, at)
 	if err != nil {
 		return Value{}, err
 	}
-	if index < 1 || index > int64(len(elements))+1 {
-		return Value{}, fmt.Errorf("%w: %s insertion index %d is outside 1..%d",
-			ErrIndexOutOfRange, op, index, len(elements)+1)
+	if fixed {
+		if err := indexWithin(op, "insertion index", index, 1, countOf(seq), 1); err != nil {
+			return Value{}, err
+		}
 	}
+	if _, open := undeterminedIn(seq, values, at); open {
+		return undeterminedOf(countOf(seq).Plus(countOf(values)), seq, values, at), nil
+	}
+	elements, inserted := elementsOf(seq), elementsOf(values)
 	result := make([]Value, 0, len(elements)+len(inserted))
 	result = append(result, elements[:index-1]...)
 	result = append(result, inserted...)
@@ -864,29 +887,33 @@ func builtinSequenceSubsequence(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(subsequenceOp, args, 3); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	start, err := indexOf(subsequenceOp, args[1])
+	count := countOf(args[0])
+	start, startFixed, err := fixedIndex(subsequenceOp, args[1])
 	if err != nil {
 		return Value{}, err
 	}
-	end := int64(len(elements))
+	end, endFixed := count.Exactly()
 	if args[2].Kind != ValNull {
-		if end, err = indexOf(subsequenceOp, args[2]); err != nil {
+		if end, endFixed, err = fixedIndex(subsequenceOp, args[2]); err != nil {
 			return Value{}, err
 		}
 	}
-	if start < 1 {
-		return Value{}, fmt.Errorf("%w: SequenceFunctions::subsequence start index %d is outside 1..%d",
-			ErrIndexOutOfRange, start, len(elements))
+	if startFixed && start < 1 {
+		return Value{}, fmt.Errorf("%w: SequenceFunctions::subsequence start index %d is outside 1..%s",
+			ErrIndexOutOfRange, start, count.Upper.Text())
 	}
-	if start > end {
-		return ec.sequenceFrom(nil, args[0])
+	if startFixed && endFixed {
+		if start > end {
+			return ec.sequenceFrom(nil, args[0])
+		}
+		if err := indexWithin(subsequenceOp, "end index", end, 1, count, 0); err != nil {
+			return Value{}, err
+		}
 	}
-	if end > int64(len(elements)) {
-		return Value{}, fmt.Errorf("%w: SequenceFunctions::subsequence end index %d is outside 1..%d",
-			ErrIndexOutOfRange, end, len(elements))
+	if val, open := ec.ctx.openInvocation(subsequenceOp, args...); open {
+		return val, nil
 	}
-	return ec.sequenceFrom(elements[start-1:end], args[0])
+	return ec.sequenceFrom(elementsOf(args[0])[start-1:end], args[0])
 }
 
 // builtinSequenceExcludingAt is SequenceFunctions::excludingAt, the sequence
@@ -899,25 +926,35 @@ func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 3); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	start, err := indexOf(op, args[1])
+	count := countOf(args[0])
+	start, startFixed, err := fixedIndex(op, args[1])
 	if err != nil {
 		return Value{}, err
 	}
-	end := start
+	end, endFixed := start, startFixed
 	if args[2].Kind != ValNull {
-		if end, err = indexOf(op, args[2]); err != nil {
+		if end, endFixed, err = fixedIndex(op, args[2]); err != nil {
 			return Value{}, err
 		}
 	}
-	if start < 1 || start > int64(len(elements)) {
-		return Value{}, fmt.Errorf("%w: %s start index %d is outside 1..%d",
-			ErrIndexOutOfRange, op, start, len(elements))
+	if startFixed {
+		if err := indexWithin(op, "start index", start, 1, count, 0); err != nil {
+			return Value{}, err
+		}
 	}
-	if end < start || end > int64(len(elements)) {
-		return Value{}, fmt.Errorf("%w: %s end index %d is outside %d..%d",
-			ErrIndexOutOfRange, op, end, start, len(elements))
+	if endFixed {
+		first := int64(1)
+		if startFixed {
+			first = start
+		}
+		if err := indexWithin(op, "end index", end, first, count, 0); err != nil {
+			return Value{}, err
+		}
 	}
+	if val, open := ec.ctx.openInvocation(op, args...); open {
+		return val, nil
+	}
+	elements := elementsOf(args[0])
 	kept := make([]Value, 0, len(elements)-int(end-start+1))
 	kept = append(kept, elements[:start-1]...)
 	kept = append(kept, elements[end:]...)

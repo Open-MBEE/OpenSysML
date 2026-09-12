@@ -216,19 +216,20 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 329 committed cases, the original 32, the 62 the
+prints the current ones. State of the 345 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases` and the 67 of `undetermined_operands.cases`:
+`extent_expressions.cases`, the 79 of `undetermined_operands.cases` and the 4 of
+`unknown_bounds.cases`:
 
 ```
 agree: 187 · kind-only: 1 · order-only: 0 · disagree: 22
-pilot-unevaluated: 74 · pilot-silent: 14 · pilot-error: 2 · ours-error: 2 · ours-undetermined: 19
-both-error: 8 · nondeterministic: 0
+pilot-unevaluated: 81 · pilot-silent: 15 · pilot-error: 7 · ours-error: 2 · ours-undetermined: 19
+both-error: 11 · nondeterministic: 0
 ```
 
 The six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
@@ -308,8 +309,9 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 67 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
-(`attribute u;`, no type, no value) and over usages whose multiplicity leaves the count open
+The 79 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+(`attribute u;`, no type, no value; beside it `s : String` and `xs : Real[2..4]`, typed and
+valueless) and over usages whose multiplicity leaves the count open
 (`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear` and
 `vacant[0]`), added
 with the undetermined result they referee. Of the first 37, fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
@@ -392,6 +394,29 @@ true}` is `ours-undetermined`, `loose` possibly holding nothing, where the pilot
 quantifies over the unevaluated `PartUsage`. A zero divisor fails a division whatever the open
 operand holds: `u / 0` and `u % 0` are the `division by zero` error here and
 `pilot-unevaluated` (`OperatorExpression /`, `%`), as is `u / 2`, which stays `<undetermined>`.
+
+The last twelve probe the positions a library function checks before it reads its open
+operand. A determined position that names no place in any value the operand may hold fails
+the function: `Substring(s, 0, 2)`, `includingAt(xs, 1.0, 0)`, `subsequence(xs, 0, 1)` and
+`excludingAt(xs, 0)` are the index error here, as are `includingAt(xs, 1.0, 6)`,
+`subsequence(xs, 2, 5)` and `excludingAt(xs, 5)`, positions past the most `xs : Real[2..4]`
+admits. The pilot leaves the four zero-index forms unevaluated (`pilot-unevaluated`, the
+`InvocationExpression` or the unevaluated `AttributeUsage xs`) and throws
+`IndexOutOfBoundsException` for the three past-the-end forms (`both-error`) — by indexing into
+the one unevaluated usage element, so `subsequence(xs, 1, 2)` throws too (`pilot-error`,
+`toIndex = 2` over a one-element list) where it is `<undetermined>` here, as are
+`Substring(s, 1, 2)` and `includingAt(xs, 1.0, 1)` (`pilot-unevaluated`) and
+`excludingAt(xs, 1)` (`pilot-silent`), positions every value of the operand admits.
+`Substring(s, 3, 2)` selects nothing whatever `s` holds and is `""` (`pilot-unevaluated`).
+
+The 4 `unknown_bounds.cases` probe usages whose bounds name a feature the model gives no
+value: `a : Real[n]` and `an : Real[1..n]` over a valueless `n : Natural`. The pilot rejects
+the model itself — `Must have a Natural value` on both declarations — and then resolves no name
+in it, so all four are `pilot-error` (they are kept to their own model so the rejection reaches
+no other case). A bound the model does not evaluate fixes no count either, so `a`, `size(a)`
+and `isEmpty(a)` are `<undetermined>` here, of the bounds the declaration does fix, and
+`notEmpty(an)` is `true` from the lower bound `1`; an object-level read of such a usage is the
+`unknown multiplicity` error it always was.
 
 **Boolean folding on the second operand.** The conditional `and`, `or` and `implies` live in
 `ControlFunctions.kerml` of the Kernel Function Library (`BaseFunctions` declares none of them;

@@ -399,7 +399,15 @@ func (r Range) Plus(o Range) Range {
 // addRanges is the values two collections hold together; a bound summing past int64 exceeds
 // every multiplicity bound, so it is unbounded.
 func addRanges(a, b Range) Range {
-	return Range{Lower: addBounds(a.Lower, b.Lower), Upper: addBounds(a.Upper, b.Upper)}
+	return Range{Lower: addBounds(atLeast(a.Lower), atLeast(b.Lower)), Upper: addBounds(a.Upper, b.Upper)}
+}
+
+// atLeast is the fewest values a lower bound certainly admits: none where it is not evaluable.
+func atLeast(lower Bound) Bound {
+	if !lower.Known {
+		return Bound{Known: true}
+	}
+	return lower
 }
 
 // Times is the values held through each value of r, each holding o: the product of their bounds.
@@ -408,21 +416,28 @@ func (r Range) Times(o Range) Range {
 }
 
 // Covering is the least range admitting every count either range admits: the lesser lower
-// bound and the greater upper bound, an unknown bound deferring to a known one.
+// bound and the greater upper bound, the upper unknown where either is not evaluable.
 func (r Range) Covering(o Range) Range {
-	return Range{Lower: lesserBound(r.Lower, o.Lower), Upper: greaterBound(r.Upper, o.Upper)}
+	covering := Range{Lower: lesserBound(atLeast(r.Lower), atLeast(o.Lower))}
+	if r.Upper.Known && o.Upper.Known {
+		covering.Upper = greaterBound(r.Upper, o.Upper)
+	}
+	return covering
 }
 
 // mulRanges is the values held through each value of a, each holding b; a bound multiplying
 // past int64 exceeds every multiplicity bound, so it is unbounded.
 func mulRanges(a, b Range) Range {
-	return Range{Lower: mulBounds(a.Lower, b.Lower), Upper: mulBounds(a.Upper, b.Upper)}
+	return Range{Lower: mulBounds(atLeast(a.Lower), atLeast(b.Lower)), Upper: mulBounds(a.Upper, b.Upper)}
 }
 
 var unbounded = Bound{Infinite: true, Known: true}
 
-// addBounds is a + b, unbounded past where int64 reaches.
+// addBounds is a + b: unknown where either is, unbounded past where int64 reaches.
 func addBounds(a, b Bound) Bound {
+	if !a.Known || !b.Known {
+		return Bound{}
+	}
 	if a.Infinite || b.Infinite || a.Value > math.MaxInt64-b.Value {
 		return unbounded
 	}
@@ -449,10 +464,14 @@ func maxBound(a, b Bound) Bound {
 	return b
 }
 
-// mulBounds is a × b, none through none, unbounded past where int64 reaches.
+// mulBounds is a × b: none through none, else unknown where either is, unbounded past
+// where int64 reaches.
 func mulBounds(a, b Bound) Bound {
-	if (!a.Infinite && a.Value == 0) || (!b.Infinite && b.Value == 0) {
+	if (a.Known && !a.Infinite && a.Value == 0) || (b.Known && !b.Infinite && b.Value == 0) {
 		return Bound{Known: true}
+	}
+	if !a.Known || !b.Known {
+		return Bound{}
 	}
 	if a.Infinite || b.Infinite || a.Value > math.MaxInt64/b.Value {
 		return unbounded

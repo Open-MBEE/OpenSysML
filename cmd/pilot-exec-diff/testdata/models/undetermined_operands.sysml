@@ -2,6 +2,8 @@ package U {
     private import ScalarValues::*;
     private import SequenceFunctions::*;
     attribute u;
+    attribute s : String;
+    attribute xs : Real[2..4];
 }
 
 package T {

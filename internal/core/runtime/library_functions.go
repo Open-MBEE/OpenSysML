@@ -1152,31 +1152,45 @@ func stringLength(name string, _ *Context, args []Value) (Value, error) {
 }
 
 // stringSubstring is StringFunctions::Substring: characters lower to upper
-// inclusive, 1-based, bounded as SequenceFunctions::subsequence is.
-func stringSubstring(name string, _ *Context, args []Value) (Value, error) {
-	x, err := stringArg(name, "x", args[0])
+// inclusive, 1-based, bounded as SequenceFunctions::subsequence is. An open
+// argument leaves the result open once the determined ones check out.
+func stringSubstring(name string, ctx *Context, args []Value) (Value, error) {
+	var chars []rune
+	last := semantics.Bound{Infinite: true, Known: true}
+	if args[0].Kind != ValUndetermined {
+		x, err := stringArg(name, "x", args[0])
+		if err != nil {
+			return Value{}, err
+		}
+		chars = []rune(x)
+		last = semantics.Bound{Value: int64(len(chars)), Known: true}
+	}
+	position := func(param string) func(Value) (int64, error) {
+		return func(v Value) (int64, error) { return stringPositionArg(name, param, v) }
+	}
+	lower, lowerFixed, err := fixedArg(args[1], position("lower"))
 	if err != nil {
 		return Value{}, err
 	}
-	lower, err := stringPositionArg(name, "lower", args[1])
+	upper, upperFixed, err := fixedArg(args[2], position("upper"))
 	if err != nil {
 		return Value{}, err
 	}
-	upper, err := stringPositionArg(name, "upper", args[2])
-	if err != nil {
-		return Value{}, err
+	if lowerFixed && lower < 1 {
+		return Value{}, fmt.Errorf("%w: function %s lower character %d is outside 1..%s",
+			ErrIndexOutOfRange, name, lower, last.Text())
 	}
-	chars := []rune(x)
-	if lower < 1 {
-		return Value{}, fmt.Errorf("%w: function %s lower character %d is outside 1..%d",
-			ErrIndexOutOfRange, name, lower, len(chars))
+	if lowerFixed && upperFixed {
+		if lower > upper {
+			return Value{Kind: ValString}, nil
+		}
+		if !last.Infinite && upper > last.Value {
+			return Value{}, fmt.Errorf("%w: function %s upper character %d is outside 1..%d",
+				ErrIndexOutOfRange, name, upper, last.Value)
+		}
 	}
-	if lower > upper {
-		return Value{Kind: ValString}, nil
-	}
-	if upper > int64(len(chars)) {
-		return Value{}, fmt.Errorf("%w: function %s upper character %d is outside 1..%d",
-			ErrIndexOutOfRange, name, upper, len(chars))
+	if val, open := ctx.openInvocation(name, args...); open {
+		return val, nil
 	}
 	return NewStringValue(string(chars[lower-1 : upper])), nil
 }

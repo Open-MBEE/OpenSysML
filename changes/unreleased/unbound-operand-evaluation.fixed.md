@@ -41,7 +41,14 @@
   that does not depend on the element decides a quantifier over a collection certainly holding
   one, so `gear->exists{in x; true}` is `true` and `gear->forAll{in x; false}` is `false`. A
   determined operand that alone fails an operation still fails it: `u / 0` and `u % 0` are
-  `division by zero`, in the operator and the `RealFunctions::'/'` forms alike.
+  `division by zero`, in the operator and the `RealFunctions::'/'` forms alike, and a determined
+  position no value of an open operand admits fails `Substring`, `includingAt`, `subsequence`
+  and `excludingAt` (`Substring(s, 0, 2)`, `excludingAt(xs, 5)` for `xs : Real[2..4]`) as
+  `index out of range`, where a position every value admits leaves the result `<undetermined>`.
+  A multiplicity bound the model does not evaluate (`a : Real[n]` over a valueless `n`) fixes no
+  count either: such a read is `<undetermined>` of the bounds the declaration does fix rather
+  than the `cannot materialize … with unknown multiplicity` error, which stays the object-level
+  answer.
 - **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
   called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
   Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run

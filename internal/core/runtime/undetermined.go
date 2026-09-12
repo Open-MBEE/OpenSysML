@@ -115,7 +115,7 @@ func undeterminedResult(operands ...Value) Value {
 	first, _ := undeterminedIn(operands...)
 	count := semantics.AssumedRange()
 	for _, v := range operands {
-		if u := v.Undetermined(); u != nil && u.Count().AllowsNone() {
+		if u := v.Undetermined(); u != nil && !guaranteesOne(u.Count()) {
 			count = optionalRange()
 		}
 	}
@@ -229,6 +229,11 @@ var undeterminedAware = map[string]bool{
 	"SequenceFunctions::#":        true,
 	"BaseFunctions::#":            true,
 	"BaseFunctions::,":            true,
+	// These validate the arguments the model determines before leaving the result open.
+	"SequenceFunctions::includingAt": true,
+	"SequenceFunctions::subsequence": true,
+	"SequenceFunctions::excludingAt": true,
+	"StringFunctions::Substring":     true,
 }
 
 // undeterminedInvocation applies a function that does not decide open arguments
@@ -237,10 +242,25 @@ func (ctx *Context) undeterminedInvocation(name string, args []Value) (Value, bo
 	if undeterminedAware[name] {
 		return Value{}, false
 	}
+	return ctx.openInvocation(name, args...)
+}
+
+// openInvocation is the result of applying the function name to args when one of them
+// is open: undetermined, of the count the library declares for the result.
+func (ctx *Context) openInvocation(name string, args ...Value) (Value, bool) {
 	if _, open := undeterminedIn(args...); !open {
 		return Value{}, false
 	}
 	return undeterminedOf(ctx.libraryResultCount(name), args...), true
+}
+
+// fixedArg reads an argument the model determines through read; an open one is unread.
+func fixedArg(val Value, read func(Value) (int64, error)) (n int64, fixed bool, err error) {
+	if val.Kind == ValUndetermined {
+		return 0, false, nil
+	}
+	n, err = read(val)
+	return n, err == nil, err
 }
 
 // libraryResultCount is the multiplicity the library declares for the result of
