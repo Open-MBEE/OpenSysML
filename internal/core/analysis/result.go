@@ -303,6 +303,9 @@ type Budget struct {
 	Runs int
 	// Depth is how many moves one run may resolve.
 	Depth int
+	// Unroll is how many iterations of a body loop a symbolic engine unrolls; zero is
+	// the engine's default.
+	Unroll int
 	// Steps is the step budget of one run, as OPENSYSML_MAX_STEPS names it.
 	Steps int
 	// Solver is the time one query may take, as OPENSYSML_SMT_TIMEOUT names it.

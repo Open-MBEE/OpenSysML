@@ -129,7 +129,7 @@ func TestBodyWhileBeyondUnrollingIsBounded(t *testing.T) {
 	d := indexed(t, "loops.sysml", loopsSrc)
 	q := d.holds(t, "test::Body", "")
 
-	cut := answer(t, New(nil).Unrolling(1), d, q, analysis.Budget{Depth: 6})
+	cut := answer(t, New(nil), d, q, analysis.Budget{Depth: 6, Unroll: 1})
 	expect(t, cut, analysis.ClaimHolds, analysis.Bounded)
 	if unroll := bound(t, cut, "unroll"); !unroll.Reached || unroll.Limit != 1 {
 		t.Errorf("unroll bound %+v, want 1 reached", unroll)
