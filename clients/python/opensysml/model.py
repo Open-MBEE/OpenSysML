@@ -370,18 +370,27 @@ class Model:
         """The outermost, first-declared symbol whose short name is ``name``.
 
         A service that can query answers which elements carry a name in one
-        call. Without that, or when an erroring model may hold a name the query
-        cannot see (one taken from an unresolved redefinition), the tree is
-        walked symbol by symbol.
+        call. Without that the tree is walked symbol by symbol. An erroring
+        model may hold a name the query cannot see (one taken from an
+        unresolved redefinition) at any depth, so there the tree is walked as
+        far down as the query's best answer, which the walk itself reaches.
         """
         if not self._client.server_info().has(CAPABILITY_QUERY):
             return self._walk_to(name)
         named = self._query(_PROPERTY_NAME, name, select=[_PROPERTY_OWNER])
-        for fqn in self._outermost_first(named):
+        ids = [element.id for element in named]
+        if len(ids) > 1 or (ids and not self.ok):
+            depth = self._depths(named)
+            ids.sort(key=depth.__getitem__)
+        if not self.ok:
+            symbol = self._walk_to(name, depth[ids[0]] if ids else None)
+            if symbol is not None:
+                return symbol
+        for fqn in ids:
             symbol = self._symbol_by_id(fqn)
             if symbol is not None:
                 return symbol
-        return None if self.ok else self._walk_to(name)
+        return None
 
     def _query(self, prop, value, select):
         """The elements whose ``prop`` is ``value`` (any of them, given a list)."""
@@ -396,16 +405,15 @@ class Model:
             },
         )
 
-    def _outermost_first(self, elements):
-        """The ids of ``elements`` by nesting depth, declaration order among equals.
+    def _depths(self, elements):
+        """The nesting depth below the root of each of ``elements``, by id.
 
         Depth is counted up the owner chain rather than from the id's ``::``
         segments, which a quoted name may contain itself. Each hop up costs one
-        call, and only when the name is shared.
+        call, so callers ask only when the answer decides the lookup. A chain
+        that ends short of the root, as under a file's unnamed root every chain
+        does, ends one level below it.
         """
-        ids = [element.id for element in elements]
-        if len(ids) < 2:
-            return ids
         owner = {self.root.id: ""}
         owner.update((element.id, element.get(_PROPERTY_OWNER, "")) for element in elements)
         unknown = {fqn for fqn in owner.values() if fqn and fqn not in owner}
@@ -421,22 +429,30 @@ class Model:
             while owner.get(fqn):
                 fqn = owner[fqn]
                 hops += 1
-            return hops
+            return hops if fqn == self.root.id else hops + 1
 
-        return sorted(ids, key=depth)
+        return {element.id: depth(element.id) for element in elements}
 
-    def _walk_to(self, name):
-        """The first symbol named ``name`` in breadth-first order, or None."""
-        return next((s for s in self._walk() if s.name == name), None)
+    def _walk_to(self, name, depth=None):
+        """The first symbol named ``name`` in breadth-first order, or None.
 
-    def _walk(self):
-        """Every symbol below the root, breadth-first, one call per symbol."""
-        queue = [self.root]
+        ``depth`` bounds the walk to the symbols that many levels below the root.
+        """
+        return next((s for s in self._walk(depth) if s.name == name), None)
+
+    def _walk(self, depth=None):
+        """Every symbol below the root, breadth-first, one call per symbol.
+
+        ``depth`` bounds the walk to the symbols that many levels below the root.
+        """
+        queue = [(self.root, 0)]
         while queue:
-            current = queue.pop(0)
+            current, level = queue.pop(0)
+            if depth is not None and level >= depth:
+                continue
             for child in current.children():
                 yield child
-                queue.append(child)
+                queue.append((child, level + 1))
 
     def eval(self, expression, context_symbol_id=None, subject=None):
         """Evaluate a SysML expression against this model.
