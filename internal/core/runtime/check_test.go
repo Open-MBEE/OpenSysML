@@ -417,6 +417,72 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 	}
 }
 
+// An accept whose `via` port does not resolve is the routing error on every
+// schedule that brings it a message to route, never a deadlock: the checker
+// reaches the accept's move both before and after the sibling branch's write.
+func TestCheckReportsAnUnresolvedViaPortAsTheRoutingError(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		port def Chan { out attribute v : Integer; }
+		part def Listener {
+			port out : Chan;
+			port other : ~Chan;
+			port in : ~Chan = 1 / 0;
+			connect out to other;
+			action listen {
+				attribute got : Integer = 0;
+				attribute fed : Boolean = false;
+				first start;
+				fork f;
+				action feed { send 4 via out; }
+				action noteFed { assign fed := true; }
+				action reader accept v : Integer via in;
+				action note { assign got := reader.v; }
+				join j;
+				done;
+				succession first start then f;
+				succession first f then feed;
+				succession first f then reader;
+				succession first feed then noteFed;
+				succession first reader then note;
+				succession first noteFed then j;
+				succession first note then j;
+				succession first j then done;
+			}
+		}
+	}`)
+	listen := m.idx.LookupQualified("test::Listener::listen")[0]
+	part := m.idx.LookupQualified("test::Listener")[0]
+	start := func(ctx *Context) (*ActionExecutor, error) {
+		self, err := ctx.Instantiate(part)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.CreateActionExecutorFor(listen, self)
+	}
+	for _, opts := range []CheckOptions{reduced(), unreduced()} {
+		report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, opts, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if report.Verdict != CheckViolation || len(report.Violations) != 2 {
+			t.Fatalf("reduce=%v: %s with %d violations, want the routing error on both schedules", opts.Reduce, report.Status(), len(report.Violations))
+		}
+		for _, v := range report.Violations {
+			if v.Kind != ViolationFailure || !errors.Is(v.Err, ErrDivisionByZero) {
+				t.Fatalf("reduce=%v: violation %s (%v), want the port's %v", opts.Reduce, v.Kind, v.Err, ErrDivisionByZero)
+			}
+			if errors.Is(v.Err, ErrAcceptDeadlock) || errors.Is(v.Err, ErrActionDeadlock) {
+				t.Fatalf("reduce=%v: the routing failure is reported as a deadlock: %v", opts.Reduce, v.Err)
+			}
+			r := replayWitness(t, m, start, v.Witness, "accept via in")
+			if !errors.Is(r.Err, ErrDivisionByZero) {
+				t.Fatalf("reduce=%v: the replay ends with %v, want %v", opts.Reduce, r.Err, ErrDivisionByZero)
+			}
+		}
+	}
+}
+
 // A loop through a merge stops at the depth bound, named, without claiming exhaustiveness.
 func TestCheckMergeLoopHitsTheDepthBound(t *testing.T) {
 	m := parseExploreModel(t, `package test {
