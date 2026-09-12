@@ -41,7 +41,7 @@ func (ElementFilterPass) Run(ctx *Context, name string, root *ast.RootNamespace)
 	}
 	fc.expr.walkMembers = fc.expr.checkMemberOperators
 	fc.walk(rootScope)
-	return append(fc.diags, fc.expr.diags...)
+	return append(fc.diags, fc.expr.diagnostics()...)
 }
 
 type filterChecker struct {

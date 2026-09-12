@@ -173,6 +173,10 @@ Every difference from the published numbers is accounted for, and none of it is 
 - **Release `2026-08` (+1).** The only `.xt` change between the `2026-07` and `2026-08` tags adds
   one `errors` assertion, `validation/AssociationTest_CrossFeatures_invalid.kerml.xt`:66
   (`At most one cross subsetting is allowed` at `a.y`), which agrees word-for-word.
+- **Argument-binding conformance (+1 agree, −1 disagree).** `BindingConnector_Invalid2.sysml.xt:42`
+  (`Bound features should have conforming types` at `rearWheel+1`) agrees word-for-word: the type
+  checker now judges the binding each operator or invocation argument implies to the parameter it
+  fills, which is what the pilot's `checkImplicitBindingConnectors` does. `warnings` is 113 of 113.
 
 ---
 
@@ -181,7 +185,7 @@ Every difference from the published numbers is accounted for, and none of it is 
 ```
 429 .xt file(s), 0 unparsed, 0 missing declared resource(s)
 1264 assertion(s) declaring 1326 expectation(s)
-agree 1295 (of which wording-only 248) | disagree 31 | unlocated 0 | not adjudicated 0
+agree 1296 (of which wording-only 248) | disagree 30 | unlocated 0 | not adjudicated 0
 ```
 
 | Kind | Expectations | Agree | of which wording-only | Disagree | Not adjudicated | `same-location` | `same-line` | `severity-differs` | `elsewhere` | nothing |
@@ -189,7 +193,7 @@ agree 1295 (of which wording-only 248) | disagree 31 | unlocated 0 | not adjudic
 | `errors` | 512 | 493 | 248 | 19 | 0 | 10 | 7 | 0 | 2 | 0 |
 | `noErrors` | 276 | 265 | — | 11 | 0 | — | — | — | — | — |
 | `linkedName` | 194 | 194 | — | 0 | 0 | — | — | — | — | — |
-| `warnings` | 113 | 112 | — | 1 | 0 | 0 | 0 | 0 | 0 | 1 |
+| `warnings` | 113 | 113 | — | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `scope` | 230 | 230 | — | 0 | 0 | — | — | — | — | — |
 | `exportedObjects` | 1 | 1 | — | 0 | 0 | — | — | — | — | — |
 
@@ -198,12 +202,12 @@ Per suite:
 | Suite | Files | Expectations | Agree | Disagree | Not adjudicated |
 |---|---:|---:|---:|---:|---:|
 | `kerml` | 303 | 968 | 948 | 20 | 0 |
-| `sysml` | 126 | 358 | 347 | 11 | 0 |
+| `sysml` | 126 | 358 | 348 | 10 | 0 |
 
 **Read the `errors` row carefully: 248 of its 492 agreements are wording-only, so more than half of
 that column is us stating the pilot's rule in our own words rather than a rule written against its
 text.** The 245 word-for-word rows are the ones where a rule was implemented against the declared
-message. `warnings` shows the same effect from the other side: its 112 agreements are the
+message. `warnings` shows the same effect from the other side: its 113 agreements are the
 duplicate-member-name, visibility and library rules written against the pilot's declared
 wording, so they match by construction rather than by luck. `noErrors` and `linkedName` are
 wording-independent, and they are where this oracle adjudicates most directly.
@@ -224,7 +228,7 @@ run` column is that run's own measurement:
 |---|---|---|---|
 | `linkedName` | 151 / 194 | **194 / 194** | alias-introduced names resolve to the aliased element, and the `~ B::f` conjugation form parses |
 | `noErrors` | 231 / 275 | **265 / 276** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; five rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for, each adjudicated below |
-| `warnings` | 0 / 113 | **112 / 113** | the duplicate-member-name warnings, the earlier rules written against the declared wording, the library rules, the warnings residue, the usage-typing rules, and Step 3's binary-interface end typing |
+| `warnings` | 0 / 113 | **113 / 113** | the duplicate-member-name warnings, the earlier rules written against the declared wording, the library rules, the warnings residue, the usage-typing rules, Step 3's binary-interface end typing, and the binding each operator or invocation argument implies |
 | `errors` | 0 / 510 | **493 / 512** | 245 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
 | `scope` | 73 / 230 | **230 / 230** | the library-member resolver work resolves implicit and inherited members through the library (`library-names` 125 → 27), the visibility reconciliation reconciles the protected and shadowed paths, the re-entry bound bounds re-entry to one per name, the anchor-and-residue work fixes the quoted anchor and stops a recursive import's descent carrying implicit generals, and the scope-traversal work bounds derived `self`/`that` paths and anchors a scope assertion on the reference its text names |
 
@@ -253,11 +257,13 @@ Independent fresh-cache runs of exact base `4b9baf2d` and this tree move Xpect f
 No lower-tier fix unmasks a new Xpect diagnostic. `InterfaceUsage_Invalid.sysml.xt:49` stays a
 same-location disagreement and is a **pilot limitation**: SysML v2 §7.14.1 permits three or more
 interface ends, while §7.14.2 and §8.3.14.2 constrain the binary subtype only.
-`BindingConnector_Invalid2.sysml.xt:42` stays the sole warnings gap: KerML's binding rule constrains
-the related features of a binding connector, but no numbered normative constraint was found for the
-pilot's argument-level warning on the operator expression `rearWheel+1`; the pilot validator source
-marks that conformance check TODO. It is therefore recorded as a **pilot limitation**, not
-implemented by special-casing the expression.
+`BindingConnector_Invalid2.sysml.xt:42` stayed the sole warnings gap through this round, recorded
+then as a pilot limitation on the reading that the pilot's argument-level check is a commented-out
+TODO. That reading was incomplete: the TODO is `validateBindingConnectorArgumentTypeConformance`,
+but the warning at `rearWheel+1` comes from the active `validateBindingConnectorTypeConformance`
+run over the binding connectors the pilot synthesizes from each argument to its parameter (KerML
+1.1 §8.3.4.8.3). It is closed in the argument-binding conformance round, which judges the same
+implied bindings in the type checker — see [warnings](#warnings--113-of-113-and-the-severity-finding-is-closed).
 
 **The `nothing` column is empty for the first time**: the added parser productions let
 `Type_Multiplicity_invalid` reach its validation rule and gave `ScopeWithFourDotAndDot` a real
@@ -434,9 +440,9 @@ rows. No row here is unsatisfiable any more.
 
 ---
 
-## warnings — 112 of 113, and the severity finding is closed
+## warnings — 113 of 113, and the severity finding is closed
 
-112 rows agree, all of them word-for-word: no `warnings` row is wording-only. The first 11 were duplicate-member-name warnings implemented with the alias-identity work
+113 rows agree, all of them word-for-word: no `warnings` row is wording-only. The first 11 were duplicate-member-name warnings implemented with the alias-identity work
 round from the pilot's declared text — 6 in `MembershipTests_Distinguishability.kerml.xt`, and 5
 across the `Redefinition_Diamond*_invalid` / `RedefinitionDiamond*_invalid` pairs; a later round added 12
 more, the multiplicity-upper-bound rule among them; **the library-rule work added 66**, the library inherited-name
@@ -445,11 +451,19 @@ diamond chief among them, and later rounds closed 10 and then 12 more — the ne
 error. All of them match by construction rather than by luck, because each was written against the
 declared text.
 
-The remaining row is `BindingConnector_Invalid2.sysml.xt:42`: the pilot declares `Bound features
-should have conforming types` on `rearWheel+1`, while OpenSysML has no feature endpoint to compare
-at that expression. Step 3 classifies it as a **pilot limitation**: KerML constrains the related
-features of a binding connector, but no numbered normative constraint was found for this
-argument-level operator-expression warning, and the pilot validator source marks the check TODO.
+The last row to close was `BindingConnector_Invalid2.sysml.xt:42`: the pilot declares `Bound
+features should have conforming types` on `rearWheel+1`, where `rearWheel : Wheel[2]` fills the
+`Real`-typed `x` parameter of `DataFunctions::'+'`. It had been recorded as a pilot limitation on the
+reading that the pilot's argument-level check is a commented-out TODO; the warning in fact comes from
+the active binding-conformance rule run over the binding connectors the pilot synthesizes from each
+argument to the parameter it fills (KerML 1.1 §8.3.4.8.3). The type checker now judges the same
+implied bindings (`internal/core/passes/w9c_argument_bindings.go`): the argument's static result
+types against the selected function's corresponding input parameter, under the same symmetric
+conformance test the explicit `bind` rule uses, silent whenever either side is unknown — an
+unresolved or ambiguous callee, an untyped argument, a collection-valued argument, a parameter typed
+by a `Collection` or by `Element` — and silent where a precise type error already covers the
+argument. The warning sits where the pilot puts it: on the argument of an invocation, on the whole
+operator expression. No other Xpect row moves, and none of the four corpus roots gains a row.
 
 **The severity defect the first run found is closed: it was 60 rows before the library-rule work and is 0 now.**
 The pilot declares:
@@ -520,7 +534,7 @@ What is still open in the family, by reproducer:
 | Rows | Reproducer | Why it still disagrees |
 |---:|---|---|
 | 0 | `InterfaceUsage_Invalid.sysml.xt:78` | Closed in Step 3: exactly two-ended interfaces implicitly specialize `Interfaces::BinaryInterface`, and positional end redefinition supplies the inherited port-typed end. |
-| 1 | `BindingConnector_Invalid2.sysml.xt:42` | Pilot limitation: no numbered normative constraint was found for argument-level conformance on the operator expression `rearWheel+1`; the pilot validator marks that check TODO. |
+| 0 | `BindingConnector_Invalid2.sysml.xt:42` | Closed in the argument-binding conformance round: the operator's `Wheel`-typed operand is bound to a `Real` parameter, and the type checker judges that implied binding as the pilot's active binding-conformance rule does. |
 | 0 | `ActionUsage_invalid.sysml.xt:61`, `StateUsage_invalid.sysml.xt:87`, `OccurrenceUsage_invalid.sysml.xt:59` | Closed: the warning now lands on the nested `perform b.a;` / `exhibit s.sa;` reference usage and the `b.a` expression inside it, where the pilot reports it, rather than on the referenced declaration. |
 | 0 | `Specialization_invalid.kerml.xt:56,60` | Closed in the KerML structural-residue work, which runs `validateSpecializationSpecificNotConjugated` at the type tier so a metaclass error in the same file no longer hides it. |
 | 0 | `AttributeUsage_invalid.sysml.xt:47,52` | Closed with the declared-type reading, without reintroducing the `'self' from DataValue, …` false positives across the pilot-corpora roots. |
