@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -255,7 +256,7 @@ func TestCheckWritesEveryWitness(t *testing.T) {
 	paths = append(paths, c.Divergent[0]...)
 	seen := make(map[string]bool)
 	for i, path := range paths {
-		if seen[path] || !strings.HasPrefix(filepath.Base(path), "test.race.") {
+		if seen[path] || !strings.HasPrefix(filepath.Base(path), "test.race") {
 			t.Fatalf("path %d %q, want distinct under the subject's name", i, path)
 		}
 		seen[path] = true
@@ -274,6 +275,71 @@ func TestCheckWritesEveryWitness(t *testing.T) {
 	for _, path := range c.Violations {
 		if !strings.Contains(path, "violation-") {
 			t.Fatalf("violation path %q, want named as one", path)
+		}
+	}
+}
+
+// Two features spelled apart, `a/b` and `a?b`, are written to two files each, the
+// characters no file name keeps spelled `%XX`; each file replays to the value it names.
+func TestCheckWitnessFilesTellFeaturesApart(t *testing.T) {
+	const model = `package test {
+	action race {
+		attribute 'a/b' : Integer = 0;
+		attribute 'a?b' : Integer = 0;
+		first start;
+		fork split;
+		action p { assign 'a/b' := 1; assign 'a?b' := 1; }
+		action q { assign 'a/b' := 2; assign 'a?b' := 2; }
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then p;
+		succession first split then q;
+		succession first p then sync;
+		succession first q then sync;
+		succession first sync then done;
+	}
+}`
+	f := parseModel(t, model)
+	race := f.checked(t, "race")
+	dir := t.TempDir()
+	ask := &CheckAsk{Start: race.start, Diverge: []string{"a/b", "a?b"}, WitnessDir: dir}
+	result := answered(t, Default(), f.building(), checkQuestion(t, f, Outcomes, ask), Budget{}).Result
+	c := result.Check()
+	if result.Claim != ClaimSensitive || result.Strength != Witnessed || c == nil || len(c.Report.Divergent) != 2 {
+		t.Fatalf("%s %s %+v, want both features divergent and witnessed", result.Claim, result.Strength, c)
+	}
+	want := map[string][]string{
+		"a/b": {"test.race-a%2Fb-1.witness", "test.race-a%2Fb-2.witness"},
+		"a?b": {"test.race-a%3Fb-1.witness", "test.race-a%3Fb-2.witness"},
+	}
+	for i, d := range c.Report.Divergent {
+		paths := c.Divergent[i]
+		if len(paths) != len(want[d.Feature]) || len(d.Values) != len(paths) {
+			t.Fatalf("%s: paths %v, want %v", d.Feature, paths, want[d.Feature])
+		}
+		for j, path := range paths {
+			if path != filepath.Join(dir, want[d.Feature][j]) {
+				t.Errorf("%s value %d at %s, want %s", d.Feature, j+1, path, want[d.Feature][j])
+			}
+			text, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w, err := runtime.ParseWitness(string(text))
+			if err != nil {
+				t.Fatalf("%s: %v", path, err)
+			}
+			if w.String() != d.Values[j].Witness.String() {
+				t.Errorf("%s holds another witness than %s = %s", path, d.Feature, d.Values[j].Value)
+			}
+			replayed, err := runtime.ReplayAction(func() (*runtime.Context, error) { return f.context(t), nil }, race.start, w)
+			if err != nil {
+				t.Fatalf("%s: replay: %v", path, err)
+			}
+			if got := replayed.Exec.Results()[d.Feature]; got.Kind != runtime.ValConst || fmt.Sprint(got.Const.Int) != d.Values[j].Value {
+				t.Errorf("%s replays to %s = %v, want %s", path, d.Feature, got, d.Values[j].Value)
+			}
 		}
 	}
 }

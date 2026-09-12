@@ -159,16 +159,19 @@ func (c *checks) requested() bool {
 }
 
 // checkerMisuse reports why the -check-* flags written check nothing under the
-// engine selected, and "" when they check an action.
+// engine selected, and "" when they check an action: under -engine check always,
+// under -engine all when one of them is written.
 func (c *checks) checkerMisuse(engine string) string {
-	checking := engine == analysis.CheckEngineName
+	selection := analysis.ParseSelection(engine)
+	checking := selection == analysis.Only(analysis.CheckEngineName) ||
+		selection.Mode == analysis.SelectAll && c.checker.given()
 	switch {
 	case c.checker.given() && !checking:
-		return "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check"
+		return "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check, or every engine, as -engine all"
 	case c.checker.given() && len(c.actions) == 0:
-		return "-engine check searches an action's schedules; name one, as -action <name>"
+		return "the -check-* flags search an action's schedules; name one, as -action <name>"
 	case checking && c.advance.given:
-		return "-advance runs behaviors on one clock, which -engine check, searching every schedule of an action, does not; drop one of them"
+		return "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them"
 	}
 	return ""
 }

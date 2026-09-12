@@ -84,10 +84,10 @@ func TestEngineCheckSearchesTheActionsSchedules(t *testing.T) {
 	wantVerdict(t, v, VerdictFails,
 		"Action Plant::Tank::fill: divergent (11 states, 10 moves, depth 6)",
 		"divergent: this.level ends as 1 or 2",
-		"this.level = 1 (witness "+filepath.Join(dir, "Plant.Tank.fill.this.level-1.witness")+")",
+		"this.level = 1 (witness "+filepath.Join(dir, "Plant.Tank.fill-this.level-1.witness")+")",
 		"standing: sensitive (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)")
 	rejects(t, run(t, s, "%step"), "Step complete")
-	witness, err := os.ReadFile(filepath.Join(dir, "Plant.Tank.fill.this.level-2.witness"))
+	witness, err := os.ReadFile(filepath.Join(dir, "Plant.Tank.fill-this.level-2.witness"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,6 +124,34 @@ func TestEngineCheckJudgesPropertiesOfThePerformer(t *testing.T) {
 	run(t, s, "%check-property Plant::Tank::level")
 	wantVerdict(t, s.RunAction("Plant::Tank::fill", "Plant::tank"), VerdictUnresolved,
 		`"Plant::Tank::level" is not a constraint or requirement`)
+}
+
+// Under %engine all a check setting puts %action to check and explore together,
+// the one states figure bounding each in its unit; without one, %action steps.
+func TestEngineAllChecksOnceASettingIsMade(t *testing.T) {
+	s := loadSource(t, choiceForkSource)
+	wants(t, run(t, s, "%engine all"), "engine: all")
+	run(t, s, "%check-bounds states=100")
+	v := s.RunAction("Debug::tally")
+	wantVerdict(t, v, VerdictHolds, "explored Debug::tally: 1 outcome",
+		"all: check outcomes (bounded), explore outcomes (proved)")
+	limits := map[string]int64{}
+	for _, step := range v.Plan.Steps {
+		if step.Result == nil {
+			t.Fatalf("%s did not answer: %v", step.Engine, step)
+		}
+		for _, b := range step.Result.Bounds {
+			limits[step.Engine+"."+b.Name] = b.Limit
+		}
+	}
+	if limits["check.states"] != 100 || limits["explore.runs"] != 100 {
+		t.Errorf("the one figure does not bound each engine in its unit: %v", limits)
+	}
+	rejects(t, run(t, s, "%step"), "Step complete")
+
+	run(t, s, "%check-bounds off")
+	wants(t, run(t, s, "%action Debug::tally"), "Started action executor")
+	wants(t, run(t, s, "%step"), "Step complete")
 }
 
 // The bounds set by %check-bounds cut the search short and are named in the

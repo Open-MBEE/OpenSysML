@@ -104,6 +104,9 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 	if q.Check == nil || q.Check.Start == nil {
 		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Check starting an action"})
 	}
+	if q.Check.WitnessDir != "" && q.Subject == "" {
+		return refused(&MalformedQuestionError{Kind: q.Kind, Missing: "a Subject to name the witness files after"})
+	}
 	return covered
 }
 
@@ -219,9 +222,8 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		checked.Violations = make([]string, len(report.Violations))
 		checked.Divergent = make([][]string, len(report.Divergent))
 	}
-	prefix := witnessPrefix(q.Subject)
 	for i, v := range report.Violations {
-		w := &replayWitness{what: "violation " + fmt.Sprint(i+1) + " (" + v.String() + ")", witness: v.Witness, file: fmt.Sprintf("%sviolation-%d.witness", prefix, i+1)}
+		w := &replayWitness{what: "violation " + fmt.Sprint(i+1) + " (" + v.String() + ")", witness: v.Witness, file: violationFile(q.Subject, i+1)}
 		if checked.Violations != nil {
 			w.path = &checked.Violations[i]
 		}
@@ -233,7 +235,7 @@ func (e checkEngine) replayed(ctx context.Context, model *Model, q Question, bud
 		}
 		for j, value := range d.Values {
 			w := &replayWitness{what: fmt.Sprintf("%s = %s", d.Feature, value.Value), witness: value.Witness,
-				file: fmt.Sprintf("%s%s-%d.witness", prefix, fileToken(d.Feature), j+1)}
+				file: divergenceFile(q.Subject, d.Feature, j+1)}
 			if checked.Divergent != nil {
 				w.path = &checked.Divergent[i][j]
 			}
@@ -289,23 +291,39 @@ func (e checkEngine) replayOne(ctx context.Context, fresh func() (*runtime.Conte
 	return err
 }
 
-// witnessPrefix is the subject as a file name begins, `test.race.`; empty for no subject.
-func witnessPrefix(subject string) string {
-	if subject == "" {
-		return ""
-	}
-	return fileToken(strings.ReplaceAll(subject, "::", ".")) + "."
+// violationFile names the witness of the n-th violation, `test.race.violation-1.witness`:
+// its one `-` tells it from a divergence's file, whose tokens carry none.
+func violationFile(subject string, n int) string {
+	return fmt.Sprintf("%s.violation-%d.witness", fileSegments(subject, "::"), n)
 }
 
-// fileToken keeps letters, digits, `_`, `-` and `.` of a name, replacing the rest with `_`.
+// divergenceFile names the witness of a feature's n-th final value,
+// `test.race-x-1.witness`, `test.race-this.level-2.witness`: the subject's segments,
+// the feature's and the count, told apart by the `-` no token carries.
+func divergenceFile(subject, feature string, n int) string {
+	return fmt.Sprintf("%s-%s-%d.witness", fileSegments(subject, "::"), fileSegments(feature, "."), n)
+}
+
+// fileSegments joins the tokens of a name's segments with `.`, one name per spelling.
+func fileSegments(name, separator string) string {
+	segments := strings.Split(name, separator)
+	for i, segment := range segments {
+		segments[i] = fileToken(segment)
+	}
+	return strings.Join(segments, ".")
+}
+
+// fileToken keeps the letters, digits and `_` of a name and spells every other byte
+// `%XX`, so distinct names are distinct tokens and no token carries `.` or `-`.
 func fileToken(name string) string {
 	var b strings.Builder
-	for _, r := range name {
+	for i := 0; i < len(name); i++ {
+		c := name[i]
 		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-', r == '.':
-			b.WriteRune(r)
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_':
+			b.WriteByte(c)
 		default:
-			b.WriteByte('_')
+			fmt.Fprintf(&b, "%%%02X", c)
 		}
 	}
 	return b.String()

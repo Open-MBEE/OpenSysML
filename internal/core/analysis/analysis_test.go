@@ -69,8 +69,14 @@ type fixture struct {
 
 func parseFixture(t *testing.T) *fixture {
 	t.Helper()
+	return parseModel(t, fixtureModel)
+}
+
+// parseModel is the fixture over a model of a test's own, its `test` package indexed.
+func parseModel(t *testing.T, model string) *fixture {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "analysis.sysml")
-	p := parser.New(source.New(path, []byte(fixtureModel)))
+	p := parser.New(source.New(path, []byte(model)))
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse: %v", p.Diagnostics)

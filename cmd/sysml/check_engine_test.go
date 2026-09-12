@@ -91,12 +91,12 @@ func TestEngineCheckWitnessesADivergence(t *testing.T) {
 	wantReport(t, got, 1,
 		"✗ Action Mission::race: divergent (11 states, 10 moves, depth 6)",
 		"divergent: x ends as 1 or 2",
-		"x = 1 (witness "+filepath.Join(dir, "Mission.race.x-1.witness")+")",
-		"x = 2 (witness "+filepath.Join(dir, "Mission.race.x-2.witness")+")",
+		"x = 1 (witness "+filepath.Join(dir, "Mission.race-x-1.witness")+")",
+		"x = 2 (witness "+filepath.Join(dir, "Mission.race-x-2.witness")+")",
 		"outcome: x = 1", "outcome: x = 2",
 		"standing: sensitive (witnessed: 11 states, 10 moves searched, witness of 1 choice replayed)")
 
-	witness := filepath.Join(dir, "Mission.race.x-2.witness")
+	witness := filepath.Join(dir, "Mission.race-x-2.witness")
 	content, err := os.ReadFile(witness)
 	if err != nil {
 		t.Fatal(err)
@@ -155,17 +155,73 @@ func TestEngineCheckNamesTheBoundsItHits(t *testing.T) {
 		2, "? Action Mission::race: incomplete: time", "standing: not covered")
 }
 
-// The check flags need -engine check and an action, -advance has no place in a
-// search of every schedule, a bound is a positive count: each misuse is refused.
+// A check flag under -engine all puts the action to check and explore together:
+// the one -check-states figure bounds the search's states and the exploration's
+// runs, and the exploration referees the search's outcomes.
+func TestEngineAllChecksBesideExploring(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := check(t, binary, forkModel, "-json", "-engine", "all", "-action", "Mission::race", "-check-states", "100")
+	var report checkedReport
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	if got.status != 0 || len(report.Checks) != 1 || len(report.Checks[0].Results) != 2 {
+		t.Fatalf("status %d, checks %d\n%s", got.status, len(report.Checks), got.output())
+	}
+	limits := map[string]int64{}
+	for _, r := range report.Checks[0].Results {
+		for _, b := range r.Bounds {
+			limits[r.Engine+"."+b.Name] = b.Limit
+		}
+		switch r.Engine {
+		case "check":
+			if r.Claim != "sensitive" || r.Strength != "witnessed" || r.Check == nil ||
+				strings.Join(r.Check.Outcomes, ";") != "x = 1;x = 2" {
+				t.Errorf("the check engine's search is misreported:\n%s", got.stdout)
+			}
+		case "explore":
+			if r.Claim != "outcomes" || r.Strength != "proved" {
+				t.Errorf("the exploration is misreported:\n%s", got.stdout)
+			}
+		default:
+			t.Errorf("engine %s answered an action under -engine all", r.Engine)
+		}
+	}
+	if limits["check.states"] != 100 || limits["explore.runs"] != 100 || limits["check.depth"] != 64 {
+		t.Errorf("the one figure does not bound each engine in its unit: %v", limits)
+	}
+
+	// Without a check flag, -engine all leaves an action to the run and explore engines.
+	got = check(t, binary, forkModel, "-json", "-engine", "all", "-action", "Mission::race")
+	report = checkedReport{}
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	for _, r := range report.Checks[0].Results {
+		if r.Engine == "check" {
+			t.Errorf("the check engine searched an action no check flag asked it to:\n%s", got.stdout)
+		}
+	}
+}
+
+// The check flags need -engine check or all and an action, -advance has no place
+// in a search of every schedule, a bound is a positive count: each misuse is refused.
 func TestEngineCheckRefusesMisuse(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, forkModel, "-check-depth", "3", "-action", "Mission::race"),
-		2, "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check")
+		2, "-check-diverge, -check-property, -check-witness, -check-depth, -check-states and -check-timeout are the check engine's; select it, as -engine check, or every engine, as -engine all")
+	wantReport(t, check(t, binary, forkModel, "-engine", "explore", "-check-depth", "3", "-action", "Mission::race"),
+		2, "select it, as -engine check, or every engine, as -engine all")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-depth", "3"),
-		2, "-engine check searches an action's schedules; name one, as -action <name>")
+		2, "the -check-* flags search an action's schedules; name one, as -action <name>")
+	wantReport(t, check(t, binary, forkModel, "-engine", "all", "-check-depth", "3"),
+		2, "the -check-* flags search an action's schedules; name one, as -action <name>")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-advance", "5", "-action", "Mission::race"),
-		2, "-advance runs behaviors on one clock, which -engine check, searching every schedule of an action, does not; drop one of them")
+		2, "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them")
+	wantReport(t, check(t, binary, forkModel, "-engine", "all", "-check-depth", "3", "-advance", "5", "-action", "Mission::race"),
+		2, "-advance runs behaviors on one clock, which a search of every schedule of an action does not; drop one of them")
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-depth", "x", "-action", "Mission::race"),
 		2, `-check-depth takes a bound of at least one, not "x"`)
 	wantReport(t, check(t, binary, forkModel, "-engine", "check", "-check-states", "0", "-action", "Mission::race"),
@@ -230,8 +286,8 @@ func TestJSONReportsTheCheckedPlan(t *testing.T) {
 		t.Errorf("the search is misreported:\n%s", got.stdout)
 	}
 	if d := c.Divergent[0]; d.Feature != "x" || len(d.Values) != 2 ||
-		d.Values[0].Value != "1" || d.Values[0].Path != filepath.Join(dir, "Mission.race.x-1.witness") ||
-		d.Values[1].Value != "2" || d.Values[1].Path != filepath.Join(dir, "Mission.race.x-2.witness") ||
+		d.Values[0].Value != "1" || d.Values[0].Path != filepath.Join(dir, "Mission.race-x-1.witness") ||
+		d.Values[1].Value != "2" || d.Values[1].Path != filepath.Join(dir, "Mission.race-x-2.witness") ||
 		strings.Join(d.Values[1].Witness, ";") != "step 3: 2@left first of 2@left, 3@right" {
 		t.Errorf("the divergence is misreported:\n%s", got.stdout)
 	}

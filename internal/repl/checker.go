@@ -33,9 +33,22 @@ func (c checkSettings) deadline() time.Time {
 	return time.Now().Add(c.timeout)
 }
 
+// given reports whether any check setting was made, which under %engine all puts
+// an action to the check engine beside the others.
+func (c checkSettings) given() bool {
+	return len(c.diverge) > 0 || len(c.properties) > 0 || c.witnessDir != "" ||
+		c.depth > 0 || c.states > 0 || c.timeout > 0
+}
+
 // checking reports whether the session's selection puts an action to the check
-// engine alone, which searches its schedules rather than stepping one run.
+// engine, which searches its schedules rather than stepping one run: under
+// %engine check always, under %engine all once a check setting is made.
 func (s *Session) checking() bool {
+	return s.checkOnly() || s.engine.Mode == analysis.SelectAll && s.checker.given()
+}
+
+// checkOnly reports whether the check engine alone is selected.
+func (s *Session) checkOnly() bool {
 	return s.engine == analysis.Only(analysis.CheckEngineName)
 }
 
@@ -203,7 +216,7 @@ func (s *Session) doReplay(args []string) []string {
 	}
 	out := []string{fmt.Sprintf("schedule: %s", s.schedule), "Use %action or %state to start the run the witness records, then %step or %continue"}
 	if s.checking() {
-		out = append(out, "Under %engine check, %action searches every schedule; select %engine auto to step the one the witness records")
+		out = append(out, fmt.Sprintf("Under %%engine %s, %%action searches every schedule; select %%engine auto to step the one the witness records", s.engine))
 	}
 	return out
 }
@@ -229,11 +242,12 @@ func (s *Session) checkAction(name string, performer []string) Verdict {
 		policy = runtime.DefaultExploreSchedulePolicy
 	}
 	budget := s.checkBudget(policy, kind)
-	// A selected exploration's figures bound the search; none selected, the engine's own do.
-	if !explores && s.checker.depth <= 0 {
+	// The check engine alone searches under its own defaults; beside an exploration,
+	// the one figure is the exploration policy's unless a check bound sets it.
+	if s.checkOnly() && !explores && s.checker.depth <= 0 {
 		budget.Depth = analysis.DefaultCheckDepth
 	}
-	if !explores && s.checker.states <= 0 {
+	if s.checkOnly() && !explores && s.checker.states <= 0 {
 		budget.Runs = analysis.DefaultCheckStates
 	}
 	return s.checkVerdict(name, policy, kind, ask, run, budget)
