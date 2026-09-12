@@ -789,11 +789,6 @@ Vehicles::Car::wheels  PartUsage
       show(current + 1, false);
     }
 
-    function start() {
-      stop();
-      autoplay = !reduceMotion.matches;
-    }
-
     tabs.forEach(function (tab, i) {
       tab.addEventListener("click", function () { stop(); show(i, false); });
       tab.addEventListener("keydown", function (event) {
@@ -805,8 +800,8 @@ Vehicles::Car::wheels  PartUsage
       });
     });
 
+    autoplay = !reduceMotion.matches;
     show(0, false);
-    start();
   }
 
   Array.prototype.forEach.call(document.querySelectorAll("[data-osml-showcase]"), setUp);
