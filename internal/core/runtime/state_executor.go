@@ -1804,6 +1804,13 @@ func (e *StateExecutor) recordHistory(state *ast.StateNode) *historyRecord {
 	return record
 }
 
+// historyRecorded reports whether state was left in a configuration its history
+// restores; a record emptied by completion holds none.
+func (e *StateExecutor) historyRecorded(state *ast.StateNode) bool {
+	record := e.history[state]
+	return record != nil && (record.child != nil || len(record.regions) > 0)
+}
+
 // recordChildHistory remembers the substate parent was left in for its history;
 // a body left at `done` completed, and a completed configuration leaves none.
 func (e *StateExecutor) recordChildHistory(parent, state *ast.StateNode) {
@@ -1877,8 +1884,7 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 	if !ok || owner == nil {
 		return nil, nil, fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
 	}
-	record := e.history[owner]
-	if record == nil || (record.child == nil && len(record.regions) == 0) {
+	if !e.historyRecorded(owner) {
 		if route != nil {
 			return route, nil, nil
 		}
@@ -1889,6 +1895,7 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 		return owner, nil, nil
 	}
 
+	record := e.history[owner]
 	deep := hist.Kind == ast.PseudostateDeepHistory
 	branches := make(map[*ast.StateRegion]*ast.StateNode)
 

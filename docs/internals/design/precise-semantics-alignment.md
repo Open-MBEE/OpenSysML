@@ -588,7 +588,9 @@ history entry is a default entry. Implemented in `state_executor.go:historyEntry
 `hasDefaultEntry`, from `fireHistoryTransition`) and `recordChildHistory`/`recordRegionHistory`
 (a body or region left at `done` leaves no record); pinned by
 `state_history_empty_default_entry` (*History 002*), `state_deep_history_empty_default_entry`
-(*History 003*), `state_history_after_completion_default_entry` and
+(*History 003*), `state_history_after_completion_default_entry`,
+`state_history_after_completion_default_transition` (the history's own default transition is
+preferred over the entry after a completion too) and
 `history_test.go:TestHistoryOverACompletedConfigurationIsADefaultEntry` (a completed region
 beside a running one, and a body left at `done`) and
 `robustness_test.go:history_without_record_default_or_entry`.

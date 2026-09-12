@@ -491,4 +491,34 @@ func TestHistoryOverACompletedConfigurationIsADefaultEntry(t *testing.T) {
 			t.Errorf("machine state = %v, want it still running", exec.state)
 		}
 	})
+
+	t.Run("body_left_at_done_takes_the_history_default", func(t *testing.T) {
+		exec := stateExecutorForSource(t, "Machine", `package test {
+			state Machine {
+				entry; then outer;
+				state outer {
+					entry; then a;
+					state a;
+					state b;
+					history h;
+					transition first h then b;
+					transition first a accept Finish then done;
+				}
+				state away;
+				transition first outer then away;
+				transition first away accept Back then h;
+				transition first b accept Stop then done;
+			}
+		}`)
+		exec.SendSignal("Finish", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("run: %v", err)
+		}
+		mark := len(exec.stateVisits)
+		exec.SendSignal("Back", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("history entry: %v", err)
+		}
+		assertVisits(t, visitsAfter(exec, mark), "outer", "b")
+	})
 }

@@ -68,7 +68,7 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (route, error) {
 			}
 		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
 			owner := e.graph.PseudostateOwner[target]
-			if owner == nil || e.history[owner] != nil || len(e.graph.Transitions[target]) == 0 {
+			if owner == nil || e.historyRecorded(owner) || len(e.graph.Transitions[target]) == 0 {
 				return r, nil
 			}
 			r, err := e.followOut(target, r)
@@ -151,25 +151,32 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	choice := r.choice
 	outgoing := e.graph.Transitions[choice]
 	var enabled, unguarded []int
+	var notes []UnevaluableGuard
 	for i, trans := range outgoing {
 		if trans.Guard == nil {
 			unguarded = append(unguarded, i)
 			continue
 		}
-		// Once a branch holds the rest are probed only to report the choice.
+		// Once a branch holds the rest are probed only to report the choice; one
+		// with no result is not a branch, and is noted.
 		var pass bool
-		var err error
 		if len(enabled) > 0 {
-			e.preview(func() { pass, err = e.passesGuard(trans) })
+			var unevaluable *UnevaluableGuard
+			if pass, unevaluable = e.probeBranch(choice, outgoing, i); unevaluable != nil {
+				notes = append(notes, *unevaluable)
+			}
 		} else {
-			pass, err = e.passesGuard(trans)
-		}
-		if err != nil {
-			return route{}, fmt.Errorf("choice %s: %w", choice.Name, err)
+			var err error
+			if pass, err = e.passesGuard(trans); err != nil {
+				return route{}, fmt.Errorf("choice %s: %w", choice.Name, err)
+			}
 		}
 		if pass {
 			enabled = append(enabled, i)
 		}
+	}
+	for _, note := range notes {
+		e.ctx.noteUnevaluableGuard(note)
 	}
 	if len(enabled) == 0 {
 		enabled = unguarded
@@ -190,6 +197,26 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 		}
 	}
 	return e.follow(choice, outgoing[enabled[pick]], route{crossed: r.crossed})
+}
+
+// probeBranch reads whether the branch at position i out of choice holds once
+// another already does, as a probe the context undoes whole; one that cannot be
+// evaluated is not enabled and is returned as the note to record.
+func (e *StateExecutor) probeBranch(choice *ast.PseudostateNode, outgoing []*lower.Transition, i int) (bool, *UnevaluableGuard) {
+	var pass bool
+	var err error
+	e.preview(func() { pass, err = e.passesGuard(outgoing[i]) })
+	if err != nil {
+		file, _ := e.transitionLocation(choice, outgoing[i])
+		return false, &UnevaluableGuard{
+			Where:       "choice " + choice.Name,
+			Alternative: transitionName(outgoing, i),
+			Reason:      err.Error(),
+			File:        file,
+			Span:        outgoing[i].Guard.Span(),
+		}
+	}
+	return pass, nil
 }
 
 // choiceBranchPoint is the branches of a choice enabled on arrival, at their
