@@ -1182,3 +1182,17 @@ func TestBodyLocalInheritsImplicitParameterMultiplicity(t *testing.T) {
 		t.Fatalf("statedMultiplicity(ys) = %v, %v; want [2], true", mult, stated)
 	}
 }
+
+// A multiplicity whose upper bound is not known admits more than one value, so a unique
+// declaration stating one is still judged for repeats.
+func TestMultiValuedWithUnknownUpperBound(t *testing.T) {
+	open := semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}}
+	if !multiValued(open) {
+		t.Fatal("[2..n] with n unknown judged single-valued")
+	}
+	for _, r := range []semantics.Range{semantics.AssumedRange(), {Lower: semantics.Bound{Known: true}, Upper: semantics.Bound{Known: true, Value: 1}}} {
+		if multiValued(r) {
+			t.Fatalf("%v judged multi-valued", r)
+		}
+	}
+}

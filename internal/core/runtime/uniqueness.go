@@ -30,7 +30,7 @@ func (ctx *Context) uniquenessRefusal(unique, holdsSet bool, value *Value) strin
 
 // multiValued reports whether a declared multiplicity admits more than one value.
 func multiValued(mult semantics.Range) bool {
-	return mult.Upper.Infinite || mult.Upper.Value > 1
+	return !mult.AtMostOne()
 }
 
 // declaredUniquenessRefusal is uniquenessRefusal for the value a standalone
