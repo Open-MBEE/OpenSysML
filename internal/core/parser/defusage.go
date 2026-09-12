@@ -221,6 +221,7 @@ type featureMods struct {
 	isEnd         bool
 	isChain       bool
 	isConstant    bool
+	constantSeen  bool            // a constant prefix in the file kind's own spelling was read
 	isEvent       bool            // event modifier for occurrences
 	isIndividual  bool            // individual modifier for individuals/snapshots
 	portion       ast.PortionKind // 'snapshot' / 'timeslice' portion prefix
@@ -387,6 +388,7 @@ func (p *Parser) parseCrossMultiplicityPart(cross *ast.CrossFeatureMember) bool 
 // parseCrossFeaturePrefix reads the modifiers a cross feature is declared with
 // (KerML.xtext BasicFeaturePrefix, SysML.xtext BasicUsagePrefix) onto cross.
 func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
+	constantSeen := false // a constant prefix in the file kind's own spelling was read
 	for {
 		t := p.peek()
 		if p.atVarWord() {
@@ -442,8 +444,11 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			cross.IsComposite = true
 			cross.IsPortion = true
 		case "constant", "const":
-			if p.checkConstantSpelling(t) && cross.IsConstant {
-				p.repeatedPrefix(t)
+			if p.checkConstantSpelling(t) {
+				if constantSeen {
+					p.repeatedPrefix(t)
+				}
+				constantSeen = true
 			}
 			cross.IsConstant = true
 		case "ref":
@@ -1113,8 +1118,11 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			m.cross = p.tryParseCrossFeature()
 			continue
 		case "constant", "const":
-			if p.checkConstantSpelling(t) && m.isConstant {
-				p.repeatedPrefix(t)
+			if p.checkConstantSpelling(t) {
+				if m.constantSeen {
+					p.repeatedPrefix(t)
+				}
+				m.constantSeen = true
 			}
 			m.isConstant = true
 			m.noteUsageOnly(t)

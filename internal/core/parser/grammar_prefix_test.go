@@ -127,6 +127,15 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 			"`const` is KerML notation: the SysML grammar spells the prefix `constant`, so write `constant` here or move the declaration to a .kerml file"},
 		{"cross_feature_const_constant_kerml", "a.kerml", "package P { assoc A { end const constant x : T feature e; } }", "constant",
 			"`constant` is SysML notation: the KerML grammar spells the prefix `const`, so write `const` here or move the declaration to a .sysml file"},
+		// The foreign spelling first does not make the admitted one that follows a repeat.
+		{"const_constant_sysml", "a.sysml", "package P { const constant attribute a = 1; }", "const",
+			"`const` is KerML notation: the SysML grammar spells the prefix `constant`, so write `constant` here or move the declaration to a .kerml file"},
+		{"constant_const_kerml", "a.kerml", "package P { class A { constant const feature f; } }", "constant",
+			"`constant` is SysML notation: the KerML grammar spells the prefix `const`, so write `const` here or move the declaration to a .sysml file"},
+		{"cross_feature_const_constant_sysml", "a.sysml", "package P { assoc A { end const constant x : T feature e; } }", "const",
+			"`const` is KerML notation: the SysML grammar spells the prefix `constant`, so write `constant` here or move the declaration to a .kerml file"},
+		{"cross_feature_constant_const_kerml", "a.kerml", "package P { assoc A { end constant const x : T feature e; } }", "constant",
+			"`constant` is SysML notation: the KerML grammar spells the prefix `const`, so write `const` here or move the declaration to a .sysml file"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
