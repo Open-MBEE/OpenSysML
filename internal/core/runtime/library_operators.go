@@ -92,12 +92,9 @@ func registerOperatorForm(fqn, op string, domain operandDomain) {
 
 // checkOperands binds each argument given, declared `[1]`, through the
 // package's domain: the one value it holds, a sole element standing for itself.
-// An operand the model leaves open is bound as it is once its declared type may
-// hold a value of the parameter's, for the operator to decide over.
+// An operand the model leaves open is bound as it is, for the operator to decide
+// over.
 func checkOperands(ctx *Context, name string, domain operandDomain, args []Value) ([]Value, error) {
-	if err := ctx.openArgumentsOf(name, args); err != nil {
-		return nil, err
-	}
 	bound := make([]Value, len(args))
 	for i, param := range []string{"x", "y"}[:len(args)] {
 		if u := args[i].Undetermined(); u != nil {
@@ -121,11 +118,10 @@ func checkOperands(ctx *Context, name string, domain operandDomain, args []Value
 }
 
 // openScalar admits an open argument to the parameter labelled label, declared
-// `[1]`, unless the count the model gives it certainly exceeds one.
+// `[1]`, unless the count the model gives it admits no one value.
 func openScalar(name, label string, u *Undetermined) error {
-	if lower := u.Count().Lower; lower.Known && !lower.Infinite && lower.Value > 1 {
-		return fmt.Errorf("%w: function %s parameter %s holds at least %d values, exactly 1 required",
-			ErrMultiplicityViolation, name, label, lower.Value)
+	if msg := semantics.CountRange(1).HeldViolation(u.Count()); msg != "" {
+		return fmt.Errorf("%w: function %s parameter %s: %s", ErrMultiplicityViolation, name, label, msg)
 	}
 	return nil
 }

@@ -28,17 +28,38 @@ func (ctx *Context) openOperandType(val Value) *symbols.Symbol {
 }
 
 // describeOpenOperand describes an operand for a diagnostic, an open one by the
-// type its feature declares, e.g. "an undetermined String".
+// type its feature declares and the count it certainly holds, e.g. "an undetermined
+// String" or "an undetermined String sequence".
 func (ctx *Context) describeOpenOperand(val Value) string {
-	if typ := ctx.openOperandType(val); typ != nil {
+	if val.Kind != ValUndetermined {
+		return describeOperand(val)
+	}
+	typ := ctx.openOperandType(val)
+	several := certainlySeveral(val)
+	switch {
+	case typ != nil && several:
+		return "an undetermined " + typ.Name + " sequence"
+	case typ != nil:
 		return "an undetermined " + typ.Name
+	case several:
+		return "an undetermined sequence"
 	}
 	return describeOperand(val)
 }
 
-// openOperandAdmits reports whether an open operand may hold a value of one of the
+// certainlySeveral reports whether the values of val number more than one, so no
+// value of it is the one a scalar operand holds.
+func certainlySeveral(val Value) bool {
+	lower := countOf(val).Lower
+	return lower.Known && (lower.Infinite || lower.Value > 1)
+}
+
+// openOperandAdmits reports whether an open operand may hold one value of one of the
 // library types accepts name. A determined operand is not judged here.
 func (ctx *Context) openOperandAdmits(val Value, accepts ...string) bool {
+	if certainlySeveral(val) {
+		return false
+	}
 	for _, fqn := range accepts {
 		if ctx.openValueMayBe(val, ctx.librarySymbol(fqn)) {
 			return true

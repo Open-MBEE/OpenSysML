@@ -84,6 +84,9 @@ func builtinControlIf(ec *EvalContext, args []Value) (Value, error) {
 		return Value{}, err
 	}
 	if args[0].Kind == ValUndetermined {
+		if err := ec.ctx.openBoolOperand("test of "+op, args[0]); err != nil {
+			return Value{}, err
+		}
 		return undeterminedOf(ec.deferredCount(args[1]).Covering(ec.deferredCount(args[2])), args[0]), nil
 	}
 	held, err := boolOperand("test of "+op, args[0])

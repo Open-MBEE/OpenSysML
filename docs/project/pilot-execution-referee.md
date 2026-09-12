@@ -216,19 +216,19 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 399 committed cases, the original 32, the 62 the
+prints the current ones. State of the 434 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases`, the 131 of `undetermined_operands.cases`, the 4 of
+`extent_expressions.cases`, the 166 of `undetermined_operands.cases`, the 4 of
 `unknown_bounds.cases` and the 2 of `vast_bounds.cases`:
 
 ```
-agree: 205 · kind-only: 1 · order-only: 0 · disagree: 24
-pilot-unevaluated: 101 · pilot-silent: 19 · pilot-error: 9 · ours-error: 4 · ours-undetermined: 24
+agree: 207 · kind-only: 1 · order-only: 0 · disagree: 26
+pilot-unevaluated: 124 · pilot-silent: 21 · pilot-error: 9 · ours-error: 6 · ours-undetermined: 28
 both-error: 12 · nondeterministic: 0
 ```
 
@@ -309,11 +309,13 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 131 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
-(`attribute u;`, no type, no value; beside it `s : String`, `b : Boolean`, `r : Real` and
-`xs : Real[2..4]`, typed and valueless) and over usages whose multiplicity leaves the count open
-(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear`,
-`vacant[0]` and `tagged :> gear`, redefining the `tag` of `D` its default `"d"` gives), added
+The 166 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+(`attribute u;`, no type, no value; beside it `s : String`, `b : Boolean`, `r : Real`,
+`xs : Real[2..4]`, `ss : String[2..*]`, `bs : Boolean[2]` and `os : Real[0..4]`, typed and
+valueless) and over usages whose multiplicity leaves the count open (`slots[3]`, `gear[1..*]`,
+`loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear`, `vacant[0]` and `tagged :> gear`,
+redefining the `tag` of `D` its default `"d"` gives; in `store`, `sub[10001..*] :> base[0..*]`,
+`three[3..*] :> cap[0..3]`, and `inner[2]` and `outer[5..*]` both subsetting `pool[0..*]`), added
 with the undetermined result they referee. Of the first 37, fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
 operand is the constant — `false and (u > 3)`, `true or (u == 1)` and `false implies (u == 1)`
 never read the second operand, and `(u > 3) and false`, `(u == 1) or true` and `(u == 1) implies
@@ -438,7 +440,7 @@ admits stay `<undetermined>` and `pilot-unevaluated`: `s + "a"`, `s < "a"`, `r -
 once more comparing the usage element). The constant operand still folds whatever the first
 declares: `false and s` and `b and false` are `false` on both sides.
 
-The last thirteen probe a feature chain through a collection the model leaves open, which
+Thirteen probe a feature chain through a collection the model leaves open, which
 reads the members of the values it certainly holds. `rack.fixed.tag` is `"d"`, the default
 `D` declares, and `rack.tagged.tag` `"x"`, the redefinition, both agreeing. `rack.gear.tag`
 is `<undetermined>` of `[2..*]` here, holding those two and the `tag` of whatever else `gear`
@@ -454,6 +456,41 @@ pilot's `false` and `1`, `gear` possibly holding a `D` tagged `"zz"`. `rack.gear
 x; x == "d"}` is `false` on the counterexample `tagged` and agrees. `rack.gear.mass` and
 `rack.loose.tag`, members no value fixes, are `<undetermined>` (`pilot-unevaluated`), and
 `rack.gear.nope` is the unresolved member on both sides (`both-error`).
+
+The next five probe the named conditional `ControlFunctions::'if'`, which checks that an open
+test may be Boolean before it stays open, as the `if ? else` operator does: `'if'(r, 1, 2)`
+and `'if'(s, 1, 2)` are the type mismatch here, `'if'(bs, 1, 2)` the multiplicity violation a
+`Boolean[2]` test is against the one-valued parameter, and `'if'(b, 1, 2)` and `'if'(u, 1, 2)`
+stay `<undetermined>`; all five are `pilot-unevaluated` (the `InvocationExpression if`).
+
+The next twenty probe an open operand that certainly holds several values, which is no scalar:
+the operators and functions taking exactly one value refuse it as they refuse a determined
+sequence. `xs + 1`, `xs > 1`, `(10, 20)#(xs)`, `ss + "a"` and `if bs ? 1 else 2` are the type
+mismatch here and `pilot-unevaluated`, `-xs` that error and `pilot-silent`; `bs and true` and
+`not bs` are two more `ours-error`, the pilot's `false` and `true` comparing the unevaluated
+`AttributeUsage bs` to a literal as with `s`. The library forms `RealFunctions::'+'(xs, 1.0)`,
+`RealFunctions::abs(xs)`, `StringFunctions::Length(ss)` and `StringFunctions::Substring(ss, 1,
+1)` are the multiplicity violation their one-valued parameter states, all `pilot-unevaluated`.
+What takes a collection or compares whole values still takes it: `SequenceFunctions::head(xs)`
+and `xs ?? 3` are `<undetermined>` and `pilot-unevaluated`, and `xs == 1.0`, `size(xs)` and
+`includes(xs, 1.0)` are `ours-undetermined` against the pilot's `false`, `1` and `false` over
+the one unevaluated usage. An operand that may hold a single value is still a scalar the
+operation may take: `os + 1` and `(10, 20)#(os)` are `<undetermined>` and `pilot-unevaluated`,
+`-os` `<undetermined>` and `pilot-silent`.
+
+Ten probe a model-level read of a collection whose subsetters the model leaves open,
+which reads them as it reads the collection: an open subsetter is not made up to its lower
+bound, and contributes the fewest values it holds rather than made-up members. `store.base`,
+`store.sub` and `store.base.mass` are `<undetermined>` of `[10001..*]` here without an object
+made, and `pilot-unevaluated`; `notEmpty(store.base)` is `true` from that bound and agrees,
+`size(store.base)` is `ours-undetermined` against the pilot's count of the one unevaluated
+usage. `three[3..*]` fills `cap[0..3]` to its upper bound, so `size(store.cap)` is `3` here,
+another `disagree` against the pilot's `1`, while `store.cap` itself stays `<undetermined>`
+(`pilot-unevaluated`), its members unknown. `pool` certainly holds the two objects of
+`inner[2]` and at least the five of `outer[5..*]`: `notEmpty(store.pool)` is `true` and agrees,
+`includes(store.pool, store.inner#(1))` is `true` here and the last `disagree` (the pilot's
+`false` compares unevaluated usages, as with `rack.fixed`), and `store.pool#(1)` is
+`<undetermined>` and `pilot-unevaluated`, membership fixing no position.
 
 The 4 `unknown_bounds.cases` probe usages whose bounds name a feature the model gives no
 value: `a : Real[n]` and `an : Real[1..n]` over a valueless `n : Natural`. The pilot rejects

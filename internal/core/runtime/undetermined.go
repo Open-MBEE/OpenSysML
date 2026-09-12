@@ -375,25 +375,26 @@ var undeterminedAware = map[string]bool{
 	"SequenceFunctions::last": true,
 }
 
-// undeterminedInvocation applies a function that does not decide open arguments
-// itself to one: undetermined, of the count its result declares, once each open
-// argument's declared type may hold a value of its parameter's.
+// undeterminedInvocation applies a function to an open argument once its declared
+// type and count may meet the parameter's: undetermined, of the count the result
+// declares, unless the function decides open arguments itself.
 func (ctx *Context) undeterminedInvocation(name string, args []Value) (Value, bool, error) {
-	if undeterminedAware[name] {
-		return Value{}, false, nil
-	}
 	if _, open := undeterminedIn(args...); !open {
 		return Value{}, false, nil
 	}
 	if err := ctx.openArgumentsOf(name, args); err != nil {
 		return Value{}, true, err
 	}
+	if undeterminedAware[name] {
+		return Value{}, false, nil
+	}
 	val, open := ctx.openInvocation(name, args...)
 	return val, open, nil
 }
 
 // openArgumentsOf rejects an open argument to the library function name whose
-// declared type admits no value of the type declared for its parameter.
+// declared type admits no value of the type declared for its parameter, or whose
+// count the parameter's multiplicity admits no value of.
 func (ctx *Context) openArgumentsOf(name string, args []Value) error {
 	fn := ctx.librarySymbol(name)
 	if fn == nil {
@@ -408,11 +409,14 @@ func (ctx *Context) openArgumentsOf(name string, args []Value) error {
 			continue
 		}
 		param := shape.Params[i]
-		if ctx.openValueMayBe(arg, param.Decl.Target.typ) {
-			continue
+		if !ctx.openValueMayBe(arg, param.Decl.Target.typ) {
+			return fmt.Errorf("%w: function %s parameter %q requires a %s value, got %s",
+				ErrTypeMismatch, writtenName(name), param.Name, param.Decl.Target.typ.Name, ctx.describeOpenOperand(arg))
 		}
-		return fmt.Errorf("%w: function %s parameter %q requires a %s value, got %s",
-			ErrTypeMismatch, writtenName(name), param.Name, param.Decl.Target.typ.Name, ctx.describeOpenOperand(arg))
+		if msg := ctx.writeCountRefusal(param.Decl.Target, &arg); msg != "" {
+			return fmt.Errorf("%w: function %s parameter %q: %s",
+				ErrMultiplicityViolation, writtenName(name), param.Name, msg)
+		}
 	}
 	return nil
 }
@@ -540,7 +544,7 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 		spelled = from + "." + name
 	}
 	if open != nil && open.Stopped {
-		return openCollectionValue(spelled, feature, open.Contributed), true
+		return openCollectionValue(spelled, feature, open), true
 	}
 	if ec.ctx.holdsOnlyUnset(fv) {
 		return undeterminedFeatureValue(noValueReason(spelled), feature.Multiplicity, feature.Symbol), true
@@ -556,15 +560,15 @@ func (ec *EvalContext) openFeatureRead(inst *Instance, fv *FeatureValue, open *o
 
 // openCollectionValue is the model-level value of a collection whose count the model
 // leaves open: undetermined, certainly holding what its subsetters contribute, of a
-// count no fewer than they number.
-func openCollectionValue(spelled string, feature *EffectiveFeature, contributed []Value) Value {
+// count no fewer than they number or than an open subsetter holds.
+func openCollectionValue(spelled string, feature *EffectiveFeature, open *openPopulation) Value {
 	mult := feature.Multiplicity
 	count := mult
-	if held := int64(len(contributed)); held > count.Lower.Value {
-		count.Lower = semantics.Bound{Value: held, Known: true}
+	if fewest := max(int64(len(open.Contributed)), open.AtLeast); fewest > fewestOf(count) {
+		count.Lower = semantics.Bound{Value: fewest, Known: true}
 	}
 	return Value{Kind: ValUndetermined, ref: &Undetermined{
-		reason: openCountReason(spelled, mult), count: count, known: contributed, feature: feature.Symbol,
+		reason: openCountReason(spelled, mult), count: count, known: open.Contributed, feature: feature.Symbol,
 	}}
 }
 

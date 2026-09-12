@@ -197,3 +197,44 @@ chain-open-mass :: T :: rack.gear.mass
 chain-size-open :: T :: SequenceFunctions::size(rack.gear.tag)
 chain-loose-tag :: T :: rack.loose.tag
 chain-no-member :: T :: rack.gear.nope
+
+# A named conditional checks that an open test may be Boolean before staying open.
+named-if-real-test :: U :: ControlFunctions::'if'(r, 1, 2)
+named-if-string-test :: U :: ControlFunctions::'if'(s, 1, 2)
+named-if-several-test :: U :: ControlFunctions::'if'(bs, 1, 2)
+named-if-boolean-test :: U :: ControlFunctions::'if'(b, 1, 2)
+named-if-untyped-test :: U :: ControlFunctions::'if'(u, 1, 2)
+
+# An open operand that certainly holds several values is no scalar.
+several-plus :: U :: xs + 1
+several-greater :: U :: xs > 1
+several-negate :: U :: -xs
+several-index :: U :: (10, 20)#(xs)
+several-string-concat :: U :: ss + "a"
+several-boolean-and :: U :: bs and true
+several-boolean-not :: U :: not bs
+several-condition :: U :: if bs ? 1 else 2
+several-library-plus :: U :: RealFunctions::'+'(xs, 1.0)
+several-library-abs :: U :: RealFunctions::abs(xs)
+several-library-length :: U :: StringFunctions::Length(ss)
+several-library-substring :: U :: StringFunctions::Substring(ss, 1, 1)
+several-equal :: U :: xs == 1.0
+several-size :: U :: SequenceFunctions::size(xs)
+several-head :: U :: SequenceFunctions::head(xs)
+several-includes :: U :: SequenceFunctions::includes(xs, 1.0)
+several-coalesce :: U :: xs ?? 3
+optional-plus :: U :: os + 1
+optional-negate :: U :: -os
+optional-index :: U :: (10, 20)#(os)
+
+# A model-level read leaves an open subsetter as open as the collection it fills.
+subsetter-open-base :: T :: store.base
+subsetter-open-sub :: T :: store.sub
+subsetter-open-size :: T :: SequenceFunctions::size(store.base)
+subsetter-open-not-empty :: T :: SequenceFunctions::notEmpty(store.base)
+subsetter-open-mass :: T :: store.base.mass
+subsetter-capped-size :: T :: SequenceFunctions::size(store.cap)
+subsetter-capped :: T :: store.cap
+subsetter-mixed-not-empty :: T :: SequenceFunctions::notEmpty(store.pool)
+subsetter-mixed-includes :: T :: SequenceFunctions::includes(store.pool, store.inner#(1))
+subsetter-mixed-index :: T :: store.pool#(1)

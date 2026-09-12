@@ -521,11 +521,12 @@ func (inst *Instance) GetFeatureValue(ctx *Context, name string) (*FeatureValue,
 	return inst.getFeatureValue(ctx, name, nil)
 }
 
-// openPopulation is where a read that stops short of making up a collection's lower
-// bound leaves what the collection certainly holds: the values its subsetters contribute.
+// openPopulation is where a read that stops short of making up a collection's lower bound
+// leaves what it certainly holds: its subsetters' values, and the fewest an open one holds.
 type openPopulation struct {
 	Stopped     bool
 	Contributed []Value
+	AtLeast     int64
 }
 
 // openFeatureValue is GetFeatureValue for a model-level read: a collection whose count
@@ -741,13 +742,13 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 		_, exact := mult.Exactly()
 		if open != nil && !exact && !(fv.Feature.Scalar() && ctx.bodyBindsAFeature(fv.Feature)) {
 			release := ctx.elementScope()
-			contributed, err := ctx.subsettingContributions(inst, name)
+			contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
 			release()
 			if err != nil {
 				return nil, err
 			}
-			if mult.MayAdmitMore(int64(len(contributed))) {
-				open.Stopped, open.Contributed = true, contributed
+			if held := int64(len(contributed)); atLeast > held || mult.MayAdmitMore(held) {
+				open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
 				return fv, nil
 			}
 		}

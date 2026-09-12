@@ -61,6 +61,15 @@ const undeterminedModel = `package test {
 		part plain : D :> items;
 		part tagged : D :> items { attribute :>> tag = "x"; }
 	}
+	part store {
+		part base[0..*] : D;
+		part sub[10001..*] : D :> base;
+		part cap[0..3] : D;
+		part three[3..*] : D :> cap;
+		part pool[0..*] : D;
+		part inner[2] : D :> pool;
+		part outer[5..*] : D :> pool;
+	}
 	attribute def Flag;
 	attribute flag : Flag;
 	enum def Mode { ON; OFF; }
@@ -69,6 +78,9 @@ const undeterminedModel = `package test {
 	attribute b : Boolean;
 	attribute s : String;
 	attribute xs : Real[2..4];
+	attribute ss : String[2..*];
+	attribute bs : Boolean[2];
+	attribute os : Real[0..4];
 	attribute vast : Real[0..9223372036854775807];
 	attribute big : Real[5000000];
 	attribute known : Real = 2.0;
@@ -987,6 +999,94 @@ func TestChainThroughOpenCollectionKeepsKnownValues(t *testing.T) {
 			if got := FormatValue(sequenceOf(u.Known())); got != known {
 				t.Errorf("%s certainly holds %s, want %s", src, got, known)
 			}
+		}
+	}
+}
+
+// A named conditional checks that an open test may be Boolean before it stays open,
+// as the `if ? :` operator does.
+func TestNamedConditionalChecksOpenTest(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for _, src := range []string{
+		"ControlFunctions::'if'(r, 1, 2)", "ControlFunctions::'if'(s, 1, 2)", "ControlFunctions::'if'(xs > 1.0, 1, 2)",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: err = %v; want ErrTypeMismatch", src, err)
+		}
+	}
+	for _, src := range []string{"ControlFunctions::'if'(bs, 1, 2)", "ControlFunctions::'if'(bs, xs, 2)"} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrMultiplicityViolation) {
+			t.Errorf("%s: err = %v; want ErrMultiplicityViolation", src, err)
+		}
+	}
+	for src, count := range map[string]string{
+		"ControlFunctions::'if'(b, 1, 2)": "[1]", "ControlFunctions::'if'(u, 1, 2)": "[1]", "ControlFunctions::'if'(b, xs, 2)": "[1..4]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// An open operand that certainly holds several values is no scalar: the operators and
+// functions taking exactly one value refuse it as they refuse a determined sequence,
+// while one that may hold a single value stays open and collections are still taken.
+func TestSeveralOpenValuesAreNoScalar(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for _, src := range []string{
+		"xs + 1", "1 - xs", "xs * xs", "xs > 1", "xs <= 1.0", "-xs", "+xs", "(10, 20)#(xs)",
+		"ss + \"a\"", "bs and true", "false or bs", "not bs", "bs xor true", "if bs ? 1 else 2",
+		"xs ** 2", "xs % 2",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: err = %v; want ErrTypeMismatch", src, err)
+		}
+	}
+	for _, src := range []string{
+		"RealFunctions::'+'(xs, 1.0)", "RealFunctions::abs(xs)", "RealFunctions::sqrt(xs)", "RealFunctions::max(xs, 1.0)",
+		"StringFunctions::Length(ss)", "StringFunctions::Substring(ss, 1, 1)", "BooleanFunctions::'|'(true, bs)",
+		"ControlFunctions::'and'(bs, true)", "twice(xs)",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrMultiplicityViolation) {
+			t.Errorf("%s: err = %v; want ErrMultiplicityViolation", src, err)
+		}
+	}
+	if _, err := evalIn(t, ctx, scope, "xs + 1"); err == nil || !strings.Contains(err.Error(), "an undetermined Real sequence") {
+		t.Errorf("xs + 1: err = %v; want the operand described as a sequence", err)
+	}
+	for src, count := range map[string]string{
+		"os + 1": "[0..1]", "-os": "[0..1]", "os > 1": "[0..1]", "(10, 20)#(os)": "[1]", "twice(os)": "[0..1]",
+		"RealFunctions::abs(os)": "[1]", "xs == 1.0": "[1]", "xs != xs": "[1]", "xs === xs": "[1]", "xs ?? 3": "[2..4]",
+		"size(xs)": "[1]", "head(xs)": "[1]", "includes(xs, 1.0)": "[1]", "xs#(1)": "[1]",
+		"xs->ControlFunctions::forAll{in x; x > 1.0}": "[1]", "xs->ControlFunctions::collect{in x; x + 1.0}": "[2..4]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+}
+
+// A model-level read of a collection reads the features subsetting it the same way:
+// an open subsetter is not made up to its lower bound, and contributes no objects but
+// the fewest it holds — so its count, not made-up members, answers.
+func TestOpenSubsettersAreNotMaterializedAtModelLevel(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, count := range map[string]string{
+		"store.base": "[10001..*]", "store.sub": "[10001..*]", "store.base.mass": "[10001..*]",
+		"store.pool": "[5..*]", "store.pool#(1)": "[1]", "store.cap": "[3]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{
+		"notEmpty(store.base)": "true", "isEmpty(store.base)": "false", "size(store.cap)": "3",
+		"notEmpty(store.pool)": "true", "includes(store.pool, store.inner#(1))": "true",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, known := range map[string]int{"store.base": 0, "store.cap": 0, "store.pool": 2} {
+		val, _ := evalIn(t, ctx, scope, src)
+		if u := val.Undetermined(); u != nil && len(u.Known()) != known {
+			t.Errorf("%s certainly holds %d objects, want %d", src, len(u.Known()), known)
 		}
 	}
 }

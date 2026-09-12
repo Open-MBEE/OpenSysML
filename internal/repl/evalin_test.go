@@ -177,11 +177,15 @@ func TestEvalInDeclarationScopeCompoundsOverValuelessFeaturesAreUndetermined(t *
 	if errs := errorDiagnostics(s.Submit(multiValuedModel).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
 	}
-	for _, expr := range []string{"unsetMass + 1.0", "mass + unsetMass", "wheels.radius * 2.0", "doubled", "-unsetMass"} {
+	for _, expr := range []string{"unsetMass + 1.0", "mass + unsetMass", "wheels.radius#(1) * 2.0", "doubled", "-unsetMass"} {
 		got := run(t, s, "%eval in car : "+expr)
 		wants(t, got, "✓ "+expr+" (in car)", "= "+runtime.UndeterminedText)
 		rejects(t, got, "error", "no value for feature", "= "+runtime.UnsetText, "unresolved reference")
 	}
+	// A chain over the four wheels holds four values, which no scalar operator takes.
+	got := run(t, s, "%eval in car : wheels.radius * 2.0")
+	wants(t, got, "type mismatch", "an undetermined Real sequence and a Real")
+	rejects(t, got, "no value for feature", "= "+runtime.UndeterminedText)
 	for _, expr := range []string{"car::unsetMass + 1.0", "car::doubled"} {
 		got := run(t, s, "%eval "+expr)
 		wants(t, got, "✓ "+expr, "= "+runtime.UndeterminedText)

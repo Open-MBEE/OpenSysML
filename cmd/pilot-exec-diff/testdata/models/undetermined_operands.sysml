@@ -6,6 +6,9 @@ package U {
     attribute b : Boolean;
     attribute r : Real;
     attribute xs : Real[2..4];
+    attribute ss : String[2..*];
+    attribute bs : Boolean[2];
+    attribute os : Real[0..4];
 }
 
 package T {
@@ -21,6 +24,15 @@ package T {
         part fixed : D :> gear;
         part vacant[0] : D;
         part tagged : D :> gear { attribute :>> tag = "x"; }
+    }
+    part store {
+        part base[0..*] : D;
+        part sub[10001..*] : D :> base;
+        part cap[0..3] : D;
+        part three[3..*] : D :> cap;
+        part pool[0..*] : D;
+        part inner[2] : D :> pool;
+        part outer[5..*] : D :> pool;
     }
     enum def Mode { ON; OFF; }
 }

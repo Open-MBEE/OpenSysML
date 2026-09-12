@@ -61,7 +61,15 @@
   (`s + "a"`, `r - 1`, `not b`) and a constant operand still folds (`false and s`). A feature
   chain through an open collection reads the members of the values it certainly holds, so
   `includes(gear.tag, "x")` is `true` for a `part tagged :> gear { attribute :>> tag = "x"; }`
-  and `gear.tag->exists{in x; x == "x"}` decides on it.
+  and `gear.tag->exists{in x; x == "x"}` decides on it. An open operand that certainly holds
+  several values (`xs : Real[2..4]`) is no scalar: `xs + 1`, `xs > 1`, `-xs` and `(10, 20)#(xs)`
+  are the `type mismatch` a sequence is, and a one-valued library or calc parameter
+  (`RealFunctions::abs(xs)`, `StringFunctions::Length(ss)`) the `multiplicity violation`, while
+  one that may hold a single value (`os : Real[0..4]`) stays `<undetermined>`; the named
+  `ControlFunctions::'if'` checks its open test as the operator form does, so `'if'(r, 1, 2)`
+  for `r : Real` is a `type mismatch`. A subsetter whose own count is open is read as the
+  collection it fills is, never built up to its lower bound: `part sub[10001..*] :> base` leaves
+  `base` `<undetermined>` holding at least `10001` values and no made-up object.
 - **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
   called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
   Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run
