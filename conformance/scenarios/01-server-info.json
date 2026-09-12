@@ -29,6 +29,7 @@
             "function_values",
             "set_values",
             "tensor_values",
+            "metaobject_values",
             "apply_edits",
             "strict_conformance",
             "feature_values",

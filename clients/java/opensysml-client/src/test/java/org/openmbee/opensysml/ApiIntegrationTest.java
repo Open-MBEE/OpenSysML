@@ -2,6 +2,7 @@ package org.openmbee.opensysml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -242,6 +243,44 @@ class ApiIntegrationTest {
         Value.QuantityValue corner = (Value.QuantityValue) model.eval("T::cube#(2, 1, 2)");
         assertEquals(6.0, corner.quantity().magnitude());
         assertEquals(Optional.of("m"), corner.quantity().unit());
+      }
+    }
+  }
+
+  private static final String METAOBJECTS =
+      """
+      package Demo {
+        private import ScalarValues::*;
+        metadata def Safety { attribute level : Integer = 2; }
+        part def Vehicle { attribute mass : Real; }
+        part seatBelt : Vehicle { @Safety { level = 4; } }
+        attribute asFeature [*] = seatBelt meta KerML::Feature;
+        attribute everything [*] = seatBelt.metadata;
+        attribute notADefinition [*] = seatBelt meta SysML::PartDefinition;
+        attribute belt : String = (seatBelt meta KerML::Feature)#(1).declaredName;
+      }
+      """;
+
+  @Test
+  void aMetaCastArrivesAsTheElementUnderItsOwnMetaclassAfterItsAnnotations() {
+    assertTrue(connection.capabilities().has(Capabilities.METAOBJECT_VALUES));
+    Value.MetaobjectValue seatBelt =
+        new Value.MetaobjectValue("Demo::seatBelt", "SysML::Systems::PartUsage");
+    try (Connection json =
+        Connection.open(ServiceBinary.options().encoding(Encoding.JSON).build())) {
+      for (Connection each : List.of(connection, json)) {
+        Model model = each.parse(METAOBJECTS);
+        Value.Sequence asFeature = (Value.Sequence) model.eval("Demo::asFeature");
+        assertEquals(List.of(seatBelt), asFeature.elements());
+        assertEquals(
+            "SysML::Systems::PartUsage",
+            ((Value.MetaobjectValue) asFeature.elements().get(0)).metaclassId());
+        assertEquals(new Value.Sequence(List.of()), model.eval("Demo::notADefinition"));
+        Value.Sequence everything = (Value.Sequence) model.eval("Demo::everything");
+        assertEquals(2, everything.elements().size());
+        assertInstanceOf(Value.InstanceReference.class, everything.elements().get(0));
+        assertEquals(seatBelt, everything.elements().get(1));
+        assertEquals(new Value.StringValue("seatBelt"), model.eval("Demo::belt"));
       }
     }
   }

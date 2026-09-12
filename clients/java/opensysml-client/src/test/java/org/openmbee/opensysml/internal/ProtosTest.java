@@ -552,6 +552,54 @@ class ProtosTest {
         IllegalArgumentException.class, () -> new Value.FunctionValue("", Optional.empty()));
   }
 
+  private static org.openmbee.opensysml.proto.Value metaobject(
+      String elementId, String metaclassId) {
+    return org.openmbee.opensysml.proto.Value.newBuilder()
+        .setMetaobject(
+            org.openmbee.opensysml.proto.Metaobject.newBuilder()
+                .setElementId(elementId)
+                .setMetaclassId(metaclassId))
+        .build();
+  }
+
+  @Test
+  void aMetaobjectIsTheElementItReflectsOnUnderItsOwnMetaclass() {
+    Value seatBelt =
+        Protos.value(metaobject("Demo::seatBelt", "SysML::Systems::PartUsage")).orElseThrow();
+    assertEquals(new Value.MetaobjectValue("Demo::seatBelt", "SysML::Systems::PartUsage"), seatBelt);
+    assertEquals(
+        "SysML::Systems::PartUsage", ((Value.MetaobjectValue) seatBelt).metaclassId());
+
+    // The element is the identity: the type it was cast to does not distinguish two reads.
+    Value asFeature = Protos.value(metaobject("Demo::seatBelt", "KerML::Feature")).orElseThrow();
+    assertEquals(seatBelt, asFeature);
+    assertEquals(seatBelt.hashCode(), asFeature.hashCode());
+    assertTrue(seatBelt.sameValue(asFeature));
+    assertNotEquals(
+        seatBelt, Protos.value(metaobject("Demo::Vehicle", "SysML::Systems::PartUsage")).orElseThrow());
+    assertFalse(seatBelt.sameValue(new Value.StringValue("Demo::seatBelt")));
+    org.openmbee.opensysml.proto.Value twice =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSet(
+                ValueSet.newBuilder()
+                    .addElements(metaobject("Demo::seatBelt", "KerML::Feature"))
+                    .addElements(metaobject("Demo::seatBelt", "KerML::Type")))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(twice));
+
+    // Naming no element is malformed at any depth, on the wire and in the record.
+    org.openmbee.opensysml.proto.Value noElement = metaobject("", "KerML::Feature");
+    TransportException nothing =
+        assertThrows(TransportException.class, () -> Protos.value(noElement));
+    assertTrue(nothing.getMessage().contains("names no element"), nothing.getMessage());
+    org.openmbee.opensysml.proto.Value nested =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setSequence(ValueSequence.newBuilder().addElements(metaobject("", "")))
+            .build();
+    assertThrows(TransportException.class, () -> Protos.value(nested));
+    assertThrows(IllegalArgumentException.class, () -> new Value.MetaobjectValue("", ""));
+  }
+
   @Test
   void aQuantityWithoutAMagnitudeIsRefusedRatherThanReadAsZero() {
     org.openmbee.opensysml.proto.Quantity noMagnitude =

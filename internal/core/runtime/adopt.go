@@ -646,6 +646,11 @@ func (a *adoption) planValue(owner string, val Value) error {
 				return
 			}
 		}
+		if v.Kind == ValMetaobject {
+			if err = a.planMetaobject(v); err != nil {
+				return
+			}
+		}
 		for _, unit := range unitsOf(v) {
 			if err = a.planUnit(unit); err != nil {
 				return
@@ -1042,6 +1047,16 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 	}
 }
 
+// planMetaobject rebinds the element a metaobject denotes and the metaclass it
+// is an instance of, both named by qualified name.
+func (a *adoption) planMetaobject(v Value) error {
+	if _, err := a.rebind(v.MetaobjectElement(), "an element a metaobject denotes"); err != nil {
+		return err
+	}
+	_, err := a.rebind(v.MetaobjectClass(), "the metaclass of a metaobject")
+	return err
+}
+
 // rewrite returns the value as this context holds it: the same value with every
 // symbol it names rebound. Collections are rebuilt rather than edited, since a
 // set is keyed on the values it holds.
@@ -1052,6 +1067,13 @@ func (a *adoption) rewrite(val Value) Value {
 			return NewVariantValue(found, val.Instance)
 		}
 		return val
+	case ValMetaobject:
+		element, elementOK := a.rebound[val.MetaobjectElement()]
+		metaclass, metaclassOK := a.rebound[val.MetaobjectClass()]
+		if !elementOK || !metaclassOK {
+			return val
+		}
+		return NewMetaobject(element, metaclass)
 	case ValFunction:
 		found, ok := a.rebound[val.Function()]
 		if !ok {

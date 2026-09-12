@@ -72,6 +72,7 @@ private static final long serialVersionUID = 0L;
     FUNCTION(17),
     SET(18),
     TENSOR_QUANTITY(19),
+    METAOBJECT(20),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -108,6 +109,7 @@ private static final long serialVersionUID = 0L;
         case 17: return FUNCTION;
         case 18: return SET;
         case 19: return TENSOR_QUANTITY;
+        case 20: return METAOBJECT;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -844,6 +846,49 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.TensorQuantity.getDefaultInstance();
   }
 
+  public static final int METAOBJECT_FIELD_NUMBER = 20;
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return Whether the metaobject field is set.
+   */
+  @java.lang.Override
+  public boolean hasMetaobject() {
+    return kindCase_ == 20;
+  }
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   * @return The metaobject.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Metaobject getMetaobject() {
+    if (kindCase_ == 20) {
+       return (org.openmbee.opensysml.proto.Metaobject) kind_;
+    }
+    return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * an element reflected on as its metaclass
+   * </pre>
+   *
+   * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.MetaobjectOrBuilder getMetaobjectOrBuilder() {
+    if (kindCase_ == 20) {
+       return (org.openmbee.opensysml.proto.Metaobject) kind_;
+    }
+    return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -920,6 +965,9 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 19) {
       output.writeMessage(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
+    }
+    if (kindCase_ == 20) {
+      output.writeMessage(20, (org.openmbee.opensysml.proto.Metaobject) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1009,6 +1057,10 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 19) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(19, (org.openmbee.opensysml.proto.TensorQuantity) kind_);
+    }
+    if (kindCase_ == 20) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(20, (org.openmbee.opensysml.proto.Metaobject) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1103,6 +1155,10 @@ private static final long serialVersionUID = 0L;
       case 19:
         if (!getTensorQuantity()
             .equals(other.getTensorQuantity())) return false;
+        break;
+      case 20:
+        if (!getMetaobject()
+            .equals(other.getMetaobject())) return false;
         break;
       case 0:
       default:
@@ -1200,6 +1256,10 @@ private static final long serialVersionUID = 0L;
       case 19:
         hash = (37 * hash) + TENSOR_QUANTITY_FIELD_NUMBER;
         hash = (53 * hash) + getTensorQuantity().hashCode();
+        break;
+      case 20:
+        hash = (37 * hash) + METAOBJECT_FIELD_NUMBER;
+        hash = (53 * hash) + getMetaobject().hashCode();
         break;
       case 0:
       default:
@@ -1372,6 +1432,9 @@ private static final long serialVersionUID = 0L;
       if (tensorQuantityBuilder_ != null) {
         tensorQuantityBuilder_.clear();
       }
+      if (metaobjectBuilder_ != null) {
+        metaobjectBuilder_.clear();
+      }
       kindCase_ = 0;
       kind_ = null;
       return this;
@@ -1456,6 +1519,10 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 19 &&
           tensorQuantityBuilder_ != null) {
         result.kind_ = tensorQuantityBuilder_.build();
+      }
+      if (kindCase_ == 20 &&
+          metaobjectBuilder_ != null) {
+        result.kind_ = metaobjectBuilder_.build();
       }
     }
 
@@ -1550,6 +1617,10 @@ private static final long serialVersionUID = 0L;
         }
         case TENSOR_QUANTITY: {
           mergeTensorQuantity(other.getTensorQuantity());
+          break;
+        }
+        case METAOBJECT: {
+          mergeMetaobject(other.getMetaobject());
           break;
         }
         case KIND_NOT_SET: {
@@ -1701,6 +1772,13 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 19;
               break;
             } // case 154
+            case 162: {
+              input.readMessage(
+                  internalGetMetaobjectFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 20;
+              break;
+            } // case 162
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4139,6 +4217,184 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 19;
       onChanged();
       return tensorQuantityBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Metaobject, org.openmbee.opensysml.proto.Metaobject.Builder, org.openmbee.opensysml.proto.MetaobjectOrBuilder> metaobjectBuilder_;
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     * @return Whether the metaobject field is set.
+     */
+    @java.lang.Override
+    public boolean hasMetaobject() {
+      return kindCase_ == 20;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     * @return The metaobject.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Metaobject getMetaobject() {
+      if (metaobjectBuilder_ == null) {
+        if (kindCase_ == 20) {
+          return (org.openmbee.opensysml.proto.Metaobject) kind_;
+        }
+        return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+      } else {
+        if (kindCase_ == 20) {
+          return metaobjectBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder setMetaobject(org.openmbee.opensysml.proto.Metaobject value) {
+      if (metaobjectBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        metaobjectBuilder_.setMessage(value);
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder setMetaobject(
+        org.openmbee.opensysml.proto.Metaobject.Builder builderForValue) {
+      if (metaobjectBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        metaobjectBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder mergeMetaobject(org.openmbee.opensysml.proto.Metaobject value) {
+      if (metaobjectBuilder_ == null) {
+        if (kindCase_ == 20 &&
+            kind_ != org.openmbee.opensysml.proto.Metaobject.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.Metaobject.newBuilder((org.openmbee.opensysml.proto.Metaobject) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 20) {
+          metaobjectBuilder_.mergeFrom(value);
+        } else {
+          metaobjectBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 20;
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public Builder clearMetaobject() {
+      if (metaobjectBuilder_ == null) {
+        if (kindCase_ == 20) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 20) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        metaobjectBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    public org.openmbee.opensysml.proto.Metaobject.Builder getMetaobjectBuilder() {
+      return internalGetMetaobjectFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.MetaobjectOrBuilder getMetaobjectOrBuilder() {
+      if ((kindCase_ == 20) && (metaobjectBuilder_ != null)) {
+        return metaobjectBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 20) {
+          return (org.openmbee.opensysml.proto.Metaobject) kind_;
+        }
+        return org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * an element reflected on as its metaclass
+     * </pre>
+     *
+     * <code>.sysml.Metaobject metaobject = 20 [json_name = "metaobject"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Metaobject, org.openmbee.opensysml.proto.Metaobject.Builder, org.openmbee.opensysml.proto.MetaobjectOrBuilder> 
+        internalGetMetaobjectFieldBuilder() {
+      if (metaobjectBuilder_ == null) {
+        if (!(kindCase_ == 20)) {
+          kind_ = org.openmbee.opensysml.proto.Metaobject.getDefaultInstance();
+        }
+        metaobjectBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Metaobject, org.openmbee.opensysml.proto.Metaobject.Builder, org.openmbee.opensysml.proto.MetaobjectOrBuilder>(
+                (org.openmbee.opensysml.proto.Metaobject) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 20;
+      onChanged();
+      return metaobjectBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

@@ -101,7 +101,7 @@ func (ctx *Context) classifyNarrower(
 			return classifiesIf(member), err
 		}
 		return semantics.ClassifiesNone, nil
-	case ValVariant, ValInstance:
+	case ValVariant, ValInstance, ValMetaobject:
 		return semantics.ClassifiesNone, nil
 	}
 	return semantics.ClassifiesSome, nil

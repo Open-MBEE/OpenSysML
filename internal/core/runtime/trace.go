@@ -422,6 +422,8 @@ func FormatTraceValue(v Value) string {
 		return fmt.Sprintf("expr(%s)", TraceLabel(v.Expr()))
 	case ValFunction:
 		return fmt.Sprintf("calc(%s)", v.FunctionName())
+	case ValMetaobject:
+		return v.MetaobjectText()
 	default:
 		return v.Kind.String()
 	}

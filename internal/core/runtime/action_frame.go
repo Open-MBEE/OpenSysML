@@ -74,6 +74,9 @@ type actionFrame struct {
 	began int64
 	// run is the identity of this performance among the context's runs (Context.newRun).
 	run int64
+	// callee is the action a `Callee(...)` node performs, resolved or settled by its
+	// arguments' values as they were bound; nil for a node performing no such call.
+	callee *symbols.Symbol
 	// performs is the flow of the action a typed or invoked node performed, whose
 	// subactions the node's performance adopted as its own. nil otherwise.
 	performs *lower.ActionGraph
@@ -290,10 +293,17 @@ func (e *performances) bindArguments(perf *actionFrame, activation int64) error 
 	ec := e.evalContextAround(perf, scope)
 	ec.inBehaviorBody = true
 	ec.activation = activation
-	arguments, err := invocationArguments(e.ctx, scope, inv, ec)
+	arguments, callee, err := invocationArguments(e.ctx, scope, inv, ec)
 	if err != nil {
 		return err
 	}
+	perf.callee = callee
+	// Settled, the node holds the pins of the action performed alone, its result among them.
+	pins, err := e.pinsOf(perf.flow, perf.node, inv, callee, []*symbols.Symbol{callee})
+	if err != nil {
+		return err
+	}
+	perf.features, perf.aliases, perf.result = pins.directions, pins.aliases, pins.result
 	for name, value := range arguments {
 		if err := e.setFrameFeature(perf, name, value); err != nil {
 			return err
@@ -357,13 +367,37 @@ func (p nodePins) declares(name string) bool {
 	return ok
 }
 
-// nodePins returns the pins a performance of node holds.
+// nodePins returns the pins a performance of node holds. A call its arguments' values
+// settle holds the pins of every action still tied, its result pin only once settled.
 func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePins, error) {
-	pins := nodePins{directions: make(map[string]ast.FeatureDirection)}
 	usage, ok := node.(*ast.Usage)
 	if !ok {
-		return pins, nil
+		return nodePins{directions: make(map[string]ast.FeatureDirection)}, nil
 	}
+	inv, performs := nestedInvocation(usage)
+	if !performs || lower.IsCaseNode(usage) {
+		return e.pinsOf(graph, node, inv, nil, nil)
+	}
+	sym, tied, err := actionCandidates(e.ctx, nodeScope(graph, node), inv)
+	if err != nil {
+		return nodePins{}, err
+	}
+	if sym != nil {
+		tied = []*symbols.Symbol{sym}
+	}
+	return e.pinsOf(graph, node, inv, sym, tied)
+}
+
+// pinsOf returns the pins node holds with those of the callees, read as a value by a
+// `return` of its own or of the settled callee, else by an `out result` among them.
+func (e *performances) pinsOf(
+	graph *lower.ActionGraph,
+	node ast.Node,
+	inv actionInvocation,
+	settled *symbols.Symbol,
+	callees []*symbols.Symbol,
+) (nodePins, error) {
+	pins := nodePins{directions: make(map[string]ast.FeatureDirection)}
 	for _, feature := range graph.Features[node] {
 		pins.directions[feature.Name] = feature.Direction
 		e.ctx.aliasRedefinitions(&pins.aliases, memberSymbol(feature.Scope, feature.Node), feature.Name)
@@ -371,18 +405,19 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 			pins.result = feature.Name
 		}
 	}
-	if inv, performs := nestedInvocation(usage); performs && !lower.IsCaseNode(usage) {
-		sym, err := resolveActionSymbol(e.ctx, nodeScope(graph, node), inv)
-		if err != nil {
-			return nodePins{}, err
-		}
+	if len(callees) > 0 {
 		inv.step, _ = stepSymbol(graph, node)
-		held, _, err := e.ctx.performanceBody(inv.performed(sym), sym)
+	}
+	for _, callee := range callees {
+		held, _, err := e.ctx.performanceBody(inv.performed(callee), callee)
 		if err != nil {
 			return nodePins{}, err
 		}
 		e.addFeatureDirections(pins.directions, &pins.aliases, held)
-		for _, param := range e.ctx.actionParametersOf(sym) {
+		if callee != settled {
+			continue
+		}
+		for _, param := range e.ctx.actionParametersOf(callee) {
 			if param.IsResult && pins.result == "" {
 				pins.result = param.Name
 			}
@@ -1067,10 +1102,12 @@ func bindingEndText(end ast.Node) string {
 // pins (its arguments among them) bind the callee's inputs, its final values become the node's,
 // and its outputs return to enclosing features when the node's own performance ends.
 func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation) error {
-	scope := nodeScope(perf.flow, perf.node)
-	sym, err := resolveActionSymbol(e.ctx, scope, inv)
-	if err != nil {
-		return err
+	sym := perf.callee
+	if sym == nil {
+		var err error
+		if sym, err = resolveActionSymbol(e.ctx, nodeScope(perf.flow, perf.node), inv); err != nil {
+			return err
+		}
 	}
 	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	if e.ctx.actionDepth >= maxActionNestingDepth {
