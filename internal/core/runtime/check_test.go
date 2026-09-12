@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -105,6 +106,37 @@ func TestCheckForkBranchesWriteOneFeatureDiverge(t *testing.T) {
 				t.Fatalf("reduce=%v: final %s has no witness", opts.Reduce, final.Outcome)
 			}
 		}
+	}
+}
+
+// A completed state is a stable state: a property false only there is a
+// violation on the schedule completing, at the depth that completes it.
+func TestCheckEvaluatesPropertiesAtCompletion(t *testing.T) {
+	m := conformanceModel(t, "action_join_waits_for_slowest_branch")
+	incomplete := CheckProperty{Name: "incomplete", Holds: func(_ *Context, exec *ActionExecutor) (bool, error) {
+		return exec.State() != StateCompleted, nil
+	}}
+	for _, opts := range []CheckOptions{reduced(), unreduced()} {
+		report := checkModel(t, m, "gather", CheckBudget{}, opts, incomplete)
+		if report.Verdict != CheckViolation || len(report.Violations) != 1 {
+			t.Fatalf("reduce=%v: %s, violations %v; want the one at completion", opts.Reduce, report.Status(), report.Violations)
+		}
+		v := report.Violations[0]
+		if v.Kind != ViolationProperty || v.Name != "incomplete" || v.Depth != report.MaxDepth || len(v.Witness.Choices) == 0 {
+			t.Fatalf("reduce=%v: violation %+v, want incomplete false at the completing depth %d", opts.Reduce, v, report.MaxDepth)
+		}
+		r := replayWitness(t, m, starterOf(m.action(t, "gather")), v.Witness, "completion")
+		if r.Err != nil || r.Exec.State() != StateCompleted {
+			t.Fatalf("reduce=%v: the replay ends %s with %v, want complete", opts.Reduce, r.Exec.State(), r.Err)
+		}
+	}
+	// An action complete before any move is the same state.
+	single := parseExploreModel(t, `package test {
+		action lone { first start; then done; }
+	}`)
+	report := checkModel(t, single, "lone", CheckBudget{}, reduced(), incomplete)
+	if report.Verdict != CheckViolation || len(report.Violations) != 1 || report.Violations[0].Depth != report.MaxDepth {
+		t.Fatalf("%s, violations %v; want the one at completion", report.Status(), report.Violations)
 	}
 }
 
@@ -300,6 +332,62 @@ func TestCheckMergeLoopHitsTheDepthBound(t *testing.T) {
 	bounded := checkModel(t, m, "spin", CheckBudget{States: 5}, reduced())
 	if bounded.Verdict != CheckWithinBounds || !slices.Contains(bounded.BoundsHit, "states") || bounded.States != 5 {
 		t.Fatalf("%s, want the states bound hit at 5 states", bounded.Status())
+	}
+	// The executor's own action-step budget is a bound named as that budget, its limit kept.
+	limits := DefaultBudgets()
+	limits.MaxActionSteps = 9
+	fresh := func() (*Context, error) {
+		ctx, err := m.fresh()
+		if err != nil {
+			return nil, err
+		}
+		return ctx, ctx.SetBudgets(limits)
+	}
+	stepped, err := CheckAction(context.Background(), fresh, starterOf(m.action(t, "spin")), CheckBudget{}, reduced(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stepped.Verdict != CheckWithinBounds || !slices.Equal(stepped.BoundsHit, []string{BoundActionSteps}) || stepped.MaxDepth != 9 {
+		t.Fatalf("%s, bounds %v, want only %s hit at depth 9", stepped.Status(), stepped.BoundsHit, BoundActionSteps)
+	}
+	if got, ok := ExecutorBound(BoundActionSteps, stepped.Limits); !ok || got != 9 {
+		t.Fatalf("%s limit %d, want 9", BoundActionSteps, got)
+	}
+}
+
+// Every executor budget the search can exhaust is a bound of its own, named by
+// its budget, its limit that budget's.
+func TestCheckNamesEachExecutorBudget(t *testing.T) {
+	limits := Budgets{MaxSteps: 1, MaxActionSteps: 2, MaxStateEvents: 3, MaxDoSteps: 4, MaxElements: 5}
+	cases := []struct {
+		err   error
+		name  string
+		limit int64
+	}{
+		{ErrStepLimitExceeded, BoundSteps, 1},
+		{ErrActionStepLimitExceeded, BoundActionSteps, 2},
+		{ErrStateEventLimitExceeded, BoundEvents, 3},
+		{budgetExceeded(ErrStateEventLimitExceeded, "behaviors", ErrBehaviorBudget), BoundBehaviors, 3},
+		{ErrDoStepLimitExceeded, BoundDoSteps, 4},
+		{ErrElementLimitExceeded, BoundElements, 5},
+	}
+	if len(cases) != len(ExecutorBounds) {
+		t.Fatalf("%d cases over %d bounds %v", len(cases), len(ExecutorBounds), ExecutorBounds)
+	}
+	for _, c := range cases {
+		name, ok := boundOf(fmt.Errorf("wrapped: %w", c.err))
+		if !ok || name != c.name || !slices.Contains(ExecutorBounds, name) {
+			t.Fatalf("%v names %q, want %s among %v", c.err, name, c.name, ExecutorBounds)
+		}
+		if limit, ok := ExecutorBound(name, limits); !ok || limit != c.limit {
+			t.Fatalf("%s limit %d, want %d", name, limit, c.limit)
+		}
+	}
+	if _, ok := boundOf(ErrActionDeadlock); ok {
+		t.Fatal("a deadlock is not a bound")
+	}
+	if _, ok := ExecutorBound("depth", limits); ok {
+		t.Fatal("depth is the search's bound, not the executor's")
 	}
 }
 

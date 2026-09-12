@@ -87,13 +87,44 @@ func TestCheckDescribesItself(t *testing.T) {
 	if len(d.Questions) != 2 || d.Questions[0] != Outcomes || d.Questions[1] != Holds {
 		t.Fatalf("questions %v, want outcomes and holds", d.Questions)
 	}
-	for _, name := range []string{"depth", "states", "steps", "elements"} {
+	for _, name := range append([]string{"depth", "states", "deadline"}, runtime.ExecutorBounds...) {
 		found := false
 		for _, b := range d.Bounds {
 			found = found || b == name
 		}
 		if !found {
 			t.Fatalf("bounds %v, want %s", d.Bounds, name)
+		}
+	}
+}
+
+// The bounds a check result carries are the search's and each executor budget by its
+// own name and limit: an exhausted budget is reached under that name, no other.
+func TestCheckBoundsNameEachBudgetHit(t *testing.T) {
+	limits := runtime.Budgets{MaxSteps: 11, MaxActionSteps: 12, MaxStateEvents: 13, MaxDoSteps: 14, MaxElements: 15}
+	report := &runtime.CheckReport{Limits: limits, BoundsHit: []string{runtime.BoundActionSteps, runtime.BoundBehaviors}}
+	bounds := checkBounds(report, Budget{Depth: 7, Runs: 8})
+	want := map[string]Bound{
+		"depth":                  {Name: "depth", Limit: 7},
+		"states":                 {Name: "states", Limit: 8},
+		runtime.BoundSteps:       {Name: runtime.BoundSteps, Limit: 11},
+		runtime.BoundActionSteps: {Name: runtime.BoundActionSteps, Limit: 12, Reached: true},
+		runtime.BoundEvents:      {Name: runtime.BoundEvents, Limit: 13},
+		runtime.BoundBehaviors:   {Name: runtime.BoundBehaviors, Limit: 13, Reached: true},
+		runtime.BoundDoSteps:     {Name: runtime.BoundDoSteps, Limit: 14},
+		runtime.BoundElements:    {Name: runtime.BoundElements, Limit: 15},
+	}
+	if len(bounds) != len(want) {
+		t.Fatalf("bounds %s, want %d of them", bounds, len(want))
+	}
+	for _, b := range bounds {
+		if b != want[b.Name] {
+			t.Fatalf("bound %+v, want %+v", b, want[b.Name])
+		}
+	}
+	for _, name := range NewCheck().Describe().Bounds {
+		if _, ok := bounds.Limit(name); !ok && name != "deadline" {
+			t.Fatalf("the engine describes %s but the result carries no such bound", name)
 		}
 	}
 }

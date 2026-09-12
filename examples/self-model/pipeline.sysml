@@ -542,7 +542,7 @@ package OpenSysMLPipeline {
     part def CheckEngine :> AnalysisEngine {
         attribute :>> engineName = "check";
         attribute :>> answers = "outcomes, holds";
-        attribute :>> bounds = "depth, states, deadline, steps, elements, behaviors";
+        attribute :>> bounds = "depth, states, deadline, steps, actionSteps, events, doSteps, elements, behaviors";
         attribute :>> authority = "bounded";
         attribute :>> replays = true;
         attribute :>> adapts = "runtime.CheckAction";

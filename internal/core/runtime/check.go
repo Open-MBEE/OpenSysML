@@ -169,7 +169,7 @@ type CheckReport struct {
 	Moves    int
 	MaxDepth int
 	// BoundsHit names the bounds the search ran into: `depth`, `states`, and the
-	// executor's budgets by name (`steps`, `elements`); none when exhaustive.
+	// executor's budgets by name (ExecutorBounds); none when exhaustive.
 	BoundsHit []string
 	// Limits are the executor's budgets the search ran under.
 	Limits     Budgets
@@ -347,8 +347,7 @@ func (c *checker) search() error {
 		return c.failed(err, 0)
 	}
 	if c.exec.State() == StateCompleted {
-		c.final()
-		return nil
+		return c.complete(0)
 	}
 	root, key, err := c.enter(0, nil)
 	if err != nil || root == nil {
@@ -395,7 +394,7 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 		return nil
 	}
 	if c.maxSteps > 0 && depth > c.maxSteps {
-		c.hit("steps")
+		c.hit(BoundActionSteps)
 		return nil
 	}
 	branches, err := c.exec.makeMove(m.enabledMove)
@@ -411,8 +410,7 @@ func (c *checker) take(f *checkFrame, m searchMove) error {
 		return c.failed(err, depth)
 	}
 	if c.exec.State() == StateCompleted {
-		c.final()
-		return nil
+		return c.complete(depth)
 	}
 	child, key, err := c.enter(depth, c.childSleep(f, m))
 	if err != nil {
@@ -468,24 +466,42 @@ func (c *checker) stable() bool {
 	return c.exec.State() == StateCompleted || len(c.exec.enabledMoves()) > 0
 }
 
-// enter visits the stable state the executor stands in: evaluates the
-// properties at a new one, and returns the frame to search it from, nil when
-// nothing remains to explore from it or a bound keeps the search out.
-func (c *checker) enter(depth int, sleep []searchMove) (*checkFrame, stateKey, error) {
-	form, err := c.exec.canonicalState()
-	if err != nil {
-		return nil, "", err
+// complete visits the completed state the executor reached: a state like any
+// other, its properties evaluated when new, whose outcome is a final.
+func (c *checker) complete(depth int) error {
+	if _, _, seen, _, err := c.visit(depth); err != nil || seen == nil {
+		return err
 	}
-	key := form.key()
-	seen, visited := c.visited[key]
-	if !visited {
+	c.final()
+	return nil
+}
+
+// visit records the stable state the executor stands in, evaluating the
+// properties at a new one; seen is nil when the states bound keeps the search out.
+func (c *checker) visit(depth int) (form canonicalForm, key stateKey, seen *visitedState, visited bool, err error) {
+	if form, err = c.exec.canonicalState(); err != nil {
+		return form, "", nil, false, err
+	}
+	key = form.key()
+	if seen, visited = c.visited[key]; !visited {
 		if c.budget.States > 0 && len(c.visited) >= c.budget.States {
 			c.hit("states")
-			return nil, key, nil
+			return form, key, nil, false, nil
 		}
 		seen = &visitedState{explored: make(map[string]bool)}
 		c.visited[key] = seen
 		c.properties(depth)
+	}
+	return form, key, seen, visited, nil
+}
+
+// enter visits the stable state the executor stands in and returns the frame to
+// search it from, nil when nothing remains to explore from it or a bound keeps
+// the search out.
+func (c *checker) enter(depth int, sleep []searchMove) (*checkFrame, stateKey, error) {
+	form, key, seen, visited, err := c.visit(depth)
+	if err != nil || seen == nil {
+		return nil, key, err
 	}
 	all := c.movesOf(form)
 	f := &checkFrame{key: key, depth: depth, all: all, sleep: sleep}
@@ -710,17 +726,56 @@ func divergences(finals []CheckFinal) []Divergence {
 	return out
 }
 
-// boundOf names the executor budget an error reports exhausted, false for
-// an error that is no budget's.
+// The executor budgets a search runs under, by the name a bound hit reports;
+// each names one field of Budgets, so a report spells the limit that stopped it.
+const (
+	BoundSteps       = "steps"
+	BoundActionSteps = "actionSteps"
+	BoundEvents      = "events"
+	BoundDoSteps     = "doSteps"
+	BoundElements    = "elements"
+	BoundBehaviors   = "behaviors"
+)
+
+// ExecutorBounds lists the executor budgets a bound hit may name, in report order.
+var ExecutorBounds = []string{BoundSteps, BoundActionSteps, BoundEvents, BoundDoSteps, BoundElements, BoundBehaviors}
+
+// ExecutorBound is the limit the named executor bound has under the budgets,
+// false for a name that is no executor bound's. The object behaviors' rounds
+// are counted in events, so both names spell the events limit.
+func ExecutorBound(name string, b Budgets) (int64, bool) {
+	switch name {
+	case BoundSteps:
+		return b.MaxSteps, true
+	case BoundActionSteps:
+		return b.MaxActionSteps, true
+	case BoundEvents, BoundBehaviors:
+		return b.MaxStateEvents, true
+	case BoundDoSteps:
+		return b.MaxDoSteps, true
+	case BoundElements:
+		return b.MaxElements, true
+	}
+	return 0, false
+}
+
+// boundOf names the executor budget an error reports exhausted, false for an
+// error that is no budget's; the behaviors' budget wraps the events one, so it
+// is told apart first.
 func boundOf(err error) (string, bool) {
 	switch {
-	case errors.Is(err, ErrActionStepLimitExceeded), errors.Is(err, ErrStepLimitExceeded),
-		errors.Is(err, ErrStateEventLimitExceeded), errors.Is(err, ErrDoStepLimitExceeded):
-		return "steps", true
-	case errors.Is(err, ErrElementLimitExceeded):
-		return "elements", true
 	case errors.Is(err, ErrBehaviorBudget):
-		return "behaviors", true
+		return BoundBehaviors, true
+	case errors.Is(err, ErrStepLimitExceeded):
+		return BoundSteps, true
+	case errors.Is(err, ErrActionStepLimitExceeded):
+		return BoundActionSteps, true
+	case errors.Is(err, ErrStateEventLimitExceeded):
+		return BoundEvents, true
+	case errors.Is(err, ErrDoStepLimitExceeded):
+		return BoundDoSteps, true
+	case errors.Is(err, ErrElementLimitExceeded):
+		return BoundElements, true
 	}
 	return "", false
 }

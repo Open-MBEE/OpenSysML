@@ -82,7 +82,7 @@ func (checkEngine) Name() string { return CheckEngineName }
 func (checkEngine) Describe() Description {
 	return Description{
 		Questions: []Kind{Outcomes, Holds},
-		Bounds:    []string{"depth", "states", "deadline", "steps", "elements", "behaviors"},
+		Bounds:    append([]string{"depth", "states", "deadline"}, runtime.ExecutorBounds...),
 		Replays:   true,
 		Authority: Bounded,
 	}
@@ -190,12 +190,15 @@ func divergenceReason(divergent []runtime.Divergence) string {
 // is the framework's, a search it stops being cancelled rather than bounded.
 func checkBounds(report *runtime.CheckReport, budget Budget) Bounds {
 	hit := func(name string) bool { return slices.Contains(report.BoundsHit, name) }
-	return Bounds{
+	bounds := Bounds{
 		{Name: "depth", Limit: int64(budget.Depth), Reached: hit("depth")},
 		{Name: "states", Limit: int64(budget.Runs), Reached: hit("states")},
-		{Name: "steps", Limit: report.Limits.MaxActionSteps, Reached: hit("steps")},
-		{Name: "elements", Limit: report.Limits.MaxElements, Reached: hit("elements")},
 	}
+	for _, name := range runtime.ExecutorBounds {
+		limit, _ := runtime.ExecutorBound(name, report.Limits)
+		bounds = append(bounds, Bound{Name: name, Limit: limit, Reached: hit(name)})
+	}
+	return bounds
 }
 
 // replayWitness is one witness the report carries, replayed and written.
