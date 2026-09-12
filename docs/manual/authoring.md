@@ -397,15 +397,12 @@ part structure : Diagram {
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
   `stateDiagram-v2` `direction` statement, or the Graphviz `rankdir` when the
-  form is `"dot"`. Stating one on a sequence diagram is a typed error.
-- `form` — `"mermaid"` (the default) or `"dot"` — is the diagram source a
-  graph-shaped kind is written as. `"dot"` writes Graphviz DOT for a `tree`,
-  `interconnection`, `state` or `action` rendering, for a toolchain that lays
-  diagrams out with Graphviz; no Graphviz installation is needed to write it.
-  Any other form, `"dot"` on a `sequence` kind, and either form on a `table`
-  kind — a table has no diagram source — is a typed error.
+  document is rendered with DOT diagrams. Stating one on a sequence diagram is
+  a typed error.
 
-Most kinds render as a fenced ` ```mermaid ` block:
+A diagram block states *what* is drawn, not the notation it is written in:
+that is a choice made when the document is rendered. By default most kinds
+render as a fenced ` ```mermaid ` block:
 
 ```markdown
 *Imaging chain interconnection*
@@ -421,8 +418,11 @@ flowchart LR
 ```
 ```
 
-With `attribute redefines form = "dot";` the same block is a fenced ` ```dot `
-block instead:
+Rendered with `-diagram-form dot` (`%render-document <name> dot` in the REPL,
+`diagramForm: "dot"` over the LSP), every graph-shaped diagram of the
+document — a `tree`, `interconnection`, `state` or `action` rendering — is a
+fenced ` ```dot ` block of Graphviz DOT instead, for a toolchain that lays
+diagrams out with Graphviz. No Graphviz installation is needed to write it:
 
 ```markdown
 *Imaging chain interconnection*
@@ -446,11 +446,13 @@ digraph "Observatory::interconnectView" {
 ```
 
 The HTML backend embeds the source in `<pre class="dot">`, and the PDF backend
-keeps it as source under a notice rather than drawing it.
+keeps it as source under a notice rather than drawing it. A `sequence` kind
+has no DOT form, so a document holding one cannot be rendered with DOT
+diagrams; the failure is a typed error naming the block.
 
 The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
-Mermaid or DOT block.
+Mermaid or DOT block, whichever diagram form the document is rendered with.
 
 ## Binding queries to blocks
 

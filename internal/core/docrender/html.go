@@ -127,6 +127,10 @@ type HTMLOptions struct {
 	// MermaidScript is the URL of a Mermaid script a standalone page loads to
 	// draw its diagrams; empty loads none, leaving each as source.
 	MermaidScript string
+
+	// DiagramForm is the source every graph-shaped diagram is written as,
+	// Mermaid when empty; a table-kind view is a table whichever it is.
+	DiagramForm view.Form
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -136,7 +140,7 @@ const MermaidScriptURL = "https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/merm
 // HTML renders an evaluated document as deterministic, semantic HTML: an
 // <article> holding nested <section> elements, real tables with <caption> and
 // <th scope>, <ul>/<ol> lists, <dl> definitions and <figure> diagrams
-// carrying Mermaid source.
+// carrying their source in the chosen diagram form.
 // Every node keeps its model facts in sysml- classes and data- attributes —
 // content kind, declared name, query, group column, row element and its kind,
 // projected column, value kind, reference target, diagram kind and direction —
@@ -150,14 +154,17 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 			return "", err
 		}
 	}
+	form, err := diagramForm(opts.DiagramForm)
+	if err != nil {
+		return "", err
+	}
 	var base string
 	if !opts.NoDefaultStylesheet {
-		var err error
 		if base, err = ThemeStylesheet(opts.Theme); err != nil {
 			return "", err
 		}
 	}
-	w := &htmlWriter{opts: opts, base: base, ids: contentIDs(document)}
+	w := &htmlWriter{opts: opts, base: base, form: form, ids: contentIDs(document)}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
 	if err := w.writeDocument(document); err != nil {
 		return "", err
@@ -179,12 +186,13 @@ func (s Stylesheet) check() error {
 	return nil
 }
 
-// htmlWriter accumulates one rendered document. ids maps each content node's
-// named path to the identifier it is addressed by.
+// htmlWriter accumulates one rendered document in its resolved diagram form;
+// ids maps each content node's named path to the identifier addressing it.
 type htmlWriter struct {
 	b       strings.Builder
 	opts    HTMLOptions
 	base    string
+	form    view.Form
 	ids     map[string]string
 	numbers map[string]string
 }
@@ -504,13 +512,13 @@ func (w *htmlWriter) writeDefinitions(node docir.Content, id string) {
 }
 
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
-// every other supported kind as its diagram source — Mermaid, which a loaded
-// Mermaid script draws, or DOT for a Graphviz toolchain — shown as text.
+// every other supported kind as its source in the render's diagram form —
+// Mermaid, which a loaded Mermaid script draws, or DOT — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Direction(), node.Form())
+	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Direction())
 }
 
-func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) error {
+func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, direction view.Direction) error {
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -520,7 +528,7 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 	var source string
 	if rendering.Kind != view.KindTable {
 		var err error
-		if form, source, err = diagramSource(name, rendering, direction, form); err != nil {
+		if source, err = diagramSource(name, rendering, direction, w.form); err != nil {
 			return err
 		}
 	}
@@ -531,7 +539,7 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 	if rendering.Kind == view.KindTable {
 		w.writeRenderingTable(rendering)
 	} else {
-		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
+		w.b.WriteString("<pre" + attr("class", string(w.form)) + ">" + html.EscapeString(source) + "</pre>\n")
 	}
 	if caption != "" {
 		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(caption) + "</figcaption>\n")

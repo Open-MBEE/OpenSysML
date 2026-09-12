@@ -3,6 +3,9 @@ package repl
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // docRenderModel declares a document over a small part tree: a titled report
@@ -33,6 +36,54 @@ const docRenderModel = docQueryModel + `package Reports {
 				calc entries : HeavySubsystems {
 					in root = telescope;
 				}
+			}
+		}
+	}
+}
+`
+
+// docDiagramModel declares a view over a connected part tree and a report
+// whose one diagram draws it next to a query table.
+const docDiagramModel = `package Imaging {
+	private import Views::*;
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	port def DataPort;
+	part def Camera { attribute mass : Real; port output : DataPort; }
+	part def Recorder { attribute mass : Real; port input : DataPort; }
+
+	part imagingChain {
+		part camera : Camera { attribute redefines mass = 2.5; }
+		part recorder : Recorder { attribute redefines mass = 4.0; }
+		connection link connect camera.output to recorder.input;
+	}
+
+	view chainView {
+		expose imagingChain;
+		render asInterconnectionDiagram;
+	}
+
+	calc def Parts :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = OwnedElements(source = root), type = "PartUsage"),
+			properties = ("name", "mass")
+		)
+	}
+
+	part def ChainReport :> Document {
+		attribute redefines title = "Imaging Chain";
+
+		part chain : Diagram {
+			attribute redefines caption = "The imaging chain";
+			ref redefines source = chainView;
+		}
+
+		part masses : Table {
+			calc rows : Parts {
+				in root = imagingChain;
 			}
 		}
 	}
@@ -74,11 +125,47 @@ func TestRenderDocumentUsageAndErrors(t *testing.T) {
 		"error:", "not a document", "DocumentQueries::Document")
 	wants(t, run(t, s, "%render-document Reports::MassReport root=telescope"),
 		"error:", "binds its queries' parameters in the model")
+	wants(t, run(t, s, "%render-document Reports::MassReport svg"),
+		"error:", `"svg" is not a diagram form (mermaid, dot)`)
+	wants(t, run(t, s, "%render-document Reports::MassReport dot extra"), renderDocumentUsage)
+}
+
+// TestRenderDocumentDiagramForm writes the document's graph-shaped diagram as
+// Mermaid by default and as DOT when asked; the table stays a pipe table.
+func TestRenderDocumentDiagramForm(t *testing.T) {
+	s := docRenderSession(t)
+	if res := s.Submit(docDiagramModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	mermaid := run(t, s, "%render-document Imaging::ChainReport")
+	wants(t, mermaid, "```mermaid\n", "flowchart", "| name | mass |")
+	if strings.Contains(mermaid, "```dot") {
+		t.Errorf("default rendering is DOT:\n%s", mermaid)
+	}
+	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid"), "```mermaid\n")
+	dot := run(t, s, "%render-document Imaging::ChainReport dot")
+	wants(t, dot,
+		"```dot\n// view: Imaging::chainView\n// kind: interconnection\n",
+		"digraph \"Imaging::chainView\" {",
+		`"n1" -> "n3" [label="link", arrowhead=none, ltail="cluster_n1", lhead="cluster_n3"];`,
+		"| camera | 2.5 |",
+		"| name | mass |",
+	)
+	if strings.Contains(dot, "```mermaid") {
+		t.Errorf("a diagram is still Mermaid under dot:\n%s", dot)
+	}
+	markdown, err := s.RenderDocumentMarkdown("Imaging::ChainReport", docrender.MarkdownOptions{DiagramForm: view.FormDot})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !strings.Contains(markdown, "```dot\n") {
+		t.Errorf("API rendering does not write DOT:\n%s", markdown)
+	}
 }
 
 func TestRenderDocumentMarkdownAPI(t *testing.T) {
 	s := docRenderSession(t)
-	markdown, err := s.RenderDocumentMarkdown("Reports::MassReport")
+	markdown, err := s.RenderDocumentMarkdown("Reports::MassReport", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -92,7 +179,7 @@ func TestRenderDocumentMarkdownAPI(t *testing.T) {
 
 func TestRenderDocumentListedInHelpAndCompletion(t *testing.T) {
 	s := docRenderSession(t)
-	wants(t, run(t, s, "%help"), "%render-document <name>")
+	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot]", "Graphviz DOT")
 	comp := s.Complete("%render-doc", len("%render-doc"))
 	found := false
 	for _, cand := range comp.Candidates {

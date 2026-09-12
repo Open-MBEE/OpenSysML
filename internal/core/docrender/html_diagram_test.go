@@ -10,13 +10,13 @@ import (
 
 func renderedFigure(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction) string {
 	t.Helper()
-	return renderedFigureForm(t, caption, rendering, direction, "")
+	return renderedFigureForm(t, caption, rendering, direction, view.FormMermaid)
 }
 
 func renderedFigureForm(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) string {
 	t.Helper()
-	w := &htmlWriter{}
-	if err := w.writeFigure("", "d", caption, rendering, direction, form); err != nil {
+	w := &htmlWriter{form: form}
+	if err := w.writeFigure("", "d", caption, rendering, direction); err != nil {
 		t.Fatalf("writeFigure: %v", err)
 	}
 	return w.b.String()
@@ -49,8 +49,8 @@ func TestHTMLDiagramMermaidKinds(t *testing.T) {
 	}
 }
 
-// TestHTMLDiagramDotForm checks a diagram stating the DOT form is the DOT
-// digraph in a pre element classed by its form, and a wrong form writes nothing.
+// TestHTMLDiagramDotForm checks a DOT render writes each diagram as its digraph
+// in a pre element classed by the form, and a kind DOT cannot write fails.
 func TestHTMLDiagramDotForm(t *testing.T) {
 	got := renderedFigureForm(t, "Chain", graphRendering(view.KindState), view.DirectionLeftRight, view.FormDot)
 	for _, want := range []string{`data-diagram-kind="state"`, `data-direction="LR"`, `<pre class="dot">// kind: state`, "graph [rankdir=LR];", `&#34;n0&#34; -&gt; &#34;n1&#34; [arrowhead=none];`, `<figcaption class="sysml-caption">Chain</figcaption>`} {
@@ -61,16 +61,10 @@ func TestHTMLDiagramDotForm(t *testing.T) {
 	if strings.Contains(got, "mermaid") {
 		t.Errorf("Mermaid in a DOT figure:\n%s", got)
 	}
-	if got, want := renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormMermaid), renderedFigure(t, "", graphRendering(view.KindTree), ""); got != want {
-		t.Errorf("stated mermaid differs from the default:\n%s\n%s", got, want)
-	}
-	w := &htmlWriter{}
+	w := &htmlWriter{form: view.FormDot}
 	var typed *Error
-	if err := w.writeFigure("", "d", "", graphRendering(view.KindSequence), "", view.FormDot); !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm {
+	if err := w.writeFigure("", "d", "", graphRendering(view.KindSequence), ""); !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm {
 		t.Fatalf("sequence as dot: error = %v", err)
-	}
-	if err := w.writeFigure("", "d", "", graphRendering(view.KindTree), "", "svg"); !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm {
-		t.Fatalf("svg: error = %v", err)
 	}
 	if w.b.Len() != 0 {
 		t.Errorf("a refused figure left output behind:\n%s", w.b.String())
@@ -96,6 +90,9 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 			t.Errorf("table figure lacks %q:\n%s", want, got)
 		}
 	}
+	if dot := renderedFigureForm(t, "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, "", view.FormDot); !strings.Contains(dot, `<table class="sysml-table"`) || strings.Contains(dot, "<pre") {
+		t.Errorf("a table is not a table in the dot form:\n%s", dot)
+	}
 	empty := renderedFigure(t, "", &view.Rendering{Kind: view.KindTable}, "")
 	if !strings.Contains(empty, "the view exposes nothing; the rendering is empty") {
 		t.Errorf("empty table unexplained: %s", empty)
@@ -105,13 +102,13 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 // TestHTMLDiagramErrors checks the typed errors for a diagram with no
 // rendering and for a kind no renderer can draw.
 func TestHTMLDiagramErrors(t *testing.T) {
-	w := &htmlWriter{}
+	w := &htmlWriter{form: view.FormMermaid}
 	var typed *Error
-	if err := w.writeFigure("", "d", "", nil, "", ""); !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
+	if err := w.writeFigure("", "d", "", nil, ""); !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
 		t.Fatalf("error = %v, want %s", err, ErrorMissingRendering)
 	}
 	for _, kind := range []view.Kind{view.KindTextual, view.KindGeometry} {
-		err := w.writeFigure("", "d", "", &view.Rendering{Kind: kind}, "", "")
+		err := w.writeFigure("", "d", "", &view.Rendering{Kind: kind}, "")
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableDiagram {
 			t.Fatalf("%s: error = %v, want %s", kind, err, ErrorUnrenderableDiagram)
 		}

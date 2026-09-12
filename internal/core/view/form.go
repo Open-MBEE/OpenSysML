@@ -27,8 +27,8 @@ const (
 // offered.
 func Forms() []Form { return []Form{FormText, FormMermaid, FormMarkdown, FormDot} }
 
-// DiagramForms are the forms a document's diagram block can state its
-// source is written in; a table is written as a table whatever is stated.
+// DiagramForms are the forms a document render writes its graph-shaped
+// diagrams as; a table-kind view is written as a table whichever is chosen.
 func DiagramForms() []Form { return []Form{FormMermaid, FormDot} }
 
 // FormNames spells the forms as a list, for help and error text.

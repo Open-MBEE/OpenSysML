@@ -3,7 +3,6 @@ package docplan
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1253,10 +1252,6 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
-	formText, formStated, err := c.optionalText(member, "form")
-	if err != nil {
-		return Content{}, err
-	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1337,29 +1332,6 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.direction = direction
-	}
-	if formStated {
-		form := view.Form(formText)
-		if !slices.Contains(view.DiagramForms(), form) {
-			return Content{}, &Error{
-				Kind:     ErrorInvalidForm,
-				Document: c.document,
-				Content:  c.contentName(member),
-				Actual:   formText,
-				Origin:   provenance.Symbol(member),
-			}
-		}
-		if !reference.kind.SupportsForm(form) {
-			return Content{}, &Error{
-				Kind:     ErrorUnsupportedForm,
-				Document: c.document,
-				Content:  c.contentName(member),
-				Expected: string(reference.kind),
-				Actual:   formText,
-				Origin:   provenance.Symbol(member),
-			}
-		}
-		reference.form = form
 	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err

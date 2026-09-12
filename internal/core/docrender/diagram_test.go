@@ -21,7 +21,7 @@ func graphRendering(kind view.Kind) *view.Rendering {
 
 func renderedDiagram(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction) string {
 	t.Helper()
-	return renderedDiagramForm(t, caption, rendering, direction, "")
+	return renderedDiagramForm(t, caption, rendering, direction, view.FormMermaid)
 }
 
 func renderedDiagramForm(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) string {
@@ -74,8 +74,8 @@ func TestDiagramDirection(t *testing.T) {
 	}
 }
 
-// A diagram stating the DOT form is a dot fence of the DOT digraph in the
-// diagram's direction; stating Mermaid is the default fence.
+// A render in the DOT form writes each graph-shaped diagram as a dot fence of
+// its digraph in the diagram's direction.
 func TestDiagramDotForm(t *testing.T) {
 	for _, kind := range []view.Kind{view.KindTree, view.KindInterconnection, view.KindAction, view.KindState} {
 		got := renderedDiagramForm(t, "", graphRendering(kind), view.DirectionLeftRight, view.FormDot)
@@ -91,38 +91,49 @@ func TestDiagramDotForm(t *testing.T) {
 			t.Errorf("%s: Mermaid in a dot fence:\n%s", kind, got)
 		}
 	}
-	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormMermaid)
-	if !strings.HasPrefix(got, "<!-- caption -->\n*Chain*\n\n```mermaid\n") {
-		t.Errorf("stated mermaid: %s", got)
-	}
-	if got, want := renderedDiagramForm(t, "", graphRendering(view.KindTree), "", view.FormMermaid), renderedDiagram(t, "", graphRendering(view.KindTree), ""); got != want {
-		t.Errorf("stated mermaid differs from the default:\n%s\n%s", got, want)
+	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormDot)
+	if !strings.HasPrefix(got, "<!-- caption -->\n*Chain*\n\n```dot\n") {
+		t.Errorf("captioned dot: %s", got)
 	}
 }
 
-// A form the rendering's kind is not written as, or no diagram form at all,
-// is a typed error rather than a fence of the wrong thing.
-func TestDiagramFormErrors(t *testing.T) {
+// The diagram form is resolved once per render: empty is Mermaid, and a form
+// no diagram is written as is a typed error before anything is written.
+func TestDiagramFormResolution(t *testing.T) {
+	if form, err := diagramForm(""); err != nil || form != view.FormMermaid {
+		t.Fatalf("diagramForm(\"\") = %q, %v", form, err)
+	}
+	for _, form := range view.DiagramForms() {
+		if got, err := diagramForm(form); err != nil || got != form {
+			t.Fatalf("diagramForm(%s) = %q, %v", form, got, err)
+		}
+	}
 	var typed *Error
-	_, err := diagramBlocks("d", "", graphRendering(view.KindSequence), "", view.FormDot)
-	if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != "dot" || typed.Expected != "sequence" {
-		t.Fatalf("sequence as dot: error = %v", err)
-	}
-	if !strings.Contains(err.Error(), `form "dot"`) || !strings.Contains(err.Error(), "sequence rendering") {
-		t.Errorf("message = %q", err)
-	}
 	for _, form := range []view.Form{view.FormText, view.FormMarkdown, "svg"} {
-		_, err := diagramBlocks("d", "", graphRendering(view.KindTree), "", form)
-		if !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm || typed.Actual != string(form) {
+		_, err := diagramForm(form)
+		if !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm || typed.DiagramForm != form {
 			t.Fatalf("%s: error = %v", form, err)
 		}
-		if !strings.Contains(err.Error(), "mermaid, dot") {
+		if !strings.Contains(err.Error(), `"`+string(form)+`"`) || !strings.Contains(err.Error(), "mermaid, dot") {
 			t.Errorf("%s: message = %q", form, err)
 		}
 	}
+}
+
+// A kind the chosen form does not write is a typed error naming both, and a
+// table-kind view is a pipe table whichever form is chosen.
+func TestDiagramFormErrors(t *testing.T) {
+	var typed *Error
+	_, err := diagramBlocks("d", "", graphRendering(view.KindSequence), "", view.FormDot)
+	if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != "sequence" || typed.DiagramForm != view.FormDot {
+		t.Fatalf("sequence as dot: error = %v", err)
+	}
+	if !strings.Contains(err.Error(), `kind "sequence"`) || !strings.Contains(err.Error(), "not written as dot") {
+		t.Errorf("message = %q", err)
+	}
 	table := &view.Rendering{Kind: view.KindTable, Columns: []string{"a"}, Rows: [][]string{{"x"}}}
 	if got := renderedDiagramForm(t, "", table, "", view.FormDot); !strings.Contains(got, "| a |") || !strings.Contains(got, "| x |") {
-		t.Errorf("a table is not a table whatever form is stated:\n%s", got)
+		t.Errorf("a table is not a table in the dot form:\n%s", got)
 	}
 }
 
@@ -179,7 +190,7 @@ func TestDiagramTableKindExplainsAnEmptyRendering(t *testing.T) {
 }
 
 func TestDiagramMissingRendering(t *testing.T) {
-	_, err := diagramBlocks("d", "", nil, "", "")
+	_, err := diagramBlocks("d", "", nil, "", view.FormMermaid)
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
 		t.Fatalf("error = %v, want %s", err, ErrorMissingRendering)
@@ -188,7 +199,7 @@ func TestDiagramMissingRendering(t *testing.T) {
 
 func TestDiagramUnrenderableKind(t *testing.T) {
 	for _, kind := range []view.Kind{view.KindTextual, view.KindGeometry} {
-		_, err := diagramBlocks("d", "", &view.Rendering{Kind: kind}, "", "")
+		_, err := diagramBlocks("d", "", &view.Rendering{Kind: kind}, "", view.FormMermaid)
 		var typed *Error
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableDiagram {
 			t.Fatalf("%s: error = %v, want %s", kind, err, ErrorUnrenderableDiagram)

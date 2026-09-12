@@ -111,7 +111,7 @@ without touching how the graph is walked.
 | CLI | `-render <view> -render-form dot`; `-render-all <dir> -render-form dot` writes `.dot` files | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> dot`; `%help` names it | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
 | LSP | `"form": "dot"` on `opensysml/render` | [`docs/reference/lsp.md`](../reference/lsp.md) |
-| Documents | `DocumentQueries::Diagram::form = "dot"`: a ` ```dot ` fence in Markdown, `<pre class="dot">` in HTML, the source under a notice in PDF | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md) |
+| Documents | `-render-document`/`-render-documents … -diagram-form dot`, `%render-document <name> dot`, `"diagramForm": "dot"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` fence in Markdown, `<pre class="dot">` in HTML, the source under a notice in PDF. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -129,9 +129,11 @@ and did not change. A view-render RPC added later would take the form as a strin
   the state shapes and labels; the empty rendering and its notices.
 - `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
   the form on each surface, and its refusal for a table or sequence.
-- `internal/core/docplan`, `docir`, `docrender`, `docpdf`: the `form` attribute planned,
-  carried, written as a `dot` fence and a `<pre class="dot">`, and kept as source in the PDF
-  without a diagram tool being looked for.
+- `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the
+  render-time diagram form defaulting to Mermaid, written as a `dot` fence and a
+  `<pre class="dot">` for every graph-shaped block with tables left as tables, refused for an
+  unknown form and for a kind with no DOT form, and kept as source in the PDF without a
+  diagram tool being looked for.
 
 ## Known limitations
 

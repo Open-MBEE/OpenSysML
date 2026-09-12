@@ -50,6 +50,11 @@ Write a CPU profile of the run to this file, for go tool pprof
 Report every diagnostic over the whole session buffer, with the pass that
 produced it
 .TP
+.BI \-diagram\-form " string"
+Form the graph\-shaped diagrams of \-render\-document and \-render\-documents
+are written in: mermaid (default) or dot; a table\-kind view is a table either
+way
+.TP
 .BI \-doc\-form " string"
 Form \-render\-document and \-render\-documents write: markdown (default),
 html or pdf, which drives an external converter
@@ -525,6 +530,9 @@ sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
 # diagrams drawn in the browser
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
     \-html\-mermaid cdn \-o report.html
+# diagrams as Graphviz DOT
+sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
+    dot \-o report.md
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form pdf \e
     \-pdf\-engine pandoc \-doc\-title\-page \-doc\-toc \-doc\-number\-sections \e
     \-o report.pdf
@@ -537,7 +545,10 @@ sysml \-html\-default\-css \-html\-theme modern \-o modern.css
 .PP
 A document is a part def specializing DocumentQueries::Document. Its queries
 are bound in the model and run against it, and the result is written as
-CommonMark\-compatible Markdown.
+CommonMark\-compatible Markdown. Its diagram blocks are Mermaid source;
+\-diagram\-form dot writes every graph\-shaped one as Graphviz DOT instead, in
+Markdown and HTML alike, while a table\-kind view stays a table. No Graphviz
+installation is needed to write it.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS
@@ -554,10 +565,9 @@ picks one of the bundled looks (default, modern, print, report), \-html\-css
 adds your own stylesheets, \-html\-no\-default\-css drops the default one,
 \-html\-fragment writes the document element alone to embed in a page of
 yours, and \-html\-default\-css writes the default sheet out \(em or, with
-\-html\-theme, a theme's whole sheet \(em to start from. Diagrams are written
-as Mermaid source; \-html\-mermaid cdn has the page load a pinned Mermaid
-release from jsDelivr so a browser draws them, or names a URL of your own to
-load it from.
+\-html\-theme, a theme's whole sheet \(em to start from. \-html\-mermaid cdn
+has the page load a pinned Mermaid release from jsDelivr so a browser draws
+the Mermaid diagrams, or names a URL of your own to load it from.
 .SH FLAG ORDER
 Flags may be written before or after the model they apply to. A file named
 like a flag is read as a file after \-\-, which ends the flags: sysml \-trace

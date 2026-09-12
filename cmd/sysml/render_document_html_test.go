@@ -196,6 +196,26 @@ func TestRenderDocumentHTMLMermaid(t *testing.T) {
 		2, "not the sheet")
 }
 
+// TestRenderDocumentHTMLDiagramForm checks -diagram-form reaches the HTML
+// backend: DOT on request, Mermaid otherwise, the table a table either way.
+func TestRenderDocumentHTMLDiagramForm(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	dot := runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+		"-doc-form", "html", "-diagram-form", "dot"))
+	wantReport(t, dot, 0,
+		`<pre class="dot">// view: Observatory::interconnectView`,
+		"digraph &#34;Observatory::interconnectView&#34; {",
+		`<table class="sysml-table"`)
+	if strings.Contains(dot.stdout, `class="mermaid"`) {
+		t.Errorf("a diagram is still Mermaid under -diagram-form dot:\n%s", dot.stdout)
+	}
+	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-doc-form", "html")),
+		0, `<pre class="mermaid">`)
+	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+		"-doc-form", "html", "-diagram-form", "svg")), 2, `unknown diagram form "svg"`)
+}
+
 // TestRenderDocumentHTMLTheme checks -html-theme layers a bundled theme over
 // the default sheet on a page, in a set's shared sheet and in the sheet
 // -html-default-css writes, and refuses what it cannot style.

@@ -1,5 +1,10 @@
 package lsp
 
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/core/view"
+)
+
 // The custom methods a document-preview client speaks, alongside the diagram
 // methods in render.go.
 const (
@@ -22,9 +27,11 @@ type documentInfo struct {
 }
 
 // renderDocumentParams asks for the Markdown rendering of the document
-// definition Name names.
+// definition Name names. DiagramForm is the source its graph-shaped diagrams
+// are written as, mermaid or dot; empty is mermaid.
 type renderDocumentParams struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	DiagramForm string `json:"diagramForm,omitempty"`
 }
 
 // renderDocumentResult is the rendered document.
@@ -49,7 +56,8 @@ func (s *Server) Documents() *documentsResult {
 // RenderDocument answers opensysml/renderDocument: the named document compiled,
 // evaluated and rendered as Markdown, or the typed error stopping it.
 func (s *Server) RenderDocument(params *renderDocumentParams) (*renderDocumentResult, error) {
-	markdown, err := s.ws.RenderDocumentMarkdown(params.Name)
+	opts := docrender.MarkdownOptions{DiagramForm: view.Form(params.DiagramForm)}
+	markdown, err := s.ws.RenderDocumentMarkdown(params.Name, opts)
 	if err != nil {
 		return nil, err
 	}

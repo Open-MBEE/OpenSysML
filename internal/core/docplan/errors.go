@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/provenance"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
 )
 
 // ErrorKind classifies a document-planning failure.
@@ -39,8 +38,6 @@ const (
 	ErrorUnsupportedKind         ErrorKind = "unsupported-diagram-kind"
 	ErrorInvalidDirection        ErrorKind = "invalid-direction"
 	ErrorUnsupportedDirection    ErrorKind = "unsupported-direction"
-	ErrorInvalidForm             ErrorKind = "invalid-diagram-form"
-	ErrorUnsupportedForm         ErrorKind = "unsupported-diagram-form"
 	ErrorConflictingRuns         ErrorKind = "conflicting-runs"
 	ErrorAmbiguousRun            ErrorKind = "ambiguous-run"
 	ErrorMissingRunText          ErrorKind = "missing-run-text"
@@ -162,10 +159,6 @@ func (e *Error) Error() string {
 		return fmt.Sprintf("document %s diagram %s direction must be \"TB\", \"LR\", \"RL\" or \"BT\", got %q", e.Document, e.Content, e.Actual)
 	case ErrorUnsupportedDirection:
 		return fmt.Sprintf("document %s diagram %s states direction %q, but a %s rendering has none", e.Document, e.Content, e.Actual, e.Expected)
-	case ErrorInvalidForm:
-		return fmt.Sprintf("document %s diagram %s form must be %q or %q, got %q", e.Document, e.Content, view.FormMermaid, view.FormDot, e.Actual)
-	case ErrorUnsupportedForm:
-		return fmt.Sprintf("document %s diagram %s states form %q, but a %s rendering is not written as it", e.Document, e.Content, e.Actual, e.Expected)
 	case ErrorConflictingRuns:
 		return fmt.Sprintf("document %s paragraph %s declares inline runs alongside text or a query", e.Document, e.Content)
 	case ErrorAmbiguousRun:

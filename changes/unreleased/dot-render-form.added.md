@@ -9,10 +9,12 @@
   written for Graphviz toolchains and for layouts of graphs larger than Mermaid draws. Mermaid
   stays the default machine-readable form. A `sequence` or `table` view has no DOT form and is
   refused the way a wrong form always was.
-- **A document's `Diagram` block states the form its source is written in.**
-  `DocumentQueries::Diagram` gains an optional `form` attribute, `"mermaid"` (the default) or
-  `"dot"`. With `"dot"` the Markdown backend writes a fenced ` ```dot ` block, the HTML backend
-  embeds the source in `<pre class="dot">`, and the PDF backend keeps the source under a notice
-  that it does not draw DOT, looking for no Graphviz tool; a table is written as a table whatever
-  is stated. A form outside the two, or `"dot"` on a kind with no DOT form, is a planning error at
-  the declaration.
+- **A document renders its diagrams as DOT on request.** `sysml -render-document … -diagram-form
+  dot` (and `-render-documents`), `%render-document <name> dot` at the prompt, and
+  `"diagramForm": "dot"` on `opensysml/renderDocument` write every graph-shaped `Diagram` block
+  of the document as a fenced ` ```dot ` block in Markdown and as `<pre class="dot">` in HTML;
+  the PDF backend keeps the source under a notice that it does not draw DOT, looking for no
+  Graphviz tool. Mermaid stays the default, and a table-kind block is a table either way. The
+  form is a choice of the render, not of the model: a `Diagram` block states what is drawn, and
+  no attribute names the notation. An unknown form, or `dot` on a document holding a `sequence`
+  diagram, is a typed error.

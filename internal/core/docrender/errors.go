@@ -28,8 +28,8 @@ type Error struct {
 	Kind    ErrorKind
 	Content string
 	Actual  string
-	// Expected is the rendering kind a stated diagram form does not fit.
-	Expected string
+	// DiagramForm is the diagram form asked for, when a failure is about one.
+	DiagramForm view.Form
 	// Form is the backend that failed, "Markdown" when empty.
 	Form string
 }
@@ -53,9 +53,9 @@ func (e *Error) Error() string {
 	case ErrorUnrenderableDiagram:
 		return fmt.Sprintf("diagram %s has kind %q, which %s cannot draw", e.Content, e.Actual, e.form())
 	case ErrorUnrenderableForm:
-		return fmt.Sprintf("diagram %s states form %q, which a %s rendering is not written as", e.Content, e.Actual, e.Expected)
+		return fmt.Sprintf("diagram %s has kind %q, which is not written as %s", e.Content, e.Actual, e.DiagramForm)
 	case ErrorUnknownForm:
-		return fmt.Sprintf("diagram %s states form %q; a diagram is written as %s", e.Content, e.Actual, view.FormNames(view.DiagramForms()))
+		return fmt.Sprintf("no diagram form is named %q; diagrams are written as %s", e.DiagramForm, view.FormNames(view.DiagramForms()))
 	case ErrorEmptyStylesheet:
 		return "a stylesheet must carry content to inline or a URL to link"
 	case ErrorAmbiguousStylesheet:

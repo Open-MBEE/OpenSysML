@@ -2019,8 +2019,10 @@ and a validation run through the PlantUML jar when present.
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
 it can draw in-process, and offers the others as *save as*), and the document renderer. **For
 `dot` this has landed** with W1: `-render-form dot`, `%render <name> dot`, `"form": "dot"` on
-`opensysml/render`, and a `Diagram` block's `form` attribute, which writes a ` ```dot ` fence in
-Markdown and `<pre class="dot">` in HTML; the PDF backend keeps a DOT block as source under a
+`opensysml/render`, and `-diagram-form dot` on `-render-document` (`%render-document <name> dot`,
+`diagramForm` on `opensysml/renderDocument`), which writes every graph-shaped diagram block as a
+` ```dot ` fence in Markdown and `<pre class="dot">` in HTML — a render-time choice, not a
+model attribute; the PDF backend keeps a DOT block as source under a
 notice and looks for no Graphviz tool. The man pages, the REPL reference and the LSP reference
 name the form. The gRPC surface has no view-render RPC — only `RenderDocument`, to Markdown — so
 the wire contract did not change; if one is added later it takes the form as a string the same

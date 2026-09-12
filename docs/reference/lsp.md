@@ -205,7 +205,12 @@ the same pipeline, run against the same workspace the diagnostics are computed f
 ```
 
 `name` is the qualified name of a document definition, as `opensysml/documents`
-lists it. If the name resolves to nothing, names an element that is not a
+lists it. An optional `diagramForm`, `"mermaid"` (the default when omitted) or
+`"dot"`, is the form every graph-shaped diagram block of the document is written
+in — a ` ```dot ` fence of Graphviz DOT under `"dot"`, as `sysml -render-document
+-diagram-form dot` writes; a table-kind view is a pipe table either way. Any other
+value fails the request with the typed error's message naming the two forms, as
+does `"dot"` on a document holding a `sequence` diagram, which has no DOT form. If the name resolves to nothing, names an element that is not a
 document, or names a document whose planning or query execution fails, the
 request fails with the typed error's message (for example `Observatory::Subsystem
 is not a document: one is a part def specializing DocumentQueries::Document`)

@@ -1,7 +1,6 @@
 package docplan
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/view"
@@ -202,67 +201,6 @@ func TestCompileDiagramRejectsInvalidDirection(t *testing.T) {
 	planning := planningError(t, err)
 	if planning.Kind != ErrorInvalidDirection || planning.Actual != "sideways" {
 		t.Fatalf("error = %+v", planning)
-	}
-}
-
-func TestCompileDiagramWithForm(t *testing.T) {
-	fixture := loadPlanningFixture(t, diagramDocument(`
-		part imaging : Diagram {
-			attribute redefines form = "dot";
-			ref redefines source = interconnectView;
-		}
-		part states : Diagram {
-			attribute redefines kind = "state";
-			attribute redefines form = "mermaid";
-			ref redefines source = ObservatoryStates;
-		}
-		part plain : Diagram {
-			ref redefines source = interconnectView;
-		}
-	`))
-	plan := fixture.mustCompile(t, "Report")
-	content := plan.Content()
-	if len(content) != 3 {
-		t.Fatalf("content = %d nodes, want 3", len(content))
-	}
-	for i, want := range []view.Form{view.FormDot, view.FormMermaid, ""} {
-		if got := content[i].Diagram().Form(); got != want {
-			t.Errorf("%s form = %q, want %q", content[i].Name(), got, want)
-		}
-	}
-}
-
-func TestCompileDiagramRejectsInvalidForm(t *testing.T) {
-	fixture := loadPlanningFixture(t, diagramDocument(`
-		part imaging : Diagram {
-			attribute redefines form = "svg";
-			ref redefines source = interconnectView;
-		}
-	`))
-	_, err := fixture.compile(t, "Report")
-	planning := planningError(t, err)
-	if planning.Kind != ErrorInvalidForm || planning.Actual != "svg" {
-		t.Fatalf("error = %+v", planning)
-	}
-	if !strings.Contains(planning.Error(), `"mermaid" or "dot"`) {
-		t.Fatalf("message = %q", planning.Error())
-	}
-}
-
-func TestCompileDiagramRejectsFormTheKindIsNotWrittenAs(t *testing.T) {
-	for _, tc := range []struct{ kind, form string }{{"sequence", "dot"}, {"table", "mermaid"}} {
-		fixture := loadPlanningFixture(t, diagramDocument(`
-			part imaging : Diagram {
-				attribute redefines kind = "`+tc.kind+`";
-				attribute redefines form = "`+tc.form+`";
-				ref redefines source = imagingChain;
-			}
-		`))
-		_, err := fixture.compile(t, "Report")
-		planning := planningError(t, err)
-		if planning.Kind != ErrorUnsupportedForm || planning.Expected != tc.kind || planning.Actual != tc.form {
-			t.Fatalf("%s as %s: error = %+v", tc.kind, tc.form, planning)
-		}
 	}
 }
 
