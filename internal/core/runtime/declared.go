@@ -59,7 +59,7 @@ func (r *DeclaredReader) objectOf(sym *symbols.Symbol) (*Instance, error) {
 		return nil, err
 	}
 	if r.ctx.registersOccurrence(sym) {
-		r.ctx.occurrences[sym] = inst.ID
+		r.ctx.occurrences[sym] = []int64{inst.ID}
 	}
 	r.objects[sym] = inst
 	return inst, nil

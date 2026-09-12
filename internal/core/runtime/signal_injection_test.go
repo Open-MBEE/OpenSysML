@@ -604,11 +604,11 @@ func TestDecideLeavesNoBehaviorAGuardMaterializes(t *testing.T) {
 	if got := activeLeaf(gate.State); got != "open" {
 		t.Fatalf("state after Poke = %s, want open", got)
 	}
-	id, built := ctx.occurrences[sensor]
+	ids, built := ctx.occurrences[sensor]
 	if !built {
 		t.Fatal("dispatching Poke did not build the sensor its guard reads")
 	}
-	ticker, ok := ctx.instances[id].ExhibitedState()
+	ticker, ok := ctx.instances[ids[0]].ExhibitedState()
 	if !ok || activeLeaf(ticker.State) != "idle" {
 		t.Fatalf("the built sensor runs no ticker at idle: ok=%v", ok)
 	}
@@ -1182,11 +1182,11 @@ func TestDecideStartsTheBehaviorsOfAnObjectAGuardMaterializes(t *testing.T) {
 	if got := activeLeaf(life.State); got != "on" {
 		t.Fatalf("state after Go = %s, want on", got)
 	}
-	id, ok := ctx.occurrences[sensor]
+	ids, ok := ctx.occurrences[sensor]
 	if !ok {
 		t.Fatal("dispatching Go did not build the sensor its guard reads")
 	}
-	built := ctx.instances[id]
+	built := ctx.instances[ids[0]]
 	if got := FormatValue(built.FeatureValues["level"].HeldValue()); got != "10" {
 		t.Errorf("sensor.level = %s after dispatch, want 10 set by its machine", got)
 	}
@@ -1445,11 +1445,11 @@ func TestDecideLeavesNoOccurrenceCachedOnAMessageInFlight(t *testing.T) {
 	if err := life.State.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent(Go): %v", err)
 	}
-	id, built := ctx.occurrences[resolveSymbol(t, root, "sensor")]
+	ids, built := ctx.occurrences[resolveSymbol(t, root, "sensor")]
 	if got := activeLeaf(life.State); got != "on" || !built {
 		t.Fatalf("after Go: state %s, sensor built %v; want on with the sensor built", got, built)
 	}
-	calibrate, ok := ctx.instances[id].ExhibitedState()
+	calibrate, ok := ctx.instances[ids[0]].ExhibitedState()
 	if !ok || activeLeaf(calibrate.State) != "kicked" {
 		t.Fatalf("the built sensor's machine is not at kicked: ok=%v", ok)
 	}

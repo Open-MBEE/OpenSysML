@@ -1535,7 +1535,7 @@ func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.
 	// The read materializes rack's lead and trail, which stay; lead's gauge, made by the
 	// tally lead ran as a Tallied, does not.
 	var held []int64
-	var occurrences map[*symbols.Symbol]int64
+	var occurrences map[*symbols.Symbol][]int64
 	for attempt := 1; attempt <= 3; attempt++ {
 		if _, err := rack.GetFeatureValue(ctx, "tallied"); !errors.Is(err, ErrDivisionByZero) {
 			t.Fatalf("attempt %d: rack.tallied = %v, want ErrDivisionByZero", attempt, err)
@@ -1549,7 +1549,7 @@ func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.
 		if after := ctx.InstanceIDs(); !slices.Equal(after, held) {
 			t.Fatalf("attempt %d: a refused collection changed the objects held from %v to %v", attempt, held, after)
 		}
-		if !maps.Equal(ctx.occurrences, occurrences) {
+		if !maps.EqualFunc(ctx.occurrences, occurrences, slices.Equal[[]int64]) {
 			t.Fatalf("attempt %d: a refused collection changed the occurrences held to %v", attempt, ctx.occurrences)
 		}
 		if len(ctx.created) != len(held) || len(ctx.objectBehaviors) != 0 {
