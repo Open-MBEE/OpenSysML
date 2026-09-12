@@ -1560,7 +1560,7 @@ func (e *StateExecutor) transitionTo(trans *lower.Transition, r route) error {
 // pseudostate restores a recorded configuration rather than the initial one.
 func (e *StateExecutor) transitionToInto(trans *lower.Transition, r route, branches map[*ast.StateRegion]*ast.StateNode) error {
 	currentState := e.moveOrigin()
-	return e.travel(r, currentState,
+	return e.travel(r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, target) },
 		func(effects []lower.StateBehavior, target *ast.StateNode) error {
 			return e.moveTo(trans, currentState, effects, target, branches)

@@ -114,7 +114,7 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 	}
 
 	source := e.activeConfig.regionStates[region]
-	return true, e.travel(r, source,
+	return true, e.travel(r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
 		func(effects []lower.StateBehavior, target *ast.StateNode) error {
 			return e.moveInRegion(region, source, trans, effects, target)

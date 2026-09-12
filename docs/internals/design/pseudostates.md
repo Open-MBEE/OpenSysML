@@ -134,8 +134,10 @@ transition's effect; a junction none of whose guards holds fails the route, so t
 transition does not fire (see the precise-semantics alignment note, SM29 and SM32).
 
 **Choice evaluation** is dynamic. `followOut` leaves the route open at a choice. Firing
-(`travel`) then exits the states every branch of the open choice leaves, runs the effects of the
-segments into it, and only then `resolveChoice` reads the choice's guards against the data as it
+(`travel`) then exits the states every branch of the open choice leaves — the source's ancestors
+and, when every branch crosses into a sibling region, that region's active state too, each exited
+once in innermost-first, region-declaration order — runs the effects of the segments into it, and
+only then `resolveChoice` reads the choice's guards against the data as it
 now stands: with several enabled the run's policy draws one and records a `ChoiceTaken` at the
 choice, so `explore` enumerates the branches and `replay` re-takes one; an unguarded branch is the
 else branch, taken when no guard holds; none enabled is `ErrChoiceWithoutBranch`. The route then

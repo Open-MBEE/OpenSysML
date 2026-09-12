@@ -281,32 +281,54 @@ func (e *StateExecutor) reachable(r route) ([]*ast.StateNode, error) {
 // as it stands.
 type exitPlan func(target *ast.StateNode) []*ast.StateNode
 
-// certainExits lists, innermost first, the states from leaf upward that a move to
-// any of the targets exits, so they can be left before the branch is known.
-func (e *StateExecutor) certainExits(leaf *ast.StateNode, targets []*ast.StateNode, exits exitPlan) []*ast.StateNode {
-	chain := e.getParentChain(leaf)
-	for _, target := range targets {
-		left := e.expandExits(exits(target))
-		n := 0
-		for n < len(chain) && left[chain[n]] {
-			n++
-		}
-		chain = chain[:n]
+// certainExits lists the states a move to every one of the targets exits — in a
+// sibling region as well as above the source — in the order the first target's
+// move leaves them, so they can be left before the branch is known.
+func (e *StateExecutor) certainExits(targets []*ast.StateNode, exits exitPlan) []*ast.StateNode {
+	if len(targets) == 0 {
+		return nil
 	}
-	return chain
+	first := e.expandExits(exits(targets[0]))
+	common := make(map[*ast.StateNode]bool, len(first))
+	for _, state := range first {
+		common[state] = true
+	}
+	for _, target := range targets[1:] {
+		left := make(map[*ast.StateNode]bool)
+		for _, state := range e.expandExits(exits(target)) {
+			left[state] = true
+		}
+		for state := range common {
+			if !left[state] {
+				delete(common, state)
+			}
+		}
+	}
+	certain := make([]*ast.StateNode, 0, len(common))
+	for _, state := range first {
+		if common[state] {
+			certain = append(certain, state)
+		}
+	}
+	return certain
 }
 
-// expandExits is the set of states an exit list leaves: those listed and every
-// active state below them, which exiting a composite state exits with it.
-func (e *StateExecutor) expandExits(listed []*ast.StateNode) map[*ast.StateNode]bool {
-	left := make(map[*ast.StateNode]bool)
+// expandExits lists the states an exit list leaves, innermost first: every active
+// state below each listed state, which exiting a composite state exits with it,
+// then the state itself.
+func (e *StateExecutor) expandExits(listed []*ast.StateNode) []*ast.StateNode {
+	var left []*ast.StateNode
 	for _, state := range listed {
 		for _, active := range e.activeLeavesBelow(state) {
 			for _, below := range e.exitPath(active, state, nil) {
-				left[below] = true
+				if !slices.Contains(left, below) {
+					left = append(left, below)
+				}
 			}
 		}
-		left[state] = true
+		if !slices.Contains(left, state) {
+			left = append(left, state)
+		}
 	}
 	return left
 }
@@ -333,10 +355,10 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 	return err
 }
 
-// travel takes a compound transition along r from leaf: at each choice it leaves
-// the states every branch leaves, runs the effects of the segments into it and
+// travel takes a compound transition along r: at each choice it leaves the
+// states every branch leaves, runs the effects of the segments into it and
 // reads its guards; move then finishes the settled rest with the effects left.
-func (e *StateExecutor) travel(r route, leaf *ast.StateNode, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
+func (e *StateExecutor) travel(r route, exits exitPlan, move func([]lower.StateBehavior, *ast.StateNode) error) error {
 	saved := e.leftAhead
 	e.leftAhead = nil
 	defer func() { e.leftAhead = saved }()
@@ -345,7 +367,7 @@ func (e *StateExecutor) travel(r route, leaf *ast.StateNode, exits exitPlan, mov
 		if err != nil {
 			return err
 		}
-		if err := e.exitAhead(e.certainExits(leaf, targets, exits)); err != nil {
+		if err := e.exitAhead(e.certainExits(targets, exits)); err != nil {
 			return err
 		}
 		if err := e.runBehaviors(r.effects()); err != nil {
