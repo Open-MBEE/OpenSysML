@@ -142,6 +142,7 @@ exclude_docs: |
   project/element-identity-annotations.md
   project/diagram-layout-annotations.md
   project/html-document-backend.md
+  project/view-rendering-forms.md
   project/adjudications.md
   project/element-scoped-tier-gating.md
   project/lossless-library-records.md

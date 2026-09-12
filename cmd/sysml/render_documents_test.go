@@ -92,6 +92,44 @@ func TestRenderDocumentsFlag(t *testing.T) {
 	}
 }
 
+// TestRenderDocumentsDiagramForm checks -diagram-form applies to every
+// document of a set, in Markdown and in HTML.
+func TestRenderDocumentsDiagramForm(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.dot.golden.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", dir, "-diagram-form", "dot")); got.status != 0 {
+		t.Fatalf("exit = %d\n%s", got.status, got.output())
+	}
+	report, err := os.ReadFile(filepath.Join(dir, "Observatory-MassReport.md"))
+	if err != nil {
+		t.Fatalf("read report: %v", err)
+	}
+	if string(report) != string(golden) {
+		t.Errorf("set member differs from the DOT golden:\n%s", report)
+	}
+
+	site := filepath.Join(t.TempDir(), "site")
+	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", site, "-doc-form", "html", "-diagram-form", "dot")); got.status != 0 {
+		t.Fatalf("exit = %d\n%s", got.status, got.output())
+	}
+	page, err := os.ReadFile(filepath.Join(site, "Observatory-MassReport.html"))
+	if err != nil {
+		t.Fatalf("read page: %v", err)
+	}
+	if !strings.Contains(string(page), `<pre class="dot">`) || strings.Contains(string(page), `class="mermaid"`) {
+		t.Errorf("page does not write its diagrams as DOT:\n%s", page)
+	}
+
+	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-documents", filepath.Join(t.TempDir(), "x"), "-diagram-form", "svg")),
+		2, `unknown diagram form "svg"`)
+}
+
 // TestRenderDocumentsAcrossFiles checks documents declared in different model
 // files render together as one linked set.
 func TestRenderDocumentsAcrossFiles(t *testing.T) {

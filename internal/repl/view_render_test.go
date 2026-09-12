@@ -44,6 +44,35 @@ func TestRenderWritesMermaidWhenAskedFor(t *testing.T) {
 	}
 }
 
+// The DOT form is asked for by name, is the same rendering as a digraph, and is
+// offered by the usage and help text.
+func TestRenderWritesDotWhenAskedFor(t *testing.T) {
+	s := viewSession(t)
+	out, _, err := s.RunMeta("%render Demo::summary dot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(out, "\n")
+	for _, want := range []string{
+		"// view: Demo::summary\n// kind: tree\n",
+		"// layout: dot\n",
+		`digraph "Demo::summary" {`,
+		`label="part def Demo::Vehicle"`,
+		`label="view Demo::summary::detail"`,
+		"[arrowhead=none];",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%%render dot is missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "flowchart") {
+		t.Errorf("%%render dot wrote Mermaid:\n%s", text)
+	}
+	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot]")
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot]")
+	wants(t, run(t, s, "%help"), "%render <name> [form]", "Graphviz DOT")
+}
+
 // A view exposing nothing renders an empty artifact and says so.
 func TestRenderOfAViewExposingNothingSaysSo(t *testing.T) {
 	out, _, err := viewSession(t).RunMeta("%render Demo::empty")
@@ -280,7 +309,7 @@ func TestViewsListsSessionViewsInDeclarationOrder(t *testing.T) {
 
 func TestRenderMisuseShowsUsage(t *testing.T) {
 	s := viewSession(t)
-	for _, line := range []string{"%render", "%render Demo::summary dot"} {
+	for _, line := range []string{"%render", "%render Demo::summary svg"} {
 		out, _, err := s.RunMeta(line)
 		if err != nil {
 			t.Fatal(err)

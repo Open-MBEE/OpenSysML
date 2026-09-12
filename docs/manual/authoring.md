@@ -396,10 +396,13 @@ part structure : Diagram {
 - `caption` is optional and renders in emphasis above the diagram.
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
-  `stateDiagram-v2` `direction` statement. Stating one on a sequence diagram
-  is a typed error.
+  `stateDiagram-v2` `direction` statement, or the Graphviz `rankdir` when the
+  document is rendered with DOT diagrams. Stating one on a sequence diagram is
+  a typed error.
 
-Most kinds render as a fenced ` ```mermaid ` block:
+A diagram block states *what* is drawn, not the notation it is written in:
+that is a choice made when the document is rendered. By default most kinds
+render as a fenced ` ```mermaid ` block:
 
 ```markdown
 *Imaging chain interconnection*
@@ -415,9 +418,45 @@ flowchart LR
 ```
 ```
 
+Rendered with `-diagram-form dot` (`%render-document <name> dot` in the REPL,
+`diagramForm: "dot"` over the LSP), every graph-shaped diagram of the
+document — a `tree`, `interconnection`, `state` or `action` rendering — is a
+fenced ` ```dot ` block of Graphviz DOT instead, for a toolchain that lays
+diagrams out with Graphviz. No Graphviz installation is needed to write it:
+
+```markdown
+*Imaging chain interconnection*
+
+```dot
+// view: Observatory::interconnectView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "Observatory::interconnectView" {
+  graph [rankdir=LR];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="part Observatory::imagingChain";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [label="part camera\nCamera"];
+    "n2" [label="part recorder\nRecorder"];
+  }
+  "n1" -> "n2" [label="link", arrowhead=none];
+}
+```
+```
+
+A view that states where its elements go (`DiagramLayout` annotations, see the
+[CLI reference](../reference/cli.md#rendering-a-view)) is written with those
+positions pinned and its header naming `neato`, so Graphviz draws it as laid
+out. The HTML backend embeds the source in `<pre class="dot">`, and the PDF
+backend keeps it as source under a notice rather than drawing it. A `sequence` kind
+has no DOT form, so a document holding one cannot be rendered with DOT
+diagrams; the failure is a typed error naming the block.
+
 The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
-Mermaid block.
+Mermaid or DOT block, whichever diagram form the document is rendered with.
 
 ## Binding queries to blocks
 

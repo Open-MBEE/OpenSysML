@@ -72,6 +72,47 @@ printf '<svg xmlns="http://www.w3.org/2000/svg"/>' > "$out"
 	}
 }
 
+// TestRenderDocumentPDFDiagramFormDot checks a PDF run under -diagram-form dot
+// keeps every diagram as DOT source behind the notice and never runs mmdc.
+func TestRenderDocumentPDFDiagramFormDot(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	seen := filepath.Join(dir, "input-seen.html")
+	weasyprint := fakePDFTool(t, dir, "weasyprint", `cp "$1" `+seen+`
+printf '%%PDF-1.7 fake' > "$2"
+`)
+	mmdc := fakePDFTool(t, dir, "mmdc", `echo "mmdc must not run" >&2; exit 1
+`)
+	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	out := filepath.Join(dir, "report.pdf")
+
+	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+		"-doc-form", "pdf", "-diagram-form", "dot", "-o", out)
+	cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("render: %v\n%s", err, output)
+	}
+	page, err := os.ReadFile(seen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(page), `<figure class="dot">`); got != 2 {
+		t.Errorf("converter input carries %d DOT figures, want 2:\n%s", got, page)
+	}
+	for _, want := range []string{
+		"Graphviz DOT, which the PDF backend does not draw",
+		"digraph &#34;Observatory::interconnectView&#34; {",
+		"<table",
+	} {
+		if !strings.Contains(string(page), want) {
+			t.Errorf("converter input misses %q:\n%s", want, page)
+		}
+	}
+	if strings.Contains(string(page), "diagram-1.svg") {
+		t.Errorf("a diagram was drawn by the Mermaid tool:\n%s", page)
+	}
+}
+
 // TestRenderDocumentPDFEngineMissing checks the typed degradation: with no
 // converter installed, PDF output fails precisely and Markdown still works.
 func TestRenderDocumentPDFEngineMissing(t *testing.T) {

@@ -141,6 +141,8 @@ func renderExtension(form view.Form) string {
 		return ".mmd"
 	case view.FormMarkdown:
 		return ".md"
+	case view.FormDot:
+		return ".dot"
 	default:
 		return ".txt"
 	}
@@ -179,13 +181,7 @@ func terminalWidth() int {
 func atStdoutTerminal() bool { return readline.IsTerminal(int(os.Stdout.Fd())) }
 
 // formList names the forms -render-form takes, as its help and errors spell them.
-func formList() string {
-	names := make([]string, 0, len(view.Forms()))
-	for _, form := range view.Forms() {
-		names = append(names, string(form))
-	}
-	return strings.Join(names, ", ")
-}
+func formList() string { return view.FormNames(view.Forms()) }
 
 // reportRenderNotices reports on stderr what the rendering says about itself: an
 // empty artifact, and every element it could not represent.

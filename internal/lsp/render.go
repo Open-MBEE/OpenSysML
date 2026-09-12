@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
@@ -275,11 +276,10 @@ func renderForm(rendering *view.Rendering, asked string) (view.Form, error) {
 		return rendering.Kind.MachineForm(), nil
 	}
 	form := view.Form(asked)
-	switch form {
-	case view.FormText, view.FormMermaid, view.FormMarkdown:
+	if slices.Contains(view.Forms(), form) {
 		return form, nil
 	}
-	return "", fmt.Errorf("%q is no rendering form: write %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown)
+	return "", fmt.Errorf("%q is no rendering form: write %q, %q, %q or %q", asked, view.FormMermaid, view.FormText, view.FormMarkdown, view.FormDot)
 }
 
 // origin is a core origin as a client navigates to it, nil for an element with

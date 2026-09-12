@@ -165,10 +165,98 @@ func TestMarkdownWithSpanCaptions(t *testing.T) {
 }
 
 func TestParseBlocksUnclosedFence(t *testing.T) {
-	_, err := parseBlocks("# T\n\n```mermaid\nflowchart LR\n")
-	var docErr *Error
-	if !errors.As(err, &docErr) || docErr.Kind != ErrorUnclosedFence {
-		t.Fatalf("got %v, want ErrorUnclosedFence", err)
+	for _, fence := range []string{"```mermaid\nflowchart LR\n", "```dot\ndigraph {\n"} {
+		_, err := parseBlocks("# T\n\n" + fence)
+		var docErr *Error
+		if !errors.As(err, &docErr) || docErr.Kind != ErrorUnclosedFence {
+			t.Fatalf("%q: got %v, want ErrorUnclosedFence", fence, err)
+		}
+	}
+}
+
+// dotMarkdown is a document whose one diagram is written as DOT: a `&` and a
+// quoted ID check the source reaches the page escaped, not interpreted.
+const dotMarkdown = "# T\n\n## Flow\n\n```dot\n// kind: action\ndigraph \"a & b\" {\n  \"n0\" -> \"n1\";\n}\n```\n\n<!-- caption -->\n*Figure 1\\. Flow*\n"
+
+// A DOT fence parses to its own block and is kept as source under a notice
+// on both converter inputs; no diagram tool is looked for.
+func TestDOTBlockIsKeptAsSource(t *testing.T) {
+	blocks, err := parseBlocks(dotMarkdown)
+	if err != nil {
+		t.Fatalf("parseBlocks: %v", err)
+	}
+	if len(blocks) != 4 || blocks[2].Kind != blockDOT || !strings.Contains(blocks[2].Source, `"n0" -> "n1";`) {
+		t.Fatalf("blocks = %+v", blocks)
+	}
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv(MermaidEnv, "")
+	images, err := renderDiagrams(t.TempDir(), blocks)
+	if err != nil || len(images) != 0 {
+		t.Fatalf("renderDiagrams = %v, %v; want no images and no tool lookup", images, err)
+	}
+	page := documentHTML(blocks, nil, Options{})
+	for _, want := range []string{
+		`<figure class="dot"><p class="notice"><em>` + dotNotice + `</em></p>`,
+		"<pre>// kind: action\ndigraph &#34;a &amp; b&#34; {\n  &#34;n0&#34; -&gt; &#34;n1&#34;;\n}</pre></figure>",
+		`<p class="caption"><em>Figure 1. Flow</em></p>`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("HTML missing %q:\n%s", want, page)
+		}
+	}
+	if strings.Contains(page, "<img") {
+		t.Errorf("a DOT block became an image:\n%s", page)
+	}
+	md := markdownWithImages(dotMarkdown, nil)
+	if !strings.Contains(md, "*"+dotNotice+"*\n\n```dot\n// kind: action\n") || !strings.Contains(md, "\n}\n```\n") {
+		t.Errorf("Markdown lacks the notice ahead of the fence:\n%s", md)
+	}
+	if strings.Contains(md, "![diagram]") {
+		t.Errorf("a DOT fence became an image reference:\n%s", md)
+	}
+}
+
+// A document mixing both forms renders its Mermaid to images and its DOT to
+// source, each in block order.
+func TestDOTAndMermaidBlocksTogether(t *testing.T) {
+	md := sampleMarkdown + "\n" + strings.TrimPrefix(dotMarkdown, "# T\n")
+	blocks, err := parseBlocks(md)
+	if err != nil {
+		t.Fatalf("parseBlocks: %v", err)
+	}
+	page := documentHTML(blocks, []string{"diagram-1.svg"}, Options{})
+	image, dot := strings.Index(page, `<img src="diagram-1.svg"`), strings.Index(page, `<figure class="dot">`)
+	if image < 0 || dot < 0 || image > dot {
+		t.Fatalf("image at %d, DOT at %d:\n%s", image, dot, page)
+	}
+	out := markdownWithImages(md, []string{"diagram-1.svg"})
+	if strings.Contains(out, "```mermaid") || !strings.Contains(out, "![diagram](diagram-1.svg)") || !strings.Contains(out, "```dot\n") {
+		t.Fatalf("mixed Markdown:\n%s", out)
+	}
+}
+
+// Rendering a document whose only diagram is DOT needs no Mermaid CLI.
+func TestRenderDOTOnlyDocumentNeedsNoDiagramTool(t *testing.T) {
+	dir := t.TempDir()
+	seenPath := filepath.Join(dir, "input-seen.html")
+	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, `while IFS= read -r line; do printf '%s\n' "$line"; done < "$1" > "`+seenPath+`"
+printf '%%PDF-1.7 fake' > "$2"
+`)
+	t.Setenv("PATH", dir)
+	t.Setenv(MermaidEnv, "")
+	pdf, err := Render(dotMarkdown, "weasyprint", Options{})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !strings.HasPrefix(string(pdf), "%PDF-") {
+		t.Fatalf("output is no PDF: %q", pdf)
+	}
+	seen, err := os.ReadFile(seenPath)
+	if err != nil {
+		t.Fatalf("converter input: %v", err)
+	}
+	if !strings.Contains(string(seen), dotNotice) || !strings.Contains(string(seen), "digraph &#34;a &amp; b&#34;") {
+		t.Fatalf("converter input lacks the DOT notice or source:\n%s", seen)
 	}
 }
 

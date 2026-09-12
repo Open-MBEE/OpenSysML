@@ -40,7 +40,7 @@ func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
 // queries against the workspace model, and renders the result as Markdown.
-func (w *Workspace) RenderDocumentMarkdown(fqn string) (string, error) {
+func (w *Workspace) RenderDocumentMarkdown(fqn string, opts docrender.MarkdownOptions) (string, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	resolver, sem := w.newResolver()
@@ -66,7 +66,7 @@ func (w *Workspace) RenderDocumentMarkdown(fqn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return docrender.Markdown(document)
+	return docrender.Markdown(document, opts)
 }
 
 // QueryBindingParameter resolves the parameter a document query binding names:
