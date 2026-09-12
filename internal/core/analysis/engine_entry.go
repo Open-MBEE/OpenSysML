@@ -436,6 +436,16 @@ func ParseStrength(text string) (Strength, bool) {
 	return 0, false
 }
 
+// ParseClaim reads a claim as Claim.String spells it.
+func ParseClaim(text string) (Claim, bool) {
+	for c := ClaimNone; c <= ClaimUnbounded; c++ {
+		if c.String() == text {
+			return c, true
+		}
+	}
+	return 0, false
+}
+
 func containsInt(list []int, v int) bool {
 	for _, x := range list {
 		if x == v {

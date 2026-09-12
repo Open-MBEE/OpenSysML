@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 )
 
 // ModelValue is one variable's value in a model, read back exactly from the
@@ -90,6 +93,68 @@ func (v ModelValue) Literal(sort Sort) (*Term, error) {
 		return RealTerm(v.Number), nil
 	}
 	return nil, fmt.Errorf("a value of no sort")
+}
+
+// Assign is the assignment a solver's model would carry for x holding v: the
+// literal as the solver writes it, rendered as the notation writes it.
+func (v ModelValue) Assign(x *Var) (Assignment, error) {
+	if v.Kind != x.Sort.Kind {
+		return Assignment{}, fmt.Errorf("a value of another sort for %s, whose sort is %s", x.Name, x.Sort.Name)
+	}
+	term, err := v.Literal(x.Sort)
+	if err != nil {
+		return Assignment{}, err
+	}
+	raw, err := readSexpr(bufio.NewReader(strings.NewReader(writeTerm(term))))
+	if err != nil {
+		return Assignment{}, fmt.Errorf("unreadable value %s", writeTerm(term))
+	}
+	return assign(x, raw), nil
+}
+
+// ValueOf reads a value a witness states for v as a protocol spells one: a number, a
+// boolean or a text, and the unit of a magnitude, which must be the base unit v's
+// magnitudes are expressed in. A value v's sort does not hold is an error saying why.
+func (v *Var) ValueOf(given runtime.ToolValue) (ModelValue, error) {
+	kind := v.Sort.Kind
+	if given.Value.Kind == semantics.ValInvalid {
+		switch kind {
+		case SortString:
+			return ModelValue{Kind: kind, Text: given.Text}, nil
+		case SortDatatype:
+			if !contains(v.Sort.Values, given.Text) {
+				return ModelValue{}, fmt.Errorf("%q is not a value of %s", given.Text, v.Sort.Name)
+			}
+			return ModelValue{Kind: kind, Text: given.Text}, nil
+		}
+		return ModelValue{}, fmt.Errorf("%q is a text, and %s", given.Text, msgValuesAre+v.Sort.Name)
+	}
+	if given.Unit != "" && (kind != SortReal || v.Dimension == "") {
+		return ModelValue{}, fmt.Errorf("%s is measured in %s, and %s", semantics.FormatConst(given.Value), given.Unit, msgValuesAre+v.Sort.Name)
+	}
+	switch kind {
+	case SortBool:
+		if given.Value.Kind == semantics.ValBool {
+			return ModelValue{Kind: kind, Bool: given.Value.Bool}, nil
+		}
+	case SortInt:
+		if given.Value.Kind == semantics.ValInt {
+			return ModelValue{Kind: kind, Number: new(big.Rat).SetInt64(given.Value.Int)}, nil
+		}
+	case SortReal:
+		rat, ok := ratOfConst(given.Value)
+		if !ok {
+			break
+		}
+		switch {
+		case v.Dimension != "" && given.Unit == "":
+			return ModelValue{}, fmt.Errorf("%s is a bare number, and %s", semantics.FormatConst(given.Value), msgValuesMeasuredIn+v.Dimension)
+		case v.Dimension != "" && given.Unit != v.Unit:
+			return ModelValue{}, fmt.Errorf("%s is measured in %s, and %s", semantics.FormatConst(given.Value), given.Unit, msgValuesMeasuredIn+v.Unit)
+		}
+		return ModelValue{Kind: kind, Number: rat}, nil
+	}
+	return ModelValue{}, fmt.Errorf("%s is not a value of %s", semantics.FormatConst(given.Value), v.Sort.Name)
 }
 
 // assign renders one variable's solver value in the notation's own terms, keeping
