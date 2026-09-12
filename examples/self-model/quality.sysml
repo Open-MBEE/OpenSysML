@@ -140,7 +140,7 @@ package OpenSysMLInvariants {
             framework.resultIndependentOfJobs
                 and framework.workers.onePerJob and framework.workers.ownsRuntimeModel
                 and framework.workers.sharesFrozenIndex and framework.workers.freshContextPerRun
-                and framework.budget.fieldCount == 7 and framework.budget.defaultJobsIsCpuCount
+                and framework.budget.fieldCount == 8 and framework.budget.defaultJobsIsCpuCount
                 and framework.budget.rejectsNonPositiveJobs
         }
     }
