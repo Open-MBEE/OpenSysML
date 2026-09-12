@@ -18,7 +18,7 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: 'all' requires the name of a type", ErrTypeMismatch)
 	}
 	sem := ec.ctx.model.semantics
-	target, ok := sem.ExtentOperand(ec.scope, n)
+	target, ok := ec.ctx.extentOperand(ec.scope, qn)
 	if !ok {
 		return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedType, qualifiedNameToString(qn))
 	}
@@ -41,6 +41,20 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, err
 	}
 	return ec.ctx.objectsOf(roots, target)
+}
+
+// extentOperand is what `all T` names, as semantics.ExtentOperand finds it: T through an alias to its
+// target, recorded by what the name denoted and what the type declares for the binding being made.
+func (ctx *Context) extentOperand(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
+	sym, ok := ctx.resolveQualified(scope, qn)
+	if !ok || sym == nil {
+		return nil, false
+	}
+	if alias, ok := ctx.resolveAliasTarget(sym); ok && alias != nil {
+		sym = alias
+	}
+	ctx.noteDeclarationRead(sym)
+	return sym, true
 }
 
 // literalValues is the sequence of the values an enumeration's literals stand for.
@@ -75,22 +89,28 @@ func (ec *EvalContext) variantValues(variation *symbols.Symbol, variants []*symb
 }
 
 // objectsOf is this run's objects of target under roots, each then its features in declaration
-// order: a feature that may hold one is read (a failing read ends the extent), unless the objects
-// it would create are of a declaration already on the path; what a feature holds is walked regardless.
+// order: a feature that may hold one is read (a failing read ends the extent) unless it would create
+// an object of a declaration already on the path; what a feature holds is walked regardless.
 func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value, error) {
 	var values []Value
 	seen := make(map[int64]bool)
 	path := make(map[*symbols.Symbol]int)
-	through := func(feature *EffectiveFeature) bool {
-		if !ctx.mayHold(feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
-			return false
+	through := func(inst *Instance, of ObjectFeature) (*FeatureValue, error) {
+		if !ctx.mayHold(of.Feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
+			return nil, nil
 		}
-		for _, typ := range ctx.createdTypes(feature) {
-			if path[typ] > 0 {
-				return false
+		// A value whose every possible type is on the path is not read; any other read tells by what it made.
+		types := ctx.createdTypes(of.Feature)
+		recursive := len(types) > 0
+		for _, typ := range types {
+			if path[typ] == 0 {
+				recursive = false
 			}
 		}
-		return true
+		if recursive {
+			return nil, nil
+		}
+		return ctx.readUnlessRecursive(inst, of.Name, path)
 	}
 	var descend func(inst *Instance) error
 	descend = func(inst *Instance) error {
@@ -105,10 +125,15 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 			}
 			values = append(values, val)
 		}
-		if inst.Type != nil {
-			path[inst.Type]++
-			defer func() { path[inst.Type]-- }()
+		declared := ctx.declarationsOf(inst)
+		for _, decl := range declared {
+			path[decl]++
 		}
+		defer func() {
+			for _, decl := range declared {
+				path[decl]--
+			}
+		}()
 		children, err := ctx.heldObjectsOf(inst, through, true)
 		if err != nil {
 			return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
@@ -126,6 +151,56 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 		}
 	}
 	return ctx.newSequence(values)
+}
+
+// readUnlessRecursive reads a feature of inst whose objects only the read reveals: kept when none
+// it created is of a declaration on the path, else undone and nil as if unread. A failing read is reported.
+func (ctx *Context) readUnlessRecursive(inst *Instance, name string, path map[*symbols.Symbol]int) (*FeatureValue, error) {
+	commit, rollback := ctx.beginJournal()
+	mark := len(ctx.created)
+	fv, err := inst.GetFeatureValue(ctx, name)
+	if err != nil {
+		rollback()
+		return nil, err
+	}
+	for _, id := range ctx.created[mark:] {
+		made, live := ctx.instances[id]
+		if !live {
+			continue
+		}
+		for _, decl := range ctx.declarationsOf(made) {
+			if path[decl] > 0 {
+				rollback()
+				return nil, nil
+			}
+		}
+	}
+	commit()
+	return fv, nil
+}
+
+// declarationsOf is the declarations an object is of: the types it was created as and since
+// classified by, and the types each usage among them is written with.
+func (ctx *Context) declarationsOf(inst *Instance) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
+	var add func(sym *symbols.Symbol)
+	add = func(sym *symbols.Symbol) {
+		if sym == nil || seen[sym] {
+			return
+		}
+		seen[sym] = true
+		out = append(out, sym)
+		if sym.IsFeature() {
+			for _, typ := range ctx.model.semantics.DeclaredFeatureTypes(sym) {
+				add(typ)
+			}
+		}
+	}
+	for _, typ := range inst.types() {
+		add(typ)
+	}
+	return out
 }
 
 // extentRoots is the objects an extent is searched from, in declaration order: the run's free-standing

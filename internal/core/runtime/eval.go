@@ -2422,6 +2422,7 @@ type invocationTarget struct {
 	predicate    bool              // calc is a constraint or requirement, applied as a predicate
 	names        []string          // the parameter each named argument binds, as calc's signature spells it
 	unbound      []error           // per named argument, why calc has no parameter for it; nil when it binds
+	candidates   []*symbols.Symbol // the declarations the written name may denote, which the selection chose among
 }
 
 // invocationTarget resolves what n denotes in this context's scope, memoized
@@ -2429,14 +2430,31 @@ type invocationTarget struct {
 // The declaration is the one the checker selects for the call, so the two agree: a
 // library function is callable only where the model imports it or writes it qualified,
 // and a declaration of the model's own is invoked as written even under a name a
-// library built-in is registered by.
+// library built-in is registered by. What the selection read of the model is recorded for the
+// binding being made on every use, a memoized target's included.
 func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget {
 	key := invocationKey{node: n, scope: ec.scope, running: ec.runningBehavior()}
-	if target, ok := ec.ctx.model.invocationTargets[key]; ok {
-		return target
+	target, ok := ec.ctx.model.invocationTargets[key]
+	if !ok {
+		target = ec.selectInvocationTarget(key, n)
+		ec.ctx.model.invocationTargets[key] = target
 	}
-	target := &invocationTarget{qualName: qualifiedNameToString(n.Type)}
-	sel := ec.ctx.selectInvocation(ec.scope, n, semantics.PerformsBehavior)
+	ec.ctx.noteInvocationRead(ec.scope, n.Type, target.candidates)
+	for b := key.running; b != nil; b = enclosingBehavior(b) {
+		ec.ctx.noteTypeRead(b)
+	}
+	ec.ctx.noteDeclarationRead(target.calc)
+	return target
+}
+
+// selectInvocationTarget resolves n as the checker selects it, from the candidates its name denotes.
+func (ec *EvalContext) selectInvocationTarget(key invocationKey, n *ast.InvocationExpr) *invocationTarget {
+	model := ec.ctx.model
+	target := &invocationTarget{
+		qualName:   qualifiedNameToString(n.Type),
+		candidates: model.resolver.InvocationCandidates(ec.scope, n.Type),
+	}
+	sel := passes.SelectInvocation(model.resolver, model.semantics, ec.scope, n, semantics.PerformsBehavior)
 	switch {
 	case sel.Ambiguous && sel.Undetermined:
 		target.undetermined = sel.Tied
@@ -2449,7 +2467,6 @@ func (ec *EvalContext) invocationTarget(n *ast.InvocationExpr) *invocationTarget
 	if len(n.NamedArgs) > 0 {
 		target.names, target.unbound = ec.ctx.boundParameterNames(ec.scope, target.calc, n.NamedArgs)
 	}
-	ec.ctx.model.invocationTargets[key] = target
 	return target
 }
 
@@ -2560,7 +2577,6 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 		return ec.evalChainInvocation(n, chain)
 	}
 	target := ec.invocationTarget(n)
-	ec.ctx.noteDeclarationRead(target.calc)
 	qualName := target.qualName
 	if len(target.ambiguous) > 0 {
 		return Value{}, ambiguousInvocationError(qualName, target.ambiguous)

@@ -672,28 +672,35 @@ func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
 	return out
 }
 
-// heldObjectsOf is nestedObjects reading only the features `through` admits (all, when nil), taking
-// what the others already hold; a failed read is skipped or, where every object counts, is the error.
-func (ctx *Context) heldObjectsOf(inst *Instance, through func(*EffectiveFeature) bool, everyObject bool) ([]heldObject, error) {
+// heldObjectsOf is nestedObjects reading a feature as `through` reads it (every one, when nil),
+// taking what a feature it leaves unread already holds; a failed read is skipped or, where every
+// object counts, is the error.
+func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, ObjectFeature) (*FeatureValue, error), everyObject bool) ([]heldObject, error) {
 	var out []heldObject
 	read := map[*FeatureValue]bool{}
 	for _, of := range ctx.FeaturesOfObject(inst) {
 		if of.Name == "" || !holdsObjects(of.Feature) {
 			continue
 		}
-		fv := inst.FeatureValues[of.Name]
-		if through == nil || through(of.Feature) {
-			var err error
-			if fv, err = inst.GetFeatureValue(ctx, of.Name); err != nil {
-				if everyObject {
-					return nil, fmt.Errorf("feature %s: %w", of.Name, err)
-				}
-				continue
+		var fv *FeatureValue
+		var err error
+		if through == nil {
+			fv, err = inst.GetFeatureValue(ctx, of.Name)
+		} else {
+			fv, err = through(inst, of)
+		}
+		if err != nil {
+			if everyObject {
+				return nil, fmt.Errorf("feature %s: %w", of.Name, err)
 			}
-		} else if fv == nil || !fv.Materialized {
 			continue
 		}
-		if fv == nil || read[fv] {
+		if fv == nil {
+			if fv = inst.FeatureValues[of.Name]; fv == nil || !fv.Materialized {
+				continue
+			}
+		}
+		if read[fv] {
 			continue
 		}
 		read[fv] = true

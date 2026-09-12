@@ -4795,9 +4795,10 @@ func testExtentOverAnObjectThatCannotBeRead(t *testing.T) {
 }
 
 // testExtentOverRecursiveComposition: an extent walked into a composition recursing through one
-// declaration — a part of its own type, a constructor of it, two types holding each other — ends,
-// leaving unread only the feature that would create another object of a declaration on the path;
-// every object it does create has its own wheel read, so none is answered short of it.
+// declaration — a part of its own type, a constructor of it, two types holding each other, a value
+// choosing one at run time — ends, leaving unread only the feature that would create another object
+// of a declaration on the path; every object it does create has its own wheel read, so none is
+// answered short of it.
 func testExtentOverRecursiveComposition(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
@@ -4807,9 +4808,14 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 		part def Chain { ref part tail : Chain = new Chain(); part leaf : Wheel; }
 		part def Pair { part a : Half; part b : Half; }
 		part def Half { part back : Pair; part hub : Wheel; }
+		part def Fork {
+			part tine = if false ? new Fork() else new Wheel();
+			part stem = if true ? new Fork() else new Wheel();
+		}
 		part tree : Tree;
 		part chain : Chain;
 		part pair : Pair;
+		part fork : Fork;
 		calc wheelCount { return : Natural = size(all Wheel); }
 	}`)
 	pkg := resolveSymbol(t, root, "P")
@@ -4837,16 +4843,19 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 		switch inst.Type.Name {
 		case "Wheel":
 			wheels++
-		case "tree", "Tree", "chain", "Chain", "Half":
-			for _, name := range []string{"leaf", "hub"} {
+		case "tree", "Tree", "chain", "Chain", "Half", "fork", "Fork":
+			for _, name := range []string{"leaf", "hub", "tine"} {
 				if fv, has := inst.FeatureValues[name]; has && !fv.Materialized {
 					t.Errorf("object %d of %s: %s left unread, the extent is short of it", inst.ID, inst.Type.Name, name)
 				}
 			}
+			if fv, has := inst.FeatureValues["stem"]; has && fv.Materialized {
+				t.Errorf("object %d of %s: stem read, though what it makes is another Fork", inst.ID, inst.Type.Name)
+			}
 		}
 	}
-	if FormatValue(got) != fmt.Sprint(wheels) || wheels < 4 {
-		t.Errorf("size(all Wheel) = %s with %d wheels materialized; want every wheel of the objects there are, the tree's and chain's leaves and the pair's two hubs at least", FormatValue(got), wheels)
+	if FormatValue(got) != fmt.Sprint(wheels) || wheels < 5 {
+		t.Errorf("size(all Wheel) = %s with %d wheels materialized; want every wheel of the objects there are, the tree's and chain's leaves, the pair's two hubs and the fork's tine at least", FormatValue(got), wheels)
 	}
 	if len(ctx.instances) > 20 {
 		t.Errorf("%d objects materialized: the walk is not bounded by the declarations on its path", len(ctx.instances))

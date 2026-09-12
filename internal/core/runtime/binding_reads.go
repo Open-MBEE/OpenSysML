@@ -304,14 +304,21 @@ func (ctx *Context) resolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, bo
 // candidates the call chose among and what each of them declares.
 func (ctx *Context) selectInvocation(scope *symbols.Scope, e *ast.InvocationExpr, performs semantics.Performs) *semantics.InvocationSelection {
 	if reads, _ := ctx.readsUnderWay(); reads != nil {
-		candidates := ctx.model.resolver.InvocationCandidates(scope, e.Type)
-		denoted, renders := ctx.denotations(candidates)
-		ctx.noteNameRead(scope, nameRead{query: queryCandidates, name: spell(e.Type)}, denoted, renders)
-		for _, candidate := range candidates {
-			ctx.noteDeclarationRead(candidate)
-		}
+		ctx.noteInvocationRead(scope, e.Type, ctx.model.resolver.InvocationCandidates(scope, e.Type))
 	}
 	return passes.SelectInvocation(ctx.model.resolver, ctx.model.semantics, scope, e, performs)
+}
+
+// noteInvocationRead records the candidates a call of qn chose among and what each declares.
+func (ctx *Context) noteInvocationRead(scope *symbols.Scope, qn *ast.QualifiedName, candidates []*symbols.Symbol) {
+	if reads, _ := ctx.readsUnderWay(); reads == nil {
+		return
+	}
+	denoted, renders := ctx.denotations(candidates)
+	ctx.noteNameRead(scope, nameRead{query: queryCandidates, name: spell(qn)}, denoted, renders)
+	for _, candidate := range candidates {
+		ctx.noteDeclarationRead(candidate)
+	}
 }
 
 // noteQualifiedRead records what a qualified name written in scope denoted.
