@@ -847,7 +847,7 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 	case *ast.FinalNode:
 		terms = append(terms, retire)
 	case *ast.ForkNode:
-		// Enabled successions each get a token, in order: the first in the
+		// Enabled successions each get a fresh token, in order: the first in the
 		// actor's slot, the rest in the free slots in order.
 		rank := make([]*solve.Term, len(out))
 		count := solve.IntTerm(0)
@@ -856,12 +856,15 @@ func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move
 			count = solve.Binary(solve.OpAdd, solve.Int, count, solve.Ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 		}
 		none := eq(count, solve.IntTerm(0))
-		first := solve.BoolTerm(false)
 		var actor []*solve.Term
 		for p := range out {
+			edge := f.Edges[out[p]]
 			isFirst := solve.And(guards[p], eq(rank[p], solve.IntTerm(0)))
-			actor = append(actor, implies(isFirst, go_(p)))
-			first = solve.Or(first, isFirst)
+			actor = append(actor, implies(isFirst, solve.And(
+				eq(solve.VarTerm(next.Slots[t].At), nodeValue(e.Sorts, f, f.Index[edge.Target])),
+				eq(solve.VarTerm(next.Slots[t].Via), edgeValue(e.Sorts, f, out[p])),
+				eq(solve.VarTerm(next.Slots[t].ID), base),
+				eq(travel, edgeValue(e.Sorts, f, out[p])))))
 		}
 		terms = append(terms, implies(none, retire), implies(solve.Not(none), solve.And(actor...)))
 		freeRank := make([]*solve.Term, len(prev.Slots))

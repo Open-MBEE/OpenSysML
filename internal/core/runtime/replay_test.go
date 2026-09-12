@@ -489,6 +489,70 @@ func TestReplayFallsBackToReverse(t *testing.T) {
 	}
 }
 
+// forkDecisionModel decides while a sibling token is able to act, so one step
+// holds both a token order and a decision.
+const forkDecisionModel = `package test {
+	action mix {
+		attribute level : Integer = 75;
+		attribute handler : Integer = 0;
+		attribute x : Integer = 0;
+		first start;
+		fork split;
+		action a { assign x := 1; }
+		decide select;
+		action warn { assign handler := 1; }
+		action alarm { assign handler := 2; }
+		merge either;
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then a;
+		succession first split then select;
+		succession first select if level > 50 then warn;
+		succession first select if level > 70 then alarm;
+		succession first a then sync;
+		succession first warn then either;
+		succession first alarm then either;
+		succession first either then sync;
+		succession first sync then done;
+	}
+}`
+
+// A run notes a step's decision before the token order that led to it; a witness
+// written the other way round, order first as a checker states its moves,
+// replays the same.
+func TestReplayReadsAStepsOrderInEitherPlace(t *testing.T) {
+	m := parseExploreModel(t, forkDecisionModel)
+	sym := m.action(t, "mix")
+	run := func(ctx *Context) (Outcome, error) {
+		outputs, err := ctx.ExecuteAction(sym)
+		if err != nil {
+			return Outcome{}, err
+		}
+		return ctx.ActionOutcome(outputs), nil
+	}
+	const recorded = "step 3: decision select -> 2->alarm; step 3: 3@select first of 2@a, 3@select"
+	const stated = "step 3: 3@select first of 2@a, 3@select; step 3: decision select -> 2->alarm"
+	var traces []string
+	for _, text := range []string{recorded, stated} {
+		w, err := ParseChoices(text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcome, choices, err := replayed(t, m.fresh, run, w)
+		if err != nil {
+			t.Fatalf("%s: %v", text, err)
+		}
+		if got := outcome.String(); got != "handler = 2; level = 75; x = 1" {
+			t.Errorf("%s reached %s", text, got)
+		}
+		traces = append(traces, FormatChoices(choices))
+	}
+	if traces[0] != traces[1] || !strings.HasPrefix(traces[0], recorded) {
+		t.Errorf("the two spellings made different choices:\n%s\n%s", traces[0], traces[1])
+	}
+}
+
 // The policies that exist keep their behaviour: their traces are unchanged by the
 // replay policy existing, and a probe under replay does not move the witness.
 func TestReplayProbeLeavesTheWitnessInPlace(t *testing.T) {

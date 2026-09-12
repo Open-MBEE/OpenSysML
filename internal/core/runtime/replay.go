@@ -241,6 +241,7 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	if len(m.enabled) > 0 {
 		able = "able to act: " + strings.Join(m.enabled, ", ")
 	}
+	r.hoistOrder(tokens.step)
 	c := &r.choices[r.next]
 	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step {
 		for _, alt := range c.Among {
@@ -268,6 +269,22 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 		m.order = slices.Concat(enabled, rest, held)
 	}
 	return m
+}
+
+// hoistOrder moves the step's token order, which a run notes after the choices
+// the token's move made, ahead of them: it is resolved first when replaying.
+func (r *replayRun) hoistOrder(step int) {
+	for j := r.next; j < len(r.choices); j++ {
+		c := r.choices[j]
+		if c.Step != step {
+			return
+		}
+		if c.Kind == ChoiceTokenOrder {
+			copy(r.choices[r.next+1:j+1], r.choices[r.next:j])
+			r.choices[r.next] = c
+			return
+		}
+	}
 }
 
 // nextToken is the token to try next; false once one acted or none is left.
