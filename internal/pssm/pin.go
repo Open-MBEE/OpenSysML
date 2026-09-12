@@ -20,15 +20,45 @@ type Pin struct {
 	SHA256   string
 }
 
+// The script's variables; an environment value overrides each for the downloader,
+// so it overrides here too, or the two would fetch and verify different pins.
+const (
+	DocumentEnv = "PSSM_DOCUMENT"
+	VersionEnv  = "PSSM_VERSION"
+	URLEnv      = "PSSM_SUITE_URL"
+	SHA256Env   = "PSSM_SUITE_SHA256"
+)
+
 var (
 	pinDocumentRe = regexp.MustCompile(`PSSM_DOCUMENT="\$\{PSSM_DOCUMENT:-([^}"]+)\}"`)
 	pinVersionRe  = regexp.MustCompile(`PSSM_VERSION="\$\{PSSM_VERSION:-([^}"]+)\}"`)
 	pinURLRe      = regexp.MustCompile(`PSSM_SUITE_URL="\$\{PSSM_SUITE_URL:-([^}"]+)\}"`)
 	pinSHA256Re   = regexp.MustCompile(`PSSM_SUITE_SHA256="\$\{PSSM_SUITE_SHA256:-([0-9a-f]{64})\}"`)
+	sha256Re      = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
-// ReadPin resolves the pin from scripts/pssm-pin.sh under the repository root.
+// ReadPin resolves the pin as scripts/pssm-pin.sh does: the script's defaults
+// under the repository root, each replaced by its environment variable when set.
 func ReadPin(repo string) (Pin, error) {
+	pin, err := readPinDefaults(repo)
+	if err != nil {
+		return Pin{}, err
+	}
+	for _, o := range []struct {
+		env   string
+		field *string
+	}{{DocumentEnv, &pin.Document}, {VersionEnv, &pin.Version}, {URLEnv, &pin.URL}, {SHA256Env, &pin.SHA256}} {
+		if v, ok := os.LookupEnv(o.env); ok && v != "" {
+			*o.field = v
+		}
+	}
+	if !sha256Re.MatchString(pin.SHA256) {
+		return Pin{}, fmt.Errorf("%s=%q is not a lowercase hex sha256", SHA256Env, pin.SHA256)
+	}
+	return pin, nil
+}
+
+func readPinDefaults(repo string) (Pin, error) {
 	path := filepath.Join(repo, filepath.FromSlash(PinPath))
 	content, err := os.ReadFile(path) // #nosec G304 -- the pin is at a fixed path in this repository
 	if err != nil {

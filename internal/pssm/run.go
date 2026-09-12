@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/envvar"
 	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
@@ -21,8 +23,11 @@ import (
 // segment to; its value at the end of a run is the run's trace.
 const LogAttribute = "log"
 
-// MaxSteps is the step budget one run of a translated test has. A test that
-// exhausts it is a run error, never a trace.
+// MaxSteps is the step budget one run of a translated test has unless the
+// environment names another (runtime.MaxStepsEnvVar). The runtime's own default
+// lets a runaway machine run for minutes before it reports; a translated test
+// that needs more than this many steps is looping, and exhausting the budget is
+// a run error, never a trace.
 const MaxSteps = 100000
 
 // DefaultBudget is the exploration budget a translated test is run under; a
@@ -75,7 +80,11 @@ func (x *Execution) Reasons() []string {
 // traces reached against expected. An error is a model that builds no runtime or
 // an exploration that could not be trusted; a run that fails is recorded, not returned.
 func Execute(stop context.Context, m *Model, expected []string, budget runtime.ExploreBudget, jobs int) (*Execution, error) {
-	machine, fresh, err := build(m)
+	budgets, err := runBudgets()
+	if err != nil {
+		return nil, err
+	}
+	machine, fresh, err := build(m, budgets)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +110,23 @@ func Execute(stop context.Context, m *Model, expected []string, budget runtime.E
 	return compare(exploration, expected), nil
 }
 
+// runBudgets is the runtime's bounds with the environment's overrides, as the
+// sysml command applies them, except that the step bound defaults to MaxSteps.
+func runBudgets() (runtime.Budgets, error) {
+	budgets, err := runtime.BudgetsFromEnv()
+	if err != nil {
+		return runtime.Budgets{}, err
+	}
+	if strings.TrimSpace(envvar.Lookup(runtime.MaxStepsEnvVar)) == "" {
+		budgets.MaxSteps = MaxSteps
+	}
+	return budgets, nil
+}
+
 // build parses the emitted model over the shared standard library and returns
 // its machine and a maker of fresh contexts, each job on a runtime model of its
 // own: a model's resolver caches are not safe to share between runs.
-func build(m *Model) (*symbols.Symbol, func(int) (*runtime.Context, error), error) {
+func build(m *Model, budgets runtime.Budgets) (*symbols.Symbol, func(int) (*runtime.Context, error), error) {
 	src := source.New(m.Name, []byte(m.Text))
 	p := parser.New(src)
 	file := p.ParseFile()
@@ -136,7 +158,11 @@ func build(m *Model) (*symbols.Symbol, func(int) (*runtime.Context, error), erro
 			model = runtime.NewModel(sem, resolver)
 			models[job] = model
 		}
-		return runtime.NewContext(model, MaxSteps), nil
+		ctx := runtime.NewContext(model, budgets.MaxSteps)
+		if err := ctx.SetBudgets(budgets); err != nil {
+			return nil, err
+		}
+		return ctx, nil
 	}
 	return machine, fresh, nil
 }

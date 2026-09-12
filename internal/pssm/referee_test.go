@@ -187,6 +187,40 @@ func TestRefereeBudgetExhausted(t *testing.T) {
 	wantReasons(t, row, "exploration ")
 }
 
+// The step budget is the referee's own unless the environment names another,
+// which is then the one a run is bounded by and the one its error reports.
+func TestRefereeStepBudgetFromEnvironment(t *testing.T) {
+	t.Setenv(runtime.MaxStepsEnvVar, "")
+	budgets, err := runBudgets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if budgets.MaxSteps != MaxSteps {
+		t.Fatalf("default step budget %d, want %d", budgets.MaxSteps, MaxSteps)
+	}
+	if budgets.MaxStateEvents != runtime.DefaultMaxStateEvents {
+		t.Fatalf("event budget %d, want the runtime's default %d", budgets.MaxStateEvents, runtime.DefaultMaxStateEvents)
+	}
+	t.Setenv(runtime.MaxStepsEnvVar, "3")
+	report, _ := refereeFixture(t, "", "", nil, Options{})
+	row := report.Tests[0]
+	if row.Bucket != BucketFail {
+		t.Fatalf("bucket %s, want fail under a three-step budget", row.Bucket)
+	}
+	wantReasons(t, row, "run error: ", "evaluation step limit exceeded (3 steps")
+}
+
+// A budget the runtime would reject is an error of the run, not a fixture failure.
+func TestRefereeRejectsAMalformedStepBudget(t *testing.T) {
+	t.Setenv(runtime.MaxStepsEnvVar, "plenty")
+	s := readFixture(t, refereeSuite(""))
+	noDiagnostics(t, s)
+	_, err := Referee(context.Background(), s, Provenance{Document: "fixture", Tests: 1}, Options{})
+	if err == nil || !strings.Contains(err.Error(), runtime.MaxStepsEnvVar) {
+		t.Fatalf("err = %v, want one naming %s", err, runtime.MaxStepsEnvVar)
+	}
+}
+
 // differs-by-design comes only from the committed table: an unmapped failure
 // stays a failure; a failure mapped to a tool-choice row stays one, citing the
 // row; only a failure mapped to a "differs because v2 differs" row moves.

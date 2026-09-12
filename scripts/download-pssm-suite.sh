@@ -33,13 +33,18 @@ case "${1:-}" in
 		;;
 esac
 
+# A present suite is trusted only with the current stamp and the pinned digest:
+# a restored cache can carry an intact stamp over a truncated file.
 if [[ "$force" -eq 0 ]] && [[ -f "$suite" ]] && [[ -f "$stamp" ]]; then
-	if [[ "$(cat "$stamp")" == "$pin" ]]; then
+	if [[ "$(cat "$stamp")" != "$pin" ]]; then
+		echo "Stale pin at $target: fetched as $(cat "$stamp"), pin is now $pin; re-downloading."
+	elif ! echo "$PSSM_SUITE_SHA256  $suite" | sha256sum -c --quiet - >/dev/null 2>&1; then
+		echo "Corrupt suite at $suite: sha256 is $(sha256sum "$suite" | cut -d' ' -f1), pin is $PSSM_SUITE_SHA256; re-downloading."
+	else
 		echo "Already present at $suite ($PSSM_DOCUMENT, sha256 $PSSM_SUITE_SHA256)"
 		echo "Remove that directory, or pass --force, to re-download."
 		exit 0
 	fi
-	echo "Stale pin at $target: fetched as $(cat "$stamp"), pin is now $pin; re-downloading."
 fi
 
 if ! command -v curl >/dev/null 2>&1; then
@@ -62,7 +67,7 @@ if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 3 \
 	exit 1
 fi
 
-if ! echo "$PSSM_SUITE_SHA256  $work/$PSSM_SUITE_FILE" | sha256sum -c --quiet - 2>/dev/null; then
+if ! echo "$PSSM_SUITE_SHA256  $work/$PSSM_SUITE_FILE" | sha256sum -c --quiet - >/dev/null 2>&1; then
 	actual="$(sha256sum "$work/$PSSM_SUITE_FILE" | cut -d' ' -f1)"
 	echo "error: $PSSM_SUITE_FILE from $PSSM_SUITE_URL has sha256 $actual," >&2
 	echo "       scripts/pssm-pin.sh pins $PSSM_SUITE_SHA256" >&2

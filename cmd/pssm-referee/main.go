@@ -14,9 +14,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/baseline"
+	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/pssm"
 )
 
@@ -37,6 +39,12 @@ Runs the PSSM test suite (OMG ptc/18-11-06) against the runtime and files each
 test as pass, fail, not-expressible, terminate-gap or differs-by-design. The
 suite is fetched by ./scripts/download-pssm-suite.sh; when it is absent the
 referee reports so and exits 0, unless ` + pssm.RequireEnv + ` is set.
+
+Each run is bounded by the runtime's budgets and their environment overrides
+(` + runtime.MaxStepsEnvVar + ` and the others the sysml command honors), except
+that the step budget is ` + strconv.Itoa(pssm.MaxSteps) + ` unless ` + runtime.MaxStepsEnvVar + ` names
+another; the pin in scripts/pssm-pin.sh takes the same PSSM_* overrides the
+downloader does.
 
 Flags:
 ` + flagDefaults(flags)

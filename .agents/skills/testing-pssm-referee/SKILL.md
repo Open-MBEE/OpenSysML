@@ -32,6 +32,13 @@ over HTTPS only, checks the sha256 in a staging directory and only then moves th
   is `error: unknown option`, exit 1.
 - Editing `build/pssm/.pssm-pin` (or changing `PSSM_SUITE_SHA256` in the environment) makes
   the next run print `Stale pin at ...; re-downloading.` and fetch again.
+- The early exit also hashes the file: `truncate -s -1 build/pssm/PSSM_TestSuite.xmi` with
+  the stamp intact makes the next run print `Corrupt suite at ...; re-downloading.` and
+  restore the pinned bytes (check with `sha256sum`).
+- The Go side reads the same pin the same way: `PSSM_SUITE_SHA256=0000… go run
+  ./cmd/pssm-referee` refuses the downloaded file (`has sha256 c355b2…, not the pinned
+  0000…`) rather than verifying against the script's default, so the downloader and the
+  referee can never disagree about which pin is in force.
 - `PSSM_SUITE_SHA256=0000… ./scripts/download-pssm-suite.sh --force` → exit 1, `error:
   PSSM_TestSuite.xmi from ... has sha256 c355b2…, scripts/pssm-pin.sh pins 0000…`, and
   `build/pssm/` is left exactly as it was (the download is staged in a `mktemp -d` that the
@@ -118,6 +125,12 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
   exact runtime result, temporarily log `row.Bucket`, `row.Reasons`, and `row.Runs`
   after the fixture call and run with `-v -count=1`; the reason should name
   `exploration incomplete: runs budget 1 hit after 1 runs`. Restore the logging.
+- **The step budget follows the environment.** `OPENSYSML_MAX_STEPS=200000 go run
+  ./cmd/pssm-referee -filter "History 002-D"` reports `evaluation step limit exceeded
+  (200000 steps; …)` where the unset default reports `100000 steps`; the raised budget does
+  not rescue the test, because the machine loops. `OPENSYSML_MAX_STEPS=plenty` is an error
+  naming the variable, not a run. `TestRefereeStepBudgetFromEnvironment` and
+  `TestRefereeRejectsAMalformedStepBudget` pin both.
 
 ## Adversarial paths
 
