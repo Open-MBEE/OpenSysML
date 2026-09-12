@@ -2,18 +2,36 @@
 // spells alike.
 package fsutil
 
-import "os"
+import (
+	"errors"
+	"io/fs"
+	"os"
+	"syscall"
+)
 
-// Replace renames source over target, atomically where the platform allows;
-// Windows refuses a rename over an existing file, so it retries after removing
-// the target, keeping the target until the retry begins. A target that is a
-// link is replaced, never followed.
+// Replace renames source over target, atomically where the platform allows.
+// Where the platform refuses a rename over what is at target, it retries
+// after removing that; any other failure — the source missing, another
+// device — leaves the target as it was. A target that is a link is replaced,
+// never followed.
 func Replace(source, target string) error {
-	if err := os.Rename(source, target); err == nil {
-		return nil
+	err := os.Rename(source, target)
+	if err == nil || !targetInTheWay(err) {
+		return err
+	}
+	if _, statErr := os.Lstat(source); statErr != nil {
+		return err
 	}
 	if err := os.Remove(target); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return os.Rename(source, target)
+}
+
+// targetInTheWay says whether a rename failed because of what is at its target
+// rather than because of its source or the operation itself.
+func targetInTheWay(err error) bool {
+	return errors.Is(err, fs.ErrExist) ||
+		errors.Is(err, syscall.EISDIR) ||
+		errors.Is(err, syscall.ENOTEMPTY)
 }

@@ -75,6 +75,20 @@ func TestReplaceKeepsTargetWhenItCannotBeRemoved(t *testing.T) {
 	}
 }
 
+// A rename that fails for want of its source is not a target in the way: the
+// target is kept and the failure reported.
+func TestReplaceKeepsTargetWhenSourceIsMissing(t *testing.T) {
+	dir := t.TempDir()
+	source, target := filepath.Join(dir, "missing"), filepath.Join(dir, "old")
+	writeFile(t, target, "old\n")
+	if err := Replace(source, target); !os.IsNotExist(err) {
+		t.Fatalf("Replace of a missing source: %v, want its absence reported", err)
+	}
+	if got := readFile(t, target); got != "old\n" {
+		t.Errorf("target = %q", got)
+	}
+}
+
 func TestReplaceReplacesLinkNotItsTarget(t *testing.T) {
 	dir := t.TempDir()
 	source, target, elsewhere := filepath.Join(dir, "new"), filepath.Join(dir, "link"), filepath.Join(dir, "elsewhere")
