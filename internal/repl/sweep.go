@@ -348,7 +348,8 @@ func (s *Session) sweptValue(ctx *runtime.Context, args *sweptArgs, val runtime.
 func (s *Session) sweptHeld(ctx *runtime.Context, id int64) (freshRef, error) {
 	label, ok := s.heldLabel(id)
 	if !ok {
-		return freshRef{name: fmt.Sprintf("#%d", id), root: id, held: id, imaged: true}, nil
+		name := fmt.Sprintf("#%d", id)
+		return freshRef{name: name, label: name, root: id, held: id, imaged: true}, nil
 	}
 	return s.sweptObject(ctx, label)
 }
@@ -390,13 +391,13 @@ func imageErrorRef(refs []freshRef, err error) string {
 	if errors.As(err, &about) {
 		for _, ref := range refs {
 			if ref.held == about.ID || ref.root == about.ID {
-				return ref.name
+				return ref.label
 			}
 		}
 	}
 	for _, ref := range refs {
 		if ref.imaged {
-			return ref.name
+			return ref.label
 		}
 	}
 	return "the held objects"
@@ -515,7 +516,7 @@ func (s *Session) sweptObject(ctx *runtime.Context, text string) (freshRef, erro
 		return freshRef{}, err
 	}
 	if ref.id > 0 {
-		return freshRef{name: label, root: ref.id, held: held.ID, imaged: true}, nil
+		return freshRef{name: label, label: label, root: ref.id, held: held.ID, imaged: true}, nil
 	}
 	root, fqn, path, err := s.namedRoot(ref)
 	if err != nil {
@@ -547,7 +548,7 @@ func (s *Session) sweptRef(ctx *runtime.Context, root, held *runtime.Instance, l
 		return freshRef{}, err
 	}
 	return freshRef{
-		sym: sym, fqn: fqn, name: name, path: path, root: root.ID, held: held.ID,
+		sym: sym, fqn: fqn, name: name, label: label, path: path, root: root.ID, held: held.ID,
 		imaged: ctx.Pristine(root) != nil,
 	}, nil
 }

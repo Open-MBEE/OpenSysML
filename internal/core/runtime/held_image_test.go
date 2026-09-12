@@ -218,9 +218,9 @@ func TestHeldImageCarriesAParkedAction(t *testing.T) {
 
 // An image is refused, by its typed reason, where the state cannot be carried: a
 // context inside a step, an object of another context, a destination holding the
-// identity or past the image's instant, a feature being written, a value of a body.
+// identity or past the image's instant, a feature being written, a value of a body, a destroyed root.
 func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
-	_, src, bulb := lampBulb(t)
+	root, src, bulb := lampBulb(t)
 	src.runDepth++
 	if _, err := src.Image(bulb); !errors.Is(err, ErrSnapshotMidRun) {
 		t.Errorf("Image inside a step = %v, want ErrSnapshotMidRun", err)
@@ -269,6 +269,87 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 	var notPortable *NotPortableError
 	if _, err := src.Image(bulb); !errors.As(err, &notPortable) || !errors.As(err, &hie) || hie.ID != bulb.ID {
 		t.Errorf("Image over a function of a body = %v, want a NotPortableError naming #%d", err, bulb.ID)
+	}
+
+	// A destroyed object is no longer one to sweep on: the image refuses it as a root.
+	plain, err := src.Instantiate(resolveSymbol(t, root, "Plain"))
+	if err != nil {
+		t.Fatalf("Instantiate(Plain): %v", err)
+	}
+	if err := src.destroy(plain); err != nil {
+		t.Fatalf("destroy: %v", err)
+	}
+	if _, err := src.Image(plain); !errors.Is(err, ErrOccurrenceDestroyed) || !errors.As(err, &hie) || hie.ID != plain.ID {
+		t.Errorf("Image of a destroyed object = %v, want ErrOccurrenceDestroyed naming #%d", err, plain.ID)
+	}
+}
+
+// A materialization that fails after its objects stand — here on the last message
+// carried — leaves the destination as it found it: no object, behavior, identity,
+// counter, clock or run of the image stays behind, and the image goes in whole next time.
+func TestHeldImageMaterializeFailsWhole(t *testing.T) {
+	root, src, bulb := lampBulb(t)
+	dispatchTo(t, root, src, bulb, "go", nil)
+	if _, err := src.Advance(2); err != nil {
+		t.Fatalf("Advance: %v", err)
+	}
+	img, err := src.Image(bulb)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+	if len(img.behaviors) == 0 || img.clock != 2 {
+		t.Fatalf("the image carries %d behaviors at t=%v, want a machine at t=2", len(img.behaviors), img.clock)
+	}
+	sound := img.messages
+	inBody := Value{Kind: ValFunction, ref: &functionValue{
+		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
+	}}
+	img.messages = append(slices.Clone(sound), Message{Object: bulb.ID, SignalType: "go", Payload: map[string]Value{"k": inBody}})
+
+	dst := NewContext(src.Model(), 10000)
+	before := destinationStateOf(dst)
+	var notPortable *NotPortableError
+	if err := img.Materialize(dst); !errors.As(err, &notPortable) {
+		t.Fatalf("Materialize with a message it cannot carry = %v, want a NotPortableError", err)
+	}
+	if after := destinationStateOf(dst); after != before {
+		t.Errorf("the failed materialization changed the destination:\n before %+v\n after  %+v", before, after)
+	}
+
+	img.messages = sound
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize after the failure: %v", err)
+	}
+	copied, ok := dst.Instance(bulb.ID)
+	if !ok {
+		t.Fatalf("the destination holds no #%d", bulb.ID)
+	}
+	if got := lampLeaf(t, copied); got != "on" {
+		t.Errorf("the copy's state = %s, want on", got)
+	}
+	if dst.clock.now != 2 {
+		t.Errorf("the destination's clock = %v, want 2", dst.clock.now)
+	}
+}
+
+// destinationState is every part of a context a materialization writes, as one value to compare.
+type destinationState struct {
+	instances, created, lives, behaviors, messages, occurrences, metadata, variants, selected int
+	onClock                                                                                   int
+	nextID, tookHigh, activations, runs                                                       int64
+	clock                                                                                     float64
+	clockRun                                                                                  *runState
+}
+
+func destinationStateOf(ctx *Context) destinationState {
+	return destinationState{
+		instances: len(ctx.instances), created: len(ctx.created), lives: len(ctx.lives), behaviors: len(ctx.objectBehaviors),
+		messages: len(ctx.messages), occurrences: len(ctx.occurrences), metadata: len(ctx.metadataObjects),
+		variants: len(ctx.variantObjects), selected: len(ctx.selectedVariants),
+		onClock: len(ctx.clock.waiters),
+		nextID:  ctx.ids.next, tookHigh: ctx.took.high, activations: ctx.activations, runs: ctx.runs,
+		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
 	}
 }
 

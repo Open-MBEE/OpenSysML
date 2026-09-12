@@ -489,11 +489,14 @@ occurrences of their behaviors; the executors' state by value, as `Snapshot` cap
 taken once when the sweep begins, while the session's state is still held, and materialized
 into every row's context (`HeldImage.Materialize`), where it makes objects under the same
 identities (the row's identity sequence advanced past them), attaches fresh executors on the
-row's clock and puts the captured state into them. Neither `Restore` nor `Adopt` is that copy:
+row's clock and puts the captured state into them; a materialization that fails leaves the
+row's context as it found it (objects, behaviors, identities, counters, clock and messages
+alike). Neither `Restore` nor `Adopt` is that copy:
 `Restore` restores its source context alone, over the executors and journal it captured, and
 `Adopt` moves the very same `*Instance` into another context, which a row would then write. An
-object the image cannot carry is refused with the typed `SweptObjectError` naming the reason —
-a session inside a step (`ErrSnapshotMidRun`), a body paused mid-statement
+object the image cannot carry is refused with the typed `SweptObjectError` naming the reason
+before any row runs — a destroyed object the sweep names (`ErrOccurrenceDestroyed`), a session
+inside a step (`ErrSnapshotMidRun`), a body paused mid-statement
 (`ErrSnapshotPausedBody`), a value bound to the run that made it (`NotPortableError`), an
 object outside the imaged closure (`HeldImageError`) — and the sweep never falls back to the
 session's context. `#id`-named objects are admitted exactly when the image holds the identity,
@@ -816,9 +819,10 @@ behavior unchanged until stage 4.
    row's clock holding the captured state; `rowObjects` takes an image-backed reference from
    the copy and a pristine one from its declaration, in one sweep (an argument naming a fresh
    object beside a moved subject). `HeldImageError` (`ErrImageIdentityTaken`, `ErrImageClock`,
-   `ErrImageBound`, `ErrImageRoot`), `ErrSnapshotMidRun`, `ErrSnapshotPausedBody` and
-   `NotPortableError` are the typed reasons, wrapped in `SweptObjectError`; no shared-context
-   fallback. `Snapshot`'s wire shape is unchanged. Tests: the table the sequential form printed
+   `ErrImageBound`, `ErrImageRoot`), `ErrOccurrenceDestroyed`, `ErrSnapshotMidRun`,
+   `ErrSnapshotPausedBody` and `NotPortableError` are the typed reasons, wrapped in
+   `SweptObjectError` before any row runs; no shared-context fallback; a materialization that
+   fails leaves the row's context as it found it. `Snapshot`'s wire shape is unchanged. Tests: the table the sequential form printed
    for a sweep over an object fresh from `%instantiate` whose type exhibits a state machine and
    one that performs an action, pinned on one job and on eight, in the REPL, through the CLI's
    `-instantiate` and `-sweep` and the gRPC service; the same object after a transition fired,
@@ -828,7 +832,9 @@ behavior unchanged until stage 4.
    moves and through `Snapshot` and `Restore`; a machine and a parked action imaged into
    another context, run there and beside the source, and re-imaged after; the refusals pinned
    by name and reason — a body paused mid-statement, an identity the destination holds, a clock
-   past the image's, a value bound to its run, an object outside the image; one image serving
+   past the image's, a value bound to its run, an object outside the image, a destroyed root (in
+   the REPL, before any row, named as written); a materialization failing on its last message
+   leaving the destination as it found it and going in whole next time; one image serving
    two sweeps of eight rows on two goroutines under `-race`, and two gRPC sweeps of one model
    at once. What the image does not carry, and the sweep refuses: a body paused mid-statement
    and a session inside a step (`Snapshot`'s bounds); a value closed over its run.

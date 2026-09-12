@@ -300,6 +300,27 @@ func TestSweepOverAnObjectNoImageCarriesIsRefused(t *testing.T) {
 	wants(t, run(t, s, "%features Rows::watcher"), "cost = 7.0", "current state watching")
 }
 
+// A sweep over a destroyed held object — named, by identity, or reached through a
+// feature of a live one — is refused naming the destruction before any row runs, and
+// leaves the held objects as they were.
+func TestSweepOverADestroyedObjectIsRefused(t *testing.T) {
+	s := loadSource(t, sweepRowsModel)
+	run(t, s, "%instantiate Rows::ship")
+	run(t, s, "%instantiate Rows::fleet")
+	wants(t, run(t, s, "%eval OccurrenceFunctions::destroy(Rows::ship) === Rows::ship"), "= true")
+	wants(t, run(t, s, "%eval OccurrenceFunctions::destroy(Rows::fleet.flagship) === Rows::fleet.flagship"), "= true")
+	before := heldGraph(t, s, "Rows::fleet")
+	for _, object := range []string{"Rows::ship", "#1", "Rows::fleet.flagship"} {
+		out := run(t, s, "%sweep Rows::Bump "+object+" tax=1.0..3.0:1.0")
+		wants(t, out, "error: "+object+": image of object #", "occurrence was destroyed at", "this one cannot be imaged")
+		rejects(t, out, "run(s)")
+	}
+	if after := heldGraph(t, s, "Rows::fleet"); after != before {
+		t.Errorf("the refused sweeps left the held fleet as\n%s\nwas\n%s", after, before)
+	}
+	wants(t, run(t, s, "%features Rows::ship"), "(destroyed at ")
+}
+
 // A sweep over an object reached through another's feature — as its subject, or as the
 // owner of a case nested under it — runs each row on an object of the root's
 // declaration walked along the same features in the row's context, so the rows read

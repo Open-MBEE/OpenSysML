@@ -125,7 +125,8 @@ func (img *HeldImage) Holds(id int64) bool { return img.held[id] }
 func (img *HeldImage) Roots() []int64 { return slices.Clone(img.roots) }
 
 // Image takes the objects and everything they hold, own or name by value. It refuses, in a
-// HeldImageError, ErrSnapshotMidRun, ErrSnapshotPausedBody, NotPortableError and ErrImageBound.
+// HeldImageError, a destroyed root (ErrOccurrenceDestroyed), ErrSnapshotMidRun,
+// ErrSnapshotPausedBody, NotPortableError and ErrImageBound.
 func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 	if ctx.midRun() {
 		return nil, ErrSnapshotMidRun
@@ -148,6 +149,9 @@ func (ctx *Context) Image(objects ...*Instance) (*HeldImage, error) {
 		}
 		if held, ok := ctx.instances[inst.ID]; !ok || held != inst {
 			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: ErrImageRoot}
+		}
+		if l, ok := ctx.lives[inst.ID]; ok && l.destroyed {
+			return nil, &HeldImageError{ID: inst.ID, Type: inst.Type, What: "image", Err: fmt.Errorf("%w at %d", ErrOccurrenceDestroyed, l.ended)}
 		}
 		if !slices.Contains(img.roots, inst.ID) {
 			img.roots = append(img.roots, inst.ID)
@@ -479,14 +483,45 @@ func (img *HeldImage) Materialize(dst *Context) error {
 		return fmt.Errorf("%w: at t=%v, image at t=%v", ErrImageClock, dst.clock.now, img.clock)
 	}
 	m := &materializing{dst: dst, img: img, made: make(map[int64]*Instance, len(img.objects))}
-	mark := len(dst.created)
-	attached := len(dst.objectBehaviors)
+	mark := dst.materializeMark()
 	if err := m.run(); err != nil {
-		dst.forgetBehaviorsFrom(attached)
-		dst.abandonInstancesSince(mark)
+		mark.rollBack(dst)
 		return err
 	}
 	return nil
+}
+
+// materializeMark is what a materialization changes of dst besides the objects it
+// makes and the behaviors it attaches, as it stood before, so a failed one is undone whole.
+type materializeMark struct {
+	created, attached int
+	nextID            int64
+	ids               *idSequence
+	activations, runs int64
+	clock             float64
+	clockRun          *runState
+}
+
+func (ctx *Context) materializeMark() materializeMark {
+	return materializeMark{
+		created: len(ctx.created), attached: len(ctx.objectBehaviors),
+		nextID: ctx.ids.next, ids: ctx.ids,
+		activations: ctx.activations, runs: ctx.runs,
+		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
+	}
+}
+
+// rollBack puts ctx as the mark found it: the objects made and behaviors attached since
+// are dropped with what named them, and the identities taken are handed out again.
+func (mark materializeMark) rollBack(ctx *Context) {
+	ctx.forgetBehaviorsFrom(mark.attached)
+	ctx.abandonInstancesSince(mark.created)
+	if ctx.ids == mark.ids {
+		ctx.ids.release(ctx, mark.nextID)
+	}
+	ctx.activations, ctx.runs = mark.activations, mark.runs
+	ctx.clock.now = mark.clock
+	ctx.clockRun.state = mark.clockRun
 }
 
 // materializing builds one context's objects for an image.
@@ -552,18 +587,6 @@ func (m *materializing) run() error {
 	dst.activations = max(dst.activations, img.activations)
 	dst.runs = max(dst.runs, img.runs)
 	dst.clock.now = img.clock
-	for sym, id := range img.occurrences {
-		dst.occurrences[sym] = id
-	}
-	for key, id := range img.metadataObjects {
-		dst.metadataObjects[key] = id
-	}
-	for key, id := range img.variantObjects {
-		dst.variantObjects[key] = id
-	}
-	for key, variant := range img.selectedVariants {
-		dst.selectedVariants[key] = variant
-	}
 	for _, run := range img.runStates {
 		m.runs = append(m.runs, m.runState(run))
 	}
@@ -575,12 +598,27 @@ func (m *materializing) run() error {
 			return &HeldImageError{ID: b.object, Type: m.made[b.object].Type, What: fmt.Sprintf("materialize %s %s", b.kind, b.name), Err: err}
 		}
 	}
+	messages := make([]Message, 0, len(img.messages))
 	for _, msg := range img.messages {
 		carried, err := m.message(msg)
 		if err != nil {
 			return &HeldImageError{ID: msg.Object, What: "materialize messages", Err: err}
 		}
-		dst.messages = append(dst.messages, carried)
+		messages = append(messages, carried)
+	}
+	// Nothing below fails: what names the objects made is installed once they all stand.
+	dst.messages = append(dst.messages, messages...)
+	for sym, id := range img.occurrences {
+		dst.occurrences[sym] = id
+	}
+	for key, id := range img.metadataObjects {
+		dst.metadataObjects[key] = id
+	}
+	for key, id := range img.variantObjects {
+		dst.variantObjects[key] = id
+	}
+	for key, variant := range img.selectedVariants {
+		dst.selectedVariants[key] = variant
 	}
 	return nil
 }

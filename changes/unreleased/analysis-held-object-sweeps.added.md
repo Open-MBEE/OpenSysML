@@ -10,6 +10,6 @@
   it holds, taken when the sweep begins and made afresh in each row's context under the same
   identities, with the executors' state and the posted signals: every row starts where the held
   object stands, no row sees another's writes, and the held object is byte for byte as it was
-  afterwards. An object the image cannot carry — a body paused mid-statement, a debugger inside
-  a step, a value bound to the run that made it — is refused naming the reason, never swept on
-  the session's state.
+  afterwards. An object the image cannot carry — a destroyed one, a body paused mid-statement, a
+  debugger inside a step, a value bound to the run that made it — is refused naming the reason
+  before any row runs, never swept on the session's state.
