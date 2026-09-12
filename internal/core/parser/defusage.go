@@ -267,6 +267,12 @@ func (p *Parser) prefixConflict(t lexer.Token, prior, alternatives string) {
 	p.error(t.Span, fmt.Sprintf("'%s' cannot follow '%s': a prefix says %s, not both", t.KeywordID, prior, alternatives))
 }
 
+// repeatedPrefix reports a prefix keyword written twice: every `?=` flag of the
+// prefix productions admits its keyword at most once.
+func (p *Parser) repeatedPrefix(t lexer.Token) {
+	p.error(t.Span, fmt.Sprintf("'%s' is repeated: a prefix admits it once", t.KeywordID))
+}
+
 // noteUsageOnly remembers the first prefix keyword no DefinitionPrefix admits,
 // so a definition written after it can be rejected at that keyword.
 func (m *featureMods) noteUsageOnly(t lexer.Token) {
@@ -389,6 +395,9 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 				!(next.Kind == lexer.Keyword && (featureModifierKeywords[next.KeywordID] || !p.reservedWord(next.KeywordID))) {
 				return
 			}
+			if cross.IsVariable {
+				p.error(t.Span, "'var' is repeated: a prefix admits it once")
+			}
 			cross.IsVariable = true
 			p.advance()
 			continue
@@ -403,6 +412,9 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			}
 			cross.Direction = directionOf(t.KeywordID)
 		case "derived":
+			if cross.IsDerived {
+				p.repeatedPrefix(t)
+			}
 			cross.IsDerived = true
 		case "abstract":
 			if cross.IsAbstract || cross.IsVariation {
@@ -428,8 +440,14 @@ func (p *Parser) parseCrossFeaturePrefix(cross *ast.CrossFeatureMember) {
 			cross.IsPortion = true
 		case "constant", "const":
 			p.checkConstantSpelling(t)
+			if cross.IsConstant {
+				p.repeatedPrefix(t)
+			}
 			cross.IsConstant = true
 		case "ref":
+			if cross.IsReference {
+				p.repeatedPrefix(t)
+			}
 			cross.IsReference = true
 		default:
 			return
@@ -1078,9 +1096,15 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			m.isVariation = true
 		case "ref":
+			if m.isReference {
+				p.repeatedPrefix(t)
+			}
 			m.isReference = true
 			m.noteUsageOnly(t)
 		case "end":
+			if m.isEnd {
+				p.repeatedPrefix(t)
+			}
 			m.isEnd = true
 			m.noteUsageOnly(t)
 			p.advance() // consume "end"
@@ -1088,6 +1112,9 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			continue
 		case "constant", "const":
 			p.checkConstantSpelling(t)
+			if m.isConstant {
+				p.repeatedPrefix(t)
+			}
 			m.isConstant = true
 			m.noteUsageOnly(t)
 		case "event":
@@ -1097,6 +1124,9 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			if nextTok.Kind == lexer.Identifier || (nextTok.Kind == lexer.Keyword && !p.isModifierOrKindKeyword(nextTok.KeywordID)) {
 				// Treat as usage keyword, stop consuming modifiers
 				return
+			}
+			if m.isEvent {
+				p.repeatedPrefix(t)
 			}
 			m.isEvent = true
 			m.noteUsageOnly(t)
@@ -1112,6 +1142,9 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			if nextTok.Kind == lexer.Keyword && nextTok.KeywordID == "def" {
 				// individual def → DefIndividual keyword
 				return
+			}
+			if m.isIndividual {
+				p.repeatedPrefix(t)
 			}
 			m.isIndividual = true
 		case "snapshot":
@@ -1150,15 +1183,27 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			m.isPortion = true
 			m.noteUsageOnly(t)
 		case "readonly":
+			if m.isReadonly {
+				p.repeatedPrefix(t)
+			}
 			m.isReadonly = true
 			m.noteUsageOnly(t)
 		case "derived":
+			if m.isDerived {
+				p.repeatedPrefix(t)
+			}
 			m.isDerived = true
 			m.noteUsageOnly(t)
 		case "ordered":
+			if m.isOrdered {
+				p.repeatedPrefix(t)
+			}
 			m.isOrdered = true
 			m.noteUsageOnly(t)
 		case "nonunique":
+			if m.isNonunique {
+				p.repeatedPrefix(t)
+			}
 			m.isNonunique = true
 			m.noteUsageOnly(t)
 		default:

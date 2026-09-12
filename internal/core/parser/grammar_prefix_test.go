@@ -95,6 +95,29 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 		// KerML spells the prefix const (KerML.xtext:514 BasicFeaturePrefix isConstant ?= 'const').
 		{"constant_in_kerml", "a.kerml", "package P { constant feature n; }", "constant",
 			"`constant` is SysML notation: the KerML grammar spells the prefix `const`, so write `const` here or move the declaration to a .sysml file"},
+		// Every `?=` flag admits its keyword once (SysML.xtext RefPrefix/BasicUsagePrefix, KerML.xtext BasicFeaturePrefix).
+		{"ref_ref", "a.sysml", "package P { part def D; ref ref part r : D; }", "ref",
+			"'ref' is repeated: a prefix admits it once"},
+		{"constant_constant", "a.sysml", "package P { constant constant attribute a = 1; }", "constant",
+			"'constant' is repeated: a prefix admits it once"},
+		{"const_const", "a.kerml", "package P { class A { const const feature f; } }", "const",
+			"'const' is repeated: a prefix admits it once"},
+		{"derived_derived", "a.sysml", "package P { derived derived attribute a = 1; }", "derived",
+			"'derived' is repeated: a prefix admits it once"},
+		{"ordered_ordered", "a.sysml", "package P { ordered ordered attribute a; }", "ordered",
+			"'ordered' is repeated: a prefix admits it once"},
+		{"nonunique_nonunique", "a.sysml", "package P { nonunique nonunique attribute a; }", "nonunique",
+			"'nonunique' is repeated: a prefix admits it once"},
+		{"end_end", "a.sysml", "package P { connection def C { end end part e; } }", "end",
+			"'end' is repeated: a prefix admits it once"},
+		{"cross_feature_ref_ref", "a.sysml", "package P { assoc A { end ref ref x : T feature e; } }", "ref",
+			"'ref' is repeated: a prefix admits it once"},
+		{"cross_feature_derived_derived", "a.kerml", "package P { assoc A { end derived derived x : T feature e; } }", "derived",
+			"'derived' is repeated: a prefix admits it once"},
+		{"cross_feature_const_const", "a.kerml", "package P { assoc A { end const const x : T feature e; } }", "const",
+			"'const' is repeated: a prefix admits it once"},
+		{"cross_feature_var_var", "a.kerml", "package P { assoc A { end var var x : T feature e; } }", "var",
+			"'var' is repeated: a prefix admits it once"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
