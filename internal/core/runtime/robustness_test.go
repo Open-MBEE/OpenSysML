@@ -34,6 +34,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("node_pin_of_a_node_not_yet_performed", testNodePinOfANodeNotYetPerformed)
 	t.Run("node_pin_the_node_does_not_declare", testNodePinTheNodeDoesNotDeclare)
 	t.Run("node_read_as_a_value_without_a_result", testNodeReadAsAValueWithoutAResult)
+	t.Run("settled_node_read_as_a_value_by_another_candidates_result", testSettledNodeReadAsAValueByAnotherCandidatesResult)
 	t.Run("node_pin_member_through_a_scalar_pin", testNodePinMemberThroughAScalarPin)
 	t.Run("block_node_pin_of_a_node_not_yet_performed", testBlockNodePinOfANodeNotYetPerformed)
 	t.Run("block_node_pin_the_node_does_not_declare", testBlockNodePinTheNodeDoesNotDeclare)
@@ -12109,6 +12110,45 @@ func testNodeReadAsAValueWithoutAResult(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "result") {
 		t.Errorf("error %q does not name the missing result", err)
+	}
+}
+
+// testSettledNodeReadAsAValueByAnotherCandidatesResult: a call its values settle holds
+// the pins of the action performed alone, so it is not read as a value by a `result` only
+// another candidate declares, which would leave the read waiting for a value never written.
+func testSettledNodeReadAsAValueByAnotherCandidatesResult(t *testing.T) {
+	src := `
+		package A { private import ScalarValues::*;
+			action def tag { in x : Integer; in y : Real; out mark : Integer; first step; action step { assign mark := 1; } } }
+		package B { private import ScalarValues::*;
+			action def tag { in x : Real; in y : Integer; out result : Integer; first step; action step { assign result := 2; } } }
+		package test {
+			private import ScalarValues::*;
+			private import A::*;
+			private import B::*;
+			calc def same { in v; v }
+			action outer {
+				attribute p = same(1);
+				attribute q = same(2.5);
+				attribute total : Integer = 0;
+				first start;
+				then action call = tag(x = p, y = q);
+				then action fin { assign total := call; }
+				then done;
+			}
+		}
+	`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	outer := findSymbolByName(idx.DocumentRoot("<test>"), "outer", ast.DefAction)
+	if outer == nil {
+		t.Fatal("action outer not found")
+	}
+	_, err := ctx.ExecuteAction(outer)
+	if !errors.Is(err, ErrNodePin) {
+		t.Fatalf("error = %v, want ErrNodePin", err)
+	}
+	if !strings.Contains(err.Error(), "call") || !strings.Contains(err.Error(), "result") {
+		t.Errorf("error %q does not name the node and the missing result", err)
 	}
 }
 

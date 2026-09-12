@@ -101,11 +101,25 @@ var builtinSignatures = map[string][]declaredParam{
 // invokeBuiltin binds the arguments of a call to the built-in name to its
 // declared parameters and applies fn to them.
 func (ec *EvalContext) invokeBuiltin(name string, fn builtinFunc, exprs []ast.Node, named []ast.NamedArg, names []string, unbound []error) (Value, error) {
+	return ec.invokeBuiltinWith(name, fn, exprs, named, names, unbound, func(params []declaredParam, param, at int) (Value, error) {
+		if at < len(exprs) {
+			return ec.evalArgument(params, param, exprs[at])
+		}
+		return ec.evalArgument(params, param, named[at-len(exprs)].Value)
+	})
+}
+
+// argumentMaterializer yields the value bound to parameter param from the argument
+// written at index at, the positional arguments counted before the named ones.
+type argumentMaterializer func(params []declaredParam, param, at int) (Value, error)
+
+// invokeBuiltinWith is invokeBuiltin with each argument materialized by materialize.
+func (ec *EvalContext) invokeBuiltinWith(name string, fn builtinFunc, exprs []ast.Node, named []ast.NamedArg, names []string, unbound []error, materialize argumentMaterializer) (Value, error) {
 	outer := ec.entered
 	ec.entered = ec.ctx.activations
 	defer func() { ec.entered = outer }()
 	return tracedBuiltin(ec.trace, name,
-		func() ([]Value, error) { return ec.bindBuiltinArgs(name, exprs, named, names, unbound) },
+		func() ([]Value, error) { return bindBuiltinArgs(name, len(exprs), names, unbound, materialize) },
 		func(args []Value) (Value, error) { return fn(ec, args) },
 	)
 }
@@ -138,23 +152,23 @@ func tracedBuiltin(tr *TraceRecorder, name string, bind func() ([]Value, error),
 	return result, nil
 }
 
-// bindBuiltinArgs evaluates a call's arguments into one value per declared
+// bindBuiltinArgs materializes a call's arguments into one value per declared
 // parameter. Positional arguments bind in sequence; named ones bind the
 // parameter of their name. A parameter left unbound is null when its
 // multiplicity admits no value and reported otherwise. An `expr` parameter's
 // argument is bound unevaluated either way.
-func (ec *EvalContext) bindBuiltinArgs(name string, exprs []ast.Node, named []ast.NamedArg, names []string, unbound []error) ([]Value, error) {
+func bindBuiltinArgs(name string, positional int, names []string, unbound []error, materialize argumentMaterializer) ([]Value, error) {
 	params := builtinSignatures[name]
 	for _, argName := range names {
 		if argName == "" {
 			return nil, fmt.Errorf("unnamed argument in invocation of %s", writtenName(name))
 		}
 	}
-	return bindBuiltin(name, len(exprs), names, unbound, func(param, arg int) (Value, error) {
+	return bindBuiltin(name, positional, names, unbound, func(param, arg int) (Value, error) {
 		if len(names) > 0 {
-			return ec.evalArgument(params, param, named[arg].Value)
+			return materialize(params, param, positional+arg)
 		}
-		return ec.evalArgument(params, param, exprs[arg])
+		return materialize(params, param, arg)
 	})
 }
 
