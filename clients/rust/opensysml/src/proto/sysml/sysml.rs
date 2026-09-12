@@ -1078,7 +1078,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1142,6 +1142,10 @@ pub mod value {
         /// an element reflected on as its metaclass
         #[prost(message, tag="20")]
         Metaobject(super::Metaobject),
+        /// A result the model leaves open: not an error, but no definite answer.
+        /// A value the server sends, never one it accepts.
+        #[prost(message, tag="21")]
+        Undetermined(super::Undetermined),
     }
 }
 /// Metaobject is an element of the model held as an instance of its reflective
@@ -1162,6 +1166,23 @@ pub struct Metaobject {
     /// the value is rejected.
     #[prost(string, tag="2")]
     pub metaclass_id: ::prost::alloc::string::String,
+}
+/// Undetermined is the model-level result of an expression the model does not
+/// decide: it reads a feature no value is given (`attribute u;`) or counts a
+/// feature whose multiplicity fixes no count (`part gear\[1..*\]`). The
+/// expression is well-formed and evaluation succeeded; the answer is open.
+/// Every other surface spells it `<undetermined>`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Undetermined {
+    /// Why the model leaves the result open, for a reader:
+    /// "u has no value in the model".
+    #[prost(string, tag="1")]
+    pub reason: ::prost::alloc::string::String,
+    /// How many values the result would hold, as far as the model fixes it:
+    /// `1..1` for an arithmetic result over an unbound scalar, `1..*` for the
+    /// elements of a `\[1..*\]` feature, `0..*` where nothing is known.
+    #[prost(message, optional, tag="2")]
+    pub count: ::core::option::Option<MultiplicityInfo>,
 }
 /// Function is a calc held as a value: a calc definition, or a calc usage with
 /// an input no read could supply, as `Sq` in `Fn(Sq, 3.0)` or the `f` of

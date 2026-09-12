@@ -10,8 +10,8 @@ import (
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
 // are Int, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
-// Function, Set, TensorQuantity and Metaobject, and a type switch over them is
-// exhaustive.
+// Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
+// them is exhaustive.
 type Value interface {
 	isValue()
 }
@@ -53,6 +53,16 @@ type Null string
 // Unset is a valueless feature of a value type: materialized, holding no
 // value. It is reported, never accepted.
 type Unset struct{}
+
+// Undetermined is a model-level result the model leaves open (an unbound
+// feature, an unfixed count): a successful answer, reported, never accepted.
+type Undetermined struct {
+	// Reason says why the model fixes no answer: "u has no value in the model".
+	Reason string
+	// CountLower and CountUpper bound how many values the result would hold, as
+	// MultiplicityInfo spells them: "1"/"1" for a scalar, "1"/"*" for a [1..*] feature.
+	CountLower, CountUpper string
+}
 
 // Quantity is a magnitude and the measurement unit it is expressed in, exactly
 // as written: 5.4 [km/h] arrives as 5.4 km/h, not converted to base units.
@@ -327,6 +337,11 @@ func (Unset) String() string {
 	return "unset"
 }
 
+// String reports a result the model leaves open, as every other surface spells it.
+func (Undetermined) String() string {
+	return runtime.UndeterminedText
+}
+
 func (Int) isValue()            { /* marker: closed Value set */ }
 func (Real) isValue()           { /* marker: closed Value set */ }
 func (Complex) isValue()        { /* marker: closed Value set */ }
@@ -346,6 +361,7 @@ func (Function) isValue()       { /* marker: closed Value set */ }
 func (Set) isValue()            { /* marker: closed Value set */ }
 func (TensorQuantity) isValue() { /* marker: closed Value set */ }
 func (Metaobject) isValue()     { /* marker: closed Value set */ }
+func (Undetermined) isValue()   { /* marker: closed Value set */ }
 
 func (Int) isNumber()  { /* marker: closed Number set */ }
 func (Real) isNumber() { /* marker: closed Number set */ }

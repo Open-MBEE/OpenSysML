@@ -192,10 +192,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: eighteen arms, exactly one present
+## `Value`: nineteen arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of eighteen
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of nineteen
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -222,6 +222,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
 | `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on and the metaclass that classifies it |
+| `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/structured.sysml` (`S::grid`, `S::v`, `S::d`), `measurementRef` against
@@ -305,6 +306,10 @@ decode(v):
                  require len(components) == product(dimensions), else an error
   metaobject   → element := v.metaobject.elementId, require it non-empty, else an error;
                  metaclass := v.metaobject.metaclassId; the element is the identity
+  undetermined → the language's "undetermined" sentinel carrying v.undetermined.reason (a
+                 string) and v.undetermined.count (lower and upper as strings, upper "*"
+                 when unbounded); distinct from unset, from null and from false. Never
+                 send it: a request carrying one is answered with INVALID_ARGUMENT
   anything else → an error: a newer service than this decoder
 ```
 
@@ -364,17 +369,19 @@ engine held a value it has no wire representation for, and the string says what 
 Python client raises `UnsupportedValueError(text)` for that case rather than returning `None`,
 and a hand-written client should not silently equate the two either.
 
-**`unset`, and the three ways to have no value.** Three different things look like "nothing"
-and a client must keep them apart:
+**`unset`, `undetermined`, and the four ways to have no value.** Four different things look
+like "nothing" and a client must keep them apart:
 
 | Shape | Meaning |
 |---|---|
 | `result` key **absent** from the response | The call produced no value: it failed (`error` is present), or the method has no result for this input |
-| `{"result":{"unset":true}}` | The call produced a value, and it is *unset*: the feature exists and nothing has been assigned to it |
+| `{"result":{"unset":true}}` | The call produced a value, and it is *unset*: the feature exists on an object and nothing has been assigned to it |
+| `{"result":{"undetermined":{…}}}` | The call produced a value, and it is *undetermined*: the model alone was asked and fixes no answer |
 | `{"result":{"null":""}}` | The call produced the SysML `null` |
 
 Here is a definition with an attribute that has a type and no value, from
-`conformance/fixtures/unset.sysml` (`attribute d : Real;` beside `attribute k : Real = 2.0;`):
+`conformance/fixtures/unset.sysml` (`attribute d : Real;` beside `attribute k : Real = 2.0;`),
+read on an instantiated object and then at model level:
 
 ```console
 $ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"d","subjectSymbolId":"P::Q"}'
@@ -382,11 +389,34 @@ $ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae
 
 $ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"d + 1.0","subjectSymbolId":"P::Q"}'
 {"error":"evaluation failed: type mismatch: operator '+' is not defined for an instance and a Real"}
+
+$ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"P::Q::d"}'
+{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}
+
+$ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"P::Q::d + 1.0"}'
+{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}
+
+$ … /Evaluate -d '{"modelHash":"07bfcf7c99b9bc7176279e47f22e7c6deabae0e012fdae8cc94811e9a73b564f","expression":"(P::Q::d > 1.0) and false"}'
+{"result":{"boolValue":false}}
 ```
 
 `unset` is written `true` whenever the arm is present; it is never `false`. Reading it as a
 boolean and testing it for truth is therefore a bug waiting for the arm to be absent: the
 question is "is the `unset` key present", never "is `unset` true".
+
+`undetermined` is the engine declining to invent an answer the model does not give: with a
+`subjectSymbolId` the feature is read on the object standing for the subject, and a required
+value that object lacks is `unset`; without one the model alone is asked, `d` is a feature no
+object holds, and what it would hold is not determined. An operation over an undetermined
+operand is undetermined too unless another operand fixes the result (`x and false`,
+`x or true`, `x implies true`, `includes((1, x), 1)`), so a client reads it as a result, not
+as a failure. `count` is the multiplicity the values conform to — `[1]` for a bare attribute,
+`{"lower":"1","upper":"*"}` for a `[1..*]` part — and lets a client answer what the bounds
+fix (a `[1..*]` feature is not empty) without asking again. The bundled clients decode it to
+`Undetermined` (Go, Java, Rust), `opensysml.Undetermined` (Python, which refuses `bool()` on
+it) and `UndeterminedValue` (Node), each printing as `<undetermined>`; none accepts one as an
+input. A service that does not advertise `undetermined_value` sends the arm as an unsupported
+`null` naming it.
 
 **`quantity`.** A magnitude with a unit:
 
@@ -634,7 +664,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 - **Do not read `intValue` (or `intMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
   digits are gone and nothing tells you.
 - **Do not read `unset` as a boolean.** Its presence is the fact; a missing `result` is a
-  different fact (no value), and `{"null":""}` a third (the null value).
+  different fact (no value), `{"null":""}` a third (the null value), and `undetermined` a
+  fourth (the model fixes no answer).
 - **Do not treat a non-empty `null` string as null.** It names a value that could not be sent.
 - **Do not keep an `instanceId` past the response it arrived in**, or use one to index a
   different response's `instances`.
@@ -958,7 +989,9 @@ HTTP/1.1 400 Bad Request
 
 A spelling naming no policy — an unknown name, `seed` or `seed:` without a number, a negative or
 non-decimal seed — is `INVALID_ARGUMENT` before the model is looked up, so a mistyped policy
-never runs anything under the default. The field is advertised as the `schedule` capability: a
+never runs anything under the default. So is `"replay:<file>"`, which `sysml -schedule` accepts:
+it follows a witness file of the caller's, which a request does not carry, and the service reads
+no file of its own on a client's word. The field is advertised as the `schedule` capability: a
 service withholding it refuses a non-empty `schedule` with `UNIMPLEMENTED`, and a service that
 predates the field would drop it and run under the default, which is why every client this
 repository ships checks the advertised list before sending one. `ExecuteState` and `RunAnalysis`

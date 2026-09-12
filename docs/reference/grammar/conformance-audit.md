@@ -9,7 +9,7 @@ against the pinned OMG grammars, and states the resulting policy for each.
 ## Ground truth
 
 The grammars are the ones at the pin in `scripts/pilot-pin.sh`
-(`PILOT_TAG=2026-07`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
+(`PILOT_TAG=2026-08`, `Systems-Modeling/SysML-v2-Pilot-Implementation`), read
 from a sparse clone rather than vendored:
 
 - `org.omg.kerml.xtext/src/org/omg/kerml/xtext/KerML.xtext` — cited as `KerML.xtext`

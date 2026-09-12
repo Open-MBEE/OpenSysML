@@ -1,11 +1,11 @@
 {
-  "pilot": "2026-07",
+  "pilot": "2026-08",
   "corpus": "build/pilot-xpect-corpus",
   "library": "the suite's own /library* copies, loaded per fixture as its XPECT_SETUP declares them",
   "provenance": {
-    "pilotTag": "2026-07",
-    "pilotCommit": "c7fc737d56da9e2d78f9d7df6d38efbec2e7e965",
-    "pilotArtifact": "0.61.0",
+    "pilotTag": "2026-08",
+    "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
+    "pilotArtifact": "0.62.0",
     "errataRegistry": "sha256:2e5a631caa524d6e04675e0c8ff6cb310e020adb4d614e65c3e3d0f0016dea50",
     "inputs": [
       {
@@ -13,7 +13,7 @@
         "dir": "build/pilot-xpect-corpus/kerml",
         "origin": "pinned",
         "files": 303,
-        "digest": "sha256:798899c4e6e6e41b1dd0c853fe2e749e51f59a3a2c1c4cd281d8695b351215a5"
+        "digest": "sha256:3cd6aa34b1295f5ef708d143e90117222582f37b72b6784661dfd37b7700137b"
       },
       {
         "name": "sysml",
@@ -23,16 +23,16 @@
         "digest": "sha256:1f56aeaf27ab6143cf4c994dced485fb15a061f66a2759a0b8ef2af32358db6c"
       }
     ],
-    "recorded": "2026-09-02"
+    "recorded": "2026-09-12"
   },
   "totals": {
     "files": 429,
     "filesUnparsed": 0,
-    "assertions": 1263,
-    "rows": 1325,
-    "agree": 1297,
+    "assertions": 1264,
+    "rows": 1326,
+    "agree": 1295,
     "wordingOnly": 248,
-    "disagree": 28,
+    "disagree": 31,
     "unlocated": 0,
     "notAdjudicated": 0,
     "missingResources": 0,
@@ -41,10 +41,10 @@
   "kinds": [
     {
       "kind": "errors",
-      "assertions": 487,
+      "assertions": 488,
       "blockAssertions": 27,
-      "rows": 511,
-      "agree": 492,
+      "rows": 512,
+      "agree": 493,
       "wordingOnly": 248,
       "disagree": 19,
       "unlocated": 0,
@@ -59,9 +59,9 @@
       "assertions": 276,
       "blockAssertions": 0,
       "rows": 276,
-      "agree": 268,
+      "agree": 265,
       "wordingOnly": 0,
-      "disagree": 8,
+      "disagree": 11,
       "unlocated": 0,
       "notAdjudicated": 0,
       "sameLocation": 0,
@@ -137,11 +137,11 @@
       "totals": {
         "files": 303,
         "filesUnparsed": 0,
-        "assertions": 953,
-        "rows": 967,
-        "agree": 949,
+        "assertions": 954,
+        "rows": 968,
+        "agree": 948,
         "wordingOnly": 243,
-        "disagree": 18,
+        "disagree": 20,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -150,10 +150,10 @@
       "kinds": [
         {
           "kind": "errors",
-          "assertions": 313,
+          "assertions": 314,
           "blockAssertions": 17,
-          "rows": 327,
-          "agree": 312,
+          "rows": 328,
+          "agree": 313,
           "wordingOnly": 243,
           "disagree": 15,
           "unlocated": 0,
@@ -168,9 +168,9 @@
           "assertions": 200,
           "blockAssertions": 0,
           "rows": 200,
-          "agree": 197,
+          "agree": 195,
           "wordingOnly": 0,
-          "disagree": 3,
+          "disagree": 5,
           "unlocated": 0,
           "notAdjudicated": 0,
           "sameLocation": 0,
@@ -1393,13 +1393,31 @@
           "path": "src/org/omg/kerml/xpect/tests/parsing/ParsingTests_Expressions.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
           "expectations": 1,
-          "agree": 1
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 40,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "3 error(s), first: line 52: operator '-' requires a numeric operand, found String"
+            }
+          ]
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/parsing/ParsingTests_FeatureChains.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
           "expectations": 1,
-          "agree": 1
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 35,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "2 error(s), first: line 52: cannot bind a value of type Boolean to a feature typed by V"
+            }
+          ]
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/parsing/ParsingTests_Import_Visibility.kerml.xt",
@@ -1909,7 +1927,16 @@
           "path": "src/org/omg/kerml/xpect/tests/testsuite/ShadowingTests_CircleInheritance.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
           "expectations": 3,
-          "agree": 3
+          "agree": 2,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 17,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "2 error(s), first: line 19: A participates in a specialization cycle"
+            }
+          ]
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/testsuite/ShadowingTests_CircleProblem2.kerml.xt",
@@ -1945,7 +1972,16 @@
           "path": "src/org/omg/kerml/xpect/tests/testsuite/ShadowingTests_CircleProblem5.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
           "expectations": 9,
-          "agree": 9
+          "agree": 8,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 29,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "4 error(s), first: line 36: A participates in a specialization cycle"
+            }
+          ]
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/testsuite/ShadowingTests_ImportAlias.kerml.xt",
@@ -2379,8 +2415,8 @@
         {
           "path": "src/org/omg/kerml/xpect/tests/validation/AssociationTest_CrossFeatures_invalid.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
-          "expectations": 4,
-          "agree": 4
+          "expectations": 5,
+          "agree": 5
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/validation/AssociationTest_EndRedefinitionGoodCase.kerml.xt",
@@ -2501,7 +2537,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'x'.\"",
-              "ours": "line 52 offset 1410: unresolved reference: x — did you mean SemanticMetadata_invalid::C::x or SemanticMetadata_invalid::C1::x?"
+              "ours": "line 52 offset 1410: unresolved reference: x — did you mean SemanticMetadata_invalid::C::x?"
             },
             {
               "kind": "errors",
@@ -2510,7 +2546,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'y'.\"",
-              "ours": "line 59 offset 1541: unresolved reference: y — did you mean SemanticMetadata_invalid::f::y or SemanticMetadata_invalid::C2::y?"
+              "ours": "line 59 offset 1541: unresolved reference: y — did you mean SemanticMetadata_invalid::f::y?"
             }
           ]
         },
@@ -2858,31 +2894,13 @@
           "path": "src/org/omg/kerml/xpect/tests/validation/SimpleImportTestsFromOtherFile_Import3.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 20,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 25: try (typed by a1) redefines b (typed by A): types do not conform"
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/validation/SimpleImportTestsFromOtherFile_Import3_FT.kerml.xt",
           "setupClass": "org.omg.kerml.xpect.tests.parsing.KerMLParsingTest",
           "expectations": 1,
-          "agree": 0,
-          "rows": [
-            {
-              "kind": "noErrors",
-              "line": 20,
-              "verdict": "disagree",
-              "declared": "no error the file does not declare",
-              "ours": "1 error(s), first: line 25: try (typed by a1) redefines b (typed by A): types do not conform"
-            }
-          ]
+          "agree": 1
         },
         {
           "path": "src/org/omg/kerml/xpect/tests/validation/SimpleImportTestsFromOtherFile_Import3_Rdef.kerml.xt",
@@ -4471,7 +4489,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'c'.\"",
-              "ours": "line 34 offset 980: unresolved reference: c — did you mean Visibility_Protected_FeatureChaining::c, Visibility_Protected_FeatureChaining::x::c or Visibility_Protected_FeatureChaining::y::c?"
+              "ours": "line 34 offset 980: unresolved reference: c — did you mean Visibility_Protected_FeatureChaining::x::c?"
             },
             {
               "kind": "errors",
@@ -4530,7 +4548,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'PPP2'.\"",
-              "ours": "line 33 offset 636: unresolved reference: PPP2 — did you mean testt::P::PP::PPP2, PPP or PPP1?"
+              "ours": "line 33 offset 636: unresolved reference: PPP2 — did you mean testt::P::PP::PPP2 or PPP?"
             },
             {
               "kind": "errors",
@@ -4592,9 +4610,9 @@
         "filesUnparsed": 0,
         "assertions": 310,
         "rows": 358,
-        "agree": 348,
+        "agree": 347,
         "wordingOnly": 5,
-        "disagree": 10,
+        "disagree": 11,
         "unlocated": 0,
         "notAdjudicated": 0,
         "missingResources": 0,
@@ -4621,9 +4639,9 @@
           "assertions": 76,
           "blockAssertions": 0,
           "rows": 76,
-          "agree": 71,
+          "agree": 70,
           "wordingOnly": 0,
-          "disagree": 5,
+          "disagree": 6,
           "unlocated": 0,
           "notAdjudicated": 0,
           "sameLocation": 0,
@@ -4673,7 +4691,16 @@
           "path": "src/org/omg/sysml/xpect/tests/expression/PathExpressions.sysml.xt",
           "setupClass": "org.omg.sysml.xpect.tests.expression.SysMLTests",
           "expectations": 1,
-          "agree": 1
+          "agree": 0,
+          "rows": [
+            {
+              "kind": "noErrors",
+              "line": 39,
+              "verdict": "disagree",
+              "declared": "no error the file does not declare",
+              "ours": "2 error(s), first: line 50: cannot bind a value of type Boolean to a feature typed by Vehicle"
+            }
+          ]
         },
         {
           "path": "src/org/omg/sysml/xpect/tests/expression/SimpleArithmeticExpression.sysml.xt",
@@ -5627,11 +5654,11 @@
     "totals": {
       "files": 429,
       "filesUnparsed": 0,
-      "assertions": 1263,
-      "rows": 1325,
-      "agree": 1297,
+      "assertions": 1264,
+      "rows": 1326,
+      "agree": 1295,
       "wordingOnly": 248,
-      "disagree": 28,
+      "disagree": 31,
       "unlocated": 0,
       "notAdjudicated": 0,
       "missingResources": 0,
@@ -5640,10 +5667,10 @@
     "kinds": [
       {
         "kind": "errors",
-        "assertions": 487,
+        "assertions": 488,
         "blockAssertions": 27,
-        "rows": 511,
-        "agree": 492,
+        "rows": 512,
+        "agree": 493,
         "wordingOnly": 248,
         "disagree": 19,
         "unlocated": 0,
@@ -5658,9 +5685,9 @@
         "assertions": 276,
         "blockAssertions": 0,
         "rows": 276,
-        "agree": 268,
+        "agree": 265,
         "wordingOnly": 0,
-        "disagree": 8,
+        "disagree": 11,
         "unlocated": 0,
         "notAdjudicated": 0,
         "sameLocation": 0,

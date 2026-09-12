@@ -12,6 +12,8 @@ classes="$target/classes"
 validator_target="$repo_root/build/pilot-validator/target/sysml-download/sysml"
 pilot_jar="$validator_target/jupyter-sysml-kernel-${PILOT_ARTIFACT_VERSION}-all.jar"
 library="$validator_target/sysml.library"
+# Written when the validator build completes; the jar itself keeps its release-time mtime.
+validator_stamp="$repo_root/build/pilot-validator/.pilot-pin"
 launcher="$target/validate-kerml"
 force=0
 
@@ -28,10 +30,8 @@ case "${1:-}" in
 		;;
 esac
 
-if [[ ! -f "$pilot_jar" ]] || [[ ! -d "$library" ]]; then
-	echo "Pilot validator dependencies are missing; provisioning them first ..."
-	"$repo_root/scripts/download-pilot-validator.sh"
-fi
+# Always delegate: its fast path is a stamp check, and a stale or re-pinned build is rebuilt.
+"$repo_root/scripts/download-pilot-validator.sh"
 
 if [[ ! -f "$pilot_jar" ]]; then
 	echo "error: pilot shaded jar not found at $pilot_jar" >&2
@@ -91,7 +91,7 @@ done
 mkdir -p "$classes"
 output_class="$classes/io/opensysml/pilot/ValidateKerML.class"
 if [[ "$force" -eq 1 ]] || [[ ! -f "$output_class" ]] ||
-	[[ "$output_class" -ot "$source" ]] || [[ "$output_class" -ot "$pilot_jar" ]]; then
+	[[ "$output_class" -ot "$source" ]] || [[ "$output_class" -ot "$validator_stamp" ]]; then
 	echo "Compiling $source ..."
 	"$javac_bin" -cp "$pilot_jar" -d "$classes" "$source"
 else

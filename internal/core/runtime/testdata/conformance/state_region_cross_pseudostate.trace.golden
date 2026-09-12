@@ -15,11 +15,11 @@ transition: rstart -> ridle
   eval feature crossed -> 0
   eval literal 0 -> 0
 eval operator == -> true
+exit: lidle
+exit: ridle
   eval feature crossed -> 0
   eval literal 0 -> 0
 eval operator == -> true
-exit: lidle
-exit: ridle
 enter: rtarget (entry action)
 stmt assign crossed
   eval literal 1 -> 1

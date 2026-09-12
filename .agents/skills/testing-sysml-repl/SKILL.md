@@ -5,6 +5,28 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Model-level uncertainty versus object-level empty values
+
+Use `cmd/pilot-exec-diff/testdata/models/undetermined_operands.sysml` to
+contrast model and object evaluation without inventing a fixture. Before
+instantiation, `%eval U::u` and
+`%eval SequenceFunctions::size(T::rack.gear)` answer `<undetermined>`,
+while `(U::u > 3) and false` answers `false` and the size of `T::rack.slots`
+is `3`. Use fully qualified operands/functions when the file has multiple
+packages.
+
+After `%instantiate T::rack`, `%eval T::rack.loose` answers `[]`, not
+`<unset>`: an optional multi-valued part is an empty sequence. Pin the
+object explicitly with `%eval in T::rack : SequenceFunctions::size(loose)`
+to observe `0`. `%features T::rack` prints many inherited nested features;
+capture a short `%eval` result separately so it is not scrolled off-screen.
+
+The Python `Model.eval("U::u")` result is `opensysml.Undetermined`, distinct
+from `UNSET` and `None`; `bool()` must raise TypeError. Check the advertised
+`undetermined_value` capability and raw `Value.undetermined` count bounds
+for `U::u` (`1..1`), `T::rack.gear` (`1..*`), and `T::rack.loose` (`0..2`)
+to distinguish typed transport from a string-only rendering.
+
 ## Error-model lookup order and bounded walking
 
 Use real-service fixtures that distinguish an empty Query from an incomplete

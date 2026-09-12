@@ -1,0 +1,6 @@
+{
+  "type": "calc",
+  "evaluate": "test::UseDefault",
+  "libraries": true,
+  "result": {"type": "Real", "value": 40.0}
+}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-07/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-07/org.omg.sysml.xpect.tests), at release `2026-07`, commit `c7fc737d56da9e2d78f9d7df6d38efbec2e7e965` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
+**Reference:** the OMG pilot implementation's own Xpect test suites, [`org.omg.kerml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-08/org.omg.kerml.xpect.tests) and [`org.omg.sysml.xpect.tests`](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/2026-08/org.omg.sysml.xpect.tests), at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` — the same pin as the corpora and the reference validators (`scripts/pilot-pin.sh`)
 **Provision:** `./scripts/download-pilot-xpect.sh` (the shared downloader of `scripts/pilot-pin.sh`, restricted to `*.xt`: the clone is refused unless the tag resolves to the pinned commit, each suite is stamped with the pin it was fetched at, and a suite stamped otherwise or not at all is re-fetched; writes `build/pilot-xpect-corpus/{kerml,sysml}`, gitignored, not vendored — under `build/` rather than `examples/` because the `.kerml`/`.sysml` models the suites ship are inputs to this harness, and everything that walks `examples/` would otherwise adopt them)
 **Run:** `go run ./cmd/pilot-xpect` (writes `build/pilot-xpect/pilot-xpect.txt` and `build/pilot-xpect/pilot-xpect.json`)
 **Baseline:** the last committed run is [pilot-xpect-baseline.json](pilot-xpect-baseline.json), which carries every non-agreeing row, so a later run can be diffed against it; `-update` re-records it and `-check` fails unless a fresh run reproduces it
@@ -132,7 +132,7 @@ Two further honest limits of the mapping:
 expected count. **0 files are unparsed** and **0 declared resources are missing**, so no assertion is
 silently dropped.
 
-The reader recovers **1263 assertions**, declaring **1325 individual expectations** (a single
+The reader recovers **1264 assertions**, declaring **1326 individual expectations** (a single
 `errors`/`warnings` note may list several diagnostics; each is one adjudicated row). Reconciled
 against the published per-kind census:
 
@@ -170,6 +170,9 @@ Every difference from the published numbers is accounted for, and none of it is 
   inside `/* ... */` comments and two are disabled by their authors as `// (TBD) XPECT noErrors`.
   These open no `//` or `//*` note, so the harness does not run them; all ten are listed by file and
   line in the report's *XPECT-shaped text outside a note* section rather than being dropped.
+- **Release `2026-08` (+1).** The only `.xt` change between the `2026-07` and `2026-08` tags adds
+  one `errors` assertion, `validation/AssociationTest_CrossFeatures_invalid.kerml.xt`:66
+  (`At most one cross subsetting is allowed` at `a.y`), which agrees word-for-word.
 
 ---
 
@@ -177,14 +180,14 @@ Every difference from the published numbers is accounted for, and none of it is 
 
 ```
 429 .xt file(s), 0 unparsed, 0 missing declared resource(s)
-1263 assertion(s) declaring 1325 expectation(s)
-agree 1297 (of which wording-only 248) | disagree 28 | unlocated 0 | not adjudicated 0
+1264 assertion(s) declaring 1326 expectation(s)
+agree 1295 (of which wording-only 248) | disagree 31 | unlocated 0 | not adjudicated 0
 ```
 
 | Kind | Expectations | Agree | of which wording-only | Disagree | Not adjudicated | `same-location` | `same-line` | `severity-differs` | `elsewhere` | nothing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `errors` | 511 | 492 | 248 | 19 | 0 | 10 | 7 | 0 | 2 | 0 |
-| `noErrors` | 276 | 268 | — | 8 | 0 | — | — | — | — | — |
+| `errors` | 512 | 493 | 248 | 19 | 0 | 10 | 7 | 0 | 2 | 0 |
+| `noErrors` | 276 | 265 | — | 11 | 0 | — | — | — | — | — |
 | `linkedName` | 194 | 194 | — | 0 | 0 | — | — | — | — | — |
 | `warnings` | 113 | 112 | — | 1 | 0 | 0 | 0 | 0 | 0 | 1 |
 | `scope` | 230 | 230 | — | 0 | 0 | — | — | — | — | — |
@@ -194,12 +197,12 @@ Per suite:
 
 | Suite | Files | Expectations | Agree | Disagree | Not adjudicated |
 |---|---:|---:|---:|---:|---:|
-| `kerml` | 303 | 967 | 949 | 18 | 0 |
-| `sysml` | 126 | 358 | 348 | 10 | 0 |
+| `kerml` | 303 | 968 | 948 | 20 | 0 |
+| `sysml` | 126 | 358 | 347 | 11 | 0 |
 
 **Read the `errors` row carefully: 248 of its 492 agreements are wording-only, so more than half of
 that column is us stating the pilot's rule in our own words rather than a rule written against its
-text.** The 244 word-for-word rows are the ones where a rule was implemented against the declared
+text.** The 245 word-for-word rows are the ones where a rule was implemented against the declared
 message. `warnings` shows the same effect from the other side: its 112 agreements are the
 duplicate-member-name, visibility and library rules written against the pilot's declared
 wording, so they match by construction rather than by luck. `noErrors` and `linkedName` are
@@ -212,16 +215,17 @@ commit), the suite digests and the declared errata — by
 Java-backed run re-checks the measurement itself, as described in
 [pilot-differential.md](pilot-differential.md#how-this-record-is-kept-true).
 
-Movement since the first run of this harness (the harness itself is unchanged; every difference is a
-change in our behaviour). The `Now` column is checked against the committed baseline; the `First
+Movement since the first run of this harness (the comparison itself is unchanged; apart from the two
+harness rules recorded under `scope` — which occurrence a note anchors at, and which anchors narrow to
+the inherited members — every difference is a change in our behaviour). The `Now` column is checked against the committed baseline; the `First
 run` column is that run's own measurement:
 
 | Kind | First run | Now | What moved |
 |---|---|---|---|
 | `linkedName` | 151 / 194 | **194 / 194** | alias-introduced names resolve to the aliased element, and the `~ B::f` conjugation form parses |
-| `noErrors` | 231 / 275 | **268 / 276** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, and the connector-end and import work closed two more rows |
+| `noErrors` | 231 / 275 | **265 / 276** | 6 `ParsingTests_*` files, 4 inherited-name-conflict files and 2 others no longer draw an error, the visibility reconciliation's protected/shadowed path reconciliation cleared 11 more, the anchor-and-residue work closed the 6 protected-import rows the specialization-visibility restoration had made unsatisfiable by modelling `noErrors` as Xpect's residue rather than as file-wide silence, the parser productions cleared `ParsingTests_Indexing` and `SemanticMetadata_valid`, the connector-end and import work closed two more rows, and the redefinition-type warning closed the two `Import3` rows; five rows then opened where a rule of ours reaches a declared-clean file the pilot has no check for, each adjudicated below |
 | `warnings` | 0 / 113 | **112 / 113** | the duplicate-member-name warnings, the earlier rules written against the declared wording, the library rules, the warnings residue, the usage-typing rules, and Step 3's binary-interface end typing |
-| `errors` | 0 / 510 | **492 / 511** | 244 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
+| `errors` | 0 / 510 | **493 / 512** | 245 rows are ours word-for-word; the other 248 are wording-only, admitted centrally after the rule and element were checked, not by adopting the pilot's phrasing |
 | `scope` | 73 / 230 | **230 / 230** | the library-member resolver work resolves implicit and inherited members through the library (`library-names` 125 → 27), the visibility reconciliation reconciles the protected and shadowed paths, the re-entry bound bounds re-entry to one per name, the anchor-and-residue work fixes the quoted anchor and stops a recursive import's descent carrying implicit generals, and the scope-traversal work bounds derived `self`/`that` paths and anchors a scope assertion on the reference its text names |
 
 **These tables and the baseline are a fresh-cache run after the transition-guard and KerML
@@ -360,18 +364,27 @@ only external, per-reference verdict on our name resolution that exists at the p
 also the narrowest: it says which element a written reference reaches, never which names *were*
 visible. That second question is the 230 `scope` assertions below.
 
-## noErrors — 268 of 276 agree
+## noErrors — 265 of 276 agree
 
-8 disagreements: we report an error where the pilot's implementers declared the file clean. Grouped
+11 disagreements: we report an error where the pilot's implementers declared the file clean. Grouped
 by our first diagnostic:
 
 | Cause | Rows | Read |
 |---|---:|---|
 | **Parse recovery** — `expected a namespace member` | 3 | **Pilot limitation**, adjudicated in [adjudications.md](adjudications.md): the three `QPE-*` query-path-expression files live under the pilot's `failing/` tree and the pinned validator rejects them too, so the declared silence is not spec-derivable. `SemanticMetadata_valid.sysml.xt` left this family in the parser-production work, which was a real false positive on a valid file. |
-| **Specialization cycle** — `x participates in a specialization cycle` | 3 | **Adjudicated divergence, not a defect of ours.** All three fixtures declare a real cycle: `part p1 :> p2; part p2 :> p3; part p3 :> p1;` and `part p4 :> p4;` (`simpletests/PartTest.sysml.xt`:67-71), `part def A :> C` with `part def C :> A, B` (`Redefinition_OwningType_Cyclic_Gen.sysml.xt`:28-34), and `classifier a specializes b` / `classifier b specializes a` (`SimpleImportTests_CircleInheritanceInCircleImport.kerml.xt`:29,37). The pilot has no such check at all — the finding F4/K5 settled in [pilot-differential.md](pilot-differential.md#specialization-cycles-f4) — so closing them would mean deleting a correct rule. |
-| **Conformance** — `try (typed by a1) redefines b (typed by A): types do not conform` | 2 | **Adjudicated divergence**, decided in [adjudications.md](adjudications.md) (E4): a redefinition is a subsetting (KerML 7.4.9, 8.3.4.2), so a non-conforming type describes an unsatisfiable model; the pilot validates subsetting conformance nowhere, so its silence records an absent check. Both rows are `SimpleImportTestsFromOtherFile_Import3{,_FT}`. |
+| **Specialization cycle** — `x participates in a specialization cycle` | 5 | **Adjudicated divergence, not a defect of ours.** All five fixtures declare a real cycle: `part p1 :> p2; part p2 :> p3; part p3 :> p1;` and `part p4 :> p4;` (`simpletests/PartTest.sysml.xt`:67-71), `part def A :> C` with `part def C :> A, B` (`Redefinition_OwningType_Cyclic_Gen.sysml.xt`:28-34), `classifier a specializes b` / `classifier b specializes a` (`SimpleImportTests_CircleInheritanceInCircleImport.kerml.xt`:29,37), and the two nested-member cycles below. The pilot has no such check at all — the finding F4/K5 settled in [pilot-differential.md](pilot-differential.md#specialization-cycles-f4) — so closing them would mean deleting a correct rule. |
+| **Collect-value binding** — `cannot bind a value of type Boolean to a feature typed by V` | 2 | **Ours, one-sided by design.** `ParsingTests_FeatureChains.kerml.xt`:35 and `expression/PathExpressions.sysml.xt`:39 declare their files clean and bind a *collect* to a feature of the element type: `feature v_4 : V = (v1, v2).{in v : V; v.n == 4};` (lines 52–53) and `part vehicle4cyl: Vehicle = (vehicle_1, vehicle_1a).{in ref v:Vehicle; v.cylinders == 4};` (lines 50–52). `.{ … }` is the pilot grammar's `CollectExpression`, not the `.?{ … }` select, so each value is the sequence of the body's `Boolean` results, and the feature value's implied binding does not conform (`validateBindingConnectorTypeConformance`). The pinned validator accepts both files; the adjudication of the round that types these values is in [pilot-differential.md](pilot-differential.md#collection-body-element-typing-round). |
 
-Two more **specialization cycle** rows joined this family when `DirectSupertypes` stopped memoizing
+The two **conformance** rows this table carried, `SimpleImportTestsFromOtherFile_Import3{,_FT}`
+(`try (typed by a1) redefines b (typed by A): types do not conform`), closed when the
+redefinition-type-mismatch report became an advisory warning, which `noErrors` does not count. A
+redefinition is a subsetting, so the redefining feature is typed by its own type *and* the redefined
+feature's (KerML 8.3.3.3.4, 8.3.3.3.6), and neither KerML nor SysML v2 constrains the two to
+conform; the pinned validator accepts `item :>> faces : Polygon` under `faces : StructuredSurface`
+in its own `ShapeItems` library. The reading is in
+[adjudications.md](adjudications.md#a-redefinitions-declared-types-are-checked-for-direct-conformance).
+
+The two nested-member **specialization cycle** rows joined this family when `DirectSupertypes` stopped memoizing
 an answer computed while the resolver's cycle guard had cut a lookup short (the trigger-argument
 typing change). Both fixtures declare a real cycle through a nested member:
 `ShadowingTests_CircleInheritance.kerml.xt`:17 has `classifier A specializes A::B` with
@@ -379,8 +392,7 @@ typing change). Both fixtures declare a real cycle through a nested member:
 closes `A → D → A::B → C → A`. We were silent before only because resolving `B`'s general re-entered
 `A`'s resolution, the guard answered "nothing", and that answer was memoized — `B` lost `A` as a
 supertype for good. The pinned validator has no cycle check, as above. Locked by
-`TestDirectSupertypesKeptAcrossOwnerCycleGuard` and `TestConstraintNestedMemberSpecializationCycle`;
-the committed baseline is not re-recorded here, as a separate `scope` movement is still being adjudicated.
+`TestDirectSupertypesKeptAcrossOwnerCycleGuard` and `TestConstraintNestedMemberSpecializationCycle`.
 
 One **arithmetic operand** row joined when an untyped collection-body parameter began taking the
 element type of the collection its body is applied to: `ParsingTests_Expressions.kerml.xt`:40
@@ -388,8 +400,8 @@ declares the file clean, and its `c = x->collect {in xx; xx + 1};` and `c1 = x.{
 (lines 55–56) now draw `operator '+' is not defined for String and Natural`, because `x` is the
 `String` that `ToString` returns. The same body written `in xx : String` drew that error already;
 the adjudication is in
-[pilot-differential.md](pilot-differential.md#collection-body-element-typing-round). The
-committed baseline is likewise not re-recorded for it. The same row's `ours` column later grew by
+[pilot-differential.md](pilot-differential.md#collection-body-element-typing-round). The same
+round typed the two collect-value bindings above. The same row's `ours` column later grew by
 one error when a bare feature reference began taking the effective type of the feature it names:
 line 52, `grp = -x + x * y * y + a ** 3 ^ 4;`, draws `operator '-' requires a numeric operand,
 found String` for the same `x`; the three `x == <n>` comparisons on lines 81–83 draw warnings,
@@ -533,9 +545,9 @@ redefinition removed was silent too.
 
 ---
 
-## errors — 492 of 511, of which 248 wording-only
+## errors — 493 of 512, of which 248 wording-only
 
-Agreement here is 243 rows word-for-word plus 248 wording-only: the same rule about the same element
+Agreement here is 245 rows word-for-word plus 248 wording-only: the same rule about the same element
 at the same offset and severity, in our phrasing. Almost all of the wording-only rows are one family,
 `Couldn't resolve reference to <kind> 'X'.` against `unresolved reference: X — did you mean …?`, and
 the harness admits them only after matching the rule and the element named, never on span and
@@ -551,7 +563,7 @@ severity alone. What is left:
 
 The disagreements split 15 KerML / 4 SysML across this kind. The SysML suite's assertions anchor at a whole
 declaration (`at "part def P { ... }"`) while ours land on the offending token inside it, so
-`same-line` there often means what `same-location` means in KerML. Together, **508 of 510 declared
+`same-line` there often means what `same-location` means in KerML. Together, **510 of 512 declared
 errors are ours at the declared location or line.**
 
 **The 10 remaining `same-location` rows are the ones the wording-only class deliberately refuses.**
@@ -612,9 +624,9 @@ individually with the declared message and ours in
 
 The 9 rows in these two tolerance classes are attributed below. The Xpect row is the line containing
 the assertion; its declared diagnostic generally anchors in the following model line. The citations
-are to the published KerML 1.0 and SysML v2.0 specifications that govern the pinned 2026-07
+are to the published KerML 1.0 and SysML v2.0 specifications that govern the pinned 2026-08
 implementation. There is no published KerML 1.1 specification to cite; where parser behavior matters,
-the pinned `2026-07` grammar was checked as well. No category below is inferred from diagnostic
+the pinned `2026-08` grammar was checked as well. No category below is inferred from diagnostic
 wording alone.
 
 | Xpect row | Declared | OpenSysML | Specification reading | Category | Owner |
@@ -725,6 +737,19 @@ nine rows left after that were **one** enumeration rule and **one** harness rule
 
 **A closed class is not a conformance claim about names the corpus never asks about.** These 230
 anchors are the pilot's own tests; a construct with no `scope` note is not endorsed by its absence.
+
+One more harness rule was needed to keep the class closed once the resolver began masking inherited
+members for redefinitions only: **which anchors narrow to the inherited members.** A redefinition's
+target names a feature of the anchor's generals, so the pilot enumerates only those; a subsetting's
+target is *resolved* the same way — the collector reads `feature b subsets aa;` as a
+redefinition-style reference so that a sibling of the same name is not what `aa` denotes — but may
+name any accessible feature, so its scope is the whole one. The harness had passed the resolver's
+reading straight through, and the 27 `subsets` anchors of the `*_Rdef` fixtures — `feature B subsets
+A`, `feature B subsets test::A` — were then enumerated inherited-only and reported the declared
+names as missing (25 rows `missing-names`, 2 `missing-and-extra`). `narrowsToInherited`
+(`cmd/pilot-xpect/scope.go`) narrows for a redefinition and not for a subsetting; locked by
+`TestOnlyARedefinitionNarrowsTheScope`. This is a rule about how the harness reads an anchor, not
+about our behaviour, and no row moved against the committed baseline.
 
 Short-name membership imports were the one defect inside this record's ownership and are fixed in the
 surface: `public import VP::VP2::A_Id` where the element is declared `classifier <'A_Id'> B` now

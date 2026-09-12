@@ -257,3 +257,23 @@ func TestElementBudgetBoundsStructuredValueReads(t *testing.T) {
 		}
 	}
 }
+
+// TestElementBudgetIsReleasedByOpenReads requires a model-level read that stops
+// short of materializing an open collection to give back what collecting its
+// subsetters' values charged: the read holds nothing, so reading it over and
+// over costs no more than reading it once.
+func TestElementBudgetIsReleasedByOpenReads(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	if _, err := evalIn(t, ctx, scope, "rack.fixed"); err != nil {
+		t.Fatalf("rack.fixed: %v", err)
+	}
+	ctx.maxElements = 1
+	reads := strings.Repeat("SequenceFunctions::notEmpty(rack.gear) and ", 4) + "SequenceFunctions::notEmpty(rack.gear)"
+	val, err := evalIn(t, ctx, scope, reads)
+	wantFormatted(t, reads, val, err, "true")
+	val, err = evalIn(t, ctx, scope, "rack.gear")
+	wantUndetermined(t, "rack.gear", val, err, "[1..*]")
+	if u := val.Undetermined(); u != nil && len(u.Known()) != 1 {
+		t.Errorf("rack.gear certainly holds %v, want the one object of fixed", u.Known())
+	}
+}

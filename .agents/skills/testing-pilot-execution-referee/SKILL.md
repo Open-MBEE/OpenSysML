@@ -28,7 +28,7 @@ Provisioning notes worth knowing before you test it:
 
 - There is **no already-built early exit**: every run recompiles and rewrites
   the launcher. Observed at `f3af23a2`: a second run reprints
-  `Compiling ...` / `Built ... (pilot 2026-07, 0.61.0)`, exit 0, and both
+  `Compiling ...` / `Built ... (pilot 2026-08, 0.62.0)`, exit 0, and both
   `classes/EvalSysML.class` and `eval-sysml` are **byte-identical**
   (same sha256) with only the mtime advancing. So assert idempotency by
   `sha256sum`, not by mtime or by an "already built" message.
@@ -44,7 +44,7 @@ Provisioning notes worth knowing before you test it:
   `error: pilot standard library not found at .../sysml.library`.
 - **`PILOT_TAG` is not a real pin for this script.** `PILOT_TAG=bogus
   ./scripts/download-pilot-evaluator.sh` exits **0** and builds normally,
-  printing `Built ... (pilot artifact 0.61.0)`. The artifact is located purely
+  printing `Built ... (pilot artifact 0.62.0)`. The artifact is located purely
   by `PILOT_ARTIFACT_VERSION`; `PILOT_TAG` is provisioned and checked by
   `download-pilot-validator.sh`, not used to locate it here.
 - `grep -c jupyter-sysml-kernel-<version>-all.jar build/pilot-evaluator/eval-sysml`
@@ -63,12 +63,31 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (262 cases, all fifteen default
+Reference values at the current implementation (434 cases, all eighteen default
 fixtures):
-`agree 158 · kind-only 1 · order-only 0 · disagree 17 · pilot-unevaluated 63 ·
-pilot-silent 11 · pilot-error 2 · ours-error 2 · both-error 8 ·
+`agree 207 · kind-only 1 · order-only 0 · disagree 26 · pilot-unevaluated 124 ·
+pilot-silent 21 · pilot-error 9 · ours-error 6 · ours-undetermined 28 · both-error 12 ·
 nondeterministic 0`.
-Eight of the seventeen `disagree` are the `enumeration_classification.cases`
+Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
+model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
+value`) and resolves nothing in it afterwards, which is why those cases have a model of their
+own; two more are the whole of `vast_bounds.cases`, whose bound `[0..9223372036854775807]` the
+pilot rejects the same way. Another is `subsequence-unbound-valid`, where the pilot indexes into the one unevaluated
+usage element (`IndexOutOfBoundsException: toIndex = 2`) and we answer `<undetermined>`.
+Five of the twenty-two `disagree` are in `undetermined_operands`: `size-slots`, where
+`size(rack.slots)` for a `part slots[3]` is `3` here, since `[3]` fixes the count, and `1`
+from the pilot, which counts the one unevaluated feature-reference operand;
+`includes-subsetter`, where `includes(rack.gear, rack.fixed)` for a `part fixed :> gear` is
+`true` here and `false` from the pilot, which compares the two unevaluated usage elements;
+`size-vacant` and `isempty-vacant`, where a `part vacant[0]` is empty here (`0`, `true`) and
+the pilot again counts the unevaluated usage (`1`, `false`); and `size-if-pairs`, where
+`size(if u > 0 ? (1, 2) else (3, 4))` is `2` here, both branches fixing it, and `1` from the
+pilot, counting the unevaluated `if`. No such pilot answer is a semantic one. The twenty
+`ours-undetermined` are the model-level reads of an unbound `attribute u;` and of usages
+whose multiplicity leaves the count open (`gear[1..*]`, `loose[0..2]`, `many[10001..*]`,
+`xs : Real[2..4]`), where we answer `<undetermined>` and the pilot leaves the expression
+unevaluated.
+Eight of the other seventeen `disagree` are the `enumeration_classification.cases`
 adjudicated ours: the pilot never consults an enumeration's enumerated values
 (`3 istype Level` false) and folds a scalar-valued literal to its Integer
 (`Level::high istype Level` false). Seven more are unrefereeable rather than verdicts against us:
@@ -123,8 +142,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`371 file(s), 337 fully agreeing; 34 agreed
-  diagnostic(s), 37 only ours, 1111 only the pilot's` after the MOSA example joined `examples/` and the bare feature-reference typing round — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`371 file(s), 343 fully agreeing; 34 agreed
+  diagnostic(s), 37 only ours, 1105 only the pilot's` at the `2026-08` re-pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.
@@ -158,7 +177,10 @@ contains the same glyphs.
 `pilot-silent` means it emitted no output, and `pilot-error` means it emitted
 `ERROR:` or `EXCEPTION:`. Together these are the four pilot-side states:
 value, error, unevaluated, and silence. `ours-error` and `both-error` record
-failures from either side.
+failures from either side. `ours-undetermined` records our `<undetermined>` —
+the model-level value of an expression over a feature the model leaves open —
+whatever the pilot said; the pilot has no such answer, so these are adjudicated in
+the referee page rather than counted as agreement or disagreement.
 `nondeterministic` takes precedence whenever either side differs from itself
 between the two runs.
 

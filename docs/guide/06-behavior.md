@@ -45,7 +45,11 @@ sysml> %continue
 A machine completes when a transition reaches `done`, the terminal state the standard
 library provides for every state machine. Entering it runs the exit actions, and then the
 machine reports itself completed. With orthogonal regions, each region has its own `done`,
-and the machine completes only once every region has reached it.
+and the machine completes only once every region has reached it. A `done` written inside a
+composite state's body ends that state, not the machine: the composite *completes*, and its
+transitions with no trigger (`transition first outer then next;`) fire, exactly as a plain
+state's do when its `do` behavior ends. A completed composite with no such transition stays
+active, and the machine runs on until its own top-level regions reach `done`.
 
 ```sysml
 sysml> state TrafficLight {
@@ -412,7 +416,9 @@ instruction. The KerML Kernel Semantic Library orders three things and nothing e
 Everything else two performances could do in either order, they may: which of two fork branches
 steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
 guards*), which of two transitions out of one state fires on one event (*competing transitions*),
-which of two orthogonal regions reacts first to an event both accept (*region order*), whose
+which of two orthogonal regions reacts first to an event both accept (*region order*), which
+of two holding guards a `choice` pseudostate follows — its guards are read on arrival, after the
+transition into it has run its effect (*choice branch*) —, whose
 value stands when two branches assign one feature in one step (*same-step writes*), and which of
 two executors due at one instant of the shared clock — an action token and a state transition,
 two state machines, two actions — runs first (*due order*). A model with
@@ -644,6 +650,38 @@ step one run and an exploration replays from the start:
 sysml> %schedule explore
 error: explore replays a behavior from the start once per linearization, which %action and %state, stepping one run, cannot do: run `sysml -schedule explore -action <name>` (or -state, -analysis, -calc), or a request with schedule "explore"
 ```
+
+### Running one witness again
+
+A witness column is a run you can run again. `replay:<file>` reads a file of choice lines — each
+spelled as the table spells them, one per line or joined by `; `, ending at the first blank line
+(a trace body written after it is ignored, so a file the model checkers write serves as it
+stands) — and resolves the run's choice points in that order, then falls back to `reverse` once
+the file's moves are spent. Save the `x = 1` witness above to `x1.trace` and the run reproduces
+that row:
+
+```console
+$ sysml -schedule replay:x1.trace -action test::race action_explore_three_writers.sysml
+✓ package test
+✓ Started action executor for "test::race"
+…
+  Results:
+    aRan = true
+    bRan = true
+    cRan = true
+    x = 1
+  standing: value (observed: 1 run under replay:x1.trace)
+```
+
+A replay follows its witness or says which move it could not follow, rather than quietly running
+another linearization: a move whose pick is not among the alternatives the run offered, one
+whose step the run has already passed, or one left over when the run ends, is `replay refused:
+move <n> (<the choice>): <what the run faced instead>`, and the check it was part of is *not
+covered*. A file that spells no choice (a pick not among its own alternatives, a line in no
+known form) is refused as the policy is parsed, before anything runs. The policy is accepted
+wherever a policy is — `-schedule`, `%schedule` (the debuggers step one run, which is what a
+replay is), a conformance case's `schedule` pin — except over the wire, where a request carries
+no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
 
 ### Writing a test that admits several outcomes
 

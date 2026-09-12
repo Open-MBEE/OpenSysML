@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
@@ -223,6 +224,21 @@ func indexOf(op string, val Value) (int64, error) {
 	return 0, fmt.Errorf("%w: %s requires an Integer index, got %s", ErrTypeMismatch, op, describeValue(val))
 }
 
+// fixedIndex is indexOf for an index argument the model determines; an open one is unread.
+func fixedIndex(op string, val Value) (index int64, fixed bool, err error) {
+	return fixedArg(val, func(v Value) (int64, error) { return indexOf(op, v) })
+}
+
+// indexWithin rejects an index that names no position in a sequence of count values: below
+// first, or past the most positions the count admits, slack beyond its last element.
+func indexWithin(op, what string, index, first int64, count semantics.Range, slack int64) error {
+	last := count.Plus(semantics.CountRange(slack)).Upper
+	if index < first || (last.Known && !last.Infinite && index > last.Value) {
+		return fmt.Errorf("%w: %s %s %d is outside %d..%s", ErrIndexOutOfRange, op, what, index, first, last.Text())
+	}
+	return nil
+}
+
 // describeValue names a value's kind for a diagnostic, distinguishing the
 // numeric constants a single kind covers.
 func describeValue(val Value) string {
@@ -290,11 +306,45 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	if indexes := elementsOf(indexVal); len(indexes) != 1 || isStructuredValue(&operand) {
 		return builtinBaseIndex(ec, []Value{operand, indexVal})
 	}
+	if val, open, err := ec.ctx.undeterminedIndex("sequence index", operand, indexVal); open {
+		return val, err
+	}
 	index, err := indexOf("sequence index", indexVal)
 	if err != nil {
 		return Value{}, err
 	}
 	return elementAt("sequence index", elementsOf(operand), index)
+}
+
+// undeterminedIndex is `seq#(index)` where the model leaves seq or index open: the
+// value at a position seq fixes, else undetermined; an index past the count seq may
+// reach is out of range.
+func (ctx *Context) undeterminedIndex(op string, seq, indexVal Value) (Value, bool, error) {
+	if indexVal.Kind == ValUndetermined {
+		if err := ctx.openNumericIndex(op, indexVal); err != nil {
+			return Value{}, true, err
+		}
+		if certainlyEmpty(seq) {
+			return Value{}, true, fmt.Errorf("%w: %s into an empty sequence", ErrIndexOutOfRange, op)
+		}
+		return undeterminedOne(seq, indexVal), true, nil
+	}
+	u := seq.Undetermined()
+	if u == nil {
+		return Value{}, false, nil
+	}
+	index, err := indexOf(op, indexVal)
+	if err != nil {
+		return Value{}, true, err
+	}
+	upper := u.Count().Upper
+	if index < 1 || (upper.Known && !upper.Infinite && index > upper.Value) {
+		return Value{}, true, fmt.Errorf("%w: %s %d is outside 1..%s", ErrIndexOutOfRange, op, index, upper.Text())
+	}
+	if val, fixed := positionAt(u.Positions(), index); fixed {
+		return val, true, nil
+	}
+	return undeterminedOne(seq), true, nil
 }
 
 // bodyOf reads the body a collection operation takes as its function-valued
@@ -437,33 +487,52 @@ func (ec *EvalContext) applyValueBody(body Value, args ...Value) (Value, error) 
 // not a Boolean rather than reading it as false, which would silently drop the
 // element it was asked about.
 func (ec *EvalContext) applyPredicate(op string, body Value, arg Value) (bool, error) {
-	val, err := ec.applyBody(body, arg)
+	val, err := ec.applyTest(op, body, arg)
 	if err != nil {
 		return false, err
 	}
-	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+	if val.Kind == ValUndetermined {
 		return false, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, describeValue(val))
 	}
 	return val.Const.Bool, nil
 }
 
+// applyTest is applyPredicate admitting a test the model leaves undetermined,
+// which it returns as such for the operation to weigh.
+func (ec *EvalContext) applyTest(op string, body Value, arg Value) (Value, error) {
+	val, err := ec.applyBody(body, arg)
+	if err != nil {
+		return Value{}, err
+	}
+	if val.Kind == ValUndetermined {
+		return val, nil
+	}
+	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+		return Value{}, fmt.Errorf("%w: %s: predicate must return boolean, got %s", ErrTypeMismatch, op, describeValue(val))
+	}
+	return val, nil
+}
+
 // builtinSequenceIndex is SequenceFunctions::'#' called as a function.
 func builtinSequenceIndex(ec *EvalContext, args []Value) (Value, error) {
-	return sequenceIndex("SequenceFunctions::'#'", args)
+	return ec.ctx.sequenceIndex("SequenceFunctions::'#'", args)
 }
 
 // builtinCollectionIndex is CollectionFunctions::'#', the index over a
 // collection's elements (`col.elements#(index)`).
 func builtinCollectionIndex(ec *EvalContext, args []Value) (Value, error) {
 	return overCollectionElements(func(_ *EvalContext, args []Value) (Value, error) {
-		return sequenceIndex("CollectionFunctions::'#'", args)
+		return ec.ctx.sequenceIndex("CollectionFunctions::'#'", args)
 	})(ec, args)
 }
 
 // sequenceIndex is a scalar-index `'#'` form: the element at one Positive index.
-func sequenceIndex(op string, args []Value) (Value, error) {
+func (ctx *Context) sequenceIndex(op string, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
+	}
+	if val, open, err := ctx.undeterminedIndex(op+" index", args[0], args[1]); open {
+		return val, err
 	}
 	index, err := indexOf(op, args[1])
 	if err != nil {
@@ -483,12 +552,15 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 	if isStructuredValue(&args[0]) {
 		return arrayIndex(op, args[0], args[1])
 	}
+	if val, open, err := ec.ctx.undeterminedIndex(op+" index", args[0], args[1]); open {
+		return val, err
+	}
 	indexes := elementsOf(args[1])
 	switch len(indexes) {
 	case 0:
 		return Value{}, fmt.Errorf("%w: %s requires at least one index, got none", ErrMultiplicityViolation, op)
 	case 1:
-		return sequenceIndex(op, []Value{args[0], indexes[0]})
+		return ec.ctx.sequenceIndex(op, []Value{args[0], indexes[0]})
 	}
 	return Value{}, fmt.Errorf("%w: %s: %d indexes address an Array, got %s",
 		ErrTypeMismatch, op, len(indexes), describeValue(args[0]))
@@ -540,7 +612,10 @@ func builtinSequenceSize(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::size", args, 1); err != nil {
 		return Value{}, err
 	}
-	return integerValue(int64(len(elementsOf(args[0])))), nil
+	if n, exact := countOf(args[0]).Exactly(); exact {
+		return integerValue(n), nil
+	}
+	return undeterminedOne(args[0]), nil
 }
 
 // builtinSequenceIsEmpty is SequenceFunctions::isEmpty.
@@ -548,7 +623,7 @@ func builtinSequenceIsEmpty(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::isEmpty", args, 1); err != nil {
 		return Value{}, err
 	}
-	return boolValue(len(elementsOf(args[0])) == 0), nil
+	return emptiness(args[0], true)
 }
 
 // builtinSequenceNotEmpty is SequenceFunctions::notEmpty.
@@ -556,7 +631,19 @@ func builtinSequenceNotEmpty(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::notEmpty", args, 1); err != nil {
 		return Value{}, err
 	}
-	return boolValue(len(elementsOf(args[0])) > 0), nil
+	return emptiness(args[0], false)
+}
+
+// emptiness answers whether val holds no value (empty) or some (!empty), which
+// the count the model fixes decides even where the values stay undetermined.
+func emptiness(val Value, empty bool) (Value, error) {
+	switch {
+	case certainlyEmpty(val):
+		return boolValue(empty), nil
+	case certainlyNonEmpty(val):
+		return boolValue(!empty), nil
+	}
+	return undeterminedOne(val), nil
 }
 
 // builtinSequenceIncludes is SequenceFunctions::includes, which asks whether
@@ -567,7 +654,29 @@ func builtinSequenceIncludes(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::includes", args, 2); err != nil {
 		return Value{}, err
 	}
+	if _, open := undeterminedIn(args...); open {
+		return ec.includesUndetermined(args[0], args[1])
+	}
 	return boolValue(ec.ctx.includesAll(elementsOf(args[0]), elementsOf(args[1]))), nil
+}
+
+// includesUndetermined decides `includes` over an undetermined operand from the
+// elements each certainly holds and the counts the model fixes, else stays open.
+func (ec *EvalContext) includesUndetermined(seq1, seq2 Value) (Value, error) {
+	if certainlyEmpty(seq2) {
+		return boolValue(true), nil
+	}
+	if certainlyEmpty(seq1) && certainlyNonEmpty(seq2) {
+		return boolValue(false), nil
+	}
+	known1, known2 := knownElementsOf(seq1), knownElementsOf(seq2)
+	if seq2.Kind != ValUndetermined && ec.ctx.includesAll(known1, known2) {
+		return boolValue(true), nil
+	}
+	if seq1.Kind != ValUndetermined && !ec.ctx.includesAll(known1, known2) {
+		return boolValue(false), nil
+	}
+	return undeterminedOne(seq1, seq2), nil
 }
 
 // builtinSequenceExcludes is SequenceFunctions::excludes: no element of the
@@ -576,6 +685,9 @@ func builtinSequenceExcludes(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity("SequenceFunctions::excludes", args, 2); err != nil {
 		return Value{}, err
 	}
+	if _, open := undeterminedIn(args...); open {
+		return ec.excludesUndetermined(args[0], args[1])
+	}
 	seq1, seq2 := elementsOf(args[0]), elementsOf(args[1])
 	for _, elem := range seq2 {
 		if ec.ctx.containsValue(seq1, elem) {
@@ -583,6 +695,21 @@ func builtinSequenceExcludes(ec *EvalContext, args []Value) (Value, error) {
 		}
 	}
 	return boolValue(true), nil
+}
+
+// excludesUndetermined decides `excludes` over an undetermined operand: false once
+// both certainly hold a common element, true when either is certainly empty, else open.
+func (ec *EvalContext) excludesUndetermined(seq1, seq2 Value) (Value, error) {
+	if certainlyEmpty(seq1) || certainlyEmpty(seq2) {
+		return boolValue(true), nil
+	}
+	known := knownElementsOf(seq1)
+	for _, elem := range knownElementsOf(seq2) {
+		if ec.ctx.containsValue(known, elem) {
+			return boolValue(false), nil
+		}
+	}
+	return undeterminedOne(seq1, seq2), nil
 }
 
 // builtinSequenceIncludesOnly is SequenceFunctions::includesOnly: each sequence
@@ -666,6 +793,9 @@ func builtinSequenceUnion(ec *EvalContext, args []Value) (Value, error) {
 // concatSequences is `(seq1, seq2)`: the elements of the first followed by the
 // elements of the second.
 func (ec *EvalContext) concatSequences(first, second Value) (Value, error) {
+	if _, open := undeterminedIn(first, second); open {
+		return undeterminedElements([]Value{first, second}), nil
+	}
 	seq1, seq2 := elementsOf(first), elementsOf(second)
 	joined := make([]Value, 0, len(seq1)+len(seq2))
 	joined = append(joined, seq1...)
@@ -728,22 +858,30 @@ func builtinSequenceIncludingAt(ec *EvalContext, args []Value) (Value, error) {
 }
 
 // insertAt is seq with values inserted before its index-th element, or after
-// its last when index is one past it; any other index is out of range.
+// its last when index is one past it; any other index is out of range. An open
+// operand leaves the result open once the determined ones check out.
 func (ec *EvalContext) insertAt(op string, seq, values, at Value) (Value, error) {
-	elements, inserted := elementsOf(seq), elementsOf(values)
-	index, err := indexOf(op, at)
+	index, fixed, err := fixedIndex(op, at)
 	if err != nil {
 		return Value{}, err
 	}
-	if index < 1 || index > int64(len(elements))+1 {
-		return Value{}, fmt.Errorf("%w: %s insertion index %d is outside 1..%d",
-			ErrIndexOutOfRange, op, index, len(elements)+1)
+	if fixed {
+		if err := indexWithin(op, "insertion index", index, 1, countOf(seq), 1); err != nil {
+			return Value{}, err
+		}
 	}
+	elements, whole := fixedPositionsOf(seq)
+	if !fixed || !whole {
+		if _, open := undeterminedIn(seq, values, at); open {
+			return undeterminedOf(countOf(seq).Plus(countOf(values)), seq, values, at), nil
+		}
+	}
+	inserted, total := elementsOf(values), spanOf(elements...)
 	result := make([]Value, 0, len(elements)+len(inserted))
-	result = append(result, elements[:index-1]...)
+	result = append(result, positionsBetween(elements, 1, index-1)...)
 	result = append(result, inserted...)
-	result = append(result, elements[index-1:]...)
-	return ec.newSequence(result)
+	result = append(result, positionsBetween(elements, index, total)...)
+	return ec.sequenceOfPositions(result)
 }
 
 // builtinSequenceSubsequence is SequenceFunctions::subsequence, the elements
@@ -756,29 +894,36 @@ func builtinSequenceSubsequence(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(subsequenceOp, args, 3); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	start, err := indexOf(subsequenceOp, args[1])
+	count := countOf(args[0])
+	start, startFixed, err := fixedIndex(subsequenceOp, args[1])
 	if err != nil {
 		return Value{}, err
 	}
-	end := int64(len(elements))
+	end, endFixed := count.Exactly()
 	if args[2].Kind != ValNull {
-		if end, err = indexOf(subsequenceOp, args[2]); err != nil {
+		if end, endFixed, err = fixedIndex(subsequenceOp, args[2]); err != nil {
 			return Value{}, err
 		}
 	}
-	if start < 1 {
-		return Value{}, fmt.Errorf("%w: SequenceFunctions::subsequence start index %d is outside 1..%d",
-			ErrIndexOutOfRange, start, len(elements))
+	if startFixed && start < 1 {
+		return Value{}, fmt.Errorf("%w: SequenceFunctions::subsequence start index %d is outside 1..%s",
+			ErrIndexOutOfRange, start, count.Upper.Text())
 	}
-	if start > end {
-		return ec.sequenceFrom(nil, args[0])
+	if startFixed && endFixed {
+		if start > end {
+			return ec.sequenceFrom(nil, args[0])
+		}
+		if err := indexWithin(subsequenceOp, "end index", end, 1, count, 0); err != nil {
+			return Value{}, err
+		}
+		if elements, whole := fixedPositionsOf(args[0]); whole || end <= spanOf(elements...) {
+			return ec.sequenceOfPositions(positionsBetween(elements, start, end), args[0])
+		}
 	}
-	if end > int64(len(elements)) {
-		return Value{}, fmt.Errorf("%w: SequenceFunctions::subsequence end index %d is outside 1..%d",
-			ErrIndexOutOfRange, end, len(elements))
+	if val, open := ec.ctx.openInvocation(subsequenceOp, args...); open {
+		return val, nil
 	}
-	return ec.sequenceFrom(elements[start-1:end], args[0])
+	return ec.sequenceFrom(elementsOf(args[0])[start-1:end], args[0])
 }
 
 // builtinSequenceExcludingAt is SequenceFunctions::excludingAt, the sequence
@@ -791,60 +936,100 @@ func builtinSequenceExcludingAt(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 3); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	start, err := indexOf(op, args[1])
+	count := countOf(args[0])
+	start, startFixed, err := fixedIndex(op, args[1])
 	if err != nil {
 		return Value{}, err
 	}
-	end := start
+	end, endFixed := start, startFixed
 	if args[2].Kind != ValNull {
-		if end, err = indexOf(op, args[2]); err != nil {
+		if end, endFixed, err = fixedIndex(op, args[2]); err != nil {
 			return Value{}, err
 		}
 	}
-	if start < 1 || start > int64(len(elements)) {
-		return Value{}, fmt.Errorf("%w: %s start index %d is outside 1..%d",
-			ErrIndexOutOfRange, op, start, len(elements))
+	if startFixed {
+		if err := indexWithin(op, "start index", start, 1, count, 0); err != nil {
+			return Value{}, err
+		}
 	}
-	if end < start || end > int64(len(elements)) {
-		return Value{}, fmt.Errorf("%w: %s end index %d is outside %d..%d",
-			ErrIndexOutOfRange, op, end, start, len(elements))
+	if endFixed {
+		first := int64(1)
+		if startFixed {
+			first = start
+		}
+		if err := indexWithin(op, "end index", end, first, count, 0); err != nil {
+			return Value{}, err
+		}
 	}
-	kept := make([]Value, 0, len(elements)-int(end-start+1))
-	kept = append(kept, elements[:start-1]...)
-	kept = append(kept, elements[end:]...)
-	return ec.sequenceFrom(kept, args[0])
+	elements, whole := fixedPositionsOf(args[0])
+	if !startFixed || !endFixed || !whole {
+		if val, open := ec.ctx.openInvocation(op, args...); open {
+			return val, nil
+		}
+	}
+	kept := make([]Value, 0, len(elements))
+	kept = append(kept, positionsBetween(elements, 1, start-1)...)
+	kept = append(kept, positionsBetween(elements, end+1, spanOf(elements...))...)
+	return ec.sequenceOfPositions(kept, args[0])
 }
 
 // builtinSequenceHead is SequenceFunctions::head, `seq#(1)`: the first element,
 // or nothing where the sequence is empty.
 func builtinSequenceHead(ec *EvalContext, args []Value) (Value, error) {
-	if err := checkArity("SequenceFunctions::head", args, 1); err != nil {
+	const op = "SequenceFunctions::head"
+	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	return elementAtOrEmpty(elementsOf(args[0]), 1), nil
+	elements, whole := fixedPositionsOf(args[0])
+	if first, ok := positionAt(elements, 1); ok {
+		return first, nil
+	}
+	if !whole {
+		return ec.openEndOf(op, args[0])
+	}
+	return nullValue(), nil
+}
+
+// openEndOf is head or last of a sequence the model leaves open: one value, or
+// none where the sequence may be empty.
+func (ec *EvalContext) openEndOf(op string, seq Value) (Value, error) {
+	count := ec.ctx.libraryResultCount(op)
+	if certainlyNonEmpty(seq) {
+		count = nonEmptyCount(count)
+	}
+	return undeterminedOf(count, seq), nil
 }
 
 // builtinSequenceTail is SequenceFunctions::tail, `subsequence(seq, 2)`: every
 // element but the first.
 func builtinSequenceTail(ec *EvalContext, args []Value) (Value, error) {
-	if err := checkArity("SequenceFunctions::tail", args, 1); err != nil {
+	const op = "SequenceFunctions::tail"
+	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	if len(elements) == 0 {
-		return ec.sequenceFrom(nil, args[0])
+	elements, whole := fixedPositionsOf(args[0])
+	if !whole {
+		count := countOf(args[0])
+		count.Lower, count.Upper = lessBound(count.Lower, 1), lessBound(count.Upper, 1)
+		return undeterminedOf(count, args[0]), nil
 	}
-	return ec.sequenceFrom(elements[1:], args[0])
+	return ec.sequenceOfPositions(positionsBetween(elements, 2, spanOf(elements...)), args[0])
 }
 
 // builtinSequenceLast is SequenceFunctions::last, `seq#(size(seq))`.
 func builtinSequenceLast(ec *EvalContext, args []Value) (Value, error) {
-	if err := checkArity("SequenceFunctions::last", args, 1); err != nil {
+	const op = "SequenceFunctions::last"
+	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	return elementAtOrEmpty(elements, int64(len(elements))), nil
+	elements, whole := fixedPositionsOf(args[0])
+	if !whole {
+		return ec.openEndOf(op, args[0])
+	}
+	if last, ok := positionAt(elements, spanOf(elements...)); ok {
+		return last, nil
+	}
+	return nullValue(), nil
 }
 
 // builtinCollectionContains is CollectionFunctions::contains, which asks
@@ -884,31 +1069,56 @@ func builtinControlReject(ec *EvalContext, args []Value) (Value, error) {
 	return ec.filter("ControlFunctions::reject", args, false)
 }
 
-// filter is select (keep=true) and reject (keep=false).
+// filter is select (keep=true) and reject (keep=false); over an open collection
+// one element stands for those it may hold beyond the known, decided as a whole.
 func (ec *EvalContext) filter(op string, args []Value, keep bool) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
+	source := args[0]
+	elements := knownElementsOf(source)
+	over := elements
+	if mayHoldUnknown(source) {
+		over = append(slices.Clone(elements), unknownElementOf(source))
+	}
+	body, applied, err := ec.bodyOver(op, args[1], 1, over)
 	if err != nil {
 		return Value{}, err
 	}
 	// A filter keeps the elements' type (KerML checkSelectExpressionResultSpecialization).
 	if !applied {
-		return ec.sequenceFrom(nil, args[0])
+		return ec.sequenceFrom(nil, source)
 	}
-	var kept []Value
-	for _, elem := range elements {
-		holds, err := ec.applyPredicate(op, body, elem)
+	fromUnknown := semantics.CountRange(0)
+	if len(over) > len(elements) {
+		holds, err := ec.applyTest(op, body, over[len(elements)])
 		if err != nil {
 			return Value{}, err
 		}
-		if holds == keep {
+		switch {
+		case holds.Kind == ValUndetermined:
+			fromUnknown = semantics.Range{Lower: semantics.Bound{Known: true}, Upper: unknownCountOf(source).Upper}
+		case holds.Const.Bool == keep:
+			fromUnknown = unknownCountOf(source)
+		}
+	}
+	var kept, open []Value
+	for _, elem := range elements {
+		holds, err := ec.applyTest(op, body, elem)
+		if err != nil {
+			return Value{}, err
+		}
+		switch {
+		case holds.Kind == ValUndetermined:
+			open = append(open, holds)
+		case holds.Const.Bool == keep:
 			kept = append(kept, elem)
 		}
 	}
-	return ec.sequenceFrom(kept, args[0])
+	if len(open) > 0 || fromUnknown.MayAdmitMore(0) {
+		return undeterminedFiltered(source, kept, open, fromUnknown), nil
+	}
+	return ec.sequenceFrom(kept, source)
 }
 
 // emptyMapping is the result of mapping no element through body: empty, and
@@ -936,6 +1146,13 @@ func builtinControlSelectOne(ec *EvalContext, args []Value) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	if selected.Kind == ValUndetermined {
+		count := optionalRange()
+		if certainlyNonEmpty(selected) {
+			count = semantics.AssumedRange()
+		}
+		return undeterminedOf(count, selected), nil
+	}
 	pick := elementAtOrEmpty(elementsOf(selected), 1)
 	ec.ctx.evaluations.pick(pick)
 	return pick, nil
@@ -948,18 +1165,37 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
+	source := args[0]
+	elements := knownElementsOf(source)
+	// An element the source may hold beyond those known is mapped too, standing
+	// for each of them: how many values the mapper yields per unknown element.
+	over := elements
+	if mayHoldUnknown(source) {
+		over = append(slices.Clone(elements), unknownElementOf(source))
+	}
+	body, applied, err := ec.bodyOver(op, args[1], 1, over)
 	if err != nil {
 		return Value{}, err
 	}
 	// The mapper returns `Anything[0..*]`, so a mapper answering several values
 	// contributes them all: the collected sequence is flat, as every KerML
 	// sequence is.
-	if !applied || len(elements) == 0 {
+	if !applied || len(over) == 0 {
+		if source.Kind == ValUndetermined {
+			return undeterminedCollected(source, nil, semantics.CountRange(0)), nil
+		}
 		return ec.emptyMapping(args[1]), nil
 	}
+	fromUnknown := semantics.CountRange(0)
+	if len(over) > len(elements) {
+		perUnknown, err := ec.applyBody(body, over[len(elements)])
+		if err != nil {
+			return Value{}, err
+		}
+		fromUnknown = unknownCountOf(source).Times(countOf(perUnknown))
+	}
 	var mapped, answers []Value
+	var open bool
 	for _, elem := range elements {
 		val, err := ec.applyBody(body, elem)
 		if err != nil {
@@ -971,8 +1207,12 @@ func builtinControlCollect(ec *EvalContext, args []Value) (Value, error) {
 		if err := ec.ctx.chargeElements(int64(len(contributed))); err != nil {
 			return Value{}, err
 		}
+		open = open || val.Kind == ValUndetermined
 		mapped = append(mapped, contributed...)
 		answers = append(answers, val)
+	}
+	if open || source.Kind == ValUndetermined {
+		return undeterminedCollected(source, answers, fromUnknown), nil
 	}
 	if len(mapped) == 0 {
 		if unit, ok := elementUnitOf(answers...); ok {
@@ -1073,27 +1313,65 @@ func builtinControlExists(ec *EvalContext, args []Value) (Value, error) {
 
 // quantify is forAll (universal=true) and exists. Both stop at the element that
 // decides the answer, so a test with an error past that element is not reached,
-// as the library's short-circuiting `and`/`or` do not reach it either.
+// as the library's short-circuiting `and`/`or` do not reach it either. Over an open
+// collection, the elements it certainly holds decide first; an element it may hold
+// beyond them is tested once, standing for each, and decides where the test's
+// answer does not depend on the element.
 func (ec *EvalContext) quantify(op string, args []Value, universal bool) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	elements := elementsOf(args[0])
-	body, applied, err := ec.bodyOver(op, args[1], 1, elements)
+	source := args[0]
+	if certainlyEmpty(source) {
+		return boolValue(universal), nil
+	}
+	elements := knownElementsOf(source)
+	over := elements
+	if mayHoldUnknown(source) {
+		over = append(slices.Clone(elements), unknownElementOf(source))
+	}
+	body, applied, err := ec.bodyOver(op, args[1], 1, over)
 	if err != nil {
 		return Value{}, err
 	}
 	if !applied {
+		if source.Kind == ValUndetermined {
+			return undeterminedOne(source), nil
+		}
 		return boolValue(universal), nil
 	}
+	var open []Value
 	for _, elem := range elements {
-		holds, err := ec.applyPredicate(op, body, elem)
+		holds, err := ec.applyTest(op, body, elem)
 		if err != nil {
 			return Value{}, err
 		}
-		if holds != universal {
+		if holds.Kind == ValUndetermined {
+			open = append(open, holds)
+			continue
+		}
+		if holds.Const.Bool != universal {
 			return boolValue(!universal), nil
 		}
+	}
+	if len(over) > len(elements) {
+		holds, err := ec.applyTest(op, body, over[len(elements)])
+		if err != nil {
+			return Value{}, err
+		}
+		switch {
+		case holds.Kind == ValUndetermined:
+			open = append(open, holds)
+		case holds.Const.Bool != universal:
+			// Decides only where the source certainly holds such an element.
+			if guaranteesOne(unknownCountOf(source)) {
+				return boolValue(!universal), nil
+			}
+			open = append(open, source)
+		}
+	}
+	if len(open) > 0 {
+		return undeterminedOne(open...), nil
 	}
 	return boolValue(universal), nil
 }
@@ -1109,18 +1387,33 @@ func builtinControlAnyTrue(ec *EvalContext, args []Value) (Value, error) {
 	return truthOf("ControlFunctions::anyTrue", args, false)
 }
 
-// truthOf is allTrue (universal=true) and anyTrue over Boolean elements.
+// truthOf is allTrue (universal=true) and anyTrue over Boolean elements; over an open
+// collection, only the elements it certainly holds can decide.
 func truthOf(op string, args []Value, universal bool) (Value, error) {
 	if err := checkArity(op, args, 1); err != nil {
 		return Value{}, err
 	}
-	for _, elem := range elementsOf(args[0]) {
+	if certainlyEmpty(args[0]) {
+		return boolValue(universal), nil
+	}
+	var open []Value
+	if args[0].Kind == ValUndetermined {
+		open = append(open, args[0])
+	}
+	for _, elem := range knownElementsOf(args[0]) {
+		if elem.Kind == ValUndetermined {
+			open = append(open, elem)
+			continue
+		}
 		if elem.Kind != ValConst || elem.Const.Kind != semantics.ValBool {
 			return Value{}, fmt.Errorf("%w: %s requires Boolean elements, got %s", ErrTypeMismatch, op, describeValue(elem))
 		}
 		if elem.Const.Bool != universal {
 			return boolValue(!universal), nil
 		}
+	}
+	if len(open) > 0 {
+		return undeterminedOne(open...), nil
 	}
 	return boolValue(universal), nil
 }

@@ -61,6 +61,57 @@
       }
     },
     {
+      "id": "evaluate/a_feature_the_model_leaves_unvalued_is_undetermined",
+      "description": "With no subject a typed attribute with no value is neither unset nor an error: the model fixes one value and states none, so the result is the undetermined arm with its reason and count.",
+      "rpc": "Evaluate",
+      "requires_capabilities": [
+        "undetermined_value"
+      ],
+      "model": {
+        "fixture": "unset.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "d + 1.0",
+        "context_symbol_id": "P::Q"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "undetermined": {
+              "count": {
+                "lower": "1",
+                "upper": "1"
+              }
+            }
+          }
+        },
+        "contains": {
+          "result.undetermined.reason": "d has no value"
+        }
+      }
+    },
+    {
+      "id": "evaluate/a_constant_operand_decides_a_boolean_over_an_undetermined_one",
+      "description": "`and` with a false operand is false whatever the other operand holds, so an undetermined operand does not spread to the result.",
+      "rpc": "Evaluate",
+      "model": {
+        "fixture": "unset.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "expression": "(d > 1.0) and false",
+        "context_symbol_id": "P::Q"
+      },
+      "expect": {
+        "response": {
+          "result": {
+            "bool_value": false
+          }
+        }
+      }
+    },
+    {
       "id": "evaluate/a_subject_is_evaluated_against_that_objects_value",
       "description": "The subject redefines mass, so the same expression answers the object's value rather than the definition's.",
       "rpc": "Evaluate",

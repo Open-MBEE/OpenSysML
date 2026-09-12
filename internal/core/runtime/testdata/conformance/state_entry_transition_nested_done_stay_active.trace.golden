@@ -1,0 +1,15 @@
+exit: idle
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "in;"
+      eval literal "outer;" -> "outer;"
+    eval operator + -> "in;outer;"
+enter: done
+enter: done
+transition: idle -> outer (event: accept Go)
+exit: done
+exit: done
+exit: outer
+enter: idle
+transition: outer -> idle (event: accept Again)

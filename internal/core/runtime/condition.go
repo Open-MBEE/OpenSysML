@@ -415,6 +415,10 @@ type conditionCheck struct {
 	// check within a case run, the run's, owned by the case; the zero frame binds nothing.
 	bindings frame
 
+	// frames are the frames a check within a behavior run reads, innermost last:
+	// the performance's own values and those around it. Empty outside a run.
+	frames []frame
+
 	// negated inverts the verdict: the element asserts that its required
 	// conditions do not all hold (`assert not …`, Invariant::isNegated).
 	negated bool
@@ -455,7 +459,7 @@ func (ctx *Context) evaluateConditions(check conditionCheck, conds []Condition) 
 	required := false
 	for _, cond := range conds {
 		required = required || cond.Required
-		holds, err := ctx.conditionHolds(activation, cond, features, self, check.bindings)
+		holds, err := ctx.conditionHolds(activation, cond, features, self, check.frames, check.bindings)
 		if err != nil {
 			return false, fmt.Errorf("%s %s: %s evaluation failed: %w", check.kind, check.name(), check.what, err)
 		}
@@ -839,14 +843,14 @@ func (ctx *Context) definitionOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // conditionHolds evaluates one condition: an expression, or a group that holds
 // when all of its conditions hold. Its negation, if any, is applied last.
-func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, bindings frame) (bool, error) {
+func (ctx *Context) conditionHolds(activation int64, cond Condition, features map[string]scopedExpr, self *Instance, frames []frame, bindings frame) (bool, error) {
 	for _, constraint := range cond.Constraints {
 		features, bindings = ctx.constraintScope(features, bindings, constraint)
 	}
 	holds := true
 	if cond.Group != nil {
 		for _, sub := range cond.Group {
-			subHolds, err := ctx.conditionHolds(activation, sub, features, self, bindings)
+			subHolds, err := ctx.conditionHolds(activation, sub, features, self, frames, bindings)
 			if err != nil {
 				return false, err
 			}
@@ -856,12 +860,18 @@ func (ctx *Context) conditionHolds(activation int64, cond Condition, features ma
 		ec := NewEvalContextIn(ctx, cond.Scope, self)
 		ec.activation = activation
 		ec.features = features
+		for _, f := range frames {
+			ec.pushFrame(f)
+		}
 		if bindings.vars != nil {
 			ec.pushFrame(bindings)
 		}
 		result, err := ec.Eval(cond.Expr)
 		if err != nil {
 			return false, err
+		}
+		if u := result.Undetermined(); u != nil {
+			return false, fmt.Errorf("%w: condition is undetermined: %s", ErrNoValue, u.Reason())
 		}
 		if result.Kind != ValConst || result.Const.Kind != semantics.ValBool {
 			return false, fmt.Errorf("condition must evaluate to boolean, got %v", result.Kind)

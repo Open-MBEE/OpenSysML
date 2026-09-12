@@ -361,7 +361,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 		})
 	}
 	e.state = StateCompleted
-	return nil
+	return e.ctx.endedWhole(&e.driven)
 }
 
 // toolCall is the performance as the tool sees it: of the action performed, every `in`/`inout`

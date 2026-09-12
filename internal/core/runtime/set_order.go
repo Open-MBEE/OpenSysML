@@ -162,6 +162,8 @@ func (ctx *Context) compareContents(a, b Value) int {
 	case ValMetaobject:
 		// A metaobject is its element, as valueEqual and valueKeyFunc have it.
 		return compareSymbols(a.MetaobjectElement(), b.MetaobjectElement())
+	case ValUndetermined:
+		return strings.Compare(a.Undetermined().Reason(), b.Undetermined().Reason())
 	}
 	return 0
 }

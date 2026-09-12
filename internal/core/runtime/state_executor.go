@@ -11,35 +11,10 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
-
-// stateActionFQN names the library state every state specializes, whose
-// content (self, substates, transitions) the executor carries natively.
-const stateActionFQN = "States::StateAction"
-
-// stateTypes resolves the names a state machine is lowered with, withholding
-// the content of States::StateAction: materializing it would only recurse.
-type stateTypes struct {
-	*resolve.Resolver
-	frame *symbols.Symbol
-}
-
-func (ctx *Context) stateTypes() lower.EndpointResolver {
-	if ctx.model.resolver == nil {
-		return nil
-	}
-	return &stateTypes{Resolver: ctx.model.resolver, frame: ctx.librarySymbol(stateActionFQN)}
-}
-
-// WithholdsStateType reports the library's StateAction, whose content lowering
-// must not take: TypeDecl still resolves it, so lowering looks no further.
-func (s *stateTypes) WithholdsStateType(decl ast.Node) bool {
-	return s.frame != nil && decl == s.frame.Decl
-}
 
 // StateConfiguration represents the active state configuration (simple or multi-region).
 type StateConfiguration struct {
@@ -126,6 +101,12 @@ type StateExecutor struct {
 	// once its guard's final reading lets it fire (see transitionDecided).
 	firingNotes []RunNote
 
+	// leftAhead are the states a compound transition under way left before its
+	// choice was resolved; exitingAhead is set while it leaves them. Both live
+	// within one firing, inside a step, so no snapshot sees them.
+	leftAhead    map[*ast.StateNode]bool
+	exitingAhead bool
+
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
 	changeRearmed map[*lower.Transition]bool
@@ -192,7 +173,7 @@ func newStateExecutorForOccurrence(
 	// Lower to StateGraph, in the scope the machine's body was written in, so
 	// that everything the graph carries is evaluated where it was declared.
 	// Endpoints come from the name-resolution tier, which reported on them already.
-	graph, err := lower.ToStateGraphWithEndpoints(stateMachine.Decl, declScope(stateMachine), ctx.stateTypes())
+	graph, err := lower.ToStateGraphWithEndpoints(stateMachine.Decl, declScope(stateMachine), lower.NewLibraryStateTypes(ctx.model.resolver))
 	if err != nil {
 		return nil, fmt.Errorf("lower state machine: %w", err)
 	}
@@ -473,8 +454,9 @@ func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
 
 // scheduleCompletionTransitions queues the completion transitions of a state
 // whose guard holds. A state completes only once its do behavior has finished,
-// so a state still running one is skipped here and scheduled by runDoRound when
-// the behavior ends.
+// so a state still running one is skipped here and scheduled by settleDoActions
+// when the behavior ends; a composite state's body reaching `done` schedules
+// them through completeIfDone.
 func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) error {
 	if e.hasRunningDoAction(state) {
 		return nil
@@ -658,7 +640,7 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 				Effect:  lower.LowerBehaviors(edge.Effect, e.stateMachine.Scope),
 			}
 			var err error
-			dispatch.Fired, err = e.fireTransition(lowerTrans, targetState)
+			dispatch.Fired, err = e.fireTransition(lowerTrans, route{segments: []*lower.Transition{lowerTrans}, target: targetState})
 			return dispatch, err
 		}
 
@@ -682,13 +664,42 @@ func (e *StateExecutor) dispatchEvent(event Event) (Dispatch, error) {
 // ancestor of one, defers this event. A composite state's deferral holds while
 // any of its substates is active.
 func (e *StateExecutor) defersEvent(event *Event) bool {
+	return len(e.deferringStates(event)) > 0
+}
+
+// deferringStates lists the states of the active configuration, each active leaf
+// and its ancestors, that defer this event; each is listed once.
+func (e *StateExecutor) deferringStates(event *Event) []*ast.StateNode {
+	var deferring []*ast.StateNode
+	asked := make(map[*ast.StateNode]bool)
 	for _, state := range e.activeStates() {
 		for _, ancestor := range e.getParentChain(state) {
+			if asked[ancestor] {
+				continue
+			}
+			asked[ancestor] = true
 			for _, trigger := range e.graph.Deferred[ancestor] {
 				if e.triggerMatches(trigger, e.graph.StateScopes[ancestor], event) {
-					return true
+					deferring = append(deferring, ancestor)
+					break
 				}
 			}
+		}
+	}
+	return deferring
+}
+
+// deferralOutranks reports whether a deferring state of the configuration holds
+// the event back from the selected transitions: only a transition out of that
+// state, or out of a state nested in it, is nested deeply enough to override its
+// deferral, and every deferring state must be overridden for any of them to fire.
+func (e *StateExecutor) deferralOutranks(candidates []dispatchCandidate, event *Event) bool {
+	for _, deferring := range e.deferringStates(event) {
+		overridden := slices.ContainsFunc(candidates, func(candidate dispatchCandidate) bool {
+			return e.encloses(deferring, candidate.source)
+		})
+		if !overridden {
+			return true
 		}
 	}
 	return false
@@ -730,6 +741,11 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	}
 	candidates, err := e.chooseTransitions(selected, event)
 	if err != nil {
+		return false, nil, err
+	}
+	// A witness move refused while drawing must stop the dispatch before the do
+	// behaviors take the occurrence, so a refused replay changes nothing.
+	if err := e.ctx.scheduling().refusal(); err != nil {
 		return false, nil, err
 	}
 	var resumed []string
@@ -781,6 +797,9 @@ func (e *StateExecutor) dispatchInOrder(
 		if order != nil {
 			notes = append([]RunNote{order}, notes...)
 		}
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return acted, err
+		}
 		fired, err := fire(candidate, candidate.chosen, notes)
 		acted = acted || fired
 		if err != nil {
@@ -805,7 +824,7 @@ type dispatchCandidate struct {
 	enabled []int
 	notes   []RunNote
 	chosen  *lower.Transition
-	route   *ast.StateNode
+	route   route
 }
 
 // selectTransitions picks one source state per leaf active when the event is
@@ -814,10 +833,19 @@ type dispatchCandidate struct {
 // innermost state with an enabled transition. A false guard does not consume
 // the event, so the walk carries on past it. Leaves in sibling regions of one
 // composite state select the same state, which the event still leaves only once.
+// A state that defers the event outranks every transition not nested in it: it
+// selects nothing, to defer the event, unless each deferring state is overridden.
 func (e *StateExecutor) selectTransitions(event *Event) ([]dispatchCandidate, error) {
-	return e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
+	candidates, err := e.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
 		return e.enabledTransitions(source, event)
 	})
+	if err != nil {
+		return nil, err
+	}
+	if e.deferralOutranks(candidates, event) {
+		return nil, nil
+	}
+	return candidates, nil
 }
 
 // selectCandidates walks outward from every active leaf, asking enabled which
@@ -854,7 +882,7 @@ func (e *StateExecutor) selectCandidates(
 
 // chooseTransitions resolves the dispatch: the candidates not outranked by a nested
 // one, each with the one of its enabled transitions that fires drawn once here and
-// its route through any pseudostates settled against the pre-dispatch data, for
+// its route through any junctions settled against the pre-dispatch data, for
 // the do behaviors taking the occurrence, the firing and the preview alike. A
 // state outranked by a nested one draws nothing. event is nil for a change poll.
 func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event *Event) ([]dispatchCandidate, error) {
@@ -876,14 +904,14 @@ func (e *StateExecutor) chooseTransitions(candidates []dispatchCandidate, event 
 
 // resolveRouteFor resolves trans's route with the trigger's arguments bound, so a
 // pseudostate guard along it reads them as the transition's own guard does.
-func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (*ast.StateNode, error) {
+func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (route, error) {
 	if event == nil {
 		return e.resolveRoute(trans)
 	}
 	unbind, err := e.bindTriggerArguments(trans, event)
 	defer unbind()
 	if err != nil {
-		return nil, err
+		return route{}, err
 	}
 	return e.resolveRoute(trans)
 }
@@ -892,11 +920,13 @@ func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (
 // with the choice point it makes ahead of the candidate's notes.
 func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
 	transitions := e.graph.Transitions[candidate.source]
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(candidate.enabled))
 	notes := candidate.notes
-	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled, pick); ok {
-		scheduling.describe(choice)
+	pick := 0
+	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled); ok {
+		whereOf := func(i int) string { return transitionWhere(candidate.source, transitions[candidate.enabled[i]]) }
+		pick = e.ctx.scheduling().choose(choice, whereOf)
+		choice.Taken, choice.Where = pick, whereOf(pick)
+		choice.File, choice.Span = e.transitionLocation(candidate.source, transitions[candidate.enabled[pick]])
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
@@ -905,31 +935,29 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 // chooseRegion resolves which of the candidates, all still able to fire, fires next:
 // the policy draws the pick and, with several candidates, the choice is reported.
 func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(pending))
 	if len(pending) < 2 {
-		return pick, nil
+		return 0, nil
 	}
 	sources := make([]*ast.StateNode, len(pending))
 	for i, candidate := range pending {
 		sources[i] = candidate.source
 	}
-	choice := e.regionOrderChoice(where, sources, pick)
-	scheduling.describe(choice)
-	return pick, choice
+	choice := e.regionOrderChoice(where, sources)
+	return choice.Taken, choice
 }
 
 // regionOrderChoice is the choice among the states of several regions acting on
-// one occasion, the one at pick first.
-func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode, pick int) ChoicePoint {
-	return ChoicePoint{
+// one occasion, the one the policy picks first.
+func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode) ChoicePoint {
+	choice := ChoicePoint{
 		Kind:         ChoiceRegionOrder,
 		Where:        where,
 		Alternatives: e.stateNames(states),
-		Taken:        pick,
 		File:         e.stateMachine.DocName,
-		Span:         states[pick].Span(),
 	}
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	choice.Span = states[choice.Taken].Span()
+	return choice
 }
 
 // stateNames spells each state, qualified by its region's name where two of the
@@ -1073,28 +1101,28 @@ func lessPath(a, b []int) bool {
 // either the active leaf or a composite state enclosing it. A source lying in an
 // active orthogonal region moves that region; one outside every active region
 // moves the machine's single active hierarchy. notes are recorded only if it fires;
-// route is the state the transition was resolved to (resolveRoute).
-func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, route *ast.StateNode) (bool, error) {
+// r is the transition's route as resolveRoute settled it.
+func (e *StateExecutor) fireFrom(source *ast.StateNode, trans *lower.Transition, notes []RunNote, r route) (bool, error) {
 	saved := e.firingNotes
 	e.firingNotes = notes
 	defer func() { e.firingNotes = saved }()
 	if region := e.activeRegionOf(source); region != nil {
-		return e.fireTransitionInRegion(region, trans, route)
+		return e.fireTransitionInRegion(region, trans, r)
 	}
-	return e.fireTransition(trans, route)
+	return e.fireTransition(trans, r)
 }
 
 // resolveAndFire takes a transition outside a dispatch, a timer come due, resolving
 // its route as it fires; source is as for fireFrom, nil for the single hierarchy.
 func (e *StateExecutor) resolveAndFire(source *ast.StateNode, trans *lower.Transition) (bool, error) {
-	route, err := e.resolveRoute(trans)
+	r, err := e.resolveRoute(trans)
 	if err != nil {
 		return false, err
 	}
 	if source != nil {
-		return e.fireFrom(source, trans, nil, route)
+		return e.fireFrom(source, trans, nil, r)
 	}
-	return e.fireTransition(trans, route)
+	return e.fireTransition(trans, r)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
@@ -1205,7 +1233,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 // transitionChoice is the transitions out of state enabled for one event, at
 // their declared positions, as a choice point; there is none under two. pick is
 // the position in enabled of the one that fires.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int, pick int) (ChoicePoint, bool) {
+func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -1213,16 +1241,7 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 	for i, pos := range enabled {
 		alts[i] = transitionName(transitions, pos)
 	}
-	taken := transitions[enabled[pick]]
-	file, span := e.transitionLocation(state, taken)
-	return ChoicePoint{
-		Kind:         ChoiceTransition,
-		Where:        transitionWhere(state, taken),
-		Alternatives: alts,
-		Taken:        pick,
-		File:         file,
-		Span:         span,
-	}, true
+	return ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}, true
 }
 
 // unevaluableTransition is the transition at position pos out of state, probed
@@ -1256,8 +1275,8 @@ func transitionWhere(state *ast.StateNode, trans *lower.Transition) string {
 	return where
 }
 
-// transitionLocation is where trans was declared, or state when it has no declaration.
-func (e *StateExecutor) transitionLocation(state *ast.StateNode, trans *lower.Transition) (string, source.Span) {
+// transitionLocation is where trans was declared, or its vertex when it has no declaration.
+func (e *StateExecutor) transitionLocation(vertex ast.Node, trans *lower.Transition) (string, source.Span) {
 	file := e.stateMachine.DocName
 	if trans.Scope != nil && trans.Scope.DocName() != "" {
 		file = trans.Scope.DocName()
@@ -1265,7 +1284,7 @@ func (e *StateExecutor) transitionLocation(state *ast.StateNode, trans *lower.Tr
 	if trans.Decl != nil {
 		return file, trans.Decl.Span()
 	}
-	return file, state.Span()
+	return file, vertex.Span()
 }
 
 // bindTriggerArguments binds the parameters a call trigger declares to the
@@ -1445,7 +1464,7 @@ func (e *StateExecutor) triggerMatches(trigger ast.Node, scope *symbols.Scope, e
 
 // fireTransition takes a state transition, reporting whether it was taken: one
 // whose guard is false leaves the machine where it is.
-func (e *StateExecutor) fireTransition(trans *lower.Transition, route *ast.StateNode) (bool, error) {
+func (e *StateExecutor) fireTransition(trans *lower.Transition, r route) (bool, error) {
 	pass, err := e.passesGuard(trans)
 	if err != nil || !pass {
 		return false, err
@@ -1458,16 +1477,16 @@ func (e *StateExecutor) fireTransition(trans *lower.Transition, route *ast.State
 		case ast.PseudostateFork:
 			return true, e.fireForkTransition(trans, ps)
 		case ast.PseudostateJoin:
-			return e.fireJoinTransition(trans, ps, route)
+			return e.fireJoinTransition(trans, ps, r)
 		default:
-			return true, e.fireHistoryTransition(trans, ps, route)
+			return true, e.fireHistoryTransition(trans, ps, r)
 		}
 	}
-	if route == nil {
+	if !r.settled() {
 		return false, fmt.Errorf("transition target state not found")
 	}
 	e.transitionDecided()
-	return true, e.transitionTo(trans, route)
+	return true, e.transitionTo(trans, r)
 }
 
 // moveOrigin is the state a move of the single active hierarchy starts from: the
@@ -1503,19 +1522,28 @@ func (e *StateExecutor) exitPath(from, stop *ast.StateNode, within *ast.StateReg
 	return path
 }
 
-// transitionTo moves the active configuration from the current state to
-// targetState: exit up to the least common ancestor, run the transition effect,
-// then enter down to the target.
-func (e *StateExecutor) transitionTo(trans *lower.Transition, targetState *ast.StateNode) error {
-	return e.transitionToInto(trans, targetState, nil)
+// transitionTo moves the active configuration from the current state along r:
+// exit up to the least common ancestor, run the transition effects, then enter
+// down to the target, resolving any choice on the way once the effects into it ran.
+func (e *StateExecutor) transitionTo(trans *lower.Transition, r route) error {
+	return e.transitionToInto(trans, r, nil)
 }
 
 // transitionToInto is transitionTo with branches naming the state each
 // orthogonal region entered on the way must start in, which is how a history
 // pseudostate restores a recorded configuration rather than the initial one.
-func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
-	// Exit current state hierarchy up to LCA
+func (e *StateExecutor) transitionToInto(trans *lower.Transition, r route, branches map[*ast.StateRegion]*ast.StateNode) error {
 	currentState := e.moveOrigin()
+	return e.travel(r,
+		func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(currentState, trans, target) },
+		func(effects []lower.StateBehavior, target *ast.StateNode) error {
+			return e.moveTo(trans, currentState, effects, target, branches)
+		})
+}
+
+// moveTo finishes a move of the single active hierarchy from currentState to
+// targetState: the exits still to make, the effects, then the entries.
+func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateNode, effects []lower.StateBehavior, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
 	// The trace's source name has to be read before the move, not after it.
 	fromName := ""
 	if currentState != nil {
@@ -1528,11 +1556,8 @@ func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *a
 		return err
 	}
 
-	// Execute transition effect
-	for _, behavior := range trans.Effect {
-		if err := e.executeBehavior(behavior); err != nil {
-			return fmt.Errorf("transition effect: %w", err)
-		}
+	if err := e.runBehaviors(effects); err != nil {
+		return err
 	}
 
 	// Enter target state hierarchy from LCA
@@ -1582,11 +1607,14 @@ func (e *StateExecutor) transitionToInto(trans *lower.Transition, targetState *a
 	return nil
 }
 
-// completeIfDone completes a machine when a completion vertex is reached, or a
-// composite state whose every region started in one; an orthogonal region
-// completing does so only once its siblings completed too.
+// completeIfDone acts on what entering target completed: a composite state
+// whose body reached `done` schedules its own completion transitions, and the
+// machine completes once its own body or every top-level region has.
 func (e *StateExecutor) completeIfDone(target *ast.StateNode) error {
-	if !e.stateComplete(target) || !e.machineComplete(target) {
+	if err := e.scheduleCompletedComposites(target); err != nil {
+		return err
+	}
+	if !e.machineComplete() {
 		return nil
 	}
 	if err := e.exitMachine(); err != nil {
@@ -1597,39 +1625,70 @@ func (e *StateExecutor) completeIfDone(target *ast.StateNode) error {
 	return nil
 }
 
-// machineComplete reports whether every region concurrent with the one that
-// reached a completion vertex completed, outward to the machine's own regions.
-func (e *StateExecutor) machineComplete(target *ast.StateNode) bool {
-	region := e.graph.RegionOf[target]
-	for {
-		var owner *ast.StateNode
-		siblings := e.graph.TopRegions
-		if region != nil {
-			if regionOwner := e.graph.RegionOwner[region]; regionOwner != nil {
-				owner = regionOwner
-				siblings = e.graph.CompositeStates[regionOwner]
-			}
+// scheduleCompletedComposites schedules the completion transitions of each
+// composite state that entering target completed, in region order.
+func (e *StateExecutor) scheduleCompletedComposites(target *ast.StateNode) error {
+	var completed []*ast.StateNode
+	for _, leaf := range e.activeLeavesBelow(target) {
+		composite := e.completedComposite(leaf)
+		if composite != nil && !slices.Contains(completed, composite) {
+			completed = append(completed, composite)
 		}
-		for _, sibling := range siblings {
-			if !e.regionComplete(sibling) {
-				return false
-			}
-		}
-		if owner == nil {
-			return true
-		}
-		region = e.enclosingRegion(owner)
 	}
+	for _, composite := range completed {
+		if err := e.scheduleCompletionTransitions(composite); err != nil {
+			return fmt.Errorf("schedule completion of state %s: %w", composite.Name, err)
+		}
+	}
+	return nil
 }
 
-// regionComplete reports whether region reached its completion vertex.
+// completedComposite is the declared composite state that leaf, a completion
+// vertex just entered, completed: the nearest one enclosing it whose body is
+// now complete. It is nil when leaf completes the machine's own body or a
+// region of a state still running.
+func (e *StateExecutor) completedComposite(leaf *ast.StateNode) *ast.StateNode {
+	if !e.graph.Completes(leaf) {
+		return nil
+	}
+	for state := e.graph.ParentState[leaf]; state != nil; state = e.graph.ParentState[state] {
+		if !e.stateComplete(state) {
+			return nil
+		}
+		if !e.graph.HiddenStates[state] {
+			return state
+		}
+	}
+	return nil
+}
+
+// machineComplete reports whether the machine's own body reached `done`, or
+// every one of its top-level regions did.
+func (e *StateExecutor) machineComplete() bool {
+	if len(e.graph.TopRegions) == 0 {
+		for _, active := range e.activeStates() {
+			if e.graph.Completes(active) && e.graph.ParentState[active] == nil {
+				return true
+			}
+		}
+		return false
+	}
+	for _, region := range e.graph.TopRegions {
+		if !e.regionComplete(region) {
+			return false
+		}
+	}
+	return true
+}
+
+// regionComplete reports whether region rests at its completion vertex.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	active, ok := e.activeConfig.regionStates[region]
-	return ok && e.stateComplete(active)
+	return ok && e.graph.Completes(active)
 }
 
-// stateComplete reports whether state is a completion vertex, or a composite
-// state whose every orthogonal region completed.
+// stateComplete reports whether state's body has completed: it is a completion
+// vertex, its substate rests at its `done`, or its every orthogonal region does.
 func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 	if state == nil {
 		return false
@@ -1639,6 +1698,11 @@ func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 	}
 	regions := e.graph.CompositeStates[state]
 	if len(regions) == 0 {
+		for _, active := range e.activeStates() {
+			if e.graph.ParentState[active] == state && e.graph.Completes(active) {
+				return true
+			}
+		}
 		return false
 	}
 	for _, region := range regions {
@@ -1647,6 +1711,16 @@ func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 		}
 	}
 	return true
+}
+
+// bodyRunning reports whether a state nested in state is active.
+func (e *StateExecutor) bodyRunning(state *ast.StateNode) bool {
+	for _, active := range e.activeStates() {
+		if active != state && e.nestedIn(active, state) {
+			return true
+		}
+	}
+	return false
 }
 
 // isSynchronizationTarget reports whether a transition target is a pseudostate
@@ -1704,11 +1778,34 @@ func (e *StateExecutor) recordHistory(state *ast.StateNode) *historyRecord {
 	return record
 }
 
-// recordRegionHistory remembers the state a region was left in, so a history
-// pseudostate of the state owning the region restores it.
+// historyRecorded reports whether state was left in a configuration its history
+// restores; a record emptied by completion holds none.
+func (e *StateExecutor) historyRecorded(state *ast.StateNode) bool {
+	record := e.history[state]
+	return record != nil && (record.child != nil || len(record.regions) > 0)
+}
+
+// recordChildHistory remembers the substate parent was left in for its history;
+// a body left at `done` completed, and a completed configuration leaves none.
+func (e *StateExecutor) recordChildHistory(parent, state *ast.StateNode) {
+	if e.graph.Completes(state) {
+		if record := e.history[parent]; record != nil {
+			record.child = nil
+		}
+		return
+	}
+	e.recordHistory(parent).child = state
+}
+
+// recordRegionHistory remembers the state a region was left in for the owning
+// state's history; a region left at `done` completed and is forgotten.
 func (e *StateExecutor) recordRegionHistory(region *ast.StateRegion, state *ast.StateNode) {
 	owner := e.graph.RegionOwner[region]
 	if owner == nil {
+		return
+	}
+	if e.graph.Completes(state) {
+		e.forgetRegionHistory(region)
 		return
 	}
 	record := e.recordHistory(owner)
@@ -1734,16 +1831,24 @@ func (e *StateExecutor) forgetRegionHistory(region *ast.StateRegion) {
 // composite state that owns it is re-entered in the configuration it was last
 // left in. Before the state has ever been exited there is nothing to restore, so
 // the history's own outgoing transition supplies the default target, as UML's
-// default history transition does (UML is the reference: no SysML v2 notation).
+// default history transition does (UML is the reference: no SysML v2 notation);
+// without one the owner is entered as any transition into it would enter it,
+// through its entry transitions.
 //
 // A shallow history restores the substate that was active; a deep history keeps
 // descending, restoring the innermost one.
-func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast.PseudostateNode, route *ast.StateNode) error {
-	target, branches, err := e.historyEntry(hist, route)
+func (e *StateExecutor) fireHistoryTransition(trans *lower.Transition, hist *ast.PseudostateNode, r route) error {
+	// A default transition open at a choice restores nothing: it is taken as any
+	// compound transition is.
+	if r.choice != nil {
+		return e.transitionToInto(trans, r, nil)
+	}
+	target, branches, err := e.historyEntry(hist, r.target)
 	if err != nil {
 		return err
 	}
-	return e.transitionToInto(trans, target, branches)
+	r.target = target
+	return e.transitionToInto(trans, r, branches)
 }
 
 // historyEntry is the state a history transition enters and the branch each region
@@ -1753,14 +1858,18 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 	if !ok || owner == nil {
 		return nil, nil, fmt.Errorf("history %s must be declared inside the composite state it restores", hist.Name)
 	}
-	record := e.history[owner]
-	if record == nil {
-		if route == nil {
-			return nil, nil, fmt.Errorf("history %s has no default transition and %s has no recorded configuration", hist.Name, owner.Name)
+	if !e.historyRecorded(owner) {
+		if route != nil {
+			return route, nil, nil
 		}
-		return route, nil, nil
+		if !e.hasDefaultEntry(owner) {
+			return nil, nil, fmt.Errorf("%w: history %s has no default transition, %s has no recorded configuration and declares no entry transition",
+				ErrHistoryWithoutEntry, hist.Name, owner.Name)
+		}
+		return owner, nil, nil
 	}
 
+	record := e.history[owner]
 	deep := hist.Kind == ast.PseudostateDeepHistory
 	branches := make(map[*ast.StateRegion]*ast.StateNode)
 
@@ -1781,13 +1890,25 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 	}
 
 	target := record.child
-	if target == nil {
-		return nil, nil, fmt.Errorf("history %s: no substate of %s was recorded", hist.Name, owner.Name)
-	}
 	if deep {
 		target = e.deepestRecorded(target, branches)
 	}
 	return target, branches, nil
+}
+
+// hasDefaultEntry reports whether entering state with no branch chosen has a
+// state to start in: an entry transition of its body, or of each of its regions.
+func (e *StateExecutor) hasDefaultEntry(state *ast.StateNode) bool {
+	regions, orthogonal := e.graph.CompositeStates[state]
+	if !orthogonal {
+		return len(e.graph.StartOf(state)) > 0
+	}
+	for _, region := range regions {
+		if e.graph.RegionState[region] == nil && len(e.graph.StartOf(region)) == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // deepestRecorded follows the configuration recorded below state and returns the
@@ -1895,12 +2016,12 @@ func (e *StateExecutor) forkPlan(fork *ast.PseudostateNode) (map[*ast.StateRegio
 // fireJoinTransition takes a transition into a join, reporting whether the join
 // fired. It only fires once every one of its incoming branches has an active
 // source state, still, as it fires; until then the completed branch simply waits.
-func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.PseudostateNode, route *ast.StateNode) (bool, error) {
+func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.PseudostateNode, r route) (bool, error) {
 	sources, err := e.joinSources(join)
 	if err != nil {
 		return false, err
 	}
-	if route == nil || !e.allActive(sources) {
+	if !r.settled() || !e.allActive(sources) {
 		return false, nil
 	}
 
@@ -1915,7 +2036,7 @@ func (e *StateExecutor) fireJoinTransition(trans *lower.Transition, join *ast.Ps
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.simpleState = owner
 
-	return true, e.transitionTo(trans, route)
+	return true, e.transitionTo(trans, r)
 }
 
 // joinOwner is the composite state whose regions the sources of a join lie in.
@@ -2112,8 +2233,9 @@ func (e *StateExecutor) run(atCurrentTime bool) error {
 	return e.runCounting(atCurrentTime, &progress)
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) error {
+func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	wasRunning := e.inRun
 	e.inRun = true
 	defer func() { e.inRun = wasRunning }()
@@ -2346,7 +2468,10 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		if len(due) == 0 {
 			break
 		}
-		next := e.chooseDoAction(due)
+		next, err := e.chooseDoAction(due)
+		if err != nil {
+			return ran, err
+		}
 		act := due[next]
 		due = slices.Delete(due, next, next+1)
 		if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
@@ -2419,19 +2544,21 @@ func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatch
 }
 
 // exitedBy lists the states firing the candidate's chosen transition along its
-// route exits, as fireFrom exits them; false where the firing would fail.
+// route exits, or may exit while the route is open at a choice, as fireFrom exits
+// them; false where the firing would fail.
 func (e *StateExecutor) exitedBy(candidate dispatchCandidate) ([]*ast.StateNode, bool) {
-	trans, route := candidate.chosen, candidate.route
+	trans, r := candidate.chosen, candidate.route
 	if ps, ok := trans.Target.(*ast.PseudostateNode); ok && isSynchronizationTarget(ps) {
-		return e.exitedBySynchronization(trans, ps, route)
+		return e.exitedBySynchronization(trans, ps, r)
 	}
-	if route == nil {
+	if !r.settled() {
 		return nil, false
 	}
 	if region := e.activeRegionOf(candidate.source); region != nil {
-		return e.exitedInRegion(region, trans, route), true
+		return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) })
 	}
-	return e.exitedByMove(e.moveOrigin(), trans, route), true
+	origin := e.moveOrigin()
+	return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
 }
 
 // exitedInRegion lists the states a transition out of region's active state exits
@@ -2460,7 +2587,7 @@ func (e *StateExecutor) exitedInRegion(region *ast.StateRegion, trans *lower.Tra
 
 // exitedBySynchronization lists the states a transition into a fork, join or
 // history exits, as fireTransition exits them; a join not yet synchronized exits none.
-func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast.PseudostateNode, route *ast.StateNode) ([]*ast.StateNode, bool) {
+func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast.PseudostateNode, r route) ([]*ast.StateNode, bool) {
 	switch ps.Kind {
 	case ast.PseudostateFork:
 		_, owner, err := e.forkPlan(ps)
@@ -2470,21 +2597,26 @@ func (e *StateExecutor) exitedBySynchronization(trans *lower.Transition, ps *ast
 		exited := slices.Clone(e.orderedRegionStates())
 		return append(exited, e.exitPath(e.getCurrentState(), owner, nil)...), true
 	case ast.PseudostateJoin:
-		if route == nil {
+		if !r.settled() {
 			return nil, true
 		}
 		sources, err := e.joinSources(ps)
 		if err != nil {
 			return nil, false
 		}
-		exited := slices.Clone(sources)
-		return append(exited, e.exitedByMove(e.joinOwner(sources), trans, route)...), true
+		owner := e.joinOwner(sources)
+		beyond, ok := e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(owner, trans, target) })
+		return append(slices.Clone(sources), beyond...), ok
 	default:
-		target, _, err := e.historyEntry(ps, route)
+		origin := e.moveOrigin()
+		if r.choice != nil {
+			return e.mayExit(r, func(target *ast.StateNode) []*ast.StateNode { return e.exitedByMove(origin, trans, target) })
+		}
+		target, _, err := e.historyEntry(ps, r.target)
 		if err != nil {
 			return nil, false
 		}
-		return e.exitedByMove(e.moveOrigin(), trans, target), true
+		return e.exitedByMove(origin, trans, target), true
 	}
 }
 
@@ -2536,9 +2668,12 @@ func (e *StateExecutor) settleDoActions() error {
 	}
 	e.doActions = kept
 
-	// A state completes once its do behavior has finished, which is when its
-	// completion transitions become eligible.
+	// A state completes once its do behavior has finished and its body, where
+	// it runs one, has reached `done`; completeIfDone schedules the latter case.
 	for _, state := range finished {
+		if e.bodyRunning(state) && !e.stateComplete(state) {
+			continue
+		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
 			return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
 		}
@@ -2547,21 +2682,22 @@ func (e *StateExecutor) settleDoActions() error {
 }
 
 // chooseDoAction resolves which of the do behaviors due in a round acts next: the
-// policy draws the pick and, with several due, the choice is reported.
-func (e *StateExecutor) chooseDoAction(due []*doAction) int {
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(due))
+// policy draws the pick and, with several due, the choice is reported; a replay
+// that cannot follow its witness here is its refusal, and none acts.
+func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if len(due) < 2 {
-		return pick
+		return 0, nil
 	}
 	states := make([]*ast.StateNode, len(due))
 	for i, act := range due {
 		states[i] = act.state
 	}
-	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states, pick)
-	scheduling.describe(choice)
+	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states)
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return 0, err
+	}
 	e.ctx.noteChoice(choice)
-	return pick
+	return choice.Taken, nil
 }
 
 // isRunningDoAction reports whether a do action is still registered, which it
@@ -2896,8 +3032,9 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 }
 
 // initialize sets current state to initial state and enters it.
-func (e *StateExecutor) initialize() error {
+func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
 	// A machine without orthogonal regions of its own starts in the state its
@@ -3272,7 +3409,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 		e.recordRegionHistory(region, regionState)
 	}
 	if parent := e.graph.ParentState[state]; parent != nil {
-		e.recordHistory(parent).child = state
+		e.recordChildHistory(parent, state)
 	}
 
 	// Exit the active state of each of this state's regions, in declaration order.
@@ -3293,6 +3430,14 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 				}
 			}
 		}
+	}
+
+	if e.leftAhead[state] {
+		e.activeConfig.simpleState = nil
+		return nil
+	}
+	if e.exitingAhead {
+		e.leftAhead[state] = true
 	}
 
 	// Leaving the state abandons whatever is left of its do behavior, before the
@@ -3549,8 +3694,9 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // dispatch succeeds — the completion transition it enables is queued next.
 // With nothing due but a timer running, the shared clock advances to the earliest
 // wait (running whatever else is due there) until this machine's next event is due.
-func (e *StateExecutor) ProcessNextEvent() error {
+func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
 	var progress dueProgress
@@ -3584,6 +3730,14 @@ func (e *StateExecutor) ProcessNextEvent() error {
 		if err := e.awaitClock(&progress); err != nil {
 			return err
 		}
+	}
+}
+
+// completedWhole makes a call of its own run that completed the machine return
+// the refusal of the witness moves left over, when the call itself did not fail.
+func (e *StateExecutor) completedWhole(err *error) {
+	if *err == nil && e.state == StateCompleted {
+		*err = e.ctx.endedWhole(&e.driven)
 	}
 }
 
@@ -3622,8 +3776,9 @@ func (e *StateExecutor) HasPendingWork() bool {
 
 // RunDoRound advances every active state's do behavior by one action, without
 // dispatching any event, and reports how many actions ran.
-func (e *StateExecutor) RunDoRound() (int, error) {
+func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	return e.runDoRound()
 }
