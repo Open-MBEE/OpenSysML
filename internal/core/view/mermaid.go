@@ -37,6 +37,7 @@ func (r *Rendering) MermaidDirected(direction Direction) string {
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
+	r.writeGeometryComments(&b)
 	switch r.Kind {
 	case KindState:
 		r.writeStateDiagram(&b, direction)
@@ -47,6 +48,52 @@ func (r *Rendering) MermaidDirected(direction Direction) string {
 	}
 	r.writeFlowchart(&b, direction)
 	return b.String()
+}
+
+// writeGeometryComments writes the canvas, node placements and edge routes as
+// comments, which Mermaid lays out without: the geometry stays readable in the
+// file rather than being dropped.
+func (r *Rendering) writeGeometryComments(b *strings.Builder) {
+	if c := r.Canvas; c != nil {
+		b.WriteString("%% canvas:")
+		if c.Unit != "" {
+			b.WriteString(" unit=" + c.Unit)
+		}
+		if c.Width != 0 || c.Height != 0 {
+			fmt.Fprintf(b, " w=%s h=%s", formatCoord(c.Width), formatCoord(c.Height))
+		}
+		b.WriteString("\n")
+	}
+	for _, root := range r.Roots {
+		writeLayoutComments(b, root)
+	}
+	for _, edge := range r.Edges {
+		if len(edge.Route) == 0 {
+			continue
+		}
+		fmt.Fprintf(b, "%%%% route: %s->%s", edge.From, edge.To)
+		for _, p := range edge.Route {
+			fmt.Fprintf(b, " %s,%s", formatCoord(p.X), formatCoord(p.Y))
+		}
+		b.WriteString("\n")
+	}
+}
+
+// writeLayoutComments writes the placement of node and of the nodes under it.
+func writeLayoutComments(b *strings.Builder, node *Node) {
+	if g := node.Geometry; g != nil {
+		fmt.Fprintf(b, "%%%% layout: %s x=%s y=%s", node.ID, formatCoord(g.X), formatCoord(g.Y))
+		if g.HasSize {
+			fmt.Fprintf(b, " w=%s h=%s", formatCoord(g.Width), formatCoord(g.Height))
+		}
+		if g.Collapsed {
+			b.WriteString(" collapsed")
+		}
+		b.WriteString("\n")
+	}
+	for _, child := range node.Children {
+		writeLayoutComments(b, child)
+	}
 }
 
 // writeFlowchart writes the tree, interconnection and action renderings as a

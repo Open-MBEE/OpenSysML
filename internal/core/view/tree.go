@@ -13,11 +13,12 @@ const maxTreeDepth = 16
 
 // renderTree renders the exposed elements as a containment tree: each element
 // with its kind and name, the elements declared in it beneath it, and each view
-// nested in the rendered view as a subtree of its own.
+// nested in the rendered view as a subtree of its own. Each node is placed by
+// the Layout that positions its element in the view it is shown under.
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	for _, elem := range exposed {
-		out.Roots = append(out.Roots, r.treeNode(elem, ids, map[*symbols.Symbol]bool{}, 0, true))
+		out.Roots = append(out.Roots, r.treeNode(view, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
 }
@@ -36,11 +37,12 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 			continue
 		}
 		rendered[sub] = true
-		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), Detail: declType(sub), Origin: symbolOrigin(sub)}
+		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), Detail: declType(sub), Origin: symbolOrigin(sub),
+			Geometry: r.geometryOf(view, sub, out)}
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
 			for _, elem := range exposed {
-				node.Children = append(node.Children, r.treeNode(elem, ids, map[*symbols.Symbol]bool{}, 0, true))
+				node.Children = append(node.Children, r.treeNode(sub, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 			}
 		}
 		node.Children = append(node.Children, r.nestedViewNodes(sub, ids, rendered, out)...)
@@ -54,13 +56,15 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 
 // treeNode renders one element and what it declares. qualified names the node by
 // qualified name, which is what an exposed element is reported by; a member
-// nested in it is named as it was declared.
-func (r *Renderer) treeNode(sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool) *Node {
+// nested in it is named as it was declared. view is the view the element is
+// shown in, nil outside any view.
+func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols.Symbol]bool, depth int, qualified bool, out *Rendering) *Node {
 	name := r.notationName(sym)
 	if !qualified {
 		name = notationName(simpleName(r.fqn(sym)))
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym)}
+	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Detail: declType(sym), Origin: symbolOrigin(sym),
+		Geometry: r.geometryOf(view, sym, out)}
 	if seen[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
@@ -73,7 +77,7 @@ func (r *Renderer) treeNode(sym *symbols.Symbol, ids *nodeIDs, seen map[*symbols
 	}
 	seen[sym] = true
 	for _, member := range containedMembers(sym) {
-		node.Children = append(node.Children, r.treeNode(member, ids, seen, depth+1, false))
+		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
 	}
 	return node
 }

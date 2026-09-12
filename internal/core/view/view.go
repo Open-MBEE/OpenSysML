@@ -184,6 +184,9 @@ type Node struct {
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
+	// Geometry is where the element is drawn, from the Layout annotation that
+	// positions it in this view; nil leaves the placement to the writer.
+	Geometry *Geometry
 }
 
 // Edge joins two nodes of a rendering.
@@ -198,6 +201,9 @@ type Edge struct {
 	// Origin is where the connection, transition, succession or flow was
 	// declared, the zero Origin for one with no locatable declaration.
 	Origin Origin
+	// Route is the waypoints the edge follows, from the Route annotation of the
+	// element it was declared as; empty leaves the routing to the writer.
+	Route []Point
 }
 
 // Rendering is what a view renders to: the nodes and edges of one artifact,
@@ -224,6 +230,9 @@ type Rendering struct {
 	Rows [][]string
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
+	// Canvas is the drawing surface the view states, nil for a view stating
+	// none.
+	Canvas *Canvas
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -254,11 +263,11 @@ func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
 	case KindTree:
 		r.renderTree(view, exposed, out)
 	case KindInterconnection:
-		r.renderInterconnection(exposed, out)
+		r.renderInterconnection(view, exposed, out)
 	case KindState:
-		r.renderStates(exposed, out)
+		r.renderStates(view, exposed, out)
 	case KindAction:
-		r.renderActions(exposed, out)
+		r.renderActions(view, exposed, out)
 	case KindTable:
 		r.renderTable(view, exposed, out)
 	case KindSequence:
@@ -266,6 +275,11 @@ func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
 	default:
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
+	}
+	switch kind {
+	case KindTree, KindInterconnection, KindState, KindAction:
+		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
+		out.Canvas = r.canvasOf(view, out)
 	}
 	return out, nil
 }
@@ -281,11 +295,11 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 	case KindTree:
 		r.renderTree(nil, exposed, out)
 	case KindInterconnection:
-		r.renderInterconnection(exposed, out)
+		r.renderInterconnection(nil, exposed, out)
 	case KindState:
-		r.renderStates(exposed, out)
+		r.renderStates(nil, exposed, out)
 	case KindAction:
-		r.renderActions(exposed, out)
+		r.renderActions(nil, exposed, out)
 	case KindTable:
 		r.renderTable(nil, exposed, out)
 	case KindSequence:
