@@ -1,0 +1,6 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::run",
+	"error": "action node hold: declaration of x: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1"
+}

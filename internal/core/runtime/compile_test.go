@@ -56,6 +56,9 @@ package test {
 	calc def Twice { in n : Integer; out a = n * 2; }
 	calc def UsesUsage { in k : Integer; calc tw : Twice { in n = k; } return : Integer = tw.a; }
 	calc def Local { in k : Integer; attribute m = k * 2; return : Integer = m; }
+	calc def LocalPos { in k : Integer; attribute p : Positive = k - 1; return : Integer = p; }
+	enum def Level :> Integer { low = 1; high = 3; }
+	calc def LocalEnum { in k : Integer; attribute l : Level = k; return : Integer = l + 0; }
 	calc def Stringy { in k : Integer; return : String = "x"; }
 	calc def NonLiteralDefault { in a : Integer; in b : Integer = a + 1; return : Integer = a + b; }
 	calc def Collects { in k : Integer; return r = (1, 2, k)->size(); }
@@ -244,6 +247,10 @@ func TestCompiledCalcErrorParity(t *testing.T) {
 	wantErrorIs(t, "Positive1", wantSameOutcome(t, "Positive1", intArg(1)), ErrTypeMismatch)
 	wantOutcomeInt(t, "TailPos(2)", wantSameOutcome(t, "TailPos", intArg(2)), 1)
 	wantErrorIs(t, "TailPos", wantSameOutcome(t, "TailPos", intArg(1)), ErrTypeMismatch)
+	wantOutcomeInt(t, "LocalPos(3)", wantSameOutcome(t, "LocalPos", intArg(3)), 2)
+	wantErrorIs(t, "LocalPos", wantSameOutcome(t, "LocalPos", intArg(1)), ErrTypeMismatch)
+	wantOutcomeInt(t, "LocalEnum(3)", wantSameOutcome(t, "LocalEnum", intArg(3)), 3)
+	wantErrorIs(t, "LocalEnum", wantSameOutcome(t, "LocalEnum", intArg(2)), ErrTypeMismatch)
 	realForInt := wantSameOutcome(t, "Add", realArg(1.5), intArg(1))
 	wantErrorIs(t, "Add", realForInt, ErrTypeMismatch)
 	wantOutcomeReal(t, "SameReal(Inf)", wantSameOutcome(t, "SameReal", realArg(math.Inf(1))), math.Inf(1))
@@ -327,13 +334,13 @@ func eligibility(t *testing.T, ctx *Context, scope *symbols.Scope, name string) 
 // locals, named calls included; a caller of an ineligible calc is ineligible too.
 func TestCompiledCalcEligibility(t *testing.T) {
 	scope, ctx := compileRuntime(t, true)
-	eligible := []string{"Fib", "SumTo", "Add", "Div", "Pow", "Mixed", "Less", "Same", "Not", "Least", "Dflt", "Natural1", "Positive1", "TailPos", "IsEven", "IsOdd", "Nested", "Tail", "TailNat", "Untyped", "Inherits", "Local", "NamedCall", "Redeclares"}
+	eligible := []string{"Fib", "SumTo", "Add", "Div", "Pow", "Mixed", "Less", "Same", "Not", "Least", "Dflt", "Natural1", "Positive1", "TailPos", "IsEven", "IsOdd", "Nested", "Tail", "TailNat", "Untyped", "Inherits", "Local", "LocalPos", "NamedCall", "Redeclares"}
 	for _, name := range eligible {
 		if !eligibility(t, ctx, scope, name) {
 			t.Errorf("%s is ineligible, want eligible", name)
 		}
 	}
-	ineligible := []string{"UsesUsage", "Stringy", "NonLiteralDefault", "Collects", "CallsIneligible", "CycleA", "CycleB", "Twice", "WithOut", "UnknownName", "ReceiverNamed"}
+	ineligible := []string{"UsesUsage", "Stringy", "NonLiteralDefault", "Collects", "CallsIneligible", "CycleA", "CycleB", "Twice", "WithOut", "UnknownName", "ReceiverNamed", "LocalEnum"}
 	for _, name := range ineligible {
 		if eligibility(t, ctx, scope, name) {
 			t.Errorf("%s is eligible, want ineligible", name)

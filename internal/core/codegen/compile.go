@@ -355,6 +355,17 @@ func (fc *funcCompiler) uniqueOf(scope *symbols.Scope, u *ast.Usage, name string
 	return false, fc.unsupported(fmt.Sprintf("%s: the declaration does not resolve in its scope", name))
 }
 
+// inheritsShape reports a usage redefining or subsetting another feature, whose type,
+// multiplicity and uniqueness it may take from that feature rather than state.
+func inheritsShape(u *ast.Usage) bool {
+	for _, r := range u.Relationships {
+		if r != nil && (r.Kind == ast.RelRedefines || r.Kind == ast.RelSubsets) {
+			return true
+		}
+	}
+	return false
+}
+
 func hasTyping(u *ast.Usage) bool {
 	for _, r := range u.Relationships {
 		if r != nil && r.Kind == ast.RelTyping {
@@ -555,6 +566,14 @@ func (fc *funcCompiler) compileStmt(s lower.Statement) (Stmt, error) {
 func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 	u, _ := s.Node.(*ast.Usage)
 	var declared binding
+	if u != nil && inheritsShape(u) {
+		return nil, fc.unsupported(fmt.Sprintf("attribute %s redefines or subsets a feature, inheriting a shape it does not state", s.Name))
+	}
+	// An omitted multiplicity keeps the initializer's count; a stated one is checked.
+	multStated := false
+	if u != nil {
+		_, multStated = fc.c.model.RangeOf(u.Multiplicity)
+	}
 	if u != nil && hasTyping(u) {
 		typ, err := fc.typingOf(s.Scope, u, s.Name)
 		if err != nil {
@@ -595,10 +614,22 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		if v.Type().Many() {
 			declared.m = MultOne
 		}
+		if u != nil && multStated && !v.Type().Many() {
+			m, err := fc.multOf(u, s.Name)
+			if err != nil {
+				return nil, err
+			}
+			if m.Lower > 1 || m.Upper == 0 {
+				return nil, fc.unsupported(fmt.Sprintf("attribute %s declares no type and a multiplicity one value cannot satisfy", s.Name))
+			}
+		}
 		if u != nil && v.Type().Many() {
 			m, err := fc.multOf(u, s.Name)
 			if err != nil {
 				return nil, err
+			}
+			if multStated {
+				declared.m = m
 			}
 			if m != MultOne {
 				if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
@@ -611,12 +642,19 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		declared.t = declared.t.Seq()
 		fc.c.collections = true
 	}
-	init, err := fc.bind(v, binding{t: declared.t, m: MultAny, unique: declared.unique}, "", "declaration of "+s.Name)
+	checked := binding{t: declared.t, r: declared.r, m: MultAny, unique: declared.unique}
+	if multStated {
+		checked.m = declared.m
+	}
+	init, err := fc.bind(v, checked, "", "declaration of "+s.Name)
 	if err != nil {
 		return nil, fc.unsupported(fmt.Sprintf("a %s bound to %s, which is %s", v.Type(), s.Name, declared.t))
 	}
 	fc.env.bind(s.Name, declared)
-	return []Stmt{Declare{Name: s.Name, T: declared.t, Init: init}}, nil
+	if declared.t.Many() {
+		return []Stmt{Declare{Name: s.Name, T: declared.t, Init: init}}, nil
+	}
+	return []Stmt{Declare{Name: s.Name, T: declared.t, Range: declared.r, Init: init}}, nil
 }
 
 func (fc *funcCompiler) compileLoop(s lower.Loop) (Stmt, error) {

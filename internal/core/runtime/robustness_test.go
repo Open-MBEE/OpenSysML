@@ -314,6 +314,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("routed_send_receiver_name_mismatch_deadlock", testRoutedSendReceiverNameMismatchDeadlock)
 	t.Run("type_classification_unresolved_type", testTypeClassificationUnresolvedType)
 	t.Run("two_valued_member_in_scalar_context", testTwoValuedMemberInScalarContext)
+	t.Run("body_local_outside_its_declaration", testBodyLocalOutsideItsDeclaration)
 	t.Run("type_classification_undetermined_value_type", testTypeClassificationUndeterminedValueType)
 	t.Run("cast_to_an_unresolved_type", testCastToAnUnresolvedType)
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
@@ -4712,6 +4713,54 @@ func testTwoValuedMemberInScalarContext(t *testing.T) {
 				}
 			case <-time.After(5 * time.Second):
 				t.Fatal("evaluating the two-valued member did not terminate")
+			}
+		})
+	}
+}
+
+// testBodyLocalOutsideItsDeclaration: a body-local whose run-time value falls
+// outside its declared type, multiplicity or uniqueness is refused with a typed
+// error where it is declared - in the evaluator and, where eligible, in the
+// compiled tier alike - rather than computed with, hung on or panicked over.
+func testBodyLocalOutsideItsDeclaration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+		want error
+	}{
+		{"enumeration extent", "attribute l : Level = n; return : Integer = l + 0;", ErrTypeMismatch},
+		{"scalar subtype", "attribute p : Positive = n - 3; return : Integer = p;", ErrTypeMismatch},
+		{"stated multiplicity", "attribute xs : Integer[2] = (n, n + 1, n + 2); return : Integer = SequenceFunctions::size(xs);", ErrMultiplicityViolation},
+		{"uniqueness", "attribute xs : Integer[*] = (n, n + 1, n); return : Integer = SequenceFunctions::size(xs);", ErrUniquenessViolation},
+		{"nested block", "attribute r : Integer = 0; if n > 0 { attribute l : Level = n; assign r := l; } return : Integer = r;", ErrTypeMismatch},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+				private import ScalarValues::*;
+				enum def Level :> Integer { low = 1; high = 3; }
+				calc def Body { in n : Integer; ` + tc.body + ` }
+			}`
+			idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+			pkg := resolveSymbol(t, idx.DocumentRoot("<test>"), "test")
+			sym := resolveSymbol(t, pkg.Scope, "Body")
+
+			done := make(chan error, 1)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						done <- fmt.Errorf("panic: %v", r)
+					}
+				}()
+				_, err := ctx.InvokeCalc(sym, []Value{constInt(2)}, pkg.Scope)
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				if !errors.Is(err, tc.want) {
+					t.Errorf("InvokeCalc err = %v, want %v", err, tc.want)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("declaring the body-local did not terminate")
 			}
 		})
 	}

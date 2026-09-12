@@ -1,0 +1,6 @@
+{
+	"libraries": true,
+	"type": "constraint",
+	"evaluate": "test::refused",
+	"error": "feature value test::Same::xs: uniqueness violation: 1 (an Integer) is written at positions 1 and 2 of a unique feature"
+}

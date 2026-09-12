@@ -1,0 +1,6 @@
+{
+	"libraries": true,
+	"type": "constraint",
+	"evaluate": "test::refused",
+	"error": "feature value test::Tight::l: type mismatch: cannot write 2 (an Integer) to a feature typed by Level"
+}
