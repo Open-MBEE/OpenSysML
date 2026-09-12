@@ -35,10 +35,11 @@ type CheckOptions struct {
 }
 
 // CheckProperty is a property evaluated at every stable state of a check: a
-// requirement or constraint, false at a state being a violation.
+// requirement or constraint, false at a state being a violation. Holds is asked
+// in the check's context of the executor the check runs.
 type CheckProperty struct {
 	Name  string
-	Holds func(*Context) (bool, error)
+	Holds func(*Context, *ActionExecutor) (bool, error)
 }
 
 // ActionStarter builds and starts the action executor a check runs, in the
@@ -576,7 +577,7 @@ func (c *checker) properties(depth int) {
 // derives is given back.
 func (c *checker) evaluate(p CheckProperty) (bool, error) {
 	defer c.ctx.beginProbe()()
-	return p.Holds(c.ctx)
+	return p.Holds(c.ctx, c.exec)
 }
 
 // final records the outcome of a complete schedule, the first schedule

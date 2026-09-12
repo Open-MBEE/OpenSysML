@@ -110,7 +110,7 @@ package OpenSysMLInvariants {
         subject framework : AnalysisFramework;
         require constraint {
             framework.registry.perOwner and framework.registry.refusesDuplicateNames
-                and framework.registry.engineCount == 4
+                and framework.registry.engineCount == 5
                 and framework.dispatch.strongestFirst and framework.dispatch.advancesOnNotCovered
                 and framework.dispatch.stopsOnFault and framework.dispatch.recordsEveryStep
                 and framework.dispatch.defaultSelection == "auto"

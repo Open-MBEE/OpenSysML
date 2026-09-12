@@ -217,6 +217,10 @@ func (p SchedulePolicy) Exploration() (ExploreBudget, bool) {
 	return p.budget, p.kind == scheduleExplore
 }
 
+// Replays reports whether the policy follows a witness: a run under it is one
+// fixed schedule, which a debugger steps as any other.
+func (p SchedulePolicy) Replays() bool { return p.kind == scheduleReplay }
+
 // start begins the sequence of resolutions one run draws under the policy.
 func (p SchedulePolicy) start() *scheduler {
 	s := &scheduler{policy: p}

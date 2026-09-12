@@ -417,6 +417,23 @@ func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	if named := analysis.ParseSelection(names[0]); named.Mode != analysis.SelectNamed || named.String() != names[0] {
 		t.Errorf("a selection naming %s parses as %+v", names[0], named)
 	}
+	// The candidates each kind of question has in the default registry, in name order.
+	declaring := map[analysis.Kind]int{}
+	for _, e := range engines {
+		for _, kind := range e.Describe().Questions {
+			declaring[kind]++
+		}
+	}
+	var perKind []string
+	for k := analysis.Evaluate; k.String() != "unknown"; k++ {
+		if declaring[k] > 0 {
+			perKind = append(perKind, k.String()+": "+strconv.Itoa(declaring[k]))
+		}
+	}
+	sort.Strings(perKind)
+	if declared, actual := dispatch.str("candidatesPerKind"), strings.Join(perKind, ", "); declared != actual {
+		t.Errorf("pipeline.sysml says candidatesPerKind = %q, the default registry has %q", declared, actual)
+	}
 
 	// The budget's fields and the jobs setting behind one of them.
 	budget := parts["budget"]
@@ -527,9 +544,9 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 
 // TestSelfModelQuestionFlowFollowsDispatcher runs the modelled question flow
 // as the dispatcher behaves: the engines consulted are the ones declaring the
-// question's kind — one per kind in the default registry, which the flow's
-// default `candidates` states — and every one of them lands in the plan as a
-// step under `all`, while `auto` stops at the first that concludes.
+// question's kind — the flow's default `candidates` is the count every kind but
+// outcomes has in the default registry — and every one of them lands in the plan
+// as a step under `all`, while `auto` stops at the first that concludes.
 func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	engines := analysis.Default().Engines()
 	declaring := map[analysis.Kind]int{}
@@ -540,9 +557,15 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 	}
 	flow := selfModelFlow(t, "AnswerQuestion", nil)
 	for kind, count := range declaring {
+		if kind == analysis.Outcomes {
+			continue
+		}
 		if declared := flow.integer("candidates"); declared != count {
 			t.Errorf("behavior.sysml says AnswerQuestion.candidates = %d, %d default engines declare %s", declared, count, kind)
 		}
+	}
+	if declaring[analysis.Outcomes] != 2 {
+		t.Errorf("%d default engines declare outcomes, the model states two (explore over check)", declaring[analysis.Outcomes])
 	}
 
 	cases := []struct {

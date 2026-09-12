@@ -15,11 +15,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// checkedAction is the fixture's action as a check starts it, with every executor
-// it started by the context it lives in, so a property can read the action's features.
+// checkedAction is the fixture's action as a check starts it.
 type checkedAction struct {
-	sym   *symbols.Symbol
-	execs sync.Map
+	sym *symbols.Symbol
 }
 
 func (f *fixture) checked(t *testing.T, name string) *checkedAction {
@@ -28,22 +26,13 @@ func (f *fixture) checked(t *testing.T, name string) *checkedAction {
 }
 
 func (a *checkedAction) start(ctx *runtime.Context) (*runtime.ActionExecutor, error) {
-	exec, err := ctx.CreateActionExecutor(a.sym)
-	if err != nil {
-		return nil, err
-	}
-	a.execs.Store(ctx, exec)
-	return exec, nil
+	return ctx.CreateActionExecutor(a.sym)
 }
 
 // x is the property that the action's x is at most limit.
 func (a *checkedAction) x(limit int64) runtime.CheckProperty {
-	return runtime.CheckProperty{Name: "x", Holds: func(ctx *runtime.Context) (bool, error) {
-		exec, ok := a.execs.Load(ctx)
-		if !ok {
-			return false, errors.New("no executor started in this context")
-		}
-		x, ok := exec.(*runtime.ActionExecutor).Results()["x"]
+	return runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+		x, ok := exec.Results()["x"]
 		if !ok || x.Kind != runtime.ValConst {
 			return false, errors.New("x holds no value")
 		}
@@ -334,7 +323,7 @@ func TestCheckTakesTheBudgetsDepthAndRuns(t *testing.T) {
 func TestCheckStopsAtThePlansDeadline(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
-	slow := runtime.CheckProperty{Name: "slow", Holds: func(*runtime.Context) (bool, error) {
+	slow := runtime.CheckProperty{Name: "slow", Holds: func(*runtime.Context, *runtime.ActionExecutor) (bool, error) {
 		time.Sleep(20 * time.Millisecond)
 		return true, nil
 	}}

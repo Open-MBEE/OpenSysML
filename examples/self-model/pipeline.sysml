@@ -536,6 +536,17 @@ package OpenSysMLPipeline {
         attribute :>> adapts = "runtime.ExploreWith";
     }
 
+    // Every schedule of one action, one token advancing one node at a time, under
+    // static partial-order reduction; bounded within its depth and states, never proved.
+    part def CheckEngine :> AnalysisEngine {
+        attribute :>> engineName = "check";
+        attribute :>> answers = "outcomes, holds";
+        attribute :>> bounds = "depth, states, deadline, steps, elements, behaviors";
+        attribute :>> authority = "bounded";
+        attribute :>> replays = true;
+        attribute :>> adapts = "runtime.CheckAction";
+    }
+
     // One run per row of a domain, on the surface's own context.
     part def SweepEngine :> AnalysisEngine {
         attribute :>> engineName = "sweep";
@@ -578,8 +589,8 @@ package OpenSysMLPipeline {
     // The engines one binary knows, held by their owner rather than in a global.
     part def EngineRegistry :> CodeUnit {
         attribute :>> goPackage = "internal/core/analysis";
-        attribute engineCount : Integer = 4;
-        attribute engineNames : String = "explore, run, solve, sweep";
+        attribute engineCount : Integer = 5;
+        attribute engineNames : String = "check, explore, run, solve, sweep";
         attribute perOwner : Boolean = true;
         attribute refusesDuplicateNames : Boolean = true;
         attribute listsInNameOrder : Boolean = true;
@@ -592,6 +603,8 @@ package OpenSysMLPipeline {
         attribute selections : String = "auto, all, <engine>";
         attribute defaultSelection : String = "auto";
         attribute strongestFirst : Boolean = true;
+        // The default engines declaring each kind: outcomes has two, explore ranked over check.
+        attribute candidatesPerKind : String = "evaluate: 1, holds: 1, outcomes: 2, satisfiable: 1, sweep: 1";
         attribute advancesOnNotCovered : Boolean = true;
         attribute stopsOnFault : Boolean = true;
         attribute recordsEveryStep : Boolean = true;
@@ -639,6 +652,7 @@ package OpenSysMLPipeline {
 
         part run : RunEngine;
         part explore : ExploreEngine;
+        part check : CheckEngine;
         part sweep : SweepEngine;
         part solve : SolveEngine;
 
