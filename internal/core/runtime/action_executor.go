@@ -1367,6 +1367,7 @@ func oneMoveEligible(t Token) bool { return !t.drivenByBody() && (t.body == nil 
 // stepCandidates lists the tokens a step may move, as the policy is handed them.
 func (e *ActionExecutor) stepCandidates(order *stepOrder, eligible func(Token) bool) stepTokens {
 	tokens := stepTokens{
+		owner:  e,
 		step:   e.stepCount + 1,
 		ids:    make([]int64, 0, len(e.tokens)),
 		parked: make(map[int64]bool),

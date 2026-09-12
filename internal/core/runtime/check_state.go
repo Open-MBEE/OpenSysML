@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -25,29 +26,42 @@ import (
 // stateKey is the SHA-256 of a state's canonical form, hex-encoded.
 type stateKey string
 
+// canonicalForm is a state's canonical text and the canonical name of each of its
+// tokens: what the token spells as, numbered among tokens spelling alike.
+type canonicalForm struct {
+	text   string
+	tokens map[int64]string
+}
+
+// key hashes the canonical text.
+func (f canonicalForm) key() stateKey {
+	sum := sha256.Sum256([]byte(f.text))
+	return stateKey(hex.EncodeToString(sum[:]))
+}
+
 // canonicalState renders the state of the executor's run in canonical form; a
 // token whose paused work the snapshot cannot capture is refused as the snapshot refuses it.
-func (e *ActionExecutor) canonicalState() (string, error) {
+func (e *ActionExecutor) canonicalState() (canonicalForm, error) {
 	for _, token := range e.tokens {
 		if token.body != nil {
-			return "", fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
+			return canonicalForm{}, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
 				token.ID, symbolText(e.action), ActionNodeName(token.Location))
 		}
 	}
 	// Reading a feature may derive its default; a probe gives that back.
 	defer e.ctx.beginProbe()()
-	s := &stateSpeller{exec: e, ctx: e.ctx, paths: make(map[int64]string)}
-	return s.spell(), nil
+	s := &stateSpeller{exec: e, ctx: e.ctx, paths: make(map[int64]string), tokens: make(map[int64]string)}
+	text := s.spell()
+	return canonicalForm{text: text, tokens: s.tokens}, nil
 }
 
 // stateKey hashes the canonical form.
 func (e *ActionExecutor) stateKey() (stateKey, error) {
-	text, err := e.canonicalState()
+	form, err := e.canonicalState()
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256([]byte(text))
-	return stateKey(hex.EncodeToString(sum[:])), nil
+	return form.key(), nil
 }
 
 // stateSpeller writes the canonical form, naming objects by materialization
@@ -58,8 +72,9 @@ type stateSpeller struct {
 	// paths are the objects mentioned so far by path; mentioned lists them in order.
 	paths     map[int64]string
 	mentioned []int64
-	// labels name the reachable performances canonically.
+	// labels name the reachable performances canonically; tokens name the tokens.
 	labels map[*actionFrame]string
+	tokens map[int64]string
 	out    strings.Builder
 }
 
@@ -75,8 +90,12 @@ func (s *stateSpeller) spell() string {
 		s.frame(perf)
 	}
 	tokens := make([]string, 0, len(e.tokens))
-	for _, token := range e.tokens {
-		tokens = append(tokens, s.token(token))
+	alike := make(map[string]int)
+	for _, token := range slices.SortedFunc(slices.Values(e.tokens), func(a, b Token) int { return cmp.Compare(a.ID, b.ID) }) {
+		text := s.token(token)
+		tokens = append(tokens, text)
+		alike[text]++
+		s.tokens[token.ID] = fmt.Sprintf("%s #%d", text, alike[text])
 	}
 	sort.Strings(tokens)
 	for _, line := range tokens {

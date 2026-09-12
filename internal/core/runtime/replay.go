@@ -9,9 +9,10 @@ import (
 )
 
 // The `replay:<file>` policy follows a witness — the choice lines `explore` prints,
-// one per move — move for move, then behaves as `reverse` once it runs out. A move
-// the run cannot make where the witness makes it is refused, naming the move: a
-// witness that cannot be followed is never silently resolved.
+// one per move — move for move, then goes on as the first exploring run does: one
+// token per step, the first able to act, the first alternative at every other pick.
+// A move the run cannot make where the witness makes it is refused, naming the
+// move: a witness that cannot be followed is never silently resolved.
 
 // ErrReplayRefused is the typed error every refused replay move wraps.
 var ErrReplayRefused = errors.New("replay refused")
@@ -215,8 +216,9 @@ type replayMove struct {
 }
 
 // beginStep resolves the step: the witness's move when it is at this step and each
-// of its tokens is able to act, else — with one token at most able to act — that one
-// first and the rest after; two able to act with no move for them is a refusal.
+// of its tokens is able to act, else — with one token at most able to act, or the
+// witness spent — the first able to act and the rest after; two able to act with a
+// move left for neither is a refusal.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -236,6 +238,10 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m.enabled = make([]string, len(enabled))
 	for i, id := range enabled {
 		m.enabled[i] = tokens.label(id)
+	}
+	if !r.following() {
+		m.order = slices.Concat(enabled, rest, held)
+		return m
 	}
 	able := "none is able to act"
 	if len(m.enabled) > 0 {
@@ -310,7 +316,11 @@ func (m *replayMove) reported() (alternatives []string, taken int, ok bool) {
 // choose resolves a pick among c.Alternatives by the witness's next move, which
 // must be a choice of the same kind at the same place naming one of them; whereOf
 // is the place as the run reports it once alternative i is taken, nil for c.Where.
+// With the witness spent the first alternative is taken.
 func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
+	if !r.following() {
+		return 0
+	}
 	w := r.choices[r.next]
 	alts := strings.Join(c.Alternatives, ", ")
 	taken := slices.Index(c.Alternatives, w.Took)

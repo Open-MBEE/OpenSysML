@@ -47,8 +47,8 @@ const (
 	// scheduleExplore replays runs under Explore, each following a recorded prefix of
 	// choices and taking the first untried alternative at its frontier.
 	scheduleExplore
-	// scheduleReplay follows a witness move for move, then behaves as reverse; a
-	// move the run cannot make is refused (replay.go).
+	// scheduleReplay follows a witness move for move, then moves one token per step
+	// as the first exploring run does; a move the run cannot make is refused (replay.go).
 	scheduleReplay
 	// scheduleCheck makes the one move the model checker selected for the step; it
 	// has no spelling and is constructed by the checker alone (check_schedule.go).
@@ -249,6 +249,7 @@ type scheduler struct {
 // stepTokens are the tokens one step may try, in spawn order; parked ones cannot
 // act yet and held ones collapse into another's synchronization.
 type stepTokens struct {
+	owner   *ActionExecutor
 	step    int
 	ids     []int64
 	parked  map[int64]bool
@@ -327,9 +328,9 @@ func (s *scheduler) checking() bool {
 	return s.policy.kind == scheduleCheck && s.check != nil
 }
 
-// replaying reports whether the run still has witness moves to follow.
+// replaying reports whether the run follows a witness, spent or not.
 func (s *scheduler) replaying() bool {
-	return s.replay != nil && s.replay.following()
+	return s.replay != nil
 }
 
 // scheduleStep fixes how the step tries its tokens: reversed, declared,

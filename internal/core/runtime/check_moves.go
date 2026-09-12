@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -127,17 +126,12 @@ func (e *ActionExecutor) moveKindOf(t Token) moveKind {
 // not explored: tokens waiting on the clock alone have it advanced to the earliest
 // wait, no move of the checker's; a wait for a message nothing can post is the deadlock.
 func (e *ActionExecutor) settle() error {
-	if run := e.ctx.scheduling(); run.check == nil {
+	run := e.ctx.scheduling()
+	if run.check == nil {
 		return &CheckMoveError{Branch: -1, Faced: "the run is not under the check policy"}
 	}
-	err := e.Step()
-	switch {
-	case errors.Is(err, ErrNothingDue):
-		return e.advanceClock()
-	case err == nil && e.state == StateWaiting && !e.waitsOnClock(nil):
-		return e.deadlockError(nil)
-	}
-	return err
+	run.check.script.set(e, 0, -1)
+	return e.advance()
 }
 
 // makeMove makes the move through the `check` policy as one executor step,
@@ -147,7 +141,7 @@ func (e *ActionExecutor) makeMove(m enabledMove) (branches int, err error) {
 	if run.check == nil {
 		return 0, &CheckMoveError{Token: m.Token, Branch: m.Branch, Faced: "the run is not under the check policy"}
 	}
-	run.check.script.set(m.Token, m.Branch)
+	run.check.script.set(e, m.Token, m.Branch)
 	defer run.check.script.settle()
 	err = e.Step()
 	if run.check.decided != nil {

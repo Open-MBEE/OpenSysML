@@ -41,10 +41,13 @@ func (e *CheckMoveError) Error() string {
 func (e *CheckMoveError) Is(target error) bool { return target == ErrCheckRefused }
 
 // checkScript is the move the checker selected for the next step, shared by the
-// policy and the checker: the token to move (0 for none, a settling step) and,
-// when its node is a decision, the index among the holding branches to take; -1
-// takes the first, so the checker learns how many hold from the choice the step notes.
+// policy and the checker: the executor whose step it is, the token to move (0 for
+// none, a settling step) and, when its node is a decision, the index among the
+// holding branches to take; -1 takes the first, so the checker learns how many
+// hold from the choice the step notes. A step of any other executor — a typed
+// action a token performs within its move — runs in declared order.
 type checkScript struct {
+	owner  *ActionExecutor
 	token  int64
 	branch int
 }
@@ -54,9 +57,9 @@ func checkPolicy(script *checkScript) SchedulePolicy {
 	return SchedulePolicy{kind: scheduleCheck, check: script}
 }
 
-// set fixes the move the next step makes.
-func (s *checkScript) set(token int64, branch int) {
-	s.token, s.branch = token, branch
+// set fixes the move the next step of owner makes.
+func (s *checkScript) set(owner *ActionExecutor, token int64, branch int) {
+	s.owner, s.token, s.branch = owner, token, branch
 }
 
 // settle makes the next step select no token: every token is tried, none may act.
@@ -88,10 +91,12 @@ type checkMove struct {
 	run      *checkRun
 	step     int
 	selected bool
+	nested   bool // a step of a run within the move, resolved in declared order
 	order    []int64
 	next     int
 	moved    bool
 	enabled  []string
+	ids      []int64 // the tokens able to act, as enabled labels them
 	taken    int
 }
 
@@ -100,7 +105,12 @@ type checkMove struct {
 // able to act — that one first and the rest after, as a settling step tries them.
 func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	m := &checkMove{run: r, step: tokens.step, taken: -1, selected: r.script.token != 0}
-	r.decided, r.move = nil, m
+	if tokens.owner != r.script.owner {
+		m.nested, m.selected = true, false
+	} else {
+		r.decided = nil
+	}
+	r.move = m
 	var enabled, rest, held []int64
 	for _, id := range tokens.ids {
 		switch {
@@ -115,6 +125,7 @@ func (r *checkRun) beginStep(tokens stepTokens) *checkMove {
 	slices.Sort(enabled)
 	slices.Sort(rest)
 	slices.Sort(held)
+	m.ids = enabled
 	m.enabled = make([]string, len(enabled))
 	for i, id := range enabled {
 		m.enabled[i] = tokens.label(id)
@@ -167,6 +178,10 @@ func (m *checkMove) nextToken() (int64, bool) {
 func (m *checkMove) acted(id int64, acted bool) {
 	if acted {
 		m.moved = true
+		if m.nested {
+			m.taken = slices.Index(m.ids, id)
+			return
+		}
 		if !m.selected && len(m.enabled) >= 2 {
 			m.run.refuse(fmt.Sprintf("step %d: token %d acted where the run had to pick one (able to act: %s)",
 				m.step, id, strings.Join(m.enabled, ", ")))
@@ -190,7 +205,11 @@ func (m *checkMove) reported() (alternatives []string, taken int, ok bool) {
 // choose resolves a pick among c.Alternatives by the selected branch, which must be
 // one of them at a decision (the first when none is selected); any other pick faced
 // is a move the checker did not select. The decision faced is kept for the checker.
+// A pick within a nested step takes the first alternative, as a declared run does.
 func (r *checkRun) choose(c ChoicePoint, whereOf func(i int) string) int {
+	if r.move != nil && r.move.nested {
+		return 0
+	}
 	n := len(c.Alternatives)
 	if c.Kind != ChoiceDecisionBranch {
 		if whereOf != nil {
