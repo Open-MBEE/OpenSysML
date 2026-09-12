@@ -16,6 +16,22 @@ type Suite struct {
 	Diagnostics []Diagnostic
 }
 
+// Problems is every diagnostic the reader recorded, the suite's own first and
+// then each test's in suite order; a measurement over a suite with any is not
+// a measurement of that suite.
+func (s *Suite) Problems() []string {
+	var out []string
+	for _, d := range s.Diagnostics {
+		out = append(out, d.String())
+	}
+	for _, t := range s.Tests {
+		for _, d := range t.Diagnostics {
+			out = append(out, t.Name+": "+d.String())
+		}
+	}
+	return out
+}
+
 // Areas lists the suite's test areas in first-registration order.
 func (s *Suite) Areas() []string {
 	var out []string

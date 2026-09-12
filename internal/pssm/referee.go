@@ -89,8 +89,12 @@ type Options struct {
 }
 
 // Referee runs every test of the suite and files it. Only a problem with the
-// harness itself is an error; a test that cannot be run is a row in its bucket.
+// harness itself, or a suite the reader could not read whole, is an error; a
+// test that cannot be run is a row in its bucket.
 func Referee(stop context.Context, s *Suite, prov Provenance, opts Options) (*Report, error) {
+	if problems := s.Problems(); len(problems) > 0 {
+		return nil, fmt.Errorf("the suite was not read whole, so its counts would not be its own:\n  %s", strings.Join(problems, "\n  "))
+	}
 	if opts.Jobs < 1 {
 		opts.Jobs = 1
 	}

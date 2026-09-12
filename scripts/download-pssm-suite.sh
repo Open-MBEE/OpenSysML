@@ -9,7 +9,8 @@
 # testing; CI sets OPENSYSML_REQUIRE_PSSM_SUITE=1 so an absent suite fails there.
 #
 # The URL and checksum live in scripts/pssm-pin.sh. A download whose checksum
-# does not match exits non-zero and leaves nothing behind in build/pssm/.
+# does not match exits non-zero and leaves no file behind. Only the suite and its
+# pin stamp are ever written to the target; anything else there is left alone.
 set -euo pipefail
 
 # shellcheck source=scripts/pssm-pin.sh
@@ -52,8 +53,9 @@ if ! command -v curl >/dev/null 2>&1; then
 	exit 1
 fi
 
-# Staged outside the target so a failed download or checksum leaves no artifact behind.
-work="$(mktemp -d)"
+# Staged under the target so a failed fetch leaves no artifact and the renames stay on one filesystem.
+mkdir -p "$target"
+work="$(mktemp -d "$target/.pssm-fetch.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 echo "Fetching $PSSM_SUITE_URL ($PSSM_DOCUMENT) ..."
@@ -76,14 +78,12 @@ if ! echo "$PSSM_SUITE_SHA256  $work/$PSSM_SUITE_FILE" | sha256sum -c --quiet - 
 	exit 1
 fi
 
-rm -f "$work/curl.log"
+# Only the suite and stamp are installed, by rename, stamp last: anything else in the
+# target is the caller's, and an interrupted install is re-fetched by the check above.
 printf '%s\n' "$pin" >"$work/.pssm-pin"
-mkdir -p "$(dirname "$target")"
-rm -rf "$target.new"
-mv "$work" "$target.new"
-trap - EXIT
-rm -rf "$target"
-mv "$target.new" "$target"
+rm -f "$stamp"
+mv -f "$work/$PSSM_SUITE_FILE" "$suite"
+mv -f "$work/.pssm-pin" "$stamp"
 
 echo "Downloaded $PSSM_SUITE_FILE ($(wc -c <"$suite" | tr -d ' ') bytes) to $target"
 echo "Run the referee with:"

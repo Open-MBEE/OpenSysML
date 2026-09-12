@@ -410,8 +410,11 @@ func TestReadParseErrors(t *testing.T) {
 	}
 }
 
-func TestReadDiagnostics(t *testing.T) {
-	src := fixtureHead + fixtureEvents +
+// oddSuite is a well-formed document the reader can only read in part: an
+// unknown pseudostate and transition kind, an unresolved target and event, a
+// test with no expected trace and no tester.
+func oddSuite() string {
+	return fixtureHead + fixtureEvents +
 		`  <packagedElement xmi:type="uml:Package" xmi:id="areaX" name="Odd">
 ` + registration("Odd", "semOdd", "Odd 001") +
 		`  <packagedElement xmi:type="uml:Package" xmi:id="pkgOdd" name="001">
@@ -433,7 +436,10 @@ func TestReadDiagnostics(t *testing.T) {
   </packagedElement>
   </packagedElement>
 ` + fixtureTail
-	s := readFixture(t, src)
+}
+
+func TestReadDiagnostics(t *testing.T) {
+	s := readFixture(t, oddSuite())
 	if len(s.Tests) != 1 {
 		t.Fatalf("tests = %d", len(s.Tests))
 	}

@@ -221,6 +221,24 @@ func TestRefereeRejectsAMalformedStepBudget(t *testing.T) {
 	}
 }
 
+// A suite the reader could only read in part is refused, naming every
+// diagnostic, rather than measured as if its partial models were the tests.
+func TestRefereeRefusesASuiteReadInPart(t *testing.T) {
+	s := readFixture(t, oddSuite())
+	if len(s.Problems()) == 0 {
+		t.Fatal("fixture reads clean; it must not")
+	}
+	_, err := Referee(context.Background(), s, Provenance{Document: "fixture", Tests: 1}, Options{})
+	if err == nil {
+		t.Fatal("Referee measured a suite read in part")
+	}
+	for _, want := range []string{"not read whole", `kind "sideways"`, "target missing is not a vertex", "Odd 001: Odd_SemanticTest: no expected trace is registered"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error lacks %q:\n%v", want, err)
+		}
+	}
+}
+
 // differs-by-design comes only from the committed table: an unmapped failure
 // stays a failure; a failure mapped to a tool-choice row stays one, citing the
 // row; only a failure mapped to a "differs because v2 differs" row moves.

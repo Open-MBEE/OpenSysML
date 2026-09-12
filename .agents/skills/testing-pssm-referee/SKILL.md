@@ -41,15 +41,19 @@ over HTTPS only, checks the sha256 in a staging directory and only then moves th
   referee can never disagree about which pin is in force.
 - `PSSM_SUITE_SHA256=0000… ./scripts/download-pssm-suite.sh --force` → exit 1, `error:
   PSSM_TestSuite.xmi from ... has sha256 c355b2…, scripts/pssm-pin.sh pins 0000…`, and
-  `build/pssm/` is left exactly as it was (the download is staged in a `mktemp -d` that the
-  trap removes). Verify with `sha256sum build/pssm/PSSM_TestSuite.xmi` before and after.
+  `build/pssm/` is left exactly as it was (the download is staged in a `.pssm-fetch.*`
+  directory under the root that the trap removes). Verify with `sha256sum
+  build/pssm/PSSM_TestSuite.xmi` before and after.
 - `PSSM_SUITE_URL=https://www.omg.org/spec/PSSM/20181101/does-not-exist.xmi ./scripts/download-pssm-suite.sh --force` → exit 1 with
   curl's error indented and the fallback instructions (fetch elsewhere, verify the sha256,
   point `PSSM_SUITE_ROOT` at it). A plain `http://` URL is refused by `--proto '=https'`.
 - `PSSM_SUITE_ROOT=/tmp/elsewhere ./scripts/download-pssm-suite.sh` writes there instead;
   the referee then needs `-suite /tmp/elsewhere`. `PSSM_SUITE_ROOT` is a downloader
-  variable only: it does not redirect the CLI or the Go suite gates. Use a fresh
-  scratch root for destructive provisioning tests so unrelated installations survive.
+  variable only: it does not redirect the CLI or the Go suite gates. Only the suite and the
+  `.pssm-pin` stamp are installed there, each by rename: a root shared with other files
+  keeps them (`touch /tmp/elsewhere/notes.txt` before a `--force` run, then `ls -a`), and a
+  `/tmp/elsewhere.new` sibling is untouched. Use a fresh scratch root for destructive
+  provisioning tests all the same.
 
 Nothing from the suite is committed: `git status --porcelain` must be unchanged after
 provisioning (`/build/` is ignored), and `git ls-files build/pssm` must be empty.
@@ -151,7 +155,10 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
   The digest is verified before the XMI is parsed, so a truncated or edited suite is never
   read (`TestBadChecksum`). A malformed XMI with the right digest cannot exist, which is why
   the reader's diagnostics are tested on fragments (`TestReadDiagnostics`,
-  `TestReadUnsupportedNodes`) rather than on the suite.
+  `TestReadUnsupportedNodes`) rather than on the suite. A suite the reader could read only in
+  part (an overridden pin naming another file, say) is refused by `Referee` with every
+  diagnostic listed (`the suite was not read whole, so its counts would not be its own`)
+  rather than measured; `TestRefereeRefusesASuiteReadInPart` pins that.
 - **A hand-broken translation.** The emitter runs in memory, so break it at the source, then
   put it back:
   1. In `internal/pssm/emit.go`, change the `"::"` separator in the `trace` translation to
