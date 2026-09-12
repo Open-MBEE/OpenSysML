@@ -123,13 +123,14 @@ func undeterminedFeatureValue(reason string, count semantics.Range, sym *symbols
 }
 
 // chainThroughUndetermined reads parts from an undetermined feature read: unresolved
-// when its type declares no such member, else undetermined over all it may hold.
+// when its type declares no such member, else undetermined over all it may hold,
+// certainly holding what the chain reads from the values it certainly holds.
 func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSegment, from string) (Value, error) {
 	u := value.Undetermined()
 	if u == nil || u.feature == nil {
 		return Value{}, fmt.Errorf("cannot chain through non-instance member %s (%v)", from, value.Kind)
 	}
-	cur, count := u.feature, u.Count()
+	cur, count := u.feature, u.unknownCount()
 	for _, part := range parts {
 		next, ok := ec.ctx.declaredMember(cur, part.Text)
 		if !ok {
@@ -138,7 +139,32 @@ func (ec *EvalContext) chainThroughUndetermined(value Value, parts []ast.NameSeg
 		count = count.Times(ec.ctx.featureMultiplicity(next, ec.ctx.findOwnerType(next)))
 		cur = next
 	}
-	return undeterminedFeatureValue(u.reason, count, cur), nil
+	var known []Value
+	for _, elem := range u.Known() {
+		val, err := ec.chainMemberValue(elem, parts, from)
+		if err != nil {
+			return Value{}, err
+		}
+		contributed := knownElementsOf(val)
+		if err := ec.ctx.chargeElements(int64(len(contributed))); err != nil {
+			return Value{}, err
+		}
+		count = count.Plus(countOf(val))
+		known = append(known, contributed...)
+	}
+	return Value{Kind: ValUndetermined, ref: &Undetermined{reason: u.reason, count: count, known: known, feature: cur}}, nil
+}
+
+// unknownCount is the count of the values u holds beyond those it certainly holds.
+func (u *Undetermined) unknownCount() semantics.Range {
+	count, held := u.Count(), int64(len(u.Known()))
+	if count.Lower.Known && !count.Lower.Infinite {
+		count.Lower.Value = max(0, count.Lower.Value-held)
+	}
+	if count.Upper.Known && !count.Upper.Infinite {
+		count.Upper.Value = max(0, count.Upper.Value-held)
+	}
+	return count
 }
 
 // Undetermined returns the payload of a ValUndetermined value, nil for any other.
@@ -350,12 +376,45 @@ var undeterminedAware = map[string]bool{
 }
 
 // undeterminedInvocation applies a function that does not decide open arguments
-// itself to one: undetermined, of the count its result declares.
-func (ctx *Context) undeterminedInvocation(name string, args []Value) (Value, bool) {
+// itself to one: undetermined, of the count its result declares, once each open
+// argument's declared type may hold a value of its parameter's.
+func (ctx *Context) undeterminedInvocation(name string, args []Value) (Value, bool, error) {
 	if undeterminedAware[name] {
-		return Value{}, false
+		return Value{}, false, nil
 	}
-	return ctx.openInvocation(name, args...)
+	if _, open := undeterminedIn(args...); !open {
+		return Value{}, false, nil
+	}
+	if err := ctx.openArgumentsOf(name, args); err != nil {
+		return Value{}, true, err
+	}
+	val, open := ctx.openInvocation(name, args...)
+	return val, open, nil
+}
+
+// openArgumentsOf rejects an open argument to the library function name whose
+// declared type admits no value of the type declared for its parameter.
+func (ctx *Context) openArgumentsOf(name string, args []Value) error {
+	fn := ctx.librarySymbol(name)
+	if fn == nil {
+		return nil
+	}
+	shape, err := ctx.calcInterfaceOf(fn)
+	if err != nil {
+		return nil
+	}
+	for i, arg := range args {
+		if arg.Kind != ValUndetermined || i >= len(shape.Params) || shape.Params[i].Decl.Target == nil {
+			continue
+		}
+		param := shape.Params[i]
+		if ctx.openValueMayBe(arg, param.Decl.Target.typ) {
+			continue
+		}
+		return fmt.Errorf("%w: function %s parameter %q requires a %s value, got %s",
+			ErrTypeMismatch, writtenName(name), param.Name, param.Decl.Target.typ.Name, ctx.describeOpenOperand(arg))
+	}
+	return nil
 }
 
 // openInvocation is the result of applying the function name to args when one of them

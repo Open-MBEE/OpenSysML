@@ -159,3 +159,41 @@ subsequence-fixed-index :: U :: SequenceFunctions::subsequence((10, u, 30), 2, 3
 excludingat-fixed-index :: U :: SequenceFunctions::excludingAt((10, u, 30), 2)#(2)
 includingat-fixed-index :: U :: SequenceFunctions::includingAt((10, u, 30), 20, 2)#(4)
 index-open-count-first :: U :: (10, xs, 30)#(1)
+
+# An open operand is judged by the type its feature declares: an operator or
+# function undefined for that type is a type mismatch, one it may hold stays open.
+typed-string-minus :: U :: s - 1
+typed-string-negate :: U :: -s
+typed-string-ordered-number :: U :: s > 1
+typed-string-not :: U :: not s
+typed-string-and-true :: U :: s and true
+typed-string-condition :: U :: if s ? 1 else 2
+typed-string-index :: U :: (10, 20, 30)#(s)
+typed-string-two-open :: U :: s < r
+typed-boolean-minus :: U :: b - 1
+typed-real-length :: U :: StringFunctions::Length(r)
+typed-real-function-string :: U :: RealFunctions::'-'(s, 1)
+typed-string-concat :: U :: s + "a"
+typed-string-ordered-string :: U :: s < "a"
+typed-real-minus :: U :: r - 1
+typed-boolean-not :: U :: not b
+typed-boolean-condition :: U :: if b ? 1 else 2
+typed-real-index :: U :: (10, 20, 30)#(r)
+typed-string-and-false :: U :: false and s
+typed-boolean-and-false :: U :: b and false
+
+# A chain through an open collection reads what the members it certainly holds
+# declare, so membership and quantifiers can decide from them.
+chain-known-tag-default :: T :: rack.fixed.tag
+chain-known-tag-redefined :: T :: rack.tagged.tag
+chain-open-tag :: T :: rack.gear.tag
+chain-includes-default :: T :: SequenceFunctions::includes(rack.gear.tag, "d")
+chain-includes-redefined :: T :: SequenceFunctions::includes(rack.gear.tag, "x")
+chain-includes-unknown :: T :: SequenceFunctions::includes(rack.gear.tag, "zz")
+chain-excludes-known :: T :: SequenceFunctions::excludes(rack.gear.tag, "d")
+chain-exists-known :: T :: rack.gear.tag->ControlFunctions::exists{in x; x == "x"}
+chain-forall-refuted :: T :: rack.gear.tag->ControlFunctions::forAll{in x; x == "d"}
+chain-open-mass :: T :: rack.gear.mass
+chain-size-open :: T :: SequenceFunctions::size(rack.gear.tag)
+chain-loose-tag :: T :: rack.loose.tag
+chain-no-member :: T :: rack.gear.nope

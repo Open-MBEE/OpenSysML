@@ -280,6 +280,12 @@ func numericScalars(params []string, apply func([]semantics.Value) (semantics.Va
 				if err := openScalar(name, parameterLabel(params, i), u); err != nil {
 					return Value{}, err
 				}
+				if !ctx.openOperandAdmits(arg, numericalValueTypeFQN) {
+					return Value{}, fmt.Errorf(
+						"%w: function %s parameter %s requires a numeric value, got %s",
+						ErrTypeMismatch, name, parameterLabel(params, i), ctx.describeOpenOperand(arg),
+					)
+				}
 				continue
 			}
 			arg = soleElement(arg)
@@ -467,8 +473,8 @@ func (fn *libraryFunction) bindAndApply(ctx *Context, args calcArgs) (Value, err
 			ctx.trace.RecordCalcBind(label, arg, "argument")
 		}
 	}
-	if val, open := ctx.undeterminedInvocation(fn.name, values); open {
-		return val, nil
+	if val, open, err := ctx.undeterminedInvocation(fn.name, values); open {
+		return val, err
 	}
 	return fn.apply(fn.written(), ctx, values)
 }

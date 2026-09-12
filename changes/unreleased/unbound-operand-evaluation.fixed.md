@@ -53,7 +53,15 @@
   A multiplicity bound the model does not evaluate (`a : Real[n]` over a valueless `n`) fixes no
   count either: such a read is `<undetermined>` of the bounds the declaration does fix rather
   than the `cannot materialize … with unknown multiplicity` error, which stays the object-level
-  answer.
+  answer. An open value is judged by the type its feature declares, so an operator or library
+  function that admits no value of that type is the `type mismatch` it is for a determined
+  value (`s - 1`, `not s`, `s > 1`, `if s ? 1 else 2`, `(10, 20, 30)#(s)`,
+  `RealFunctions::sqrt(s)` for `s : String`; `b - 1` for `b : Boolean`;
+  `StringFunctions::Length(r)` for `r : Real`), while one it admits stays `<undetermined>`
+  (`s + "a"`, `r - 1`, `not b`) and a constant operand still folds (`false and s`). A feature
+  chain through an open collection reads the members of the values it certainly holds, so
+  `includes(gear.tag, "x")` is `true` for a `part tagged :> gear { attribute :>> tag = "x"; }`
+  and `gear.tag->exists{in x; x == "x"}` decides on it.
 - **A calc-typed parameter whose value names a calc (`in calc f = twice;`) applies that calc when
   called by its qualified name.** `Apply::f(3.0)` outside a run of `Apply` failed with `calc
   Apply::f has no return expression`; it now applies `twice` as the bare `f(3.0)` does, and a run

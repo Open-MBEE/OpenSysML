@@ -306,7 +306,7 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 	if indexes := elementsOf(indexVal); len(indexes) != 1 || isStructuredValue(&operand) {
 		return builtinBaseIndex(ec, []Value{operand, indexVal})
 	}
-	if val, open, err := undeterminedIndex("sequence index", operand, indexVal); open {
+	if val, open, err := ec.ctx.undeterminedIndex("sequence index", operand, indexVal); open {
 		return val, err
 	}
 	index, err := indexOf("sequence index", indexVal)
@@ -319,8 +319,11 @@ func (ec *EvalContext) evalSequenceIndex(n *ast.IndexExpr) (Value, error) {
 // undeterminedIndex is `seq#(index)` where the model leaves seq or index open: the
 // value at a position seq fixes, else undetermined; an index past the count seq may
 // reach is out of range.
-func undeterminedIndex(op string, seq, indexVal Value) (Value, bool, error) {
+func (ctx *Context) undeterminedIndex(op string, seq, indexVal Value) (Value, bool, error) {
 	if indexVal.Kind == ValUndetermined {
+		if err := ctx.openNumericIndex(op, indexVal); err != nil {
+			return Value{}, true, err
+		}
 		if certainlyEmpty(seq) {
 			return Value{}, true, fmt.Errorf("%w: %s into an empty sequence", ErrIndexOutOfRange, op)
 		}
@@ -512,23 +515,23 @@ func (ec *EvalContext) applyTest(op string, body Value, arg Value) (Value, error
 
 // builtinSequenceIndex is SequenceFunctions::'#' called as a function.
 func builtinSequenceIndex(ec *EvalContext, args []Value) (Value, error) {
-	return sequenceIndex("SequenceFunctions::'#'", args)
+	return ec.ctx.sequenceIndex("SequenceFunctions::'#'", args)
 }
 
 // builtinCollectionIndex is CollectionFunctions::'#', the index over a
 // collection's elements (`col.elements#(index)`).
 func builtinCollectionIndex(ec *EvalContext, args []Value) (Value, error) {
 	return overCollectionElements(func(_ *EvalContext, args []Value) (Value, error) {
-		return sequenceIndex("CollectionFunctions::'#'", args)
+		return ec.ctx.sequenceIndex("CollectionFunctions::'#'", args)
 	})(ec, args)
 }
 
 // sequenceIndex is a scalar-index `'#'` form: the element at one Positive index.
-func sequenceIndex(op string, args []Value) (Value, error) {
+func (ctx *Context) sequenceIndex(op string, args []Value) (Value, error) {
 	if err := checkArity(op, args, 2); err != nil {
 		return Value{}, err
 	}
-	if val, open, err := undeterminedIndex(op+" index", args[0], args[1]); open {
+	if val, open, err := ctx.undeterminedIndex(op+" index", args[0], args[1]); open {
 		return val, err
 	}
 	index, err := indexOf(op, args[1])
@@ -549,7 +552,7 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 	if isStructuredValue(&args[0]) {
 		return arrayIndex(op, args[0], args[1])
 	}
-	if val, open, err := undeterminedIndex(op+" index", args[0], args[1]); open {
+	if val, open, err := ec.ctx.undeterminedIndex(op+" index", args[0], args[1]); open {
 		return val, err
 	}
 	indexes := elementsOf(args[1])
@@ -557,7 +560,7 @@ func builtinBaseIndex(ec *EvalContext, args []Value) (Value, error) {
 	case 0:
 		return Value{}, fmt.Errorf("%w: %s requires at least one index, got none", ErrMultiplicityViolation, op)
 	case 1:
-		return sequenceIndex(op, []Value{args[0], indexes[0]})
+		return ec.ctx.sequenceIndex(op, []Value{args[0], indexes[0]})
 	}
 	return Value{}, fmt.Errorf("%w: %s: %d indexes address an Array, got %s",
 		ErrTypeMismatch, op, len(indexes), describeValue(args[0]))

@@ -216,20 +216,20 @@ Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evalu
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
 `cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
 when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
-prints the current ones. State of the 367 committed cases, the original 32, the 62 the
+prints the current ones. State of the 399 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
 the 5 the empty-aggregate and subsetting round added to `w6d_expr_depth.cases` the 12 of
 `tensor_quantities.cases`, the 9 of `coordinate_frames.cases`, the 7 of `cast_expressions.cases`,
 the 27 of `scalar_classification.cases`, the 24 of `literal_types.cases`, the 23 of
 `enumeration_classification.cases`, the 24 of `metadata_access.cases`, the 6 of
-`extent_expressions.cases`, the 99 of `undetermined_operands.cases`, the 4 of
+`extent_expressions.cases`, the 131 of `undetermined_operands.cases`, the 4 of
 `unknown_bounds.cases` and the 2 of `vast_bounds.cases`:
 
 ```
-agree: 198 · kind-only: 1 · order-only: 0 · disagree: 22
-pilot-unevaluated: 86 · pilot-silent: 18 · pilot-error: 9 · ours-error: 2 · ours-undetermined: 20
-both-error: 11 · nondeterministic: 0
+agree: 205 · kind-only: 1 · order-only: 0 · disagree: 24
+pilot-unevaluated: 101 · pilot-silent: 19 · pilot-error: 9 · ours-error: 4 · ours-undetermined: 24
+both-error: 12 · nondeterministic: 0
 ```
 
 The six `extent_expressions.cases` probe `all T` (KerML 1.0 §7.4.9.2, §8.2.5.8.1
@@ -309,11 +309,11 @@ not derive to the owner the library says they subset. The case reads `.represent
 rather than `.language` because `language` is a keyword to the pilot's expression parser (`no
 viable alternative at input 'language'`), which would fail the whole model.
 
-The 99 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
-(`attribute u;`, no type, no value; beside it `s : String` and `xs : Real[2..4]`, typed and
-valueless) and over usages whose multiplicity leaves the count open
-(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear` and
-`vacant[0]`), added
+The 131 `undetermined_operands.cases` probe model-level evaluation over an unbound feature
+(`attribute u;`, no type, no value; beside it `s : String`, `b : Boolean`, `r : Real` and
+`xs : Real[2..4]`, typed and valueless) and over usages whose multiplicity leaves the count open
+(`slots[3]`, `gear[1..*]`, `loose[0..2]`, `lone`, `many[10001..*]`, `fixed :> gear`,
+`vacant[0]` and `tagged :> gear`, redefining the `tag` of `D` its default `"d"` gives), added
 with the undetermined result they referee. Of the first 37, fifteen agree: the Boolean forms a constant operand fixes answer on both sides whichever
 operand is the constant — `false and (u > 3)`, `true or (u == 1)` and `false implies (u == 1)`
 never read the second operand, and `(u > 3) and false`, `(u == 1) or true` and `(u == 1) implies
@@ -424,6 +424,36 @@ unevaluated `PartUsage`); `xs->reject{in x; true}` is the empty sequence here an
 `pilot-silent`; `size(xs->select{in x; true})` is `ours-undetermined` of `[2..4]`, the count of
 `xs` itself; and `xs->select{in x; 1 / 0 > 0}` is the `division by zero` error here, the test
 failing on any element, and `pilot-silent`.
+
+The next nineteen probe an open operand whose feature declares a type: an operator or library
+function that admits no value of that type is the type mismatch it is for a determined value of
+it, before anything is left open. `s - 1`, `s > 1`, `if s ? 1 else 2`, `(10, 20, 30)#(s)`,
+`s < r`, `b - 1`, `StringFunctions::Length(r)` and `RealFunctions::'-'(s, 1)` are that error
+here and `pilot-unevaluated` (the pilot returning the expression itself), `-s` is that error
+and `pilot-silent`; `not s` and `s and true` are the two `ours-error`, where the pilot answers
+`true` and `false` by comparing the unevaluated `AttributeUsage s` to a Boolean literal — the
+artifact of non-evaluation seen above, not a reading of `s` as a Boolean. Operations the type
+admits stay `<undetermined>` and `pilot-unevaluated`: `s + "a"`, `s < "a"`, `r - 1`,
+`if b ? 1 else 2`, `(10, 20, 30)#(r)`, and `not b` (`ours-undetermined`, the pilot's `true`
+once more comparing the usage element). The constant operand still folds whatever the first
+declares: `false and s` and `b and false` are `false` on both sides.
+
+The last thirteen probe a feature chain through a collection the model leaves open, which
+reads the members of the values it certainly holds. `rack.fixed.tag` is `"d"`, the default
+`D` declares, and `rack.tagged.tag` `"x"`, the redefinition, both agreeing. `rack.gear.tag`
+is `<undetermined>` of `[2..*]` here, holding those two and the `tag` of whatever else `gear`
+holds; the pilot answers the one default `"d"`, reading the declaration's default through the
+one unevaluated `PartUsage gear` as if it were `gear`'s single value, so its every answer over
+the chain is that of the sequence `("d")`: `includes(rack.gear.tag, "d")` `true` and
+`excludes(rack.gear.tag, "d")` `false` agree, decided here by the default `fixed` certainly
+contributes; `includes(rack.gear.tag, "x")` is `true` here on `tagged` and `rack.gear.tag->exists{in
+x; x == "x"}` `true` on the same witness, two more `disagree` against the pilot's `false` — it
+never sees the subsetter, as `includes(rack.gear, rack.fixed)` showed; and
+`includes(rack.gear.tag, "zz")` and `size(rack.gear.tag)` are `ours-undetermined` against the
+pilot's `false` and `1`, `gear` possibly holding a `D` tagged `"zz"`. `rack.gear.tag->forAll{in
+x; x == "d"}` is `false` on the counterexample `tagged` and agrees. `rack.gear.mass` and
+`rack.loose.tag`, members no value fixes, are `<undetermined>` (`pilot-unevaluated`), and
+`rack.gear.nope` is the unresolved member on both sides (`both-error`).
 
 The 4 `unknown_bounds.cases` probe usages whose bounds name a feature the model gives no
 value: `a : Real[n]` and `an : Real[1..n]` over a valueless `n : Natural`. The pilot rejects

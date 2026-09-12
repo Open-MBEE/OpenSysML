@@ -262,8 +262,12 @@ func (ctx *Context) valueConforms(scope *symbols.Scope, value *Value, declared *
 		// multiplicity's to decide.
 		return true, "", nil
 	case ValUndetermined:
-		// Whatever values the model leaves it, they are the declaration's own.
-		return true, "", nil
+		// Whatever values the model leaves it, they are of the type its feature declares.
+		if ctx.openValueMayBe(*value, declared) {
+			return true, "", nil
+		}
+		return false, fmt.Sprintf("cannot write %s to a feature typed by %s",
+			ctx.describeOpenOperand(*value), symbolText(declared)), nil
 	case ValQuantity:
 		return ctx.quantityConforms(*value, declared)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity:

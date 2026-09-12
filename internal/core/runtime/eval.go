@@ -1840,6 +1840,9 @@ func (ec *EvalContext) evalConditional(n *ast.OperatorExpr) (Value, error) {
 	// A condition the model leaves open selects no branch, so neither is
 	// evaluated; the result holds as many values as either branch declares.
 	if cond.Kind == ValUndetermined {
+		if err := ec.ctx.openBoolOperand("condition of 'if'", cond); err != nil {
+			return Value{}, err
+		}
 		count := ec.declaredCount(ec.scope, n.Operands[1]).Covering(ec.declaredCount(ec.scope, n.Operands[2]))
 		return undeterminedOf(count, cond), nil
 	}
@@ -1969,9 +1972,12 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 // operands; the operator notation and the library's `'+'` forms both use it.
 func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
 	// An operand the model leaves open leaves the result open, unless the
-	// determined operand alone makes the operation fail.
+	// determined operand or the open one's declared type alone makes the operation fail.
 	if _, open := undeterminedIn(left, right); open {
 		if err := definiteArithmeticError(op, left, right); err != nil {
+			return Value{}, err
+		}
+		if err := ctx.openBinaryOperands(op, left, right, span, arithmeticDomain(op)); err != nil {
 			return Value{}, err
 		}
 		return undeterminedResult(left, right), nil
@@ -2211,6 +2217,9 @@ func (ec *EvalContext) evalComparison(n *ast.OperatorExpr) (Value, error) {
 // operator notation and the library's `'<'` forms both use it.
 func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
 	if _, open := undeterminedIn(left, right); open {
+		if err := ctx.openBinaryOperands(op, left, right, span, comparisonDomain); err != nil {
+			return Value{}, err
+		}
 		return undeterminedResult(left, right), nil
 	}
 	// Quantities are ordered on a common reference, so a magnitude is never
@@ -2394,11 +2403,14 @@ func (ec *EvalContext) evalLogical(n *ast.OperatorExpr) (Value, error) {
 	// An open left operand decides nothing, so the right one is read: where it
 	// fixes the result on its own, the result is known.
 	if left.Kind == ValUndetermined {
+		if err := ec.ctx.openBoolOperand(fmt.Sprintf("left operand of '%s'", n.Operator), left); err != nil {
+			return Value{}, err
+		}
 		right, err := ec.valueOperand(n.Operands[1])
 		if err != nil {
 			return Value{}, err
 		}
-		return logicalWithOpenLeft(n.Operator, left, right)
+		return ec.ctx.logicalWithOpenLeft(n.Operator, left, right)
 	}
 	l, err := boolOperand(fmt.Sprintf("left operand of '%s'", n.Operator), left)
 	if err != nil {
@@ -2413,23 +2425,37 @@ func (ec *EvalContext) evalLogical(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	return ec.ctx.logicalWithRight(n.Operator, l, right)
+}
+
+// logicalWithRight is a Boolean operator its left operand l did not decide, over
+// the right one; an open right leaves it open once its declared type admits a Boolean.
+func (ctx *Context) logicalWithRight(op ast.OperatorKind, l bool, right Value) (Value, error) {
+	what := fmt.Sprintf("right operand of '%s'", op)
 	if right.Kind == ValUndetermined {
+		if err := ctx.openBoolOperand(what, right); err != nil {
+			return Value{}, err
+		}
 		return undeterminedResult(right), nil
 	}
-	r, err := boolOperand(fmt.Sprintf("right operand of '%s'", n.Operator), right)
+	r, err := boolOperand(what, right)
 	if err != nil {
 		return Value{}, err
 	}
-	return combineBooleans(n.Operator, l, r)
+	return combineBooleans(op, l, r)
 }
 
 // logicalWithOpenLeft is a Boolean operator over an open left operand: a right one
 // fixing the result alone (`and false`, `or true`, `implies true`) fixes it here too.
-func logicalWithOpenLeft(op ast.OperatorKind, left, right Value) (Value, error) {
+func (ctx *Context) logicalWithOpenLeft(op ast.OperatorKind, left, right Value) (Value, error) {
+	what := fmt.Sprintf("right operand of '%s'", op)
 	if right.Kind == ValUndetermined {
+		if err := ctx.openBoolOperand(what, right); err != nil {
+			return Value{}, err
+		}
 		return undeterminedResult(left, right), nil
 	}
-	r, err := boolOperand(fmt.Sprintf("right operand of '%s'", op), right)
+	r, err := boolOperand(what, right)
 	if err != nil {
 		return Value{}, err
 	}
@@ -2448,25 +2474,22 @@ func logicalWithOpenLeft(op ast.OperatorKind, left, right Value) (Value, error) 
 
 // combineBooleanValues applies a binary Boolean operator to two evaluated
 // operands, either of which the model may leave open.
-func combineBooleanValues(op ast.OperatorKind, left, right Value) (Value, error) {
+func (ctx *Context) combineBooleanValues(op ast.OperatorKind, left, right Value) (Value, error) {
+	what := fmt.Sprintf("left operand of '%s'", op)
 	if left.Kind == ValUndetermined {
-		return logicalWithOpenLeft(op, left, right)
+		if err := ctx.openBoolOperand(what, left); err != nil {
+			return Value{}, err
+		}
+		return ctx.logicalWithOpenLeft(op, left, right)
 	}
-	l, err := boolOperand(fmt.Sprintf("left operand of '%s'", op), left)
+	l, err := boolOperand(what, left)
 	if err != nil {
 		return Value{}, err
 	}
 	if decided, result := shortCircuit(op, l); decided {
 		return boolValue(result), nil
 	}
-	if right.Kind == ValUndetermined {
-		return undeterminedResult(right), nil
-	}
-	r, err := boolOperand(fmt.Sprintf("right operand of '%s'", op), right)
-	if err != nil {
-		return Value{}, err
-	}
-	return combineBooleans(op, l, r)
+	return ctx.logicalWithRight(op, l, right)
 }
 
 // shortCircuit reports whether a Boolean operator is decided by its left
@@ -2562,6 +2585,9 @@ func (ec *EvalContext) evalUnary(n *ast.OperatorExpr) (Value, error) {
 // notation and the library's `'not'` forms both use it.
 func (ctx *Context) unaryValue(op ast.OperatorKind, operand Value) (Value, error) {
 	if operand.Kind == ValUndetermined {
+		if err := ctx.openUnaryOperand(op, operand); err != nil {
+			return Value{}, err
+		}
 		return undeterminedResult(operand), nil
 	}
 	switch op {

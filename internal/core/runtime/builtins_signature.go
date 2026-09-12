@@ -127,8 +127,8 @@ func (ec *EvalContext) invokeBuiltinWith(name string, fn builtinFunc, exprs []as
 // applyBuiltinArgs applies a built-in to its bound arguments. One the model leaves
 // open leaves the result open, unless the built-in decides such arguments itself.
 func applyBuiltinArgs(ec *EvalContext, name string, fn builtinFunc, args []Value) (Value, error) {
-	if val, open := ec.ctx.undeterminedInvocation(name, args); open {
-		return val, nil
+	if val, open, err := ec.ctx.undeterminedInvocation(name, args); open {
+		return val, err
 	}
 	return fn(ec, args)
 }

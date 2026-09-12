@@ -47,7 +47,7 @@ func wantFormatted(t *testing.T, src string, val Value, err error, want string) 
 const undeterminedModel = `package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
-	part def D { attribute mass : Real; attribute tag : String = "d"; }
+	part def D { attribute mass : Real; attribute tag : String default = "d"; attribute w : Real = 2.0; }
 	part rack {
 		part slots[3] : D;
 		part gear[1..*] : D;
@@ -56,6 +56,13 @@ const undeterminedModel = `package test {
 		part many[10001..*] : D;
 		part fixed : D :> gear;
 	}
+	part shelf {
+		part items[1..*] : D;
+		part plain : D :> items;
+		part tagged : D :> items { attribute :>> tag = "x"; }
+	}
+	attribute def Flag;
+	attribute flag : Flag;
 	enum def Mode { ON; OFF; }
 	attribute u;
 	attribute r : Real;
@@ -281,7 +288,7 @@ func TestUndeterminedIndexIntoEmptySequenceIsOutOfRange(t *testing.T) {
 func TestInvocationsPropagateUndeterminedArguments(t *testing.T) {
 	ctx, scope := undeterminedContext(t)
 	for src, count := range map[string]string{
-		"twice(u)": "[1]", "doubled": "[1]", "twice(rack.gear)": "[1]",
+		"twice(u)": "[1]", "doubled": "[1]", "twice(rack.lone.mass)": "[1]",
 		"RealFunctions::sum((1, u))": "[1]", "RealFunctions::sum(rack.loose.mass)": "[1]", "RealFunctions::max(u, 3)": "[1]",
 		"u->ControlFunctions::collect{in x; x + 1}":     "[1]",
 		"(1, u)->ControlFunctions::select{in x; x > 0}": "[1..2]",
@@ -901,5 +908,85 @@ func TestUndeterminedIsAValueKind(t *testing.T) {
 	}
 	if (Value{Kind: ValConst}).Undetermined() != nil {
 		t.Error("a determined value reports an undetermined payload")
+	}
+}
+
+// An open operand is judged by the type its feature declares before the unknown is
+// carried: an operator or function undefined for that type is the same type mismatch
+// a determined value of it raises, while one it may hold stays undetermined.
+func TestTypedOpenOperandsKeepOperatorDomains(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for _, src := range []string{
+		"s - 1", "s + 1", "1 / s", "s * r", "s + r", "-s", "+s", "s > 1", "s < r", "b < b",
+		"b - 1", "b > 1", "r + \"a\"", "flag - 1", "flag > 1",
+		"not s", "not r", "s and true", "s and false", "true and s", "s or true", "s implies true",
+		"r xor true", "s | true", "ControlFunctions::'and'(s, false)", "BooleanFunctions::'|'(true, r)",
+		"RealFunctions::'-'(s, 1)", "RealFunctions::'<'(s, \"a\")", "IntegerFunctions::'+'(s, 1)",
+		"if s ? 1 else 2", "if r ? 1 else 2", "(10, 20, 30)#(s)", "(10, 20, 30)#(b)",
+		"RealFunctions::sqrt(s)", "RealFunctions::max(b, 1.0)", "StringFunctions::Length(r)",
+		"twice(s)", "twice(rack.gear)",
+	} {
+		if _, err := evalIn(t, ctx, scope, src); !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("%s: err = %v; want ErrTypeMismatch", src, err)
+		}
+	}
+	for src, count := range map[string]string{
+		"s + \"a\"": "[1]", "\"a\" + s": "[1]", "s < \"a\"": "[1]", "s == 1": "[1]", "s == \"a\"": "[1]",
+		"r - 1": "[1]", "-r": "[1]", "r > 1": "[1]", "r < r": "[1]", "s >= u": "[1]", "1 / r": "[1]", "r ** 2": "[1]",
+		"RealFunctions::'-'(r, 1)": "[1]", "IntegerFunctions::'+'(r, 1)": "[1]", "DataFunctions::'<'(s, \"a\")": "[1]",
+		"not b": "[1]", "b and true": "[1]", "b or false": "[1]", "if b ? 1 else 2": "[1]",
+		"(10, 20, 30)#(r)": "[1]", "RealFunctions::sqrt(r)": "[1]", "StringFunctions::Length(s)": "[1]", "twice(r)": "[1]",
+		"u - 1": "[1]", "not u": "[1]", "u and true": "[1]", "\"a\" + u": "[1]", "if u ? 1 else 2": "[1]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, want := range map[string]string{
+		"b and false": "false", "false and s": "false", "b or true": "true", "b implies true": "true",
+		"ControlFunctions::'and'(b, false)": "false", "ControlFunctions::'implies'(false, s)": "true",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	if _, err := evalIn(t, ctx, scope, "s - 1"); err == nil || !strings.Contains(err.Error(), "an undetermined String") {
+		t.Errorf("s - 1: err = %v; want the operand described by its declared type", err)
+	}
+}
+
+// A chain through an open collection reads its members from the values the
+// collection certainly holds, so what their declarations fix answers membership and
+// quantifiers, while the members of the unknown rest stay open.
+func TestChainThroughOpenCollectionKeepsKnownValues(t *testing.T) {
+	ctx, scope := undeterminedContext(t)
+	for src, want := range map[string]string{
+		"shelf.plain.tag": "\"d\"", "shelf.tagged.tag": "\"x\"",
+		"includes(shelf.items.tag, \"d\")": "true", "includes(shelf.items.tag, \"x\")": "true",
+		"excludes(shelf.items.tag, \"x\")": "false", "includes(shelf.items.w, 2.0)": "true",
+		"shelf.items.tag->ControlFunctions::exists{in x; x == \"x\"}": "true",
+		"shelf.items.tag->ControlFunctions::forAll{in x; x == \"d\"}": "false",
+		"shelf.items.w->ControlFunctions::forAll{in x; x > 1.0}":      "<undetermined>",
+		"notEmpty(shelf.items.tag)":                                   "true", "isEmpty(shelf.items.mass)": "false",
+		"includes(rack.gear.tag, \"d\")": "true",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantFormatted(t, src, val, err, want)
+	}
+	for src, count := range map[string]string{
+		"shelf.items.tag": "[2..*]", "shelf.items.mass": "[2..*]", "shelf.items.w": "[2..*]",
+		"includes(shelf.items.tag, \"zz\")": "[1]", "size(shelf.items.tag)": "[1]", "shelf.items.w == 2.0": "[1]",
+		"rack.loose.tag": "[0..2]", "rack.gear.mass": "[1..*]",
+	} {
+		val, err := evalIn(t, ctx, scope, src)
+		wantUndetermined(t, src, val, err, count)
+	}
+	for src, known := range map[string]string{
+		"shelf.items.tag": "[\"d\", \"x\"]", "shelf.items.w": "[2.0, 2.0]", "shelf.items.mass": "[]", "rack.gear.tag": "[\"d\"]",
+	} {
+		val, _ := evalIn(t, ctx, scope, src)
+		if u := val.Undetermined(); u != nil {
+			if got := FormatValue(sequenceOf(u.Known())); got != known {
+				t.Errorf("%s certainly holds %s, want %s", src, got, known)
+			}
+		}
 	}
 }

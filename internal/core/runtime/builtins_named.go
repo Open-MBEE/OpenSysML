@@ -118,7 +118,11 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 		if err := checkArity(name, args, 2); err != nil {
 			return Value{}, err
 		}
-		if args[0].Kind != ValUndetermined {
+		if args[0].Kind == ValUndetermined {
+			if err := ec.ctx.openBoolOperand("firstValue of "+name, args[0]); err != nil {
+				return Value{}, err
+			}
+		} else {
 			l, err := boolOperand("firstValue of "+name, args[0])
 			if err != nil {
 				return Value{}, err
@@ -135,7 +139,7 @@ func builtinControlLogical(op ast.OperatorKind) builtinFunc {
 		if err != nil {
 			return Value{}, err
 		}
-		return combineBooleanValues(op, args[0], second)
+		return ec.ctx.combineBooleanValues(op, args[0], second)
 	}
 }
 

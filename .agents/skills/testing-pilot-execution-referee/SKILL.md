@@ -63,10 +63,10 @@ Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 lines followed by `id :: target :: expression` lines. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (367 cases, all eighteen default
+Reference values at the current implementation (399 cases, all eighteen default
 fixtures):
-`agree 198 · kind-only 1 · order-only 0 · disagree 22 · pilot-unevaluated 86 ·
-pilot-silent 18 · pilot-error 9 · ours-error 2 · ours-undetermined 20 · both-error 11 ·
+`agree 205 · kind-only 1 · order-only 0 · disagree 24 · pilot-unevaluated 101 ·
+pilot-silent 19 · pilot-error 9 · ours-error 4 · ours-undetermined 24 · both-error 12 ·
 nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
