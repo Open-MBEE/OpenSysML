@@ -182,28 +182,39 @@ lets a policy resolve them. A flight artifact cannot carry an open choice. The e
 therefore holds three rules:
 
 1. **A model with an admissible choice is refused, statically.** The compiler applies the
-   oracle's criteria to the IR, one per choice kind. *Token order*: the runtime records the
-   choice whenever several tokens can step in one step, not only when they collide, so a fork,
-   and any other node that leaves several tokens live, is admitted only when the compiler proves
-   the concurrent branches commute — each branch's write set disjoint from every other branch's
-   read and write sets, and at most one of them sending, posting an outgoing event or accepting —
-   and refused otherwise. *Decision branch*: the guards must be provably exclusive (the last guard
-   `else`, or the guards a partition the compiler can read, such as comparisons of one enumeration
-   against distinct literals). *Write order*: two writes to one feature in one step refuse
-   (subsumed by the commutation rule for forks, stated separately for regions). *Transition*: a
-   state with two transitions enabled by one trigger without exclusive guards refuses. *Region
-   order*: a reaction changes the active configuration as well as data, and a transition that
-   leaves the composite the regions share deactivates its siblings, so a sibling reaction that
-   ran later would be dropped and one that ran earlier would fire — an order the data sets
-   cannot see. Sibling regions with transitions on one trigger are therefore admitted only when
-   every such transition is local (its source and target inside its own region) and the
-   effects commute as fork branches must; a transition that exits the shared composite is
-   admitted only when no sibling region has a transition on that trigger at all. *Due order*:
-   two executors sharing a due instant refuse. The refusal names the elements and the oracle
-   case that makes the choice admissible. The modeller resolves it in the model — sequencing the
-   branches, making the guards a partition — and the fact that they did is visible in the model,
-   where a reviewer reads it. The diagnostic trace records the order the profile ran commuting
-   branches in; that order is fixed by rule 2 and is not an observable of the model.
+   oracle's criteria to the IR, one per choice kind, and where the criterion is that two moves
+   commute it uses the footprint and the independence relation [the bounded model
+   checker](bounded-model-checking.md#the-independence-relation) defines: a move's footprint is
+   everything the whole atomic move reads, writes, sends and accepts — for a token, its body and
+   the guards of its outgoing successions; for a transition, its guard, its effect, the exit
+   actions of the states it leaves and the entry actions of the states it enters — together
+   with its `control` entry, the states it exits and enters and the leaf it fires from. Two
+   moves commute when neither writes what the other reads or writes, neither sends what the
+   other accepts, their `control` entries are disjoint, at most one posts an outgoing event, and
+   neither footprint holds a target the analysis cannot resolve statically; anything else is
+   dependent. *Token order*: the runtime records the choice whenever several tokens can step in
+   one step, not only when they collide, so a fork, and any other node that leaves several tokens
+   live, is admitted only when every pair of concurrent branches commutes, and refused otherwise.
+   *Decision branch*: the guards must be provably exclusive (the last guard `else`, or the guards
+   a partition the compiler can read, such as comparisons of one enumeration against distinct
+   literals). *Write order*: two writes to one feature in one step refuse (a dependent pair under
+   the same relation, stated separately because the runtime records it separately).
+   *Transition*: a state with two transitions enabled by one trigger without exclusive guards
+   refuses. *Region order*: sibling regions with transitions on one trigger are admitted only
+   when every pair of those transitions that can be enabled together commutes — two transitions
+   whose guards are provably exclusive, by the decision-branch proof, are never enabled together
+   and are not a pair. The `control` entry is what makes this sound against the configuration: a
+   transition that leaves the composite the regions share exits the sibling regions' states, so
+   it is dependent on every sibling transition it can be enabled with, and the pair refuses — a
+   sibling reaction that ran later would be dropped and one that ran earlier would fire, an
+   order the data sets alone cannot see; a local transition, source and target inside its own
+   region, has a `control` entry disjoint from its siblings' and commutes with them when its
+   footprint does. *Due order*: two executors sharing a due instant refuse. The refusal names
+   the elements and the oracle case that makes the choice admissible. The modeller resolves it
+   in the model — sequencing the branches, making the guards a partition — and the fact that
+   they did is visible in the model, where a reviewer reads it. The diagnostic trace records the
+   order the profile ran commuting branches in; that order is fixed by rule 2 and is not an
+   observable of the model.
 2. **What remains is declaration order**, the policy the interpreter calls `declared`, stated in
    the semantics document as the profile's rule, so a model that passes rule 1 has exactly one
    execution and the interpreter under `declared` computes it.
