@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // metadataSrc annotates seatBelt three times: from an `about` usage declared
@@ -53,14 +53,19 @@ package about {
 }
 `
 
-// metadataTypeNames is the metadata type of every object in a `.metadata` sequence.
+// metadataTypeNames is the metadata type of every object in a `.metadata`
+// sequence, which the element's own reflective metaobject ends (KerML 8.3.4.8.15).
 func metadataTypeNames(t *testing.T, ctx *Context, value Value) []string {
 	t.Helper()
 	if value.Kind != ValSequence {
 		t.Fatalf("metadata read as %v, want a sequence", value.Kind)
 	}
-	var names []string
-	for _, elem := range elementsOf(value) {
+	elements := elementsOf(value)
+	if len(elements) == 0 || elements[len(elements)-1].Kind != ValMetaobject {
+		t.Fatalf("metadata %s does not end with the reflective metaobject", FormatValue(value))
+	}
+	names := []string{}
+	for _, elem := range elements[:len(elements)-1] {
 		inst, ok := ctx.getInstance(elem.Instance)
 		if !ok {
 			t.Fatalf("element %v is no object", elem.Kind)
@@ -114,15 +119,22 @@ func TestMetadataAccessAboutForm(t *testing.T) {
 	}
 }
 
-// TestMetadataAccessEmpty reads the metadata of an element nothing annotates.
+// TestMetadataAccessEmpty reads the metadata of an element nothing annotates:
+// only its reflective metaobject, of the metaclass its declaration is of.
 func TestMetadataAccessEmpty(t *testing.T) {
-	for _, expr := range []string{"test::mass.metadata", "test::Vehicle.metadata"} {
+	for expr, want := range map[string]string{
+		"test::mass.metadata":    "meta(test::mass : SysML::Systems::AttributeUsage)",
+		"test::Vehicle.metadata": "meta(test::Vehicle : SysML::Systems::PartDefinition)",
+	} {
 		ctx, got, err := evalDeclaredExpr(t, metadataSrc, expr)
 		if err != nil {
 			t.Fatalf("%s failed: %v", expr, err)
 		}
 		if names := metadataTypeNames(t, ctx, got); len(names) != 0 {
-			t.Errorf("%s = %v, want the empty sequence", expr, names)
+			t.Errorf("%s = %v, want no annotation", expr, names)
+		}
+		if text := FormatTraceValue(elementsOf(got)[0]); text != want {
+			t.Errorf("%s = %s, want %s", expr, text, want)
 		}
 	}
 }
@@ -476,11 +488,14 @@ package test {
 		t.Fatalf("the second seatBelt.metadata failed: %v", err)
 	}
 	one, two := elementsOf(first), elementsOf(second)
-	if len(one) != 1 || len(two) != 1 {
-		t.Fatalf("read %d then %d metadata values, want one each", len(one), len(two))
+	if len(one) != 2 || len(two) != 2 {
+		t.Fatalf("read %d then %d metadata values, want the annotation and the metaobject each time", len(one), len(two))
 	}
 	if one[0].Instance != two[0].Instance {
 		t.Errorf("the reads answered objects %d and %d, want one object", one[0].Instance, two[0].Instance)
+	}
+	if !valueEqual(one[1], two[1]) || one[1].Kind != ValMetaobject {
+		t.Errorf("the reads answered metaobjects %s and %s, want one", FormatValue(one[1]), FormatValue(two[1]))
 	}
 	if len(ctx.instances) != made {
 		t.Errorf("the second read left %d objects, want the %d the first did", len(ctx.instances), made)
@@ -495,15 +510,15 @@ const adoptMetadataSrc = `package Demo {
 			level = 5;
 		}
 	}
-	part def Holder { attribute mark; }
-	part def Reader { attribute seen = seatBelt.metadata; }
+	part def Holder { attribute mark [*]; }
+	part def Reader { attribute seen [*] = seatBelt.metadata; }
 }`
 
 // TestAdoptKeepsTheObjectAnAnnotationDenotes carries an object holding what an
 // annotation denotes into a re-analysis: the annotation still denotes that
 // object there, so reading it again answers it rather than making a second one.
 func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
-	prev := contextOver(t, adoptMetadataSrc)
+	prev := libraryContextOver(t, adoptMetadataSrc)
 	reader, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Reader"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -516,22 +531,19 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
-	if err := holder.SetFeatureValue(prev, "mark", fv.Value); err != nil {
+	if err := holder.SetFeatureValue(prev, "mark", fv.HeldValue()); err != nil {
 		t.Fatalf("SetFeatureValue(mark): %v", err)
 	}
-	carried := elementsOf(fv.Value)
-	if len(carried) != 1 {
-		t.Fatalf("mark holds %d metadata values, want one", len(carried))
-	}
+	carried := annotationRead(t, "mark", fv.HeldValue())
 	shapes := prev.ShapesOf(holder)
 
-	ctx := contextOver(t, adoptMetadataSrc+"\npart def Widget;")
+	ctx := libraryContextOver(t, adoptMetadataSrc+"\npart def Widget;")
 	if _, err := ctx.Adopt(prev, shapes, holder); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
-	if _, found := ctx.Instance(carried[0].Instance); !found {
+	if _, found := ctx.Instance(carried.Instance); !found {
 		t.Fatalf("the metadata object %d was not carried over, so the test proves nothing",
-			carried[0].Instance)
+			carried.Instance)
 	}
 	made := len(ctx.instances)
 	again, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "Demo::Reader"))
@@ -542,13 +554,10 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(seen) after adoption: %v", err)
 	}
-	read := elementsOf(seen.Value)
-	if len(read) != 1 {
-		t.Fatalf("the annotation reads as %d metadata values after adoption, want one", len(read))
-	}
-	if read[0].Instance != carried[0].Instance {
+	read := annotationRead(t, "seen after adoption", seen.HeldValue())
+	if read.Instance != carried.Instance {
 		t.Errorf("the annotation denotes object %d after adoption, want the carried %d",
-			read[0].Instance, carried[0].Instance)
+			read.Instance, carried.Instance)
 	}
 	if len(ctx.instances) != made+1 {
 		t.Errorf("reading the annotation again left %d objects, want the %d carried plus the reader",
@@ -560,7 +569,7 @@ func TestAdoptKeepsTheObjectAnAnnotationDenotes(t *testing.T) {
 // two analyses: the object made for what it said before does not stand for what
 // it says now, so the annotation is read again and answers the new value.
 func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
-	prev := contextOver(t, adoptMetadataSrc)
+	prev := libraryContextOver(t, adoptMetadataSrc)
 	reader, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Reader"))
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
@@ -573,16 +582,13 @@ func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Instantiate: %v", err)
 	}
-	if err := holder.SetFeatureValue(prev, "mark", fv.Value); err != nil {
+	if err := holder.SetFeatureValue(prev, "mark", fv.HeldValue()); err != nil {
 		t.Fatalf("SetFeatureValue(mark): %v", err)
 	}
-	carried := elementsOf(fv.Value)
-	if len(carried) != 1 {
-		t.Fatalf("the annotation reads as %d metadata values, want one", len(carried))
-	}
+	carried := annotationRead(t, "seen", fv.HeldValue())
 	shapes := prev.ShapesOf(holder)
 
-	ctx := contextOver(t, strings.Replace(adoptMetadataSrc, "level = 5", "level = 9", 1))
+	ctx := libraryContextOver(t, strings.Replace(adoptMetadataSrc, "level = 5", "level = 9", 1))
 	if _, err := ctx.Adopt(prev, shapes, holder); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
@@ -594,17 +600,14 @@ func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFeatureValue(seen) after adoption: %v", err)
 	}
-	read := elementsOf(seen.Value)
-	if len(read) != 1 {
-		t.Fatalf("the annotation reads as %d metadata values after adoption, want one", len(read))
-	}
-	if read[0].Instance == carried[0].Instance {
+	read := annotationRead(t, "seen after adoption", seen.HeldValue())
+	if read.Instance == carried.Instance {
 		t.Fatalf("the edited annotation reused object %d, made for what it said before",
-			carried[0].Instance)
+			carried.Instance)
 	}
-	obj, found := ctx.Instance(read[0].Instance)
+	obj, found := ctx.Instance(read.Instance)
 	if !found {
-		t.Fatalf("the annotation reads as object %d, which the context does not hold", read[0].Instance)
+		t.Fatalf("the annotation reads as object %d, which the context does not hold", read.Instance)
 	}
 	level, err := obj.GetFeatureValue(ctx, "level")
 	if err != nil {
@@ -615,11 +618,12 @@ func TestAdoptReadsAChangedAnnotationAgain(t *testing.T) {
 	}
 }
 
-// contextOverDocs indexes each named document and gives the context every text,
-// so a digest over an annotation reads the document stating it.
+// contextOverDocs indexes each named document over the library, whose
+// metaclasses `.metadata` answers, and gives the context every text, so a
+// digest over an annotation reads the document stating it.
 func contextOverDocs(t *testing.T, docs [][2]string) *Context {
 	t.Helper()
-	idx := symbols.NewIndex()
+	idx := libs.NewModelIndex()
 	for _, doc := range docs {
 		idx.AddDocument(doc[0], parser.New(source.New(doc[0], []byte(doc[1]))).ParseFile())
 	}
@@ -631,12 +635,23 @@ func contextOverDocs(t *testing.T, docs [][2]string) *Context {
 	return ctx
 }
 
+// annotationRead is the object the one annotation of a `.metadata` read denotes,
+// which the element's reflective metaobject follows.
+func annotationRead(t *testing.T, what string, value Value) Value {
+	t.Helper()
+	vals := elementsOf(value)
+	if len(vals) != 2 || vals[0].Kind != ValInstance || vals[1].Kind != ValMetaobject {
+		t.Fatalf("%s reads as %s, want the annotation's object then the metaobject", what, FormatValue(value))
+	}
+	return vals[0]
+}
+
 const adoptAboutModel = `package Demo {
 	metadata def Safety { attribute level = 3; }
 	part def Vehicle;
 	part seatBelt : Vehicle;
-	part def Holder { attribute mark; }
-	part def Reader { attribute seen = seatBelt.metadata; }
+	part def Holder { attribute mark [*]; }
+	part def Reader { attribute seen [*] = seatBelt.metadata; }
 }`
 
 const adoptAboutNotes = `package Notes {
@@ -655,11 +670,7 @@ func TestAdoptReadsAChangedAboutAnnotationAgain(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetFeatureValue(seen): %v", err)
 		}
-		vals := elementsOf(fv.Value)
-		if len(vals) != 1 {
-			t.Fatalf("the annotation reads as %d metadata values, want one", len(vals))
-		}
-		return vals[0]
+		return annotationRead(t, "seen", fv.HeldValue())
 	}
 	carry := func(t *testing.T, model, notes string) (int64, int64) {
 		t.Helper()

@@ -384,7 +384,8 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 
 	// Parse and build model
-	p := parser.New(source.New(sysmlPath, sysmlData))
+	src := source.New(sysmlPath, sysmlData)
+	p := parser.New(src)
 	file := p.ParseFile()
 	checkDiagnostics(t, p.Diagnostics, expected.Diagnostics)
 
@@ -398,6 +399,7 @@ func runConformanceCase(t *testing.T, conformanceDir, caseName string, policy Sc
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceText(source.TextOf(map[string]*source.SourceFile{sysmlPath: src}, nil))
 	fresh := func() *Context { return NewContext(NewModel(model, resolver), 10000) }
 	ctx := fresh()
 	if err := ctx.SetSchedule(casePolicy(t, expected, policy)); err != nil {
@@ -1839,6 +1841,8 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 		t.Fatalf("a %s is declared by the model, so it cannot be built from a case value", ev.Type)
 	case "Function":
 		t.Fatalf("a function is a calc the model declares, so it cannot be built from a case value")
+	case "Metaobject":
+		t.Fatalf("a metaobject denotes an element the model declares, so it cannot be built from a case value")
 	case "Complex":
 		v, ok := ev.Value.(float64)
 		if !ok || ev.Im == nil {
@@ -2049,6 +2053,14 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		}
 		if want := expected.Value.(string); actual.FunctionName() != want {
 			t.Errorf("%s: function = %q, want %q", name, actual.FunctionName(), want)
+		}
+	case "Metaobject":
+		if actual.Kind != ValMetaobject || actual.MetaobjectElement() == nil {
+			t.Errorf("%s: type = %v, want Metaobject", name, actual.Kind)
+			return
+		}
+		if want, pinned := expected.Value.(string); pinned && actual.MetaobjectText() != want {
+			t.Errorf("%s: metaobject = %q, want %q", name, actual.MetaobjectText(), want)
 		}
 	case "CoordinateFrame":
 		actual = denotedObjectValue(t, ctx, name, actual)

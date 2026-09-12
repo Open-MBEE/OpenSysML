@@ -1,0 +1,33 @@
+model: cmd/pilot-exec-diff/testdata/models/metadata_access.sysml
+
+# `x.metadata` (KerML 1.0 §8.3.4.8.15 MetadataAccessExpression) is every
+# metadata annotation of the element x names followed by one reflective
+# metaobject of x's own metaclass, and `x meta T` (KerML 1.0 §7.4.9.2) is
+# `x.metadata as T`: the annotations conforming to T, then the reflective
+# metaobject when x's metaclass conforms to T, `()` otherwise. The pilot
+# cannot resolve library names inside a bare %eval, so each case reads a
+# model-level attribute bound to the expression.
+metadata-count ::  :: Meta::metadataCount
+bare-metadata-count ::  :: Meta::bareMetadataCount
+meta-feature-count ::  :: Meta::metaFeatureCount
+meta-safety-count ::  :: Meta::metaSafetyCount
+meta-safety-level ::  :: Meta::metaSafetyLevel
+meta-name ::  :: Meta::metaName
+meta-declared-name ::  :: Meta::metaDeclaredName
+meta-qualified-name ::  :: Meta::metaQualifiedName
+meta-owned-feature-count ::  :: Meta::metaOwnedFeatureCount
+meta-definition-count ::  :: Meta::metaDefinitionCount
+meta-usage-count ::  :: Meta::metaUsageCount
+meta-definition-name ::  :: Meta::metaDefinitionName
+meta-is-abstract ::  :: Meta::metaIsAbstract
+meta-same ::  :: Meta::metaSame
+meta-doc-count ::  :: Meta::metaDocCount
+meta-doc-body ::  :: Meta::metaDocBody
+meta-doc-qualified-name ::  :: Meta::metaDocQualifiedName
+meta-doc-owner-name ::  :: Meta::metaDocOwnerName
+meta-no-doc-count ::  :: Meta::metaNoDocCount
+dependency-metadata-count ::  :: Meta::dependencyMetadataCount
+meta-dependency-count ::  :: Meta::metaDependencyCount
+meta-dependency-client-name ::  :: Meta::metaDependencyClientName
+rep-metadata-count ::  :: Meta::repMetadataCount
+meta-rep-represented-name ::  :: Meta::metaRepRepresentedName

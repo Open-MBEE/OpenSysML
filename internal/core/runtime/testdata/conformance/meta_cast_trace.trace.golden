@@ -1,0 +1,21 @@
+enter calc test::Describe
+  stmt declare everything
+materialize: Safety #1
+      eval literal 4 -> 4
+    eval operator meta -> (instance#1, meta(test::seatBelt : SysML::Systems::PartUsage))
+  stmt return
+          eval operator meta -> (meta(test::seatBelt : SysML::Systems::PartUsage))
+        eval chain qualifiedName -> ("test::seatBelt")
+        eval literal "/" -> "/"
+      eval operator + -> "test::seatBelt/"
+          enter calc SequenceFunctions::size
+            eval feature everything -> (instance#1, meta(test::seatBelt : SysML::Systems::PartUsage))
+            bind seq = (instance#1, meta(test::seatBelt : SysML::Systems::PartUsage)) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        enter calc BaseFunctions::ToString
+          bind x = 2 [argument]
+        exit calc BaseFunctions::ToString -> "2"
+      eval invoke BaseFunctions::ToString -> "2"
+    eval operator + -> "test::seatBelt/2"
+exit calc test::Describe -> "test::seatBelt/2"

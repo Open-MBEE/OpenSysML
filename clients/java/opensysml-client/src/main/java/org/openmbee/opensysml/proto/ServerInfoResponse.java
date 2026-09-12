@@ -167,6 +167,13 @@ private static final long serialVersionUID = 0L;
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -271,6 +278,13 @@ private static final long serialVersionUID = 0L;
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -374,6 +388,13 @@ private static final long serialVersionUID = 0L;
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -478,6 +499,13 @@ private static final long serialVersionUID = 0L;
    * unsupported null, and one is accepted as an action input
    * or calc argument; without it, one is refused with
    * UNIMPLEMENTED rather than read as another value.
+   * "metaobject_values" - a Value carries an element reflected on as an
+   * instance of its metaclass (`x meta T`, the last element
+   * of `x.metadata`) as metaobject, named by the element and
+   * its metaclass, rather than reporting it as an unsupported
+   * null, and one is accepted as an action input or calc
+   * argument; without it, one is refused with UNIMPLEMENTED
+   * rather than read as another value.
    * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
    * preserving everything the edit did not touch.
    * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1031,6 +1059,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1136,6 +1171,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1239,6 +1281,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1343,6 +1392,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1448,6 +1504,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1559,6 +1622,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1669,6 +1739,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1779,6 +1856,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query
@@ -1886,6 +1970,13 @@ private static final long serialVersionUID = 0L;
      * unsupported null, and one is accepted as an action input
      * or calc argument; without it, one is refused with
      * UNIMPLEMENTED rather than read as another value.
+     * "metaobject_values" - a Value carries an element reflected on as an
+     * instance of its metaclass (`x meta T`, the last element
+     * of `x.metadata`) as metaobject, named by the element and
+     * its metaclass, rather than reporting it as an unsupported
+     * null, and one is accepted as an action input or calc
+     * argument; without it, one is refused with UNIMPLEMENTED
+     * rather than read as another value.
      * "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
      * preserving everything the edit did not touch.
      * "document_query" - the RunDocumentQuery RPC runs a named document query

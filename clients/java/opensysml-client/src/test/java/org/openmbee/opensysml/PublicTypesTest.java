@@ -484,6 +484,21 @@ class PublicTypesTest {
   }
 
   @Test
+  void aMetaobjectIsItsElementWhateverItWasCastTo() {
+    Value.MetaobjectValue asUsage =
+        new Value.MetaobjectValue("Demo::seatBelt", "SysML::Systems::PartUsage");
+    Value.MetaobjectValue asFeature = new Value.MetaobjectValue("Demo::seatBelt", "KerML::Feature");
+    assertEquals(asUsage, asFeature);
+    assertEquals(asUsage.hashCode(), asFeature.hashCode());
+    assertTrue(asUsage.sameValue(asFeature));
+    assertNotEquals(asUsage, new Value.MetaobjectValue("Demo::Vehicle", "SysML::Systems::PartUsage"));
+    assertEquals("SysML::Systems::PartUsage", asUsage.metaclassId());
+    // A set holds the element once, however many times it was cast.
+    assertThrows(IllegalArgumentException.class, () -> new Value.SetValue(List.of(asUsage, asFeature)));
+    assertThrows(IllegalArgumentException.class, () -> new Value.MetaobjectValue("", "KerML::Feature"));
+  }
+
+  @Test
   void anUnsetValueIsNotTheModelsNull() {
     Value unset = new Value.UnsetValue();
     Value modelsNull = new Value.NullValue();

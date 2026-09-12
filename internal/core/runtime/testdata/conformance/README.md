@@ -415,6 +415,9 @@ Supported types:
   declaring it qualifies it (`{"type": "EnumLiteral", "value": "Color::red"}`)
 - `Function`: the qualified name of the calc a function value is a value of
   (`{"type": "Function", "value": "test::Sq"}`)
+- `Metaobject`: the reflective metaobject of an element, optionally pinned to the
+  text it prints as, the element's qualified name and its metaclass
+  (`{"type": "Metaobject", "value": "meta(test::seatBelt : SysML::Systems::PartUsage)"}`)
 
 In place of a value, `error` states the text producing that value must fail with,
 for a slot or result whose contract is a diagnostic (`{"error": "not a

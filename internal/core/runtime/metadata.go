@@ -34,7 +34,14 @@ func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, err
 		}
 		values = append(values, val)
 	}
-	seq, err := ec.newSequence(values)
+	// The annotations are followed by the element's own reflective metaobject
+	// (KerML 1.0 §8.3.4.8.15).
+	meta, err := ec.reflectiveMetaobject(sym)
+	if err != nil {
+		rollback()
+		return Value{}, err
+	}
+	seq, err := ec.newSequence(append(values, meta))
 	if err != nil {
 		rollback()
 		return Value{}, err

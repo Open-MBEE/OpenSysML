@@ -62,7 +62,8 @@ func (c *carrying) values(vals []Value) ([]Value, error) {
 
 func (c *carrying) value(v Value) (Value, error) {
 	switch v.Kind {
-	case ValInvalid, ValConst, ValNull, ValString, ValQuantity, ValEnumLiteral, ValComplex, ValMeasurementRef:
+	case ValInvalid, ValConst, ValNull, ValString, ValQuantity, ValEnumLiteral, ValComplex, ValMeasurementRef,
+		ValMetaobject:
 		return v, nil
 	case ValInstance:
 		id, err := c.object(v.Instance)
