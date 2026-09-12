@@ -191,6 +191,50 @@ func (e *Encoding) Failure(p *Property) *solve.Query {
 	return e.marked(cases, "failure")
 }
 
+// Completion is the query satisfiable exactly when some run of at most k moves
+// completes within the bounds, MarkVar naming the state it completes at. Its
+// models, told apart by Outputs, are the outcomes the interpreter's exploration
+// reports.
+func (e *Encoding) Completion() *solve.Query {
+	cases := make([]*solve.Term, 0, e.Moves+1)
+	for i := 0; i <= e.Moves; i++ {
+		cases = append(cases, solve.And(e.exact(i), e.Completed[i]))
+	}
+	return e.marked(cases, "completion")
+}
+
+// Output is one attribute of the action as a completed run leaves it: the copy
+// of its value the final state holds, and whether it holds one.
+type Output struct {
+	Name string
+	Var  *solve.Var
+	// Has is nil for an attribute that holds a value in every state.
+	Has *solve.Var
+}
+
+// Outputs are the action's attributes as the final state leaves them, in
+// declaration order: what the interpreter reports as a run's results.
+func (e *Encoding) Outputs() []Output {
+	final := e.States[e.Moves]
+	outputs := make([]Output, 0, len(e.Flow.Graph.Attributes))
+	for _, attr := range e.Flow.Graph.Attributes {
+		scope := attr.Scope
+		if scope == nil {
+			scope = e.Flow.Graph.Scope
+		}
+		base, ok := e.features[e.translatedName(attr.Name, scope)]
+		if !ok {
+			continue
+		}
+		out := Output{Name: attr.Name, Var: final.value(base)}
+		if e.flagged[base.Name] {
+			out.Has = final.has(base)
+		}
+		outputs = append(outputs, out)
+	}
+	return outputs
+}
+
 // marked is the query satisfiable when some state i meets cases[i], with
 // MarkVar naming the first such state of the run in every model.
 func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {

@@ -71,9 +71,9 @@ func DecodeValue(a Assignment) (ModelValue, error) {
 	return ModelValue{}, fmt.Errorf("unreadable value %s", a.Raw)
 }
 
-// literal is the term denoting a decoded value, which is what denies a model in
+// Literal is the term denoting a decoded value, which is what denies a model in
 // an enumeration. An integer outside int64 has no literal in the term language.
-func (v ModelValue) literal(sort Sort) (*Term, error) {
+func (v ModelValue) Literal(sort Sort) (*Term, error) {
 	switch v.Kind {
 	case SortBool:
 		return BoolTerm(v.Bool), nil

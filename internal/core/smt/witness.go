@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/solve"
 )
 
@@ -256,4 +257,93 @@ func (m model) integer(name string) (int, error) {
 		return 0, &WitnessError{Var: name, Reason: v.Number.String() + " is outside the integer range"}
 	}
 	return int(v.Number.Num().Int64()), nil
+}
+
+// OutputVars are the variables that tell one completed run's outcome from
+// another's: each output's value and, where it may hold none, whether it does.
+func (e *Encoding) OutputVars() []*solve.Var {
+	var vars []*solve.Var
+	for _, out := range e.Outputs() {
+		vars = append(vars, out.Var)
+		if out.Has != nil {
+			vars = append(vars, out.Has)
+		}
+	}
+	return vars
+}
+
+// DecodeOutputs reads the outputs of a completed run from an assignment over
+// OutputVars, spelled as the interpreter spells a run's results, keyed by the
+// attribute's name; an attribute holding no value is left out.
+func (e *Encoding) DecodeOutputs(values []solve.Assignment) (map[string]string, error) {
+	m, err := readModel(values)
+	if err != nil {
+		return nil, err
+	}
+	outputs := make(map[string]string)
+	for _, out := range e.Outputs() {
+		if out.Has != nil {
+			has, err := m.boolean(out.Has.Name)
+			if err != nil {
+				return nil, err
+			}
+			if !has {
+				continue
+			}
+		}
+		v, ok := m[out.Var.Name]
+		if !ok {
+			return nil, &WitnessError{Var: out.Var.Name, Reason: "the model assigns it no value"}
+		}
+		text, err := spell(v)
+		if err != nil {
+			return nil, &WitnessError{Var: out.Var.Name, Reason: err.Error()}
+		}
+		outputs[out.Name] = text
+	}
+	return outputs, nil
+}
+
+// Fix is q narrowed to the runs whose OutputVars take the values assigned, so
+// its model is one run of that outcome.
+func (e *Encoding) Fix(q *solve.Query, values []solve.Assignment) (*solve.Query, error) {
+	fixed := *q
+	fixed.Assertions = slices.Clone(q.Assertions)
+	for _, a := range values {
+		v, err := solve.DecodeValue(a)
+		if err != nil {
+			return nil, &WitnessError{Var: a.Var.Name, Reason: err.Error()}
+		}
+		literal, err := v.Literal(a.Var.Sort)
+		if err != nil {
+			return nil, &WitnessError{Var: a.Var.Name, Reason: err.Error()}
+		}
+		fixed.Assertions = append(fixed.Assertions, solve.Assertion{
+			Term: eq(solve.VarTerm(a.Var), literal),
+			From: solve.Provenance{Kind: "action", Element: q.Element, Condition: "outcome " + a.Var.Name, Role: solve.RoleTransition},
+		})
+	}
+	return &fixed, nil
+}
+
+// spell writes a model value as the interpreter formats the same value.
+func spell(v solve.ModelValue) (string, error) {
+	switch v.Kind {
+	case solve.SortBool:
+		return strconv.FormatBool(v.Bool), nil
+	case solve.SortInt:
+		return v.Number.Num().String(), nil
+	case solve.SortReal:
+		f, _ := v.Number.Float64()
+		return semantics.FormatReal(f), nil
+	case solve.SortString:
+		return strconv.Quote(v.Text), nil
+	case solve.SortDatatype:
+		parts := strings.Split(v.Text, "::")
+		if len(parts) > 2 {
+			parts = parts[len(parts)-2:]
+		}
+		return strings.Join(parts, "::"), nil
+	}
+	return "", fmt.Errorf("a value of no sort")
 }

@@ -319,7 +319,7 @@ func (s *session) blocking(values []Assignment) (string, error) {
 				"its model gave "+a.Raw+" for "+a.Var.Name+", which is no value of "+a.Var.Sort.Name+": "+err.Error(),
 				s.stderrText(), nil)
 		}
-		literal, err := value.literal(a.Var.Sort)
+		literal, err := value.Literal(a.Var.Sort)
 		if err != nil {
 			return "", s.solver.processError("get-value",
 				"its model gave "+a.Raw+" for "+a.Var.Name+", which the term language cannot deny: "+err.Error(),

@@ -405,14 +405,14 @@ func TestDecodedValueDeniesItself(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if _, err := wide.literal(Int); err == nil || !strings.Contains(err.Error(), "outside the Integer range") {
+	if _, err := wide.Literal(Int); err == nil || !strings.Contains(err.Error(), "outside the Integer range") {
 		t.Fatalf("a literal for a wide integer: %v, want a range error", err)
 	}
 	third, err := DecodeValue(Assignment{Var: &Var{Name: "r", Sort: Real}, Raw: "(/ 1.0 3.0)"})
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	literal, err := third.literal(Real)
+	literal, err := third.Literal(Real)
 	if err != nil {
 		t.Fatalf("literal: %v", err)
 	}
