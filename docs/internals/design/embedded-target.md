@@ -194,9 +194,9 @@ therefore holds three rules:
    posted outgoing event, since the bus and the outgoing queue keep arrival order and an accept
    takes the oldest match, so two sends, two accepts, or a send and an accept are ordered by the
    schedule — and neither footprint holds a target the analysis cannot resolve statically;
-   anything else is dependent. The profile's message clause is stricter than the checker's
-   dependence bullets need on their own, and stated this way so the compiler never has to
-   prove which receiver a send reaches. *Token order*: the runtime records the
+   anything else is dependent. The message clause adds the outgoing queue to the checker's
+   bullets and otherwise restates them: the bus is one list, so which receiver a send reaches
+   never enters the proof. *Token order*: the runtime records the
    choice whenever several tokens can step in one step, not only when they collide, so a fork,
    and any other node that leaves several tokens live, is admitted only when every pair of
    concurrent branches commutes, and refused otherwise.

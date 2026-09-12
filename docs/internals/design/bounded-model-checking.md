@@ -283,10 +283,12 @@ and declares `a` and `b` **dependent** when any of these hold:
 - `writes(a) ∩ (reads(b) ∪ writes(b)) ≠ ∅`, or symmetrically — a data race.
 - `sends(a)` may deliver what `accepts(b)` waits for — a message the order of moves can make
   available or not.
-- `sends(a)` and `sends(b)` may reach one receiver, or `accepts(a)` and `accepts(b)` may match
-  one message — the bus holds its messages in arrival order and an accept consumes the oldest
-  match, so two sends enqueue in the order they ran and two accepts compete for the same
-  message; neither pair reaches the same state in both orders.
+- Both moves send, or both accept, whatever their receivers or signal types — the bus is one
+  context-wide list in arrival order (`Context.messages`), so two sends leave it in the order
+  they ran and two accepts each take the oldest match from a list the other has changed;
+  neither pair reaches the same captured state in both orders. Sends to distinct receivers
+  are no exception: the captured bus keeps their order, and an accept whose match is by signal
+  type alone can observe it.
 - `control(a) ∩ control(b) ≠ ∅` — both tokens converge on one join or merge, whose behavior
   depends on arrival count and order (`stepJoinNode`, `stepMergeNode`).
 - Either footprint contains a **dynamic** target the static analysis cannot resolve: a chained
