@@ -290,6 +290,8 @@ func (r *reader) readMachines() {
 			sm.Redefines = r.nameOf(id)
 		} else if id := e.Ref("redefinedClassifier"); id != "" {
 			sm.Redefines = r.nameOf(id)
+		} else if id := e.Ref("extendedStateMachine"); id != "" {
+			sm.Redefines = r.nameOf(id)
 		}
 		for _, cp := range e.Tagged("connectionPoint") {
 			sm.ConnectionPoints = append(sm.ConnectionPoints, r.readVertex(cp, nil))
