@@ -50,6 +50,11 @@ Write a CPU profile of the run to this file, for go tool pprof
 Report every diagnostic over the whole session buffer, with the pass that
 produced it
 .TP
+.BI \-diagram\-form " string"
+Form the graph\-shaped diagrams of \-render\-document and \-render\-documents
+are written in: mermaid (default) or dot; a table\-kind view is a table either
+way
+.TP
 .BI \-doc\-form " string"
 Form \-render\-document and \-render\-documents write: markdown (default),
 html or pdf, which drives an external converter
@@ -182,8 +187,8 @@ Markdown
 Render every document definition as linked Markdown into this directory
 .TP
 .BI \-render\-form " string"
-Form \-render or \-render\-all writes: text, mermaid or markdown (default:
-destination\-dependent for \-render, each kind's machine form for
+Form \-render or \-render\-all writes: text, mermaid, markdown or dot
+(default: destination\-dependent for \-render, each kind's machine form for
 \-render\-all)
 .TP
 .BI \-requirement " value"
@@ -491,6 +496,7 @@ the resulting commit; the token comes from FLEXO_INTEROP_TOKEN.
 sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render Views::vehicleView \-render\-form markdown
 sysml model.sysml \-render Views::vehicleView \-o view.mmd
+sysml model.sysml \-render Views::vehicleView \-render\-form dot
 # several files, loaded as one model
 sysml types.sysml model.sysml \-render Views::vehicleView
 sysml model.sysml \-render\-all rendered
@@ -501,7 +507,10 @@ The rendering is the one the view's render member states, and a containment
 tree where it states none. It is tool\-defined output: SysML v2 specifies the
 notation, not how a tool draws it. Notices \(em an empty view, an element the
 rendering cannot represent \(em go on stderr. Every file named is loaded as
-one model, so a view may expose elements a sibling file declares.
+one model, so a view may expose elements a sibling file declares. A
+graph\-shaped rendering is written as a Mermaid diagram by default and as
+Graphviz DOT with \-render\-form dot; no Graphviz installation is needed to
+write it.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf
@@ -522,6 +531,9 @@ sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
 # diagrams drawn in the browser
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form html \e
     \-html\-mermaid cdn \-o report.html
+# diagrams as Graphviz DOT
+sysml model.sysml \-render\-document Reports::MassReport \-diagram\-form \e
+    dot \-o report.md
 sysml model.sysml \-render\-document Reports::MassReport \-doc\-form pdf \e
     \-pdf\-engine pandoc \-doc\-title\-page \-doc\-toc \-doc\-number\-sections \e
     \-o report.pdf
@@ -534,7 +546,10 @@ sysml \-html\-default\-css \-html\-theme modern \-o modern.css
 .PP
 A document is a part def specializing DocumentQueries::Document. Its queries
 are bound in the model and run against it, and the result is written as
-CommonMark\-compatible Markdown.
+CommonMark\-compatible Markdown. Its diagram blocks are Mermaid source;
+\-diagram\-form dot writes every graph\-shaped one as Graphviz DOT instead, in
+Markdown and HTML alike, while a table\-kind view stays a table. No Graphviz
+installation is needed to write it.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS
@@ -551,10 +566,9 @@ picks one of the bundled looks (default, modern, print, report), \-html\-css
 adds your own stylesheets, \-html\-no\-default\-css drops the default one,
 \-html\-fragment writes the document element alone to embed in a page of
 yours, and \-html\-default\-css writes the default sheet out \(em or, with
-\-html\-theme, a theme's whole sheet \(em to start from. Diagrams are written
-as Mermaid source; \-html\-mermaid cdn has the page load a pinned Mermaid
-release from jsDelivr so a browser draws them, or names a URL of your own to
-load it from.
+\-html\-theme, a theme's whole sheet \(em to start from. \-html\-mermaid cdn
+has the page load a pinned Mermaid release from jsDelivr so a browser draws
+the Mermaid diagrams, or names a URL of your own to load it from.
 .SH FLAG ORDER
 Flags may be written before or after the model they apply to. A file named
 like a flag is read as a file after \-\-, which ends the flags: sysml \-trace

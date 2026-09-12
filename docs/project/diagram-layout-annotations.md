@@ -2,10 +2,9 @@
 
 Status: **the read side is implemented** — the `DiagramLayout` library, the semantic
 side table that resolves a position per view, the geometry the rendering tree carries,
-what the Mermaid and text writers make of it, the LSP fields, and the validation pass.
-Open: a writer that lays a diagram out from the positions (a Graphviz `dot` form), the
-write-back of positions from a graphical editor, and the OMG proposal. It records the
-design agreed for carrying diagram geometry in textual notation and how that geometry
+what the Mermaid, text and Graphviz DOT writers make of it, the LSP fields, and the
+validation pass. Open: the write-back of positions from a graphical editor, and the OMG
+proposal. It records the design agreed for carrying diagram geometry in textual notation and how that geometry
 reaches every rendering OpenSysML produces.
 
 ## The problem
@@ -225,6 +224,7 @@ reads a feature rather than a literal is already an error of the type tier
 |---|---|---|
 | `mermaid` | Not representable | Written as comments after the header so a round trip through the artifact keeps them: `%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120 y=80 w=200 h=90 collapsed`, `%% route: n1->n2 320,125 400,125 480,125`. Node ids are the ones the diagram body uses. |
 | `text` | Not representable | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
+| `dot` | Honored | Graphviz's own vocabulary, converted from y-down pixels to y-up points (`inputscale=72`, `dpi=72`; y measured from the canvas's bottom edge, negated with no canvas height): a node pinned at the centre of its box with `pos="x,y!"`, `pin=true`, `width`/`height` in inches — `fixedsize=true` for a stated size, fitted to the label for an unstated one — and `comment="collapsed"`; a cluster's `bb` stated (the stated box, or the one round its positioned members) and its anchor pinned at the centre; a route as a `pos` spline through the waypoints, a route of one waypoint noticed, as is a route `neato` redraws; the canvas echoed as `// canvas:` and held by an invisible point pinned at each corner, so the drawing's bounding box is the canvas. The `// layout:` header names `neato -n2` when every node is placed and any edge routed, `neato -n` when every node is placed and none routed, `neato` when some nodes are, `dot` when none — see [view rendering forms](view-rendering-forms.md#geometry). |
 | `markdown` (table) | n/a | — |
 | LSP `opensysml/render` | Structured | Optional `x`, `y`, `width`, `height`, `collapsed` on a node, `route` on an edge, `canvas` on the result — see [the LSP reference](../reference/lsp.md). |
 
@@ -246,10 +246,6 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
 
 ## Open items
 
-- **A layout-honoring writer.** Mermaid cannot place a node, so a `dot` form (Graphviz;
-  `pos="x,y!"`, `pin=true`, `neato -n`) is the writer that would draw the model where the
-  annotations say. The geometry it needs is on the rendering tree; the form and its
-  emission of positions are not yet written.
 - **Write-back** from a graphical editor's layout into the view body.
 - **Standardization.** A proposal to the SysML v2 taskforce is drafted in
   [omg-issues.md](omg-issues.md) and not filed.

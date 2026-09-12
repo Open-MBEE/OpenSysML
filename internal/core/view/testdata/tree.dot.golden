@@ -1,0 +1,20 @@
+// view: VehicleViews::vehicleView
+// kind: tree
+// layout: dot
+digraph "VehicleViews::vehicleView" {
+  node [shape=box];
+  "n0" [label="part def Vehicles::Vehicle"];
+  "n1" [label="part engine\nEngine"];
+  "n0" -> "n1" [arrowhead=none];
+  "n2" [label="part wheels\nWheel"];
+  "n0" -> "n2" [arrowhead=none];
+  "n3" [label="connect"];
+  "n0" -> "n3" [arrowhead=none];
+  "n4" [label="view VehicleViews::vehicleView::engineSubview"];
+  "n5" [label="part def Vehicles::Engine"];
+  "n6" [label="attribute power"];
+  "n5" -> "n6" [arrowhead=none];
+  "n7" [label="part cylinder\nCylinder"];
+  "n5" -> "n7" [arrowhead=none];
+  "n4" -> "n5" [arrowhead=none];
+}

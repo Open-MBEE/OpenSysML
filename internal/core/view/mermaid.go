@@ -5,11 +5,12 @@ import (
 	"strings"
 )
 
-// Mermaid is the machine-readable form of a rendering. Mermaid was chosen over
-// DOT because a Mermaid diagram renders where the models are read — in Markdown
-// documentation, in the repository's own docs, and in the editors that host the
-// language server — without a Graphviz installation, and because it has a
-// state-diagram grammar the state rendering maps onto directly.
+// Mermaid is the default machine-readable form of a rendering: a Mermaid
+// diagram renders where the models are read — in Markdown documentation, in
+// the repository's own docs, and in the editors that host the language server —
+// without a Graphviz installation, and it has a state-diagram grammar the state
+// rendering maps onto directly. Graphviz DOT, written by DOT, is the alternative
+// for Graphviz toolchains and for renderings that will carry exact positions.
 //
 // A graph-shaped rendering is a `flowchart`; a state rendering is a
 // `stateDiagram-v2` and a sequence rendering a `sequenceDiagram`. What the

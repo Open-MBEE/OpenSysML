@@ -387,8 +387,49 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
-	}); err == nil || !strings.Contains(err.Error(), "no rendering form") {
-		t.Errorf("err = %v, want it to refuse the form", err)
+	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) {
+		t.Errorf("err = %v, want it to refuse the form and offer dot", err)
+	}
+}
+
+// The DOT form is honored for a graph-shaped view, is the same rendering as a
+// digraph, and is refused for a kind that has none with the forms it has.
+func TestRenderWritesDotWhenAskedFor(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, name := range []string{"KitViews::widgetTree", "KitViews::widgetParts", "KitViews::widgetStates", "KitViews::widgetActions"} {
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         string(view.FormDot),
+		})
+		if err != nil {
+			t.Fatalf("%s as dot: %v", name, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		if out.Form != string(view.FormDot) {
+			t.Errorf("%s: form = %q, want %q", name, out.Form, view.FormDot)
+		}
+		for _, want := range []string{"// view: " + name, "// layout: dot", "digraph \"" + name + "\" {"} {
+			if !strings.Contains(out.Artifact, want) {
+				t.Errorf("%s: artifact is missing %q:\n%s", name, want, out.Artifact)
+			}
+		}
+		if len(out.Nodes) == 0 {
+			t.Errorf("%s: the DOT result carries no nodes", name)
+		}
+	}
+	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetSequence"} {
+		_, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         name,
+			Form:         string(view.FormDot),
+		})
+		if err == nil || !strings.Contains(err.Error(), "not written as dot") {
+			t.Errorf("%s as dot: err = %v, want the form refused", name, err)
+		}
 	}
 }
 

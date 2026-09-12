@@ -190,9 +190,10 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid` or `markdown` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a table-kind view as a pipe table), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown` or `dot` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`; a table-kind view as a pipe table either way), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default) or `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table either way, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
@@ -391,6 +392,9 @@ sysml model.sysml -render Views::vehicleView -o view.mmd
 sysml model.sysml -render Views::partsTable -render-form markdown
 sysml model.sysml -render Views::vehicleView -render-form text
 
+# Graphviz DOT for a graph-shaped kind, to lay out with dot(1) or any Graphviz-reading tool
+sysml model.sysml -render Views::vehicleView -render-form dot -o view.dot
+
 # A view over several files, loaded as one model
 sysml types.sysml model.sysml -render Views::vehicleView
 sysml model/*.sysml -render Views::partsTable -render-form markdown -o parts.md
@@ -417,7 +421,7 @@ with `-convert`.
 `-render-all <dir>` writes every declared view of all loaded files, in document and declaration
 order. Each qualified view name becomes a file name with `::` replaced by `.`. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced
-text form uses `.txt` and unbounded width.
+text form uses `.txt` and unbounded width, and a forced `dot` form uses `.dot`.
 
 ```bash
 sysml types.sysml model.sysml -render-all rendered
@@ -437,6 +441,24 @@ has dedicated state diagram and sequence diagram grammars. A table is written as
 since Mermaid has no grammar for tables, so `-render-form mermaid` on a table produces Markdown
 rather than a diagram of rows.
 
+The forms a kind can be written in:
+
+| Form | Kinds | What it is |
+| --- | --- | --- |
+| `text` | every kind | ASCII a person reads; the default at a terminal |
+| `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
+| `markdown` | `table` | A pipe table, the machine-readable form of a table |
+| `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
+
+`dot` writes a `digraph` with one `// view:`, `// kind:` and `// layout:` header comment line and
+one `// not represented:` line per notice, the same header Mermaid writes as `%%` comments.
+Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
+Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
+or succession is a solid arrow. Producing DOT needs no Graphviz installation; laying it out does,
+with the engine the `// layout:` header names (`dot -Tsvg view.dot`, or `neato -Tsvg view.dot`
+when the view states positions — below). A `sequence` view has no DOT counterpart and, like a
+`table`, is refused with status 2 when `dot` is forced.
+
 A rendering is laid out by whatever draws it, unless the model says where things go. The
 `DiagramLayout` library (bundled, imported like any other) states that in notation: a
 `metadata Layout about <element> { x = …; y = …; width = …; height = …; collapsed = true; }` in a
@@ -447,10 +469,22 @@ points = (x0, y0, x1, y1, …); }` gives an edge its waypoints, and an `@Canvas 
 top-left corner, y downward. Mermaid cannot place a node, so the machine-readable form keeps the
 geometry as comments after the header (`%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120
 y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends `at (120, 80)`,
-`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. A model with no
-layout annotations renders exactly as before. `-validate` reports a `Layout` or `Route` on an
-element the rendering does not draw as a node or an edge, a `Route` with an odd number of values, a
-`Canvas` outside a view, and two positions for one element in one view (the first applies). See
+`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. `-render-form dot`
+honours it: a positioned node is pinned at the centre of its box (`pos="220,675!", pin=true`, in
+points with y measured up from the canvas's bottom edge — negated when no canvas height is
+stated — one pixel to one point under `inputscale=72`), a stated size is `width`/`height` in inches
+with `fixedsize=true` (an unstated one is fitted to the label, so the box's corner stays put), a
+positioned cluster states its `bb`, a route is the edge's `pos` spline (a route of one waypoint
+draws no line and is noticed), the canvas is echoed as `// canvas:` and held by an invisible
+point pinned at each corner so the drawing's bounding box is the canvas, and the
+`// layout:` header names the command that honours it — `neato -n2` when every node is placed
+and any edge routed, `neato -n` when every node is placed and none routed, `neato` when only
+some nodes are — so `neato -n2 -Tsvg view.dot` draws the view where the model put it. `neato`
+redraws every edge, so under it a written route is noticed as redrawn.
+A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
+`Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
+number of values, a `Canvas` outside a view, and two positions for one element in one view (the
+first applies). See
 [Diagram layout annotations](../project/diagram-layout-annotations.md).
 
 ```bash
@@ -572,7 +606,9 @@ Markdown unchanged.
 Diagram blocks are pre-rendered to SVG with [mermaid-cli](https://github.com/mermaid-js/mermaid-cli)
 (`mmdc`; override with `OPENSYSML_MMDC`. `OPENSYSML_MMDC_PUPPETEER` names a puppeteer configuration
 file for a browser that needs launch flags, such as `--no-sandbox` in a container). A document
-without diagrams needs no diagram tool.
+without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` no diagram is drawn:
+the PDF keeps each one's DOT source under a notice saying so, and neither `mmdc` nor a Graphviz
+tool is looked for.
 
 Inline runs keep their meaning in PDF: emphasis, strong and code styling, links, and `Ref`
 cross-references as clickable internal links to their targets' invisible anchors, in every engine

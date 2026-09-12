@@ -1,0 +1,39 @@
+// view: FlowViews::driveView
+// kind: action
+// stated: render asInterconnectionDiagram, view def ActionFlowView
+// layout: dot
+digraph "FlowViews::driveView" {
+  graph [compound=true];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="action def Flows::Drive";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [shape=circle, label="initial start"];
+    "n2" [label="action provide"];
+    subgraph "cluster_n3" {
+      label="action monitor\nown flow";
+      "n3" [shape=point, style=invis, width=0, height=0, label=""];
+      "n5" [shape=circle, label="initial begin"];
+      "n6" [label="action record"];
+    }
+    "n7" [label="action tally"];
+    "n8" [label="fork split"];
+    "n9" [label="join sync"];
+    "n10" [shape=doublecircle, label="final done"];
+    "n11" [label="action park"];
+    "n12" [label="decision check"];
+  }
+  "n5" -> "n6";
+  "n1" -> "n8";
+  "n2" -> "n9";
+  "n2" -> "n3" [label="torque to reading", style=dashed, lhead="cluster_n3"];
+  "n3" -> "n9" [ltail="cluster_n3"];
+  "n7" -> "n9";
+  "n8" -> "n2";
+  "n8" -> "n3" [lhead="cluster_n3"];
+  "n8" -> "n7";
+  "n9" -> "n12";
+  "n11" -> "n10";
+  "n12" -> "n10" [label="[speed > 0]"];
+  "n12" -> "n11";
+}

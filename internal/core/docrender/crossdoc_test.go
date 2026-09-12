@@ -56,7 +56,7 @@ func renderFixtureDocumentSet(t *testing.T, path string, names []string) map[str
 	t.Helper()
 	out := make(map[string]string, len(names))
 	for _, document := range fixtureDocumentSet(t, path, names) {
-		markdown, err := Markdown(document)
+		markdown, err := Markdown(document, MarkdownOptions{})
 		if err != nil {
 			t.Fatalf("render document %s: %v", document.Name(), err)
 		}
