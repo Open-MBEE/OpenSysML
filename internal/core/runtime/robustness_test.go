@@ -143,6 +143,12 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("exhibited_state_typed_by_the_library_state_action_with_a_body", testExhibitedStateTypedByTheLibraryStateActionWithABody)
 	t.Run("exhibited_state_typed_by_a_state_action_specialization", testExhibitedStateTypedByAStateActionSpecialization)
 	t.Run("state_usage_inherits_unsupported_member", testStateUsageInheritsUnsupportedMember)
+	t.Run("run_to_completion_redefined_false", testRunToCompletionRedefinedFalse)
+	t.Run("run_to_completion_scope_narrowed", testRunToCompletionScopeNarrowed)
+	t.Run("run_to_completion_redefined_by_specialized_def", testRunToCompletionRedefinedBySpecializedDef)
+	t.Run("run_to_completion_redefined_in_orthogonal_region", testRunToCompletionRedefinedInOrthogonalRegion)
+	t.Run("run_to_completion_redefined_undecidably", testRunToCompletionRedefinedUndecidably)
+	t.Run("run_to_completion_defaults_restated", testRunToCompletionDefaultsRestated)
 	t.Run("sourceless_transition_with_nothing_before", testSourcelessTransitionWithNothingBefore)
 	t.Run("sourceless_transition_after_a_non_state", testSourcelessTransitionAfterANonState)
 	t.Run("no_entry_transition_guard_holds", testNoEntryTransitionGuardHolds)
@@ -6656,6 +6662,146 @@ func testStateUsageInheritsUnsupportedMember(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot be inherited by the state nested") {
 		t.Fatalf("error = %v, want the inheriting state named", err)
+	}
+}
+
+// runToCompletionRefusal builds the state executor for Machine in src and checks
+// that creating it refuses a run-to-completion redefinition: the typed error,
+// naming feature, declaring body and the value written.
+func runToCompletionRefusal(t *testing.T, src, feature, owner, written string) *lower.RunToCompletionRedefinition {
+	t.Helper()
+	err := stateExecutorError(t, src, "Machine")
+	if err == nil {
+		t.Fatalf("redefinition of %s ran under the library default", feature)
+	}
+	if !errors.Is(err, lower.ErrUnsupportedStateContent) {
+		t.Fatalf("error = %v, want unsupported state content", err)
+	}
+	var refusal *lower.RunToCompletionRedefinition
+	if !errors.As(err, &refusal) {
+		t.Fatalf("error = %v, want a run-to-completion redefinition", err)
+	}
+	if refusal.Feature != feature || refusal.Decl == nil {
+		t.Fatalf("refusal = %+v, want feature %s and its declaration", refusal, feature)
+	}
+	for _, want := range []string{feature, owner, "= " + written} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error = %v, want %q named", err, want)
+		}
+	}
+	return refusal
+}
+
+// testRunToCompletionRedefinedFalse: a machine redefining isRunToCompletion to
+// false is refused; the runtime runs every machine to completion.
+func testRunToCompletionRedefinedFalse(t *testing.T) {
+	refusal := runToCompletionRefusal(t, `
+		package test {
+			state def Machine {
+				attribute :>> isRunToCompletion = false;
+				entry; then idle;
+				state idle;
+			}
+		}
+	`, "isRunToCompletion", "the state definition Machine", "false")
+	if refusal.Unverified {
+		t.Fatalf("refusal = %v, want the value read as false, not unverified", refusal)
+	}
+}
+
+// testRunToCompletionScopeNarrowed: a substate redefining runToCompletionScope to
+// itself narrows the scope from the whole machine and is refused.
+func testRunToCompletionScopeNarrowed(t *testing.T) {
+	refusal := runToCompletionRefusal(t, `
+		package test {
+			state def Machine {
+				entry; then idle;
+				state idle {
+					ref :>> runToCompletionScope = self;
+				}
+			}
+		}
+	`, "runToCompletionScope", "the state idle", "self, narrowing the scope to that state")
+	if refusal.Unverified {
+		t.Fatalf("refusal = %v, want the scope read as narrowed, not unverified", refusal)
+	}
+}
+
+// testRunToCompletionRedefinedBySpecializedDef: the redefinition on a state
+// definition the executed machine specializes is the machine's, and is refused
+// naming both.
+func testRunToCompletionRedefinedBySpecializedDef(t *testing.T) {
+	runToCompletionRefusal(t, `
+		package test {
+			state def Base {
+				attribute :>> isRunToCompletion = false;
+				entry; then idle;
+				state idle;
+			}
+			state def Machine :> Base;
+		}
+	`, "isRunToCompletion", "the state definition Base, inherited by the state definition Machine,", "false")
+}
+
+// testRunToCompletionRedefinedInOrthogonalRegion: a substate of an orthogonal
+// region carrying the redefinition is refused like any other state.
+func testRunToCompletionRedefinedInOrthogonalRegion(t *testing.T) {
+	runToCompletionRefusal(t, `
+		package test {
+			state def Machine parallel {
+				state left {
+					entry; then l1;
+					state l1 {
+						attribute :>> isRunToCompletion = false;
+					}
+				}
+				state right {
+					entry; then r1;
+					state r1;
+				}
+			}
+		}
+	`, "isRunToCompletion", "the state l1", "false")
+}
+
+// testRunToCompletionRedefinedUndecidably: a value lowering cannot read as the
+// library default is refused as unverified rather than assumed to restate it.
+func testRunToCompletionRedefinedUndecidably(t *testing.T) {
+	refusal := runToCompletionRefusal(t, `
+		package test {
+			state def Machine {
+				attribute strict : Boolean = true;
+				attribute :>> isRunToCompletion = strict or true;
+				entry; then idle;
+				state idle;
+			}
+		}
+	`, "isRunToCompletion", "the state definition Machine", "strict or true")
+	if !refusal.Unverified {
+		t.Fatalf("refusal = %v, want unverified", refusal)
+	}
+	if !strings.Contains(refusal.Error(), "cannot verify") {
+		t.Fatalf("error = %v, want the unverifiable default said", refusal)
+	}
+}
+
+// testRunToCompletionDefaultsRestated: redefinitions restating the library
+// defaults say what the runtime does and run.
+func testRunToCompletionDefaultsRestated(t *testing.T) {
+	err := stateExecutorError(t, `
+		package test {
+			state def Machine {
+				attribute :>> isRunToCompletion = true;
+				ref :>> runToCompletionScope = self;
+				entry; then idle;
+				state idle {
+					attribute :>> isRunToCompletion = true;
+				}
+			}
+		}
+	`, "Machine")
+	if err != nil {
+		t.Fatalf("restating the defaults was refused: %v", err)
 	}
 }
 

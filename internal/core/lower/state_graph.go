@@ -241,6 +241,9 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(members, scope)...)
+	if err := refuseRunToCompletionRedefinitions(body, stateMachineDecl); err != nil {
+		return nil, err
+	}
 
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
 	graph.Attributes = keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
@@ -336,12 +339,13 @@ func (g *StateGraph) ownTransitionEffects() {
 
 // lowerStateAttributes returns every attribute a machine declares, its own and
 // those it inherits. An unvalued attribute is still owned by the machine even
-// though it supplies no initial value.
+// though it supplies no initial value. A restated run-to-completion default is
+// what the executor implements, not a slot of the machine.
 func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attribute {
 	var attrs []Attribute
 	for _, member := range members {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageAttribute {
+		if !ok || usage.Kind != ast.UsageAttribute || redefinedRunToCompletionFeature(usage) != "" {
 			continue
 		}
 		name, _ := ast.EffectiveName(usage)

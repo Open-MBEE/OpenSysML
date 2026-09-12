@@ -355,6 +355,13 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		g.scopeOf[child] = childScope(scope, m)
 		state.Substates = append(state.Substates, child)
 	case *ast.Usage:
+		owner := "the state " + state.Name
+		if inherited {
+			owner = DescribeMember(from.owner) + ", inherited by " + owner + ","
+		}
+		if err := refuseRunToCompletionRedefinition(m, owner, false); err != nil {
+			return err
+		}
 		switch {
 		case m.Kind == ast.UsageState && !parallel:
 			child, err := stateNodeFromUsage(g, m, scope)
@@ -364,6 +371,8 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 			state.Substates = append(state.Substates, child)
 		case m.Kind == ast.UsageState:
 			// A typed state usage in a parallel body is a region, synthesized there.
+		case redefinedRunToCompletionFeature(m) != "":
+			// A restated run-to-completion default is what the executor implements, not a slot.
 		case m.Kind == ast.UsageAttribute:
 			if name, _ := ast.EffectiveName(m); name != "" {
 				content.attrs = append(content.attrs, Attribute{Name: name, Value: m.Value, Node: m, Scope: scope})
