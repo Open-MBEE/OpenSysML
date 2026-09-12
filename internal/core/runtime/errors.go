@@ -113,6 +113,14 @@ var (
 	// resolvable type.
 	ErrUnresolvedType = errors.New("unresolved type")
 
+	// ErrUnboundedExtent is returned when `all T` names a type whose instances no
+	// run enumerates: a data type that is not an enumeration (`all Integer`, `all Point`).
+	ErrUnboundedExtent = errors.New("unbounded extent")
+
+	// ErrExtentUnavailable is returned when `all T` would have to count objects the run cannot
+	// denote (a namespace-level usage of several occurrences) or cannot make without recursing.
+	ErrExtentUnavailable = errors.New("extent unavailable")
+
 	// ErrUndeterminedValueType is returned when a value classification has no
 	// direct runtime type to compare.
 	ErrUndeterminedValueType = errors.New("value type cannot be determined")
@@ -459,6 +467,19 @@ func (e *NoValueError) Error() string {
 }
 
 func (e *NoValueError) Unwrap() error { return ErrNoValue }
+
+// CyclicBindingError reports a namespace-level usage whose value reaches back to the usage
+// itself while it is being bound, naming that usage.
+type CyclicBindingError struct {
+	Usage  *symbols.Symbol
+	Stated string
+}
+
+func (e *CyclicBindingError) Error() string {
+	return fmt.Sprintf("%v: %s", ErrCyclicFeatureValue, e.Stated)
+}
+
+func (e *CyclicBindingError) Unwrap() error { return ErrCyclicFeatureValue }
 
 // UnboundSubjectError reports a check whose subject nothing supplied, naming
 // the subject and how a caller supplies one.

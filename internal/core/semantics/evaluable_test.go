@@ -38,7 +38,8 @@ calc def f { in x; return : ScalarValues::Integer = 1; }
 // A metadata feature value and a filter condition must be decidable from the
 // model alone (KerML §7.4.9, Expression::isModelLevelEvaluable). A feature read
 // is decided by FeatureReferenceExpression::modelLevelEvaluable: a feature of a
-// type other than a metaclass is not, an unfeatured one is as its value is.
+// type other than a metaclass is not, an unfeatured one is as its value is. An
+// extent `all T` never is, whatever T (§8.2.5.8.1 Table 5): a run decides it.
 func TestModelLevelEvaluable(t *testing.T) {
 	for expr, want := range map[string]bool{
 		"1":                       true,
@@ -74,6 +75,12 @@ func TestModelLevelEvaluable(t *testing.T) {
 		"nowhere":                 false,
 		"(1, (as A).y)":           false,
 		"true and ((as A).y > 1)": false,
+		"all A":                   false,
+		"all E":                   false,
+		"all a":                   false,
+		"all M":                   false,
+		"(all A)->Base::size()":   false,
+		"(1, all E)":              false,
 	} {
 		if got := evaluableIn(t, evaluableModel, expr); got != want {
 			t.Errorf("ModelLevelEvaluable(%q) = %v, want %v", expr, got, want)

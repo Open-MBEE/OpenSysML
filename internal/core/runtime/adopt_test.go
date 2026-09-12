@@ -1693,3 +1693,457 @@ func TestAdoptRebindsAFunctionValue(t *testing.T) {
 		t.Errorf("Adopt refused for %q, want the missing calc named", err)
 	}
 }
+
+const adoptBindingSrc = `package Demo {
+	part def Car;
+	part def Truck :> Car;
+	ref part car : Car = new Car();
+}`
+
+// The binding of a namespace-level usage to the object its value made is carried with
+// that object, so the usage denotes it in the re-analysis too; one whose declaration
+// changed binds anew, against the declaration as it is now.
+func TestAdoptCarriesANamespaceBinding(t *testing.T) {
+	carIn := func(t *testing.T, ctx *Context) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "car")
+		if err != nil {
+			t.Fatalf("car: %v", err)
+		}
+		id, ok := val.Object()
+		if !ok {
+			t.Fatalf("car = %v, want an object", val)
+		}
+		return ctx.instances[id]
+	}
+	prev := contextOver(t, adoptBindingSrc)
+	obj := carIn(t, prev)
+
+	ctx := contextOver(t, adoptBindingSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := carIn(t, ctx); got != obj {
+		t.Errorf("car in the re-analysis denotes %d, want the carried object %d", got.ID, obj.ID)
+	}
+
+	prev = contextOver(t, adoptBindingSrc)
+	obj = carIn(t, prev)
+	ctx = contextOver(t, strings.Replace(adoptBindingSrc, "new Car()", "new Truck()", 1))
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	got := carIn(t, ctx)
+	if got == obj || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
+		t.Errorf("car in the re-analysis denotes %d of %s, want a Truck read against the declaration as it is now",
+			got.ID, symbolText(got.Type))
+	}
+}
+
+// A binding to several objects is carried once the last of them is adopted, whichever carry-over
+// brought each; until then the usage is left unbound rather than bound to objects not yet here.
+func TestAdoptCarriesAMultiObjectBindingAcrossCarryOvers(t *testing.T) {
+	const src = `package Demo {
+	part def Car;
+	ref part cars : Car[*] = (new Car(), new Car());
+}`
+	carsIn := func(t *testing.T, ctx *Context) []*Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "cars")
+		if err != nil {
+			t.Fatalf("cars: %v", err)
+		}
+		var objs []*Instance
+		for _, v := range val.Sequence().Elements() {
+			id, ok := v.Object()
+			if !ok {
+				t.Fatalf("cars holds %s, want objects", FormatValue(v))
+			}
+			objs = append(objs, ctx.instances[id])
+		}
+		if len(objs) != 2 {
+			t.Fatalf("cars = %s, want two objects", FormatValue(val))
+		}
+		return objs
+	}
+	prev := contextOver(t, src)
+	cars := carsIn(t, prev)
+
+	ctx := contextOver(t, src+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(cars[0]), cars[0]); err != nil {
+		t.Fatalf("Adopt(cars[0]): %v", err)
+	}
+	if _, bound := ctx.namespaceBindings[lookupOne(t, ctx.Resolver().Index(), "Demo::cars")]; bound {
+		t.Errorf("cars is bound after one of its two objects was carried over")
+	}
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(cars[1]), cars[1]); err != nil {
+		t.Fatalf("Adopt(cars[1]): %v", err)
+	}
+	got := carsIn(t, ctx)
+	if got[0] != cars[0] || got[1] != cars[1] {
+		t.Errorf("cars in the re-analysis denotes (%d, %d), want the carried objects (%d, %d)",
+			got[0].ID, got[1].ID, cars[0].ID, cars[1].ID)
+	}
+	if n := len(ctx.instances); n != 2 {
+		t.Errorf("the re-analysis holds %d objects, want the two carried over", n)
+	}
+}
+
+// A binding whose value carries an object other than as an element — the Array object an array
+// was read from — is carried only with that object; adopted without it, the usage binds anew.
+func TestAdoptRebindsAStructuredBindingWhoseObjectIsNotAdopted(t *testing.T) {
+	const src = `package Demo {
+	private import ScalarValues::*;
+	private import Collections::*;
+	part def Car;
+	part def Rig { item grid : Array { :>> dimensions = (2, 1); :>> elements = (1, 2); } }
+	part rig : Rig;
+	ref part car : Car = new Car();
+	ref item grid : Array = rig.grid;
+}`
+	gridIn := func(t *testing.T, ctx *Context) Value {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "grid")
+		if err != nil {
+			t.Fatalf("grid: %v", err)
+		}
+		if val.Kind != ValArray || val.Array().Object == 0 {
+			t.Fatalf("grid = %s, want an array read from an object", FormatValue(val))
+		}
+		return val
+	}
+	carIn := func(t *testing.T, ctx *Context) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "car")
+		if err != nil {
+			t.Fatalf("car: %v", err)
+		}
+		id, _ := val.Object()
+		return ctx.instances[id]
+	}
+	prev := libraryContextOver(t, src)
+	before := gridIn(t, prev)
+	car := carIn(t, prev)
+
+	ctx := libraryContextOver(t, src+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(car), car); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := carIn(t, ctx); got != car {
+		t.Errorf("car in the re-analysis denotes %d, want the carried object %d", got.ID, car.ID)
+	}
+	after := gridIn(t, ctx)
+	if after.Array().Object == before.Array().Object {
+		t.Errorf("grid in the re-analysis is read from object %d, which was not adopted; want it bound anew", after.Array().Object)
+	}
+	if _, live := ctx.instances[after.Array().Object]; !live {
+		t.Errorf("grid in the re-analysis is read from object %d, which the context has no instance of", after.Array().Object)
+	}
+}
+
+const adoptDependentBindingSrc = `package Demo {
+	part def Car;
+	part def Truck :> Car;
+	ref part spare : Car = new Car();
+	ref part alias : Car = spare;
+}`
+
+// A binding is carried only while every declaration its value read still reads as it read:
+// an alias of an edited usage binds anew, though its own declaration is unchanged.
+func TestAdoptRebindsWhenABindingsDependencyChanges(t *testing.T) {
+	objectIn := func(t *testing.T, ctx *Context, name string) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		id, ok := val.Object()
+		if !ok {
+			t.Fatalf("%s = %v, want an object", name, val)
+		}
+		return ctx.instances[id]
+	}
+	prev := contextOver(t, adoptDependentBindingSrc)
+	obj := objectIn(t, prev, "alias")
+
+	ctx := contextOver(t, adoptDependentBindingSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := objectIn(t, ctx, "alias"); got != obj {
+		t.Errorf("alias in the re-analysis denotes %d, want the carried object %d", got.ID, obj.ID)
+	}
+	if got := objectIn(t, ctx, "spare"); got != obj {
+		t.Errorf("spare in the re-analysis denotes %d, want the carried object %d", got.ID, obj.ID)
+	}
+
+	prev = contextOver(t, adoptDependentBindingSrc)
+	obj = objectIn(t, prev, "alias")
+	ctx = contextOver(t, strings.Replace(adoptDependentBindingSrc, "new Car()", "new Truck()", 1))
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	spare := objectIn(t, ctx, "spare")
+	alias := objectIn(t, ctx, "alias")
+	if alias != spare || alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
+		t.Errorf("alias in the re-analysis denotes %d of %s, spare %d; want alias to denote the Truck spare now binds",
+			alias.ID, symbolText(alias.Type), spare.ID)
+	}
+}
+
+const adoptExtentBindingSrc = `package Demo {
+	part def Car;
+	part alpha : Car;
+	ref part cars : Car[*] = all Car;
+}`
+
+// A binding to an extent read the namespaces it walked: a usage added to one is in the
+// extent the re-analysis binds, while an edit to another document leaves the binding carried.
+func TestAdoptRebindsAnExtentWhenItsNamespaceChanges(t *testing.T) {
+	over := func(t *testing.T, model, other string) *Context {
+		t.Helper()
+		return contextOverDocs(t, [][2]string{{"model.sysml", model}, {"other.sysml", other}})
+	}
+	carsIn := func(t *testing.T, ctx *Context) []*Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "cars")
+		if err != nil {
+			t.Fatalf("cars: %v", err)
+		}
+		var out []*Instance
+		for _, id := range heldObjects(val) {
+			out = append(out, ctx.instances[id])
+		}
+		return out
+	}
+	prev := over(t, adoptExtentBindingSrc, "package Other;")
+	before := carsIn(t, prev)
+	if len(before) != 1 {
+		t.Fatalf("cars = %d objects, want the one usage", len(before))
+	}
+	alpha := before[0]
+
+	ctx := over(t, adoptExtentBindingSrc, "package Other { part def Widget; }")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(alpha), alpha); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := carsIn(t, ctx); len(got) != 1 || got[0] != alpha {
+		t.Errorf("cars in the re-analysis = %v, want the carried object %d alone", got, alpha.ID)
+	}
+
+	prev = over(t, adoptExtentBindingSrc, "package Other;")
+	alpha = carsIn(t, prev)[0]
+	ctx = over(t, strings.Replace(adoptExtentBindingSrc, "part alpha : Car;", "part alpha : Car;\n\tpart beta : Car;", 1), "package Other;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(alpha), alpha); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	got := carsIn(t, ctx)
+	if len(got) != 2 || got[0] != alpha {
+		t.Errorf("cars in the re-analysis = %d objects, want the carried alpha and the added beta", len(got))
+	}
+}
+
+const adoptShadowedBindingSrc = `package Demo {
+	part def Car;
+	part def Truck :> Car;
+	package Outer {
+		ref part spare : Car = new Car();
+		ref part other : Car = new Car();
+	}
+	package Inner {
+		import Outer::*;
+		ref part alias : Car = spare;
+		ref part kept : Car = other;
+	}
+}`
+
+// A binding read a name by what it denoted: a nearer declaration of that name, added without
+// a change to any declaration the binding read, rebinds it; a binding whose names still
+// denote the same declarations is carried.
+func TestAdoptRebindsWhenABindingsNameIsShadowed(t *testing.T) {
+	objectIn := func(t *testing.T, ctx *Context, name string) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::Inner")
+		val, err := evalIn(t, ctx, pkg.Scope, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		id, ok := val.Object()
+		if !ok {
+			t.Fatalf("%s = %v, want an object", name, val)
+		}
+		return ctx.instances[id]
+	}
+	prev := contextOver(t, adoptShadowedBindingSrc)
+	obj := objectIn(t, prev, "alias")
+	kept := objectIn(t, prev, "kept")
+
+	ctx := contextOver(t, strings.Replace(adoptShadowedBindingSrc,
+		"import Outer::*;", "import Outer::*;\n\t\tref part spare : Car = new Truck();", 1))
+	for _, root := range []*Instance{obj, kept} {
+		if _, err := ctx.Adopt(prev, prev.ShapesOf(root), root); err != nil {
+			t.Fatalf("Adopt %d: %v", root.ID, err)
+		}
+	}
+	alias := objectIn(t, ctx, "alias")
+	if alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
+		t.Errorf("alias in the re-analysis denotes %d of %s; want the Truck the nearer spare binds",
+			alias.ID, symbolText(alias.Type))
+	}
+	if got := objectIn(t, ctx, "kept"); got != kept {
+		t.Errorf("kept in the re-analysis denotes %d, want the carried object %d", got.ID, kept.ID)
+	}
+}
+
+// A binding to an extent judged each type it met by its hierarchy: a supertype added in another
+// document, changing no declaration the binding read, puts a usage into the extent the
+// re-analysis binds; a binding whose types are unchanged is carried.
+func TestAdoptRebindsAnExtentWhenAHierarchyChanges(t *testing.T) {
+	const model = `package Demo {
+	import Types::*;
+	part def Boat;
+	part car : Car;
+	ref part boat : Boat = new Boat();
+	ref part vehicles : Vehicle[*] = all Vehicle;
+}`
+	over := func(t *testing.T, types string) *Context {
+		t.Helper()
+		return contextOverDocs(t, [][2]string{{"model.sysml", model}, {"types.sysml", types}})
+	}
+	objects := func(t *testing.T, ctx *Context, name string) []int64 {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return heldObjects(val)
+	}
+	prev := over(t, "package Types { part def Vehicle; part def Car; }")
+	if got := objects(t, prev, "vehicles"); len(got) != 0 {
+		t.Fatalf("vehicles = %v, want none while Car is no Vehicle", got)
+	}
+	car := prev.instances[objects(t, prev, "car")[0]]
+	boat := prev.instances[objects(t, prev, "boat")[0]]
+
+	ctx := over(t, "package Types { part def Vehicle; part def Car :> Vehicle; }")
+	for _, root := range []*Instance{car, boat} {
+		if _, err := ctx.Adopt(prev, prev.ShapesOf(root), root); err != nil {
+			t.Fatalf("Adopt %d: %v", root.ID, err)
+		}
+	}
+	if got := objects(t, ctx, "vehicles"); len(got) != 1 || got[0] != car.ID {
+		t.Errorf("vehicles in the re-analysis = %v, want the carried car %d now that Car is a Vehicle", got, car.ID)
+	}
+	if got := objects(t, ctx, "boat"); len(got) != 1 || got[0] != boat.ID {
+		t.Errorf("boat in the re-analysis = %v, want the carried object %d", got, boat.ID)
+	}
+}
+
+// A binding to an extent read the name of the type it is over: a nearer declaration of that
+// name, added in another document, is what the extent is over in the re-analysis; the object a
+// usage the binding did not read denotes is carried.
+func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
+	const model = `package Demo {
+	package A { part def Car; }
+	package P {
+		import B::*;
+		import A::*;
+		ref part car : A::Car = new A::Car();
+		calc pick { return : A::Car[*] = all Car; }
+		ref part cars : A::Car[*] = pick();
+	}
+}`
+	over := func(t *testing.T, b string) *Context {
+		t.Helper()
+		return contextOverDocs(t, [][2]string{{"model.sysml", model}, {"b.sysml", b}})
+	}
+	objects := func(t *testing.T, ctx *Context, name string) []int64 {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::P")
+		val, err := evalIn(t, ctx, pkg.Scope, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return heldObjects(val)
+	}
+	prev := over(t, "package B { }")
+	car := prev.instances[objects(t, prev, "car")[0]]
+	if got := objects(t, prev, "cars"); len(got) != 1 || got[0] != car.ID {
+		t.Fatalf("cars = %v, want the car %d", got, car.ID)
+	}
+
+	ctx := over(t, "package B { part def Car; }")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(car), car); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := objects(t, ctx, "cars"); len(got) != 0 {
+		t.Errorf("cars in the re-analysis = %v, want none: Car now names B::Car, of which there is no object", got)
+	}
+	if got := objects(t, ctx, "car"); len(got) != 1 || got[0] != car.ID {
+		t.Errorf("car in the re-analysis = %v, want the carried object %d", got, car.ID)
+	}
+}
+
+// A binding read the candidates of the calculation its value called, whether the call was
+// selected for it or for a probe before it: a nearer calculation of the name, added without a
+// change to any declaration the binding read, rebinds it; one whose candidates are unchanged
+// is carried.
+func TestAdoptRebindsWhenAWarmedCallGainsACandidate(t *testing.T) {
+	const model = `package Demo {
+	part def Car;
+	part def Truck :> Car;
+	package A { calc makeCar { return : Car = new Car(); } }
+	package P {
+		import A::*;
+		ref part car : Car = makeCar();
+		ref part kept : Car = A::makeCar();
+	}
+}`
+	objectIn := func(t *testing.T, ctx *Context, name string) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo::P")
+		val, err := evalIn(t, ctx, pkg.Scope, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		id, ok := val.Object()
+		if !ok {
+			t.Fatalf("%s = %v, want an object", name, val)
+		}
+		return ctx.instances[id]
+	}
+	prev := contextOver(t, model)
+	pkg := lookupOne(t, prev.Resolver().Index(), "Demo::P")
+	end := prev.beginProbe()
+	for _, name := range []string{"car", "kept"} {
+		if _, err := evalIn(t, prev, pkg.Scope, name); err != nil {
+			t.Fatalf("probe %s: %v", name, err)
+		}
+	}
+	end()
+	car := objectIn(t, prev, "car")
+	kept := objectIn(t, prev, "kept")
+
+	ctx := contextOver(t, strings.Replace(model, "import A::*;",
+		"import A::*;\n\t\tcalc makeCar { return : Car = new Truck(); }", 1))
+	for _, root := range []*Instance{car, kept} {
+		if _, err := ctx.Adopt(prev, prev.ShapesOf(root), root); err != nil {
+			t.Fatalf("Adopt %d: %v", root.ID, err)
+		}
+	}
+	got := objectIn(t, ctx, "car")
+	if got == car || got.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
+		t.Errorf("car in the re-analysis denotes %d of %s; want the Truck the nearer makeCar makes",
+			got.ID, symbolText(got.Type))
+	}
+	if got := objectIn(t, ctx, "kept"); got != kept {
+		t.Errorf("kept in the re-analysis denotes %d, want the carried object %d", got.ID, kept.ID)
+	}
+}

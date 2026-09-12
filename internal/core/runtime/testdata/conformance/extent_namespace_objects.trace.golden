@@ -1,0 +1,48 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: sedan #1
+materialize: spare #2
+materialize: coupe #3
+materialize: Wheel #4
+materialize: Wheel #5
+materialize: Wheel #6
+materialize: Wheel #7
+            eval operator all -> (instance#4, instance#5, instance#2, instance#6, instance#7)
+            bind seq = (instance#4, instance#5, instance#2, instance#6, instance#7) [argument]
+          exit calc SequenceFunctions::size -> 5
+        eval invoke size -> 5
+        eval literal 5 -> 5
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval operator all -> (instance#1, instance#3)
+            bind seq = (instance#1, instance#3) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: garage #8
+            eval operator all -> (instance#8)
+            bind seq = (instance#8) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+          eval operator all -> (instance#1, instance#3)
+          eval literal 1 -> 1
+        eval index -> instance#1
+        eval feature sedan -> instance#1
+      eval operator === -> true
+          eval operator all -> (instance#1, instance#3)
+          eval literal 2 -> 2
+        eval index -> instance#3
+        eval feature coupe -> instance#3
+      eval operator === -> true
+          eval operator all -> (instance#4, instance#5, instance#2, instance#6, instance#7)
+          eval literal 3 -> 3
+        eval index -> instance#2
+        eval feature spare -> instance#2
+      eval operator === -> true
+    eval sequence of 6 -> (true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true)

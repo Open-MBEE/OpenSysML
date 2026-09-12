@@ -74,14 +74,17 @@ func TestRunTradeStudyPilotSimpleTest(t *testing.T) {
 }
 
 // TestRunTradeStudyPilotTradeOff runs the pilot validation model whose subject
-// is `all engineChoice`, the extent of a variation. The runtime enumerates no
-// type's extent, so binding the subject is the typed refusal and no alternative
-// is evaluated.
+// is `all engineChoice`, the extent of a variation: its two variants, in
+// declaration order. The first is evaluated, its evaluation function's rollups
+// declare no bodies (as the training example's do), so nothing is selected and
+// the objective is undecided.
 func TestRunTradeStudyPilotTradeOff(t *testing.T) {
 	binary := buildCLI(t)
 	got := runCorpusFile(t, binary, pilotTradeOff, pilotRequireEnv,
 		"-analysis", "'10b-Trade-off Among Alternative Configurations'::Analysis::engineTradeStudy")
 	wantReport(t, got, 2,
-		`default for parameter "studyAlternatives": unsupported operator: 'all'`,
-		"objective tradeStudyObjective: undecided")
+		"sysml: analysis run failed: analysis 10b-Trade-off Among Alternative Configurations::Analysis::engineTradeStudy",
+		"objective tradeStudyObjective: undecided",
+		"evaluationFunction(4cylEngine (Instance ID: 1)): error:",
+		"no result expression: calc 10b-Trade-off Among Alternative Configurations::Analysis::engineTradeStudy::evaluationFunction::powerRollup has no return expression")
 }

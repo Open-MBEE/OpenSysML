@@ -177,34 +177,105 @@ func (m *Model) isSemanticMetadata(def *symbols.Symbol) bool {
 // baseTypeOf returns the type bound to def's baseType feature for annotated,
 // resolving the meta-cast operand of `:>> baseType = causes meta SysML::Usage`
 // (§7.27.3). The binding is model-level evaluated, so a conditional binding is
-// decided against the element being annotated. Returns nil when def binds no
-// baseType or the binding does not name a type.
+// decided against the element being annotated. A definition binding no baseType
+// of its own inherits the binding of the nearest supertypes that do; a binding
+// replaces those of the supertypes of its binder, and unrelated binders are
+// ordered as inherited members are, breadth-first in declaration order. A binder
+// whose value does not resolve still replaces what it inherits. Returns nil when
+// the binding in force names no type.
 func (m *Model) baseTypeOf(def, annotated *symbols.Symbol) *symbols.Symbol {
+	if def == nil {
+		return nil
+	}
+	if base, bound := m.ownBaseTypeOf(def, annotated); bound {
+		return base
+	}
+	binders := m.baseTypeBinders(def)
+	for _, binder := range binders {
+		if !m.baseTypeRebound(binder, binders) {
+			base, _ := m.ownBaseTypeOf(binder, annotated)
+			return base
+		}
+	}
+	return nil
+}
+
+// baseTypeBinders lists the nearest supertypes of def whose own body binds
+// baseType, breadth-first in declaration order, not looking past a binder. A
+// declaration reached through several scope trees is visited once.
+func (m *Model) baseTypeBinders(def *symbols.Symbol) []*symbols.Symbol {
+	seen := map[symbols.ElementKey]bool{symbols.KeyOf(def): true}
+	var binders []*symbols.Symbol
+	for frontier := m.DirectSupertypes(def); len(frontier) > 0; {
+		var next []*symbols.Symbol
+		for _, super := range frontier {
+			key := symbols.KeyOf(super)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			if m.bindsBaseType(super) {
+				binders = append(binders, super)
+				continue
+			}
+			next = append(next, m.DirectSupertypes(super)...)
+		}
+		frontier = next
+	}
+	return binders
+}
+
+// baseTypeRebound reports whether another of binders specializes binder, so its
+// binding replaces binder's.
+func (m *Model) baseTypeRebound(binder *symbols.Symbol, binders []*symbols.Symbol) bool {
+	for _, other := range binders {
+		if !symbols.SameElement(other, binder) && m.Conforms(other, binder) {
+			return true
+		}
+	}
+	return false
+}
+
+// bindsBaseType reports whether def's own body binds baseType.
+func (m *Model) bindsBaseType(def *symbols.Symbol) bool {
+	return len(baseTypeBindings(def)) > 0
+}
+
+// baseTypeBindings lists the usages in def's own body that redefine and bind baseType.
+// The binding is an anonymous member, so it is reached through the AST, not the scope.
+func baseTypeBindings(def *symbols.Symbol) []*ast.Usage {
 	decl, ok := def.Decl.(*ast.Definition)
 	if !ok || def.Scope == nil {
 		return nil
 	}
-	// The binding is an anonymous member, so it is reached through the AST
-	// rather than through the (name-keyed) scope.
+	var out []*ast.Usage
 	for _, member := range decl.Members {
 		if mem, ok := member.(*ast.Membership); ok {
 			member = mem.Member
 		}
-		usage, ok := member.(*ast.Usage)
-		if !ok || !redefinesBaseType(usage) || usage.Value == nil {
-			continue
+		if usage, ok := member.(*ast.Usage); ok && redefinesBaseType(usage) && usage.Value != nil {
+			out = append(out, usage)
 		}
+	}
+	return out
+}
+
+// ownBaseTypeOf returns the type def's own body binds baseType to for annotated,
+// and whether the body binds baseType at all.
+func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) (*symbols.Symbol, bool) {
+	bindings := baseTypeBindings(def)
+	for _, usage := range bindings {
 		name := metaCastOperand(m.baseTypeBinding(def, annotated, usage.Value))
 		if name == nil {
 			continue
 		}
 		if base, ok := m.resolver.ResolveQualified(def.Scope, name); ok {
 			if resolved, aliasOK := m.resolver.ResolveAliasTarget(base); aliasOK {
-				return resolved
+				return resolved, true
 			}
 		}
 	}
-	return nil
+	return nil, len(bindings) > 0
 }
 
 // baseTypeBinding reduces a baseType binding to the branch that applies to the

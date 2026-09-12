@@ -1,0 +1,22 @@
+{
+  "type": "instance",
+  "instantiate": "test::vehicle",
+  "libraries": true,
+  "slots": {
+    "wheelCount": {"type": "Integer", "value": 5},
+    "axleCount": {"type": "Integer", "value": 2},
+    "spareCount": {"type": "Integer", "value": 1},
+    "diameters": {"type": "Sequence", "elements": [
+      {"type": "Real", "value": 16.0},
+      {"type": "Real", "value": 16.0},
+      {"type": "Real", "value": 16.0},
+      {"type": "Real", "value": 16.0},
+      {"type": "Real", "value": 15.0}
+    ]},
+    "lastDiameter": {"type": "Real", "value": 15.0}
+  },
+  "constraints": {
+    "spareIsLast": true,
+    "firstAxleFirst": true
+  }
+}

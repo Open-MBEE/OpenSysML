@@ -340,8 +340,15 @@ sysml system.sysml -compile Vehicle::Sim -o sim         # a part, action, state 
 | Extension notations (`defer`, `choice`, `junction`, `history`) | already lowered into the `StateGraph`; compile as any other vertex or edge. `-strict` gates them before codegen, as today |
 
 Interpreter-only, refused by the compiler with a named error: SMT-backed satisfiability
-(`internal/core/solve`), REPL introspection and `%trace`, instance adoption across edits, and
-the step budget.
+(`internal/core/solve`), REPL introspection and `%trace`, instance adoption across edits, the
+step budget, and the extent operator `all T` (KerML 1.0 §7.4.9.2, `BaseFunctions::'all'`). The
+interpreter answers `all T` with the extent of the run it is evaluated in — the objects the run
+has materialized and the usages typed by `T` its context reaches, a variation's variants, an
+enumeration's literals — because objects materialize lazily and no run holds the instances the
+spec's Object semantics describe in the abstract. A compiled program has no run to consult: its
+structs are the values its statements build, so the compiler refuses `all` with a typed
+`UnsupportedError` (`operator 'all'`) rather than answering a smaller extent than the
+interpreter would (`internal/repl/compile_test.go` `Refused::Extent`).
 
 ### Phases
 

@@ -261,6 +261,10 @@ func (ec *exprChecker) checkCondition(scope *symbols.Scope, n ast.Node, code, fo
 	if n == nil {
 		return
 	}
+	if found, extent := ec.extentOperand(scope, n); extent {
+		ec.errorCode(code, n.Span(), format, found)
+		return
+	}
 	got := ec.infer(scope, n)
 	if got == semantics.PrimBoolean {
 		if mustType {
@@ -721,11 +725,27 @@ func (ec *exprChecker) nonBooleanOperand(scope *symbols.Scope, operand ast.Node,
 	if got != semantics.PrimUnknown || ec.model == nil {
 		return "", false
 	}
+	if found, extent := ec.extentOperand(scope, operand); extent {
+		return found, true
+	}
 	c := ec.model.ExprConformsToLibrary(scope, operand, semantics.FQNBoolean)
 	if !c.Known || c.Holds || c.Untyped {
 		return "", false
 	}
 	return c.Found, true
+}
+
+// extentOperand describes an extent standing where one Boolean is wanted: a sequence of
+// instances (KerML 1.0 §7.4.9.2), never that Boolean, however its type conforms.
+func (ec *exprChecker) extentOperand(scope *symbols.Scope, n ast.Node) (string, bool) {
+	if ec.model == nil {
+		return "", false
+	}
+	typ := ec.model.ExtentType(scope, n)
+	if typ == nil {
+		return "", false
+	}
+	return fmt.Sprintf("the extent of %s, a sequence", typ.Name), true
 }
 
 func (ec *exprChecker) checkUnaryNumeric(scope *symbols.Scope, e *ast.OperatorExpr) semantics.PrimType {

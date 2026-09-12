@@ -4,8 +4,8 @@
     {
       "name": "stdlib",
       "dir": "internal/core/libs/stdlib",
-      "files": 98,
-      "lines": 29480
+      "files": 99,
+      "lines": 30004
     },
     {
       "name": "training",
@@ -46,8 +46,8 @@
     {
       "name": "examples",
       "dir": "examples",
-      "files": 35,
-      "lines": 6943
+      "files": 36,
+      "lines": 7312
     }
   ],
   "totals": {

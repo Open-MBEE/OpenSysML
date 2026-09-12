@@ -601,7 +601,7 @@ func (ctx *Context) quantityTyped(feature *symbols.Symbol) bool {
 		return false
 	}
 	for _, typ := range ctx.model.semantics.FeatureTypes(feature) {
-		if ctx.model.semantics.Conforms(typ, scalar) {
+		if ctx.modelConforms(typ, scalar) {
 			return true
 		}
 	}

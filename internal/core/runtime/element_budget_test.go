@@ -157,6 +157,46 @@ func TestElementBudgetIsPerRun(t *testing.T) {
 	}
 }
 
+// TestElementBudgetBoundsExtents requires each kind of extent — literals, variants and
+// objects — to be charged like any other collection.
+func TestElementBudgetBoundsExtents(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::*;
+			enum def Color { red; green; blue; }
+			part def Engine;
+			part def Wheel;
+			variation part def EngineChoice :> Engine {
+				variant part four : Engine;
+				variant part six : Engine;
+				variant part eight : Engine;
+			}
+			part front : Wheel;
+			part rear : Wheel;
+			part spare : Wheel;
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	// The wheels are materialized ahead of the budgeted runs, so what a run charges is
+	// only what holding the extent costs.
+	if _, err := evalIn(t, ctx, pkg.Scope, "(front, rear, spare)"); err != nil {
+		t.Fatalf("wheels: %v", err)
+	}
+	for _, expr := range []string{"all Color", "all EngineChoice", "all Wheel"} {
+		ctx.maxElements = 2
+		if _, err := evalIn(t, ctx, pkg.Scope, expr); !errors.Is(err, ErrElementLimitExceeded) {
+			t.Errorf("%s under a budget of 2: error = %v, want ErrElementLimitExceeded", expr, err)
+		}
+		ctx.maxElements = DefaultMaxElements
+		if _, err := evalIn(t, ctx, pkg.Scope, expr); err != nil {
+			t.Errorf("%s under the default budget: %v", expr, err)
+		}
+	}
+}
+
 // TestElementBudgetBoundsStructuredValueReads requires the sequences read off an
 // Array, a vector and a vector quantity — their own features and the elements a
 // CollectionFunctions operation views — to be charged like any other collection.

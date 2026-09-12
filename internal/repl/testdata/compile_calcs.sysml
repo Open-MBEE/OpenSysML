@@ -495,6 +495,7 @@ package Refused {
 
 	attribute def Point { attribute x : Real; attribute y : Real; }
 	enum def Color { red; green; }
+	calc def Extent { return : Natural = size(all Color); }
 	calc def RecordParam { in p : Point; return : Real = p.x + p.y; }
 	calc def EnumParam { in c : Color; return : Boolean = c == Color::red; }
 	calc def RealIntIdentity { in x : Real; in y : Integer; return : Boolean = x === y; }

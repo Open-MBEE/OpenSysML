@@ -383,11 +383,11 @@ func (ctx *Context) referencedRequirement(scope *symbols.Scope, decl ast.Node, r
 	if ctx.model.resolver == nil {
 		return nil
 	}
-	sym, ok := ctx.model.resolver.ResolveReferenceTarget(scope, decl, ref)
+	sym, ok := ctx.resolveReferenceTarget(scope, decl, ref)
 	if !ok || sym == nil {
 		return nil
 	}
-	if canonical, ok := ctx.model.resolver.ResolveAliasTarget(sym); ok {
+	if canonical, ok := ctx.resolveAliasTarget(sym); ok {
 		sym = canonical
 	}
 	if RequireRequirement(sym) != nil && RequireConstraint(sym) != nil {
@@ -492,7 +492,7 @@ func (ctx *Context) conditionSubject(sym *symbols.Symbol, self *Instance) (carri
 	roots := []*Instance{self}
 	if self == nil {
 		roots = ctx.rootInstances()
-	} else if ctx.model.semantics.Conforms(self.Type, owner) {
+	} else if ctx.modelConforms(self.Type, owner) {
 		return carrier{instance: self, root: self}, nil
 	}
 	carriers := ctx.carriersUnder(roots, owner)
@@ -616,7 +616,7 @@ func (ctx *Context) carriersUnder(roots []*Instance, owner *symbols.Symbol) []ca
 		}
 		seen[inst.ID] = true
 		occurrence := carrierOccurrence{through: through, decl: inst.Type}
-		if ctx.model.semantics.Conforms(inst.Type, owner) && !declared[occurrence] {
+		if ctx.modelConforms(inst.Type, owner) && !declared[occurrence] {
 			declared[occurrence] = true
 			out = append(out, carrier{instance: inst, root: root, features: features})
 		}
@@ -666,17 +666,41 @@ type heldObject struct {
 
 // nestedObjects returns the objects the object-valued features of inst hold,
 // materializing a lazy one as reading its feature value does. A feature value that cannot be read
-// yields no object: one that is not there is no subject either. The names a redefinition
-// chain gives one feature value hold its objects once, under the first.
+// yields no object: one that is not there is no subject either.
 func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
+	out, _ := ctx.heldObjectsOf(inst, nil, false)
+	return out
+}
+
+// heldObjectsOf is nestedObjects reading a feature as `through` reads it (every one, when nil),
+// taking what a feature it leaves unread already holds; a failed read is skipped or, where every
+// object counts, is the error.
+func (ctx *Context) heldObjectsOf(inst *Instance, through func(*Instance, ObjectFeature) (*FeatureValue, error), everyObject bool) ([]heldObject, error) {
 	var out []heldObject
 	read := map[*FeatureValue]bool{}
 	for _, of := range ctx.FeaturesOfObject(inst) {
 		if of.Name == "" || !holdsObjects(of.Feature) {
 			continue
 		}
-		fv, err := inst.GetFeatureValue(ctx, of.Name)
-		if err != nil || fv == nil || read[fv] {
+		var fv *FeatureValue
+		var err error
+		if through == nil {
+			fv, err = inst.GetFeatureValue(ctx, of.Name)
+		} else {
+			fv, err = through(inst, of)
+		}
+		if err != nil {
+			if everyObject {
+				return nil, fmt.Errorf("feature %s: %w", of.Name, err)
+			}
+			continue
+		}
+		if fv == nil {
+			if fv = inst.FeatureValues[of.Name]; fv == nil || !fv.Materialized {
+				continue
+			}
+		}
+		if read[fv] {
 			continue
 		}
 		read[fv] = true
@@ -686,16 +710,21 @@ func (ctx *Context) nestedObjects(inst *Instance) []heldObject {
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 // holdsObjects reports whether a feature holds objects rather than values: a
 // nested part has features and conditions of its own, an attribute has neither.
 func holdsObjects(feat *EffectiveFeature) bool {
-	if feat.Symbol == nil {
+	return objectFeature(feat.Symbol)
+}
+
+// objectFeature reports whether sym declares a feature whose values are objects.
+func objectFeature(sym *symbols.Symbol) bool {
+	if sym == nil {
 		return false
 	}
-	usage, ok := feat.Symbol.Decl.(*ast.Usage)
+	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok {
 		return false
 	}
