@@ -305,12 +305,14 @@ func TestFootprintPinsAndBindings(t *testing.T) {
 	}
 }
 
-// A `via` send, a chain from a computed base and a nested performance are dynamic
-// targets, dependent on every other move.
+// A `via` send, a chain from a computed base, a nested performance and a
+// constructor are dynamic targets, dependent on every other move.
 func TestFootprintDynamicTargets(t *testing.T) {
 	graph := scopedActionGraph(t, `
+		item def Ping;
 		action def Dynamic {
 			attribute x : Integer = 0;
+			attribute made : Ping;
 			port p;
 			first start;
 			fork split;
@@ -322,6 +324,8 @@ func TestFootprintDynamicTargets(t *testing.T) {
 				first start then inner;
 				then done;
 			}
+			action construct { assign made := new Ping(); }
+			action sendNew { send new Ping() to p; }
 			join sync;
 			done;
 			succession first start then split;
@@ -329,10 +333,14 @@ func TestFootprintDynamicTargets(t *testing.T) {
 			succession first split then writeX;
 			succession first split then typed;
 			succession first split then nested;
+			succession first split then construct;
+			succession first split then sendNew;
 			succession first viaSend then sync;
 			succession first writeX then sync;
 			succession first typed then sync;
 			succession first nested then sync;
+			succession first construct then sync;
+			succession first sendNew then sync;
 			succession first sync then done;
 		}
 		action def Add { in a : Integer; out r : Integer; }
@@ -340,6 +348,11 @@ func TestFootprintDynamicTargets(t *testing.T) {
 
 	if typed := footprintNamed(t, graph, "typed"); !typed.Dynamic {
 		t.Errorf("a node performing an action is not dynamic:\n%s", typed)
+	}
+	for _, name := range []string{"construct", "sendNew"} {
+		if fp := footprintNamed(t, graph, name); !fp.Dynamic {
+			t.Errorf("%s materializes an object yet is not dynamic:\n%s", name, fp)
+		}
 	}
 
 	viaSend := footprintNamed(t, graph, "viaSend")
@@ -547,8 +560,8 @@ func TestFootprintAddressReads(t *testing.T) {
 			first start;
 			fork split;
 			action aim { assign hub.dest := beta; }
-			action post { send new Ping() to hub.dest.inPort; }
-			action named { send new Ping() to alpha::inPort; }
+			action post { send Ping to hub.dest.inPort; }
+			action named { send Ping to alpha::inPort; }
 			action peek { assign seen := hub.dest.n; }
 			action aimed;
 			action posted;

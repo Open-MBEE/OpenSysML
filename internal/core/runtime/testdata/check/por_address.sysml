@@ -18,7 +18,7 @@ package test {
 		fork split;
 		action aim { assign hub.dest := beta; }
 		action aimed;
-		action post { send new Ping() to hub.dest.inPort; }
+		action post { send Ping to hub.dest.inPort; }
 		action posted { assign mark := 1; }
 		join sync;
 		done;

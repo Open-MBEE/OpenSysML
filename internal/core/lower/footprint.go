@@ -296,8 +296,8 @@ func (b *footprintBuilder) declaredByNode(sym *symbols.Symbol) bool {
 	return false
 }
 
-// reads adds every feature an expression reads. A chain from a computed base and
-// an invocation of a behavior the model declares are dynamic.
+// reads adds every feature an expression reads. A chain from a computed base, an
+// invocation of a behavior the model declares and a constructor are dynamic.
 func (b *footprintBuilder) reads(scope *symbols.Scope, expr ast.Node) {
 	switch e := expr.(type) {
 	case nil:
@@ -333,6 +333,8 @@ func (b *footprintBuilder) reads(scope *symbols.Scope, expr ast.Node) {
 		b.reads(scope, e.Operand)
 		b.reads(scope, e.Body)
 	case *ast.ConstructorExpr:
+		// Constructing an object extends its type's extent and starts classifier behaviors.
+		b.footprint.Dynamic = true
 		for _, arg := range e.Args {
 			b.reads(scope, arg)
 		}

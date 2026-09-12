@@ -15,25 +15,32 @@ var updateCheckReduction = flag.Bool("update-check-reduction", false, "Rewrite t
 
 // The reduction corpus: one small model per dependence clause of the checker's
 // static reduction, and one whose branches are independent.
-var reductionCorpus = []struct{ file, action string }{
-	{"por_shared_write", "race"},
-	{"por_guard_read", "gated"},
-	{"por_trigger_read", "monitor"},
-	{"por_send_accept", "communicator"},
-	{"por_join", "gather"},
-	{"por_dynamic_target", "dynamic"},
-	{"por_independent_branches", "parallel"},
-	{"por_alias", "aliased"},
-	{"por_address", "addressed"},
+var reductionCorpus = []struct {
+	file, action string
+	library      bool // the model uses the standard libraries
+}{
+	{file: "por_shared_write", action: "race"},
+	{file: "por_guard_read", action: "gated"},
+	{file: "por_trigger_read", action: "monitor"},
+	{file: "por_send_accept", action: "communicator"},
+	{file: "por_join", action: "gather"},
+	{file: "por_dynamic_target", action: "dynamic"},
+	{file: "por_independent_branches", action: "parallel"},
+	{file: "por_alias", action: "aliased"},
+	{file: "por_address", action: "addressed"},
+	{file: "por_constructor", action: "populate", library: true},
 }
 
 const reductionExpected = "testdata/check/reduction_expected.txt"
 
-func reductionModel(t *testing.T, file string) *exploreModel {
+func reductionModel(t *testing.T, file string, library bool) *exploreModel {
 	t.Helper()
 	text, err := os.ReadFile(filepath.Join("testdata", "check", file+".sysml"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if library {
+		return parseLibraryModel(t, string(text))
 	}
 	return parseExploreModel(t, string(text))
 }
@@ -52,7 +59,7 @@ func finalOutcomes(report *CheckReport) []string {
 func TestCheckReductionIsSound(t *testing.T) {
 	for _, c := range reductionCorpus {
 		t.Run(c.file, func(t *testing.T) {
-			m := reductionModel(t, c.file)
+			m := reductionModel(t, c.file, c.library)
 			with := checkModel(t, m, c.action, CheckBudget{}, reduced())
 			without := checkModel(t, m, c.action, CheckBudget{}, unreduced())
 			if with.Verdict == CheckViolation || without.Verdict == CheckViolation {
@@ -85,7 +92,7 @@ func TestCheckReductionIsSound(t *testing.T) {
 func TestCheckReductionRatchet(t *testing.T) {
 	got := make(map[string]string, len(reductionCorpus))
 	for _, c := range reductionCorpus {
-		m := reductionModel(t, c.file)
+		m := reductionModel(t, c.file, c.library)
 		with := checkModel(t, m, c.action, CheckBudget{}, reduced())
 		without := checkModel(t, m, c.action, CheckBudget{}, unreduced())
 		got[c.file] = fmt.Sprintf("%d\t%d\t%d\t%d", with.States, with.Moves, without.States, without.Moves)
@@ -138,7 +145,7 @@ func TestCheckReductionRatchet(t *testing.T) {
 // A write that redirects a send's address is dependent on the send: the reduced
 // search reaches the message at each node the address may name, as the full one does.
 func TestCheckReductionKeepsEveryAddressee(t *testing.T) {
-	m := reductionModel(t, "por_address")
+	m := reductionModel(t, "por_address", false)
 	addressed := func(node string) CheckProperty {
 		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *ActionExecutor) (bool, error) {
 			for _, msg := range ctx.PendingMessages() {
