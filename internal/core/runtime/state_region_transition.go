@@ -20,8 +20,9 @@ func transientPseudostate(kind ast.PseudostateKind) bool {
 
 // resolveRoute settles the state a transition ends at before anything moves: its
 // target, or the one a chain of transient pseudostates, a synchronized join or an
-// unrecorded history routes on to. It is nil for a fork, a recorded history and a
-// join still waiting, whose firing takes the configuration from the graph instead.
+// unrecorded history's default transition routes on to. It is nil for a fork, a
+// history with nothing to route by and a join still waiting, whose firing takes
+// the configuration from the graph instead.
 func (e *StateExecutor) resolveRoute(trans *lower.Transition) (*ast.StateNode, error) {
 	switch target := trans.Target.(type) {
 	case *ast.StateNode:
@@ -40,12 +41,12 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition) (*ast.StateNode, e
 			}
 		case ast.PseudostateShallowHistory, ast.PseudostateDeepHistory:
 			owner := e.graph.PseudostateOwner[target]
-			if owner == nil || e.history[owner] != nil {
+			if owner == nil || e.history[owner] != nil || len(e.graph.Transitions[target]) == 0 {
 				return nil, nil
 			}
 			state, err := e.pseudostateTarget(target)
 			if err != nil {
-				return nil, fmt.Errorf("history %s has no default transition and %s has no recorded configuration: %w", target.Name, owner.Name, err)
+				return nil, fmt.Errorf("default transition of history %s, %s having no recorded configuration: %w", target.Name, owner.Name, err)
 			}
 			return state, nil
 		}

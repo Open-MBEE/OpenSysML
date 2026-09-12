@@ -1734,7 +1734,9 @@ func (e *StateExecutor) forgetRegionHistory(region *ast.StateRegion) {
 // composite state that owns it is re-entered in the configuration it was last
 // left in. Before the state has ever been exited there is nothing to restore, so
 // the history's own outgoing transition supplies the default target, as UML's
-// default history transition does (UML is the reference: no SysML v2 notation).
+// default history transition does (UML is the reference: no SysML v2 notation);
+// without one the owner is entered as any transition into it would enter it,
+// through its entry transitions.
 //
 // A shallow history restores the substate that was active; a deep history keeps
 // descending, restoring the innermost one.
@@ -1755,10 +1757,14 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 	}
 	record := e.history[owner]
 	if record == nil {
-		if route == nil {
-			return nil, nil, fmt.Errorf("history %s has no default transition and %s has no recorded configuration", hist.Name, owner.Name)
+		if route != nil {
+			return route, nil, nil
 		}
-		return route, nil, nil
+		if !e.hasDefaultEntry(owner) {
+			return nil, nil, fmt.Errorf("%w: history %s has no default transition, %s has no recorded configuration and declares no entry transition",
+				ErrHistoryWithoutEntry, hist.Name, owner.Name)
+		}
+		return owner, nil, nil
 	}
 
 	deep := hist.Kind == ast.PseudostateDeepHistory
@@ -1788,6 +1794,21 @@ func (e *StateExecutor) historyEntry(hist *ast.PseudostateNode, route *ast.State
 		target = e.deepestRecorded(target, branches)
 	}
 	return target, branches, nil
+}
+
+// hasDefaultEntry reports whether entering state with no branch chosen has a
+// state to start in: an entry transition of its body, or of each of its regions.
+func (e *StateExecutor) hasDefaultEntry(state *ast.StateNode) bool {
+	regions, orthogonal := e.graph.CompositeStates[state]
+	if !orthogonal {
+		return len(e.graph.StartOf(state)) > 0
+	}
+	for _, region := range regions {
+		if e.graph.RegionState[region] == nil && len(e.graph.StartOf(region)) == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // deepestRecorded follows the configuration recorded below state and returns the

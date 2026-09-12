@@ -213,6 +213,12 @@ var (
 	// (`entry; if c then s;`) all have false guards, so it has no state to start in.
 	ErrNoEntryTransitionHolds = errors.New("no entry transition holds")
 
+	// ErrHistoryWithoutEntry is returned when a transition reaches a history
+	// pseudostate that has nothing to restore and nothing to enter instead: its
+	// owner was never left, the history has no default transition, and the owner
+	// declares no entry transition of its own.
+	ErrHistoryWithoutEntry = errors.New("history has no configuration to restore and no entry to fall back on")
+
 	// ErrStatePerformanceOccurrence is returned when an exhibited machine cannot
 	// read or write the occurrence of its state usage.
 	ErrStatePerformanceOccurrence = errors.New("state performance occurrence unavailable")

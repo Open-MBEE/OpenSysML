@@ -320,7 +320,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("accept_deadlock_reports_every_waiting_accept", testAcceptDeadlockReportsEveryWaitingAccept)
 	t.Run("accept_statement_deadlock_in_a_loop", testAcceptStatementDeadlockInALoop)
 	t.Run("history_outside_composite_state", testHistoryOutsideCompositeState)
-	t.Run("history_without_record_or_default", testHistoryWithoutRecordOrDefault)
+	t.Run("history_without_record_default_or_entry", testHistoryWithoutRecordDefaultOrEntry)
 	t.Run("defer_of_non_deferrable_trigger", testDeferOfNonDeferrableTrigger)
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
@@ -4159,10 +4159,11 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 }
 
-// testHistoryWithoutRecordOrDefault: before its composite state has ever been
-// exited a history has nothing to restore, and with no outgoing transition there
-// is no default target either — that is reported, not silently ignored.
-func testHistoryWithoutRecordOrDefault(t *testing.T) {
+// testHistoryWithoutRecordDefaultOrEntry: before its composite state has ever
+// been exited a history has nothing to restore; with no default transition it
+// falls back on the owner's entry transition, and when the owner declares none
+// either the run fails with a typed error at the transition, not silently.
+func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	history := &ast.PseudostateNode{Kind: ast.PseudostateShallowHistory, Name: "H"}
 	outer := &ast.StateNode{
 		Name:      "outer",
@@ -4186,11 +4187,16 @@ func testHistoryWithoutRecordOrDefault(t *testing.T) {
 	fire(t, exec, "init", "away")
 
 	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"))
-	if err == nil {
-		t.Fatal("expected an error: nothing recorded and no default history transition")
+	if !errors.Is(err, ErrHistoryWithoutEntry) {
+		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
-	if !strings.Contains(err.Error(), "no recorded configuration") {
-		t.Errorf("expected a missing-default error, got: %v", err)
+	for _, name := range []string{"H", "outer"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("error should name %s, got: %v", name, err)
+		}
+	}
+	if current := exec.getCurrentState(); current == nil || current.Name != "away" {
+		t.Errorf("a failed history transition leaves the machine where it was, got %v", current)
 	}
 }
 
