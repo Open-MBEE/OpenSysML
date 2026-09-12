@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // The Occurrences::Occurrence features the executor implements at their library
@@ -14,6 +15,21 @@ const (
 	isRunToCompletionFeature    = "isRunToCompletion"
 	runToCompletionScopeFeature = "runToCompletionScope"
 )
+
+// runToCompletionFeatureFQNs are the library declarations of the two features:
+// Occurrence's, and StatePerformance's redefinition of each.
+var runToCompletionFeatureFQNs = map[string]string{
+	"Occurrences::Occurrence::isRunToCompletion":                isRunToCompletionFeature,
+	"Occurrences::Occurrence::runToCompletionScope":             runToCompletionScopeFeature,
+	"StatePerformances::StatePerformance::isRunToCompletion":    isRunToCompletionFeature,
+	"StatePerformances::StatePerformance::runToCompletionScope": runToCompletionScopeFeature,
+}
+
+// StateRedefinitionResolver resolves the feature a redefinition written in a state
+// body targets, an alias followed to what it names.
+type StateRedefinitionResolver interface {
+	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+}
 
 // RunToCompletionRedefinition reports a redefinition of isRunToCompletion or
 // runToCompletionScope the executor cannot honor: a value other than the
@@ -53,12 +69,25 @@ func (e *RunToCompletionRedefinition) Error() string {
 // other state content lowering cannot represent reports.
 func (e *RunToCompletionRedefinition) Unwrap() error { return ErrUnsupportedStateContent }
 
-// redefinedRunToCompletionFeature names the run-to-completion feature usage
-// redefines, or "" when it redefines neither.
-func redefinedRunToCompletionFeature(usage *ast.Usage) string {
+// redefinedRunToCompletionFeature names the library run-to-completion feature
+// usage, declared in scope, redefines — directly, through an alias or through a
+// feature that itself redefines it — or "" when it redefines neither. A target
+// that does not resolve (no resolver, or the library out of reach) is read by its
+// spelling, so a name spelled like the feature is refused rather than run under
+// the default.
+func (g *StateGraph) redefinedRunToCompletionFeature(usage *ast.Usage, scope *symbols.Scope) string {
+	resolver, resolved := g.endpoints.(StateRedefinitionResolver)
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Kind != ast.RelRedefines {
 			continue
+		}
+		if resolved {
+			if target, ok := resolver.RedefinitionTarget(scope, usage, rel.Target); ok {
+				if name := libraryRunToCompletionFeature(resolver, target, map[*symbols.Symbol]bool{}); name != "" {
+					return name
+				}
+				continue
+			}
 		}
 		switch name, _ := ast.TargetName(rel.Target); name {
 		case isRunToCompletionFeature, runToCompletionScopeFeature:
@@ -68,12 +97,40 @@ func redefinedRunToCompletionFeature(usage *ast.Usage) string {
 	return ""
 }
 
-// refuseRunToCompletionRedefinition refuses usage when it redefines a
-// run-to-completion feature to anything but the library default. A redefinition
-// without a value keeps the inherited default. `self` restates the scope only in
-// the machine's own body: written in a substate, it narrows the scope to that state.
-func refuseRunToCompletionRedefinition(usage *ast.Usage, owner string, machine bool) error {
-	feature := redefinedRunToCompletionFeature(usage)
+// libraryRunToCompletionFeature names the library run-to-completion feature sym is,
+// or reaches through the redefinitions its own declaration writes.
+func libraryRunToCompletionFeature(resolver StateRedefinitionResolver, sym *symbols.Symbol, seen map[*symbols.Symbol]bool) string {
+	if sym == nil || seen[sym] {
+		return ""
+	}
+	seen[sym] = true
+	if name, ok := runToCompletionFeatureFQNs[symbols.FQNOf(sym)]; ok {
+		return name
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return ""
+	}
+	for _, rel := range usage.Relationships {
+		if rel == nil || rel.Kind != ast.RelRedefines {
+			continue
+		}
+		if target, ok := resolver.RedefinitionTarget(sym.OwnerScope, usage, rel.Target); ok {
+			if name := libraryRunToCompletionFeature(resolver, target, seen); name != "" {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+// refuseRunToCompletionRedefinition refuses usage, declared in scope, when it
+// redefines a run-to-completion feature to anything but the library default. A
+// redefinition without a value keeps the inherited default. `self` restates the
+// scope only in the machine's own body: written in a substate, it narrows the
+// scope to that state.
+func (g *StateGraph) refuseRunToCompletionRedefinition(usage *ast.Usage, scope *symbols.Scope, owner string, machine bool) error {
+	feature := g.redefinedRunToCompletionFeature(usage, scope)
 	if feature == "" || usage.Value == nil {
 		return nil
 	}
@@ -103,7 +160,7 @@ func refuseRunToCompletionRedefinition(usage *ast.Usage, owner string, machine b
 
 // refuseRunToCompletionRedefinitions applies refuseRunToCompletionRedefinition
 // to a machine's body; owner describes the machine itself for members written in it.
-func refuseRunToCompletionRedefinitions(body []inheritedMember, machine ast.Node) error {
+func (g *StateGraph) refuseRunToCompletionRedefinitions(body []inheritedMember, machine ast.Node) error {
 	for _, member := range body {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
 		if !ok {
@@ -113,7 +170,7 @@ func refuseRunToCompletionRedefinitions(body []inheritedMember, machine ast.Node
 		if member.owner != nil {
 			owner = DescribeMember(member.owner) + ", inherited by " + DescribeMember(machine) + ","
 		}
-		if err := refuseRunToCompletionRedefinition(usage, owner, true); err != nil {
+		if err := g.refuseRunToCompletionRedefinition(usage, member.scope, owner, true); err != nil {
 			return err
 		}
 	}

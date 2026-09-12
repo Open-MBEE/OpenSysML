@@ -241,7 +241,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(members, scope)...)
-	if err := refuseRunToCompletionRedefinitions(body, stateMachineDecl); err != nil {
+	if err := graph.refuseRunToCompletionRedefinitions(body, stateMachineDecl); err != nil {
 		return nil, err
 	}
 
@@ -345,7 +345,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 	var attrs []Attribute
 	for _, member := range members {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageAttribute || redefinedRunToCompletionFeature(usage) != "" {
+		if !ok || usage.Kind != ast.UsageAttribute || graph.redefinedRunToCompletionFeature(usage, member.scope) != "" {
 			continue
 		}
 		name, _ := ast.EffectiveName(usage)

@@ -148,6 +148,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("run_to_completion_redefined_by_specialized_def", testRunToCompletionRedefinedBySpecializedDef)
 	t.Run("run_to_completion_redefined_in_orthogonal_region", testRunToCompletionRedefinedInOrthogonalRegion)
 	t.Run("run_to_completion_redefined_undecidably", testRunToCompletionRedefinedUndecidably)
+	t.Run("run_to_completion_redefined_through_alias", testRunToCompletionRedefinedThroughAlias)
+	t.Run("run_to_completion_redefined_through_redefining_feature", testRunToCompletionRedefinedThroughRedefiningFeature)
 	t.Run("run_to_completion_defaults_restated", testRunToCompletionDefaultsRestated)
 	t.Run("sourceless_transition_with_nothing_before", testSourcelessTransitionWithNothingBefore)
 	t.Run("sourceless_transition_after_a_non_state", testSourcelessTransitionAfterANonState)
@@ -6670,7 +6672,13 @@ func testStateUsageInheritsUnsupportedMember(t *testing.T) {
 // naming feature, declaring body and the value written.
 func runToCompletionRefusal(t *testing.T, src, feature, owner, written string) *lower.RunToCompletionRedefinition {
 	t.Helper()
-	err := stateExecutorError(t, src, "Machine")
+	return runToCompletionRefused(t, stateExecutorError(t, src, "Machine"), feature, owner, written)
+}
+
+// runToCompletionRefused checks that err, from creating a state executor, is
+// the typed run-to-completion refusal naming feature, owner and the value written.
+func runToCompletionRefused(t *testing.T, err error, feature, owner, written string) *lower.RunToCompletionRedefinition {
+	t.Helper()
 	if err == nil {
 		t.Fatalf("redefinition of %s ran under the library default", feature)
 	}
@@ -6805,15 +6813,61 @@ func testRunToCompletionDefaultsRestated(t *testing.T) {
 	}
 }
 
+// testRunToCompletionRedefinedThroughAlias: a redefinition naming the library
+// feature through an alias is resolved to it and refused, not read by its spelling.
+func testRunToCompletionRedefinedThroughAlias(t *testing.T) {
+	err := libraryStateExecutorError(t, `
+		package test {
+			alias Rtc for Occurrences::Occurrence::isRunToCompletion;
+			state def Machine {
+				attribute :>> Rtc = false;
+				entry; then idle;
+				state idle;
+			}
+		}
+	`, "Machine")
+	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+}
+
+// testRunToCompletionRedefinedThroughRedefiningFeature: a redefinition of a
+// feature that itself redefines the library one reaches it and is refused.
+func testRunToCompletionRedefinedThroughRedefiningFeature(t *testing.T) {
+	err := libraryStateExecutorError(t, `
+		package test {
+			state def Base {
+				attribute strict :>> isRunToCompletion;
+				entry; then idle;
+				state idle;
+			}
+			state def Machine :> Base {
+				attribute :>> strict = false;
+			}
+		}
+	`, "Machine")
+	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+}
+
 // stateExecutorError builds a state executor for a named state definition and
 // returns what creating it reports.
 func stateExecutorError(t *testing.T, src, name string) error {
+	t.Helper()
+	return stateExecutorErrorIn(t, src, name, buildRuntime)
+}
+
+// libraryStateExecutorError is stateExecutorError over an index carrying the
+// standard library, for a model that names library elements.
+func libraryStateExecutorError(t *testing.T, src, name string) error {
+	t.Helper()
+	return stateExecutorErrorIn(t, src, name, buildRuntimeWithLibraries)
+}
+
+func stateExecutorErrorIn(t *testing.T, src, name string, build func(*testing.T, string, *ast.RootNamespace) (*symbols.Index, *semantics.Model, *Context)) error {
 	t.Helper()
 	file := parseAndBuild(t, src)
 	if file == nil {
 		t.Fatal("parse failed")
 	}
-	idx, _, ctx := buildRuntime(t, "<test>", file)
+	idx, _, ctx := build(t, "<test>", file)
 	sym := findSymbolByName(idx.DocumentRoot("<test>"), name, ast.DefState)
 	if sym == nil {
 		t.Fatalf("state %s not found", name)

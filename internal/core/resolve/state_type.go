@@ -18,6 +18,20 @@ func (r *Resolver) TypeDecl(scope *symbols.Scope, qn *ast.QualifiedName) (ast.No
 	return sym.Decl, sym.Scope, true
 }
 
+// RedefinitionTarget returns the feature a redefinition owned by decl, declared in
+// scope, targets — an alias followed to what it names. It reports nothing itself.
+func (r *Resolver) RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+	var sym *symbols.Symbol
+	var ok bool
+	r.aside(func() {
+		sym, ok = r.ResolveRedefinitionTarget(scope, decl, target)
+		if alias, aliasOK := r.ResolveAliasTarget(sym); ok && aliasOK {
+			sym = alias
+		}
+	})
+	return sym, ok && sym != nil
+}
+
 // TypeDeclInScope is TypeDecl from the scope tree alone, for a machine lowered
 // without a resolver over its document.
 func TypeDeclInScope(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, *symbols.Scope, bool) {

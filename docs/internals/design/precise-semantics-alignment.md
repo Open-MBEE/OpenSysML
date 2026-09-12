@@ -1442,9 +1442,12 @@ are not fixed in this note's change set. Each names its evidence.
    substate's by `lower/state_inheritance.go:addMember`, returns the typed
    `lower.RunToCompletionRedefinition` (an `ErrUnsupportedStateContent`) for `false`, for a scope
    narrowed to a substate, and for a value lowering cannot read as the default; a redefinition
-   restating the default (`= true`, `= self` on the machine) runs. Pinned by the conformance
-   cases `state_run_to_completion_redefined_false`, `_scope_narrowed`, `_inherited_redefinition`,
-   `_region_redefinition`, `_unverified`, the positive `_defaults_restated`, and
+   restating the default (`= true`, `= self` on the machine) runs. The target is resolved to its
+   symbol (`resolve.Resolver.RedefinitionTarget`, aliases followed, redefinition chains walked),
+   so an alias of the library feature is refused and the spelling decides only where the target
+   does not resolve. Pinned by the conformance cases `state_run_to_completion_redefined_false`,
+   `_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified`,
+   `_alias_redefinition`, the positive `_defaults_restated`, and
    `robustness_test.go:run_to_completion_*`. Unsupported v2 feature still: the refusal implements
    neither a non-run-to-completion scheduling nor a narrowed scope.
 4. **A completion transition whose guard turns true between completion and dispatch is never
