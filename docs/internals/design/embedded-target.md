@@ -192,13 +192,18 @@ therefore holds three rules:
    against distinct literals). *Write order*: two writes to one feature in one step refuse
    (subsumed by the commutation rule for forks, stated separately for regions). *Transition*: a
    state with two transitions enabled by one trigger without exclusive guards refuses. *Region
-   order*: sibling regions reacting to one event are admitted under the same commutation rule as
-   fork branches. *Due order*: two executors sharing a due instant refuse. The refusal names the
-   elements and the oracle case that makes the choice admissible. The modeller resolves it in the
-   model — sequencing the branches, making the guards a partition — and the fact that they did is
-   visible in the model, where a reviewer reads it. The diagnostic trace records the order the
-   profile ran commuting branches in; that order is fixed by rule 2 and is not an observable of
-   the model.
+   order*: a reaction changes the active configuration as well as data, and a transition that
+   leaves the composite the regions share deactivates its siblings, so a sibling reaction that
+   ran later would be dropped and one that ran earlier would fire — an order the data sets
+   cannot see. Sibling regions with transitions on one trigger are therefore admitted only when
+   every such transition is local (its source and target inside its own region) and the
+   effects commute as fork branches must; a transition that exits the shared composite is
+   admitted only when no sibling region has a transition on that trigger at all. *Due order*:
+   two executors sharing a due instant refuse. The refusal names the elements and the oracle
+   case that makes the choice admissible. The modeller resolves it in the model — sequencing the
+   branches, making the guards a partition — and the fact that they did is visible in the model,
+   where a reviewer reads it. The diagnostic trace records the order the profile ran commuting
+   branches in; that order is fixed by rule 2 and is not an observable of the model.
 2. **What remains is declaration order**, the policy the interpreter calls `declared`, stated in
    the semantics document as the profile's rule, so a model that passes rule 1 has exactly one
    execution and the interpreter under `declared` computes it.
