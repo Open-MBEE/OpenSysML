@@ -319,6 +319,7 @@ package Compiled {
 		calc def Ass { in x : Integer[0..*]; attribute y : Integer[1..2] = x; return : Integer = size(y); }
 		calc def LocM1 { in x : Integer[0..*]; attribute y : Integer[1] = x; return : Integer = size(y); }
 		calc def LocN { in x : Integer[0..*]; attribute y : Natural[0..*] = x; return : Integer = size(y); }
+		calc def LocAny2 { in x : Integer[0..*]; attribute y[2] = x; return : Integer = size(y); }
 		calc def Ret1 { in x : Integer[0..*]; return : Integer[1] = x; }
 		calc def RetN { in x : Integer[0..*]; return : Natural[0..*] = x; }
 		calc def Coal { in x : Integer[0..*]; return : Integer = x ?? 5; }

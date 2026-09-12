@@ -116,6 +116,7 @@ var compiledCases = []compiledCase{
 	{"Seq::Ass", []string{"(1,2)"}}, {"Seq::Ass", []string{"(1,2,3)"}}, {"Seq::Ass", []string{"null"}},
 	{"Seq::LocM1", []string{"(1)"}}, {"Seq::LocM1", []string{"(1,2)"}}, {"Seq::LocM1", []string{"null"}},
 	{"Seq::LocN", []string{"(1,2)"}}, {"Seq::LocN", []string{"(1,-2)"}}, {"Seq::LocN", []string{"null"}},
+	{"Seq::LocAny2", []string{"(1,2)"}}, {"Seq::LocAny2", []string{"(1)"}}, {"Seq::LocAny2", []string{"(1,2,3)"}},
 	{"Seq::Ret1", []string{"(1)"}}, {"Seq::Ret1", []string{"(1,2)"}}, {"Seq::Ret1", []string{"null"}},
 	{"Seq::RetN", []string{"(1,2)"}}, {"Seq::RetN", []string{"(-1,2)"}}, {"Seq::RetN", []string{"null"}},
 	{"Seq::Coal", []string{"(1,2)"}}, {"Seq::Coal", []string{"null"}}, {"Seq::Coal", []string{"(3)"}}, {"Seq::Coal", []string{"()"}},

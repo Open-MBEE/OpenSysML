@@ -557,8 +557,10 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 	var declared binding
 	// An omitted multiplicity keeps the initializer's count; a stated one is checked.
 	multStated := false
-	if u != nil && hasTyping(u) {
+	if u != nil {
 		_, multStated = fc.c.model.RangeOf(u.Multiplicity)
+	}
+	if u != nil && hasTyping(u) {
 		typ, err := fc.typingOf(s.Scope, u, s.Name)
 		if err != nil {
 			return nil, err
@@ -598,10 +600,22 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		if v.Type().Many() {
 			declared.m = MultOne
 		}
+		if u != nil && multStated && !v.Type().Many() {
+			m, err := fc.multOf(u, s.Name)
+			if err != nil {
+				return nil, err
+			}
+			if m.Lower > 1 || m.Upper == 0 {
+				return nil, fc.unsupported(fmt.Sprintf("attribute %s declares no type and a multiplicity one value cannot satisfy", s.Name))
+			}
+		}
 		if u != nil && v.Type().Many() {
 			m, err := fc.multOf(u, s.Name)
 			if err != nil {
 				return nil, err
+			}
+			if multStated {
+				declared.m = m
 			}
 			if m != MultOne {
 				if declared.unique, err = fc.uniqueOf(s.Scope, u, s.Name); err != nil {
