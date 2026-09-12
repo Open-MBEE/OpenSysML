@@ -1369,11 +1369,17 @@ defaults: `runtime/state_executor.go` `runStep` → `processNextEvent` dispatche
 per step and `enterStateInto` runs a state's entry behavior and its regions' initial entries to
 the end before the step returns, so no transition fires during an entry; the scope is always the
 whole machine, since `run` is one loop over one `eventQueue`. A model that redefines either
-feature on a state or on the exhibiting occurrence — narrowing the scope to one composite, or
-switching run-to-completion off so that a transition may fire while a sibling's entry is still
-performing — is accepted by validation and run under the defaults with no diagnostic. The
-lowered `StateGraph` carries neither feature; no conformance fixture exercises a redefinition;
-the precise-semantics alignment note records the gap against its SM1 row.
+feature to anything else — narrowing the scope to one composite, or switching run-to-completion
+off so that a transition may fire while a sibling's entry is still performing — is refused when
+the machine is lowered: `lower/run_to_completion.go` `refuseRunToCompletionRedefinitions` judges
+the redefinition each body makes effective (its own, or the one it inherits from a specialized
+definition, the target resolved to its library symbol so an alias is caught) and returns the typed
+`lower.RunToCompletionRedefinition`, an `ErrUnsupportedStateContent` naming the feature, the
+declaring state and the value written, for `false`, for a scope other than the machine itself, and
+for a value it cannot verify restates the default. A redefinition restating the default (`= true`,
+`= self` on the machine) runs. Before that, such a model was run under the defaults with no
+diagnostic. The lowered `StateGraph` still carries neither feature; the precise-semantics
+alignment note records the refusal, and the remaining gap, against its SM1 row.
 
 **Target.** The two declarations above, read from the model. `isRunToCompletion = false` on a
 scope means the library no longer orders transition performances within that scope against
@@ -1392,12 +1398,18 @@ false — and record the interleaving as a choice point (`scheduling.md`) so `ex
 it and `seed:<n>` replays it. The default configuration must run every existing fixture and
 trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also edit.
 
-**Proof.** Conformance: a redefinition to `false` on a composite whose entry sends a signal the
-composite itself accepts, pinning that the transition fires during the entry where the default
-holds it until after; a narrowed scope with a sibling region's transition firing during the
-scoped state's entry; the default unchanged. A trace golden for the interleaving order.
-Robustness: a scope that is not an ancestor. `spec-compliance.md`: the run-to-completion row
-gains the two features with file:function; the alignment note's SM1 row and its finding move to
+**Proof.** The refusal is pinned: conformance `state_run_to_completion_redefined_false`,
+`_scope_narrowed`, `_inherited_redefinition`, `_region_redefinition`, `_unverified` and
+`_alias_redefinition` expect the typed error, `_defaults_restated` and `_default_restored` run,
+`robustness_test.go` `run_to_completion_*` match it with `errors.As`, and
+the state rendering (`view/render_test.go`) and the REPL's `%state` (`repl/runtime_commands_test.go`)
+show the same message. The implementation adds:
+conformance for a redefinition to `false` on a composite whose entry sends a signal the composite
+itself accepts, pinning that the transition fires during the entry where the default holds it
+until after; a narrowed scope with a sibling region's transition firing during the scoped state's
+entry; the default unchanged. A trace golden for the interleaving order. Robustness: a scope that
+is not an ancestor. `spec-compliance.md`: the run-to-completion row gains the two features with
+file:function in place of the refusal; the alignment note's SM1 row and its finding move to
 agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
 today — or when the model checker's stage 3 needs the interleaving as a move.
 
