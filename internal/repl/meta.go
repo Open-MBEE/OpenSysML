@@ -150,7 +150,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%jobs", args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 	{name: "%engines", desc: "list the analysis engines, with the authority of each, the questions it answers and whether it can run"},
 	{name: "%engine", args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
-	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares the action's own attributes"},
+	{name: "%check-diverge", args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
 	{name: "%check-property", args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
 	{name: "%check-witness", args: "[<dir>|off]", desc: "show or set the directory the check engine writes a witness to for each violation and divergent value"},
 	{name: "%check-bounds", args: "[depth=<n>] [states=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check engine searches within: the moves of one schedule, the distinct states, and the clock; off restores its defaults"},

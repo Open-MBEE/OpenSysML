@@ -40,12 +40,12 @@ package Plant {
 // The checker settings show their defaults, take values, and clear with off.
 func TestCheckSettingsShowSetAndClear(t *testing.T) {
 	s := loadSource(t, choiceForkSource)
-	wants(t, run(t, s, "%check-diverge"), "check-diverge: off (the action's own attributes)")
+	wants(t, run(t, s, "%check-diverge"), "check-diverge: off (every attribute of the action and of its performing object)")
 	wants(t, run(t, s, "%check-diverge leftCount rightCount"), "check-diverge: leftCount rightCount")
 	if got := strings.Join(s.CheckDiverge(), ","); got != "leftCount,rightCount" {
 		t.Errorf("CheckDiverge() = %q", got)
 	}
-	wants(t, run(t, s, "%check-diverge off"), "check-diverge: off (the action's own attributes)")
+	wants(t, run(t, s, "%check-diverge off"), "check-diverge: off (every attribute of the action and of its performing object)")
 
 	wants(t, run(t, s, "%check-property"), "check-property: off (none)")
 	wants(t, run(t, s, "%check-property Plant::Tank::low"), "check-property: Plant::Tank::low")

@@ -981,8 +981,9 @@ body) and a run in which a state and an action fall due together are not this ch
 are refused with the construct named, as `? … could not be checked`, status `2`; `-schedule
 explore` still tables them.
 
-Misuse is refused before anything runs: a `-check-*` flag without `-engine check`, `-engine
-check` without an `-action`, `-advance` with `-engine check`, and a bound that is no positive
+Misuse is refused before anything runs: a `-check-*` flag without `-engine check`, a `-check-*`
+flag without an `-action` to check (`-engine check` alone, like any `-engine`, is the prompt's
+selection), `-advance` with `-engine check`, and a bound that is no positive
 integer (`-check-depth 0`, `-check-states x`) or no duration.
 
 With `-json` the check's `results[]` entry for the `check` engine carries, beside `claim`,

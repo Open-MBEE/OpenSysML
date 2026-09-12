@@ -40,7 +40,7 @@ func (s *Session) checking() bool {
 }
 
 // CheckDiverge returns the features a check compares the final values of; none
-// compares the action's own attributes.
+// compares every attribute of the action and of its performing object.
 func (s *Session) CheckDiverge() []string {
 	defer s.reading()()
 	return append([]string(nil), s.checker.diverge...)
@@ -84,7 +84,7 @@ func (s *Session) doCheckDiverge(args []string) []string {
 	if len(args) > 0 {
 		s.checker.diverge = settingList(args)
 	}
-	return []string{"check-diverge: " + settingText(s.checker.diverge, "the action's own attributes")}
+	return []string{"check-diverge: " + settingText(s.checker.diverge, "every attribute of the action and of its performing object")}
 }
 
 // doCheckProperty shows or sets the properties a check evaluates, `off` clearing them.

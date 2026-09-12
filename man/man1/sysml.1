@@ -39,8 +39,8 @@ backtracks, named as the depth bound hit (default 10000)
 .BI \-check\-diverge " value"
 With \-engine check: report this feature divergent when schedules leave it
 with different final values, as \-check\-diverge x or \-check\-diverge
-this.level for the performing object's; default the action's own attributes
-(repeatable)
+this.level for the performing object's; default every attribute of the action
+and of its performing object, the action's own when it has none (repeatable)
 .TP
 .BI \-check\-property " value"
 With \-engine check: evaluate this constraint or requirement at every stable

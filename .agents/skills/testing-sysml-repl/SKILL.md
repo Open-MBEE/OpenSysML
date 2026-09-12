@@ -5,6 +5,36 @@ description: How to build, drive, and record end-to-end tests of the OpenSysML s
 
 # Testing the `sysml` REPL end-to-end
 
+## Action checker and witness replay
+
+- Low-level runtime conformance fixtures may omit scalar imports because their
+  harness builds a runtime directly. Before using one through the validating CLI
+  or `%load`, make a scratch copy with `private import ScalarValues::*;` inside
+  its package if needed. Do not edit the original fixture to make a demo pass.
+- `action_fork_branches_write_one_feature.sysml` has action `test::clash`;
+  `action_join_waits_for_slowest_branch.sysml` has `test::gather`. With imports
+  complete, the former checks divergent `x=1,2` and the latter agrees on
+  `arrived=3; seen=3`. Generate witnesses in a fresh scratch directory.
+- A witness has choice lines, a blank line, then the trace. Compare the entire
+  suffix to ordinary `-trace -schedule replay:<file>` output after removing
+  `[trace] ` prefixes. Test both syntax-invalid witnesses and a syntactically
+  valid header naming a token absent from the run.
+- `%replay` does not switch the analysis engine: use `%engine auto` before
+  `%action`/`%step`/`%continue` to step rather than search again.
+  `-engine check file.sysml` alone preselects the engine in an interactive
+  session; missing-action validation is reached when a check is requested.
+- For a CLI reduction comparison, `por_independent_branches.sysml` needs
+  `-schedule explore:runs=10000` to finish its 2520 linearizations; the default
+  1024-run exploration stops incomplete. Compare outcome values as well as
+  counts, and inspect the JSON `exploration.complete` field.
+- State-only conformance cases under this action-only checker are refused at
+  the engine/question boundary. That is not proof of reaching the lower-level
+  paused-body snapshot refusal; distinguish those two kinds of coverage.
+
+### Devin Secrets Needed
+
+None for local checker and witness replay testing.
+
 ## Unicode unit expressions in a GUI terminal
 
 Synthetic keyboard typing can corrupt middle dots and superscript minus signs
