@@ -311,6 +311,36 @@ func TestReplayFollowsStateWitnesses(t *testing.T) {
 		}
 		assertWitnessesReplay(t, x, m.fresh, run)
 	})
+	// A choice's branches are read after the incoming effect; the witness names
+	// the branch taken as the run's choice line does.
+	t.Run("dynamic choice", func(t *testing.T) {
+		m := parseExploreModel(t, `package test {
+			private import ScalarValues::*;
+			state def Machine {
+				attribute level : Integer = 0;
+				entry; then idle;
+				state idle;
+				choice pick;
+				state left;
+				state right;
+				transition first idle accept go do assign level := 8 then pick;
+				transition first pick if level > 5 then left;
+				transition first pick if level > 7 then right;
+			}
+		}`)
+		sym := m.state(t, "Machine")
+		run := stateRun(sym, "go")
+		x, err := Explore(context.Background(), mustPolicy(t, "explore"), m.fresh, run)
+		if err != nil || !x.Complete() || x.Runs != 2 {
+			t.Fatalf("explore: %v, %v", x, err)
+		}
+		for _, o := range x.Outcomes {
+			if len(o.Witness) != 1 || o.Witness[0].Kind != ChoiceTransition || o.Witness[0].Where != "choice pick" {
+				t.Fatalf("witness of %s is %s, want the one branch choice at pick", o.Outcome, FormatChoices(o.Witness))
+			}
+		}
+		assertWitnessesReplay(t, x, m.fresh, run)
+	})
 	t.Run("regions", func(t *testing.T) {
 		m := parseExploreModel(t, `package test {
 			private import ScalarValues::*;
