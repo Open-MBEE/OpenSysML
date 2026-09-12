@@ -96,6 +96,14 @@ func (s *stateSpeller) spell() string {
 	for i, msg := range s.ctx.messages {
 		fmt.Fprintf(&s.out, "message %d: %s\n", i+1, s.message(msg))
 	}
+	// Every root object a run made is observable by name, whether or not a frame holds it.
+	for _, id := range s.ctx.created {
+		if inst, live := s.ctx.instances[id]; live {
+			if owner, _ := inst.Owner(); owner == nil {
+				s.objectPath(id)
+			}
+		}
+	}
 	s.objects()
 	return s.out.String()
 }

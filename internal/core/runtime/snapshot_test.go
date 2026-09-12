@@ -400,7 +400,7 @@ func forEachConformanceCase(t *testing.T, f func(t *testing.T, conformanceDir, t
 	knownFailures := loadKnownFailures(t, conformanceDir)
 	cases := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+		if entry.IsDir() || !isConformanceCase(entry.Name()) {
 			continue
 		}
 		testName := strings.TrimSuffix(entry.Name(), ".expected.json")

@@ -242,7 +242,7 @@ func TestExecutionConformance(t *testing.T) {
 
 	testCount := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+		if entry.IsDir() || !isConformanceCase(entry.Name()) {
 			continue
 		}
 
@@ -315,7 +315,7 @@ func TestExecutionConformanceUnderPolicies(t *testing.T) {
 		}
 		t.Run(spelling, func(t *testing.T) {
 			for _, entry := range entries {
-				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+				if entry.IsDir() || !isConformanceCase(entry.Name()) {
 					continue
 				}
 				caseName := strings.TrimSuffix(entry.Name(), ".expected.json")
@@ -329,6 +329,12 @@ func TestExecutionConformanceUnderPolicies(t *testing.T) {
 			}
 		})
 	}
+}
+
+// isConformanceCase tells a case's `.expected.json` from the `.check.expected.json`
+// beside it, which states what a check of every schedule finds (check_corpus_test.go).
+func isConformanceCase(fileName string) bool {
+	return strings.HasSuffix(fileName, ".expected.json") && !strings.HasSuffix(fileName, ".check.expected.json")
 }
 
 // loadKnownFailures reads known_failures.txt and returns set of case names to skip

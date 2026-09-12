@@ -143,7 +143,7 @@ func TestExploreWithIsExploreOverTheConformanceCorpus(t *testing.T) {
 	}
 	explored := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".expected.json") {
+		if entry.IsDir() || !isConformanceCase(entry.Name()) {
 			continue
 		}
 		caseName := strings.TrimSuffix(entry.Name(), ".expected.json")
