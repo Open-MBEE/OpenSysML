@@ -596,6 +596,10 @@ func (r *Resolver) resolveRelationships(scope *symbols.Scope, decl ast.Node, rel
 					r.resolveRedefinition(scope, qn, decl, rel.Kind == ast.RelRedefines)
 					continue
 				}
+				if fc, ok := target.(*ast.FeatureChainExpr); ok && rel.Kind == ast.RelRedefines {
+					r.resolveRedefinedChain(scope, fc, decl)
+					continue
+				}
 			}
 			if referencing && isImplicitCalcResult(scope, target) {
 				continue
@@ -1169,6 +1173,62 @@ func (r *Resolver) resolveRedefinition(scope *symbols.Scope, qn *ast.QualifiedNa
 	r.resolveQualified(scope, qn, hide)
 }
 
+// resolveRedefinedChain resolves a redefinition target written as a feature
+// chain: its leading name as resolveRedefinition does, the rest as members.
+func (r *Resolver) resolveRedefinedChain(scope *symbols.Scope, fc *ast.FeatureChainExpr, decl ast.Node) (*symbols.Symbol, bool) {
+	if fc == nil {
+		return nil, false
+	}
+	if res, done := r.featureChains[featureChainKey{scope: scope, node: fc}]; done {
+		return res.sym, res.ok
+	}
+	leading, ok := leadingName(fc).(*ast.QualifiedName)
+	if !ok {
+		sym := r.resolveFeatureChain(scope, fc)
+		return sym, sym != nil
+	}
+	r.Enter()
+	var res resolution
+	if head, ok := r.redefinedChainHead(scope, leading, decl); ok {
+		res = r.walkChainFrom(scope, fc, head)
+	}
+	r.memoizeFeatureChain(scope, fc, res, r.Leave())
+	return res.sym, res.ok
+}
+
+// redefinedChainHead resolves the leading name of a redefinition's chain target.
+func (r *Resolver) redefinedChainHead(scope *symbols.Scope, leading *ast.QualifiedName, decl ast.Node) (*symbols.Symbol, bool) {
+	if leading == nil || len(leading.Parts) == 0 {
+		return nil, false
+	}
+	r.resolveRedefinition(scope, leading, decl, true)
+	return r.PartSymbol(leading, len(leading.Parts)-1)
+}
+
+// redefinedChainOperand resolves the operand of a redefinition's chain target,
+// whose leading name is looked up as a redefinition target is.
+func (r *Resolver) redefinedChainOperand(scope *symbols.Scope, fc *ast.FeatureChainExpr, decl ast.Node) (*symbols.Symbol, bool) {
+	if inner, ok := fc.Operand.(*ast.FeatureChainExpr); ok {
+		return r.resolveRedefinedChain(scope, inner, decl)
+	}
+	return r.redefinedChainHead(scope, ast.AsQualifiedName(fc.Operand), decl)
+}
+
+// walkChainFrom reads fc with its leading name already resolved to head.
+func (r *Resolver) walkChainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, head *symbols.Symbol) resolution {
+	operand := head
+	if inner, ok := fc.Operand.(*ast.FeatureChainExpr); ok {
+		r.Enter()
+		res := r.walkChainFrom(scope, inner, head)
+		r.memoizeFeatureChain(scope, inner, res, r.Leave())
+		if !res.ok {
+			return resolution{}
+		}
+		operand = res.sym
+	}
+	return r.chainFrom(scope, fc, operand)
+}
+
 // declaresConnector reports whether scope is the body of a connector, whose
 // ends relate features of the type featuring it (KerML 8.3.4.5).
 func declaresConnector(scope *symbols.Scope) bool {
@@ -1241,7 +1301,14 @@ func (r *Resolver) findGeneralizationTargets(sym *symbols.Symbol, rels []*ast.Re
 		}
 		switch target := target.(type) {
 		case *ast.FeatureChainExpr:
-			if found, ok := r.ResolveTarget(scope, target); ok {
+			var found *symbols.Symbol
+			var ok bool
+			if rel.Kind == ast.RelRedefines {
+				found, ok = r.resolveRedefinedChain(scope, target, sym.Decl)
+			} else {
+				found, ok = r.ResolveTarget(scope, target)
+			}
+			if ok {
 				add(found)
 			}
 		case *ast.QualifiedName:
@@ -1475,6 +1542,14 @@ func (r *Resolver) resolveFeatureChain(scope *symbols.Scope, fc *ast.FeatureChai
 func (r *Resolver) walkFeatureChain(scope *symbols.Scope, fc *ast.FeatureChainExpr) resolution {
 	// Get the operand symbol without following its type for inline members.
 	operandSym := r.getOperandSymbol(scope, fc.Operand)
+	if operandSym == nil {
+		return resolution{}
+	}
+	return r.chainFrom(scope, fc, operandSym)
+}
+
+// chainFrom reads fc's member segments from operandSym, the feature its operand named.
+func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, operandSym *symbols.Symbol) resolution {
 	if operandSym == nil || fc.Member == nil {
 		return resolution{}
 	}

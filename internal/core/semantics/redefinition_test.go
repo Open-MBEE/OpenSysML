@@ -3,6 +3,7 @@ package semantics
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/source"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -231,6 +232,39 @@ func TestImplicitRedefinitionOfInheritedParameter(t *testing.T) {
 	want := nested(t, nested(t, p.Scope, "Focus").Scope, "image")
 	if supers := m.DirectSupertypes(nested(t, p.Scope, "focus", "image")); len(supers) != 1 || supers[0] != want {
 		t.Fatalf("DirectSupertypes(focus::image) = %v, want [Focus::image]", supers)
+	}
+}
+
+// TestChainRedefinitionTargetStartsInTheGenerals covers that a redefinition
+// target written as a chain (`:>> w.x`) starts at a feature the owning type
+// inherits or the enclosing namespace offers, never at a sibling, whether the
+// model or the document walk reads it first.
+func TestChainRedefinitionTargetStartsInTheGenerals(t *testing.T) {
+	src := `package P {
+		part def W { attribute x; }
+		part def A { part w : W; }
+		part def B :> A { attribute z :>> w.x; }
+		part def C { part w : W; attribute z :>> w.x; }
+	}`
+	for _, resolvedFirst := range []bool{false, true} {
+		m, root, r, doc := buildUnresolvedModel(t, "t.sysml", source.KindSysML, src)
+		if resolvedFirst {
+			r.ResolveDocument("t.sysml", doc)
+		}
+		p := sym(t, root, "P")
+		wantX := nested(t, p.Scope, "W", "x")
+		if supers := m.DirectSupertypes(nested(t, p.Scope, "B", "z")); len(supers) != 1 || supers[0] != wantX {
+			t.Errorf("resolvedFirst=%v: DirectSupertypes(B::z) = %v, want [W::x]", resolvedFirst, supers)
+		}
+		if supers := m.DirectSupertypes(nested(t, p.Scope, "C", "z")); len(supers) != 0 {
+			t.Errorf("resolvedFirst=%v: DirectSupertypes(C::z) = %v, want none", resolvedFirst, supers)
+		}
+		if !resolvedFirst {
+			r.ResolveDocument("t.sysml", doc)
+		}
+		if got := len(r.Diagnostics); got != 1 {
+			t.Errorf("resolvedFirst=%v: diagnostics = %v, want one unresolved w", resolvedFirst, r.Diagnostics)
+		}
 	}
 }
 

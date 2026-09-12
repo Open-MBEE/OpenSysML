@@ -246,8 +246,11 @@ func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl ast.Node
 	if fr, ok := target.(*ast.FeatureReference); ok {
 		target = fr.Name
 	}
-	if qn, ok := target.(*ast.QualifiedName); ok {
-		return r.ResolveReference(Reference{Scope: scope, QN: qn, Referrer: decl, Redefines: true})
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return r.ResolveReference(Reference{Scope: scope, QN: target, Referrer: decl, Redefines: true})
+	case *ast.FeatureChainExpr:
+		return r.resolveRedefinedChain(scope, target, decl)
 	}
 	return r.resolveTarget(scope, target, referenceFilter(decl, target))
 }
@@ -356,7 +359,15 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		return sym, ok
 	}
 	if ref.Chain != nil {
-		owner, ok := r.resolveTarget(ref.Scope, ref.Chain.Operand, hide)
+		var (
+			owner *symbols.Symbol
+			ok    bool
+		)
+		if ref.Redefines {
+			owner, ok = r.redefinedChainOperand(ref.Scope, ref.Chain, ref.Referrer)
+		} else {
+			owner, ok = r.resolveTarget(ref.Scope, ref.Chain.Operand, hide)
+		}
 		if !ok {
 			return nil, false
 		}

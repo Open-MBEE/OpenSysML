@@ -148,6 +148,64 @@ var redefinitionTargetCases = []struct {
 		want: map[string]string{"w": "P::A::w", "x": "P::W::x"},
 	},
 	{
+		name: "a chain does not start at a sibling",
+		src: `package P {
+			part def W { attribute x; }
+			part def B {
+				part w : W;
+				attribute z :>> w.x;
+			}
+		}`,
+		want: map[string]string{"w": ""},
+	},
+	{
+		name: "a nested chain does not start at a sibling",
+		src: `package P {
+			part def V { attribute y; }
+			part def W { part v : V; }
+			part def B {
+				part w : W;
+				attribute z :>> w.v.y;
+			}
+		}`,
+		want: map[string]string{"w": ""},
+	},
+	{
+		name: "a nested chain starts at an inherited feature",
+		src: `package P {
+			part def V { attribute y; }
+			part def W { part v : V; }
+			part def A { part w : W; }
+			part def B :> A {
+				attribute z :>> w.v.y;
+			}
+		}`,
+		want: map[string]string{"w": "P::A::w", "v": "P::W::v", "y": "P::V::y"},
+	},
+	{
+		name: "a chain starts in the enclosing namespace past a sibling",
+		src: `package P {
+			part def W { attribute x; }
+			part w : W;
+			part def B {
+				part w : W;
+				attribute z :>> w.x;
+			}
+		}`,
+		want: map[string]string{"w": "P::w", "x": "P::W::x"},
+	},
+	{
+		name: "a usage-owned chain starts at a feature of the usage's type",
+		src: `package P {
+			part def W { attribute x; }
+			part def A { part w : W; }
+			part b : A {
+				attribute z :>> w.x;
+			}
+		}`,
+		want: map[string]string{"w": "P::A::w", "x": "P::W::x"},
+	},
+	{
 		name: "a usage-owned redefinition reaches the usage's type",
 		src: `package P {
 			part def A { attribute x; }

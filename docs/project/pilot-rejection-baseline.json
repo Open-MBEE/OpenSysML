@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "cmd/pilot-reject/testdata/negative",
         "origin": "ours",
-        "files": 305,
-        "digest": "sha256:75bde1a5912cbd2fa36e0803c5b5f13ce73c4101f2ffa7c4adae4f0b41793e06"
+        "files": 306,
+        "digest": "sha256:b163959570c53c32063a871623b654c8879676374dcdf0856244edeac0ee85f2"
       }
     ],
     "recorded": "2026-09-12"
   },
   "totals": {
-    "cases": 305,
-    "bothReject": 296,
+    "cases": 306,
+    "bothReject": 297,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 155,
-      "bothReject": 146,
+      "cases": 156,
+      "bothReject": 147,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2526,6 +2526,15 @@
       "pilotErrors": 1
     },
     {
+      "path": "semantic/s98-chained-redefinition-starts-at-sibling.sysml",
+      "source": "semantic",
+      "rule": "the leading feature of a chained redefinition target is resolved like a simple one, so it cannot name a sibling member of the owning type (KerML 8.2.3.5.2 redefinition name resolution; pilot `Couldn't resolve reference to Feature 'w'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/send-constructor-non-type.sysml",
       "source": "semantic",
       "rule": "a constructor must instantiate a type, not a package (KerML 8.3.4.8 InstantiationExpression validateInstantiationExpressionInstantiatedType; pilot validateInstantiationExpressionInstantiatedType).",
@@ -2900,8 +2909,8 @@
       }
     ],
     "totals": {
-      "cases": 305,
-      "bothReject": 296,
+      "cases": 306,
+      "bothReject": 297,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

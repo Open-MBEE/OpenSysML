@@ -299,7 +299,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if !isQN {
 			// A chain target (`subsets b.f`) generalizes to the chain's final feature.
 			if fc, isChain := targetNode.(*ast.FeatureChainExpr); isChain {
-				target, ok := m.resolver.ResolveTarget(sym.OwnerScope, fc)
+				target, ok := m.chainTarget(sym, rel.Kind, fc)
 				if ok && target != nil && target != sym && !seen[target] {
 					seen[target] = true
 					out = append(out, target)
@@ -572,11 +572,7 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 	)
 	switch node := node.(type) {
 	case *ast.FeatureChainExpr:
-		if rel.Kind.ReferenceSubsets() {
-			target, ok = m.resolver.ResolveReferenceTarget(sym.OwnerScope, sym.Decl, node)
-		} else {
-			target, ok = m.resolver.ResolveTarget(sym.OwnerScope, node)
-		}
+		target, ok = m.chainTarget(sym, rel.Kind, node)
 	case *ast.QualifiedName:
 		target, ok = m.generalizationTarget(sym, rel.Kind, node)
 	}
@@ -587,6 +583,18 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 		return resolved
 	}
 	return nil
+}
+
+// chainTarget resolves a chain target (`subsets b.f`) to its final feature, as
+// the document walk reads it for a relationship of kind owned by sym.
+func (m *Model) chainTarget(sym *symbols.Symbol, kind ast.RelationshipKind, fc *ast.FeatureChainExpr) (*symbols.Symbol, bool) {
+	switch {
+	case kind == ast.RelRedefines:
+		return m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, fc)
+	case kind.ReferenceSubsets():
+		return m.resolver.ResolveReferenceTarget(sym.OwnerScope, sym.Decl, fc)
+	}
+	return m.resolver.ResolveTarget(sym.OwnerScope, fc)
 }
 
 // subsetsSibling reports whether sym's subsetting resolved to another member of
