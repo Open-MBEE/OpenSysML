@@ -317,6 +317,23 @@ func TestHeldImageMaterializeFailsWhole(t *testing.T) {
 		t.Errorf("the failed materialization changed the destination:\n before %+v\n after  %+v", before, after)
 	}
 
+	// A destination on a sequence another context took ahead of it holds what it
+	// took, not the sequence's high-water mark, once the failed materialization is undone.
+	ahead := NewContext(src.Model(), 10000)
+	ahead.claimID(99)
+	shared := NewContext(src.Model(), 10000)
+	shared.AdoptIdentities(ahead)
+	if shared.ids.next != 100 || shared.took.high != 1 {
+		t.Fatalf("the shared sequence is at %d with the destination's mark at %d, want 100 and 1", shared.ids.next, shared.took.high)
+	}
+	before = destinationStateOf(shared)
+	if err := img.Materialize(shared); !errors.As(err, &notPortable) {
+		t.Fatalf("Materialize into the shared sequence = %v, want a NotPortableError", err)
+	}
+	if after := destinationStateOf(shared); after != before {
+		t.Errorf("the failed materialization changed the destination on a shared sequence:\n before %+v\n after  %+v", before, after)
+	}
+
 	img.messages = sound
 	if err := img.Materialize(dst); err != nil {
 		t.Fatalf("Materialize after the failure: %v", err)
@@ -417,6 +434,63 @@ func TestHeldImageKeepsTheIdentitiesSetAsideForConnectors(t *testing.T) {
 	}
 	if after := destinationStateOf(taken); after != before {
 		t.Errorf("the refused materialization changed the destination:\n before %+v\n after  %+v", before, after)
+	}
+}
+
+// An identity the destination set aside for a connector is held though no object is
+// under it yet: an image whose object has that identity is refused, so the connector
+// takes its identity back when asked for.
+func TestHeldImageRefusesAnIdentitySetAsideByTheDestination(t *testing.T) {
+	src := strings.Replace(adoptConnectSrc, "connect a.p to b.q;", "connect a.p to b.q; connection c connect a.p to b.q;", 1)
+	prev := contextOver(t, src)
+	obj, err := prev.Instantiate(lookupOne(t, prev.Resolver().Index(), "Demo::Sys"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, err := obj.OwnedConnectors(prev); err != nil {
+		t.Fatalf("OwnedConnectors: %v", err)
+	}
+	fvInstance(t, prev, obj, "c")
+	dst := contextOver(t, src+"\npart def Widget;")
+	if _, err := dst.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	kept := obj.KeptConnectorIDs()
+	if len(kept) != 2 {
+		t.Fatalf("KeptConnectorIDs() = %v after the carry-over, want the two connectors", kept)
+	}
+	if _, held := dst.Instance(kept[0]); held {
+		t.Fatalf("the destination holds an object under #%d, want the identity set aside only", kept[0])
+	}
+
+	other := NewContext(dst.Model(), 10000)
+	other.claimID(kept[0] - 1)
+	widget, err := other.Instantiate(lookupOne(t, dst.Resolver().Index(), "Widget"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if widget.ID != kept[0] {
+		t.Fatalf("the widget is #%d, want #%d", widget.ID, kept[0])
+	}
+	img, err := other.Image(widget)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+	before := destinationStateOf(dst)
+	err = img.Materialize(dst)
+	var imageErr *HeldImageError
+	if !errors.Is(err, ErrImageIdentityTaken) || !errors.As(err, &imageErr) || imageErr.ID != widget.ID {
+		t.Fatalf("Materialize over an identity set aside = %v, want ErrImageIdentityTaken about #%d", err, widget.ID)
+	}
+	if after := destinationStateOf(dst); after != before {
+		t.Errorf("the refused materialization changed the destination:\n before %+v\n after  %+v", before, after)
+	}
+	conn, err := obj.RestoreConnector(dst, kept[0])
+	if err != nil {
+		t.Fatalf("RestoreConnector(%d): %v", kept[0], err)
+	}
+	if conn == nil || conn.ID != kept[0] {
+		t.Fatalf("RestoreConnector(%d) = %v, want the connector under that identity", kept[0], conn)
 	}
 }
 

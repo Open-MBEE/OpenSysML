@@ -487,12 +487,13 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	if dst.midRun() {
 		return ErrSnapshotMidRun
 	}
+	held := dst.heldIdentities()
 	for _, obj := range img.objects {
-		if _, taken := dst.instances[obj.id]; taken {
+		if held[obj.id] {
 			return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: ErrImageIdentityTaken}
 		}
 		for _, id := range obj.keptIDs() {
-			if _, taken := dst.instances[id]; taken {
+			if held[id] {
 				return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: fmt.Errorf("%w: connector #%d set aside", ErrImageIdentityTaken, id)}
 			}
 		}
@@ -513,7 +514,7 @@ func (img *HeldImage) Materialize(dst *Context) error {
 // makes and the behaviors it attaches, as it stood before, so a failed one is undone whole.
 type materializeMark struct {
 	created, attached int
-	nextID            int64
+	nextID, tookHigh  int64
 	ids               *idSequence
 	activations, runs int64
 	clock             float64
@@ -523,7 +524,7 @@ type materializeMark struct {
 func (ctx *Context) materializeMark() materializeMark {
 	return materializeMark{
 		created: len(ctx.created), attached: len(ctx.objectBehaviors),
-		nextID: ctx.ids.next, ids: ctx.ids,
+		nextID: ctx.ids.next, tookHigh: ctx.took.high, ids: ctx.ids,
 		activations: ctx.activations, runs: ctx.runs,
 		clock: ctx.clock.now, clockRun: ctx.clockRun.state,
 	}
@@ -534,6 +535,7 @@ func (ctx *Context) materializeMark() materializeMark {
 func (mark materializeMark) rollBack(ctx *Context) {
 	ctx.forgetBehaviorsFrom(mark.attached)
 	ctx.abandonInstancesSince(mark.created)
+	ctx.took.high = mark.tookHigh
 	if ctx.ids == mark.ids {
 		ctx.ids.release(ctx, mark.nextID)
 	}
