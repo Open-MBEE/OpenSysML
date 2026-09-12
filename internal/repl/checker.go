@@ -159,11 +159,19 @@ func (s *Session) checkAction(name string, performer []string) Verdict {
 	if len(properties) > 0 {
 		kind = analysis.Holds
 	}
-	policy := runtime.DefaultExploreSchedulePolicy
-	if explored, explores := s.exploring(); explores {
-		policy = explored
+	policy, explores := s.exploring()
+	if !explores {
+		policy = runtime.DefaultExploreSchedulePolicy
 	}
-	return s.checkVerdict(name, policy, kind, ask, run)
+	budget := s.checkBudget(policy, kind)
+	// A selected exploration's figures bound the search; none selected, the engine's own do.
+	if !explores && s.checker.depth <= 0 {
+		budget.Depth = analysis.DefaultCheckDepth
+	}
+	if !explores && s.checker.states <= 0 {
+		budget.Runs = analysis.DefaultCheckStates
+	}
+	return s.checkVerdict(name, policy, kind, ask, run, budget)
 }
 
 // checkAsk is the action's schedules as a question the check engine searches and an
@@ -196,11 +204,9 @@ func (s *Session) checkAsk(name string, performer []string) (*analysis.CheckAsk,
 	return ask, run, nil
 }
 
-// checkVerdict puts the question to the engines under the session's selection with
-// the check's bounds on the budget, the session's state released for the plan's
-// run, and reports what stood: an exploration's table or the check's search.
-func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization) Verdict {
-	model := s.freshModel()
+// checkBudget is the question's budget under policy with the check's bounds and
+// clock on it where they were set.
+func (s *Session) checkBudget(policy runtime.SchedulePolicy, kind analysis.Kind) analysis.Budget {
 	budget := s.budgetFor(policy, kind)
 	if s.checker.depth > 0 {
 		budget.Depth = s.checker.depth
@@ -209,6 +215,14 @@ func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind 
 		budget.Runs = s.checker.states
 	}
 	budget.Deadline = s.checker.deadline()
+	return budget
+}
+
+// checkVerdict puts the question to the engines under the session's selection and
+// budget, the session's state released for the plan's run, and reports what stood:
+// an exploration's table or the check's search.
+func (s *Session) checkVerdict(name string, policy runtime.SchedulePolicy, kind analysis.Kind, ask *analysis.CheckAsk, run analysis.Linearization, budget analysis.Budget) Verdict {
+	model := s.freshModel()
 	selection := s.engine
 	s.state.Unlock()
 	answered, err := s.engines.Check(context.Background(), model, name, policy, kind, ask, run, budget, selection)

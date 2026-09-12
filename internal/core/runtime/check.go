@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
 // The model checker: a depth-first search over the schedules of one action,
@@ -322,7 +323,20 @@ func (c *checker) hit(bound string) {
 	}
 }
 
+// violate records the violation; a property is reported once, by the shortest
+// schedule found to reach a state where it is false.
 func (c *checker) violate(v Violation) {
+	if v.Kind == ViolationProperty {
+		for i, seen := range c.violations {
+			if seen.Kind != ViolationProperty || seen.Name != v.Name {
+				continue
+			}
+			if v.Depth < seen.Depth {
+				c.violations[i] = v
+			}
+			return
+		}
+	}
 	c.violations = append(c.violations, v)
 }
 
@@ -628,16 +642,17 @@ func (c *checker) final() {
 // schedule left them: the named ones, or the action's own attributes and the
 // performing object's features.
 func (c *checker) divergenceValues(outcome Outcome) map[string]string {
+	defer c.ctx.beginProbe()()
 	values := make(map[string]string)
 	for _, out := range outcome.RenderedOutputs() {
-		if c.reportsDivergenceOf(out.Name, false) {
+		if c.reportsDivergenceOf(out.Name, nil) {
 			values[out.Name] = out.Text
 		}
 	}
 	if self := c.exec.Performer(); self != nil {
 		own := make(map[string]Value)
-		for name := range self.FeatureValues {
-			if !c.reportsDivergenceOf(name, true) {
+		for name, held := range self.FeatureValues {
+			if !c.reportsDivergenceOf(name, held.Feature) {
 				continue
 			}
 			fv, err := self.GetFeatureValue(c.ctx, name)
@@ -660,13 +675,17 @@ func (c *checker) divergenceValues(outcome Outcome) map[string]string {
 	return values
 }
 
-// reportsDivergenceOf reports whether the feature is one divergence is reported
-// over; absent names, the action's own attributes and the object's features are.
-func (c *checker) reportsDivergenceOf(name string, ofObject bool) bool {
+// reportsDivergenceOf reports whether the feature — the performing object's when
+// of is given, else the action's — is one divergence is reported over; absent
+// names, the action's own attributes and the object's attributes are.
+func (c *checker) reportsDivergenceOf(name string, of *EffectiveFeature) bool {
 	if len(c.opts.Diverge) == 0 {
-		return ofObject || !strings.Contains(name, ".")
+		if of != nil {
+			return of.Symbol != nil && of.Symbol.Kind == symbols.SymbolAttributeUsage
+		}
+		return !strings.Contains(name, ".")
 	}
-	if ofObject {
+	if of != nil {
 		return slices.Contains(c.opts.Diverge, name) || slices.Contains(c.opts.Diverge, "this."+name)
 	}
 	return slices.Contains(c.opts.Diverge, name)

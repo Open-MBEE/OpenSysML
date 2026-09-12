@@ -273,6 +273,68 @@ func TestCheckWitnessesAPerformedActionThroughItsPerformer(t *testing.T) {
 	}
 }
 
+// A constraint of the performer evaluated at every state is a property: the
+// schedule reaching a state where it is false is the violation, once, and its
+// witness replays to that state.
+func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute level : Integer = 0;
+			constraint low { level < 2 }
+			perform action fill {
+				first start;
+				fork split;
+				action a { assign this.level := 1; }
+				action b { assign this.level := 2; }
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then sync;
+				succession first b then sync;
+				succession first sync then done;
+			}
+		}
+	}`)
+	fill := m.idx.LookupQualified("test::Tank::fill")[0]
+	tank := m.idx.LookupQualified("test::Tank")[0]
+	low := m.idx.LookupQualified("test::Tank::low")[0]
+	start := func(ctx *Context) (*ActionExecutor, error) {
+		self, err := ctx.Instantiate(tank)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.CreateActionExecutorFor(fill, self)
+	}
+	prop := CheckProperty{Name: "low", Holds: func(ctx *Context, exec *ActionExecutor) (bool, error) {
+		result, err := ctx.CheckConstraintOn(low, tank.Scope, exec.Performer())
+		if err != nil && !errors.Is(err, ErrViolated) {
+			return false, err
+		}
+		return result.Holds, nil
+	}}
+	for _, opts := range []CheckOptions{reduced(), unreduced()} {
+		report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, opts, []CheckProperty{prop})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if report.Verdict != CheckViolation || len(report.Violations) != 1 {
+			t.Fatalf("reduce=%v: %s, violations %v; want low false once", opts.Reduce, report.Status(), report.Violations)
+		}
+		v := report.Violations[0]
+		if v.Kind != ViolationProperty || v.Name != "low" {
+			t.Fatalf("reduce=%v: violation %+v, want the property low", opts.Reduce, v)
+		}
+		r := replayWitness(t, m, start, v.Witness, "low false")
+		holds, err := prop.Holds(r.Ctx, r.Exec)
+		if err != nil || holds {
+			t.Fatalf("reduce=%v: replayed to a state where low = %v, %v; want false", opts.Reduce, holds, err)
+		}
+	}
+}
+
 // The failure modes of the robustness tests are violations on the schedule that
 // reaches them, each with its witness, not errors of the search.
 func TestCheckReportsFailuresAsViolations(t *testing.T) {

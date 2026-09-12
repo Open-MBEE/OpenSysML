@@ -491,7 +491,7 @@ func (s *Session) exploreAction(name string, performer []string) Verdict {
 		return unresolvedVerdict(name, err.Error())
 	}
 	policy, _ := s.exploring()
-	return s.checkVerdict(name, policy, analysis.Outcomes, ask, run)
+	return s.checkVerdict(name, policy, analysis.Outcomes, ask, run, s.checkBudget(policy, analysis.Outcomes))
 }
 
 // exploreStateMachine explores a machine started and, when duration is given,

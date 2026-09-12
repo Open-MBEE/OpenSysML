@@ -116,7 +116,7 @@ func TestEveryEngineClaimStrengthPair(t *testing.T) {
 		{CheckEngineName, ClaimOutcomes, Bounded, "outcomes (bounded over schedules: 2 states, 2 moves searched, states=2 (reached))", checking(race, Outcomes, Budget{Runs: 2})},
 		{CheckEngineName, ClaimHolds, Bounded, "holds (bounded over schedules: 8 states, 8 moves searched)", checking(steady, Holds, Budget{}, steady.y(1))},
 		{CheckEngineName, ClaimSensitive, Witnessed, "sensitive (witnessed: 21 states, 23 moves searched, witness of 2 choices replayed)", checking(race, Outcomes, Budget{})},
-		{CheckEngineName, ClaimViolated, Witnessed, "violated (witnessed: 21 states, 23 moves searched, witness of 2 choices replayed)", checking(race, Holds, Budget{}, race.x(2))},
+		{CheckEngineName, ClaimViolated, Witnessed, "violated (witnessed: 21 states, 23 moves searched, witness of 1 choice replayed)", checking(race, Holds, Budget{}, race.x(2))},
 		{SweepEngineName, ClaimTable, Observed, "table (observed: 3 rows)", func(t *testing.T) Plan {
 			ctx := f.context(t)
 			q := Question{Kind: Sweep, Subject: "test::Double", Schedule: ctx.Schedule(), Sweep: &SweepAsk{Plan: doublePlan(t, f, ctx), Row: doubleRow(t, f)}}
