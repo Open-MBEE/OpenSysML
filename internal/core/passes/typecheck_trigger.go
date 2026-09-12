@@ -40,7 +40,7 @@ func (TriggerArgumentPass) Run(ctx *Context, name string, root *ast.RootNamespac
 	expr.walkMembers = bodies.walk
 	c := &triggerArgumentChecker{ctx: ctx, expr: expr}
 	c.walk(rootScope, root.Members)
-	return append(bodies.diags, expr.diags...)
+	return append(bodies.diags, expr.diagnostics()...)
 }
 
 type triggerArgumentChecker struct {

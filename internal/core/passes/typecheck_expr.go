@@ -33,6 +33,11 @@ type exprChecker struct {
 	// performed are the calls that are the values of action usages, which run
 	// an action rather than evaluate a behavior (see performs).
 	performed map[*ast.InvocationExpr]bool
+	// bindings are the arguments judged bound to a parameter of a non-conforming
+	// type (w9c_argument_bindings.go), reported by diagnostics(); warned keeps an
+	// argument inferred twice from being judged twice.
+	bindings []argumentBinding
+	warned   map[ast.Node]bool
 }
 
 // codeTypeExpr is the code of an expression typing diagnostic no rule of its
@@ -648,7 +653,15 @@ func typingValue(sym *symbols.Symbol) ast.Node {
 	return u.Value
 }
 
+// inferOperator types an operator expression, checking its operands, then judges the
+// binding of each to the parameter of the function the operator names.
 func (ec *exprChecker) inferOperator(scope *symbols.Scope, e *ast.OperatorExpr) semantics.PrimType {
+	prim := ec.operatorType(scope, e)
+	ec.judgeOperatorBindings(scope, e)
+	return prim
+}
+
+func (ec *exprChecker) operatorType(scope *symbols.Scope, e *ast.OperatorExpr) semantics.PrimType {
 	ec.checkDimensions(scope, e)
 	switch e.Operator {
 	case ast.OpNot:
@@ -1050,7 +1063,7 @@ func (ec *exprChecker) checkArguments(scope *symbols.Scope, call invocation, con
 		ec.warnCode(CodeUnboundParameter, span, format, args...)
 	}, considered)
 	if len(e.NamedArgs) > 0 {
-		ec.checkNamedArguments(scope, call, report, advise)
+		ec.checkNamedArguments(scope, call, considered == nil, report, advise)
 		return
 	}
 	if len(args) > len(params) {
@@ -1060,6 +1073,9 @@ func (ec *exprChecker) checkArguments(scope *symbols.Scope, call invocation, con
 	for i, arg := range args {
 		for _, m := range ec.argumentMismatches(scope, arg, params[i]) {
 			report(m.span, "argument %d of %s %s", i+1, sym.Name, m.why)
+		}
+		if considered == nil {
+			ec.judgeParameterBinding(scope, call, arg, params[i], positionalArgSpan(call, arg))
 		}
 	}
 	// Arguments bind in order, so the parameters past the last one are unbound.
@@ -1246,8 +1262,9 @@ func (ec *exprChecker) memberOf(typ, feature *symbols.Symbol) bool {
 
 // checkNamedArguments reports named arguments that name no `in` parameter of sym or do
 // not bind to it, a parameter bound twice (by whichever name or position), and advises
-// of default-less parameters no argument names.
-func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation, report, advise reporter) {
+// of default-less parameters no argument names. selected says the call names sym for
+// sure, so the conformance of each argument binding is judged too.
+func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation, selected bool, report, advise reporter) {
 	e, sym, args, params := call.e, call.sym, call.args, call.params
 	// A receiver binds by position, which named arguments leave unstated; runtime/eval.go
 	// reports the same call.
@@ -1264,6 +1281,9 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 		bound[i] = true
 		for _, m := range ec.argumentMismatches(scope, arg, params[i]) {
 			report(m.span, "argument %d of %s %s", i+1, sym.Name, m.why)
+		}
+		if selected {
+			ec.judgeParameterBinding(scope, call, arg, params[i], positionalArgSpan(call, arg))
 		}
 	}
 	unknown := false
@@ -1285,6 +1305,9 @@ func (ec *exprChecker) checkNamedArguments(scope *symbols.Scope, call invocation
 		bound[at] = true
 		for _, m := range ec.argumentMismatches(scope, arg.Value, p) {
 			report(m.span, "argument %s of %s %s", p.name(), sym.Name, m.why)
+		}
+		if selected {
+			ec.judgeParameterBinding(scope, call, arg.Value, p, namedArgSpan(arg))
 		}
 	}
 	// A misspelt name is the likelier cause of a parameter left unbound.
