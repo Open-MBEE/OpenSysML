@@ -402,6 +402,10 @@ func (s *Service) schedulePolicy(spelling string) (runtime.SchedulePolicy, error
 	if err := s.requireCapability(CapabilitySchedule); err != nil {
 		return runtime.SchedulePolicy{}, err
 	}
+	if runtime.ReplaySpelling(spelling) {
+		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument,
+			fmt.Sprintf("invalid scheduling policy %q: a replay follows a witness file of the caller's, which a request does not carry", spelling))
+	}
 	policy, err := runtime.ParseSchedulePolicy(spelling)
 	if err != nil {
 		return runtime.SchedulePolicy{}, statusError(connect.CodeInvalidArgument, err.Error())

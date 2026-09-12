@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -46,6 +48,9 @@ const (
 	// scheduleExplore replays runs under Explore, each following a recorded prefix of
 	// choices and taking the first untried alternative at its frontier.
 	scheduleExplore
+	// scheduleReplay follows a witness move for move, then behaves as reverse; a
+	// move the run cannot make is refused (replay.go).
+	scheduleReplay
 )
 
 // SchedulePolicy names how the executors resolve the choice points of a run.
@@ -54,6 +59,7 @@ type SchedulePolicy struct {
 	kind   scheduleKind
 	seed   uint64
 	budget ExploreBudget
+	replay *replayScript
 }
 
 // DefaultSchedulePolicy is the policy runs use unless one is set: `reverse`.
@@ -65,14 +71,26 @@ var DefaultExploreSchedulePolicy = SchedulePolicy{kind: scheduleExplore, budget:
 
 // SchedulePolicyNames lists the policy spellings ParseSchedulePolicy accepts, for
 // usage text; `seed:<n>` stands for any non-negative decimal seed and the
-// bracketed options of `explore` are each optional.
-var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>", "explore[:runs=<n>,depth=<d>]"}
+// bracketed options of `explore` are each optional; `replay:<file>` names a
+// file of choice lines.
+var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>", "explore[:runs=<n>,depth=<d>]", "replay:<file>"}
+
+// replayPrefix opens the `replay` spelling, which names the file to follow.
+const replayPrefix = "replay:"
+
+// ReplaySpelling reports whether the spelling asks for a replay, whose file
+// ParseSchedulePolicy reads; a surface with no files of the caller's refuses it
+// before parsing.
+func ReplaySpelling(spelling string) bool {
+	return spelling == "replay" || strings.HasPrefix(spelling, replayPrefix)
+}
 
 // exploreOptionsPrefix opens the `explore` spelling that carries options.
 const exploreOptionsPrefix = "explore:"
 
-// ParseSchedulePolicy reads `declared`, `reverse`, `seed:<n>` or
-// `explore[:runs=<n>,depth=<d>]` (either option, either order); "" is the default.
+// ParseSchedulePolicy reads `declared`, `reverse`, `seed:<n>`,
+// `explore[:runs=<n>,depth=<d>]` (either option, either order) or `replay:<file>`,
+// whose file is read here (see ParseChoices); "" is the default.
 func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 	switch {
 	case spelling == "":
@@ -102,6 +120,22 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: reason}
 		}
 		return SchedulePolicy{kind: scheduleExplore, budget: budget}, nil
+	case spelling == "replay" || spelling == replayPrefix:
+		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: "replay: needs a file of choice lines"}
+	case strings.HasPrefix(spelling, replayPrefix):
+		file := spelling[len(replayPrefix):]
+		text, err := os.ReadFile(file) // #nosec G304 -- the policy names the witness file to follow.
+		if err != nil {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
+		}
+		choices, err := ParseChoices(string(text))
+		if err != nil {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
+		}
+		if len(choices) == 0 {
+			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: file + " names no move to follow"}
+		}
+		return SchedulePolicy{kind: scheduleReplay, replay: &replayScript{file: file, choices: choices}}, nil
 	default:
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling,
 			Reason: "want one of " + strings.Join(SchedulePolicyNames, ", ")}
@@ -152,11 +186,17 @@ func ExplorePolicy(budget ExploreBudget) (SchedulePolicy, error) {
 	return SchedulePolicy{kind: scheduleExplore, budget: budget}, nil
 }
 
-// String returns the spelling ParseSchedulePolicy reads the policy back from.
+// String returns the spelling ParseSchedulePolicy reads the policy back from; a
+// replay of a witness held in memory names no file and spells `replay`.
 func (p SchedulePolicy) String() string {
 	switch p.kind {
 	case scheduleDeclared:
 		return "declared"
+	case scheduleReplay:
+		if p.replay.file == "" {
+			return "replay"
+		}
+		return replayPrefix + p.replay.file
 	case scheduleSeeded:
 		return "seed:" + strconv.FormatUint(p.seed, 10)
 	case scheduleExplore:
@@ -188,22 +228,27 @@ func (p SchedulePolicy) Exploration() (ExploreBudget, bool) {
 // start begins the sequence of resolutions one run draws under the policy.
 func (p SchedulePolicy) start() *scheduler {
 	s := &scheduler{policy: p}
-	if p.kind == scheduleSeeded {
+	switch p.kind {
+	case scheduleSeeded:
 		s.pcg = rand.NewPCG(p.seed, 0)
 		// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 		s.rng = rand.New(s.pcg)
+	case scheduleReplay:
+		s.replay = &replayRun{choices: slices.Clone(p.replay.choices)}
 	}
 	return s
 }
 
 // scheduler resolves the choice points of one run under a policy; a seeded one
 // carries the generator state the run consumes choice by choice, an exploring
-// one the exploration run the context takes part in.
+// one the exploration run the context takes part in, a replaying one its
+// position in the witness.
 type scheduler struct {
 	policy  SchedulePolicy
 	pcg     *rand.PCG
 	rng     *rand.Rand
 	explore *exploreRun
+	replay  *replayRun
 }
 
 // stepTokens are the tokens one step may try, in spawn order; parked ones cannot
@@ -223,12 +268,16 @@ type tokenSchedule struct {
 	order   []int64
 	next    int
 	explore *exploreStep
+	replay  *replayMove
 }
 
 // Next is the token to try next; false once the step tried them all.
 func (ts *tokenSchedule) Next() (int64, bool) {
 	if ts.explore != nil {
 		return ts.explore.next()
+	}
+	if ts.replay != nil {
+		return ts.replay.nextToken()
 	}
 	if ts.next >= len(ts.order) {
 		return 0, false
@@ -243,26 +292,41 @@ func (ts *tokenSchedule) Acted(id int64, acted bool) {
 	if ts.explore != nil {
 		ts.explore.acted(id, acted)
 	}
+	if ts.replay != nil {
+		ts.replay.acted(acted)
+	}
 }
 
-// Choice is the token-order pick an exploring step resolved, as the trace names
-// the tokens able to act and the index of the one moved; false when it made none.
+// Choice is the token-order pick an exploring or replaying step resolved, as the
+// trace names the tokens able to act and the index of the one moved; false when
+// it made none.
 func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
+	if ts.replay != nil {
+		return ts.replay.reported()
+	}
 	if ts.explore == nil || ts.explore.choice == nil {
 		return nil, 0, false
 	}
 	return ts.explore.choice.labels, ts.explore.choice.taken, true
 }
 
-// oneMove reports whether a step is one token's move, the exploration's pick among
-// every token able to act, rather than a sweep giving each token its turn.
+// oneMove reports whether a step is one token's move — the exploration's pick among
+// every token able to act, or the witness's — rather than a sweep giving each token its turn.
 func (s *scheduler) oneMove() bool {
-	return s.policy.kind == scheduleExplore && s.explore != nil
+	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replaying()
+}
+
+// replaying reports whether the run still has witness moves to follow.
+func (s *scheduler) replaying() bool {
+	return s.replay != nil && s.replay.following()
 }
 
 // scheduleStep fixes how the step tries its tokens: reversed, declared,
-// seeded shuffle, or one at a time as the exploration picks them.
+// seeded shuffle, or one at a time as the exploration or the witness picks them.
 func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
+	if s.replaying() {
+		return &tokenSchedule{replay: s.replay.beginStep(tokens)}
+	}
 	if s.oneMove() {
 		return &tokenSchedule{explore: s.explore.beginStep(tokens)}
 	}
@@ -293,26 +357,14 @@ func (s *scheduler) scheduleStep(tokens stepTokens) *tokenSchedule {
 	return &tokenSchedule{order: ids}
 }
 
-// pick chooses one of n alternatives given in declaration order.
-func (s *scheduler) pick(n int) int {
-	if n < 2 {
-		return 0
-	}
-	switch s.policy.kind {
-	case scheduleSeeded:
-		return s.rng.IntN(n)
-	case scheduleExplore:
-		if s.explore != nil {
-			return s.explore.pick(n)
-		}
-	}
-	return 0
-}
-
-// pickDue chooses which of n executors due at one instant (in creation order)
-// runs first: the last by default, the first under declared, a draw under a
-// seed, and the exploration's turn under explore.
-func (s *scheduler) pickDue(n int) int {
+// choose resolves the choice point c, whose Alternatives are canonical and whose
+// Taken is not yet set, to the index taken: the first by default (the last for a
+// due order), the first under declared, a draw under a seed, the exploration's
+// turn under explore and the witness's move under replay. whereOf, when not nil,
+// is how the run reports Where once alternative i is taken (a transition's names
+// its trigger); an exploration's witness names the choice as the run reports it.
+func (s *scheduler) choose(c ChoicePoint, whereOf func(i int) string) int {
+	n := len(c.Alternatives)
 	if n < 2 {
 		return 0
 	}
@@ -323,24 +375,44 @@ func (s *scheduler) pickDue(n int) int {
 		return s.rng.IntN(n)
 	case scheduleExplore:
 		if s.explore != nil {
-			return s.explore.pick(n)
+			c.Taken = s.explore.pick(n)
+			if whereOf != nil {
+				c.Where = whereOf(c.Taken)
+			}
+			s.explore.describe(c)
+			return c.Taken
 		}
 		return 0
-	default:
+	case scheduleReplay:
+		if s.replaying() {
+			return s.replay.choose(c, whereOf)
+		}
+	}
+	if c.Kind == ChoiceDueOrder {
 		return n - 1
 	}
+	return 0
 }
 
-// describe tells the scheduler how the run reports the choice its last pick made,
-// so an exploration's witness names the alternative as the trace does.
-func (s *scheduler) describe(c ChoicePoint) {
-	if s.policy.kind == scheduleExplore && s.explore != nil {
-		s.explore.describe(c)
+// refusal is the witness move a replaying run could not follow, nil for none.
+func (s *scheduler) refusal() error {
+	if s.replay == nil {
+		return nil
 	}
+	return s.replay.refused
+}
+
+// unfollowed is the refusal of a replaying run that ended, as how says, with
+// witness moves left; nil for a run that followed its witness.
+func (s *scheduler) unfollowed(how string) error {
+	if s == nil || s.replay == nil {
+		return nil
+	}
+	return s.replay.unfollowed(how)
 }
 
 // mark returns the state a probe restores, so previewing a run does not move
-// the seeded generator or the exploration's position.
+// the seeded generator, the exploration's position or the witness's.
 func (s *scheduler) mark() func() {
 	if s == nil {
 		return func() {
@@ -349,6 +421,9 @@ func (s *scheduler) mark() func() {
 	}
 	if s.explore != nil {
 		return s.explore.mark()
+	}
+	if s.replay != nil {
+		return s.replay.mark()
 	}
 	if s.pcg == nil {
 		return func() {

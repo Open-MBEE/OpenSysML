@@ -732,6 +732,11 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	if err != nil {
 		return false, nil, err
 	}
+	// A witness move refused while drawing must stop the dispatch before the do
+	// behaviors take the occurrence, so a refused replay changes nothing.
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return false, nil, err
+	}
 	var resumed []string
 	if msg, ok := event.Payload.(Message); ok {
 		taking, err := e.doBehaviorsTaking(msg, candidates)
@@ -780,6 +785,9 @@ func (e *StateExecutor) dispatchInOrder(
 		notes := candidate.notes
 		if order != nil {
 			notes = append([]RunNote{order}, notes...)
+		}
+		if err := e.ctx.scheduling().refusal(); err != nil {
+			return acted, err
 		}
 		fired, err := fire(candidate, candidate.chosen, notes)
 		acted = acted || fired
@@ -892,11 +900,13 @@ func (e *StateExecutor) resolveRouteFor(trans *lower.Transition, event *Event) (
 // with the choice point it makes ahead of the candidate's notes.
 func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Transition, []RunNote) {
 	transitions := e.graph.Transitions[candidate.source]
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(candidate.enabled))
 	notes := candidate.notes
-	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled, pick); ok {
-		scheduling.describe(choice)
+	pick := 0
+	if choice, ok := e.transitionChoice(candidate.source, transitions, candidate.enabled); ok {
+		whereOf := func(i int) string { return transitionWhere(candidate.source, transitions[candidate.enabled[i]]) }
+		pick = e.ctx.scheduling().choose(choice, whereOf)
+		choice.Taken, choice.Where = pick, whereOf(pick)
+		choice.File, choice.Span = e.transitionLocation(candidate.source, transitions[candidate.enabled[pick]])
 		notes = append([]RunNote{choice}, notes...)
 	}
 	return transitions[candidate.enabled[pick]], notes
@@ -905,31 +915,29 @@ func (e *StateExecutor) chooseTransition(candidate dispatchCandidate) (*lower.Tr
 // chooseRegion resolves which of the candidates, all still able to fire, fires next:
 // the policy draws the pick and, with several candidates, the choice is reported.
 func (e *StateExecutor) chooseRegion(where string, pending []dispatchCandidate) (int, RunNote) {
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(pending))
 	if len(pending) < 2 {
-		return pick, nil
+		return 0, nil
 	}
 	sources := make([]*ast.StateNode, len(pending))
 	for i, candidate := range pending {
 		sources[i] = candidate.source
 	}
-	choice := e.regionOrderChoice(where, sources, pick)
-	scheduling.describe(choice)
-	return pick, choice
+	choice := e.regionOrderChoice(where, sources)
+	return choice.Taken, choice
 }
 
 // regionOrderChoice is the choice among the states of several regions acting on
-// one occasion, the one at pick first.
-func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode, pick int) ChoicePoint {
-	return ChoicePoint{
+// one occasion, the one the policy picks first.
+func (e *StateExecutor) regionOrderChoice(where string, states []*ast.StateNode) ChoicePoint {
+	choice := ChoicePoint{
 		Kind:         ChoiceRegionOrder,
 		Where:        where,
 		Alternatives: e.stateNames(states),
-		Taken:        pick,
 		File:         e.stateMachine.DocName,
-		Span:         states[pick].Span(),
 	}
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	choice.Span = states[choice.Taken].Span()
+	return choice
 }
 
 // stateNames spells each state, qualified by its region's name where two of the
@@ -1205,7 +1213,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 // transitionChoice is the transitions out of state enabled for one event, at
 // their declared positions, as a choice point; there is none under two. pick is
 // the position in enabled of the one that fires.
-func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int, pick int) (ChoicePoint, bool) {
+func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lower.Transition, enabled []int) (ChoicePoint, bool) {
 	if len(enabled) < 2 {
 		return ChoicePoint{}, false
 	}
@@ -1213,16 +1221,7 @@ func (e *StateExecutor) transitionChoice(state *ast.StateNode, transitions []*lo
 	for i, pos := range enabled {
 		alts[i] = transitionName(transitions, pos)
 	}
-	taken := transitions[enabled[pick]]
-	file, span := e.transitionLocation(state, taken)
-	return ChoicePoint{
-		Kind:         ChoiceTransition,
-		Where:        transitionWhere(state, taken),
-		Alternatives: alts,
-		Taken:        pick,
-		File:         file,
-		Span:         span,
-	}, true
+	return ChoicePoint{Kind: ChoiceTransition, Alternatives: alts}, true
 }
 
 // unevaluableTransition is the transition at position pos out of state, probed
@@ -2112,8 +2111,9 @@ func (e *StateExecutor) run(atCurrentTime bool) error {
 	return e.runCounting(atCurrentTime, &progress)
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) error {
+func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	wasRunning := e.inRun
 	e.inRun = true
 	defer func() { e.inRun = wasRunning }()
@@ -2346,7 +2346,10 @@ func (e *StateExecutor) runDoRound() (int, error) {
 		if len(due) == 0 {
 			break
 		}
-		next := e.chooseDoAction(due)
+		next, err := e.chooseDoAction(due)
+		if err != nil {
+			return ran, err
+		}
 		act := due[next]
 		due = slices.Delete(due, next, next+1)
 		if err := e.stepDoAction(act, func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }); err != nil {
@@ -2547,21 +2550,22 @@ func (e *StateExecutor) settleDoActions() error {
 }
 
 // chooseDoAction resolves which of the do behaviors due in a round acts next: the
-// policy draws the pick and, with several due, the choice is reported.
-func (e *StateExecutor) chooseDoAction(due []*doAction) int {
-	scheduling := e.ctx.scheduling()
-	pick := scheduling.pick(len(due))
+// policy draws the pick and, with several due, the choice is reported; a replay
+// that cannot follow its witness here is its refusal, and none acts.
+func (e *StateExecutor) chooseDoAction(due []*doAction) (int, error) {
 	if len(due) < 2 {
-		return pick
+		return 0, nil
 	}
 	states := make([]*ast.StateNode, len(due))
 	for i, act := range due {
 		states[i] = act.state
 	}
-	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states, pick)
-	scheduling.describe(choice)
+	choice := e.regionOrderChoice("do round at t="+semantics.FormatReal(e.ctx.clock.now), states)
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return 0, err
+	}
 	e.ctx.noteChoice(choice)
-	return pick
+	return choice.Taken, nil
 }
 
 // isRunningDoAction reports whether a do action is still registered, which it
@@ -2896,8 +2900,9 @@ func (e *StateExecutor) activeStates() []*ast.StateNode {
 }
 
 // initialize sets current state to initial state and enters it.
-func (e *StateExecutor) initialize() error {
+func (e *StateExecutor) initialize() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 	e.ctx.beginPerformanceLife(e.occurrence, e.ctx.newActivation())
 
 	// A machine without orthogonal regions of its own starts in the state its
@@ -3549,8 +3554,9 @@ func (e *StateExecutor) StateMachineSymbol() *symbols.Symbol {
 // dispatch succeeds — the completion transition it enables is queued next.
 // With nothing due but a timer running, the shared clock advances to the earliest
 // wait (running whatever else is due there) until this machine's next event is due.
-func (e *StateExecutor) ProcessNextEvent() error {
+func (e *StateExecutor) ProcessNextEvent() (err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	e.lastDispatch = nil
 	var progress dueProgress
@@ -3584,6 +3590,14 @@ func (e *StateExecutor) ProcessNextEvent() error {
 		if err := e.awaitClock(&progress); err != nil {
 			return err
 		}
+	}
+}
+
+// completedWhole makes a call of its own run that completed the machine return
+// the refusal of the witness moves left over, when the call itself did not fail.
+func (e *StateExecutor) completedWhole(err *error) {
+	if *err == nil && e.state == StateCompleted {
+		*err = e.ctx.endedWhole(&e.driven)
 	}
 }
 
@@ -3622,8 +3636,9 @@ func (e *StateExecutor) HasPendingWork() bool {
 
 // RunDoRound advances every active state's do behavior by one action, without
 // dispatching any event, and reports how many actions ran.
-func (e *StateExecutor) RunDoRound() (int, error) {
+func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
+	defer e.completedWhole(&err)
 
 	return e.runDoRound()
 }

@@ -304,7 +304,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 3. **Scheduler and choice points** — one resolution rule for what the library leaves unordered ([design note](design/scheduling.md))
    - Six `ChoiceKind`s (`choice.go`): token order within a step, decision branch, same-step write order, transition, region order, due order; each site resolves through the run's `scheduler` and then records a `ChoicePoint`, an informational `RunNote` (diagnostic code `choice-point`) that never alters the run
    - Every decision guard is evaluated so a second holding one is seen; a later guard that cannot be evaluated is an `UnevaluableGuard` note (`guard-unevaluable`), not a failure
-   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `explore[:runs=N,depth=D]`
+   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `replay:<file>` (a witness's choice lines followed move for move, then `reverse`; a move the run cannot make is a typed `ReplayError`, `replay.go`), `explore[:runs=N,depth=D]`
    - `Explore` (`explore.go`) replays whole runs from a fresh `Context` each, a recorded choice prefix then the first untried alternative, depth-first within `ExploreBudget` (default 1024 runs, 64 choice points); reports distinct outcomes by `Outcome.identity` with linearization counts and a witness, and `incomplete` when a bound stopped it
    - The scheduler lives in the run's `runState` beside the budget and notes; a run driven call by call (`beginExecutorRun`) keeps its own across interleaved runs, and a probe (`beginProbe`) restores the scheduler's position and notes nothing
 
@@ -502,7 +502,7 @@ See [the guide](../guide/) for VS Code configuration.
 - `%constraint <name>` — Evaluate constraint, check assert/assume satisfaction
 - `%requirement <name>` — Evaluate requirement, validate subject/require/actor conditions
 - `%satisfy [name]` — Evaluate satisfaction assertions, with the requirement's subject bound to the object `by` names
-- `%schedule [policy]` — Show or set the policy the next run resolves its choice points under (`reverse`, `declared`, `seed:<n>`); `explore` is refused, since a debugging session steps one run
+- `%schedule [policy]` — Show or set the policy the next run resolves its choice points under (`reverse`, `declared`, `seed:<n>`, `replay:<file>`); `explore` is refused, since a debugging session steps one run
 
 **Action debugging:**
 - `%action <name> [<object>]` — Start debugging action execution, optionally performed by an instantiated object

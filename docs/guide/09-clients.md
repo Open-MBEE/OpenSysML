@@ -234,7 +234,8 @@ an unsupported operator is a compile error rather than a refused call.
 
 A run with [more than one valid order](06-behavior.md#when-a-model-has-more-than-one-valid-run)
 is scheduled by the same spellings `sysml -schedule` takes: `ExecuteAction` and `ExecuteState` take
-`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`), `RunAnalysis`
+`opensysml.WithSchedule("declared")` (`"reverse"`, the default, or `"seed:<n>"`; `"replay:<file>"` is
+refused with `INVALID_ARGUMENT`, a request carrying no file of the caller's), `RunAnalysis`
 takes `opensysml.Schedule(...)`, and `ExploreAction`, `ExploreState` and `ExploreAnalysis` run
 every linearization under `"explore"` — the default when no policy is given — or
 `"explore:runs=N,depth=D"`, answering an `*Exploration` (`Outcomes`, each with `Linearizations`,
@@ -513,7 +514,7 @@ machine's time-triggered transition — on a simulation clock of its own that st
 service that predates the `final_time` capability).
 
 Both take a `schedule=` — `"declared"`, `"reverse"` (the default) or `"seed:<n>"`, the spellings
-`sysml -schedule` takes — for a run with [more than one valid
+`sysml -schedule` takes, less `"replay:<file>"`, which the service refuses — for a run with [more than one valid
 order](06-behavior.md#when-a-model-has-more-than-one-valid-run); `run_analysis` takes the same.
 The `explore` policy answers every outcome rather than one run's, so it has methods of its own:
 

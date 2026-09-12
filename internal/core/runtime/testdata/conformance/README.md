@@ -181,6 +181,7 @@ request field):
 | `reverse` | The default: tokens in reverse spawn order, the first holding guard, the first enabled transition, regions in declaration order, the executor started last first |
 | `declared` | Tokens in spawn order, the first holding guard, the first enabled transition, regions in declaration order, the executor started first first |
 | `seed:<n>` | Every resolution drawn from a pseudo-random sequence the non-negative integer `n` fixes; the same seed replays the same run |
+| `replay:<file>` | The choice lines of a witness (as an `outcomes` entry's `witness` spells them, one per line up to the first blank line) followed move for move, then `reverse`; a move the run cannot make is a typed `replay refused` error naming it |
 
 Which of two same-step writes to one feature stands follows from the token order
 the policy chose; a write conflict is reported, not resolved on its own.
