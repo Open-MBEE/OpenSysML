@@ -151,6 +151,8 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("run_to_completion_redefined_through_alias", testRunToCompletionRedefinedThroughAlias)
 	t.Run("run_to_completion_redefined_through_redefining_feature", testRunToCompletionRedefinedThroughRedefiningFeature)
 	t.Run("run_to_completion_defaults_restated", testRunToCompletionDefaultsRestated)
+	t.Run("run_to_completion_default_restored_by_specialization", testRunToCompletionDefaultRestoredBySpecialization)
+	t.Run("run_to_completion_default_masked_by_specialization", testRunToCompletionDefaultMaskedBySpecialization)
 	t.Run("sourceless_transition_with_nothing_before", testSourcelessTransitionWithNothingBefore)
 	t.Run("sourceless_transition_after_a_non_state", testSourcelessTransitionAfterANonState)
 	t.Run("no_entry_transition_guard_holds", testNoEntryTransitionGuardHolds)
@@ -6811,6 +6813,49 @@ func testRunToCompletionDefaultsRestated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restating the defaults was refused: %v", err)
 	}
+}
+
+// testRunToCompletionDefaultRestoredBySpecialization: a redefinition restating
+// the default masks the one it inherits, on the machine and on a substate, so the
+// inherited redefinition is not what the machine runs under and is not refused.
+func testRunToCompletionDefaultRestoredBySpecialization(t *testing.T) {
+	err := stateExecutorError(t, `
+		package test {
+			state def Base {
+				attribute :>> isRunToCompletion = false;
+				entry; then idle;
+				state idle : Leaf {
+					attribute :>> isRunToCompletion = true;
+				}
+			}
+			state def Leaf {
+				attribute :>> isRunToCompletion = false;
+			}
+			state def Machine :> Base {
+				attribute :>> isRunToCompletion = true;
+			}
+		}
+	`, "Machine")
+	if err != nil {
+		t.Fatalf("restoring the default over an inherited redefinition was refused: %v", err)
+	}
+}
+
+// testRunToCompletionDefaultMaskedBySpecialization: the redefinition a machine
+// makes effective is its own, judged over the inherited one it masks.
+func testRunToCompletionDefaultMaskedBySpecialization(t *testing.T) {
+	runToCompletionRefusal(t, `
+		package test {
+			state def Base {
+				attribute :>> isRunToCompletion = true;
+				entry; then idle;
+				state idle;
+			}
+			state def Machine :> Base {
+				attribute :>> isRunToCompletion = false;
+			}
+		}
+	`, "isRunToCompletion", "the state definition Machine", "false")
 }
 
 // testRunToCompletionRedefinedThroughAlias: a redefinition naming the library

@@ -355,13 +355,6 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		g.scopeOf[child] = childScope(scope, m)
 		state.Substates = append(state.Substates, child)
 	case *ast.Usage:
-		owner := "the state " + state.Name
-		if inherited {
-			owner = DescribeMember(from.owner) + ", inherited by " + owner + ","
-		}
-		if err := g.refuseRunToCompletionRedefinition(m, scope, owner, false); err != nil {
-			return err
-		}
 		switch {
 		case m.Kind == ast.UsageState && !parallel:
 			child, err := stateNodeFromUsage(g, m, scope)

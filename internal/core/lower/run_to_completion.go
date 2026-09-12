@@ -76,14 +76,20 @@ func (e *RunToCompletionRedefinition) Unwrap() error { return ErrUnsupportedStat
 // spelling, so a name spelled like the feature is refused rather than run under
 // the default.
 func (g *StateGraph) redefinedRunToCompletionFeature(usage *ast.Usage, scope *symbols.Scope) string {
-	resolver, resolved := g.endpoints.(StateRedefinitionResolver)
+	resolver, _ := g.endpoints.(StateRedefinitionResolver)
+	return redefinedRunToCompletionFeatureIn(resolver, usage, scope, map[*symbols.Symbol]bool{})
+}
+
+// redefinedRunToCompletionFeatureIn is redefinedRunToCompletionFeature over the
+// given resolver (nil for none), seen guarding the walk against a cycle.
+func redefinedRunToCompletionFeatureIn(resolver StateRedefinitionResolver, usage *ast.Usage, scope *symbols.Scope, seen map[*symbols.Symbol]bool) string {
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Kind != ast.RelRedefines {
 			continue
 		}
-		if resolved {
+		if resolver != nil {
 			if target, ok := resolver.RedefinitionTarget(scope, usage, rel.Target); ok {
-				if name := libraryRunToCompletionFeature(resolver, target, map[*symbols.Symbol]bool{}); name != "" {
+				if name := libraryRunToCompletionFeature(resolver, target, seen); name != "" {
 					return name
 				}
 				continue
@@ -111,17 +117,7 @@ func libraryRunToCompletionFeature(resolver StateRedefinitionResolver, sym *symb
 	if !ok {
 		return ""
 	}
-	for _, rel := range usage.Relationships {
-		if rel == nil || rel.Kind != ast.RelRedefines {
-			continue
-		}
-		if target, ok := resolver.RedefinitionTarget(sym.OwnerScope, usage, rel.Target); ok {
-			if name := libraryRunToCompletionFeature(resolver, target, seen); name != "" {
-				return name
-			}
-		}
-	}
-	return ""
+	return redefinedRunToCompletionFeatureIn(resolver, usage, sym.OwnerScope, seen)
 }
 
 // refuseRunToCompletionRedefinition refuses usage, declared in scope, when it
@@ -159,18 +155,31 @@ func (g *StateGraph) refuseRunToCompletionRedefinition(usage *ast.Usage, scope *
 }
 
 // refuseRunToCompletionRedefinitions applies refuseRunToCompletionRedefinition
-// to a machine's body; owner describes the machine itself for members written in it.
-func (g *StateGraph) refuseRunToCompletionRedefinitions(body []inheritedMember, machine ast.Node) error {
+// to the redefinition of each feature a body makes effective: the last one with a
+// value, most general first and the body's own members last, since a later
+// redefinition masks an inherited one. self describes the body's own declaration.
+func (g *StateGraph) refuseRunToCompletionRedefinitions(body []inheritedMember, self string, machine bool) error {
+	effective := map[string]inheritedMember{}
 	for _, member := range body {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
+		if !ok || usage.Value == nil {
+			continue
+		}
+		if feature := g.redefinedRunToCompletionFeature(usage, member.scope); feature != "" {
+			effective[feature] = member
+		}
+	}
+	for _, feature := range []string{isRunToCompletionFeature, runToCompletionScopeFeature} {
+		member, ok := effective[feature]
 		if !ok {
 			continue
 		}
-		owner := DescribeMember(machine)
+		owner := self
 		if member.owner != nil {
-			owner = DescribeMember(member.owner) + ", inherited by " + DescribeMember(machine) + ","
+			owner = DescribeMember(member.owner) + ", inherited by " + self + ","
 		}
-		if err := g.refuseRunToCompletionRedefinition(usage, member.scope, owner, true); err != nil {
+		usage := unwrapMembership(member.node).(*ast.Usage)
+		if err := g.refuseRunToCompletionRedefinition(usage, member.scope, owner, machine); err != nil {
 			return err
 		}
 	}

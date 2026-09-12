@@ -37,6 +37,13 @@ func (m machineEndpoints) Endpoint(scope *symbols.Scope, qn *ast.QualifiedName) 
 	return m.resolver.Endpoint(scope, qn)
 }
 
+func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+	if scope == nil {
+		scope = m.scope
+	}
+	return m.resolver.RedefinitionTarget(scope, decl, target)
+}
+
 // scopeEndpoints resolves an endpoint from the caller's own scope tree, for a
 // machine lowered with that tree but without the resolver over its document.
 type scopeEndpoints struct{ machine *symbols.Scope }

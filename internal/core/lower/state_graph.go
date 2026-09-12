@@ -241,7 +241,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(members, scope)...)
-	if err := graph.refuseRunToCompletionRedefinitions(body, stateMachineDecl); err != nil {
+	if err := graph.refuseRunToCompletionRedefinitions(body, DescribeMember(stateMachineDecl), true); err != nil {
 		return nil, err
 	}
 
@@ -456,6 +456,11 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 		parallel = parallel || stateMachineIsParallel(owner)
 	}
 
+	body := append(append([]inheritedMember{}, inherited...), ownMembers(usage.Members, bodyScope)...)
+	if err := graph.refuseRunToCompletionRedefinitions(body, "the state "+name, false); err != nil {
+		return nil, err
+	}
+
 	base := &stateContent{node: &ast.StateNode{Name: name}}
 	if len(inherited) > 0 {
 		for _, owner := range owners {
@@ -479,7 +484,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	if attrs := keptAttributes(base.attrs, own.attrs); len(attrs) > 0 {
 		graph.StateAttributes[state] = attrs
 	}
-	graph.bodyOf[state] = append(inherited, ownMembers(usage.Members, bodyScope)...)
+	graph.bodyOf[state] = body
 	graph.parallelState[state] = parallel
 	if len(inherited) > 0 {
 		graph.newInstance(state, inherited, owners, replaced)
