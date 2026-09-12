@@ -174,6 +174,17 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 	// A state machine is not an action's schedules: the named engine's refusal is the answer.
 	wantReport(t, check(t, binary, forkModel+lampModel, "-engine", "check", "-action", "Mission::race", "-state", "Shine::Lamp"),
 		2, "check does not answer evaluate questions", "✗ Action Mission::race: divergent")
+
+	// A body paused mid-statement is a wait the search does not represent: refused by name, not searched.
+	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+		"action_explore_performed_and_accept_due_together.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantReport(t, check(t, binary, string(paused), "-engine", "check", "-action", "test::wake"),
+		2, "? Action test::wake could not be checked",
+		"check does not search a body paused mid-statement: snapshot of a body paused mid-statement: token 2 of wake at performed",
+		"standing: not covered")
 }
 
 // lampModel is a state machine beside the fork model.
