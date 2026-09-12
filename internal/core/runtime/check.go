@@ -113,6 +113,15 @@ type Divergence struct {
 	Values  []DivergentValue
 }
 
+// String spells the divergence as `x ends as 1 or 2`.
+func (d Divergence) String() string {
+	values := make([]string, len(d.Values))
+	for i, v := range d.Values {
+		values[i] = v.Value
+	}
+	return d.Feature + " ends as " + strings.Join(values, " or ")
+}
+
 // CheckFinal is one distinct outcome of the complete schedules and a schedule
 // reaching it; Values spells every feature divergence is reported over.
 type CheckFinal struct {

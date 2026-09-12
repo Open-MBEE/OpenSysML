@@ -109,9 +109,10 @@ func (e checkEngine) Covers(_ *Model, q Question) Coverage {
 
 // Run searches the action's schedules under the budget's depth and, as its runs,
 // states, in a context of the check's own on the plan's first worker; a violation
-// is witnessed and a clean search bounded once every witness has replayed on the
-// plan's workers. The plan's clock ending is the search stopping, an error, not a
-// result. A model that builds no context of a run's own is the typed fault NoRuntimeError.
+// is witnessed, a divergence is the sensitivity it witnesses, and a clean search is
+// bounded, once every witness has replayed on the plan's workers. The plan's clock
+// ending is the search stopping, an error, not a result. A model that builds no
+// context of a run's own is the typed fault NoRuntimeError.
 func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
 	if !model.builds() {
 		return Result{}, &NoRuntimeError{Engine: e.Name()}
@@ -159,6 +160,12 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		first := report.Violations[0]
 		result.Reason = first.String()
 		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Witness.Choices), Choices: first.Witness.Choices}
+	case report.Verdict == runtime.CheckDivergent:
+		result.Claim = ClaimSensitive
+		result.Strength = Witnessed
+		result.Reason = divergenceReason(report.Divergent)
+		first := report.Divergent[0].Values[0].Witness
+		result.Witness = &Witness{Schedule: runtime.ReplayPolicy(first.Choices), Choices: first.Choices}
 	case q.Kind == Holds:
 		result.Claim = ClaimHolds
 		result.Strength = Bounded
@@ -167,6 +174,15 @@ func (e checkEngine) Run(ctx context.Context, model *Model, q Question, budget B
 		result.Strength = Bounded
 	}
 	return result, nil
+}
+
+// divergenceReason spells every divergence, `x ends as 1 or 2; y ends as a or b`.
+func divergenceReason(divergent []runtime.Divergence) string {
+	parts := make([]string, len(divergent))
+	for i, d := range divergent {
+		parts[i] = d.String()
+	}
+	return strings.Join(parts, "; ")
 }
 
 // checkBounds is every bound the search took and which it reached: depth and states

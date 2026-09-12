@@ -30,20 +30,32 @@ func (a *checkedAction) start(ctx *runtime.Context) (*runtime.ActionExecutor, er
 }
 
 // x is the property that the action's x is at most limit.
-func (a *checkedAction) x(limit int64) runtime.CheckProperty {
-	return runtime.CheckProperty{Name: "x", Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
-		x, ok := exec.Results()["x"]
-		if !ok || x.Kind != runtime.ValConst {
-			return false, errors.New("x holds no value")
+func (a *checkedAction) x(limit int64) runtime.CheckProperty { return a.atMost("x", limit) }
+
+// y is the property that the action's y is at most limit.
+func (a *checkedAction) y(limit int64) runtime.CheckProperty { return a.atMost("y", limit) }
+
+// atMost is the property that the action's named integer is at most limit.
+func (a *checkedAction) atMost(name string, limit int64) runtime.CheckProperty {
+	return runtime.CheckProperty{Name: name, Holds: func(_ *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
+		v, ok := exec.Results()[name]
+		if !ok || v.Kind != runtime.ValConst {
+			return false, errors.New(name + " holds no value")
 		}
-		return x.Const.Int <= limit, nil
+		return v.Const.Int <= limit, nil
 	}}
 }
 
 // checkQuestion asks kind about the racing action through the check engine.
 func checkQuestion(t *testing.T, f *fixture, kind Kind, ask *CheckAsk) Question {
 	t.Helper()
-	return Question{Kind: kind, Subject: "test::race", Schedule: policy(t, "explore"), Free: FreeSchedule, Check: ask}
+	return questionOf(t, "test::race", kind, ask)
+}
+
+// questionOf asks kind about the named action through the check engine.
+func questionOf(t *testing.T, subject string, kind Kind, ask *CheckAsk) Question {
+	t.Helper()
+	return Question{Kind: kind, Subject: subject, Schedule: policy(t, "explore"), Free: FreeSchedule, Check: ask}
 }
 
 // finals is the outcome set a check reached, sorted.
@@ -122,8 +134,8 @@ func TestCheckCoversOutcomesAndHoldsOverAnActionsSchedules(t *testing.T) {
 // schedules reach and no bound reached; the standing names the states searched.
 func TestCheckBoundsAnOutcomeSet(t *testing.T) {
 	f := parseFixture(t)
-	race := f.checked(t, "race")
-	plan := answered(t, Default(), f.building(), checkQuestion(t, f, Outcomes, &CheckAsk{Start: race.start}), Budget{})
+	steady := f.checked(t, "steady")
+	plan := answered(t, Default(), f.building(), questionOf(t, "test::steady", Outcomes, &CheckAsk{Start: steady.start}), Budget{})
 	if !sameNames(stepNames(plan), []string{ExploreEngineName, CheckEngineName}) {
 		t.Fatalf("steps %v, want explore refusing then check", stepNames(plan))
 	}
@@ -132,17 +144,41 @@ func TestCheckBoundsAnOutcomeSet(t *testing.T) {
 		t.Fatalf("result %+v, want check's bounded outcomes", result)
 	}
 	c := result.Check()
-	if c == nil || c.Report.Verdict != runtime.CheckDivergent || len(c.Report.Finals) != 3 || len(c.Report.Divergent) != 1 {
-		t.Fatalf("checked %+v, want a complete search of 3 finals with x divergent", c)
+	if c == nil || c.Report.Verdict != runtime.CheckExhaustive || len(c.Report.Finals) != 1 || len(c.Report.Divergent) != 0 {
+		t.Fatalf("checked %+v, want a complete search of 1 final with nothing divergent", c)
 	}
 	if result.Bounds.Reached() {
 		t.Fatalf("bounds %s, want none reached", result.Bounds)
 	}
-	if c.Violations != nil || c.Divergent != nil {
-		t.Fatalf("witness paths %v %v, want none written without a directory", c.Violations, c.Divergent)
-	}
 	if s := result.Standing(); !strings.Contains(s, "bounded") || !strings.Contains(s, "states") || strings.Contains(s, "proved") {
 		t.Fatalf("standing %q, want bounded with the states searched", s)
+	}
+}
+
+// A feature the schedule decides is a sensitivity, witnessed by the schedule reaching
+// its first value once every value's witness has replayed; the outcome set is kept.
+func TestCheckWitnessesADivergence(t *testing.T) {
+	f := parseFixture(t)
+	race := f.checked(t, "race")
+	for _, kind := range []Kind{Outcomes, Holds} {
+		result := answered(t, Default(), f.building(), checkQuestion(t, f, kind, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(3)}}), Budget{}).Result
+		if result.Engine != CheckEngineName || result.Claim != ClaimSensitive || result.Strength != Witnessed || result.Witness == nil {
+			t.Fatalf("%s: result %+v, want check's witnessed sensitivity", kind, result)
+		}
+		c := result.Check()
+		if c == nil || c.Report.Verdict != runtime.CheckDivergent || len(c.Report.Finals) != 3 || len(c.Report.Divergent) != 1 || len(c.Report.Violations) != 0 {
+			t.Fatalf("%s: checked %+v, want a complete search of 3 finals with x divergent", kind, c)
+		}
+		if c.Violations != nil || c.Divergent != nil {
+			t.Fatalf("witness paths %v %v, want none written without a directory", c.Violations, c.Divergent)
+		}
+		if result.Reason != "x ends as 1 or 2 or 3" {
+			t.Fatalf("%s: reason %q, want the divergence spelt", kind, result.Reason)
+		}
+		first := c.Report.Divergent[0].Values[0].Witness.Choices
+		if replay, ok := result.Witness.Schedule.Replay(); !ok || len(replay) != len(first) {
+			t.Fatalf("%s: witness %s, want a replay of the first value's schedule", kind, result.Witness.Schedule)
+		}
 	}
 }
 
@@ -151,7 +187,8 @@ func TestCheckBoundsAnOutcomeSet(t *testing.T) {
 func TestCheckHoldsOrWitnessesAProperty(t *testing.T) {
 	f := parseFixture(t)
 	race := f.checked(t, "race")
-	holds := answered(t, Default(), f.building(), checkQuestion(t, f, Holds, &CheckAsk{Start: race.start, Properties: []runtime.CheckProperty{race.x(3)}}), Budget{}).Result
+	steady := f.checked(t, "steady")
+	holds := answered(t, Default(), f.building(), questionOf(t, "test::steady", Holds, &CheckAsk{Start: steady.start, Properties: []runtime.CheckProperty{steady.y(1)}}), Budget{}).Result
 	if holds.Engine != CheckEngineName || holds.Claim != ClaimHolds || holds.Strength != Bounded || holds.Witness != nil {
 		t.Fatalf("result %+v, want check holding bounded with no witness", holds)
 	}
@@ -272,8 +309,8 @@ func TestExploreRefereesCheck(t *testing.T) {
 		switch step.Engine {
 		case CheckEngineName:
 			checked = step.Result.Check()
-			if step.Result.Strength != Bounded {
-				t.Fatalf("check %+v, want bounded", step.Result)
+			if step.Result.Claim != ClaimSensitive || step.Result.Strength != Witnessed {
+				t.Fatalf("check %+v, want the race's sensitivity witnessed beside the proof", step.Result)
 			}
 		case ExploreEngineName:
 			exploration = step.Result.Exploration()
@@ -370,7 +407,7 @@ func TestChecksOnOneModelHaveWorkersOfTheirOwn(t *testing.T) {
 		if err != nil {
 			t.Fatalf("plan %d: %v", i, err)
 		}
-		if results[i].Strength != Bounded || len(results[i].Check().Report.Divergent) != 1 || len(results[i].Check().Report.Divergent[0].Values) != 3 {
+		if results[i].Claim != ClaimSensitive || len(results[i].Check().Report.Divergent) != 1 || len(results[i].Check().Report.Divergent[0].Values) != 3 {
 			t.Fatalf("plan %d: %+v, want x divergent over 3 values", i, results[i])
 		}
 	}

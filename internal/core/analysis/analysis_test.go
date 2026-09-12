@@ -41,6 +41,22 @@ const fixtureModel = `package test {
 		succession first c then sync;
 		succession first sync then done;
 	}
+	action steady {
+		attribute y : Integer = 0;
+		attribute z : Integer = 0;
+		first start;
+		fork split;
+		action a { assign y := 1; }
+		action b { assign z := 2; }
+		join sync;
+		done;
+		succession first start then split;
+		succession first split then a;
+		succession first split then b;
+		succession first a then sync;
+		succession first b then sync;
+		succession first sync then done;
+	}
 }`
 
 // fixture is a model parsed once, from which every context is built.
