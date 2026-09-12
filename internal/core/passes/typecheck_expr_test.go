@@ -278,6 +278,27 @@ func TestExprExtentConditionMustBeBoolean(t *testing.T) {
 	action def A { if all Flags then action a; }
 }`,
 		"transition guard must be Boolean, found the extent of Flags, a sequence")
+	// A Boolean operator takes one Boolean, which an extent never is.
+	wantOneDiag(t, `package P {
+	enum def Flags :> ScalarValues::Boolean { yes = true; no = false; }
+	constraint def c { not all Flags }
+}`,
+		"operator 'not' requires a Boolean operand, found the extent of Flags, a sequence")
+	wantOneDiag(t, `package P {
+	enum def Flags :> ScalarValues::Boolean { yes = true; no = false; }
+	constraint def c { all Flags and true }
+}`,
+		"operator 'and' requires Boolean operands, found the extent of Flags, a sequence")
+	wantOneDiag(t, `package P {
+	enum def Flags :> ScalarValues::Boolean { yes = true; no = false; }
+	constraint def c { true implies all Flags }
+}`,
+		"operator 'implies' requires Boolean operands, found the extent of Flags, a sequence")
+	wantOneDiag(t, `package P {
+	enum def Flags :> ScalarValues::Boolean { yes = true; no = false; }
+	attribute n : ScalarValues::Integer = if all Flags ? 1 else 2;
+}`,
+		"condition of 'if' must be Boolean, found the extent of Flags, a sequence")
 	// Its elements bind to a Boolean collection, and an operation over it may be a Boolean.
 	wantNoDiags(t, `package P {
 	private import SequenceFunctions::*;

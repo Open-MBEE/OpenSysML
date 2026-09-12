@@ -155,6 +155,56 @@ func TestNamespaceBindingFailureLeavesNoBinding(t *testing.T) {
 	}
 }
 
+// TestNamespaceBindingFailureLeavesNoObject requires a refused binding to leave behind none of
+// the objects its value constructed nor the behaviors they started, however often it is read,
+// so an extent reached from elsewhere never counts them.
+func TestNamespaceBindingFailureLeavesNoObject(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			part def Car;
+			part def Boat {
+				exhibit state life { entry; then afloat; state afloat; }
+			}
+			ref part car : Car = new Boat();
+		}
+		package elsewhere {
+			private import SequenceFunctions::*;
+			private import test::Boat;
+			part def Buoy;
+		}
+	`))
+	pkg, ok := idx.DocumentRoot("<test>").LookupLocal("test")
+	if !ok || pkg.Scope == nil {
+		t.Fatal("test package not indexed")
+	}
+	other, ok := idx.DocumentRoot("<test>").LookupLocal("elsewhere")
+	if !ok || other.Scope == nil {
+		t.Fatal("elsewhere package not indexed")
+	}
+	for i := range 3 {
+		_, err := evalIn(t, ctx, pkg.Scope, "car")
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Fatalf("read %d: error = %v, want ErrTypeMismatch", i, err)
+		}
+		if n := len(ctx.instances); n != 0 {
+			t.Errorf("read %d: objects held = %d, want none", i, n)
+		}
+		if n := len(ctx.created); n != 0 {
+			t.Errorf("read %d: objects registered = %d, want none", i, n)
+		}
+		if n := len(ctx.objectBehaviors); n != 0 {
+			t.Errorf("read %d: behaviors attached = %d, want none", i, n)
+		}
+	}
+	val, err := evalIn(t, ctx, other.Scope, "size(all Boat)")
+	if err != nil {
+		t.Fatalf("size(all Boat): %v", err)
+	}
+	if val.Kind != ValConst || val.Const.Int != 0 {
+		t.Errorf("size(all Boat) after failed bindings = %v, want 0", val)
+	}
+}
+
 // TestNamespaceBindingToAnExtent requires a namespace usage bound to an extent of its own type
 // to stand for no object while it is being bound, and a usage whose value depends on it to stand
 // for none yet, so `all Car` binds it to the Cars there are; a value reaching back to its own

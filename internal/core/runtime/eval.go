@@ -912,11 +912,16 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	}
 	ec.ctx.bindingNamespace[sym] = true
 	defer delete(ec.ctx.bindingNamespace, sym)
+	// The binding is made whole or not at all: a value refused after constructing
+	// objects leaves none of them, nor their behaviors, behind.
+	commit, rollback := ec.ctx.beginJournal()
 	val, err := ec.evaluateDeclared(sym, value)
 	if err != nil {
+		rollback()
 		return Value{}, err
 	}
 	ec.ctx.bindNamespace(sym, val)
+	commit()
 	return val, nil
 }
 

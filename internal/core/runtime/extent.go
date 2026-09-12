@@ -185,12 +185,10 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 }
 
 // boundObjects is the objects a namespace-level usage's value binds it to, read once for the run;
-// a value depending on a usage still being bound yields none yet, a failing one leaves no object.
+// a value depending on a usage still being bound yields none yet.
 func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
-	mark := len(ec.ctx.created)
 	val, err := NewEvalContext(ec.ctx, sym.OwnerScope).declaredValue(sym, sym.Decl.(*ast.Usage).Value)
 	if err != nil {
-		ec.ctx.abandonInstancesSince(mark)
 		var cycle *CyclicBindingError
 		if errors.As(err, &cycle) && ec.ctx.bindingNamespace[cycle.Usage] {
 			return nil, nil

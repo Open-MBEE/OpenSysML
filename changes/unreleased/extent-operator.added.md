@@ -3,7 +3,8 @@
   declaration order, and the typer gives it the static type `T[0..*]`, judging it element by
   element as it does any collection where a collection binds (`attribute xs : Boolean[*] = all
   Flags;`), while a condition `all T` is refused for any `T`, Boolean-typed included, as the
-  sequence it is rather than the one Boolean a condition needs, and `all Car as String` warns
+  sequence it is rather than the one Boolean a condition needs — as is an extent given to a Boolean
+  operator (`not all Flags`, `all Flags and true`) — and `all Car as String` warns
   that the cast selects nothing. Because objects materialize
   lazily, the extent is the run's: for a variation definition or usage it is the variants it
   declares (`all engineChoice` in the trade-off pilot model now yields the engine alternatives,
@@ -29,7 +30,9 @@
   definition is still what each object built from it reads at construction. A usage bound to an
   extent of its own type (`ref part cars : Car[*] = all Car;`) stands for no object while it is
   being bound, and one whose value depends on it for none yet, so the extent binds to the objects
-  there are; a value reaching back to its own usage is refused as a cyclic feature value. `all T`
+  there are; a value reaching back to its own usage is refused as a cyclic feature value. A binding
+  refused after constructing objects (`ref part car : Car = new Boat();`) leaves none of them
+  behind, however often the usage is read. `all T`
   is never model-level evaluable, so a `filter` or metadata value built on it is diagnosed. The
   native compiler keeps refusing `all` with a typed `UnsupportedError` (`operator
   'all'`), since a compiled program has no run whose extent it could report.
