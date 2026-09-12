@@ -306,10 +306,14 @@ func (e *ActionExecutor) Step() error {
 
 	schedule := e.scheduleTokens(&order, eligible)
 	err := e.stepTokens(schedule, paused, &order)
-	// What the tokens wrote and the order they took are facts of the step whether
-	// or not it failed.
+	// What the tokens wrote, the order they took and how far they got are facts of
+	// the step whether or not it failed.
 	endWrites()
 	e.noteTokenOrder(e.stepCount+1, order, schedule)
+	progressMade := e.tokensProgressed(tokenCountBefore, tokenLocationsBefore)
+	if progressMade {
+		e.moved = true
+	}
 	if err != nil {
 		e.endPausedBodies()
 		return err
@@ -317,29 +321,8 @@ func (e *ActionExecutor) Step() error {
 
 	// A step a breakpoint ends leaves every other token where it was, yet the run
 	// went on.
-	progressMade := e.state == StateSuspended
-
-	// Progress indicators:
-	// 1. Token count changed (fork/join/final consumed/created tokens)
-	if len(e.tokens) != tokenCountBefore {
+	if e.state == StateSuspended {
 		progressMade = true
-	}
-
-	// 2. At least one token moved to different location
-	if !progressMade && len(e.tokens) > 0 {
-		for i := 0; i < len(e.tokens) && i < len(tokenLocationsBefore); i++ {
-			if e.tokens[i].Location != tokenLocationsBefore[i] {
-				progressMade = true
-				break
-			}
-		}
-	}
-
-	// 3. All tokens consumed (completion)
-	if len(e.tokens) == 0 {
-		progressMade = true
-	}
-	if progressMade {
 		e.moved = true
 	}
 
@@ -367,6 +350,20 @@ func (e *ActionExecutor) Step() error {
 	}
 
 	return nil
+}
+
+// tokensProgressed reports whether the tokens got anywhere since the count and locations
+// given: one created or consumed, one at another node, or all consumed.
+func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast.Node) bool {
+	if len(e.tokens) != countBefore || len(e.tokens) == 0 {
+		return true
+	}
+	for i := 0; i < len(e.tokens) && i < len(locationsBefore); i++ {
+		if e.tokens[i].Location != locationsBefore[i] {
+			return true
+		}
+	}
+	return false
 }
 
 // waitsOnClockAlone reports whether every remaining token is parked on the clock
@@ -2082,11 +2079,14 @@ func (e *ActionExecutor) dueLabel() string {
 // clockWaits lists the tokens parked on the clock for an instant it has not
 // reached; an action performed for a paused body lists its own.
 func (e *ActionExecutor) clockWaits() []ClockWait {
+	return notYetDue(e.armedWaits(), e.ctx.clock.now)
+}
+
+// armedWaits lists the tokens parked on the clock, due or not, earliest first.
+func (e *ActionExecutor) armedWaits() []ClockWait {
 	var waits []ClockWait
 	for _, token := range e.timeWaits(nil) {
-		if token.Wait.Due > e.ctx.clock.now {
-			waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
-		}
+		waits = append(waits, ClockWait{Due: token.Wait.Due, Holder: e.dueLabel(), What: token.Wait.String()})
 	}
 	slices.SortStableFunc(waits, func(a, b ClockWait) int { return cmp.Compare(a.Due, b.Due) })
 	return waits

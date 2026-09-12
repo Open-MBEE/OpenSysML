@@ -138,10 +138,10 @@ func (run *doRun) acceptsMessage(m Message) (bool, error) {
 	return false, nil
 }
 
-// clockWaits lists the waits the run is paused on: its flow's, and those of the
-// action it performs where that is what waits.
-func (run *doRun) clockWaits() []ClockWait {
-	waits := run.host.flow.clockWaits()
+// armedWaits lists the waits on the clock the run is paused on, due or not: its
+// flow's, and those of the action it performs where that is what waits.
+func (run *doRun) armedWaits() []ClockWait {
+	waits := run.host.flow.armedWaits()
 	if held := run.body.paused.held; held != nil {
 		waits = append(waits, held.clockWaits()...)
 	}

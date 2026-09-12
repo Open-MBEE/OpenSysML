@@ -808,8 +808,10 @@ behavior unchanged until stage 4.
    `StateExecutor.moved`: a signal or call queued, an event dispatched, a timer or change
    trigger taken, a do behavior stepped, an attribute written), `actionCapture`/`stateCapture`
    carry the record through `Snapshot` and `Restore`, and `Context.Pristine` admits an object
-   whose executions are all unmoved and to which no signal is posted awaiting dispatch (the bus
-   is the context's, so a fresh object would not receive it) — so an object fresh from
+   whose executions are all unmoved, none waiting on a clock that has left zero (a fresh
+   context's clock starts there, so its wait would come due at another instant), and to which
+   no signal is posted awaiting dispatch, nor one open to any taker while it runs a behavior
+   (the bus is the context's, so a fresh object would not receive it) — so an object fresh from
    `%instantiate`, or the CLI's `-instantiate`, sweeps from its declaration in every row's
    context, as the sequential form ran it. An object that is not pristine — moved, written, or
    named by identity — is swept from a `runtime.HeldImage` under *What may be shared*:

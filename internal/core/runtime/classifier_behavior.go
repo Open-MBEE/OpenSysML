@@ -592,6 +592,18 @@ func (b *ObjectBehavior) Moved() bool {
 	}
 }
 
+// armedWaits lists the execution's waits on the clock, due or not.
+func (b *ObjectBehavior) armedWaits() []ClockWait {
+	switch {
+	case b.State != nil:
+		return b.State.armedWaits()
+	case b.Action != nil:
+		return b.Action.armedWaits()
+	default:
+		return nil
+	}
+}
+
 // runAttachedBehaviors runs everything attached, at the outermost start: a start
 // reached from inside a running behavior leaves the run to that one.
 func (ctx *Context) runAttachedBehaviors() error {

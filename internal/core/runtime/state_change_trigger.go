@@ -92,6 +92,7 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		// firing causes must not re-arm the edge that caused it.
 		e.changeFired[trans] = true
 		e.firingChange = trans
+		e.moved = true
 		_, err = e.fireFrom(candidate.source, trans, notes, candidate.route)
 		e.firingChange = nil
 		if err != nil {
@@ -103,7 +104,6 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		return fired, err
 	}
 	if fired {
-		e.moved = true
 		// The configuration changed, so a state left by this step no longer holds
 		// back the events it deferred.
 		e.recallDeferredEvents()

@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
@@ -21,8 +22,9 @@ func (e *HeldStateError) Error() string {
 	return fmt.Sprintf("object #%d (%s) %s", e.ID, symbolText(e.Type), e.Reason)
 }
 
-// Pristine reports whether inst is as its declaration materializes it: nothing written, no
-// behavior moved, no message awaiting, not destroyed. Else a HeldStateError names the reason.
+// Pristine reports whether inst is as its declaration materializes it in a fresh context:
+// nothing written, no behavior moved nor waiting on a clock past zero, no message awaiting
+// it or open to it, not destroyed. Else a HeldStateError names the reason.
 func (ctx *Context) Pristine(inst *Instance) error {
 	return ctx.pristine(inst, make(map[int64]bool))
 }
@@ -36,14 +38,25 @@ func (ctx *Context) pristine(inst *Instance, seen map[int64]bool) error {
 		return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: "was destroyed"}
 	}
 	for _, b := range inst.behaviors {
-		if !b.Moved() {
-			continue
-		}
 		name := b.Name
 		if name == "" {
 			name = symbolText(b.Symbol)
 		}
-		return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, an execution that has moved since its start", b.Kind, name)}
+		if b.Moved() {
+			return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, an execution that has moved since its start", b.Kind, name)}
+		}
+		// A fresh context's clock starts at zero, so a wait on a clock past zero
+		// is due at another instant than a fresh declaration's would be.
+		if waits := b.armedWaits(); len(waits) > 0 && ctx.clock.now != 0 {
+			return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s, which waits on the clock (%s) with the clock at t=%s, not at zero",
+				b.Kind, name, waits[0].What, semantics.FormatReal(ctx.clock.now))}
+		}
+		// A message addressed to no object in particular is open to this one's executions.
+		for _, msg := range ctx.messages {
+			if msg.Object == 0 {
+				return &HeldStateError{ID: inst.ID, Type: inst.Type, Reason: fmt.Sprintf("runs %s %s while a %s addressed to no object in particular awaits dispatch", b.Kind, name, msg.SignalType)}
+			}
+		}
 	}
 	for _, msg := range ctx.messages {
 		if msg.Object == inst.ID {

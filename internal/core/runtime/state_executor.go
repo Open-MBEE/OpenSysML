@@ -2166,10 +2166,16 @@ func (e *StateExecutor) dueLabel() string {
 // clockWaits lists the timers set for an instant the clock has not reached, and
 // the waits the do behaviors under way are paused on.
 func (e *StateExecutor) clockWaits() []ClockWait {
+	return notYetDue(e.armedWaits(), e.ctx.clock.now)
+}
+
+// armedWaits lists the timers set and the do behaviors' waits on the clock, due
+// or not, earliest first.
+func (e *StateExecutor) armedWaits() []ClockWait {
 	var waits []ClockWait
 	for _, event := range e.eventQueue.events {
 		trans, ok := event.Payload.(*lower.Transition)
-		if !ok || event.Timestamp <= e.ctx.clock.now {
+		if !ok {
 			continue
 		}
 		waits = append(waits, ClockWait{
@@ -2182,7 +2188,7 @@ func (e *StateExecutor) clockWaits() []ClockWait {
 		if act.run == nil {
 			continue
 		}
-		for _, wait := range act.run.clockWaits() {
+		for _, wait := range act.run.armedWaits() {
 			waits = append(waits, ClockWait{Due: wait.Due, Holder: e.dueLabel(), What: wait.What})
 		}
 	}

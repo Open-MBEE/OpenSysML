@@ -50,6 +50,15 @@ func (c *Clock) Waits() []ClockWait {
 	return waits
 }
 
+// notYetDue keeps the waits, given earliest first, for instants past now.
+func notYetDue(waits []ClockWait, now float64) []ClockWait {
+	i := slices.IndexFunc(waits, func(w ClockWait) bool { return w.Due > now })
+	if i < 0 {
+		return nil
+	}
+	return waits[i:]
+}
+
 // NextDue returns the earliest instant a wait comes due at past the current
 // one, false when nothing waits on the clock.
 func (c *Clock) NextDue() (float64, bool) {

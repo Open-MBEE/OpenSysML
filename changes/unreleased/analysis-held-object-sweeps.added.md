@@ -6,7 +6,8 @@
   transition fired, a timer or change trigger taken, a feature written — and a held object whose
   executions are all unmoved sweeps from its declaration in every row's context, printing the
   table the sequential form printed. A held object that has moved, been written, been sent a
-  signal not yet dispatched, or is named by `#<id>` is swept from one image of it and everything
+  signal not yet dispatched, waits on a clock that has moved, runs a behavior while a signal
+  open to any taker is in flight, or is named by `#<id>` is swept from one image of it and everything
   it holds, taken when the sweep begins and made afresh in each row's context under the same
   identities, with the executors' state and the posted signals: every row starts where the held
   object stands, no row sees another's writes, and the held object is byte for byte as it was
