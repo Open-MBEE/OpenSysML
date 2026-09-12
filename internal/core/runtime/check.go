@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
@@ -123,12 +125,14 @@ func (d Divergence) String() string {
 }
 
 // CheckFinal is one distinct outcome of the complete schedules and a schedule
-// reaching it; Values spells every feature divergence is reported over.
+// reaching it; Values spells every feature divergence is reported over, the
+// performing object's as `this.<name>`, and Outcome spells the action's outputs
+// with the object's values after them.
 type CheckFinal struct {
 	Outcome string
 	Values  map[string]string
 	Witness Witness
-	// identity is the outcome's identity, its rendering with every name quoted.
+	// identity is the outcome's identity with the object's values, every name quoted.
 	identity string
 }
 
@@ -324,17 +328,7 @@ func (c *checker) violate(v Violation) {
 
 // witness is the schedule so far: the choices the run noted and its trace.
 func (c *checker) witness() Witness {
-	var choices []ChoiceTaken
-	notes := c.ctx.Notes()
-	if c.exec != nil {
-		notes = c.exec.Notes()
-	}
-	for _, note := range notes {
-		if point, ok := note.(ChoicePoint); ok {
-			choices = append(choices, point.Choice())
-		}
-	}
-	w := Witness{Choices: choices}
+	w := Witness{Choices: c.ctx.ChoicesTaken()}
 	if tr := c.ctx.Trace(); tr != nil {
 		w.Trace = tr.String()
 	}
@@ -609,14 +603,22 @@ func (c *checker) evaluate(p CheckProperty) (bool, error) {
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
 	outcome := c.ctx.ActionOutcome(c.exec.Results())
-	identity := outcome.identity()
+	values := c.divergenceValues(outcome)
+	spelled, identity := outcome.String(), outcome.identity()
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if !strings.HasPrefix(name, "this.") {
+			continue
+		}
+		spelled += "; " + name + " = " + values[name]
+		identity += "; " + name + " = " + strconv.Quote(values[name])
+	}
 	if _, seen := c.finals[identity]; seen {
 		return
 	}
 	c.finals[identity] = len(c.results)
 	c.results = append(c.results, CheckFinal{
-		Outcome:  outcome.String(),
-		Values:   c.divergenceValues(outcome),
+		Outcome:  spelled,
+		Values:   values,
 		Witness:  c.witness(),
 		identity: identity,
 	})

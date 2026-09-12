@@ -247,7 +247,7 @@ func (s *Session) checkProperties() ([]runtime.CheckProperty, error) {
 		}
 		properties = append(properties, runtime.CheckProperty{Name: name, Holds: func(ctx *runtime.Context, exec *runtime.ActionExecutor) (bool, error) {
 			result, err := check(ctx, sym, scope, exec.Performer())
-			if err != nil {
+			if err != nil && !errors.Is(err, runtime.ErrViolated) {
 				return false, err
 			}
 			return result.Holds, nil
@@ -264,6 +264,11 @@ func checkStoppedVerdict(name string, err error) Verdict {
 		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
 			fmt.Sprintf("? Action %s: incomplete: time (%d states, %d moves, depth %d)", name, stopped.States, stopped.Moves, stopped.MaxDepth),
 			"  " + stopped.Cause.Error(),
+		}}
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return Verdict{Subject: name, Status: VerdictUnresolved, Lines: []string{
+			fmt.Sprintf("? Action %s: incomplete: time (the plan's clock ended before the search began)", name),
 		}}
 	}
 	return unresolvedVerdict(name, err.Error())

@@ -11,6 +11,8 @@ import (
 // The `replay:<file>` policy follows a witness — the choice lines `explore` prints,
 // one per move — move for move, then goes on as the first exploring run does: one
 // token per step, the first able to act, the first alternative at every other pick.
+// The runs of one context follow it in turn, as an exploration records them, so a
+// behavior an object runs before the action takes its moves first (Context.ChoicesTaken).
 // A move the run cannot make where the witness makes it is refused, naming the
 // move: a witness that cannot be followed is never silently resolved.
 
@@ -68,11 +70,14 @@ func (p SchedulePolicy) Replay() ([]ChoiceTaken, bool) {
 	return slices.Clone(p.replay.choices), true
 }
 
-// Unfollowed is the first witness move the last run under a `replay` policy could
-// not make — one refused, or one left over when the run ended — as a ReplayError;
-// nil when the run followed its witness whole or ran under another policy.
+// Unfollowed is the first witness move the context's runs under a `replay` policy
+// could not make — one refused, or one left over when the runs ended — as a
+// ReplayError; nil when they followed the witness whole or ran under another policy.
 func (ctx *Context) Unfollowed() error {
-	return ctx.run.scheduler.unfollowed("the run ended")
+	if ctx.replaying == nil {
+		return nil
+	}
+	return ctx.replaying.unfollowed("the run ended")
 }
 
 // Choice is the choice point as a witness lists it: what ChoiceTaken.String spells
@@ -174,7 +179,7 @@ func ParseChoice(text string) (ChoiceTaken, error) {
 	return fail("not a token order, branch, transition or region order")
 }
 
-// replayRun follows one run's witness: the moves left and the first it refused.
+// replayRun follows a context's witness: the moves left and the first it refused.
 type replayRun struct {
 	choices []ChoiceTaken
 	next    int
@@ -215,10 +220,8 @@ type replayMove struct {
 	taken   int
 }
 
-// beginStep resolves the step: the witness's move when it is at this step and each
-// of its tokens is able to act, else — with one token at most able to act, or the
-// witness spent — the first able to act and the rest after; two able to act with a
-// move left for neither is a refusal.
+// beginStep resolves the step: two tokens able to act take the witness's next move
+// (a token order at this step) or refuse it; fewer is no choice and takes no move.
 func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	m := &replayMove{run: r, step: tokens.step}
 	var enabled, rest, held []int64
@@ -239,40 +242,35 @@ func (r *replayRun) beginStep(tokens stepTokens) *replayMove {
 	for i, id := range enabled {
 		m.enabled[i] = tokens.label(id)
 	}
-	if !r.following() {
+	if !r.following() || len(enabled) < 2 {
 		m.order = slices.Concat(enabled, rest, held)
 		return m
 	}
-	able := "none is able to act"
-	if len(m.enabled) > 0 {
-		able = "able to act: " + strings.Join(m.enabled, ", ")
-	}
+	able := "able to act: " + strings.Join(m.enabled, ", ")
 	c := &r.choices[r.next]
-	if c.Kind == ChoiceTokenOrder && c.Step == tokens.step {
-		for _, alt := range c.Among {
-			if !slices.Contains(m.enabled, alt) {
-				r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, alt, able))
-				return m
-			}
-		}
-		m.taken = slices.Index(m.enabled, c.Took)
-		if m.taken < 0 {
-			r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, c.Took, able))
-			return m
-		}
-		r.next++
-		m.choice = c
-		m.order = []int64{enabled[m.taken]}
-		return m
-	}
 	switch {
+	case c.Kind == ChoiceTokenOrder && c.Step == tokens.step:
 	case c.Step > 0 && c.Step < tokens.step:
 		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", tokens.step, c.Step))
-	case len(enabled) >= 2:
-		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
+		return m
 	default:
-		m.order = slices.Concat(enabled, rest, held)
+		r.refuse(fmt.Sprintf("step %d: the run must pick a token (%s) and the witness names none", tokens.step, able))
+		return m
 	}
+	for _, alt := range c.Among {
+		if !slices.Contains(m.enabled, alt) {
+			r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, alt, able))
+			return m
+		}
+	}
+	m.taken = slices.Index(m.enabled, c.Took)
+	if m.taken < 0 {
+		r.refuse(fmt.Sprintf("step %d: %s is not able to act (%s)", tokens.step, c.Took, able))
+		return m
+	}
+	r.next++
+	m.choice = c
+	m.order = []int64{enabled[m.taken]}
 	return m
 }
 
@@ -327,8 +325,12 @@ func (r *replayRun) choose(c ChoicePoint, whereOf func(i int) string) int {
 	if whereOf != nil && taken >= 0 {
 		c.Where = whereOf(taken)
 	}
-	if w.Kind != c.Kind || w.Step != c.Step || w.Where != c.Where {
+	if w.Kind != c.Kind || w.Where != c.Where {
 		r.refuse("the run faced " + c.Describe())
+		return 0
+	}
+	if w.Step != c.Step {
+		r.refuse(fmt.Sprintf("the run is at step %d and step %d had no such move", c.Step, w.Step))
 		return 0
 	}
 	for _, alt := range w.Among {

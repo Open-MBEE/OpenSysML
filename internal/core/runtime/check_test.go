@@ -223,6 +223,56 @@ func TestCheckReplayDisagreesWithATamperedWitness(t *testing.T) {
 	}
 }
 
+// A performed action's witness lists the choices of every run of the context: the
+// performer's own behaviors run before the action starts, and their choice points
+// come first. Each divergent value replays, so `this.<name>` is witnessed.
+func TestCheckWitnessesAPerformedActionThroughItsPerformer(t *testing.T) {
+	m := parseLibraryModel(t, `package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute level : Integer = 0;
+			perform action fill {
+				first start;
+				fork split;
+				action a { assign this.level := 1; }
+				action b { assign this.level := 2; }
+				join sync;
+				done;
+				succession first start then split;
+				succession first split then a;
+				succession first split then b;
+				succession first a then sync;
+				succession first b then sync;
+				succession first sync then done;
+			}
+		}
+	}`)
+	fill := m.idx.LookupQualified("test::Tank::fill")[0]
+	tank := m.idx.LookupQualified("test::Tank")[0]
+	start := func(ctx *Context) (*ActionExecutor, error) {
+		self, err := ctx.Instantiate(tank)
+		if err != nil {
+			return nil, err
+		}
+		return ctx.CreateActionExecutorFor(fill, self)
+	}
+	report, err := CheckAction(context.Background(), m.fresh, start, CheckBudget{}, CheckOptions{Reduce: true, Diverge: []string{"this.level"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := divergentValues(report, "this.level"); !slices.Equal(got, []string{"1", "2"}) {
+		t.Fatalf("this.level diverges over %v, want [1 2]: %s", got, report.Status())
+	}
+	for _, d := range report.Divergent {
+		for _, v := range d.Values {
+			if len(v.Witness.Choices) != 2 {
+				t.Fatalf("%s = %s: witness %s, want the performer's move and the action's", d.Feature, v.Value, FormatChoices(v.Witness.Choices))
+			}
+			replayWitness(t, m, start, v.Witness, d.Feature+" = "+v.Value)
+		}
+	}
+}
+
 // The failure modes of the robustness tests are violations on the schedule that
 // reaches them, each with its witness, not errors of the search.
 func TestCheckReportsFailuresAsViolations(t *testing.T) {

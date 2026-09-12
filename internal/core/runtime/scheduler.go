@@ -221,7 +221,8 @@ func (p SchedulePolicy) Exploration() (ExploreBudget, bool) {
 // fixed schedule, which a debugger steps as any other.
 func (p SchedulePolicy) Replays() bool { return p.kind == scheduleReplay }
 
-// start begins the sequence of resolutions one run draws under the policy.
+// start begins the sequence of resolutions one run draws under the policy; a
+// replaying run continues the context's witness (replay.go), set apart.
 func (p SchedulePolicy) start() *scheduler {
 	s := &scheduler{policy: p}
 	switch p.kind {
@@ -229,8 +230,6 @@ func (p SchedulePolicy) start() *scheduler {
 		s.pcg = rand.NewPCG(p.seed, 0)
 		// #nosec G404 -- a replayable run needs a stated generator, not a cryptographic one.
 		s.rng = rand.New(s.pcg)
-	case scheduleReplay:
-		s.replay = &replayRun{choices: p.replay.choices}
 	case scheduleCheck:
 		s.check = &checkRun{script: p.check}
 	}
@@ -239,8 +238,8 @@ func (p SchedulePolicy) start() *scheduler {
 
 // scheduler resolves the choice points of one run under a policy; a seeded one
 // carries the generator state the run consumes choice by choice, an exploring
-// one the exploration run the context takes part in, a replaying one its
-// position in the witness.
+// one the exploration run the context takes part in, a replaying one the
+// context's position in the witness.
 type scheduler struct {
 	policy  SchedulePolicy
 	pcg     *rand.PCG
@@ -427,15 +426,6 @@ func (s *scheduler) refusal() error {
 		return nil
 	}
 	return s.replay.refused
-}
-
-// unfollowed is the refusal of a replaying run that ended, as how says, with
-// witness moves left; nil for a run that followed its witness.
-func (s *scheduler) unfollowed(how string) error {
-	if s == nil || s.replay == nil {
-		return nil
-	}
-	return s.replay.unfollowed(how)
 }
 
 // mark returns the state a probe restores, so previewing a run does not move

@@ -383,7 +383,9 @@ func stateRun(sym *symbols.Symbol, signal string) func(*Context) (Outcome, error
 
 // A witness move the run cannot make is refused with a typed error naming the
 // move: a token not able to act, a branch not holding, a move at a step the run
-// is past, a move where the run has none, and one left over when the run ends.
+// is past once it faces a choice, a move where the run has none, and one left
+// over when the run ends. A step where one token acts is no choice, so a move
+// there waits for the next choice point and is refused as past at it.
 func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	m := parseExploreModel(t, choiceModel)
 	sym := m.action(t, "route")
@@ -409,7 +411,7 @@ func TestReplayRefusesAMoveNotEnabled(t *testing.T) {
 	}{
 		{"token not able", "step 3: 9@zzz first of 2@a, 9@zzz", 1, "9@zzz is not able to act (able to act: 2@a, 3@b, 4@c)"},
 		{"alternative not able", "step 3: 2@a first of 2@a, 9@zzz", 1, "9@zzz is not able to act"},
-		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "is not able to act"},
+		{"token order where one token acts", "step 1: 1@a first of 1@a, 2@b", 1, "the run is at step 3 and step 1 had no such move"},
 		{"step already past", "step 1: decision select -> 1->warn", 1, "step 1 had no such move"},
 		{"branch not holding", orders + "step 7: decision select -> 3->nowhere", 3, "3->nowhere is not enabled (enabled: 1->warn, 2->alarm)"},
 		{"branch at the wrong place", orders + "step 7: decision elsewhere -> 1->warn", 3, "the run faced"},
