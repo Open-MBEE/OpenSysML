@@ -135,6 +135,7 @@ exclude_docs: |
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
+  project/pssm-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
   project/validation-constraints.md
