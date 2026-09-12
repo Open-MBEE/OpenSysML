@@ -18,7 +18,7 @@ standard library package DiagramLayout {
     metadata def Route {
         doc /* The waypoints a connection, transition, succession or flow is
              * drawn through, in order, flattened as x0, y0, x1, y1, ... */
-        attribute points : ScalarValues::Real[0..*] ordered;
+        attribute points : ScalarValues::Real[0..*] ordered nonunique;
     }
 
     metadata def Canvas {
