@@ -1079,7 +1079,194 @@ as a connector object of its own. Nothing in PSCS would supply that object; it i
 
 ## The count
 
+Sixty-nine rows: 45 for state machines, 14 for actions, 10 for composite structures. Each
+carries one verdict.
+
+| Verdict | Rows |
+|---|---:|
+| **agrees** | 51 |
+| **differs because v2 differs** | 6 |
+| **differs, v2 silent** | 8 |
+| **gap** | 4 |
+| **Total** | **69** |
+
+The six **differs because v2 differs** rows are SM15 (a do activity and the machine competing
+for one occurrence), SM36 (local transitions), SM37 (internal transitions), A12 (accept event:
+a message no accepter takes stays in flight), C6 (behavior ports) and C9 (interface-typed ports
+and name-based dispatch). On each, SysML v2 or the Kernel Semantic Library states the rule the
+runtime follows, quoted in the row; adopting PSSM, fUML or PSCS there would move the runtime
+away from the specification it implements, so none of them is a candidate for a port.
+
+The eight **differs, v2 silent** rows, the only ones on which a port could change behavior
+without contradicting v2:
+
+- **SM7** — a deferrable occurrence that also enables a transition in an enclosing state or a
+  sibling region: PSSM defers it unless the transition is more deeply nested than the deferring
+  state, the runtime lets any enabled transition consume it.
+- **SM11** — what the completion of a composite state completes: PSSM fires the composite
+  state's own completion transition and the machine goes on, the runtime propagates the completion
+  outward to the machine and never fires a completion transition out of a composite state.
+- **SM28** — history with nothing to restore and no default history transition: PSSM enters the
+  region's initial pseudostate, the runtime refuses the run.
+- **SM30** — choice guards: PSSM reads them on arrival, the runtime reads them before the step,
+  as for a junction.
+- **SM32** — a junction none of whose outgoing guards holds: PSSM disables the compound
+  transition and the occurrence is deferred or lost, the runtime selects the incoming transition
+  and fails the run.
+- **SM45** — destroying an object whose behavior is still performing: fUML stops the behavior and
+  destroys, the runtime refuses the destruction.
+- **C3** — a connector between multi-valued ends: PSCS instantiates one link per matching pair
+  (array pattern) or a full cross product (star pattern), the runtime one connector object whose
+  ends span the collections.
+- **C8** — a send that reaches no receiver: PSCS loses the occurrence, the runtime fails the
+  send with a typed error.
+
+The four **gap** rows:
+
+- **SM38** — terminate (the roadmap's "terminate in a body" entry under Track E).
+- **A8** — streaming flows (the roadmap's "streaming flows" entry).
+- **A9** — parallel expansion regions (the roadmap's "concurrent per-element performance"
+  entry).
+- **A10** — interruptible regions (the roadmap's "interrupting an ongoing performance" entry).
+
+Every gap is already a Track E entry with a v2 basis of its own; a port of the precise-semantics
+text would not close any of them, because each is a v2 concept the runtime lacks, not a UML
+concept v2 lacks. Terminate is the one gap the PSSM suite tests directly (three tests); the
+other three are fUML rows no PSSM test reaches.
+
 ## The test suite as a referee: a capability map
+
+The question this section answers is the one the pilot execution referee's note asks of the
+pilot: how far can the PSSM test suite adjudicate the runtime's behavior, and what would a
+verdict from it mean? The comparison assumes a harness that translates each test's UML model
+into a `.sysml` model by hand or by rule, drives it with the test's stimulation sequence, and
+compares what the translated model records with the expected trace(s). No such harness exists;
+nothing below describes one that has been run.
+
+| Aspect of the suite | Verdict | Why |
+|---|---|---|
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 73 of 103** (37 with standard notation, 33 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 30** | Every test's state machine was classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
+| **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("S1(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "S1(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
+| **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
+| **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(S1)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
+| **A pass as evidence about SysML v2 semantics** | **Only on the eight `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (51 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (8 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
+
+### Which UML construct maps to which notation
+
+| UML construct in the tests | SysML v2 spelling | Class |
+|---|---|---|
+| State machine as classifier behavior, states, initial pseudostate, final state | `state def`/`state`, `exhibit state`, `entry; then s`, `then done` (§7.18.2) | standard |
+| Entry, exit and do behaviors | `entry action`, `exit action`, `do action` (§7.18.2) | standard |
+| External transition with a signal trigger, guard and effect | `transition first s accept Sig if g do { … } then t` (§7.18.2, §7.18.3) | standard |
+| Completion transition | `transition first s then t` / `succession first s then t` with no accepter (§7.18.3) | standard |
+| Orthogonal regions | `parallel` states (§7.18.1) | standard |
+| Call event trigger | `accept op(args)` on an operation invocation, as `state_call_trigger` spells it | standard, with the caller-return caveat of A14 |
+| Deferrable trigger | `defer Sig;` — this project's extension | extension |
+| Fork, join, junction, choice, shallow and deep history pseudostates | State-body `fork`/`join`/`junction`/`choice`/`history`/`deep history` — this project's extensions | extension |
+| Terminate pseudostate | `terminate` — accepted by the parser, refused by the runtime (SM38) | spellable, runtime gap |
+| Entry point, exit point (connection points and connection point references) | none | no spelling |
+| Local transition, internal transition | none (SM36, SM37) | no spelling |
+| State machine generalization: extended regions, redefined transitions | none | no spelling |
+
+The classification is by construct, in the order of the table: a test whose model uses any
+construct with no spelling is counted as not expressible whatever else it uses; otherwise it is
+counted under the gap if it uses `terminate`, under the extensions if it uses any of them, and as
+standard otherwise. By area:
+
+| Area | Tests | Standard | Extension | Terminate gap | No spelling |
+|---|---:|---:|---:|---:|---:|
+| Behavior | 5 | 4 | 0 | 0 | 1 |
+| Transition | 15 | 8 | 1 | 0 | 6 |
+| Event | 16 | 16 | 0 | 0 | 0 |
+| Entering | 5 | 4 | 0 | 0 | 1 |
+| Exiting | 5 | 4 | 0 | 0 | 1 |
+| Entry (entry points) | 6 | 0 | 0 | 0 | 6 |
+| Exit (exit points) | 3 | 0 | 0 | 0 | 3 |
+| Choice | 5 | 0 | 5 | 0 | 0 |
+| Junction | 6 | 0 | 5 | 0 | 1 |
+| Fork | 2 | 0 | 1 | 0 | 1 |
+| Join | 3 | 0 | 3 | 0 | 0 |
+| Final | 1 | 1 | 0 | 0 | 0 |
+| Terminate | 3 | 0 | 0 | 3 | 0 |
+| History | 8 | 0 | 8 | 0 | 0 |
+| Deferred | 10 | 0 | 10 | 0 | 0 |
+| Redefinition | 6 | 0 | 0 | 0 | 6 |
+| Standalone | 3 | 0 | 0 | 0 | 3 |
+| Other | 1 | 0 | 0 | 0 | 1 |
+| **Total** | **103** | **37** | **33** | **3** | **30** |
+
+Of the 30 with no spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2 an
+internal transition and 6 the redefinition machinery (several use more than one). Of the 70
+expressible and runnable tests, 21 use orthogonal regions, 10 a do activity, 10 deferral, 8
+history, 6 a junction, 5 a choice, 6 a fork or join and 6 a call event.
+
+### What a translated test looks like
+
+*Deferred 001* (PSSM §9.3.16.2, Figure 9.90) exercises deferral in a simple state: `Continue`
+arrives while `S1` defers it, `AnotherSignal` moves the machine to `S2`, the recalled `Continue`
+fires `T4` ahead of the later `Pending`, and `S3`'s completion transition ends the machine with
+`Pending` never dispatched. Expected trace `S1(exit)::S2(entry)::T4(effect)::S3(entry)`. Written
+by hand from the figure, with this project's `defer`:
+
+```sysml
+package Deferred001 {
+    private import ScalarValues::*;
+
+    state def Deferred001 {
+        attribute log : String = "";
+
+        entry; then wait;
+        state wait;
+        state S1 {
+            defer Continue;
+            exit action { assign log := log + "S1(exit)::"; }
+        }
+        state S2 {
+            entry action { assign log := log + "S2(entry)::"; }
+        }
+        state S3 {
+            entry action { assign log := log + "S3(entry)"; }
+        }
+
+        transition first wait accept Start then S1;
+        transition first S1 accept AnotherSignal then S2;
+        transition first S2 accept Continue do { assign log := log + "T4(effect)::"; } then S3;
+        transition first S2 accept Pending do { assign log := log + "T5(effect)::"; } then S3;
+        succession first S3 then done;
+    }
+}
+```
+
+The case's `events` would list `Start`, `Continue`, `AnotherSignal`, `Pending` and its `slots`
+the expected `log`. Every step of it lands on an **agrees** row (SM4 dispatch order, SM5
+deferral, SM6 recall order, SM8/SM10 completion ahead of `Pending`), which is exactly why a pass
+would corroborate but not adjudicate: v2 and PSSM say the same thing here. The example is prose,
+not a fixture, and whether the runtime passes it is not asserted.
+
+*Transition 011-D* (PSSM §9.3.3.7, Figure 9.17) is the other kind: a *local* transition out of
+`S1` to one of its own exit points, whose purpose is "to demonstrate that, when a local
+transition leaves the containing state, then this state is not exited". It has no SysML v2
+spelling (SM36) and none of this project's extensions reaches it; a translation to an external
+transition would exit `S1` and produce a trace PSSM rejects, and the disagreement would be v2's,
+not the runtime's. Its two admissible traces (`S1.1(exit)::S2.1(exit)` and the reverse) are the
+pattern the `outcomes` mechanism already handles for the expressible orthogonal-region tests.
+
+### What the suite is, and is not, for this runtime
+
+An advisory PSSM comparison would generally test reproduction of UML behavior unless the UML
+model and semantics have a defensible SysML v2 mapping; it must not be described as proof of
+SysML v2 conformance. Concretely: of the 70 expressible and runnable tests, every one whose
+requirement lands on an **agrees** row checks that the runtime does what UML and v2 both say;
+the tests that land on SM7, SM11, SM28, SM30 and SM32 — *Deferred 004-A/B* and their kin, whose
+deferring state has a competing transition in a sibling region; the tests whose composite state
+owns a completion transition; a history test entered with nothing recorded and no default; a
+choice whose guard reads what the incoming effect wrote; and *Junction 002* — are the ones that
+would report on a tool choice; and the 30 tests
+with no spelling, together with any test that reaches SM15, SM36 or SM37, would fail for reasons
+that are v2's, and a harness would have to exclude them by classification rather than report
+them as failures. Used that way, the suite is a second opinion on eight rows and a regression
+oracle for fifty-one; it is never a conformance statement about SysML v2.
 
 ## Options
 
