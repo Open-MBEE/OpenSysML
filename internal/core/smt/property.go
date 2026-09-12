@@ -141,15 +141,24 @@ func (e *Encoding) adopt(translator *solve.Translator, expr *solve.Expression, w
 	return nil
 }
 
-// sound holds when state i is one the interpreter reaches without an error:
-// no move so far failed or overflowed the token slots.
-func (e *Encoding) sound(i int) *solve.Term {
+// exact holds when state i is one the interpreter reaches as encoded: no move
+// so far failed, overflowed the token slots or ran a body loop past its unrolling.
+func (e *Encoding) exact(i int) *solve.Term {
+	return solve.And(solve.Not(solve.VarTerm(e.States[i].Failed)), solve.Not(e.cut(i)))
+}
+
+// cut holds when a bound has cut state i short of the interpreter's run: a
+// fork found no free slot, or a body loop ran past its unrolling.
+func (e *Encoding) cut(i int) *solve.Term {
 	s := e.States[i]
-	terms := []*solve.Term{solve.Not(solve.VarTerm(s.Failed))}
+	terms := make([]*solve.Term, 0, len(s.Loop)+1)
 	if s.Overflow != nil {
-		terms = append(terms, solve.Not(solve.VarTerm(s.Overflow)))
+		terms = append(terms, solve.VarTerm(s.Overflow))
 	}
-	return solve.And(terms...)
+	for _, flag := range s.Loop {
+		terms = append(terms, solve.VarTerm(flag))
+	}
+	return solve.Or(terms...)
 }
 
 // MarkVar is the integer variable a violation or failure query adds: the state
@@ -162,22 +171,22 @@ const MarkVar = "mark"
 func (e *Encoding) Violation(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
-		cases = append(cases, solve.And(e.sound(i), p.Violated[i]))
+		cases = append(cases, solve.And(e.exact(i), p.Violated[i]))
 	}
 	return e.marked(cases, "violation of "+p.Name)
 }
 
-// Failure is the query satisfiable exactly when some run of at most k moves
-// meets what the interpreter reports as an error rather than an outcome: a
-// body or guard that fails, a token the slots cannot hold, or p undecidable.
+// Failure is the query satisfiable exactly when some run of at most k moves,
+// within the bounds, meets what the interpreter reports as an error rather
+// than an outcome: a body or guard that fails, or p undecidable.
 func (e *Encoding) Failure(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
-		failed := solve.Not(e.sound(i))
+		failed := solve.VarTerm(e.States[i].Failed)
 		if p != nil {
 			failed = solve.Or(failed, p.Undefined[i])
 		}
-		cases = append(cases, failed)
+		cases = append(cases, solve.And(solve.Not(e.cut(i)), failed))
 	}
 	return e.marked(cases, "failure")
 }
@@ -195,18 +204,58 @@ func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {
 	return q
 }
 
-// Uncertainty is the query satisfiable exactly when some run of k moves is
-// cut short by the bound: a token may still act after move k, or a body loop
-// ran past its unrolling. Unsatisfiable, every run ends within the bounds and
-// a property no run violates is proved rather than bounded.
+// Uncertainty is the query satisfiable exactly when some run of k moves that
+// does not fail is cut short by a bound: a token may still act after move k, a
+// body loop ran past its unrolling, or a fork found no free slot. Unsatisfiable,
+// every run ends within the bounds and a property no run violates is proved
+// rather than bounded. Its model reads back through Cuts.
 func (e *Encoding) Uncertainty() *solve.Query {
 	k := e.Moves
 	live := solve.Or(e.Choosable[k]...)
-	loops := make([]*solve.Term, 0, len(e.States[k].Loop))
-	for _, flag := range e.States[k].Loop {
-		loops = append(loops, solve.VarTerm(flag))
+	return e.query(solve.And(solve.Not(solve.VarTerm(e.States[k].Failed)), solve.Or(live, e.cut(k))), "cut by the bound")
+}
+
+// Cut is which bounds a model of Uncertainty shows reached.
+type Cut struct {
+	// Moves: a token may still act after move k.
+	Moves bool
+	// Unroll: a body loop ran past its unrolling.
+	Unroll bool
+	// Slots: a fork found no free token slot.
+	Slots bool
+}
+
+// Cuts reads a model of Uncertainty back as the bounds it reached.
+func (e *Encoding) Cuts(result *solve.Result) (Cut, error) {
+	if result == nil || result.Status != solve.StatusSat || len(result.Model) == 0 {
+		return Cut{}, ErrNoWitness
 	}
-	return e.query(solve.And(e.sound(k), solve.Or(live, solve.Or(loops...))), "cut by the bound")
+	m, err := readModel(result.Model)
+	if err != nil {
+		return Cut{}, err
+	}
+	var c Cut
+	s := e.States[e.Moves]
+	for _, slot := range s.Slots {
+		able, err := m.boolean(slot.Able.Name)
+		if err != nil {
+			return Cut{}, err
+		}
+		c.Moves = c.Moves || able
+	}
+	for _, flag := range s.Loop {
+		ran, err := m.boolean(flag.Name)
+		if err != nil {
+			return Cut{}, err
+		}
+		c.Unroll = c.Unroll || ran
+	}
+	if s.Overflow != nil {
+		if c.Slots, err = m.boolean(s.Overflow.Name); err != nil {
+			return Cut{}, err
+		}
+	}
+	return c, nil
 }
 
 // query is the relation with one more assertion, sharing the relation's own.

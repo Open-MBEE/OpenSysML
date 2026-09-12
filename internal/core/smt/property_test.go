@@ -93,7 +93,7 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 						want = solve.StatusSat
 					}
 				}
-				q := enc.query(solve.And(enc.sound(i), p.Violated[i]), "probe")
+				q := enc.query(solve.And(enc.exact(i), p.Violated[i]), "probe")
 				if got := solveStatus(t, solver, q); got != want {
 					t.Errorf("violated at state %d: %v, want %v", i, got, want)
 				}
