@@ -2,25 +2,24 @@
   "type": "state",
   "events": [
     {
-      "signal": "First"
+      "signal": "Go"
     },
     {
-      "signal": "Second"
+      "signal": "Again"
     }
   ],
-  "finalState": "done",
+  "finalState": "idle",
   "stateVisits": [
-    "busy",
-    "lstart",
-    "rstart",
+    "idle",
+    "outer",
     "done",
     "done",
-    "done"
+    "idle"
   ],
   "outputs": {
     "log": {
       "type": "String",
-      "value": "l;r;busy;"
+      "value": "in;outer;"
     }
   },
   "trace": true

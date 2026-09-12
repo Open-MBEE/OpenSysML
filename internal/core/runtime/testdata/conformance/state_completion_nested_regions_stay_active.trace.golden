@@ -22,5 +22,5 @@ stmt action body
       eval feature log -> "l;r;"
       eval literal "busy;" -> "busy;"
     eval operator + -> "l;r;busy;"
-enter: done
-transition: busy -> done
+enter: idle
+transition: busy -> idle (event: accept Reset)

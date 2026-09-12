@@ -564,10 +564,10 @@ func (g *StateGraph) completion(owner ast.Node, scope *symbols.Scope, span sourc
 }
 
 // completionOwner is the body a `done` written among node's members completes:
-// a state standing for an orthogonal region completes that region, any other
-// state defers to the region or machine it is nested in.
+// the state node declares (a region, when it stands for one), else the region
+// or machine body it is written in.
 func (g *StateGraph) completionOwner(node, outer ast.Node) ast.Node {
-	if state := g.findStateDecl(node); state != nil && g.HiddenRegionOf[state] != nil {
+	if g.findStateDecl(node) != nil {
 		return node
 	}
 	return outer
@@ -1403,7 +1403,7 @@ func collectStateTransitions(graph *StateGraph, usage *ast.Usage, owner ast.Node
 			containing = usage
 		}
 		if err := collectGroupTransitions(graph, group, containing,
-			graph.completionOwner(containing, owner), graph.entryOwner(state)); err != nil {
+			graph.completionOwner(usage, owner), graph.entryOwner(state)); err != nil {
 			return err
 		}
 	}

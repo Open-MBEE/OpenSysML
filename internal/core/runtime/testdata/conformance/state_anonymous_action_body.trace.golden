@@ -74,6 +74,9 @@ do: nested
 stmt action body
 exit: nested (exit action)
 stmt action body
+enter: done
+transition: nested -> done
+exit: done
 exit: working (exit action)
 stmt action body
   stmt assign log
@@ -82,5 +85,5 @@ stmt action body
       eval operator * -> 321870
       eval literal 9 -> 9
     eval operator + -> 321879
-enter: done
-transition: working -> done
+enter: finished
+transition: working -> finished

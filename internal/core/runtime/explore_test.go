@@ -319,9 +319,9 @@ func TestExploreStateTransitionConflict(t *testing.T) {
 
 // A choice whose branches are enabled only by the incoming transition's effect is
 // a choice point resolved as the choice is reached: exploration enumerates both
-// branches, each witness naming the choice and the branch taken; the run whose
-// effect is not run first — a junction's static reading — would find neither
-// branch enabled.
+// branches, each witness naming the choice and the branch taken, and a seed that
+// drew a branch draws it again; the run whose effect is not run first — a
+// junction's static reading — would find neither branch enabled.
 func TestExploreDynamicChoiceBranches(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		state def Machine {
@@ -341,7 +341,7 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 		t.Fatal(err)
 	}
 	sym := m.state(t, "Machine")
-	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+	run := func(ctx *Context) (Outcome, error) {
 		exec, err := newStateExecutor(ctx, sym, nil)
 		if err != nil {
 			return Outcome{}, err
@@ -354,7 +354,8 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 			return Outcome{}, err
 		}
 		return exec.Outcome(), nil
-	})
+	}
+	x, err := Explore(context.Background(), policy, m.fresh, run)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -368,6 +369,48 @@ func TestExploreDynamicChoiceBranches(t *testing.T) {
 	w := x.Outcomes[1].Witness
 	if len(w) != 1 || w[0].Kind != ChoiceTransition || w[0].Where != "choice pick" || !strings.HasSuffix(w[0].Took, "->right") {
 		t.Fatalf("witness of right %v, want the branch of choice pick into right", w)
+	}
+
+	under := func(spelling string) (Outcome, ChoicePoint) {
+		t.Helper()
+		fixed, err := ParseSchedulePolicy(spelling)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, err := m.fresh()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ctx.SetSchedule(fixed); err != nil {
+			t.Fatal(err)
+		}
+		outcome, err := run(ctx)
+		if err != nil {
+			t.Fatalf("%s: %v", spelling, err)
+		}
+		notes := ctx.Notes()
+		if len(notes) != 1 {
+			t.Fatalf("%s: notes %v, want the one choice at pick", spelling, notes)
+		}
+		choice, ok := notes[0].(ChoicePoint)
+		if !ok || choice.Kind != ChoiceTransition || choice.Where != "choice pick" {
+			t.Fatalf("%s: note %v, want the branch choice at pick", spelling, notes[0])
+		}
+		return outcome, choice
+	}
+	reached := make(map[int]bool)
+	for _, spelling := range []string{"seed:1", "seed:2", "seed:3", "seed:6"} {
+		outcome, choice := under(spelling)
+		if got := outcome.String(); got != want[choice.Taken] {
+			t.Fatalf("%s: outcome %q after taking %s, want %q", spelling, got, choice.Alternatives[choice.Taken], want[choice.Taken])
+		}
+		if again, _ := under(spelling); again.String() != outcome.String() {
+			t.Fatalf("%s: outcome %q, then %q; want the seed to replay its run", spelling, outcome, again)
+		}
+		reached[choice.Taken] = true
+	}
+	if len(reached) != 2 {
+		t.Fatalf("seeds reached only %v, want both branches of pick", reached)
 	}
 }
 

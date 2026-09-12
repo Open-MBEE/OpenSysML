@@ -6,16 +6,19 @@
     },
     {
       "signal": "Second"
+    },
+    {
+      "signal": "Reset"
     }
   ],
-  "finalState": "done",
+  "finalState": "idle",
   "stateVisits": [
     "busy",
     "lstart",
     "rstart",
     "done",
     "done",
-    "done"
+    "idle"
   ],
   "outputs": {
     "log": {

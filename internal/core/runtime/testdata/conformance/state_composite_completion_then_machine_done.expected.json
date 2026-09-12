@@ -1,26 +1,17 @@
 {
   "type": "state",
-  "events": [
-    {
-      "signal": "First"
-    },
-    {
-      "signal": "Second"
-    }
-  ],
   "finalState": "done",
   "stateVisits": [
-    "busy",
-    "lstart",
-    "rstart",
+    "s1",
+    "s11",
     "done",
-    "done",
+    "s2",
     "done"
   ],
   "outputs": {
     "log": {
       "type": "String",
-      "value": "l;r;busy;"
+      "value": "s1;s11;/s11;/s1;s2;/s2;"
     }
   },
   "trace": true

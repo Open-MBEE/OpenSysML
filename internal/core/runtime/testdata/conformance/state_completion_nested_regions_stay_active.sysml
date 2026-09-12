@@ -1,10 +1,10 @@
-// The orthogonal regions of a composite state complete the state, not the
-// machine: `busy` stays active while one of its regions still runs, and once
-// both reach `done` its own completion transition fires, exiting `busy` and
-// completing the machine through its `done`.
+// A composite state whose regions all reached `done` but which has no
+// completion transition stays completed and active: the machine keeps running
+// with `busy` at `done+done`, and `busy` still takes the event it accepts.
 package test {
     attribute def First;
     attribute def Second;
+    attribute def Reset;
 
     state sm {
         attribute log : String = "";
@@ -27,6 +27,7 @@ package test {
                 transition first rstart accept Second then done;
             }
         }
-        transition first busy then done;
+        state idle;
+        transition first busy accept Reset then idle;
     }
 }

@@ -479,8 +479,9 @@ func (e *StateExecutor) scheduleFromLeaf(leaf *ast.StateNode) error {
 
 // scheduleCompletionTransitions queues the completion transitions of a state
 // whose guard holds. A state completes only once its do behavior has finished,
-// so a state still running one is skipped here and scheduled by runDoRound when
-// the behavior ends.
+// so a state still running one is skipped here and scheduled by settleDoActions
+// when the behavior ends; a composite state's body reaching `done` schedules
+// them through completeIfDone.
 func (e *StateExecutor) scheduleCompletionTransitions(state *ast.StateNode) error {
 	if e.hasRunningDoAction(state) {
 		return nil
@@ -1632,11 +1633,14 @@ func (e *StateExecutor) moveTo(trans *lower.Transition, currentState *ast.StateN
 	return nil
 }
 
-// completeIfDone completes a machine when a completion vertex is reached, or a
-// composite state whose every region started in one; an orthogonal region
-// completing does so only once its siblings completed too.
+// completeIfDone acts on what entering target completed: a composite state
+// whose body reached `done` schedules its own completion transitions, and the
+// machine completes once its own body or every top-level region has.
 func (e *StateExecutor) completeIfDone(target *ast.StateNode) error {
-	if !e.stateComplete(target) || !e.machineComplete(target) {
+	if err := e.scheduleCompletedComposites(target); err != nil {
+		return err
+	}
+	if !e.machineComplete() {
 		return nil
 	}
 	if err := e.exitMachine(); err != nil {
@@ -1647,39 +1651,70 @@ func (e *StateExecutor) completeIfDone(target *ast.StateNode) error {
 	return nil
 }
 
-// machineComplete reports whether every region concurrent with the one that
-// reached a completion vertex completed, outward to the machine's own regions.
-func (e *StateExecutor) machineComplete(target *ast.StateNode) bool {
-	region := e.graph.RegionOf[target]
-	for {
-		var owner *ast.StateNode
-		siblings := e.graph.TopRegions
-		if region != nil {
-			if regionOwner := e.graph.RegionOwner[region]; regionOwner != nil {
-				owner = regionOwner
-				siblings = e.graph.CompositeStates[regionOwner]
-			}
+// scheduleCompletedComposites schedules the completion transitions of each
+// composite state that entering target completed, in region order.
+func (e *StateExecutor) scheduleCompletedComposites(target *ast.StateNode) error {
+	var completed []*ast.StateNode
+	for _, leaf := range e.activeLeavesBelow(target) {
+		composite := e.completedComposite(leaf)
+		if composite != nil && !slices.Contains(completed, composite) {
+			completed = append(completed, composite)
 		}
-		for _, sibling := range siblings {
-			if !e.regionComplete(sibling) {
-				return false
-			}
-		}
-		if owner == nil {
-			return true
-		}
-		region = e.enclosingRegion(owner)
 	}
+	for _, composite := range completed {
+		if err := e.scheduleCompletionTransitions(composite); err != nil {
+			return fmt.Errorf("schedule completion of state %s: %w", composite.Name, err)
+		}
+	}
+	return nil
 }
 
-// regionComplete reports whether region reached its completion vertex.
+// completedComposite is the declared composite state that leaf, a completion
+// vertex just entered, completed: the nearest one enclosing it whose body is
+// now complete. It is nil when leaf completes the machine's own body or a
+// region of a state still running.
+func (e *StateExecutor) completedComposite(leaf *ast.StateNode) *ast.StateNode {
+	if !e.graph.Completes(leaf) {
+		return nil
+	}
+	for state := e.graph.ParentState[leaf]; state != nil; state = e.graph.ParentState[state] {
+		if !e.stateComplete(state) {
+			return nil
+		}
+		if !e.graph.HiddenStates[state] {
+			return state
+		}
+	}
+	return nil
+}
+
+// machineComplete reports whether the machine's own body reached `done`, or
+// every one of its top-level regions did.
+func (e *StateExecutor) machineComplete() bool {
+	if len(e.graph.TopRegions) == 0 {
+		for _, active := range e.activeStates() {
+			if e.graph.Completes(active) && e.graph.ParentState[active] == nil {
+				return true
+			}
+		}
+		return false
+	}
+	for _, region := range e.graph.TopRegions {
+		if !e.regionComplete(region) {
+			return false
+		}
+	}
+	return true
+}
+
+// regionComplete reports whether region rests at its completion vertex.
 func (e *StateExecutor) regionComplete(region *ast.StateRegion) bool {
 	active, ok := e.activeConfig.regionStates[region]
-	return ok && e.stateComplete(active)
+	return ok && e.graph.Completes(active)
 }
 
-// stateComplete reports whether state is a completion vertex, or a composite
-// state whose every orthogonal region completed.
+// stateComplete reports whether state's body has completed: it is a completion
+// vertex, its substate rests at its `done`, or its every orthogonal region does.
 func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 	if state == nil {
 		return false
@@ -1689,6 +1724,11 @@ func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 	}
 	regions := e.graph.CompositeStates[state]
 	if len(regions) == 0 {
+		for _, active := range e.activeStates() {
+			if e.graph.ParentState[active] == state && e.graph.Completes(active) {
+				return true
+			}
+		}
 		return false
 	}
 	for _, region := range regions {
@@ -1697,6 +1737,16 @@ func (e *StateExecutor) stateComplete(state *ast.StateNode) bool {
 		}
 	}
 	return true
+}
+
+// bodyRunning reports whether a state nested in state is active.
+func (e *StateExecutor) bodyRunning(state *ast.StateNode) bool {
+	for _, active := range e.activeStates() {
+		if active != state && e.nestedIn(active, state) {
+			return true
+		}
+	}
+	return false
 }
 
 // isSynchronizationTarget reports whether a transition target is a pseudostate
@@ -2620,9 +2670,12 @@ func (e *StateExecutor) settleDoActions() error {
 	}
 	e.doActions = kept
 
-	// A state completes once its do behavior has finished, which is when its
-	// completion transitions become eligible.
+	// A state completes once its do behavior has finished and its body, where
+	// it runs one, has reached `done`; completeIfDone schedules the latter case.
 	for _, state := range finished {
+		if e.bodyRunning(state) && !e.stateComplete(state) {
+			continue
+		}
 		if err := e.scheduleCompletionTransitions(state); err != nil {
 			return fmt.Errorf("schedule completion of state %s: %w", state.Name, err)
 		}

@@ -5,11 +5,17 @@
       "signal": "Go"
     }
   ],
-  "finalState": "done",
+  "finalState": "next",
+  "stateVisits": [
+    "outer",
+    "inner",
+    "done",
+    "next"
+  ],
   "outputs": {
     "log": {
       "type": "String",
-      "value": "in;outer;out;"
+      "value": "inner;outer;next;"
     }
   },
   "trace": true
