@@ -117,8 +117,8 @@ var (
 	// run enumerates: a data type that is not an enumeration (`all Integer`, `all Point`).
 	ErrUnboundedExtent = errors.New("unbounded extent")
 
-	// ErrExtentUnavailable is returned when `all T` would have to count objects
-	// the run cannot denote: a namespace-level usage of several occurrences.
+	// ErrExtentUnavailable is returned when `all T` would have to count objects the run cannot
+	// denote (a namespace-level usage of several occurrences) or cannot make without recursing.
 	ErrExtentUnavailable = errors.New("extent unavailable")
 
 	// ErrUndeterminedValueType is returned when a value classification has no

@@ -306,6 +306,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
 	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
 	t.Run("extent_over_recursive_composition", testExtentOverRecursiveComposition)
+	t.Run("extent_through_a_value_recursing_and_not", testExtentThroughAValueRecursingAndNot)
 	t.Run("cast_undecided_by_the_value", testCastUndecidedByTheValue)
 	t.Run("cast_of_a_quantity_to_a_constrained_subtype", testCastOfAQuantityToAConstrainedSubtype)
 	t.Run("difference_typed_feature_holding_a_subtracted_object", testDifferenceTypedFeatureHoldingASubtractedObject)
@@ -4859,6 +4860,42 @@ func testExtentOverRecursiveComposition(t *testing.T) {
 	}
 	if len(ctx.instances) > 20 {
 		t.Errorf("%d objects materialized: the walk is not bounded by the declarations on its path", len(ctx.instances))
+	}
+}
+
+// testExtentThroughAValueRecursingAndNot: a value that makes an object of a declaration on the path
+// together with one the extent would reach can be kept neither whole (the walk would not end) nor
+// in part, so the extent is refused with a typed error naming the usage, and the read is undone.
+func testExtentThroughAValueRecursingAndNot(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		private import SequenceFunctions::size;
+		part def Wheel;
+		part def Seat;
+		part def Fork {
+			part mixed[*] = (new Wheel(), new Fork());
+			part leaf : Wheel;
+			part seat : Seat;
+		}
+		part fork : Fork;
+		calc wheelCount { return : Natural = size(all Wheel); }
+		calc seatCount { return : Natural = size(all Seat); }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 100000)
+	_, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrExtentUnavailable) || !strings.Contains(err.Error(), "mixed") || !strings.Contains(err.Error(), "Fork") {
+		t.Fatalf("size(all Wheel) = %v, want ErrExtentUnavailable naming mixed and Fork", err)
+	}
+	if fv := ctx.instances[1].FeatureValues["mixed"]; fv != nil && fv.Materialized {
+		t.Error("mixed kept materialized after the refusal")
+	}
+	if n := len(ctx.instances); n != 1 {
+		t.Errorf("%d objects after the refusal, want the fork alone: what mixed made is undone", n)
+	}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "1" {
+		t.Errorf("size(all Seat) = %s, %v; want 1: mixed holds no Seat and is left unread", FormatValue(got), err)
 	}
 }
 

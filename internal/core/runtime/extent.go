@@ -110,7 +110,7 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 		if recursive {
 			return nil, nil
 		}
-		return ctx.readUnlessRecursive(inst, of.Name, path)
+		return ctx.readUnlessRecursive(inst, of.Name, target, path)
 	}
 	var descend func(inst *Instance) error
 	descend = func(inst *Instance) error {
@@ -154,8 +154,9 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 }
 
 // readUnlessRecursive reads a feature of inst whose objects only the read reveals: kept when none
-// it created is of a declaration on the path, else undone and nil as if unread. A failing read is reported.
-func (ctx *Context) readUnlessRecursive(inst *Instance, name string, path map[*symbols.Symbol]int) (*FeatureValue, error) {
+// it created is of a declaration on the path, else undone and nil as if unread. A failing read is
+// reported, as is a value making an object on the path together with one that may lead to target.
+func (ctx *Context) readUnlessRecursive(inst *Instance, name string, target *symbols.Symbol, path map[*symbols.Symbol]int) (*FeatureValue, error) {
 	commit, rollback := ctx.beginJournal()
 	mark := len(ctx.created)
 	fv, err := inst.GetFeatureValue(ctx, name)
@@ -163,20 +164,55 @@ func (ctx *Context) readUnlessRecursive(inst *Instance, name string, path map[*s
 		rollback()
 		return nil, err
 	}
+	held := make(map[int64]bool)
+	for _, id := range heldObjects(fv.HeldValue()) {
+		held[id] = true
+	}
+	var recursive, reached *Instance
 	for _, id := range ctx.created[mark:] {
 		made, live := ctx.instances[id]
 		if !live {
 			continue
 		}
-		for _, decl := range ctx.declarationsOf(made) {
-			if path[decl] > 0 {
-				rollback()
-				return nil, nil
-			}
+		if decl := ctx.onPath(made, path); decl != nil {
+			recursive = made
+		} else if held[id] && ctx.mayReach(made, target) {
+			reached = made
 		}
 	}
-	commit()
-	return fv, nil
+	if recursive == nil {
+		commit()
+		return fv, nil
+	}
+	rollback()
+	if reached != nil {
+		return nil, fmt.Errorf("%w: the value of %s makes an object of %s, already on the path, together with one of %s, which the extent cannot reach without it",
+			ErrExtentUnavailable, name, symbolText(ctx.onPath(recursive, path)), symbolText(reached.Type))
+	}
+	return nil, nil
+}
+
+// mayReach reports whether inst, or an object a feature of it holds however deep, may be of target.
+func (ctx *Context) mayReach(inst *Instance, target *symbols.Symbol) bool {
+	if ctx.isOf(inst, target) {
+		return true
+	}
+	for _, of := range ctx.FeaturesOfObject(inst) {
+		if of.Name != "" && holdsObjects(of.Feature) && ctx.mayHold(of.Feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
+			return true
+		}
+	}
+	return false
+}
+
+// onPath is the declaration on the path inst is of, if any.
+func (ctx *Context) onPath(inst *Instance, path map[*symbols.Symbol]int) *symbols.Symbol {
+	for _, decl := range ctx.declarationsOf(inst) {
+		if path[decl] > 0 {
+			return decl
+		}
+	}
+	return nil
 }
 
 // declarationsOf is the declarations an object is of: the types it was created as and since

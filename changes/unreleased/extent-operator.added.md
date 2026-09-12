@@ -21,7 +21,9 @@
   read making one undone (so a composition recursing through one declaration ends, while each
   object a run linked to another of its declaration still has its own nested usages read and a
   value choosing at run time between recursing and not contributes what it chose); one the extent
-  cannot materialize ends it with that usage's error rather than an extent short of it.
+  cannot materialize ends it with that usage's error rather than an extent short of it, and one
+  making an object on the path together with one that may lead to a `T` is undone and refused
+  with `ErrExtentUnavailable` naming it.
   An extent that a package-level usage of several occurrences (`part wheels : Wheel[2];`) or a
   package-level port may contribute to is refused with the typed `ErrExtentUnavailable` naming the
   usage, since the runtime denotes no object of such a usage yet, rather than answered without
