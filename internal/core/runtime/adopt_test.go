@@ -1741,6 +1741,56 @@ func TestAdoptCarriesANamespaceBinding(t *testing.T) {
 	}
 }
 
+// A binding to several objects is carried once the last of them is adopted, whichever carry-over
+// brought each; until then the usage is left unbound rather than bound to objects not yet here.
+func TestAdoptCarriesAMultiObjectBindingAcrossCarryOvers(t *testing.T) {
+	const src = `package Demo {
+	part def Car;
+	ref part cars : Car[*] = (new Car(), new Car());
+}`
+	carsIn := func(t *testing.T, ctx *Context) []*Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "cars")
+		if err != nil {
+			t.Fatalf("cars: %v", err)
+		}
+		var objs []*Instance
+		for _, v := range val.Sequence().Elements() {
+			id, ok := v.Object()
+			if !ok {
+				t.Fatalf("cars holds %s, want objects", FormatValue(v))
+			}
+			objs = append(objs, ctx.instances[id])
+		}
+		if len(objs) != 2 {
+			t.Fatalf("cars = %s, want two objects", FormatValue(val))
+		}
+		return objs
+	}
+	prev := contextOver(t, src)
+	cars := carsIn(t, prev)
+
+	ctx := contextOver(t, src+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(cars[0]), cars[0]); err != nil {
+		t.Fatalf("Adopt(cars[0]): %v", err)
+	}
+	if _, bound := ctx.namespaceBindings[lookupOne(t, ctx.Resolver().Index(), "Demo::cars")]; bound {
+		t.Errorf("cars is bound after one of its two objects was carried over")
+	}
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(cars[1]), cars[1]); err != nil {
+		t.Fatalf("Adopt(cars[1]): %v", err)
+	}
+	got := carsIn(t, ctx)
+	if got[0] != cars[0] || got[1] != cars[1] {
+		t.Errorf("cars in the re-analysis denotes (%d, %d), want the carried objects (%d, %d)",
+			got[0].ID, got[1].ID, cars[0].ID, cars[1].ID)
+	}
+	if n := len(ctx.instances); n != 2 {
+		t.Errorf("the re-analysis holds %d objects, want the two carried over", n)
+	}
+}
+
 // A binding whose value carries an object other than as an element — the Array object an array
 // was read from — is carried only with that object; adopted without it, the usage binds anew.
 func TestAdoptRebindsAStructuredBindingWhoseObjectIsNotAdopted(t *testing.T) {

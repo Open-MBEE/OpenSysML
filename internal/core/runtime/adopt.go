@@ -1060,7 +1060,7 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 	carried[sym] = false
 	val := a.prev.namespaceBindings[sym]
 	found, err := a.rebind(sym, "a usage of it")
-	if err != nil || !a.prev.allAdopted(val, adopted) {
+	if err != nil || !a.allAdopted(val, adopted) {
 		return false
 	}
 	stated := a.prev.declarationDigest(sym)
@@ -1119,18 +1119,30 @@ func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, car
 }
 
 // allAdopted reports whether every object a value carries — an element of a collection, the one
-// an array, vector, frame or transformation was read from, a function's self — is carried over.
-func (ctx *Context) allAdopted(val Value, adopted map[int64]bool) bool {
+// an array, vector, frame or transformation was read from, a function's self — is here: carried
+// over now, or by an earlier carry-over from the same previous context.
+func (a *adoption) allAdopted(val Value, adopted map[int64]bool) bool {
 	all := true
-	ctx.walkValue(val, func(v Value) {
-		if id, ok := carriedObject(v); ok && !adopted[id] {
+	a.prev.walkValue(val, func(v Value) {
+		if id, ok := carriedObject(v); ok && !adopted[id] && !a.carriedEarlier(id) {
 			all = false
 		}
-		if self := v.FunctionSelf(); self != nil && !adopted[self.ID] {
+		if self := v.FunctionSelf(); self != nil && !adopted[self.ID] && !a.carriedEarlier(self.ID) {
 			all = false
 		}
 	})
 	return all
+}
+
+// carriedEarlier reports whether this context already holds the previous context's object id —
+// the very object, not another one that took the identity.
+func (a *adoption) carriedEarlier(id int64) bool {
+	was, ok := a.prev.instances[id]
+	if !ok {
+		return false
+	}
+	now, ok := a.ctx.instances[id]
+	return ok && now == was
 }
 
 // rebindNameRead names a lookup's scope and hidden declaration in this context.
