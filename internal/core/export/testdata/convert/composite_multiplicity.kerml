@@ -8,7 +8,7 @@ package CompositeMultiplicity {
     }
     class Car specializes Vehicle {
         composite frontWheel[2] redefines w {
-            composite lugbolt[4] redefines w::lugbolt;
+            composite lugbolt[4] redefines Vehicle::w::lugbolt;
         }
         composite rearWheel[2] ordered :>> w;
     }

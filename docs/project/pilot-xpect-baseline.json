@@ -4548,7 +4548,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'PPP2'.\"",
-              "ours": "line 33 offset 636: unresolved reference: PPP2 — did you mean testt::P::PP::PPP2 or PPP?"
+              "ours": "line 33 offset 636: unresolved reference: PPP2 — did you mean testt::P::PP::PPP2?"
             },
             {
               "kind": "errors",
@@ -4557,7 +4557,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'PPP1'.\"",
-              "ours": "line 43 offset 904: unresolved reference: PPP1 — did you mean testt::P::PP::PPP1 or PPP?"
+              "ours": "line 43 offset 904: unresolved reference: PPP1 — did you mean testt::P::PP::PPP1?"
             },
             {
               "kind": "errors",
@@ -4566,7 +4566,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Feature 'PPP2'.\"",
-              "ours": "line 45 offset 1015: unresolved reference: PPP2 — did you mean testt::P::PP::PPP2 or PPP?"
+              "ours": "line 45 offset 1015: unresolved reference: PPP2 — did you mean testt::P::PP::PPP2?"
             }
           ]
         },

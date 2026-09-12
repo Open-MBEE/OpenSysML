@@ -52,7 +52,7 @@ func (r *Resolver) qualifiedCandidates(scope *symbols.Scope, qn *ast.QualifiedNa
 		return out
 	}
 	qualifier := parts[last-1]
-	all, ok := r.qualifiedSegment(scope, qn, qualifier, last)
+	all, ok := r.qualifiedSegment(scope, qn, qualifier, last, nil)
 	if !ok {
 		return out
 	}

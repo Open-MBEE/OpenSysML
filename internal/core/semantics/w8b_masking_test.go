@@ -315,15 +315,22 @@ func TestRedefinitionMasksTheNameOnlyAtItsOwnLevel(t *testing.T) {
 }
 
 // Masking is keyed by element, not by visibility: the member view drops what a
-// redefinition masks whatever the redefined membership's visibility is, and the
-// visibility filter is the caller's (KerML 8.2.3.5 composes with 7.4.7).
+// redefinition masks whatever the inherited membership's visibility is, and the
+// visibility filter is the caller's (KerML 8.2.3.5 composes with 7.4.7). A
+// private member is not inherited at all, so a redefinition cannot name it.
 func TestMaskingIsIndependentOfTheRedefinedMembershipVisibility(t *testing.T) {
-	for _, vis := range []string{"", "protected ", "private "} {
+	for _, vis := range []string{"", "protected "} {
 		m, root := buildModel(t,
 			"part def A { "+vis+"part a; } part def B specializes A { part b redefines a; }")
 		if names := visibleNames(m, sym(t, root, "B")); names["a"] != 0 {
 			t.Fatalf("%q member still visible in B: %v", vis, names)
 		}
+	}
+	m, root := buildModel(t,
+		"part def A { private part a; } part def B specializes A { part b redefines a; }")
+	b := nested(t, sym(t, root, "B").Scope, "b")
+	if got := m.RedefinedFeatures(b); len(got) != 0 {
+		t.Fatalf("private `a` is not inherited, yet b redefines %v", got)
 	}
 }
 

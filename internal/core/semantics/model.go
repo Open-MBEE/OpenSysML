@@ -38,6 +38,7 @@ type Model struct {
 	referenced    map[*symbols.Symbol]*symbols.Symbol
 	resolvingRef  map[*symbols.Symbol]bool
 	memberSources map[*symbols.Symbol][]*symbols.Symbol
+	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
 	primTypes     map[*symbols.Symbol]PrimType
 	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
@@ -85,9 +86,14 @@ type Model struct {
 	// Redefinition masking (see masking.go): the features each declaration
 	// redefines, and the elements each type does not inherit because of them.
 	redefined map[*symbols.Symbol][]*symbols.Symbol
-	redefMask map[*symbols.Symbol]map[*symbols.Symbol]bool
+	// computingRedefined holds the resolver depth of each RedefinedFeatures call on
+	// the stack, so a re-entrant query is cut short rather than memoized empty.
+	computingRedefined map[*symbols.Symbol]int
+	redefMask          map[*symbols.Symbol]map[*symbols.Symbol]bool
 	// redefMaskInherited is the same mask counting inherited redefinitions only.
-	redefMaskInherited         map[*symbols.Symbol]map[*symbols.Symbol]bool
+	redefMaskInherited map[*symbols.Symbol]map[*symbols.Symbol]bool
+	// redefMaskOwn is the same mask counting the type's own redefinitions only.
+	redefMaskOwn               map[*symbols.Symbol]map[*symbols.Symbol]bool
 	redefClosure               map[*symbols.Symbol]map[*symbols.Symbol]bool
 	computingRedefClosure      map[*symbols.Symbol]bool
 	computingRedefinedFeatures int
@@ -124,6 +130,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		referenced:        make(map[*symbols.Symbol]*symbols.Symbol),
 		resolvingRef:      make(map[*symbols.Symbol]bool),
 		memberSources:     make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:       make(map[*symbols.Symbol][]lookupSource),
 		contributed:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		primTypes:         make(map[*symbols.Symbol]PrimType),
 		params:            make(map[*symbols.Symbol]behaviorParameters),
@@ -149,8 +156,10 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		declSymbols:    make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
 		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
+		computingRedefined:    make(map[*symbols.Symbol]int),
 		redefMask:             make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefMaskInherited:    make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
+		redefMaskOwn:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		redefClosure:          make(map[*symbols.Symbol]map[*symbols.Symbol]bool),
 		computingRedefClosure: make(map[*symbols.Symbol]bool),
 		unique:                make(map[*symbols.Symbol]bool),
@@ -307,10 +316,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		} else {
 			continue
 		}
-		// Same-named subsettings and redefinitions target the inherited feature,
-		// not the binding that resolves first in the owner's scope.
-		if len(qn.Parts) == 1 && (rel.Kind == ast.RelRedefines ||
-			(rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target))) {
+		// A same-named subsetting targets the inherited feature, not the binding
+		// that resolves first in the owner's scope.
+		if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
 			if redefined := m.inheritedFeature(sym, qn); redefined != nil {
 				target = redefined
 			} else if target == sym {
@@ -448,6 +456,16 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	// implicitly redefines the same role of each general, so it takes that role's type
 	// when it declares none (see roles.go).
 	for _, redefined := range m.ImplicitRoleRedefinitions(sym) {
+		if redefined == nil || redefined == sym || seen[redefined] {
+			continue
+		}
+		seen[redefined] = true
+		out = append(out, redefined)
+	}
+
+	// A declaration in a metadata body redefines the metadata type's feature of
+	// its name (KerML 7.4.7), whose members its own body then redefines in turn.
+	for _, redefined := range m.implicitMetadataBodyRedefinitions(sym) {
 		if redefined == nil || redefined == sym || seen[redefined] {
 			continue
 		}

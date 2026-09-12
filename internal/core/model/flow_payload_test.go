@@ -13,6 +13,7 @@ func TestFlowPayloadRedefinition(t *testing.T) {
 		part def Fuel;
 		
 		flow def FuelFlow {
+			end a; end b;
 			ref :>> payload : Fuel;
 		}
 	}`

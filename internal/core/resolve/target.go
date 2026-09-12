@@ -66,7 +66,10 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 // (`perform a; perform a;` both perform a). Any other reference sees borrowed
 // names as the owner's members they are.
 type refFilter struct {
-	decl         ast.Node
+	decl ast.Node
+	// redefiner is the feature decl declares; while its own target is resolved,
+	// the redefinitions its owning type declares mask nothing there.
+	redefiner    *symbols.Symbol
 	namingTarget ast.Node
 	targetName   string
 	// featuredBy hides the members a scope features: a connector end's
@@ -132,6 +135,7 @@ func (f *refFilter) hiding(target ast.Node) *refFilter {
 	out := refFilter{namingTarget: target}
 	if f != nil {
 		out.decl = f.decl
+		out.redefiner = f.redefiner
 		out.featuredBy = f.featuredBy
 		out.skipNamingTarget = f.skipNamingTarget
 		out.skipBorrowedName = f.skipBorrowedName
@@ -160,6 +164,30 @@ func (f *refFilter) forLeadingSegment() *refFilter {
 	out := *f
 	out.decl = nil
 	return &out
+}
+
+// forTail returns f for the later segments of a qualified name, members of what
+// the segment before reached: a redefinition still skips the redefining feature
+// itself wherever the walk meets it (KerML 8.2.3.5.2); nothing else is hidden.
+func (f *refFilter) forTail() *refFilter {
+	if f == nil || !f.redefining || f.decl == nil {
+		return nil
+	}
+	return &refFilter{decl: f.decl, redefiner: f.redefiner, redefining: true}
+}
+
+// without returns syms less those f hides.
+func (f *refFilter) without(syms []*symbols.Symbol) []*symbols.Symbol {
+	if f == nil {
+		return syms
+	}
+	kept := make([]*symbols.Symbol, 0, len(syms))
+	for _, sym := range syms {
+		if !f.hides(sym) {
+			kept = append(kept, sym)
+		}
+	}
+	return kept
 }
 
 func (f *refFilter) forPrefix() *refFilter {

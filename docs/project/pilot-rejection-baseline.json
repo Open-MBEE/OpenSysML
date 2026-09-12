@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "cmd/pilot-reject/testdata/negative",
         "origin": "ours",
-        "files": 301,
-        "digest": "sha256:02c8a010a25709e38052ea96ccc52ea63ee9fa3667758cc693056b2f676ea7b1"
+        "files": 305,
+        "digest": "sha256:75bde1a5912cbd2fa36e0803c5b5f13ce73c4101f2ffa7c4adae4f0b41793e06"
       }
     ],
     "recorded": "2026-09-12"
   },
   "totals": {
-    "cases": 301,
-    "bothReject": 292,
+    "cases": 305,
+    "bothReject": 296,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 151,
-      "bothReject": 142,
+      "cases": 155,
+      "bothReject": 146,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2490,6 +2490,42 @@
       "pilotErrors": 4
     },
     {
+      "path": "semantic/s94-redefinition-names-sibling.sysml",
+      "source": "semantic",
+      "rule": "a redefinition owned by a feature of a type names a feature of that type's generals or of the enclosing namespaces, never a sibling member of the owning type (KerML 8.2.3.5.2 redefinition name resolution; pilot `Couldn't resolve reference to Feature 'x'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s95-redefinition-names-owning-type-import.sysml",
+      "source": "semantic",
+      "rule": "a redefinition owned by a feature of a type does not see what the owning type itself imports (KerML 8.2.3.5.2 redefinition name resolution; pilot `Couldn't resolve reference to Feature 'x'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s96-redefinition-names-owning-type-alias.sysml",
+      "source": "semantic",
+      "rule": "a redefinition owned by a feature of a type does not see an alias the owning type itself declares (KerML 8.2.3.5.2 redefinition name resolution; pilot `Couldn't resolve reference to Feature 'y'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
+      "path": "semantic/s97-qualified-redefinition-starts-at-sibling.sysml",
+      "source": "semantic",
+      "rule": "the first segment of a qualified redefinition target is resolved like a simple one, so it cannot name a sibling member of the owning type (KerML 8.2.3.5.2 redefinition name resolution; pilot `Couldn't resolve reference to Feature 'C::nope'`).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 1
+    },
+    {
       "path": "semantic/send-constructor-non-type.sysml",
       "source": "semantic",
       "rule": "a constructor must instantiate a type, not a package (KerML 8.3.4.8 InstantiationExpression validateInstantiationExpressionInstantiatedType; pilot validateInstantiationExpressionInstantiatedType).",
@@ -2864,8 +2900,8 @@
       }
     ],
     "totals": {
-      "cases": 301,
-      "bothReject": 292,
+      "cases": 305,
+      "bothReject": 296,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

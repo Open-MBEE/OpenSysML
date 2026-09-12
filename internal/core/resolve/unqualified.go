@@ -197,18 +197,18 @@ func (r *Resolver) visibleMember(sym *symbols.Symbol, name string, hide *refFilt
 		if !visibleAsInheritedMember(sym, found) {
 			return nil, false
 		}
-		return r.inheritedAsFrom(sym, found, hide.resolvesRedefinition())
+		return r.inheritedAsFrom(sym, found, hide)
 	}
 	if hide.contributedOnly() {
 		// The owner's own declarations are the local bindings already filtered
 		// by the caller, so only contributed ones remain.
-		found, ok := r.lookupContributedMember(sym, name)
+		found, ok := r.lookupContributedMember(sym, name, hide)
 		if !ok {
 			return nil, false
 		}
 		return admits(found)
 	}
-	found, ok := r.lookupMember(sym, name)
+	found, ok := r.lookupMember(sym, name, hide)
 	if !ok {
 		return nil, false
 	}
@@ -218,7 +218,7 @@ func (r *Resolver) visibleMember(sym *symbols.Symbol, name string, hide *refFilt
 	if !hide.hides(found) {
 		return found, true
 	}
-	found, ok = r.lookupContributedMember(sym, name)
+	found, ok = r.lookupContributedMember(sym, name, hide)
 	if !ok {
 		return nil, false
 	}

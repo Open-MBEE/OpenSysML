@@ -14,17 +14,23 @@ import (
 // RedefinedFeatures returns the features sym redefines: the resolved target of
 // each explicit `redefines`/`:>>` clause. Alias targets are resolved through, so
 // the result names elements rather than the bindings that reach them. The
-// implicit redefinitions of parameters and connector ends are matched by
-// position rather than declared, and are reported by DirectSupertypes only.
+// implicit redefinitions of parameters, connector ends and metadata body
+// declarations are not declared, and are reported by DirectSupertypes only.
 // Memoized.
 func (m *Model) RedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
 	if cached, ok := m.redefined[sym]; ok {
+		// The seed answers a re-entrant query with nothing, cutting that query short.
+		if depth := m.computingRedefined[sym]; depth != 0 {
+			m.resolver.CutShort(depth)
+		}
 		return cached
 	}
 	m.redefined[sym] = nil // re-entrancy guard for cyclic declarations
+	m.computingRedefined[sym] = m.resolver.Enter()
+	defer delete(m.computingRedefined, sym)
 	m.computingRedefinedFeatures++
 	defer func() {
 		m.computingRedefinedFeatures--
@@ -46,6 +52,12 @@ func (m *Model) RedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 		add(m.redefinitionTarget(sym, rel.Target))
 	}
 
+	// An answer derived while a guard cut a query short may have missed a target,
+	// so it is recomputed on the next query, not memoized.
+	if !m.resolver.Leave() {
+		delete(m.redefined, sym)
+		return out
+	}
 	m.redefined[sym] = out
 	return out
 }
@@ -219,24 +231,14 @@ func NotYetMember(sym, declaring *symbols.Symbol) bool {
 	return DeclaresRedefinition(sym)
 }
 
-// redefinitionTarget resolves one redefinition target reference. A single-segment
-// name denotes the feature the owner inherits under it, not the declaration that
-// borrowed the name in the owner's own scope (KerML 7.3.4.5).
+// redefinitionTarget resolves one redefinition target reference as the resolver
+// reads it: from the owner's generals, then the enclosing namespaces (KerML 8.2.3.5.2).
 func (m *Model) redefinitionTarget(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
 	if ref, ok := target.(*ast.FeatureReference); ok {
 		target = ref.Name
 	}
 	switch node := target.(type) {
 	case *ast.QualifiedName:
-		if len(node.Parts) == 1 {
-			if inherited := m.inheritedFeature(sym, node); inherited != nil {
-				// An alias names its target: what is redefined is the element.
-				if resolved, aliasOK := m.resolver.ResolveAliasTarget(inherited); aliasOK {
-					return resolved
-				}
-				return inherited
-			}
-		}
 		found, ok := m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, node)
 		if !ok || found == nil {
 			return nil
@@ -258,22 +260,49 @@ func (m *Model) redefinitionTarget(sym *symbols.Symbol, target ast.Node) *symbol
 // features sym declares mask nothing, which is how a declaration written in sym
 // sees what sym inherits (KerML 8.3.3.3.6). Memoized.
 func (m *Model) redefinitionMask(sym *symbols.Symbol, declared bool) map[*symbols.Symbol]bool {
-	if m == nil || sym == nil {
+	if m == nil {
 		return nil
 	}
 	cache := m.redefMask
 	if !declared {
 		cache = m.redefMaskInherited
 	}
+	return m.memoizedMask(sym, cache, func(yield func(*symbols.Symbol) bool) {
+		m.forEachMaskCandidate(sym, declared, yield)
+	})
+}
+
+// ownRedefinitionMask returns the elements sym's specializations do not inherit
+// through sym because a feature sym declares redefines them. Memoized.
+func (m *Model) ownRedefinitionMask(sym *symbols.Symbol) map[*symbols.Symbol]bool {
+	if m == nil {
+		return nil
+	}
+	return m.memoizedMask(sym, m.redefMaskOwn, func(yield func(*symbols.Symbol) bool) {
+		if sym.Scope != nil {
+			sym.Scope.ForEachMember(yield)
+		}
+	})
+}
+
+// memoizedMask builds the mask the candidates iterate yields cause on sym, cached
+// in cache once the redefinitions it depends on have settled.
+func (m *Model) memoizedMask(
+	sym *symbols.Symbol,
+	cache map[*symbols.Symbol]map[*symbols.Symbol]bool,
+	iterate func(func(*symbols.Symbol) bool),
+) map[*symbols.Symbol]bool {
+	if m == nil || sym == nil {
+		return nil
+	}
 	if cached, ok := cache[sym]; ok {
 		return cached
 	}
 	cache[sym] = nil // re-entrancy guard: a nested query sees no mask
-	mask := m.buildMaskFromCandidates(sym, func(yield func(*symbols.Symbol) bool) {
-		m.forEachMaskCandidate(sym, declared, yield)
-	})
+	m.resolver.Enter()
+	mask := m.buildMaskFromCandidates(sym, iterate)
 	// A redefinition mid-resolution contributes nothing yet, so its mask is not final.
-	if m.computingRedefinedFeatures == 0 {
+	if m.resolver.Leave() && m.computingRedefinedFeatures == 0 {
 		cache[sym] = mask
 	} else {
 		delete(cache, sym)
@@ -394,6 +423,7 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 		return nil, true
 	}
 	m.computingRedefClosure[candidate] = true
+	m.resolver.Enter()
 	out := make(map[*symbols.Symbol]bool)
 	cyclic := false
 	for _, target := range m.maskingRedefinedFeatures(candidate) {
@@ -409,10 +439,11 @@ func (m *Model) redefinitionClosure(candidate *symbols.Symbol) (map[*symbols.Sym
 		}
 	}
 	delete(m.computingRedefClosure, candidate)
+	settled := m.resolver.Leave()
 	if cyclic {
 		return out, true
 	}
-	if m.computingRedefinedFeatures == 0 {
+	if settled && m.computingRedefinedFeatures == 0 {
 		m.redefClosure[candidate] = out
 	}
 	return out, false
@@ -484,16 +515,42 @@ func (m *Model) NamingRedefinerRedefining(sym, masked *symbols.Symbol) *symbols.
 	return m.namingRedefiner(sym, masked, false)
 }
 
+// OwnRedefinitionMasked reports whether a feature sym declares redefines
+// candidate, so that what specializes sym does not inherit candidate through
+// sym, whatever sym's own generals still offer along another path.
+func (m *Model) OwnRedefinitionMasked(sym, candidate *symbols.Symbol) bool {
+	return m.maskedBy(m.ownRedefinitionMask(sym), candidate)
+}
+
+// OwnNamingRedefiner returns the feature sym declares in place of masked, named
+// by redefining it, which sym's specializations inherit under masked's names.
+func (m *Model) OwnNamingRedefiner(sym, masked *symbols.Symbol) *symbols.Symbol {
+	if m == nil || sym == nil || sym.Scope == nil {
+		return nil
+	}
+	return m.namingRedefinerAmong(masked, m.ownRedefinitionMask(sym), sym.Scope.ForEachMember)
+}
+
 func (m *Model) namingRedefiner(sym, masked *symbols.Symbol, declared bool) *symbols.Symbol {
-	if m == nil || sym == nil || masked == nil {
+	if m == nil || sym == nil {
+		return nil
+	}
+	return m.namingRedefinerAmong(masked, m.redefinitionMask(sym, declared), func(yield func(*symbols.Symbol) bool) {
+		m.forEachMaskCandidate(sym, declared, yield)
+	})
+}
+
+// namingRedefinerAmong finds, among the candidates iterate yields, the unmasked
+// feature named by redefining masked.
+func (m *Model) namingRedefinerAmong(masked *symbols.Symbol, mask map[*symbols.Symbol]bool, iterate func(func(*symbols.Symbol) bool)) *symbols.Symbol {
+	if masked == nil {
 		return nil
 	}
 	if target, ok := m.resolver.ResolveAliasTarget(masked); ok {
 		masked = target
 	}
-	mask := m.redefinitionMask(sym, declared)
 	var found *symbols.Symbol
-	m.forEachMaskCandidate(sym, declared, func(candidate *symbols.Symbol) bool {
+	iterate(func(candidate *symbols.Symbol) bool {
 		if declaresIdentifier(candidate) || m.maskedBy(mask, candidate) {
 			return true
 		}
