@@ -55,15 +55,6 @@ func (e *ActionExecutor) canonicalState() (canonicalForm, error) {
 	return canonicalForm{text: text, tokens: s.tokens}, nil
 }
 
-// stateKey hashes the canonical form.
-func (e *ActionExecutor) stateKey() (stateKey, error) {
-	form, err := e.canonicalState()
-	if err != nil {
-		return "", err
-	}
-	return form.key(), nil
-}
-
 // stateSpeller writes the canonical form, naming objects by materialization
 // path and performances by their path in the action.
 type stateSpeller struct {
