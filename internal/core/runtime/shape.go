@@ -214,14 +214,14 @@ func (ctx *Context) featureMultiplicity(sym, owner *symbols.Symbol) semantics.Ra
 	if stated {
 		return mult
 	}
-	if inherited, ok := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}); ok {
+	if inherited, ok, _ := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true}); ok {
 		return inherited
 	}
 	return mult
 }
 
-// statedMultiplicity is the multiplicity a feature states, itself or, restating none, as the
-// intersection of those the declarations it redefines state (KerML 1.0 §7.3.4.5); stated is false when none does.
+// statedMultiplicity is the multiplicity a feature states, itself or as inherited from the
+// declarations it redefines or, abstract, subsets; stated is false when none on that walk states one.
 func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bool) {
 	if mult, stated := ctx.extractMultiplicity(sym); stated {
 		return mult, true
@@ -230,55 +230,43 @@ func (ctx *Context) statedMultiplicity(sym *symbols.Symbol) (semantics.Range, bo
 	if owner == nil {
 		return semantics.Range{}, false
 	}
-	var mult semantics.Range
-	found := false
-	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
-		general, stated := ctx.extractMultiplicity(redefined)
-		if !stated {
-			continue
-		}
-		if found {
-			mult = mult.Intersect(general)
-		} else {
-			mult, found = general, true
-		}
-	}
-	return mult, found
+	mult, _, stated := ctx.inheritedMultiplicity(sym, owner, map[*symbols.Symbol]bool{sym: true})
+	return mult, stated
 }
 
-// inheritedMultiplicity intersects the multiplicities a feature declaring none redefines —
-// and, if abstract, subsets (KerML 1.0 §8.4.4.12.1); path ends cycles, not shared ancestors.
-func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (semantics.Range, bool) {
-	var mult semantics.Range
-	found := false
-	kinds := []ast.RelationshipKind{ast.RelRedefines}
+// inheritedMultiplicity intersects the multiplicities a feature declaring none redefines,
+// by name or as a parameter at the same position, and, if abstract, subsets (KerML 1.0 §8.4.4.12.1);
+// path ends cycles, not shared ancestors. stated reports a general on the walk stating one.
+func (ctx *Context) inheritedMultiplicity(sym, owner *symbols.Symbol, path map[*symbols.Symbol]bool) (mult semantics.Range, found, stated bool) {
+	generals := append(ctx.relatedFeatures(sym, owner, ast.RelRedefines),
+		ctx.model.semantics.ImplicitParameterRedefinitions(sym)...)
 	if symbols.IsAbstract(sym) {
-		kinds = append(kinds, ast.RelSubsets)
+		generals = append(generals, ctx.relatedFeatures(sym, owner, ast.RelSubsets)...)
 	}
-	for _, kind := range kinds {
-		for _, general := range ctx.relatedFeatures(sym, owner, kind) {
-			if path[general] {
-				continue
-			}
-			generalMult, stated := ctx.model.semantics.MultiplicityOf(general)
-			if !stated {
-				path[general] = true
-				inherited, ok := ctx.inheritedMultiplicity(general, owner, path)
-				delete(path, general)
-				if ok {
-					generalMult = inherited
-				} else {
-					generalMult = semantics.AssumedRange()
-				}
-			}
-			if found {
-				mult = mult.Intersect(generalMult)
+	for _, general := range generals {
+		if path[general] {
+			continue
+		}
+		generalMult, generalStated := ctx.model.semantics.MultiplicityOf(general)
+		if !generalStated {
+			path[general] = true
+			inherited, ok, inheritedStated := ctx.inheritedMultiplicity(general, owner, path)
+			delete(path, general)
+			generalStated = inheritedStated
+			if ok {
+				generalMult = inherited
 			} else {
-				mult, found = generalMult, true
+				generalMult = semantics.AssumedRange()
 			}
 		}
+		stated = stated || generalStated
+		if found {
+			mult = mult.Intersect(generalMult)
+		} else {
+			mult, found = generalMult, true
+		}
 	}
-	return mult, found
+	return mult, found, stated
 }
 
 // redefinedDefault returns the value a feature takes from the feature it

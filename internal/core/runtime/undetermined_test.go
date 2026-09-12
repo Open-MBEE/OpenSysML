@@ -1163,3 +1163,22 @@ func TestBodyLocalIntersectsRedefinedMultiplicities(t *testing.T) {
 		t.Errorf("ab holding 3 values: %v", err)
 	}
 }
+
+// A parameter restating no multiplicity inherits the bound of the parameter it redefines
+// by position, a redefinition no clause names.
+func TestBodyLocalInheritsImplicitParameterMultiplicity(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		calc def Wide { in xs : Integer[2]; return : Integer = 0; }
+		calc def Narrow :> Wide { in ys : Integer; return : Integer = 1; }
+	}`))
+	narrow := oneSymbol(t, idx, "test::Narrow")
+	ys, ok := narrow.Scope.LookupLocal("ys")
+	if !ok {
+		t.Fatal("test::Narrow::ys not declared")
+	}
+	want := semantics.Range{Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Value: 2}}
+	if mult, stated := ctx.statedMultiplicity(ys); !stated || mult != want {
+		t.Fatalf("statedMultiplicity(ys) = %v, %v; want [2], true", mult, stated)
+	}
+}
