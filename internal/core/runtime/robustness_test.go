@@ -151,6 +151,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("run_to_completion_redefined_undecidably", testRunToCompletionRedefinedUndecidably)
 	t.Run("run_to_completion_redefined_through_alias", testRunToCompletionRedefinedThroughAlias)
 	t.Run("run_to_completion_redefined_through_redefining_feature", testRunToCompletionRedefinedThroughRedefiningFeature)
+	t.Run("run_to_completion_model_feature_under_library_name", testRunToCompletionModelFeatureUnderLibraryName)
 	t.Run("run_to_completion_defaults_restated", testRunToCompletionDefaultsRestated)
 	t.Run("run_to_completion_default_restored_by_specialization", testRunToCompletionDefaultRestoredBySpecialization)
 	t.Run("run_to_completion_default_masked_by_specialization", testRunToCompletionDefaultMaskedBySpecialization)
@@ -6937,6 +6938,34 @@ func testRunToCompletionRedefinedThroughRedefiningFeature(t *testing.T) {
 		}
 	`, "Machine")
 	runToCompletionRefused(t, err, "isRunToCompletion", "the state definition Machine", "false")
+}
+
+// testRunToCompletionModelFeatureUnderLibraryName: a model's own feature
+// declared under the library's qualified name is an ordinary attribute, so
+// redefining it to false is not a redefinition of the library's and runs.
+func testRunToCompletionModelFeatureUnderLibraryName(t *testing.T) {
+	const src = `
+		package Occurrences {
+			state def Occurrence {
+				attribute isRunToCompletion = true;
+				entry; then idle;
+				state idle;
+			}
+		}
+		package test {
+			state def Machine :> Occurrences::Occurrence {
+				attribute :>> isRunToCompletion = false;
+			}
+		}
+	`
+	for name, build := range map[string]func(*testing.T, string, string) error{
+		"without library": stateExecutorError,
+		"with library":    libraryStateExecutorError,
+	} {
+		if err := build(t, src, "Machine"); err != nil {
+			t.Fatalf("%s: a model's own isRunToCompletion was taken for the library's: %v", name, err)
+		}
+	}
 }
 
 // stateExecutorError builds a state executor for a named state definition and

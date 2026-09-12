@@ -32,6 +32,12 @@ func (r *Resolver) RedefinitionTarget(scope *symbols.Scope, decl ast.Node, targe
 	return sym, ok && sym != nil
 }
 
+// LibraryFeature reports whether sym is declared by bundled library content, so a
+// model's own declaration under a library name is not mistaken for the library's.
+func (r *Resolver) LibraryFeature(sym *symbols.Symbol) bool {
+	return r.idx != nil && r.idx.Library(sym)
+}
+
 // TypeDeclInScope is TypeDecl from the scope tree alone, for a machine lowered
 // without a resolver over its document.
 func TypeDeclInScope(scope *symbols.Scope, qn *ast.QualifiedName) (ast.Node, *symbols.Scope, bool) {

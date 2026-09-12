@@ -26,9 +26,11 @@ var runToCompletionFeatureFQNs = map[string]string{
 }
 
 // StateRedefinitionResolver resolves the feature a redefinition written in a state
-// body targets, an alias followed to what it names.
+// body targets, an alias followed to what it names, and tells the library's own
+// declarations from a model's spelled like them.
 type StateRedefinitionResolver interface {
 	RedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool)
+	LibraryFeature(sym *symbols.Symbol) bool
 }
 
 // RunToCompletionRedefinition reports a redefinition of isRunToCompletion or
@@ -104,13 +106,14 @@ func redefinedRunToCompletionFeatureIn(resolver StateRedefinitionResolver, usage
 }
 
 // libraryRunToCompletionFeature names the library run-to-completion feature sym is,
-// or reaches through the redefinitions its own declaration writes.
+// or reaches through the redefinitions its own declaration writes. A model's own
+// declaration under the library's name is not the library's.
 func libraryRunToCompletionFeature(resolver StateRedefinitionResolver, sym *symbols.Symbol, seen map[*symbols.Symbol]bool) string {
 	if sym == nil || seen[sym] {
 		return ""
 	}
 	seen[sym] = true
-	if name, ok := runToCompletionFeatureFQNs[symbols.FQNOf(sym)]; ok {
+	if name, ok := runToCompletionFeatureFQNs[symbols.FQNOf(sym)]; ok && resolver.LibraryFeature(sym) {
 		return name
 	}
 	usage, ok := sym.Decl.(*ast.Usage)

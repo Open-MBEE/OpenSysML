@@ -10,7 +10,8 @@
   the default cannot be verified. A redefinition restating the default (`= true`, `= self` on the
   machine) runs unchanged, and so does a machine restating it over the redefinition it inherits
   from a specialized definition: only the redefinition a body makes effective is judged. The
-  target is resolved as a symbol, so an alias of the library feature is refused too. Every
+  target is resolved as a symbol, so an alias of the library feature is refused too, while a
+  model's own feature declared under the library's name is an ordinary attribute. Every
   surface that starts a machine — the REPL's `%state`, an object exhibiting it, the analysis
   engines — reports the refusal through the lowering error it already shows, and a state
   rendering reports it as a machine that does not lower. Neither a non-run-to-completion

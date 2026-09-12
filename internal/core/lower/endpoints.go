@@ -44,6 +44,10 @@ func (m machineEndpoints) RedefinitionTarget(scope *symbols.Scope, decl ast.Node
 	return m.resolver.RedefinitionTarget(scope, decl, target)
 }
 
+func (m machineEndpoints) LibraryFeature(sym *symbols.Symbol) bool {
+	return m.resolver.LibraryFeature(sym)
+}
+
 // scopeEndpoints resolves an endpoint from the caller's own scope tree, for a
 // machine lowered with that tree but without the resolver over its document.
 type scopeEndpoints struct{ machine *symbols.Scope }
