@@ -319,6 +319,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("extent_of_an_unresolved_or_unbounded_type", testExtentOfAnUnresolvedOrUnboundedType)
 	t.Run("extent_reaching_a_namespace_collection", testExtentReachingANamespaceCollection)
 	t.Run("namespace_collection_that_cannot_be_constructed", testNamespaceCollectionThatCannotBeConstructed)
+	t.Run("chained_write_through_a_namespace_collection", testChainedWriteThroughANamespaceCollection)
 	t.Run("namespace_collection_over_budget", testNamespaceCollectionOverBudget)
 	t.Run("extent_over_an_object_that_cannot_be_read", testExtentOverAnObjectThatCannotBeRead)
 	t.Run("extent_over_recursive_composition", testExtentOverRecursiveComposition)
@@ -4988,6 +4989,54 @@ func testNamespaceCollectionThatCannotBeConstructed(t *testing.T) {
 	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Wheel) = %s, %v; want 2: the bads hold no Wheel and are not read", FormatValue(got), err)
+	}
+}
+
+// testChainedWriteThroughANamespaceCollection: a write chained from a namespace-level
+// collection reaches several objects, so it is refused as a write through a nested
+// collection is, and the objects the collection denotes are left as they were —
+// no object is made or replaced for the write; a scalar usage beside it is written.
+func testChainedWriteThroughANamespaceCollection(t *testing.T) {
+	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
+		private import ScalarValues::*;
+		part def Sensor { attribute reading : Real = 0.0; }
+		part sensors : Sensor[2];
+		part probe : Sensor;
+		action def Calibrate { action step { assign sensors.reading := 4.5; } first step; }
+		action def Tune { action step { assign probe.reading := 4.5; } first step; }
+	}`)
+	pkg := resolveSymbol(t, root, "P")
+	ctx := NewContext(NewModel(model, resolver), 1000)
+	sensors := resolveSymbol(t, pkg.Scope, "sensors")
+	before, err := ctx.occurrencesOf(sensors)
+	if err != nil || len(before) != 2 {
+		t.Fatalf("sensors denote %d objects, %v; want 2", len(before), err)
+	}
+	_, err = ctx.ExecuteAction(resolveSymbol(t, pkg.Scope, "Calibrate"))
+	if !errors.Is(err, ErrTypeMismatch) || !strings.Contains(err.Error(), "sensors") {
+		t.Fatalf("assign sensors.reading: %v; want %v naming sensors", err, ErrTypeMismatch)
+	}
+	after, err := ctx.occurrencesOf(sensors)
+	if err != nil || len(after) != 2 || after[0] != before[0] || after[1] != before[1] {
+		t.Fatalf("sensors denote %v, %v after a refused write; want the same two objects", after, err)
+	}
+	if got := len(ctx.instances); got != 2 {
+		t.Fatalf("a refused write left %d objects standing; want the 2 sensors", got)
+	}
+	for _, inst := range after {
+		if val, err := inst.FeatureValues["reading"].ReadValue("reading"); err != nil || FormatValue(val) != "0.0" {
+			t.Errorf("sensor #%d reading = %s, %v after a refused write; want 0.0", inst.ID, FormatValue(val), err)
+		}
+	}
+	if _, err := ctx.ExecuteAction(resolveSymbol(t, pkg.Scope, "Tune")); err != nil {
+		t.Fatalf("assign probe.reading: %v", err)
+	}
+	probe, err := ctx.occurrenceOf(resolveSymbol(t, pkg.Scope, "probe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val, err := probe.FeatureValues["reading"].ReadValue("reading"); err != nil || FormatValue(val) != "4.5" {
+		t.Errorf("probe reading = %s, %v; want 4.5", FormatValue(val), err)
 	}
 }
 

@@ -13,5 +13,7 @@
   breaks the declared multiplicity is refused with `ErrMultiplicityViolation` naming the usage. A
   member that cannot be constructed, a lower bound over the materialized-collection cap
   (`part many : Wheel[10000];`) or over the element budget is that typed error naming the usage
-  and leaves no object, behavior or record behind. A port at namespace level still denotes no
+  and leaves no object, behavior or record behind. A write chained from the usage (`assign
+  wheels.radius := 2.0;`) reaches several objects and is refused with `ErrTypeMismatch`, as a write
+  through a nested collection is, leaving the objects as they were. A port at namespace level still denotes no
   object and keeps its `ErrExtentUnavailable` refusal.
