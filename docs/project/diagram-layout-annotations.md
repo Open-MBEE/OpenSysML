@@ -189,8 +189,8 @@ nodes are lowered declarations; each graph maps a lowered node back to the decla
 it came from (`StateGraph.DeclOf`), and the renderer resolves that declaration to its
 symbol through the scopes — never by re-parsing source text. That holds for an unnamed
 transition too: `transition first off then on { @Route { … } }` has no name to state a
-`Route` `about`, so the annotation lives in its body, and a transition with a body is
-an anonymous member of its state (a `TransitionUsage` is a feature of the state that
+`Route` `about`, so the annotation lives in its body, and an unnamed transition is an
+anonymous member of its state (a `TransitionUsage` is a feature of the state that
 declares it, SysML v2 §7.19.2) that the rendering and the validation pass both find
 by its declaration. A usage typed by a definition of another document inherits that
 definition's states and transitions, so the state machine is lowered through the
