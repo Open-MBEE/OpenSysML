@@ -911,6 +911,9 @@ message Value {
     ValueSet set = 18;          // distinct elements with no order of their own
     TensorQuantity tensor_quantity = 19; // shape and one Quantity per component
     Metaobject metaobject = 20;  // an element reflected on as its metaclass
+    // A result the model leaves open: not an error, but no definite answer.
+    // A value the server sends, never one it accepts.
+    Undetermined undetermined = 21;
   }
 }
 
@@ -929,6 +932,21 @@ message Metaobject {
   // it, in which case the model's is used, but one sent must be the model's or
   // the value is rejected.
   string metaclass_id = 2;
+}
+
+// Undetermined is the model-level result of an expression the model does not
+// decide: it reads a feature no value is given (`attribute u;`) or counts a
+// feature whose multiplicity fixes no count (`part gear[1..*]`). The
+// expression is well-formed and evaluation succeeded; the answer is open.
+// Every other surface spells it `<undetermined>`.
+message Undetermined {
+  // Why the model leaves the result open, for a reader:
+  // "u has no value in the model".
+  string reason = 1;
+  // How many values the result would hold, as far as the model fixes it:
+  // `1..1` for an arithmetic result over an unbound scalar, `1..*` for the
+  // elements of a `[1..*]` feature, `0..*` where nothing is known.
+  MultiplicityInfo count = 2;
 }
 
 // Function is a calc held as a value: a calc definition, or a calc usage with

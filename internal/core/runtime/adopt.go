@@ -633,6 +633,10 @@ func (a *adoption) planValue(owner string, val Value) error {
 			err = &AdoptError{Type: owner, Reason: "it holds an expression that was never evaluated"}
 			return
 		}
+		if v.Kind == ValUndetermined {
+			err = &AdoptError{Type: owner, Reason: "it holds a value the model does not determine"}
+			return
+		}
 		// A function value denotes its calc by name, so it is rebound as a variant is;
 		// the object it closes over is carried with it.
 		if v.Kind == ValFunction {
