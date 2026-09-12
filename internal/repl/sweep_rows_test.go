@@ -407,6 +407,54 @@ func TestSweepArgumentsNamingAnObjectBindTheRowsOwn(t *testing.T) {
 	wants(t, out, "2 run(s)", "1.0 | 7.0    |", "2.0 | 14.0   |")
 }
 
+// sweepOverlapModel declares a tug whose operation makes it refer to another held
+// object, and a case reading that object through the tug and writing it through an
+// argument of its own.
+const sweepOverlapModel = `package Tow {
+	private import ScalarValues::*;
+	part def Ship {
+		attribute cost : Real = 5.0;
+	}
+	part ship : Ship;
+	part def Tug :> Ship {
+		ref mate : Ship;
+		action hitch { in o : Ship; first set; action set { assign mate := o; } }
+	}
+	part tug : Tug;
+	analysis def Haul {
+		subject t : Tug;
+		in rival : Ship;
+		in scale : Real;
+		action raise { assign rival.cost := rival.cost + 1.0; }
+		out total : Real = (t.cost + t.mate.cost) * scale;
+	}
+}`
+
+// An object as its declaration made it that the image of a written one reaches — the
+// tug's mate, named again as an argument — is one object in the row, the imaged one:
+// the write through the argument reads through the subject, as the prompt's run reads
+// it, on one job and on eight, and the held objects stay as they were.
+func TestSweepArgumentsNamingAnObjectTheImageReachesBindTheImagedOne(t *testing.T) {
+	s := loadSource(t, sweepOverlapModel)
+	run(t, s, "%instantiate Tow::ship")
+	run(t, s, "%instantiate Tow::tug")
+	wants(t, run(t, s, "%invoke tug hitch o=ship"), "Invoked hitch on object #2")
+	wants(t, run(t, s, "%features Tow::tug"), "mate = Instance(ID: 1)")
+	before := heldGraph(t, s, "Tow::tug")
+	held := s.heldIDs()
+	for _, rival := range []string{"ship", "Tow::ship"} {
+		sweepsAlike(t, s, "%sweep Tow::Haul(rival = "+rival+") Tow::tug scale=1.0..2.0:1.0", "2 run(s)", "1.0 | 11.0 |", "2.0 | 22.0 |")
+	}
+	if after := heldGraph(t, s, "Tow::tug"); after != before {
+		t.Errorf("the sweeps left the held tug as\n%s\nwas\n%s", after, before)
+	}
+	if ids := s.heldIDs(); !slices.Equal(ids, held) {
+		t.Errorf("the sweeps changed the session's held objects: %v, was %v", ids, held)
+	}
+	wants(t, run(t, s, "%features Tow::ship"), "ID: 1", "cost = 5.0")
+	wants(t, run(t, s, "%analysis Tow::Haul(rival = ship, scale = 1.0) Tow::tug"), "total = 11.0")
+}
+
 // A sweep leaves a debugging session under way where it was: its rows run in contexts
 // of their own, not in the one the debugger steps.
 func TestSweepLeavesADebuggerStepping(t *testing.T) {

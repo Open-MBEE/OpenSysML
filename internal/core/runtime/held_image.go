@@ -109,6 +109,18 @@ type keptConnector struct {
 	id      int64
 }
 
+// keptIDs are the identities set aside for the object's connectors not materialized yet.
+func (obj imagedObject) keptIDs() []int64 {
+	ids := make([]int64, 0, len(obj.keptAnon)+len(obj.keptConn))
+	for _, kept := range obj.keptAnon {
+		ids = append(ids, kept.id)
+	}
+	for _, kept := range obj.keptConn {
+		ids = append(ids, kept.id)
+	}
+	return ids
+}
+
 // imagedRun is one run's bookkeeping by value: what it spent and noted, and its
 // seeded generator where the schedule has one.
 type imagedRun struct {
@@ -469,7 +481,8 @@ func (t *imaging) locate(fv *FeatureValue) (imagedFeatureRef, bool) {
 }
 
 // Materialize gives dst objects of its own for the image under the same identities, advancing
-// dst's sequence past them; ErrImageIdentityTaken and ErrImageClock refuse, leaving dst as it was.
+// dst's sequence past them and past the identities set aside for connectors not materialized
+// yet; ErrImageIdentityTaken and ErrImageClock refuse, leaving dst as it was.
 func (img *HeldImage) Materialize(dst *Context) error {
 	if dst.midRun() {
 		return ErrSnapshotMidRun
@@ -477,6 +490,11 @@ func (img *HeldImage) Materialize(dst *Context) error {
 	for _, obj := range img.objects {
 		if _, taken := dst.instances[obj.id]; taken {
 			return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: ErrImageIdentityTaken}
+		}
+		for _, id := range obj.keptIDs() {
+			if _, taken := dst.instances[id]; taken {
+				return &HeldImageError{ID: obj.id, Type: obj.typ, What: "materialize", Err: fmt.Errorf("%w: connector #%d set aside", ErrImageIdentityTaken, id)}
+			}
 		}
 	}
 	if dst.clock.now > img.clock {
@@ -574,6 +592,9 @@ func (m *materializing) run() error {
 		}
 		dst.registerInstance(inst)
 		dst.claimID(obj.id)
+		for _, id := range obj.keptIDs() {
+			dst.claimID(id)
+		}
 		m.made[obj.id] = inst
 	}
 	for _, obj := range img.objects {

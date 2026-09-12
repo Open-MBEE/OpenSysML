@@ -457,18 +457,19 @@ func (r *rowObjects) bring(id int64) (*runtime.Instance, error) {
 }
 
 // object makes the object of the reference in the row's context: the one of the same
-// identity where the held graph was imaged, else one of its declaration, walked along
-// its path to the object meant; none for an empty reference.
+// identity where the image of the held graph reaches it, else one of its declaration,
+// walked along its path to the object meant; none for an empty reference.
 func (r *rowObjects) object(ref freshRef) (*runtime.Instance, error) {
 	if ref.held == 0 {
 		return nil, nil
 	}
-	if ref.imaged {
-		inst, ok := r.ctx.Instance(ref.held)
-		if !ok || r.image == nil || !r.image.Holds(ref.held) {
-			return nil, &SweptObjectError{Ref: ref.name, Reason: "the image of the held graph does not reach it"}
+	if r.image != nil && r.image.Holds(ref.held) {
+		if inst, ok := r.ctx.Instance(ref.held); ok {
+			return inst, nil
 		}
-		return inst, nil
+	}
+	if ref.imaged {
+		return nil, &SweptObjectError{Ref: ref.name, Reason: "the image of the held graph does not reach it"}
 	}
 	if inst, ok := r.made[ref.held]; ok {
 		return inst, nil
