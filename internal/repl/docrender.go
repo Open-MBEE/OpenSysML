@@ -171,7 +171,7 @@ func (s *Session) renderDocumentSet(
 // Markdown or reporting a document that could not be rendered. A second
 // word names the form its graph-shaped diagrams are written in.
 func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
-	fields := strings.Fields(invocation)
+	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 || len(fields) > 2 {
 		return []string{renderDocumentUsage}, false, nil
 	}

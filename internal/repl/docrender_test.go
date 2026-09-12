@@ -87,6 +87,13 @@ const docDiagramModel = `package Imaging {
 			}
 		}
 	}
+
+	part def 'Chain Brief' :> Document {
+		attribute redefines title = "Chain Brief";
+		part chain : Diagram {
+			ref redefines source = chainView;
+		}
+	}
 }
 `
 
@@ -161,6 +168,10 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	if !strings.Contains(markdown, "```dot\n") {
 		t.Errorf("API rendering does not write DOT:\n%s", markdown)
 	}
+
+	// A quoted name holding a space is one argument, with or without a form.
+	wants(t, run(t, s, "%render-document Imaging::'Chain Brief'"), "# Chain Brief", "```mermaid\n")
+	wants(t, run(t, s, "%render-document Imaging::'Chain Brief' dot"), "# Chain Brief", "```dot\n")
 }
 
 func TestRenderDocumentMarkdownAPI(t *testing.T) {
