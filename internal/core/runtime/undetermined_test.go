@@ -898,6 +898,42 @@ func TestInstanceLevelMissingValueStaysErrNoValue(t *testing.T) {
 	}
 }
 
+// A body's local omitting its multiplicity keeps an open initializer's count, where
+// a stated one judges it; the effective `[1]` of an omitted multiplicity is not applied.
+func TestBodyLocalKeepsOpenInitializerCount(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `package test {
+		private import ScalarValues::*;
+		attribute xs : Integer[2..*];
+		constraint def Open {
+			attribute kept = xs;
+			attribute one[1] = xs;
+			attribute two[2..*] = xs;
+			SequenceFunctions::size(kept) >= 2
+		}
+	}`))
+	open := oneSymbol(t, idx, "test::Open")
+	ec := NewEvalContext(ctx, open.Scope)
+	initializer := func() Value {
+		return NewUndeterminedValue(noValueReason("xs"), semantics.Range{
+			Lower: semantics.Bound{Known: true, Value: 2}, Upper: semantics.Bound{Known: true, Infinite: true},
+		})
+	}
+	local := func(name string) *symbols.Symbol {
+		sym, ok := open.Scope.LookupLocal(name)
+		if !ok {
+			t.Fatalf("test::Open::%s not declared", name)
+		}
+		return sym
+	}
+	val, err := ec.conformBodyDeclared(local("kept"), initializer())
+	wantUndetermined(t, "kept", val, err, "[2..*]")
+	val, err = ec.conformBodyDeclared(local("two"), initializer())
+	wantUndetermined(t, "two", val, err, "[2..*]")
+	if _, err := ec.conformBodyDeclared(local("one"), initializer()); !errors.Is(err, ErrMultiplicityViolation) {
+		t.Errorf("one[1] = xs: err = %v; want ErrMultiplicityViolation", err)
+	}
+}
+
 // An undetermined value is a value kind every dispatch handles: it formats,
 // traces, compares unequal to unset and to null, and is never a NoValueError.
 func TestUndeterminedIsAValueKind(t *testing.T) {

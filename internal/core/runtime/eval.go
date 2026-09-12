@@ -126,15 +126,15 @@ func (ec *EvalContext) valuedFeatureValue(name string) (val Value, ok bool, err 
 	return val, true, err
 }
 
-// conformBodyDeclared holds val as the value of a declaration a body carries, whose
-// determined count answers to a stated multiplicity as a body-local write's does.
+// conformBodyDeclared holds val as the value of a declaration a body carries: its
+// count answers to a stated multiplicity only, an omitted one keeping the initializer's.
 func (ec *EvalContext) conformBodyDeclared(sym *symbols.Symbol, val Value) (Value, error) {
-	if mult, stated := ec.ctx.extractMultiplicity(sym); stated && val.Undetermined() == nil {
+	if mult, stated := ec.ctx.extractMultiplicity(sym); stated {
 		if msg := mult.HeldViolation(heldCountOf(&val)); msg != "" {
 			return Value{}, fmt.Errorf("feature value %s: %w: %s", ec.ctx.qualifiedSymbolName(sym), ErrMultiplicityViolation, msg)
 		}
 	}
-	return ec.conformDeclared(sym, val)
+	return ec.conformHeld(sym, val, false)
 }
 
 // inEnv returns a context reading env instead of this one's features and
@@ -1022,6 +1022,12 @@ func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Va
 // conformDeclared holds val as the value of the feature sym declares, once it answers to
 // the declared type, uniqueness and multiplicity (KerML 1.0 §7.3.4).
 func (ec *EvalContext) conformDeclared(sym *symbols.Symbol, val Value) (Value, error) {
+	return ec.conformHeld(sym, val, true)
+}
+
+// conformHeld is conformDeclared, judging an undetermined count against the effective
+// multiplicity only when countJudged.
+func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged bool) (Value, error) {
 	what := fmt.Sprintf("feature value %s", ec.ctx.qualifiedSymbolName(sym))
 	if err := ec.ctx.checkWriteType(sym.OwnerScope, what, ec.ctx.extractType(sym), &val, admitDeclared); err != nil {
 		return Value{}, err
@@ -1029,8 +1035,10 @@ func (ec *EvalContext) conformDeclared(sym *symbols.Symbol, val Value) (Value, e
 	if msg := ec.ctx.declaredUniquenessRefusal(sym, &val); msg != "" {
 		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
 	}
-	if msg := ec.ctx.declaredCountRefusal(sym, &val); msg != "" {
-		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+	if countJudged {
+		if msg := ec.ctx.declaredCountRefusal(sym, &val); msg != "" {
+			return Value{}, fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+		}
 	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
