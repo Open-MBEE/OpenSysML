@@ -10,9 +10,10 @@ import (
 
 // Expression is one translated expression: the term it yields, and the side
 // conditions under which the evaluator computes that term rather than reporting
-// an error — a computed divisor being non-zero. A consumer encoding a step of
-// execution asserts Term where Defined all hold and the evaluator's error where
-// one does not, since SMT-LIB's division is total and the evaluator's is not.
+// an error — a computed divisor being non-zero, Integer arithmetic staying
+// within int64. A consumer encoding a step of execution asserts Term where
+// Defined all hold and the evaluator's error where one does not, since SMT-LIB's
+// division is total and its integers unbounded while the evaluator's are not.
 type Expression struct {
 	// Term is the value the expression yields.
 	Term *Term
@@ -34,12 +35,14 @@ type Translator struct {
 
 // NewTranslator starts translating the expressions subject writes. Names resolve
 // as the evaluator resolves them: first among the features subject declares or
-// inherits, then in the scope each expression is written in.
+// inherits, then in the scope each expression is written in. Integer arithmetic
+// is defined within int64, as the evaluator computes it.
 func NewTranslator(ctx *runtime.Context, subject Subject) (*Translator, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("solve: no runtime context")
 	}
 	t := newTranslator(ctx, subject)
+	t.machine = true
 	if subject.Symbol != nil {
 		t.condFile = subject.Symbol.DocName
 	}

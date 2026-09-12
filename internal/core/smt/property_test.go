@@ -21,17 +21,13 @@ func solveStatus(t *testing.T, solver *solve.Solver, q *solve.Query) solve.Statu
 	return result.Status
 }
 
-// loweredWithIndex lowers the named action and keeps the index its context is over.
-func loweredWithIndex(t *testing.T, path, src, fqn string) (*runtime.Context, *symbols.Index, *symbols.Symbol, *lower.ActionGraph) {
+// loweredWithIndex starts the named action and keeps the index its context is over.
+func loweredWithIndex(t *testing.T, path, src, fqn string) (*runtime.Context, *symbols.Index, *symbols.Symbol, *lower.ActionGraph, runtime.Held) {
 	t.Helper()
 	ctx, idx := fixture(t, path, src)
 	action := lookup(t, idx, fqn)
-	graph, err := lower.ToActionGraph(action.Decl, action.Scope)
-	if err != nil {
-		t.Fatalf("lower %s: %v", fqn, err)
-	}
-	lower.StartFlow(graph)
-	return ctx, idx, action, graph
+	graph, held := started(t, ctx, action)
+	return ctx, idx, action, graph, held
 }
 
 // lookup is the one symbol fqn names.
@@ -65,8 +61,8 @@ const conditionsSrc = `package test {
 // at the states the interpreter reports, and one no state violates is proved.
 func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	solver := requireSolver(t)
-	ctx, idx, action, graph := loweredWithIndex(t, "conditions.sysml", conditionsSrc, "test::A")
-	enc, err := Encode(ctx, action, graph, runtime.Held{}, 4, DefaultUnroll)
+	ctx, idx, action, graph, held := loweredWithIndex(t, "conditions.sysml", conditionsSrc, "test::A")
+	enc, err := Encode(ctx, action, graph, held, 4, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -108,7 +104,7 @@ func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Uncertainty()); got != solve.StatusUnsat {
 		t.Errorf("uncertainty at k=4: %v, want unsat (every run ends in 4 moves)", got)
 	}
-	short, err := Encode(ctx, action, graph, runtime.Held{}, 2, DefaultUnroll)
+	short, err := Encode(ctx, action, graph, held, 2, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -133,8 +129,8 @@ func TestConditionReadingNoValueIsUndefined(t *testing.T) {
 		succession first set then done;
 	}
 }`
-	ctx, idx, action, graph := loweredWithIndex(t, "undefined.sysml", src, "test::A")
-	enc, err := Encode(ctx, action, graph, runtime.Held{}, 3, DefaultUnroll)
+	ctx, idx, action, graph, held := loweredWithIndex(t, "undefined.sysml", src, "test::A")
+	enc, err := Encode(ctx, action, graph, held, 3, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -169,8 +165,8 @@ func TestConditionOverAnObjectIsRefused(t *testing.T) {
 		requirement positive { require level > 0; }
 	}
 }`
-	ctx, idx, action, graph := loweredWithIndex(t, "object.sysml", src, "test::A")
-	enc, err := Encode(ctx, action, graph, runtime.Held{}, 2, DefaultUnroll)
+	ctx, idx, action, graph, held := loweredWithIndex(t, "object.sysml", src, "test::A")
+	enc, err := Encode(ctx, action, graph, held, 2, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -200,8 +196,8 @@ func TestDeadlockProperty(t *testing.T) {
 		succession first sync then done;
 	}
 }`
-	ctx, action, graph := loweredAction(t, stuck, "test::stuck")
-	enc, err := Encode(ctx, action, graph, runtime.Held{}, 4, DefaultUnroll)
+	ctx, action, graph, held := loweredAction(t, stuck, "test::stuck")
+	enc, err := Encode(ctx, action, graph, held, 4, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -233,8 +229,8 @@ func TestDeadlockProperty(t *testing.T) {
 		succession first sync then done;
 	}
 }`
-	ctx, action, graph = loweredAction(t, free, "test::free")
-	enc, err = Encode(ctx, action, graph, runtime.Held{}, 6, DefaultUnroll)
+	ctx, action, graph, held = loweredAction(t, free, "test::free")
+	enc, err = Encode(ctx, action, graph, held, 6, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -245,7 +241,7 @@ func TestDeadlockProperty(t *testing.T) {
 	if got := solveStatus(t, solver, enc.Uncertainty()); got != solve.StatusUnsat {
 		t.Errorf("uncertainty at k=6: %v, want unsat", got)
 	}
-	short, err := Encode(ctx, action, graph, runtime.Held{}, 5, DefaultUnroll)
+	short, err := Encode(ctx, action, graph, held, 5, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

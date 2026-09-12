@@ -403,3 +403,105 @@ func TestEngineDoesNotProveOverRoundedArithmetic(t *testing.T) {
 		t.Fatalf("the interpreter's violation is not reported: %+v", violated.Values)
 	}
 }
+
+// TestEngineEncodesInheritedFeatures: a specialized action's inherited features
+// are encoded as the performance holds them, with the inherited default or the
+// redefinition's, so a condition over one is decided as the interpreter decides it.
+func TestEngineEncodesInheritedFeatures(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "inherited.sysml", `package test {
+	private import ScalarValues::*;
+	action def Base {
+		attribute x : Integer = 1;
+		attribute y : Integer = 1;
+	}
+	action def Derived :> Base {
+		attribute :>> y = 20;
+		constraint small { x < 10 }
+		constraint bounded { y < 10 }
+		first start;
+		action raise { assign x := x + 1; }
+		done;
+		succession first start then raise;
+		succession first raise then done;
+	}
+}`)
+	inherited := answer(t, e, d, d.holds(t, "test::Derived", "test::Derived::small"), analysis.Budget{Depth: 4})
+	expect(t, inherited, analysis.ClaimHolds, analysis.Proved)
+
+	redefined := answer(t, e, d, d.holds(t, "test::Derived", "test::Derived::bounded"), analysis.Budget{Depth: 4})
+	expect(t, redefined, analysis.ClaimViolated, analysis.Witnessed)
+	var violation *runtime.ViolationError
+	if len(redefined.Values) != 1 || !errors.As(redefined.Values[0].Err, &violation) {
+		t.Fatalf("the interpreter's violation is not reported: %+v", redefined.Values)
+	}
+}
+
+// TestEngineWitnessesIntegerOverflow: Integer arithmetic the interpreter refuses
+// as overflowing is a failure the solver witnesses, never a value it proves
+// about; arithmetic staying within int64 is proved as before.
+func TestEngineWitnessesIntegerOverflow(t *testing.T) {
+	e := engine(t)
+	d := indexed(t, "overflow.sysml", `package test {
+	private import ScalarValues::*;
+	action def Sum {
+		attribute x : Integer = 9223372036854775807;
+		constraint positive { x > 0 }
+		first start;
+		action step { assign x := x + 1; }
+		done;
+		succession first start then step;
+		succession first step then done;
+	}
+	action def Difference {
+		attribute x : Integer = -9223372036854775807;
+		constraint negative { x < 0 }
+		first start;
+		action step { assign x := x - 2; }
+		done;
+		succession first start then step;
+		succession first step then done;
+	}
+	action def Product {
+		attribute x : Integer = 4294967296;
+		constraint positive { x > 0 }
+		first start;
+		action step { assign x := x * x; }
+		done;
+		succession first start then step;
+		succession first step then done;
+	}
+	action def Negation {
+		attribute x : Integer = -9223372036854775807;
+		constraint negative { x < 0 }
+		first start;
+		action step { assign x := -(x - 1); }
+		done;
+		succession first start then step;
+		succession first step then done;
+	}
+	action def Within {
+		attribute x : Integer = 9223372036854775806;
+		constraint positive { x > 0 }
+		first start;
+		action step { assign x := x + 1; }
+		done;
+		succession first start then step;
+		succession first step then done;
+	}
+}`)
+	for _, c := range []struct{ action, condition string }{
+		{"test::Sum", "test::Sum::positive"},
+		{"test::Difference", "test::Difference::negative"},
+		{"test::Product", "test::Product::positive"},
+		{"test::Negation", "test::Negation::negative"},
+	} {
+		result := answer(t, e, d, d.holds(t, c.action, c.condition), analysis.Budget{Depth: 4})
+		expect(t, result, analysis.ClaimViolated, analysis.Witnessed)
+		if len(result.Values) != 1 || !errors.Is(result.Values[0].Err, semantics.ErrArithmeticOverflow) {
+			t.Errorf("%s: the interpreter's overflow is not reported: %+v", c.action, result.Values)
+		}
+	}
+	within := answer(t, e, d, d.holds(t, "test::Within", "test::Within::positive"), analysis.Budget{Depth: 4})
+	expect(t, within, analysis.ClaimHolds, analysis.Proved)
+}

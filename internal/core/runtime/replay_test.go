@@ -717,3 +717,61 @@ func TestReplayRefusesADoOrderMoveNotEnabled(t *testing.T) {
 		t.Errorf("seq is %v after the refusal, want 1: neither due behavior may act on a refused round", seq)
 	}
 }
+
+// A transition move refused on a message is refused before the message reaches
+// the do behavior parked at an accept for it in a sibling region, so a refused
+// replay leaves the machine's data as it found it.
+func TestReplayRefusesATransitionMoveBeforeDoBehaviorsTakeTheMessage(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		private import ScalarValues::*;
+		attribute def Go;
+		state def Waiter parallel {
+			attribute total : Integer = 0;
+			state left {
+				entry; then lwork;
+				state lwork {
+					do action work {
+						first start;
+						then action reader accept Go;
+						then action count assign total := total + 10;
+						then done;
+					}
+				}
+			}
+			state right {
+				entry; then rwait;
+				state rwait;
+				transition first rwait accept Go then rdone;
+				transition first rwait accept Go then rother;
+				state rdone { entry assign total := total + 1; }
+				state rother { entry assign total := total + 2; }
+			}
+		}
+	}`)
+	sym := m.state(t, "Waiter")
+	ctx, err := m.fresh()
+	if err != nil {
+		t.Fatal(err)
+	}
+	witness, err := ParseChoices("state rwait on accept Go -> 3->nowhere\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustSchedule(t, ctx, ReplayPolicy(witness))
+	exec, err := ctx.CreateStateExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to the accept: %v", err)
+	}
+	exec.SendSignal("Go", nil)
+	err = exec.RunToCompletion()
+	var refused *ReplayError
+	if !errors.As(err, &refused) || !errors.Is(err, ErrReplayRefused) || refused.Move != 1 || !strings.Contains(err.Error(), "3->nowhere") {
+		t.Fatalf("error %T %v, want the transition move refused", err, err)
+	}
+	if total := FormatValue(exec.StateData()["total"]); total != "0" {
+		t.Errorf("total is %v after the refusal, want 0: the do behavior may not take a message whose dispatch is refused", total)
+	}
+}

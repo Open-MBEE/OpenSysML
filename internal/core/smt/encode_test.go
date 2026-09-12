@@ -38,15 +38,16 @@ func requireSolver(t *testing.T) *solve.Solver {
 	return nil
 }
 
-// loweredAction indexes src and lowers the action fqn declares.
-func loweredAction(t *testing.T, src, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph) {
+// loweredAction indexes src and starts the action fqn declares, as the engine
+// does: the flow it performs and what the performance holds at its start.
+func loweredAction(t *testing.T, src, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph, runtime.Held) {
 	t.Helper()
 	return loweredDocument(t, "encode_test.sysml", src, fqn)
 }
 
-// loweredConformanceAction lowers the named action of a conformance case with
+// loweredConformanceAction starts the named action of a conformance case with
 // a context to encode it in.
-func loweredConformanceAction(t *testing.T, file, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph) {
+func loweredConformanceAction(t *testing.T, file, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph, runtime.Held) {
 	t.Helper()
 	src, err := os.ReadFile(filepath.Join(conformanceDir, file))
 	if err != nil {
@@ -55,19 +56,27 @@ func loweredConformanceAction(t *testing.T, file, fqn string) (*runtime.Context,
 	return loweredDocument(t, file, string(src), fqn)
 }
 
-func loweredDocument(t *testing.T, path, src, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph) {
+func loweredDocument(t *testing.T, path, src, fqn string) (*runtime.Context, *symbols.Symbol, *lower.ActionGraph, runtime.Held) {
 	t.Helper()
 	ctx, idx := fixture(t, path, src)
 	matches := idx.LookupQualified(fqn)
 	if len(matches) != 1 {
 		t.Fatalf("%s matched %d symbols, want 1", fqn, len(matches))
 	}
-	graph, err := lower.ToActionGraph(matches[0].Decl, matches[0].Scope)
+	graph, held := started(t, ctx, matches[0])
+	return ctx, matches[0], graph, held
+}
+
+// started begins one performance of action and reports the flow it performs
+// and what it holds at its start, which is what Encode is given.
+func started(t *testing.T, ctx *runtime.Context, action *symbols.Symbol) (*lower.ActionGraph, runtime.Held) {
+	t.Helper()
+	exec, err := ctx.CreateActionExecutor(action)
 	if err != nil {
-		t.Fatalf("lower %s: %v", fqn, err)
+		t.Fatalf("start %s: %v", action.Name, err)
 	}
-	lower.StartFlow(graph)
-	return ctx, matches[0], graph
+	defer exec.Release()
+	return exec.Graph(), exec.Held()
 }
 
 // modelText renders a satisfying assignment, one variable per line, sorted.
@@ -118,8 +127,8 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 }`
 	for _, k := range []int{6, 7} {
 		t.Run(fmt.Sprintf("k=%d", k), func(t *testing.T) {
-			ctx, action, graph := loweredAction(t, src, "test::clash")
-			enc, err := Encode(ctx, action, graph, runtime.Held{}, k, DefaultUnroll)
+			ctx, action, graph, held := loweredAction(t, src, "test::clash")
+			enc, err := Encode(ctx, action, graph, held, k, DefaultUnroll)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -142,8 +151,8 @@ func TestEncodeForkJoinCompletes(t *testing.T) {
 			}
 		})
 	}
-	ctx, action, graph := loweredAction(t, src, "test::clash")
-	enc, err := Encode(ctx, action, graph, runtime.Held{}, 5, DefaultUnroll)
+	ctx, action, graph, held := loweredAction(t, src, "test::clash")
+	enc, err := Encode(ctx, action, graph, held, 5, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -190,8 +199,8 @@ func TestEncodePinsAndObjectFlows(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.file, func(t *testing.T) {
-			ctx, action, graph := loweredConformanceAction(t, c.file, c.fqn)
-			enc, err := Encode(ctx, action, graph, runtime.Held{}, k, DefaultUnroll)
+			ctx, action, graph, held := loweredConformanceAction(t, c.file, c.fqn)
+			enc, err := Encode(ctx, action, graph, held, k, DefaultUnroll)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -278,12 +287,8 @@ func TestEncodeInlineExpressionFeedsFlow(t *testing.T) {
 		t.Fatalf("interpreted result = %v, want 7", got)
 	}
 
-	graph, err := lower.ToActionGraph(&decl, matches[0].Scope)
-	if err != nil {
-		t.Fatalf("lower: %v", err)
-	}
-	lower.StartFlow(graph)
-	enc, err := Encode(ctx, action, graph, runtime.Held{}, k, DefaultUnroll)
+	graph, held := started(t, ctx, action)
+	enc, err := Encode(ctx, action, graph, held, k, DefaultUnroll)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

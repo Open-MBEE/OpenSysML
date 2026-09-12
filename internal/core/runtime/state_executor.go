@@ -732,6 +732,11 @@ func (e *StateExecutor) broadcastEvent(event *Event) (bool, []string, error) {
 	if err != nil {
 		return false, nil, err
 	}
+	// A witness move refused while drawing must stop the dispatch before the do
+	// behaviors take the occurrence, so a refused replay changes nothing.
+	if err := e.ctx.scheduling().refusal(); err != nil {
+		return false, nil, err
+	}
 	var resumed []string
 	if msg, ok := event.Payload.(Message); ok {
 		taking, err := e.doBehaviorsTaking(msg, candidates)

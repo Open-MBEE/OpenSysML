@@ -62,8 +62,9 @@ type pin struct {
 
 // Encode builds the transition relation of action's flow graph for k moves,
 // unrolling each body loop unroll times. The action's features resolve as the
-// interpreter resolves them, through ctx; held are the values the performance
-// holds at its start, ahead of the defaults the graph declares.
+// interpreter resolves them, through ctx; held is what the performance holds at
+// its start: its features, own and inherited, and their values ahead of the
+// defaults it declares.
 func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, held runtime.Held, k, unroll int) (*Encoding, error) {
 	f, err := Analyze(graph, k)
 	if err != nil {
@@ -169,7 +170,7 @@ func (e *Encoding) assert(term *solve.Term, role string) {
 func (e *Encoding) collectFeatures() error {
 	graph := e.Flow.Graph
 	declared := make(map[string]bool)
-	for _, attr := range graph.Attributes {
+	for _, attr := range e.held.Features() {
 		scope := attr.Scope
 		if scope == nil {
 			scope = graph.Scope
@@ -580,7 +581,7 @@ func (e *Encoding) initial() error {
 		}
 	}
 	var failed []*solve.Term
-	for _, attr := range f.Graph.Attributes {
+	for _, attr := range e.held.Features() {
 		scope := attr.Scope
 		if scope == nil {
 			scope = f.Graph.Scope

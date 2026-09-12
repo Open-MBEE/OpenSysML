@@ -227,8 +227,65 @@ func replayTerm(t *Term, env map[string]replayValue) (replayValue, error) {
 		// float64(int64) is the widening the evaluator applies where a real
 		// meets an integer, which rounds beyond 2^53.
 		return replayValue{kind: SortReal, f: float64(val.i)}, nil
+	case OpInt64:
+		exact, err := exactInt(t.Args[0], env)
+		if err != nil {
+			return replayValue{}, err
+		}
+		return replayValue{kind: SortBool, b: exact.IsInt64()}, nil
 	}
 	return replayValue{}, fmt.Errorf("the replay does not define this term")
+}
+
+// exactInt computes an integer term without bounds, deciding the range an
+// OpInt64 asks about where the evaluator's own int64 arithmetic would overflow.
+func exactInt(t *Term, env map[string]replayValue) (*big.Int, error) {
+	switch t.Op {
+	case OpAdd, OpSub, OpMul, OpIntDiv:
+		left, err := exactInt(t.Args[0], env)
+		if err != nil {
+			return nil, err
+		}
+		right, err := exactInt(t.Args[1], env)
+		if err != nil {
+			return nil, err
+		}
+		switch t.Op {
+		case OpAdd:
+			return new(big.Int).Add(left, right), nil
+		case OpSub:
+			return new(big.Int).Sub(left, right), nil
+		case OpMul:
+			return new(big.Int).Mul(left, right), nil
+		}
+		if right.Sign() == 0 {
+			return nil, fmt.Errorf("division by zero")
+		}
+		return new(big.Int).Div(left, right), nil
+	case OpNeg:
+		arg, err := exactInt(t.Args[0], env)
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).Neg(arg), nil
+	case OpIte:
+		cond, err := replayBool(t.Args[0], env)
+		if err != nil {
+			return nil, err
+		}
+		if cond {
+			return exactInt(t.Args[1], env)
+		}
+		return exactInt(t.Args[2], env)
+	}
+	val, err := replayTerm(t, env)
+	if err != nil {
+		return nil, err
+	}
+	if val.kind != SortInt {
+		return nil, fmt.Errorf("an integer operand yielded none")
+	}
+	return big.NewInt(val.i), nil
 }
 
 // replayBool evaluates a term that must yield a boolean.

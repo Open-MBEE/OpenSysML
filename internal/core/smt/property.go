@@ -206,12 +206,13 @@ type Output struct {
 	Has *solve.Var
 }
 
-// Outputs are the action's attributes as the final state leaves them, in
-// declaration order: what the interpreter reports as a run's results.
+// Outputs are the features the performance holds as the final state leaves
+// them, in declaration order: what the interpreter reports as a run's results.
 func (e *Encoding) Outputs() []Output {
 	final := e.States[e.Moves]
-	outputs := make([]Output, 0, len(e.Flow.Graph.Attributes))
-	for _, attr := range e.Flow.Graph.Attributes {
+	features := e.held.Features()
+	outputs := make([]Output, 0, len(features))
+	for _, attr := range features {
 		scope := attr.Scope
 		if scope == nil {
 			scope = e.Flow.Graph.Scope

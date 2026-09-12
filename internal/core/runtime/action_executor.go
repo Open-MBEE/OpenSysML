@@ -2302,16 +2302,27 @@ func (e *ActionExecutor) Data() map[string]Value {
 	return e.root.data
 }
 
-// Held is a copy of the values a performance holds at one moment, looked up
-// under the names the performance keys them by.
+// Held is a copy of what a performance holds at one moment: the features it
+// holds, and their values looked up under the names the performance keys them by.
 type Held struct {
-	data    map[string]Value
-	aliases map[string]string
+	features []lower.Attribute
+	data     map[string]Value
+	aliases  map[string]string
 }
 
 // Held copies what the action's own performance holds now.
 func (e *ActionExecutor) Held() Held {
-	return Held{data: maps.Clone(e.root.data), aliases: maps.Clone(e.root.aliases)}
+	return Held{
+		features: slices.Clone(e.features),
+		data:     maps.Clone(e.root.data),
+		aliases:  maps.Clone(e.root.aliases),
+	}
+}
+
+// Features are the attributes and parameters the performance holds, the graph's
+// own then the inherited ones it does not redefine, as the run initializes them.
+func (h Held) Features() []lower.Attribute {
+	return h.features
 }
 
 // Value is the value held under name: its redefinition's when name is redefined.

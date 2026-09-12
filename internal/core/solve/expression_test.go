@@ -3,6 +3,7 @@ package solve
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -69,8 +70,9 @@ func TestTranslatorReadsFeaturesAsOneVariableEach(t *testing.T) {
 	if err != nil {
 		t.Fatalf("translate the sum: %v", err)
 	}
-	if !sum.Term.Sort.Equal(Int) || len(sum.Defined) != 0 {
-		t.Fatalf("the sum is %s with %d side conditions, want Int with none", sum.Term.Sort.Name, len(sum.Defined))
+	if !sum.Term.Sort.Equal(Int) || len(sum.Defined) != 2 {
+		t.Fatalf("the sum is %s with %d side conditions, want Int within int64 for the product and the sum",
+			sum.Term.Sort.Name, len(sum.Defined))
 	}
 	flag, err := x.Boolean(assigns[1].Value, assigns[1].Scope, "assign done")
 	if err != nil {
@@ -138,6 +140,64 @@ func TestTranslatorReportsDefinednessPerExpression(t *testing.T) {
 		}
 		if got := writeTerm(expr.Defined[0]); got != "(distinct |test::Ratio::b| 0)" {
 			t.Errorf("assignment %d is defined where %s", i, got)
+		}
+	}
+}
+
+// TestTranslatorDefinesIntegerArithmeticWithinInt64: a sum, difference,
+// product or negation of Integers is defined where its result is an int64, as
+// the evaluator reports overflow; a Real one and a literal carry no such condition.
+func TestTranslatorDefinesIntegerArithmeticWithinInt64(t *testing.T) {
+	x, _, body := actionBody(t, `
+		package test {
+			private import ScalarValues::*;
+			action def Arith {
+				attribute a : Integer;
+				attribute b : Integer;
+				attribute r : Real;
+				action step {
+					assign a := a + b;
+					assign a := a - b;
+					assign a := a * b;
+					assign a := -a;
+					assign a := 5;
+					assign r := r + 1.0;
+				}
+			}
+		}`, "test::Arith")
+	assigns := assignments(body)
+	if len(assigns) != 6 {
+		t.Fatalf("lowered %d assignments, want 6", len(assigns))
+	}
+	const within = "(<= (- 9223372036854775808) %s 9223372036854775807)"
+	want := []string{
+		"(+ |test::Arith::a| |test::Arith::b|)",
+		"(- |test::Arith::a| |test::Arith::b|)",
+		"(* |test::Arith::a| |test::Arith::b|)",
+		"(- |test::Arith::a|)",
+	}
+	for i, result := range want {
+		expr, err := x.Expression(assigns[i].Value, assigns[i].Scope, "assign a")
+		if err != nil {
+			t.Fatalf("translate assignment %d: %v", i, err)
+		}
+		if len(expr.Defined) != 1 {
+			t.Fatalf("assignment %d carries %d side conditions, want the int64 range", i, len(expr.Defined))
+		}
+		if expr.Defined[0].Op != OpInt64 {
+			t.Errorf("assignment %d is defined by %v, want OpInt64", i, expr.Defined[0].Op)
+		}
+		if got := writeTerm(expr.Defined[0]); got != fmt.Sprintf(within, result) {
+			t.Errorf("assignment %d is defined where %s", i, got)
+		}
+	}
+	for i := 4; i < 6; i++ {
+		expr, err := x.Expression(assigns[i].Value, assigns[i].Scope, "assign")
+		if err != nil {
+			t.Fatalf("translate assignment %d: %v", i, err)
+		}
+		if len(expr.Defined) != 0 {
+			t.Errorf("assignment %d carries %d side conditions, want none", i, len(expr.Defined))
 		}
 	}
 }
