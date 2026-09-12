@@ -92,6 +92,8 @@ func (ctx *Context) valueKey(v Value) valueKey {
 		}
 	case ValMetaobject:
 		key.element = symbols.KeyOf(v.MetaobjectElement())
+	case ValUndetermined:
+		key.strVal = v.Undetermined().Reason()
 	}
 	return key
 }

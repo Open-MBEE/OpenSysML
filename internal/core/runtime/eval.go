@@ -372,7 +372,8 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		if isCalcUsageSymbol(sym) && ctx.returnsResult(sym) {
 			return NewEvalContext(ctx, sym.OwnerScope).evalCalcUsageMembers(sym, resultSegments)
 		}
-		return Value{}, fmt.Errorf("%w: %s", ErrNoValue, ctx.qualifiedSymbolName(sym))
+		// Read as a name of it is read: a feature nothing values is undetermined.
+		return NewEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.qualifiedSymbolName(sym), nil)
 	}
 	defer ctx.beginRun()()
 
@@ -464,10 +465,30 @@ func (ctx *Context) emptyOfDeclared(scope *symbols.Scope, node ast.Node) (Value,
 
 // emptyOfFeature is emptyOfDeclared for the values a feature declares it holds.
 func (ctx *Context) emptyOfFeature(feat *EffectiveFeature) (Value, bool) {
-	if ctx.model.semantics == nil || feat == nil {
+	if feat == nil {
 		return Value{}, false
 	}
-	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfFeature(feat.heldBy()))
+	return ctx.emptyOfSymbol(feat.heldBy())
+}
+
+// emptyOfSymbol is emptyOfDeclared for the values a declared feature holds.
+func (ctx *Context) emptyOfSymbol(sym *symbols.Symbol) (Value, bool) {
+	if ctx.model.semantics == nil || sym == nil {
+		return Value{}, false
+	}
+	return ctx.emptyOfDimension(ctx.model.semantics.DimensionOfFeature(sym))
+}
+
+// declaredCount is how many values an expression holds wherever it is evaluated,
+// as far as the declarations it reads fix that: `[0..*]` where they leave it open.
+func (ec *EvalContext) declaredCount(scope *symbols.Scope, node ast.Node) semantics.Range {
+	if ec.ctx.model.semantics == nil || scope == nil {
+		return openRange()
+	}
+	if count, ok := ec.ctx.model.semantics.ValuesHeldBy(scope, node); ok {
+		return count
+	}
+	return openRange()
 }
 
 // emptyOfDimension is the empty sequence of quantities of a dimension, in its
@@ -680,7 +701,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 				if ec.ctx.model.semantics.IsVariationFeature(sym) {
 					return Value{}, fmt.Errorf("%w: %s", ErrVariationUnselected, name)
 				}
-				return Value{}, ec.resolvedWithoutValue(sym, qn)
+				return ec.resolvedWithoutValue(sym, qn)
 			}
 		}
 		// Nothing outside the feature supplies its value, so its own value depends
@@ -785,7 +806,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 		}
 		// A calc usage or a KerML type is never the empty sequence, whatever it admits.
 		if isCalcUsageSymbol(currentSym) || declaresType(currentSym) {
-			return Value{}, ec.resolvedWithoutValue(currentSym, qn)
+			return ec.resolvedWithoutValue(currentSym, qn)
 		}
 		// A valueless feature admitting nothing is the empty sequence, however spelled.
 		if val, ok := ec.emptyDeclaredFeature(currentSym); ok {
@@ -805,7 +826,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 			return val, nil
 		}
 	}
-	return Value{}, ec.resolvedWithoutValue(currentSym, qn)
+	return ec.resolvedWithoutValue(currentSym, qn)
 }
 
 // frameFeatureValue reads the resolved member sym, qualified by qualifier, from the innermost
@@ -827,28 +848,55 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 	return Value{}, false
 }
 
-// resolvedWithoutValue reports a name that resolves to sym but reads no value:
-// a feature nothing gives a value to is uninitialized, not unresolved.
-func (ec *EvalContext) resolvedWithoutValue(sym *symbols.Symbol, qn *ast.QualifiedName) error {
-	spelled := qualifiedNameToString(qn)
+// resolvedWithoutValue reads a name that resolves to sym but no value: undetermined
+// at model level, uninitialized (not unresolved) when an object features it.
+func (ec *EvalContext) resolvedWithoutValue(sym *symbols.Symbol, qn *ast.QualifiedName) (Value, error) {
+	return ec.withoutValue(sym, qualifiedNameToString(qn), qn)
+}
+
+// withoutValue reads sym, spelled as written, when it binds no value.
+func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string, qn *ast.QualifiedName) (Value, error) {
 	// Definitions are types, not values.
 	if declaresType(sym) {
-		return fmt.Errorf("cannot evaluate definition %s", spelled)
+		return Value{}, fmt.Errorf("cannot evaluate definition %s", spelled)
 	}
 	// A calc usage is an evaluation, not a value: it is read through the output
 	// features it computes, since a name it does not designate a result for has
 	// no one value.
 	if isCalcUsageSymbol(sym) {
-		return fmt.Errorf(
+		return Value{}, fmt.Errorf(
 			"%w: calc usage %s computes output features (%s); read one of them",
 			ErrNoValue, spelled, ec.ctx.calcUsageOutputSummary(sym),
 		)
 	}
 	// A usage of any kind — a subject or a state included — is a feature.
 	if _, usage := sym.Decl.(*ast.Usage); usage || semantics.IsShapeFeature(sym) {
-		return &NoValueError{Feature: spelled, Ref: qn}
+		if ec.modelLevel() {
+			return ec.undeterminedFeature(sym, spelled), nil
+		}
+		return Value{}, &NoValueError{Feature: spelled, Ref: qn}
 	}
-	return fmt.Errorf("cannot evaluate %s %s", sym.Kind, spelled)
+	return Value{}, fmt.Errorf("cannot evaluate %s %s", sym.Kind, spelled)
+}
+
+// modelLevel reports an evaluation featured by nothing: no object, element or
+// behavior supplies feature values, so the model alone determines them.
+func (ec *EvalContext) modelLevel() bool {
+	return ec.self == nil && ec.features == nil && !ec.inBehaviorBody && !ec.hasPerformanceFrame()
+}
+
+// undeterminedFeature is the model-level value of a feature nothing gives a
+// value to: as many values as its multiplicity states, none of them known;
+// the empty sequence where it states there are none.
+func (ec *EvalContext) undeterminedFeature(sym *symbols.Symbol, spelled string) Value {
+	count := ec.ctx.featureMultiplicity(sym, ec.ctx.findOwnerType(sym))
+	if n, exact := count.Exactly(); exact && n == 0 {
+		if typed, ok := ec.ctx.emptyOfSymbol(sym); ok {
+			return typed
+		}
+		return sequenceOf(nil)
+	}
+	return undeterminedFeatureValue(noValueReason(spelled), count, sym)
 }
 
 // declaresType reports a symbol that declares a type: a definition, or a KerML
@@ -960,6 +1008,9 @@ func (ec *EvalContext) evaluateDeclared(sym *symbols.Symbol, value ast.Node) (Va
 	if msg := ec.ctx.declaredUniquenessRefusal(sym, &val); msg != "" {
 		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrUniquenessViolation, msg)
 	}
+	if msg := ec.ctx.declaredCountRefusal(sym, &val); msg != "" {
+		return Value{}, fmt.Errorf("%s: %w: %s", what, ErrMultiplicityViolation, msg)
+	}
 	if err := ec.ctx.classifyHeld(sym, val); err != nil {
 		return Value{}, fmt.Errorf("%s: %w", what, err)
 	}
@@ -983,9 +1034,10 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 }
 
 // emptyDeclaredFeature reads a valueless feature declaration whose lower bound is
-// zero as the empty sequence. A variation is a choice, not an empty feature.
+// zero as the empty sequence an object holding nothing reads. At model level no
+// object holds it, so it stays undetermined. A variation is a choice, not an empty feature.
 func (ec *EvalContext) emptyDeclaredFeature(sym *symbols.Symbol) (Value, bool) {
-	if !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
+	if ec.modelLevel() || !ec.ctx.optionalValueless(sym) || ec.ctx.model.semantics.IsVariationFeature(sym) {
 		return Value{}, false
 	}
 	return sequenceOf(nil), true
@@ -1122,6 +1174,13 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 			return Value{}, fmt.Errorf("instance ID %d not found", operand.Instance)
 		}
 	}
+	// An undetermined value a feature holds is chained as that feature's, so its
+	// members are the ones the feature declares however the value was computed.
+	if u := operand.Undetermined(); u != nil && u.feature == nil {
+		if sym, ok := ec.chainBaseSymbol(base); ok {
+			operand = undeterminedFeatureValue(u.reason, u.count, sym)
+		}
+	}
 
 	return ec.chainMemberValue(operand, n.Member.Parts, "")
 }
@@ -1129,12 +1188,8 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 // chainMembersDeclared reports the first chain member nothing declares, so
 // `wheels.nonexistent` is unresolved rather than unset when wheels has no value.
 func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegment) error {
-	ref, ok := base.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
-		return nil
-	}
-	cur, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
-	if !ok || cur == nil {
+	cur, ok := ec.chainBaseSymbol(base)
+	if !ok {
 		return nil
 	}
 	for _, part := range parts {
@@ -1145,6 +1200,16 @@ func (ec *EvalContext) chainMembersDeclared(base ast.Node, parts []ast.NameSegme
 		cur = next
 	}
 	return nil
+}
+
+// chainBaseSymbol is the feature a chain's base names, when it names one.
+func (ec *EvalContext) chainBaseSymbol(base ast.Node) (*symbols.Symbol, bool) {
+	ref, ok := base.(*ast.FeatureReference)
+	if !ok || ref.Name == nil || ec.ctx.model.resolver == nil {
+		return nil, false
+	}
+	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
+	return sym, ok && sym != nil
 }
 
 // declaredMember is what an object of sym holds under name: a feature of its
@@ -1212,6 +1277,8 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	case ValMetaobject:
 		// A metaobject answers its metaclass's features for the element it denotes.
 		return ec.chainOwnFeature(value, parts, from)
+	case ValUndetermined:
+		return ec.chainThroughUndetermined(value, parts, from)
 	default:
 		if err := metadataOfAValue(value, parts); err != nil {
 			return Value{}, err
@@ -1274,11 +1341,16 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 		}
 		return ec.chainMemberValue(val, rest, variant.Name)
 	}
-	// Read through GetFeatureValue so a derived or composite member is materialized
+	// Read through the feature value so a derived or composite member is materialized
 	// on demand rather than read as an empty feature value.
-	fv, err := inst.GetFeatureValue(ec.ctx, name)
+	fv, open, err := ec.memberFeatureValue(inst, name)
 	if err != nil {
 		return Value{}, err
+	}
+	// An object read through the model holds, for a feature whose count the model
+	// leaves open, no fixed sequence of values.
+	if val, ok := ec.openFeatureRead(inst, fv, open, from, name); ok {
+		return ec.chainMemberValue(val, rest, name)
 	}
 	member, err := ec.ctx.readFeatureValue(fv, name)
 	if err != nil {
@@ -1329,6 +1401,10 @@ func (ec *EvalContext) chainOverElements(value Value, parts []ast.NameSegment, f
 		}
 		collected = append(collected, contributed...)
 		reads = append(reads, val)
+	}
+	// A member some element leaves undetermined is undetermined over all of them.
+	if _, open := undeterminedIn(reads...); open {
+		return undeterminedElements(reads), nil
 	}
 	if len(collected) == 0 {
 		if unit, ok := elementUnitOf(reads...); ok {
@@ -1489,11 +1565,15 @@ func (ec *EvalContext) evalTypeClassification(n *ast.OperatorExpr) (Value, error
 	if err != nil {
 		return Value{}, err
 	}
+	declared := ec.declaredOperandTypes(n.Operands[0])
+	if value.Kind == ValUndetermined {
+		return classifyUndetermined(n.Operator, value, ec.undeterminedClassification(declared, target)), nil
+	}
 	by := byAnyType
 	if n.Operator == ast.OpHasType {
 		by = byOwnType
 	}
-	matches, err := ec.valuesClassified(soleElement(value), target, ec.declaredOperandTypes(n.Operands[0]), by, n.Operator == ast.OpAt)
+	matches, err := ec.valuesClassified(soleElement(value), target, declared, by, n.Operator == ast.OpAt)
 	if err != nil {
 		return Value{}, err
 	}
@@ -1757,6 +1837,15 @@ func (ec *EvalContext) evalConditional(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	// A condition the model leaves open selects no branch, so neither is
+	// evaluated; the result holds as many values as either branch declares.
+	if cond.Kind == ValUndetermined {
+		if err := ec.ctx.openBoolOperand("condition of 'if'", cond); err != nil {
+			return Value{}, err
+		}
+		count := ec.declaredCount(ec.scope, n.Operands[1]).Covering(ec.declaredCount(ec.scope, n.Operands[2]))
+		return undeterminedOf(count, cond), nil
+	}
 	held, err := boolOperand("condition of 'if'", cond)
 	if err != nil {
 		return Value{}, err
@@ -1776,12 +1865,22 @@ func (ec *EvalContext) evalNullCoalesce(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	return coalesceNull(left, func() (Value, error) { return ec.Eval(n.Operands[1]) })
+	second := func() (Value, error) { return ec.Eval(n.Operands[1]) }
+	return coalesceNull(left, second, ec.declaredCount(ec.scope, n.Operands[1]))
 }
 
 // coalesceNull is `??` over an evaluated first operand: the operand unless it
-// is empty, else the second operand, evaluated only then.
-func coalesceNull(first Value, second func() (Value, error)) (Value, error) {
+// is empty, else the second operand, evaluated only then. fallback is the count
+// the second would yield, as far as the declarations fix it.
+func coalesceNull(first Value, second func() (Value, error), fallback semantics.Range) (Value, error) {
+	// An open operand that may be empty leaves which operand `??` yields open:
+	// the first, holding at least one value, or the second.
+	if first.Kind == ValUndetermined && !certainlyNonEmpty(first) {
+		if certainlyEmpty(first) {
+			return second()
+		}
+		return undeterminedOf(nonEmptyCount(countOf(first)).Covering(fallback), first), nil
+	}
 	if !isEmptyValue(first) {
 		return first, nil
 	}
@@ -1814,6 +1913,9 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 	right, err := ec.Eval(n.Operands[1])
 	if err != nil {
 		return Value{}, err
+	}
+	if _, open := undeterminedIn(left, right); open {
+		return undeterminedResult(left, right), nil
 	}
 
 	same := valueIdentical(left, right)
@@ -1869,6 +1971,17 @@ func (ec *EvalContext) evalArithmetic(n *ast.OperatorExpr) (Value, error) {
 // arithmeticValues applies a binary arithmetic operator to two evaluated
 // operands; the operator notation and the library's `'+'` forms both use it.
 func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
+	// An operand the model leaves open leaves the result open, unless the
+	// determined operand or the open one's declared type alone makes the operation fail.
+	if _, open := undeterminedIn(left, right); open {
+		if err := definiteArithmeticError(op, left, right); err != nil {
+			return Value{}, err
+		}
+		if err := ctx.openBinaryOperands(op, left, right, span, arithmeticDomain(op)); err != nil {
+			return Value{}, err
+		}
+		return undeterminedResult(left, right), nil
+	}
 	// '+' over two strings concatenates, the one arithmetic operator
 	// StringFunctions declares; a non-string operand is not coerced.
 	if op == ast.OpAdd && left.Kind == ValString && right.Kind == ValString {
@@ -1924,6 +2037,23 @@ func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, spa
 		return Value{}, err
 	}
 	return Value{Kind: ValConst, Const: res}, nil
+}
+
+// definiteArithmeticError is why op over an open operand fails whatever that
+// operand holds: the other is a zero divisor or the unbounded `*`.
+func definiteArithmeticError(op ast.OperatorKind, left, right Value) error {
+	for _, operand := range []Value{left, right} {
+		if operand.Kind == ValConst && operand.Const.IsUnbounded() {
+			return fmt.Errorf("%w: operator '%s' is not defined for the unbounded value '*'", ErrTypeMismatch, op)
+		}
+	}
+	if op != ast.OpDiv && op != ast.OpMod {
+		return nil
+	}
+	if q, ok := asQuantity(right); ok && q.Num.IsNumeric() && q.Num.AsReal() == 0 {
+		return ErrDivisionByZero
+	}
+	return nil
 }
 
 // constArithmetic is arithmetic over two scalar constants, the core the
@@ -2026,6 +2156,9 @@ func (ec *EvalContext) evalEquality(n *ast.OperatorExpr) (Value, error) {
 // equalityValues applies `==` or `!=` to two evaluated operands; the operator
 // notation and the library's `'=='` forms both use it.
 func (ctx *Context) equalityValues(op ast.OperatorKind, left, right Value) (Value, error) {
+	if _, open := undeterminedIn(left, right); open {
+		return undeterminedResult(left, right), nil
+	}
 	// Comparing a value with a variant compares it with the value that variant
 	// declares; comparing two variants compares the choice itself.
 	if (left.Kind == ValVariant) != (right.Kind == ValVariant) {
@@ -2083,6 +2216,12 @@ func (ec *EvalContext) evalComparison(n *ast.OperatorExpr) (Value, error) {
 // comparisonValues applies an ordering operator to two evaluated operands; the
 // operator notation and the library's `'<'` forms both use it.
 func (ctx *Context) comparisonValues(op ast.OperatorKind, left, right Value, span source.Span) (Value, error) {
+	if _, open := undeterminedIn(left, right); open {
+		if err := ctx.openBinaryOperands(op, left, right, span, comparisonDomain); err != nil {
+			return Value{}, err
+		}
+		return undeterminedResult(left, right), nil
+	}
 	// Quantities are ordered on a common reference, so a magnitude is never
 	// compared across units or scales without conversion.
 	if lq, rq, ok := quantityOperands(left, right); ok {
@@ -2261,6 +2400,18 @@ func (ec *EvalContext) evalLogical(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
+	// An open left operand decides nothing, so the right one is read: where it
+	// fixes the result on its own, the result is known.
+	if left.Kind == ValUndetermined {
+		if err := ec.ctx.openBoolOperand(fmt.Sprintf("left operand of '%s'", n.Operator), left); err != nil {
+			return Value{}, err
+		}
+		right, err := ec.valueOperand(n.Operands[1])
+		if err != nil {
+			return Value{}, err
+		}
+		return ec.ctx.logicalWithOpenLeft(n.Operator, left, right)
+	}
 	l, err := boolOperand(fmt.Sprintf("left operand of '%s'", n.Operator), left)
 	if err != nil {
 		return Value{}, err
@@ -2274,11 +2425,71 @@ func (ec *EvalContext) evalLogical(n *ast.OperatorExpr) (Value, error) {
 	if err != nil {
 		return Value{}, err
 	}
-	r, err := boolOperand(fmt.Sprintf("right operand of '%s'", n.Operator), right)
+	return ec.ctx.logicalWithRight(n.Operator, l, right)
+}
+
+// logicalWithRight is a Boolean operator its left operand l did not decide, over
+// the right one; an open right leaves it open once its declared type admits a Boolean.
+func (ctx *Context) logicalWithRight(op ast.OperatorKind, l bool, right Value) (Value, error) {
+	what := fmt.Sprintf("right operand of '%s'", op)
+	if right.Kind == ValUndetermined {
+		if err := ctx.openBoolOperand(what, right); err != nil {
+			return Value{}, err
+		}
+		return undeterminedResult(right), nil
+	}
+	r, err := boolOperand(what, right)
 	if err != nil {
 		return Value{}, err
 	}
-	return combineBooleans(n.Operator, l, r)
+	return combineBooleans(op, l, r)
+}
+
+// logicalWithOpenLeft is a Boolean operator over an open left operand: a right one
+// fixing the result alone (`and false`, `or true`, `implies true`) fixes it here too.
+func (ctx *Context) logicalWithOpenLeft(op ast.OperatorKind, left, right Value) (Value, error) {
+	what := fmt.Sprintf("right operand of '%s'", op)
+	if right.Kind == ValUndetermined {
+		if err := ctx.openBoolOperand(what, right); err != nil {
+			return Value{}, err
+		}
+		return undeterminedResult(left, right), nil
+	}
+	r, err := boolOperand(what, right)
+	if err != nil {
+		return Value{}, err
+	}
+	switch op {
+	case ast.OpAnd, ast.OpConditionalAnd:
+		if !r {
+			return boolValue(false), nil
+		}
+	case ast.OpOr, ast.OpConditionalOr, ast.OpImplies:
+		if r {
+			return boolValue(true), nil
+		}
+	}
+	return undeterminedResult(left), nil
+}
+
+// combineBooleanValues applies a binary Boolean operator to two evaluated
+// operands, either of which the model may leave open.
+func (ctx *Context) combineBooleanValues(op ast.OperatorKind, left, right Value) (Value, error) {
+	what := fmt.Sprintf("left operand of '%s'", op)
+	if left.Kind == ValUndetermined {
+		if err := ctx.openBoolOperand(what, left); err != nil {
+			return Value{}, err
+		}
+		return ctx.logicalWithOpenLeft(op, left, right)
+	}
+	l, err := boolOperand(what, left)
+	if err != nil {
+		return Value{}, err
+	}
+	if decided, result := shortCircuit(op, l); decided {
+		return boolValue(result), nil
+	}
+	return ctx.logicalWithRight(op, l, right)
 }
 
 // shortCircuit reports whether a Boolean operator is decided by its left
@@ -2373,6 +2584,12 @@ func (ec *EvalContext) evalUnary(n *ast.OperatorExpr) (Value, error) {
 // unaryValue applies `not`, `-` or `+` to an evaluated operand; the operator
 // notation and the library's `'not'` forms both use it.
 func (ctx *Context) unaryValue(op ast.OperatorKind, operand Value) (Value, error) {
+	if operand.Kind == ValUndetermined {
+		if err := ctx.openUnaryOperand(op, operand); err != nil {
+			return Value{}, err
+		}
+		return undeterminedResult(operand), nil
+	}
 	switch op {
 	case ast.OpNot:
 		if operand.Kind != ValConst {
@@ -2432,12 +2649,21 @@ func constUnary(op ast.OperatorKind, operand semantics.Value) (semantics.Value, 
 // expression `(seq1, seq2)` rather than a two-element sequence of sequences.
 func (ec *EvalContext) evalSequenceExpr(n *ast.SequenceExpr) (Value, error) {
 	elements := make([]Value, 0, len(n.Elements))
+	var open bool
 	for _, elem := range n.Elements {
 		val, err := ec.Eval(elem)
 		if err != nil {
 			return Value{}, err
 		}
+		if val.Kind == ValUndetermined {
+			open = true
+			elements = append(elements, val)
+			continue
+		}
 		elements = append(elements, elementsOf(val)...)
+	}
+	if open {
+		return undeterminedElements(elements), nil
 	}
 	return ec.newSequence(elements)
 }
@@ -3201,6 +3427,8 @@ func (ctx *Context) valueEqual(a, b Value) bool {
 	case ValMetaobject:
 		// A metaobject is the element it denotes, whichever metaclass it was cast to.
 		return symbols.SameElement(a.MetaobjectElement(), b.MetaobjectElement())
+	case ValUndetermined:
+		return a.ref == b.ref
 	default:
 		return false
 	}

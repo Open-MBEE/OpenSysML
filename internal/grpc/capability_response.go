@@ -130,6 +130,10 @@ func (s *Service) filterValueCapabilities(value *pb.Value) {
 			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.ValMetaobject.String() + " " +
 				kind.Metaobject.GetElementId() + " : " + kind.Metaobject.GetMetaclassId()}
 		}
+	case *pb.Value_Undetermined:
+		if !s.capabilities.has(CapabilityUndeterminedValue) {
+			value.Kind = &pb.Value_Null{Null: unsupportedNullPrefix + runtime.UndeterminedText + ": " + kind.Undetermined.GetReason()}
+		}
 	}
 }
 

@@ -150,7 +150,7 @@ func TestADebuggerWritesTheObjectEvalReadsAfterAReanalysis(t *testing.T) {
 
 // A resubmission that changes the holder's declaration drops the object, so the
 // written value is gone from every surface alike: %features says the object was
-// dropped and %eval answers the declaration's default.
+// dropped and %eval, back at model level, finds the declaration gives no value.
 func TestSupersedingTheHolderDropsTheWrittenValueEverywhere(t *testing.T) {
 	s := NewSession()
 	writeHolder(t, s, writtenHolderModel)
@@ -162,7 +162,7 @@ func TestSupersedingTheHolderDropsTheWrittenValueEverywhere(t *testing.T) {
 	if got := metaOK(t, s, "%features Demo::holder"); !strings.Contains(got, "1 instance was dropped when the declarations changed") {
 		t.Errorf("%%features Demo::holder = %q, want the object reported dropped", got)
 	}
-	if got := evalOK(t, s, "Demo::holder.n"); !strings.Contains(got, "= <unset>") {
-		t.Errorf("%%eval Demo::holder.n = %q, want <unset>", got)
+	if got := evalOK(t, s, "Demo::holder.n"); !strings.Contains(got, "= <undetermined>") {
+		t.Errorf("%%eval Demo::holder.n = %q, want <undetermined>", got)
 	}
 }

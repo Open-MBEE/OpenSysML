@@ -1056,7 +1056,9 @@ shared simulation clock (`Context.Clock()`, `Context.Advance`, `accept after`/`a
 token in an action body, `due order` as a choice point), so every E item is written against a
 named scheduling policy and a shared clock, not an implicit order. Each item below ends with
 what would move it forward; until that happens, the honest status is the "not supported" bullet
-or the refusal.
+or the refusal. E8–E10 are the three findings about the runtime's own conformance in
+`docs/internals/design/precise-semantics-alignment.md` that concern state machines: E8 is open,
+E9 and E10 landed with the change set that decided the note's open decisions.
 
 Two things about the list's own terms. First, four of the seven items — interruptible regions,
 expansion regions, streaming pins, protocol state machines — are UML 2.5.1 concepts that SysML v2
@@ -1353,6 +1355,92 @@ accept fires (with the `via` form of the same model); a trace golden; robustness
 expression yielding no object. `spec-compliance.md`: the Known Limitations bullet and the "not
 supported" bullet both leave. **Prioritize when** the object-model item lands, since without it
 there is no second object to address.
+
+## E8 — `isRunToCompletion` and `runToCompletionScope` redefinitions
+
+**Today.** `Kernel Semantic Library/Occurrences.kerml` declares, on every `Occurrence`,
+`isRunToCompletion: Boolean [1] default true` — "determines whether transition performances might
+happen during state entry performances within the run to completion scope" — and
+`runToCompletionScope: Occurrence [1] default self`, and `StatePerformances.kerml` redefines both
+on `StatePerformance` (`default this.isRunToCompletion`, `default this.runToCompletionScope`) with
+the invariant that under `isRunToCompletion` every `TransitionPerformance` within the scope
+precedes or follows the state's `entry`. The runtime implements the defaults and only the
+defaults: `runtime/state_executor.go` `runStep` → `processNextEvent` dispatches one occurrence
+per step and `enterStateInto` runs a state's entry behavior and its regions' initial entries to
+the end before the step returns, so no transition fires during an entry; the scope is always the
+whole machine, since `run` is one loop over one `eventQueue`. A model that redefines either
+feature on a state or on the exhibiting occurrence — narrowing the scope to one composite, or
+switching run-to-completion off so that a transition may fire while a sibling's entry is still
+performing — is accepted by validation and run under the defaults with no diagnostic. The
+lowered `StateGraph` carries neither feature; no conformance fixture exercises a redefinition;
+the precise-semantics alignment note records the gap against its SM1 row.
+
+**Target.** The two declarations above, read from the model. `isRunToCompletion = false` on a
+scope means the library no longer orders transition performances within that scope against
+entry performances, so the executor may — and under `explore` must — interleave a dispatch with
+an ongoing entry there; `runToCompletionScope` names the occurrence within which the ordering
+holds, so a scope narrower than the machine leaves transitions outside it free to fire while a
+state inside it is entering. A redefinition that names no occurrence, or a scope that is not an
+ancestor of the redefining state, is a typed error.
+
+**Work.** Lower both features per state into the `StateGraph` (the value expression, or the
+inherited default), resolved through the same redefinition walk `lower/state_graph.go` uses for
+entry transitions; give the state executor a per-scope step boundary in place of the single
+`runStep` one — a dispatch that arrives while an entry is performing is held at the boundary of
+the innermost enclosing scope with `isRunToCompletion` true, and taken as a move where it is
+false — and record the interleaving as a choice point (`scheduling.md`) so `explore` enumerates
+it and `seed:<n>` replays it. The default configuration must run every existing fixture and
+trace golden unchanged. Independent of E1–E7; touches the loop E1 and E2 also edit.
+
+**Proof.** Conformance: a redefinition to `false` on a composite whose entry sends a signal the
+composite itself accepts, pinning that the transition fires during the entry where the default
+holds it until after; a narrowed scope with a sibling region's transition firing during the
+scoped state's entry; the default unchanged. A trace golden for the interleaving order.
+Robustness: a scope that is not an ancestor. `spec-compliance.md`: the run-to-completion row
+gains the two features with file:function; the alignment note's SM1 row and its finding move to
+agreement. **Prioritize when** a user model redefines either feature — none in the corpora does
+today — or when the model checker's stage 3 needs the interleaving as a move.
+
+## E9 — a composite state's completion fires its own completion transition (landed)
+
+**Landed** with the state-machine rules of `docs/internals/design/precise-semantics-alignment.md`
+(SM11). Before, a `then done;` in a composite state's body ended the whole machine
+(`completeIfDone` → `machineComplete`) and a nil-trigger transition out of that composite was
+never scheduled, so `state outer { … then done; } transition first outer then next;` never
+reached `next`. `States.sysml` binds `done` to the `StatePerformance::endShot` of the state whose
+body names it, and `TransitionPerformances.kerml` places a transition's effect and target after
+its source's performance, so the machine's end there had no basis in the library. Now `done` in a
+composite's body lowers to that composite's own completion vertex
+(`lower/state_graph.go:completionOwner`); once its do behavior and every region have ended the
+composite completes and `scheduleCompletedComposites` → `scheduleCompletionTransitions` queues its
+nil-trigger transitions as completion events at the current instant, ordered as a leaf's are; and
+`machineComplete` ends the machine only when its top-level regions are all at `done`. A completed
+composite with no enabled completion transition stays completed and active — both PSSM
+(§8.5.9, the completion event is lost) and SysML v2 §7.18.3 ("does not necessarily terminate
+immediately") agree that nothing ends there, and neither says more. Pinned by
+`state_outer_completion_to_next`, `state_composite_completion_then_machine_done`,
+`state_composite_completion_nested`, `state_composite_completion_inside_region`,
+`state_completion_nested_regions` and `state_entry_transition_nested_done` (each rewritten with a
+completion transition out of the composite), their `_stay_active` siblings, and the unit tests in
+`state_completion_test.go`; `spec-compliance.md`'s completion rows carry the rule.
+
+## E10 — a choice's guards are read after the incoming effect; a junction's before (landed)
+
+**Landed** with the same change set (SM30). `pseudostates.md` had always described a choice as a
+dynamic branch whose guards are read when it is entered, while `resolveRoute` picked the branch
+for choice and junction alike before the incoming transition's effect ran, and a code comment
+called the two indistinguishable for a guard over state data. Now a route is settled before firing
+only up to the first choice — junctions along it statically, as before, a junction with no
+enabled branch still meaning the transition is not enabled — and firing exits the states every
+branch of the choice leaves, runs the effects into it and only then reads its guards
+(`state_route.go:travel` → `resolveChoice`); several enabled is the existing `ChoiceTransition`
+point at `choice <name>`, enumerated by `explore`; none enabled is the typed
+`ErrChoiceWithoutBranch`. On a chain each pseudostate follows its own rule at the point the route
+reaches it. Pinned by `state_choice_after_incoming_effect` (`assign x := 1 then pick; … if x == 1
+then seen` reaches `seen`), `state_choice_dynamic_conflict`, the three
+`state_pseudostate_chain_*` fixtures, `TestExploreDynamicChoiceBranches` and
+`robustness_test.go:state_choice_without_an_enabled_branch`; every other `state_choice_*` fixture
+kept its outcome.
 
 ---
 
@@ -2055,7 +2143,11 @@ behavior IR**, an **AOT C backend** that emits static tables and no allocation, 
 typed, naming the construct — for any model the target cannot bound. What the runtime can promise
 is *bounded and reproducible* execution; hard real-time guarantees (WCET) are properties of the
 target, the compiler and the RTOS configuration, and the documentation must say so rather than
-imply them.
+imply them. The design record for the track at the highest software class —
+[docs/internals/design/embedded-target.md](../internals/design/embedded-target.md) — fixes the
+freestanding C profile M2 emits, makes the IR's written semantics rather than the interpreter the
+requirement basis, turns every admissible scheduling choice into a static refusal, lists the
+artifacts under configuration control and restates M1–M6 as stages with exit criteria.
 
 ## M1 — a closed behavior IR
 

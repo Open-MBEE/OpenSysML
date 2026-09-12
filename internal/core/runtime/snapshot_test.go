@@ -12,6 +12,7 @@ import (
 	"weak"
 
 	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/core/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
@@ -722,6 +723,54 @@ func TestSnapshotRestoreBringsTheTraceBackToTheMark(t *testing.T) {
 		t.Fatalf("trace after restore:\n%s\nwant:\n%s", got, want)
 	}
 	snapshot.Release()
+}
+
+// The round trips above snapshot every step of these cases, so they must reach a
+// queued composite completion and a deferral holding back a sibling's transition.
+func TestSnapshotStepsReachAPendingCompositeCompletionAndAHeldDeferral(t *testing.T) {
+	conformanceDir := filepath.Join("testdata", "conformance")
+	reaches := func(t *testing.T, testName string, at func(*StateExecutor) bool) {
+		t.Helper()
+		run := newSteppedRun(t, conformanceDir, testName, loadExpectedOutcome(t, conformanceDir, testName))
+		for more := true; more && run.taken < maxSnapshotSteps; {
+			for _, exec := range run.states {
+				if at(exec) {
+					return
+				}
+			}
+			var err error
+			if more, err = run.advance(); err != nil {
+				t.Fatalf("step %d: %v", run.taken, err)
+			}
+		}
+		t.Fatalf("no step boundary of %s shows the state the round trips must carry", testName)
+	}
+
+	t.Run("composite_completion_pending", func(t *testing.T) {
+		reaches(t, "state_composite_completion_then_machine_done", func(exec *StateExecutor) bool {
+			for _, event := range exec.eventQueue.events {
+				trans, ok := event.Payload.(*lower.Transition)
+				if ok && trans.Trigger == nil && getNodeName(trans.Source) == "s1" && exec.stateComplete(trans.Source.(*ast.StateNode)) {
+					return true
+				}
+			}
+			return false
+		})
+	})
+	t.Run("deferral_held_over_a_sibling_transition", func(t *testing.T) {
+		reaches(t, "state_deferral_outranks_sibling_region", func(exec *StateExecutor) bool {
+			if len(exec.deferred) != 1 {
+				return false
+			}
+			if msg, ok := exec.deferred[0].Payload.(Message); !ok || msg.SignalType != "Ping" {
+				return false
+			}
+			candidates, err := exec.selectCandidates(func(source *ast.StateNode) ([]int, []RunNote, error) {
+				return exec.enabledTransitions(source, &exec.deferred[0])
+			})
+			return err == nil && len(candidates) == 1 && getNodeName(candidates[0].source) == "idle"
+		})
+	})
 }
 
 func TestSnapshotRefusesMidRun(t *testing.T) {

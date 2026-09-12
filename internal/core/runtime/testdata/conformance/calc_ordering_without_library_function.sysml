@@ -18,7 +18,7 @@ package test {
 	#Tag part tagged : Widget;
 	calc twice { in x : Integer; x * 2 }
 	attribute widgets : Widget[*] = (widget, other);
-	attribute nothing : Integer[0..1];
+	attribute nothing : Integer[*] = (1, 2)->SequenceFunctions::excluding(1)->SequenceFunctions::excluding(2);
 
 	calc def Orderings {
 		out numericEnumeration : Boolean = Level::low < Level::high;

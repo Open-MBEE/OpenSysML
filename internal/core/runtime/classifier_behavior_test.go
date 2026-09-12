@@ -1589,6 +1589,7 @@ func TestMessageLeftForACompletedMachineDoesNotBlockANewObject(t *testing.T) {
 					accept Ping then working;
 					succession first inner then done;
 				}
+				succession first working then done;
 			}
 		}
 		attribute def Ping;
