@@ -1740,3 +1740,107 @@ func TestAdoptCarriesANamespaceBinding(t *testing.T) {
 			got.ID, symbolText(got.Type))
 	}
 }
+
+const adoptDependentBindingSrc = `package Demo {
+	part def Car;
+	part def Truck :> Car;
+	ref part spare : Car = new Car();
+	ref part alias : Car = spare;
+}`
+
+// A binding is carried only while every declaration its value read still reads as it read:
+// an alias of an edited usage binds anew, though its own declaration is unchanged.
+func TestAdoptRebindsWhenABindingsDependencyChanges(t *testing.T) {
+	objectIn := func(t *testing.T, ctx *Context, name string) *Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		id, ok := val.Object()
+		if !ok {
+			t.Fatalf("%s = %v, want an object", name, val)
+		}
+		return ctx.instances[id]
+	}
+	prev := contextOver(t, adoptDependentBindingSrc)
+	obj := objectIn(t, prev, "alias")
+
+	ctx := contextOver(t, adoptDependentBindingSrc+"\npart def Widget;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := objectIn(t, ctx, "alias"); got != obj {
+		t.Errorf("alias in the re-analysis denotes %d, want the carried object %d", got.ID, obj.ID)
+	}
+	if got := objectIn(t, ctx, "spare"); got != obj {
+		t.Errorf("spare in the re-analysis denotes %d, want the carried object %d", got.ID, obj.ID)
+	}
+
+	prev = contextOver(t, adoptDependentBindingSrc)
+	obj = objectIn(t, prev, "alias")
+	ctx = contextOver(t, strings.Replace(adoptDependentBindingSrc, "new Car()", "new Truck()", 1))
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(obj), obj); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	spare := objectIn(t, ctx, "spare")
+	alias := objectIn(t, ctx, "alias")
+	if alias != spare || alias == obj || alias.Type != lookupOne(t, ctx.Resolver().Index(), "Demo::Truck") {
+		t.Errorf("alias in the re-analysis denotes %d of %s, spare %d; want alias to denote the Truck spare now binds",
+			alias.ID, symbolText(alias.Type), spare.ID)
+	}
+}
+
+const adoptExtentBindingSrc = `package Demo {
+	part def Car;
+	part alpha : Car;
+	ref part cars : Car[*] = all Car;
+}`
+
+// A binding to an extent read the namespaces it walked: a usage added to one is in the
+// extent the re-analysis binds, while an edit to another document leaves the binding carried.
+func TestAdoptRebindsAnExtentWhenItsNamespaceChanges(t *testing.T) {
+	over := func(t *testing.T, model, other string) *Context {
+		t.Helper()
+		return contextOverDocs(t, [][2]string{{"model.sysml", model}, {"other.sysml", other}})
+	}
+	carsIn := func(t *testing.T, ctx *Context) []*Instance {
+		t.Helper()
+		pkg := lookupOne(t, ctx.Resolver().Index(), "Demo")
+		val, err := evalIn(t, ctx, pkg.Scope, "cars")
+		if err != nil {
+			t.Fatalf("cars: %v", err)
+		}
+		var out []*Instance
+		for _, id := range heldObjects(val) {
+			out = append(out, ctx.instances[id])
+		}
+		return out
+	}
+	prev := over(t, adoptExtentBindingSrc, "package Other;")
+	before := carsIn(t, prev)
+	if len(before) != 1 {
+		t.Fatalf("cars = %d objects, want the one usage", len(before))
+	}
+	alpha := before[0]
+
+	ctx := over(t, adoptExtentBindingSrc, "package Other { part def Widget; }")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(alpha), alpha); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	if got := carsIn(t, ctx); len(got) != 1 || got[0] != alpha {
+		t.Errorf("cars in the re-analysis = %v, want the carried object %d alone", got, alpha.ID)
+	}
+
+	prev = over(t, adoptExtentBindingSrc, "package Other;")
+	alpha = carsIn(t, prev)[0]
+	ctx = over(t, strings.Replace(adoptExtentBindingSrc, "part alpha : Car;", "part alpha : Car;\n\tpart beta : Car;", 1), "package Other;")
+	if _, err := ctx.Adopt(prev, prev.ShapesOf(alpha), alpha); err != nil {
+		t.Fatalf("Adopt: %v", err)
+	}
+	got := carsIn(t, ctx)
+	if len(got) != 2 || got[0] != alpha {
+		t.Errorf("cars in the re-analysis = %d objects, want the carried alpha and the added beta", len(got))
+	}
+}

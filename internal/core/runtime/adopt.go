@@ -1040,19 +1040,57 @@ func (a *adoption) carryDerived(adopted map[int64]bool) {
 			a.ctx.selectedVariants[key] = variant
 		}
 	}
-	for sym, val := range a.prev.namespaceBindings {
-		found, err := a.rebind(sym, "a usage of it")
-		if err != nil || !allAdopted(val, adopted) {
-			continue
-		}
-		// A usage denotes the value bound to it only while it is declared as it was:
-		// an edited one is read again rather than reused.
-		stated := a.prev.declarationDigest(sym)
-		if stated == "" || stated != a.ctx.declarationDigest(found) {
-			continue
-		}
-		a.ctx.namespaceBindings[found] = a.rewrite(val)
+	carried := make(map[*symbols.Symbol]bool)
+	for sym := range a.prev.namespaceBindings {
+		a.carryBinding(sym, adopted, carried)
 	}
+}
+
+// carryBinding carries a usage's binding only while it and every declaration its value read
+// still read as they did, the bound ones carried first; an edit to any is read again instead.
+func (a *adoption) carryBinding(sym *symbols.Symbol, adopted map[int64]bool, carried map[*symbols.Symbol]bool) bool {
+	if done, ok := carried[sym]; ok {
+		return done
+	}
+	carried[sym] = false
+	val := a.prev.namespaceBindings[sym]
+	found, err := a.rebind(sym, "a usage of it")
+	if err != nil || !allAdopted(val, adopted) {
+		return false
+	}
+	stated := a.prev.declarationDigest(sym)
+	if stated == "" || stated != a.ctx.declarationDigest(found) {
+		return false
+	}
+	reads := a.prev.bindingReads[sym]
+	rewritten := &bindingReads{decls: make(map[*symbols.Symbol]string), docs: make(map[string]string)}
+	if reads != nil {
+		for dep, digest := range reads.decls {
+			depFound, err := a.rebind(dep, "a declaration it read")
+			if err != nil || digest != a.ctx.declarationDigest(depFound) {
+				return false
+			}
+			if namespaceObjectUsage(dep) {
+				if _, bound := a.prev.namespaceBindings[dep]; !bound || !a.carryBinding(dep, adopted, carried) {
+					return false
+				}
+			}
+			if id, occurs := a.prev.occurrences[dep]; occurs && a.ctx.occurrences[depFound] != id {
+				return false
+			}
+			rewritten.decls[depFound] = digest
+		}
+		for doc, digest := range reads.docs {
+			if digest != a.ctx.documentDigest(doc) {
+				return false
+			}
+			rewritten.docs[doc] = digest
+		}
+	}
+	a.ctx.namespaceBindings[found] = a.rewrite(val)
+	a.ctx.bindingReads[found] = rewritten
+	carried[sym] = true
+	return true
 }
 
 // allAdopted reports whether every object a value names, an element of a collection
@@ -1072,6 +1110,15 @@ func (ctx *Context) declarationDigest(sym *symbols.Symbol) string {
 		return ""
 	}
 	return ctx.textIn(sym.DocName, sym.DeclSpan)
+}
+
+// documentDigest is the whole text of a document, as this context was given it.
+func (ctx *Context) documentDigest(doc string) string {
+	sf, ok := ctx.model.sources[doc]
+	if !ok {
+		return ""
+	}
+	return ctx.textIn(doc, source.Span{Len: sf.Len()})
 }
 
 // rewrite returns the value as this context holds it: the same value with every

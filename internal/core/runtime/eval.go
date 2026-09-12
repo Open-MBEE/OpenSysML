@@ -618,6 +618,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 				// An inherited expression reads the feature as the running behavior
 				// inherits it: through the redefinition, when it states one.
 				sym = ec.ctx.inheritedFeature(ec.runningBehavior(), sym)
+				ec.ctx.noteDeclarationRead(sym)
 				// An enumerated value is the value of its enumeration it stands
 				// for; any other variant names a choice, not the value it declares.
 				if semantics.EnumerationOwning(sym) != nil {
@@ -728,6 +729,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	if !ok {
 		return Value{}, ec.unresolvedQualifiedName(qn, reading)
 	}
+	ec.ctx.noteDeclarationRead(currentSym)
 
 	// A feature of a behavior whose run is on the stack (`MassCase::result` in its
 	// objective or assertion) reads the value that run bound to it.
@@ -901,23 +903,25 @@ func (ec *EvalContext) unresolvedQualifiedName(qn *ast.QualifiedName, reading re
 // in (its units and imports answer its names); the value answers to the declared type.
 // A namespace-level object usage's value is one binding (KerML 1.0 §7.4.11), kept for the run.
 func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value, error) {
+	ec.ctx.noteDeclarationRead(sym)
 	if val, ok := ec.ctx.namespaceBindings[sym]; ok {
 		return val, nil
 	}
 	if !namespaceObjectUsage(sym) {
 		return ec.evaluateDeclared(sym, value)
 	}
-	if ec.ctx.bindingNamespace[sym] {
+	if ec.ctx.binding(sym) {
 		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
 	}
-	ec.ctx.bindingNamespace[sym] = true
-	defer delete(ec.ctx.bindingNamespace, sym)
+	ec.ctx.bindingStack = append(ec.ctx.bindingStack, sym)
+	defer func() { ec.ctx.bindingStack = ec.ctx.bindingStack[:len(ec.ctx.bindingStack)-1] }()
 	// The binding is made whole or not at all: a value refused after constructing
 	// objects leaves none of them, nor their behaviors, behind.
 	commit, rollback := ec.ctx.beginJournal()
 	val, err := ec.evaluateDeclared(sym, value)
 	if err != nil {
 		rollback()
+		delete(ec.ctx.bindingReads, sym)
 		return Value{}, err
 	}
 	ec.ctx.bindNamespace(sym, val)
@@ -925,11 +929,70 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	return val, nil
 }
 
+// binding reports whether sym's value is being evaluated.
+func (ctx *Context) binding(sym *symbols.Symbol) bool {
+	return slices.Contains(ctx.bindingStack, sym)
+}
+
 // bindNamespace records the value a namespace-level usage denotes for the run; a probe
 // that made it is undone with it.
 func (ctx *Context) bindNamespace(sym *symbols.Symbol, val Value) {
-	ctx.noteProbeUndo(func() { delete(ctx.namespaceBindings, sym) })
+	ctx.noteProbeUndo(func() { ctx.unbindNamespace(sym) })
 	ctx.namespaceBindings[sym] = val
+}
+
+// unbindNamespace forgets a namespace-level usage's binding, and what was read to make it.
+func (ctx *Context) unbindNamespace(sym *symbols.Symbol) {
+	delete(ctx.namespaceBindings, sym)
+	delete(ctx.bindingReads, sym)
+}
+
+// bindingReads is what one binding's value read of the model: each declaration's text as it
+// read then, and each document root whose members were walked, by its whole text.
+type bindingReads struct {
+	decls map[*symbols.Symbol]string
+	docs  map[string]string
+}
+
+// noteDeclarationRead records that the binding being made read sym's declaration.
+func (ctx *Context) noteDeclarationRead(sym *symbols.Symbol) {
+	reads, top := ctx.readsUnderWay()
+	if reads == nil || sym == nil || sym == top {
+		return
+	}
+	if _, seen := reads.decls[sym]; !seen {
+		reads.decls[sym] = ctx.declarationDigest(sym)
+	}
+}
+
+// noteNamespaceRead records that the binding being made walked the members of a namespace: a
+// named one reads as its declaration, a document root as the whole document.
+func (ctx *Context) noteNamespaceRead(scope *symbols.Scope) {
+	if owner := scope.Owner(); owner != nil {
+		ctx.noteDeclarationRead(owner)
+		return
+	}
+	reads, _ := ctx.readsUnderWay()
+	if reads == nil || scope.DocName() == "" {
+		return
+	}
+	if _, seen := reads.docs[scope.DocName()]; !seen {
+		reads.docs[scope.DocName()] = ctx.documentDigest(scope.DocName())
+	}
+}
+
+// readsUnderWay is the record of the innermost binding being made, nil outside one.
+func (ctx *Context) readsUnderWay() (*bindingReads, *symbols.Symbol) {
+	if len(ctx.bindingStack) == 0 {
+		return nil, nil
+	}
+	top := ctx.bindingStack[len(ctx.bindingStack)-1]
+	reads := ctx.bindingReads[top]
+	if reads == nil {
+		reads = &bindingReads{decls: make(map[*symbols.Symbol]string), docs: make(map[string]string)}
+		ctx.bindingReads[top] = reads
+	}
+	return reads, top
 }
 
 // evaluateDeclared evaluates a declaration's value anew, answering to its declared type.
@@ -958,6 +1021,7 @@ func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, er
 	if !ec.ctx.namesOneObject(sym) {
 		return Value{}, false, nil
 	}
+	ec.ctx.noteDeclarationRead(sym)
 	inst, err := ec.ctx.occurrenceOf(sym)
 	if err != nil {
 		return Value{}, true, fmt.Errorf("usage %s: %w", symbolText(sym), err)
@@ -1428,6 +1492,7 @@ func (ec *EvalContext) resolveClassificationType(qn *ast.QualifiedName) (*symbol
 	if canonical, ok := ec.ctx.model.resolver.ResolveAliasTarget(target); ok {
 		target = canonical
 	}
+	ec.ctx.noteDeclarationRead(target)
 	return target, true
 }
 
@@ -2505,6 +2570,7 @@ func (ec *EvalContext) evalInvocation(n *ast.InvocationExpr) (Value, error) {
 		return ec.evalChainInvocation(n, chain)
 	}
 	target := ec.invocationTarget(n)
+	ec.ctx.noteDeclarationRead(target.calc)
 	qualName := target.qualName
 	if len(target.ambiguous) > 0 {
 		return Value{}, ambiguousInvocationError(qualName, target.ambiguous)

@@ -309,7 +309,7 @@ func (ctx *Context) abandonInstancesBetween(mark, end int) {
 	}
 	for sym, val := range ctx.namespaceBindings {
 		if namesAbandonedValue(val, abandoned) {
-			delete(ctx.namespaceBindings, sym)
+			ctx.unbindNamespace(sym)
 		}
 	}
 	ctx.forgetLives(abandoned)

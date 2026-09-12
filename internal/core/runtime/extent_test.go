@@ -258,7 +258,7 @@ func TestNamespaceBindingToAnExtent(t *testing.T) {
 			t.Errorf("%s in broken: error = %v, want ErrCyclicFeatureValue", expr, err)
 		}
 	}
-	if len(ctx.bindingNamespace) != 0 {
-		t.Errorf("usages still being bound = %d, want none", len(ctx.bindingNamespace))
+	if len(ctx.bindingStack) != 0 {
+		t.Errorf("usages still being bound = %d, want none", len(ctx.bindingStack))
 	}
 }

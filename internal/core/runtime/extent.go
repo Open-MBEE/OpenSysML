@@ -146,7 +146,7 @@ func (ec *EvalContext) extentRoots(target *symbols.Symbol) ([]*Instance, error) 
 			continue
 		}
 		if namespaceObjectUsage(sym) {
-			if ctx.bindingNamespace[sym] {
+			if ctx.binding(sym) {
 				continue
 			}
 			bound, err := ec.boundObjects(sym)
@@ -190,7 +190,7 @@ func (ec *EvalContext) boundObjects(sym *symbols.Symbol) ([]*Instance, error) {
 	val, err := NewEvalContext(ec.ctx, sym.OwnerScope).declaredValue(sym, sym.Decl.(*ast.Usage).Value)
 	if err != nil {
 		var cycle *CyclicBindingError
-		if errors.As(err, &cycle) && ec.ctx.bindingNamespace[cycle.Usage] {
+		if errors.As(err, &cycle) && ec.ctx.binding(cycle.Usage) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("usage %s: %w", symbolText(sym), err)
@@ -223,6 +223,7 @@ func (ctx *Context) namespaceUsages(scope *symbols.Scope) []*symbols.Symbol {
 		if !namespaceScope(scope) {
 			continue
 		}
+		ctx.noteNamespaceRead(scope)
 		scope.ForEachMember(func(sym *symbols.Symbol) bool {
 			if ctx.model.semantics.IsVariationFeature(sym) {
 				return true
