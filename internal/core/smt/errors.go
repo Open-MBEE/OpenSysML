@@ -1,12 +1,5 @@
-// Package smt is the `smt` analysis engine: it encodes the moves of an action's
-// token flow as a transition relation over SMT terms, asks a solver whether a
-// requirement can fail or a schedule can deadlock within k moves, and replays
-// every witness through the interpreter, which stays normative.
-//
-// The stage implemented here covers actions on concrete inputs: straight-line
-// bodies, fork, join, merge, decisions, body loops with bounded unrolling, pins
-// and object flows. Messages, the clock, nested flows and free inputs are not
-// encoded; a behavior using them is refused with a typed reason before any query.
+// Package smt is the `smt` analysis engine: an action's token flow as a transition relation
+// over SMT terms, queried for a violation or deadlock within k moves, every witness replayed.
 package smt
 
 import (

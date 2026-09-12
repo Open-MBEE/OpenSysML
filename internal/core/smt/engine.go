@@ -121,12 +121,8 @@ type run struct {
 	timedOut bool
 }
 
-// Run encodes the behavior's flow for the budget's depth in moves (DefaultMoves
-// when none) and asks the solver, under the budget's solver time, whether a
-// schedule violates the property, fails, or deadlocks, in that order; a `sat`
-// is decoded and replayed before it is claimed, an `unsat` on every query is
-// proved when no bound is reachable and bounded otherwise. A model that builds
-// no context of a run's own is the typed fault NoRuntimeError.
+// Run encodes the flow for Budget.Depth moves (DefaultMoves when none) and asks, in order, for a
+// violation, a failure and a deadlock; a `sat` is replayed before it is claimed.
 func (e *Engine) Run(ctx context.Context, model *analysis.Model, q analysis.Question, budget analysis.Budget) (analysis.Result, error) {
 	if coverage := e.Covers(model, q); !coverage.Covered {
 		return analysis.Result{}, coverage.Refusal

@@ -75,6 +75,16 @@ var DefaultExploreSchedulePolicy = SchedulePolicy{kind: scheduleExplore, budget:
 // file of choice lines.
 var SchedulePolicyNames = []string{"declared", "reverse", "seed:<n>", "explore[:runs=<n>,depth=<d>]", "replay:<file>"}
 
+// replayPrefix opens the `replay` spelling, which names the file to follow.
+const replayPrefix = "replay:"
+
+// ReplaySpelling reports whether the spelling asks for a replay, whose file
+// ParseSchedulePolicy reads; a surface with no files of the caller's refuses it
+// before parsing.
+func ReplaySpelling(spelling string) bool {
+	return spelling == "replay" || strings.HasPrefix(spelling, replayPrefix)
+}
+
 // exploreOptionsPrefix opens the `explore` spelling that carries options.
 const exploreOptionsPrefix = "explore:"
 
@@ -110,10 +120,10 @@ func ParseSchedulePolicy(spelling string) (SchedulePolicy, error) {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: reason}
 		}
 		return SchedulePolicy{kind: scheduleExplore, budget: budget}, nil
-	case spelling == "replay" || spelling == "replay:":
+	case spelling == "replay" || spelling == replayPrefix:
 		return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: "replay: needs a file of choice lines"}
-	case strings.HasPrefix(spelling, "replay:"):
-		file := spelling[len("replay:"):]
+	case strings.HasPrefix(spelling, replayPrefix):
+		file := spelling[len(replayPrefix):]
 		text, err := os.ReadFile(file) // #nosec G304 -- the policy names the witness file to follow.
 		if err != nil {
 			return SchedulePolicy{}, &SchedulePolicyError{Spelling: spelling, Reason: err.Error()}
@@ -183,7 +193,7 @@ func (p SchedulePolicy) String() string {
 		if p.replay.file == "" {
 			return "replay"
 		}
-		return "replay:" + p.replay.file
+		return replayPrefix + p.replay.file
 	case scheduleSeeded:
 		return "seed:" + strconv.FormatUint(p.seed, 10)
 	case scheduleExplore:

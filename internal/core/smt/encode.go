@@ -614,10 +614,8 @@ func (e *Encoding) environment(s *State) *env {
 	return env
 }
 
-// nodeEffect is what one performance of a node does to the features, and the
-// conditions under which the interpreter would report an error or run a body
-// loop past the unroll bound. guards is the environment its guards read: after
-// its body, before its object flows.
+// nodeEffect is one performance's effect on the features, when it errors and when a body loop
+// passes the unroll bound; guards is the environment its guards read (after the body).
 type nodeEffect struct {
 	env      *env
 	guards   *env
@@ -730,9 +728,8 @@ func (e *Encoding) move(i int) error {
 	// The tokens after the move.
 	travel := solve.VarTerm(m.Travel)
 	var frame []*solve.Term
-	for t, slot := range prev.Slots {
+	for t := range prev.Slots {
 		frame = append(frame, e.unchanged(prev.Slots[t], next.Slots[t]))
-		_ = slot
 	}
 	e.assert(implies(stutter, solve.And(
 		solve.And(frame...),
@@ -775,10 +772,8 @@ func (e *Encoding) unchanged(before, after Slot) *solve.Term {
 		eq(solve.VarTerm(after.ID), solve.VarTerm(before.ID)))
 }
 
-// tokens is what happens to the tokens when the token in slot t, at node n,
-// acts in move i: synchronization, then the node's own succession. The other
-// results are the conditions under which the interpreter reports an error at
-// the succession and under which a fork finds no free slot, nil when they cannot.
+// tokens moves the token in slot t at node n in move i (synchronization, then succession); the
+// other results are when the succession errors and when a fork finds no free slot, nil if never.
 func (e *Encoding) tokens(i, t, n int, node ast.Node, prev, next *State, m *Move, guards, defined []*solve.Term) (step, fails, full *solve.Term) {
 	f := e.Flow
 	slot := prev.Slots[t]
@@ -996,10 +991,8 @@ func undefinedGuards(guards, defined []*solve.Term) []*solve.Term {
 	return terms
 }
 
-// perform is the effect of one performance of node n in move i on the features,
-// as the interpreter orders it: the pins take their deliveries or defaults, the
-// body's statements run over the values in prev, the guards are read, and the
-// object flows out of the node carry what it produced.
+// perform is one performance of node n in move i, in the interpreter's order: pins take their
+// deliveries or defaults, the body runs over prev, the guards are read, the object flows carry.
 func (e *Encoding) perform(i, n int, node ast.Node, prev *State) (*nodeEffect, error) {
 	effect := &nodeEffect{env: e.environment(prev), loops: make(map[int]*solve.Term)}
 	where := fmt.Sprintf("%d.%s", i, e.Flow.Labels[n])
@@ -1054,10 +1047,8 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) {
 	}
 }
 
-// flows carries what a completed performance of node produced over the object
-// flows out of it: to the queue at a pin of a node performing in a frame of
-// its own, else to the action's feature. A source pin holding no value is the
-// interpreter's error; a queue already holding a delivery is not modelled.
+// flows carries what a completed node produced over its object flows: to a pin queue of a node in
+// a frame of its own, else to the action's feature. An empty source pin is the interpreter's error.
 func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 	true_ := solve.BoolTerm(true)
 	label := e.Flow.label(node)

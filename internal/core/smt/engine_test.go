@@ -161,10 +161,8 @@ func TestEngineRefusesWhatItDoesNotAnswer(t *testing.T) {
 	}
 }
 
-// TestEngineDecidesConditions: a requirement the run violates is witnessed, and the
-// witness replays through the interpreter to the violating state; a constraint no
-// run violates is proved when every run ends within the bound, and bounded when
-// the bound cuts the run short.
+// TestEngineDecidesConditions: a violated requirement is witnessed and its witness replays; an
+// unviolated constraint is proved within the bound and bounded when the bound cuts the run short.
 func TestEngineDecidesConditions(t *testing.T) {
 	e := engine(t)
 	d := indexed(t, "conditions.sysml", conditionsSrc)

@@ -8,10 +8,8 @@ import (
 	"strings"
 )
 
-// The `replay:<file>` policy follows a witness — the choice lines `explore` prints,
-// one per move — move for move, then behaves as `reverse` once it runs out. A move
-// the run cannot make where the witness makes it is refused, naming the move: a
-// witness that cannot be followed is never silently resolved.
+// The `replay:<file>` policy follows a witness's choice lines move for move, then behaves as
+// `reverse`; a move the run cannot make where the witness makes it is refused, naming the move.
 
 // ErrReplayRefused is the typed error every refused replay move wraps.
 var ErrReplayRefused = errors.New("replay refused")
@@ -122,11 +120,8 @@ func ParseChoices(text string) ([]ChoiceTaken, error) {
 	return choices, nil
 }
 
-// ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first
-// of A, B` (a token order), `step N: decision D -> B` (a branch), `S -> T` (a
-// transition) and `W: X first of A, B` (a region order, or a due order when W is an
-// instant `t=…`). A branch or transition line names no alternatives, so the run
-// resolves it against those it faces.
+// ParseChoice reads one choice as ChoiceTaken.String spells it: `step N: T first of A, B`,
+// `step N: decision D -> B`, `S -> T`, `W: X first of A, B` (a region order, or due order at `t=…`).
 func ParseChoice(text string) (ChoiceTaken, error) {
 	text = strings.TrimSpace(text)
 	fail := func(reason string) (ChoiceTaken, error) {

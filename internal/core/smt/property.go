@@ -64,10 +64,8 @@ func (e *Encoding) Deadlock() *Property {
 	return p
 }
 
-// Condition is the property that the requirement or constraint sym states,
-// its inherited conditions included, holds at every state, judged as the
-// interpreter judges it against the performance's values. A condition reading
-// a feature the action does not carry is refused: the stage encodes no object.
+// Condition is the property that sym's requirement or constraint (inherited conditions included)
+// holds at every state; one reading a feature the action does not carry is refused.
 func (e *Encoding) Condition(ctx *runtime.Context, sym *symbols.Symbol, scope *symbols.Scope) (*Property, error) {
 	if sym == nil {
 		return nil, fmt.Errorf("%w: no condition named", runtime.ErrNoConditions)
@@ -165,9 +163,8 @@ func (e *Encoding) cut(i int) *solve.Term {
 // its model points at, so a witness knows how far to replay.
 const MarkVar = "mark"
 
-// Violation is the query satisfiable exactly when some run of at most k moves
-// reaches, without an error, a state violating p. Its Vars are the relation's
-// and MarkVar, so a model decodes as a witness.
+// Violation is satisfiable exactly when some run reaches, without an error, a state violating p;
+// its model decodes as a witness through MarkVar.
 func (e *Encoding) Violation(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
@@ -176,9 +173,8 @@ func (e *Encoding) Violation(p *Property) *solve.Query {
 	return e.marked(cases, "violation of "+p.Name)
 }
 
-// Failure is the query satisfiable exactly when some run of at most k moves,
-// within the bounds, meets what the interpreter reports as an error rather
-// than an outcome: a body or guard that fails, or p undecidable.
+// Failure is satisfiable exactly when some run within the bounds meets what the interpreter
+// reports as an error: a body or guard that fails, or p undecidable.
 func (e *Encoding) Failure(p *Property) *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
@@ -191,10 +187,8 @@ func (e *Encoding) Failure(p *Property) *solve.Query {
 	return e.marked(cases, "failure")
 }
 
-// Completion is the query satisfiable exactly when some run of at most k moves
-// completes within the bounds, MarkVar naming the state it completes at. Its
-// models, told apart by Outputs, are the outcomes the interpreter's exploration
-// reports.
+// Completion is satisfiable exactly when some run completes within the bounds, MarkVar naming
+// the state; its models, told apart by Outputs, are the exploration's outcomes.
 func (e *Encoding) Completion() *solve.Query {
 	cases := make([]*solve.Term, 0, e.Moves+1)
 	for i := 0; i <= e.Moves; i++ {
@@ -253,11 +247,8 @@ func (e *Encoding) marked(cases []*solve.Term, role string) *solve.Query {
 	return q
 }
 
-// Uncertainty is the query satisfiable exactly when some run of k moves that
-// does not fail is cut short by a bound: a token may still act after move k, a
-// body loop ran past its unrolling, or a fork found no free slot. Unsatisfiable,
-// every run ends within the bounds and a property no run violates is proved
-// rather than bounded. Its model reads back through Cuts.
+// Uncertainty is satisfiable exactly when some non-failing run is cut short by a bound (a token
+// live after move k, a loop past its unrolling, no free slot); unsat makes an unsat property proved.
 func (e *Encoding) Uncertainty() *solve.Query {
 	k := e.Moves
 	live := solve.Or(e.Choosable[k]...)

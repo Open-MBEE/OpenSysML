@@ -438,19 +438,36 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
   value and `DefaultSchedulePolicy` are `reverse`, what every run did before policies were
   selectable; every `.expected.json` and `.trace.golden` recorded under it still holds
   - `ParseSchedulePolicy(spelling string) (SchedulePolicy, error)` — Read `declared`, `reverse`,
-    `seed:<n>` (n a non-negative decimal integer) or `explore[:runs=<n>,depth=<d>]` (n at least 1,
+    `seed:<n>` (n a non-negative decimal integer), `explore[:runs=<n>,depth=<d>]` (n at least 1,
     d at least 0, in either order, each at most once; `DefaultExploreBudget`, 1024 runs and 64
-    choice points deep, for one not given); the empty spelling is the default. Any other
+    choice points deep, for one not given) or `replay:<file>` (a file of choice lines, read here
+    with `ParseChoices`); the empty spelling is the default. Any other
     spelling — an unknown name, `seed` or `seed:` without a number, `seed:-1`, `seed:abc`,
-    `explore:` with nothing after the colon, `explore:runs=0` — is a `*SchedulePolicyError`
+    `explore:` with nothing after the colon, `explore:runs=0`, `replay:` without a file, a file
+    that cannot be read or whose lines spell no choice — is a `*SchedulePolicyError`
     (`Spelling`, `Reason`) matching `ErrInvalidSchedulePolicy` under `errors.Is`, so every surface
     refuses it before anything runs
   - `ExplorePolicy(budget ExploreBudget) (SchedulePolicy, error)` — The `explore` policy with the
     budget given, refusing one outside the bounds above
   - `Exploration() (ExploreBudget, bool)` — The budget when the policy is `explore`
+  - `ReplayPolicy(choices []ChoiceTaken) SchedulePolicy` — The `replay` policy over a witness held
+    in memory, spelled `replay`; `Replay() ([]ChoiceTaken, bool)` reads a replay policy's choices
+    back
+  - `ReplaySpelling(spelling string) bool` — Whether a spelling asks for a replay, for a surface
+    with no files of the caller's to refuse before parsing
+  - `ParseChoices(text string) ([]ChoiceTaken, error)` — Read a witness header: choices as
+    `ChoiceTaken.String` spells them, one per line or joined by `; `, up to the first blank line
+    after them (what follows, such as a trace body, is ignored); a line spelling no choice is a
+    `*ChoiceParseError` (`Line`, `Text`, `Reason`)
   - `String() string` — The spelling `ParseSchedulePolicy` reads the policy back from
   - `IsDefault() bool` — Whether the policy is `reverse`
   - `SchedulePolicyNames` — The accepted spellings, for usage text
+  - `replay:<file>` follows the witness move for move — each choice point the run reaches takes
+    the file's next line, which must name that step and pick among the alternatives the run
+    offers — and resolves the rest as `reverse` once the lines are spent. A run that could not
+    follow a line, or ended with lines left over, keeps it: `Context.Unfollowed() error` is the
+    `*ReplayError` (`Move`, `Choice`, `Faced`; `errors.Is(err, ErrReplayRefused)`) the run also
+    fails with, nil when the witness was followed whole or the policy was another
   - `declared` steps tokens in the order they were spawned and takes the first holding guard
     and first enabled transition in declaration order; `seed:<n>` draws every resolution from
     a pseudo-random sequence the seed fixes, the same on every platform, so one seed replays

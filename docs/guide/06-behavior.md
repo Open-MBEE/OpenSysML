@@ -645,6 +645,38 @@ sysml> %schedule explore
 error: explore replays a behavior from the start once per linearization, which %action and %state, stepping one run, cannot do: run `sysml -schedule explore -action <name>` (or -state, -analysis, -calc), or a request with schedule "explore"
 ```
 
+### Running one witness again: `replay:<file>`
+
+A witness column is a run you can run again. `replay:<file>` reads a file of choice lines — each
+spelled as the table spells them, one per line or joined by `; `, ending at the first blank line
+(a trace body written after it is ignored, so a file the model checkers write serves as it
+stands) — and resolves the run's choice points in that order, then falls back to `reverse` once
+the file's moves are spent. Save the `x = 1` witness above to `x1.trace` and the run reproduces
+that row:
+
+```console
+$ sysml -schedule replay:x1.trace -action test::race action_explore_three_writers.sysml
+✓ package test
+✓ Started action executor for "test::race"
+…
+  Results:
+    aRan = true
+    bRan = true
+    cRan = true
+    x = 1
+  standing: value (observed: 1 run under replay:x1.trace)
+```
+
+A replay follows its witness or says which move it could not follow, rather than quietly running
+another linearization: a move whose pick is not among the alternatives the run offered, one
+whose step the run has already passed, or one left over when the run ends, is `replay refused:
+move <n> (<the choice>): <what the run faced instead>`, and the check it was part of is *not
+covered*. A file that spells no choice (a pick not among its own alternatives, a line in no
+known form) is refused as the policy is parsed, before anything runs. The policy is accepted
+wherever a policy is — `-schedule`, `%schedule` (the debuggers step one run, which is what a
+replay is), a conformance case's `schedule` pin — except over the wire, where a request carries
+no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
+
 ### Writing a test that admits several outcomes
 
 A conformance case (see the

@@ -168,10 +168,8 @@ func status(t *testing.T, solver *solve.Solver, enc *Encoding, k int, extra *sol
 	return result.Status
 }
 
-// TestEncodePinsAndObjectFlows: the conformance cases over pins and object
-// flows complete with exactly the values the interpreter's outcomes record,
-// each node's pins being features of its own; a node reading a pin of a node
-// not yet performed fails, as the interpreter does.
+// TestEncodePinsAndObjectFlows: the pin and object-flow conformance cases complete with the
+// interpreter's values, and a node reading a pin not yet delivered fails as the interpreter does.
 func TestEncodePinsAndObjectFlows(t *testing.T) {
 	solver := requireSolver(t)
 	const k = 8

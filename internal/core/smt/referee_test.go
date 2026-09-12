@@ -24,14 +24,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
 )
 
-// The referee holds the encoding to the interpreter over every conformance action
-// case that lists its admissible outcomes, on three checks:
-//  1. the outcomes the solver enumerates are the outcomes the exploration reaches;
-//  2. every witness the solver gives replays to the outcome it claims, and the
-//     replay's trace is the witness's choice lines;
-//  3. the engine's verdict on deadlock freedom agrees with the exhaustive exploration.
-//
-// A case with a construct outside the stage is recorded as refused, not passed.
+// The referee holds the encoding to the interpreter over every conformance action case with
+// outcomes: same outcome set, every witness replays, same deadlock verdict; refusals are counted.
 
 // corpusCase is the part of a conformance case's expectation the referee reads.
 type corpusCase struct {

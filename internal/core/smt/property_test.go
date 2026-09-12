@@ -61,10 +61,8 @@ const conditionsSrc = `package test {
 	}
 }`
 
-// TestConditionPropertiesFollowTheRun: the requirement and the constraints a
-// straight-line action states are violated exactly at the states the
-// interpreter's own check reports, and one no state violates is proved: its
-// violation and the bound's uncertainty are both unsatisfiable.
+// TestConditionPropertiesFollowTheRun: a straight-line action's conditions are violated exactly
+// at the states the interpreter reports, and one no state violates is proved.
 func TestConditionPropertiesFollowTheRun(t *testing.T) {
 	solver := requireSolver(t)
 	ctx, idx, action, graph := loweredWithIndex(t, "conditions.sysml", conditionsSrc, "test::A")

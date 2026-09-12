@@ -214,11 +214,8 @@ func TestEngineWithoutASolverIsAbsent(t *testing.T) {
 	}
 }
 
-// TestEncodingEmitsOnlyPortableFeatures: every SMT-LIB feature the relation and
-// its queries need — datatypes for nodes and choices, models, the incremental
-// enumeration over named variables, the arithmetic of the bodies — is one the
-// solve layer's portability harness exercises, so a backend refusing one is
-// reported as refusing it.
+// TestEncodingEmitsOnlyPortableFeatures: every SMT-LIB feature the relation emits is one the
+// solve layer's portability harness exercises, so a backend refusing one is reported as refusing.
 func TestEncodingEmitsOnlyPortableFeatures(t *testing.T) {
 	d := indexed(t, "loops.sysml", loopsSrc)
 	budget := analysis.Budget{Depth: 8}
