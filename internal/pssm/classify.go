@@ -69,6 +69,7 @@ const (
 	ConstructBehaviorParameter Construct = "behavior parameter"
 	ConstructOperationResult   Construct = "operation result"
 	ConstructTesterTrace       Construct = "tester trace"
+	ConstructNoInitial         Construct = "orthogonal region without an initial state"
 	// Recorded but not deciding: a pseudostate filed as a connection point that
 	// is neither an entry nor an exit point and that no transition reaches.
 	ConstructStrayConnectionPoint Construct = "stray connection point"
@@ -102,6 +103,7 @@ var constructClass = map[Construct]Expressibility{
 	ConstructBehaviorParameter:    NotExpressible,
 	ConstructOperationResult:      NotExpressible,
 	ConstructTesterTrace:          NotExpressible,
+	ConstructNoInitial:            NotExpressible,
 	ConstructTerminate:            TerminateGap,
 	ConstructDefer:                Extension,
 	ConstructFork:                 Extension,
@@ -225,6 +227,7 @@ func (w *walker) regions(regions []*Region) {
 		if r.ExtendedRegion != "" {
 			w.add(ConstructExtendedRegion, r.Name)
 		}
+		w.initial(r)
 		for _, v := range r.Vertices {
 			w.vertex(v)
 		}
@@ -245,6 +248,20 @@ func (w *walker) regions(regions []*Region) {
 			}
 		}
 	}
+}
+
+// initial records an orthogonal region no initial pseudostate starts: the
+// notation's explicit regions each need an `entry; then` the lowerer checks.
+func (w *walker) initial(r *Region) {
+	if r.owner == nil || len(r.owner.Regions) < 2 {
+		return
+	}
+	for _, v := range r.Vertices {
+		if v.Kind == VertexInitial {
+			return
+		}
+	}
+	w.add(ConstructNoInitial, r.owner.Path()+"/"+r.Name)
 }
 
 // behavior records a state behavior with parameters: the notation binds event

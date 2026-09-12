@@ -38,21 +38,19 @@ func Validate(m *Model) []string {
 	return problems
 }
 
-// TestEmitSuite is the gate over the pinned suite: every standard-notation
-// test translates and its model parses, validates and lowers clean. Tests
-// using this project's extensions are reported but do not yet gate.
+// TestEmitSuite is the gate over the pinned suite: every expressible test
+// translates and its model parses, validates and lowers clean.
 func TestEmitSuite(t *testing.T) {
 	s := loadSuite(t)
 	keep := os.Getenv("OPENSYSML_PSSM_KEEP")
 	for _, tt := range s.Tests {
-		class := Classify(tt).Class
-		if !class.Expressible() {
+		if !Classify(tt).Class.Expressible() {
 			continue
 		}
 		t.Run(strings.ReplaceAll(tt.Name, " ", "_"), func(t *testing.T) {
 			m, err := Emit(s, tt)
 			if err != nil {
-				report(t, class, "emit: %v", err)
+				t.Errorf("emit: %v", err)
 				return
 			}
 			if keep != "" {
@@ -61,18 +59,8 @@ func TestEmitSuite(t *testing.T) {
 				}
 			}
 			if problems := Validate(m); len(problems) > 0 {
-				report(t, class, "%s\n%s", strings.Join(problems, "\n"), m.Text)
+				t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
 			}
 		})
 	}
-}
-
-// report fails a standard-notation test and logs an extension one.
-func report(t *testing.T, class Expressibility, format string, args ...any) {
-	t.Helper()
-	if class == Standard {
-		t.Errorf(format, args...)
-		return
-	}
-	t.Logf("extension test not yet clean: "+format, args...)
 }

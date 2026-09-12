@@ -62,13 +62,11 @@ func TestEmitStandard(t *testing.T) {
 	}
 }
 
-// TestEmitRejects pins the typed error for constructs with no translation.
-func TestEmitRejects(t *testing.T) {
-	cases := []struct {
-		name, body, want string
-	}{
-		{"initial into pseudostate", `
-          <subvertex xmi:type="uml:Pseudostate" xmi:id="xJ" name="J" kind="junction"/>
+// TestEmitInitialIntoPseudostate pins the rewrite of an initial transition
+// into a junction: the region starts in a helper state whose completion
+// transition reaches the junction, and the model lowers clean.
+func TestEmitInitialIntoPseudostate(t *testing.T) {
+	m, err := emitFixture(t, "", `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
             <region xmi:type="uml:Region" xmi:id="xS2r1" name="R1">
               <subvertex xmi:type="uml:Pseudostate" xmi:id="xS2i" name="I"/>
@@ -80,7 +78,31 @@ func TestEmitRejects(t *testing.T) {
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>
-          </transition>`, "not a state to start in"},
+          </transition>`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"junction S2_J2;",
+		"state S2_I_start;",
+		"transition first S2_I_start then S2_J2;",
+		"entry; then S2_I_start;",
+		"transition first S2_J2 then S2_S2_1;",
+	} {
+		if !strings.Contains(m.Text, want) {
+			t.Errorf("model lacks %q:\n%s", want, m.Text)
+		}
+	}
+	if problems := Validate(m); len(problems) > 0 {
+		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
+	}
+}
+
+// TestEmitRejects pins the typed error for constructs with no translation.
+func TestEmitRejects(t *testing.T) {
+	cases := []struct {
+		name, body, want string
+	}{
 		{"internal transition", `
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" kind="internal" source="xS1" target="xS1">
             <trigger xmi:type="uml:Trigger" xmi:id="xT3trig" event="evContinue"/>

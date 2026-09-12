@@ -68,10 +68,10 @@ func TestSuiteRead(t *testing.T) {
 }
 
 // TestSuiteClassification pins the classifier area by area. It differs from
-// the alignment note's hand count (37/33/3/30) by seven tests whose
-// behaviors read what the notation cannot bind: six Event tests and Deferred
-// 007 use parameterised entry/exit/do behaviors, operation results or a
-// tester-side trace, and are not expressible until a mapping exists.
+// the alignment note's hand count (37/33/3/30) by nine tests the notation
+// cannot spell: six Event tests and Deferred 007 use parameterised
+// entry/exit/do behaviors, operation results or a tester-side trace, and
+// Fork 002 and Join 001 fork into orthogonal regions with no initial state.
 func TestSuiteClassification(t *testing.T) {
 	s := loadSuite(t)
 	type row struct{ std, ext, gap, none int }
@@ -79,7 +79,7 @@ func TestSuiteClassification(t *testing.T) {
 		"Behavior": {4, 0, 0, 1}, "Transition": {8, 1, 0, 6}, "Event": {10, 0, 0, 6},
 		"Entering": {4, 0, 0, 1}, "Exiting": {4, 0, 0, 1}, "Entry": {0, 0, 0, 6},
 		"Exit": {0, 0, 0, 3}, "Choice": {0, 5, 0, 0}, "Junction": {0, 5, 0, 1},
-		"Fork": {0, 1, 0, 1}, "Join": {0, 3, 0, 0}, "Final": {1, 0, 0, 0},
+		"Fork": {0, 0, 0, 2}, "Join": {0, 2, 0, 1}, "Final": {1, 0, 0, 0},
 		"Terminate": {0, 0, 3, 0}, "History": {0, 8, 0, 0}, "Deferred": {0, 9, 0, 1},
 		"Redefinition": {0, 0, 0, 6}, "Standalone": {0, 0, 0, 3}, "Other": {0, 0, 0, 1},
 	}
@@ -129,7 +129,7 @@ func TestSuiteClassification(t *testing.T) {
 			t.Errorf("%s = %+v, want %+v", area, got[area], w)
 		}
 	}
-	if total != (row{31, 32, 3, 37}) {
-		t.Errorf("total = %+v, want {31 32 3 37}", total)
+	if total != (row{31, 30, 3, 39}) {
+		t.Errorf("total = %+v, want {31 30 3 39}", total)
 	}
 }

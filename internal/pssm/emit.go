@@ -140,14 +140,19 @@ type emitter struct {
 	signals map[string]bool
 	// placed are transitions emitted in a scope other than their own region's.
 	placed map[*Region][]*Transition
+	// carried maps a triggered transition to the attribute its scalar payload is
+	// stored in, for a guard on a pseudostate downstream that reads it.
+	carried map[*Transition]string
+	// carriedAttrs declares those attributes, in first-use order.
+	carriedAttrs []string
 }
 
 func (e *emitter) fail(where, reason string) error {
 	return &TranslateError{Test: e.test.ID, Where: where, Reason: reason}
 }
 
-// nameVertices assigns every state and pseudostate its dotted path, suffixing
-// a path two vertices share so each is one endpoint.
+// nameVertices names every state and pseudostate by its path as an identifier,
+// suffixing a name two vertices share so each is one endpoint.
 func (e *emitter) nameVertices(regions []*Region) {
 	taken := map[string]int{}
 	var visit func([]*Region)
@@ -157,10 +162,10 @@ func (e *emitter) nameVertices(regions []*Region) {
 				if v.Kind == VertexInitial || v.Kind == VertexFinal {
 					continue
 				}
-				name := v.Path()
+				name := identifier(v.Path())
 				taken[name]++
 				if n := taken[name]; n > 1 {
-					name = fmt.Sprintf("%s#%d", name, n)
+					name = fmt.Sprintf("%s_%d", name, n)
 				}
 				e.names[v] = name
 				visit(v.Regions)
@@ -168,6 +173,25 @@ func (e *emitter) nameVertices(regions []*Region) {
 		}
 	}
 	visit(regions)
+}
+
+// identifier turns a vertex path such as "S1.S1.1" into a bare identifier,
+// since pseudostate declarations take no quoted name.
+func identifier(path string) string {
+	var b strings.Builder
+	for i, r := range path {
+		switch {
+		case r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z', i > 0 && r >= '0' && r <= '9':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	name := b.String()
+	if name == "" || lexer.IsKeyword(name) {
+		return "v_" + name
+	}
+	return name
 }
 
 // spell quotes a name the notation cannot take bare.
@@ -184,7 +208,8 @@ func (e *emitter) machine(b *strings.Builder) error {
 	if err := e.placeTransitions(m.Regions); err != nil {
 		return err
 	}
-	attrs := []string{`attribute log : String = "";`}
+	e.carryPayloads(m.Regions)
+	attrs := append([]string{`attribute log : String = "";`}, e.carriedAttrs...)
 	if e.test.Target != nil {
 		for _, a := range e.test.Target.Attributes {
 			typ := scalarTypes[a.Type]
@@ -203,6 +228,76 @@ func (e *emitter) machine(b *strings.Builder) error {
 		}
 	}
 	return e.stateBody(b, 1, machineName, "", nil, m.Regions, attrs)
+}
+
+// payloadRead matches a guard's read of a scalar payload, `data.value`.
+var payloadRead = regexp.MustCompile(`\b([A-Za-z_][A-Za-z0-9_]*)\.value\b`)
+
+// carryPayloads finds guards out of a choice or junction that read the payload
+// of the event that reached it and arranges for the triggered transition to
+// store that payload in an attribute the guard then reads (UML 14.2.3.8.5).
+func (e *emitter) carryPayloads(regions []*Region) {
+	e.carried = map[*Transition]string{}
+	var all []*Transition
+	var visit func([]*Region)
+	visit = func(regions []*Region) {
+		for _, r := range regions {
+			all = append(all, r.Transitions...)
+			for _, v := range r.Vertices {
+				visit(v.Regions)
+			}
+		}
+	}
+	visit(regions)
+	declared := map[string]bool{}
+	for _, t := range all {
+		if t.Source == nil || t.Source.Kind != VertexChoice && t.Source.Kind != VertexJunction || len(t.Triggers) > 0 {
+			continue
+		}
+		if t.Guard == nil || t.Guard.Kind != GuardOpaque {
+			continue
+		}
+		for _, m := range payloadRead.FindAllStringSubmatch(t.Guard.Opaque.Body, -1) {
+			param := m[1]
+			for _, in := range all {
+				if in.Target != t.Source || len(in.Triggers) != 1 {
+					continue
+				}
+				sig := in.Triggers[0].Event
+				if sig == nil || sig.Kind != EventSignal || sig.Signal == nil || len(sig.Signal.Attributes) != 1 {
+					continue
+				}
+				typ := scalarTypes[sig.Signal.Attributes[0].Type]
+				if typ == "" || payloadParam(sig.Signal.Name) != param {
+					continue
+				}
+				attr := param + "_value"
+				e.carried[in] = attr
+				if !declared[attr] {
+					declared[attr] = true
+					e.carriedAttrs = append(e.carriedAttrs, fmt.Sprintf("attribute %s : %s = %s;", attr, typ, zeroLiteral(typ)))
+				}
+			}
+		}
+	}
+}
+
+// payloadParam names the accept parameter a scalar signal's payload binds to.
+func payloadParam(signal string) string {
+	return strings.ToLower(signal[:1]) + signal[1:]
+}
+
+// zeroLiteral is a ScalarValues type's default, for a carried attribute.
+func zeroLiteral(typ string) string {
+	switch typ {
+	case "Boolean":
+		return "false"
+	case "String":
+		return `""`
+	case "Real":
+		return "0.0"
+	}
+	return "0"
 }
 
 // placeTransitions files each transition under the region whose scope must
@@ -282,8 +377,7 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 				}
 				entryStmts = append(entryStmts, stmts...)
 			}
-			initialTarget, err = e.target(tr, where)
-			if err != nil {
+			if initialTarget, err = e.startTarget(b, inner, init, tr, where); err != nil {
 				return err
 			}
 		}
@@ -338,22 +432,23 @@ func (e *emitter) stateBody(b *strings.Builder, depth int, name, path string, st
 		if err != nil {
 			return err
 		}
-		if init != nil {
-			target, err := e.target(tr, "region "+regionName)
+		if init == nil {
+			return e.fail("region "+regionName, "an orthogonal region without an initial state has no spelling the lowerer accepts")
+		}
+		target, err := e.startTarget(b, inner+"    ", init, tr, "region "+regionName)
+		if err != nil {
+			return err
+		}
+		if tr.Effect != nil {
+			stmts, err := e.plainBody(tr.Effect, tr.Describe()+" effect")
 			if err != nil {
 				return err
 			}
-			if tr.Effect != nil {
-				stmts, err := e.plainBody(tr.Effect, tr.Describe()+" effect")
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(b, "%s    entry action %s {\n", inner, spell(regionName+".initial"))
-				writeStmts(b, inner+"        ", stmts)
-				fmt.Fprintf(b, "%s    }\n%s    transition %s then %s;\n", inner, inner, spell(regionName+".initial"), target)
-			} else {
-				fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
-			}
+			fmt.Fprintf(b, "%s    entry action %s {\n", inner, spell(regionName+".initial"))
+			writeStmts(b, inner+"        ", stmts)
+			fmt.Fprintf(b, "%s    }\n%s    transition %s then %s;\n", inner, inner, spell(regionName+".initial"), target)
+		} else {
+			fmt.Fprintf(b, "%s    entry; then %s;\n", inner, target)
 		}
 		if err := e.region(b, depth+2, r, path); err != nil {
 			return err
@@ -393,10 +488,23 @@ func (e *emitter) initial(r *Region, where string) (*Vertex, *Transition, error)
 	if len(out.Triggers) > 0 || out.Guard != nil {
 		return nil, nil, e.fail(out.Describe(), "a triggered or guarded initial transition has no spelling")
 	}
-	if out.Target != nil && out.Target.Kind.IsPseudostate() {
-		return nil, nil, e.fail(out.Describe(), "an initial transition into a pseudostate is not a state to start in")
-	}
 	return init, out, nil
+}
+
+// startTarget spells where a region starts. An initial transition into a
+// pseudostate is not a state to start in, so it starts in an empty helper
+// state whose completion transition reaches the pseudostate instead.
+func (e *emitter) startTarget(b *strings.Builder, ind string, init *Vertex, tr *Transition, where string) (string, error) {
+	target, err := e.target(tr, where)
+	if err != nil {
+		return "", err
+	}
+	if tr.Target == nil || !tr.Target.Kind.IsPseudostate() {
+		return target, nil
+	}
+	helper := identifier(init.Path()) + "_start"
+	fmt.Fprintf(b, "%sstate %s;\n%stransition first %s then %s;\n", ind, helper, ind, helper, target)
+	return helper, nil
 }
 
 // region emits a region's vertices other than its initial and final states,
@@ -487,8 +595,15 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 			params = append(params, param)
 		}
 	}
+	if attr := e.carried[t]; attr != "" {
+		effect = append([]string{fmt.Sprintf("assign %s := %s;", attr, params[0])}, effect...)
+	}
 	for i, accept := range accepts {
-		guard, err := e.guard(t.Guard, params[i], where)
+		param := params[i]
+		if param == "" && t.Source.Kind.IsPseudostate() {
+			param = carriedParam
+		}
+		guard, err := e.guard(t.Guard, param, where)
 		if err != nil {
 			return err
 		}
@@ -537,7 +652,7 @@ func (e *emitter) trigger(trig *Trigger, where string) (accept, param string, er
 		if len(ev.Signal.Attributes) != 1 || scalarTypes[ev.Signal.Attributes[0].Type] == "" {
 			return "", "", e.fail(where, fmt.Sprintf("signal %s carries a structured payload with no scalar binding", ev.Signal.Name))
 		}
-		param = strings.ToLower(ev.Signal.Name[:1]) + ev.Signal.Name[1:]
+		param = payloadParam(ev.Signal.Name)
 		return fmt.Sprintf("%s : %s", spell(param), ev.Signal.Name), param, nil
 	case EventCall:
 		if ev.Operation == nil {
@@ -577,10 +692,19 @@ func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 		}
 		expr := strings.ReplaceAll(body, "this.", "")
 		if strings.Contains(expr, ".value") {
-			if param == "" {
+			switch param {
+			case "":
 				return "", e.fail(where, fmt.Sprintf("guard %q reads a payload the transition's trigger does not bind", body))
+			case carriedParam:
+				for _, m := range payloadRead.FindAllStringSubmatch(expr, -1) {
+					if !e.carries(m[1] + "_value") {
+						return "", e.fail(where, fmt.Sprintf("guard %q reads a payload no transition into its source carries", body))
+					}
+				}
+				expr = payloadRead.ReplaceAllString(expr, "${1}_value")
+			default:
+				expr = payloadRead.ReplaceAllString(expr, param)
 			}
-			expr = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*\.value`).ReplaceAllString(expr, param)
 		}
 		if strings.Contains(expr, ".") {
 			return "", e.fail(where, fmt.Sprintf("guard %q reads through an object", body))
@@ -588,6 +712,19 @@ func (e *emitter) guard(g *Guard, param, where string) (string, error) {
 		return " if " + expr, nil
 	}
 	return "", e.fail(where, fmt.Sprintf("a %s guard has no spelling", g.Type))
+}
+
+// carriedParam marks a guard on a pseudostate, which reads carried payloads.
+const carriedParam = "\x00carried"
+
+// carries reports whether a carried-payload attribute is declared.
+func (e *emitter) carries(attr string) bool {
+	for _, decl := range e.carriedAttrs {
+		if strings.HasPrefix(decl, "attribute "+attr+" ") {
+			return true
+		}
+	}
+	return false
 }
 
 // plainBody translates a behavior with no accept into statements.

@@ -57,7 +57,9 @@ func TestClassifyStandard(t *testing.T) {
               <transition xmi:type="uml:Transition" xmi:id="xS2t" source="xS2i" target="xS21"/>
             </region>
             <region xmi:type="uml:Region" xmi:id="xS2r2" name="R2">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="xS2i2" name="I"/>
               <subvertex xmi:type="uml:State" xmi:id="xS22" name="S2.2"/>
+              <transition xmi:type="uml:Transition" xmi:id="xS2t2" source="xS2i2" target="xS22"/>
             </region>
           </subvertex>
           <transition xmi:type="uml:Transition" xmi:id="xT3" name="T3" source="xS1" target="xS2">
@@ -126,6 +128,7 @@ func TestClassifyNoSpellingOutranksAll(t *testing.T) {
 		{"local transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTl" name="TL" kind="local" source="xS1" target="xS1"/>`, "local transition TL"},
 		{"internal transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTi" name="TI" kind="internal" source="xS1" target="xS1"/>`, "internal transition TI"},
 		{"extended region", "", `<subvertex xmi:type="uml:State" xmi:id="xE" name="E"><region xmi:type="uml:Region" xmi:id="xEr" name="R" extendedRegion="regX"/></subvertex>`, "extended region R"},
+		{"orthogonal region without initial", "", `<subvertex xmi:type="uml:State" xmi:id="xO" name="O"><region xmi:type="uml:Region" xmi:id="xOr1" name="R1"><subvertex xmi:type="uml:Pseudostate" xmi:id="xOi" name="I"/><subvertex xmi:type="uml:State" xmi:id="xO1" name="O.1"/><transition xmi:type="uml:Transition" xmi:id="xOt" source="xOi" target="xO1"/></region><region xmi:type="uml:Region" xmi:id="xOr2" name="R2"><subvertex xmi:type="uml:State" xmi:id="xO2" name="O.2"/></region></subvertex>`, "orthogonal region without an initial state O/R2"},
 		{"redefined state", "", `<subvertex xmi:type="uml:State" xmi:id="xR" name="R" redefinedState="xS1"/>`, "redefined state R"},
 		{"redefined transition", "", `<transition xmi:type="uml:Transition" xmi:id="xTr" name="TR" source="xS1" target="xFin" redefinedTransition="xT2"/>`, "redefined transition TR"},
 	}
