@@ -75,6 +75,27 @@ func TestReplaceKeepsTargetWhenItCannotBeRemoved(t *testing.T) {
 	}
 }
 
+// A directory renamed over a file is refused everywhere; the file is a target
+// in the way and gives way to the directory.
+func TestReplaceDirectoryOverFile(t *testing.T) {
+	dir := t.TempDir()
+	source, target := filepath.Join(dir, "new"), filepath.Join(dir, "old")
+	if err := os.Mkdir(source, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(source, "inside"), "inside\n")
+	writeFile(t, target, "old\n")
+	if err := Replace(source, target); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, filepath.Join(target, "inside")); got != "inside\n" {
+		t.Errorf("target's content = %q", got)
+	}
+	if _, err := os.Lstat(source); !os.IsNotExist(err) {
+		t.Errorf("source remains: %v", err)
+	}
+}
+
 // A rename that fails for want of its source is not a target in the way: the
 // target is kept and the failure reported.
 func TestReplaceKeepsTargetWhenSourceIsMissing(t *testing.T) {
