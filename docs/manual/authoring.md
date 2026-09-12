@@ -437,6 +437,7 @@ digraph "Observatory::interconnectView" {
   node [shape=box];
   subgraph "cluster_n0" {
     label="part Observatory::imagingChain";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [label="part camera\nCamera"];
     "n2" [label="part recorder\nRecorder"];
   }
@@ -445,8 +446,11 @@ digraph "Observatory::interconnectView" {
 ```
 ```
 
-The HTML backend embeds the source in `<pre class="dot">`, and the PDF backend
-keeps it as source under a notice rather than drawing it. A `sequence` kind
+A view that states where its elements go (`DiagramLayout` annotations, see the
+[CLI reference](../reference/cli.md#rendering-a-view)) is written with those
+positions pinned and its header naming `neato`, so Graphviz draws it as laid
+out. The HTML backend embeds the source in `<pre class="dot">`, and the PDF
+backend keeps it as source under a notice rather than drawing it. A `sequence` kind
 has no DOT form, so a document holding one cannot be rendered with DOT
 diagrams; the failure is a typed error naming the block.
 

@@ -1,0 +1,16 @@
+// view: PlantViews::placedView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// canvas: unit=px w=1200 h=800
+// layout: neato
+digraph "PlantViews::placedView" {
+  graph [inputscale=72, dpi=72, size="16.666666666666668,11.11111111111111"];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="part def Plant::Loop";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [label="part pump\nPump", pos="327,742!", pin=true, comment="collapsed"];
+    "n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+  }
+  "n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
+}

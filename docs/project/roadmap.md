@@ -1992,17 +1992,21 @@ pipelines this project is meant to feed already consume.
 "cluster_*"` (a tree keeps containment as edges, as its Mermaid form does), direction maps onto
 `rankdir`, the `EdgeKind` styles parallel the Mermaid arrows, and a state rendering draws its
 states as rounded boxes with `point`/`circle`/`doublecircle` pseudo-states. Every identifier and
-label is quoted through one helper; a `// layout: dot` header names the engine the file is written
-for. The goldens beside every `*.mermaid.golden` are checked by an in-test DOT syntax walker
-rather than by running `dot -Tsvg`, so no Graphviz installation is involved anywhere.
+label is quoted through one helper; a `// layout:` header names the engine the file is written
+for. The DiagramLayout geometry the rendering carries is written as Graphviz reads it — a
+positioned node pinned with `pos="x,y!"` at its centre and sized in inches, a route as a `pos`
+spline, the canvas as the graph's `size`, y flipped from the library's y-down pixels — and the
+header then names `neato` (`neato -n` when every node is placed, `-n2` when every edge is
+routed too). The goldens beside every
+`*.mermaid.golden` are checked by an in-test DOT syntax walker rather than by running `dot
+-Tsvg`, so no Graphviz installation is involved anywhere.
 
 Still open from the original sketch, each a writer change and nothing else: the shape per action
 node kind (`diamond` for a decision, a filled bar for fork and join), `record` or HTML-like labels
 for a part with its compartments, `note` for a notice, and `URL=`/`tooltip=` from the origin every
 node carries so an SVG rendered from the DOT links back to the declaration the way the LSP panel
-does. The node and edge attribute lists are each written by one function (`dotNodeAttributes`,
-`dotEdgeAttributes`), which is also where a position or a route joins once the rendering carries
-geometry.
+does. The node and edge attribute lists are each written by one method (`dotNodeAttributes`,
+`dotEdgeAttributes`), where the position and the route already join the label and style.
 
 ## W2 — a `plantuml` form
 

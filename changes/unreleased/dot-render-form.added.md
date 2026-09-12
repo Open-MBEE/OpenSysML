@@ -18,3 +18,14 @@
   form is a choice of the render, not of the model: a `Diagram` block states what is drawn, and
   no attribute names the notation. An unknown form, or `dot` on a document holding a `sequence`
   diagram, is a typed error.
+- **The DOT form draws a view where the model places it.** A rendering's `DiagramLayout` geometry
+  is written as Graphviz reads it: a positioned node is pinned at the centre of its box
+  (`pos="x,y!"`, `pin=true`, one pixel to one point with y measured up from the canvas's bottom
+  edge), a stated size is `width`/`height` in inches with `fixedsize=true`, a collapsed node keeps
+  `comment="collapsed"`, a positioned cluster pins its anchor and states its `bb`, a `Route` is the
+  edge's `pos` spline through its waypoints, and a sized `Canvas` is the graph's `size` and a
+  `// canvas:` header line. The `// layout:` header names the engine that honours the file:
+  `neato -n2` when every node is placed and every edge routed, `neato -n` when every node is
+  placed, `neato` when some are, `dot` when none — so `neato -n -Tsvg view.dot` draws the view
+  as laid out. A model without layout annotations
+  writes the same DOT as before, and no Graphviz binary is run to produce it.

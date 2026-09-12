@@ -7,7 +7,8 @@
 Status: **`text`, `markdown`, `mermaid` and `dot` implemented** — `dot` is Track W's `W1`, wired
 into every surface `W3` names. `plantuml` (`W2`) is not written. This page records how a view's
 rendering is separated from the forms it is written in, why Graphviz DOT is offered next to
-Mermaid, and what the DOT writer does and does not yet emit.
+Mermaid, and what the DOT writer emits — the [DiagramLayout](diagram-layout-annotations.md) geometry
+included.
 
 ## The rendering and its forms
 
@@ -46,9 +47,9 @@ is not:
   as input and produce SVG, PDF or PNG with a layout Mermaid's browser renderer cannot match on a
   graph of hundreds of nodes.
 - **Exact positions.** DOT has a native vocabulary for a node's position (`pos`), size and an
-  edge's route, which Mermaid lacks. The writer emits none of those yet, but the header line
-  `// layout: dot` already states the engine the file is written for, so a writer that carries
-  positions can switch it to `neato -n` without changing the file's shape.
+  edge's route, which Mermaid lacks. The writer fills it from the rendering's DiagramLayout
+  geometry (below), so a view laid out in an editor is drawn by Graphviz where the editor put
+  it; the Mermaid form can only carry the same numbers as `%%` comments.
 
 Producing DOT needs **no Graphviz installation**. The writer is text over the rendering tree,
 exactly as `mermaid.go` is, and nothing in the repository runs a Graphviz binary — not the writer,
@@ -98,9 +99,61 @@ digraph "VehicleViews::vehicleView" {
   escapes `"`, `\` and newlines; the writer never emits an unquoted identifier.
 - **Order.** Nodes and edges are written in the rendering's order; nothing is emitted from a map.
 
-Two functions, `dotNodeAttributes` and `dotEdgeAttributes`, produce a node's and an edge's
-attribute list. They are the seam a later change writes a position, a size or a route through,
-without touching how the graph is walked.
+Three methods of the writer produce every attribute list — `graphAttributes`,
+`dotNodeAttributes` (with `dotClusterAttributes` and `dotAnchorAttributes` for a node drawn as a
+cluster) and `dotEdgeAttributes` — so what is said about a node or an edge changes without
+touching how the graph is walked.
+
+## Geometry
+
+A rendering carries the [DiagramLayout](diagram-layout-annotations.md) annotations of its view — a
+`Rendering.Canvas`, a `Node.Geometry`, an `Edge.Route` — in the library's units: pixels,
+y down, origin at the canvas's top-left corner. Graphviz reads points, y up, from the
+bottom-left; the writer converts, so the DOT it writes is laid out by Graphviz without a
+preprocessing step:
+
+```dot
+// view: PlantViews::placedView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// canvas: unit=px w=1200 h=800
+// layout: neato
+digraph "PlantViews::placedView" {
+  graph [inputscale=72, dpi=72, size="16.666666666666668,11.11111111111111"];
+  node [shape=box];
+  subgraph "cluster_n0" {
+    label="part def Plant::Loop";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [label="part pump\nPump", pos="327,742!", pin=true, comment="collapsed"];
+    "n2" [label="part tank\nTank", pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+  }
+  "n1" -> "n2" [label="supply", arrowhead=none, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
+}
+```
+
+- **Scale.** One pixel is one point: `inputscale=72` tells `neato` that `pos` is in points, and
+  `dpi=72` keeps the rendered pixel at that size. Lengths Graphviz takes in inches — a node's
+  `width`/`height`, the graph's `size` — are divided by 72.
+- **Axis.** `y` is flipped: measured up from the canvas's bottom edge (`height - y`) when the
+  canvas states a height, negated when it does not. `x` is unchanged.
+- **Canvas.** A `Canvas` is echoed in the header as `// canvas: unit=<u> w=<w> h=<h>` (the
+  parts it states) and, when it has an extent, written as the graph's `size` in inches.
+- **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
+  the writer pins `pos="x,y!"` at the centre of the stated box, or of Graphviz's default shape
+  when no size is stated (a 0.75×0.5 in box, a 0.75 in circle, a 0.05 in point). `pin=true`
+  keeps `neato` from moving it. A stated size is `width`/`height` in inches with
+  `fixedsize=true`; `collapsed` is kept as `comment="collapsed"`, an attribute Graphviz
+  ignores and a consumer can read. A node drawn as a cluster pins its anchor node the same way
+  and writes the cluster's box as `bb="llx,lly,urx,ury"` when a size is stated.
+- **Edges.** A `Route` becomes `pos` as the cubic B-spline Graphviz reads: each segment's ends
+  are its own control points, so the spline is the polyline through the waypoints.
+- **Engine.** The `// layout:` header names the command that honours what is written:
+  `neato -n2` when every node is positioned and every edge routed (both are taken as given),
+  `neato -n` when every node is positioned (the edges are routed), `neato` when some are
+  (pinned nodes stay, the rest are placed around them), `dot` when none is. A rendering with no geometry is written byte for byte as before.
+
+The writer is still text over the tree: no Graphviz binary is run to produce, check or test
+the output.
 
 ## Surfaces
 
@@ -126,7 +179,12 @@ and did not change. A view-render RPC added later would take the form as a strin
   every identifier quoted — so a golden is proven well-formed without shelling out to `dot`;
   the wrong-form errors for `sequence` and `table`; quoting of names holding `"` and `\`;
   nested clusters and tree containment; every direction and the empty one; every `EdgeKind`;
-  the state shapes and labels; the empty rendering and its notices.
+  the state shapes and labels; the empty rendering and its notices. The geometry has
+  `layout.dot.golden` beside the Mermaid and text goldens of the same fixture, the flipped axis
+  with and without a canvas height, the centring of sized, unsized and pseudo-state nodes, the
+  pinned anchor and `bb` of a positioned cluster, a route's spline, the zero-extent canvas, and
+  the header's engine for none, some and all of the nodes positioned; the syntax check parses
+  every `pos`, `bb` and `size` it meets.
 - `cmd/sysml/render_test.go`, `internal/repl/view_render_test.go`, `internal/lsp/render_test.go`:
   the form on each surface, and its refusal for a table or sequence.
 - `internal/core/docrender`, `docpdf`, `cmd/sysml`, `internal/repl`, `internal/lsp`: the
@@ -137,7 +195,8 @@ and did not change. A view-render RPC added later would take the form as a strin
 
 ## Known limitations
 
-- No node position, size or edge route is written; the rendering tree carries none yet.
+- A `Route` is written as the polyline through its waypoints; the writer does not smooth it
+  into a curve, and Graphviz draws it as given.
 - The PDF backend does not draw a DOT diagram. It keeps the source readable under a notice,
   and looks for no Graphviz tool.
 - A `sequence` rendering has no DOT form. DOT has no sequence-diagram vocabulary; the Mermaid

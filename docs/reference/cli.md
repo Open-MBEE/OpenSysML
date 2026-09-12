@@ -430,9 +430,10 @@ The forms a kind can be written in:
 one `// not represented:` line per notice, the same header Mermaid writes as `%%` comments.
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
-or succession is a solid arrow. Producing DOT needs no Graphviz installation; laying it out does
-(`dot -Tsvg view.dot`). A `sequence` view has no DOT counterpart and, like a `table`, is refused
-with status 2 when `dot` is forced.
+or succession is a solid arrow. Producing DOT needs no Graphviz installation; laying it out does,
+with the engine the `// layout:` header names (`dot -Tsvg view.dot`, or `neato -Tsvg view.dot`
+when the view states positions — below). A `sequence` view has no DOT counterpart and, like a
+`table`, is refused with status 2 when `dot` is forced.
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The
 `DiagramLayout` library (bundled, imported like any other) states that in notation: a
@@ -444,10 +445,18 @@ points = (x0, y0, x1, y1, …); }` gives an edge its waypoints, and an `@Canvas 
 top-left corner, y downward. Mermaid cannot place a node, so the machine-readable form keeps the
 geometry as comments after the header (`%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120
 y=80 w=200 h=90`, `%% route: n1->n2 320,125 400,125`) and the text form appends `at (120, 80)`,
-`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. A model with no
-layout annotations renders exactly as before. `-validate` reports a `Layout` or `Route` on an
-element the rendering does not draw as a node or an edge, a `Route` with an odd number of values, a
-`Canvas` outside a view, and two positions for one element in one view (the first applies). See
+`size 200×90` and `via (320, 125) (400, 125)` to the nodes and edges concerned. `-render-form dot`
+honours it: a positioned node is pinned at the centre of its box (`pos="220,675!", pin=true`, in
+points with y measured up from the canvas's bottom edge — negated when no canvas height is
+stated — one pixel to one point under `inputscale=72`), a stated size is `width`/`height` in inches
+with `fixedsize=true`, a route is the edge's `pos` spline, the canvas is echoed as `// canvas:` and
+sizes the graph, and the `// layout:` header names the command that honours it — `neato -n2`
+when every node is placed and every edge routed, `neato -n` when every node is placed, `neato`
+when only some are — so `neato -n -Tsvg view.dot` draws the view where the model put it.
+A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
+`Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
+number of values, a `Canvas` outside a view, and two positions for one element in one view (the
+first applies). See
 [Diagram layout annotations](../project/diagram-layout-annotations.md).
 
 ```bash
